@@ -91,6 +91,18 @@ browser:
   # Viewport
   viewport_width: 1920
   viewport_height: 1080
+  
+  # Undetected ChromeDriver settings (§4.3 fallback for Cloudflare強/Turnstile)
+  undetected_chromedriver:
+    enabled: true
+    # Auto-escalate to undetected when captcha_rate exceeds this threshold
+    auto_escalate_captcha_rate: 0.5
+    # Auto-escalate when block_score exceeds this threshold
+    auto_escalate_block_score: 5
+    # Cloudflare bypass timeout (seconds)
+    cloudflare_timeout: 45
+    # Use headless mode (less effective for bypass, but faster)
+    prefer_headless: false
 
 # === LLM Settings (Ollama) ===
 llm:

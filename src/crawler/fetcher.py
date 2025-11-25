@@ -44,6 +44,11 @@ from src.utils.lifecycle import (
     ResourceType,
     register_browser_for_task,
 )
+from src.crawler.undetected import (
+    UndetectedChromeFetcher,
+    get_undetected_fetcher,
+    close_undetected_fetcher,
+)
 
 logger = get_logger(__name__)
 
@@ -1605,6 +1610,89 @@ async def fetch_url(
             # If headful still fails, update domain policy for future
             if not result.ok and "challenge" in (result.reason or ""):
                 await _update_domain_headful_ratio(db, domain, increase=True)
+        
+        # =====================================================================
+        # Stage 4: Undetected ChromeDriver (for Cloudflare強/Turnstile, §4.3)
+        # =====================================================================
+        use_undetected = policy.get("use_undetected", False)
+        
+        # Auto-escalate to undetected-chromedriver if:
+        # 1. Explicitly requested, OR
+        # 2. Headful browser failed with persistent challenge
+        if not use_undetected and result and not result.ok:
+            if result.reason in (
+                "challenge_detected",
+                "challenge_detected_after_intervention",
+                "intervention_timeout",
+                "intervention_failed",
+            ):
+                # Check if domain has high persistent challenge rate
+                domain_info = await db.fetch_one(
+                    "SELECT captcha_rate, block_score FROM domains WHERE domain = ?",
+                    (domain,),
+                )
+                if domain_info:
+                    captcha_rate = domain_info.get("captcha_rate", 0.0)
+                    block_score = domain_info.get("block_score", 0)
+                    # Auto-escalate for domains with persistent issues
+                    if captcha_rate > 0.5 or block_score > 5:
+                        use_undetected = True
+                        logger.info(
+                            "Auto-escalating to undetected-chromedriver",
+                            url=url[:80],
+                            captcha_rate=captcha_rate,
+                            block_score=block_score,
+                        )
+        
+        if use_undetected and (not result or not result.ok):
+            try:
+                undetected_fetcher = get_undetected_fetcher()
+                
+                if undetected_fetcher.is_available():
+                    uc_result = await undetected_fetcher.fetch(
+                        url,
+                        headless=False,  # Headful is more effective for bypass
+                        wait_for_cloudflare=True,
+                        cloudflare_timeout=45,  # Allow more time for challenge
+                        take_screenshot=True,
+                        simulate_human=True,
+                    )
+                    escalation_path.append("undetected_chromedriver")
+                    retry_count += 1
+                    
+                    if uc_result.ok:
+                        # Convert UndetectedFetchResult to FetchResult
+                        result = FetchResult(
+                            ok=True,
+                            url=url,
+                            status=uc_result.status,
+                            html_path=uc_result.html_path,
+                            screenshot_path=uc_result.screenshot_path,
+                            content_hash=uc_result.content_hash,
+                            method="undetected_chromedriver",
+                            from_cache=False,
+                        )
+                        logger.info(
+                            "Undetected-chromedriver bypass success",
+                            url=url[:80],
+                        )
+                    else:
+                        logger.warning(
+                            "Undetected-chromedriver bypass failed",
+                            url=url[:80],
+                            reason=uc_result.reason,
+                        )
+                else:
+                    logger.debug(
+                        "Undetected-chromedriver not available, skipping",
+                        url=url[:80],
+                    )
+            except Exception as e:
+                logger.error(
+                    "Undetected-chromedriver error",
+                    url=url[:80],
+                    error=str(e),
+                )
         
         # =====================================================================
         # Update Metrics and Store Results

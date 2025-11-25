@@ -17,8 +17,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     # Git for version control
     git \
-    # curl for downloads
+    # curl/wget for downloads
     curl \
+    wget \
+    gnupg \
     # For Playwright
     libnss3 \
     libnspr4 \
@@ -36,6 +38,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
+    # For undetected-chromedriver / Selenium (§4.3 fallback)
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxext6 \
+    libxi6 \
+    libxtst6 \
     # For PDF processing
     libmupdf-dev \
     # For Japanese font support
@@ -45,6 +54,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Network tools
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome for undetected-chromedriver (§4.3 fallback)
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && apt-get install -y --no-install-recommends google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
