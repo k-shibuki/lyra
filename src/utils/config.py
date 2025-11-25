@@ -122,6 +122,7 @@ class StorageConfig(BaseModel):
     screenshots_dir: str = "data/screenshots"
     reports_dir: str = "data/reports"
     cache_dir: str = "data/cache"
+    archive_dir: str = "data/archive"
     serp_cache_ttl: int = 24
     fetch_cache_ttl: int = 168
     embed_cache_ttl: int = 168
@@ -328,6 +329,7 @@ def ensure_directories() -> None:
         root / settings.storage.screenshots_dir,
         root / settings.storage.reports_dir,
         root / settings.storage.cache_dir,
+        root / settings.storage.archive_dir,
     ]
     
     for dir_path in dirs:
