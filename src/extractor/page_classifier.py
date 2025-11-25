@@ -30,13 +30,18 @@ logger = get_logger(__name__)
 class PageType(Enum):
     """Enumeration of page types for classification."""
     
-    ARTICLE = "article"
-    KNOWLEDGE = "knowledge"
-    NOTICE = "notice"
-    FORUM = "forum"
-    LOGIN_WALL = "login_wall"
-    INDEX = "index"
-    UNKNOWN = "unknown"
+    ARTICLE = "article"        # News articles, blog posts
+    KNOWLEDGE = "knowledge"    # Wiki pages, documentation, FAQs
+    NOTICE = "notice"          # Official announcements, press releases
+    FORUM = "forum"            # Discussion boards, Q&A, comments
+    LOGIN_WALL = "login_wall"  # Pages requiring authentication
+    INDEX = "index"            # Category pages, search results, listings
+    ACADEMIC = "academic"      # Research papers, academic journals
+    REPORT = "report"          # Corporate reports, government reports, white papers
+    LEGAL = "legal"            # Laws, regulations, court cases
+    PRODUCT = "product"        # Product pages, specifications, manuals
+    PROFILE = "profile"        # Person/company profiles
+    OTHER = "other"            # Pages not fitting other categories
 
 
 @dataclass
@@ -96,6 +101,35 @@ class PageFeatures:
     has_edit_links: bool = False
     has_infobox: bool = False
     
+    # Academic indicators
+    has_abstract: bool = False
+    has_citations: bool = False
+    has_doi: bool = False
+    has_academic_structure: bool = False
+    
+    # Report indicators
+    has_executive_summary: bool = False
+    has_financial_data: bool = False
+    has_charts_tables: bool = False
+    has_report_structure: bool = False
+    
+    # Legal indicators
+    has_legal_structure: bool = False
+    has_article_numbers: bool = False
+    has_legal_citations: bool = False
+    
+    # Product indicators
+    has_price: bool = False
+    has_add_to_cart: bool = False
+    has_specifications: bool = False
+    has_product_gallery: bool = False
+    
+    # Profile indicators
+    has_company_info: bool = False
+    has_contact_info: bool = False
+    has_team_section: bool = False
+    has_about_section: bool = False
+    
     # URL/meta hints
     url_hints: list[str] = None
     meta_og_type: str | None = None
@@ -138,6 +172,34 @@ class PageClassifier:
             r"/search", r"/list/", r"/index",
             r"/page/\d+", r"\?page=",
         ],
+        PageType.ACADEMIC: [
+            r"arxiv\.org", r"pubmed", r"scholar\.google",
+            r"/paper/", r"/publication/", r"/abstract/",
+            r"jstage\.jst\.go\.jp", r"cinii\.ac\.jp",
+            r"doi\.org", r"/journal/", r"/proceedings/",
+        ],
+        PageType.REPORT: [
+            r"/report/", r"/ir/", r"/investor/",
+            r"/annual-report", r"/whitepaper/", r"/white-paper/",
+            r"edinet", r"/disclosure/", r"/yuho/",
+            r"/policy/", r"/statistics/",
+        ],
+        PageType.LEGAL: [
+            r"/law/", r"/legal/", r"/regulation/",
+            r"/statute/", r"/ordinance/", r"/judgment/",
+            r"e-gov\.go\.jp", r"courts\.go\.jp",
+            r"/act/", r"/code/", r"/rule/",
+        ],
+        PageType.PRODUCT: [
+            r"/product/", r"/products/", r"/item/",
+            r"/spec/", r"/specification/", r"/datasheet/",
+            r"/catalog/", r"/shop/", r"/store/",
+        ],
+        PageType.PROFILE: [
+            r"/about/", r"/company/", r"/profile/",
+            r"/team/", r"/staff/", r"/people/",
+            r"/corporate/", r"/organization/",
+        ],
     }
     
     # Class/ID patterns for detection
@@ -169,6 +231,41 @@ class PageClassifier:
         r"listing", r"list-item", r"card",
         r"grid", r"gallery", r"pagination",
         r"results?", r"archive", r"category",
+    ]
+    
+    ACADEMIC_PATTERNS = [
+        r"abstract", r"citation", r"references?",
+        r"doi", r"issn", r"isbn", r"arxiv",
+        r"author-?affiliation", r"peer-review",
+        r"journal", r"volume", r"issue",
+    ]
+    
+    REPORT_PATTERNS = [
+        r"annual-?report", r"quarterly", r"fiscal",
+        r"investor", r"disclosure", r"financial",
+        r"executive-?summary", r"whitepaper",
+        r"statistics", r"survey-?result",
+    ]
+    
+    LEGAL_PATTERNS = [
+        r"statute", r"regulation", r"ordinance",
+        r"judgment", r"ruling", r"verdict",
+        r"article-?\d+", r"section-?\d+", r"clause",
+        r"enacted", r"effective-?date", r"法令",
+    ]
+    
+    PRODUCT_PATTERNS = [
+        r"product-?detail", r"specification",
+        r"price", r"add-to-cart", r"buy-now",
+        r"sku", r"model-?number", r"datasheet",
+        r"features?", r"compatibility",
+    ]
+    
+    PROFILE_PATTERNS = [
+        r"about-?us", r"company-?profile", r"overview",
+        r"history", r"mission", r"vision", r"ceo",
+        r"executive", r"leadership", r"biography",
+        r"corporate-?info", r"会社概要",
     ]
     
     def __init__(self):
@@ -305,6 +402,35 @@ class PageClassifier:
         features.has_edit_links = self._has_edit_links(html_lower)
         features.has_infobox = self._has_infobox(html_lower)
         
+        # Academic indicators
+        features.has_abstract = self._has_abstract(html_lower)
+        features.has_citations = self._has_citations(html_lower)
+        features.has_doi = self._has_doi(html_lower)
+        features.has_academic_structure = self._has_academic_structure(html_lower)
+        
+        # Report indicators
+        features.has_executive_summary = self._has_executive_summary(html_lower)
+        features.has_financial_data = self._has_financial_data(html_lower)
+        features.has_charts_tables = self._has_charts_tables(html_lower)
+        features.has_report_structure = self._has_report_structure(html_lower)
+        
+        # Legal indicators
+        features.has_legal_structure = self._has_legal_structure(html_lower)
+        features.has_article_numbers = self._has_article_numbers(html_lower)
+        features.has_legal_citations = self._has_legal_citations(html_lower)
+        
+        # Product indicators
+        features.has_price = self._has_price(html_lower)
+        features.has_add_to_cart = self._has_add_to_cart(html_lower)
+        features.has_specifications = self._has_specifications(html_lower)
+        features.has_product_gallery = self._has_product_gallery(html_lower)
+        
+        # Profile indicators
+        features.has_company_info = self._has_company_info(html_lower)
+        features.has_contact_info = self._has_contact_info(html_lower)
+        features.has_team_section = self._has_team_section(html_lower)
+        features.has_about_section = self._has_about_section(html_lower)
+        
         # URL hints
         if url:
             features.url_hints = self._extract_url_hints(url)
@@ -328,7 +454,7 @@ class PageClassifier:
         Returns:
             Dictionary mapping page types to scores.
         """
-        scores = {pt: 0.0 for pt in PageType if pt != PageType.UNKNOWN}
+        scores = {pt: 0.0 for pt in PageType if pt != PageType.OTHER}
         
         # LOGIN_WALL - highest priority checks
         if features.has_login_form and features.has_password_field:
@@ -409,10 +535,78 @@ class PageClassifier:
                for hint in features.url_hints):
             scores[PageType.INDEX] += 2.0
         
+        # ACADEMIC indicators
+        if features.has_abstract:
+            scores[PageType.ACADEMIC] += 3.0
+        if features.has_doi:
+            scores[PageType.ACADEMIC] += 3.0
+        if features.has_citations:
+            scores[PageType.ACADEMIC] += 2.0
+        if features.has_academic_structure:
+            scores[PageType.ACADEMIC] += 2.0
+        if any("academic" in hint or "paper" in hint or "arxiv" in hint 
+               for hint in features.url_hints):
+            scores[PageType.ACADEMIC] += 2.5
+        
+        # REPORT indicators
+        if features.has_executive_summary:
+            scores[PageType.REPORT] += 3.0
+        if features.has_financial_data:
+            scores[PageType.REPORT] += 2.5
+        if features.has_report_structure:
+            scores[PageType.REPORT] += 2.0
+        if features.has_charts_tables:
+            scores[PageType.REPORT] += 1.5
+        if any("report" in hint or "ir" in hint or "investor" in hint 
+               for hint in features.url_hints):
+            scores[PageType.REPORT] += 2.5
+        
+        # LEGAL indicators
+        if features.has_legal_structure:
+            scores[PageType.LEGAL] += 3.0
+        if features.has_article_numbers:
+            scores[PageType.LEGAL] += 2.5
+        if features.has_legal_citations:
+            scores[PageType.LEGAL] += 2.0
+        if any("legal" in hint or "law" in hint or "regulation" in hint 
+               for hint in features.url_hints):
+            scores[PageType.LEGAL] += 2.5
+        
+        # PRODUCT indicators
+        if features.has_price:
+            scores[PageType.PRODUCT] += 2.5
+        if features.has_add_to_cart:
+            scores[PageType.PRODUCT] += 3.0
+        if features.has_specifications:
+            scores[PageType.PRODUCT] += 2.0
+        if features.has_product_gallery:
+            scores[PageType.PRODUCT] += 1.5
+        if any("product" in hint or "shop" in hint or "store" in hint 
+               for hint in features.url_hints):
+            scores[PageType.PRODUCT] += 2.0
+        
+        # PROFILE indicators
+        if features.has_about_section:
+            scores[PageType.PROFILE] += 2.5
+        if features.has_company_info:
+            scores[PageType.PROFILE] += 2.0
+        if features.has_team_section:
+            scores[PageType.PROFILE] += 2.0
+        if features.has_contact_info:
+            scores[PageType.PROFILE] += 1.5
+        if any("profile" in hint or "about" in hint or "company" in hint 
+               for hint in features.url_hints):
+            scores[PageType.PROFILE] += 2.0
+        
         # Ensure minimum score of 0.1 for each type (to avoid division by zero)
         for pt in scores:
             if scores[pt] < 0.1:
                 scores[pt] = 0.1
+        
+        # If no strong signals, classify as OTHER
+        max_score = max(scores.values())
+        if max_score <= 0.5:
+            return {PageType.OTHER: 1.0}
         
         return scores
     
@@ -478,6 +672,51 @@ class PageClassifier:
                 reasons.append(f"high link density ({features.link_density:.2f})")
             if features.list_item_count >= 10:
                 reasons.append(f"{features.list_item_count} list items")
+        
+        elif page_type == PageType.ACADEMIC:
+            if features.has_abstract:
+                reasons.append("abstract section found")
+            if features.has_doi:
+                reasons.append("DOI identifier present")
+            if features.has_citations:
+                reasons.append("citations/references section")
+            if features.has_academic_structure:
+                reasons.append("academic paper structure")
+        
+        elif page_type == PageType.REPORT:
+            if features.has_executive_summary:
+                reasons.append("executive summary present")
+            if features.has_financial_data:
+                reasons.append("financial data found")
+            if features.has_report_structure:
+                reasons.append("report structure detected")
+        
+        elif page_type == PageType.LEGAL:
+            if features.has_legal_structure:
+                reasons.append("legal document structure")
+            if features.has_article_numbers:
+                reasons.append("article/section numbering")
+            if features.has_legal_citations:
+                reasons.append("legal citations present")
+        
+        elif page_type == PageType.PRODUCT:
+            if features.has_price:
+                reasons.append("price information found")
+            if features.has_add_to_cart:
+                reasons.append("add to cart functionality")
+            if features.has_specifications:
+                reasons.append("product specifications")
+        
+        elif page_type == PageType.PROFILE:
+            if features.has_about_section:
+                reasons.append("about section present")
+            if features.has_company_info:
+                reasons.append("company information found")
+            if features.has_team_section:
+                reasons.append("team/leadership section")
+        
+        elif page_type == PageType.OTHER:
+            reasons.append("no strong classification signals")
         
         if features.url_hints:
             relevant_hints = [h for h in features.url_hints if h]
@@ -675,6 +914,218 @@ class PageClassifier:
         ]
         return any(re.search(p, html) for p in patterns)
     
+    # Academic feature helpers
+    
+    def _has_abstract(self, html: str) -> bool:
+        """Check for abstract section (academic papers)."""
+        patterns = [
+            r'class=["\'][^"\']*abstract',
+            r'id=["\']abstract',
+            r'<h[1-6][^>]*>abstract</h',
+            r'<h[1-6][^>]*>要旨</h',  # Japanese
+            r'<h[1-6][^>]*>概要</h',  # Japanese
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_citations(self, html: str) -> bool:
+        """Check for citations/references section."""
+        patterns = [
+            r'class=["\'][^"\']*citation',
+            r'class=["\'][^"\']*reference',
+            r'id=["\']references',
+            r'<h[1-6][^>]*>references</h',
+            r'<h[1-6][^>]*>参考文献</h',  # Japanese
+            r'<h[1-6][^>]*>引用</h',  # Japanese
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_doi(self, html: str) -> bool:
+        """Check for DOI (Digital Object Identifier)."""
+        patterns = [
+            r'doi\.org/',
+            r'doi:\s*10\.',
+            r'class=["\'][^"\']*doi',
+            r'10\.\d{4,}/[^\s"\'<>]+',  # DOI pattern
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_academic_structure(self, html: str) -> bool:
+        """Check for academic paper structure."""
+        patterns = [
+            r'class=["\'][^"\']*author-affiliation',
+            r'class=["\'][^"\']*journal',
+            r'class=["\'][^"\']*volume',
+            r'issn|isbn',
+            r'peer-review',
+            r'<meta[^>]*citation',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    # Report feature helpers
+    
+    def _has_executive_summary(self, html: str) -> bool:
+        """Check for executive summary section."""
+        patterns = [
+            r'class=["\'][^"\']*executive-summary',
+            r'<h[1-6][^>]*>executive summary</h',
+            r'<h[1-6][^>]*>エグゼクティブサマリー</h',
+            r'<h[1-6][^>]*>要約</h',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_financial_data(self, html: str) -> bool:
+        """Check for financial data indicators."""
+        patterns = [
+            r'class=["\'][^"\']*financial',
+            r'class=["\'][^"\']*revenue',
+            r'class=["\'][^"\']*earnings',
+            r'決算|売上|利益|財務',  # Japanese financial terms
+            r'quarter|fiscal|fy\d{2,4}',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_charts_tables(self, html: str) -> bool:
+        """Check for charts/tables (report indicator)."""
+        table_count = len(re.findall(r'<table[^>]*>', html))
+        chart_patterns = [
+            r'class=["\'][^"\']*chart',
+            r'class=["\'][^"\']*graph',
+            r'<canvas',
+            r'<svg[^>]*class=["\'][^"\']*chart',
+        ]
+        has_charts = any(re.search(p, html) for p in chart_patterns)
+        return table_count >= 3 or has_charts
+    
+    def _has_report_structure(self, html: str) -> bool:
+        """Check for report document structure."""
+        patterns = [
+            r'class=["\'][^"\']*report',
+            r'class=["\'][^"\']*whitepaper',
+            r'class=["\'][^"\']*disclosure',
+            r'有価証券報告書|決算短信|年次報告',  # Japanese report types
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    # Legal feature helpers
+    
+    def _has_legal_structure(self, html: str) -> bool:
+        """Check for legal document structure."""
+        patterns = [
+            r'class=["\'][^"\']*statute',
+            r'class=["\'][^"\']*regulation',
+            r'class=["\'][^"\']*law-text',
+            r'class=["\'][^"\']*legal-doc',
+            r'法令|条例|規則|判例',  # Japanese legal terms
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_article_numbers(self, html: str) -> bool:
+        """Check for article/section numbering (legal docs)."""
+        patterns = [
+            r'第[一二三四五六七八九十百千]+条',  # Japanese article numbers
+            r'article\s+\d+',
+            r'section\s+\d+',
+            r'§\s*\d+',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_legal_citations(self, html: str) -> bool:
+        """Check for legal citations."""
+        patterns = [
+            r'\d+\s+u\.?s\.?\s+\d+',  # US case citations
+            r'平成\d+年.*判決',  # Japanese court decisions
+            r'令和\d+年.*判決',
+            r'class=["\'][^"\']*case-citation',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    # Product feature helpers
+    
+    def _has_price(self, html: str) -> bool:
+        """Check for price information."""
+        patterns = [
+            r'class=["\'][^"\']*price',
+            r'¥\s*[\d,]+',  # Japanese Yen
+            r'\$\s*[\d,]+\.?\d*',  # US Dollar
+            r'€\s*[\d,]+',  # Euro
+            r'itemprop=["\']price',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_add_to_cart(self, html: str) -> bool:
+        """Check for add-to-cart functionality."""
+        patterns = [
+            r'add-to-cart',
+            r'add_to_cart',
+            r'class=["\'][^"\']*cart',
+            r'class=["\'][^"\']*buy-now',
+            r'カートに入れる',  # Japanese
+            r'購入する',  # Japanese
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_specifications(self, html: str) -> bool:
+        """Check for product specifications."""
+        patterns = [
+            r'class=["\'][^"\']*spec',
+            r'class=["\'][^"\']*specification',
+            r'class=["\'][^"\']*product-detail',
+            r'仕様|スペック',  # Japanese
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_product_gallery(self, html: str) -> bool:
+        """Check for product image gallery."""
+        patterns = [
+            r'class=["\'][^"\']*product-gallery',
+            r'class=["\'][^"\']*product-image',
+            r'class=["\'][^"\']*gallery-thumb',
+            r'data-zoom-image',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    # Profile feature helpers
+    
+    def _has_company_info(self, html: str) -> bool:
+        """Check for company information."""
+        patterns = [
+            r'class=["\'][^"\']*company-info',
+            r'class=["\'][^"\']*corporate',
+            r'会社概要|企業情報|会社情報',  # Japanese
+            r'founded|established|since\s+\d{4}',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_contact_info(self, html: str) -> bool:
+        """Check for contact information."""
+        patterns = [
+            r'class=["\'][^"\']*contact',
+            r'class=["\'][^"\']*address',
+            r'お問い合わせ|連絡先',  # Japanese
+            r'tel:|phone:|fax:',
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_team_section(self, html: str) -> bool:
+        """Check for team/leadership section."""
+        patterns = [
+            r'class=["\'][^"\']*team',
+            r'class=["\'][^"\']*leadership',
+            r'class=["\'][^"\']*executive',
+            r'経営陣|役員|チーム',  # Japanese
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
+    def _has_about_section(self, html: str) -> bool:
+        """Check for about section."""
+        patterns = [
+            r'class=["\'][^"\']*about',
+            r'id=["\']about',
+            r'<h[1-6][^>]*>about\s*(us)?</h',
+            r'私たちについて|当社について',  # Japanese
+        ]
+        return any(re.search(p, html) for p in patterns)
+    
     def _extract_url_hints(self, url: str) -> list[str]:
         """Extract classification hints from URL.
         
@@ -771,6 +1222,35 @@ class PageClassifier:
                 "has_wiki_structure": features.has_wiki_structure,
                 "has_edit_links": features.has_edit_links,
                 "has_infobox": features.has_infobox,
+            },
+            "academic": {
+                "has_abstract": features.has_abstract,
+                "has_citations": features.has_citations,
+                "has_doi": features.has_doi,
+                "has_academic_structure": features.has_academic_structure,
+            },
+            "report": {
+                "has_executive_summary": features.has_executive_summary,
+                "has_financial_data": features.has_financial_data,
+                "has_charts_tables": features.has_charts_tables,
+                "has_report_structure": features.has_report_structure,
+            },
+            "legal": {
+                "has_legal_structure": features.has_legal_structure,
+                "has_article_numbers": features.has_article_numbers,
+                "has_legal_citations": features.has_legal_citations,
+            },
+            "product": {
+                "has_price": features.has_price,
+                "has_add_to_cart": features.has_add_to_cart,
+                "has_specifications": features.has_specifications,
+                "has_product_gallery": features.has_product_gallery,
+            },
+            "profile": {
+                "has_company_info": features.has_company_info,
+                "has_contact_info": features.has_contact_info,
+                "has_team_section": features.has_team_section,
+                "has_about_section": features.has_about_section,
             },
             "meta": {
                 "url_hints": features.url_hints,

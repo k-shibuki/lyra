@@ -553,11 +553,11 @@ class TestFeatureExtraction:
     
     
     def test_empty_html(self, classifier):
-        """Empty or minimal HTML should return unknown with low confidence."""
+        """Empty or minimal HTML should classify as OTHER."""
         html = "<html><body></body></html>"
         result = classifier.classify(html)
         
-        assert result.confidence < 0.5
+        assert result.page_type == PageType.OTHER
         assert result.features["content"]["paragraph_count"] == 0
     
     
@@ -744,4 +744,298 @@ class TestJapaneseContent:
         result = classifier.classify(html)
         
         assert result.page_type == PageType.LOGIN_WALL
+
+
+# ============================================================
+# Academic classification tests
+# ============================================================
+
+class TestAcademicClassification:
+    """Tests for academic paper page type detection."""
+    
+    def test_arxiv_paper(self, classifier):
+        """arXiv-style academic paper should classify as academic."""
+        html = """
+        <html><body>
+        <div class="paper">
+            <h1>Deep Learning for Natural Language Processing</h1>
+            <div class="authors">
+                <span class="author-affiliation">Stanford University</span>
+            </div>
+            <div id="abstract">
+                <h2>Abstract</h2>
+                <p>We present a novel approach to...</p>
+            </div>
+            <div class="doi">DOI: 10.1234/example.2024</div>
+            <h2>References</h2>
+            <div class="citation">[1] Smith et al., 2023</div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html, "https://arxiv.org/abs/2401.12345")
+        
+        assert result.page_type == PageType.ACADEMIC
+        assert result.features["academic"]["has_abstract"] is True
+        assert result.features["academic"]["has_doi"] is True
+    
+    def test_jstage_paper(self, classifier):
+        """J-STAGE academic paper should classify as academic."""
+        html = """
+        <html><body>
+        <article class="journal-article">
+            <h1>自然言語処理における深層学習</h1>
+            <div class="abstract">
+                <h2>要旨</h2>
+                <p>本研究では...</p>
+            </div>
+            <div class="references">
+                <h2>参考文献</h2>
+                <div class="citation">1. 山田太郎 (2023)</div>
+            </div>
+        </article>
+        </body></html>
+        """
+        result = classifier.classify(html, "https://jstage.jst.go.jp/article/example")
+        
+        assert result.page_type == PageType.ACADEMIC
+
+
+# ============================================================
+# Report classification tests
+# ============================================================
+
+class TestReportClassification:
+    """Tests for report/whitepaper page type detection."""
+    
+    def test_annual_report(self, classifier):
+        """Annual report should classify as report."""
+        html = """
+        <html><body>
+        <div class="annual-report">
+            <h1>Annual Report 2023</h1>
+            <div class="executive-summary">
+                <h2>Executive Summary</h2>
+                <p>This year we achieved...</p>
+            </div>
+            <div class="financial">
+                <h2>Financial Highlights</h2>
+                <p>Revenue: $10M</p>
+                <table class="financials">
+                    <tr><td>Q1</td><td>$2.5M</td></tr>
+                </table>
+            </div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html, "https://example.com/ir/annual-report-2023")
+        
+        assert result.page_type == PageType.REPORT
+        assert result.features["report"]["has_executive_summary"] is True
+    
+    def test_japanese_disclosure(self, classifier):
+        """Japanese financial disclosure should classify as report."""
+        html = """
+        <html><body>
+        <div class="disclosure">
+            <h1>決算短信</h1>
+            <p>売上高: 100億円</p>
+            <p>営業利益: 10億円</p>
+            <table>
+                <tr><th>四半期</th><th>売上</th></tr>
+                <tr><td>Q1</td><td>25億円</td></tr>
+                <tr><td>Q2</td><td>25億円</td></tr>
+                <tr><td>Q3</td><td>25億円</td></tr>
+            </table>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html)
+        
+        assert result.page_type == PageType.REPORT
+        assert result.features["report"]["has_financial_data"] is True
+
+
+# ============================================================
+# Legal classification tests
+# ============================================================
+
+class TestLegalClassification:
+    """Tests for legal document page type detection."""
+    
+    def test_statute(self, classifier):
+        """Legal statute should classify as legal."""
+        html = """
+        <html><body>
+        <div class="statute">
+            <h1>Personal Information Protection Act</h1>
+            <div class="law-text">
+                <h2>Article 1 (Purpose)</h2>
+                <p>The purpose of this Act is to...</p>
+                <h2>Article 2 (Definitions)</h2>
+                <p>In this Act, the following terms...</p>
+            </div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html, "https://e-gov.go.jp/law/12345")
+        
+        assert result.page_type == PageType.LEGAL
+        assert result.features["legal"]["has_legal_structure"] is True
+    
+    def test_japanese_law(self, classifier):
+        """Japanese law document should classify as legal."""
+        html = """
+        <html><body>
+        <div class="legal-doc">
+            <h1>個人情報の保護に関する法律</h1>
+            <div class="条文">
+                <p>第一条　この法律は...</p>
+                <p>第二条　この法律において...</p>
+            </div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html)
+        
+        assert result.page_type == PageType.LEGAL
+        assert result.features["legal"]["has_article_numbers"] is True
+
+
+# ============================================================
+# Product classification tests
+# ============================================================
+
+class TestProductClassification:
+    """Tests for product page type detection."""
+    
+    def test_ecommerce_product(self, classifier):
+        """E-commerce product page should classify as product."""
+        html = """
+        <html><body>
+        <div class="product-detail">
+            <h1>Wireless Bluetooth Headphones</h1>
+            <div class="product-gallery">
+                <img src="/product/image1.jpg" data-zoom-image="/product/large1.jpg">
+            </div>
+            <div class="price">$99.99</div>
+            <button class="add-to-cart">Add to Cart</button>
+            <div class="specifications">
+                <h2>Specifications</h2>
+                <table>
+                    <tr><td>Battery</td><td>30 hours</td></tr>
+                </table>
+            </div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html, "https://shop.example.com/product/headphones")
+        
+        assert result.page_type == PageType.PRODUCT
+        assert result.features["product"]["has_price"] is True
+        assert result.features["product"]["has_add_to_cart"] is True
+    
+    def test_japanese_product(self, classifier):
+        """Japanese product page should classify as product."""
+        html = """
+        <html><body>
+        <div class="product-page">
+            <h1>ワイヤレスヘッドホン</h1>
+            <div class="price">¥12,980</div>
+            <button>カートに入れる</button>
+            <div class="spec">
+                <h2>仕様</h2>
+                <p>バッテリー: 30時間</p>
+            </div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html)
+        
+        assert result.page_type == PageType.PRODUCT
+        assert result.features["product"]["has_price"] is True
+
+
+# ============================================================
+# Profile classification tests
+# ============================================================
+
+class TestProfileClassification:
+    """Tests for profile page type detection."""
+    
+    def test_company_about(self, classifier):
+        """Company about page should classify as profile."""
+        html = """
+        <html><body>
+        <div class="about-us">
+            <h1>About Our Company</h1>
+            <div class="company-info">
+                <p>Founded in 2010, we are a leading provider of...</p>
+                <p>Established: 2010</p>
+            </div>
+            <div class="leadership">
+                <h2>Leadership Team</h2>
+                <div class="team">
+                    <div class="executive">CEO: John Smith</div>
+                </div>
+            </div>
+            <div class="contact">
+                <h2>Contact Us</h2>
+                <p>Phone: 123-456-7890</p>
+            </div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html, "https://example.com/about/company")
+        
+        assert result.page_type == PageType.PROFILE
+        assert result.features["profile"]["has_about_section"] is True
+        assert result.features["profile"]["has_team_section"] is True
+    
+    def test_japanese_company_profile(self, classifier):
+        """Japanese company profile should classify as profile."""
+        html = """
+        <html><body>
+        <div class="corporate">
+            <h1>会社概要</h1>
+            <div class="company-info">
+                <p>設立: 2010年</p>
+                <p>資本金: 1億円</p>
+            </div>
+            <div class="team">
+                <h2>経営陣</h2>
+                <p>代表取締役: 山田太郎</p>
+            </div>
+            <div class="contact">
+                <h2>お問い合わせ</h2>
+                <p>TEL: 03-1234-5678</p>
+            </div>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html)
+        
+        assert result.page_type == PageType.PROFILE
+        assert result.features["profile"]["has_company_info"] is True
+
+
+# ============================================================
+# Other classification tests
+# ============================================================
+
+class TestOtherClassification:
+    """Tests for OTHER page type (unclassifiable pages)."""
+    
+    def test_minimal_content(self, classifier):
+        """Minimal content should classify as OTHER."""
+        html = """
+        <html><body>
+        <div>
+            <p>Hello World</p>
+        </div>
+        </body></html>
+        """
+        result = classifier.classify(html)
+        
+        assert result.page_type == PageType.OTHER
+        assert "no strong classification signals" in result.reason
 
