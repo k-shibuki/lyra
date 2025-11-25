@@ -373,3 +373,6 @@ class RefutationExecutor:
             source_url=refutation.get("source_url", "")[:50],
         )
 
+
+
+

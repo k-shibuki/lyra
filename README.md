@@ -4,18 +4,27 @@
 
 ## 特徴
 
+### コア機能
 - 🔗 **MCP連携**: Cursorと連携し、AIがツールとして直接呼び出し可能
 - 🏠 **完全ローカル**: 商用API不使用、Zero OpEx
+- 🔍 **自律リサーチエンジン**: 問いを分解し、検索クエリを自動生成、再帰的に情報を収集
 - 📊 **多段階評価**: BM25 → 埋め込み → リランキング → LLM抽出
-- 🛡️ **ステルス性**: ブラウザ指紋整合、レート制御、Tor対応
+- 🔄 **反証探索**: 逆クエリによる反証の自動探索
 - 📝 **引用管理**: 全ての主張に出典を明記、エビデンスグラフで可視化
-- 🐳 **コンテナ化**: Podmanによる完全コンテナ化開発環境
+
+### クローリング/抽出
+- 🛡️ **ステルス性**: ブラウザ指紋整合、Sec-Fetch-*ヘッダー整合、レート制御、Tor対応
+- 📜 **robots.txt/sitemap対応**: 安全なクローリング、サイトマップからの重要URL抽出
+- 🕸️ **ドメイン内BFS探索**: 見出し/目次/関連記事リンクの優先度付け探索
+- 🔎 **サイト内検索UI自動操作**: allowlistドメインでのフォーム自動入力
+- ⏳ **Wayback差分探索**: アーカイブスナップショットからの時系列変化追跡
 - 📄 **OCR対応**: スキャンPDF/画像からのテキスト抽出（PaddleOCR + Tesseract）
 
-### 開発中の機能
-- 🔍 **自律リサーチエンジン**: 問いを分解し、検索クエリを自動生成、再帰的に情報を収集 *（Phase 11で実装予定）*
-- 🔄 **反証探索**: 逆クエリによる反証の自動探索
-- 📜 **robots.txt/sitemap対応**: 安全なクローリングの基盤
+### 品質保証
+- 📈 **信頼度キャリブレーション**: Platt/温度スケーリングによる確率校正
+- 🔬 **NLI判定**: supports/refutes/neutral の自動判定
+- 📉 **重複検出**: MinHash + SimHash によるクラスタリング
+- 🐳 **コンテナ化**: Podmanによる完全コンテナ化開発環境
 
 ## システム要件
 
@@ -93,13 +102,16 @@ podman exec lancet-ollama ollama ps
 ## テスト
 
 ```bash
-# 全テスト実行
+# 全テスト実行 (756件)
 ./scripts/dev.sh test
 
 # マーカーでフィルタリング
-podman-compose exec lancet pytest tests/ -m "unit"          # unitテストのみ
-podman-compose exec lancet pytest tests/ -m "integration"   # integrationテストのみ
-podman-compose exec lancet pytest tests/ -m "unit or integration"  # CI用
+podman exec lancet pytest tests/ -m "unit"          # unitテストのみ
+podman exec lancet pytest tests/ -m "integration"   # integrationテストのみ
+podman exec lancet pytest tests/ -m "unit or integration"  # CI用
+
+# 特定ファイルのみ
+podman exec lancet pytest tests/test_sec_fetch.py -v
 ```
 
 ### テスト分類 (§7.1.7)
@@ -125,6 +137,8 @@ MCPサーバーはコンテナ内で動作するため、Cursorからの接続�
 
 ## MCPツール一覧
 
+### 基本ツール
+
 | ツール | 説明 |
 |--------|------|
 | `search_serp` | 検索エンジンでクエリを実行 |
@@ -138,6 +152,16 @@ MCPサーバーはコンテナ内で動作するため、Cursorからの接続�
 | `create_task` | リサーチタスクの作成 |
 | `get_task_status` | タスク状態の取得 |
 | `generate_report` | レポート生成 |
+
+### 探索制御ツール (Phase 11)
+
+| ツール | 説明 |
+|--------|------|
+| `get_research_context` | サブクエリ設計の支援情報を取得 |
+| `execute_subquery` | Cursor AI指定のサブクエリを実行 |
+| `get_exploration_status` | 探索状態（充足度・新規性・予算）を取得 |
+| `execute_refutation` | 反証探索を実行 |
+| `finalize_exploration` | 探索を終了し最終状態を記録 |
 
 ## アーキテクチャ
 
@@ -156,6 +180,10 @@ MCPサーバーはコンテナ内で動作するため、Cursorからの接続�
 │  │  │  Search  │ │ Crawler  │ │  Filter  │            │   │
 │  │  │ Extractor│ │ Scheduler│ │  Report  │            │   │
 │  │  └──────────┘ └──────────┘ └──────────┘            │   │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │   │
+│  │  │ Research │ │ Metrics  │ │ Calibra- │            │   │
+│  │  │ Context  │ │ /Policy  │ │   tion   │            │   │
+│  │  └──────────┘ └──────────┘ └──────────┘            │   │
 │  └─────────────────────────────────────────────────────┘   │
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
 │  │   SearXNG    │ │     Tor      │ │   Ollama     │       │
@@ -166,6 +194,7 @@ MCPサーバーはコンテナ内で動作するため、Cursorからの接続�
                                             │
                             ┌───────────────▼───────────────┐
                             │   Chrome (Windows)            │
+                            │   CDP接続 / 実プロファイル     │
                             └───────────────────────────────┘
 ```
 
@@ -177,12 +206,26 @@ lancet/
 │   ├── mcp/              # MCPサーバー
 │   ├── search/           # 検索エンジン連携
 │   ├── crawler/          # クローリング/取得
+│   │   ├── fetcher.py    # HTTP/ブラウザ取得
+│   │   ├── sec_fetch.py  # Sec-Fetch-*ヘッダー生成
+│   │   ├── robots.py     # robots.txt/sitemap
+│   │   ├── bfs.py        # ドメイン内BFS探索
+│   │   ├── site_search.py # サイト内検索UI操作
+│   │   └── wayback.py    # Wayback差分探索
 │   ├── extractor/        # コンテンツ抽出
 │   ├── filter/           # フィルタリング/評価
+│   │   ├── ranking.py    # BM25/埋め込み/リランク
+│   │   ├── llm_extract.py # LLM抽出
+│   │   ├── nli.py        # NLI判定
+│   │   └── calibration.py # 信頼度キャリブレーション
 │   ├── report/           # レポート生成
+│   ├── research/         # 探索制御エンジン
 │   ├── scheduler/        # ジョブスケジューラ
 │   ├── storage/          # データストレージ
 │   └── utils/            # ユーティリティ
+│       ├── metrics.py    # メトリクス収集
+│       ├── policy.py     # ポリシー自動調整
+│       └── notification.py # 通知/手動介入
 ├── config/
 │   ├── settings.yaml     # メイン設定
 │   ├── engines.yaml      # 検索エンジン設定
@@ -191,11 +234,25 @@ lancet/
 ├── data/                 # 永続データ (マウント)
 ├── logs/                 # ログ (マウント)
 ├── scripts/              # 開発スクリプト
-├── tests/                # テストコード
+├── tests/                # テストコード (756件)
 ├── Dockerfile            # 本番用
 ├── Dockerfile.dev        # 開発用
 └── podman-compose.yml    # コンテナ構成
 ```
+
+## 実装状況
+
+| Phase | 内容 | 状態 |
+|-------|------|------|
+| Phase 1-9 | 基盤、MCP、検索、クローリング、抽出、フィルタリング、スケジューラ、通知、レポート | ✅ 完了 |
+| Phase 10 | メトリクス収集、ポリシー自動調整、リプレイモード | ✅ 完了 |
+| Phase 11 | 探索制御エンジン（Cursor AI主導） | ✅ 完了 |
+| Phase 12 | クローリング拡張（robots.txt、BFS、サイト内検索、Wayback） | ✅ 完了 |
+| Phase 13 | 信頼度キャリブレーション | ✅ 完了 |
+| Phase 14 | テスト | 🔄 95%（E2E未完） |
+| Phase 16 | 未実装機能（抗堪性強化、OSINT品質強化） | 🔄 進行中 |
+
+詳細は [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) を参照。
 
 ## トラブルシューティング
 

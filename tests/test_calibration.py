@@ -541,13 +541,8 @@ class TestEdgeCases:
     """Edge case tests."""
     
     def test_brier_score_empty(self):
-        """Should handle empty lists."""
-        # numpy handles this with warning/nan
-        import numpy as np
-        
-        with np.errstate(all="ignore"):
-            score = brier_score([], [])
-        
+        """Should handle empty lists by returning NaN without warnings."""
+        score = brier_score([], [])
         assert math.isnan(score)
     
     def test_fit_insufficient_samples(self, tmp_path):
