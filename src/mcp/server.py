@@ -424,6 +424,73 @@ TOOLS = [
             "required": ["task_id"]
         }
     ),
+    # ============================================================
+    # Phase 16.3.2: Calibration Evaluation Tools (§4.6.1)
+    # ============================================================
+    Tool(
+        name="save_calibration_evaluation",
+        description="Execute calibration evaluation and save to database. Calculates Brier score, ECE, and reliability diagram data. Returns structured data (NOT a report).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Source model identifier (e.g., 'llm_extract', 'nli_judge')"
+                },
+                "predictions": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Predicted probabilities (0.0 to 1.0)"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Ground truth labels (0 or 1)"
+                }
+            },
+            "required": ["source", "predictions", "labels"]
+        }
+    ),
+    Tool(
+        name="get_calibration_evaluations",
+        description="Get calibration evaluation history as structured data. Cursor AI interprets and reports on this data.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Optional source filter"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum evaluations to return (default: 50)",
+                    "default": 50
+                },
+                "since": {
+                    "type": "string",
+                    "description": "Optional start datetime (ISO format)"
+                }
+            }
+        }
+    ),
+    Tool(
+        name="get_reliability_diagram_data",
+        description="Get bin data for reliability diagram (confidence vs accuracy). Returns structured data for Cursor AI to visualize or interpret.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Source model identifier"
+                },
+                "evaluation_id": {
+                    "type": "string",
+                    "description": "Optional specific evaluation ID (uses latest if not specified)"
+                }
+            },
+            "required": ["source"]
+        }
+    ),
 ]
 
 
@@ -487,6 +554,10 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "get_exploration_status": _handle_get_exploration_status,
         "execute_refutation": _handle_execute_refutation,
         "finalize_exploration": _handle_finalize_exploration,
+        # Phase 16.3.2: Calibration Evaluation (§4.6.1)
+        "save_calibration_evaluation": _handle_save_calibration_evaluation,
+        "get_calibration_evaluations": _handle_get_calibration_evaluations,
+        "get_reliability_diagram_data": _handle_get_reliability_diagram_data,
     }
     
     handler = handlers.get(name)
@@ -831,6 +902,65 @@ async def _handle_finalize_exploration(args: dict[str, Any]) -> dict[str, Any]:
             del _exploration_states[task_id]
         
         return result
+
+
+# ============================================================
+# Phase 16.3.2: Calibration Evaluation Handlers (§4.6.1)
+# ============================================================
+
+async def _handle_save_calibration_evaluation(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle save_calibration_evaluation tool call.
+    
+    Implements §4.6.1: Lancet責任 - 評価計算・DB保存.
+    """
+    from src.utils.calibration import save_calibration_evaluation
+    
+    source = args["source"]
+    predictions = args["predictions"]
+    labels = args["labels"]
+    
+    return await save_calibration_evaluation(
+        source=source,
+        predictions=predictions,
+        labels=labels,
+    )
+
+
+async def _handle_get_calibration_evaluations(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_calibration_evaluations tool call.
+    
+    Implements §4.6.1: Lancet責任 - 構造化データの返却.
+    """
+    from src.utils.calibration import get_calibration_evaluations
+    
+    source = args.get("source")
+    limit = args.get("limit", 50)
+    since = args.get("since")
+    
+    return await get_calibration_evaluations(
+        source=source,
+        limit=limit,
+        since=since,
+    )
+
+
+async def _handle_get_reliability_diagram_data(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_reliability_diagram_data tool call.
+    
+    Implements §4.6.1: Lancet責任 - 信頼度-精度曲線用ビンデータ返却.
+    """
+    from src.utils.calibration import get_reliability_diagram_data
+    
+    source = args["source"]
+    evaluation_id = args.get("evaluation_id")
+    
+    return await get_reliability_diagram_data(
+        source=source,
+        evaluation_id=evaluation_id,
+    )
 
 
 # ============================================================

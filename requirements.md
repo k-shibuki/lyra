@@ -755,8 +755,113 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   - 決定ログから同一フローを再実行可能にし、改善のA/B検証を容易化
 
 #### 4.6.1. 信頼度キャリブレーションの評価
-- オフライン評価としてBrierスコア/信頼度-精度曲線を保存
-- デグレ検知で直近の校正パラメータをロールバック
+
+##### 責任分界（§2.1準拠）
+
+| 責任領域 | Cursor AI（思考） | Lancet MCP（作業） |
+|---------|------------------|-------------------|
+| **評価タイミング** | 評価実行の指示 | - |
+| **評価計算** | - | Brierスコア/ECE/ビンデータの算出 |
+| **評価永続化** | - | 評価結果のDB保存 |
+| **評価データ取得** | 取得対象・期間の指定 | 構造化データの返却 |
+| **デグレ検知** | 対応方針の決定 | 閾値超過の検知と報告 |
+| **評価レポート** | 論理構成・執筆・可視化判断 | **構造化データの提供のみ**（レポート生成は行わない） |
+
+**重要**: Lancetは評価「レポート」を生成しない。構造化データを返却し、Cursor AIがそれを解釈・構成する。
+
+##### MCPツールIF仕様
+
+- `save_calibration_evaluation(source, predictions, labels)` → 評価を実行しDBに保存
+  - 入力:
+    - `source`: ソースモデル識別子（例: "llm_extract", "nli_judge"）
+    - `predictions`: 予測確率のリスト
+    - `labels`: 正解ラベルのリスト（0 or 1）
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "evaluation_id": "eval_001",
+      "source": "llm_extract",
+      "brier_score": 0.15,
+      "brier_score_calibrated": 0.12,
+      "improvement_ratio": 0.20,
+      "expected_calibration_error": 0.08,
+      "samples_evaluated": 100,
+      "evaluated_at": "2024-01-15T10:00:00Z"
+    }
+    ```
+
+- `get_calibration_evaluations(source?, limit?, since?)` → 評価履歴を構造化データで返却
+  - 入力:
+    - `source`: ソースフィルタ（オプション）
+    - `limit`: 取得件数上限（デフォルト: 50）
+    - `since`: 開始日時（オプション）
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "evaluations": [
+        {
+          "evaluation_id": "eval_001",
+          "source": "llm_extract",
+          "brier_score": 0.15,
+          "brier_score_calibrated": 0.12,
+          "improvement_ratio": 0.20,
+          "expected_calibration_error": 0.08,
+          "samples_evaluated": 100,
+          "evaluated_at": "2024-01-15T10:00:00Z"
+        }
+      ],
+      "total_count": 25
+    }
+    ```
+
+- `get_reliability_diagram_data(source, evaluation_id?)` → 信頼度-精度曲線用ビンデータを返却
+  - 入力:
+    - `source`: ソースモデル識別子
+    - `evaluation_id`: 特定評価のID（オプション、省略時は最新）
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "source": "llm_extract",
+      "evaluation_id": "eval_001",
+      "n_bins": 10,
+      "bins": [
+        {
+          "bin_lower": 0.0,
+          "bin_upper": 0.1,
+          "count": 15,
+          "accuracy": 0.07,
+          "confidence": 0.05,
+          "gap": 0.02
+        }
+      ],
+      "overall_ece": 0.08
+    }
+    ```
+
+##### 永続化スキーマ
+
+`calibration_evaluations`テーブル:
+- `id`: 評価ID（主キー）
+- `source`: ソースモデル識別子
+- `brier_score`: 校正前Brierスコア
+- `brier_score_calibrated`: 校正後Brierスコア（NULL可）
+- `improvement_ratio`: 改善率
+- `expected_calibration_error`: ECE
+- `samples_evaluated`: 評価サンプル数
+- `bins_json`: ビンデータ（JSON）
+- `calibration_version`: 使用した校正パラメータのバージョン
+- `evaluated_at`: 評価日時
+- `created_at`: レコード作成日時
+
+##### デグレ検知と報告
+
+- **検知条件**: 直近の評価でBrierスコアが前回比5%以上悪化
+- **報告内容**: `get_calibration_stats`の返却値に`degradation_detected`フラグと詳細を含める
+- **対応判断**: Cursor AIが`rollback_calibration`を呼ぶかどうかを決定（Lancetは自動ロールバックを提案しない）
+- **例外**: `enable_auto_rollback=true`設定時のみ、Lancetが自動ロールバックを実行し事後報告
 
 ## 5. 技術スタック選定
 

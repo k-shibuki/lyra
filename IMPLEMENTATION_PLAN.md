@@ -541,9 +541,18 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - MCPツール: `rollback_calibration`, `get_calibration_history`, `get_rollback_events`, `get_calibration_stats`
   - テスト: 61件（全パス）
 
-#### 16.3.2 評価可視化 (§4.6.1)
-- [ ] **Brierスコア/信頼度-精度曲線の保存**
-  - オフライン評価レポート出力
+#### 16.3.2 評価データ永続化・取得 (§4.6.1)
+- [ ] **評価データの永続化**
+  - SQLiteスキーマ拡張（`calibration_evaluations`テーブル）
+  - 評価結果のDB保存機能
+- [ ] **評価データ取得機能**
+  - 評価履歴の構造化データ返却
+  - 信頼度-精度曲線用ビンデータ返却
+- [ ] **MCPツール**
+  - `save_calibration_evaluation`: 評価実行・保存
+  - `get_calibration_evaluations`: 評価履歴取得
+  - `get_reliability_diagram_data`: ビンデータ取得
+- **注意**: レポート生成はCursor AIの責任（§4.6.1責任分界に準拠）
 
 ---
 
