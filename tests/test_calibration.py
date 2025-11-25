@@ -20,6 +20,8 @@ from src.utils.calibration import (
     CalibrationSample,
     CalibrationParams,
     CalibrationResult,
+    RollbackEvent,
+    CalibrationHistory,
     PlattScaling,
     TemperatureScaling,
     brier_score,
@@ -31,6 +33,10 @@ from src.utils.calibration import (
     fit_calibration,
     check_escalation,
     add_calibration_sample,
+    rollback_calibration,
+    get_calibration_history,
+    get_rollback_events,
+    get_calibration_stats,
 )
 
 
@@ -572,4 +578,471 @@ class TestEdgeCases:
             
             assert logit_low < 0
             assert logit_high > 0
+
+
+# =============================================================================
+# RollbackEvent Tests
+# =============================================================================
+
+class TestRollbackEvent:
+    """Tests for RollbackEvent dataclass."""
+    
+    def test_create_rollback_event(self):
+        """Should create rollback event with all fields."""
+        event = RollbackEvent(
+            source="test",
+            from_version=2,
+            to_version=1,
+            reason="degradation",
+            brier_before_rollback=0.25,
+            brier_after_rollback=0.15,
+        )
+        
+        assert event.source == "test"
+        assert event.from_version == 2
+        assert event.to_version == 1
+        assert event.reason == "degradation"
+    
+    def test_to_dict(self):
+        """Should serialize to dict."""
+        event = RollbackEvent(
+            source="test",
+            from_version=3,
+            to_version=2,
+            reason="manual",
+            brier_before_rollback=0.30,
+            brier_after_rollback=0.20,
+        )
+        
+        d = event.to_dict()
+        
+        assert d["source"] == "test"
+        assert d["from_version"] == 3
+        assert d["to_version"] == 2
+        assert "timestamp" in d
+    
+    def test_from_dict(self):
+        """Should deserialize from dict."""
+        data = {
+            "source": "nli_judge",
+            "from_version": 5,
+            "to_version": 4,
+            "reason": "degradation",
+            "brier_before_rollback": 0.22,
+            "brier_after_rollback": 0.18,
+            "timestamp": "2024-01-15T12:00:00+00:00",
+        }
+        
+        event = RollbackEvent.from_dict(data)
+        
+        assert event.source == "nli_judge"
+        assert event.from_version == 5
+        assert event.to_version == 4
+
+
+# =============================================================================
+# CalibrationHistory Tests
+# =============================================================================
+
+class TestCalibrationHistory:
+    """Tests for CalibrationHistory class (§4.6.1)."""
+    
+    @pytest.fixture
+    def history(self, tmp_path):
+        """Create history with temp storage."""
+        with patch("src.utils.calibration.get_project_root") as mock_root:
+            mock_root.return_value = tmp_path
+            return CalibrationHistory(max_history=5)
+    
+    def test_add_params_creates_version(self, history):
+        """add_params should assign incrementing version numbers."""
+        params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
+        params2 = CalibrationParams(method="temperature", source="test", temperature=1.2)
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        
+        hist = history.get_history("test")
+        assert len(hist) == 2
+        assert hist[0].version == 1
+        assert hist[1].version == 2
+    
+    def test_get_latest(self, history):
+        """get_latest should return most recent params."""
+        params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
+        params2 = CalibrationParams(method="temperature", source="test", temperature=1.5)
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        
+        latest = history.get_latest("test")
+        assert latest is not None
+        assert latest.temperature == 1.5
+    
+    def test_get_previous(self, history):
+        """get_previous should return second-most recent params."""
+        params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
+        params2 = CalibrationParams(method="temperature", source="test", temperature=1.5)
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        
+        previous = history.get_previous("test")
+        assert previous is not None
+        assert previous.temperature == 1.0
+    
+    def test_get_by_version(self, history):
+        """get_by_version should find specific version."""
+        params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
+        params2 = CalibrationParams(method="temperature", source="test", temperature=1.5)
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        
+        found = history.get_by_version("test", 1)
+        assert found is not None
+        assert found.temperature == 1.0
+    
+    def test_max_history_enforced(self, history):
+        """Should enforce max history limit."""
+        for i in range(10):
+            params = CalibrationParams(
+                method="temperature", 
+                source="test", 
+                temperature=1.0 + i * 0.1
+            )
+            history.add_params(params)
+        
+        hist = history.get_history("test")
+        assert len(hist) == 5  # max_history=5
+    
+    def test_check_degradation_detects_worsening(self, history):
+        """check_degradation should detect Brier score increase."""
+        params1 = CalibrationParams(
+            method="temperature", source="test", 
+            brier_before=0.20, brier_after=0.15
+        )
+        params2 = CalibrationParams(
+            method="temperature", source="test",
+            brier_before=0.20, brier_after=0.20  # Worse
+        )
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        
+        # Check degradation for a hypothetical new value that's worse
+        is_degraded, ratio = history.check_degradation("test", 0.25)
+        
+        # 0.25 is 25% worse than 0.20 (previous), which exceeds 5% threshold
+        assert is_degraded is True
+        assert ratio > 0.05
+    
+    def test_check_degradation_accepts_improvement(self, history):
+        """check_degradation should not flag improvements."""
+        params1 = CalibrationParams(
+            method="temperature", source="test",
+            brier_before=0.20, brier_after=0.15
+        )
+        params2 = CalibrationParams(
+            method="temperature", source="test",
+            brier_before=0.15, brier_after=0.12
+        )
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        
+        # Check with better value
+        is_degraded, ratio = history.check_degradation("test", 0.10)
+        
+        assert is_degraded is False
+        assert ratio < 0
+    
+    def test_rollback_removes_current(self, history):
+        """rollback should remove current params and return previous."""
+        params1 = CalibrationParams(
+            method="temperature", source="test", temperature=1.0,
+            brier_after=0.15
+        )
+        params2 = CalibrationParams(
+            method="temperature", source="test", temperature=1.5,
+            brier_after=0.25
+        )
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        
+        rolled_back = history.rollback("test", reason="degradation")
+        
+        assert rolled_back is not None
+        assert rolled_back.temperature == 1.0
+        assert len(history.get_history("test")) == 1
+    
+    def test_rollback_logs_event(self, history):
+        """rollback should log a RollbackEvent."""
+        params1 = CalibrationParams(
+            method="temperature", source="test", temperature=1.0,
+            brier_after=0.15
+        )
+        params2 = CalibrationParams(
+            method="temperature", source="test", temperature=1.5,
+            brier_after=0.25
+        )
+        
+        history.add_params(params1)
+        history.add_params(params2)
+        history.rollback("test", reason="degradation")
+        
+        events = history.get_rollback_log("test")
+        assert len(events) == 1
+        assert events[0].reason == "degradation"
+        assert events[0].from_version == 2
+        assert events[0].to_version == 1
+    
+    def test_rollback_to_version(self, history):
+        """rollback_to_version should go to specific version."""
+        for i in range(5):
+            params = CalibrationParams(
+                method="temperature", source="test",
+                temperature=1.0 + i * 0.1,
+                brier_after=0.20 - i * 0.01
+            )
+            history.add_params(params)
+        
+        # Rollback to version 2
+        rolled_back = history.rollback_to_version("test", 2, reason="manual")
+        
+        assert rolled_back is not None
+        assert rolled_back.version == 2
+        assert len(history.get_history("test")) == 2
+    
+    def test_get_stats(self, history):
+        """get_stats should return history statistics."""
+        params = CalibrationParams(
+            method="temperature", source="test",
+            brier_after=0.15
+        )
+        history.add_params(params)
+        
+        stats = history.get_stats()
+        
+        assert "sources" in stats
+        assert "test" in stats["sources"]
+        assert stats["sources"]["test"]["history_size"] == 1
+
+
+# =============================================================================
+# Calibrator Rollback Tests
+# =============================================================================
+
+class TestCalibratorRollback:
+    """Tests for Calibrator rollback functionality (§4.6.1)."""
+    
+    @pytest.fixture
+    def calibrator(self, tmp_path):
+        """Create calibrator with temp storage."""
+        with patch("src.utils.calibration.get_project_root") as mock_root:
+            mock_root.return_value = tmp_path
+            return Calibrator(enable_auto_rollback=True)
+    
+    def test_fit_stores_history(self, calibrator):
+        """fit should add params to history."""
+        samples = [
+            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
+            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+        ]
+        
+        calibrator.fit(samples, "test")
+        calibrator.fit(samples, "test")
+        
+        history = calibrator.get_history("test")
+        assert len(history) >= 2
+    
+    def test_manual_rollback(self, calibrator):
+        """rollback should restore previous params."""
+        samples = [
+            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
+            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+        ]
+        
+        calibrator.fit(samples, "test")
+        first_temp = calibrator.get_params("test").temperature
+        
+        # Fit again (may have different params)
+        calibrator.fit(samples, "test")
+        
+        # Rollback
+        rolled_back = calibrator.rollback("test", reason="manual")
+        
+        assert rolled_back is not None
+        assert calibrator.get_params("test").version == rolled_back.version
+    
+    def test_rollback_to_version(self, calibrator):
+        """rollback_to_version should go to specific version."""
+        samples = [
+            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
+            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+        ]
+        
+        # Create multiple versions
+        for _ in range(3):
+            calibrator.fit(samples, "test")
+        
+        # Rollback to version 1
+        rolled_back = calibrator.rollback_to_version("test", 1)
+        
+        assert rolled_back is not None
+        assert rolled_back.version == 1
+    
+    def test_get_rollback_log(self, calibrator):
+        """get_rollback_log should return events."""
+        samples = [
+            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
+            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+        ]
+        
+        calibrator.fit(samples, "test")
+        calibrator.fit(samples, "test")
+        calibrator.rollback("test")
+        
+        events = calibrator.get_rollback_log("test")
+        assert len(events) == 1
+    
+    def test_get_history_stats(self, calibrator):
+        """get_history_stats should return statistics."""
+        samples = [
+            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
+            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+        ]
+        
+        calibrator.fit(samples, "test")
+        
+        stats = calibrator.get_history_stats()
+        
+        assert "sources" in stats
+        assert "total_rollbacks" in stats
+    
+    def test_set_auto_rollback(self, calibrator):
+        """set_auto_rollback should toggle setting."""
+        calibrator.set_auto_rollback(False)
+        assert calibrator._enable_auto_rollback is False
+        
+        calibrator.set_auto_rollback(True)
+        assert calibrator._enable_auto_rollback is True
+
+
+# =============================================================================
+# MCP Rollback Tool Tests
+# =============================================================================
+
+class TestMCPRollbackTools:
+    """Tests for MCP rollback tool functions."""
+    
+    @pytest.mark.asyncio
+    async def test_rollback_calibration_success(self):
+        """rollback_calibration should rollback and return result."""
+        with patch("src.utils.calibration.get_calibrator") as mock_get:
+            mock_calibrator = MagicMock()
+            mock_calibrator.rollback.return_value = CalibrationParams(
+                method="temperature",
+                temperature=1.2,
+                brier_after=0.15,
+                version=1,
+            )
+            mock_get.return_value = mock_calibrator
+            
+            result = await rollback_calibration("test", reason="manual")
+            
+            assert result["ok"] is True
+            assert result["rolled_back_to_version"] == 1
+    
+    @pytest.mark.asyncio
+    async def test_rollback_calibration_no_previous(self):
+        """rollback_calibration should handle no previous version."""
+        with patch("src.utils.calibration.get_calibrator") as mock_get:
+            mock_calibrator = MagicMock()
+            mock_calibrator.rollback.return_value = None
+            mock_get.return_value = mock_calibrator
+            
+            result = await rollback_calibration("test")
+            
+            assert result["ok"] is False
+            assert result["reason"] == "no_previous_version"
+    
+    @pytest.mark.asyncio
+    async def test_get_calibration_history(self):
+        """get_calibration_history should return version list."""
+        with patch("src.utils.calibration.get_calibrator") as mock_get:
+            mock_calibrator = MagicMock()
+            mock_calibrator.get_history.return_value = [
+                CalibrationParams(
+                    method="temperature",
+                    temperature=1.0,
+                    brier_before=0.20,
+                    brier_after=0.15,
+                    samples_used=50,
+                    version=1,
+                ),
+                CalibrationParams(
+                    method="temperature",
+                    temperature=1.2,
+                    brier_before=0.15,
+                    brier_after=0.12,
+                    samples_used=60,
+                    version=2,
+                ),
+            ]
+            mock_get.return_value = mock_calibrator
+            
+            result = await get_calibration_history("test")
+            
+            assert result["source"] == "test"
+            assert result["total_versions"] == 2
+            assert len(result["versions"]) == 2
+    
+    @pytest.mark.asyncio
+    async def test_get_rollback_events(self):
+        """get_rollback_events should return event list."""
+        with patch("src.utils.calibration.get_calibrator") as mock_get:
+            mock_calibrator = MagicMock()
+            mock_calibrator.get_rollback_log.return_value = [
+                RollbackEvent(
+                    source="test",
+                    from_version=2,
+                    to_version=1,
+                    reason="degradation",
+                    brier_before_rollback=0.25,
+                    brier_after_rollback=0.15,
+                ),
+            ]
+            mock_get.return_value = mock_calibrator
+            
+            result = await get_rollback_events("test")
+            
+            assert result["total_events"] == 1
+            assert result["events"][0]["reason"] == "degradation"
+    
+    @pytest.mark.asyncio
+    async def test_get_calibration_stats(self):
+        """get_calibration_stats should return comprehensive stats."""
+        with patch("src.utils.calibration.get_calibrator") as mock_get:
+            mock_calibrator = MagicMock()
+            mock_calibrator.get_all_sources.return_value = ["test"]
+            mock_calibrator.get_params.return_value = CalibrationParams(
+                method="temperature",
+                temperature=1.2,
+                brier_after=0.15,
+                samples_used=50,
+                version=2,
+            )
+            mock_calibrator.get_history_stats.return_value = {
+                "sources": {"test": {"history_size": 2}},
+                "total_rollbacks": 1,
+            }
+            mock_get.return_value = mock_calibrator
+            
+            result = await get_calibration_stats()
+            
+            assert "current_params" in result
+            assert "history" in result
+            assert "recalibration_threshold" in result
 

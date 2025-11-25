@@ -62,6 +62,7 @@ class CalibrationParams:
     brier_before: float | None = None
     brier_after: float | None = None
     fitted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    version: int = 1  # Version number for history tracking
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -75,6 +76,7 @@ class CalibrationParams:
             "brier_before": self.brier_before,
             "brier_after": self.brier_after,
             "fitted_at": self.fitted_at.isoformat(),
+            "version": self.version,
         }
     
     @classmethod
@@ -96,6 +98,7 @@ class CalibrationParams:
             brier_before=data.get("brier_before"),
             brier_after=data.get("brier_after"),
             fitted_at=fitted_at,
+            version=data.get("version", 1),
         )
 
 
@@ -120,6 +123,50 @@ class CalibrationResult:
             "samples_evaluated": self.samples_evaluated,
             "bins": self.bins,
         }
+
+
+@dataclass
+class RollbackEvent:
+    """Record of a calibration rollback event."""
+    
+    source: str
+    from_version: int
+    to_version: int
+    reason: str  # "degradation" or "manual"
+    brier_before_rollback: float
+    brier_after_rollback: float
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "source": self.source,
+            "from_version": self.from_version,
+            "to_version": self.to_version,
+            "reason": self.reason,
+            "brier_before_rollback": self.brier_before_rollback,
+            "brier_after_rollback": self.brier_after_rollback,
+            "timestamp": self.timestamp.isoformat(),
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RollbackEvent":
+        """Create from dictionary."""
+        timestamp = data.get("timestamp")
+        if isinstance(timestamp, str):
+            timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        else:
+            timestamp = datetime.now(timezone.utc)
+        
+        return cls(
+            source=data.get("source", ""),
+            from_version=data.get("from_version", 0),
+            to_version=data.get("to_version", 0),
+            reason=data.get("reason", ""),
+            brier_before_rollback=data.get("brier_before_rollback", 0.0),
+            brier_after_rollback=data.get("brier_after_rollback", 0.0),
+            timestamp=timestamp,
+        )
 
 
 # =============================================================================
@@ -355,6 +402,387 @@ def expected_calibration_error(
 
 
 # =============================================================================
+# Calibration History Manager
+# =============================================================================
+
+class CalibrationHistory:
+    """Manages calibration parameter history for rollback support.
+    
+    Implements §4.6.1 requirements:
+    - Parameter history preservation (up to max_history entries per source)
+    - Degradation detection (Brier score worsening)
+    - Automatic rollback to previous good parameters
+    """
+    
+    HISTORY_FILE = "calibration_history.json"
+    ROLLBACK_LOG_FILE = "calibration_rollback_log.json"
+    DEFAULT_MAX_HISTORY = 10  # Keep last N parameter sets per source
+    DEGRADATION_THRESHOLD = 0.05  # 5% Brier score increase triggers rollback
+    
+    def __init__(self, max_history: int = DEFAULT_MAX_HISTORY):
+        """Initialize calibration history manager.
+        
+        Args:
+            max_history: Maximum number of parameter sets to keep per source.
+        """
+        self._max_history = max_history
+        self._history: dict[str, list[CalibrationParams]] = {}  # source -> [params]
+        self._rollback_log: list[RollbackEvent] = []
+        self._load_history()
+        self._load_rollback_log()
+    
+    def _get_history_path(self) -> Path:
+        """Get path to history file."""
+        return get_project_root() / "data" / self.HISTORY_FILE
+    
+    def _get_rollback_log_path(self) -> Path:
+        """Get path to rollback log file."""
+        return get_project_root() / "data" / self.ROLLBACK_LOG_FILE
+    
+    def _load_history(self) -> None:
+        """Load parameter history from file."""
+        path = self._get_history_path()
+        
+        if path.exists():
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+                
+                for source, params_list in data.items():
+                    self._history[source] = [
+                        CalibrationParams.from_dict(p) for p in params_list
+                    ]
+                
+                logger.debug(
+                    "Loaded calibration history",
+                    sources=list(self._history.keys()),
+                    total_entries=sum(len(v) for v in self._history.values()),
+                )
+            except Exception as e:
+                logger.warning("Failed to load calibration history", error=str(e))
+    
+    def _save_history(self) -> None:
+        """Save parameter history to file."""
+        path = self._get_history_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        data = {
+            source: [p.to_dict() for p in params_list]
+            for source, params_list in self._history.items()
+        }
+        
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+    
+    def _load_rollback_log(self) -> None:
+        """Load rollback event log from file."""
+        path = self._get_rollback_log_path()
+        
+        if path.exists():
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+                
+                self._rollback_log = [RollbackEvent.from_dict(e) for e in data]
+            except Exception as e:
+                logger.warning("Failed to load rollback log", error=str(e))
+    
+    def _save_rollback_log(self) -> None:
+        """Save rollback event log to file."""
+        path = self._get_rollback_log_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        data = [e.to_dict() for e in self._rollback_log]
+        
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+    
+    def add_params(self, params: CalibrationParams) -> None:
+        """Add new calibration parameters to history.
+        
+        Args:
+            params: Calibration parameters to add.
+        """
+        source = params.source
+        
+        if source not in self._history:
+            self._history[source] = []
+        
+        # Assign version number
+        if self._history[source]:
+            params.version = self._history[source][-1].version + 1
+        else:
+            params.version = 1
+        
+        self._history[source].append(params)
+        
+        # Trim history to max size
+        if len(self._history[source]) > self._max_history:
+            self._history[source] = self._history[source][-self._max_history:]
+        
+        self._save_history()
+        
+        logger.debug(
+            "Added params to history",
+            source=source,
+            version=params.version,
+            history_size=len(self._history[source]),
+        )
+    
+    def get_history(self, source: str) -> list[CalibrationParams]:
+        """Get parameter history for a source.
+        
+        Args:
+            source: Source model identifier.
+            
+        Returns:
+            List of historical parameter sets (oldest first).
+        """
+        return self._history.get(source, [])
+    
+    def get_latest(self, source: str) -> CalibrationParams | None:
+        """Get most recent parameters for a source.
+        
+        Args:
+            source: Source model identifier.
+            
+        Returns:
+            Latest CalibrationParams or None.
+        """
+        history = self._history.get(source, [])
+        return history[-1] if history else None
+    
+    def get_previous(self, source: str) -> CalibrationParams | None:
+        """Get second-most recent parameters for a source.
+        
+        Args:
+            source: Source model identifier.
+            
+        Returns:
+            Previous CalibrationParams or None.
+        """
+        history = self._history.get(source, [])
+        return history[-2] if len(history) >= 2 else None
+    
+    def get_by_version(self, source: str, version: int) -> CalibrationParams | None:
+        """Get parameters by version number.
+        
+        Args:
+            source: Source model identifier.
+            version: Version number to retrieve.
+            
+        Returns:
+            CalibrationParams with matching version or None.
+        """
+        for params in self._history.get(source, []):
+            if params.version == version:
+                return params
+        return None
+    
+    def check_degradation(
+        self,
+        source: str,
+        new_brier: float,
+    ) -> tuple[bool, float]:
+        """Check if new calibration shows degradation.
+        
+        Implements §4.6.1 degradation detection.
+        
+        Args:
+            source: Source model identifier.
+            new_brier: Brier score with new calibration.
+            
+        Returns:
+            Tuple of (is_degraded, degradation_ratio).
+            degradation_ratio is (new - old) / old (positive = worse).
+        """
+        previous = self.get_previous(source)
+        
+        if previous is None or previous.brier_after is None:
+            return False, 0.0
+        
+        old_brier = previous.brier_after
+        
+        if old_brier <= 0:
+            return False, 0.0
+        
+        degradation_ratio = (new_brier - old_brier) / old_brier
+        is_degraded = degradation_ratio > self.DEGRADATION_THRESHOLD
+        
+        if is_degraded:
+            logger.warning(
+                "Calibration degradation detected",
+                source=source,
+                old_brier=f"{old_brier:.4f}",
+                new_brier=f"{new_brier:.4f}",
+                degradation=f"{degradation_ratio*100:.1f}%",
+            )
+        
+        return is_degraded, degradation_ratio
+    
+    def rollback(
+        self,
+        source: str,
+        reason: str = "degradation",
+    ) -> CalibrationParams | None:
+        """Rollback to previous calibration parameters.
+        
+        Implements §4.6.1 automatic rollback.
+        
+        Args:
+            source: Source model identifier.
+            reason: Reason for rollback ("degradation" or "manual").
+            
+        Returns:
+            Rolled-back CalibrationParams or None if no previous available.
+        """
+        history = self._history.get(source, [])
+        
+        if len(history) < 2:
+            logger.warning(
+                "Cannot rollback: insufficient history",
+                source=source,
+                history_size=len(history),
+            )
+            return None
+        
+        # Current (to be rolled back from)
+        current = history[-1]
+        # Previous (to rollback to)
+        previous = history[-2]
+        
+        # Record rollback event
+        event = RollbackEvent(
+            source=source,
+            from_version=current.version,
+            to_version=previous.version,
+            reason=reason,
+            brier_before_rollback=current.brier_after or 0.0,
+            brier_after_rollback=previous.brier_after or 0.0,
+        )
+        self._rollback_log.append(event)
+        self._save_rollback_log()
+        
+        # Remove the current (bad) parameters from history
+        self._history[source] = history[:-1]
+        self._save_history()
+        
+        logger.info(
+            "Calibration rolled back",
+            source=source,
+            from_version=current.version,
+            to_version=previous.version,
+            reason=reason,
+        )
+        
+        return previous
+    
+    def rollback_to_version(
+        self,
+        source: str,
+        target_version: int,
+        reason: str = "manual",
+    ) -> CalibrationParams | None:
+        """Rollback to a specific version.
+        
+        Args:
+            source: Source model identifier.
+            target_version: Version number to rollback to.
+            reason: Reason for rollback.
+            
+        Returns:
+            Target CalibrationParams or None if not found.
+        """
+        history = self._history.get(source, [])
+        
+        if not history:
+            return None
+        
+        target_idx = None
+        for i, params in enumerate(history):
+            if params.version == target_version:
+                target_idx = i
+                break
+        
+        if target_idx is None:
+            logger.warning(
+                "Rollback target version not found",
+                source=source,
+                target_version=target_version,
+            )
+            return None
+        
+        current = history[-1]
+        target = history[target_idx]
+        
+        # Record rollback event
+        event = RollbackEvent(
+            source=source,
+            from_version=current.version,
+            to_version=target.version,
+            reason=reason,
+            brier_before_rollback=current.brier_after or 0.0,
+            brier_after_rollback=target.brier_after or 0.0,
+        )
+        self._rollback_log.append(event)
+        self._save_rollback_log()
+        
+        # Keep only up to target version
+        self._history[source] = history[:target_idx + 1]
+        self._save_history()
+        
+        logger.info(
+            "Calibration rolled back to specific version",
+            source=source,
+            from_version=current.version,
+            to_version=target.version,
+            reason=reason,
+        )
+        
+        return target
+    
+    def get_rollback_log(
+        self,
+        source: str | None = None,
+        limit: int = 100,
+    ) -> list[RollbackEvent]:
+        """Get rollback event history.
+        
+        Args:
+            source: Optional source filter.
+            limit: Maximum events to return.
+            
+        Returns:
+            List of RollbackEvents (most recent first).
+        """
+        events = self._rollback_log
+        
+        if source:
+            events = [e for e in events if e.source == source]
+        
+        return list(reversed(events[-limit:]))
+    
+    def get_stats(self) -> dict[str, Any]:
+        """Get calibration history statistics.
+        
+        Returns:
+            Dictionary with history statistics.
+        """
+        return {
+            "sources": {
+                source: {
+                    "history_size": len(params_list),
+                    "latest_version": params_list[-1].version if params_list else 0,
+                    "latest_brier": params_list[-1].brier_after if params_list else None,
+                }
+                for source, params_list in self._history.items()
+            },
+            "total_rollbacks": len(self._rollback_log),
+            "max_history_per_source": self._max_history,
+        }
+
+
+# =============================================================================
 # Calibrator
 # =============================================================================
 
@@ -366,16 +794,24 @@ class Calibrator:
     - Applying calibration to predictions
     - Persistence of calibration parameters
     - Incremental recalibration as new samples arrive
+    - Degradation detection and automatic rollback (§4.6.1)
     """
     
     PARAMS_FILE = "calibration_params.json"
     SAMPLES_FILE = "calibration_samples.json"
     RECALIBRATION_THRESHOLD = 10  # Recalibrate after N new samples
     
-    def __init__(self):
+    def __init__(self, enable_auto_rollback: bool = True):
+        """Initialize calibrator.
+        
+        Args:
+            enable_auto_rollback: Enable automatic rollback on degradation.
+        """
         self._settings = get_settings()
         self._params: dict[str, CalibrationParams] = {}  # source -> params
         self._pending_samples: dict[str, list[CalibrationSample]] = {}  # source -> samples
+        self._history = CalibrationHistory()
+        self._enable_auto_rollback = enable_auto_rollback
         self._load_params()
         self._load_samples()
     
@@ -597,17 +1033,47 @@ class Calibrator:
         params.brier_before = brier_before
         params.brier_after = brier_after
         
-        # Save
+        # Check for degradation before saving
+        is_degraded, degradation_ratio = self._history.check_degradation(
+            source, brier_after
+        )
+        
+        if is_degraded and self._enable_auto_rollback:
+            # Rollback to previous parameters
+            logger.warning(
+                "Auto-rollback triggered due to degradation",
+                source=source,
+                new_brier=f"{brier_after:.4f}",
+                degradation=f"{degradation_ratio*100:.1f}%",
+            )
+            
+            rollback_params = self._history.rollback(source, reason="degradation")
+            
+            if rollback_params:
+                self._params[source] = rollback_params
+                self._save_params()
+                return rollback_params
+        
+        # Add to history (before updating current params)
+        self._history.add_params(params)
+        
+        # Update current params
         self._params[source] = params
         self._save_params()
+        
+        improvement_pct = (
+            (brier_before - brier_after) / brier_before * 100
+            if brier_before > 0 else 0.0
+        )
         
         logger.info(
             "Calibration fitted",
             source=source,
             method=method,
+            version=params.version,
             brier_before=f"{brier_before:.4f}",
             brier_after=f"{brier_after:.4f}",
-            improvement=f"{(brier_before - brier_after) / brier_before * 100:.1f}%",
+            improvement=f"{improvement_pct:.1f}%",
         )
         
         return params
@@ -756,6 +1222,102 @@ class Calibrator:
             List of source identifiers.
         """
         return list(self._params.keys())
+    
+    # =========================================================================
+    # Rollback Methods (§4.6.1)
+    # =========================================================================
+    
+    def rollback(
+        self,
+        source: str,
+        reason: str = "manual",
+    ) -> CalibrationParams | None:
+        """Rollback to previous calibration parameters.
+        
+        Args:
+            source: Source model identifier.
+            reason: Reason for rollback.
+            
+        Returns:
+            Rolled-back CalibrationParams or None.
+        """
+        rollback_params = self._history.rollback(source, reason)
+        
+        if rollback_params:
+            self._params[source] = rollback_params
+            self._save_params()
+            return rollback_params
+        
+        return None
+    
+    def rollback_to_version(
+        self,
+        source: str,
+        version: int,
+        reason: str = "manual",
+    ) -> CalibrationParams | None:
+        """Rollback to a specific version.
+        
+        Args:
+            source: Source model identifier.
+            version: Target version number.
+            reason: Reason for rollback.
+            
+        Returns:
+            Target CalibrationParams or None.
+        """
+        rollback_params = self._history.rollback_to_version(source, version, reason)
+        
+        if rollback_params:
+            self._params[source] = rollback_params
+            self._save_params()
+            return rollback_params
+        
+        return None
+    
+    def get_history(self, source: str) -> list[CalibrationParams]:
+        """Get calibration parameter history for a source.
+        
+        Args:
+            source: Source model identifier.
+            
+        Returns:
+            List of historical parameter sets.
+        """
+        return self._history.get_history(source)
+    
+    def get_rollback_log(
+        self,
+        source: str | None = None,
+        limit: int = 100,
+    ) -> list[RollbackEvent]:
+        """Get rollback event history.
+        
+        Args:
+            source: Optional source filter.
+            limit: Maximum events to return.
+            
+        Returns:
+            List of RollbackEvents.
+        """
+        return self._history.get_rollback_log(source, limit)
+    
+    def get_history_stats(self) -> dict[str, Any]:
+        """Get calibration history statistics.
+        
+        Returns:
+            Dictionary with history statistics.
+        """
+        return self._history.get_stats()
+    
+    def set_auto_rollback(self, enabled: bool) -> None:
+        """Enable or disable automatic rollback.
+        
+        Args:
+            enabled: Whether to enable auto-rollback.
+        """
+        self._enable_auto_rollback = enabled
+        logger.info("Auto-rollback setting updated", enabled=enabled)
 
 
 # =============================================================================
@@ -990,5 +1552,130 @@ async def add_calibration_sample(
         "recalibrated": recalibrated,
         "pending_samples": calibrator.get_pending_sample_count(source),
         "threshold": Calibrator.RECALIBRATION_THRESHOLD,
+    }
+
+
+async def rollback_calibration(
+    source: str,
+    version: int | None = None,
+    reason: str = "manual",
+) -> dict[str, Any]:
+    """Rollback calibration to a previous version (for MCP tool use).
+    
+    Implements §4.6.1 rollback functionality.
+    
+    Args:
+        source: Source model identifier.
+        version: Target version to rollback to. If None, rollback to previous.
+        reason: Reason for rollback.
+        
+    Returns:
+        Rollback result including new active parameters.
+    """
+    calibrator = get_calibrator()
+    
+    if version is not None:
+        params = calibrator.rollback_to_version(source, version, reason)
+    else:
+        params = calibrator.rollback(source, reason)
+    
+    if params is None:
+        return {
+            "ok": False,
+            "source": source,
+            "reason": "no_previous_version",
+        }
+    
+    return {
+        "ok": True,
+        "source": source,
+        "rolled_back_to_version": params.version,
+        "brier_after": params.brier_after,
+        "method": params.method,
+    }
+
+
+async def get_calibration_history(
+    source: str,
+) -> dict[str, Any]:
+    """Get calibration parameter history for a source (for MCP tool use).
+    
+    Args:
+        source: Source model identifier.
+        
+    Returns:
+        History with all parameter versions.
+    """
+    calibrator = get_calibrator()
+    
+    history = calibrator.get_history(source)
+    
+    return {
+        "source": source,
+        "versions": [
+            {
+                "version": p.version,
+                "method": p.method,
+                "brier_before": p.brier_before,
+                "brier_after": p.brier_after,
+                "samples_used": p.samples_used,
+                "fitted_at": p.fitted_at.isoformat(),
+            }
+            for p in history
+        ],
+        "total_versions": len(history),
+    }
+
+
+async def get_rollback_events(
+    source: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Get rollback event history (for MCP tool use).
+    
+    Args:
+        source: Optional source filter.
+        limit: Maximum events to return.
+        
+    Returns:
+        List of rollback events.
+    """
+    calibrator = get_calibrator()
+    
+    events = calibrator.get_rollback_log(source, limit)
+    
+    return {
+        "events": [e.to_dict() for e in events],
+        "total_events": len(events),
+        "filter_source": source,
+    }
+
+
+async def get_calibration_stats() -> dict[str, Any]:
+    """Get calibration and history statistics (for MCP tool use).
+    
+    Returns:
+        Comprehensive calibration statistics.
+    """
+    calibrator = get_calibrator()
+    
+    history_stats = calibrator.get_history_stats()
+    
+    current_params = {}
+    for source in calibrator.get_all_sources():
+        params = calibrator.get_params(source)
+        if params:
+            current_params[source] = {
+                "version": params.version,
+                "method": params.method,
+                "brier_after": params.brier_after,
+                "samples_used": params.samples_used,
+            }
+    
+    return {
+        "current_params": current_params,
+        "history": history_stats,
+        "recalibration_threshold": Calibrator.RECALIBRATION_THRESHOLD,
+        "degradation_threshold": CalibrationHistory.DEGRADATION_THRESHOLD,
     }
 
