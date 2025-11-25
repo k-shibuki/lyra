@@ -15,6 +15,18 @@ from src.crawler.fetcher import (
     get_tor_controller,
 )
 
+from src.crawler.sec_fetch import (
+    SecFetchSite,
+    SecFetchMode,
+    SecFetchDest,
+    SecFetchHeaders,
+    NavigationContext,
+    generate_sec_fetch_headers,
+    generate_headers_for_serp_click,
+    generate_headers_for_direct_navigation,
+    generate_headers_for_internal_link,
+)
+
 from src.crawler.robots import (
     RobotsChecker,
     RobotsRule,
@@ -75,6 +87,16 @@ __all__ = [
     "RateLimiter",
     "fetch_url",
     "get_tor_controller",
+    # Sec-Fetch Headers
+    "SecFetchSite",
+    "SecFetchMode",
+    "SecFetchDest",
+    "SecFetchHeaders",
+    "NavigationContext",
+    "generate_sec_fetch_headers",
+    "generate_headers_for_serp_click",
+    "generate_headers_for_direct_navigation",
+    "generate_headers_for_internal_link",
     # Robots/Sitemap
     "RobotsChecker",
     "RobotsRule",

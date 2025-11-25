@@ -34,6 +34,11 @@ from src.utils.notification import (
     InterventionType,
     InterventionStatus,
 )
+from src.crawler.sec_fetch import (
+    NavigationContext,
+    SecFetchDest,
+    generate_sec_fetch_headers,
+)
 
 logger = get_logger(__name__)
 
@@ -462,6 +467,12 @@ class HTTPFetcher:
     ) -> FetchResult:
         """Fetch URL using HTTP client with conditional request support.
         
+        Implements §4.3 sec-fetch-* header requirements:
+        - Sec-Fetch-Site: Relationship between initiator and target
+        - Sec-Fetch-Mode: Request mode (navigate for document fetch)
+        - Sec-Fetch-Dest: Request destination (document for pages)
+        - Sec-Fetch-User: ?1 for user-initiated navigation
+        
         Args:
             url: URL to fetch.
             referer: Referer header.
@@ -478,12 +489,22 @@ class HTTPFetcher:
         try:
             from curl_cffi import requests as curl_requests
             
-            # Prepare headers
+            # Prepare base headers
             req_headers = {
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
                 "Accept-Encoding": "gzip, deflate, br",
             }
+            
+            # Generate Sec-Fetch-* headers per §4.3
+            nav_context = NavigationContext(
+                target_url=url,
+                referer_url=referer,
+                is_user_initiated=True,
+                destination=SecFetchDest.DOCUMENT,
+            )
+            sec_fetch_headers = generate_sec_fetch_headers(nav_context)
+            req_headers.update(sec_fetch_headers.to_dict())
             
             if referer:
                 req_headers["Referer"] = referer

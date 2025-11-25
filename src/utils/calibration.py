@@ -283,8 +283,11 @@ def brier_score(
         labels: Ground truth labels (0 or 1).
         
     Returns:
-        Brier score.
+        Brier score. Returns NaN for empty inputs.
     """
+    if len(predictions) == 0 or len(labels) == 0:
+        return float("nan")
+    
     predictions = np.array(predictions)
     labels = np.array(labels)
     

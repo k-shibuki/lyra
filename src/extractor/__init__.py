@@ -8,3 +8,6 @@ from src.extractor.content import extract_content, ocr_image
 
 __all__ = ["extract_content", "ocr_image"]
 
+
+
+

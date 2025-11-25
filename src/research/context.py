@@ -394,3 +394,6 @@ class ResearchContext:
         
         return " ".join(notes) if notes else "特記事項なし"
 
+
+
+
