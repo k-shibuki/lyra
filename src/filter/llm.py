@@ -1,6 +1,8 @@
 """
 LLM-based extraction for Lancet.
 Uses local Ollama models for fact/claim extraction and summarization.
+
+Per §4.2: LLM processes are destroyed after task completion to prevent memory leaks.
 """
 
 import json
@@ -10,16 +12,31 @@ import aiohttp
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.lifecycle import (
+    get_lifecycle_manager,
+    ResourceType,
+    register_ollama_session_for_task,
+)
 
 logger = get_logger(__name__)
 
 
 class OllamaClient:
-    """Client for Ollama API."""
+    """Client for Ollama API with lifecycle management.
+    
+    Per §4.2, LLM processes should be released after task completion.
+    This client supports:
+    - Task-scoped session management
+    - Model unloading to free VRAM
+    - Automatic cleanup via lifecycle manager
+    """
     
     def __init__(self):
         self._settings = get_settings()
         self._session: aiohttp.ClientSession | None = None
+        self._current_model: str | None = None
+        self._current_task_id: str | None = None
+        self._lifecycle_manager = get_lifecycle_manager()
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session."""
@@ -29,10 +46,76 @@ class OllamaClient:
             )
         return self._session
     
+    def set_task_id(self, task_id: str | None) -> None:
+        """Set current task ID for lifecycle tracking.
+        
+        Args:
+            task_id: Task identifier.
+        """
+        self._current_task_id = task_id
+    
     async def close(self) -> None:
         """Close HTTP session."""
         if self._session and not self._session.closed:
             await self._session.close()
+    
+    async def unload_model(self, model: str | None = None) -> bool:
+        """Unload model to free VRAM.
+        
+        Per §4.2: LLM process context should be released after task completion.
+        
+        Args:
+            model: Model name to unload (uses current model if not specified).
+            
+        Returns:
+            True if unload was successful.
+        """
+        model = model or self._current_model
+        if not model:
+            return False
+        
+        try:
+            session = await self._get_session()
+            url = f"{self._settings.llm.ollama_host}/api/generate"
+            
+            # Ollama API: POST with keep_alive=0 unloads the model
+            payload = {
+                "model": model,
+                "prompt": "",
+                "keep_alive": 0,  # Unload immediately
+            }
+            
+            async with session.post(url, json=payload, timeout=10) as response:
+                if response.status == 200:
+                    logger.info("Ollama model unloaded", model=model)
+                    self._current_model = None
+                    return True
+                else:
+                    logger.debug(
+                        "Ollama model unload returned non-200",
+                        model=model,
+                        status=response.status,
+                    )
+                    return False
+                    
+        except Exception as e:
+            logger.debug(
+                "Ollama model unload failed (may be expected)",
+                model=model,
+                error=str(e),
+            )
+            return False
+    
+    async def cleanup_for_task(self, unload_model: bool = True) -> None:
+        """Cleanup resources after task completion.
+        
+        Args:
+            unload_model: Whether to unload the model to free VRAM.
+        """
+        if unload_model and self._settings.llm.unload_on_task_complete:
+            await self.unload_model()
+        
+        self._current_task_id = None
     
     async def generate(
         self,
@@ -60,6 +143,9 @@ class OllamaClient:
             model = self._settings.llm.fast_model
         if temperature is None:
             temperature = self._settings.llm.temperature
+        
+        # Track current model for cleanup
+        self._current_model = model
         
         url = f"{self._settings.llm.ollama_host}/api/generate"
         
@@ -162,6 +248,32 @@ async def _cleanup_client() -> None:
     if _client is not None:
         await _client.close()
         _client = None
+
+
+async def cleanup_llm_for_task(task_id: str | None = None) -> None:
+    """Cleanup LLM resources after task completion.
+    
+    Per §4.2: LLM processes should be released after task completion.
+    This unloads the model to free VRAM.
+    
+    Args:
+        task_id: Task identifier (for logging).
+    """
+    global _client
+    if _client is not None:
+        logger.info("Cleaning up LLM resources for task", task_id=task_id)
+        await _client.cleanup_for_task(unload_model=True)
+
+
+def set_llm_task_id(task_id: str | None) -> None:
+    """Set current task ID for LLM lifecycle tracking.
+    
+    Args:
+        task_id: Task identifier.
+    """
+    global _client
+    if _client is not None:
+        _client.set_task_id(task_id)
 
 
 # Prompt templates

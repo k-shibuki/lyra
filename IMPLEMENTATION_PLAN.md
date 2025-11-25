@@ -401,16 +401,19 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - `sec-fetch-site`, `sec-fetch-mode`, `sec-fetch-dest`の遷移コンテキスト整合
   - SERP→記事遷移での自然なヘッダー生成
   - 実装: `src/crawler/sec_fetch.py`, HTTPFetcher統合
-- [ ] **sec-ch-ua*ヘッダー** (§4.3)
+- [x] **sec-ch-ua*ヘッダー** (§4.3) ✅
   - Client Hintsヘッダーの適切な設定
+  - 実装: `src/crawler/sec_fetch.py` (SecCHUAHeaders, generate_sec_ch_ua_headers)
 
 #### 16.1.3 ブラウザ/JS層
-- [ ] **navigator.webdriverオーバーライド** (§4.3)
+- [x] **navigator.webdriverオーバーライド** (§4.3) ✅
   - `stealth.js`相当の最小限プロパティオーバーライド
+  - 実装: `src/crawler/stealth.py` (STEALTH_JS, CDP_STEALTH_JS)
 - [ ] **undetected-chromedriverフォールバック** (§4.3)
   - Cloudflare強/Turnstile時のフォールバック経路
-- [ ] **viewportジッター** (§4.3)
+- [x] **viewportジッター** (§4.3) ✅
   - 狭幅ジッター適用（ヒステリシスあり）
+  - 実装: `src/crawler/stealth.py` (ViewportJitter, ViewportJitterConfig)
 
 #### 16.1.4 プロファイル健全性監査 (§4.3.1) ✅
 - [x] **タスク開始時チェック**
@@ -519,14 +522,20 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 
 ---
 
-### 16.4 プロセス管理 (§4.2) 🟡
+### 16.4 プロセス管理 (§4.2) ✅
 
-#### 16.4.1 プロセスライフサイクル
-- [ ] **ブラウザインスタンス破棄**
+#### 16.4.1 プロセスライフサイクル ✅
+- [x] **ブラウザインスタンス破棄**
   - タスク完了ごとのKill
   - メモリリーク防止
-- [ ] **LLMプロセス破棄**
+  - 実装: `src/utils/lifecycle.py` (ProcessLifecycleManager, cleanup_task)
+  - BrowserFetcherへの統合: リソース登録と自動クリーンアップ
+- [x] **LLMプロセス破棄**
   - Ollamaコンテキスト解放
+  - 実装: `src/utils/lifecycle.py` (OLLAMA_SESSION リソースタイプ)
+  - `src/filter/llm.py` (OllamaClient.unload_model, cleanup_llm_for_task)
+  - 設定: `unload_on_task_complete` オプション追加
+  - テスト: 29件（全パス）
 
 ---
 
@@ -565,7 +574,7 @@ E2Eテストを有効に実施するための前提：
 - [x] sec-fetch-*ヘッダー整合 ✅
 - [x] sec-ch-ua*ヘッダー ✅
 - [x] ブラウザ経路アーカイブ保存 ✅
-- [ ] プロセスライフサイクル管理
+- [x] プロセスライフサイクル管理 ✅
 
 ---
 
@@ -600,7 +609,7 @@ E2Eテストを有効に実施するための前提：
 | Phase 13: 信頼度キャリブレーション | ✅ | 100% | |
 | Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
 | Phase 15: ドキュメント | ✅ | 100% | |
-| **Phase 16: 未実装機能** | 🔄 | 25% | **31項目残り（sec-fetch-*, sec-ch-ua*, webdriver override, viewport jitter, session transfer, browser archive, profile audit完了）** |
+| **Phase 16: 未実装機能** | 🔄 | 40% | **25項目残り** |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
 
@@ -608,9 +617,16 @@ E2Eテストを有効に実施するための前提：
 
 | 優先度 | 項目数 | 主要カテゴリ |
 |--------|--------|--------------|
-| 🔴 高（E2E前必須） | 15項目 | プロファイル監査、セッション移送、sec-fetch-*、IPv6/DNS |
-| 🟡 中（MVP強化） | 18項目 | ピボット探索、RDAP/crt.sh、校正ロールバック、プロセス管理 |
+| 🔴 高（E2E前必須） | 9項目 | IPv6/DNS/HTTP3、undetected-chromedriver |
+| 🟡 中（MVP強化） | 16項目 | ピボット探索、RDAP/crt.sh、校正ロールバック |
 | 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
+
+### 完了済み（Phase 16）
+- sec-fetch-*ヘッダー整合、sec-ch-ua*ヘッダー
+- navigator.webdriverオーバーライド、viewportジッター
+- プロファイル健全性監査、セッション移送ユーティリティ
+- ブラウザ経路アーカイブ保存
+- プロセスライフサイクル管理（ブラウザ/LLM破棄）
 
 **注意**: Phase 12-13 は requirements.md §3.1.2, §3.1.5, §3.1.6, §3.3.4 で定義された拡張機能であり、MVPに対する強化として位置づけられます。Phase 16はGap Analysisにより特定された残課題です。
 

@@ -39,6 +39,11 @@ from src.crawler.sec_fetch import (
     SecFetchDest,
     generate_sec_fetch_headers,
 )
+from src.utils.lifecycle import (
+    get_lifecycle_manager,
+    ResourceType,
+    register_browser_for_task,
+)
 
 logger = get_logger(__name__)
 
@@ -624,6 +629,7 @@ class BrowserFetcher:
     - Human-like behavior simulation (scrolling, mouse movement)
     - CDP connection to Windows Chrome for fingerprint consistency
     - Resource blocking (ads, trackers, large media)
+    - Lifecycle management for task-scoped cleanup (§4.2)
     """
     
     def __init__(self):
@@ -635,12 +641,22 @@ class BrowserFetcher:
         self._headful_context = None
         self._playwright = None
         self._human_behavior = HumanBehavior()
+        self._current_task_id: str | None = None
+        self._lifecycle_manager = get_lifecycle_manager()
     
-    async def _ensure_browser(self, headful: bool = False) -> tuple:
+    async def _ensure_browser(
+        self,
+        headful: bool = False,
+        task_id: str | None = None,
+    ) -> tuple:
         """Ensure browser connection is established.
+        
+        Per §4.2, browser instances are tracked for lifecycle management
+        and can be cleaned up after task completion.
         
         Args:
             headful: Whether to ensure headful browser.
+            task_id: Associated task ID for lifecycle tracking.
             
         Returns:
             Tuple of (browser, context).
@@ -649,6 +665,19 @@ class BrowserFetcher:
         
         if self._playwright is None:
             self._playwright = await async_playwright().start()
+            
+            # Register playwright for lifecycle management
+            if task_id:
+                await self._lifecycle_manager.register_resource(
+                    f"playwright_{id(self._playwright)}",
+                    ResourceType.PLAYWRIGHT,
+                    self._playwright,
+                    task_id,
+                )
+        
+        # Update current task ID
+        if task_id:
+            self._current_task_id = task_id
         
         browser_settings = self._settings.browser
         
@@ -664,6 +693,15 @@ class BrowserFetcher:
                     logger.warning("CDP connection failed, launching local headful browser", error=str(e))
                     self._headful_browser = await self._playwright.chromium.launch(headless=False)
                 
+                # Register browser for lifecycle management
+                if task_id:
+                    await self._lifecycle_manager.register_resource(
+                        f"browser_headful_{id(self._headful_browser)}",
+                        ResourceType.BROWSER,
+                        self._headful_browser,
+                        task_id,
+                    )
+                
                 self._headful_context = await self._headful_browser.new_context(
                     viewport={
                         "width": browser_settings.viewport_width,
@@ -673,6 +711,15 @@ class BrowserFetcher:
                     timezone_id="Asia/Tokyo",
                 )
                 await self._setup_blocking(self._headful_context)
+                
+                # Register context for lifecycle management
+                if task_id:
+                    await self._lifecycle_manager.register_resource(
+                        f"context_headful_{id(self._headful_context)}",
+                        ResourceType.BROWSER_CONTEXT,
+                        self._headful_context,
+                        task_id,
+                    )
             
             return self._headful_browser, self._headful_context
         else:
@@ -687,6 +734,15 @@ class BrowserFetcher:
                 )
                 logger.info("Launched headless browser")
                 
+                # Register browser for lifecycle management
+                if task_id:
+                    await self._lifecycle_manager.register_resource(
+                        f"browser_headless_{id(self._headless_browser)}",
+                        ResourceType.BROWSER,
+                        self._headless_browser,
+                        task_id,
+                    )
+                
                 self._headless_context = await self._headless_browser.new_context(
                     viewport={
                         "width": browser_settings.viewport_width,
@@ -697,6 +753,15 @@ class BrowserFetcher:
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 )
                 await self._setup_blocking(self._headless_context)
+                
+                # Register context for lifecycle management
+                if task_id:
+                    await self._lifecycle_manager.register_resource(
+                        f"context_headless_{id(self._headless_context)}",
+                        ResourceType.BROWSER_CONTEXT,
+                        self._headless_context,
+                        task_id,
+                    )
             
             return self._headless_browser, self._headless_context
     
@@ -807,7 +872,7 @@ class BrowserFetcher:
         if headful is None:
             headful = await self._should_use_headful(domain)
         
-        browser, context = await self._ensure_browser(headful=headful)
+        browser, context = await self._ensure_browser(headful=headful, task_id=task_id)
         
         page = None
         try:
