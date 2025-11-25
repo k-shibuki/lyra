@@ -415,6 +415,340 @@ class TestGraphExport:
         assert len(data["edges"]) == 1
 
 
+class TestCitationLoopDetection:
+    """Tests for citation loop detection."""
+
+    def test_detect_simple_citation_loop(self):
+        """Test detecting a simple citation loop (A -> B -> C -> A)."""
+        graph = EvidenceGraph()
+        
+        # Create a loop: page-1 -> page-2 -> page-3 -> page-1
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        graph.add_edge(
+            NodeType.PAGE, "page-2",
+            NodeType.PAGE, "page-3",
+            RelationType.CITES,
+        )
+        graph.add_edge(
+            NodeType.PAGE, "page-3",
+            NodeType.PAGE, "page-1",
+            RelationType.CITES,
+        )
+        
+        loops = graph.detect_citation_loops()
+        
+        assert len(loops) >= 1
+        assert loops[0]["type"] == "citation_loop"
+        assert loops[0]["length"] == 3
+
+    def test_detect_no_citation_loops(self):
+        """Test when there are no citation loops."""
+        graph = EvidenceGraph()
+        
+        # Linear chain: page-1 -> page-2 -> page-3
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        graph.add_edge(
+            NodeType.PAGE, "page-2",
+            NodeType.PAGE, "page-3",
+            RelationType.CITES,
+        )
+        
+        loops = graph.detect_citation_loops()
+        
+        assert len(loops) == 0
+
+    def test_detect_citation_loops_ignores_non_citation_edges(self):
+        """Test that loop detection only considers citation edges."""
+        graph = EvidenceGraph()
+        
+        # Create a loop with supports relation (should be ignored)
+        graph.add_edge(
+            NodeType.FRAGMENT, "frag-1",
+            NodeType.CLAIM, "claim-1",
+            RelationType.SUPPORTS,
+        )
+        graph.add_edge(
+            NodeType.CLAIM, "claim-1",
+            NodeType.FRAGMENT, "frag-1",
+            RelationType.SUPPORTS,
+        )
+        
+        loops = graph.detect_citation_loops()
+        
+        assert len(loops) == 0
+
+
+class TestRoundTripDetection:
+    """Tests for round-trip citation detection."""
+
+    def test_detect_round_trip(self):
+        """Test detecting round-trip citations (A cites B, B cites A)."""
+        graph = EvidenceGraph()
+        
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        graph.add_edge(
+            NodeType.PAGE, "page-2",
+            NodeType.PAGE, "page-1",
+            RelationType.CITES,
+        )
+        
+        round_trips = graph.detect_round_trips()
+        
+        assert len(round_trips) == 1
+        assert round_trips[0]["type"] == "round_trip"
+        assert round_trips[0]["severity"] == "high"
+
+    def test_detect_no_round_trips(self):
+        """Test when there are no round-trips."""
+        graph = EvidenceGraph()
+        
+        # One-way citation
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        
+        round_trips = graph.detect_round_trips()
+        
+        assert len(round_trips) == 0
+
+
+class TestSelfReferenceDetection:
+    """Tests for self-reference detection."""
+
+    def test_detect_direct_self_reference(self):
+        """Test detecting direct self-loop."""
+        graph = EvidenceGraph()
+        
+        # A node citing itself
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-1",
+            RelationType.CITES,
+        )
+        
+        self_refs = graph.detect_self_references()
+        
+        assert len(self_refs) == 1
+        assert self_refs[0]["type"] == "direct_self_reference"
+        assert self_refs[0]["severity"] == "critical"
+
+    def test_detect_same_domain_citation(self):
+        """Test detecting same-domain citations."""
+        graph = EvidenceGraph()
+        
+        # Add pages with domain info
+        graph.add_node(NodeType.PAGE, "page-1", domain="example.com")
+        graph.add_node(NodeType.PAGE, "page-2", domain="example.com")
+        
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        
+        self_refs = graph.detect_self_references()
+        
+        assert len(self_refs) == 1
+        assert self_refs[0]["type"] == "same_domain_citation"
+        assert self_refs[0]["domain"] == "example.com"
+
+    def test_no_self_references(self):
+        """Test when there are no self-references."""
+        graph = EvidenceGraph()
+        
+        graph.add_node(NodeType.PAGE, "page-1", domain="example.com")
+        graph.add_node(NodeType.PAGE, "page-2", domain="other.com")
+        
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        
+        self_refs = graph.detect_self_references()
+        
+        assert len(self_refs) == 0
+
+
+class TestCitationPenalties:
+    """Tests for citation penalty calculation."""
+
+    def test_calculate_penalties_with_loop(self):
+        """Test penalty calculation for nodes in loops."""
+        graph = EvidenceGraph()
+        
+        # Create a loop
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        graph.add_edge(
+            NodeType.PAGE, "page-2",
+            NodeType.PAGE, "page-1",
+            RelationType.CITES,
+        )
+        
+        penalties = graph.calculate_citation_penalties()
+        
+        # Nodes in round-trip should have penalties
+        assert penalties["page:page-1"] < 1.0
+        assert penalties["page:page-2"] < 1.0
+
+    def test_calculate_penalties_no_issues(self):
+        """Test penalty calculation with clean citations."""
+        graph = EvidenceGraph()
+        
+        # Linear chain
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        
+        penalties = graph.calculate_citation_penalties()
+        
+        # No penalties for clean graph
+        assert penalties["page:page-1"] == 1.0
+        assert penalties["page:page-2"] == 1.0
+
+
+class TestCitationIntegrityReport:
+    """Tests for citation integrity report."""
+
+    def test_integrity_report_clean_graph(self):
+        """Test integrity report for clean graph."""
+        graph = EvidenceGraph()
+        
+        # Clean linear chain
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        
+        report = graph.get_citation_integrity_report()
+        
+        assert report["integrity_score"] == 1.0
+        assert report["loop_count"] == 0
+        assert report["round_trip_count"] == 0
+        assert report["self_reference_count"] == 0
+
+    def test_integrity_report_problematic_graph(self):
+        """Test integrity report for graph with issues."""
+        graph = EvidenceGraph()
+        
+        # Add a round-trip
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        graph.add_edge(
+            NodeType.PAGE, "page-2",
+            NodeType.PAGE, "page-1",
+            RelationType.CITES,
+        )
+        
+        report = graph.get_citation_integrity_report()
+        
+        assert report["integrity_score"] < 1.0
+        assert report["round_trip_count"] == 1
+        assert report["problematic_node_count"] == 2
+
+    def test_integrity_report_empty_graph(self):
+        """Test integrity report for empty graph."""
+        graph = EvidenceGraph()
+        
+        report = graph.get_citation_integrity_report()
+        
+        assert report["integrity_score"] == 1.0
+        assert report["total_citation_edges"] == 0
+
+
+class TestPrimarySourceRatio:
+    """Tests for primary source ratio calculation."""
+
+    def test_primary_source_ratio_all_primary(self):
+        """Test ratio when all sources are primary."""
+        graph = EvidenceGraph()
+        
+        # Pages that don't cite other pages (primary)
+        graph.add_node(NodeType.PAGE, "page-1")
+        graph.add_node(NodeType.PAGE, "page-2")
+        
+        # Fragment cites pages (doesn't affect page->page ratio)
+        graph.add_edge(
+            NodeType.FRAGMENT, "frag-1",
+            NodeType.PAGE, "page-1",
+            RelationType.CITES,
+        )
+        
+        ratio = graph.get_primary_source_ratio()
+        
+        assert ratio["primary_count"] == 2
+        assert ratio["secondary_count"] == 0
+        assert ratio["primary_ratio"] == 1.0
+        assert ratio["meets_threshold"] is True
+
+    def test_primary_source_ratio_mixed(self):
+        """Test ratio with mixed primary/secondary sources."""
+        graph = EvidenceGraph()
+        
+        # page-1 is secondary (cites page-2)
+        graph.add_node(NodeType.PAGE, "page-1")
+        graph.add_node(NodeType.PAGE, "page-2")
+        graph.add_node(NodeType.PAGE, "page-3")
+        
+        graph.add_edge(
+            NodeType.PAGE, "page-1",
+            NodeType.PAGE, "page-2",
+            RelationType.CITES,
+        )
+        
+        ratio = graph.get_primary_source_ratio()
+        
+        assert ratio["primary_count"] == 2  # page-2 and page-3
+        assert ratio["secondary_count"] == 1  # page-1
+        assert ratio["total_pages"] == 3
+
+    def test_primary_source_ratio_empty(self):
+        """Test ratio for empty graph."""
+        graph = EvidenceGraph()
+        
+        ratio = graph.get_primary_source_ratio()
+        
+        assert ratio["primary_ratio"] == 0.0
+        assert ratio["meets_threshold"] is False
+
+
+class TestLoopSeverity:
+    """Tests for loop severity calculation."""
+
+    def test_severity_calculation(self):
+        """Test loop severity based on length."""
+        graph = EvidenceGraph()
+        
+        assert graph._calculate_loop_severity(2) == "critical"
+        assert graph._calculate_loop_severity(3) == "high"
+        assert graph._calculate_loop_severity(5) == "medium"
+        assert graph._calculate_loop_severity(10) == "low"
+
+
 class TestDatabaseIntegration:
     """Tests for database persistence."""
 
