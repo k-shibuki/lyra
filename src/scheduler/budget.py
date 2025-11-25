@@ -2,7 +2,7 @@
 Budget control for Lancet task execution.
 Implements §3.1 and §3.2.2 requirements:
 - Task page limit: ≤120 pages/task
-- Time limit: ≤20 minutes/task (GPU), ≤25 minutes (CPU)
+- Time limit: ≤60 minutes/task (GPU), ≤75 minutes (CPU)
 - LLM time ratio: ≤30% of total processing time
 """
 
@@ -41,7 +41,7 @@ class TaskBudget:
     
     # Time tracking (seconds)
     start_time: float = field(default_factory=time.time)
-    max_time_seconds: float = 1200.0  # 20 minutes default
+    max_time_seconds: float = 3600.0  # 60 minutes default
     
     # LLM time tracking
     llm_time_seconds: float = 0.0

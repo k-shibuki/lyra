@@ -394,7 +394,7 @@ class TestExplorationState:
         # Leave sq2 as PENDING
         
         # Act
-        result = state.finalize()
+        result = await state.finalize()
         
         # Assert
         assert result["ok"] is True
@@ -608,7 +608,7 @@ class TestExplorationIntegration:
         assert status["overall_progress"]["total_pages"] == 3
         
         # Step 5: Finalize
-        final = state.finalize()
+        final = await state.finalize()
         
         assert final["ok"] is True
         assert "summary" in final

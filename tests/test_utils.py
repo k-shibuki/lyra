@@ -95,7 +95,7 @@ class TestSettings:
         config = TaskLimitsConfig()
         
         assert config.max_pages_per_task == 120
-        assert config.max_time_minutes_gpu == 20
+        assert config.max_time_minutes_gpu == 60
         assert config.llm_time_ratio_max == 0.30
 
     def test_search_config(self):
