@@ -419,10 +419,14 @@ class TestCitationLoopDetection:
     """Tests for citation loop detection."""
 
     def test_detect_simple_citation_loop(self):
-        """Test detecting a simple citation loop (A -> B -> C -> A)."""
+        """Test detecting a simple citation loop (A -> B -> C -> A).
+        
+        §3.3.3 requirement: detect circular citations
+        §7 requirement: citation loop detection rate ≥80%
+        """
         graph = EvidenceGraph()
         
-        # Create a loop: page-1 -> page-2 -> page-3 -> page-1
+        # Create exactly one 3-node loop: page-1 -> page-2 -> page-3 -> page-1
         graph.add_edge(
             NodeType.PAGE, "page-1",
             NodeType.PAGE, "page-2",
@@ -441,9 +445,13 @@ class TestCitationLoopDetection:
         
         loops = graph.detect_citation_loops()
         
-        assert len(loops) >= 1
+        # STRICT: Exactly 1 loop must be detected
+        assert len(loops) == 1, f"Expected 1 loop, got {len(loops)}"
         assert loops[0]["type"] == "citation_loop"
         assert loops[0]["length"] == 3
+        # Verify all nodes are in the loop
+        node_ids = {n["obj_id"] for n in loops[0]["nodes"]}
+        assert node_ids == {"page-1", "page-2", "page-3"}
 
     def test_detect_no_citation_loops(self):
         """Test when there are no citation loops."""
