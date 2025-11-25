@@ -38,6 +38,29 @@ from src.crawler.sec_fetch import (
     NavigationContext,
     SecFetchDest,
     generate_sec_fetch_headers,
+    generate_sec_ch_ua_headers,
+)
+from src.crawler.stealth import (
+    apply_stealth_to_context,
+    get_stealth_args,
+    get_viewport_jitter,
+    ViewportJitterConfig,
+)
+from src.crawler.profile_audit import (
+    get_profile_auditor,
+    perform_health_check,
+    AuditStatus,
+    RepairAction,
+)
+from src.crawler.browser_archive import (
+    get_browser_archiver,
+    NetworkEventCollector,
+)
+from src.crawler.session_transfer import (
+    get_session_transfer_manager,
+    get_transfer_headers,
+    update_session,
+    SessionTransferManager,
 )
 
 logger = get_logger(__name__)
@@ -364,6 +387,8 @@ class FetchResult:
         pdf_path: str | None = None,
         warc_path: str | None = None,
         screenshot_path: str | None = None,
+        cdxj_path: str | None = None,
+        har_path: str | None = None,
         content_hash: str | None = None,
         reason: str | None = None,
         method: str = "http_client",
@@ -379,6 +404,8 @@ class FetchResult:
         self.pdf_path = pdf_path
         self.warc_path = warc_path
         self.screenshot_path = screenshot_path
+        self.cdxj_path = cdxj_path
+        self.har_path = har_path
         self.content_hash = content_hash
         self.reason = reason
         self.method = method
@@ -397,6 +424,8 @@ class FetchResult:
             "pdf_path": self.pdf_path,
             "warc_path": self.warc_path,
             "screenshot_path": self.screenshot_path,
+            "cdxj_path": self.cdxj_path,
+            "har_path": self.har_path,
             "content_hash": self.content_hash,
             "reason": self.reason,
             "method": self.method,
@@ -464,6 +493,7 @@ class HTTPFetcher:
         use_tor: bool = False,
         cached_etag: str | None = None,
         cached_last_modified: str | None = None,
+        session_id: str | None = None,
     ) -> FetchResult:
         """Fetch URL using HTTP client with conditional request support.
         
@@ -473,6 +503,10 @@ class HTTPFetcher:
         - Sec-Fetch-Dest: Request destination (document for pages)
         - Sec-Fetch-User: ?1 for user-initiated navigation
         
+        Session Transfer (§3.1.2):
+        When session_id is provided, uses transferred session data from prior
+        browser fetch including cookies, ETag, and proper header context.
+        
         Args:
             url: URL to fetch.
             referer: Referer header.
@@ -480,11 +514,15 @@ class HTTPFetcher:
             use_tor: Whether to use Tor.
             cached_etag: ETag from cache for conditional request.
             cached_last_modified: Last-Modified from cache for conditional request.
+            session_id: Session ID from browser fetch for session transfer (§3.1.2).
             
         Returns:
             FetchResult instance.
         """
         await self._rate_limiter.acquire(url)
+        
+        # Track if we're using session transfer
+        using_session = False
         
         try:
             from curl_cffi import requests as curl_requests
@@ -496,24 +534,54 @@ class HTTPFetcher:
                 "Accept-Encoding": "gzip, deflate, br",
             }
             
-            # Generate Sec-Fetch-* headers per §4.3
-            nav_context = NavigationContext(
-                target_url=url,
-                referer_url=referer,
-                is_user_initiated=True,
-                destination=SecFetchDest.DOCUMENT,
-            )
-            sec_fetch_headers = generate_sec_fetch_headers(nav_context)
-            req_headers.update(sec_fetch_headers.to_dict())
+            # Try to use session transfer if session_id provided (§3.1.2)
+            if session_id:
+                transfer_result = get_transfer_headers(
+                    url,
+                    session_id=session_id,
+                    include_conditional=True,
+                )
+                if transfer_result.ok:
+                    # Use session headers (includes cookies, sec-fetch-*, etc.)
+                    req_headers.update(transfer_result.headers)
+                    using_session = True
+                    logger.debug(
+                        "Using transferred session headers",
+                        session_id=session_id,
+                        url=url[:80],
+                    )
+                else:
+                    logger.debug(
+                        "Session transfer failed, using default headers",
+                        session_id=session_id,
+                        reason=transfer_result.reason,
+                    )
             
-            if referer:
-                req_headers["Referer"] = referer
-            
-            # Add conditional request headers for 304 support
-            if cached_etag:
-                req_headers["If-None-Match"] = cached_etag
-            if cached_last_modified:
-                req_headers["If-Modified-Since"] = cached_last_modified
+            # If not using session, generate standard headers
+            if not using_session:
+                # Generate Sec-Fetch-* headers per §4.3
+                nav_context = NavigationContext(
+                    target_url=url,
+                    referer_url=referer,
+                    is_user_initiated=True,
+                    destination=SecFetchDest.DOCUMENT,
+                )
+                sec_fetch_headers = generate_sec_fetch_headers(nav_context)
+                req_headers.update(sec_fetch_headers.to_dict())
+                
+                # Generate Sec-CH-UA-* (Client Hints) headers per §4.3
+                # These headers provide browser brand information to match Chrome impersonation
+                sec_ch_ua_headers = generate_sec_ch_ua_headers()
+                req_headers.update(sec_ch_ua_headers.to_dict())
+                
+                if referer:
+                    req_headers["Referer"] = referer
+                
+                # Add conditional request headers for 304 support
+                if cached_etag:
+                    req_headers["If-None-Match"] = cached_etag
+                if cached_last_modified:
+                    req_headers["If-Modified-Since"] = cached_last_modified
             
             if headers:
                 req_headers.update(headers)
@@ -590,7 +658,19 @@ class HTTPFetcher:
                 content_length=len(response.content),
                 has_etag=bool(resp_etag),
                 has_last_modified=bool(resp_last_modified),
+                using_session=using_session,
             )
+            
+            # Update session with response data if using session transfer (§3.1.2)
+            if using_session and session_id:
+                try:
+                    update_session(session_id, url, resp_headers)
+                except Exception as session_err:
+                    logger.debug(
+                        "Session update failed (non-fatal)",
+                        session_id=session_id,
+                        error=str(session_err),
+                    )
             
             return FetchResult(
                 ok=True,
@@ -624,6 +704,8 @@ class BrowserFetcher:
     - Human-like behavior simulation (scrolling, mouse movement)
     - CDP connection to Windows Chrome for fingerprint consistency
     - Resource blocking (ads, trackers, large media)
+    - Stealth measures (navigator.webdriver override, viewport jitter) per §4.3
+    - Browser archive (CDXJ, HAR) generation per §4.3.2
     """
     
     def __init__(self):
@@ -635,9 +717,36 @@ class BrowserFetcher:
         self._headful_context = None
         self._playwright = None
         self._human_behavior = HumanBehavior()
+        
+        # Initialize viewport jitter with settings from config
+        browser_settings = self._settings.browser
+        self._viewport_jitter = get_viewport_jitter(ViewportJitterConfig(
+            base_width=browser_settings.viewport_width,
+            base_height=browser_settings.viewport_height,
+            max_width_jitter=20,  # Narrow jitter per §4.3
+            max_height_jitter=15,
+            hysteresis_seconds=300.0,  # 5 min minimum between changes
+            enabled=True,
+        ))
+        
+        # Track CDP connection status for stealth adjustments
+        self._headful_is_cdp = False
+        
+        # Browser archiver for CDXJ/HAR generation (§4.3.2)
+        self._archiver = get_browser_archiver()
+        
+        # Profile health audit (§4.3.1)
+        self._profile_auditor = get_profile_auditor()
+        self._restart_requested = False
+        self._health_check_performed = False
     
     async def _ensure_browser(self, headful: bool = False) -> tuple:
         """Ensure browser connection is established.
+        
+        Applies stealth measures per §4.3:
+        - navigator.webdriver override via init script
+        - Viewport jitter with hysteresis
+        - Stealth launch arguments
         
         Args:
             headful: Whether to ensure headful browser.
@@ -652,6 +761,9 @@ class BrowserFetcher:
         
         browser_settings = self._settings.browser
         
+        # Get viewport with jitter applied per §4.3
+        viewport = self._viewport_jitter.get_viewport()
+        
         if headful:
             # Headful mode - for challenge bypass
             if self._headful_browser is None:
@@ -659,47 +771,152 @@ class BrowserFetcher:
                     # Try CDP connection first (Windows Chrome)
                     cdp_url = f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
                     self._headful_browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+                    self._headful_is_cdp = True
                     logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
                 except Exception as e:
                     logger.warning("CDP connection failed, launching local headful browser", error=str(e))
-                    self._headful_browser = await self._playwright.chromium.launch(headless=False)
+                    # Use stealth args for local launch
+                    self._headful_browser = await self._playwright.chromium.launch(
+                        headless=False,
+                        args=get_stealth_args(),
+                    )
+                    self._headful_is_cdp = False
                 
                 self._headful_context = await self._headful_browser.new_context(
-                    viewport={
-                        "width": browser_settings.viewport_width,
-                        "height": browser_settings.viewport_height,
-                    },
+                    viewport=viewport,
                     locale="ja-JP",
                     timezone_id="Asia/Tokyo",
                 )
+                
+                # Apply stealth scripts to context (all new pages get them)
+                await apply_stealth_to_context(
+                    self._headful_context,
+                    is_cdp=self._headful_is_cdp,
+                )
+                
                 await self._setup_blocking(self._headful_context)
+                
+                logger.info(
+                    "Headful context initialized with stealth",
+                    viewport=viewport,
+                    is_cdp=self._headful_is_cdp,
+                )
+                
+                # Perform profile health check on new context (§4.3.1)
+                await self._perform_health_check(self._headful_context)
             
             return self._headful_browser, self._headful_context
         else:
             # Headless mode - default
             if self._headless_browser is None:
+                # Use stealth args for launch
                 self._headless_browser = await self._playwright.chromium.launch(
                     headless=True,
-                    args=[
-                        "--disable-blink-features=AutomationControlled",
-                        "--disable-dev-shm-usage",
-                    ],
+                    args=get_stealth_args(),
                 )
-                logger.info("Launched headless browser")
+                logger.info("Launched headless browser with stealth args")
                 
                 self._headless_context = await self._headless_browser.new_context(
-                    viewport={
-                        "width": browser_settings.viewport_width,
-                        "height": browser_settings.viewport_height,
-                    },
+                    viewport=viewport,
                     locale="ja-JP",
                     timezone_id="Asia/Tokyo",
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 )
+                
+                # Apply stealth scripts to context
+                await apply_stealth_to_context(
+                    self._headless_context,
+                    is_cdp=False,
+                )
+                
                 await self._setup_blocking(self._headless_context)
+                
+                logger.info(
+                    "Headless context initialized with stealth",
+                    viewport=viewport,
+                )
+                
+                # Perform profile health check on new context (§4.3.1)
+                await self._perform_health_check(self._headless_context)
             
             return self._headless_browser, self._headless_context
     
+    async def _perform_health_check(self, context) -> None:
+        """Perform profile health check on browser context (§4.3.1).
+        
+        Checks fingerprint consistency against baseline and triggers
+        repair actions if drift is detected.
+        
+        Args:
+            context: Playwright browser context.
+        """
+        if self._health_check_performed:
+            # Only perform once per session to avoid overhead
+            return
+        
+        try:
+            # Create a temporary page for health check
+            page = await context.new_page()
+            
+            try:
+                # Navigate to about:blank to establish fingerprint
+                await page.goto("about:blank", wait_until="domcontentloaded")
+                
+                # Perform health check
+                audit_result = await perform_health_check(
+                    page=page,
+                    force=True,  # Force check on initialization
+                    auto_repair=True,
+                    browser_manager=self,
+                )
+                
+                self._health_check_performed = True
+                
+                if audit_result.status == AuditStatus.PASS:
+                    logger.info("Profile health check passed")
+                elif audit_result.status == AuditStatus.DRIFT:
+                    logger.warning(
+                        "Profile drift detected during health check",
+                        drifts=[d.attribute for d in audit_result.drifts],
+                        repair_status=audit_result.repair_status.value,
+                    )
+                    
+                    # If repair recommended browser restart, flag it
+                    if RepairAction.RESTART_BROWSER in audit_result.repair_actions:
+                        self._restart_requested = True
+                        
+            finally:
+                await page.close()
+                
+        except Exception as e:
+            logger.warning(
+                "Profile health check failed (non-fatal)",
+                error=str(e),
+            )
+            # Don't block browser initialization on health check failure
+            self._health_check_performed = True
+    
+    async def request_restart(self) -> None:
+        """Request browser restart due to profile drift.
+        
+        Called by ProfileAuditor when repair requires browser restart.
+        """
+        self._restart_requested = True
+        logger.info("Browser restart requested due to profile drift")
+    
+    def is_restart_requested(self) -> bool:
+        """Check if browser restart has been requested.
+        
+        Returns:
+            True if restart is needed.
+        """
+        return self._restart_requested
+    
+    def clear_restart_request(self) -> None:
+        """Clear the restart request flag after handling."""
+        self._restart_requested = False
+        self._health_check_performed = False
+
     async def _setup_blocking(self, context) -> None:
         """Setup resource blocking rules.
         
@@ -784,6 +1001,7 @@ class BrowserFetcher:
         simulate_human: bool = True,
         task_id: str | None = None,
         allow_intervention: bool = True,
+        save_archive: bool = True,
     ) -> FetchResult:
         """Fetch URL using browser with automatic mode selection.
         
@@ -795,6 +1013,7 @@ class BrowserFetcher:
             simulate_human: Whether to simulate human behavior.
             task_id: Associated task ID for intervention tracking.
             allow_intervention: Whether to allow manual intervention on challenge.
+            save_archive: Whether to save browser archive (CDXJ/HAR) per §4.3.2.
             
         Returns:
             FetchResult instance.
@@ -810,8 +1029,13 @@ class BrowserFetcher:
         browser, context = await self._ensure_browser(headful=headful)
         
         page = None
+        network_collector: NetworkEventCollector | None = None
         try:
             page = await context.new_page()
+            
+            # Attach network event collector for archive generation (§4.3.2)
+            if save_archive:
+                network_collector = await self._archiver.attach_to_page(page, url)
             
             # Set referer if provided
             if referer:
@@ -937,6 +1161,42 @@ class BrowserFetcher:
             if take_screenshot:
                 screenshot_path = await _save_screenshot(page, url)
             
+            # Save browser archive (CDXJ/HAR) per §4.3.2
+            cdxj_path = None
+            har_path = None
+            if save_archive:
+                try:
+                    # Get page title for HAR
+                    page_title = ""
+                    try:
+                        page_title = await page.title()
+                    except Exception:
+                        pass
+                    
+                    archive_result = await self._archiver.save_archive(
+                        url=url,
+                        content=content_bytes,
+                        title=page_title,
+                        collector=network_collector,
+                        warc_path=str(warc_path) if warc_path else None,
+                    )
+                    cdxj_path = archive_result.get("cdxj_path")
+                    har_path = archive_result.get("har_path")
+                    
+                    if archive_result.get("status") == "success":
+                        logger.debug(
+                            "Browser archive saved",
+                            url=url[:80],
+                            cdxj_path=cdxj_path,
+                            har_path=har_path,
+                        )
+                except Exception as archive_err:
+                    logger.warning(
+                        "Browser archive save failed (non-fatal)",
+                        url=url[:80],
+                        error=str(archive_err),
+                    )
+            
             # Extract ETag and Last-Modified from response headers
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
             resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
@@ -949,7 +1209,29 @@ class BrowserFetcher:
                 headful=headful,
                 has_etag=bool(resp_etag),
                 has_last_modified=bool(resp_last_modified),
+                has_archive=bool(cdxj_path or har_path),
             )
+            
+            # Capture session for future HTTP client transfers (§3.1.2)
+            session_id = None
+            try:
+                session_manager = get_session_transfer_manager()
+                session_id = await session_manager.capture_from_browser(
+                    context,
+                    url,
+                    resp_headers,
+                )
+                if session_id:
+                    logger.debug(
+                        "Session captured for HTTP client transfer",
+                        session_id=session_id,
+                        url=url[:80],
+                    )
+            except Exception as session_err:
+                logger.debug(
+                    "Session capture failed (non-fatal)",
+                    error=str(session_err),
+                )
             
             return FetchResult(
                 ok=True,
@@ -959,6 +1241,8 @@ class BrowserFetcher:
                 html_path=str(html_path) if html_path else None,
                 warc_path=str(warc_path) if warc_path else None,
                 screenshot_path=str(screenshot_path) if screenshot_path else None,
+                cdxj_path=cdxj_path,
+                har_path=har_path,
                 content_hash=content_hash,
                 method="browser_headful" if headful else "browser_headless",
                 from_cache=False,
@@ -1389,6 +1673,7 @@ async def fetch_url(
             - skip_cache: Skip cache lookup and conditional requests.
             - max_retries: Override max retries (default: 3).
             - allow_intervention: Allow manual intervention on challenge (default: True).
+            - session_id: Session ID for session transfer from prior browser fetch (§3.1.2).
         task_id: Associated task ID.
         
     Returns:
@@ -1419,6 +1704,7 @@ async def fetch_url(
         use_tor = policy.get("use_tor", False)
         skip_cache = policy.get("skip_cache", False)
         max_retries = policy.get("max_retries", settings.crawler.max_retries)
+        session_id = policy.get("session_id")  # Session transfer (§3.1.2)
         
         # Initialize fetchers
         if _http_fetcher is None:
@@ -1461,8 +1747,9 @@ async def fetch_url(
                 use_tor=use_tor,
                 cached_etag=cached_etag,
                 cached_last_modified=cached_last_modified,
+                session_id=session_id,  # Session transfer (§3.1.2)
             )
-            escalation_path.append(f"http_client(tor={use_tor})")
+            escalation_path.append(f"http_client(tor={use_tor}, session={bool(session_id)})")
             
             # Handle 304 Not Modified - use cached content
             if result.ok and result.status == 304 and cached_content_path:
@@ -1493,6 +1780,7 @@ async def fetch_url(
                         use_tor=True,
                         cached_etag=cached_etag,
                         cached_last_modified=cached_last_modified,
+                        session_id=session_id,  # Session transfer (§3.1.2)
                     )
                     escalation_path.append("http_client(tor=True)")
                     retry_count += 1
