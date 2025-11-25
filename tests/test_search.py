@@ -44,8 +44,8 @@ class TestSearXNGClient:
         mock_response = make_mock_response(mock_searxng_response)
         
         with patch.object(client, "_get_session") as mock_get_session:
-            mock_session = AsyncMock()
-            mock_session.get.return_value.__aenter__.return_value = mock_response
+            mock_session = MagicMock()
+            mock_session.get.return_value = mock_response
             mock_get_session.return_value = mock_session
             
             await client.search(
@@ -119,8 +119,8 @@ class TestSearXNGClient:
         mock_response = make_mock_response(mock_searxng_response)
         
         with patch.object(client, "_get_session") as mock_get_session:
-            mock_session = AsyncMock()
-            mock_session.get.return_value.__aenter__.return_value = mock_response
+            mock_session = MagicMock()
+            mock_session.get.return_value = mock_response
             mock_get_session.return_value = mock_session
             
             start_time = time.time()
