@@ -325,6 +325,105 @@ TOOLS = [
             "required": ["task_id"]
         }
     ),
+    # ============================================================
+    # Phase 11: Exploration Control Tools
+    # ============================================================
+    Tool(
+        name="get_research_context",
+        description="Get design support information for subquery design. Returns entities, templates, and past query success rates. Does NOT generate subquery candidates - Cursor AI designs subqueries using this information.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to get context for"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
+    Tool(
+        name="execute_subquery",
+        description="Execute a subquery designed by Cursor AI. Performs search, fetch, extract pipeline and returns results.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "subquery": {
+                    "type": "string",
+                    "description": "Subquery text designed by Cursor AI"
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low"],
+                    "description": "Execution priority",
+                    "default": "medium"
+                },
+                "budget_pages": {
+                    "type": "integer",
+                    "description": "Optional page budget for this subquery"
+                },
+                "budget_time_seconds": {
+                    "type": "integer",
+                    "description": "Optional time budget for this subquery"
+                }
+            },
+            "required": ["task_id", "subquery"]
+        }
+    ),
+    Tool(
+        name="get_exploration_status",
+        description="Get current exploration status including subquery states, progress, budget, and recommendations.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to get status for"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
+    Tool(
+        name="execute_refutation",
+        description="Execute refutation search for a claim or subquery using mechanical patterns. Cursor AI specifies the target; Lancet applies suffix patterns.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "claim_id": {
+                    "type": "string",
+                    "description": "Claim ID to refute (optional)"
+                },
+                "subquery_id": {
+                    "type": "string",
+                    "description": "Subquery ID to refute (optional)"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
+    Tool(
+        name="finalize_exploration",
+        description="Finalize exploration and return summary with unsatisfied subqueries and followup suggestions.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to finalize"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
 ]
 
 
@@ -382,6 +481,12 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "create_task": _handle_create_task,
         "get_task_status": _handle_get_task_status,
         "generate_report": _handle_generate_report,
+        # Phase 11: Exploration Control
+        "get_research_context": _handle_get_research_context,
+        "execute_subquery": _handle_execute_subquery,
+        "get_exploration_status": _handle_get_exploration_status,
+        "execute_refutation": _handle_execute_refutation,
+        "finalize_exploration": _handle_finalize_exploration,
     }
     
     handler = handlers.get(name)
@@ -597,6 +702,135 @@ async def _handle_generate_report(args: dict[str, Any]) -> dict[str, Any]:
     )
     
     return result
+
+
+# ============================================================
+# Phase 11: Exploration Control Handlers
+# ============================================================
+
+# Global state managers (per task)
+_exploration_states: dict[str, "ExplorationState"] = {}
+
+
+async def _get_exploration_state(task_id: str) -> "ExplorationState":
+    """Get or create exploration state for a task."""
+    from src.research.state import ExplorationState
+    
+    if task_id not in _exploration_states:
+        state = ExplorationState(task_id)
+        await state.load_state()
+        _exploration_states[task_id] = state
+    
+    return _exploration_states[task_id]
+
+
+async def _handle_get_research_context(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_research_context tool call.
+    
+    Returns design support information for Cursor AI.
+    Does NOT generate subquery candidates.
+    """
+    from src.research.context import ResearchContext
+    
+    task_id = args["task_id"]
+    
+    with LogContext(task_id=task_id):
+        context = ResearchContext(task_id)
+        result = await context.get_context()
+        return result
+
+
+async def _handle_execute_subquery(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle execute_subquery tool call.
+    
+    Executes a subquery designed by Cursor AI.
+    """
+    from src.research.executor import SubqueryExecutor
+    
+    task_id = args["task_id"]
+    subquery = args["subquery"]
+    priority = args.get("priority", "medium")
+    budget_pages = args.get("budget_pages")
+    budget_time_seconds = args.get("budget_time_seconds")
+    
+    with LogContext(task_id=task_id):
+        state = await _get_exploration_state(task_id)
+        executor = SubqueryExecutor(task_id, state)
+        
+        result = await executor.execute(
+            subquery=subquery,
+            priority=priority,
+            budget_pages=budget_pages,
+            budget_time_seconds=budget_time_seconds,
+        )
+        
+        return result.to_dict()
+
+
+async def _handle_get_exploration_status(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_exploration_status tool call.
+    
+    Returns current exploration status for Cursor AI decision making.
+    """
+    task_id = args["task_id"]
+    
+    with LogContext(task_id=task_id):
+        state = await _get_exploration_state(task_id)
+        return state.get_status()
+
+
+async def _handle_execute_refutation(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle execute_refutation tool call.
+    
+    Executes refutation search using mechanical patterns.
+    """
+    from src.research.refutation import RefutationExecutor
+    
+    task_id = args["task_id"]
+    claim_id = args.get("claim_id")
+    subquery_id = args.get("subquery_id")
+    
+    with LogContext(task_id=task_id):
+        state = await _get_exploration_state(task_id)
+        executor = RefutationExecutor(task_id, state)
+        
+        if claim_id:
+            result = await executor.execute_for_claim(claim_id)
+        elif subquery_id:
+            result = await executor.execute_for_subquery(subquery_id)
+        else:
+            return {
+                "ok": False,
+                "error": "Either claim_id or subquery_id must be provided",
+            }
+        
+        return result.to_dict()
+
+
+async def _handle_finalize_exploration(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle finalize_exploration tool call.
+    
+    Finalizes exploration and returns summary.
+    """
+    task_id = args["task_id"]
+    
+    with LogContext(task_id=task_id):
+        state = await _get_exploration_state(task_id)
+        result = state.finalize()
+        
+        # Save final state
+        await state.save_state()
+        
+        # Clean up state manager
+        if task_id in _exploration_states:
+            del _exploration_states[task_id]
+        
+        return result
 
 
 # ============================================================

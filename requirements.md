@@ -22,6 +22,105 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
  - 監査可能性: HTML/PDFのWARC保存とスクリーンショット、抽出断片のハッシュ（出典・見出し・周辺文脈）を保存し、検証/再現を容易にする。
  - ヒューマンインザループ: CAPTCHA/ログイン/クッキーバナー等の突破は人手介入を許容（最小介入・SLA/上限を運用で管理、§3.6参照）。
 
+### 2.1. Cursor AI と Lancet の責任分界（探索制御）
+
+本システムでは「思考（何を調べるか）」と「作業（どう調べるか）」を明確に分離する。OSINT品質を最優先し、**クエリ/サブクエリの設計を含む探索の戦略的判断はすべてCursor AIが担う**。ローカルLLM（Qwen2.5-3B等）はCursor AIより推論力が劣るため、クエリ設計には関与しない。
+
+#### 2.1.1. 責任マトリクス
+
+| 責任領域 | Cursor AI（思考） | Lancet MCP（作業） |
+|---------|------------------|-------------------|
+| **問いの分解** | サブクエリの設計・優先度決定 | 設計支援情報の提供（エンティティ抽出、テンプレート候補等） |
+| **クエリ生成** | すべてのクエリの設計・指定 | 機械的展開のみ（同義語・ミラークエリ・演算子付与） |
+| **探索計画** | 計画の立案・決定 | 計画の実行・進捗報告 |
+| **探索制御** | 次のアクション判断 | 充足度・新規性メトリクスの計算と報告 |
+| **反証探索** | 逆クエリの設計・指定 | 機械パターンの適用（「課題」「批判」等の接尾辞付与） |
+| **停止判断** | 探索の終了指示 | 停止条件充足の報告 |
+| **レポート構成** | 論理構成・執筆判断 | 素材（断片・引用）の提供 |
+
+**重要**: クエリ/サブクエリの「設計」は例外なくCursor AIが行う。Lancetが「候補を提案」することはない。
+
+#### 2.1.2. 対話フロー
+
+探索サイクルは以下のCursor AI主導のループで進行する：
+
+```
+1. Cursor AI → create_task(query)
+   └─ Lancet: タスク作成、初期状態返却
+
+2. Cursor AI → get_research_context(task_id)
+   └─ Lancet: 設計支援情報を返却
+     - 抽出されたエンティティ（人名/組織/地名等）
+     - 適用可能な垂直テンプレート（学術/政府/企業等）
+     - 類似過去クエリの成功率
+     - 推奨エンジン/ドメイン
+
+3. Cursor AI: 情報を基にサブクエリを設計（この判断はCursor AIのみが行う）
+
+4. Cursor AI → execute_subquery(task_id, subquery, priority)
+   └─ Lancet: 検索実行→取得→抽出→評価を自律実行
+   └─ Lancet: 結果サマリ（収穫率、新規断片数、充足度）を返却
+
+5. Cursor AI → get_exploration_status(task_id)
+   └─ Lancet: 現在の探索状態を返却
+     - 実行済みサブクエリの状態（充足/部分充足/未充足）
+     - 新規性スコア推移
+     - 残り予算（ページ数/時間）
+     - 発見された新エンティティ（次のクエリ設計の参考）
+
+6. Cursor AI: 状況を評価し、次のサブクエリを設計・実行指示
+   （ステップ4-5を繰り返す）
+
+7. Cursor AI → execute_refutation(task_id, claim_ids)
+   └─ Lancet: Cursor AI指定の主張に対し機械パターンで反証検索
+
+8. Cursor AI → finalize_exploration(task_id)
+   └─ Lancet: 最終状態をDBに記録、未充足項目を明示
+
+9. Cursor AI → generate_report(task_id)
+   └─ Lancet: 素材を提供
+   └─ Cursor AI: レポート構成・執筆
+```
+
+#### 2.1.3. Lancetの自律範囲
+
+Lancetは**Cursor AIの指示に基づいて**以下を自律的に実行する（指示なしに勝手に探索を進めない）：
+
+- **機械的展開のみ**: Cursor AI指定のサブクエリに対する同義語展開、言語横断ミラークエリ、演算子付与
+- **取得・抽出パイプライン**: 検索→プリフライト→取得→抽出→ランキング→NLI
+- **メトリクス計算**: 収穫率、新規性、充足度、重複率の計算
+- **異常ハンドリング**: CAPTCHA/ブロック検知、手動介入トリガー、クールダウン適用
+- **ポリシー自動調整**: エンジン重み、ドメインQPS、経路選択（§4.6に準拠）
+
+**Lancetが行わないこと**: サブクエリの設計、クエリ候補の提案、探索方針の決定
+
+#### 2.1.4. ローカルLLMの役割
+
+Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**する。クエリ設計には一切関与しない。
+
+- **許可される用途**:
+  - 言語横断ミラークエリの翻訳・正規化（Cursor AI指定のクエリを他言語へ変換）
+  - 断片からの事実/主張抽出（§3.3に準拠）
+  - 固有表現抽出（エンティティ認識）
+
+- **禁止される用途**:
+  - **サブクエリの設計・候補生成**（Cursor AIの専権）
+  - 探索の戦略的判断（次に何を調べるか）
+  - サブクエリの優先度決定
+  - 探索の停止判断
+  - 反証クエリの設計（機械パターン適用のみ許可）
+  - レポートの論理構成決定
+
+この制約により、**OSINT品質に直結するすべての設計判断**はCursor AI（高性能LLM）が担い、Lancetは効率的な作業実行に専念する。
+
+#### 2.1.5. 判断委譲の例外
+
+以下の状況では、Lancetが一時的に判断を代行し、事後報告する：
+
+- **予算枯渇**: 総ページ数/時間上限に達した場合、探索を自動停止し報告
+- **深刻なブロック**: 全ドメインがクールダウン中の場合、探索を一時停止し報告
+- **手動介入タイムアウト**: 3分SLA超過時、スキップ/クールダウン適用を自動決定
+
 ## 3. 機能要件
 
 ### 3.1. 自律リサーチ機能
@@ -165,6 +264,85 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
 - 予算:
   - Wayback取得はドメイン別/タスク別に上限（例: 総ページ数の≤15%）を適用し、新規性が高い主張にのみ付与
 
+#### 3.1.7. 探索サイクル制御（§2.1との連携）
+
+本セクションは§2.1で定義した責任分界に基づき、探索サイクルの詳細を規定する。
+
+##### 3.1.7.1. サブクエリの設計（Cursor AI主導）
+
+サブクエリの設計は**Cursor AIが全面的に行う**。LancetはローカルLLMでサブクエリを生成しない。
+
+- **設計支援情報の提供**（Lancet）:
+  - `get_research_context` ツールで以下を返却:
+    - 抽出されたエンティティ（人名/組織/地名/製品名等）
+    - 適用可能な垂直テンプレート（学術/政府/企業/技術等）
+    - 類似過去クエリの成功率・収穫率
+    - 推奨エンジン/高成功率ドメイン
+  - これらは「参考情報」であり、サブクエリの設計判断には関与しない
+
+- **設計フロー**（Cursor AI）:
+  1. `get_research_context` で支援情報を取得
+  2. 問いを分析し、必要なサブクエリを**自ら設計**:
+     - 事実確認クエリ（what/when/where）
+     - 背景・文脈クエリ（why/how）
+     - 反証クエリ（課題/批判/limitations）
+     - エンティティ展開クエリ（関連組織/人物）
+  3. 各サブクエリに優先度を付与（high/medium/low）
+  4. `execute_subquery` で個別に実行指示
+
+- **設計時の考慮事項**（Cursor AIガイドライン）:
+  - 一次資料にアクセスしやすいクエリを優先（site:go.jp, filetype:pdf等）
+  - 言語横断が有効なテーマでは日英両方のクエリを設計
+  - 反証クエリは主張が固まった段階で設計（早すぎる反証探索は非効率）
+
+##### 3.1.7.2. 探索状態の管理
+
+- **サブクエリ状態**:
+  - `pending`: 生成済み・未実行
+  - `running`: 実行中
+  - `satisfied`: 充足（独立ソース≥3、または一次+二次≥2）
+  - `partial`: 部分充足（独立ソース1〜2件）
+  - `exhausted`: 予算消化または新規性低下で停止
+  - `skipped`: 手動スキップ
+
+- **タスク状態**:
+  - `created`: タスク作成済み（Cursor AIがサブクエリを設計中）
+  - `exploring`: 探索実行中
+  - `awaiting_decision`: Cursor AIの判断待ち（状態報告後）
+  - `finalizing`: 探索完了処理中
+  - `completed`: 完了
+  - `failed`: エラーで中断
+
+##### 3.1.7.3. 充足度判定
+
+各サブクエリの充足度は以下の基準で計算する：
+
+- **独立ソース数**: 異なるドメインかつ同一ナラティブクラスタに属さないソースの数
+- **一次資料有無**: 政府/学術/規格/公式発表からの直接証拠
+- **充足スコア**: `min(1.0, (独立ソース数 / 3) * 0.7 + (一次資料有無 ? 0.3 : 0))`
+- **充足判定**: スコア ≥ 0.8 で `satisfied`
+
+##### 3.1.7.4. 新規性判定と停止条件
+
+- **新規性スコア**: 直近k=20件の取得断片における新規有用断片の比率
+- **停止条件**:
+  - 新規性 < 10% が2サイクル（各サイクル=10件取得）継続で当該サブクエリを停止
+  - 全サブクエリが `satisfied` / `exhausted` / `skipped` で探索完了
+  - 予算（ページ数/時間）枯渇で強制終了
+
+##### 3.1.7.5. 反証探索の強制
+
+- **トリガ**: Cursor AIが反証探索を指示（通常はサブクエリが `satisfied` になった後）
+- **逆クエリ設計**（Cursor AI）:
+  - 主張に対する反証クエリを設計（例: "X の課題", "X 批判", "X limitations"）
+  - 対立仮説や否定形のクエリを設計
+- **機械パターン適用**（Lancet）:
+  - Cursor AI指定のクエリに対し、定型接尾辞を機械的に付与（"課題/批判/問題点/limitations/反論/誤り"）
+  - **注意**: ローカルLLMによる逆クエリ設計は行わない
+- **反証探索の結果**:
+  - 反証発見: エビデンスグラフに `refutes` エッジを追加
+  - 反証ゼロ: 信頼度を5%減衰し、「反証未発見」を明記
+
 ### 3.2. エージェント実行機能（Python）
 - ブラウザ操作: Playwright（CDP接続）を一次手段とし、Windows側Chromeの実プロファイルをpersistent contextで利用。必要時のみヘッドフルに昇格する。
 - 検索エンジン統合: ローカルで稼働するSearXNG（メタ検索エンジン）に対しクエリを送信し、結果を取得する。
@@ -175,6 +353,8 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
    - プロファイルは拡張機能を最小・フォント/言語/タイムゾーンはOS設定と整合。クラッシュ時の影響面を局所化
 
 #### 3.2.1. MCPツールIF仕様
+
+##### 基本ツール（Phase 1-10）
 - `search_serp(query, engines, limit, time_range)` → `[{title, url, snippet, date, engine, rank}]`
 - `fetch_url(url, context, policy)` → `{ok, status, headers, html_path|pdf_path, warc_path?, screenshot_path?, reason}`
 - `extract_content(input_path|html, type)` → `{text, title?, headings?, language?, tables?, meta}`
@@ -183,7 +363,173 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
 - `nli_judge(pairs)` → `[{pair_id, stance(supports|refutes|neutral), confidence}]`
 - `notify_user(event, payload)` → `{shown, deadline_at}`
 - `schedule_job(job)` → `{accepted, slot(gpu|browser_headful|network|cpu_nlp), priority, eta}`
+- `create_task(query, config?)` → `{task_id, status}`
+- `get_task_status(task_id)` → `{task, progress}`
+- `generate_report(task_id, format, include_evidence_graph)` → `{report_path, summary}`
+
+##### 探索制御ツール（Phase 11）
+
+- `get_research_context(task_id)` → サブクエリ設計の支援情報を提供（候補生成は行わない）
+  - 入力:
+    - `task_id`: 対象タスクID
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "task_id": "...",
+      "original_query": "元の問い",
+      "extracted_entities": [
+        {
+          "text": "エンティティ名",
+          "type": "person|organization|location|product|event",
+          "context": "抽出元の文脈"
+        }
+      ],
+      "applicable_templates": [
+        {
+          "name": "academic|government|corporate|technical",
+          "description": "テンプレートの説明",
+          "example_operators": ["site:go.jp", "filetype:pdf"]
+        }
+      ],
+      "similar_past_queries": [
+        {
+          "query": "過去の類似クエリ",
+          "harvest_rate": 0.45,
+          "success_engines": ["duckduckgo", "qwant"]
+        }
+      ],
+      "recommended_engines": ["duckduckgo", "qwant", "mojeek"],
+      "high_success_domains": ["go.jp", "who.int", "arxiv.org"],
+      "notes": "設計時の参考情報（Cursor AIへのヒント）"
+    }
+    ```
+  - **注意**: このツールはサブクエリ候補を生成しない。Cursor AIがこの情報を参考にサブクエリを設計する。
+
+- `execute_subquery(task_id, subquery, priority?, budget?)` → サブクエリを実行
+  - 入力:
+    - `task_id`: タスクID
+    - `subquery`: サブクエリテキストまたはID
+    - `priority`: 実行優先度（オプション）
+    - `budget`: このサブクエリの予算制限（オプション、ページ数/時間）
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "subquery_id": "sq_001",
+      "status": "running|satisfied|partial|exhausted",
+      "pages_fetched": 15,
+      "useful_fragments": 8,
+      "harvest_rate": 0.53,
+      "independent_sources": 3,
+      "has_primary_source": true,
+      "satisfaction_score": 0.85,
+      "novelty_score": 0.42,
+      "new_claims": [...],
+      "budget_remaining": {"pages": 45, "time_seconds": 480}
+    }
+    ```
+
+- `get_exploration_status(task_id)` → 探索状態を取得
+  - 入力: `task_id`
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "task_id": "...",
+      "task_status": "exploring|awaiting_decision|...",
+      "subqueries": [
+        {
+          "id": "sq_001",
+          "text": "...",
+          "status": "satisfied|partial|exhausted|pending|skipped",
+          "satisfaction_score": 0.85,
+          "independent_sources": 3,
+          "refutation_status": "pending|found|not_found"
+        }
+      ],
+      "overall_progress": {
+        "satisfied_count": 3,
+        "partial_count": 2,
+        "pending_count": 1,
+        "total_pages": 78,
+        "total_fragments": 124,
+        "total_claims": 15,
+        "elapsed_seconds": 480
+      },
+      "budget": {
+        "pages_used": 78,
+        "pages_limit": 120,
+        "time_used_seconds": 480,
+        "time_limit_seconds": 1200
+      },
+      "recommendations": [
+        {
+          "action": "execute_subquery|refute|finalize|expand",
+          "target": "sq_002",
+          "reason": "新規性が高く、優先実行を推奨"
+        }
+      ],
+      "warnings": ["ドメインX がクールダウン中", "予算残り20%"]
+    }
+    ```
+
+- `execute_refutation(task_id, claim_id?, subquery_id?)` → 反証探索を実行
+  - 入力:
+    - `task_id`: タスクID
+    - `claim_id`: 特定の主張に対する反証（オプション）
+    - `subquery_id`: 特定のサブクエリ全体に対する反証（オプション）
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "target": "claim_id or subquery_id",
+      "reverse_queries_executed": 3,
+      "refutations_found": 1,
+      "refutation_details": [
+        {
+          "claim_text": "...",
+          "refuting_fragment_id": "...",
+          "source_url": "...",
+          "nli_confidence": 0.82
+        }
+      ],
+      "confidence_adjustment": -0.05
+    }
+    ```
+
+- `finalize_exploration(task_id)` → 探索を終了
+  - 入力: `task_id`
+  - 出力:
+    ```json
+    {
+      "ok": true,
+      "task_id": "...",
+      "final_status": "completed|partial",
+      "summary": {
+        "satisfied_subqueries": 4,
+        "partial_subqueries": 2,
+        "unsatisfied_subqueries": ["sq_006"],
+        "total_claims": 18,
+        "verified_claims": 12,
+        "refuted_claims": 2,
+        "unverified_claims": 4
+      },
+      "followup_suggestions": [
+        "sq_006 は追加調査が必要: 一次資料が見つかっていません"
+      ],
+      "evidence_graph_summary": {
+        "nodes": 45,
+        "edges": 78,
+        "primary_source_ratio": 0.65
+      }
+    }
+    ```
+
+##### 共通仕様
 - すべてJSON I/O、タイムアウト・再試行・因果ログ（呼出元ID）を必須付与
+- 探索制御ツールは`task_id`を必須とし、タスクスコープでの状態管理を行う
+- 長時間実行が予想される`execute_subquery`は進捗コールバックをサポート（オプション）
 
 #### 3.2.2. ジョブスケジューラ/スロット制御
 - スロットと排他:

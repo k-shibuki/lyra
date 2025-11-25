@@ -1,6 +1,10 @@
 """
 Content extraction for Lancet.
 Extracts text, metadata, and structure from HTML and PDF documents.
+
+OCR Support (§5.1.1):
+- PaddleOCR (GPU-capable): Primary OCR engine for scanned PDFs/images
+- Tesseract: Lightweight fallback when PaddleOCR unavailable
 """
 
 import hashlib
@@ -12,6 +16,57 @@ from src.utils.logging import get_logger
 from src.storage.database import get_database
 
 logger = get_logger(__name__)
+
+# OCR availability flags (lazy initialization)
+_paddleocr_available: bool | None = None
+_tesseract_available: bool | None = None
+_paddleocr_instance = None
+
+
+def _check_paddleocr_available() -> bool:
+    """Check if PaddleOCR is available."""
+    global _paddleocr_available
+    if _paddleocr_available is None:
+        try:
+            from paddleocr import PaddleOCR
+            _paddleocr_available = True
+            logger.debug("PaddleOCR is available")
+        except ImportError:
+            _paddleocr_available = False
+            logger.debug("PaddleOCR is not available")
+    return _paddleocr_available
+
+
+def _check_tesseract_available() -> bool:
+    """Check if Tesseract is available."""
+    global _tesseract_available
+    if _tesseract_available is None:
+        try:
+            import pytesseract
+            # Verify tesseract binary is installed
+            pytesseract.get_tesseract_version()
+            _tesseract_available = True
+            logger.debug("Tesseract is available")
+        except Exception:
+            _tesseract_available = False
+            logger.debug("Tesseract is not available")
+    return _tesseract_available
+
+
+def _get_paddleocr_instance():
+    """Get or create PaddleOCR instance (singleton for efficiency)."""
+    global _paddleocr_instance
+    if _paddleocr_instance is None and _check_paddleocr_available():
+        from paddleocr import PaddleOCR
+        # Enable GPU if available, support Japanese and English
+        _paddleocr_instance = PaddleOCR(
+            use_angle_cls=True,
+            lang="japan",  # Supports Japanese + English
+            use_gpu=True,  # Will fallback to CPU if GPU unavailable
+            show_log=False,
+        )
+        logger.info("PaddleOCR instance created")
+    return _paddleocr_instance
 
 
 async def extract_content(
@@ -219,11 +274,21 @@ async def _fallback_extract_html(html: str) -> str | None:
     return None
 
 
-async def _extract_pdf(input_path: str) -> dict[str, Any]:
-    """Extract content from PDF.
+async def _extract_pdf(
+    input_path: str,
+    ocr_threshold: int = 100,
+    force_ocr: bool = False,
+) -> dict[str, Any]:
+    """Extract content from PDF with OCR support.
+    
+    OCR is applied when:
+    - force_ocr is True, or
+    - Extracted text per page is below ocr_threshold characters (scanned PDF detection)
     
     Args:
         input_path: Path to PDF file.
+        ocr_threshold: Minimum chars per page before OCR is triggered (default: 100).
+        force_ocr: Force OCR even if text is extractable.
         
     Returns:
         Extraction result.
@@ -236,25 +301,51 @@ async def _extract_pdf(input_path: str) -> dict[str, Any]:
         text_parts = []
         headings = []
         tables = []
+        ocr_used = False
+        ocr_pages = []
         
         for page_num, page in enumerate(doc):
-            # Extract text
+            # Extract text using standard method
             text = page.get_text("text")
+            
+            # Check if OCR is needed for this page
+            text_length = len(text.strip())
+            needs_ocr = force_ocr or (text_length < ocr_threshold)
+            
+            if needs_ocr:
+                # Try OCR for this page
+                ocr_text = await _ocr_pdf_page(page, page_num)
+                if ocr_text and len(ocr_text.strip()) > text_length:
+                    text = ocr_text
+                    ocr_used = True
+                    ocr_pages.append(page_num + 1)
+                    logger.debug(
+                        "OCR applied to page",
+                        page=page_num + 1,
+                        original_length=text_length,
+                        ocr_length=len(ocr_text),
+                    )
+            
             text_parts.append(text)
             
-            # Try to extract structure
-            blocks = page.get_text("dict")["blocks"]
-            for block in blocks:
-                if "lines" in block:
-                    for line in block["lines"]:
-                        for span in line["spans"]:
-                            # Detect headings by font size
-                            if span["size"] > 14:
-                                headings.append({
-                                    "level": 1 if span["size"] > 18 else 2,
-                                    "text": span["text"].strip(),
-                                    "page": page_num + 1,
-                                })
+            # Try to extract structure (only from non-OCR pages)
+            if not needs_ocr:
+                blocks = page.get_text("dict")["blocks"]
+                for block in blocks:
+                    if "lines" in block:
+                        for line in block["lines"]:
+                            for span in line["spans"]:
+                                # Detect headings by font size
+                                if span["size"] > 14:
+                                    headings.append({
+                                        "level": 1 if span["size"] > 18 else 2,
+                                        "text": span["text"].strip(),
+                                        "page": page_num + 1,
+                                    })
+        
+        # Extract PDF metadata
+        metadata = doc.metadata
+        title = metadata.get("title") if metadata else None
         
         doc.close()
         
@@ -265,22 +356,202 @@ async def _extract_pdf(input_path: str) -> dict[str, Any]:
             input_path=input_path,
             page_count=len(text_parts),
             text_length=len(full_text),
+            ocr_used=ocr_used,
+            ocr_pages=ocr_pages if ocr_pages else None,
         )
         
         return {
             "ok": True,
             "text": full_text,
-            "title": None,  # TODO: Extract from metadata
+            "title": title,
             "language": None,
             "headings": headings,
             "tables": tables,
             "meta": {
                 "page_count": len(text_parts),
+                "ocr_used": ocr_used,
+                "ocr_pages": ocr_pages if ocr_pages else None,
             },
         }
         
     except Exception as e:
         logger.error("PDF extraction error", error=str(e), input_path=input_path)
+        return {
+            "ok": False,
+            "error": str(e),
+        }
+
+
+async def _ocr_pdf_page(page, page_num: int) -> str | None:
+    """Apply OCR to a PDF page.
+    
+    Tries PaddleOCR first (GPU-capable), falls back to Tesseract.
+    
+    Args:
+        page: PyMuPDF page object.
+        page_num: Page number (0-indexed) for logging.
+        
+    Returns:
+        OCR extracted text or None if OCR failed.
+    """
+    try:
+        # Render page to image (300 DPI for good OCR quality)
+        mat = page.get_pixmap(matrix=page.matrix * 2)  # 2x scale for better quality
+        img_data = mat.tobytes("png")
+        
+        # Try PaddleOCR first
+        if _check_paddleocr_available():
+            text = await _ocr_with_paddleocr(img_data)
+            if text:
+                return text
+        
+        # Fallback to Tesseract
+        if _check_tesseract_available():
+            text = await _ocr_with_tesseract(img_data)
+            if text:
+                return text
+        
+        logger.warning(
+            "No OCR engine available",
+            page=page_num + 1,
+        )
+        return None
+        
+    except Exception as e:
+        logger.error(
+            "OCR failed for page",
+            page=page_num + 1,
+            error=str(e),
+        )
+        return None
+
+
+async def _ocr_with_paddleocr(img_data: bytes) -> str | None:
+    """Perform OCR using PaddleOCR.
+    
+    Args:
+        img_data: PNG image data.
+        
+    Returns:
+        Extracted text or None.
+    """
+    try:
+        import io
+        import numpy as np
+        from PIL import Image
+        
+        # Convert bytes to numpy array
+        img = Image.open(io.BytesIO(img_data))
+        img_array = np.array(img)
+        
+        # Get PaddleOCR instance
+        ocr = _get_paddleocr_instance()
+        if ocr is None:
+            return None
+        
+        # Perform OCR
+        result = ocr.ocr(img_array, cls=True)
+        
+        if not result or not result[0]:
+            return None
+        
+        # Extract text from result
+        # Result format: [[[box], (text, confidence)], ...]
+        lines = []
+        for line in result[0]:
+            if line and len(line) >= 2:
+                text, confidence = line[1]
+                if confidence > 0.5:  # Filter low confidence results
+                    lines.append(text)
+        
+        return "\n".join(lines) if lines else None
+        
+    except Exception as e:
+        logger.debug("PaddleOCR failed", error=str(e))
+        return None
+
+
+async def _ocr_with_tesseract(img_data: bytes) -> str | None:
+    """Perform OCR using Tesseract (fallback).
+    
+    Args:
+        img_data: PNG image data.
+        
+    Returns:
+        Extracted text or None.
+    """
+    try:
+        import io
+        import pytesseract
+        from PIL import Image
+        
+        # Convert bytes to PIL Image
+        img = Image.open(io.BytesIO(img_data))
+        
+        # Perform OCR with Japanese + English support
+        text = pytesseract.image_to_string(
+            img,
+            lang="jpn+eng",  # Japanese + English
+            config="--oem 3 --psm 3",  # LSTM engine, auto page segmentation
+        )
+        
+        return text.strip() if text else None
+        
+    except Exception as e:
+        logger.debug("Tesseract OCR failed", error=str(e))
+        return None
+
+
+async def ocr_image(
+    image_path: str | None = None,
+    image_data: bytes | None = None,
+) -> dict[str, Any]:
+    """Extract text from an image using OCR.
+    
+    Standalone function for image OCR (not embedded in PDF).
+    
+    Args:
+        image_path: Path to image file.
+        image_data: Raw image bytes.
+        
+    Returns:
+        OCR result dictionary.
+    """
+    if image_path is None and image_data is None:
+        return {"ok": False, "error": "Either image_path or image_data must be provided"}
+    
+    try:
+        # Load image data
+        if image_data is None and image_path:
+            image_data = Path(image_path).read_bytes()
+        
+        # Try PaddleOCR first
+        if _check_paddleocr_available():
+            text = await _ocr_with_paddleocr(image_data)
+            if text:
+                return {
+                    "ok": True,
+                    "text": text,
+                    "engine": "paddleocr",
+                }
+        
+        # Fallback to Tesseract
+        if _check_tesseract_available():
+            text = await _ocr_with_tesseract(image_data)
+            if text:
+                return {
+                    "ok": True,
+                    "text": text,
+                    "engine": "tesseract",
+                }
+        
+        return {
+            "ok": False,
+            "error": "No OCR engine available",
+        }
+        
+    except Exception as e:
+        logger.error("Image OCR error", error=str(e))
         return {
             "ok": False,
             "error": str(e),
