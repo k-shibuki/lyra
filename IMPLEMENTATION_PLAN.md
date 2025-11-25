@@ -345,10 +345,12 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - `lancet` - メイン開発コンテナ
 - `lancet-searxng` - SearXNG検索エンジン
 - `lancet-tor` - Torプロキシ
+- `lancet-ollama` - ローカルLLM (GPU対応)
 
 ### 外部依存
-- Ollama (ホスト側で起動)
+- Ollama (Podmanコンテナで起動、GPUパススルー)
 - Chrome (Windows側で起動、リモートデバッグ)
+- nvidia-container-toolkit (GPU使用時に必要)
 
 ---
 
