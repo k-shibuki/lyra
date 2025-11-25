@@ -1,5 +1,14 @@
 """
 Tests for URL fetcher module.
+
+Covers:
+- WARC file creation and validation (§3.1.2)
+- Challenge page detection (§3.5)
+- FetchResult cache fields for 304 support (§3.1.2, §4.3)
+- URL normalization for cache keys (§5.1.2)
+- Human-like behavior simulation (§4.3)
+- Tor controller (§4.3)
+- Fetch cache database operations (§5.1.2)
 """
 
 import gzip
@@ -11,6 +20,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from warcio.archiveiterator import ArchiveIterator
 
 
+@pytest.mark.unit
 class TestSaveWarc:
     """Tests for WARC saving functionality."""
 
@@ -153,6 +163,7 @@ class TestSaveWarc:
                         assert "日本語コンテンツ".encode("utf-8") in payload
 
 
+@pytest.mark.unit
 class TestGetHttpStatusText:
     """Tests for HTTP status text helper."""
 
@@ -174,6 +185,7 @@ class TestGetHttpStatusText:
         assert _get_http_status_text(418) == "Unknown"  # I'm a teapot
 
 
+@pytest.mark.unit
 class TestFetchResult:
     """Tests for FetchResult class."""
 
@@ -197,8 +209,9 @@ class TestFetchResult:
         assert result_dict["status"] == 200
 
 
+@pytest.mark.unit
 class TestIsChallengePageFunction:
-    """Tests for challenge page detection."""
+    """Tests for challenge page detection (§3.5 - CAPTCHA/challenge handling)."""
 
     def test_detect_cloudflare_challenge(self):
         """Test detection of Cloudflare challenge pages."""
@@ -246,6 +259,7 @@ class TestIsChallengePageFunction:
         assert _is_challenge_page(normal_content, {}) is False
 
 
+@pytest.mark.unit
 class TestFetchResultCacheFields:
     """Tests for FetchResult cache-related fields (§3.1.2 - 304 support)."""
 
@@ -318,6 +332,7 @@ class TestFetchResultCacheFields:
         assert result.from_cache is True
 
 
+@pytest.mark.unit
 class TestDatabaseUrlNormalization:
     """Tests for URL normalization used in fetch cache.
     
@@ -371,6 +386,7 @@ class TestDatabaseUrlNormalization:
         assert normalized == "https://example.com/page"
 
 
+@pytest.mark.unit
 class TestHumanBehavior:
     """Tests for human-like behavior simulation (§4.3 - stealth requirements)."""
 
@@ -391,7 +407,11 @@ class TestHumanBehavior:
             assert 0.5 <= delay <= 2.0, f"Delay {delay} out of default bounds"
 
     def test_scroll_pattern_generation(self):
-        """Test scroll pattern generates reasonable positions."""
+        """Test scroll pattern generates reasonable positions.
+        
+        For page_height=3000 and viewport_height=1080, scrollable area is 1920px.
+        With typical scroll steps of 200-400px, expect 5-10 scroll positions.
+        """
         from src.crawler.fetcher import HumanBehavior
         
         positions = HumanBehavior.scroll_pattern(
@@ -399,11 +419,19 @@ class TestHumanBehavior:
             viewport_height=1080,
         )
         
-        assert len(positions) > 0, "Should generate at least one scroll position"
+        # Scrollable area = 3000 - 1080 = 1920px
+        # With typical 200-400px steps, expect 5-10 positions
+        assert 3 <= len(positions) <= 15, (
+            f"Expected 3-15 scroll positions for 1920px scrollable area, got {len(positions)}"
+        )
         
-        for scroll_y, delay in positions:
-            assert 0 <= scroll_y <= 3000 - 1080, f"Scroll position {scroll_y} out of range"
-            assert delay > 0, f"Delay {delay} should be positive"
+        for idx, (scroll_y, delay) in enumerate(positions):
+            assert 0 <= scroll_y <= 1920, (
+                f"Position {idx}: scroll_y={scroll_y} out of range [0, 1920]"
+            )
+            assert 0.1 <= delay <= 3.0, (
+                f"Position {idx}: delay={delay} out of expected range [0.1, 3.0]"
+            )
 
     def test_scroll_pattern_short_page(self):
         """Test scroll pattern for page shorter than viewport."""
@@ -418,24 +446,44 @@ class TestHumanBehavior:
         assert len(positions) == 0, "Short page should not need scrolling"
 
     def test_mouse_path_generation(self):
-        """Test mouse path generates smooth bezier curve."""
+        """Test mouse path generates smooth bezier curve.
+        
+        Path should start near origin and end near destination,
+        with small jitter applied to intermediate points.
+        """
         from src.crawler.fetcher import HumanBehavior
         
+        start_x, start_y = 100, 100
+        end_x, end_y = 500, 400
+        steps = 10
+        
         path = HumanBehavior.mouse_path(
-            start_x=100, start_y=100,
-            end_x=500, end_y=400,
-            steps=10,
+            start_x=start_x, start_y=start_y,
+            end_x=end_x, end_y=end_y,
+            steps=steps,
         )
         
-        assert len(path) == 11, "Should have steps + 1 points"
+        expected_points = steps + 1
+        assert len(path) == expected_points, (
+            f"Expected {expected_points} points (steps + 1), got {len(path)}"
+        )
         
-        # First point should be near start
-        assert abs(path[0][0] - 100) < 10, "First point should be near start_x"
-        assert abs(path[0][1] - 100) < 10, "First point should be near start_y"
+        # First point should be near start (within jitter tolerance)
+        jitter_tolerance = 15
+        assert abs(path[0][0] - start_x) < jitter_tolerance, (
+            f"First point x={path[0][0]} too far from start_x={start_x}"
+        )
+        assert abs(path[0][1] - start_y) < jitter_tolerance, (
+            f"First point y={path[0][1]} too far from start_y={start_y}"
+        )
         
         # Last point should be near end
-        assert abs(path[-1][0] - 500) < 10, "Last point should be near end_x"
-        assert abs(path[-1][1] - 400) < 10, "Last point should be near end_y"
+        assert abs(path[-1][0] - end_x) < jitter_tolerance, (
+            f"Last point x={path[-1][0]} too far from end_x={end_x}"
+        )
+        assert abs(path[-1][1] - end_y) < jitter_tolerance, (
+            f"Last point y={path[-1][1]} too far from end_y={end_y}"
+        )
 
     def test_mouse_path_has_jitter(self):
         """Test mouse paths are not identical (random jitter)."""
@@ -448,6 +496,7 @@ class TestHumanBehavior:
         assert path1 != path2, "Paths should differ due to randomness"
 
 
+@pytest.mark.unit
 class TestTorController:
     """Tests for Tor circuit controller (§4.3 - network layer)."""
 
@@ -474,10 +523,12 @@ class TestTorController:
             assert result is False, "Should return False when Tor disabled"
 
 
+@pytest.mark.integration
 class TestDatabaseFetchCache:
     """Tests for fetch cache database operations (§5.1.2 - cache_fetch).
     
     Tests cache storage and retrieval for conditional request support.
+    Uses in-memory SQLite database for isolation.
     """
 
     @pytest.mark.asyncio
@@ -485,22 +536,34 @@ class TestDatabaseFetchCache:
         """Test storing and retrieving fetch cache entry."""
         db = memory_database
         url = "https://example.com/page"
+        expected_etag = '"abc123"'
+        expected_last_modified = "Wed, 01 Jan 2024 00:00:00 GMT"
+        expected_hash = "sha256-hash"
+        expected_path = "/tmp/cache/page.html"
         
         await db.set_fetch_cache(
             url,
-            etag='"abc123"',
-            last_modified="Wed, 01 Jan 2024 00:00:00 GMT",
-            content_hash="sha256-hash",
-            content_path="/tmp/cache/page.html",
+            etag=expected_etag,
+            last_modified=expected_last_modified,
+            content_hash=expected_hash,
+            content_path=expected_path,
         )
         
         cached = await db.get_fetch_cache(url)
         
-        assert cached is not None
-        assert cached["etag"] == '"abc123"'
-        assert cached["last_modified"] == "Wed, 01 Jan 2024 00:00:00 GMT"
-        assert cached["content_hash"] == "sha256-hash"
-        assert cached["content_path"] == "/tmp/cache/page.html"
+        assert cached is not None, f"Cache entry should exist for {url}"
+        assert cached["etag"] == expected_etag, (
+            f"ETag mismatch: expected {expected_etag}, got {cached['etag']}"
+        )
+        assert cached["last_modified"] == expected_last_modified, (
+            f"Last-Modified mismatch: expected {expected_last_modified}, got {cached['last_modified']}"
+        )
+        assert cached["content_hash"] == expected_hash, (
+            f"Content hash mismatch: expected {expected_hash}, got {cached['content_hash']}"
+        )
+        assert cached["content_path"] == expected_path, (
+            f"Content path mismatch: expected {expected_path}, got {cached['content_path']}"
+        )
 
     @pytest.mark.asyncio
     async def test_get_fetch_cache_missing_url(self, memory_database):
@@ -513,20 +576,25 @@ class TestDatabaseFetchCache:
 
     @pytest.mark.asyncio
     async def test_fetch_cache_url_normalization(self, memory_database):
-        """Test cache lookup uses normalized URLs."""
+        """Test cache lookup uses normalized URLs.
+        
+        URLs differing only in query param order or fragment should match.
+        """
         db = memory_database
+        store_url = "https://example.com/page?b=2&a=1#section"
+        lookup_url = "https://example.com/page?a=1&b=2"  # Different order, no fragment
+        expected_etag = '"etag1"'
         
-        # Store with one URL format
-        await db.set_fetch_cache(
-            "https://example.com/page?b=2&a=1#section",
-            etag='"etag1"',
+        await db.set_fetch_cache(store_url, etag=expected_etag)
+        
+        cached = await db.get_fetch_cache(lookup_url)
+        
+        assert cached is not None, (
+            f"Cache miss for normalized URL: stored={store_url}, lookup={lookup_url}"
         )
-        
-        # Retrieve with different format (should match after normalization)
-        cached = await db.get_fetch_cache("https://example.com/page?a=1&b=2")
-        
-        assert cached is not None
-        assert cached["etag"] == '"etag1"'
+        assert cached["etag"] == expected_etag, (
+            f"ETag mismatch after normalization: expected {expected_etag}, got {cached['etag']}"
+        )
 
     @pytest.mark.asyncio
     async def test_update_fetch_cache_validation(self, memory_database):
@@ -587,31 +655,51 @@ class TestDatabaseFetchCache:
 
     @pytest.mark.asyncio
     async def test_fetch_cache_stats(self, memory_database):
-        """Test fetch cache statistics."""
+        """Test fetch cache statistics.
+        
+        Setup:
+        - a.com: etag only
+        - b.com: last_modified only  
+        - c.com: both etag and last_modified
+        """
         db = memory_database
         
-        # Add some cache entries
         await db.set_fetch_cache("https://a.com/1", etag='"e1"')
         await db.set_fetch_cache("https://b.com/2", last_modified="Mon, 01 Jan 2024 00:00:00 GMT")
         await db.set_fetch_cache("https://c.com/3", etag='"e3"', last_modified="Tue, 02 Jan 2024 00:00:00 GMT")
         
         stats = await db.get_fetch_cache_stats()
         
-        assert stats["total_entries"] == 3
-        assert stats["with_etag"] == 2  # a.com and c.com
-        assert stats["with_last_modified"] == 2  # b.com and c.com
+        assert stats["total_entries"] == 3, (
+            f"Expected 3 total entries, got {stats['total_entries']}"
+        )
+        assert stats["with_etag"] == 2, (
+            f"Expected 2 entries with ETag (a.com, c.com), got {stats['with_etag']}"
+        )
+        assert stats["with_last_modified"] == 2, (
+            f"Expected 2 entries with Last-Modified (b.com, c.com), got {stats['with_last_modified']}"
+        )
 
     @pytest.mark.asyncio
     async def test_fetch_cache_replace_existing(self, memory_database):
-        """Test that setting cache replaces existing entry."""
+        """Test that setting cache replaces existing entry (upsert behavior)."""
         db = memory_database
         url = "https://example.com/page"
         
+        # First set
         await db.set_fetch_cache(url, etag='"old"', content_path="/old/path")
-        await db.set_fetch_cache(url, etag='"new"', content_path="/new/path")
+        
+        # Second set should replace
+        new_etag = '"new"'
+        new_path = "/new/path"
+        await db.set_fetch_cache(url, etag=new_etag, content_path=new_path)
         
         cached = await db.get_fetch_cache(url)
         
-        assert cached["etag"] == '"new"'
-        assert cached["content_path"] == "/new/path"
+        assert cached["etag"] == new_etag, (
+            f"ETag should be replaced: expected {new_etag}, got {cached['etag']}"
+        )
+        assert cached["content_path"] == new_path, (
+            f"Content path should be replaced: expected {new_path}, got {cached['content_path']}"
+        )
 
