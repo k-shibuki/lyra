@@ -519,19 +519,29 @@ class QueryExpander:
         """
         expanded = [query]
         
-        tokens = self.tokenize(query)
-        
         # Find content words (nouns, verbs, adjectives) with synonyms
         expansion_candidates = []
         
+        # First, check if the query itself (or query words) has synonyms
+        # This handles cases where the tokenizer splits compound words
+        query_words = query.split()
+        for word in query_words:
+            word_stripped = word.strip()
+            if word_stripped:
+                synonyms = self.get_synonyms(word_stripped)
+                if synonyms:
+                    expansion_candidates.append((word_stripped, synonyms))
+        
+        # Also check tokenized forms for additional synonyms
+        tokens = self.tokenize(query)
         for token in tokens:
             surface = token["surface"]
             pos = token["pos"]
             
             # Only expand content words
-            if pos in ["名詞", "動詞", "形容詞"]:
+            if pos in ["名詞", "動詞", "形容詞", "unknown"]:
                 synonyms = self.get_synonyms(surface)
-                if synonyms:
+                if synonyms and (surface, synonyms) not in expansion_candidates:
                     expansion_candidates.append((surface, synonyms))
         
         # Generate variations (limit to avoid explosion)

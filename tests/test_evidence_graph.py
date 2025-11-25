@@ -282,7 +282,11 @@ class TestCitationChain:
     """Tests for citation chain tracing."""
 
     def test_citation_chain(self):
-        """Test tracing citation chain."""
+        """Test tracing citation chain.
+        
+        Validates §3.3.3 citation chain tracing for source verification.
+        Chain follows CITES edges from source to primary sources.
+        """
         graph = EvidenceGraph()
         
         # Fragment -> Page (primary source)
@@ -296,9 +300,13 @@ class TestCitationChain:
         
         chain = graph.get_citation_chain(NodeType.FRAGMENT, "frag-1")
         
-        assert len(chain) >= 1
-        assert chain[0]["node_type"] == "fragment"
-        assert chain[0]["obj_id"] == "frag-1"
+        # STRICT: Chain must include the starting node (frag-1) and follow to cited page
+        # get_citation_chain follows outgoing CITES edges, so chain = [frag-1, page-1]
+        assert len(chain) == 2, f"Expected chain of 2 (frag->page), got {len(chain)}"
+        assert chain[0]["node_type"] == "fragment", f"First node should be fragment, got {chain[0]['node_type']}"
+        assert chain[0]["obj_id"] == "frag-1", f"First node should be frag-1, got {chain[0]['obj_id']}"
+        assert chain[1]["node_type"] == "page", f"Second node should be page, got {chain[1]['node_type']}"
+        assert chain[1]["obj_id"] == "page-1", f"Second node should be page-1, got {chain[1]['obj_id']}"
 
     def test_citation_chain_empty(self):
         """Test citation chain for unknown node."""
@@ -757,8 +765,12 @@ class TestLoopSeverity:
         assert graph._calculate_loop_severity(10) == "low"
 
 
+@pytest.mark.integration
 class TestDatabaseIntegration:
-    """Tests for database persistence."""
+    """Tests for database persistence.
+    
+    Integration tests per §7.1.7 - uses temporary database.
+    """
 
     @pytest.mark.asyncio
     async def test_save_and_load(self, test_database):

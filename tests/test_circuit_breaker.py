@@ -272,8 +272,12 @@ class TestCircuitBreakerManager:
         assert "unavailable" not in available
 
 
+@pytest.mark.integration
 class TestDatabasePersistence:
-    """Tests for database persistence."""
+    """Tests for database persistence.
+    
+    Integration tests per §7.1.7 - uses temporary database.
+    """
 
     @pytest.mark.asyncio
     async def test_save_to_db(self, test_database):
