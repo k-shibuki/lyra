@@ -25,7 +25,7 @@ services:
       - LANCET_ENV=development
       - LANCET_LOG_LEVEL=INFO
       - SEARXNG_HOST=http://searxng:8080
-      - OLLAMA_HOST=http://host.containers.internal:11434
+      - OLLAMA_HOST=http://ollama:11434
       - TOR_SOCKS_HOST=tor
       - TOR_SOCKS_PORT=9050
       - TOR_CONTROL_PORT=9051
@@ -39,6 +39,7 @@ services:
     depends_on:
       - searxng
       - tor
+      - ollama
     networks:
       - lancet-net
     restart: unless-stopped
@@ -82,6 +83,28 @@ services:
     restart: unless-stopped
 
   # ============================================================
+  # Ollama - Local LLM Runtime (GPU)
+  # ============================================================
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    container_name: lancet-ollama
+    volumes:
+      # Persist models
+      - ./models/ollama:/root/.ollama:rw
+    ports:
+      - "11434:11434"
+    networks:
+      - lancet-net
+    restart: unless-stopped
+    # GPU support via CDI (requires nvidia-container-toolkit)
+    # To enable: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - OLLAMA_HOST=0.0.0.0
+
+  # ============================================================
   # Redis - Cache (Optional)
   # ============================================================
   # redis:
@@ -97,7 +120,9 @@ networks:
   lancet-net:
     driver: bridge
 
-# For GPU support with Podman, use:
-# podman-compose --file podman-compose.yml up -d
-# And ensure nvidia-container-toolkit is installed
+# GPU support with Podman:
+# 1. Install nvidia-container-toolkit
+# 2. Generate CDI: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+# 3. Start: podman-compose up -d
+# 4. Verify: podman exec lancet-ollama nvidia-smi
 

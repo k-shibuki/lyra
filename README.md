@@ -49,16 +49,20 @@ cd /path/to/lancet
 python -m src.main research --query "AIエージェントの最新動向"
 ```
 
-### 4. Ollama起動 (ホスト側)
+### 4. Ollamaモデルのダウンロード
+
+Ollamaは`podman-compose`で自動起動されます。初回起動後にモデルをダウンロードしてください：
 
 ```bash
-# WSL2またはWindows側で
-ollama serve
+# コンテナ内でモデルをダウンロード
+podman exec lancet-ollama ollama pull qwen2.5:3b
+podman exec lancet-ollama ollama pull qwen2.5:7b
 
-# モデルのダウンロード
-ollama pull qwen2.5:3b
-ollama pull qwen2.5:7b
+# GPU利用状況の確認
+podman exec lancet-ollama ollama ps
 ```
+
+**注意**: GPUを利用するには `nvidia-container-toolkit` が必要です（後述）。
 
 ### 5. Chrome起動 (Windows側, リモートデバッグ)
 
@@ -148,15 +152,16 @@ MCPサーバーはコンテナ内で動作するため、Cursorからの接続�
 │  │  │ Extractor│ │ Scheduler│ │  Report  │            │   │
 │  │  └──────────┘ └──────────┘ └──────────┘            │   │
 │  └─────────────────────────────────────────────────────┘   │
-│  ┌──────────────┐ ┌──────────────┐                        │
-│  │   SearXNG    │ │     Tor      │                        │
-│  │  Container   │ │  Container   │                        │
-│  └──────────────┘ └──────────────┘                        │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │   SearXNG    │ │     Tor      │ │   Ollama     │       │
+│  │  Container   │ │  Container   │ │  Container   │       │
+│  │              │ │              │ │   (GPU)      │       │
+│  └──────────────┘ └──────────────┘ └──────────────┘       │
 └─────────────────────────────────────────────────────────────┘
-                    │                           │
-        ┌───────────▼───────────┐   ┌───────────▼───────────┐
-        │   Ollama (Host)       │   │   Chrome (Windows)    │
-        └───────────────────────┘   └───────────────────────┘
+                                            │
+                            ┌───────────────▼───────────────┐
+                            │   Chrome (Windows)            │
+                            └───────────────────────────────┘
 ```
 
 ## ディレクトリ構造
@@ -227,11 +232,68 @@ curl http://localhost:9222/json
 ### OllamaでGPUが使えない
 
 ```bash
-# CUDAの確認
+# CUDAの確認（WSL2側）
 nvidia-smi
 
-# Ollamaの再インストール
-curl -fsSL https://ollama.com/install.sh | sh
+# nvidia-container-toolkitのインストール
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+
+# CDIの設定
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+
+# Ollamaコンテナの再起動
+podman-compose restart ollama
+```
+
+### Ollamaに接続できない
+
+```bash
+# コンテナの状態確認
+podman ps | grep ollama
+
+# ログ確認
+podman logs lancet-ollama
+
+# API疎通テスト
+curl http://localhost:11434/api/tags
+
+# コンテナ再起動
+podman restart lancet-ollama
+```
+
+## GPUサポート (nvidia-container-toolkit)
+
+Podmanコンテナ内でGPUを使用するには `nvidia-container-toolkit` が必要です：
+
+```bash
+# 1. nvidia-container-toolkitのインストール
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+
+# 2. CDI (Container Device Interface) の設定
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+
+# 3. 確認
+nvidia-ctk cdi list
+```
+
+**確認方法**:
+```bash
+# コンテナ内でGPUが見えるか確認
+podman exec lancet-ollama nvidia-smi
 ```
 
 ## ライセンス
