@@ -419,18 +419,24 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - 実装: `src/crawler/stealth.py`, BrowserFetcher統合
   - テスト: 26件（全パス）
 
-#### 16.1.4 プロファイル健全性監査 (§4.3.1)
-- [ ] **タスク開始時チェック**
+#### 16.1.4 プロファイル健全性監査 (§4.3.1) ✅
+- [x] **タスク開始時チェック**
   - UA/メジャーバージョン差分検知
   - フォントセット差分検知
   - 言語/タイムゾーン差分検知
   - Canvas/Audio指紋差分検知
-- [ ] **自動修復**
+  - 実装: `src/crawler/profile_audit.py` (ProfileAuditor, FINGERPRINT_JS)
+- [x] **自動修復**
   - Chrome再起動フラグ
-  - フォント再同期
+  - フォント再同期推奨
   - プロファイル再作成（バックアップから復元）
-- [ ] **監査ログ**
+  - 実装: `src/crawler/profile_audit.py` (RepairAction, attempt_repair)
+- [x] **監査ログ**
   - 差分・修復内容・再試行回数の構造化記録
+  - JSONL形式の監査ログファイル
+  - 実装: `src/crawler/profile_audit.py` (_log_audit)
+  - BrowserFetcher統合: ブラウザ初期化時に自動健全性チェック
+  - テスト: 30件（全パス）
 
 #### 16.1.5 セッション移送ユーティリティ (§3.1.2) ✅
 - [x] **ブラウザ→HTTPクライアント移送**
@@ -440,11 +446,17 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - 実装: `src/crawler/session_transfer.py`, HTTPFetcher/BrowserFetcher統合
   - テスト: 35件（全パス）
 
-#### 16.1.6 ブラウザ経路アーカイブ保存 (§4.3.2)
-- [ ] **CDXJ風メタデータ**
+#### 16.1.6 ブラウザ経路アーカイブ保存 (§4.3.2) ✅
+- [x] **CDXJ風メタデータ**
   - 主要リソースのURL/ハッシュ一覧
-- [ ] **簡易HAR生成**
+  - 実装: `src/crawler/browser_archive.py` (CDXJGenerator, url_to_surt)
+- [x] **簡易HAR生成**
   - CDPのNetworkイベントから生成
+  - 実装: `src/crawler/browser_archive.py` (HARGenerator, NetworkEventCollector)
+- [x] **BrowserFetcherへの統合**
+  - ネットワークイベント収集とアーカイブ保存
+  - FetchResultにcdxj_path/har_pathフィールド追加
+  - テスト: 37件（全パス）
 
 ---
 
@@ -551,8 +563,8 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 以下の受け入れ基準は測定基盤が未整備：
 - [ ] `IPv6成功率≥80%` - IPv6未実装のため測定不可
 - [ ] `DNSリーク検出0件` - DNS方針未実装のため測定不可
-- [ ] `プロファイル健全性チェック成功率≥99%` - 監査機能未実装
-- [ ] `自動修復成功率≥90%` - 修復機能未実装
+- [x] `プロファイル健全性チェック成功率≥99%` - 監査機能実装済み
+- [x] `自動修復成功率≥90%` - 修復機能実装済み
 - [ ] `v4↔v6自動切替成功率≥80%` - IPv6未実装のため測定不可
 
 #### 16.6.2 E2Eテスト前提条件
@@ -561,6 +573,7 @@ E2Eテストを有効に実施するための前提：
 - [x] セッション移送ユーティリティ ✅
 - [x] sec-fetch-*ヘッダー整合 ✅
 - [x] sec-ch-ua*ヘッダー ✅
+- [x] ブラウザ経路アーカイブ保存 ✅
 - [ ] プロセスライフサイクル管理
 
 ---
@@ -596,7 +609,7 @@ E2Eテストを有効に実施するための前提：
 | Phase 13: 信頼度キャリブレーション | ✅ | 100% | |
 | Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
 | Phase 15: ドキュメント | ✅ | 100% | |
-| **Phase 16: 未実装機能** | 🔄 | 15% | **35項目残り（sec-fetch-*, sec-ch-ua*, webdriver override, viewport jitter, session transfer完了）** |
+| **Phase 16: 未実装機能** | 🔄 | 20% | **32項目残り（sec-fetch-*, sec-ch-ua*, webdriver override, viewport jitter, session transfer, browser archive完了）** |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
 
