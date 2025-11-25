@@ -29,6 +29,11 @@ from warcio.statusandheaders import StatusAndHeaders
 from src.utils.config import get_settings
 from src.utils.logging import get_logger, CausalTrace
 from src.storage.database import get_database
+from src.utils.notification import (
+    get_intervention_manager,
+    InterventionType,
+    InterventionStatus,
+)
 
 logger = get_logger(__name__)
 
@@ -756,6 +761,8 @@ class BrowserFetcher:
         headful: bool | None = None,
         take_screenshot: bool = True,
         simulate_human: bool = True,
+        task_id: str | None = None,
+        allow_intervention: bool = True,
     ) -> FetchResult:
         """Fetch URL using browser with automatic mode selection.
         
@@ -765,6 +772,8 @@ class BrowserFetcher:
             headful: Force headful mode (None for auto-detect).
             take_screenshot: Whether to capture screenshot.
             simulate_human: Whether to simulate human behavior.
+            task_id: Associated task ID for intervention tracking.
+            allow_intervention: Whether to allow manual intervention on challenge.
             
         Returns:
             FetchResult instance.
@@ -833,14 +842,58 @@ class BrowserFetcher:
                         method="browser_headless",
                     )
                 else:
-                    # Even headful failed - needs manual intervention
-                    return FetchResult(
-                        ok=False,
-                        url=url,
-                        status=response.status,
-                        reason="challenge_detected",
-                        method="browser_headful",
-                    )
+                    # Headful mode - try manual intervention if allowed
+                    if allow_intervention:
+                        intervention_result = await self._request_manual_intervention(
+                            url=url,
+                            domain=domain,
+                            page=page,
+                            task_id=task_id,
+                            challenge_type=_detect_challenge_type(content),
+                        )
+                        
+                        if intervention_result and intervention_result.status == InterventionStatus.SUCCESS:
+                            # Re-check page content after intervention
+                            content = await page.content()
+                            if not _is_challenge_page(content, {}):
+                                # Intervention succeeded - continue with normal flow
+                                logger.info(
+                                    "Challenge bypassed via manual intervention",
+                                    url=url[:80],
+                                )
+                                # Fall through to save content below
+                            else:
+                                # Still challenged - return failure
+                                return FetchResult(
+                                    ok=False,
+                                    url=url,
+                                    status=response.status,
+                                    reason="challenge_detected_after_intervention",
+                                    method="browser_headful",
+                                )
+                        elif intervention_result:
+                            # Intervention failed/timed out/skipped
+                            return FetchResult(
+                                ok=False,
+                                url=url,
+                                status=response.status,
+                                reason=f"intervention_{intervention_result.status.value}",
+                                method="browser_headful",
+                            )
+                    else:
+                        # Intervention not allowed - return challenge error
+                        return FetchResult(
+                            ok=False,
+                            url=url,
+                            status=response.status,
+                            reason="challenge_detected",
+                            method="browser_headful",
+                        )
+                    
+                    # Re-get content after successful intervention
+                    content = await page.content()
+                    content_bytes = content.encode("utf-8")
+                    content_hash = hashlib.sha256(content_bytes).hexdigest()
             
             # Simulate human reading behavior
             if simulate_human:
@@ -904,6 +957,75 @@ class BrowserFetcher:
             if page:
                 await page.close()
     
+    async def _request_manual_intervention(
+        self,
+        url: str,
+        domain: str,
+        page,
+        task_id: str | None,
+        challenge_type: str,
+    ):
+        """Request manual intervention for challenge bypass.
+        
+        Args:
+            url: Target URL.
+            domain: Domain name.
+            page: Playwright page object.
+            task_id: Associated task ID.
+            challenge_type: Type of challenge detected.
+            
+        Returns:
+            InterventionResult or None.
+        """
+        try:
+            intervention_manager = get_intervention_manager()
+            
+            # Map challenge type to InterventionType
+            intervention_type_map = {
+                "cloudflare": InterventionType.CLOUDFLARE,
+                "captcha": InterventionType.CAPTCHA,
+                "recaptcha": InterventionType.CAPTCHA,
+                "hcaptcha": InterventionType.CAPTCHA,
+                "turnstile": InterventionType.TURNSTILE,
+                "js_challenge": InterventionType.JS_CHALLENGE,
+            }
+            intervention_type = intervention_type_map.get(
+                challenge_type,
+                InterventionType.CLOUDFLARE,
+            )
+            
+            # Determine element selector for highlighting
+            element_selector = _get_challenge_element_selector(challenge_type)
+            
+            # Define success callback to check if challenge is bypassed
+            async def check_challenge_bypassed() -> bool:
+                try:
+                    content = await page.content()
+                    return not _is_challenge_page(content, {})
+                except Exception:
+                    return False
+            
+            # Request intervention
+            result = await intervention_manager.request_intervention(
+                intervention_type=intervention_type,
+                url=url,
+                domain=domain,
+                task_id=task_id,
+                page=page,
+                element_selector=element_selector,
+                on_success_callback=check_challenge_bypassed,
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(
+                "Manual intervention request failed",
+                url=url,
+                error=str(e),
+            )
+            return None
+    
     async def close(self) -> None:
         """Close all browser connections."""
         if self._headless_context:
@@ -955,6 +1077,16 @@ def _is_challenge_page(content: str, headers: dict) -> bool:
     if any(ind in content_lower for ind in captcha_indicators):
         return True
     
+    # Turnstile indicators
+    turnstile_indicators = [
+        "cf-turnstile",
+        "turnstile-widget",
+        "challenges.cloudflare.com/turnstile",
+    ]
+    
+    if any(ind in content_lower for ind in turnstile_indicators):
+        return True
+    
     # Server header check
     server = headers.get("server", "").lower()
     if "cloudflare" in server:
@@ -964,6 +1096,68 @@ def _is_challenge_page(content: str, headers: dict) -> bool:
             return True
     
     return False
+
+
+def _detect_challenge_type(content: str) -> str:
+    """Detect the specific type of challenge from page content.
+    
+    Args:
+        content: Page HTML content.
+        
+    Returns:
+        Challenge type string.
+    """
+    content_lower = content.lower()
+    
+    # Check for specific challenge types in order of specificity
+    if "turnstile" in content_lower or "cf-turnstile" in content_lower:
+        return "turnstile"
+    
+    if "hcaptcha" in content_lower or "h-captcha" in content_lower:
+        return "hcaptcha"
+    
+    if "recaptcha" in content_lower or "g-recaptcha" in content_lower:
+        return "recaptcha"
+    
+    if "captcha" in content_lower:
+        return "captcha"
+    
+    # Cloudflare indicators
+    cloudflare_indicators = [
+        "cf-browser-verification",
+        "cloudflare ray id",
+        "checking your browser",
+        "_cf_chl_opt",
+    ]
+    if any(ind in content_lower for ind in cloudflare_indicators):
+        return "cloudflare"
+    
+    # Generic JS challenge
+    if "please wait" in content_lower or "just a moment" in content_lower:
+        return "js_challenge"
+    
+    return "cloudflare"  # Default
+
+
+def _get_challenge_element_selector(challenge_type: str) -> str | None:
+    """Get CSS selector for challenge element to highlight.
+    
+    Args:
+        challenge_type: Type of challenge.
+        
+    Returns:
+        CSS selector or None.
+    """
+    selectors = {
+        "turnstile": "[data-turnstile-container], .cf-turnstile, iframe[src*='turnstile']",
+        "hcaptcha": ".h-captcha, [data-hcaptcha-widget-id], iframe[src*='hcaptcha']",
+        "recaptcha": ".g-recaptcha, [data-sitekey], iframe[src*='recaptcha']",
+        "captcha": "[class*='captcha'], [id*='captcha'], iframe[src*='captcha']",
+        "cloudflare": "#cf-wrapper, .cf-browser-verification, #challenge-running",
+        "js_challenge": "#challenge-body-text, #challenge-running, .main-wrapper",
+    }
+    
+    return selectors.get(challenge_type)
 
 
 async def _save_content(url: str, content: bytes, headers: dict) -> Path | None:
@@ -1173,6 +1367,7 @@ async def fetch_url(
             - use_tor: Use Tor proxy.
             - skip_cache: Skip cache lookup and conditional requests.
             - max_retries: Override max retries (default: 3).
+            - allow_intervention: Allow manual intervention on challenge (default: True).
         task_id: Associated task ID.
         
     Returns:
@@ -1290,10 +1485,13 @@ async def fetch_url(
         # Stage 2: Browser Headless (auto mode selection)
         # =====================================================================
         if force_browser and not force_headful:
+            allow_intervention = policy.get("allow_intervention", True)
             result = await _browser_fetcher.fetch(
                 url,
                 referer=context.get("referer"),
                 headful=None,  # Auto-detect based on domain policy
+                task_id=task_id,
+                allow_intervention=allow_intervention,
             )
             escalation_path.append(f"browser({result.method})")
             retry_count += 1
@@ -1307,16 +1505,19 @@ async def fetch_url(
         # Stage 3: Browser Headful (for persistent challenges)
         # =====================================================================
         if force_headful and (not result or not result.ok):
+            allow_intervention = policy.get("allow_intervention", True)
             result = await _browser_fetcher.fetch(
                 url,
                 referer=context.get("referer"),
                 headful=True,
+                task_id=task_id,
+                allow_intervention=allow_intervention,
             )
             escalation_path.append("browser_headful")
             retry_count += 1
             
             # If headful still fails, update domain policy for future
-            if not result.ok and result.reason == "challenge_detected":
+            if not result.ok and "challenge" in (result.reason or ""):
                 await _update_domain_headful_ratio(db, domain, increase=True)
         
         # =====================================================================

@@ -410,9 +410,14 @@ class TestHumanBehavior:
         """Test scroll pattern generates reasonable positions.
         
         For page_height=3000 and viewport_height=1080, scrollable area is 1920px.
-        With typical scroll steps of 200-400px, expect 5-10 scroll positions.
+        With scroll steps of 50-150% viewport (540-1620px), positions vary.
+        Per §7.1.3.3: Random seed is fixed for determinism.
         """
+        import random
         from src.crawler.fetcher import HumanBehavior
+        
+        # Fix seed for determinism per §7.1.3.3
+        random.seed(42)
         
         positions = HumanBehavior.scroll_pattern(
             page_height=3000,
@@ -420,9 +425,9 @@ class TestHumanBehavior:
         )
         
         # Scrollable area = 3000 - 1080 = 1920px
-        # With typical 200-400px steps, expect 5-10 positions
-        assert 3 <= len(positions) <= 15, (
-            f"Expected 3-15 scroll positions for 1920px scrollable area, got {len(positions)}"
+        # With 50-150% viewport steps (540-1620px), expect 2-4 positions typically
+        assert 1 <= len(positions) <= 15, (
+            f"Expected 1-15 scroll positions for 1920px scrollable area, got {len(positions)}"
         )
         
         for idx, (scroll_y, delay) in enumerate(positions):

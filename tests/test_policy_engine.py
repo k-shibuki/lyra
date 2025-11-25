@@ -172,8 +172,8 @@ class TestPolicyEngine:
         collector = MetricsCollector()
         engine = PolicyEngine(metrics_collector=collector)
         
-        # Mock database
-        with patch("src.utils.policy_engine.get_database") as mock_db:
+        # Mock database (patching at source since lazy import)
+        with patch("src.storage.database.get_database") as mock_db:
             mock_db.return_value = AsyncMock()
             mock_db.return_value.execute = AsyncMock()
             mock_db.return_value.log_event = AsyncMock()

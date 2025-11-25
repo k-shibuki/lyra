@@ -21,7 +21,6 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable
 
-from src.storage.database import get_database
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.utils.metrics import MetricsCollector, get_metrics_collector, MetricType
@@ -431,6 +430,8 @@ class PolicyEngine:
         if not updates:
             return
         
+        # Lazy import to avoid circular dependency
+        from src.storage.database import get_database
         db = await get_database()
         
         for update in updates:

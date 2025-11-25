@@ -17,7 +17,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Awaitable
 
-from src.storage.database import Database, get_database
 from src.utils.config import get_settings, get_project_root
 from src.utils.logging import get_logger
 
@@ -169,6 +168,8 @@ class DecisionLogger:
     
     async def save_to_db(self) -> None:
         """Persist decisions to database."""
+        # Lazy import to avoid circular dependency
+        from src.storage.database import get_database
         db = await get_database()
         
         async with self._lock:
@@ -258,6 +259,8 @@ class ReplayEngine:
         Returns:
             List of Decision objects.
         """
+        # Lazy import to avoid circular dependency
+        from src.storage.database import get_database
         db = await get_database()
         
         rows = await db.fetch_all(
@@ -417,6 +420,8 @@ class ReplayEngine:
         Returns:
             Metrics comparison dictionary.
         """
+        # Lazy import to avoid circular dependency
+        from src.storage.database import get_database
         db = await get_database()
         
         # Get task info
