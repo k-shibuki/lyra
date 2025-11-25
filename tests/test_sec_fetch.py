@@ -1,11 +1,12 @@
 """
-Tests for Sec-Fetch-* header generation (§4.3 - stealth requirements).
+Tests for Sec-Fetch-* and Sec-CH-UA-* header generation (§4.3 - stealth requirements).
 
 Covers:
 - SecFetchSite determination (none, same-origin, same-site, cross-site)
 - SecFetchHeaders generation for various navigation contexts
 - Helper functions for SERP clicks, direct navigation, internal links
 - Edge cases (ports, subdomains, multi-part TLDs)
+- Sec-CH-UA-* Client Hints headers
 """
 
 import pytest
@@ -22,6 +23,15 @@ from src.crawler.sec_fetch import (
     generate_headers_for_internal_link,
     _get_registrable_domain,
     _determine_fetch_site,
+    # Sec-CH-UA-* related imports
+    Platform,
+    BrandVersion,
+    SecCHUAConfig,
+    SecCHUAHeaders,
+    generate_sec_ch_ua_headers,
+    generate_all_security_headers,
+    generate_complete_navigation_headers,
+    update_default_sec_ch_ua_config,
 )
 
 
@@ -469,4 +479,406 @@ class TestHeaderConsistency:
         
         for key, value in headers.items():
             assert isinstance(value, str), f"Header {key} value should be string, got {type(value)}"
+
+
+# =============================================================================
+# Sec-CH-UA-* (Client Hints) Header Tests
+# =============================================================================
+
+@pytest.mark.unit
+class TestPlatformEnum:
+    """Tests for Platform enum values."""
+
+    def test_platform_values(self):
+        """Test Platform enum has correct string values."""
+        assert Platform.WINDOWS.value == "Windows"
+        assert Platform.MACOS.value == "macOS"
+        assert Platform.LINUX.value == "Linux"
+        assert Platform.ANDROID.value == "Android"
+        assert Platform.IOS.value == "iOS"
+        assert Platform.CHROME_OS.value == "Chrome OS"
+        assert Platform.UNKNOWN.value == "Unknown"
+
+
+@pytest.mark.unit
+class TestBrandVersion:
+    """Tests for BrandVersion dataclass."""
+
+    def test_to_ua_item_basic(self):
+        """Test basic UA item formatting."""
+        brand = BrandVersion(
+            brand="Google Chrome",
+            major_version="120",
+        )
+        
+        result = brand.to_ua_item()
+        
+        assert result == '"Google Chrome";v="120"'
+
+    def test_to_ua_item_with_special_characters(self):
+        """Test UA item with special characters in brand name."""
+        brand = BrandVersion(
+            brand="Not_A Brand",
+            major_version="8",
+        )
+        
+        result = brand.to_ua_item()
+        
+        assert result == '"Not_A Brand";v="8"'
+
+    def test_to_ua_item_full_version(self):
+        """Test UA item with full version when requested."""
+        brand = BrandVersion(
+            brand="Chromium",
+            major_version="120",
+            full_version="120.0.6099.130",
+        )
+        
+        result = brand.to_ua_item(include_full_version=True)
+        
+        assert result == '"Chromium";v="120.0.6099.130"'
+
+    def test_to_ua_item_full_version_fallback(self):
+        """Test UA item falls back to major version if no full version."""
+        brand = BrandVersion(
+            brand="Test",
+            major_version="10",
+        )
+        
+        result = brand.to_ua_item(include_full_version=True)
+        
+        assert result == '"Test";v="10"'
+
+
+@pytest.mark.unit
+class TestSecCHUAConfig:
+    """Tests for SecCHUAConfig configuration class."""
+
+    def test_default_config(self):
+        """Test default configuration values."""
+        config = SecCHUAConfig()
+        
+        assert config.chrome_major_version == "120"
+        assert config.platform == Platform.WINDOWS
+        assert config.is_mobile is False
+        assert config.grease_brand == "Not_A Brand"
+        assert config.grease_version == "8"
+
+    def test_custom_config(self):
+        """Test custom configuration values."""
+        config = SecCHUAConfig(
+            chrome_major_version="121",
+            chrome_full_version="121.0.6167.85",
+            platform=Platform.LINUX,
+            is_mobile=False,
+        )
+        
+        assert config.chrome_major_version == "121"
+        assert config.platform == Platform.LINUX
+
+    def test_brands_property(self):
+        """Test brands property returns correct list."""
+        config = SecCHUAConfig(
+            chrome_major_version="120",
+            chrome_full_version="120.0.6099.130",
+        )
+        
+        brands = config.brands
+        
+        assert len(brands) == 3
+        # First is GREASE brand
+        assert brands[0].brand == "Not_A Brand"
+        assert brands[0].major_version == "8"
+        # Second is Chromium
+        assert brands[1].brand == "Chromium"
+        assert brands[1].major_version == "120"
+        # Third is Google Chrome
+        assert brands[2].brand == "Google Chrome"
+        assert brands[2].major_version == "120"
+
+
+@pytest.mark.unit
+class TestSecCHUAHeaders:
+    """Tests for SecCHUAHeaders dataclass."""
+
+    def test_to_dict_basic(self):
+        """Test basic header generation."""
+        headers = SecCHUAHeaders(
+            brands=[
+                BrandVersion("Not_A Brand", "8"),
+                BrandVersion("Chromium", "120"),
+                BrandVersion("Google Chrome", "120"),
+            ],
+            is_mobile=False,
+            platform=Platform.WINDOWS,
+        )
+        
+        result = headers.to_dict()
+        
+        assert "Sec-CH-UA" in result
+        assert "Sec-CH-UA-Mobile" in result
+        assert "Sec-CH-UA-Platform" in result
+        
+        assert result["Sec-CH-UA-Mobile"] == "?0"
+        assert result["Sec-CH-UA-Platform"] == '"Windows"'
+
+    def test_to_dict_mobile(self):
+        """Test mobile device header generation."""
+        headers = SecCHUAHeaders(
+            brands=[BrandVersion("Chrome", "120")],
+            is_mobile=True,
+            platform=Platform.ANDROID,
+        )
+        
+        result = headers.to_dict()
+        
+        assert result["Sec-CH-UA-Mobile"] == "?1"
+        assert result["Sec-CH-UA-Platform"] == '"Android"'
+
+    def test_to_dict_linux_platform(self):
+        """Test Linux platform header generation."""
+        headers = SecCHUAHeaders(
+            brands=[BrandVersion("Chrome", "120")],
+            is_mobile=False,
+            platform=Platform.LINUX,
+        )
+        
+        result = headers.to_dict()
+        
+        assert result["Sec-CH-UA-Platform"] == '"Linux"'
+
+    def test_to_dict_with_optional_headers(self):
+        """Test optional headers are included when requested."""
+        headers = SecCHUAHeaders(
+            brands=[
+                BrandVersion("Chrome", "120", "120.0.6099.130"),
+            ],
+            is_mobile=False,
+            platform=Platform.WINDOWS,
+            platform_version="15.0.0",
+        )
+        
+        result = headers.to_dict(include_optional=True)
+        
+        assert "Sec-CH-UA-Platform-Version" in result
+        assert result["Sec-CH-UA-Platform-Version"] == '"15.0.0"'
+        assert "Sec-CH-UA-Full-Version-List" in result
+
+    def test_to_dict_without_optional_headers(self):
+        """Test optional headers are excluded by default."""
+        headers = SecCHUAHeaders(
+            brands=[BrandVersion("Chrome", "120", "120.0.6099.130")],
+            is_mobile=False,
+            platform=Platform.WINDOWS,
+            platform_version="15.0.0",
+        )
+        
+        result = headers.to_dict(include_optional=False)
+        
+        assert "Sec-CH-UA-Platform-Version" not in result
+        assert "Sec-CH-UA-Full-Version-List" not in result
+
+    def test_sec_ch_ua_format(self):
+        """Test Sec-CH-UA header format matches browser output."""
+        headers = SecCHUAHeaders(
+            brands=[
+                BrandVersion("Not_A Brand", "8"),
+                BrandVersion("Chromium", "120"),
+                BrandVersion("Google Chrome", "120"),
+            ],
+            is_mobile=False,
+            platform=Platform.WINDOWS,
+        )
+        
+        result = headers.to_dict()
+        sec_ch_ua = result["Sec-CH-UA"]
+        
+        # Should be comma-separated list
+        assert '"Not_A Brand";v="8"' in sec_ch_ua
+        assert '"Chromium";v="120"' in sec_ch_ua
+        assert '"Google Chrome";v="120"' in sec_ch_ua
+        assert ", " in sec_ch_ua  # Items separated by ", "
+
+
+@pytest.mark.unit
+class TestGenerateSecCHUAHeaders:
+    """Tests for generate_sec_ch_ua_headers function."""
+
+    def test_default_generation(self):
+        """Test header generation with default config."""
+        headers = generate_sec_ch_ua_headers()
+        result = headers.to_dict()
+        
+        # Should have all required headers
+        assert "Sec-CH-UA" in result
+        assert "Sec-CH-UA-Mobile" in result
+        assert "Sec-CH-UA-Platform" in result
+        
+        # Default is desktop Windows
+        assert result["Sec-CH-UA-Mobile"] == "?0"
+        assert result["Sec-CH-UA-Platform"] == '"Windows"'
+
+    def test_custom_config(self):
+        """Test header generation with custom config."""
+        config = SecCHUAConfig(
+            chrome_major_version="121",
+            platform=Platform.MACOS,
+            is_mobile=False,
+        )
+        
+        headers = generate_sec_ch_ua_headers(config=config)
+        result = headers.to_dict()
+        
+        assert result["Sec-CH-UA-Platform"] == '"macOS"'
+        assert '"121"' in result["Sec-CH-UA"]
+
+    def test_with_optional_headers(self):
+        """Test generation includes optional headers when requested."""
+        config = SecCHUAConfig(
+            platform_version="15.0.0",
+        )
+        
+        headers = generate_sec_ch_ua_headers(
+            config=config,
+            include_optional=True,
+        )
+        result = headers.to_dict(include_optional=True)
+        
+        assert "Sec-CH-UA-Platform-Version" in result
+
+
+@pytest.mark.unit
+class TestGenerateAllSecurityHeaders:
+    """Tests for combined header generation functions."""
+
+    def test_generate_all_security_headers(self):
+        """Test combined Sec-Fetch-* and Sec-CH-UA-* generation."""
+        context = NavigationContext(
+            target_url="https://example.com/page",
+            referer_url="https://google.com/search",
+            is_user_initiated=True,
+            destination=SecFetchDest.DOCUMENT,
+        )
+        
+        headers = generate_all_security_headers(context)
+        
+        # Sec-Fetch-* headers
+        assert headers["Sec-Fetch-Site"] == "cross-site"
+        assert headers["Sec-Fetch-Mode"] == "navigate"
+        assert headers["Sec-Fetch-Dest"] == "document"
+        assert headers["Sec-Fetch-User"] == "?1"
+        
+        # Sec-CH-UA-* headers
+        assert "Sec-CH-UA" in headers
+        assert "Sec-CH-UA-Mobile" in headers
+        assert "Sec-CH-UA-Platform" in headers
+        
+        # Referer
+        assert headers["Referer"] == "https://google.com/search"
+
+    def test_generate_all_security_headers_no_referer(self):
+        """Test combined headers without referer."""
+        context = NavigationContext(
+            target_url="https://example.com/page",
+            referer_url=None,
+            is_user_initiated=True,
+            destination=SecFetchDest.DOCUMENT,
+        )
+        
+        headers = generate_all_security_headers(context)
+        
+        assert headers["Sec-Fetch-Site"] == "none"
+        assert "Referer" not in headers
+
+    def test_generate_complete_navigation_headers(self):
+        """Test convenience function for complete navigation headers."""
+        headers = generate_complete_navigation_headers(
+            target_url="https://example.com/page",
+            referer_url="https://google.com/search",
+        )
+        
+        # Should have all Sec-Fetch-* headers
+        assert "Sec-Fetch-Site" in headers
+        assert "Sec-Fetch-Mode" in headers
+        assert "Sec-Fetch-Dest" in headers
+        
+        # Should have all Sec-CH-UA-* headers
+        assert "Sec-CH-UA" in headers
+        assert "Sec-CH-UA-Mobile" in headers
+        assert "Sec-CH-UA-Platform" in headers
+        
+        # Should have Referer
+        assert "Referer" in headers
+
+    def test_generate_complete_navigation_headers_direct(self):
+        """Test convenience function for direct navigation (no referer)."""
+        headers = generate_complete_navigation_headers(
+            target_url="https://example.com/page",
+        )
+        
+        assert headers["Sec-Fetch-Site"] == "none"
+        assert "Referer" not in headers
+
+
+@pytest.mark.unit
+class TestSecCHUAHeadersIntegration:
+    """Integration tests for Sec-CH-UA-* headers with browser impersonation."""
+
+    def test_headers_match_chrome_format(self):
+        """Test generated headers match real Chrome browser format."""
+        config = SecCHUAConfig(
+            chrome_major_version="120",
+            chrome_full_version="120.0.6099.130",
+            platform=Platform.WINDOWS,
+            is_mobile=False,
+        )
+        
+        headers = generate_sec_ch_ua_headers(config=config)
+        result = headers.to_dict()
+        
+        # Chrome's Sec-CH-UA format (order may vary)
+        sec_ch_ua = result["Sec-CH-UA"]
+        
+        # Should contain three brands
+        assert sec_ch_ua.count(';v="') == 3
+        
+        # Mobile should be ?0 for desktop
+        assert result["Sec-CH-UA-Mobile"] == "?0"
+        
+        # Platform should be quoted
+        assert result["Sec-CH-UA-Platform"] == '"Windows"'
+
+    def test_header_values_are_all_strings(self):
+        """Test all header values are strings for HTTP client compatibility."""
+        headers = generate_sec_ch_ua_headers()
+        result = headers.to_dict(include_optional=True)
+        
+        for key, value in result.items():
+            assert isinstance(value, str), f"Header {key} should be string, got {type(value)}"
+
+    def test_mobile_detection_headers(self):
+        """Test mobile device headers are correctly set."""
+        config = SecCHUAConfig(
+            platform=Platform.ANDROID,
+            is_mobile=True,
+        )
+        
+        headers = generate_sec_ch_ua_headers(config=config)
+        result = headers.to_dict()
+        
+        assert result["Sec-CH-UA-Mobile"] == "?1"
+        assert result["Sec-CH-UA-Platform"] == '"Android"'
+
+    def test_ios_platform(self):
+        """Test iOS platform headers."""
+        config = SecCHUAConfig(
+            platform=Platform.IOS,
+            is_mobile=True,
+        )
+        
+        headers = generate_sec_ch_ua_headers(config=config)
+        result = headers.to_dict()
+        
+        assert result["Sec-CH-UA-Platform"] == '"iOS"'
+        assert result["Sec-CH-UA-Mobile"] == "?1"
 
