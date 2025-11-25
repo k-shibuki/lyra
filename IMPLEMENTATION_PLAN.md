@@ -653,6 +653,130 @@ E2Eテストを有効に実施するための前提：
 
 ---
 
+## Phase 17: 保守性・拡張性改善 ⏳
+
+**目的**: 外部依存の変更に対する耐性向上と、将来の機能拡張を容易にするためのリファクタリング。
+
+---
+
+### 17.1 プロバイダ抽象化 🔴
+
+外部サービスへの直接依存を抽象化し、実装の切り替えを容易にする。
+
+#### 17.1.1 SearchProvider抽象化
+- [ ] `SearchProvider` プロトコル/ABC定義
+  - `search(query, options) -> SearchResult`
+  - `get_health() -> HealthStatus`
+- [ ] `SearXNGProvider` 実装（現行コードのリファクタ）
+- [ ] プロバイダ登録・切替機構
+- 影響範囲: `src/search/`
+
+#### 17.1.2 LLMProvider抽象化
+- [ ] `LLMProvider` プロトコル/ABC定義
+  - `generate(prompt, options) -> LLMResponse`
+  - `embed(texts) -> Embeddings`
+  - `get_model_info() -> ModelInfo`
+- [ ] `OllamaProvider` 実装（現行コードのリファクタ）
+- [ ] 将来の拡張候補: `LlamaCppProvider`, `VLLMProvider`
+- 影響範囲: `src/filter/llm.py`, `src/filter/embedding.py`
+
+#### 17.1.3 BrowserProvider抽象化
+- [ ] `BrowserProvider` プロトコル/ABC定義
+  - `navigate(url, options) -> PageResult`
+  - `execute_script(script) -> Any`
+  - `get_cookies() -> list[Cookie]`
+- [ ] `PlaywrightProvider` 実装（現行コードのリファクタ）
+- [ ] `UndetectedChromeProvider` 実装（現行コードのリファクタ）
+- [ ] 自動フォールバック戦略の分離
+- 影響範囲: `src/crawler/fetcher.py`, `src/crawler/undetected.py`
+
+#### 17.1.4 NotificationProvider抽象化
+- [ ] `NotificationProvider` プロトコル/ABC定義
+- [ ] `WindowsToastProvider`, `LinuxNotifyProvider` 実装
+- [ ] プラットフォーム自動検出と切替
+- 影響範囲: `src/utils/notification.py`
+
+---
+
+### 17.2 設定・ポリシーの外部化 🟡
+
+ハードコードされた設定やポリシーを外部設定化し、コード変更なしで調整可能にする。
+
+#### 17.2.1 ドメインポリシー完全外部化
+- [ ] `config/domains.yaml` への一元化
+  - 現状: YAMLとコード内ハードコードが混在
+- [ ] ホットリロード対応（再起動不要）
+- [ ] ポリシースキーマのバリデーション強化
+
+#### 17.2.2 検索エンジン設定の動的管理
+- [ ] エンジン追加/削除のYAML変更のみ対応
+- [ ] エンジン正規化ルールの外部テーブル化
+
+#### 17.2.3 ステルス設定の外部化
+- [ ] User-Agent/ヘッダーパターンのYAML管理
+- [ ] 指紋パラメータの設定ファイル化
+
+---
+
+### 17.3 汎用コンポーネントの抽出 🟡
+
+特定用途に実装されているパターンを汎用化し、再利用可能にする。
+
+#### 17.3.1 汎用サーキットブレーカ
+- [ ] `CircuitBreaker[T]` ジェネリック実装
+  - 現状: エンジン専用の実装
+- [ ] 任意のリソース（ドメイン、API、外部サービス）に適用可能
+- [ ] 状態遷移のイベント発行
+
+#### 17.3.2 汎用リトライ/バックオフ
+- [ ] `RetryPolicy` 設定クラス
+- [ ] デコレータ/コンテキストマネージャ形式
+- [ ] 現行の個別実装を統一
+
+#### 17.3.3 汎用キャッシュレイヤ
+- [ ] `CacheProvider` 抽象化
+- [ ] TTL/LRU/サイズ制限の統一インターフェース
+- [ ] 現行の個別キャッシュ（SERP、Fetch、Embed）を統合
+
+---
+
+### 17.4 アーキテクチャ改善 🟢
+
+将来の大規模拡張に備えた構造的改善（優先度低）。
+
+#### 17.4.1 戦略パターンの適用
+- [ ] 取得戦略（HTTP/Browser/Tor）のStrategy化
+- [ ] 抽出戦略（HTML/PDF/OCR）のStrategy化
+- [ ] 現状の条件分岐を戦略オブジェクトに置換
+
+#### 17.4.2 イベント駆動アーキテクチャ
+- [ ] 内部イベントバス導入
+- [ ] パイプライン処理のイベントベース化
+- [ ] プラグイン/フック機構の基盤
+
+#### 17.4.3 依存性注入の強化
+- [ ] DIコンテナ導入（例: `dependency-injector`）
+- [ ] テスト時のモック注入簡易化
+- [ ] コンポーネント間結合度の低減
+
+---
+
+### 17.5 外部依存の追従容易化 🟡
+
+壊れやすい外部依存への対策を構造化する。
+
+#### 17.5.1 バージョン追従スクリプト
+- [ ] Chrome/Chromium バージョン検出と互換性チェック
+- [ ] curl_cffi impersonate設定の自動更新検知
+- [ ] SearXNGエンジン設定のdrift検出
+
+#### 17.5.2 互換性テストスイート
+- [ ] 外部サービス互換性の定期チェックテスト
+- [ ] Cloudflare対策の動作確認テスト
+- [ ] モデル出力形式の互換性テスト
+
+---
+
 ## 進捗トラッキング
 
 | Phase | 状態 | 進捗 | 備考 |
@@ -673,6 +797,7 @@ E2Eテストを有効に実施するための前提：
 | Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
 | Phase 15: ドキュメント | 🔄 | 75% | Phase 14/16完了後に整備|
 | **Phase 16: 未実装機能** | 🔄 | 65% | **19項目残り** |
+| **Phase 17: 保守性改善** | ⏳ | 0% | リファクタリング |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
 
