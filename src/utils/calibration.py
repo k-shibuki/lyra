@@ -1679,3 +1679,470 @@ async def get_calibration_stats() -> dict[str, Any]:
         "degradation_threshold": CalibrationHistory.DEGRADATION_THRESHOLD,
     }
 
+
+# =============================================================================
+# Calibration Evaluation (§4.6.1)
+# =============================================================================
+
+@dataclass
+class CalibrationEvaluation:
+    """Stored calibration evaluation result."""
+    
+    id: str
+    source: str
+    brier_score: float
+    brier_score_calibrated: float | None
+    improvement_ratio: float
+    expected_calibration_error: float
+    samples_evaluated: int
+    bins: list[dict[str, float]]
+    calibration_version: int | None
+    evaluated_at: datetime
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "evaluation_id": self.id,
+            "source": self.source,
+            "brier_score": self.brier_score,
+            "brier_score_calibrated": self.brier_score_calibrated,
+            "improvement_ratio": self.improvement_ratio,
+            "expected_calibration_error": self.expected_calibration_error,
+            "samples_evaluated": self.samples_evaluated,
+            "bins": self.bins,
+            "calibration_version": self.calibration_version,
+            "evaluated_at": self.evaluated_at.isoformat(),
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+class CalibrationEvaluator:
+    """Manages calibration evaluation persistence (§4.6.1).
+    
+    Responsibilities (Lancet作業側):
+    - 評価計算の実行
+    - 評価結果のDB永続化
+    - 構造化データの返却
+    
+    NOT responsible for (Cursor AI思考側):
+    - レポートの生成・構成
+    - 評価結果の解釈
+    - 対応方針の決定
+    """
+    
+    def __init__(self, db: Any = None):
+        """Initialize evaluator.
+        
+        Args:
+            db: Database connection. If None, uses global database.
+        """
+        self._db = db
+        self._calibrator = get_calibrator()
+    
+    def _get_db(self) -> Any:
+        """Get database connection."""
+        if self._db is not None:
+            return self._db
+        return get_database()
+    
+    def _generate_id(self) -> str:
+        """Generate unique evaluation ID."""
+        import uuid
+        return f"eval_{uuid.uuid4().hex[:12]}"
+    
+    def save_evaluation(
+        self,
+        source: str,
+        predictions: list[float],
+        labels: list[int],
+    ) -> CalibrationEvaluation:
+        """Execute evaluation and save to database.
+        
+        Args:
+            source: Source model identifier.
+            predictions: Predicted probabilities.
+            labels: Ground truth labels (0 or 1).
+            
+        Returns:
+            Saved CalibrationEvaluation.
+        """
+        # Create samples
+        samples = [
+            CalibrationSample(predicted_prob=p, actual_label=l, source=source)
+            for p, l in zip(predictions, labels)
+        ]
+        
+        # Calculate metrics
+        brier_before = brier_score(predictions, labels)
+        ece, bins = expected_calibration_error(predictions, labels)
+        
+        # Get calibration params if available
+        params = self._calibrator.get_params(source)
+        calibration_version = params.version if params else None
+        
+        # Calculate calibrated metrics if calibration exists
+        brier_calibrated = None
+        improvement_ratio = 0.0
+        
+        if params is not None:
+            calibrated_probs = [
+                self._calibrator.calibrate(p, source)
+                for p in predictions
+            ]
+            brier_calibrated = brier_score(calibrated_probs, labels)
+            
+            if brier_before > 0:
+                improvement_ratio = (brier_before - brier_calibrated) / brier_before
+        
+        # Create evaluation record
+        now = datetime.now(timezone.utc)
+        evaluation = CalibrationEvaluation(
+            id=self._generate_id(),
+            source=source,
+            brier_score=brier_before,
+            brier_score_calibrated=brier_calibrated,
+            improvement_ratio=improvement_ratio,
+            expected_calibration_error=ece,
+            samples_evaluated=len(samples),
+            bins=bins,
+            calibration_version=calibration_version,
+            evaluated_at=now,
+            created_at=now,
+        )
+        
+        # Save to database
+        self._save_to_db(evaluation)
+        
+        logger.info(
+            "Calibration evaluation saved",
+            evaluation_id=evaluation.id,
+            source=source,
+            brier_score=f"{brier_before:.4f}",
+            samples=len(samples),
+        )
+        
+        return evaluation
+    
+    def _save_to_db(self, evaluation: CalibrationEvaluation) -> None:
+        """Save evaluation to database.
+        
+        Args:
+            evaluation: Evaluation to save.
+        """
+        db = self._get_db()
+        
+        db.execute(
+            """
+            INSERT INTO calibration_evaluations (
+                id, source, brier_score, brier_score_calibrated,
+                improvement_ratio, expected_calibration_error,
+                samples_evaluated, bins_json, calibration_version,
+                evaluated_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                evaluation.id,
+                evaluation.source,
+                evaluation.brier_score,
+                evaluation.brier_score_calibrated,
+                evaluation.improvement_ratio,
+                evaluation.expected_calibration_error,
+                evaluation.samples_evaluated,
+                json.dumps(evaluation.bins),
+                evaluation.calibration_version,
+                evaluation.evaluated_at.isoformat(),
+                evaluation.created_at.isoformat(),
+            ),
+        )
+        db.commit()
+    
+    def get_evaluations(
+        self,
+        source: str | None = None,
+        limit: int = 50,
+        since: datetime | None = None,
+    ) -> list[CalibrationEvaluation]:
+        """Get evaluation history.
+        
+        Args:
+            source: Optional source filter.
+            limit: Maximum evaluations to return.
+            since: Optional start datetime filter.
+            
+        Returns:
+            List of CalibrationEvaluations (most recent first).
+        """
+        db = self._get_db()
+        
+        query = "SELECT * FROM calibration_evaluations WHERE 1=1"
+        params: list[Any] = []
+        
+        if source is not None:
+            query += " AND source = ?"
+            params.append(source)
+        
+        if since is not None:
+            query += " AND evaluated_at >= ?"
+            params.append(since.isoformat())
+        
+        query += " ORDER BY evaluated_at DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor = db.execute(query, params)
+        rows = cursor.fetchall()
+        
+        evaluations = []
+        for row in rows:
+            evaluations.append(self._row_to_evaluation(row))
+        
+        return evaluations
+    
+    def get_latest_evaluation(self, source: str) -> CalibrationEvaluation | None:
+        """Get most recent evaluation for a source.
+        
+        Args:
+            source: Source model identifier.
+            
+        Returns:
+            Latest CalibrationEvaluation or None.
+        """
+        evaluations = self.get_evaluations(source=source, limit=1)
+        return evaluations[0] if evaluations else None
+    
+    def get_evaluation_by_id(self, evaluation_id: str) -> CalibrationEvaluation | None:
+        """Get evaluation by ID.
+        
+        Args:
+            evaluation_id: Evaluation ID.
+            
+        Returns:
+            CalibrationEvaluation or None.
+        """
+        db = self._get_db()
+        
+        cursor = db.execute(
+            "SELECT * FROM calibration_evaluations WHERE id = ?",
+            (evaluation_id,),
+        )
+        row = cursor.fetchone()
+        
+        if row is None:
+            return None
+        
+        return self._row_to_evaluation(row)
+    
+    def _row_to_evaluation(self, row: Any) -> CalibrationEvaluation:
+        """Convert database row to CalibrationEvaluation.
+        
+        Args:
+            row: Database row.
+            
+        Returns:
+            CalibrationEvaluation.
+        """
+        # Handle both dict-like and tuple rows
+        if hasattr(row, "keys"):
+            data = dict(row)
+        else:
+            # Assume column order matches schema
+            columns = [
+                "id", "source", "brier_score", "brier_score_calibrated",
+                "improvement_ratio", "expected_calibration_error",
+                "samples_evaluated", "bins_json", "calibration_version",
+                "evaluated_at", "created_at",
+            ]
+            data = dict(zip(columns, row))
+        
+        evaluated_at = data["evaluated_at"]
+        if isinstance(evaluated_at, str):
+            evaluated_at = datetime.fromisoformat(evaluated_at.replace("Z", "+00:00"))
+        
+        created_at = data["created_at"]
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        
+        bins = data["bins_json"]
+        if isinstance(bins, str):
+            bins = json.loads(bins)
+        
+        return CalibrationEvaluation(
+            id=data["id"],
+            source=data["source"],
+            brier_score=data["brier_score"],
+            brier_score_calibrated=data["brier_score_calibrated"],
+            improvement_ratio=data["improvement_ratio"] or 0.0,
+            expected_calibration_error=data["expected_calibration_error"],
+            samples_evaluated=data["samples_evaluated"],
+            bins=bins,
+            calibration_version=data["calibration_version"],
+            evaluated_at=evaluated_at,
+            created_at=created_at,
+        )
+    
+    def get_reliability_diagram_data(
+        self,
+        source: str,
+        evaluation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get reliability diagram data for visualization.
+        
+        Args:
+            source: Source model identifier.
+            evaluation_id: Optional specific evaluation ID.
+            
+        Returns:
+            Structured data for reliability diagram.
+        """
+        if evaluation_id:
+            evaluation = self.get_evaluation_by_id(evaluation_id)
+        else:
+            evaluation = self.get_latest_evaluation(source)
+        
+        if evaluation is None:
+            return {
+                "ok": False,
+                "source": source,
+                "reason": "no_evaluation_found",
+            }
+        
+        return {
+            "ok": True,
+            "source": evaluation.source,
+            "evaluation_id": evaluation.id,
+            "n_bins": len(evaluation.bins),
+            "bins": evaluation.bins,
+            "overall_ece": evaluation.expected_calibration_error,
+            "brier_score": evaluation.brier_score,
+            "brier_score_calibrated": evaluation.brier_score_calibrated,
+            "evaluated_at": evaluation.evaluated_at.isoformat(),
+        }
+    
+    def count_evaluations(self, source: str | None = None) -> int:
+        """Count evaluations.
+        
+        Args:
+            source: Optional source filter.
+            
+        Returns:
+            Count of evaluations.
+        """
+        db = self._get_db()
+        
+        if source is not None:
+            cursor = db.execute(
+                "SELECT COUNT(*) FROM calibration_evaluations WHERE source = ?",
+                (source,),
+            )
+        else:
+            cursor = db.execute("SELECT COUNT(*) FROM calibration_evaluations")
+        
+        return cursor.fetchone()[0]
+
+
+# =============================================================================
+# Global Evaluator Instance
+# =============================================================================
+
+_calibration_evaluator: CalibrationEvaluator | None = None
+
+
+def get_calibration_evaluator() -> CalibrationEvaluator:
+    """Get or create global CalibrationEvaluator instance."""
+    global _calibration_evaluator
+    if _calibration_evaluator is None:
+        _calibration_evaluator = CalibrationEvaluator()
+    return _calibration_evaluator
+
+
+# =============================================================================
+# MCP Tool Integration (§4.6.1)
+# =============================================================================
+
+async def save_calibration_evaluation(
+    source: str,
+    predictions: list[float],
+    labels: list[int],
+) -> dict[str, Any]:
+    """Execute evaluation and save to database (for MCP tool use).
+    
+    Implements §4.6.1: Lancet責任 - 評価計算・DB保存.
+    
+    Args:
+        source: Source model identifier.
+        predictions: Predicted probabilities.
+        labels: Ground truth labels (0 or 1).
+        
+    Returns:
+        Saved evaluation result.
+    """
+    evaluator = get_calibration_evaluator()
+    
+    evaluation = evaluator.save_evaluation(source, predictions, labels)
+    
+    return {
+        "ok": True,
+        **evaluation.to_dict(),
+    }
+
+
+async def get_calibration_evaluations(
+    source: str | None = None,
+    limit: int = 50,
+    since: str | None = None,
+) -> dict[str, Any]:
+    """Get evaluation history (for MCP tool use).
+    
+    Implements §4.6.1: Lancet責任 - 構造化データの返却.
+    
+    Args:
+        source: Optional source filter.
+        limit: Maximum evaluations to return.
+        since: Optional start datetime (ISO format).
+        
+    Returns:
+        Evaluation history as structured data.
+    """
+    evaluator = get_calibration_evaluator()
+    
+    since_dt = None
+    if since is not None:
+        since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+    
+    evaluations = evaluator.get_evaluations(
+        source=source,
+        limit=limit,
+        since=since_dt,
+    )
+    
+    total_count = evaluator.count_evaluations(source)
+    
+    return {
+        "ok": True,
+        "evaluations": [e.to_dict() for e in evaluations],
+        "total_count": total_count,
+        "filter_source": source,
+        "filter_since": since,
+        "returned_count": len(evaluations),
+    }
+
+
+async def get_reliability_diagram_data(
+    source: str,
+    evaluation_id: str | None = None,
+) -> dict[str, Any]:
+    """Get reliability diagram data for visualization (for MCP tool use).
+    
+    Implements §4.6.1: Lancet責任 - 信頼度-精度曲線用ビンデータ返却.
+    
+    Args:
+        source: Source model identifier.
+        evaluation_id: Optional specific evaluation ID.
+        
+    Returns:
+        Reliability diagram data.
+    """
+    evaluator = get_calibration_evaluator()
+    
+    return evaluator.get_reliability_diagram_data(source, evaluation_id)
+

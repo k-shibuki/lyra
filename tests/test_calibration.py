@@ -20,8 +20,10 @@ from src.utils.calibration import (
     CalibrationSample,
     CalibrationParams,
     CalibrationResult,
+    CalibrationEvaluation,
     RollbackEvent,
     CalibrationHistory,
+    CalibrationEvaluator,
     PlattScaling,
     TemperatureScaling,
     brier_score,
@@ -37,6 +39,9 @@ from src.utils.calibration import (
     get_calibration_history,
     get_rollback_events,
     get_calibration_stats,
+    save_calibration_evaluation,
+    get_calibration_evaluations,
+    get_reliability_diagram_data,
 )
 
 
@@ -1045,4 +1050,221 @@ class TestMCPRollbackTools:
             assert "current_params" in result
             assert "history" in result
             assert "recalibration_threshold" in result
+
+
+# =============================================================================
+# CalibrationEvaluation Tests (§4.6.1)
+# =============================================================================
+
+class TestCalibrationEvaluation:
+    """Tests for CalibrationEvaluation dataclass."""
+    
+    def test_create_evaluation(self):
+        """Should create evaluation with all fields."""
+        evaluation = CalibrationEvaluation(
+            id="eval_001",
+            source="llm_extract",
+            brier_score=0.15,
+            brier_score_calibrated=0.12,
+            improvement_ratio=0.20,
+            expected_calibration_error=0.08,
+            samples_evaluated=100,
+            bins=[{"bin_lower": 0.0, "bin_upper": 0.1, "count": 10}],
+            calibration_version=2,
+            evaluated_at=datetime.now(timezone.utc),
+        )
+        
+        assert evaluation.id == "eval_001"
+        assert evaluation.source == "llm_extract"
+        assert evaluation.brier_score == 0.15
+        assert evaluation.improvement_ratio == 0.20
+    
+    def test_to_dict(self):
+        """Should convert to serializable dict."""
+        evaluation = CalibrationEvaluation(
+            id="eval_002",
+            source="nli_judge",
+            brier_score=0.18,
+            brier_score_calibrated=0.14,
+            improvement_ratio=0.22,
+            expected_calibration_error=0.06,
+            samples_evaluated=50,
+            bins=[],
+            calibration_version=1,
+            evaluated_at=datetime.now(timezone.utc),
+        )
+        
+        d = evaluation.to_dict()
+        
+        assert d["evaluation_id"] == "eval_002"
+        assert d["source"] == "nli_judge"
+        assert "evaluated_at" in d
+
+
+# =============================================================================
+# CalibrationEvaluator Tests (§4.6.1)
+# =============================================================================
+
+class TestCalibrationEvaluator:
+    """Tests for CalibrationEvaluator class (§4.6.1)."""
+    
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database."""
+        db = MagicMock()
+        db.execute = MagicMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
+        db.commit = MagicMock()
+        return db
+    
+    @pytest.fixture
+    def evaluator(self, mock_db, tmp_path):
+        """Create evaluator with mock database."""
+        with patch("src.utils.calibration.get_project_root") as mock_root:
+            mock_root.return_value = tmp_path
+            with patch("src.utils.calibration.get_database") as mock_get_db:
+                mock_get_db.return_value = mock_db
+                return CalibrationEvaluator(db=mock_db)
+    
+    def test_save_evaluation(self, evaluator, mock_db):
+        """save_evaluation should calculate metrics and save to DB."""
+        predictions = [0.1, 0.4, 0.6, 0.9, 0.2, 0.8, 0.3, 0.7, 0.5, 0.95]
+        labels = [0, 0, 1, 1, 0, 1, 0, 1, 0, 1]
+        
+        evaluation = evaluator.save_evaluation("test_source", predictions, labels)
+        
+        assert evaluation.source == "test_source"
+        assert evaluation.samples_evaluated == 10
+        assert 0 <= evaluation.brier_score <= 1
+        assert len(evaluation.bins) > 0
+        mock_db.execute.assert_called()
+        mock_db.commit.assert_called()
+    
+    def test_save_evaluation_stores_correct_brier(self, evaluator, mock_db):
+        """save_evaluation should calculate correct Brier score."""
+        # Perfect predictions
+        predictions = [0.0, 0.0, 1.0, 1.0]
+        labels = [0, 0, 1, 1]
+        
+        evaluation = evaluator.save_evaluation("test", predictions, labels)
+        
+        assert evaluation.brier_score == 0.0
+    
+    def test_generate_id(self, evaluator):
+        """_generate_id should create unique IDs."""
+        id1 = evaluator._generate_id()
+        id2 = evaluator._generate_id()
+        
+        assert id1 != id2
+        assert id1.startswith("eval_")
+    
+    def test_get_evaluations_empty(self, evaluator, mock_db):
+        """get_evaluations should return empty list when no data."""
+        mock_db.execute.return_value.fetchall.return_value = []
+        
+        evaluations = evaluator.get_evaluations(source="test")
+        
+        assert evaluations == []
+    
+    def test_get_reliability_diagram_data_no_evaluation(self, evaluator, mock_db):
+        """get_reliability_diagram_data should return error when no evaluation."""
+        mock_db.execute.return_value.fetchall.return_value = []
+        
+        result = evaluator.get_reliability_diagram_data("nonexistent")
+        
+        assert result["ok"] is False
+        assert result["reason"] == "no_evaluation_found"
+    
+    def test_count_evaluations(self, evaluator, mock_db):
+        """count_evaluations should return count."""
+        mock_db.execute.return_value.fetchone.return_value = (5,)
+        
+        count = evaluator.count_evaluations("test")
+        
+        assert count == 5
+
+
+# =============================================================================
+# MCP Calibration Evaluation Tool Tests (§4.6.1)
+# =============================================================================
+
+class TestMCPCalibrationEvaluationTools:
+    """Tests for MCP calibration evaluation tool functions (§4.6.1)."""
+    
+    @pytest.mark.asyncio
+    async def test_save_calibration_evaluation(self):
+        """save_calibration_evaluation should save and return result."""
+        with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
+            mock_evaluator = MagicMock()
+            mock_evaluator.save_evaluation.return_value = CalibrationEvaluation(
+                id="eval_test",
+                source="test",
+                brier_score=0.15,
+                brier_score_calibrated=0.12,
+                improvement_ratio=0.20,
+                expected_calibration_error=0.08,
+                samples_evaluated=100,
+                bins=[],
+                calibration_version=1,
+                evaluated_at=datetime.now(timezone.utc),
+            )
+            mock_get.return_value = mock_evaluator
+            
+            result = await save_calibration_evaluation(
+                source="test",
+                predictions=[0.5, 0.6],
+                labels=[1, 0],
+            )
+            
+            assert result["ok"] is True
+            assert result["evaluation_id"] == "eval_test"
+            assert result["source"] == "test"
+    
+    @pytest.mark.asyncio
+    async def test_get_calibration_evaluations(self):
+        """get_calibration_evaluations should return evaluation history."""
+        with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
+            mock_evaluator = MagicMock()
+            mock_evaluator.get_evaluations.return_value = [
+                CalibrationEvaluation(
+                    id="eval_1",
+                    source="test",
+                    brier_score=0.15,
+                    brier_score_calibrated=0.12,
+                    improvement_ratio=0.20,
+                    expected_calibration_error=0.08,
+                    samples_evaluated=100,
+                    bins=[],
+                    calibration_version=1,
+                    evaluated_at=datetime.now(timezone.utc),
+                ),
+            ]
+            mock_evaluator.count_evaluations.return_value = 1
+            mock_get.return_value = mock_evaluator
+            
+            result = await get_calibration_evaluations(source="test", limit=10)
+            
+            assert result["ok"] is True
+            assert len(result["evaluations"]) == 1
+            assert result["total_count"] == 1
+    
+    @pytest.mark.asyncio
+    async def test_get_reliability_diagram_data(self):
+        """get_reliability_diagram_data should return bin data."""
+        with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
+            mock_evaluator = MagicMock()
+            mock_evaluator.get_reliability_diagram_data.return_value = {
+                "ok": True,
+                "source": "test",
+                "evaluation_id": "eval_1",
+                "n_bins": 10,
+                "bins": [{"bin_lower": 0.0, "bin_upper": 0.1, "count": 5}],
+                "overall_ece": 0.08,
+            }
+            mock_get.return_value = mock_evaluator
+            
+            result = await get_reliability_diagram_data(source="test")
+            
+            assert result["ok"] is True
+            assert result["source"] == "test"
+            assert len(result["bins"]) == 1
 

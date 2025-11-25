@@ -559,6 +559,27 @@ CREATE TABLE IF NOT EXISTS replay_sessions (
 CREATE INDEX IF NOT EXISTS idx_replay_sessions_original ON replay_sessions(original_task_id);
 
 -- ============================================================
+-- Calibration Evaluation (§4.6.1)
+-- ============================================================
+
+-- Calibration evaluations: Brier score, ECE, reliability diagram data
+CREATE TABLE IF NOT EXISTS calibration_evaluations (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,  -- Source model identifier (e.g., "llm_extract", "nli_judge")
+    brier_score REAL NOT NULL,  -- Brier score before calibration
+    brier_score_calibrated REAL,  -- Brier score after calibration (NULL if no calibration)
+    improvement_ratio REAL,  -- (before - after) / before
+    expected_calibration_error REAL,  -- ECE
+    samples_evaluated INTEGER NOT NULL,
+    bins_json TEXT NOT NULL,  -- JSON array of bin data for reliability diagram
+    calibration_version INTEGER,  -- Version of calibration params used
+    evaluated_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_source ON calibration_evaluations(source);
+CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_evaluated_at ON calibration_evaluations(evaluated_at);
+
+-- ============================================================
 -- Metrics Views
 -- ============================================================
 
