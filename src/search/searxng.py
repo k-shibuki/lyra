@@ -6,18 +6,449 @@ Handles search queries through the local SearXNG instance.
 import asyncio
 import hashlib
 import json
+import re
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode, quote_plus
 
 import aiohttp
+import yaml
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger, CausalTrace
 from src.storage.database import get_database
 
 logger = get_logger(__name__)
+
+
+# ============================================================================
+# Query Operator Processing (§3.1.1, §3.1.4 in requirements.md)
+# ============================================================================
+
+
+@dataclass
+class ParsedOperator:
+    """Parsed search operator."""
+    operator_type: str  # site, filetype, intitle, exact, exclude, date_after, required
+    value: str  # The value (e.g., domain for site:, type for filetype:)
+    raw_text: str  # Original text in query
+
+
+@dataclass
+class ParsedQuery:
+    """Query with parsed operators and base text."""
+    base_query: str  # Query without operators
+    operators: list[ParsedOperator] = field(default_factory=list)
+    
+    def has_operator(self, op_type: str) -> bool:
+        """Check if query has a specific operator type."""
+        return any(op.operator_type == op_type for op in self.operators)
+    
+    def get_operators(self, op_type: str) -> list[ParsedOperator]:
+        """Get all operators of a specific type."""
+        return [op for op in self.operators if op.operator_type == op_type]
+
+
+class QueryOperatorProcessor:
+    """
+    Parse and transform search operators for different engines.
+    
+    Supports:
+    - site:domain.com  - Restrict to specific domain
+    - filetype:pdf     - Restrict to file type
+    - intitle:text     - Search in title
+    - "exact phrase"   - Exact phrase match
+    - -term            - Exclude term
+    - +term            - Required term
+    - after:YYYY-MM-DD - Date filter
+    
+    Implements engine-specific mapping from config/engines.yaml (§3.1.4).
+    """
+    
+    # Regex patterns for operator detection
+    PATTERNS = {
+        # site:domain.com
+        "site": re.compile(r'\bsite:([^\s]+)', re.IGNORECASE),
+        # filetype:pdf
+        "filetype": re.compile(r'\bfiletype:(\w+)', re.IGNORECASE),
+        # intitle:word or intitle:"phrase"
+        "intitle": re.compile(r'\bintitle:(?:"([^"]+)"|([^\s]+))', re.IGNORECASE),
+        # "exact phrase"
+        "exact": re.compile(r'"([^"]+)"'),
+        # -excluded (but not negative numbers like -123)
+        "exclude": re.compile(r'(?<![:\w])-([a-zA-Z\u3040-\u9fff][^\s]*)', re.IGNORECASE),
+        # +required
+        "required": re.compile(r'(?<![:\w])\+([a-zA-Z\u3040-\u9fff][^\s]*)', re.IGNORECASE),
+        # after:2024-01-01 or after:2024
+        "date_after": re.compile(r'\bafter:(\d{4}(?:-\d{2}(?:-\d{2})?)?)', re.IGNORECASE),
+    }
+    
+    def __init__(self, config_path: str | None = None):
+        """Initialize with optional custom config path."""
+        self._operator_mapping: dict[str, dict[str, str | None]] = {}
+        self._load_config(config_path)
+    
+    def _load_config(self, config_path: str | None = None) -> None:
+        """Load operator mapping from config file."""
+        import os
+        
+        if config_path is None:
+            # Try to find config/engines.yaml
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            config_path = os.path.join(base_dir, "config", "engines.yaml")
+        
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+            
+            if config and "operator_mapping" in config:
+                self._operator_mapping = config["operator_mapping"]
+                logger.debug("Loaded operator mapping", operators=list(self._operator_mapping.keys()))
+            else:
+                logger.warning("No operator_mapping found in config, using defaults")
+                self._init_default_mapping()
+        except FileNotFoundError:
+            logger.warning("Config file not found, using default operator mapping", path=config_path)
+            self._init_default_mapping()
+        except Exception as e:
+            logger.error("Failed to load operator config", error=str(e))
+            self._init_default_mapping()
+    
+    def _init_default_mapping(self) -> None:
+        """Initialize default operator mapping."""
+        self._operator_mapping = {
+            "site": {
+                "default": "site:{domain}",
+                "google": "site:{domain}",
+                "bing": "site:{domain}",
+                "duckduckgo": "site:{domain}",
+                "qwant": "site:{domain}",
+            },
+            "filetype": {
+                "default": "filetype:{type}",
+                "google": "filetype:{type}",
+                "bing": "filetype:{type}",
+                "duckduckgo": "filetype:{type}",
+            },
+            "intitle": {
+                "default": "intitle:{text}",
+                "google": "intitle:{text}",
+                "bing": "intitle:{text}",
+            },
+            "exact": {
+                "default": '"{text}"',
+                "google": '"{text}"',
+                "bing": '"{text}"',
+                "duckduckgo": '"{text}"',
+            },
+            "exclude": {
+                "default": "-{term}",
+                "google": "-{term}",
+                "bing": "-{term}",
+            },
+            "required": {
+                "default": "+{term}",
+                "google": "+{term}",
+                "bing": "+{term}",
+            },
+            "date_after": {
+                "default": None,  # Not all engines support
+                "google": "after:{date}",
+            },
+        }
+    
+    def parse(self, query: str) -> ParsedQuery:
+        """
+        Parse a query string and extract operators.
+        
+        Args:
+            query: Raw query string with operators.
+            
+        Returns:
+            ParsedQuery with base query and list of operators.
+        """
+        operators: list[ParsedOperator] = []
+        remaining_query = query
+        
+        # Extract operators in specific order (more specific first)
+        extraction_order = ["site", "filetype", "intitle", "date_after", "exact", "exclude", "required"]
+        
+        for op_type in extraction_order:
+            pattern = self.PATTERNS.get(op_type)
+            if not pattern:
+                continue
+            
+            matches = list(pattern.finditer(remaining_query))
+            for match in reversed(matches):  # Process from end to preserve indices
+                raw_text = match.group(0)
+                
+                # Extract value based on operator type
+                if op_type == "intitle":
+                    # intitle has two capture groups (quoted and unquoted)
+                    value = match.group(1) or match.group(2)
+                else:
+                    value = match.group(1)
+                
+                operators.append(ParsedOperator(
+                    operator_type=op_type,
+                    value=value,
+                    raw_text=raw_text,
+                ))
+                
+                # Remove from query
+                remaining_query = remaining_query[:match.start()] + remaining_query[match.end():]
+        
+        # Clean up base query
+        base_query = " ".join(remaining_query.split())
+        
+        return ParsedQuery(base_query=base_query, operators=operators)
+    
+    def transform_for_engine(
+        self,
+        parsed: ParsedQuery,
+        engine: str,
+    ) -> str:
+        """
+        Transform parsed query for a specific engine.
+        
+        Args:
+            parsed: Parsed query with operators.
+            engine: Target engine name.
+            
+        Returns:
+            Query string formatted for the engine.
+        """
+        engine_lower = engine.lower()
+        parts = [parsed.base_query] if parsed.base_query else []
+        
+        for op in parsed.operators:
+            mapping = self._operator_mapping.get(op.operator_type, {})
+            
+            # Get engine-specific format or default
+            template = mapping.get(engine_lower) or mapping.get("default")
+            
+            if template is None:
+                # Engine doesn't support this operator, skip
+                logger.debug(
+                    "Operator not supported by engine",
+                    operator=op.operator_type,
+                    engine=engine,
+                )
+                continue
+            
+            # Format the operator
+            try:
+                if op.operator_type == "site":
+                    formatted = template.format(domain=op.value)
+                elif op.operator_type == "filetype":
+                    formatted = template.format(type=op.value)
+                elif op.operator_type in ("intitle", "exact"):
+                    formatted = template.format(text=op.value)
+                elif op.operator_type in ("exclude", "required"):
+                    formatted = template.format(term=op.value)
+                elif op.operator_type == "date_after":
+                    formatted = template.format(date=op.value)
+                else:
+                    formatted = template.format(value=op.value)
+                
+                parts.append(formatted)
+            except KeyError as e:
+                logger.warning(
+                    "Failed to format operator",
+                    operator=op.operator_type,
+                    template=template,
+                    error=str(e),
+                )
+        
+        return " ".join(parts)
+    
+    def process_query(
+        self,
+        query: str,
+        engine: str | None = None,
+    ) -> str:
+        """
+        Parse and transform query in one step.
+        
+        Args:
+            query: Raw query with operators.
+            engine: Target engine (None for default format).
+            
+        Returns:
+            Processed query string.
+        """
+        parsed = self.parse(query)
+        return self.transform_for_engine(parsed, engine or "default")
+    
+    def get_supported_operators(self, engine: str) -> list[str]:
+        """Get list of operators supported by an engine."""
+        engine_lower = engine.lower()
+        supported = []
+        
+        for op_type, mapping in self._operator_mapping.items():
+            if mapping.get(engine_lower) is not None or mapping.get("default") is not None:
+                supported.append(op_type)
+        
+        return supported
+    
+    def build_query(
+        self,
+        base_query: str,
+        site: str | None = None,
+        filetype: str | None = None,
+        intitle: str | None = None,
+        exact_phrases: list[str] | None = None,
+        exclude_terms: list[str] | None = None,
+        required_terms: list[str] | None = None,
+        date_after: str | None = None,
+        engine: str | None = None,
+    ) -> str:
+        """
+        Build a query with operators programmatically.
+        
+        Args:
+            base_query: Base search terms.
+            site: Domain restriction.
+            filetype: File type restriction.
+            intitle: Title search term.
+            exact_phrases: List of exact phrases.
+            exclude_terms: Terms to exclude.
+            required_terms: Required terms.
+            date_after: Date filter (YYYY-MM-DD or YYYY).
+            engine: Target engine.
+            
+        Returns:
+            Formatted query string.
+        """
+        operators = []
+        
+        if site:
+            operators.append(ParsedOperator("site", site, f"site:{site}"))
+        
+        if filetype:
+            operators.append(ParsedOperator("filetype", filetype, f"filetype:{filetype}"))
+        
+        if intitle:
+            operators.append(ParsedOperator("intitle", intitle, f"intitle:{intitle}"))
+        
+        if exact_phrases:
+            for phrase in exact_phrases:
+                operators.append(ParsedOperator("exact", phrase, f'"{phrase}"'))
+        
+        if exclude_terms:
+            for term in exclude_terms:
+                operators.append(ParsedOperator("exclude", term, f"-{term}"))
+        
+        if required_terms:
+            for term in required_terms:
+                operators.append(ParsedOperator("required", term, f"+{term}"))
+        
+        if date_after:
+            operators.append(ParsedOperator("date_after", date_after, f"after:{date_after}"))
+        
+        parsed = ParsedQuery(base_query=base_query, operators=operators)
+        return self.transform_for_engine(parsed, engine or "default")
+
+
+# Global operator processor instance
+_operator_processor: QueryOperatorProcessor | None = None
+
+
+def _get_operator_processor() -> QueryOperatorProcessor:
+    """Get or create the global operator processor."""
+    global _operator_processor
+    if _operator_processor is None:
+        _operator_processor = QueryOperatorProcessor()
+    return _operator_processor
+
+
+def parse_query_operators(query: str) -> ParsedQuery:
+    """
+    Parse operators from a query string.
+    
+    Args:
+        query: Raw query with operators.
+        
+    Returns:
+        ParsedQuery with base query and operators.
+    """
+    processor = _get_operator_processor()
+    return processor.parse(query)
+
+
+def transform_query_for_engine(query: str, engine: str) -> str:
+    """
+    Transform a query for a specific search engine.
+    
+    Args:
+        query: Raw query with operators.
+        engine: Target engine name.
+        
+    Returns:
+        Query formatted for the engine.
+    """
+    processor = _get_operator_processor()
+    return processor.process_query(query, engine)
+
+
+def build_search_query(
+    base_query: str,
+    site: str | None = None,
+    filetype: str | None = None,
+    intitle: str | None = None,
+    exact_phrases: list[str] | None = None,
+    exclude_terms: list[str] | None = None,
+    required_terms: list[str] | None = None,
+    date_after: str | None = None,
+    engine: str | None = None,
+) -> str:
+    """
+    Build a search query with operators.
+    
+    Convenience function for programmatically building queries.
+    
+    Args:
+        base_query: Base search terms.
+        site: Domain restriction (e.g., "go.jp").
+        filetype: File type (e.g., "pdf").
+        intitle: Title search term.
+        exact_phrases: List of exact phrases to match.
+        exclude_terms: Terms to exclude.
+        required_terms: Required terms.
+        date_after: Date filter (YYYY-MM-DD or YYYY).
+        engine: Target engine for formatting.
+        
+    Returns:
+        Formatted query string.
+        
+    Example:
+        >>> build_search_query(
+        ...     "AI規制",
+        ...     site="go.jp",
+        ...     filetype="pdf",
+        ...     exclude_terms=["draft"],
+        ... )
+        'AI規制 site:go.jp filetype:pdf -draft'
+    """
+    processor = _get_operator_processor()
+    return processor.build_query(
+        base_query=base_query,
+        site=site,
+        filetype=filetype,
+        intitle=intitle,
+        exact_phrases=exact_phrases,
+        exclude_terms=exclude_terms,
+        required_terms=required_terms,
+        date_after=date_after,
+        engine=engine,
+    )
+
+
+# ============================================================================
+# SearXNG Client
+# ============================================================================
 
 
 class SearXNGClient:
@@ -181,24 +612,29 @@ async def search_serp(
     time_range: str = "all",
     task_id: str | None = None,
     use_cache: bool = True,
+    transform_operators: bool = True,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
     
     Args:
-        query: Search query.
+        query: Search query (may contain operators like site:, filetype:, etc.).
         engines: List of engines to use.
         limit: Maximum results per engine.
         time_range: Time range filter.
         task_id: Associated task ID.
         use_cache: Whether to use cache.
+        transform_operators: Whether to transform query operators for engines.
         
     Returns:
         List of normalized SERP result dicts.
     """
     db = await get_database()
     
+    # Parse query operators
+    parsed_query = parse_query_operators(query) if transform_operators else None
+    
     with CausalTrace() as trace:
-        # Check cache
+        # Check cache (use original query for cache key to ensure consistency)
         cache_key = _get_cache_key(query, engines, time_range)
         
         if use_cache:
@@ -218,10 +654,26 @@ async def search_serp(
                 )
                 return json.loads(cached["result_json"])
         
+        # Transform query for SearXNG (use default format)
+        # Note: SearXNG handles most operators internally for its backends
+        search_query = query
+        if transform_operators and parsed_query and parsed_query.operators:
+            processor = _get_operator_processor()
+            search_query = processor.transform_for_engine(parsed_query, "default")
+            
+            # Log operator usage for analytics
+            operator_types = [op.operator_type for op in parsed_query.operators]
+            logger.debug(
+                "Query operators transformed",
+                original=query[:100],
+                transformed=search_query[:100],
+                operators=operator_types,
+            )
+        
         # Execute search
         client = _get_client()
         raw_results = await client.search(
-            query=query,
+            query=search_query,
             engines=engines,
             time_range=time_range if time_range != "all" else None,
         )
