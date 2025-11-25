@@ -333,7 +333,7 @@ class Database:
         )
         
         if existing is None:
-            await self.insert("domains", {"domain": domain})
+            await self.insert("domains", {"domain": domain}, auto_id=False)
             existing = {"success_rate_1h": 1.0, "captcha_rate": 0.0, "http_error_rate": 0.0}
         
         # Calculate EMA updates (alpha = 0.1 for 1h)
@@ -442,7 +442,7 @@ class Database:
         )
         
         if existing is None:
-            await self.insert("engine_health", {"engine": engine})
+            await self.insert("engine_health", {"engine": engine}, auto_id=False)
             existing = {
                 "success_rate_1h": 1.0,
                 "captcha_rate": 0.0,
