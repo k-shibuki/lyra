@@ -407,8 +407,106 @@ class TestSearchSerp:
         assert len(serp_items) == 3
 
 
+class TestQueryExpander:
+    """Tests for QueryExpander class."""
+
+    def test_tokenize_basic(self):
+        """Test basic tokenization."""
+        from src.search.searxng import QueryExpander
+        
+        expander = QueryExpander()
+        tokens = expander.tokenize("人工知能の研究")
+        
+        # Should return list of token dicts
+        assert isinstance(tokens, list)
+        assert len(tokens) > 0
+        assert all("surface" in t for t in tokens)
+
+    def test_get_synonyms_known_word(self):
+        """Test getting synonyms for known words."""
+        from src.search.searxng import QueryExpander
+        
+        expander = QueryExpander()
+        expander._ensure_initialized()
+        
+        synonyms = expander.get_synonyms("AI")
+        
+        # Should find synonyms for AI
+        assert len(synonyms) > 0
+        assert "人工知能" in synonyms or "エーアイ" in synonyms
+
+    def test_get_synonyms_unknown_word(self):
+        """Test getting synonyms for unknown words."""
+        from src.search.searxng import QueryExpander
+        
+        expander = QueryExpander()
+        expander._ensure_initialized()
+        
+        synonyms = expander.get_synonyms("xyzabc123")
+        
+        # Should return empty for unknown words
+        assert synonyms == []
+
+    def test_expand_with_normalized_forms(self):
+        """Test normalized form expansion."""
+        from src.search.searxng import QueryExpander
+        
+        expander = QueryExpander()
+        
+        # Test with a query that might have normalization variations
+        variants = expander.expand_with_normalized_forms("テスト")
+        
+        assert isinstance(variants, list)
+        assert len(variants) >= 1
+        assert "テスト" in variants
+
+    def test_expand_with_synonyms(self):
+        """Test synonym-based expansion."""
+        from src.search.searxng import QueryExpander
+        
+        expander = QueryExpander()
+        
+        variants = expander.expand_with_synonyms("AI の 問題")
+        
+        assert isinstance(variants, list)
+        assert "AI の 問題" in variants
+        # Should have additional variants with synonyms
+        assert len(variants) >= 1
+
+    def test_generate_variants_all(self):
+        """Test generating all variants."""
+        from src.search.searxng import QueryExpander
+        
+        expander = QueryExpander()
+        
+        variants = expander.generate_variants(
+            "人工知能",
+            include_normalized=True,
+            include_synonyms=True,
+            max_results=5,
+        )
+        
+        assert "人工知能" in variants
+        assert len(variants) <= 5
+
+    def test_generate_variants_respects_max_results(self):
+        """Test that variant generation respects max_results."""
+        from src.search.searxng import QueryExpander
+        
+        expander = QueryExpander()
+        
+        variants = expander.generate_variants(
+            "問題 方法 結果",
+            include_normalized=True,
+            include_synonyms=True,
+            max_results=3,
+        )
+        
+        assert len(variants) <= 3
+
+
 class TestExpandQuery:
-    """Tests for query expansion (placeholder implementation)."""
+    """Tests for expand_query function."""
 
     @pytest.mark.asyncio
     async def test_expand_query_returns_base(self):
@@ -418,6 +516,67 @@ class TestExpandQuery:
         results = await expand_query("test query")
         
         assert "test query" in results
+
+    @pytest.mark.asyncio
+    async def test_expand_query_japanese(self):
+        """Test expand_query with Japanese query."""
+        from src.search.searxng import expand_query
+        
+        results = await expand_query("人工知能 の 影響", language="ja")
+        
+        assert isinstance(results, list)
+        assert len(results) >= 1
+        assert "人工知能 の 影響" in results
+
+    @pytest.mark.asyncio
+    async def test_expand_query_synonyms_only(self):
+        """Test expand_query with synonyms expansion only."""
+        from src.search.searxng import expand_query
+        
+        results = await expand_query("AI", expansion_type="synonyms", language="ja")
+        
+        assert "AI" in results
+
+    @pytest.mark.asyncio
+    async def test_expand_query_normalized_only(self):
+        """Test expand_query with normalized expansion only."""
+        from src.search.searxng import expand_query
+        
+        results = await expand_query("テスト", expansion_type="normalized", language="ja")
+        
+        assert "テスト" in results
+
+    @pytest.mark.asyncio
+    async def test_expand_query_non_japanese(self):
+        """Test expand_query with non-Japanese language returns original."""
+        from src.search.searxng import expand_query
+        
+        results = await expand_query("artificial intelligence", language="en")
+        
+        # Should only return original for non-Japanese
+        assert results == ["artificial intelligence"]
+
+    @pytest.mark.asyncio
+    async def test_expand_query_empty_string(self):
+        """Test expand_query with empty string."""
+        from src.search.searxng import expand_query
+        
+        results = await expand_query("")
+        
+        assert results == [""]
+
+    @pytest.mark.asyncio
+    async def test_expand_query_max_results(self):
+        """Test expand_query respects max_results."""
+        from src.search.searxng import expand_query
+        
+        results = await expand_query(
+            "問題 方法 影響 分析",
+            max_results=3,
+            language="ja",
+        )
+        
+        assert len(results) <= 3
 
 
 class TestGenerateMirrorQuery:

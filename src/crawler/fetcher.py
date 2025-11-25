@@ -4,13 +4,18 @@ Handles fetching URLs via HTTP client or browser with appropriate strategies.
 """
 
 import asyncio
+import gzip
 import hashlib
+import io
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+
+from warcio.warcwriter import WARCWriter
+from warcio.statusandheaders import StatusAndHeaders
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger, CausalTrace
@@ -187,6 +192,15 @@ class HTTPFetcher:
             # Extract response headers
             resp_headers = dict(response.headers)
             
+            # Save WARC archive
+            warc_path = await _save_warc(
+                url,
+                response.content,
+                response.status_code,
+                resp_headers,
+                request_headers=req_headers,
+            )
+            
             logger.info(
                 "HTTP fetch success",
                 url=url[:80],
@@ -200,6 +214,7 @@ class HTTPFetcher:
                 status=response.status_code,
                 headers=resp_headers,
                 html_path=str(html_path) if html_path else None,
+                warc_path=str(warc_path) if warc_path else None,
                 content_hash=content_hash,
                 method="http_client",
             )
@@ -345,6 +360,15 @@ class BrowserFetcher:
             # Save content
             html_path = await _save_content(url, content_bytes, {})
             
+            # Save WARC archive
+            resp_headers = dict(response.headers)
+            warc_path = await _save_warc(
+                url,
+                content_bytes,
+                response.status,
+                resp_headers,
+            )
+            
             # Take screenshot
             screenshot_path = None
             if take_screenshot:
@@ -361,8 +385,9 @@ class BrowserFetcher:
                 ok=True,
                 url=url,
                 status=response.status,
-                headers=dict(response.headers),
+                headers=resp_headers,
                 html_path=str(html_path) if html_path else None,
+                warc_path=str(warc_path) if warc_path else None,
                 screenshot_path=str(screenshot_path) if screenshot_path else None,
                 content_hash=content_hash,
                 method="browser_headless" if not headful else "browser_headful",
@@ -470,6 +495,123 @@ async def _save_content(url: str, content: bytes, headers: dict) -> Path | None:
     filepath.write_bytes(content)
     
     return filepath
+
+
+async def _save_warc(
+    url: str,
+    content: bytes,
+    status_code: int,
+    response_headers: dict[str, str],
+    *,
+    request_headers: dict[str, str] | None = None,
+    method: str = "GET",
+) -> Path | None:
+    """Save HTTP response as WARC file.
+    
+    Creates a WARC file containing the request and response records.
+    
+    Args:
+        url: Request URL.
+        content: Response body bytes.
+        status_code: HTTP status code.
+        response_headers: Response headers.
+        request_headers: Request headers (optional).
+        method: HTTP method (default: GET).
+        
+    Returns:
+        Path to saved WARC file.
+    """
+    settings = get_settings()
+    warc_dir = Path(settings.storage.warc_dir)
+    warc_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate filename from URL hash and timestamp
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{url_hash}.warc.gz"
+    filepath = warc_dir / filename
+    
+    try:
+        with open(filepath, "wb") as output:
+            writer = WARCWriter(output, gzip=True)
+            
+            # Create WARC-Date in ISO format
+            warc_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            
+            # Write request record (if headers provided)
+            if request_headers:
+                req_headers_list = list(request_headers.items())
+                req_http_headers = StatusAndHeaders(
+                    f"{method} {urlparse(url).path or '/'} HTTP/1.1",
+                    req_headers_list,
+                    is_http_request=True,
+                )
+                request_record = writer.create_warc_record(
+                    url,
+                    "request",
+                    http_headers=req_http_headers,
+                    warc_headers_dict={"WARC-Date": warc_date},
+                )
+                writer.write_record(request_record)
+            
+            # Build response status line
+            status_text = _get_http_status_text(status_code)
+            status_line = f"HTTP/1.1 {status_code} {status_text}"
+            
+            # Build response headers list
+            resp_headers_list = list(response_headers.items())
+            resp_http_headers = StatusAndHeaders(status_line, resp_headers_list)
+            
+            # Write response record
+            response_record = writer.create_warc_record(
+                url,
+                "response",
+                payload=io.BytesIO(content),
+                http_headers=resp_http_headers,
+                warc_headers_dict={"WARC-Date": warc_date},
+            )
+            writer.write_record(response_record)
+        
+        logger.debug("WARC saved", url=url[:60], path=str(filepath))
+        return filepath
+        
+    except Exception as e:
+        logger.error("WARC save failed", url=url[:60], error=str(e))
+        return None
+
+
+def _get_http_status_text(status_code: int) -> str:
+    """Get HTTP status text for status code.
+    
+    Args:
+        status_code: HTTP status code.
+        
+    Returns:
+        Status text (e.g., "OK", "Not Found").
+    """
+    status_texts = {
+        200: "OK",
+        201: "Created",
+        204: "No Content",
+        301: "Moved Permanently",
+        302: "Found",
+        303: "See Other",
+        304: "Not Modified",
+        307: "Temporary Redirect",
+        308: "Permanent Redirect",
+        400: "Bad Request",
+        401: "Unauthorized",
+        403: "Forbidden",
+        404: "Not Found",
+        405: "Method Not Allowed",
+        408: "Request Timeout",
+        429: "Too Many Requests",
+        500: "Internal Server Error",
+        502: "Bad Gateway",
+        503: "Service Unavailable",
+        504: "Gateway Timeout",
+    }
+    return status_texts.get(status_code, "Unknown")
 
 
 async def _save_screenshot(page, url: str) -> Path | None:
@@ -588,6 +730,7 @@ async def fetch_url(
                 "http_status": result.status,
                 "content_hash": result.content_hash,
                 "html_path": result.html_path,
+                "warc_path": result.warc_path,
                 "screenshot_path": result.screenshot_path,
                 "headers_json": json.dumps(result.headers) if result.headers else None,
                 "cause_id": trace.id,
