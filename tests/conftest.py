@@ -411,14 +411,10 @@ def cleanup_aiohttp_sessions(request):
         except ImportError:
             pass
     
-    # Run cleanup in event loop
+    # Run cleanup - use asyncio.run() to avoid deprecation warning
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(_cleanup())
-        else:
-            loop.run_until_complete(_cleanup())
-    except RuntimeError:
-        # Create new loop if none exists
         asyncio.run(_cleanup())
+    except RuntimeError:
+        # Event loop already running (shouldn't happen in session teardown)
+        pass
 

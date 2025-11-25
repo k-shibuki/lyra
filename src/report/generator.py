@@ -4,15 +4,183 @@ Creates research reports from collected evidence.
 """
 
 import json
+import re
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin, urlparse, urlunparse
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.storage.database import get_database
 
 logger = get_logger(__name__)
+
+
+def generate_anchor_slug(heading: str) -> str:
+    """Generate URL anchor slug from heading text.
+    
+    Uses GitHub-style slug generation:
+    - Lowercase
+    - Replace spaces with hyphens
+    - Remove special characters
+    - Handle Japanese text (keep as-is, replace spaces)
+    
+    Args:
+        heading: Heading text.
+        
+    Returns:
+        URL-safe anchor slug.
+    """
+    if not heading:
+        return ""
+    
+    # Normalize unicode
+    text = unicodedata.normalize("NFKC", heading)
+    
+    # Lowercase
+    text = text.lower()
+    
+    # Replace spaces and underscores with hyphens
+    text = re.sub(r"[\s_]+", "-", text)
+    
+    # Remove characters that aren't alphanumeric, hyphens, or Japanese/CJK
+    # Keep: a-z, 0-9, -, Japanese hiragana/katakana/kanji
+    text = re.sub(r"[^\w\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff-]", "", text)
+    
+    # Remove leading/trailing hyphens
+    text = text.strip("-")
+    
+    # Collapse multiple hyphens
+    text = re.sub(r"-+", "-", text)
+    
+    return text
+
+
+def generate_deep_link(url: str, heading_context: str | None) -> str:
+    """Generate a deep link URL with anchor.
+    
+    Args:
+        url: Base URL.
+        heading_context: Heading context for anchor.
+        
+    Returns:
+        URL with anchor fragment if heading is available.
+    """
+    if not heading_context:
+        return url
+    
+    anchor = generate_anchor_slug(heading_context)
+    if not anchor:
+        return url
+    
+    # Parse URL and add fragment
+    parsed = urlparse(url)
+    
+    # Don't override existing fragment
+    if parsed.fragment:
+        return url
+    
+    # Add anchor fragment
+    new_url = urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        parsed.query,
+        anchor,
+    ))
+    
+    return new_url
+
+
+class Citation:
+    """Represents a citation with deep link support.
+    
+    Per §3.4: All citations should have deep links to the relevant section.
+    """
+    
+    def __init__(
+        self,
+        url: str,
+        title: str,
+        heading_context: str | None = None,
+        excerpt: str | None = None,
+        discovered_at: str | None = None,
+        source_tag: str | None = None,
+    ):
+        self.url = url
+        self.title = title
+        self.heading_context = heading_context
+        self.excerpt = excerpt
+        self.discovered_at = discovered_at
+        self.source_tag = source_tag
+    
+    @property
+    def deep_link(self) -> str:
+        """Get URL with anchor fragment."""
+        return generate_deep_link(self.url, self.heading_context)
+    
+    @property
+    def is_primary_source(self) -> bool:
+        """Check if this is a primary source (§3.4: 出典の優先序)."""
+        if not self.source_tag:
+            return False
+        return self.source_tag in ("government", "academic", "official", "standard", "registry")
+    
+    def to_markdown(self, index: int, include_excerpt: bool = True) -> str:
+        """Format citation as Markdown.
+        
+        Args:
+            index: Citation number.
+            include_excerpt: Include excerpt text.
+            
+        Returns:
+            Markdown formatted citation.
+        """
+        lines = []
+        
+        # Main citation line with deep link
+        link = self.deep_link
+        lines.append(f"{index}. [{self.title}]({link})")
+        
+        # Add section reference if available
+        if self.heading_context:
+            lines.append(f"   - セクション: {self.heading_context}")
+        
+        # Add source type indicator
+        if self.source_tag:
+            source_labels = {
+                "government": "🏛️ 政府・公的機関",
+                "academic": "📚 学術資料",
+                "official": "✅ 公式発表",
+                "standard": "📋 規格・標準",
+                "registry": "📜 登記・登録",
+                "news": "📰 ニュース",
+                "blog": "📝 ブログ",
+                "forum": "💬 フォーラム",
+            }
+            label = source_labels.get(self.source_tag, self.source_tag)
+            lines.append(f"   - 種別: {label}")
+        
+        # Add excerpt if requested
+        if include_excerpt and self.excerpt:
+            excerpt_text = self.excerpt[:150]
+            if len(self.excerpt) > 150:
+                excerpt_text += "..."
+            lines.append(f"   > {excerpt_text}")
+        
+        # Add discovery timestamp
+        if self.discovered_at:
+            try:
+                dt = datetime.fromisoformat(self.discovered_at.replace("Z", "+00:00"))
+                formatted = dt.strftime("%Y年%m月%d日")
+                lines.append(f"   - 取得日: {formatted}")
+            except (ValueError, AttributeError):
+                pass
+        
+        return "\n".join(lines)
 
 
 class ReportGenerator:
@@ -55,9 +223,10 @@ class ReportGenerator:
         )
         
         # Get evidence (fragments with high scores)
+        # Include source_tag for primary/secondary classification (§3.4)
         fragments = await db.fetch_all(
             """
-            SELECT f.*, p.url, p.title as page_title, p.domain
+            SELECT f.*, p.url, p.title as page_title, p.domain, s.source_tag
             FROM fragments f
             JOIN pages p ON f.page_id = p.id
             JOIN serp_items s ON p.url = s.url
@@ -214,51 +383,116 @@ class ReportGenerator:
             lines.append("*主張の抽出結果がありません*")
             lines.append("")
         
-        # Evidence
+        # Evidence with deep links (§3.4: 出典の優先序)
         lines.append("## エビデンス")
         lines.append("")
         
         if fragments:
-            # Group by domain
-            by_domain: dict[str, list] = {}
-            for frag in fragments:
-                domain = frag.get("domain", "unknown")
-                if domain not in by_domain:
-                    by_domain[domain] = []
-                by_domain[domain].append(frag)
+            # Separate primary and secondary sources
+            primary_frags = [f for f in fragments if f.get("source_tag") in 
+                           ("government", "academic", "official", "standard", "registry")]
+            secondary_frags = [f for f in fragments if f.get("source_tag") not in 
+                             ("government", "academic", "official", "standard", "registry")]
             
-            for domain, frags in list(by_domain.items())[:10]:
-                lines.append(f"### {domain}")
+            # Primary sources first (§3.4)
+            if primary_frags:
+                lines.append("### 一次資料")
                 lines.append("")
                 
-                for frag in frags[:3]:
+                for frag in primary_frags[:10]:
                     title = frag.get("page_title", "")
                     url = frag.get("url", "")
+                    heading = frag.get("heading_context", "")
                     text = frag.get("text_content", "")[:200]
                     
-                    lines.append(f"**{title}**")
-                    lines.append(f"URL: {url}")
+                    # Generate deep link
+                    deep_url = generate_deep_link(url, heading)
+                    
+                    lines.append(f"**[{title}]({deep_url})**")
+                    if heading:
+                        lines.append(f"📍 セクション: {heading}")
                     lines.append("")
                     lines.append(f"> {text}...")
                     lines.append("")
+            
+            # Secondary sources
+            if secondary_frags:
+                lines.append("### 二次資料")
+                lines.append("")
+                
+                # Group by domain
+                by_domain: dict[str, list] = {}
+                for frag in secondary_frags:
+                    domain = frag.get("domain", "unknown")
+                    if domain not in by_domain:
+                        by_domain[domain] = []
+                    by_domain[domain].append(frag)
+                
+                for domain, frags in list(by_domain.items())[:8]:
+                    lines.append(f"#### {domain}")
+                    lines.append("")
+                    
+                    for frag in frags[:2]:
+                        title = frag.get("page_title", "")
+                        url = frag.get("url", "")
+                        heading = frag.get("heading_context", "")
+                        text = frag.get("text_content", "")[:150]
+                        
+                        # Generate deep link
+                        deep_url = generate_deep_link(url, heading)
+                        
+                        lines.append(f"**[{title}]({deep_url})**")
+                        if heading:
+                            lines.append(f"📍 セクション: {heading}")
+                        lines.append("")
+                        lines.append(f"> {text}...")
+                        lines.append("")
         else:
             lines.append("*エビデンスがありません*")
             lines.append("")
         
-        # Sources
+        # Sources with full citations (§3.4: 深いリンク生成)
         lines.append("## 出典一覧")
         lines.append("")
         
+        # Build citations list
+        citations: list[Citation] = []
         seen_urls = set()
-        source_count = 0
         
         for frag in fragments:
             url = frag.get("url", "")
             if url and url not in seen_urls:
                 seen_urls.add(url)
-                source_count += 1
-                title = frag.get("page_title", url)
-                lines.append(f"{source_count}. [{title}]({url})")
+                citation = Citation(
+                    url=url,
+                    title=frag.get("page_title", url),
+                    heading_context=frag.get("heading_context"),
+                    excerpt=frag.get("text_content", "")[:200] if frag.get("text_content") else None,
+                    discovered_at=frag.get("created_at"),
+                    source_tag=frag.get("source_tag"),
+                )
+                citations.append(citation)
+        
+        # Sort: primary sources first
+        citations.sort(key=lambda c: (0 if c.is_primary_source else 1, c.title))
+        
+        # Primary sources section
+        primary_citations = [c for c in citations if c.is_primary_source]
+        secondary_citations = [c for c in citations if not c.is_primary_source]
+        
+        if primary_citations:
+            lines.append("### 一次資料")
+            lines.append("")
+            for i, citation in enumerate(primary_citations, 1):
+                lines.append(citation.to_markdown(i, include_excerpt=False))
+                lines.append("")
+        
+        if secondary_citations:
+            lines.append("### 二次資料・その他")
+            lines.append("")
+            for i, citation in enumerate(secondary_citations, len(primary_citations) + 1):
+                lines.append(citation.to_markdown(i, include_excerpt=False))
+                lines.append("")
         
         lines.append("")
         
