@@ -521,10 +521,19 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - 信頼度減衰: 年数に応じた指数減衰、5年以上でstale判定
   - テスト: 45件（全パス）
 
-#### 16.2.6 問い→主張分解 (§3.3.1)
-- [ ] **原子主張への分解**
+#### 16.2.6 問い→主張分解 (§3.3.1) ✅
+- [x] **原子主張への分解**
   - スキーマ: `claim_id`, `text`, `expected_polarity`, `granularity`
   - LLMまたはルールベースでの分解ロジック
+  - 実装: `src/filter/claim_decomposition.py`
+    - `ClaimDecomposer` クラス（LLM/ルールベース両対応）
+    - `AtomicClaim` データ構造（§3.3.1スキーマ準拠）
+    - `ClaimPolarity`, `ClaimGranularity`, `ClaimType` 列挙型
+  - MCPツール: `decompose_question`
+    - 入力: `question`, `use_llm?`, `use_slow_model?`
+    - 出力: `{claims[], decomposition_method, success}`
+    - **注意**: `llm_extract`とは入力形式が異なる（passages[] vs question: string）ため独立ツールとして実装
+  - テスト: 36件（全パス）
 
 #### 16.2.7 Chain-of-Density圧縮 (§3.3.1)
 - [ ] **要約密度の向上**
