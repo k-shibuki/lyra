@@ -77,6 +77,30 @@ from src.crawler.wayback import (
     check_content_modified,
 )
 
+from src.crawler.session_transfer import (
+    CookieData,
+    SessionData,
+    TransferResult,
+    SessionTransferManager,
+    get_session_transfer_manager,
+    capture_browser_session,
+    get_transfer_headers,
+    update_session,
+    invalidate_session,
+)
+
+from src.crawler.browser_archive import (
+    ResourceInfo,
+    CDXJEntry,
+    NetworkEventCollector,
+    HARGenerator,
+    CDXJGenerator,
+    BrowserArchiver,
+    get_browser_archiver,
+    archive_browser_page,
+    url_to_surt,
+)
+
 __all__ = [
     # Fetcher
     "FetchResult",
@@ -139,5 +163,25 @@ __all__ = [
     "explore_wayback",
     "get_archived_content",
     "check_content_modified",
+    # Session Transfer (§3.1.2)
+    "CookieData",
+    "SessionData",
+    "TransferResult",
+    "SessionTransferManager",
+    "get_session_transfer_manager",
+    "capture_browser_session",
+    "get_transfer_headers",
+    "update_session",
+    "invalidate_session",
+    # Browser Archive (§4.3.2)
+    "ResourceInfo",
+    "CDXJEntry",
+    "NetworkEventCollector",
+    "HARGenerator",
+    "CDXJGenerator",
+    "BrowserArchiver",
+    "get_browser_archiver",
+    "archive_browser_page",
+    "url_to_surt",
 ]
 

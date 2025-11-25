@@ -401,16 +401,23 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - `sec-fetch-site`, `sec-fetch-mode`, `sec-fetch-dest`の遷移コンテキスト整合
   - SERP→記事遷移での自然なヘッダー生成
   - 実装: `src/crawler/sec_fetch.py`, HTTPFetcher統合
-- [ ] **sec-ch-ua*ヘッダー** (§4.3)
-  - Client Hintsヘッダーの適切な設定
+- [x] **sec-ch-ua*ヘッダー** (§4.3) ✅
+  - Client Hintsヘッダー（Sec-CH-UA, Sec-CH-UA-Mobile, Sec-CH-UA-Platform）
+  - Chrome impersonationに整合するブランド情報生成
+  - 実装: `src/crawler/sec_fetch.py`, HTTPFetcher統合
+  - テスト: 66件（全パス）
 
 #### 16.1.3 ブラウザ/JS層
-- [ ] **navigator.webdriverオーバーライド** (§4.3)
+- [x] **navigator.webdriverオーバーライド** (§4.3) ✅
   - `stealth.js`相当の最小限プロパティオーバーライド
+  - 実装: `src/crawler/stealth.py`, BrowserFetcher統合
+  - テスト: 26件（全パス）
 - [ ] **undetected-chromedriverフォールバック** (§4.3)
   - Cloudflare強/Turnstile時のフォールバック経路
-- [ ] **viewportジッター** (§4.3)
+- [x] **viewportジッター** (§4.3) ✅
   - 狭幅ジッター適用（ヒステリシスあり）
+  - 実装: `src/crawler/stealth.py`, BrowserFetcher統合
+  - テスト: 26件（全パス）
 
 #### 16.1.4 プロファイル健全性監査 (§4.3.1)
 - [ ] **タスク開始時チェック**
@@ -425,11 +432,13 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 - [ ] **監査ログ**
   - 差分・修復内容・再試行回数の構造化記録
 
-#### 16.1.5 セッション移送ユーティリティ (§3.1.2)
-- [ ] **ブラウザ→HTTPクライアント移送**
+#### 16.1.5 セッション移送ユーティリティ (§3.1.2) ✅
+- [x] **ブラウザ→HTTPクライアント移送**
   - Cookie/ETag/UA/Accept-Languageの安全な移送
   - 同一ドメイン限定制約
   - Referer/sec-fetch-*整合維持
+  - 実装: `src/crawler/session_transfer.py`, HTTPFetcher/BrowserFetcher統合
+  - テスト: 35件（全パス）
 
 #### 16.1.6 ブラウザ経路アーカイブ保存 (§4.3.2)
 - [ ] **CDXJ風メタデータ**
@@ -549,8 +558,9 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 #### 16.6.2 E2Eテスト前提条件
 E2Eテストを有効に実施するための前提：
 - [ ] プロファイル健全性監査の基本実装
-- [ ] セッション移送ユーティリティ
+- [x] セッション移送ユーティリティ ✅
 - [x] sec-fetch-*ヘッダー整合 ✅
+- [x] sec-ch-ua*ヘッダー ✅
 - [ ] プロセスライフサイクル管理
 
 ---
@@ -586,7 +596,7 @@ E2Eテストを有効に実施するための前提：
 | Phase 13: 信頼度キャリブレーション | ✅ | 100% | |
 | Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
 | Phase 15: ドキュメント | ✅ | 100% | |
-| **Phase 16: 未実装機能** | 🔄 | 3% | **39項目残り（sec-fetch-*完了）** |
+| **Phase 16: 未実装機能** | 🔄 | 15% | **35項目残り（sec-fetch-*, sec-ch-ua*, webdriver override, viewport jitter, session transfer完了）** |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
 
@@ -594,7 +604,7 @@ E2Eテストを有効に実施するための前提：
 
 | 優先度 | 項目数 | 主要カテゴリ |
 |--------|--------|--------------|
-| 🔴 高（E2E前必須） | 15項目 | プロファイル監査、セッション移送、sec-fetch-*、IPv6/DNS |
+| 🔴 高（E2E前必須） | 12項目 | プロファイル監査、セッション移送、IPv6/DNS |
 | 🟡 中（MVP強化） | 18項目 | ピボット探索、RDAP/crt.sh、校正ロールバック、プロセス管理 |
 | 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
 
