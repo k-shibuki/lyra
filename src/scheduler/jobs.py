@@ -1,9 +1,11 @@
 """
 Job scheduler for Lancet.
 Manages job queues, slots, and resource allocation.
+Implements budget control per §3.1 and §3.2.2.
 """
 
 import asyncio
+import time
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -12,6 +14,11 @@ from typing import Any
 from src.utils.config import get_settings
 from src.utils.logging import get_logger, CausalTrace
 from src.storage.database import get_database
+from src.scheduler.budget import (
+    BudgetManager,
+    BudgetExceededReason,
+    get_budget_manager,
+)
 
 logger = get_logger(__name__)
 
@@ -85,7 +92,7 @@ EXCLUSIVE_SLOTS = [
 
 
 class JobScheduler:
-    """Job scheduler with slot-based resource management."""
+    """Job scheduler with slot-based resource management and budget control."""
     
     def __init__(self):
         self._settings = get_settings()
@@ -94,6 +101,10 @@ class JobScheduler:
         self._workers: dict[Slot, list[asyncio.Task]] = {}
         self._lock = asyncio.Lock()
         self._started = False
+        self._budget_manager: BudgetManager | None = None
+        
+        # Job timing for LLM ratio tracking
+        self._job_start_times: dict[str, float] = {}
         
         # Initialize queues and running sets
         for slot in Slot:
@@ -106,6 +117,9 @@ class JobScheduler:
             return
         
         self._started = True
+        
+        # Initialize budget manager
+        self._budget_manager = await get_budget_manager()
         
         # Start worker tasks for each slot
         for slot in Slot:
@@ -172,6 +186,23 @@ class JobScheduler:
         
         job_id = str(uuid.uuid4())
         
+        # Budget check for tasks with budget
+        if task_id and self._budget_manager:
+            budget_ok, budget_reason = await self._check_budget(task_id, kind)
+            if not budget_ok:
+                logger.warning(
+                    "Job rejected due to budget",
+                    job_id=job_id,
+                    task_id=task_id,
+                    kind=kind.value,
+                    reason=budget_reason,
+                )
+                return {
+                    "accepted": False,
+                    "job_id": job_id,
+                    "reason": f"budget_{budget_reason}",
+                }
+        
         # Check exclusivity
         can_queue = await self._check_exclusivity(slot)
         if not can_queue:
@@ -214,6 +245,45 @@ class JobScheduler:
             "eta": await self._estimate_eta(slot),
         }
     
+    async def _check_budget(
+        self,
+        task_id: str,
+        kind: JobKind,
+    ) -> tuple[bool, str | None]:
+        """
+        Check if job is within task budget.
+        
+        Args:
+            task_id: Task identifier.
+            kind: Job kind.
+            
+        Returns:
+            Tuple of (can_proceed, reason_if_not).
+        """
+        if not self._budget_manager:
+            return True, None
+        
+        # Check general budget (time and page limits)
+        can_continue, reason = await self._budget_manager.check_and_update(task_id)
+        if not can_continue:
+            return False, reason.value if reason else "budget_exceeded"
+        
+        # For FETCH jobs, check page limit
+        if kind == JobKind.FETCH:
+            can_fetch = await self._budget_manager.can_fetch_page(task_id)
+            if not can_fetch:
+                return False, BudgetExceededReason.PAGE_LIMIT.value
+        
+        # For LLM jobs, check ratio limit
+        if kind in (JobKind.LLM_FAST, JobKind.LLM_SLOW):
+            # Estimate LLM time (fast=5s, slow=15s)
+            estimated_time = 5.0 if kind == JobKind.LLM_FAST else 15.0
+            can_run = await self._budget_manager.can_run_llm(task_id, estimated_time)
+            if not can_run:
+                return False, BudgetExceededReason.LLM_RATIO.value
+        
+        return True, None
+    
     async def _check_exclusivity(self, slot: Slot) -> bool:
         """Check if slot can accept jobs based on exclusivity rules.
         
@@ -254,6 +324,50 @@ class JobScheduler:
         else:
             return f"{eta_seconds // 60}m"
     
+    async def _record_budget_consumption(
+        self,
+        task_id: str | None,
+        kind: JobKind,
+        job_start_time: float,
+    ) -> None:
+        """
+        Record budget consumption after job completion.
+        
+        Args:
+            task_id: Task identifier.
+            kind: Job kind.
+            job_start_time: When the job started (time.time()).
+        """
+        if not task_id or not self._budget_manager:
+            return
+        
+        job_duration = time.time() - job_start_time
+        
+        # Record page fetch
+        if kind == JobKind.FETCH:
+            await self._budget_manager.check_and_update(
+                task_id,
+                record_page=True,
+            )
+            logger.debug(
+                "Page fetch recorded",
+                task_id=task_id,
+                duration=job_duration,
+            )
+        
+        # Record LLM time
+        if kind in (JobKind.LLM_FAST, JobKind.LLM_SLOW):
+            await self._budget_manager.check_and_update(
+                task_id,
+                llm_time_seconds=job_duration,
+            )
+            logger.debug(
+                "LLM time recorded",
+                task_id=task_id,
+                kind=kind.value,
+                duration=job_duration,
+            )
+    
     async def _worker(self, slot: Slot, worker_id: int) -> None:
         """Worker coroutine for a slot.
         
@@ -284,6 +398,10 @@ class JobScheduler:
                 async with self._lock:
                     self._running[slot].add(job_id)
                 
+                # Record start time for budget tracking
+                job_start_time = time.time()
+                self._job_start_times[job_id] = job_start_time
+                
                 # Update job state
                 db = await get_database()
                 await db.update(
@@ -299,6 +417,11 @@ class JobScheduler:
                 try:
                     with CausalTrace(cause_id) as trace:
                         result = await self._execute_job(kind, input_data, task_id, trace.id)
+                    
+                    # Record budget consumption
+                    await self._record_budget_consumption(
+                        task_id, kind, job_start_time
+                    )
                     
                     # Mark as completed
                     await db.update(
@@ -330,6 +453,8 @@ class JobScheduler:
                     logger.error("Job failed", job_id=job_id, kind=kind.value, error=str(e))
                 
                 finally:
+                    # Cleanup
+                    self._job_start_times.pop(job_id, None)
                     # Remove from running
                     async with self._lock:
                         self._running[slot].discard(job_id)
