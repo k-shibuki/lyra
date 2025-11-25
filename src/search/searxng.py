@@ -362,31 +362,285 @@ def _classify_source(url: str) -> str:
     return "unknown"
 
 
+class QueryExpander:
+    """Query expansion using SudachiPy for Japanese text analysis."""
+    
+    def __init__(self):
+        """Initialize query expander."""
+        self._tokenizer = None
+        self._tokenize_mode = None
+        self._synonym_dict: dict[str, list[str]] = {}
+        self._initialized = False
+    
+    def _ensure_initialized(self) -> bool:
+        """Ensure SudachiPy is initialized."""
+        if self._initialized:
+            return self._tokenizer is not None
+        
+        self._initialized = True
+        try:
+            from sudachipy import dictionary, tokenizer
+            
+            self._tokenizer = dictionary.Dictionary().create()
+            self._tokenize_mode = tokenizer.Tokenizer.SplitMode.A
+            
+            # Initialize basic synonym dictionary
+            self._init_synonym_dict()
+            
+            logger.debug("SudachiPy initialized for query expansion")
+            return True
+        except ImportError:
+            logger.warning("SudachiPy not available for query expansion")
+            return False
+    
+    def _init_synonym_dict(self) -> None:
+        """Initialize built-in synonym dictionary for common terms."""
+        # Common synonym mappings (Japanese)
+        self._synonym_dict = {
+            # General terms
+            "問題": ["課題", "イシュー", "トラブル"],
+            "方法": ["やり方", "手法", "手段", "アプローチ"],
+            "理由": ["原因", "要因", "わけ"],
+            "結果": ["成果", "結論", "アウトプット"],
+            "目的": ["目標", "ゴール", "狙い"],
+            "利点": ["メリット", "長所", "強み"],
+            "欠点": ["デメリット", "短所", "弱み"],
+            "影響": ["インパクト", "効果", "作用"],
+            "比較": ["対比", "比べる", "違い"],
+            "分析": ["解析", "アナリシス", "調査"],
+            # Tech terms
+            "AI": ["人工知能", "エーアイ", "機械知能"],
+            "人工知能": ["AI", "エーアイ", "機械知能"],
+            "機械学習": ["マシンラーニング", "ML"],
+            "深層学習": ["ディープラーニング", "DL"],
+            "データ": ["情報", "データセット"],
+            "セキュリティ": ["安全性", "セキュリティー"],
+            "プログラミング": ["コーディング", "開発"],
+            "アルゴリズム": ["算法", "手順"],
+            "システム": ["仕組み", "体制"],
+            "ネットワーク": ["通信網", "回線網"],
+            # Business terms
+            "企業": ["会社", "事業者", "法人"],
+            "市場": ["マーケット", "市況"],
+            "戦略": ["ストラテジー", "方針"],
+            "顧客": ["お客様", "クライアント", "ユーザー"],
+            "製品": ["プロダクト", "商品"],
+            "サービス": ["サービス提供", "提供物"],
+        }
+    
+    def tokenize(self, text: str) -> list[dict[str, Any]]:
+        """Tokenize text and extract token information.
+        
+        Args:
+            text: Input text.
+            
+        Returns:
+            List of token info dicts.
+        """
+        if not self._ensure_initialized():
+            # Fallback: simple space-based tokenization
+            return [{"surface": w, "normalized": w, "pos": "unknown"} 
+                    for w in text.split()]
+        
+        tokens = []
+        for m in self._tokenizer.tokenize(text, self._tokenize_mode):
+            tokens.append({
+                "surface": m.surface(),
+                "normalized": m.normalized_form(),
+                "reading": m.reading_form(),
+                "pos": m.part_of_speech()[0] if m.part_of_speech() else "unknown",
+                "pos_detail": m.part_of_speech(),
+            })
+        return tokens
+    
+    def get_synonyms(self, word: str) -> list[str]:
+        """Get synonyms for a word.
+        
+        Args:
+            word: Input word.
+            
+        Returns:
+            List of synonym words.
+        """
+        synonyms = set()
+        
+        # Check direct mapping
+        if word in self._synonym_dict:
+            synonyms.update(self._synonym_dict[word])
+        
+        # Check reverse mapping (if word is a synonym of another)
+        for base, syns in self._synonym_dict.items():
+            if word in syns:
+                synonyms.add(base)
+                synonyms.update(s for s in syns if s != word)
+        
+        return list(synonyms)
+    
+    def expand_with_normalized_forms(self, query: str) -> list[str]:
+        """Expand query using normalized forms.
+        
+        Args:
+            query: Original query.
+            
+        Returns:
+            List of expanded queries with normalized forms.
+        """
+        expanded = [query]
+        
+        tokens = self.tokenize(query)
+        
+        # Find tokens where surface differs from normalized form
+        variations = []
+        for token in tokens:
+            surface = token["surface"]
+            normalized = token["normalized"]
+            
+            if surface != normalized and normalized:
+                # Create variation by replacing surface with normalized
+                variations.append((surface, normalized))
+        
+        # Generate variations
+        for surface, normalized in variations:
+            variant = query.replace(surface, normalized, 1)
+            if variant != query and variant not in expanded:
+                expanded.append(variant)
+        
+        return expanded
+    
+    def expand_with_synonyms(self, query: str, max_expansions: int = 3) -> list[str]:
+        """Expand query using synonyms.
+        
+        Args:
+            query: Original query.
+            max_expansions: Maximum number of synonym expansions.
+            
+        Returns:
+            List of expanded queries.
+        """
+        expanded = [query]
+        
+        tokens = self.tokenize(query)
+        
+        # Find content words (nouns, verbs, adjectives) with synonyms
+        expansion_candidates = []
+        
+        for token in tokens:
+            surface = token["surface"]
+            pos = token["pos"]
+            
+            # Only expand content words
+            if pos in ["名詞", "動詞", "形容詞"]:
+                synonyms = self.get_synonyms(surface)
+                if synonyms:
+                    expansion_candidates.append((surface, synonyms))
+        
+        # Generate variations (limit to avoid explosion)
+        for surface, synonyms in expansion_candidates[:max_expansions]:
+            for syn in synonyms[:2]:  # Limit synonyms per word
+                variant = query.replace(surface, syn, 1)
+                if variant != query and variant not in expanded:
+                    expanded.append(variant)
+        
+        return expanded[:max_expansions + 1]  # Limit total expansions
+    
+    def generate_variants(
+        self,
+        query: str,
+        include_normalized: bool = True,
+        include_synonyms: bool = True,
+        max_results: int = 5,
+    ) -> list[str]:
+        """Generate query variants using multiple strategies.
+        
+        Args:
+            query: Original query.
+            include_normalized: Include normalized form variants.
+            include_synonyms: Include synonym variants.
+            max_results: Maximum number of results.
+            
+        Returns:
+            List of query variants (including original).
+        """
+        variants = [query]
+        
+        if include_normalized:
+            normalized = self.expand_with_normalized_forms(query)
+            for v in normalized:
+                if v not in variants:
+                    variants.append(v)
+        
+        if include_synonyms:
+            synonyms = self.expand_with_synonyms(query)
+            for v in synonyms:
+                if v not in variants:
+                    variants.append(v)
+        
+        return variants[:max_results]
+
+
+# Global query expander instance
+_query_expander: QueryExpander | None = None
+
+
+def _get_query_expander() -> QueryExpander:
+    """Get or create the global query expander."""
+    global _query_expander
+    if _query_expander is None:
+        _query_expander = QueryExpander()
+    return _query_expander
+
+
 async def expand_query(
     base_query: str,
-    expansion_type: str = "synonyms",
+    expansion_type: str = "all",
     language: str = "ja",
+    max_results: int = 5,
 ) -> list[str]:
     """Expand a query with related terms.
     
+    Uses SudachiPy for Japanese text analysis to generate query variations
+    through synonym expansion and normalized form conversion.
+    
     Args:
         base_query: Original query.
-        expansion_type: Type of expansion (synonyms, hyponyms, related).
-        language: Query language.
+        expansion_type: Type of expansion:
+            - "synonyms": Synonym-based expansion only
+            - "normalized": Normalized form expansion only
+            - "all": Both synonym and normalized expansion
+        language: Query language (currently supports "ja").
+        max_results: Maximum number of expanded queries.
         
     Returns:
-        List of expanded queries.
+        List of expanded queries (including original).
     """
-    # TODO: Implement SudachiPy-based expansion
-    # For now, return just the base query
-    expanded = [base_query]
+    if not base_query.strip():
+        return [base_query]
     
-    # Add simple variations
-    if language == "ja":
-        # Japanese-specific expansions would go here
-        pass
+    expander = _get_query_expander()
     
-    return expanded
+    include_normalized = expansion_type in ["all", "normalized"]
+    include_synonyms = expansion_type in ["all", "synonyms"]
+    
+    # For non-Japanese, return original only (expansion not supported)
+    if language != "ja":
+        logger.debug("Query expansion not supported for language", language=language)
+        return [base_query]
+    
+    variants = expander.generate_variants(
+        base_query,
+        include_normalized=include_normalized,
+        include_synonyms=include_synonyms,
+        max_results=max_results,
+    )
+    
+    logger.debug(
+        "Query expanded",
+        original=base_query,
+        variant_count=len(variants),
+        variants=variants[:3],  # Log first 3 for brevity
+    )
+    
+    return variants
 
 
 async def generate_mirror_query(
