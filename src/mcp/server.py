@@ -301,24 +301,47 @@ TOOLS = [
         }
     ),
     Tool(
-        name="generate_report",
-        description="Generate a research report from collected evidence.",
+        name="get_report_materials",
+        description="Get report materials (claims, fragments, evidence graph) for Cursor AI to compose a report. Does NOT generate report - Cursor AI handles composition/writing (§2.1).",
         inputSchema={
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID to generate report for"
-                },
-                "format": {
-                    "type": "string",
-                    "enum": ["markdown", "json"],
-                    "description": "Output format",
-                    "default": "markdown"
+                    "description": "Task ID to get materials for"
                 },
                 "include_evidence_graph": {
                     "type": "boolean",
-                    "description": "Include evidence graph in report",
+                    "description": "Include evidence graph structure",
+                    "default": True
+                },
+                "include_fragments": {
+                    "type": "boolean",
+                    "description": "Include source fragments",
+                    "default": True
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
+    Tool(
+        name="get_evidence_graph",
+        description="Get evidence graph structure (claims, fragments, edges) for a task. Returns structured data for Cursor AI to interpret.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "claim_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional filter by specific claim IDs"
+                },
+                "include_fragments": {
+                    "type": "boolean",
+                    "description": "Include linked fragments",
                     "default": True
                 }
             },
@@ -491,6 +514,62 @@ TOOLS = [
             "required": ["source"]
         }
     ),
+    Tool(
+        name="add_calibration_sample",
+        description="Add a calibration sample (prediction + ground truth). Used by Cursor AI to provide feedback for calibration improvement.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Source model identifier (e.g., 'llm_extract', 'nli_judge')"
+                },
+                "predicted_prob": {
+                    "type": "number",
+                    "description": "Predicted probability (0.0 to 1.0)"
+                },
+                "actual_label": {
+                    "type": "integer",
+                    "description": "Ground truth label (0 or 1)"
+                },
+                "logit": {
+                    "type": "number",
+                    "description": "Optional raw logit value"
+                }
+            },
+            "required": ["source", "predicted_prob", "actual_label"]
+        }
+    ),
+    Tool(
+        name="get_calibration_stats",
+        description="Get calibration statistics including current parameters, history, and degradation detection. Cursor AI uses this to decide on rollback.",
+        inputSchema={
+            "type": "object",
+            "properties": {}
+        }
+    ),
+    Tool(
+        name="rollback_calibration",
+        description="Rollback calibration parameters to a previous version. Called by Cursor AI when degradation is detected.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Source model identifier"
+                },
+                "to_version": {
+                    "type": "integer",
+                    "description": "Optional specific version to rollback to (defaults to previous)"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for rollback"
+                }
+            },
+            "required": ["source"]
+        }
+    ),
 ]
 
 
@@ -547,7 +626,8 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "schedule_job": _handle_schedule_job,
         "create_task": _handle_create_task,
         "get_task_status": _handle_get_task_status,
-        "generate_report": _handle_generate_report,
+        "get_report_materials": _handle_get_report_materials,
+        "get_evidence_graph": _handle_get_evidence_graph,
         # Phase 11: Exploration Control
         "get_research_context": _handle_get_research_context,
         "execute_subquery": _handle_execute_subquery,
@@ -558,6 +638,9 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "save_calibration_evaluation": _handle_save_calibration_evaluation,
         "get_calibration_evaluations": _handle_get_calibration_evaluations,
         "get_reliability_diagram_data": _handle_get_reliability_diagram_data,
+        "add_calibration_sample": _handle_add_calibration_sample,
+        "get_calibration_stats": _handle_get_calibration_stats,
+        "rollback_calibration": _handle_rollback_calibration,
     }
     
     handler = handlers.get(name)
@@ -758,18 +841,42 @@ async def _handle_get_task_status(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _handle_generate_report(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle generate_report tool call."""
-    from src.report.generator import generate_report
+async def _handle_get_report_materials(args: dict[str, Any]) -> dict[str, Any]:
+    """Handle get_report_materials tool call.
+    
+    Returns materials for Cursor AI to compose a report.
+    Does NOT generate report - respects responsibility separation (§2.1).
+    """
+    from src.report.generator import get_report_materials
     
     task_id = args["task_id"]
-    format_type = args.get("format", "markdown")
     include_evidence_graph = args.get("include_evidence_graph", True)
+    include_fragments = args.get("include_fragments", True)
     
-    result = await generate_report(
+    result = await get_report_materials(
         task_id=task_id,
-        format_type=format_type,
         include_evidence_graph=include_evidence_graph,
+        include_fragments=include_fragments,
+    )
+    
+    return result
+
+
+async def _handle_get_evidence_graph(args: dict[str, Any]) -> dict[str, Any]:
+    """Handle get_evidence_graph tool call.
+    
+    Returns evidence graph structure for Cursor AI to interpret.
+    """
+    from src.report.generator import get_evidence_graph
+    
+    task_id = args["task_id"]
+    claim_ids = args.get("claim_ids")
+    include_fragments = args.get("include_fragments", True)
+    
+    result = await get_evidence_graph(
+        task_id=task_id,
+        claim_ids=claim_ids,
+        include_fragments=include_fragments,
     )
     
     return result
@@ -960,6 +1067,57 @@ async def _handle_get_reliability_diagram_data(args: dict[str, Any]) -> dict[str
     return await get_reliability_diagram_data(
         source=source,
         evaluation_id=evaluation_id,
+    )
+
+
+async def _handle_add_calibration_sample(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle add_calibration_sample tool call.
+    
+    Allows Cursor AI to provide feedback for calibration improvement.
+    """
+    from src.utils.calibration import add_calibration_sample
+    
+    source = args["source"]
+    predicted_prob = args["predicted_prob"]
+    actual_label = args["actual_label"]
+    logit = args.get("logit")
+    
+    return await add_calibration_sample(
+        source=source,
+        predicted_prob=predicted_prob,
+        actual_label=actual_label,
+        logit=logit,
+    )
+
+
+async def _handle_get_calibration_stats(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_calibration_stats tool call.
+    
+    Returns calibration statistics for Cursor AI to monitor and decide on rollback.
+    """
+    from src.utils.calibration import get_calibration_stats
+    
+    return await get_calibration_stats()
+
+
+async def _handle_rollback_calibration(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle rollback_calibration tool call.
+    
+    Cursor AI decides when to rollback based on degradation detection.
+    """
+    from src.utils.calibration import rollback_calibration
+    
+    source = args["source"]
+    to_version = args.get("to_version")
+    reason = args.get("reason", "Manual rollback by Cursor AI")
+    
+    return await rollback_calibration(
+        source=source,
+        to_version=to_version,
+        reason=reason,
     )
 
 

@@ -365,7 +365,8 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 - `schedule_job(job)` → `{accepted, slot(gpu|browser_headful|network|cpu_nlp), priority, eta}`
 - `create_task(query, config?)` → `{task_id, status}`
 - `get_task_status(task_id)` → `{task, progress}`
-- `generate_report(task_id, format, include_evidence_graph)` → `{report_path, summary}`
+- `get_report_materials(task_id, include_evidence_graph)` → `{claims[], fragments[], evidence_graph?, summary}`
+  - **注意**: レポート「生成」ではなく素材「提供」。構成・執筆はCursor AIが担当（§2.1準拠）
 
 ##### 探索制御ツール（Phase 11）
 
@@ -530,6 +531,114 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 - すべてJSON I/O、タイムアウト・再試行・因果ログ（呼出元ID）を必須付与
 - 探索制御ツールは`task_id`を必須とし、タスクスコープでの状態管理を行う
 - 長時間実行が予想される`execute_subquery`は進捗コールバックをサポート（オプション）
+
+##### MCPツール一覧（責任分界準拠）
+
+| カテゴリ | ツール名 | Cursor AI（思考） | Lancet（作業） |
+|----------|----------|-------------------|----------------|
+| **タスク管理** | `create_task` | タスク作成の指示 | タスクID発行・DB登録 |
+| | `get_task_status` | 状態確認の指示 | 状態データ返却 |
+| **探索制御** | `get_research_context` | 設計支援情報の取得指示 | エンティティ/テンプレ/成功率の返却 |
+| | `execute_subquery` | **サブクエリの設計**・実行指示 | 検索→取得→抽出→評価の実行 |
+| | `get_exploration_status` | 状態確認・次判断 | 充足度/新規性/予算の報告 |
+| | `execute_refutation` | 反証対象の指定 | 機械パターン適用・反証検索 |
+| | `finalize_exploration` | 終了判断 | 最終状態のDB記録 |
+| **取得・抽出** | `search_serp` | クエリの指定 | 検索エンジン実行・SERP返却 |
+| | `fetch_url` | URL/ポリシーの指定 | HTTP/ブラウザ取得・WARC保存 |
+| | `extract_content` | 抽出指示 | HTML/PDFからテキスト抽出 |
+| **フィルタ・評価** | `rank_candidates` | クエリ/候補の指定 | BM25/埋め込み/リランク実行 |
+| | `llm_extract` | 抽出タスクの指定 | ローカルLLMで事実/主張抽出 |
+| | `nli_judge` | 対象ペアの指定 | スタンス推定（supports/refutes/neutral） |
+| **レポート素材** | `get_report_materials` | 素材取得の指示 | 主張/断片/エビデンスグラフ返却 |
+| | `get_evidence_graph` | グラフ参照の指示 | ノード/エッジの構造化データ返却 |
+| **校正・評価** | `add_calibration_sample` | 正解フィードバックの送信 | サンプル蓄積・再校正トリガー |
+| | `get_calibration_stats` | 校正状態の確認 | パラメータ/デグレ検知の報告 |
+| | `rollback_calibration` | ロールバック判断・指示 | パラメータ復元の実行 |
+| | `save_calibration_evaluation` | 評価実行の指示 | Brier/ECE算出・DB保存 |
+| | `get_calibration_evaluations` | 評価履歴の取得指示 | 構造化データ返却 |
+| | `get_reliability_diagram_data` | ビンデータ取得指示 | 信頼度-精度曲線データ返却 |
+| **通知・ジョブ** | `notify_user` | 通知内容の指定 | トースト送信・待機 |
+| | `schedule_job` | ジョブの指定 | スロット管理・スケジューリング |
+
+**重要**: 
+- 「設計」「判断」「構成」はCursor AIの責任
+- Lancetは「実行」「計算」「データ返却」に専念
+- `get_report_materials`は素材提供のみ。レポート構成・執筆はCursor AIが行う
+
+##### ユースケース別フロー
+
+**UC-1: 標準調査タスク**
+
+```
+Cursor AI                          Lancet MCP
+   │                                   │
+   ├─ create_task(query) ─────────────►│ タスク作成
+   │◄───────────── {task_id} ──────────┤
+   │                                   │
+   ├─ get_research_context(task_id) ──►│ 設計支援情報取得
+   │◄─── {entities, templates, ...} ───┤
+   │                                   │
+   │  [Cursor AIがサブクエリを設計]     │
+   │                                   │
+   ├─ execute_subquery(task_id, sq) ──►│ サブクエリ実行
+   │◄─── {harvest_rate, claims, ...} ──┤
+   │                                   │
+   ├─ get_exploration_status(task_id)─►│ 状態確認
+   │◄─── {subqueries, budget, ...} ────┤
+   │                                   │
+   │  [充足/予算に応じて繰り返し]       │
+   │                                   │
+   ├─ execute_refutation(task_id, c)──►│ 反証探索
+   │◄─── {refutations_found, ...} ─────┤
+   │                                   │
+   ├─ finalize_exploration(task_id) ──►│ 探索終了
+   │◄─── {summary, followup, ...} ─────┤
+   │                                   │
+   ├─ get_report_materials(task_id) ──►│ 素材取得
+   │◄─── {claims, fragments, graph} ───┤
+   │                                   │
+   │  [Cursor AIがレポート構成・執筆]   │
+   │                                   │
+```
+
+**UC-2: 校正フィードバックループ**
+
+```
+Cursor AI                          Lancet MCP
+   │                                   │
+   │  [調査中にLLM予測を観測]           │
+   │                                   │
+   ├─ add_calibration_sample(...) ────►│ サンプル蓄積
+   │◄─── {added, pending_count} ───────┤
+   │                                   │
+   │  [一定サンプル蓄積後]              │
+   │                                   │
+   ├─ get_calibration_stats() ────────►│ 校正状態確認
+   │◄─── {params, degradation_detected}┤
+   │                                   │
+   │  [デグレ検知時、Cursor AIが判断]   │
+   │                                   │
+   ├─ rollback_calibration(source) ───►│ ロールバック実行
+   │◄─── {rolled_back_to_version} ─────┤
+   │                                   │
+```
+
+**UC-3: 手動介入フロー**
+
+```
+Cursor AI                          Lancet MCP
+   │                                   │
+   │  [CAPTCHA/Cloudflare検知]          │
+   │                                   │
+   │◄─── notify_user(captcha, ...) ────┤ 通知送信
+   │                                   │
+   │  [ユーザーが手動解除]              │
+   │                                   │
+   │◄─── {resolved: true} ─────────────┤ 解除通知
+   │                                   │
+   │  [探索再開]                        │
+   │                                   │
+```
 
 #### 3.2.2. ジョブスケジューラ/スロット制御
 - スロットと排他:
