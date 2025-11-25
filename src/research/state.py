@@ -12,11 +12,14 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from collections import deque
 
 from src.storage.database import get_database
 from src.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from src.research.ucb_allocator import UCBAllocator
 
 logger = get_logger(__name__)
 
@@ -146,13 +149,24 @@ class ExplorationState:
     
     Tracks subquery execution, calculates metrics, and provides
     status reports to Cursor AI for decision making.
+    
+    Integrates UCB1-based dynamic budget allocation (§3.1.1):
+    - High-yield subqueries receive more budget
+    - Budget is reallocated based on harvest rates
     """
     
-    def __init__(self, task_id: str):
+    def __init__(
+        self,
+        task_id: str,
+        enable_ucb_allocation: bool = True,
+        ucb_exploration_constant: float | None = None,
+    ):
         """Initialize exploration state for a task.
         
         Args:
             task_id: The task ID to manage state for.
+            enable_ucb_allocation: Enable UCB1-based dynamic budget allocation.
+            ucb_exploration_constant: UCB1 exploration constant (default: sqrt(2)).
         """
         self.task_id = task_id
         self._db = None
@@ -165,6 +179,14 @@ class ExplorationState:
         self._pages_used = 0
         self._time_started: float | None = None
         
+        # UCB1 allocation (§3.1.1)
+        self._enable_ucb = enable_ucb_allocation
+        self._ucb_allocator: "UCBAllocator | None" = None
+        self._ucb_exploration_constant = ucb_exploration_constant
+        
+        if self._enable_ucb:
+            self._init_ucb_allocator()
+        
         # Overall metrics
         self._total_fragments = 0
         self._total_claims = 0
@@ -173,6 +195,23 @@ class ExplorationState:
         
         # Novelty tracking (last 2 cycles)
         self._novelty_history: list[float] = []
+    
+    def _init_ucb_allocator(self) -> None:
+        """Initialize the UCB allocator."""
+        from src.research.ucb_allocator import UCBAllocator
+        
+        self._ucb_allocator = UCBAllocator(
+            total_budget=self._pages_limit,
+            exploration_constant=self._ucb_exploration_constant,
+            min_budget_per_subquery=5,
+            max_budget_ratio=0.4,
+            reallocation_interval=10,
+        )
+        logger.info(
+            "UCB allocator enabled",
+            task_id=self.task_id,
+            total_budget=self._pages_limit,
+        )
     
     async def _ensure_db(self) -> None:
         """Ensure database connection is available."""
@@ -252,6 +291,14 @@ class ExplorationState:
         )
         self._subqueries[subquery_id] = sq
         
+        # Register with UCB allocator (§3.1.1)
+        if self._ucb_allocator:
+            self._ucb_allocator.register_subquery(
+                subquery_id=subquery_id,
+                priority=priority,
+                initial_budget=budget_pages,
+            )
+        
         logger.info(
             "Registered subquery",
             task_id=self.task_id,
@@ -323,6 +370,10 @@ class ExplorationState:
         if sq:
             sq.add_fragment(fragment_hash, is_useful, is_novel)
             self._total_fragments += 1
+            
+            # Record observation in UCB allocator (§3.1.1)
+            if self._ucb_allocator:
+                self._ucb_allocator.record_observation(subquery_id, is_useful)
     
     def record_claim(self, subquery_id: str, is_verified: bool = False, is_refuted: bool = False) -> None:
         """Record a claim extraction.
@@ -377,6 +428,68 @@ class ExplorationState:
             return True, f"予算残り{int(pages_remaining_ratio * 100)}%"
         
         return True, None
+    
+    def get_dynamic_budget(self, subquery_id: str) -> int:
+        """
+        Get dynamic budget for a subquery using UCB1 allocation (§3.1.1).
+        
+        If UCB allocation is enabled, returns budget based on harvest rates.
+        Otherwise, returns the static budget from SubqueryState.
+        
+        Args:
+            subquery_id: The subquery ID.
+            
+        Returns:
+            Available budget (pages) for the subquery.
+        """
+        sq = self._subqueries.get(subquery_id)
+        if not sq:
+            return 0
+        
+        if self._ucb_allocator:
+            return self._ucb_allocator.reallocate_and_get_budget(subquery_id)
+        
+        # Fallback to static budget
+        if sq.budget_pages is not None:
+            return max(0, sq.budget_pages - sq.pages_fetched)
+        
+        # Default budget per subquery
+        return 15
+    
+    def get_ucb_recommended_subquery(self) -> str | None:
+        """
+        Get the subquery recommended by UCB1 for next execution.
+        
+        Returns:
+            Subquery ID with highest UCB score, or None.
+        """
+        if not self._ucb_allocator:
+            return None
+        return self._ucb_allocator.get_recommended_subquery()
+    
+    def get_ucb_scores(self) -> dict[str, float]:
+        """
+        Get UCB1 scores for all subqueries.
+        
+        Returns:
+            Dictionary mapping subquery_id to UCB1 score.
+        """
+        if not self._ucb_allocator:
+            return {}
+        return self._ucb_allocator.get_all_ucb_scores()
+    
+    def trigger_budget_reallocation(self) -> dict[str, int]:
+        """
+        Manually trigger budget reallocation.
+        
+        Useful after significant changes in harvest rates.
+        
+        Returns:
+            New budget allocations per subquery.
+        """
+        if not self._ucb_allocator:
+            return {}
+        return self._ucb_allocator.reallocate_budget()
     
     def check_novelty_stop_condition(self, subquery_id: str) -> bool:
         """
@@ -475,6 +588,35 @@ class ExplorationState:
                 "reason": "すべてのサブクエリが完了",
             })
         
+        # UCB allocation info (§3.1.1)
+        ucb_info = None
+        if self._ucb_allocator:
+            ucb_status = self._ucb_allocator.get_status()
+            ucb_info = {
+                "enabled": True,
+                "recommended_next": ucb_status.get("recommended_next"),
+                "arm_scores": {
+                    sid: arm.get("ucb_score", 0)
+                    for sid, arm in ucb_status.get("arms", {}).items()
+                },
+                "arm_budgets": {
+                    sid: arm.get("remaining_budget", 0)
+                    for sid, arm in ucb_status.get("arms", {}).items()
+                },
+            }
+            
+            # Add UCB-based recommendation if available
+            if ucb_status.get("recommended_next"):
+                recommended_id = ucb_status["recommended_next"]
+                if recommended_id in self._subqueries:
+                    sq = self._subqueries[recommended_id]
+                    if sq.status in (SubqueryStatus.PENDING, SubqueryStatus.PARTIAL):
+                        recommendations.insert(0, {
+                            "action": "execute_subquery",
+                            "target": recommended_id,
+                            "reason": "UCB1スコア最高（収穫率に基づく推奨）",
+                        })
+        
         return {
             "ok": True,
             "task_id": self.task_id,
@@ -495,6 +637,7 @@ class ExplorationState:
                 "time_used_seconds": elapsed_seconds,
                 "time_limit_seconds": self._time_limit_seconds,
             },
+            "ucb_allocation": ucb_info,
             "recommendations": recommendations,
             "warnings": warnings,
         }

@@ -180,7 +180,17 @@ class SubqueryExecutor:
                 )
                 
                 # Step 3: Fetch and extract from top results
-                budget = budget_pages or 15  # Default budget per subquery
+                # Use dynamic budget from UCB allocator if available (§3.1.1)
+                dynamic_budget = self.state.get_dynamic_budget(subquery_id)
+                budget = budget_pages or dynamic_budget or 15
+                
+                logger.debug(
+                    "Using budget for subquery",
+                    subquery_id=subquery_id,
+                    budget=budget,
+                    dynamic_budget=dynamic_budget,
+                )
+                
                 for item in unique_serp_items[:budget]:
                     # Check overall budget
                     within_budget, _ = self.state.check_budget()
