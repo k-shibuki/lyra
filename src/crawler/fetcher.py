@@ -41,6 +41,9 @@ class FetchResult:
         content_hash: str | None = None,
         reason: str | None = None,
         method: str = "http_client",
+        from_cache: bool = False,
+        etag: str | None = None,
+        last_modified: str | None = None,
     ):
         self.ok = ok
         self.url = url
@@ -53,6 +56,9 @@ class FetchResult:
         self.content_hash = content_hash
         self.reason = reason
         self.method = method
+        self.from_cache = from_cache
+        self.etag = etag
+        self.last_modified = last_modified
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -68,6 +74,9 @@ class FetchResult:
             "content_hash": self.content_hash,
             "reason": self.reason,
             "method": self.method,
+            "from_cache": self.from_cache,
+            "etag": self.etag,
+            "last_modified": self.last_modified,
         }
 
 
@@ -127,14 +136,18 @@ class HTTPFetcher:
         referer: str | None = None,
         headers: dict[str, str] | None = None,
         use_tor: bool = False,
+        cached_etag: str | None = None,
+        cached_last_modified: str | None = None,
     ) -> FetchResult:
-        """Fetch URL using HTTP client.
+        """Fetch URL using HTTP client with conditional request support.
         
         Args:
             url: URL to fetch.
             referer: Referer header.
             headers: Additional headers.
             use_tor: Whether to use Tor.
+            cached_etag: ETag from cache for conditional request.
+            cached_last_modified: Last-Modified from cache for conditional request.
             
         Returns:
             FetchResult instance.
@@ -153,6 +166,12 @@ class HTTPFetcher:
             
             if referer:
                 req_headers["Referer"] = referer
+            
+            # Add conditional request headers for 304 support
+            if cached_etag:
+                req_headers["If-None-Match"] = cached_etag
+            if cached_last_modified:
+                req_headers["If-Modified-Since"] = cached_last_modified
             
             if headers:
                 req_headers.update(headers)
@@ -174,6 +193,30 @@ class HTTPFetcher:
                 allow_redirects=True,
             )
             
+            # Extract response headers
+            resp_headers = dict(response.headers)
+            
+            # Extract ETag and Last-Modified from response
+            resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
+            
+            # Handle 304 Not Modified response
+            if response.status_code == 304:
+                logger.info(
+                    "HTTP 304 Not Modified - using cached content",
+                    url=url[:80],
+                )
+                return FetchResult(
+                    ok=True,
+                    url=url,
+                    status=304,
+                    headers=resp_headers,
+                    method="http_client",
+                    from_cache=True,
+                    etag=resp_etag or cached_etag,
+                    last_modified=resp_last_modified or cached_last_modified,
+                )
+            
             # Check for Cloudflare/JS challenge
             if _is_challenge_page(response.text, response.headers):
                 logger.info("Challenge detected", url=url)
@@ -189,9 +232,6 @@ class HTTPFetcher:
             content_hash = hashlib.sha256(response.content).hexdigest()
             html_path = await _save_content(url, response.content, response.headers)
             
-            # Extract response headers
-            resp_headers = dict(response.headers)
-            
             # Save WARC archive
             warc_path = await _save_warc(
                 url,
@@ -206,6 +246,8 @@ class HTTPFetcher:
                 url=url[:80],
                 status=response.status_code,
                 content_length=len(response.content),
+                has_etag=bool(resp_etag),
+                has_last_modified=bool(resp_last_modified),
             )
             
             return FetchResult(
@@ -217,6 +259,9 @@ class HTTPFetcher:
                 warc_path=str(warc_path) if warc_path else None,
                 content_hash=content_hash,
                 method="http_client",
+                from_cache=False,
+                etag=resp_etag,
+                last_modified=resp_last_modified,
             )
             
         except Exception as e:
@@ -374,11 +419,17 @@ class BrowserFetcher:
             if take_screenshot:
                 screenshot_path = await _save_screenshot(page, url)
             
+            # Extract ETag and Last-Modified from response headers
+            resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
+            
             logger.info(
                 "Browser fetch success",
                 url=url[:80],
                 status=response.status,
                 content_length=len(content_bytes),
+                has_etag=bool(resp_etag),
+                has_last_modified=bool(resp_last_modified),
             )
             
             return FetchResult(
@@ -391,6 +442,9 @@ class BrowserFetcher:
                 screenshot_path=str(screenshot_path) if screenshot_path else None,
                 content_hash=content_hash,
                 method="browser_headless" if not headful else "browser_headful",
+                from_cache=False,
+                etag=resp_etag,
+                last_modified=resp_last_modified,
             )
             
         except Exception as e:
@@ -650,16 +704,23 @@ async def fetch_url(
     policy: dict[str, Any] | None = None,
     task_id: str | None = None,
 ) -> dict[str, Any]:
-    """Fetch URL with automatic method selection.
+    """Fetch URL with automatic method selection and cache support.
+    
+    Supports conditional requests (If-None-Match/If-Modified-Since) for
+    efficient re-validation and 304 Not Modified responses.
     
     Args:
         url: URL to fetch.
         context: Context information (referer, etc.).
-        policy: Fetch policy override.
+        policy: Fetch policy override. Supported keys:
+            - force_browser: Force browser fetching.
+            - force_headful: Force headful mode.
+            - use_tor: Use Tor proxy.
+            - skip_cache: Skip cache lookup and conditional requests.
         task_id: Associated task ID.
         
     Returns:
-        Fetch result dictionary.
+        Fetch result dictionary with additional 'from_cache' field.
     """
     global _http_fetcher, _browser_fetcher
     
@@ -683,12 +744,34 @@ async def fetch_url(
         force_browser = policy.get("force_browser", False)
         force_headful = policy.get("force_headful", False)
         use_tor = policy.get("use_tor", False)
+        skip_cache = policy.get("skip_cache", False)
         
         # Initialize fetchers
         if _http_fetcher is None:
             _http_fetcher = HTTPFetcher()
         if _browser_fetcher is None:
             _browser_fetcher = BrowserFetcher()
+        
+        # Check cache for conditional request data
+        cached_etag = None
+        cached_last_modified = None
+        cached_content_path = None
+        cached_content_hash = None
+        
+        if not skip_cache and not force_browser:
+            cache_entry = await db.get_fetch_cache(url)
+            if cache_entry:
+                cached_etag = cache_entry.get("etag")
+                cached_last_modified = cache_entry.get("last_modified")
+                cached_content_path = cache_entry.get("content_path")
+                cached_content_hash = cache_entry.get("content_hash")
+                
+                logger.debug(
+                    "Found cache entry for conditional request",
+                    url=url[:80],
+                    has_etag=bool(cached_etag),
+                    has_last_modified=bool(cached_last_modified),
+                )
         
         # Try HTTP client first unless browser forced
         result = None
@@ -698,7 +781,26 @@ async def fetch_url(
                 url,
                 referer=context.get("referer"),
                 use_tor=use_tor,
+                cached_etag=cached_etag,
+                cached_last_modified=cached_last_modified,
             )
+            
+            # Handle 304 Not Modified - use cached content
+            if result.ok and result.status == 304 and cached_content_path:
+                logger.info(
+                    "Using cached content (304 Not Modified)",
+                    url=url[:80],
+                    cached_path=cached_content_path,
+                )
+                result.html_path = cached_content_path
+                result.content_hash = cached_content_hash
+                
+                # Update cache validation time
+                await db.update_fetch_cache_validation(
+                    url,
+                    etag=result.etag,
+                    last_modified=result.last_modified,
+                )
             
             # If challenge detected, try browser
             if not result.ok and result.reason == "challenge_detected":
@@ -720,8 +822,9 @@ async def fetch_url(
             is_http_error=result.status and result.status >= 400,
         )
         
-        # Store page record if successful
+        # Store page record and update cache if successful
         if result.ok:
+            # Update pages table
             await db.insert("pages", {
                 "url": url,
                 "final_url": url,  # TODO: Track redirects
@@ -732,9 +835,28 @@ async def fetch_url(
                 "html_path": result.html_path,
                 "warc_path": result.warc_path,
                 "screenshot_path": result.screenshot_path,
+                "etag": result.etag,
+                "last_modified": result.last_modified,
                 "headers_json": json.dumps(result.headers) if result.headers else None,
                 "cause_id": trace.id,
             }, or_replace=True)
+            
+            # Update fetch cache for future conditional requests
+            # Only cache if we have ETag or Last-Modified
+            if (result.etag or result.last_modified) and not result.from_cache:
+                await db.set_fetch_cache(
+                    url,
+                    etag=result.etag,
+                    last_modified=result.last_modified,
+                    content_hash=result.content_hash,
+                    content_path=result.html_path,
+                )
+                logger.debug(
+                    "Updated fetch cache",
+                    url=url[:80],
+                    etag=result.etag[:20] if result.etag else None,
+                    last_modified=result.last_modified,
+                )
         
         # Log event
         await db.log_event(
@@ -749,6 +871,9 @@ async def fetch_url(
                 "method": result.method,
                 "status": result.status,
                 "reason": result.reason,
+                "from_cache": result.from_cache,
+                "has_etag": bool(result.etag),
+                "has_last_modified": bool(result.last_modified),
             },
         )
         

@@ -516,6 +516,202 @@ class Database:
             """,
             (datetime.now(timezone.utc).isoformat(),),
         )
+    
+    # ============================================================
+    # Fetch Cache Operations (304 support)
+    # ============================================================
+    
+    async def get_fetch_cache(
+        self,
+        url: str,
+    ) -> dict[str, Any] | None:
+        """Get cached fetch data for a URL.
+        
+        Args:
+            url: URL to look up (will be normalized).
+            
+        Returns:
+            Cache record or None if not found/expired.
+        """
+        url_normalized = self._normalize_url(url)
+        
+        result = await self.fetch_one(
+            """
+            SELECT * FROM cache_fetch 
+            WHERE url_normalized = ?
+              AND (expires_at IS NULL OR expires_at > ?)
+            """,
+            (url_normalized, datetime.now(timezone.utc).isoformat()),
+        )
+        
+        if result:
+            # Update hit statistics
+            await self.execute(
+                """
+                UPDATE cache_fetch 
+                SET last_validated_at = ?
+                WHERE url_normalized = ?
+                """,
+                (datetime.now(timezone.utc).isoformat(), url_normalized),
+            )
+        
+        return result
+    
+    async def set_fetch_cache(
+        self,
+        url: str,
+        *,
+        etag: str | None = None,
+        last_modified: str | None = None,
+        content_hash: str | None = None,
+        content_path: str | None = None,
+        ttl_hours: int = 24,
+    ) -> None:
+        """Store or update fetch cache for a URL.
+        
+        Args:
+            url: URL (will be normalized).
+            etag: ETag header value.
+            last_modified: Last-Modified header value.
+            content_hash: SHA256 hash of content.
+            content_path: Path to cached content file.
+            ttl_hours: Cache TTL in hours.
+        """
+        url_normalized = self._normalize_url(url)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        
+        await self.execute(
+            """
+            INSERT OR REPLACE INTO cache_fetch 
+            (url_normalized, etag, last_modified, content_hash, content_path, 
+             created_at, last_validated_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                url_normalized,
+                etag,
+                last_modified,
+                content_hash,
+                content_path,
+                datetime.now(timezone.utc).isoformat(),
+                datetime.now(timezone.utc).isoformat(),
+                expires_at.isoformat(),
+            ),
+        )
+    
+    async def invalidate_fetch_cache(self, url: str) -> None:
+        """Invalidate fetch cache for a URL.
+        
+        Args:
+            url: URL to invalidate.
+        """
+        url_normalized = self._normalize_url(url)
+        await self.execute(
+            "DELETE FROM cache_fetch WHERE url_normalized = ?",
+            (url_normalized,),
+        )
+    
+    async def update_fetch_cache_validation(
+        self,
+        url: str,
+        *,
+        etag: str | None = None,
+        last_modified: str | None = None,
+        ttl_hours: int = 24,
+    ) -> None:
+        """Update cache validation timestamp (for 304 responses).
+        
+        Args:
+            url: URL (will be normalized).
+            etag: New ETag if provided.
+            last_modified: New Last-Modified if provided.
+            ttl_hours: Cache TTL extension in hours.
+        """
+        url_normalized = self._normalize_url(url)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        
+        # Build dynamic update
+        updates = ["last_validated_at = ?", "expires_at = ?"]
+        params: list[Any] = [
+            datetime.now(timezone.utc).isoformat(),
+            expires_at.isoformat(),
+        ]
+        
+        if etag is not None:
+            updates.append("etag = ?")
+            params.append(etag)
+        
+        if last_modified is not None:
+            updates.append("last_modified = ?")
+            params.append(last_modified)
+        
+        params.append(url_normalized)
+        
+        await self.execute(
+            f"UPDATE cache_fetch SET {', '.join(updates)} WHERE url_normalized = ?",
+            tuple(params),
+        )
+    
+    async def get_fetch_cache_stats(self) -> dict[str, Any]:
+        """Get fetch cache statistics.
+        
+        Returns:
+            Statistics dict with cache hit rate, total entries, etc.
+        """
+        result = await self.fetch_one(
+            """
+            SELECT 
+                COUNT(*) as total_entries,
+                COUNT(CASE WHEN expires_at > ? THEN 1 END) as valid_entries,
+                COUNT(CASE WHEN etag IS NOT NULL THEN 1 END) as with_etag,
+                COUNT(CASE WHEN last_modified IS NOT NULL THEN 1 END) as with_last_modified
+            FROM cache_fetch
+            """,
+            (datetime.now(timezone.utc).isoformat(),),
+        )
+        return result or {}
+    
+    async def cleanup_expired_fetch_cache(self) -> int:
+        """Remove expired fetch cache entries.
+        
+        Returns:
+            Number of entries removed.
+        """
+        cursor = await self.execute(
+            "DELETE FROM cache_fetch WHERE expires_at < ?",
+            (datetime.now(timezone.utc).isoformat(),),
+        )
+        return cursor.rowcount
+    
+    @staticmethod
+    def _normalize_url(url: str) -> str:
+        """Normalize URL for cache key.
+        
+        Removes fragment, sorts query parameters, lowercases scheme and host.
+        
+        Args:
+            url: URL to normalize.
+            
+        Returns:
+            Normalized URL string.
+        """
+        from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+        
+        parsed = urlparse(url)
+        
+        # Lowercase scheme and host
+        scheme = parsed.scheme.lower()
+        netloc = parsed.netloc.lower()
+        
+        # Sort query parameters
+        query_params = parse_qsl(parsed.query, keep_blank_values=True)
+        query_params.sort()
+        query = urlencode(query_params)
+        
+        # Remove fragment
+        normalized = urlunparse((scheme, netloc, parsed.path, parsed.params, query, ""))
+        
+        return normalized
 
 
 # Global database instance
