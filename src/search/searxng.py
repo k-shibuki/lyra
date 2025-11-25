@@ -1110,17 +1110,137 @@ async def generate_mirror_query(
     source_lang: str = "ja",
     target_lang: str = "en",
 ) -> str | None:
-    """Generate a mirror query in another language.
+    """Generate a mirror query in another language using local LLM.
+    
+    Implements §3.1.1: 言語横断（日⇄英）のミラークエリを自動生成
+    Uses Ollama for translation to maintain Zero OpEx requirement.
     
     Args:
         query: Original query.
-        source_lang: Source language.
-        target_lang: Target language.
+        source_lang: Source language code (ja, en, de, fr, zh).
+        target_lang: Target language code.
         
     Returns:
         Translated query or None if translation fails.
     """
-    # TODO: Implement local LLM-based translation
-    # For now, return None
-    return None
+    if not query.strip():
+        return None
+    
+    # No translation needed for same language
+    if source_lang == target_lang:
+        return query
+    
+    # Check cache first
+    cache_key = f"mirror:{source_lang}:{target_lang}:{query}"
+    cached = _mirror_query_cache.get(cache_key)
+    if cached is not None:
+        logger.debug("Mirror query cache hit", query=query, target_lang=target_lang)
+        return cached
+    
+    try:
+        from src.filter.llm import _get_client
+        
+        client = _get_client()
+        settings = get_settings()
+        
+        # Language names for prompt
+        lang_names = {
+            "ja": "日本語",
+            "en": "English",
+            "de": "Deutsch",
+            "fr": "Français",
+            "zh": "中文",
+        }
+        
+        source_name = lang_names.get(source_lang, source_lang)
+        target_name = lang_names.get(target_lang, target_lang)
+        
+        # Specialized prompt for search query translation
+        # Emphasizes conciseness and keyword preservation
+        prompt = f"""Translate the following search query from {source_name} to {target_name}.
+Keep it concise and preserve search keywords. Output only the translated query, nothing else.
+
+Query: {query}
+
+Translation:"""
+        
+        response = await client.generate(
+            prompt=prompt,
+            model=settings.llm.fast_model,
+            temperature=0.1,  # Low temperature for consistent translation
+            max_tokens=100,  # Search queries are short
+        )
+        
+        # Clean up response
+        translated = response.strip()
+        
+        # Remove quotes if present
+        if translated.startswith('"') and translated.endswith('"'):
+            translated = translated[1:-1]
+        if translated.startswith("'") and translated.endswith("'"):
+            translated = translated[1:-1]
+        
+        # Validate translation is not empty or same as original
+        if not translated or translated == query:
+            logger.warning(
+                "Mirror query translation failed",
+                query=query,
+                response=response,
+            )
+            return None
+        
+        # Cache successful translation
+        _mirror_query_cache[cache_key] = translated
+        
+        logger.debug(
+            "Mirror query generated",
+            original=query,
+            translated=translated,
+            source_lang=source_lang,
+            target_lang=target_lang,
+        )
+        
+        return translated
+        
+    except Exception as e:
+        logger.error(
+            "Mirror query generation failed",
+            query=query,
+            error=str(e),
+        )
+        return None
+
+
+# Cache for mirror query translations
+_mirror_query_cache: dict[str, str] = {}
+
+
+async def generate_mirror_queries(
+    query: str,
+    source_lang: str = "ja",
+    target_langs: list[str] | None = None,
+) -> dict[str, str]:
+    """Generate mirror queries in multiple languages.
+    
+    Args:
+        query: Original query.
+        source_lang: Source language code.
+        target_langs: Target language codes (default: ["en"] for ja, ["ja"] for others).
+        
+    Returns:
+        Dict mapping language codes to translated queries.
+    """
+    if target_langs is None:
+        # Default: Japanese queries get English mirror, others get Japanese
+        target_langs = ["en"] if source_lang == "ja" else ["ja"]
+    
+    results = {source_lang: query}
+    
+    for target_lang in target_langs:
+        if target_lang != source_lang:
+            translated = await generate_mirror_query(query, source_lang, target_lang)
+            if translated:
+                results[target_lang] = translated
+    
+    return results
 

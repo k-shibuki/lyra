@@ -1234,3 +1234,158 @@ class TestQueryOperatorEdgeCases:
         assert parsed2.operators[0].operator_type == "site", f"Expected 'site' for Site:, got '{parsed2.operators[0].operator_type}'"
         assert parsed3.operators[0].operator_type == "site", f"Expected 'site' for site:, got '{parsed3.operators[0].operator_type}'"
 
+
+class TestMirrorQueryGeneration:
+    """Tests for cross-language mirror query generation (§3.1.1)."""
+    
+    @pytest.fixture
+    def mock_ollama_client(self):
+        """Create a mock Ollama client for translation tests."""
+        class MockOllamaClient:
+            async def generate(self, prompt, model=None, temperature=None, max_tokens=None):
+                # Extract query from prompt and return translation
+                if "機械学習" in prompt:
+                    return "machine learning"
+                elif "machine learning" in prompt:
+                    return "機械学習"
+                elif "セキュリティ" in prompt:
+                    return "security"
+                elif "AIエージェント" in prompt:
+                    return "AI agent"
+                return "translated query"
+        return MockOllamaClient()
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client):
+        """Test Japanese to English translation (§3.1.1)."""
+        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        
+        # Clear cache
+        _mirror_query_cache.clear()
+        
+        with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
+            result = await generate_mirror_query(
+                "機械学習の最新動向",
+                source_lang="ja",
+                target_lang="en"
+            )
+        
+        assert result is not None, "Translation should succeed"
+        assert result != "機械学習の最新動向", "Result should be different from original"
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client):
+        """Test English to Japanese translation (§3.1.1)."""
+        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        
+        _mirror_query_cache.clear()
+        
+        with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
+            result = await generate_mirror_query(
+                "machine learning trends",
+                source_lang="en",
+                target_lang="ja"
+            )
+        
+        assert result is not None, "Translation should succeed"
+        assert result != "machine learning trends", "Result should be different from original"
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_query_same_language(self):
+        """Test that same-language returns original query."""
+        from src.search.searxng import generate_mirror_query
+        
+        result = await generate_mirror_query(
+            "test query",
+            source_lang="en",
+            target_lang="en"
+        )
+        
+        assert result == "test query", "Same language should return original"
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_query_empty_input(self):
+        """Test handling of empty input."""
+        from src.search.searxng import generate_mirror_query
+        
+        result = await generate_mirror_query("", source_lang="ja", target_lang="en")
+        assert result is None, "Empty input should return None"
+        
+        result = await generate_mirror_query("   ", source_lang="ja", target_lang="en")
+        assert result is None, "Whitespace-only input should return None"
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_query_caching(self):
+        """Test that translations are cached."""
+        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        
+        _mirror_query_cache.clear()
+        
+        call_count = 0
+        
+        class CountingMockClient:
+            async def generate(self, prompt, model=None, temperature=None, max_tokens=None):
+                nonlocal call_count
+                call_count += 1
+                return "security"
+        
+        with patch("src.filter.llm._get_client", return_value=CountingMockClient()):
+            # First call
+            result1 = await generate_mirror_query("セキュリティ", "ja", "en")
+            # Second call (should use cache)
+            result2 = await generate_mirror_query("セキュリティ", "ja", "en")
+        
+        assert result1 == result2, "Cached result should match"
+        assert call_count == 1, f"LLM should only be called once, was called {call_count} times"
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_queries_multiple_languages(self, mock_ollama_client):
+        """Test generating mirrors in multiple target languages."""
+        from src.search.searxng import generate_mirror_queries, _mirror_query_cache
+        
+        _mirror_query_cache.clear()
+        
+        with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
+            results = await generate_mirror_queries(
+                "AIエージェント",
+                source_lang="ja",
+                target_langs=["en"]
+            )
+        
+        assert "ja" in results, "Source language should be in results"
+        assert results["ja"] == "AIエージェント", "Original query should be preserved"
+        # en result depends on mock response
+        assert len(results) >= 1, "Should have at least source language"
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_query_error_handling(self):
+        """Test graceful handling of LLM errors."""
+        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        
+        _mirror_query_cache.clear()
+        
+        class FailingMockClient:
+            async def generate(self, *args, **kwargs):
+                raise RuntimeError("LLM unavailable")
+        
+        with patch("src.filter.llm._get_client", return_value=FailingMockClient()):
+            result = await generate_mirror_query("test", "ja", "en")
+        
+        assert result is None, "Error should return None, not raise"
+    
+    @pytest.mark.asyncio
+    async def test_generate_mirror_query_cleans_response(self):
+        """Test that quoted responses are cleaned."""
+        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        
+        _mirror_query_cache.clear()
+        
+        class QuotedMockClient:
+            async def generate(self, *args, **kwargs):
+                return '"quoted translation"'
+        
+        with patch("src.filter.llm._get_client", return_value=QuotedMockClient()):
+            result = await generate_mirror_query("test", "ja", "en")
+        
+        assert result == "quoted translation", "Quotes should be stripped"
+
