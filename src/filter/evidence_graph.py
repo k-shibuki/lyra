@@ -437,6 +437,344 @@ class EvidenceGraph:
         
         return contradictions
     
+    def detect_citation_loops(self) -> list[dict[str, Any]]:
+        """Detect citation loops (cycles) in the graph.
+        
+        Citation loops occur when sources cite each other in a circular pattern,
+        e.g., A cites B, B cites C, C cites A.
+        
+        Returns:
+            List of detected loops with metadata.
+        """
+        loops = []
+        
+        # Build subgraph with only citation edges
+        citation_edges = [
+            (u, v) for u, v, d in self._graph.edges(data=True)
+            if d.get("relation") == RelationType.CITES.value
+        ]
+        
+        if not citation_edges:
+            return loops
+        
+        citation_graph = nx.DiGraph()
+        citation_graph.add_edges_from(citation_edges)
+        
+        # Find all simple cycles
+        try:
+            cycles = list(nx.simple_cycles(citation_graph))
+        except Exception as e:
+            logger.warning("Error detecting cycles", error=str(e))
+            return loops
+        
+        for cycle in cycles:
+            # Parse node information
+            cycle_info = []
+            for node_id in cycle:
+                if node_id in self._graph.nodes:
+                    node_type, obj_id = self._parse_node_id(node_id)
+                    cycle_info.append({
+                        "node_id": node_id,
+                        "node_type": node_type.value,
+                        "obj_id": obj_id,
+                    })
+            
+            if cycle_info:
+                loops.append({
+                    "type": "citation_loop",
+                    "length": len(cycle),
+                    "nodes": cycle_info,
+                    "severity": self._calculate_loop_severity(len(cycle)),
+                })
+        
+        return loops
+    
+    def detect_round_trips(self) -> list[dict[str, Any]]:
+        """Detect round-trip citations (A cites B, B cites A).
+        
+        Round-trips are a special case of citation loops with length 2,
+        indicating mutual citation which may be problematic for credibility.
+        
+        Returns:
+            List of round-trip pairs.
+        """
+        round_trips = []
+        
+        # Check for bidirectional citation edges
+        checked_pairs = set()
+        
+        for u, v, data in self._graph.edges(data=True):
+            if data.get("relation") != RelationType.CITES.value:
+                continue
+            
+            # Create canonical pair ID to avoid duplicates
+            pair_id = tuple(sorted([u, v]))
+            if pair_id in checked_pairs:
+                continue
+            checked_pairs.add(pair_id)
+            
+            # Check if reverse edge exists
+            if self._graph.has_edge(v, u):
+                reverse_data = self._graph.edges[v, u]
+                if reverse_data.get("relation") == RelationType.CITES.value:
+                    # Found round-trip
+                    type_u, id_u = self._parse_node_id(u)
+                    type_v, id_v = self._parse_node_id(v)
+                    
+                    round_trips.append({
+                        "type": "round_trip",
+                        "node_a": {
+                            "node_id": u,
+                            "node_type": type_u.value,
+                            "obj_id": id_u,
+                        },
+                        "node_b": {
+                            "node_id": v,
+                            "node_type": type_v.value,
+                            "obj_id": id_v,
+                        },
+                        "severity": "high",  # Round-trips are always high severity
+                    })
+        
+        return round_trips
+    
+    def detect_self_references(self) -> list[dict[str, Any]]:
+        """Detect self-references (node citing itself or same-domain citations).
+        
+        Self-references include:
+        - Direct self-loops (A cites A)
+        - Same-domain citations (detected by domain attribute if available)
+        
+        Returns:
+            List of self-reference issues.
+        """
+        self_refs = []
+        
+        for u, v, data in self._graph.edges(data=True):
+            if data.get("relation") != RelationType.CITES.value:
+                continue
+            
+            # Check for direct self-loop
+            if u == v:
+                node_type, obj_id = self._parse_node_id(u)
+                self_refs.append({
+                    "type": "direct_self_reference",
+                    "node_id": u,
+                    "node_type": node_type.value,
+                    "obj_id": obj_id,
+                    "severity": "critical",
+                })
+                continue
+            
+            # Check for same-domain citation (if domain info available)
+            u_data = self._graph.nodes.get(u, {})
+            v_data = self._graph.nodes.get(v, {})
+            
+            u_domain = u_data.get("domain")
+            v_domain = v_data.get("domain")
+            
+            if u_domain and v_domain and u_domain == v_domain:
+                type_u, id_u = self._parse_node_id(u)
+                type_v, id_v = self._parse_node_id(v)
+                
+                self_refs.append({
+                    "type": "same_domain_citation",
+                    "source": {
+                        "node_id": u,
+                        "node_type": type_u.value,
+                        "obj_id": id_u,
+                    },
+                    "target": {
+                        "node_id": v,
+                        "node_type": type_v.value,
+                        "obj_id": id_v,
+                    },
+                    "domain": u_domain,
+                    "severity": "medium",
+                })
+        
+        return self_refs
+    
+    def _calculate_loop_severity(self, loop_length: int) -> str:
+        """Calculate severity of a citation loop based on length.
+        
+        Args:
+            loop_length: Number of nodes in the loop.
+            
+        Returns:
+            Severity level (critical/high/medium/low).
+        """
+        if loop_length <= 2:
+            return "critical"
+        elif loop_length <= 3:
+            return "high"
+        elif loop_length <= 5:
+            return "medium"
+        else:
+            return "low"
+    
+    def calculate_citation_penalties(self) -> dict[str, float]:
+        """Calculate citation-based penalties for nodes.
+        
+        Nodes involved in loops, round-trips, or self-references
+        receive penalty scores that reduce their credibility weight.
+        
+        Returns:
+            Dict mapping node_id to penalty score (0.0 to 1.0, where 1.0 = no penalty).
+        """
+        penalties: dict[str, float] = {}
+        
+        # Initialize all nodes with no penalty
+        for node in self._graph.nodes():
+            penalties[node] = 1.0
+        
+        # Apply penalties for citation loops
+        loops = self.detect_citation_loops()
+        for loop in loops:
+            severity = loop["severity"]
+            penalty_factor = {
+                "critical": 0.2,
+                "high": 0.4,
+                "medium": 0.6,
+                "low": 0.8,
+            }.get(severity, 0.8)
+            
+            for node_info in loop["nodes"]:
+                node_id = node_info["node_id"]
+                # Multiply penalties (cumulative for multiple issues)
+                penalties[node_id] *= penalty_factor
+        
+        # Apply penalties for round-trips
+        round_trips = self.detect_round_trips()
+        for rt in round_trips:
+            # Round-trips get 0.3 penalty multiplier
+            penalties[rt["node_a"]["node_id"]] *= 0.3
+            penalties[rt["node_b"]["node_id"]] *= 0.3
+        
+        # Apply penalties for self-references
+        self_refs = self.detect_self_references()
+        for sr in self_refs:
+            severity = sr["severity"]
+            penalty_factor = {
+                "critical": 0.1,  # Direct self-ref is very bad
+                "high": 0.3,
+                "medium": 0.5,
+                "low": 0.7,
+            }.get(severity, 0.7)
+            
+            if sr["type"] == "direct_self_reference":
+                penalties[sr["node_id"]] *= penalty_factor
+            else:
+                penalties[sr["source"]["node_id"]] *= penalty_factor
+                penalties[sr["target"]["node_id"]] *= penalty_factor * 1.2  # Target less penalized
+        
+        # Clamp to [0.0, 1.0]
+        for node_id in penalties:
+            penalties[node_id] = max(0.0, min(1.0, penalties[node_id]))
+        
+        return penalties
+    
+    def get_citation_integrity_report(self) -> dict[str, Any]:
+        """Generate comprehensive citation integrity report.
+        
+        Returns:
+            Report dict with loops, round-trips, self-refs, and metrics.
+        """
+        loops = self.detect_citation_loops()
+        round_trips = self.detect_round_trips()
+        self_refs = self.detect_self_references()
+        penalties = self.calculate_citation_penalties()
+        
+        # Calculate metrics
+        total_citation_edges = sum(
+            1 for _, _, d in self._graph.edges(data=True)
+            if d.get("relation") == RelationType.CITES.value
+        )
+        
+        # Count problematic citations
+        problematic_nodes = set()
+        for loop in loops:
+            for node in loop["nodes"]:
+                problematic_nodes.add(node["node_id"])
+        for rt in round_trips:
+            problematic_nodes.add(rt["node_a"]["node_id"])
+            problematic_nodes.add(rt["node_b"]["node_id"])
+        for sr in self_refs:
+            if sr["type"] == "direct_self_reference":
+                problematic_nodes.add(sr["node_id"])
+            else:
+                problematic_nodes.add(sr["source"]["node_id"])
+        
+        # Calculate integrity score
+        if total_citation_edges > 0:
+            clean_ratio = 1.0 - (len(problematic_nodes) / max(len(penalties), 1))
+            integrity_score = max(0.0, min(1.0, clean_ratio))
+        else:
+            integrity_score = 1.0  # No citations = no issues
+        
+        # Nodes with significant penalties
+        penalized_nodes = [
+            {"node_id": k, "penalty_factor": v}
+            for k, v in penalties.items()
+            if v < 0.9
+        ]
+        
+        return {
+            "integrity_score": round(integrity_score, 3),
+            "total_citation_edges": total_citation_edges,
+            "loop_count": len(loops),
+            "round_trip_count": len(round_trips),
+            "self_reference_count": len(self_refs),
+            "problematic_node_count": len(problematic_nodes),
+            "loops": loops,
+            "round_trips": round_trips,
+            "self_references": self_refs,
+            "penalized_nodes": sorted(penalized_nodes, key=lambda x: x["penalty_factor"]),
+        }
+    
+    def get_primary_source_ratio(self) -> dict[str, Any]:
+        """Calculate the ratio of primary vs secondary source citations.
+        
+        Primary sources are pages with depth 0 in citation chains.
+        Secondary sources cite other sources.
+        
+        Returns:
+            Ratio information dict.
+        """
+        page_nodes = [
+            n for n in self._graph.nodes()
+            if self._graph.nodes[n].get("node_type") == NodeType.PAGE.value
+        ]
+        
+        primary_count = 0
+        secondary_count = 0
+        
+        for page_node in page_nodes:
+            # Check if this page cites other pages
+            has_outgoing_citation = False
+            for _, target, data in self._graph.out_edges(page_node, data=True):
+                if data.get("relation") == RelationType.CITES.value:
+                    target_type = self._graph.nodes[target].get("node_type")
+                    if target_type == NodeType.PAGE.value:
+                        has_outgoing_citation = True
+                        break
+            
+            if has_outgoing_citation:
+                secondary_count += 1
+            else:
+                primary_count += 1
+        
+        total = primary_count + secondary_count
+        primary_ratio = primary_count / total if total > 0 else 0.0
+        
+        return {
+            "primary_count": primary_count,
+            "secondary_count": secondary_count,
+            "total_pages": total,
+            "primary_ratio": round(primary_ratio, 3),
+            "meets_threshold": primary_ratio >= 0.6,  # §7 requirement
+        }
+    
     def get_stats(self) -> dict[str, Any]:
         """Get graph statistics.
         
@@ -466,11 +804,17 @@ class EvidenceGraph:
             if relation in edge_counts:
                 edge_counts[relation] += 1
         
+        # Include citation integrity metrics
+        integrity = self.get_citation_integrity_report()
+        
         return {
             "total_nodes": self._graph.number_of_nodes(),
             "total_edges": self._graph.number_of_edges(),
             "node_counts": node_counts,
             "edge_counts": edge_counts,
+            "citation_integrity_score": integrity["integrity_score"],
+            "citation_loop_count": integrity["loop_count"],
+            "round_trip_count": integrity["round_trip_count"],
         }
     
     async def save_to_db(self) -> None:
