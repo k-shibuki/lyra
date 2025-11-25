@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "lancet": {
+      "command": "podman",
+      "args": [
+        "exec",
+        "-i",
+        "lancet",
+        "python",
+        "-m",
+        "src.main",
+        "mcp"
+      ]
+    }
+  }
+}

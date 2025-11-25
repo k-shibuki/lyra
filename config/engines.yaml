@@ -1,0 +1,203 @@
+# Lancet - Search Engine Configuration
+# allowlist/denylist and per-engine settings
+
+# === SearXNG Settings ===
+searxng:
+  host: "http://localhost:8080"
+  timeout: 30
+  # Default engines to enable
+  default_engines:
+    - wikipedia
+    - wikidata
+    - mojeek
+    - marginalia
+    - qwant
+    - duckduckgo
+  # Last-mile engines (strict limits)
+  lastmile_engines:
+    - brave
+  # Disabled by default (high block rate)
+  disabled_engines:
+    - google
+    - bing
+
+# === Engine Definitions ===
+engines:
+  # === High Priority (Block-resistant) ===
+  wikipedia:
+    priority: 1
+    weight: 1.0
+    categories: [general, knowledge]
+    qps: 0.5
+    block_resistant: true
+    
+  wikidata:
+    priority: 1
+    weight: 0.9
+    categories: [knowledge, structured]
+    qps: 0.5
+    block_resistant: true
+    
+  mojeek:
+    priority: 2
+    weight: 0.85
+    categories: [general]
+    qps: 0.25
+    block_resistant: true
+    
+  marginalia:
+    priority: 2
+    weight: 0.8
+    categories: [general, technical]
+    qps: 0.25
+    block_resistant: true
+    
+  qwant:
+    priority: 3
+    weight: 0.75
+    categories: [general, news]
+    qps: 0.2
+    block_resistant: false
+    
+  duckduckgo:
+    priority: 3
+    weight: 0.7
+    categories: [general]
+    qps: 0.2
+    block_resistant: false
+    
+  # === Academic/Specialized ===
+  arxiv:
+    priority: 1
+    weight: 1.0
+    categories: [academic, technical]
+    qps: 0.25
+    block_resistant: true
+    
+  pubmed:
+    priority: 1
+    weight: 1.0
+    categories: [academic, medical]
+    qps: 0.25
+    block_resistant: true
+    
+  # === Last-mile (Strict Limits) ===
+  brave:
+    priority: 5
+    weight: 0.3
+    categories: [general]
+    qps: 0.1
+    block_resistant: false
+    daily_limit: 50
+    
+  google:
+    priority: 10  # Very low priority
+    weight: 0.1
+    categories: [general]
+    qps: 0.05
+    block_resistant: false
+    daily_limit: 10
+    disabled: true
+    
+  bing:
+    priority: 10
+    weight: 0.1
+    categories: [general]
+    qps: 0.05
+    block_resistant: false
+    daily_limit: 10
+    disabled: true
+
+# === Query Operator Mapping ===
+# Maps standard operators to engine-specific syntax
+operator_mapping:
+  site:
+    default: "site:{domain}"
+    google: "site:{domain}"
+    bing: "site:{domain}"
+    duckduckgo: "site:{domain}"
+    qwant: "site:{domain}"
+    
+  filetype:
+    default: "filetype:{type}"
+    google: "filetype:{type}"
+    bing: "filetype:{type}"
+    duckduckgo: "filetype:{type}"
+    
+  intitle:
+    default: "intitle:{text}"
+    google: "intitle:{text}"
+    bing: "intitle:{text}"
+    
+  exact:
+    default: '"{text}"'
+    google: '"{text}"'
+    bing: '"{text}"'
+    duckduckgo: '"{text}"'
+    
+  exclude:
+    default: "-{term}"
+    google: "-{term}"
+    bing: "-{term}"
+    
+  date_after:
+    default: null  # Not all engines support
+    google: "after:{date}"
+    
+# === Category-Engine Mapping ===
+category_engines:
+  general:
+    - wikipedia
+    - mojeek
+    - marginalia
+    - qwant
+    - duckduckgo
+    
+  academic:
+    - arxiv
+    - pubmed
+    - wikipedia
+    
+  news:
+    - qwant
+    - duckduckgo
+    
+  government:
+    - wikipedia
+    - mojeek
+    
+  technical:
+    - marginalia
+    - arxiv
+    - wikipedia
+
+# === Direct Source Priorities ===
+# For academic/public sources, prefer direct access over search
+direct_sources:
+  academic:
+    - domain: "arxiv.org"
+      priority: 1
+      search_url: "https://arxiv.org/search/?searchtype=all&query={query}"
+      
+    - domain: "pubmed.ncbi.nlm.nih.gov"
+      priority: 1
+      search_url: "https://pubmed.ncbi.nlm.nih.gov/?term={query}"
+      
+    - domain: "www.jstage.jst.go.jp"
+      priority: 1
+      search_url: "https://www.jstage.jst.go.jp/result/global/-char/ja?item1=4&word1={query}"
+      
+    - domain: "cir.nii.ac.jp"
+      priority: 1
+      search_url: "https://cir.nii.ac.jp/all?q={query}"
+      
+  government:
+    - domain: "e-gov.go.jp"
+      priority: 1
+      
+    - domain: "www.gov.uk"
+      priority: 1
+      
+    - domain: "who.int"
+      priority: 1
+

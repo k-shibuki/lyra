@@ -1,0 +1,156 @@
+# Lancet - Domain Policy Configuration
+# Per-domain crawling policies and learning state
+
+# === Default Policy ===
+default_policy:
+  qps: 0.2
+  concurrent: 1
+  headful_ratio: 0.1
+  tor_allowed: true
+  cooldown_minutes: 60
+  max_retries: 3
+  trust_level: "unknown"  # primary, government, academic, trusted, unknown, suspicious
+
+# === Allowlist (High-value, stable internal search) ===
+allowlist:
+  # Japanese Government
+  - domain: "e-gov.go.jp"
+    trust_level: "government"
+    internal_search: true
+    qps: 0.15
+    
+  - domain: "go.jp"
+    trust_level: "government"
+    internal_search: false
+    qps: 0.2
+    
+  # Academic
+  - domain: "arxiv.org"
+    trust_level: "academic"
+    internal_search: true
+    qps: 0.25
+    
+  - domain: "pubmed.ncbi.nlm.nih.gov"
+    trust_level: "academic"
+    internal_search: true
+    qps: 0.2
+    
+  - domain: "www.jstage.jst.go.jp"
+    trust_level: "academic"
+    internal_search: true
+    qps: 0.15
+    
+  - domain: "cir.nii.ac.jp"
+    trust_level: "academic"
+    internal_search: true
+    qps: 0.15
+    
+  # Knowledge bases
+  - domain: "wikipedia.org"
+    trust_level: "trusted"
+    qps: 0.5
+    headful_ratio: 0
+    
+  - domain: "wikidata.org"
+    trust_level: "trusted"
+    qps: 0.5
+    headful_ratio: 0
+    
+  # Infrastructure / Registry
+  - domain: "crt.sh"
+    trust_level: "trusted"
+    qps: 0.2
+    
+  - domain: "iana.org"
+    trust_level: "government"
+    qps: 0.2
+    
+  # Standards
+  - domain: "iso.org"
+    trust_level: "primary"
+    qps: 0.1
+    
+  - domain: "ietf.org"
+    trust_level: "primary"
+    qps: 0.2
+
+# === Graylist (Caution required) ===
+graylist:
+  # News sites (may have paywalls)
+  - domain_pattern: "*.nikkei.com"
+    headful_ratio: 0.5
+    cooldown_minutes: 120
+    
+  # Tech blogs (variable quality)
+  - domain_pattern: "*.medium.com"
+    trust_level: "unknown"
+    qps: 0.1
+    
+  # Social media (skip by default)
+  - domain_pattern: "*.twitter.com"
+    skip: true
+    reason: "social_media"
+    
+  - domain_pattern: "*.x.com"
+    skip: true
+    reason: "social_media"
+    
+  - domain_pattern: "*.facebook.com"
+    skip: true
+    reason: "social_media"
+
+# === Denylist (Skip always) ===
+denylist:
+  # Known SEO spam / aggregators
+  - domain_pattern: "*.blogspot.com"
+    reason: "low_quality_aggregator"
+    
+  # Ad-heavy sites
+  - domain_pattern: "*.ad-domain.example"
+    reason: "ad_heavy"
+
+# === Cloudflare / Challenge Sites ===
+cloudflare_sites:
+  # Sites known to use Cloudflare/JS challenges
+  # Will prefer headful or skip
+  - domain_pattern: "*.cloudflare-protected.example"
+    headful_required: true
+    tor_blocked: true
+
+# === Internal Search UI Templates ===
+# For sites with stable internal search
+internal_search_templates:
+  arxiv:
+    domain: "arxiv.org"
+    search_input: "input[name='query']"
+    search_button: "button[type='submit']"
+    results_selector: ".arxiv-result"
+    
+  pubmed:
+    domain: "pubmed.ncbi.nlm.nih.gov"
+    search_input: "#id_term"
+    search_button: "button.search-btn"
+    results_selector: ".docsum-content"
+    
+  jstage:
+    domain: "www.jstage.jst.go.jp"
+    search_input: "#searchWord"
+    search_button: "#searchBtn"
+    results_selector: ".searchlist-title"
+
+# === Learning State (Updated dynamically) ===
+# This section is managed by the system
+learning_state:
+  last_updated: null
+  domains: {}
+  # Example:
+  # "example.com":
+  #   block_score: 0.1
+  #   captcha_rate: 0.05
+  #   success_rate_1h: 0.95
+  #   success_rate_24h: 0.92
+  #   headful_ratio: 0.15
+  #   tor_success_rate: 0.8
+  #   last_captcha_at: null
+  #   cooldown_until: null
+
