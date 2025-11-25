@@ -88,6 +88,7 @@ class LLMConfig(BaseModel):
     promote_to_slow_threshold: float = 0.7
     temperature: float = 0.3
     gpu_layers: int = -1
+    unload_on_task_complete: bool = True  # Per §4.2: Release model context after task
 
 
 class EmbeddingConfig(BaseModel):
