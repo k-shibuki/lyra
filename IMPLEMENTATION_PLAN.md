@@ -89,7 +89,7 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 
 ---
 
-## Phase 3: 検索機能実装 (部分完了)
+## Phase 3: 検索機能実装 ✅
 
 ### 3.1 SearXNG連携 ✅
 - [x] SearXNG Podmanコンテナ設定
@@ -103,7 +103,7 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - [x] キャッシュ機能
 - [x] クエリ多様化（同義語展開）- SudachiPy統合
 - [x] 演算子マッピング（site:, filetype:, intitle:, exact, exclude, date_after, required）
-- [ ] 言語横断ミラークエリ（TODO: ローカルLLM翻訳連携）
+- [x] 言語横断ミラークエリ（Ollama翻訳連携, §3.1.1）
 
 ### 3.3 エンジンヘルスチェック ✅
 - [x] 基本メトリクス収集
