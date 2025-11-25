@@ -66,5 +66,33 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "-v --cov=src --cov-report=term-missing"
+addopts = "-v"
+markers = [
+    "unit: Unit tests with no external dependencies (fast, <30s total)",
+    "integration: Integration tests with mocked external dependencies (<2min total)",
+    "e2e: End-to-end tests requiring real environment (manual execution only)",
+    "slow: Tests that take more than 5 seconds",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "src/__init__.py",
+    "src/*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+fail_under = 0
+show_missing = true
 

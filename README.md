@@ -78,7 +78,30 @@ ollama pull qwen2.5:7b
 ./scripts/dev.sh logs      # ログ表示
 ./scripts/dev.sh status    # コンテナ状態確認
 ./scripts/dev.sh clean     # コンテナ・イメージ削除
+./scripts/dev.sh test      # テスト実行
 ```
+
+## テスト
+
+```bash
+# 全テスト実行
+./scripts/dev.sh test
+
+# マーカーでフィルタリング
+podman-compose exec lancet pytest tests/ -m "unit"          # unitテストのみ
+podman-compose exec lancet pytest tests/ -m "integration"   # integrationテストのみ
+podman-compose exec lancet pytest tests/ -m "unit or integration"  # CI用
+```
+
+### テスト分類 (§7.1.7)
+
+| マーカー | 説明 | 実行時間目安 |
+|----------|------|-------------|
+| `@pytest.mark.unit` | 外部依存なし | ≤30秒 |
+| `@pytest.mark.integration` | モック化された外部依存（DB等） | ≤2分 |
+| `@pytest.mark.e2e` | 実環境、手動実行のみ | 可変 |
+
+テストコード品質基準の詳細は [requirements.md §7.1](requirements.md) を参照。
 
 ## Cursorとの連携
 

@@ -10,15 +10,26 @@ class TestShingleTokenizer:
     """Tests for ShingleTokenizer."""
 
     def test_word_shingles_basic(self):
-        """Test basic word shingle extraction."""
+        """Test basic word shingle extraction.
+        
+        Validates shingle generation for §3.3.3 MinHash deduplication.
+        With shingle_size=2 and "the quick brown fox", expected shingles are:
+        - "the quick"
+        - "quick brown"
+        - "brown fox"
+        """
         from src.filter.deduplication import ShingleTokenizer
         
         tokenizer = ShingleTokenizer(shingle_size=2, use_words=True)
         text = "the quick brown fox"
         shingles = tokenizer.get_shingles(text)
         
-        assert len(shingles) == 3  # "the quick", "quick brown", "brown fox"
-        assert "the quick" in shingles or "quick brown" in shingles
+        # STRICT: Must have exactly 3 shingles for 4 words with size 2
+        assert len(shingles) == 3, f"Expected 3 shingles, got {len(shingles)}"
+        # STRICT: Verify all expected shingles are present (not OR condition)
+        assert "the quick" in shingles, f"Expected 'the quick' in shingles, got {shingles}"
+        assert "quick brown" in shingles, f"Expected 'quick brown' in shingles, got {shingles}"
+        assert "brown fox" in shingles, f"Expected 'brown fox' in shingles, got {shingles}"
 
     def test_word_shingles_short_text(self):
         """Test shingles for text shorter than shingle size."""

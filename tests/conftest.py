@@ -1,5 +1,15 @@
 """
 Pytest fixtures and configuration for Lancet tests.
+
+Test Classification (§7.1.7):
+- @pytest.mark.unit: No external dependencies, fast (<30s total)
+- @pytest.mark.integration: Mocked external dependencies (<2min total)
+- @pytest.mark.e2e: Real environment, manual execution only
+
+Mock Strategy (§7.1.7):
+- External services (SearXNG, Ollama, Chrome): Always mocked in unit/integration
+- File I/O: Use tmp_path fixture
+- Database: Use in-memory SQLite or temp file
 """
 
 import asyncio
@@ -15,6 +25,45 @@ import pytest_asyncio
 # Set test environment before importing anything else
 os.environ["LANCET_CONFIG_DIR"] = str(Path(__file__).parent.parent / "config")
 os.environ["LANCET_GENERAL__LOG_LEVEL"] = "DEBUG"
+
+
+# =============================================================================
+# Pytest Hooks for Test Classification
+# =============================================================================
+
+def pytest_configure(config):
+    """Register custom markers for test classification per §7.1.7."""
+    config.addinivalue_line(
+        "markers", "unit: Unit tests with no external dependencies (fast, <30s total)"
+    )
+    config.addinivalue_line(
+        "markers", "integration: Integration tests with mocked external dependencies (<2min total)"
+    )
+    config.addinivalue_line(
+        "markers", "e2e: End-to-end tests requiring real environment (manual execution only)"
+    )
+    config.addinivalue_line(
+        "markers", "slow: Tests that take more than 5 seconds"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Auto-apply 'unit' marker to tests without explicit classification.
+    
+    Per §7.1.7, tests should be classified as unit/integration/e2e.
+    Tests without explicit markers are assumed to be unit tests.
+    """
+    for item in items:
+        # Check if test already has a classification marker
+        has_classification = any(
+            marker.name in ("unit", "integration", "e2e")
+            for marker in item.iter_markers()
+        )
+        
+        # Default to unit test if no classification
+        if not has_classification:
+            item.add_marker(pytest.mark.unit)
 
 
 @pytest.fixture(scope="session")
@@ -179,21 +228,156 @@ def make_mock_response():
     return _make
 
 
-# Utility functions for tests
+# =============================================================================
+# Mock Fixtures for External Services (§7.1.7 Mock Strategy)
+# =============================================================================
+
+@pytest.fixture
+def mock_searxng_client():
+    """Mock SearXNG client for unit tests.
+    
+    Per §7.1.7: External services (SearXNG) should be mocked in unit/integration tests.
+    """
+    with patch("src.search.searxng._get_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_client.search = AsyncMock(return_value={"results": []})
+        mock_client.close = AsyncMock()
+        mock_get_client.return_value = mock_client
+        yield mock_client
+
+
+@pytest.fixture
+def mock_ollama():
+    """Mock Ollama client for unit tests.
+    
+    Per §7.1.7: External services (Ollama) should be mocked in unit/integration tests.
+    """
+    with patch("src.filter.llm_extract.ollama") as mock_ollama:
+        mock_ollama.chat = AsyncMock(return_value={
+            "message": {"content": "{}"}
+        })
+        yield mock_ollama
+
+
+@pytest.fixture
+def mock_browser():
+    """Mock Playwright browser for unit tests.
+    
+    Per §7.1.7: External services (Chrome) should be mocked in unit/integration tests.
+    """
+    with patch("src.crawler.browser.playwright") as mock_pw:
+        mock_browser = MagicMock()
+        mock_page = MagicMock()
+        mock_page.goto = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html></html>")
+        mock_page.screenshot = AsyncMock()
+        mock_browser.new_page = AsyncMock(return_value=mock_page)
+        mock_pw.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        yield mock_browser
+
+
+# =============================================================================
+# Database Fixtures (§7.1.7 Mock Strategy)
+# =============================================================================
+
+@pytest_asyncio.fixture
+async def memory_database():
+    """Create an in-memory database for fast unit tests.
+    
+    Per §7.1.7: Database should use in-memory SQLite for unit tests.
+    """
+    from src.storage.database import Database
+    
+    db = Database(":memory:")
+    await db.connect()
+    await db.initialize_schema()
+    
+    yield db
+    
+    await db.close()
+
+
+# =============================================================================
+# Utility Functions for Tests
+# =============================================================================
 
 def assert_dict_contains(actual: dict, expected: dict) -> None:
-    """Assert that actual dict contains all key-value pairs from expected."""
+    """Assert that actual dict contains all key-value pairs from expected.
+    
+    Provides clear error messages per §7.1.2 (Diagnosability).
+    """
     for key, value in expected.items():
-        assert key in actual, f"Key '{key}' not found in actual dict"
-        assert actual[key] == value, f"Value mismatch for key '{key}': {actual[key]} != {value}"
+        assert key in actual, f"Key '{key}' not found in actual dict. Keys present: {list(actual.keys())}"
+        assert actual[key] == value, f"Value mismatch for key '{key}': expected {value!r}, got {actual[key]!r}"
 
 
 def assert_async_called_with(mock: AsyncMock, *args, **kwargs) -> None:
-    """Assert that async mock was called with specific arguments."""
+    """Assert that async mock was called with specific arguments.
+    
+    Provides clear error messages per §7.1.2 (Diagnosability).
+    """
     mock.assert_called()
     call_args = mock.call_args
     if args:
-        assert call_args.args == args
+        assert call_args.args == args, f"Expected args {args}, got {call_args.args}"
     if kwargs:
-        assert call_args.kwargs == kwargs
+        assert call_args.kwargs == kwargs, f"Expected kwargs {kwargs}, got {call_args.kwargs}"
+
+
+def assert_in_range(value: float, min_val: float, max_val: float, name: str = "value") -> None:
+    """Assert that a value is within a specified range.
+    
+    Per §7.1.2: Range checks should be explicit with tolerance.
+    """
+    assert min_val <= value <= max_val, (
+        f"{name} = {value} is outside expected range [{min_val}, {max_val}]"
+    )
+
+
+# =============================================================================
+# Test Data Factories (§7.1.3 Test Data Requirements)
+# =============================================================================
+
+@pytest.fixture
+def make_fragment():
+    """Factory for creating test fragments with realistic data.
+    
+    Per §7.1.3: Test data should be realistic and diverse.
+    """
+    def _make(
+        fragment_id: str,
+        text: str,
+        url: str = "https://example.com/page",
+        source_tag: str = "unknown",
+    ) -> dict:
+        return {
+            "id": fragment_id,
+            "text": text,
+            "url": url,
+            "source_tag": source_tag,
+            "extracted_at": "2024-01-01T00:00:00Z",
+        }
+    return _make
+
+
+@pytest.fixture
+def make_claim():
+    """Factory for creating test claims with realistic data.
+    
+    Per §7.1.3: Test data should be realistic and diverse.
+    """
+    def _make(
+        claim_id: str,
+        text: str,
+        confidence: float = 0.8,
+        verdict: str = "supported",
+    ) -> dict:
+        return {
+            "id": claim_id,
+            "text": text,
+            "confidence": confidence,
+            "verdict": verdict,
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+    return _make
 

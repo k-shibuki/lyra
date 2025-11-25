@@ -1,11 +1,17 @@
 """
 Tests for src/storage/database.py
+
+All tests in this module use a temporary database and are classified
+as integration tests per §7.1.7.
 """
 
 import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+# All tests in this module are integration tests (use database)
+pytestmark = pytest.mark.integration
 
 
 class TestDatabase:

@@ -253,8 +253,12 @@ class TestClassifySource:
         assert _classify_source("https://example.org/article") == "unknown"
 
 
+@pytest.mark.integration
 class TestSearchSerp:
-    """Tests for search_serp function."""
+    """Tests for search_serp function.
+    
+    Integration tests per §7.1.7 - uses temporary database.
+    """
 
     @pytest.mark.asyncio
     async def test_search_serp_basic(self, test_database, mock_searxng_response, make_mock_response):
@@ -423,7 +427,10 @@ class TestQueryExpander:
         assert all("surface" in t for t in tokens)
 
     def test_get_synonyms_known_word(self):
-        """Test getting synonyms for known words."""
+        """Test getting synonyms for known words.
+        
+        Validates §3.1.1 synonym expansion for search query diversification.
+        """
         from src.search.searxng import QueryExpander
         
         expander = QueryExpander()
@@ -431,9 +438,10 @@ class TestQueryExpander:
         
         synonyms = expander.get_synonyms("AI")
         
-        # Should find synonyms for AI
-        assert len(synonyms) > 0
-        assert "人工知能" in synonyms or "エーアイ" in synonyms
+        # STRICT: AI's synonyms are defined in _init_synonym_dict as ["人工知能", "エーアイ", "機械知能"]
+        assert "人工知能" in synonyms, f"Expected '人工知能' in synonyms, got {synonyms}"
+        assert "エーアイ" in synonyms, f"Expected 'エーアイ' in synonyms, got {synonyms}"
+        assert "機械知能" in synonyms, f"Expected '機械知能' in synonyms, got {synonyms}"
 
     def test_get_synonyms_unknown_word(self):
         """Test getting synonyms for unknown words."""
@@ -448,46 +456,66 @@ class TestQueryExpander:
         assert synonyms == []
 
     def test_expand_with_normalized_forms(self):
-        """Test normalized form expansion."""
+        """Test normalized form expansion.
+        
+        Validates query variant generation for §3.1.1 search diversification.
+        Original query must always be included in results.
+        """
         from src.search.searxng import QueryExpander
         
         expander = QueryExpander()
         
         # Test with a query that might have normalization variations
-        variants = expander.expand_with_normalized_forms("テスト")
+        query = "テスト"
+        variants = expander.expand_with_normalized_forms(query)
         
-        assert isinstance(variants, list)
-        assert len(variants) >= 1
-        assert "テスト" in variants
+        # STRICT: Original query must always be included as first element
+        assert isinstance(variants, list), f"Expected list, got {type(variants)}"
+        assert variants[0] == query, f"First element should be original query '{query}', got '{variants[0]}'"
+        assert query in variants, f"Original query '{query}' must be in variants"
 
     def test_expand_with_synonyms(self):
-        """Test synonym-based expansion."""
+        """Test synonym-based expansion.
+        
+        Validates §3.1.1 query diversification via synonyms.
+        Original query must always be first, additional variants expected.
+        """
         from src.search.searxng import QueryExpander
         
         expander = QueryExpander()
         
-        variants = expander.expand_with_synonyms("AI の 問題")
+        query = "AI の 問題"
+        variants = expander.expand_with_synonyms(query)
         
-        assert isinstance(variants, list)
-        assert "AI の 問題" in variants
-        # Should have additional variants with synonyms
-        assert len(variants) >= 1
+        # STRICT: Original query must be first element
+        assert variants[0] == query, f"First element should be '{query}', got '{variants[0]}'"
+        # STRICT: Should have additional variants (AI -> 人工知能 and 問題 -> 課題 exist in synonym dict)
+        assert len(variants) >= 2, f"Expected at least 2 variants (original + synonym), got {len(variants)}"
 
     def test_generate_variants_all(self):
-        """Test generating all variants."""
+        """Test generating all variants.
+        
+        Validates combined query expansion for §3.1.1.
+        人工知能 has synonyms ["AI", "エーアイ", "機械知能"].
+        """
         from src.search.searxng import QueryExpander
         
         expander = QueryExpander()
         
+        query = "人工知能"
         variants = expander.generate_variants(
-            "人工知能",
+            query,
             include_normalized=True,
             include_synonyms=True,
             max_results=5,
         )
         
-        assert "人工知能" in variants
-        assert len(variants) <= 5
+        # STRICT: Original must be first element
+        assert variants[0] == query, f"First element should be '{query}', got '{variants[0]}'"
+        # STRICT: Upper bound respected
+        assert len(variants) <= 5, f"Expected at most 5 variants, got {len(variants)}"
+        # STRICT: Should have synonym variants (人工知能 has synonyms in dict)
+        assert len(variants) >= 2, f"Expected at least 2 variants, got {len(variants)}"
 
     def test_generate_variants_respects_max_results(self):
         """Test that variant generation respects max_results."""
@@ -519,14 +547,19 @@ class TestExpandQuery:
 
     @pytest.mark.asyncio
     async def test_expand_query_japanese(self):
-        """Test expand_query with Japanese query."""
+        """Test expand_query with Japanese query.
+        
+        Validates §3.1.1 query expansion for Japanese text.
+        """
         from src.search.searxng import expand_query
         
-        results = await expand_query("人工知能 の 影響", language="ja")
+        query = "人工知能 の 影響"
+        results = await expand_query(query, language="ja")
         
-        assert isinstance(results, list)
-        assert len(results) >= 1
-        assert "人工知能 の 影響" in results
+        # STRICT: Original query must be first element
+        assert results[0] == query, f"First element should be '{query}', got '{results[0]}'"
+        # STRICT: Should have variants (人工知能 and 影響 both have synonyms)
+        assert len(results) >= 2, f"Expected at least 2 variants for query with known synonyms, got {len(results)}"
 
     @pytest.mark.asyncio
     async def test_expand_query_synonyms_only(self):
