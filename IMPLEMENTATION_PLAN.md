@@ -311,38 +311,38 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 
 ---
 
-## Phase 12: クローリング拡張 ⏳
+## Phase 12: クローリング拡張 ✅
 
-### 12.1 robots.txt / sitemap対応 ⏳
-- [ ] `robots.txt` パーサーと遵守チェック
-- [ ] `sitemap.xml` パーサーと重要URL抽出
+### 12.1 robots.txt / sitemap対応 ✅
+- [x] `robots.txt` パーサーと遵守チェック（RobotsChecker）
+- [x] `sitemap.xml` パーサーと重要URL抽出（SitemapParser）
 
-### 12.2 ドメイン内BFS探索 ⏳
-- [ ] 同一ドメイン深さ≤2のBFS探索（§3.1.2）
-- [ ] 見出し/目次/関連記事リンクの優先度付け
+### 12.2 ドメイン内BFS探索 ✅
+- [x] 同一ドメイン深さ≤2のBFS探索（DomainBFSCrawler）
+- [x] 見出し/目次/関連記事リンクの優先度付け（LinkExtractor）
 
-### 12.3 サイト内検索UI自動操作 ⏳
-- [ ] allowlistドメイン管理
-- [ ] フォーム自動検出と入力
-- [ ] 成功率/収穫率の学習反映
+### 12.3 サイト内検索UI自動操作 ✅
+- [x] allowlistドメイン管理（config/domains.yaml連携）
+- [x] フォーム自動検出と入力（SiteSearchManager）
+- [x] 成功率/収穫率の学習反映（DomainSearchStats）
 
-### 12.4 Wayback差分探索 ⏳
-- [ ] アーカイブスナップショット取得（§3.1.6）
-- [ ] 見出し・要点・日付の差分抽出
-- [ ] タイムライン構築
+### 12.4 Wayback差分探索 ✅
+- [x] アーカイブスナップショット取得（WaybackClient）
+- [x] 見出し・要点・日付の差分抽出（ContentAnalyzer）
+- [x] タイムライン構築（WaybackExplorer）
 
 ---
 
-## Phase 13: 信頼度キャリブレーション ⏳
+## Phase 13: 信頼度キャリブレーション ✅
 
-### 13.1 確率校正 ⏳
-- [ ] Platt/温度スケーリング実装（§3.3.4）
-- [ ] `llm_extract`/`nli_judge`への適用
+### 13.1 確率校正 ✅
+- [x] Platt/温度スケーリング実装（§3.3.4）
+- [x] `llm_extract`/`nli_judge`への適用（Calibrator.calibrate）
 
-### 13.2 評価と監視 ⏳
-- [ ] Brierスコア計算
-- [ ] 週次再校正
-- [ ] 3B→7B昇格判定との連動
+### 13.2 評価と監視 ✅
+- [x] Brierスコア計算
+- [x] サンプル蓄積ベース再校正（閾値到達で自動再計算）
+- [x] 3B→7B昇格判定との連動（EscalationDecider）
 
 ---
 
@@ -362,11 +362,12 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - [x] モック戦略の明文化
 
 ### 14.3 テスト実装
-- [x] 基本ユニットテスト（499件、全パス）
+- [x] 基本ユニットテスト（519件、全パス）
 - [x] Phase 10テスト（メトリクス、ポリシー、リプレイ）
 - [x] Phase 8テスト（通知/手動介入フロー）
 - [x] Phase 9テスト（レポート生成、深いリンク生成）
 - [x] Phase 11テスト（探索制御エンジン、責任分界検証、25件）
+- [x] OCRテスト修正（モック戦略改善）
 - [ ] 統合テスト拡充
 - [ ] 受け入れテスト
 - [ ] ミューテーションテスト
@@ -400,9 +401,9 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 | Phase 9: レポート生成 | ✅ | 100% |
 | Phase 10: 自動適応 | ✅ | 100% |
 | **Phase 11: 探索制御エンジン** | ✅ | **100%** |
-| **Phase 12: クローリング拡張** | ⏳ | **0%** |
-| **Phase 13: 信頼度キャリブレーション** | ⏳ | **0%** |
-| Phase 14: テスト | 🔄 | 80% |
+| **Phase 12: クローリング拡張** | ✅ | **100%** |
+| **Phase 13: 信頼度キャリブレーション** | ✅ | **100%** |
+| Phase 14: テスト | 🔄 | 85% |
 | Phase 15: ドキュメント | ✅ | 95% |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
@@ -433,6 +434,27 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 - `lancet-searxng` - SearXNG検索エンジン
 - `lancet-tor` - Torプロキシ
 - `lancet-ollama` - ローカルLLM (GPU対応)
+
+### テスト実行
+```bash
+# 全テスト実行（devコンテナ内で実行）
+podman exec lancet pytest tests/
+
+# 簡潔な出力
+podman exec lancet pytest tests/ --tb=no -q
+
+# 特定ファイルのみ
+podman exec lancet pytest tests/test_robots.py -v
+
+# テスト収集のみ（dry-run）
+podman exec lancet pytest tests/ --co -q
+```
+
+**注意**:
+- ローカル環境ではなく必ず `podman exec lancet` 経由で実行する
+- 全689件、約6秒で完了
+- IDE連携ツールからの実行は出力バッファリングで結果取得に失敗する場合あり
+  → ファイルリダイレクト推奨: `podman exec lancet pytest tests/ > /tmp/result.txt`
 
 ### 外部依存
 - Ollama (Podmanコンテナで起動、GPUパススルー)

@@ -161,13 +161,15 @@ class ExplorationState:
         
         # Budget tracking
         self._pages_limit = 120
-        self._time_limit_seconds = 1200  # 20 minutes
+        self._time_limit_seconds = 3600  # 60 minutes
         self._pages_used = 0
         self._time_started: float | None = None
         
         # Overall metrics
         self._total_fragments = 0
         self._total_claims = 0
+        self._verified_claims = 0
+        self._refuted_claims = 0
         
         # Novelty tracking (last 2 cycles)
         self._novelty_history: list[float] = []
@@ -322,9 +324,35 @@ class ExplorationState:
             sq.add_fragment(fragment_hash, is_useful, is_novel)
             self._total_fragments += 1
     
-    def record_claim(self, subquery_id: str) -> None:
-        """Record a claim extraction."""
+    def record_claim(self, subquery_id: str, is_verified: bool = False, is_refuted: bool = False) -> None:
+        """Record a claim extraction.
+        
+        Args:
+            subquery_id: The subquery ID.
+            is_verified: Whether the claim is verified (supported by evidence).
+            is_refuted: Whether the claim is refuted by counter-evidence.
+        """
         self._total_claims += 1
+        if is_verified:
+            self._verified_claims += 1
+        if is_refuted:
+            self._refuted_claims += 1
+    
+    def record_claim_verified(self, claim_id: str) -> None:
+        """Record that a claim has been verified by NLI.
+        
+        Args:
+            claim_id: The claim ID that was verified.
+        """
+        self._verified_claims += 1
+    
+    def record_claim_refuted(self, claim_id: str) -> None:
+        """Record that a claim has been refuted by counter-evidence.
+        
+        Args:
+            claim_id: The claim ID that was refuted.
+        """
+        self._refuted_claims += 1
     
     def check_budget(self) -> tuple[bool, str | None]:
         """
@@ -475,7 +503,28 @@ class ExplorationState:
         """Set the task status."""
         self._task_status = status
     
-    def finalize(self) -> dict[str, Any]:
+    async def _get_evidence_graph_stats(self) -> dict[str, Any]:
+        """Get statistics from the evidence graph.
+        
+        Returns:
+            Dictionary with total_nodes and total_edges.
+        """
+        try:
+            from src.filter.evidence_graph import EvidenceGraph
+            
+            graph = EvidenceGraph(task_id=self.task_id)
+            await graph.load_from_db(task_id=self.task_id)
+            
+            return graph.get_stats()
+        except Exception as e:
+            logger.debug(
+                "Failed to get evidence graph stats",
+                task_id=self.task_id,
+                error=str(e),
+            )
+            return {"total_nodes": 0, "total_edges": 0}
+    
+    async def finalize(self) -> dict[str, Any]:
         """
         Finalize exploration and return summary.
         
@@ -508,6 +557,19 @@ class ExplorationState:
         # Determine final status
         final_status = "completed" if not unsatisfied_sqs else "partial"
         
+        # Calculate refuted claims from subqueries with found refutations
+        refuted_from_subqueries = sum(
+            1 for sq in self._subqueries.values()
+            if sq.refutation_status == "found"
+        )
+        total_refuted = max(self._refuted_claims, refuted_from_subqueries)
+        
+        # Calculate unverified claims
+        unverified_claims = max(0, self._total_claims - self._verified_claims - total_refuted)
+        
+        # Get evidence graph stats if available
+        evidence_graph_stats = await self._get_evidence_graph_stats()
+        
         return {
             "ok": True,
             "task_id": self.task_id,
@@ -517,14 +579,14 @@ class ExplorationState:
                 "partial_subqueries": len(partial_sqs),
                 "unsatisfied_subqueries": [sq.id for sq in unsatisfied_sqs],
                 "total_claims": self._total_claims,
-                "verified_claims": 0,  # TODO: Implement claim verification tracking
-                "refuted_claims": sum(1 for sq in self._subqueries.values() if sq.refutation_status == "found"),
-                "unverified_claims": self._total_claims,
+                "verified_claims": self._verified_claims,
+                "refuted_claims": total_refuted,
+                "unverified_claims": unverified_claims,
             },
             "followup_suggestions": followup_suggestions,
             "evidence_graph_summary": {
-                "nodes": self._total_fragments + self._total_claims,
-                "edges": 0,  # TODO: Get from evidence graph
+                "nodes": evidence_graph_stats.get("total_nodes", self._total_fragments + self._total_claims),
+                "edges": evidence_graph_stats.get("total_edges", 0),
                 "primary_source_ratio": sum(1 for sq in self._subqueries.values() if sq.has_primary_source) / max(1, len(self._subqueries)),
             },
         }

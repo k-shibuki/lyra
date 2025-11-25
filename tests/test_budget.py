@@ -3,7 +3,7 @@ Unit tests for budget control module (src/scheduler/budget.py).
 
 Tests §3.1 and §3.2.2 requirements:
 - Task page limit: ≤120 pages/task
-- Time limit: ≤20 minutes/task (GPU), ≤25 minutes (CPU)
+- Time limit: ≤60 minutes/task (GPU), ≤75 minutes (CPU)
 - LLM time ratio: ≤30% of total processing time
 
 Test quality: Follows §7.1 test code quality standards.
@@ -601,8 +601,8 @@ class TestBudgetManagerGPUDetection:
         settings = {
             "task_limits": {
                 "max_pages_per_task": 100,
-                "max_time_minutes_gpu": 20,
-                "max_time_minutes_cpu": 25,
+                "max_time_minutes_gpu": 60,
+                "max_time_minutes_cpu": 75,
                 "llm_time_ratio_max": 0.30,
             }
         }
@@ -611,13 +611,13 @@ class TestBudgetManagerGPUDetection:
         with patch("src.scheduler.budget.get_settings", return_value=settings):
             with patch.object(BudgetManager, "_check_gpu_available", return_value=True):
                 manager = BudgetManager()
-                assert manager._max_time == 20 * 60  # 20 minutes in seconds
+                assert manager._max_time == 60 * 60  # 60 minutes in seconds
         
         # Mock GPU not available
         with patch("src.scheduler.budget.get_settings", return_value=settings):
             with patch.object(BudgetManager, "_check_gpu_available", return_value=False):
                 manager = BudgetManager()
-                assert manager._max_time == 25 * 60  # 25 minutes in seconds
+                assert manager._max_time == 75 * 60  # 75 minutes in seconds
 
 
 class TestBudgetIntegrationScenarios:

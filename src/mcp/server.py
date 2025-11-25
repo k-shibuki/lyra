@@ -821,7 +821,7 @@ async def _handle_finalize_exploration(args: dict[str, Any]) -> dict[str, Any]:
     
     with LogContext(task_id=task_id):
         state = await _get_exploration_state(task_id)
-        result = state.finalize()
+        result = await state.finalize()
         
         # Save final state
         await state.save_state()

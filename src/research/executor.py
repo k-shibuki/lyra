@@ -15,6 +15,7 @@ from typing import Any
 from src.research.state import ExplorationState, SubqueryStatus
 from src.storage.database import get_database
 from src.utils.logging import get_logger, LogContext
+from src.utils.config import get_settings
 
 logger = get_logger(__name__)
 
@@ -353,18 +354,100 @@ class SubqueryExecutor:
                         is_novel=is_novel,
                     )
                     
-                    # TODO: Extract claims using llm_extract
-                    # For now, just count as a potential claim
+                    # Extract claims using llm_extract for primary sources (§2.1.4, §3.3)
+                    # LLM extraction is only applied to primary sources to control LLM time ratio
                     if is_useful:
-                        self.state.record_claim(subquery_id)
-                        result.new_claims.append({
-                            "source_url": url,
-                            "title": serp_item.get("title", ""),
-                            "snippet": extract_result.get("text", "")[:200],
-                        })
+                        extracted_claims = await self._extract_claims_from_text(
+                            text=extract_result.get("text", ""),
+                            source_url=url,
+                            title=serp_item.get("title", ""),
+                            is_primary=is_primary,
+                        )
+                        
+                        for claim in extracted_claims:
+                            self.state.record_claim(subquery_id)
+                            result.new_claims.append(claim)
+                        
+                        # If no claims extracted by LLM, record at least one potential claim
+                        if not extracted_claims:
+                            self.state.record_claim(subquery_id)
+                            result.new_claims.append({
+                                "source_url": url,
+                                "title": serp_item.get("title", ""),
+                                "snippet": extract_result.get("text", "")[:200],
+                            })
         
         except Exception as e:
             logger.debug("Fetch/extract failed", url=url[:50], error=str(e))
+    
+    async def _extract_claims_from_text(
+        self,
+        text: str,
+        source_url: str,
+        title: str,
+        is_primary: bool,
+    ) -> list[dict[str, Any]]:
+        """
+        Extract claims from text using LLM (§2.1.4, §3.3).
+        
+        LLM extraction is only applied to primary sources to control
+        LLM processing time ratio (≤30% per §3.1).
+        
+        Args:
+            text: The text to extract claims from.
+            source_url: URL of the source.
+            title: Title of the source.
+            is_primary: Whether this is a primary source.
+            
+        Returns:
+            List of extracted claims.
+        """
+        # Only use LLM for primary sources to control processing time
+        if not is_primary:
+            return []
+        
+        settings = get_settings()
+        
+        try:
+            from src.filter.llm import llm_extract
+            
+            # Prepare passage for LLM extraction
+            passage = {
+                "id": hashlib.sha256(source_url.encode()).hexdigest()[:16],
+                "text": text[:4000],  # Limit text length for LLM
+                "source_url": source_url,
+            }
+            
+            # Extract claims using LLM
+            result = await llm_extract(
+                passages=[passage],
+                task="extract_claims",
+                context=self.state.original_query,
+                use_slow_model=False,  # Use fast model to control time ratio
+            )
+            
+            if result.get("ok") and result.get("claims"):
+                claims = []
+                for claim in result["claims"]:
+                    if isinstance(claim, dict):
+                        claims.append({
+                            "source_url": source_url,
+                            "title": title,
+                            "claim": claim.get("claim", ""),
+                            "claim_type": claim.get("type", "fact"),
+                            "confidence": claim.get("confidence", 0.5),
+                            "snippet": text[:200],
+                        })
+                return claims
+            
+        except Exception as e:
+            logger.debug(
+                "LLM claim extraction failed",
+                source_url=source_url[:50],
+                error=str(e),
+            )
+        
+        return []
     
     def generate_refutation_queries(self, base_query: str) -> list[str]:
         """

@@ -16,8 +16,8 @@ from pydantic_settings import BaseSettings
 class TaskLimitsConfig(BaseModel):
     """Task limits configuration."""
     max_pages_per_task: int = 120
-    max_time_minutes_gpu: int = 20
-    max_time_minutes_cpu: int = 25
+    max_time_minutes_gpu: int = 60
+    max_time_minutes_cpu: int = 75
     llm_time_ratio_max: float = 0.30
     max_manual_interventions: int = 3
     max_manual_intervention_time_minutes: int = 5
