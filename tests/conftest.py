@@ -381,3 +381,44 @@ def make_claim():
         }
     return _make
 
+
+# =============================================================================
+# Session-scoped Cleanup Fixtures
+# =============================================================================
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_aiohttp_sessions(request):
+    """Cleanup global aiohttp client sessions after all tests complete.
+    
+    This prevents 'Unclosed client session' warnings by ensuring all
+    singleton clients are properly closed at the end of the test session.
+    """
+    yield  # Run all tests first
+    
+    # Cleanup after all tests complete
+    async def _cleanup():
+        # Cleanup SearXNG client
+        try:
+            from src.search.searxng import _cleanup_client as cleanup_searxng
+            await cleanup_searxng()
+        except ImportError:
+            pass
+        
+        # Cleanup Ollama client
+        try:
+            from src.filter.llm import _cleanup_client as cleanup_ollama
+            await cleanup_ollama()
+        except ImportError:
+            pass
+    
+    # Run cleanup in event loop
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(_cleanup())
+        else:
+            loop.run_until_complete(_cleanup())
+    except RuntimeError:
+        # Create new loop if none exists
+        asyncio.run(_cleanup())
+

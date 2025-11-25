@@ -572,6 +572,17 @@ def _get_client() -> SearXNGClient:
     return _client
 
 
+async def _cleanup_client() -> None:
+    """Close and cleanup the global SearXNG client.
+    
+    Used for testing cleanup and graceful shutdown.
+    """
+    global _client
+    if _client is not None:
+        await _client.close()
+        _client = None
+
+
 def _normalize_query(query: str) -> str:
     """Normalize query for caching.
     

@@ -153,6 +153,17 @@ def _get_client() -> OllamaClient:
     return _client
 
 
+async def _cleanup_client() -> None:
+    """Close and cleanup the global Ollama client.
+    
+    Used for testing cleanup and graceful shutdown.
+    """
+    global _client
+    if _client is not None:
+        await _client.close()
+        _client = None
+
+
 # Prompt templates
 EXTRACT_FACTS_PROMPT = """あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
 
