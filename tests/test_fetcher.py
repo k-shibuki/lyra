@@ -371,6 +371,109 @@ class TestDatabaseUrlNormalization:
         assert normalized == "https://example.com/page"
 
 
+class TestHumanBehavior:
+    """Tests for human-like behavior simulation (§4.3 - stealth requirements)."""
+
+    def test_random_delay_within_bounds(self):
+        """Test random delay stays within specified bounds."""
+        from src.crawler.fetcher import HumanBehavior
+        
+        for _ in range(100):
+            delay = HumanBehavior.random_delay(0.5, 3.0)
+            assert 0.5 <= delay <= 3.0, f"Delay {delay} out of bounds"
+
+    def test_random_delay_default_bounds(self):
+        """Test random delay with default bounds."""
+        from src.crawler.fetcher import HumanBehavior
+        
+        for _ in range(50):
+            delay = HumanBehavior.random_delay()
+            assert 0.5 <= delay <= 2.0, f"Delay {delay} out of default bounds"
+
+    def test_scroll_pattern_generation(self):
+        """Test scroll pattern generates reasonable positions."""
+        from src.crawler.fetcher import HumanBehavior
+        
+        positions = HumanBehavior.scroll_pattern(
+            page_height=3000,
+            viewport_height=1080,
+        )
+        
+        assert len(positions) > 0, "Should generate at least one scroll position"
+        
+        for scroll_y, delay in positions:
+            assert 0 <= scroll_y <= 3000 - 1080, f"Scroll position {scroll_y} out of range"
+            assert delay > 0, f"Delay {delay} should be positive"
+
+    def test_scroll_pattern_short_page(self):
+        """Test scroll pattern for page shorter than viewport."""
+        from src.crawler.fetcher import HumanBehavior
+        
+        positions = HumanBehavior.scroll_pattern(
+            page_height=500,
+            viewport_height=1080,
+        )
+        
+        # Short page should have no scrolling needed
+        assert len(positions) == 0, "Short page should not need scrolling"
+
+    def test_mouse_path_generation(self):
+        """Test mouse path generates smooth bezier curve."""
+        from src.crawler.fetcher import HumanBehavior
+        
+        path = HumanBehavior.mouse_path(
+            start_x=100, start_y=100,
+            end_x=500, end_y=400,
+            steps=10,
+        )
+        
+        assert len(path) == 11, "Should have steps + 1 points"
+        
+        # First point should be near start
+        assert abs(path[0][0] - 100) < 10, "First point should be near start_x"
+        assert abs(path[0][1] - 100) < 10, "First point should be near start_y"
+        
+        # Last point should be near end
+        assert abs(path[-1][0] - 500) < 10, "Last point should be near end_x"
+        assert abs(path[-1][1] - 400) < 10, "Last point should be near end_y"
+
+    def test_mouse_path_has_jitter(self):
+        """Test mouse paths are not identical (random jitter)."""
+        from src.crawler.fetcher import HumanBehavior
+        
+        path1 = HumanBehavior.mouse_path(0, 0, 100, 100, steps=5)
+        path2 = HumanBehavior.mouse_path(0, 0, 100, 100, steps=5)
+        
+        # Paths should differ due to random control points and jitter
+        assert path1 != path2, "Paths should differ due to randomness"
+
+
+class TestTorController:
+    """Tests for Tor circuit controller (§4.3 - network layer)."""
+
+    def test_tor_controller_initialization(self):
+        """Test TorController initializes correctly."""
+        from src.crawler.fetcher import TorController
+        
+        controller = TorController()
+        
+        assert controller._controller is None  # Not connected yet
+        assert len(controller._last_renewal) == 0
+
+    @pytest.mark.asyncio
+    async def test_tor_controller_disabled(self, mock_settings):
+        """Test TorController when Tor is disabled."""
+        mock_settings.tor.enabled = False
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            from src.crawler.fetcher import TorController
+            
+            controller = TorController()
+            result = await controller.connect()
+            
+            assert result is False, "Should return False when Tor disabled"
+
+
 class TestDatabaseFetchCache:
     """Tests for fetch cache database operations (§5.1.2 - cache_fetch).
     

@@ -1,12 +1,21 @@
 """
 URL fetcher for Lancet.
 Handles fetching URLs via HTTP client or browser with appropriate strategies.
+
+Features:
+- HTTP client with Chrome impersonation (curl_cffi)
+- Browser automation with Playwright (CDP connection)
+- Headless/headful automatic switching based on domain policy
+- Human-like behavior simulation (mouse movement, scrolling, delays)
+- Tor integration with Stem for circuit control
+- ETag/If-Modified-Since conditional requests (304 cache)
 """
 
 import asyncio
 import gzip
 import hashlib
 import io
+import math
 import random
 import time
 from datetime import datetime, timezone
@@ -22,6 +31,313 @@ from src.utils.logging import get_logger, CausalTrace
 from src.storage.database import get_database
 
 logger = get_logger(__name__)
+
+
+# =============================================================================
+# Human-like Behavior Simulation
+# =============================================================================
+
+class HumanBehavior:
+    """Simulates human-like browser interactions.
+    
+    Implements realistic delays, mouse movements, and scrolling patterns
+    to reduce bot detection per §4.3 (stealth requirements).
+    """
+    
+    def __init__(self):
+        self._settings = get_settings()
+    
+    @staticmethod
+    def random_delay(min_seconds: float = 0.5, max_seconds: float = 2.0) -> float:
+        """Generate a random delay following human-like distribution.
+        
+        Uses log-normal distribution to better simulate human reaction times.
+        
+        Args:
+            min_seconds: Minimum delay.
+            max_seconds: Maximum delay.
+            
+        Returns:
+            Delay in seconds.
+        """
+        # Log-normal distribution parameters (median ~= 1.0s)
+        mu = 0.0
+        sigma = 0.5
+        
+        delay = random.lognormvariate(mu, sigma)
+        return max(min_seconds, min(delay, max_seconds))
+    
+    @staticmethod
+    def scroll_pattern(page_height: int, viewport_height: int) -> list[tuple[int, float]]:
+        """Generate realistic scroll positions and delays.
+        
+        Args:
+            page_height: Total page height in pixels.
+            viewport_height: Viewport height in pixels.
+            
+        Returns:
+            List of (scroll_position, delay) tuples.
+        """
+        positions = []
+        current = 0
+        max_scroll = max(0, page_height - viewport_height)
+        
+        while current < max_scroll:
+            # Variable scroll amount (50-150% of viewport)
+            scroll_amount = int(viewport_height * random.uniform(0.5, 1.5))
+            current = min(current + scroll_amount, max_scroll)
+            
+            # Human-like pause after scrolling
+            delay = HumanBehavior.random_delay(0.3, 1.5)
+            positions.append((current, delay))
+        
+        return positions
+    
+    @staticmethod
+    def mouse_path(
+        start_x: int, start_y: int,
+        end_x: int, end_y: int,
+        steps: int = 10,
+    ) -> list[tuple[int, int]]:
+        """Generate a human-like mouse movement path.
+        
+        Uses bezier curve interpolation with slight randomness.
+        
+        Args:
+            start_x: Starting X coordinate.
+            start_y: Starting Y coordinate.
+            end_x: Ending X coordinate.
+            end_y: Ending Y coordinate.
+            steps: Number of points in the path.
+            
+        Returns:
+            List of (x, y) coordinates.
+        """
+        path = []
+        
+        # Add random control point for bezier curve
+        ctrl_x = (start_x + end_x) / 2 + random.uniform(-50, 50)
+        ctrl_y = (start_y + end_y) / 2 + random.uniform(-50, 50)
+        
+        for i in range(steps + 1):
+            t = i / steps
+            
+            # Quadratic bezier interpolation
+            x = (1 - t) ** 2 * start_x + 2 * (1 - t) * t * ctrl_x + t ** 2 * end_x
+            y = (1 - t) ** 2 * start_y + 2 * (1 - t) * t * ctrl_y + t ** 2 * end_y
+            
+            # Add small jitter
+            x += random.uniform(-2, 2)
+            y += random.uniform(-2, 2)
+            
+            path.append((int(x), int(y)))
+        
+        return path
+    
+    async def simulate_reading(self, page, content_length: int) -> None:
+        """Simulate human reading behavior on page.
+        
+        Args:
+            page: Playwright page object.
+            content_length: Approximate content length.
+        """
+        try:
+            # Get page dimensions
+            dimensions = await page.evaluate("""
+                () => ({
+                    height: document.body.scrollHeight,
+                    viewportHeight: window.innerHeight
+                })
+            """)
+            
+            page_height = dimensions.get("height", 2000)
+            viewport_height = dimensions.get("viewportHeight", 1080)
+            
+            # Scroll through page
+            scroll_positions = self.scroll_pattern(page_height, viewport_height)
+            
+            for scroll_y, delay in scroll_positions[:5]:  # Limit scrolls
+                await page.evaluate(f"window.scrollTo(0, {scroll_y})")
+                await asyncio.sleep(delay)
+                
+        except Exception as e:
+            logger.debug("Reading simulation error", error=str(e))
+    
+    async def move_mouse_to_element(self, page, selector: str) -> None:
+        """Move mouse to element with human-like motion.
+        
+        Args:
+            page: Playwright page object.
+            selector: CSS selector for target element.
+        """
+        try:
+            element = await page.query_selector(selector)
+            if not element:
+                return
+            
+            box = await element.bounding_box()
+            if not box:
+                return
+            
+            # Current mouse position (assume center)
+            viewport = page.viewport_size or {"width": 1920, "height": 1080}
+            start_x = viewport["width"] // 2
+            start_y = viewport["height"] // 2
+            
+            # Target position (center of element with jitter)
+            end_x = int(box["x"] + box["width"] / 2 + random.uniform(-5, 5))
+            end_y = int(box["y"] + box["height"] / 2 + random.uniform(-5, 5))
+            
+            # Generate path and move
+            path = self.mouse_path(start_x, start_y, end_x, end_y)
+            
+            for x, y in path:
+                await page.mouse.move(x, y)
+                await asyncio.sleep(random.uniform(0.01, 0.03))
+                
+        except Exception as e:
+            logger.debug("Mouse movement error", error=str(e))
+
+
+# =============================================================================
+# Tor Circuit Controller
+# =============================================================================
+
+class TorController:
+    """Controls Tor circuits via Stem library.
+    
+    Provides circuit renewal and exit node management per §4.3.
+    """
+    
+    def __init__(self):
+        self._settings = get_settings()
+        self._controller = None
+        self._last_renewal: dict[str, float] = {}  # domain -> timestamp
+        self._lock = asyncio.Lock()
+    
+    async def connect(self) -> bool:
+        """Connect to Tor control port.
+        
+        Returns:
+            True if connected successfully.
+        """
+        if not self._settings.tor.enabled:
+            return False
+        
+        try:
+            from stem.control import Controller
+            
+            self._controller = Controller.from_port(
+                address=self._settings.tor.socks_host,
+                port=self._settings.tor.control_port,
+            )
+            
+            # Try to authenticate (no password by default)
+            self._controller.authenticate()
+            
+            logger.info(
+                "Connected to Tor control port",
+                port=self._settings.tor.control_port,
+            )
+            return True
+            
+        except Exception as e:
+            logger.warning("Tor control connection failed", error=str(e))
+            self._controller = None
+            return False
+    
+    async def renew_circuit(self, domain: str | None = None) -> bool:
+        """Request a new Tor circuit.
+        
+        Args:
+            domain: Optional domain for sticky circuit tracking.
+            
+        Returns:
+            True if circuit renewed successfully.
+        """
+        async with self._lock:
+            if self._controller is None:
+                if not await self.connect():
+                    return False
+            
+            try:
+                # Check sticky period for domain
+                if domain:
+                    sticky_minutes = self._settings.tor.circuit_sticky_minutes
+                    last = self._last_renewal.get(domain, 0)
+                    
+                    if time.time() - last < sticky_minutes * 60:
+                        logger.debug(
+                            "Skipping circuit renewal (sticky period)",
+                            domain=domain,
+                        )
+                        return True
+                
+                # Request new circuit
+                self._controller.signal("NEWNYM")
+                
+                # Wait for circuit to establish
+                await asyncio.sleep(2.0)
+                
+                if domain:
+                    self._last_renewal[domain] = time.time()
+                
+                logger.info("Tor circuit renewed", domain=domain)
+                return True
+                
+            except Exception as e:
+                logger.error("Tor circuit renewal failed", error=str(e))
+                return False
+    
+    async def get_exit_ip(self) -> str | None:
+        """Get current Tor exit node IP.
+        
+        Returns:
+            Exit IP address or None.
+        """
+        try:
+            from curl_cffi import requests as curl_requests
+            
+            tor_settings = self._settings.tor
+            proxy_url = f"socks5://{tor_settings.socks_host}:{tor_settings.socks_port}"
+            
+            response = curl_requests.get(
+                "https://check.torproject.org/api/ip",
+                proxies={"http": proxy_url, "https": proxy_url},
+                timeout=10,
+            )
+            
+            data = response.json()
+            return data.get("IP")
+            
+        except Exception as e:
+            logger.debug("Failed to get Tor exit IP", error=str(e))
+            return None
+    
+    def close(self) -> None:
+        """Close Tor controller connection."""
+        if self._controller:
+            try:
+                self._controller.close()
+            except Exception:
+                pass
+            self._controller = None
+
+
+# Global Tor controller
+_tor_controller: TorController | None = None
+
+
+async def get_tor_controller() -> TorController:
+    """Get or create Tor controller instance.
+    
+    Returns:
+        TorController instance.
+    """
+    global _tor_controller
+    if _tor_controller is None:
+        _tor_controller = TorController()
+    return _tor_controller
 
 
 class FetchResult:
@@ -275,98 +591,205 @@ class HTTPFetcher:
 
 
 class BrowserFetcher:
-    """Browser-based fetcher using Playwright."""
+    """Browser-based fetcher using Playwright with headless/headful auto-switching.
+    
+    Features:
+    - Automatic headless/headful mode switching based on domain policy
+    - Human-like behavior simulation (scrolling, mouse movement)
+    - CDP connection to Windows Chrome for fingerprint consistency
+    - Resource blocking (ads, trackers, large media)
+    """
     
     def __init__(self):
         self._rate_limiter = RateLimiter()
         self._settings = get_settings()
-        self._browser = None
-        self._context = None
+        self._headless_browser = None
+        self._headless_context = None
+        self._headful_browser = None
+        self._headful_context = None
+        self._playwright = None
+        self._human_behavior = HumanBehavior()
     
-    async def _ensure_browser(self) -> None:
-        """Ensure browser connection is established."""
-        if self._browser is not None:
-            return
+    async def _ensure_browser(self, headful: bool = False) -> tuple:
+        """Ensure browser connection is established.
         
+        Args:
+            headful: Whether to ensure headful browser.
+            
+        Returns:
+            Tuple of (browser, context).
+        """
         from playwright.async_api import async_playwright
         
-        self._playwright = await async_playwright().start()
+        if self._playwright is None:
+            self._playwright = await async_playwright().start()
         
-        # Connect to Chrome via CDP
         browser_settings = self._settings.browser
-        cdp_url = f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
         
-        try:
-            self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
-            logger.info("Connected to Chrome via CDP", url=cdp_url)
-        except Exception as e:
-            logger.warning("CDP connection failed, launching local browser", error=str(e))
-            self._browser = await self._playwright.chromium.launch(
-                headless=browser_settings.default_headless
-            )
-        
-        # Create context
-        self._context = await self._browser.new_context(
-            viewport={
-                "width": browser_settings.viewport_width,
-                "height": browser_settings.viewport_height,
-            },
-            locale="ja-JP",
-            timezone_id="Asia/Tokyo",
-        )
-        
-        # Setup route for blocking
-        if browser_settings.block_ads or browser_settings.block_trackers:
-            await self._setup_blocking()
+        if headful:
+            # Headful mode - for challenge bypass
+            if self._headful_browser is None:
+                try:
+                    # Try CDP connection first (Windows Chrome)
+                    cdp_url = f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
+                    self._headful_browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+                    logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
+                except Exception as e:
+                    logger.warning("CDP connection failed, launching local headful browser", error=str(e))
+                    self._headful_browser = await self._playwright.chromium.launch(headless=False)
+                
+                self._headful_context = await self._headful_browser.new_context(
+                    viewport={
+                        "width": browser_settings.viewport_width,
+                        "height": browser_settings.viewport_height,
+                    },
+                    locale="ja-JP",
+                    timezone_id="Asia/Tokyo",
+                )
+                await self._setup_blocking(self._headful_context)
+            
+            return self._headful_browser, self._headful_context
+        else:
+            # Headless mode - default
+            if self._headless_browser is None:
+                self._headless_browser = await self._playwright.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                    ],
+                )
+                logger.info("Launched headless browser")
+                
+                self._headless_context = await self._headless_browser.new_context(
+                    viewport={
+                        "width": browser_settings.viewport_width,
+                        "height": browser_settings.viewport_height,
+                    },
+                    locale="ja-JP",
+                    timezone_id="Asia/Tokyo",
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                )
+                await self._setup_blocking(self._headless_context)
+            
+            return self._headless_browser, self._headless_context
     
-    async def _setup_blocking(self) -> None:
-        """Setup resource blocking rules."""
-        block_patterns = [
-            # Ads
-            "*googlesyndication.com*",
-            "*doubleclick.net*",
-            "*googleadservices.com*",
-            # Trackers
-            "*google-analytics.com*",
-            "*googletagmanager.com*",
-            "*facebook.com/tr*",
-        ]
+    async def _setup_blocking(self, context) -> None:
+        """Setup resource blocking rules.
+        
+        Args:
+            context: Playwright browser context.
+        """
+        browser_settings = self._settings.browser
+        
+        block_patterns = []
+        
+        if browser_settings.block_ads:
+            block_patterns.extend([
+                "*googlesyndication.com*",
+                "*doubleclick.net*",
+                "*googleadservices.com*",
+                "*adnxs.com*",
+                "*criteo.com*",
+            ])
+        
+        if browser_settings.block_trackers:
+            block_patterns.extend([
+                "*google-analytics.com*",
+                "*googletagmanager.com*",
+                "*facebook.com/tr*",
+                "*hotjar.com*",
+                "*mixpanel.com*",
+            ])
+        
+        if browser_settings.block_large_media:
+            block_patterns.extend([
+                "*.mp4",
+                "*.webm",
+                "*.avi",
+                "*.mov",
+            ])
         
         async def block_route(route):
             await route.abort()
         
         for pattern in block_patterns:
-            await self._context.route(pattern, block_route)
+            await context.route(pattern, block_route)
+    
+    async def _should_use_headful(self, domain: str) -> bool:
+        """Determine if headful mode should be used for domain.
+        
+        Based on domain policy's headful_ratio and past failure history.
+        
+        Args:
+            domain: Domain name.
+            
+        Returns:
+            True if headful mode should be used.
+        """
+        db = await get_database()
+        
+        # Check domain policy
+        domain_info = await db.fetch_one(
+            "SELECT headful_ratio, captcha_rate, block_score FROM domains WHERE domain = ?",
+            (domain,),
+        )
+        
+        if domain_info is None:
+            # Default to settings-based ratio
+            return random.random() < self._settings.browser.headful_ratio_initial
+        
+        headful_ratio = domain_info.get("headful_ratio", 0.1)
+        captcha_rate = domain_info.get("captcha_rate", 0.0)
+        
+        # Increase headful probability if domain has high captcha rate
+        if captcha_rate > 0.3:
+            headful_ratio = min(1.0, headful_ratio * 2)
+        
+        return random.random() < headful_ratio
     
     async def fetch(
         self,
         url: str,
         *,
         referer: str | None = None,
-        headful: bool = False,
+        headful: bool | None = None,
         take_screenshot: bool = True,
+        simulate_human: bool = True,
     ) -> FetchResult:
-        """Fetch URL using browser.
+        """Fetch URL using browser with automatic mode selection.
         
         Args:
             url: URL to fetch.
             referer: Referer header.
-            headful: Whether to use headful mode.
+            headful: Force headful mode (None for auto-detect).
             take_screenshot: Whether to capture screenshot.
+            simulate_human: Whether to simulate human behavior.
             
         Returns:
             FetchResult instance.
         """
         await self._rate_limiter.acquire(url)
-        await self._ensure_browser()
+        
+        domain = urlparse(url).netloc.lower()
+        
+        # Determine headful mode
+        if headful is None:
+            headful = await self._should_use_headful(domain)
+        
+        browser, context = await self._ensure_browser(headful=headful)
         
         page = None
         try:
-            page = await self._context.new_page()
+            page = await context.new_page()
             
             # Set referer if provided
             if referer:
                 await page.set_extra_http_headers({"Referer": referer})
+            
+            # Human-like pre-navigation delay
+            if simulate_human:
+                await asyncio.sleep(HumanBehavior.random_delay(0.5, 1.5))
             
             # Navigate
             response = await page.goto(
@@ -380,11 +803,12 @@ class BrowserFetcher:
                     ok=False,
                     url=url,
                     reason="no_response",
-                    method="browser",
+                    method="browser_headful" if headful else "browser_headless",
                 )
             
-            # Wait a bit for dynamic content
-            await page.wait_for_timeout(1000)
+            # Wait for dynamic content with human-like variation
+            wait_time = HumanBehavior.random_delay(1.0, 2.5) if simulate_human else 1.0
+            await page.wait_for_timeout(int(wait_time * 1000))
             
             # Get content
             content = await page.content()
@@ -393,14 +817,34 @@ class BrowserFetcher:
             
             # Check for challenge
             if _is_challenge_page(content, {}):
-                logger.info("Browser challenge detected", url=url)
-                return FetchResult(
-                    ok=False,
+                logger.info(
+                    "Browser challenge detected",
                     url=url,
-                    status=response.status,
-                    reason="challenge_detected",
-                    method="browser",
+                    headful=headful,
                 )
+                
+                # If in headless mode, suggest headful escalation
+                if not headful:
+                    return FetchResult(
+                        ok=False,
+                        url=url,
+                        status=response.status,
+                        reason="challenge_detected_escalate_headful",
+                        method="browser_headless",
+                    )
+                else:
+                    # Even headful failed - needs manual intervention
+                    return FetchResult(
+                        ok=False,
+                        url=url,
+                        status=response.status,
+                        reason="challenge_detected",
+                        method="browser_headful",
+                    )
+            
+            # Simulate human reading behavior
+            if simulate_human:
+                await self._human_behavior.simulate_reading(page, len(content_bytes))
             
             # Save content
             html_path = await _save_content(url, content_bytes, {})
@@ -428,6 +872,7 @@ class BrowserFetcher:
                 url=url[:80],
                 status=response.status,
                 content_length=len(content_bytes),
+                headful=headful,
                 has_etag=bool(resp_etag),
                 has_last_modified=bool(resp_last_modified),
             )
@@ -441,31 +886,35 @@ class BrowserFetcher:
                 warc_path=str(warc_path) if warc_path else None,
                 screenshot_path=str(screenshot_path) if screenshot_path else None,
                 content_hash=content_hash,
-                method="browser_headless" if not headful else "browser_headful",
+                method="browser_headful" if headful else "browser_headless",
                 from_cache=False,
                 etag=resp_etag,
                 last_modified=resp_last_modified,
             )
             
         except Exception as e:
-            logger.error("Browser fetch error", url=url, error=str(e))
+            logger.error("Browser fetch error", url=url, headful=headful, error=str(e))
             return FetchResult(
                 ok=False,
                 url=url,
                 reason=str(e),
-                method="browser",
+                method="browser_headful" if headful else "browser_headless",
             )
         finally:
             if page:
                 await page.close()
     
     async def close(self) -> None:
-        """Close browser connection."""
-        if self._context:
-            await self._context.close()
-        if self._browser:
-            await self._browser.close()
-        if hasattr(self, "_playwright"):
+        """Close all browser connections."""
+        if self._headless_context:
+            await self._headless_context.close()
+        if self._headless_browser:
+            await self._headless_browser.close()
+        if self._headful_context:
+            await self._headful_context.close()
+        if self._headful_browser:
+            await self._headful_browser.close()
+        if self._playwright:
             await self._playwright.stop()
 
 
@@ -704,7 +1153,13 @@ async def fetch_url(
     policy: dict[str, Any] | None = None,
     task_id: str | None = None,
 ) -> dict[str, Any]:
-    """Fetch URL with automatic method selection and cache support.
+    """Fetch URL with automatic method selection, escalation, and cache support.
+    
+    Implements multi-stage fetch strategy:
+    1. HTTP client (fastest, with 304 cache support)
+    2. Browser headless (for JS-rendered pages)
+    3. Browser headful (for challenge bypass)
+    4. Tor circuit renewal on 403/429
     
     Supports conditional requests (If-None-Match/If-Modified-Since) for
     efficient re-validation and 304 Not Modified responses.
@@ -717,6 +1172,7 @@ async def fetch_url(
             - force_headful: Force headful mode.
             - use_tor: Use Tor proxy.
             - skip_cache: Skip cache lookup and conditional requests.
+            - max_retries: Override max retries (default: 3).
         task_id: Associated task ID.
         
     Returns:
@@ -728,6 +1184,7 @@ async def fetch_url(
     policy = policy or {}
     
     db = await get_database()
+    settings = get_settings()
     
     with CausalTrace() as trace:
         # Check domain cooldown
@@ -745,6 +1202,7 @@ async def fetch_url(
         force_headful = policy.get("force_headful", False)
         use_tor = policy.get("use_tor", False)
         skip_cache = policy.get("skip_cache", False)
+        max_retries = policy.get("max_retries", settings.crawler.max_retries)
         
         # Initialize fetchers
         if _http_fetcher is None:
@@ -773,9 +1231,13 @@ async def fetch_url(
                     has_last_modified=bool(cached_last_modified),
                 )
         
-        # Try HTTP client first unless browser forced
         result = None
+        retry_count = 0
+        escalation_path = []  # Track escalation for logging
         
+        # =====================================================================
+        # Stage 1: HTTP Client (with optional Tor)
+        # =====================================================================
         if not force_browser:
             result = await _http_fetcher.fetch(
                 url,
@@ -784,6 +1246,7 @@ async def fetch_url(
                 cached_etag=cached_etag,
                 cached_last_modified=cached_last_modified,
             )
+            escalation_path.append(f"http_client(tor={use_tor})")
             
             # Handle 304 Not Modified - use cached content
             if result.ok and result.status == 304 and cached_content_path:
@@ -802,23 +1265,69 @@ async def fetch_url(
                     last_modified=result.last_modified,
                 )
             
-            # If challenge detected, try browser
+            # Handle 403/429 - try Tor circuit renewal
+            if not result.ok and result.status in (403, 429) and not use_tor:
+                logger.info("HTTP error, trying with Tor", url=url[:80], status=result.status)
+                
+                tor_controller = await get_tor_controller()
+                if await tor_controller.renew_circuit(domain):
+                    result = await _http_fetcher.fetch(
+                        url,
+                        referer=context.get("referer"),
+                        use_tor=True,
+                        cached_etag=cached_etag,
+                        cached_last_modified=cached_last_modified,
+                    )
+                    escalation_path.append("http_client(tor=True)")
+                    retry_count += 1
+            
+            # If challenge detected or still failing, escalate to browser
             if not result.ok and result.reason == "challenge_detected":
-                logger.info("Escalating to browser", url=url[:80])
+                logger.info("Challenge detected, escalating to browser", url=url[:80])
                 force_browser = True
         
-        if force_browser or (result and not result.ok):
+        # =====================================================================
+        # Stage 2: Browser Headless (auto mode selection)
+        # =====================================================================
+        if force_browser and not force_headful:
             result = await _browser_fetcher.fetch(
                 url,
                 referer=context.get("referer"),
-                headful=force_headful,
+                headful=None,  # Auto-detect based on domain policy
             )
+            escalation_path.append(f"browser({result.method})")
+            retry_count += 1
+            
+            # If headless failed with escalation hint, try headful
+            if not result.ok and result.reason == "challenge_detected_escalate_headful":
+                logger.info("Headless challenge, escalating to headful", url=url[:80])
+                force_headful = True
+        
+        # =====================================================================
+        # Stage 3: Browser Headful (for persistent challenges)
+        # =====================================================================
+        if force_headful and (not result or not result.ok):
+            result = await _browser_fetcher.fetch(
+                url,
+                referer=context.get("referer"),
+                headful=True,
+            )
+            escalation_path.append("browser_headful")
+            retry_count += 1
+            
+            # If headful still fails, update domain policy for future
+            if not result.ok and result.reason == "challenge_detected":
+                await _update_domain_headful_ratio(db, domain, increase=True)
+        
+        # =====================================================================
+        # Update Metrics and Store Results
+        # =====================================================================
         
         # Update domain metrics
         await db.update_domain_metrics(
             domain,
             success=result.ok,
-            is_captcha=result.reason == "challenge_detected",
+            is_captcha=result.reason and "challenge" in result.reason,
             is_http_error=result.status and result.status >= 400,
         )
         
@@ -874,10 +1383,53 @@ async def fetch_url(
                 "from_cache": result.from_cache,
                 "has_etag": bool(result.etag),
                 "has_last_modified": bool(result.last_modified),
+                "escalation_path": " -> ".join(escalation_path),
+                "retry_count": retry_count,
             },
         )
         
         return result.to_dict()
+
+
+async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -> None:
+    """Update domain's headful ratio based on fetch outcomes.
+    
+    Args:
+        db: Database instance.
+        domain: Domain name.
+        increase: Whether to increase (True) or decrease (False) the ratio.
+    """
+    current = await db.fetch_one(
+        "SELECT headful_ratio FROM domains WHERE domain = ?",
+        (domain,),
+    )
+    
+    if current is None:
+        # Create domain record with elevated headful ratio
+        await db.insert("domains", {
+            "domain": domain,
+            "headful_ratio": 0.3 if increase else 0.1,
+        }, auto_id=False)
+    else:
+        ratio = current.get("headful_ratio", 0.1)
+        if increase:
+            new_ratio = min(1.0, ratio * 1.5 + 0.1)  # Increase by 50% + 0.1
+        else:
+            new_ratio = max(0.05, ratio * 0.8)  # Decrease by 20%
+        
+        await db.update(
+            "domains",
+            {"headful_ratio": new_ratio},
+            "domain = ?",
+            (domain,),
+        )
+        
+        logger.debug(
+            "Updated domain headful ratio",
+            domain=domain,
+            old_ratio=ratio,
+            new_ratio=new_ratio,
+        )
 
 
 # Need to import json for the db.insert call
