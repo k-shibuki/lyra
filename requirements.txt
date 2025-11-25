@@ -17,8 +17,9 @@ curl-cffi>=0.6.0
 
 # === Browser Automation ===
 playwright>=1.40.0
-# undetected-chromedriver for fallback (optional)
-# undetected-chromedriver>=3.5.4
+# undetected-chromedriver for Cloudflare/Turnstile bypass fallback (§4.3)
+undetected-chromedriver>=3.5.4
+selenium>=4.15.0  # Required by undetected-chromedriver
 
 # === Content Extraction ===
 trafilatura>=1.6.0
