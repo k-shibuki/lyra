@@ -117,7 +117,7 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 ### 4.1 HTTPクライアント ✅
 - [x] curl_cffi実装
 - [x] ヘッダー整合
-- [ ] ETag/If-Modified-Since完全対応
+- [x] ETag/If-Modified-Since完全対応
 
 ### 4.2 ブラウザ自動化 (一部)
 - [x] Playwright CDP接続基盤
@@ -274,7 +274,7 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 | Phase 1: 基盤構築 | ✅ | 100% |
 | Phase 2: MCPサーバー | ✅ | 100% |
 | Phase 3: 検索機能 | 🔄 | 90% |
-| Phase 4: クローリング | 🔄 | 75% |
+| Phase 4: クローリング | 🔄 | 80% |
 | Phase 5: コンテンツ抽出 | ✅ | 90% |
 | Phase 6: フィルタリング | ✅ | 95% |
 | Phase 7: スケジューラ | ✅ | 90% |

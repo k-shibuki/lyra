@@ -245,3 +245,270 @@ class TestIsChallengePageFunction:
         
         assert _is_challenge_page(normal_content, {}) is False
 
+
+class TestFetchResultCacheFields:
+    """Tests for FetchResult cache-related fields (§3.1.2 - 304 support)."""
+
+    def test_fetch_result_default_cache_fields(self):
+        """Test FetchResult has correct defaults for cache fields."""
+        from src.crawler.fetcher import FetchResult
+        
+        result = FetchResult(ok=True, url="https://example.com/page")
+        
+        assert result.from_cache is False
+        assert result.etag is None
+        assert result.last_modified is None
+
+    def test_fetch_result_with_cache_fields(self):
+        """Test FetchResult with cache fields populated."""
+        from src.crawler.fetcher import FetchResult
+        
+        result = FetchResult(
+            ok=True,
+            url="https://example.com/page",
+            status=200,
+            from_cache=True,
+            etag='"abc123"',
+            last_modified="Wed, 01 Jan 2024 00:00:00 GMT",
+        )
+        
+        assert result.from_cache is True
+        assert result.etag == '"abc123"'
+        assert result.last_modified == "Wed, 01 Jan 2024 00:00:00 GMT"
+
+    def test_fetch_result_to_dict_includes_cache_fields(self):
+        """Test FetchResult.to_dict() includes cache-related fields."""
+        from src.crawler.fetcher import FetchResult
+        
+        result = FetchResult(
+            ok=True,
+            url="https://example.com/page",
+            status=304,
+            from_cache=True,
+            etag='"xyz789"',
+            last_modified="Thu, 15 Jan 2024 12:00:00 GMT",
+        )
+        
+        result_dict = result.to_dict()
+        
+        assert "from_cache" in result_dict
+        assert result_dict["from_cache"] is True
+        assert result_dict["etag"] == '"xyz789"'
+        assert result_dict["last_modified"] == "Thu, 15 Jan 2024 12:00:00 GMT"
+
+    def test_fetch_result_304_response(self):
+        """Test FetchResult for 304 Not Modified response.
+        
+        Per §4.3: 304活用率≥70% requires proper 304 handling.
+        """
+        from src.crawler.fetcher import FetchResult
+        
+        # Simulate 304 response - ok should be True, status 304
+        result = FetchResult(
+            ok=True,
+            url="https://example.com/cached-page",
+            status=304,
+            from_cache=True,
+            etag='"etag-unchanged"',
+            method="http_client",
+        )
+        
+        assert result.ok is True
+        assert result.status == 304
+        assert result.from_cache is True
+
+
+class TestDatabaseUrlNormalization:
+    """Tests for URL normalization used in fetch cache.
+    
+    Per §5.1.2: cache_fetch key should be normalized URL.
+    """
+
+    def test_normalize_url_lowercase_scheme_and_host(self):
+        """Test URL scheme and host are lowercased."""
+        from src.storage.database import Database
+        
+        url1 = "HTTPS://EXAMPLE.COM/Path"
+        url2 = "https://example.com/Path"
+        
+        assert Database._normalize_url(url1) == Database._normalize_url(url2)
+        assert "example.com" in Database._normalize_url(url1)
+
+    def test_normalize_url_removes_fragment(self):
+        """Test URL fragment is removed."""
+        from src.storage.database import Database
+        
+        url1 = "https://example.com/page#section1"
+        url2 = "https://example.com/page"
+        
+        assert Database._normalize_url(url1) == Database._normalize_url(url2)
+
+    def test_normalize_url_sorts_query_params(self):
+        """Test query parameters are sorted for consistent caching."""
+        from src.storage.database import Database
+        
+        url1 = "https://example.com/search?b=2&a=1"
+        url2 = "https://example.com/search?a=1&b=2"
+        
+        assert Database._normalize_url(url1) == Database._normalize_url(url2)
+
+    def test_normalize_url_preserves_path(self):
+        """Test URL path is preserved (case-sensitive)."""
+        from src.storage.database import Database
+        
+        url = "https://example.com/CaseSensitive/Path"
+        normalized = Database._normalize_url(url)
+        
+        assert "/CaseSensitive/Path" in normalized
+
+    def test_normalize_url_empty_query_string(self):
+        """Test URL with no query string."""
+        from src.storage.database import Database
+        
+        url = "https://example.com/page"
+        normalized = Database._normalize_url(url)
+        
+        assert normalized == "https://example.com/page"
+
+
+class TestDatabaseFetchCache:
+    """Tests for fetch cache database operations (§5.1.2 - cache_fetch).
+    
+    Tests cache storage and retrieval for conditional request support.
+    """
+
+    @pytest.mark.asyncio
+    async def test_set_and_get_fetch_cache(self, memory_database):
+        """Test storing and retrieving fetch cache entry."""
+        db = memory_database
+        url = "https://example.com/page"
+        
+        await db.set_fetch_cache(
+            url,
+            etag='"abc123"',
+            last_modified="Wed, 01 Jan 2024 00:00:00 GMT",
+            content_hash="sha256-hash",
+            content_path="/tmp/cache/page.html",
+        )
+        
+        cached = await db.get_fetch_cache(url)
+        
+        assert cached is not None
+        assert cached["etag"] == '"abc123"'
+        assert cached["last_modified"] == "Wed, 01 Jan 2024 00:00:00 GMT"
+        assert cached["content_hash"] == "sha256-hash"
+        assert cached["content_path"] == "/tmp/cache/page.html"
+
+    @pytest.mark.asyncio
+    async def test_get_fetch_cache_missing_url(self, memory_database):
+        """Test cache miss returns None."""
+        db = memory_database
+        
+        cached = await db.get_fetch_cache("https://nonexistent.com/page")
+        
+        assert cached is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_cache_url_normalization(self, memory_database):
+        """Test cache lookup uses normalized URLs."""
+        db = memory_database
+        
+        # Store with one URL format
+        await db.set_fetch_cache(
+            "https://example.com/page?b=2&a=1#section",
+            etag='"etag1"',
+        )
+        
+        # Retrieve with different format (should match after normalization)
+        cached = await db.get_fetch_cache("https://example.com/page?a=1&b=2")
+        
+        assert cached is not None
+        assert cached["etag"] == '"etag1"'
+
+    @pytest.mark.asyncio
+    async def test_update_fetch_cache_validation(self, memory_database):
+        """Test updating cache validation timestamp."""
+        db = memory_database
+        url = "https://example.com/page"
+        
+        # Initial store
+        await db.set_fetch_cache(url, etag='"old-etag"')
+        
+        # Update validation with new ETag
+        await db.update_fetch_cache_validation(url, etag='"new-etag"')
+        
+        cached = await db.get_fetch_cache(url)
+        assert cached["etag"] == '"new-etag"'
+
+    @pytest.mark.asyncio
+    async def test_invalidate_fetch_cache(self, memory_database):
+        """Test cache invalidation."""
+        db = memory_database
+        url = "https://example.com/page"
+        
+        await db.set_fetch_cache(url, etag='"etag"')
+        assert await db.get_fetch_cache(url) is not None
+        
+        await db.invalidate_fetch_cache(url)
+        assert await db.get_fetch_cache(url) is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_cache_with_only_etag(self, memory_database):
+        """Test cache entry with only ETag (no Last-Modified)."""
+        db = memory_database
+        
+        await db.set_fetch_cache(
+            "https://example.com/page",
+            etag='"etag-only"',
+        )
+        
+        cached = await db.get_fetch_cache("https://example.com/page")
+        
+        assert cached["etag"] == '"etag-only"'
+        assert cached["last_modified"] is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_cache_with_only_last_modified(self, memory_database):
+        """Test cache entry with only Last-Modified (no ETag)."""
+        db = memory_database
+        
+        await db.set_fetch_cache(
+            "https://example.com/page",
+            last_modified="Wed, 01 Jan 2024 00:00:00 GMT",
+        )
+        
+        cached = await db.get_fetch_cache("https://example.com/page")
+        
+        assert cached["etag"] is None
+        assert cached["last_modified"] == "Wed, 01 Jan 2024 00:00:00 GMT"
+
+    @pytest.mark.asyncio
+    async def test_fetch_cache_stats(self, memory_database):
+        """Test fetch cache statistics."""
+        db = memory_database
+        
+        # Add some cache entries
+        await db.set_fetch_cache("https://a.com/1", etag='"e1"')
+        await db.set_fetch_cache("https://b.com/2", last_modified="Mon, 01 Jan 2024 00:00:00 GMT")
+        await db.set_fetch_cache("https://c.com/3", etag='"e3"', last_modified="Tue, 02 Jan 2024 00:00:00 GMT")
+        
+        stats = await db.get_fetch_cache_stats()
+        
+        assert stats["total_entries"] == 3
+        assert stats["with_etag"] == 2  # a.com and c.com
+        assert stats["with_last_modified"] == 2  # b.com and c.com
+
+    @pytest.mark.asyncio
+    async def test_fetch_cache_replace_existing(self, memory_database):
+        """Test that setting cache replaces existing entry."""
+        db = memory_database
+        url = "https://example.com/page"
+        
+        await db.set_fetch_cache(url, etag='"old"', content_path="/old/path")
+        await db.set_fetch_cache(url, etag='"new"', content_path="/new/path")
+        
+        cached = await db.get_fetch_cache(url)
+        
+        assert cached["etag"] == '"new"'
+        assert cached["content_path"] == "/new/path"
+
