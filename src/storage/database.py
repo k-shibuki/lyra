@@ -683,6 +683,274 @@ class Database:
         )
         return cursor.rowcount
     
+    # ============================================================
+    # Metrics & Policy Operations (Phase 10)
+    # ============================================================
+    
+    async def save_metrics_snapshot(
+        self,
+        metrics: dict[str, float],
+        full_snapshot: dict[str, Any] | None = None,
+    ) -> int:
+        """Save a global metrics snapshot.
+        
+        Args:
+            metrics: Dictionary of metric name to value.
+            full_snapshot: Optional full snapshot JSON.
+            
+        Returns:
+            Row ID of inserted snapshot.
+        """
+        cursor = await self.execute(
+            """
+            INSERT INTO metrics_snapshot (
+                harvest_rate, novelty_score, duplicate_rate, domain_diversity,
+                tor_usage_rate, headful_rate, referer_match_rate, cache_304_rate,
+                captcha_rate, http_error_403_rate, http_error_429_rate,
+                primary_source_rate, citation_loop_rate, narrative_diversity,
+                contradiction_rate, timeline_coverage, aggregator_rate,
+                llm_time_ratio, gpu_utilization, browser_utilization,
+                full_snapshot_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                metrics.get("harvest_rate"),
+                metrics.get("novelty_score"),
+                metrics.get("duplicate_rate"),
+                metrics.get("domain_diversity"),
+                metrics.get("tor_usage_rate"),
+                metrics.get("headful_rate"),
+                metrics.get("referer_match_rate"),
+                metrics.get("cache_304_rate"),
+                metrics.get("captcha_rate"),
+                metrics.get("http_error_403_rate"),
+                metrics.get("http_error_429_rate"),
+                metrics.get("primary_source_rate"),
+                metrics.get("citation_loop_rate"),
+                metrics.get("narrative_diversity"),
+                metrics.get("contradiction_rate"),
+                metrics.get("timeline_coverage"),
+                metrics.get("aggregator_rate"),
+                metrics.get("llm_time_ratio"),
+                metrics.get("gpu_utilization"),
+                metrics.get("browser_utilization"),
+                json.dumps(full_snapshot) if full_snapshot else None,
+            ),
+        )
+        return cursor.lastrowid
+    
+    async def save_task_metrics(
+        self,
+        task_id: str,
+        metrics_data: dict[str, Any],
+    ) -> None:
+        """Save metrics for a completed task.
+        
+        Args:
+            task_id: Task identifier.
+            metrics_data: Full metrics data from TaskMetrics.to_dict().
+        """
+        counters = metrics_data.get("counters", {})
+        errors = metrics_data.get("errors", {})
+        quality = metrics_data.get("quality", {})
+        timing = metrics_data.get("timing", {})
+        computed = metrics_data.get("computed_metrics", {})
+        
+        await self.execute(
+            """
+            INSERT INTO task_metrics (
+                task_id,
+                total_queries, total_pages_fetched, total_fragments, useful_fragments,
+                total_requests, tor_requests, headful_requests, cache_304_hits,
+                revisit_count, referer_matched,
+                captcha_count, error_403_count, error_429_count,
+                primary_sources, total_sources, unique_domains,
+                citation_loops_detected, total_citations, contradictions_found,
+                total_claims, claims_with_timeline, aggregator_sources,
+                llm_time_ms, total_time_ms, computed_metrics_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                task_id,
+                counters.get("queries", 0),
+                counters.get("pages_fetched", 0),
+                counters.get("fragments", 0),
+                counters.get("useful_fragments", 0),
+                counters.get("requests", 0),
+                counters.get("tor_requests", 0),
+                counters.get("headful_requests", 0),
+                counters.get("cache_304_hits", 0),
+                counters.get("revisits", 0),
+                counters.get("referer_matched", 0),
+                errors.get("captcha", 0),
+                errors.get("http_403", 0),
+                errors.get("http_429", 0),
+                quality.get("primary_sources", 0),
+                quality.get("total_sources", 0),
+                quality.get("unique_domains", 0),
+                quality.get("citation_loops", 0),
+                quality.get("total_citations", 0),
+                quality.get("contradictions", 0),
+                quality.get("total_claims", 0),
+                quality.get("claims_with_timeline", 0),
+                quality.get("aggregator_sources", 0),
+                timing.get("llm_time_ms", 0),
+                timing.get("total_time_ms", 0),
+                json.dumps(computed) if computed else None,
+            ),
+        )
+        
+        logger.info("Task metrics saved", task_id=task_id)
+    
+    async def save_policy_update(
+        self,
+        target_type: str,
+        target_id: str,
+        parameter: str,
+        old_value: float,
+        new_value: float,
+        reason: str,
+        metrics_snapshot: dict[str, Any] | None = None,
+    ) -> None:
+        """Save a policy update record.
+        
+        Args:
+            target_type: "engine" or "domain".
+            target_id: Engine or domain name.
+            parameter: Parameter that was changed.
+            old_value: Previous value.
+            new_value: New value.
+            reason: Reason for the change.
+            metrics_snapshot: Optional metrics at time of change.
+        """
+        await self.execute(
+            """
+            INSERT INTO policy_updates 
+            (target_type, target_id, parameter, old_value, new_value, reason, metrics_snapshot_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                target_type,
+                target_id,
+                parameter,
+                old_value,
+                new_value,
+                reason,
+                json.dumps(metrics_snapshot) if metrics_snapshot else None,
+            ),
+        )
+    
+    async def save_decision(
+        self,
+        decision_id: str,
+        task_id: str,
+        decision_type: str,
+        input_data: dict[str, Any],
+        output_data: dict[str, Any],
+        context: dict[str, Any] | None = None,
+        cause_id: str | None = None,
+        duration_ms: int = 0,
+    ) -> None:
+        """Save a decision for replay.
+        
+        Args:
+            decision_id: Unique decision identifier.
+            task_id: Task identifier.
+            decision_type: Type of decision.
+            input_data: Decision input.
+            output_data: Decision output.
+            context: Optional context data.
+            cause_id: Parent cause ID.
+            duration_ms: Decision duration.
+        """
+        await self.execute(
+            """
+            INSERT INTO decisions 
+            (id, task_id, decision_type, cause_id, input_json, output_json, context_json, duration_ms)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                decision_id,
+                task_id,
+                decision_type,
+                cause_id,
+                json.dumps(input_data),
+                json.dumps(output_data),
+                json.dumps(context) if context else None,
+                duration_ms,
+            ),
+        )
+    
+    async def get_latest_metrics_snapshot(self) -> dict[str, Any] | None:
+        """Get the most recent metrics snapshot.
+        
+        Returns:
+            Latest snapshot or None.
+        """
+        return await self.fetch_one(
+            "SELECT * FROM metrics_snapshot ORDER BY timestamp DESC LIMIT 1"
+        )
+    
+    async def get_task_metrics(self, task_id: str) -> dict[str, Any] | None:
+        """Get metrics for a specific task.
+        
+        Args:
+            task_id: Task identifier.
+            
+        Returns:
+            Task metrics or None.
+        """
+        return await self.fetch_one(
+            "SELECT * FROM task_metrics WHERE task_id = ?",
+            (task_id,),
+        )
+    
+    async def get_policy_update_history(
+        self,
+        limit: int = 100,
+        target_type: str | None = None,
+        target_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get policy update history.
+        
+        Args:
+            limit: Maximum records to return.
+            target_type: Filter by target type.
+            target_id: Filter by target ID.
+            
+        Returns:
+            List of policy update records.
+        """
+        query = "SELECT * FROM policy_updates WHERE 1=1"
+        params: list[Any] = []
+        
+        if target_type:
+            query += " AND target_type = ?"
+            params.append(target_type)
+        
+        if target_id:
+            query += " AND target_id = ?"
+            params.append(target_id)
+        
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params.append(limit)
+        
+        return await self.fetch_all(query, tuple(params))
+    
+    async def get_decisions_for_task(self, task_id: str) -> list[dict[str, Any]]:
+        """Get all decisions for a task.
+        
+        Args:
+            task_id: Task identifier.
+            
+        Returns:
+            List of decision records.
+        """
+        return await self.fetch_all(
+            "SELECT * FROM decisions WHERE task_id = ? ORDER BY timestamp ASC",
+            (task_id,),
+        )
+    
     @staticmethod
     def _normalize_url(url: str) -> str:
         """Normalize URL for cache key.

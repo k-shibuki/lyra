@@ -432,3 +432,176 @@ LEFT JOIN fragments f ON p.id = f.page_id
 LEFT JOIN claims c ON t.id = c.task_id
 GROUP BY t.id;
 
+-- ============================================================
+-- Metrics & Policy (Phase 10: Auto-adaptation)
+-- ============================================================
+
+-- Global metrics snapshots (periodic system-wide metrics)
+CREATE TABLE IF NOT EXISTS metrics_snapshot (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Search quality metrics
+    harvest_rate REAL,
+    novelty_score REAL,
+    duplicate_rate REAL,
+    domain_diversity REAL,
+    -- Exposure/avoidance metrics
+    tor_usage_rate REAL,
+    headful_rate REAL,
+    referer_match_rate REAL,
+    cache_304_rate REAL,
+    captcha_rate REAL,
+    http_error_403_rate REAL,
+    http_error_429_rate REAL,
+    -- OSINT quality metrics
+    primary_source_rate REAL,
+    citation_loop_rate REAL,
+    narrative_diversity REAL,
+    contradiction_rate REAL,
+    timeline_coverage REAL,
+    aggregator_rate REAL,
+    -- System performance
+    llm_time_ratio REAL,
+    gpu_utilization REAL,
+    browser_utilization REAL,
+    -- Full snapshot as JSON
+    full_snapshot_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_metrics_snapshot_timestamp ON metrics_snapshot(timestamp);
+
+-- Task metrics (per-task aggregated metrics)
+CREATE TABLE IF NOT EXISTS task_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Counters
+    total_queries INTEGER DEFAULT 0,
+    total_pages_fetched INTEGER DEFAULT 0,
+    total_fragments INTEGER DEFAULT 0,
+    useful_fragments INTEGER DEFAULT 0,
+    total_requests INTEGER DEFAULT 0,
+    tor_requests INTEGER DEFAULT 0,
+    headful_requests INTEGER DEFAULT 0,
+    cache_304_hits INTEGER DEFAULT 0,
+    revisit_count INTEGER DEFAULT 0,
+    referer_matched INTEGER DEFAULT 0,
+    -- Error counters
+    captcha_count INTEGER DEFAULT 0,
+    error_403_count INTEGER DEFAULT 0,
+    error_429_count INTEGER DEFAULT 0,
+    -- Source quality
+    primary_sources INTEGER DEFAULT 0,
+    total_sources INTEGER DEFAULT 0,
+    unique_domains INTEGER DEFAULT 0,
+    -- OSINT quality
+    citation_loops_detected INTEGER DEFAULT 0,
+    total_citations INTEGER DEFAULT 0,
+    contradictions_found INTEGER DEFAULT 0,
+    total_claims INTEGER DEFAULT 0,
+    claims_with_timeline INTEGER DEFAULT 0,
+    aggregator_sources INTEGER DEFAULT 0,
+    -- Time tracking
+    llm_time_ms INTEGER DEFAULT 0,
+    total_time_ms INTEGER DEFAULT 0,
+    -- Computed metrics JSON
+    computed_metrics_json TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_task_metrics_task ON task_metrics(task_id);
+
+-- Policy update history
+CREATE TABLE IF NOT EXISTS policy_updates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    target_type TEXT NOT NULL,  -- engine, domain
+    target_id TEXT NOT NULL,
+    parameter TEXT NOT NULL,
+    old_value REAL,
+    new_value REAL,
+    reason TEXT,
+    metrics_snapshot_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_policy_updates_timestamp ON policy_updates(timestamp);
+CREATE INDEX IF NOT EXISTS idx_policy_updates_target ON policy_updates(target_type, target_id);
+
+-- Decision log for replay (lightweight reference to event_log)
+CREATE TABLE IF NOT EXISTS decisions (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    decision_type TEXT NOT NULL,
+    cause_id TEXT,
+    input_json TEXT NOT NULL,
+    output_json TEXT NOT NULL,
+    context_json TEXT,
+    duration_ms INTEGER DEFAULT 0,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_decisions_task ON decisions(task_id);
+CREATE INDEX IF NOT EXISTS idx_decisions_type ON decisions(decision_type);
+CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON decisions(timestamp);
+
+-- Replay sessions
+CREATE TABLE IF NOT EXISTS replay_sessions (
+    id TEXT PRIMARY KEY,
+    original_task_id TEXT NOT NULL,
+    replay_task_id TEXT,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+    status TEXT DEFAULT 'pending',
+    decisions_replayed INTEGER DEFAULT 0,
+    decisions_diverged INTEGER DEFAULT 0,
+    divergence_points_json TEXT,
+    metrics_comparison_json TEXT,
+    FOREIGN KEY (original_task_id) REFERENCES tasks(id),
+    FOREIGN KEY (replay_task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_replay_sessions_original ON replay_sessions(original_task_id);
+
+-- ============================================================
+-- Metrics Views
+-- ============================================================
+
+-- Latest global metrics
+CREATE VIEW IF NOT EXISTS v_latest_metrics AS
+SELECT *
+FROM metrics_snapshot
+ORDER BY timestamp DESC
+LIMIT 1;
+
+-- Recent policy updates
+CREATE VIEW IF NOT EXISTS v_recent_policy_updates AS
+SELECT 
+    timestamp,
+    target_type,
+    target_id,
+    parameter,
+    old_value,
+    new_value,
+    reason
+FROM policy_updates
+ORDER BY timestamp DESC
+LIMIT 100;
+
+-- Task metrics summary
+CREATE VIEW IF NOT EXISTS v_task_metrics_summary AS
+SELECT 
+    t.id as task_id,
+    t.query,
+    t.status,
+    tm.total_queries,
+    tm.total_pages_fetched,
+    tm.useful_fragments,
+    tm.total_claims,
+    CASE WHEN tm.total_pages_fetched > 0 
+         THEN CAST(tm.useful_fragments AS REAL) / tm.total_pages_fetched 
+         ELSE 0 END as harvest_rate,
+    CASE WHEN tm.total_sources > 0 
+         THEN CAST(tm.primary_sources AS REAL) / tm.total_sources 
+         ELSE 0 END as primary_source_rate,
+    CASE WHEN tm.total_time_ms > 0 
+         THEN CAST(tm.llm_time_ms AS REAL) / tm.total_time_ms 
+         ELSE 0 END as llm_time_ratio
+FROM tasks t
+LEFT JOIN task_metrics tm ON t.id = tm.task_id;
+
