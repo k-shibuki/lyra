@@ -233,8 +233,8 @@ class TestReplayEngine:
         """Test creating a replay session."""
         engine = ReplayEngine()
         
-        # Mock database
-        with patch("src.utils.replay.get_database") as mock_db:
+        # Mock database (patching at source since lazy import)
+        with patch("src.storage.database.get_database") as mock_db:
             mock_db.return_value = AsyncMock()
             mock_db.return_value.fetch_all = AsyncMock(return_value=[])
             
