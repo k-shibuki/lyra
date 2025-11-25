@@ -64,6 +64,15 @@ class TorConfig(BaseModel):
     default_route: str = "direct"
 
 
+class UndetectedChromeDriverConfig(BaseModel):
+    """Undetected ChromeDriver configuration (§4.3 fallback)."""
+    enabled: bool = True
+    auto_escalate_captcha_rate: float = 0.5
+    auto_escalate_block_score: int = 5
+    cloudflare_timeout: int = 45
+    prefer_headless: bool = False
+
+
 class BrowserConfig(BaseModel):
     """Browser configuration."""
     chrome_host: str = "localhost"
@@ -76,6 +85,9 @@ class BrowserConfig(BaseModel):
     block_large_media: bool = True
     viewport_width: int = 1920
     viewport_height: int = 1080
+    undetected_chromedriver: UndetectedChromeDriverConfig = Field(
+        default_factory=UndetectedChromeDriverConfig
+    )
 
 
 class LLMConfig(BaseModel):

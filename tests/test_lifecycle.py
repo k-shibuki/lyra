@@ -398,11 +398,20 @@ class TestOllamaSessionCleanup:
             )
             
             # Mock the aiohttp session for model unload
-            with patch('aiohttp.ClientSession') as mock_client:
-                mock_response = AsyncMock()
-                mock_response.status = 200
-                mock_client.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
-                
+            # Create proper async context manager mock
+            mock_response = MagicMock()
+            mock_response.status = 200
+            
+            mock_post_cm = AsyncMock()
+            mock_post_cm.__aenter__.return_value = mock_response
+            
+            mock_client_instance = MagicMock()
+            mock_client_instance.post.return_value = mock_post_cm
+            
+            mock_client_cm = AsyncMock()
+            mock_client_cm.__aenter__.return_value = mock_client_instance
+            
+            with patch('aiohttp.ClientSession', return_value=mock_client_cm):
                 success = await manager.cleanup_resource("ollama_1")
                 
                 assert success is True
