@@ -1,0 +1,198 @@
+# Lancet - Local Autonomous Deep Research Agent
+# Main Configuration File
+
+# === General Settings ===
+general:
+  project_name: "lancet"
+  version: "0.1.0"
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  data_dir: "data"
+  logs_dir: "logs"
+  
+# === Task Limits ===
+task_limits:
+  max_pages_per_task: 120
+  max_time_minutes_gpu: 20
+  max_time_minutes_cpu: 25
+  llm_time_ratio_max: 0.30  # LLM処理≤30%
+  max_manual_interventions: 3
+  max_manual_intervention_time_minutes: 5
+
+# === Search Settings ===
+search:
+  initial_query_count_gpu: 12  # 10-16
+  initial_query_count_cpu: 10  # 8-12
+  results_per_query: 7  # 5-10
+  exploration_depth: 3  # 標準3、高価値枝は最大4
+  max_exploration_depth: 4
+  # 充足度判定
+  min_independent_sources: 3
+  min_primary_secondary_sources: 2  # 一次1件+二次1件
+  # 新規性判定
+  novelty_threshold: 0.10  # 10%未満で2サイクル継続→停止
+  novelty_cycles_to_stop: 2
+
+# === Crawler Settings ===
+crawler:
+  # Rate limiting
+  engine_qps: 0.25  # 1 req/4s
+  domain_qps: 0.2   # 1 req/5s
+  domain_concurrent: 1
+  network_concurrent: 4  # 3-5
+  
+  # Timeouts (seconds)
+  request_timeout: 30
+  page_load_timeout: 45
+  
+  # Retry settings
+  max_retries: 3
+  backoff_base: 2.0
+  backoff_max: 120
+  
+  # Cooldown
+  domain_cooldown_minutes: 60
+  
+  # User agent delay (random)
+  delay_min: 1.5
+  delay_max: 5.5
+  
+  # BFS depth for same domain
+  same_domain_depth: 2
+
+# === Tor Settings ===
+tor:
+  enabled: true
+  socks_host: "127.0.0.1"
+  socks_port: 9050
+  control_port: 9051
+  circuit_sticky_minutes: 15
+  max_usage_ratio: 0.20  # Tor利用≤20%
+  # Only use Tor when blocked
+  default_route: "direct"  # direct, tor
+
+# === Browser Settings ===
+browser:
+  # Chrome remote debugging
+  chrome_host: "localhost"
+  chrome_port: 9222
+  
+  # Profile
+  profile_name: "Profile-Research"
+  
+  # Headless/Headful
+  default_headless: true
+  headful_ratio_initial: 0.1
+  
+  # Resource blocking
+  block_ads: true
+  block_trackers: true
+  block_large_media: true
+  
+  # Viewport
+  viewport_width: 1920
+  viewport_height: 1080
+
+# === LLM Settings (Ollama) ===
+llm:
+  ollama_host: "http://localhost:11434"
+  
+  # Fast model (default)
+  fast_model: "qwen2.5:3b"
+  fast_model_context: 4096
+  
+  # Slow model (for complex tasks)
+  slow_model: "qwen2.5:7b"
+  slow_model_context: 8192
+  
+  # Promotion threshold
+  promote_to_slow_threshold: 0.7
+  
+  # Temperature
+  temperature: 0.3
+  
+  # GPU settings
+  gpu_layers: -1  # All layers on GPU
+
+# === Embedding Settings ===
+embedding:
+  model_name: "BAAI/bge-m3"
+  onnx_path: "models/bge-m3"
+  use_gpu: true
+  batch_size: 8  # Micro-batch for VRAM
+  max_length: 512
+
+# === Reranker Settings ===
+reranker:
+  model_name: "BAAI/bge-reranker-v2-m3"
+  onnx_path: "models/bge-reranker-v2-m3"
+  use_gpu: true
+  top_k: 100  # 100-150
+  max_top_k: 150
+
+# === NLI Settings ===
+nli:
+  # Fast model (CPU)
+  fast_model: "cross-encoder/nli-deberta-v3-xsmall"
+  # Slow model (GPU)
+  slow_model: "cross-encoder/nli-deberta-v3-small"
+  use_gpu_for_slow: true
+
+# === Storage Settings ===
+storage:
+  database_path: "data/lancet.db"
+  warc_dir: "data/warc"
+  screenshots_dir: "data/screenshots"
+  reports_dir: "data/reports"
+  cache_dir: "data/cache"
+  
+  # Cache TTL (hours)
+  serp_cache_ttl: 24
+  fetch_cache_ttl: 168  # 7 days
+  embed_cache_ttl: 168  # 7 days
+
+# === Notification Settings ===
+notification:
+  # Windows toast notification via PowerShell
+  windows_toast_enabled: true
+  # Linux notify-send
+  linux_notify_enabled: true
+  # Manual intervention timeout (seconds)
+  intervention_timeout: 180  # 3 minutes
+
+# === Quality Thresholds ===
+quality:
+  min_confidence_score: 0.70
+  min_independent_sources: 3
+  min_primary_sources: 1
+  min_secondary_sources: 1
+  
+  # Source hierarchy weights
+  source_weights:
+    primary: 1.0      # 一次資料
+    government: 0.95  # 公的機関
+    academic: 0.90    # 学術
+    trusted_media: 0.75
+    blog: 0.50
+    unknown: 0.30
+
+# === Circuit Breaker Settings ===
+circuit_breaker:
+  # Consecutive failures to open
+  failure_threshold: 2
+  # Cooldown time (minutes)
+  cooldown_min: 30
+  cooldown_max: 120
+  # Half-open probe interval
+  probe_interval: 60
+
+# === Metrics & Adaptation ===
+metrics:
+  # EMA update interval (seconds)
+  ema_update_interval: 60
+  # Short-term EMA (1 hour equivalent)
+  ema_short_alpha: 0.1
+  # Long-term EMA (24 hour equivalent)
+  ema_long_alpha: 0.01
+  # Hysteresis to prevent oscillation
+  hysteresis_min_interval: 300  # 5 minutes
+

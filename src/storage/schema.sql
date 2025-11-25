@@ -1,0 +1,434 @@
+-- Lancet Database Schema
+-- SQLite with FTS5 for full-text search
+
+-- ============================================================
+-- Core Tables
+-- ============================================================
+
+-- Tasks: Research task definitions
+CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    query TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending, running, completed, failed, cancelled
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    started_at DATETIME,
+    completed_at DATETIME,
+    config_json TEXT,  -- Task-specific configuration override
+    result_summary TEXT,
+    error_message TEXT
+);
+
+-- Queries: Search queries executed
+CREATE TABLE IF NOT EXISTS queries (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    query_text TEXT NOT NULL,
+    query_type TEXT NOT NULL,  -- initial, expansion, mirror, reverse
+    language TEXT DEFAULT 'ja',
+    parent_query_id TEXT,  -- For sub-queries
+    depth INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    executed_at DATETIME,
+    engines_used TEXT,  -- JSON array
+    result_count INTEGER DEFAULT 0,
+    harvest_rate REAL DEFAULT 0,  -- useful_fragments / result_count
+    cause_id TEXT,  -- Causal trace
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (parent_query_id) REFERENCES queries(id)
+);
+CREATE INDEX IF NOT EXISTS idx_queries_task ON queries(task_id);
+CREATE INDEX IF NOT EXISTS idx_queries_parent ON queries(parent_query_id);
+
+-- SERP Items: Search result items
+CREATE TABLE IF NOT EXISTS serp_items (
+    id TEXT PRIMARY KEY,
+    query_id TEXT NOT NULL,
+    engine TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    title TEXT,
+    snippet TEXT,
+    published_date TEXT,
+    source_tag TEXT,  -- academic, government, news, blog, etc.
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    clicked BOOLEAN DEFAULT 0,
+    fetch_status TEXT,  -- pending, success, failed, skipped
+    cause_id TEXT,
+    FOREIGN KEY (query_id) REFERENCES queries(id)
+);
+CREATE INDEX IF NOT EXISTS idx_serp_query ON serp_items(query_id);
+CREATE INDEX IF NOT EXISTS idx_serp_url ON serp_items(url);
+
+-- Pages: Fetched pages
+CREATE TABLE IF NOT EXISTS pages (
+    id TEXT PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    final_url TEXT,  -- After redirects
+    domain TEXT NOT NULL,
+    page_type TEXT,  -- article, knowledge, forum, list, login_wall, etc.
+    fetch_method TEXT,  -- http_client, browser_headless, browser_headful
+    http_status INTEGER,
+    content_type TEXT,
+    content_hash TEXT,  -- SHA256 of content
+    content_length INTEGER,
+    title TEXT,
+    language TEXT,
+    fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    warc_path TEXT,
+    screenshot_path TEXT,
+    html_path TEXT,
+    extracted_text_path TEXT,
+    etag TEXT,
+    last_modified TEXT,
+    headers_json TEXT,
+    error_message TEXT,
+    cause_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pages_domain ON pages(domain);
+CREATE INDEX IF NOT EXISTS idx_pages_url ON pages(url);
+
+-- Fragments: Extracted text fragments
+CREATE TABLE IF NOT EXISTS fragments (
+    id TEXT PRIMARY KEY,
+    page_id TEXT NOT NULL,
+    fragment_type TEXT NOT NULL,  -- paragraph, heading, list, table, quote
+    position INTEGER,  -- Order in page
+    text_content TEXT NOT NULL,
+    heading_context TEXT,  -- Parent heading
+    char_offset_start INTEGER,
+    char_offset_end INTEGER,
+    text_hash TEXT,  -- For deduplication
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Scores
+    bm25_score REAL,
+    embed_score REAL,
+    rerank_score REAL,
+    -- Relevance
+    is_relevant BOOLEAN,
+    relevance_reason TEXT,
+    cause_id TEXT,
+    FOREIGN KEY (page_id) REFERENCES pages(id)
+);
+CREATE INDEX IF NOT EXISTS idx_fragments_page ON fragments(page_id);
+CREATE INDEX IF NOT EXISTS idx_fragments_hash ON fragments(text_hash);
+
+-- Claims: Atomic claims extracted from fragments
+CREATE TABLE IF NOT EXISTS claims (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    claim_text TEXT NOT NULL,
+    claim_type TEXT,  -- fact, opinion, prediction, etc.
+    granularity TEXT,  -- atomic, composite
+    expected_polarity TEXT,  -- positive, negative, neutral
+    confidence_score REAL,
+    calibrated_score REAL,
+    source_fragment_ids TEXT,  -- JSON array
+    supporting_count INTEGER DEFAULT 0,
+    refuting_count INTEGER DEFAULT 0,
+    neutral_count INTEGER DEFAULT 0,
+    is_verified BOOLEAN DEFAULT 0,
+    verification_notes TEXT,
+    timeline_json TEXT,  -- First seen, updated, etc.
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    cause_id TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_claims_task ON claims(task_id);
+
+-- Edges: Evidence graph edges
+CREATE TABLE IF NOT EXISTS edges (
+    id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,  -- claim, fragment, page
+    source_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    relation TEXT NOT NULL,  -- supports, refutes, cites, neutral
+    confidence REAL,
+    nli_label TEXT,  -- From NLI model
+    nli_confidence REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    cause_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation);
+
+-- ============================================================
+-- Domain & Engine Management
+-- ============================================================
+
+-- Domains: Per-domain policy and learning state
+CREATE TABLE IF NOT EXISTS domains (
+    domain TEXT PRIMARY KEY,
+    trust_level TEXT DEFAULT 'unknown',
+    qps_limit REAL DEFAULT 0.2,
+    concurrent_limit INTEGER DEFAULT 1,
+    headful_ratio REAL DEFAULT 0.1,
+    tor_allowed BOOLEAN DEFAULT 1,
+    tor_success_rate REAL DEFAULT 0.5,
+    cooldown_minutes INTEGER DEFAULT 60,
+    -- Metrics (EMA)
+    success_rate_1h REAL DEFAULT 1.0,
+    success_rate_24h REAL DEFAULT 1.0,
+    captcha_rate REAL DEFAULT 0.0,
+    http_error_rate REAL DEFAULT 0.0,
+    block_score REAL DEFAULT 0.0,
+    -- State
+    last_success_at DATETIME,
+    last_failure_at DATETIME,
+    last_captcha_at DATETIME,
+    cooldown_until DATETIME,
+    skip_until DATETIME,
+    skip_reason TEXT,
+    -- Counters
+    total_requests INTEGER DEFAULT 0,
+    total_success INTEGER DEFAULT 0,
+    total_failures INTEGER DEFAULT 0,
+    total_captchas INTEGER DEFAULT 0,
+    -- Timestamps
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Engine Health: Per-engine health metrics
+CREATE TABLE IF NOT EXISTS engine_health (
+    engine TEXT PRIMARY KEY,
+    status TEXT DEFAULT 'closed',  -- closed, half-open, open
+    weight REAL DEFAULT 1.0,
+    qps_limit REAL DEFAULT 0.25,
+    -- Metrics (EMA)
+    success_rate_1h REAL DEFAULT 1.0,
+    success_rate_24h REAL DEFAULT 1.0,
+    captcha_rate REAL DEFAULT 0.0,
+    median_latency_ms REAL DEFAULT 1000,
+    http_error_rate REAL DEFAULT 0.0,
+    normalization_failure_rate REAL DEFAULT 0.0,
+    -- Circuit breaker
+    consecutive_failures INTEGER DEFAULT 0,
+    last_failure_at DATETIME,
+    cooldown_until DATETIME,
+    -- Counters
+    total_queries INTEGER DEFAULT 0,
+    total_success INTEGER DEFAULT 0,
+    total_failures INTEGER DEFAULT 0,
+    daily_usage INTEGER DEFAULT 0,
+    daily_limit INTEGER,
+    -- Timestamps
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================
+-- Job Scheduler
+-- ============================================================
+
+-- Jobs: Scheduled jobs
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    task_id TEXT,
+    kind TEXT NOT NULL,  -- serp, fetch, extract, embed, rerank, llm_fast, llm_slow, nli
+    priority INTEGER DEFAULT 50,  -- Lower = higher priority
+    slot TEXT NOT NULL,  -- gpu, browser_headful, network_client, cpu_nlp
+    state TEXT DEFAULT 'pending',  -- pending, queued, running, completed, failed, cancelled
+    budget_pages INTEGER,
+    budget_time_ms INTEGER,
+    input_json TEXT,
+    output_json TEXT,
+    error_message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    queued_at DATETIME,
+    started_at DATETIME,
+    finished_at DATETIME,
+    cause_id TEXT,  -- Parent job/query ID for causal trace
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_task ON jobs(task_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state);
+CREATE INDEX IF NOT EXISTS idx_jobs_slot ON jobs(slot);
+CREATE INDEX IF NOT EXISTS idx_jobs_priority ON jobs(priority);
+
+-- ============================================================
+-- Caching
+-- ============================================================
+
+-- SERP Cache
+CREATE TABLE IF NOT EXISTS cache_serp (
+    cache_key TEXT PRIMARY KEY,  -- Hash of normalized query + engines + time_range
+    query_normalized TEXT NOT NULL,
+    engines_json TEXT NOT NULL,
+    time_range TEXT,
+    result_json TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    hit_count INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_cache_serp_expires ON cache_serp(expires_at);
+
+-- Fetch Cache (304 support)
+CREATE TABLE IF NOT EXISTS cache_fetch (
+    url_normalized TEXT PRIMARY KEY,
+    etag TEXT,
+    last_modified TEXT,
+    content_hash TEXT,
+    content_path TEXT,  -- Path to cached content
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_validated_at DATETIME,
+    expires_at DATETIME
+);
+CREATE INDEX IF NOT EXISTS idx_cache_fetch_expires ON cache_fetch(expires_at);
+
+-- Embedding Cache
+CREATE TABLE IF NOT EXISTS cache_embed (
+    text_hash TEXT PRIMARY KEY,  -- SHA256 of text
+    model_id TEXT NOT NULL,
+    embedding_blob BLOB NOT NULL,  -- Binary embedding
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME,
+    hit_count INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_cache_embed_expires ON cache_embed(expires_at);
+
+-- ============================================================
+-- Logging & Audit
+-- ============================================================
+
+-- Event Log: Structured events for replay/audit
+CREATE TABLE IF NOT EXISTS event_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    event_type TEXT NOT NULL,  -- query, fetch, extract, evaluate, decision, error
+    level TEXT DEFAULT 'INFO',  -- DEBUG, INFO, WARNING, ERROR
+    task_id TEXT,
+    job_id TEXT,
+    cause_id TEXT,
+    component TEXT,  -- search, crawler, extractor, filter, etc.
+    message TEXT,
+    details_json TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (job_id) REFERENCES jobs(id)
+);
+CREATE INDEX IF NOT EXISTS idx_event_log_task ON event_log(task_id);
+CREATE INDEX IF NOT EXISTS idx_event_log_type ON event_log(event_type);
+CREATE INDEX IF NOT EXISTS idx_event_log_timestamp ON event_log(timestamp);
+
+-- Manual Intervention Log
+CREATE TABLE IF NOT EXISTS intervention_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id TEXT,
+    domain TEXT,
+    intervention_type TEXT NOT NULL,  -- captcha, login, cookie_banner, cloudflare
+    notification_sent_at DATETIME,
+    user_action_at DATETIME,
+    completed_at DATETIME,
+    result TEXT,  -- success, timeout, skipped, failed
+    duration_seconds INTEGER,
+    notes TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_intervention_task ON intervention_log(task_id);
+
+-- ============================================================
+-- Full-Text Search (FTS5)
+-- ============================================================
+
+-- FTS for fragments
+CREATE VIRTUAL TABLE IF NOT EXISTS fragments_fts USING fts5(
+    text_content,
+    heading_context,
+    content='fragments',
+    content_rowid='rowid'
+);
+
+-- Triggers to keep FTS in sync
+CREATE TRIGGER IF NOT EXISTS fragments_ai AFTER INSERT ON fragments BEGIN
+    INSERT INTO fragments_fts(rowid, text_content, heading_context)
+    VALUES (NEW.rowid, NEW.text_content, NEW.heading_context);
+END;
+
+CREATE TRIGGER IF NOT EXISTS fragments_ad AFTER DELETE ON fragments BEGIN
+    INSERT INTO fragments_fts(fragments_fts, rowid, text_content, heading_context)
+    VALUES ('delete', OLD.rowid, OLD.text_content, OLD.heading_context);
+END;
+
+CREATE TRIGGER IF NOT EXISTS fragments_au AFTER UPDATE ON fragments BEGIN
+    INSERT INTO fragments_fts(fragments_fts, rowid, text_content, heading_context)
+    VALUES ('delete', OLD.rowid, OLD.text_content, OLD.heading_context);
+    INSERT INTO fragments_fts(rowid, text_content, heading_context)
+    VALUES (NEW.rowid, NEW.text_content, NEW.heading_context);
+END;
+
+-- FTS for claims
+CREATE VIRTUAL TABLE IF NOT EXISTS claims_fts USING fts5(
+    claim_text,
+    content='claims',
+    content_rowid='rowid'
+);
+
+CREATE TRIGGER IF NOT EXISTS claims_ai AFTER INSERT ON claims BEGIN
+    INSERT INTO claims_fts(rowid, claim_text) VALUES (NEW.rowid, NEW.claim_text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS claims_ad AFTER DELETE ON claims BEGIN
+    INSERT INTO claims_fts(claims_fts, rowid, claim_text)
+    VALUES ('delete', OLD.rowid, OLD.claim_text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS claims_au AFTER UPDATE ON claims BEGIN
+    INSERT INTO claims_fts(claims_fts, rowid, claim_text)
+    VALUES ('delete', OLD.rowid, OLD.claim_text);
+    INSERT INTO claims_fts(rowid, claim_text) VALUES (NEW.rowid, NEW.claim_text);
+END;
+
+-- ============================================================
+-- Views
+-- ============================================================
+
+-- Active engines view
+CREATE VIEW IF NOT EXISTS v_active_engines AS
+SELECT 
+    engine,
+    status,
+    weight,
+    qps_limit,
+    success_rate_1h,
+    captcha_rate,
+    median_latency_ms,
+    daily_usage,
+    daily_limit
+FROM engine_health
+WHERE status != 'open'
+  AND (cooldown_until IS NULL OR cooldown_until < CURRENT_TIMESTAMP)
+  AND (daily_limit IS NULL OR daily_usage < daily_limit);
+
+-- Domain cooldown view
+CREATE VIEW IF NOT EXISTS v_domain_cooldowns AS
+SELECT 
+    domain,
+    cooldown_until,
+    skip_until,
+    skip_reason,
+    block_score,
+    captcha_rate
+FROM domains
+WHERE cooldown_until > CURRENT_TIMESTAMP
+   OR skip_until > CURRENT_TIMESTAMP;
+
+-- Task progress view
+CREATE VIEW IF NOT EXISTS v_task_progress AS
+SELECT 
+    t.id as task_id,
+    t.query,
+    t.status,
+    t.created_at,
+    COUNT(DISTINCT q.id) as query_count,
+    COUNT(DISTINCT p.id) as page_count,
+    COUNT(DISTINCT f.id) as fragment_count,
+    COUNT(DISTINCT c.id) as claim_count
+FROM tasks t
+LEFT JOIN queries q ON t.id = q.task_id
+LEFT JOIN serp_items s ON q.id = s.query_id
+LEFT JOIN pages p ON s.url = p.url
+LEFT JOIN fragments f ON p.id = f.page_id
+LEFT JOIN claims c ON t.id = c.task_id
+GROUP BY t.id;
+

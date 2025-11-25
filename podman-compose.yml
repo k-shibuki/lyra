@@ -1,0 +1,103 @@
+# Lancet Development Stack
+# Usage: podman-compose up -d
+
+version: "3.8"
+
+services:
+  # ============================================================
+  # Lancet Development Container
+  # ============================================================
+  lancet:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: lancet
+    volumes:
+      # Mount source code for development (rw for editing)
+      - ./src:/app/src:rw
+      - ./config:/app/config:ro
+      - ./tests:/app/tests:rw
+      # Persist data
+      - ./data:/app/data:rw
+      - ./logs:/app/logs:rw
+      - ./models:/app/models:rw
+    environment:
+      - LANCET_ENV=development
+      - LANCET_LOG_LEVEL=INFO
+      - SEARXNG_HOST=http://searxng:8080
+      - OLLAMA_HOST=http://host.containers.internal:11434
+      - TOR_SOCKS_HOST=tor
+      - TOR_SOCKS_PORT=9050
+      - TOR_CONTROL_PORT=9051
+      # For Chrome connection (Windows host)
+      - CHROME_DEBUG_HOST=host.containers.internal
+      - CHROME_DEBUG_PORT=9222
+    # Keep container running for exec access
+    command: ["tail", "-f", "/dev/null"]
+    stdin_open: true
+    tty: true
+    depends_on:
+      - searxng
+      - tor
+    networks:
+      - lancet-net
+    restart: unless-stopped
+
+  # ============================================================
+  # SearXNG - Meta Search Engine
+  # ============================================================
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: lancet-searxng
+    volumes:
+      - ./config/searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080
+    ports:
+      - "8080:8080"
+    networks:
+      - lancet-net
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+
+  # ============================================================
+  # Tor - Anonymous Network
+  # ============================================================
+  tor:
+    image: docker.io/dperson/torproxy:latest
+    container_name: lancet-tor
+    environment:
+      - TOR_NewCircuitPeriod=30
+      - TOR_MaxCircuitDirtiness=600
+    ports:
+      - "9050:9050"  # SOCKS proxy
+      - "9051:9051"  # Control port
+    networks:
+      - lancet-net
+    restart: unless-stopped
+
+  # ============================================================
+  # Redis - Cache (Optional)
+  # ============================================================
+  # redis:
+  #   image: docker.io/redis:7-alpine
+  #   container_name: lancet-redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - lancet-net
+  #   restart: unless-stopped
+
+networks:
+  lancet-net:
+    driver: bridge
+
+# For GPU support with Podman, use:
+# podman-compose --file podman-compose.yml up -d
+# And ensure nvidia-container-toolkit is installed
+

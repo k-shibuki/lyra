@@ -1,0 +1,472 @@
+"""
+Job scheduler for Lancet.
+Manages job queues, slots, and resource allocation.
+"""
+
+import asyncio
+import uuid
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
+from src.utils.config import get_settings
+from src.utils.logging import get_logger, CausalTrace
+from src.storage.database import get_database
+
+logger = get_logger(__name__)
+
+
+class JobKind(str, Enum):
+    """Job types with priority order."""
+    SERP = "serp"
+    FETCH = "fetch"
+    EXTRACT = "extract"
+    EMBED = "embed"
+    RERANK = "rerank"
+    LLM_FAST = "llm_fast"
+    LLM_SLOW = "llm_slow"
+    NLI = "nli"
+
+
+class Slot(str, Enum):
+    """Resource slots."""
+    GPU = "gpu"
+    BROWSER_HEADFUL = "browser_headful"
+    NETWORK_CLIENT = "network_client"
+    CPU_NLP = "cpu_nlp"
+
+
+class JobState(str, Enum):
+    """Job states."""
+    PENDING = "pending"
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+# Job kind to slot mapping
+KIND_TO_SLOT = {
+    JobKind.SERP: Slot.NETWORK_CLIENT,
+    JobKind.FETCH: Slot.NETWORK_CLIENT,
+    JobKind.EXTRACT: Slot.CPU_NLP,
+    JobKind.EMBED: Slot.GPU,
+    JobKind.RERANK: Slot.GPU,
+    JobKind.LLM_FAST: Slot.GPU,
+    JobKind.LLM_SLOW: Slot.GPU,
+    JobKind.NLI: Slot.CPU_NLP,
+}
+
+# Priority order (lower = higher priority)
+KIND_PRIORITY = {
+    JobKind.SERP: 10,
+    JobKind.FETCH: 20,
+    JobKind.EXTRACT: 30,
+    JobKind.EMBED: 40,
+    JobKind.RERANK: 50,
+    JobKind.LLM_FAST: 60,
+    JobKind.LLM_SLOW: 70,
+    JobKind.NLI: 35,
+}
+
+# Slot concurrency limits
+SLOT_LIMITS = {
+    Slot.GPU: 1,
+    Slot.BROWSER_HEADFUL: 1,
+    Slot.NETWORK_CLIENT: 4,
+    Slot.CPU_NLP: 8,
+}
+
+# Exclusive slots (cannot run together)
+EXCLUSIVE_SLOTS = [
+    {Slot.GPU, Slot.BROWSER_HEADFUL},
+]
+
+
+class JobScheduler:
+    """Job scheduler with slot-based resource management."""
+    
+    def __init__(self):
+        self._settings = get_settings()
+        self._queues: dict[Slot, asyncio.PriorityQueue] = {}
+        self._running: dict[Slot, set[str]] = {}
+        self._workers: dict[Slot, list[asyncio.Task]] = {}
+        self._lock = asyncio.Lock()
+        self._started = False
+        
+        # Initialize queues and running sets
+        for slot in Slot:
+            self._queues[slot] = asyncio.PriorityQueue()
+            self._running[slot] = set()
+    
+    async def start(self) -> None:
+        """Start the scheduler workers."""
+        if self._started:
+            return
+        
+        self._started = True
+        
+        # Start worker tasks for each slot
+        for slot in Slot:
+            limit = SLOT_LIMITS[slot]
+            workers = []
+            for i in range(limit):
+                task = asyncio.create_task(self._worker(slot, i))
+                workers.append(task)
+            self._workers[slot] = workers
+        
+        logger.info("Job scheduler started")
+    
+    async def stop(self) -> None:
+        """Stop the scheduler."""
+        if not self._started:
+            return
+        
+        self._started = False
+        
+        # Cancel all workers
+        for slot, workers in self._workers.items():
+            for task in workers:
+                task.cancel()
+        
+        # Wait for cancellation
+        for slot, workers in self._workers.items():
+            for task in workers:
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        
+        self._workers.clear()
+        logger.info("Job scheduler stopped")
+    
+    async def submit(
+        self,
+        kind: JobKind | str,
+        input_data: dict[str, Any],
+        *,
+        priority: int | None = None,
+        task_id: str | None = None,
+        cause_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Submit a job for execution.
+        
+        Args:
+            kind: Job kind.
+            input_data: Job input data.
+            priority: Override priority (lower = higher).
+            task_id: Associated task ID.
+            cause_id: Causal trace ID.
+            
+        Returns:
+            Job submission result.
+        """
+        if isinstance(kind, str):
+            kind = JobKind(kind)
+        
+        slot = KIND_TO_SLOT[kind]
+        
+        if priority is None:
+            priority = KIND_PRIORITY[kind]
+        
+        job_id = str(uuid.uuid4())
+        
+        # Check exclusivity
+        can_queue = await self._check_exclusivity(slot)
+        if not can_queue:
+            return {
+                "accepted": False,
+                "job_id": job_id,
+                "reason": "exclusive_slot_busy",
+            }
+        
+        # Store job in database
+        db = await get_database()
+        await db.insert("jobs", {
+            "id": job_id,
+            "task_id": task_id,
+            "kind": kind.value,
+            "priority": priority,
+            "slot": slot.value,
+            "state": JobState.QUEUED.value,
+            "input_json": str(input_data),
+            "queued_at": datetime.utcnow().isoformat(),
+            "cause_id": cause_id,
+        })
+        
+        # Add to queue
+        await self._queues[slot].put((priority, job_id, input_data, kind, task_id, cause_id))
+        
+        logger.info(
+            "Job submitted",
+            job_id=job_id,
+            kind=kind.value,
+            slot=slot.value,
+            priority=priority,
+        )
+        
+        return {
+            "accepted": True,
+            "job_id": job_id,
+            "slot": slot.value,
+            "priority": priority,
+            "eta": await self._estimate_eta(slot),
+        }
+    
+    async def _check_exclusivity(self, slot: Slot) -> bool:
+        """Check if slot can accept jobs based on exclusivity rules.
+        
+        Args:
+            slot: Target slot.
+            
+        Returns:
+            True if slot can accept jobs.
+        """
+        async with self._lock:
+            for exclusive_group in EXCLUSIVE_SLOTS:
+                if slot in exclusive_group:
+                    # Check if any other slot in the group is busy
+                    for other_slot in exclusive_group:
+                        if other_slot != slot and len(self._running[other_slot]) > 0:
+                            return False
+        return True
+    
+    async def _estimate_eta(self, slot: Slot) -> str:
+        """Estimate time until job starts.
+        
+        Args:
+            slot: Target slot.
+            
+        Returns:
+            ETA string.
+        """
+        queue_size = self._queues[slot].qsize()
+        running_count = len(self._running[slot])
+        limit = SLOT_LIMITS[slot]
+        
+        # Simple estimate: assume each job takes 30 seconds
+        waiting = max(0, queue_size - (limit - running_count))
+        eta_seconds = waiting * 30
+        
+        if eta_seconds < 60:
+            return f"{eta_seconds}s"
+        else:
+            return f"{eta_seconds // 60}m"
+    
+    async def _worker(self, slot: Slot, worker_id: int) -> None:
+        """Worker coroutine for a slot.
+        
+        Args:
+            slot: Slot to work on.
+            worker_id: Worker ID within slot.
+        """
+        logger.debug("Worker started", slot=slot.value, worker_id=worker_id)
+        
+        while self._started:
+            try:
+                # Get job from queue
+                priority, job_id, input_data, kind, task_id, cause_id = await asyncio.wait_for(
+                    self._queues[slot].get(),
+                    timeout=1.0,
+                )
+                
+                # Check exclusivity before running
+                if not await self._check_exclusivity(slot):
+                    # Re-queue the job
+                    await self._queues[slot].put(
+                        (priority, job_id, input_data, kind, task_id, cause_id)
+                    )
+                    await asyncio.sleep(1.0)
+                    continue
+                
+                # Mark as running
+                async with self._lock:
+                    self._running[slot].add(job_id)
+                
+                # Update job state
+                db = await get_database()
+                await db.update(
+                    "jobs",
+                    {"state": JobState.RUNNING.value, "started_at": datetime.utcnow().isoformat()},
+                    "id = ?",
+                    (job_id,),
+                )
+                
+                logger.info("Job started", job_id=job_id, kind=kind.value, slot=slot.value)
+                
+                # Execute job
+                try:
+                    with CausalTrace(cause_id) as trace:
+                        result = await self._execute_job(kind, input_data, task_id, trace.id)
+                    
+                    # Mark as completed
+                    await db.update(
+                        "jobs",
+                        {
+                            "state": JobState.COMPLETED.value,
+                            "finished_at": datetime.utcnow().isoformat(),
+                            "output_json": str(result),
+                        },
+                        "id = ?",
+                        (job_id,),
+                    )
+                    
+                    logger.info("Job completed", job_id=job_id, kind=kind.value)
+                    
+                except Exception as e:
+                    # Mark as failed
+                    await db.update(
+                        "jobs",
+                        {
+                            "state": JobState.FAILED.value,
+                            "finished_at": datetime.utcnow().isoformat(),
+                            "error_message": str(e),
+                        },
+                        "id = ?",
+                        (job_id,),
+                    )
+                    
+                    logger.error("Job failed", job_id=job_id, kind=kind.value, error=str(e))
+                
+                finally:
+                    # Remove from running
+                    async with self._lock:
+                        self._running[slot].discard(job_id)
+                        
+            except asyncio.TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Worker error", slot=slot.value, worker_id=worker_id, error=str(e))
+                await asyncio.sleep(1.0)
+        
+        logger.debug("Worker stopped", slot=slot.value, worker_id=worker_id)
+    
+    async def _execute_job(
+        self,
+        kind: JobKind,
+        input_data: dict[str, Any],
+        task_id: str | None,
+        cause_id: str,
+    ) -> dict[str, Any]:
+        """Execute a job.
+        
+        Args:
+            kind: Job kind.
+            input_data: Job input.
+            task_id: Task ID.
+            cause_id: Causal trace ID.
+            
+        Returns:
+            Job result.
+        """
+        if kind == JobKind.SERP:
+            from src.search.searxng import search_serp
+            return {"results": await search_serp(**input_data, task_id=task_id)}
+        
+        elif kind == JobKind.FETCH:
+            from src.crawler.fetcher import fetch_url
+            return await fetch_url(**input_data, task_id=task_id)
+        
+        elif kind == JobKind.EXTRACT:
+            from src.extractor.content import extract_content
+            return await extract_content(**input_data)
+        
+        elif kind == JobKind.EMBED:
+            from src.filter.ranking import _embedding_ranker, EmbeddingRanker
+            global _embedding_ranker
+            if _embedding_ranker is None:
+                _embedding_ranker = EmbeddingRanker()
+            embeddings = await _embedding_ranker.encode(input_data.get("texts", []))
+            return {"embeddings": embeddings}
+        
+        elif kind == JobKind.RERANK:
+            from src.filter.ranking import rank_candidates
+            return {"results": await rank_candidates(**input_data)}
+        
+        elif kind in (JobKind.LLM_FAST, JobKind.LLM_SLOW):
+            from src.filter.llm import llm_extract
+            use_slow = kind == JobKind.LLM_SLOW
+            return await llm_extract(**input_data, use_slow_model=use_slow)
+        
+        elif kind == JobKind.NLI:
+            from src.filter.nli import nli_judge
+            return {"results": await nli_judge(**input_data)}
+        
+        else:
+            raise ValueError(f"Unknown job kind: {kind}")
+    
+    async def cancel_job(self, job_id: str) -> bool:
+        """Cancel a pending job.
+        
+        Args:
+            job_id: Job ID to cancel.
+            
+        Returns:
+            True if cancelled successfully.
+        """
+        db = await get_database()
+        
+        result = await db.update(
+            "jobs",
+            {"state": JobState.CANCELLED.value},
+            "id = ? AND state IN ('pending', 'queued')",
+            (job_id,),
+        )
+        
+        if result > 0:
+            logger.info("Job cancelled", job_id=job_id)
+            return True
+        return False
+    
+    async def get_job_status(self, job_id: str) -> dict[str, Any] | None:
+        """Get job status.
+        
+        Args:
+            job_id: Job ID.
+            
+        Returns:
+            Job status dict or None.
+        """
+        db = await get_database()
+        return await db.fetch_one("SELECT * FROM jobs WHERE id = ?", (job_id,))
+
+
+# Global scheduler instance
+_scheduler: JobScheduler | None = None
+
+
+async def get_scheduler() -> JobScheduler:
+    """Get or create the global scheduler."""
+    global _scheduler
+    if _scheduler is None:
+        _scheduler = JobScheduler()
+        await _scheduler.start()
+    return _scheduler
+
+
+async def schedule_job(job: dict[str, Any]) -> dict[str, Any]:
+    """Schedule a job (MCP tool handler).
+    
+    Args:
+        job: Job specification.
+        
+    Returns:
+        Scheduling result.
+    """
+    scheduler = await get_scheduler()
+    
+    kind = job.get("kind")
+    priority = job.get("priority")
+    input_data = job.get("input", {})
+    task_id = job.get("task_id")
+    
+    return await scheduler.submit(
+        kind=kind,
+        input_data=input_data,
+        priority=priority,
+        task_id=task_id,
+    )
+
