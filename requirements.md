@@ -361,6 +361,9 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 - `extract_content(input_path|html, type)` → `{text, title?, headings?, language?, tables?, meta}`
 - `rank_candidates(query, passages)` → `[{id, score_bm25, score_embed, score_rerank}]`
 - `llm_extract(passages, task)` → `{facts[], claims[], citations[]}`
+- `decompose_question(question, use_llm?, use_slow_model?)` → `{claims[], decomposition_method, success}`
+  - **用途**: §3.3.1「問い→主張分解」。リサーチクエスチョンを原子主張へ分解
+  - **注意**: `llm_extract`とは入力形式が異なる（passages[] vs question: string）ため独立ツール
 - `nli_judge(pairs)` → `[{pair_id, stance(supports|refutes|neutral), confidence}]`
 - `notify_user(event, payload)` → `{shown, deadline_at}`
 - `schedule_job(job)` → `{accepted, slot(gpu|browser_headful|network|cpu_nlp), priority, eta}`
@@ -549,6 +552,7 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 | | `extract_content` | 抽出指示 | HTML/PDFからテキスト抽出 |
 | **フィルタ・評価** | `rank_candidates` | クエリ/候補の指定 | BM25/埋め込み/リランク実行 |
 | | `llm_extract` | 抽出タスクの指定 | ローカルLLMで事実/主張抽出 |
+| | `decompose_question` | 分解対象questionの指定 | 原子主張への分解（§3.3.1） |
 | | `nli_judge` | 対象ペアの指定 | スタンス推定（supports/refutes/neutral） |
 | **レポート素材** | `get_report_materials` | 素材取得の指示 | 主張/断片/エビデンスグラフ返却 |
 | | `get_evidence_graph` | グラフ参照の指示 | ノード/エッジの構造化データ返却 |

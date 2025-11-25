@@ -570,6 +570,33 @@ TOOLS = [
             "required": ["source"]
         }
     ),
+    # ============================================================
+    # Phase 16.2.6: Claim Decomposition (§3.3.1)
+    # ============================================================
+    Tool(
+        name="decompose_question",
+        description="Decompose a research question into atomic claims for systematic verification. Per §3.3.1: 問い→主張分解. Returns claims with claim_id, text, expected_polarity, granularity, and verification hints.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "Research question to decompose into atomic claims"
+                },
+                "use_llm": {
+                    "type": "boolean",
+                    "description": "Use LLM for decomposition (True) or rule-based (False). Default: True",
+                    "default": True
+                },
+                "use_slow_model": {
+                    "type": "boolean",
+                    "description": "Use slower, more capable LLM model. Default: False",
+                    "default": False
+                }
+            },
+            "required": ["question"]
+        }
+    ),
 ]
 
 
@@ -641,6 +668,8 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "add_calibration_sample": _handle_add_calibration_sample,
         "get_calibration_stats": _handle_get_calibration_stats,
         "rollback_calibration": _handle_rollback_calibration,
+        # Phase 16.2.6: Claim Decomposition (§3.3.1)
+        "decompose_question": _handle_decompose_question,
     }
     
     handler = handlers.get(name)
@@ -1119,6 +1148,32 @@ async def _handle_rollback_calibration(args: dict[str, Any]) -> dict[str, Any]:
         to_version=to_version,
         reason=reason,
     )
+
+
+# ============================================================
+# Phase 16.2.6: Claim Decomposition Handlers (§3.3.1)
+# ============================================================
+
+async def _handle_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle decompose_question tool call.
+    
+    Implements §3.3.1: 問い→主張分解.
+    Decomposes research questions into atomic claims for systematic verification.
+    """
+    from src.filter.claim_decomposition import decompose_question
+    
+    question = args["question"]
+    use_llm = args.get("use_llm", True)
+    use_slow_model = args.get("use_slow_model", False)
+    
+    result = await decompose_question(
+        question=question,
+        use_llm=use_llm,
+        use_slow_model=use_slow_model,
+    )
+    
+    return result.to_dict()
 
 
 # ============================================================
