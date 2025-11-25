@@ -580,3 +580,295 @@ async def generate_report(
         include_evidence_graph=include_evidence_graph,
     )
 
+
+async def get_report_materials(
+    task_id: str,
+    include_evidence_graph: bool = True,
+    include_fragments: bool = True,
+) -> dict[str, Any]:
+    """Get report materials for Cursor AI to compose a report (§2.1 compliant).
+    
+    Returns structured data (claims, fragments, evidence graph) without
+    generating the actual report. Report composition is Cursor AI's responsibility.
+    
+    Args:
+        task_id: Task ID.
+        include_evidence_graph: Include evidence graph structure.
+        include_fragments: Include source fragments.
+        
+    Returns:
+        Report materials as structured data.
+    """
+    db = await get_database()
+    
+    # Get task
+    task = await db.fetch_one(
+        "SELECT * FROM tasks WHERE id = ?",
+        (task_id,),
+    )
+    
+    if task is None:
+        return {"ok": False, "error": f"Task not found: {task_id}"}
+    
+    # Get claims with supporting/refuting counts
+    claims = await db.fetch_all(
+        """
+        SELECT 
+            c.*,
+            (SELECT COUNT(*) FROM edges e 
+             WHERE e.target_id = c.id AND e.relation = 'supports') as support_count,
+            (SELECT COUNT(*) FROM edges e 
+             WHERE e.target_id = c.id AND e.relation = 'refutes') as refute_count
+        FROM claims c
+        WHERE c.task_id = ?
+        ORDER BY c.confidence_score DESC
+        """,
+        (task_id,),
+    )
+    
+    # Classify claims by confidence threshold (§4.5)
+    high_confidence = [c for c in claims if (c.get("confidence_score") or 0) >= 0.7]
+    low_confidence = [c for c in claims if (c.get("confidence_score") or 0) < 0.7]
+    
+    # Get fragments if requested
+    fragments = []
+    if include_fragments:
+        fragments = await db.fetch_all(
+            """
+            SELECT f.*, p.url, p.title as page_title, p.domain, s.source_tag
+            FROM fragments f
+            JOIN pages p ON f.page_id = p.id
+            LEFT JOIN serp_items s ON p.url = s.url
+            LEFT JOIN queries q ON s.query_id = q.id
+            WHERE q.task_id = ? AND f.is_relevant = 1
+            ORDER BY f.rerank_score DESC
+            LIMIT 200
+            """,
+            (task_id,),
+        )
+        
+        # Classify by source type (§3.4: 出典の優先序)
+        for frag in fragments:
+            frag["is_primary_source"] = frag.get("source_tag") in (
+                "government", "academic", "official", "standard", "registry"
+            )
+            # Add deep link
+            if frag.get("url") and frag.get("heading_context"):
+                frag["deep_link"] = generate_deep_link(
+                    frag["url"], frag["heading_context"]
+                )
+    
+    # Get evidence graph if requested
+    evidence_graph = None
+    if include_evidence_graph:
+        edges = await db.fetch_all(
+            """
+            SELECT * FROM edges
+            WHERE source_id IN (SELECT id FROM claims WHERE task_id = ?)
+               OR target_id IN (SELECT id FROM claims WHERE task_id = ?)
+            """,
+            (task_id, task_id),
+        )
+        
+        # Build graph summary
+        supports = [e for e in edges if e.get("relation") == "supports"]
+        refutes = [e for e in edges if e.get("relation") == "refutes"]
+        cites = [e for e in edges if e.get("relation") == "cites"]
+        
+        evidence_graph = {
+            "edges": edges,
+            "summary": {
+                "total_edges": len(edges),
+                "supports_count": len(supports),
+                "refutes_count": len(refutes),
+                "cites_count": len(cites),
+            },
+        }
+    
+    # Build summary
+    primary_sources = len([f for f in fragments if f.get("is_primary_source")])
+    
+    logger.info(
+        "Report materials retrieved",
+        task_id=task_id,
+        claims_count=len(claims),
+        fragments_count=len(fragments),
+    )
+    
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "original_query": task.get("query"),
+        "task_status": task.get("status"),
+        "claims": {
+            "high_confidence": high_confidence,
+            "low_confidence": low_confidence,
+            "total": len(claims),
+        },
+        "fragments": fragments if include_fragments else None,
+        "evidence_graph": evidence_graph,
+        "summary": {
+            "claims_total": len(claims),
+            "claims_high_confidence": len(high_confidence),
+            "fragments_total": len(fragments),
+            "primary_sources": primary_sources,
+            "secondary_sources": len(fragments) - primary_sources,
+        },
+    }
+
+
+async def get_evidence_graph(
+    task_id: str,
+    claim_ids: list[str] | None = None,
+    include_fragments: bool = True,
+) -> dict[str, Any]:
+    """Get evidence graph structure for a task.
+    
+    Returns nodes (claims, fragments) and edges (supports, refutes, cites)
+    as structured data for Cursor AI to interpret.
+    
+    Args:
+        task_id: Task ID.
+        claim_ids: Optional filter by specific claim IDs.
+        include_fragments: Include linked fragments.
+        
+    Returns:
+        Evidence graph as structured data.
+    """
+    db = await get_database()
+    
+    # Get task
+    task = await db.fetch_one(
+        "SELECT * FROM tasks WHERE id = ?",
+        (task_id,),
+    )
+    
+    if task is None:
+        return {"ok": False, "error": f"Task not found: {task_id}"}
+    
+    # Get claims
+    if claim_ids:
+        placeholders = ",".join("?" for _ in claim_ids)
+        claims = await db.fetch_all(
+            f"SELECT * FROM claims WHERE id IN ({placeholders})",
+            claim_ids,
+        )
+    else:
+        claims = await db.fetch_all(
+            "SELECT * FROM claims WHERE task_id = ?",
+            (task_id,),
+        )
+    
+    claim_id_set = {c["id"] for c in claims}
+    
+    # Get edges involving these claims
+    if claim_ids:
+        placeholders = ",".join("?" for _ in claim_ids)
+        edges = await db.fetch_all(
+            f"""
+            SELECT * FROM edges
+            WHERE source_id IN ({placeholders})
+               OR target_id IN ({placeholders})
+            """,
+            claim_ids + claim_ids,
+        )
+    else:
+        edges = await db.fetch_all(
+            """
+            SELECT * FROM edges
+            WHERE source_id IN (SELECT id FROM claims WHERE task_id = ?)
+               OR target_id IN (SELECT id FROM claims WHERE task_id = ?)
+            """,
+            (task_id, task_id),
+        )
+    
+    # Get linked fragments if requested
+    fragments = []
+    if include_fragments:
+        # Get fragment IDs from edges
+        fragment_ids = set()
+        for edge in edges:
+            if edge.get("source_type") == "fragment":
+                fragment_ids.add(edge["source_id"])
+            if edge.get("target_type") == "fragment":
+                fragment_ids.add(edge["target_id"])
+        
+        if fragment_ids:
+            placeholders = ",".join("?" for _ in fragment_ids)
+            fragments = await db.fetch_all(
+                f"""
+                SELECT f.*, p.url, p.title as page_title, p.domain
+                FROM fragments f
+                JOIN pages p ON f.page_id = p.id
+                WHERE f.id IN ({placeholders})
+                """,
+                list(fragment_ids),
+            )
+    
+    # Build graph structure
+    nodes = {
+        "claims": [
+            {
+                "id": c["id"],
+                "type": "claim",
+                "text": c.get("claim_text"),
+                "confidence": c.get("confidence_score"),
+                "claim_type": c.get("claim_type"),
+                "verified": c.get("is_verified"),
+            }
+            for c in claims
+        ],
+        "fragments": [
+            {
+                "id": f["id"],
+                "type": "fragment",
+                "text": f.get("text_content", "")[:500],
+                "url": f.get("url"),
+                "title": f.get("page_title"),
+                "heading": f.get("heading_context"),
+            }
+            for f in fragments
+        ],
+    }
+    
+    # Classify edges
+    edge_list = [
+        {
+            "id": e["id"],
+            "source_type": e.get("source_type"),
+            "source_id": e.get("source_id"),
+            "target_type": e.get("target_type"),
+            "target_id": e.get("target_id"),
+            "relation": e.get("relation"),
+            "confidence": e.get("confidence"),
+        }
+        for e in edges
+    ]
+    
+    # Summary statistics
+    relations = {}
+    for e in edges:
+        rel = e.get("relation", "unknown")
+        relations[rel] = relations.get(rel, 0) + 1
+    
+    logger.info(
+        "Evidence graph retrieved",
+        task_id=task_id,
+        claims=len(claims),
+        fragments=len(fragments),
+        edges=len(edges),
+    )
+    
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "nodes": nodes,
+        "edges": edge_list,
+        "summary": {
+            "claim_count": len(claims),
+            "fragment_count": len(fragments),
+            "edge_count": len(edges),
+            "relations": relations,
+        },
+    }
+
