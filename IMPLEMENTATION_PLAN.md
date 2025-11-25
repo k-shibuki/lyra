@@ -439,11 +439,15 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - BrowserFetcher統合: ブラウザ初期化時に自動健全性チェック
   - テスト: 30件（全パス）
 
-#### 16.1.5 セッション移送ユーティリティ (§3.1.2)
-- [ ] **ブラウザ→HTTPクライアント移送**
+#### 16.1.5 セッション移送ユーティリティ (§3.1.2) ✅
+- [x] **ブラウザ→HTTPクライアント移送**
   - Cookie/ETag/UA/Accept-Languageの安全な移送
   - 同一ドメイン限定制約
   - Referer/sec-fetch-*整合維持
+  - 実装: `src/crawler/session_transfer.py` (SessionTransferManager, SessionData, CookieData)
+  - capture_from_browser: Playwrightからセッションをキャプチャ
+  - generate_transfer_headers: HTTPクライアント用ヘッダー生成
+  - テスト: 35件（全パス）
 
 #### 16.1.6 ブラウザ経路アーカイブ保存 (§4.3.2) ✅
 - [x] **CDXJ風メタデータ**
