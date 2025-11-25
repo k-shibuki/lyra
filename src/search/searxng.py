@@ -7,7 +7,7 @@ import asyncio
 import hashlib
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode, quote_plus
 
@@ -207,7 +207,7 @@ async def search_serp(
                 SELECT result_json FROM cache_serp 
                 WHERE cache_key = ? AND expires_at > ?
                 """,
-                (cache_key, datetime.utcnow().isoformat()),
+                (cache_key, datetime.now(timezone.utc).isoformat()),
             )
             
             if cached:
@@ -282,7 +282,7 @@ async def search_serp(
         # Cache results
         if use_cache and results:
             settings = get_settings()
-            expires_at = datetime.utcnow() + timedelta(hours=settings.storage.serp_cache_ttl)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=settings.storage.serp_cache_ttl)
             
             await db.insert("cache_serp", {
                 "cache_key": cache_key,

@@ -6,7 +6,7 @@ Handles toast notifications and manual intervention flows.
 import asyncio
 import platform
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from src.utils.config import get_settings
@@ -203,7 +203,7 @@ class NotificationManager:
             (task_id, domain, intervention_type, notification_sent_at)
             VALUES (?, ?, ?, ?)
             """,
-            (task_id, domain, event_type, datetime.utcnow().isoformat()),
+            (task_id, domain, event_type, datetime.now(timezone.utc).isoformat()),
         )
         
         # Send notification
@@ -220,7 +220,7 @@ class NotificationManager:
             "event_type": event_type,
             "url": url,
             "domain": domain,
-            "started_at": datetime.utcnow(),
+            "started_at": datetime.now(timezone.utc),
             "timeout_seconds": timeout_seconds,
             "task_id": task_id,
         }
@@ -237,7 +237,7 @@ class NotificationManager:
             "shown": sent,
             "intervention_id": intervention_id,
             "deadline_at": (
-                datetime.utcnow().isoformat() + f"+{timeout_seconds}s"
+                datetime.now(timezone.utc).isoformat() + f"+{timeout_seconds}s"
             ),
         }
     
@@ -258,7 +258,7 @@ class NotificationManager:
         if intervention is None:
             return {"status": "unknown", "intervention_id": intervention_id}
         
-        elapsed = (datetime.utcnow() - intervention["started_at"]).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - intervention["started_at"]).total_seconds()
         timeout = intervention["timeout_seconds"]
         
         if elapsed >= timeout:
@@ -293,7 +293,7 @@ class NotificationManager:
             logger.warning("Unknown intervention completed", id=intervention_id)
             return
         
-        elapsed = (datetime.utcnow() - intervention["started_at"]).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - intervention["started_at"]).total_seconds()
         result = "success" if success else "failed"
         
         # Log completion
@@ -307,7 +307,7 @@ class NotificationManager:
             LIMIT 1
             """,
             (
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 result,
                 int(elapsed),
                 notes,
