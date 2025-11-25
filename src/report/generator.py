@@ -4,7 +4,7 @@ Creates research reports from collected evidence.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -105,7 +105,7 @@ class ReportGenerator:
             {
                 "status": "completed",
                 "result_summary": f"Report generated: {filename}",
-                "completed_at": datetime.utcnow().isoformat(),
+                "completed_at": datetime.now(timezone.utc).isoformat(),
             },
             "id = ?",
             (task_id,),
@@ -299,7 +299,7 @@ class ReportGenerator:
             "meta": {
                 "task_id": task["id"],
                 "query": task["query"],
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "generator": "Lancet",
             },
             "summary": {

@@ -5,7 +5,7 @@ Uses structlog for JSON-formatted logs with causal tracing.
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +21,7 @@ def _add_timestamp(
     event_dict: dict[str, Any],
 ) -> dict[str, Any]:
     """Add ISO timestamp to log event."""
-    event_dict["timestamp"] = datetime.utcnow().isoformat() + "Z"
+    event_dict["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return event_dict
 
 

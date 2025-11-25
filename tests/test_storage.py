@@ -3,7 +3,7 @@ Tests for src/storage/database.py
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -363,7 +363,7 @@ class TestDomainCooldown:
     @pytest.mark.asyncio
     async def test_is_domain_cooled_down_expired(self, test_database):
         """Test is_domain_cooled_down returns False when cooldown expired."""
-        past_time = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        past_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         
         await test_database.insert(
             "domains",

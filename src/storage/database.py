@@ -7,7 +7,7 @@ import asyncio
 import hashlib
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -259,9 +259,9 @@ class Database:
         data = {"status": status}
         
         if status == "running":
-            data["started_at"] = datetime.utcnow().isoformat()
+            data["started_at"] = datetime.now(timezone.utc).isoformat()
         elif status in ("completed", "failed", "cancelled"):
-            data["completed_at"] = datetime.utcnow().isoformat()
+            data["completed_at"] = datetime.now(timezone.utc).isoformat()
         
         if error_message:
             data["error_message"] = error_message
@@ -352,19 +352,19 @@ class Database:
             "captcha_rate": captcha_rate,
             "http_error_rate": http_error_rate,
             "total_requests": existing.get("total_requests", 0) + 1,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         
         if success:
             update_data["total_success"] = existing.get("total_success", 0) + 1
-            update_data["last_success_at"] = datetime.utcnow().isoformat()
+            update_data["last_success_at"] = datetime.now(timezone.utc).isoformat()
         else:
             update_data["total_failures"] = existing.get("total_failures", 0) + 1
-            update_data["last_failure_at"] = datetime.utcnow().isoformat()
+            update_data["last_failure_at"] = datetime.now(timezone.utc).isoformat()
         
         if is_captcha:
             update_data["total_captchas"] = existing.get("total_captchas", 0) + 1
-            update_data["last_captcha_at"] = datetime.utcnow().isoformat()
+            update_data["last_captcha_at"] = datetime.now(timezone.utc).isoformat()
         
         await self.update("domains", update_data, "domain = ?", (domain,))
     
@@ -381,14 +381,14 @@ class Database:
             minutes: Cooldown duration in minutes.
             reason: Optional reason for cooldown.
         """
-        cooldown_until = datetime.utcnow() + timedelta(minutes=minutes)
+        cooldown_until = datetime.now(timezone.utc) + timedelta(minutes=minutes)
         
         await self.update(
             "domains",
             {
                 "cooldown_until": cooldown_until.isoformat(),
                 "skip_reason": reason,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             },
             "domain = ?",
             (domain,),
@@ -419,7 +419,7 @@ class Database:
             return False
         
         cooldown_until = datetime.fromisoformat(result["cooldown_until"])
-        return datetime.utcnow() < cooldown_until
+        return datetime.now(timezone.utc) < cooldown_until
     
     async def update_engine_health(
         self,
@@ -485,17 +485,17 @@ class Database:
             "status": status,
             "total_queries": existing.get("total_queries", 0) + 1,
             "daily_usage": existing.get("daily_usage", 0) + 1,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         
         if success:
             update_data["total_success"] = existing.get("total_success", 0) + 1
         else:
             update_data["total_failures"] = existing.get("total_failures", 0) + 1
-            update_data["last_failure_at"] = datetime.utcnow().isoformat()
+            update_data["last_failure_at"] = datetime.now(timezone.utc).isoformat()
         
         if status == "open":
-            cooldown_until = datetime.utcnow() + timedelta(minutes=30)
+            cooldown_until = datetime.now(timezone.utc) + timedelta(minutes=30)
             update_data["cooldown_until"] = cooldown_until.isoformat()
         
         await self.update("engine_health", update_data, "engine = ?", (engine,))
@@ -514,7 +514,7 @@ class Database:
               AND (daily_limit IS NULL OR daily_usage < daily_limit)
             ORDER BY weight DESC
             """,
-            (datetime.utcnow().isoformat(),),
+            (datetime.now(timezone.utc).isoformat(),),
         )
 
 

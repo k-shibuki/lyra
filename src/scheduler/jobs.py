@@ -5,7 +5,7 @@ Manages job queues, slots, and resource allocation.
 
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -191,7 +191,7 @@ class JobScheduler:
             "slot": slot.value,
             "state": JobState.QUEUED.value,
             "input_json": str(input_data),
-            "queued_at": datetime.utcnow().isoformat(),
+            "queued_at": datetime.now(timezone.utc).isoformat(),
             "cause_id": cause_id,
         })
         
@@ -288,7 +288,7 @@ class JobScheduler:
                 db = await get_database()
                 await db.update(
                     "jobs",
-                    {"state": JobState.RUNNING.value, "started_at": datetime.utcnow().isoformat()},
+                    {"state": JobState.RUNNING.value, "started_at": datetime.now(timezone.utc).isoformat()},
                     "id = ?",
                     (job_id,),
                 )
@@ -305,7 +305,7 @@ class JobScheduler:
                         "jobs",
                         {
                             "state": JobState.COMPLETED.value,
-                            "finished_at": datetime.utcnow().isoformat(),
+                            "finished_at": datetime.now(timezone.utc).isoformat(),
                             "output_json": str(result),
                         },
                         "id = ?",
@@ -320,7 +320,7 @@ class JobScheduler:
                         "jobs",
                         {
                             "state": JobState.FAILED.value,
-                            "finished_at": datetime.utcnow().isoformat(),
+                            "finished_at": datetime.now(timezone.utc).isoformat(),
                             "error_message": str(e),
                         },
                         "id = ?",
