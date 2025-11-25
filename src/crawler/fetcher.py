@@ -49,6 +49,10 @@ from src.crawler.undetected import (
     get_undetected_fetcher,
     close_undetected_fetcher,
 )
+from src.crawler.dns_policy import (
+    get_dns_policy_manager,
+    DNSRoute,
+)
 
 logger = get_logger(__name__)
 
@@ -312,18 +316,21 @@ class TorController:
     async def get_exit_ip(self) -> str | None:
         """Get current Tor exit node IP.
         
+        Uses socks5h:// to ensure DNS is resolved through Tor (§4.3).
+        
         Returns:
             Exit IP address or None.
         """
         try:
             from curl_cffi import requests as curl_requests
             
-            tor_settings = self._settings.tor
-            proxy_url = f"socks5://{tor_settings.socks_host}:{tor_settings.socks_port}"
+            # Use DNS policy manager to get proxy with socks5h:// for DNS leak prevention
+            dns_manager = get_dns_policy_manager()
+            proxies = dns_manager.get_proxy_dict(use_tor=True)
             
             response = curl_requests.get(
                 "https://check.torproject.org/api/ip",
-                proxies={"http": proxy_url, "https": proxy_url},
+                proxies=proxies,
                 timeout=10,
             )
             
@@ -529,11 +536,10 @@ class HTTPFetcher:
                 req_headers.update(headers)
             
             # Configure proxy if using Tor
-            proxies = None
-            if use_tor:
-                tor_settings = self._settings.tor
-                proxy_url = f"socks5://{tor_settings.socks_host}:{tor_settings.socks_port}"
-                proxies = {"http": proxy_url, "https": proxy_url}
+            # Use DNS policy manager to ensure DNS is resolved through Tor (socks5h://)
+            # when using Tor route, preventing DNS leaks (§4.3)
+            dns_manager = get_dns_policy_manager()
+            proxies = dns_manager.get_proxy_dict(use_tor)
             
             # Execute request with Chrome impersonation
             response = curl_requests.get(

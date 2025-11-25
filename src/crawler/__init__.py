@@ -101,6 +101,17 @@ from src.crawler.browser_archive import (
     url_to_surt,
 )
 
+from src.crawler.dns_policy import (
+    DNSRoute,
+    DNSLeakType,
+    DNSCacheEntry,
+    DNSResolutionResult,
+    DNSMetrics,
+    DNSPolicyManager,
+    get_dns_policy_manager,
+    get_socks_proxy_for_request,
+)
+
 __all__ = [
     # Fetcher
     "FetchResult",
@@ -183,5 +194,14 @@ __all__ = [
     "get_browser_archiver",
     "archive_browser_page",
     "url_to_surt",
+    # DNS Policy (§4.3)
+    "DNSRoute",
+    "DNSLeakType",
+    "DNSCacheEntry",
+    "DNSResolutionResult",
+    "DNSMetrics",
+    "DNSPolicyManager",
+    "get_dns_policy_manager",
+    "get_socks_proxy_for_request",
 ]
 

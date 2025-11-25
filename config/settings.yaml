@@ -69,6 +69,29 @@ tor:
   max_usage_ratio: 0.20  # Tor利用≤20%
   # Only use Tor when blocked
   default_route: "direct"  # direct, tor
+  
+  # === DNS Policy (§4.3) ===
+  dns:
+    # Resolve DNS through Tor SOCKS proxy (socks5h://) when using Tor route
+    # This prevents DNS leaks by ensuring DNS queries go through Tor
+    resolve_through_tor: true
+    
+    # Disable EDNS Client Subnet (ECS) to prevent location leakage
+    # Note: This is handled at the resolver level, set to true to request
+    # ECS-disabled resolution where supported
+    disable_edns_client_subnet: true
+    
+    # Respect DNS cache TTL to reduce exposure from frequent re-resolution
+    respect_cache_ttl: true
+    
+    # Minimum cache TTL in seconds (even if DNS returns lower)
+    min_cache_ttl: 60
+    
+    # Maximum cache TTL in seconds (cap very long TTLs)
+    max_cache_ttl: 3600
+    
+    # Enable DNS leak detection metrics
+    leak_detection_enabled: true
 
 # === Browser Settings ===
 browser:

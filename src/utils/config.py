@@ -53,6 +53,22 @@ class CrawlerConfig(BaseModel):
     same_domain_depth: int = 2
 
 
+class DNSPolicyConfig(BaseModel):
+    """DNS policy configuration (§4.3)."""
+    # Resolve DNS through Tor SOCKS proxy (socks5h://) when using Tor route
+    resolve_through_tor: bool = True
+    # Disable EDNS Client Subnet (ECS) to prevent location leakage
+    disable_edns_client_subnet: bool = True
+    # Respect DNS cache TTL to reduce exposure
+    respect_cache_ttl: bool = True
+    # Minimum cache TTL in seconds
+    min_cache_ttl: int = 60
+    # Maximum cache TTL in seconds
+    max_cache_ttl: int = 3600
+    # Enable DNS leak detection metrics
+    leak_detection_enabled: bool = True
+
+
 class TorConfig(BaseModel):
     """Tor configuration."""
     enabled: bool = True
@@ -62,6 +78,7 @@ class TorConfig(BaseModel):
     circuit_sticky_minutes: int = 15
     max_usage_ratio: float = 0.20
     default_route: str = "direct"
+    dns: DNSPolicyConfig = Field(default_factory=DNSPolicyConfig)
 
 
 class UndetectedChromeDriverConfig(BaseModel):
