@@ -352,6 +352,7 @@ class TestExplorationState:
     async def test_get_status_returns_all_required_fields(self, test_database):
         """
         Verify get_status returns all required fields per §3.2.1.
+        Now async per §16.7.1 changes.
         """
         # Arrange
         task_id = await test_database.create_task(query="test")
@@ -360,8 +361,8 @@ class TestExplorationState:
         state.register_subquery("sq_001", "subquery 1", priority="high")
         state.register_subquery("sq_002", "subquery 2", priority="medium")
         
-        # Act
-        status = state.get_status()
+        # Act - now async per §16.7.1
+        status = await state.get_status()
         
         # Assert - verify structure per §3.2.1 MCPツールIF仕様
         assert status["ok"] is True
@@ -373,6 +374,178 @@ class TestExplorationState:
         assert "budget" in status
         # Note: recommendations removed - Cursor AI makes all decisions
         assert "warnings" in status
+        # §16.7.1: authentication_queue is optional (None when empty)
+        # Presence of the key structure is not mandatory when empty
+    
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_get_status_includes_authentication_queue(self, test_database):
+        """
+        Verify get_status includes authentication_queue when pending items exist.
+        
+        Per §16.7.1: authentication_queue should contain summary information.
+        """
+        from unittest.mock import patch, AsyncMock
+        
+        # Arrange
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        
+        # Mock the authentication queue summary
+        mock_summary = {
+            "pending_count": 2,
+            "high_priority_count": 1,
+            "domains": ["example.gov", "secondary.com"],
+            "oldest_queued_at": "2024-01-01T00:00:00+00:00",
+            "by_auth_type": {"cloudflare": 1, "captcha": 1},
+        }
+        
+        with patch.object(
+            state, "_get_authentication_queue_summary",
+            new_callable=AsyncMock,
+            return_value=mock_summary,
+        ):
+            # Act
+            status = await state.get_status()
+        
+        # Assert
+        assert status["authentication_queue"] is not None, (
+            "authentication_queue should not be None when items pending"
+        )
+        auth_queue = status["authentication_queue"]
+        assert auth_queue["pending_count"] == 2, (
+            f"pending_count should be 2, got {auth_queue['pending_count']}"
+        )
+        assert auth_queue["high_priority_count"] == 1, (
+            f"high_priority_count should be 1, got {auth_queue['high_priority_count']}"
+        )
+        assert len(auth_queue["domains"]) == 2, (
+            f"Should have 2 domains, got {len(auth_queue['domains'])}"
+        )
+    
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_auth_queue_warning_threshold(self, test_database):
+        """
+        Verify warning alert is generated when pending >= 3.
+        
+        Per §16.7.3: [warning] when pending >= 3.
+        """
+        from unittest.mock import patch, AsyncMock
+        
+        # Arrange
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        
+        # Mock the authentication queue summary with 3 pending items
+        mock_summary = {
+            "pending_count": 3,
+            "high_priority_count": 0,
+            "domains": ["example0.com", "example1.com", "example2.com"],
+            "oldest_queued_at": "2024-01-01T00:00:00+00:00",
+            "by_auth_type": {"cloudflare": 3},
+        }
+        
+        with patch.object(
+            state, "_get_authentication_queue_summary",
+            new_callable=AsyncMock,
+            return_value=mock_summary,
+        ):
+            # Act
+            status = await state.get_status()
+        
+        # Assert
+        warning_alerts = [w for w in status["warnings"] if "[warning]" in w]
+        assert len(warning_alerts) == 1, (
+            f"Should have 1 warning alert, got {len(warning_alerts)}: {status['warnings']}"
+        )
+        assert "認証待ち3件" in warning_alerts[0], (
+            f"Warning should mention '認証待ち3件', got '{warning_alerts[0]}'"
+        )
+    
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_auth_queue_critical_threshold_by_count(self, test_database):
+        """
+        Verify critical alert is generated when pending >= 5.
+        
+        Per §16.7.3: [critical] when pending >= 5.
+        """
+        from unittest.mock import patch, AsyncMock
+        
+        # Arrange
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        
+        # Mock the authentication queue summary with 5 pending items
+        mock_summary = {
+            "pending_count": 5,
+            "high_priority_count": 0,
+            "domains": ["example0.com", "example1.com", "example2.com", "example3.com", "example4.com"],
+            "oldest_queued_at": "2024-01-01T00:00:00+00:00",
+            "by_auth_type": {"cloudflare": 5},
+        }
+        
+        with patch.object(
+            state, "_get_authentication_queue_summary",
+            new_callable=AsyncMock,
+            return_value=mock_summary,
+        ):
+            # Act
+            status = await state.get_status()
+        
+        # Assert
+        critical_alerts = [w for w in status["warnings"] if "[critical]" in w]
+        assert len(critical_alerts) == 1, (
+            f"Should have 1 critical alert, got {len(critical_alerts)}: {status['warnings']}"
+        )
+        assert "認証待ち5件" in critical_alerts[0], (
+            f"Critical should mention '認証待ち5件', got '{critical_alerts[0]}'"
+        )
+    
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_auth_queue_critical_threshold_by_high_priority(self, test_database):
+        """
+        Verify critical alert is generated when high_priority >= 2.
+        
+        Per §16.7.3: [critical] when high_priority >= 2.
+        """
+        from unittest.mock import patch, AsyncMock
+        
+        # Arrange
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        
+        # Mock the authentication queue summary with 2 high priority items
+        mock_summary = {
+            "pending_count": 2,
+            "high_priority_count": 2,
+            "domains": ["primary0.gov", "primary1.gov"],
+            "oldest_queued_at": "2024-01-01T00:00:00+00:00",
+            "by_auth_type": {"cloudflare": 2},
+        }
+        
+        with patch.object(
+            state, "_get_authentication_queue_summary",
+            new_callable=AsyncMock,
+            return_value=mock_summary,
+        ):
+            # Act
+            status = await state.get_status()
+        
+        # Assert
+        critical_alerts = [w for w in status["warnings"] if "[critical]" in w]
+        assert len(critical_alerts) == 1, (
+            f"Should have 1 critical alert for high priority, got {len(critical_alerts)}: {status['warnings']}"
+        )
+        assert "一次資料アクセスがブロック" in critical_alerts[0], (
+            f"Critical should mention primary source blocking, got '{critical_alerts[0]}'"
+        )
     
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -601,8 +774,8 @@ class TestExplorationIntegration:
         state.record_page_fetch("sq_001", "research.go.jp", True, True)
         state.record_page_fetch("sq_001", "wikipedia.org", False, True)
         
-        # Step 4: Get status
-        status = state.get_status()
+        # Step 4: Get status (now async per §16.7.1)
+        status = await state.get_status()
         
         assert status["ok"] is True
         assert status["metrics"]["total_pages"] == 3

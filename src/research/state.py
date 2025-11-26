@@ -516,12 +516,15 @@ class ExplorationState:
         
         return False
     
-    def get_status(self) -> dict[str, Any]:
+    async def get_status(self) -> dict[str, Any]:
         """
         Get current exploration status for Cursor AI.
         
         Returns metrics and state only - no recommendations.
         Cursor AI makes all decisions based on this data.
+        
+        Per §16.7.1: Now includes authentication_queue information.
+        Per §16.7.3: Includes authentication threshold alerts in warnings.
         
         Returns:
             - Task status
@@ -529,7 +532,8 @@ class ExplorationState:
             - Metrics (counts, pages, fragments, claims)
             - Budget information
             - UCB scores (raw data, not recommendations)
-            - Warnings
+            - Authentication queue status (§16.7.1)
+            - Warnings (including auth queue alerts per §16.7.3)
         """
         elapsed_seconds = 0
         if self._time_started:
@@ -549,6 +553,13 @@ class ExplorationState:
         
         if exhausted_count > 0:
             warnings.append(f"{exhausted_count}件のサブクエリが収穫逓減で停止")
+        
+        # Get authentication queue summary (§16.7.1)
+        authentication_queue = await self._get_authentication_queue_summary()
+        
+        # Add authentication queue alerts (§16.7.3)
+        auth_warnings = self._generate_auth_queue_alerts(authentication_queue)
+        warnings.extend(auth_warnings)
         
         # UCB scores (raw data only, no "recommended_next")
         ucb_scores = None
@@ -588,8 +599,82 @@ class ExplorationState:
                 "time_limit_seconds": self._time_limit_seconds,
             },
             "ucb_scores": ucb_scores,
+            "authentication_queue": authentication_queue,
             "warnings": warnings,
         }
+    
+    async def _get_authentication_queue_summary(self) -> dict[str, Any] | None:
+        """Get authentication queue summary for this task.
+        
+        Per §16.7.1: Provides authentication queue information.
+        
+        Returns:
+            Authentication queue summary or None if no pending items.
+        """
+        try:
+            from src.utils.notification import get_intervention_queue
+            
+            queue = get_intervention_queue()
+            summary = await queue.get_authentication_queue_summary(self.task_id)
+            
+            # Only include if there are pending items
+            if summary.get("pending_count", 0) == 0:
+                return None
+            
+            return summary
+        except Exception as e:
+            logger.debug(
+                "Failed to get authentication queue summary",
+                task_id=self.task_id,
+                error=str(e),
+            )
+            return None
+    
+    def _generate_auth_queue_alerts(
+        self,
+        auth_queue: dict[str, Any] | None,
+    ) -> list[str]:
+        """Generate alerts for authentication queue status.
+        
+        Per §16.7.3: Warning levels based on queue depth.
+        - warning: 認証待ち≥3件
+        - critical: 認証待ち≥5件 または 高優先度≥2件
+        
+        Args:
+            auth_queue: Authentication queue summary.
+            
+        Returns:
+            List of warning messages.
+        """
+        if auth_queue is None:
+            return []
+        
+        alerts = []
+        pending_count = auth_queue.get("pending_count", 0)
+        high_priority_count = auth_queue.get("high_priority_count", 0)
+        domains = auth_queue.get("domains", [])
+        
+        # Critical level: ≥5 pending OR ≥2 high priority
+        if pending_count >= 5 or high_priority_count >= 2:
+            if high_priority_count >= 2:
+                alerts.append(
+                    f"[critical] 認証待ち{pending_count}件（高優先度{high_priority_count}件）: "
+                    f"一次資料アクセスがブロック中"
+                )
+            else:
+                alerts.append(
+                    f"[critical] 認証待ち{pending_count}件: 探索継続に影響"
+                )
+        # Warning level: ≥3 pending
+        elif pending_count >= 3:
+            domain_sample = ", ".join(domains[:3])
+            if len(domains) > 3:
+                domain_sample += f" 他{len(domains) - 3}件"
+            alerts.append(
+                f"[warning] 認証待ち{pending_count}件 ({domain_sample})"
+            )
+        
+        return alerts
     
     def set_task_status(self, status: TaskStatus) -> None:
         """Set the task status."""
