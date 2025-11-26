@@ -5,6 +5,11 @@ Provides design support information to Cursor AI for subquery design.
 Does NOT generate subquery candidates - that is Cursor AI's responsibility.
 
 See requirements.md §2.1.4 and §3.1.7.1.
+
+Includes pivot exploration support per §3.1.1:
+- Organization → subsidiaries, officers, location, domain
+- Domain → subdomain, certificate SAN, organization
+- Person → aliases, handles, affiliations
 """
 
 import re
@@ -13,6 +18,13 @@ from typing import Any
 
 from src.storage.database import get_database
 from src.utils.logging import get_logger
+from src.research.pivot import (
+    PivotExpander,
+    PivotSuggestion,
+    EntityType,
+    detect_entity_type,
+    get_pivot_expander,
+)
 
 logger = get_logger(__name__)
 
@@ -144,6 +156,7 @@ class ResearchContext:
             - similar_past_queries: Past queries with success rates
             - recommended_engines: Engines recommended for this query
             - high_success_domains: Domains with high success rates
+            - pivot_suggestions: Pivot exploration suggestions (§3.1.1)
             - notes: Additional hints for Cursor AI
             
         Note:
@@ -163,6 +176,9 @@ class ResearchContext:
         past_queries = await self._get_similar_past_queries()
         recommended_engines = await self._get_recommended_engines()
         high_success_domains = await self._get_high_success_domains()
+        
+        # Generate pivot suggestions for extracted entities (§3.1.1)
+        pivot_suggestions = self._get_pivot_suggestions(entities)
         
         return {
             "ok": True,
@@ -194,6 +210,7 @@ class ResearchContext:
             ],
             "recommended_engines": recommended_engines,
             "high_success_domains": high_success_domains,
+            "pivot_suggestions": pivot_suggestions,
             "notes": self._generate_notes(entities, templates),
         }
     
@@ -393,6 +410,59 @@ class ResearchContext:
             notes.append("政府系サイト検索が推奨されます（site:go.jp等）。")
         
         return " ".join(notes) if notes else "特記事項なし"
+    
+    def _get_pivot_suggestions(
+        self,
+        entities: list[EntityInfo],
+    ) -> list[dict[str, Any]]:
+        """
+        Generate pivot exploration suggestions for entities.
+        
+        Implements §3.1.1 pivot exploration patterns:
+        - Organization → subsidiaries, officers, location, domain
+        - Domain → subdomain, certificate SAN, organization
+        - Person → aliases, handles, affiliations
+        
+        Args:
+            entities: List of extracted entities.
+            
+        Returns:
+            List of pivot suggestion dictionaries.
+        """
+        if not entities:
+            return []
+        
+        pivot_expander = get_pivot_expander()
+        
+        # Convert EntityInfo to dict format expected by PivotExpander
+        entity_dicts = [
+            {
+                "text": e.text,
+                "type": e.entity_type,
+                "context": e.context,
+            }
+            for e in entities
+        ]
+        
+        # Get priority pivots (top suggestions)
+        pivots = pivot_expander.get_priority_pivots(
+            entity_dicts,
+            max_per_entity=3,
+        )
+        
+        # Convert to serializable format
+        return [
+            {
+                "pivot_type": p.pivot_type.value,
+                "source_entity": p.source_entity,
+                "query_examples": p.query_examples[:3],  # Limit examples
+                "target_entity_type": p.target_entity_type.value if p.target_entity_type else None,
+                "priority": p.priority,
+                "rationale": p.rationale,
+                "operators": p.operators,
+            }
+            for p in pivots
+        ]
 
 
 
