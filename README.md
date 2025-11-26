@@ -102,7 +102,7 @@ podman exec lancet-ollama ollama ps
 ## テスト
 
 ```bash
-# 全テスト実行 (1004件)
+# 全テスト実行 (1339件)
 ./scripts/dev.sh test
 
 # マーカーでフィルタリング
@@ -248,7 +248,7 @@ lancet/
 ├── data/                 # 永続データ (マウント)
 ├── logs/                 # ログ (マウント)
 ├── scripts/              # 開発スクリプト
-├── tests/                # テストコード (1004件)
+├── tests/                # テストコード (1339件)
 ├── Dockerfile            # 本番用
 ├── Dockerfile.dev        # 開発用
 └── podman-compose.yml    # コンテナ構成
