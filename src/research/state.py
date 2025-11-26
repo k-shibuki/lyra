@@ -520,13 +520,16 @@ class ExplorationState:
         """
         Get current exploration status for Cursor AI.
         
-        Returns comprehensive status including:
-        - Task status
-        - All subquery states
-        - Overall progress
-        - Budget information
-        - Recommendations (informational only)
-        - Warnings
+        Returns metrics and state only - no recommendations.
+        Cursor AI makes all decisions based on this data.
+        
+        Returns:
+            - Task status
+            - All subquery states
+            - Metrics (counts, pages, fragments, claims)
+            - Budget information
+            - UCB scores (raw data, not recommendations)
+            - Warnings
         """
         elapsed_seconds = 0
         if self._time_started:
@@ -536,65 +539,23 @@ class ExplorationState:
         satisfied = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.SATISFIED)
         partial = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.PARTIAL)
         pending = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.PENDING)
+        exhausted_count = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.EXHAUSTED)
         
-        # Generate warnings
+        # Generate warnings (factual alerts, not recommendations)
         warnings = []
         within_budget, budget_warning = self.check_budget()
         if budget_warning:
             warnings.append(budget_warning)
         
-        # Check for exhausted subqueries
-        exhausted = [sq for sq in self._subqueries.values() if sq.status == SubqueryStatus.EXHAUSTED]
-        if exhausted:
-            warnings.append(f"{len(exhausted)}件のサブクエリが収穫逓減で停止")
+        if exhausted_count > 0:
+            warnings.append(f"{exhausted_count}件のサブクエリが収穫逓減で停止")
         
-        # Recommendations (informational, Cursor AI makes the decision)
-        recommendations = []
-        
-        # Suggest high-priority pending subqueries
-        high_priority_pending = [
-            sq for sq in self._subqueries.values()
-            if sq.status == SubqueryStatus.PENDING and sq.priority == "high"
-        ]
-        if high_priority_pending:
-            recommendations.append({
-                "action": "execute_subquery",
-                "target": high_priority_pending[0].id,
-                "reason": "高優先度の未実行サブクエリ",
-            })
-        
-        # Suggest refutation for satisfied subqueries
-        satisfied_no_refutation = [
-            sq for sq in self._subqueries.values()
-            if sq.status == SubqueryStatus.SATISFIED and sq.refutation_status == "pending"
-        ]
-        if satisfied_no_refutation:
-            recommendations.append({
-                "action": "refute",
-                "target": satisfied_no_refutation[0].id,
-                "reason": "充足済みサブクエリの反証探索を推奨",
-            })
-        
-        # Suggest finalization
-        all_done = all(
-            sq.status in (SubqueryStatus.SATISFIED, SubqueryStatus.EXHAUSTED, SubqueryStatus.SKIPPED)
-            for sq in self._subqueries.values()
-        ) if self._subqueries else False
-        
-        if all_done:
-            recommendations.append({
-                "action": "finalize",
-                "target": None,
-                "reason": "すべてのサブクエリが完了",
-            })
-        
-        # UCB allocation info (§3.1.1)
-        ucb_info = None
+        # UCB scores (raw data only, no "recommended_next")
+        ucb_scores = None
         if self._ucb_allocator:
             ucb_status = self._ucb_allocator.get_status()
-            ucb_info = {
+            ucb_scores = {
                 "enabled": True,
-                "recommended_next": ucb_status.get("recommended_next"),
                 "arm_scores": {
                     sid: arm.get("ucb_score", 0)
                     for sid, arm in ucb_status.get("arms", {}).items()
@@ -604,28 +565,17 @@ class ExplorationState:
                     for sid, arm in ucb_status.get("arms", {}).items()
                 },
             }
-            
-            # Add UCB-based recommendation if available
-            if ucb_status.get("recommended_next"):
-                recommended_id = ucb_status["recommended_next"]
-                if recommended_id in self._subqueries:
-                    sq = self._subqueries[recommended_id]
-                    if sq.status in (SubqueryStatus.PENDING, SubqueryStatus.PARTIAL):
-                        recommendations.insert(0, {
-                            "action": "execute_subquery",
-                            "target": recommended_id,
-                            "reason": "UCB1スコア最高（収穫率に基づく推奨）",
-                        })
         
         return {
             "ok": True,
             "task_id": self.task_id,
             "task_status": self._task_status.value,
             "subqueries": [sq.to_dict() for sq in self._subqueries.values()],
-            "overall_progress": {
+            "metrics": {
                 "satisfied_count": satisfied,
                 "partial_count": partial,
                 "pending_count": pending,
+                "exhausted_count": exhausted_count,
                 "total_pages": self._pages_used,
                 "total_fragments": self._total_fragments,
                 "total_claims": self._total_claims,
@@ -637,8 +587,7 @@ class ExplorationState:
                 "time_used_seconds": elapsed_seconds,
                 "time_limit_seconds": self._time_limit_seconds,
             },
-            "ucb_allocation": ucb_info,
-            "recommendations": recommendations,
+            "ucb_scores": ucb_scores,
             "warnings": warnings,
         }
     

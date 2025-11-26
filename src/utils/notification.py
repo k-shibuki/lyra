@@ -1024,3 +1024,430 @@ def get_intervention_manager() -> InterventionManager:
         InterventionManager instance.
     """
     return _get_manager()
+
+
+# ============================================================
+# Intervention Queue (半自動運用)
+# ============================================================
+
+class InterventionQueue:
+    """Manages authentication queue for batch processing.
+    
+    This class enables semi-automatic operation where:
+    - Authentication challenges are queued instead of blocking
+    - User can process multiple authentications in a session
+    - Authenticated sessions can be reused for same domain
+    """
+    
+    def __init__(self):
+        self._db = None
+    
+    async def _ensure_db(self):
+        """Ensure database connection."""
+        if self._db is None:
+            self._db = await get_database()
+    
+    async def enqueue(
+        self,
+        task_id: str,
+        url: str,
+        domain: str,
+        auth_type: str,
+        priority: str = "medium",
+        expires_at: datetime | None = None,
+    ) -> str:
+        """Add URL to authentication queue.
+        
+        Args:
+            task_id: Task ID.
+            url: URL requiring authentication.
+            domain: Domain name.
+            auth_type: Type of authentication (cloudflare, captcha, etc.).
+            priority: Priority level (high, medium, low).
+            expires_at: Queue expiration time.
+            
+        Returns:
+            Queue item ID.
+        """
+        await self._ensure_db()
+        
+        import uuid
+        queue_id = f"iq_{uuid.uuid4().hex[:12]}"
+        
+        # Default expiration: 1 hour from now
+        if expires_at is None:
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        
+        await self._db.execute(
+            """
+            INSERT INTO intervention_queue 
+            (id, task_id, url, domain, auth_type, priority, status, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+            """,
+            (queue_id, task_id, url, domain, auth_type, priority, expires_at.isoformat()),
+        )
+        
+        logger.info(
+            "Authentication queued",
+            queue_id=queue_id,
+            task_id=task_id,
+            domain=domain,
+            auth_type=auth_type,
+            priority=priority,
+        )
+        
+        return queue_id
+    
+    async def get_pending(
+        self,
+        task_id: str | None = None,
+        priority: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Get pending authentications.
+        
+        Args:
+            task_id: Filter by task ID (optional).
+            priority: Filter by priority (optional).
+            limit: Maximum number of items.
+            
+        Returns:
+            List of pending queue items.
+        """
+        await self._ensure_db()
+        
+        # Use ISO format for comparison with stored timestamps
+        now_iso = datetime.now(timezone.utc).isoformat()
+        
+        query = """
+            SELECT id, task_id, url, domain, auth_type, priority, status, 
+                   queued_at, expires_at
+            FROM intervention_queue
+            WHERE status = 'pending'
+              AND (expires_at IS NULL OR expires_at > ?)
+        """
+        params = [now_iso]
+        
+        if task_id:
+            query += " AND task_id = ?"
+            params.append(task_id)
+        
+        if priority:
+            query += " AND priority = ?"
+            params.append(priority)
+        
+        query += " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
+        query += f" LIMIT {limit}"
+        
+        rows = await self._db.fetch_all(query, params)
+        
+        return [dict(row) for row in rows]
+    
+    async def get_pending_count(self, task_id: str) -> dict[str, int]:
+        """Get count of pending authentications by priority.
+        
+        Args:
+            task_id: Task ID.
+            
+        Returns:
+            Dict with counts by priority and total.
+        """
+        await self._ensure_db()
+        
+        # Use ISO format for comparison with stored timestamps
+        now_iso = datetime.now(timezone.utc).isoformat()
+        
+        rows = await self._db.fetch_all(
+            """
+            SELECT priority, COUNT(*) as count
+            FROM intervention_queue
+            WHERE task_id = ? AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at > ?)
+            GROUP BY priority
+            """,
+            (task_id, now_iso),
+        )
+        
+        counts = {"high": 0, "medium": 0, "low": 0, "total": 0}
+        for row in rows:
+            priority = row["priority"]
+            count = row["count"]
+            counts[priority] = count
+            counts["total"] += count
+        
+        return counts
+    
+    async def start_session(
+        self,
+        task_id: str,
+        queue_ids: list[str] | None = None,
+        priority_filter: str | None = None,
+    ) -> dict[str, Any]:
+        """Start authentication session.
+        
+        Marks items as in_progress and prepares for user processing.
+        
+        Args:
+            task_id: Task ID.
+            queue_ids: Specific queue IDs to process (optional).
+            priority_filter: Process only this priority level (optional).
+            
+        Returns:
+            Session info with URLs to process.
+        """
+        await self._ensure_db()
+        
+        # Get items to process
+        if queue_ids:
+            placeholders = ",".join("?" * len(queue_ids))
+            rows = await self._db.fetch_all(
+                f"""
+                SELECT id, url, domain, auth_type, priority
+                FROM intervention_queue
+                WHERE id IN ({placeholders}) AND status = 'pending'
+                """,
+                queue_ids,
+            )
+        else:
+            # Use ISO format for comparison with stored timestamps
+            now_iso = datetime.now(timezone.utc).isoformat()
+            
+            query = """
+                SELECT id, url, domain, auth_type, priority
+                FROM intervention_queue
+                WHERE task_id = ? AND status = 'pending'
+                  AND (expires_at IS NULL OR expires_at > ?)
+            """
+            params = [task_id, now_iso]
+            
+            if priority_filter and priority_filter != "all":
+                query += " AND priority = ?"
+                params.append(priority_filter)
+            
+            query += " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
+            
+            rows = await self._db.fetch_all(query, params)
+        
+        if not rows:
+            return {
+                "ok": True,
+                "session_started": False,
+                "message": "No pending authentications",
+                "count": 0,
+                "items": [],
+            }
+        
+        # Mark as in_progress
+        ids = [row["id"] for row in rows]
+        placeholders = ",".join("?" * len(ids))
+        await self._db.execute(
+            f"""
+            UPDATE intervention_queue
+            SET status = 'in_progress', started_at = datetime('now')
+            WHERE id IN ({placeholders})
+            """,
+            ids,
+        )
+        
+        items = [dict(row) for row in rows]
+        
+        logger.info(
+            "Authentication session started",
+            task_id=task_id,
+            count=len(items),
+        )
+        
+        return {
+            "ok": True,
+            "session_started": True,
+            "count": len(items),
+            "items": items,
+        }
+    
+    async def complete(
+        self,
+        queue_id: str,
+        success: bool,
+        session_data: dict | None = None,
+    ) -> dict[str, Any]:
+        """Mark authentication as complete.
+        
+        Args:
+            queue_id: Queue item ID.
+            success: Whether authentication succeeded.
+            session_data: Session data to store (cookies, etc.).
+            
+        Returns:
+            Completion result.
+        """
+        await self._ensure_db()
+        
+        import json
+        session_json = json.dumps(session_data) if session_data else None
+        status = "completed" if success else "skipped"
+        
+        await self._db.execute(
+            """
+            UPDATE intervention_queue
+            SET status = ?, completed_at = datetime('now'), session_data = ?
+            WHERE id = ?
+            """,
+            (status, session_json, queue_id),
+        )
+        
+        # Get the item for return
+        row = await self._db.fetch_one(
+            "SELECT url, domain FROM intervention_queue WHERE id = ?",
+            (queue_id,),
+        )
+        
+        logger.info(
+            "Authentication completed",
+            queue_id=queue_id,
+            success=success,
+            domain=row["domain"] if row else None,
+        )
+        
+        return {
+            "ok": True,
+            "queue_id": queue_id,
+            "status": status,
+            "url": row["url"] if row else None,
+            "domain": row["domain"] if row else None,
+        }
+    
+    async def skip(
+        self,
+        task_id: str,
+        queue_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Skip authentications.
+        
+        Args:
+            task_id: Task ID.
+            queue_ids: Specific queue IDs to skip (optional, skips all if omitted).
+            
+        Returns:
+            Skip result.
+        """
+        await self._ensure_db()
+        
+        if queue_ids:
+            placeholders = ",".join("?" * len(queue_ids))
+            result = await self._db.execute(
+                f"""
+                UPDATE intervention_queue
+                SET status = 'skipped', completed_at = datetime('now')
+                WHERE id IN ({placeholders}) AND status IN ('pending', 'in_progress')
+                """,
+                queue_ids,
+            )
+            skipped = len(queue_ids)
+        else:
+            result = await self._db.execute(
+                """
+                UPDATE intervention_queue
+                SET status = 'skipped', completed_at = datetime('now')
+                WHERE task_id = ? AND status IN ('pending', 'in_progress')
+                """,
+                (task_id,),
+            )
+            # Get count (SQLite doesn't return affected rows easily)
+            row = await self._db.fetch_one(
+                "SELECT COUNT(*) as count FROM intervention_queue WHERE task_id = ? AND status = 'skipped'",
+                (task_id,),
+            )
+            skipped = row["count"] if row else 0
+        
+        logger.info(
+            "Authentications skipped",
+            task_id=task_id,
+            skipped=skipped,
+        )
+        
+        return {
+            "ok": True,
+            "skipped": skipped,
+        }
+    
+    async def get_session_for_domain(
+        self,
+        domain: str,
+        task_id: str | None = None,
+    ) -> dict | None:
+        """Get stored session data for a domain.
+        
+        Args:
+            domain: Domain name.
+            task_id: Task ID (optional, for task-scoped sessions).
+            
+        Returns:
+            Session data dict or None.
+        """
+        await self._ensure_db()
+        
+        import json
+        
+        query = """
+            SELECT session_data
+            FROM intervention_queue
+            WHERE domain = ? AND status = 'completed' AND session_data IS NOT NULL
+        """
+        params = [domain]
+        
+        if task_id:
+            query += " AND task_id = ?"
+            params.append(task_id)
+        
+        # Use rowid as secondary sort to ensure most recent insert wins on ties
+        query += " ORDER BY completed_at DESC, rowid DESC LIMIT 1"
+        
+        row = await self._db.fetch_one(query, params)
+        
+        if row and row["session_data"]:
+            return json.loads(row["session_data"])
+        
+        return None
+    
+    async def cleanup_expired(self) -> int:
+        """Clean up expired queue items.
+        
+        Returns:
+            Number of items cleaned up.
+        """
+        await self._ensure_db()
+        
+        # Use ISO format for comparison with stored timestamps
+        now_iso = datetime.now(timezone.utc).isoformat()
+        
+        result = await self._db.execute(
+            """
+            UPDATE intervention_queue
+            SET status = 'expired'
+            WHERE status = 'pending' AND expires_at < ?
+            """,
+            (now_iso,),
+        )
+        
+        # Count expired
+        row = await self._db.fetch_one(
+            "SELECT COUNT(*) as count FROM intervention_queue WHERE status = 'expired'",
+        )
+        
+        return row["count"] if row else 0
+
+
+# Global queue instance
+_queue: InterventionQueue | None = None
+
+
+def get_intervention_queue() -> InterventionQueue:
+    """Get the global intervention queue instance.
+    
+    Returns:
+        InterventionQueue instance.
+    """
+    global _queue
+    if _queue is None:
+        _queue = InterventionQueue()
+    return _queue

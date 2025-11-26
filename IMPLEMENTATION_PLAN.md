@@ -45,6 +45,10 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
   - [x] `serp_items` テーブル
   - [x] `pages` テーブル
   - [x] `fragments` テーブル
+    - [x] `heading_context`: 直近の見出し（単一文字列）
+    - [x] `heading_hierarchy`: 見出し階層（JSON配列）
+    - [x] `element_index`: 見出し配下での要素順序
+    - [x] `fragment_type`: 要素種別（paragraph/heading/list/table/quote/figure/code）
   - [x] `claims` テーブル
   - [x] `edges` テーブル（エビデンスグラフ）
   - [x] `domains` テーブル（ドメインポリシー）
@@ -209,7 +213,7 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - [x] Linux notify-send対応
 - [x] WSL→Windows通知橋渡し
 
-### 8.2 手動介入フロー ✅
+### 8.2 手動介入フロー（即時介入） ✅
 - [x] 基本フロー実装
 - [x] タブ前面化（CDP Page.bringToFront + プラットフォーム別フォールバック）
 - [x] タイムアウト処理完全化（3分SLA、§3.6準拠）
@@ -218,6 +222,23 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - [x] クールダウン適用（タイムアウト時≥60分、§3.5準拠）
 - [x] fetcher.pyへの統合（challenge検知→手動介入フロー自動呼び出し）
 - [x] チャレンジタイプ検出（Cloudflare/CAPTCHA/Turnstile/hCaptcha等）
+
+### 8.3 認証待ちキュー（半自動運用） ✅
+- [x] `intervention_queue` テーブル（認証待ちキュー）
+- [x] `InterventionQueue` クラス
+  - [x] `enqueue()`: 認証待ちをキューに積む
+  - [x] `get_pending()`: 認証待ち一覧を取得
+  - [x] `start_session()`: 認証セッションを開始
+  - [x] `complete()`: 認証完了を記録
+  - [x] `skip()`: 認証をスキップ
+  - [x] `get_session_for_domain()`: 認証済みセッションを取得
+- [x] MCPツール
+  - [x] `get_pending_authentications`: 認証待ちキューを取得
+  - [x] `start_authentication_session`: 認証セッションを開始
+  - [x] `complete_authentication`: 認証完了を通知
+  - [x] `skip_authentication`: 認証をスキップ
+- [x] `FetchResult` に `auth_queued`, `queue_id` フィールド追加
+- [x] `BrowserFetcher.fetch()` に `queue_auth` パラメータ追加
 
 ---
 
@@ -294,7 +315,9 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - [x] 充足度判定（§3.1.7.3: 独立ソース数 + 一次資料有無）
   - [x] 新規性スコア計算（§3.1.7.4: 直近k断片の新規率）
   - [x] 予算消費追跡（ページ数/時間）
+  - [x] **メトリクスのみ返却**（`recommendations`フィールド削除済み）
 - [x] `get_exploration_status` MCPツール実装
+  - **重要**: 推奨なし。Cursor AIがメトリクスを基に次のアクションを判断する（§2.1責任分界準拠）
 
 ### 11.4 反証探索（機械パターン適用） ✅
 - [x] `RefutationExecutor` クラス - Cursor AI指定の主張に対する反証検索
@@ -645,6 +668,54 @@ E2Eテストを有効に実施するための前提：
 
 ---
 
+### 16.7 半自動運用UX改善 (§2, §3.6) 🔴
+
+**問題**: 現状の仕様では認証待ちが発生してもCursor AIに能動的に通知されず、
+ユーザーが認証セッションを開始すべきタイミングが不明確。
+
+#### 16.7.1 認証待ち情報のステータス統合
+- [ ] **`get_exploration_status`への認証待ち情報追加**
+  - `authentication_queue.pending_count`: 認証待ち総数
+  - `authentication_queue.high_priority_count`: 高優先度（一次資料）の数
+  - `authentication_queue.domains`: 認証待ちドメイン一覧
+  - `authentication_queue.oldest_queued_at`: 最古のキュー時刻
+  - 実装: `src/research/state.py` (ExplorationState.get_status)
+  - 目的: Cursor AIが探索状況確認時に認証待ちを認識し、ユーザーに判断を仰げる
+
+#### 16.7.2 三者責任分界の明確化
+- [ ] **`requirements.md` §3.6.1 への追記**
+  ```
+  | 判断 | ユーザー | Cursor AI | Lancet |
+  |------|----------|-----------|--------|
+  | 認証セッション開始 | ✅ 決定 | 提案・確認 | 実行 |
+  | 認証スキップ | ✅ 決定 | 提案・確認 | 実行 |
+  | 優先度 | - | ✅ 決定 | 適用 |
+  | タイムアウト処理 | - | - | ✅ 自動 |
+  ```
+- [ ] **優先度決定ロジックの明記**
+  - デフォルト: ソース種別から推定（一次資料=high、二次資料=medium、その他=low）
+  - `execute_subquery`のオプションでCursor AIが明示指定可能
+
+#### 16.7.3 認証待ち閾値アラート
+- [ ] **認証待ち数に応じた警告レベル**
+  - `warning`: 認証待ち≥3件
+  - `critical`: 認証待ち≥5件 または 高優先度≥2件
+  - `get_exploration_status`の`warnings`配列に含める
+- [ ] **探索ブロック検知**
+  - 認証待ちにより探索進行が阻害されている場合の明示
+  - 例: 「5件中3件が認証待ち、探索継続に影響」
+
+#### 16.7.4 認証フロー改善
+- [ ] **`execute_subquery`戻り値への認証待ち情報追加**
+  - `auth_blocked_urls`: 認証待ちでブロックされたURL数
+  - `auth_queued_count`: 今回キューに追加された数
+  - Cursor AIが即座に認識し、次のアクションを判断可能
+- [ ] **`FetchResult`の認証待ち理由の詳細化**
+  - `auth_type`: cloudflare/captcha/turnstile/login
+  - `estimated_effort`: 認証の推定難易度（low/medium/high）
+
+---
+
 ## Phase 15: ドキュメント/運用 ✅
 
 ### 15.1 ドキュメント ✅
@@ -809,7 +880,7 @@ E2Eテストを有効に実施するための前提：
 
 | 優先度 | 項目数 | 主要カテゴリ |
 |--------|--------|--------------|
-| 🔴 高（E2E前必須） | 7項目 | IPv6/HTTP3 |
+| 🔴 高（E2E前必須） | 11項目 | IPv6/HTTP3、**半自動運用UX** |
 | 🟡 中（MVP強化: E2E前推奨） | 13項目 | ピボット探索、RDAP/crt.sh、評価可視化 |
 | 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
 

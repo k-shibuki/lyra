@@ -387,6 +387,9 @@ class FetchResult:
         from_cache: bool = False,
         etag: str | None = None,
         last_modified: str | None = None,
+        # Authentication queue (semi-automatic operation)
+        auth_queued: bool = False,
+        queue_id: str | None = None,
     ):
         self.ok = ok
         self.url = url
@@ -402,6 +405,8 @@ class FetchResult:
         self.from_cache = from_cache
         self.etag = etag
         self.last_modified = last_modified
+        self.auth_queued = auth_queued
+        self.queue_id = queue_id
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -420,6 +425,8 @@ class FetchResult:
             "from_cache": self.from_cache,
             "etag": self.etag,
             "last_modified": self.last_modified,
+            "auth_queued": self.auth_queued,
+            "queue_id": self.queue_id,
         }
 
 
@@ -860,12 +867,16 @@ class BrowserFetcher:
         simulate_human: bool = True,
         task_id: str | None = None,
         allow_intervention: bool = True,
+        queue_auth: bool = True,
+        auth_priority: str = "medium",
     ) -> FetchResult:
         """Fetch URL using browser with automatic mode selection.
         
         Args:
             url: URL to fetch.
             referer: Referer header.
+            queue_auth: If True, queue authentication instead of blocking (semi-auto mode).
+            auth_priority: Priority for queued auth (high, medium, low).
             headful: Force headful mode (None for auto-detect).
             take_screenshot: Whether to capture screenshot.
             simulate_human: Whether to simulate human behavior.
@@ -939,14 +950,45 @@ class BrowserFetcher:
                         method="browser_headless",
                     )
                 else:
-                    # Headful mode - try manual intervention if allowed
-                    if allow_intervention:
+                    # Headful mode - handle authentication challenge
+                    challenge_type = _detect_challenge_type(content)
+                    
+                    if allow_intervention and queue_auth and task_id:
+                        # Queue authentication for batch processing (semi-auto mode)
+                        from src.utils.notification import get_intervention_queue
+                        queue = get_intervention_queue()
+                        queue_id = await queue.enqueue(
+                            task_id=task_id,
+                            url=url,
+                            domain=domain,
+                            auth_type=challenge_type,
+                            priority=auth_priority,
+                        )
+                        
+                        logger.info(
+                            "Authentication queued",
+                            url=url[:80],
+                            queue_id=queue_id,
+                            auth_type=challenge_type,
+                        )
+                        
+                        return FetchResult(
+                            ok=False,
+                            url=url,
+                            status=response.status,
+                            reason="auth_required",
+                            method="browser_headful",
+                            auth_queued=True,
+                            queue_id=queue_id,
+                        )
+                    elif allow_intervention:
+                        # Immediate intervention (legacy mode)
                         intervention_result = await self._request_manual_intervention(
                             url=url,
                             domain=domain,
                             page=page,
                             task_id=task_id,
-                            challenge_type=_detect_challenge_type(content),
+                            challenge_type=challenge_type,
                         )
                         
                         if intervention_result and intervention_result.status == InterventionStatus.SUCCESS:
