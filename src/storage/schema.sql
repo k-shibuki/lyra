@@ -604,6 +604,54 @@ CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_source ON calibration_eva
 CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_evaluated_at ON calibration_evaluations(evaluated_at);
 
 -- ============================================================
+-- Query A/B Testing (§3.1.1)
+-- ============================================================
+
+-- A/B test sessions
+CREATE TABLE IF NOT EXISTS query_ab_tests (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    base_query TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    winner_variant_type TEXT,  -- original, notation, particle, order, combined
+    winner_harvest_rate REAL,
+    status TEXT DEFAULT 'pending',  -- pending, running, completed
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_task ON query_ab_tests(task_id);
+
+-- A/B test variants
+CREATE TABLE IF NOT EXISTS query_ab_variants (
+    id TEXT PRIMARY KEY,
+    ab_test_id TEXT NOT NULL,
+    variant_type TEXT NOT NULL,  -- original, notation, particle, order, combined
+    query_text TEXT NOT NULL,
+    transformation TEXT,  -- Description of transformation applied
+    result_count INTEGER DEFAULT 0,
+    useful_fragments INTEGER DEFAULT 0,
+    harvest_rate REAL,
+    execution_time_ms INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ab_test_id) REFERENCES query_ab_tests(id)
+);
+CREATE INDEX IF NOT EXISTS idx_ab_variants_test ON query_ab_variants(ab_test_id);
+
+-- High-yield query patterns cache
+CREATE TABLE IF NOT EXISTS high_yield_queries (
+    id TEXT PRIMARY KEY,
+    pattern_type TEXT NOT NULL,  -- notation, particle, order
+    original_pattern TEXT NOT NULL,
+    improved_pattern TEXT NOT NULL,
+    improvement_ratio REAL,  -- (improved - original) / original
+    sample_count INTEGER DEFAULT 1,
+    confidence REAL DEFAULT 0.5,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_high_yield_pattern ON high_yield_queries(pattern_type);
+CREATE INDEX IF NOT EXISTS idx_high_yield_confidence ON high_yield_queries(confidence);
+
+-- ============================================================
 -- Metrics Views
 -- ============================================================
 
