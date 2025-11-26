@@ -1177,6 +1177,92 @@ class InterventionQueue:
         
         return counts
     
+    async def get_authentication_queue_summary(self, task_id: str) -> dict[str, Any]:
+        """Get comprehensive summary of authentication queue for exploration status.
+        
+        Per §16.7.1: Provides authentication queue information for get_exploration_status.
+        
+        Args:
+            task_id: Task ID.
+            
+        Returns:
+            Summary dict with:
+            - pending_count: Total pending authentications
+            - high_priority_count: High priority (primary sources) count
+            - domains: List of distinct domains awaiting authentication
+            - oldest_queued_at: ISO timestamp of oldest queued item
+            - by_auth_type: Count by auth_type (cloudflare, captcha, etc.)
+        """
+        await self._ensure_db()
+        
+        now_iso = datetime.now(timezone.utc).isoformat()
+        
+        # Get counts by priority
+        priority_rows = await self._db.fetch_all(
+            """
+            SELECT priority, COUNT(*) as count
+            FROM intervention_queue
+            WHERE task_id = ? AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at > ?)
+            GROUP BY priority
+            """,
+            (task_id, now_iso),
+        )
+        
+        pending_count = 0
+        high_priority_count = 0
+        for row in priority_rows:
+            count = row["count"]
+            pending_count += count
+            if row["priority"] == "high":
+                high_priority_count = count
+        
+        # Get distinct domains
+        domain_rows = await self._db.fetch_all(
+            """
+            SELECT DISTINCT domain
+            FROM intervention_queue
+            WHERE task_id = ? AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY domain
+            """,
+            (task_id, now_iso),
+        )
+        domains = [row["domain"] for row in domain_rows]
+        
+        # Get oldest queued_at
+        oldest_row = await self._db.fetch_one(
+            """
+            SELECT MIN(queued_at) as oldest
+            FROM intervention_queue
+            WHERE task_id = ? AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at > ?)
+            """,
+            (task_id, now_iso),
+        )
+        oldest_queued_at = oldest_row["oldest"] if oldest_row and oldest_row["oldest"] else None
+        
+        # Get counts by auth_type
+        auth_type_rows = await self._db.fetch_all(
+            """
+            SELECT auth_type, COUNT(*) as count
+            FROM intervention_queue
+            WHERE task_id = ? AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at > ?)
+            GROUP BY auth_type
+            """,
+            (task_id, now_iso),
+        )
+        by_auth_type = {row["auth_type"]: row["count"] for row in auth_type_rows}
+        
+        return {
+            "pending_count": pending_count,
+            "high_priority_count": high_priority_count,
+            "domains": domains,
+            "oldest_queued_at": oldest_queued_at,
+            "by_auth_type": by_auth_type,
+        }
+    
     async def start_session(
         self,
         task_id: str,

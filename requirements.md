@@ -771,7 +771,13 @@ Cursor AI                          Lancet MCP
 - **並行処理**: 認証待ち中も認証不要ソースの探索を継続
 - **セッション再利用**: 認証済みセッション情報を保存し、同一ドメインの後続リクエストで再利用
 - **優先度決定**: Cursor AIがサブクエリ実行時に指定。デフォルトはソース種別から推定（一次資料=high）
-- **通知連携**: `get_exploration_status`に認証待ち数を含め、Cursor AIがユーザーに判断を仰ぐ契機を提供
+- **通知連携**: `get_exploration_status`に`authentication_queue`オブジェクトを含め、Cursor AIがユーザーに判断を仰ぐ契機を提供
+  - `pending_count`: 認証待ち総数
+  - `high_priority_count`: 高優先度（一次資料）の件数
+  - `domains`: 認証待ちドメイン一覧
+  - `oldest_queued_at`: 最古のキュー時刻
+  - `by_auth_type`: 認証タイプ別カウント（cloudflare/captcha/turnstile等）
+  - 閾値アラート: ≥3件でwarning、≥5件または高優先度≥2件でcriticalをwarnings配列に追加
 - **MCPツール**:
   - `get_pending_authentications`: 認証待ちキューを取得
   - `start_authentication_session`: 認証セッションを開始（ブラウザ前面化）
