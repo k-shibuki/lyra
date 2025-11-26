@@ -522,11 +522,22 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - テスト: 33件（全パス）
 
 #### 16.2.2 インフラ/レジストリ連携 (§3.1.2, §3.1.3)
-- [ ] **RDAP/WHOIS連携**
+- [x] **RDAP/WHOIS連携** ✅
   - 公式Web/レジストリからHTML取得
   - 登録者/NS/更新履歴抽出
-- [ ] **crt.sh連携**
+  - 実装: `src/crawler/rdap_whois.py` (RDAPClient, WHOISParser, WHOISRecord)
+  - 複数エンドポイント対応: IANA, ARIN, RIPE, APNIC, JPRS, ICANN lookup
+  - キャッシュ機能、バッチ処理対応
+  - テスト: 22件（全パス）
+- [x] **crt.sh連携** ✅
   - 証明書透明性ログからSAN/発行者/発行時系列抽出
+  - 実装: `src/crawler/crt_transparency.py` (CertTransparencyClient, CertificateInfo, CertTimeline)
+  - 関連ドメイン発見、証明書タイムライン構築
+  - テスト: 22件（全パス）
+- [x] **ResearchContext統合** ✅
+  - `get_context()`に`registry_info`フィールド追加
+  - ドメインエンティティに対する自動WHOIS/CT検索
+  - 実装: `src/research/context.py` (_get_registry_info, RegistryInfo)
 - [ ] **エンティティKB正規化**
   - 抽出した名称/所在地/識別子のKB格納
   - 別表記・住所正規化・同一性推定

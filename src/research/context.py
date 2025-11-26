@@ -10,6 +10,10 @@ Includes pivot exploration support per §3.1.1:
 - Organization → subsidiaries, officers, location, domain
 - Domain → subdomain, certificate SAN, organization
 - Person → aliases, handles, affiliations
+
+Registry integration support per §3.1.2, §3.1.3:
+- RDAP/WHOIS for domain registration information
+- crt.sh for certificate transparency / SAN discovery
 """
 
 import re
@@ -17,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.storage.database import get_database
-from src.utils.logging import get_logger
+from src.utils.logging import get_logger, CausalTrace
 from src.research.pivot import (
     PivotExpander,
     PivotSuggestion,
@@ -109,6 +113,26 @@ ENTITY_PATTERNS = {
 }
 
 
+@dataclass
+class RegistryInfo:
+    """Registry information for a domain (WHOIS/RDAP/CT)."""
+    
+    domain: str
+    registrar: str | None = None
+    registrant_org: str | None = None
+    registrant_country: str | None = None
+    nameservers: list[str] = field(default_factory=list)
+    created_date: str | None = None
+    updated_date: str | None = None
+    expiry_date: str | None = None
+    # From crt.sh
+    discovered_domains: list[str] = field(default_factory=list)
+    discovered_issuers: list[str] = field(default_factory=list)
+    cert_timeline_start: str | None = None
+    cert_timeline_end: str | None = None
+    source: str = ""  # Source URL
+
+
 class ResearchContext:
     """
     Provides design support information for Cursor AI.
@@ -116,18 +140,24 @@ class ResearchContext:
     This class extracts entities, suggests applicable templates,
     and retrieves past query success rates. It does NOT generate
     subquery candidates - that responsibility belongs to Cursor AI.
+    
+    Registry integration (§3.1.2, §3.1.3):
+    - RDAP/WHOIS lookups for domain entities
+    - Certificate transparency (crt.sh) for domain discovery
     """
     
-    def __init__(self, task_id: str):
+    def __init__(self, task_id: str, fetcher: Any = None):
         """Initialize research context for a task.
         
         Args:
             task_id: The task ID to provide context for.
+            fetcher: Optional URL fetcher for registry lookups.
         """
         self.task_id = task_id
         self._db = None
         self._task = None
         self._original_query: str = ""
+        self._fetcher = fetcher  # For RDAP/WHOIS/crt.sh lookups
     
     async def _ensure_db(self) -> None:
         """Ensure database connection is available."""
@@ -157,6 +187,7 @@ class ResearchContext:
             - recommended_engines: Engines recommended for this query
             - high_success_domains: Domains with high success rates
             - pivot_suggestions: Pivot exploration suggestions (§3.1.1)
+            - registry_info: Domain registry data (WHOIS/RDAP/CT) (§3.1.2)
             - notes: Additional hints for Cursor AI
             
         Note:
@@ -179,6 +210,9 @@ class ResearchContext:
         
         # Generate pivot suggestions for extracted entities (§3.1.1)
         pivot_suggestions = self._get_pivot_suggestions(entities)
+        
+        # Get registry info for domain entities (§3.1.2)
+        registry_info = await self._get_registry_info(entities)
         
         return {
             "ok": True,
@@ -211,6 +245,7 @@ class ResearchContext:
             "recommended_engines": recommended_engines,
             "high_success_domains": high_success_domains,
             "pivot_suggestions": pivot_suggestions,
+            "registry_info": registry_info,
             "notes": self._generate_notes(entities, templates),
         }
     
@@ -463,6 +498,151 @@ class ResearchContext:
             }
             for p in pivots
         ]
+    
+    async def _get_registry_info(
+        self,
+        entities: list[EntityInfo],
+    ) -> list[dict[str, Any]]:
+        """
+        Get registry information for domain entities.
+        
+        Implements §3.1.2 infrastructure/registry integration:
+        - RDAP/WHOIS for domain registration data
+        - crt.sh for certificate transparency / SAN discovery
+        
+        Args:
+            entities: List of extracted entities.
+            
+        Returns:
+            List of registry info dictionaries.
+        """
+        if not self._fetcher:
+            logger.debug("No fetcher available, skipping registry lookups")
+            return []
+        
+        # Find domain entities
+        domain_entities = [
+            e for e in entities
+            if e.entity_type == "domain" or self._looks_like_domain(e.text)
+        ]
+        
+        if not domain_entities:
+            return []
+        
+        results = []
+        
+        # Import clients here to avoid circular imports
+        try:
+            from src.crawler.rdap_whois import get_rdap_client
+            from src.crawler.crt_transparency import get_cert_transparency_client
+        except ImportError as e:
+            logger.warning(f"Registry clients not available: {e}")
+            return []
+        
+        rdap_client = get_rdap_client(self._fetcher)
+        ct_client = get_cert_transparency_client(self._fetcher)
+        
+        trace = CausalTrace.create("registry_lookup")
+        
+        for entity in domain_entities[:3]:  # Limit to 3 domains
+            domain = self._normalize_domain(entity.text)
+            if not domain:
+                continue
+            
+            info = RegistryInfo(domain=domain)
+            
+            # Try WHOIS/RDAP lookup
+            try:
+                whois_record = await rdap_client.lookup(domain, trace=trace)
+                if whois_record:
+                    info.registrar = whois_record.registrar
+                    info.registrant_org = whois_record.get_registrant_org()
+                    if whois_record.registrant:
+                        info.registrant_country = whois_record.registrant.country
+                    info.nameservers = [ns.hostname for ns in whois_record.nameservers]
+                    if whois_record.created_date:
+                        info.created_date = whois_record.created_date.isoformat()
+                    if whois_record.updated_date:
+                        info.updated_date = whois_record.updated_date.isoformat()
+                    if whois_record.expiry_date:
+                        info.expiry_date = whois_record.expiry_date.isoformat()
+                    info.source = whois_record.source_url or ""
+            except Exception as e:
+                logger.debug(f"WHOIS lookup failed for {domain}: {e}")
+            
+            # Try certificate transparency lookup
+            try:
+                ct_result = await ct_client.search(domain, trace=trace)
+                if ct_result:
+                    info.discovered_domains = ct_result.discovered_domains[:10]
+                    info.discovered_issuers = ct_result.discovered_issuers
+                    if ct_result.earliest_cert:
+                        info.cert_timeline_start = ct_result.earliest_cert.isoformat()
+                    if ct_result.latest_cert:
+                        info.cert_timeline_end = ct_result.latest_cert.isoformat()
+            except Exception as e:
+                logger.debug(f"CT lookup failed for {domain}: {e}")
+            
+            # Only include if we got some data
+            if info.registrar or info.discovered_domains:
+                results.append({
+                    "domain": info.domain,
+                    "registrar": info.registrar,
+                    "registrant_org": info.registrant_org,
+                    "registrant_country": info.registrant_country,
+                    "nameservers": info.nameservers,
+                    "created_date": info.created_date,
+                    "updated_date": info.updated_date,
+                    "expiry_date": info.expiry_date,
+                    "discovered_domains": info.discovered_domains,
+                    "discovered_issuers": info.discovered_issuers,
+                    "cert_timeline_start": info.cert_timeline_start,
+                    "cert_timeline_end": info.cert_timeline_end,
+                    "source": info.source,
+                })
+        
+        return results
+    
+    def _looks_like_domain(self, text: str) -> bool:
+        """Check if text looks like a domain name.
+        
+        Args:
+            text: Text to check.
+            
+        Returns:
+            True if text appears to be a domain.
+        """
+        import re
+        # Simple domain pattern: at least one dot, valid characters
+        pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$"
+        return bool(re.match(pattern, text.lower()))
+    
+    def _normalize_domain(self, text: str) -> str | None:
+        """Normalize text to a domain name.
+        
+        Args:
+            text: Text that might be a domain or URL.
+            
+        Returns:
+            Normalized domain or None.
+        """
+        import tldextract
+        from urllib.parse import urlparse
+        
+        # Handle URLs
+        if "://" in text:
+            parsed = urlparse(text)
+            text = parsed.netloc or parsed.path
+        
+        # Remove port
+        text = text.split(":")[0]
+        
+        # Extract base domain
+        ext = tldextract.extract(text)
+        if ext.domain and ext.suffix:
+            return f"{ext.domain}.{ext.suffix}".lower()
+        
+        return None
 
 
 
