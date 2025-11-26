@@ -489,8 +489,8 @@ class TestUCBAllocatorIntegration:
         assert "sq_002" in scores
     
     @pytest.mark.asyncio
-    async def test_get_status_includes_ucb_info(self):
-        """Test get_status includes UCB allocation information."""
+    async def test_get_status_includes_ucb_scores(self):
+        """Test get_status includes UCB scores information (not recommendations)."""
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
@@ -498,10 +498,11 @@ class TestUCBAllocatorIntegration:
         
         status = state.get_status()
         
-        assert "ucb_allocation" in status
-        assert status["ucb_allocation"]["enabled"] is True
-        assert "arm_scores" in status["ucb_allocation"]
-        assert "arm_budgets" in status["ucb_allocation"]
+        # ucb_scores contains raw data only (no recommendations)
+        assert "ucb_scores" in status
+        assert status["ucb_scores"]["enabled"] is True
+        assert "arm_scores" in status["ucb_scores"]
+        assert "arm_budgets" in status["ucb_scores"]
     
     @pytest.mark.asyncio
     async def test_trigger_budget_reallocation(self):

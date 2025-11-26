@@ -660,3 +660,5 @@ class TestDNSPolicyIntegration:
             assert "socks5h://" in proxy_url, \
                 "SOCKS proxy URL must use socks5h:// protocol to prevent DNS leaks"
 
+
+

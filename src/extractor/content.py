@@ -8,6 +8,7 @@ OCR Support (§5.1.1):
 """
 
 import hashlib
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -184,12 +185,16 @@ async def _extract_html(
                 continue
             
             text_hash = hashlib.sha256(para.encode()).hexdigest()[:32]
+            heading_hierarchy = _build_heading_hierarchy(headings, idx)
+            element_index = _calculate_element_index(idx, headings)
             
             fragment = {
                 "text": para,
                 "type": "paragraph",
                 "position": idx,
                 "heading_context": _find_heading_context(idx, headings, paragraphs),
+                "heading_hierarchy": heading_hierarchy,
+                "element_index": element_index,
                 "text_hash": text_hash,
             }
             fragments.append(fragment)
@@ -202,6 +207,8 @@ async def _extract_html(
                     "position": idx,
                     "text_content": para,
                     "heading_context": fragment["heading_context"],
+                    "heading_hierarchy": json.dumps(heading_hierarchy, ensure_ascii=False),
+                    "element_index": element_index,
                     "text_hash": text_hash,
                 })
         
@@ -559,27 +566,38 @@ async def ocr_image(
 
 
 def _extract_headings(html: str) -> list[dict[str, Any]]:
-    """Extract headings from HTML.
+    """Extract headings from HTML with position information.
     
     Args:
         html: HTML content.
         
     Returns:
-        List of heading dictionaries.
+        List of heading dictionaries with level, text, and position.
     """
     headings = []
     
     # Simple regex extraction for headings
     heading_pattern = re.compile(r"<h([1-6])[^>]*>(.*?)</h\1>", re.IGNORECASE | re.DOTALL)
     
+    # Also track paragraph positions to correlate with headings
+    paragraph_pattern = re.compile(r"<p[^>]*>.*?</p>", re.IGNORECASE | re.DOTALL)
+    
+    # Find all paragraph positions
+    para_positions = [m.start() for m in paragraph_pattern.finditer(html)]
+    
     for match in heading_pattern.finditer(html):
         level = int(match.group(1))
         text = re.sub(r"<[^>]+>", "", match.group(2)).strip()
         
         if text:
+            # Calculate position as "number of paragraphs before this heading"
+            heading_char_pos = match.start()
+            position = sum(1 for p in para_positions if p < heading_char_pos)
+            
             headings.append({
                 "level": level,
                 "text": text,
+                "position": position,
             })
     
     return headings
@@ -646,6 +664,49 @@ def _split_into_paragraphs(text: str) -> list[str]:
     return cleaned
 
 
+def _build_heading_hierarchy(
+    headings: list[dict],
+    paragraph_idx: int,
+) -> list[dict]:
+    """Build heading hierarchy for a paragraph position.
+    
+    Constructs a list of headings from h1 to the most specific level
+    that applies to the given paragraph position.
+    
+    Args:
+        headings: List of heading dicts with 'level', 'text', 'position'.
+        paragraph_idx: Index of the paragraph.
+        
+    Returns:
+        List of heading dicts representing the hierarchy.
+        Example: [{"level": 1, "text": "Title"}, {"level": 2, "text": "Section"}]
+    """
+    if not headings:
+        return []
+    
+    # Find all headings that appear before this paragraph
+    applicable_headings = [h for h in headings if h.get("position", 0) <= paragraph_idx]
+    
+    if not applicable_headings:
+        return []
+    
+    # Build hierarchy: keep the most recent heading at each level
+    hierarchy = {}
+    for h in applicable_headings:
+        level = h.get("level", 1)
+        hierarchy[level] = h
+        # Clear deeper levels when a higher-level heading appears
+        for deeper in list(hierarchy.keys()):
+            if deeper > level:
+                del hierarchy[deeper]
+    
+    # Sort by level and return
+    return [
+        {"level": level, "text": hierarchy[level].get("text", "")}
+        for level in sorted(hierarchy.keys())
+    ]
+
+
 def _find_heading_context(
     paragraph_idx: int,
     headings: list[dict],
@@ -659,13 +720,39 @@ def _find_heading_context(
         paragraphs: List of paragraphs.
         
     Returns:
-        Heading text or None.
+        Heading text or None (the deepest/most specific heading).
     """
-    # This is a simplified implementation
-    # In practice, we'd need to track heading positions in the original text
-    if headings and len(headings) > 0:
-        # Return the first heading as context (simplified)
-        idx = min(paragraph_idx // 3, len(headings) - 1)
-        return headings[idx]["text"]
+    hierarchy = _build_heading_hierarchy(headings, paragraph_idx)
+    if hierarchy:
+        # Return the deepest (most specific) heading
+        return hierarchy[-1].get("text")
     return None
+
+
+def _calculate_element_index(
+    paragraph_idx: int,
+    headings: list[dict],
+) -> int:
+    """Calculate element index within the current heading section.
+    
+    Args:
+        paragraph_idx: Index of the paragraph in the document.
+        headings: List of headings with positions.
+        
+    Returns:
+        Index within the current section (0-based).
+    """
+    if not headings:
+        return paragraph_idx
+    
+    # Find the most recent heading before this paragraph
+    last_heading_pos = 0
+    for h in headings:
+        pos = h.get("position", 0)
+        if pos <= paragraph_idx:
+            last_heading_pos = pos
+        else:
+            break
+    
+    return paragraph_idx - last_heading_pos
 

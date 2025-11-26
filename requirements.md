@@ -17,6 +17,7 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
 - インターフェース: Cursorとエージェント間の通信にはMCP (Model Context Protocol) を採用し、AIがツールとしてエージェントの機能を直接呼び出せる構成とする。
 - Zero OpEx: 運用コストを完全無料とする。商用APIは使用しない。
 - Local Constraint: 実行環境はWSL2内に限定し、メモリリソースを厳格に管理する。
+- **半自動運用**: Cloudflare/CAPTCHA等の認証突破はユーザーの手動介入を前提とし、認証待ちをキューに積んでバッチ処理可能とする。認証不要ソースを優先処理し、ユーザー介入回数を最小化する。
  - OSINT最適化: 権威・一次資料を優先し、反証探索を強制。収集→抽出→要約の各段の決定根拠を因果ログで連結（チェーン・オブ・カストディ）する。
  - 反スパム方針: SEOアグリゲータ/キュレーション寄りの低品質源泉は初期重みを低下させ、ドメイン学習により恒久スキップ候補へ昇格可能とする。
  - 監査可能性: HTML/PDFのWARC保存とスクリーンショット、抽出断片のハッシュ（出典・見出し・周辺文脈）を保存し、検証/再現を容易にする。
@@ -62,11 +63,12 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
    └─ Lancet: 結果サマリ（収穫率、新規断片数、充足度）を返却
 
 5. Cursor AI → get_exploration_status(task_id)
-   └─ Lancet: 現在の探索状態を返却
+   └─ Lancet: 現在の探索状態を返却（**推奨なし・メトリクスのみ**）
      - 実行済みサブクエリの状態（充足/部分充足/未充足）
      - 新規性スコア推移
      - 残り予算（ページ数/時間）
      - 発見された新エンティティ（次のクエリ設計の参考）
+     - **注意**: 「次に何をすべきか」の推奨は返さない。Cursor AIがこのデータを基に判断する
 
 6. Cursor AI: 状況を評価し、次のサブクエリを設計・実行指示
    （ステップ4-5を繰り返す）
@@ -103,6 +105,7 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   - 断片からの事実/主張抽出（§3.3に準拠）
   - 固有表現抽出（エンティティ認識）
   - **コンテンツ品質評価**（§3.3.3に準拠）: AI生成/アグリゲータ/SEOスパムの判定（ルール判定が曖昧な場合のみ）
+  - **構造化・コンテキスト付与**: 見出し階層の構築、断片への文脈情報（資料・見出し・段落位置）の付与
 
 - **禁止される用途**:
   - **サブクエリの設計・候補生成**（Cursor AIの専権）
@@ -435,7 +438,7 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
     }
     ```
 
-- `get_exploration_status(task_id)` → 探索状態を取得
+- `get_exploration_status(task_id)` → 探索状態を取得（メトリクスのみ、推奨なし）
   - 入力: `task_id`
   - 出力:
     ```json
@@ -453,10 +456,11 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
           "refutation_status": "pending|found|not_found"
         }
       ],
-      "overall_progress": {
+      "metrics": {
         "satisfied_count": 3,
         "partial_count": 2,
         "pending_count": 1,
+        "exhausted_count": 0,
         "total_pages": 78,
         "total_fragments": 124,
         "total_claims": 15,
@@ -468,16 +472,23 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
         "time_used_seconds": 480,
         "time_limit_seconds": 1200
       },
-      "recommendations": [
-        {
-          "action": "execute_subquery|refute|finalize|expand",
-          "target": "sq_002",
-          "reason": "新規性が高く、優先実行を推奨"
-        }
-      ],
-      "warnings": ["ドメインX がクールダウン中", "予算残り20%"]
+      "ucb_scores": {
+        "enabled": true,
+        "arm_scores": {"sq_001": 1.23, "sq_002": 0.87},
+        "arm_budgets": {"sq_001": 15, "sq_002": 20}
+      },
+      "authentication_queue": {
+        "pending_count": 3,
+        "high_priority_count": 1,
+        "domains": ["protected.go.jp", "secure.example.com"],
+        "oldest_queued_at": "2024-01-15T10:00:00Z",
+        "blocking_exploration": false
+      },
+      "warnings": ["ドメインX がクールダウン中", "予算残り20%", "認証待ち3件（高優先度1件）"]
     }
     ```
+  - **注意**: `recommendations`フィールドは返さない。Cursor AIがこのデータを基に次のアクションを判断する。
+  - **認証待ち通知**: `authentication_queue`でCursor AIに認証待ち状況を報告。`pending_count≥3`または`high_priority_count≥1`で`warnings`にも追加。
 
 - `execute_refutation(task_id, claim_id?, subquery_id?)` → 反証探索を実行
   - 入力:
@@ -544,7 +555,7 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 | | `get_task_status` | 状態確認の指示 | 状態データ返却 |
 | **探索制御** | `get_research_context` | 設計支援情報の取得指示 | エンティティ/テンプレ/成功率の返却 |
 | | `execute_subquery` | **サブクエリの設計**・実行指示 | 検索→取得→抽出→評価の実行 |
-| | `get_exploration_status` | 状態確認・次判断 | 充足度/新規性/予算の報告 |
+| | `get_exploration_status` | 状態確認・**次判断はCursor AI** | メトリクス/予算の報告（**推奨なし**） |
 | | `execute_refutation` | 反証対象の指定 | 機械パターン適用・反証検索 |
 | | `finalize_exploration` | 終了判断 | 最終状態のDB記録 |
 | **取得・抽出** | `search_serp` | クエリの指定 | 検索エンジン実行・SERP返却 |
@@ -751,12 +762,41 @@ Cursor AI                          Lancet MCP
 - エラー回復: タイムアウトや接続エラーが発生した場合、当該タスクをスキップまたは再試行し、プロセス全体を停止させない。
  - ブロック回復: 429/403やCloudflare判定を検知した場合は指数バックオフ、回線更新（Tor）、ヘッドレス→ヘッドフル切替、ドメインのクールダウン（最小60分）を順次適用する。
 
-### 3.6. ユーザー通知と手動介入（トースト/GUI）
+### 3.6. ユーザー通知と手動介入（半自動運用）
+
+#### 3.6.1. 認証待ちキュー（推奨）
+- **キュー積み**: 認証が必要なURLは即時ブロックせず、認証待ちキューに積む
+- **バッチ処理**: ユーザーが都合の良いタイミングで「認証セッション」を開始し、まとめて処理
+- **優先度管理**: 高優先度（一次資料）、中優先度（二次資料）、低優先度で分類
+- **並行処理**: 認証待ち中も認証不要ソースの探索を継続
+- **セッション再利用**: 認証済みセッション情報を保存し、同一ドメインの後続リクエストで再利用
+- **優先度決定**: Cursor AIがサブクエリ実行時に指定。デフォルトはソース種別から推定（一次資料=high）
+- **通知連携**: `get_exploration_status`に認証待ち数を含め、Cursor AIがユーザーに判断を仰ぐ契機を提供
+- **MCPツール**:
+  - `get_pending_authentications`: 認証待ちキューを取得
+  - `start_authentication_session`: 認証セッションを開始（ブラウザ前面化）
+  - `complete_authentication`: 認証完了を通知
+  - `skip_authentication`: 認証をスキップ
+
+##### 三者責任分界（認証に関する判断）
+
+| 判断 | ユーザー | Cursor AI | Lancet |
+|------|----------|-----------|--------|
+| **認証セッション開始** | ✅ 最終決定 | 提案・確認を仲介 | 実行 |
+| **認証スキップ** | ✅ 最終決定 | 提案・確認を仲介 | 実行 |
+| **優先度設定** | - | ✅ 設計時に指定 | 適用・デフォルト推定 |
+| **タイムアウト処理** | - | - | ✅ 自動決定（§2.1.5） |
+
+**フロー**: 認証待ち発生 → Lancetがキューに積む → `get_exploration_status`で報告 → Cursor AIがユーザーに確認 → ユーザー判断 → Cursor AIがMCPツール呼び出し
+
+#### 3.6.2. 即時介入（レガシーモード）
 - トリガ: CAPTCHA（hCaptcha/Turnstile含む）・Cloudflare/Javascriptチャレンジ・ログイン必須・強制的なクッキーバナー承諾等
 - 通知: Windowsのトースト通知（PowerShell経由）でユーザーに即時通知し、対象サイト・理由・操作手順・制限時間（3分）を明示する（Linux/WSLgでは`notify-send`等で代替）
 - 表示: 対象タブを自動で前面化（ヘッドフル）、該当要素へスクロール/ハイライトし、ユーザーの最小操作で突破可能な状態にする
 - 待機: 手動介入中は当該ドメインの処理キューを一時停止し、他ドメイン処理は継続（全体同時実行を維持）
 - 終了条件: 成功→自動で再開し続行、タイムアウト（3分）→クールダウン（≥60分）後に再試行、連続失敗→当日スキップ
+
+#### 3.6.3. 共通事項
 - セキュリティ: 通知内容はURL/タイトル/理由に限定し、機密トークン/クッキーは通知に含めない
 - ログ: 手動介入の開始/完了/超過・所要時間・結果（成功/失敗/スキップ）を構造化記録し、自動適応の改善に用いる
 
@@ -1027,6 +1067,11 @@ Cursor AI                          Lancet MCP
   - `embed_cache`/`rerank_cache`（キー: テキストハッシュ＋モデルID, TTL=7d）
 - データベース（SQLite）主要テーブル:
   - `queries`, `serp_items`, `pages`, `fragments`, `claims`, `edges`, `domains`, `engine_health`, `jobs`
+  - **`fragments`テーブルのコンテキスト情報**:
+    - `heading_context`: 直近の見出し（単一文字列）
+    - `heading_hierarchy`: 見出し階層（JSON配列: `[{"level":1,"text":"..."}, ...]`）
+    - `element_index`: 見出し配下での要素順序
+    - `fragment_type`: 要素種別（paragraph/heading/list/table/quote/figure/code）
 - キュー（jobs）:
   - フィールド例: `id, kind, priority, slot, state, budget, created_at, started_at, finished_at, cause_id`
   - スロット/排他・予算・因果トレースを強制

@@ -234,6 +234,91 @@ TOOLS = [
             "required": ["event", "payload"]
         }
     ),
+    # Authentication Queue Tools (Semi-automatic operation)
+    Tool(
+        name="get_pending_authentications",
+        description="Get pending authentication queue for a task. Returns URLs requiring user authentication.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low", "all"],
+                    "description": "Filter by priority (optional)"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
+    Tool(
+        name="start_authentication_session",
+        description="Start authentication session. Marks items as in_progress for user to process.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "queue_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Specific queue IDs to process (optional)"
+                },
+                "priority_filter": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low", "all"],
+                    "description": "Process only this priority level (optional)"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
+    Tool(
+        name="complete_authentication",
+        description="Mark authentication as complete after user bypasses challenge.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "queue_id": {
+                    "type": "string",
+                    "description": "Queue item ID"
+                },
+                "success": {
+                    "type": "boolean",
+                    "description": "Whether authentication succeeded"
+                },
+                "session_data": {
+                    "type": "object",
+                    "description": "Session data to store (cookies, etc.) - optional"
+                }
+            },
+            "required": ["queue_id", "success"]
+        }
+    ),
+    Tool(
+        name="skip_authentication",
+        description="Skip authentication for specific URLs or entire task.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "queue_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Specific queue IDs to skip (optional, skips all if omitted)"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
     Tool(
         name="schedule_job",
         description="Schedule a job for execution with slot and priority management.",
@@ -399,7 +484,7 @@ TOOLS = [
     ),
     Tool(
         name="get_exploration_status",
-        description="Get current exploration status including subquery states, progress, budget, and recommendations.",
+        description="Get current exploration status including subquery states, metrics, and budget. Returns raw data only - no recommendations. Cursor AI makes all decisions.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -650,6 +735,11 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "llm_extract": _handle_llm_extract,
         "nli_judge": _handle_nli_judge,
         "notify_user": _handle_notify_user,
+        # Authentication Queue
+        "get_pending_authentications": _handle_get_pending_authentications,
+        "start_authentication_session": _handle_start_authentication_session,
+        "complete_authentication": _handle_complete_authentication,
+        "skip_authentication": _handle_skip_authentication,
         "schedule_job": _handle_schedule_job,
         "create_task": _handle_create_task,
         "get_task_status": _handle_get_task_status,
@@ -810,6 +900,89 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
     payload = args["payload"]
     
     result = await notify_user(event=event, payload=payload)
+    
+    return result
+
+
+# Authentication Queue Handlers
+
+async def _handle_get_pending_authentications(args: dict[str, Any]) -> dict[str, Any]:
+    """Handle get_pending_authentications tool call."""
+    from src.utils.notification import get_intervention_queue
+    
+    task_id = args["task_id"]
+    priority = args.get("priority")
+    
+    queue = get_intervention_queue()
+    
+    # Get pending items
+    pending = await queue.get_pending(
+        task_id=task_id,
+        priority=priority if priority and priority != "all" else None,
+    )
+    
+    # Get counts
+    counts = await queue.get_pending_count(task_id)
+    
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "pending": pending,
+        "counts": counts,
+    }
+
+
+async def _handle_start_authentication_session(args: dict[str, Any]) -> dict[str, Any]:
+    """Handle start_authentication_session tool call."""
+    from src.utils.notification import get_intervention_queue
+    
+    task_id = args["task_id"]
+    queue_ids = args.get("queue_ids")
+    priority_filter = args.get("priority_filter")
+    
+    queue = get_intervention_queue()
+    
+    result = await queue.start_session(
+        task_id=task_id,
+        queue_ids=queue_ids,
+        priority_filter=priority_filter,
+    )
+    
+    return result
+
+
+async def _handle_complete_authentication(args: dict[str, Any]) -> dict[str, Any]:
+    """Handle complete_authentication tool call."""
+    from src.utils.notification import get_intervention_queue
+    
+    queue_id = args["queue_id"]
+    success = args["success"]
+    session_data = args.get("session_data")
+    
+    queue = get_intervention_queue()
+    
+    result = await queue.complete(
+        queue_id=queue_id,
+        success=success,
+        session_data=session_data,
+    )
+    
+    return result
+
+
+async def _handle_skip_authentication(args: dict[str, Any]) -> dict[str, Any]:
+    """Handle skip_authentication tool call."""
+    from src.utils.notification import get_intervention_queue
+    
+    task_id = args["task_id"]
+    queue_ids = args.get("queue_ids")
+    
+    queue = get_intervention_queue()
+    
+    result = await queue.skip(
+        task_id=task_id,
+        queue_ids=queue_ids,
+    )
     
     return result
 

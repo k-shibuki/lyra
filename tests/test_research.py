@@ -369,9 +369,9 @@ class TestExplorationState:
         assert "task_status" in status
         assert "subqueries" in status
         assert len(status["subqueries"]) == 2
-        assert "overall_progress" in status
+        assert "metrics" in status  # Changed from overall_progress
         assert "budget" in status
-        assert "recommendations" in status
+        # Note: recommendations removed - Cursor AI makes all decisions
         assert "warnings" in status
     
     @pytest.mark.unit
@@ -605,7 +605,7 @@ class TestExplorationIntegration:
         status = state.get_status()
         
         assert status["ok"] is True
-        assert status["overall_progress"]["total_pages"] == 3
+        assert status["metrics"]["total_pages"] == 3
         
         # Step 5: Finalize
         final = await state.finalize()

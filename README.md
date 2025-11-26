@@ -146,22 +146,36 @@ MCPサーバーはコンテナ内で動作するため、Cursorからの接続�
 | `extract_content` | HTML/PDFからテキスト抽出 |
 | `rank_candidates` | パッセージの関連性ランキング |
 | `llm_extract` | LLMで事実・主張を抽出 |
+| `decompose_question` | 問いを原子主張へ分解 |
 | `nli_judge` | 主張間の立場判定 |
 | `notify_user` | ユーザーへの通知 |
 | `schedule_job` | ジョブのスケジュール |
 | `create_task` | リサーチタスクの作成 |
 | `get_task_status` | タスク状態の取得 |
-| `generate_report` | レポート生成 |
+| `get_report_materials` | レポート素材を取得（構成・執筆はCursor AIが担当） |
 
 ### 探索制御ツール (Phase 11)
 
 | ツール | 説明 |
 |--------|------|
-| `get_research_context` | サブクエリ設計の支援情報を取得 |
+| `get_research_context` | サブクエリ設計の支援情報を取得（候補生成なし） |
 | `execute_subquery` | Cursor AI指定のサブクエリを実行 |
-| `get_exploration_status` | 探索状態（充足度・新規性・予算）を取得 |
-| `execute_refutation` | 反証探索を実行 |
+| `get_exploration_status` | 探索状態（メトリクス・予算）を取得。**推奨なし、Cursor AIが判断** |
+| `execute_refutation` | 反証探索を実行（機械パターン適用のみ） |
 | `finalize_exploration` | 探索を終了し最終状態を記録 |
+
+### 認証キューツール (半自動運用)
+
+| ツール | 説明 |
+|--------|------|
+| `get_pending_authentications` | 認証待ちキューを取得 |
+| `start_authentication_session` | 認証セッションを開始（ブラウザ前面化） |
+| `complete_authentication` | 認証完了を通知 |
+| `skip_authentication` | 認証をスキップ |
+
+**半自動運用**: 認証突破はユーザーの手動介入を前提。認証待ちをキューに積み、バッチ処理可能。
+
+**責任分界**: Lancetは「実行」「計算」「データ返却」に専念。「設計」「判断」「構成」はCursor AIの責任。
 
 ## アーキテクチャ
 

@@ -91,10 +91,12 @@ CREATE INDEX IF NOT EXISTS idx_pages_url ON pages(url);
 CREATE TABLE IF NOT EXISTS fragments (
     id TEXT PRIMARY KEY,
     page_id TEXT NOT NULL,
-    fragment_type TEXT NOT NULL,  -- paragraph, heading, list, table, quote
+    fragment_type TEXT NOT NULL,  -- paragraph, heading, list, table, quote, figure, code
     position INTEGER,  -- Order in page
     text_content TEXT NOT NULL,
-    heading_context TEXT,  -- Parent heading
+    heading_context TEXT,  -- Parent heading (legacy, single string)
+    heading_hierarchy TEXT,  -- JSON: [{"level":1,"text":"..."}, {"level":2,"text":"..."}]
+    element_index INTEGER,  -- Index within the current heading section
     char_offset_start INTEGER,
     char_offset_end INTEGER,
     text_hash TEXT,  -- For deduplication
@@ -111,6 +113,7 @@ CREATE TABLE IF NOT EXISTS fragments (
 );
 CREATE INDEX IF NOT EXISTS idx_fragments_page ON fragments(page_id);
 CREATE INDEX IF NOT EXISTS idx_fragments_hash ON fragments(text_hash);
+CREATE INDEX IF NOT EXISTS idx_fragments_heading ON fragments(heading_context);
 
 -- Claims: Atomic claims extracted from fragments
 CREATE TABLE IF NOT EXISTS claims (
@@ -326,6 +329,27 @@ CREATE TABLE IF NOT EXISTS intervention_log (
     FOREIGN KEY (task_id) REFERENCES tasks(id)
 );
 CREATE INDEX IF NOT EXISTS idx_intervention_task ON intervention_log(task_id);
+
+-- Intervention Queue: 認証待ちキュー（半自動運用）
+CREATE TABLE IF NOT EXISTS intervention_queue (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    auth_type TEXT NOT NULL,  -- cloudflare, captcha, turnstile, hcaptcha, login, cookie
+    priority TEXT DEFAULT 'medium',  -- high, medium, low
+    status TEXT DEFAULT 'pending',  -- pending, in_progress, completed, skipped, expired
+    queued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    started_at DATETIME,
+    completed_at DATETIME,
+    expires_at DATETIME,  -- キュー有効期限
+    session_data TEXT,  -- 認証成功時のセッション情報（JSON）
+    notes TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_intervention_queue_task ON intervention_queue(task_id);
+CREATE INDEX IF NOT EXISTS idx_intervention_queue_status ON intervention_queue(status);
+CREATE INDEX IF NOT EXISTS idx_intervention_queue_domain ON intervention_queue(domain);
 
 -- ============================================================
 -- Full-Text Search (FTS5)
