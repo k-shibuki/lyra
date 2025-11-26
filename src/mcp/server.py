@@ -1154,12 +1154,13 @@ async def _handle_get_exploration_status(args: dict[str, Any]) -> dict[str, Any]
     Handle get_exploration_status tool call.
     
     Returns current exploration status for Cursor AI decision making.
+    Now includes authentication_queue information per §16.7.1.
     """
     task_id = args["task_id"]
     
     with LogContext(task_id=task_id):
         state = await _get_exploration_state(task_id)
-        return state.get_status()
+        return await state.get_status()
 
 
 async def _handle_execute_refutation(args: dict[str, Any]) -> dict[str, Any]:

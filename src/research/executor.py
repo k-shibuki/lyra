@@ -49,7 +49,10 @@ REFUTATION_SUFFIXES = [
 
 @dataclass
 class SubqueryResult:
-    """Result of subquery execution."""
+    """Result of subquery execution.
+    
+    Per §16.7.4: Includes authentication queue information.
+    """
     
     subquery_id: str
     status: str
@@ -63,10 +66,13 @@ class SubqueryResult:
     new_claims: list[dict[str, Any]] = field(default_factory=list)
     budget_remaining: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    # §16.7.4: Authentication queue tracking
+    auth_blocked_urls: int = 0  # Count of URLs blocked by authentication
+    auth_queued_count: int = 0  # Count of items queued for authentication this run
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result = {
             "ok": len(self.errors) == 0,
             "subquery_id": self.subquery_id,
             "status": self.status,
@@ -81,6 +87,11 @@ class SubqueryResult:
             "budget_remaining": self.budget_remaining,
             "errors": self.errors if self.errors else None,
         }
+        # §16.7.4: Include auth info only if there are blocked/queued items
+        if self.auth_blocked_urls > 0 or self.auth_queued_count > 0:
+            result["auth_blocked_urls"] = self.auth_blocked_urls
+            result["auth_queued_count"] = self.auth_queued_count
+        return result
 
 
 class SubqueryExecutor:
@@ -219,7 +230,7 @@ class SubqueryExecutor:
                     result.novelty_score = sq_state.novelty_score
                 
                 # Calculate remaining budget
-                overall_status = self.state.get_status()
+                overall_status = await self.state.get_status()
                 result.budget_remaining = {
                     "pages": overall_status["budget"]["pages_limit"] - overall_status["budget"]["pages_used"],
                     "time_seconds": overall_status["budget"]["time_limit_seconds"] - overall_status["budget"]["time_used_seconds"],
@@ -283,7 +294,10 @@ class SubqueryExecutor:
         serp_item: dict[str, Any],
         result: SubqueryResult,
     ) -> None:
-        """Fetch URL and extract content."""
+        """Fetch URL and extract content.
+        
+        Per §16.7.4: Tracks authentication blocks and queued items.
+        """
         from src.crawler.fetcher import fetch_url
         from src.extractor.content import extract_content
         
@@ -326,7 +340,21 @@ class SubqueryExecutor:
             )
             
             if not fetch_result.get("ok"):
-                logger.debug("Fetch failed", url=url[:50], reason=fetch_result.get("reason"))
+                reason = fetch_result.get("reason", "")
+                logger.debug("Fetch failed", url=url[:50], reason=reason)
+                
+                # §16.7.4: Track authentication blocks
+                if fetch_result.get("auth_queued"):
+                    result.auth_blocked_urls += 1
+                    result.auth_queued_count += 1
+                    logger.info(
+                        "URL blocked by authentication, queued for later",
+                        url=url[:80],
+                        queue_id=fetch_result.get("queue_id"),
+                    )
+                elif reason in ("auth_required", "challenge_detected"):
+                    result.auth_blocked_urls += 1
+                
                 return
             
             # Record page fetch
