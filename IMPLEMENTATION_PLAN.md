@@ -668,51 +668,50 @@ E2Eテストを有効に実施するための前提：
 
 ---
 
-### 16.7 半自動運用UX改善 (§2, §3.6) 🔴
+### 16.7 半自動運用UX改善 (§2, §3.6) ✅
 
-**問題**: 現状の仕様では認証待ちが発生してもCursor AIに能動的に通知されず、
-ユーザーが認証セッションを開始すべきタイミングが不明確。
+**完了**: 認証待ち情報がget_exploration_statusに統合され、Cursor AIが
+ユーザーに判断を仰ぐタイミングを適切に認識できるようになった。
 
-#### 16.7.1 認証待ち情報のステータス統合
-- [ ] **`get_exploration_status`への認証待ち情報追加**
+#### 16.7.1 認証待ち情報のステータス統合 ✅
+- [x] **`get_exploration_status`への認証待ち情報追加**
   - `authentication_queue.pending_count`: 認証待ち総数
   - `authentication_queue.high_priority_count`: 高優先度（一次資料）の数
   - `authentication_queue.domains`: 認証待ちドメイン一覧
   - `authentication_queue.oldest_queued_at`: 最古のキュー時刻
-  - 実装: `src/research/state.py` (ExplorationState.get_status)
+  - `authentication_queue.by_auth_type`: 認証タイプ別カウント
+  - 実装: `src/research/state.py` (ExplorationState.get_status, _get_authentication_queue_summary)
+  - 実装: `src/utils/notification.py` (InterventionQueue.get_authentication_queue_summary)
   - 目的: Cursor AIが探索状況確認時に認証待ちを認識し、ユーザーに判断を仰げる
 
-#### 16.7.2 三者責任分界の明確化
-- [ ] **`requirements.md` §3.6.1 への追記**
-  ```
-  | 判断 | ユーザー | Cursor AI | Lancet |
-  |------|----------|-----------|--------|
-  | 認証セッション開始 | ✅ 決定 | 提案・確認 | 実行 |
-  | 認証スキップ | ✅ 決定 | 提案・確認 | 実行 |
-  | 優先度 | - | ✅ 決定 | 適用 |
-  | タイムアウト処理 | - | - | ✅ 自動 |
-  ```
-- [ ] **優先度決定ロジックの明記**
+#### 16.7.2 三者責任分界の明確化 ✅
+- [x] **`requirements.md` §3.6.1 への追記**
+  - 三者責任分界テーブル（既存）
+  - authentication_queue詳細フィールドの説明
+  - 閾値アラートの説明
+- [x] **優先度決定ロジックの明記**
   - デフォルト: ソース種別から推定（一次資料=high、二次資料=medium、その他=low）
   - `execute_subquery`のオプションでCursor AIが明示指定可能
 
-#### 16.7.3 認証待ち閾値アラート
-- [ ] **認証待ち数に応じた警告レベル**
-  - `warning`: 認証待ち≥3件
-  - `critical`: 認証待ち≥5件 または 高優先度≥2件
+#### 16.7.3 認証待ち閾値アラート ✅
+- [x] **認証待ち数に応じた警告レベル**
+  - `[warning]`: 認証待ち≥3件
+  - `[critical]`: 認証待ち≥5件 または 高優先度≥2件
   - `get_exploration_status`の`warnings`配列に含める
-- [ ] **探索ブロック検知**
-  - 認証待ちにより探索進行が阻害されている場合の明示
-  - 例: 「5件中3件が認証待ち、探索継続に影響」
+  - 実装: `src/research/state.py` (_generate_auth_queue_alerts)
+- [x] **探索ブロック検知**
+  - 認証待ちにより一次資料アクセスがブロックされている場合の明示
 
-#### 16.7.4 認証フロー改善
-- [ ] **`execute_subquery`戻り値への認証待ち情報追加**
+#### 16.7.4 認証フロー改善 ✅
+- [x] **`execute_subquery`戻り値への認証待ち情報追加**
   - `auth_blocked_urls`: 認証待ちでブロックされたURL数
   - `auth_queued_count`: 今回キューに追加された数
+  - 実装: `src/research/executor.py` (SubqueryResult, _fetch_and_extract)
   - Cursor AIが即座に認識し、次のアクションを判断可能
-- [ ] **`FetchResult`の認証待ち理由の詳細化**
-  - `auth_type`: cloudflare/captcha/turnstile/login
+- [x] **`FetchResult`の認証待ち理由の詳細化**
+  - `auth_type`: cloudflare/captcha/turnstile/hcaptcha/login
   - `estimated_effort`: 認証の推定難易度（low/medium/high）
+  - 実装: `src/crawler/fetcher.py` (FetchResult, _estimate_auth_effort)
 
 ---
 
