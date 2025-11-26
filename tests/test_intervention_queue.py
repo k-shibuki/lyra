@@ -1160,6 +1160,162 @@ class TestBoundaryConditions:
 
 
 # =============================================================================
+# Get Authentication Queue Summary Tests (§16.7.1)
+# =============================================================================
+
+@pytest.mark.unit
+class TestGetAuthenticationQueueSummary:
+    """Tests for get_authentication_queue_summary functionality.
+    
+    Per §16.7.1: Provides comprehensive summary for get_exploration_status.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_summary_empty_queue_returns_zeros(self, queue_with_db, sample_task_id):
+        """Test summary returns zeros for empty queue."""
+        # Act
+        summary = await queue_with_db.get_authentication_queue_summary(sample_task_id)
+        
+        # Assert
+        assert summary["pending_count"] == 0, (
+            f"pending_count should be 0, got {summary['pending_count']}"
+        )
+        assert summary["high_priority_count"] == 0, (
+            f"high_priority_count should be 0, got {summary['high_priority_count']}"
+        )
+        assert summary["domains"] == [], (
+            f"domains should be empty, got {summary['domains']}"
+        )
+        assert summary["oldest_queued_at"] is None, (
+            "oldest_queued_at should be None"
+        )
+        assert summary["by_auth_type"] == {}, (
+            f"by_auth_type should be empty, got {summary['by_auth_type']}"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_summary_counts_correctly(self, queue_with_db, sample_task_id):
+        """Test summary returns correct counts."""
+        # Arrange: Add items with different priorities
+        for _ in range(2):
+            await queue_with_db.enqueue(
+                task_id=sample_task_id,
+                url="https://primary.gov/doc",
+                domain="primary.gov",
+                auth_type="cloudflare",
+                priority="high",
+            )
+        for _ in range(3):
+            await queue_with_db.enqueue(
+                task_id=sample_task_id,
+                url="https://secondary.com/page",
+                domain="secondary.com",
+                auth_type="captcha",
+                priority="medium",
+            )
+        
+        # Act
+        summary = await queue_with_db.get_authentication_queue_summary(sample_task_id)
+        
+        # Assert
+        assert summary["pending_count"] == 5, (
+            f"pending_count should be 5, got {summary['pending_count']}"
+        )
+        assert summary["high_priority_count"] == 2, (
+            f"high_priority_count should be 2, got {summary['high_priority_count']}"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_summary_lists_distinct_domains(self, queue_with_db, sample_task_id):
+        """Test summary returns distinct domains."""
+        # Arrange: Add items for same domain
+        for i in range(3):
+            await queue_with_db.enqueue(
+                task_id=sample_task_id,
+                url=f"https://example.com/page{i}",
+                domain="example.com",
+                auth_type="cloudflare",
+            )
+        await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url="https://other.com/page",
+            domain="other.com",
+            auth_type="captcha",
+        )
+        
+        # Act
+        summary = await queue_with_db.get_authentication_queue_summary(sample_task_id)
+        
+        # Assert
+        assert len(summary["domains"]) == 2, (
+            f"Should have 2 distinct domains, got {len(summary['domains'])}"
+        )
+        assert "example.com" in summary["domains"], (
+            "example.com should be in domains"
+        )
+        assert "other.com" in summary["domains"], (
+            "other.com should be in domains"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_summary_tracks_oldest_queued_at(self, queue_with_db, sample_task_id):
+        """Test summary returns oldest queued_at timestamp."""
+        # Arrange: Add items
+        await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url="https://example.com/first",
+            domain="example.com",
+            auth_type="cloudflare",
+        )
+        
+        # Act
+        summary = await queue_with_db.get_authentication_queue_summary(sample_task_id)
+        
+        # Assert
+        assert summary["oldest_queued_at"] is not None, (
+            "oldest_queued_at should not be None"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_summary_counts_by_auth_type(self, queue_with_db, sample_task_id):
+        """Test summary returns counts by auth_type."""
+        # Arrange: Add items with different auth types
+        for _ in range(2):
+            await queue_with_db.enqueue(
+                task_id=sample_task_id,
+                url="https://cf.example.com/page",
+                domain="cf.example.com",
+                auth_type="cloudflare",
+            )
+        await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url="https://captcha.example.com/page",
+            domain="captcha.example.com",
+            auth_type="captcha",
+        )
+        await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url="https://turnstile.example.com/page",
+            domain="turnstile.example.com",
+            auth_type="turnstile",
+        )
+        
+        # Act
+        summary = await queue_with_db.get_authentication_queue_summary(sample_task_id)
+        
+        # Assert
+        assert summary["by_auth_type"]["cloudflare"] == 2, (
+            f"cloudflare count should be 2, got {summary['by_auth_type'].get('cloudflare')}"
+        )
+        assert summary["by_auth_type"]["captcha"] == 1, (
+            f"captcha count should be 1, got {summary['by_auth_type'].get('captcha')}"
+        )
+        assert summary["by_auth_type"]["turnstile"] == 1, (
+            f"turnstile count should be 1, got {summary['by_auth_type'].get('turnstile')}"
+        )
+
+
+# =============================================================================
 # Global Queue Instance Tests
 # =============================================================================
 

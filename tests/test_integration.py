@@ -191,7 +191,7 @@ class TestExplorationControlFlow:
         assert sq is not None
         sq.status = SubqueryStatus.RUNNING
         
-        status = state.get_status()
+        status = await state.get_status()
         
         assert "subqueries" in status
         assert len(status["subqueries"]) == 1
@@ -637,7 +637,7 @@ class TestFullPipelineSimulation:
         graph.add_edge(NodeType.FRAGMENT, "f1", NodeType.CLAIM, "c1", RelationType.SUPPORTS, confidence=0.9)
         
         # Step 7: Verify final state
-        final_status = state.get_status()
+        final_status = await state.get_status()
         assert len(final_status["subqueries"]) == 3
         
         # Evidence should be present

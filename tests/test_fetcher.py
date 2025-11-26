@@ -333,6 +333,167 @@ class TestFetchResultCacheFields:
 
 
 @pytest.mark.unit
+class TestFetchResultAuthFields:
+    """Tests for FetchResult authentication-related fields (§16.7.4)."""
+    
+    def test_fetch_result_default_auth_fields(self):
+        """Test FetchResult has correct defaults for auth fields."""
+        from src.crawler.fetcher import FetchResult
+        
+        result = FetchResult(
+            ok=False,
+            url="https://example.com/protected",
+            reason="challenge_detected",
+        )
+        
+        assert result.auth_queued is False
+        assert result.queue_id is None
+        assert result.auth_type is None
+        assert result.estimated_effort is None
+    
+    def test_fetch_result_with_auth_fields(self):
+        """Test FetchResult with auth fields populated.
+        
+        Per §16.7.4: auth_type and estimated_effort should be included.
+        """
+        from src.crawler.fetcher import FetchResult
+        
+        result = FetchResult(
+            ok=False,
+            url="https://protected.example.com/page",
+            status=403,
+            reason="auth_required",
+            method="browser_headful",
+            auth_queued=True,
+            queue_id="iq_abc123456789",
+            auth_type="cloudflare",
+            estimated_effort="low",
+        )
+        
+        assert result.auth_queued is True
+        assert result.queue_id == "iq_abc123456789"
+        assert result.auth_type == "cloudflare"
+        assert result.estimated_effort == "low"
+    
+    def test_fetch_result_to_dict_includes_auth_type_when_set(self):
+        """Test FetchResult.to_dict() includes auth_type when set.
+        
+        Per §16.7.4: Include auth details only when relevant.
+        """
+        from src.crawler.fetcher import FetchResult
+        
+        result = FetchResult(
+            ok=False,
+            url="https://captcha.example.com/page",
+            status=403,
+            reason="auth_required",
+            auth_type="captcha",
+            estimated_effort="high",
+        )
+        
+        result_dict = result.to_dict()
+        
+        assert result_dict["auth_type"] == "captcha"
+        assert result_dict["estimated_effort"] == "high"
+    
+    def test_fetch_result_to_dict_omits_auth_type_when_none(self):
+        """Test FetchResult.to_dict() omits auth fields when None.
+        
+        Per §16.7.4: Include auth details only when relevant.
+        """
+        from src.crawler.fetcher import FetchResult
+        
+        result = FetchResult(
+            ok=True,
+            url="https://example.com/page",
+            status=200,
+        )
+        
+        result_dict = result.to_dict()
+        
+        # auth_type and estimated_effort should not be in dict when None
+        assert "auth_type" not in result_dict
+        assert "estimated_effort" not in result_dict
+
+
+@pytest.mark.unit
+class TestEstimateAuthEffort:
+    """Tests for _estimate_auth_effort function (§16.7.4)."""
+    
+    def test_cloudflare_is_low_effort(self):
+        """Test Cloudflare challenge is estimated as low effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("cloudflare")
+        assert effort == "low", (
+            f"cloudflare should be 'low' effort, got '{effort}'"
+        )
+    
+    def test_js_challenge_is_low_effort(self):
+        """Test JS challenge is estimated as low effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("js_challenge")
+        assert effort == "low", (
+            f"js_challenge should be 'low' effort, got '{effort}'"
+        )
+    
+    def test_turnstile_is_medium_effort(self):
+        """Test Turnstile is estimated as medium effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("turnstile")
+        assert effort == "medium", (
+            f"turnstile should be 'medium' effort, got '{effort}'"
+        )
+    
+    def test_captcha_is_high_effort(self):
+        """Test generic CAPTCHA is estimated as high effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("captcha")
+        assert effort == "high", (
+            f"captcha should be 'high' effort, got '{effort}'"
+        )
+    
+    def test_recaptcha_is_high_effort(self):
+        """Test reCAPTCHA is estimated as high effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("recaptcha")
+        assert effort == "high", (
+            f"recaptcha should be 'high' effort, got '{effort}'"
+        )
+    
+    def test_hcaptcha_is_high_effort(self):
+        """Test hCaptcha is estimated as high effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("hcaptcha")
+        assert effort == "high", (
+            f"hcaptcha should be 'high' effort, got '{effort}'"
+        )
+    
+    def test_login_is_high_effort(self):
+        """Test login requirement is estimated as high effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("login")
+        assert effort == "high", (
+            f"login should be 'high' effort, got '{effort}'"
+        )
+    
+    def test_unknown_type_defaults_to_medium(self):
+        """Test unknown challenge type defaults to medium effort."""
+        from src.crawler.fetcher import _estimate_auth_effort
+        
+        effort = _estimate_auth_effort("unknown_challenge")
+        assert effort == "medium", (
+            f"unknown type should default to 'medium' effort, got '{effort}'"
+        )
+
+
+@pytest.mark.unit
 class TestDatabaseUrlNormalization:
     """Tests for URL normalization used in fetch cache.
     

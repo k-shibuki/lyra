@@ -368,7 +368,10 @@ async def get_tor_controller() -> TorController:
 
 
 class FetchResult:
-    """Result of a fetch operation."""
+    """Result of a fetch operation.
+    
+    Per §16.7.4: Includes detailed authentication information.
+    """
     
     def __init__(
         self,
@@ -390,6 +393,9 @@ class FetchResult:
         # Authentication queue (semi-automatic operation)
         auth_queued: bool = False,
         queue_id: str | None = None,
+        # §16.7.4: Detailed authentication information
+        auth_type: str | None = None,  # cloudflare/captcha/turnstile/hcaptcha/login
+        estimated_effort: str | None = None,  # low/medium/high
     ):
         self.ok = ok
         self.url = url
@@ -407,10 +413,12 @@ class FetchResult:
         self.last_modified = last_modified
         self.auth_queued = auth_queued
         self.queue_id = queue_id
+        self.auth_type = auth_type
+        self.estimated_effort = estimated_effort
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result = {
             "ok": self.ok,
             "url": self.url,
             "status": self.status,
@@ -428,6 +436,12 @@ class FetchResult:
             "auth_queued": self.auth_queued,
             "queue_id": self.queue_id,
         }
+        # §16.7.4: Include auth details only when relevant
+        if self.auth_type:
+            result["auth_type"] = self.auth_type
+        if self.estimated_effort:
+            result["estimated_effort"] = self.estimated_effort
+        return result
 
 
 class RateLimiter:
@@ -942,16 +956,21 @@ class BrowserFetcher:
                 
                 # If in headless mode, suggest headful escalation
                 if not headful:
+                    # Detect challenge type for detailed response (§16.7.4)
+                    challenge_type = _detect_challenge_type(content)
                     return FetchResult(
                         ok=False,
                         url=url,
                         status=response.status,
                         reason="challenge_detected_escalate_headful",
                         method="browser_headless",
+                        auth_type=challenge_type,
+                        estimated_effort=_estimate_auth_effort(challenge_type),
                     )
                 else:
                     # Headful mode - handle authentication challenge
                     challenge_type = _detect_challenge_type(content)
+                    estimated_effort = _estimate_auth_effort(challenge_type)
                     
                     if allow_intervention and queue_auth and task_id:
                         # Queue authentication for batch processing (semi-auto mode)
@@ -970,6 +989,7 @@ class BrowserFetcher:
                             url=url[:80],
                             queue_id=queue_id,
                             auth_type=challenge_type,
+                            estimated_effort=estimated_effort,
                         )
                         
                         return FetchResult(
@@ -980,6 +1000,8 @@ class BrowserFetcher:
                             method="browser_headful",
                             auth_queued=True,
                             queue_id=queue_id,
+                            auth_type=challenge_type,
+                            estimated_effort=estimated_effort,
                         )
                     elif allow_intervention:
                         # Immediate intervention (legacy mode)
@@ -1009,6 +1031,8 @@ class BrowserFetcher:
                                     status=response.status,
                                     reason="challenge_detected_after_intervention",
                                     method="browser_headful",
+                                    auth_type=challenge_type,
+                                    estimated_effort=estimated_effort,
                                 )
                         elif intervention_result:
                             # Intervention failed/timed out/skipped
@@ -1018,6 +1042,8 @@ class BrowserFetcher:
                                 status=response.status,
                                 reason=f"intervention_{intervention_result.status.value}",
                                 method="browser_headful",
+                                auth_type=challenge_type,
+                                estimated_effort=estimated_effort,
                             )
                     else:
                         # Intervention not allowed - return challenge error
@@ -1027,6 +1053,8 @@ class BrowserFetcher:
                             status=response.status,
                             reason="challenge_detected",
                             method="browser_headful",
+                            auth_type=challenge_type,
+                            estimated_effort=estimated_effort,
                         )
                     
                     # Re-get content after successful intervention
@@ -1297,6 +1325,36 @@ def _get_challenge_element_selector(challenge_type: str) -> str | None:
     }
     
     return selectors.get(challenge_type)
+
+
+def _estimate_auth_effort(challenge_type: str) -> str:
+    """Estimate the effort required to complete authentication.
+    
+    Per §16.7.4: Provides estimated_effort for auth challenges.
+    
+    Args:
+        challenge_type: Type of challenge detected.
+        
+    Returns:
+        Effort level: "low", "medium", or "high".
+    """
+    # Effort mapping based on typical time/complexity
+    effort_map = {
+        # Low: Usually auto-resolves or simple click
+        "js_challenge": "low",
+        "cloudflare": "low",  # Basic Cloudflare often auto-resolves
+        
+        # Medium: Requires simple user interaction
+        "turnstile": "medium",  # Usually just a click/checkbox
+        
+        # High: Requires significant user effort
+        "captcha": "high",
+        "recaptcha": "high",
+        "hcaptcha": "high",
+        "login": "high",
+    }
+    
+    return effort_map.get(challenge_type, "medium")
 
 
 async def _save_content(url: str, content: bytes, headers: dict) -> Path | None:

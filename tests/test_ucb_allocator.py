@@ -496,7 +496,7 @@ class TestUCBAllocatorIntegration:
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
         state.register_subquery("sq_001", "query 1")
         
-        status = state.get_status()
+        status = await state.get_status()
         
         # ucb_scores contains raw data only (no recommendations)
         assert "ucb_scores" in status
