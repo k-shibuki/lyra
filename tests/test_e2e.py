@@ -131,9 +131,11 @@ class TestSearchToReportPipeline:
         from src.search import search_serp
         
         # Execute a simple search query
+        # Use mojeek as it's block-resistant and returns results reliably
+        # duckduckgo/qwant/brave often blocked by CAPTCHA/rate limits
         results = await search_serp(
             query="Python programming language",
-            engines=["duckduckgo", "wikipedia"],
+            engines=["mojeek"],
             limit=5,
             time_range="all",
             use_cache=False,  # Skip cache for E2E test
@@ -248,8 +250,8 @@ class TestSearchToReportPipeline:
         
         # Step 4: Execute search
         results = await search_serp(
-            query="Python programming language history site:wikipedia.org",
-            engines=["duckduckgo", "wikipedia"],
+            query="Python programming language history",
+            engines=["mojeek"],  # Use block-resistant engine
             limit=3,
             use_cache=False,
         )
@@ -909,7 +911,7 @@ class TestCompleteResearchFlow:
         # Step 4: Execute first subquery
         results = await search_serp(
             query=subqueries[0][1],
-            engines=["duckduckgo"],
+            engines=["mojeek"],  # Use block-resistant engine
             limit=3,
             use_cache=False,
         )

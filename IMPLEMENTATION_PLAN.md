@@ -708,7 +708,7 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 
 ---
 
-### 16.5 補助OSS/任意機能 (§5.1.1) 🟢
+### 16.5 補助OSS (§5.1.1) 🟢
 
 #### 16.5.1 PDF構造解析
 - [ ] **GROBID統合**
@@ -938,9 +938,22 @@ E2Eテストを有効に実施するための前提：
   - `src/search/circuit_breaker.py`: cooldown_min/max を Manager から取得
 - テスト: 88件（全パス、§7.1準拠）
 
-#### 17.2.2 検索エンジン設定の動的管理
-- [ ] エンジン追加/削除のYAML変更のみ対応
-- [ ] エンジン正規化ルールの外部テーブル化
+#### 17.2.2 検索エンジン設定の動的管理 ✅
+- [x] `SearchEngineConfigManager` 実装（`src/search/engine_config.py`）
+  - Pydanticスキーマによる設定バリデーション
+  - ホットリロード対応（DomainPolicyManagerと同パターン）
+  - エンジン/カテゴリ/演算子マッピング/直接ソースの一元管理
+- [x] エンジン追加/削除のYAML変更のみ対応
+  - `config/engines.yaml` の engines セクションで完結
+  - コード変更不要でエンジン追加/削除/設定変更が可能
+- [x] エンジン正規化ルール（operator_mapping）の外部化
+  - `config/engines.yaml` の operator_mapping セクションで定義
+  - エンジン別の演算子構文を設定可能
+- [x] 既存コードの移行完了
+  - `QueryOperatorProcessor`: SearchEngineConfigManager経由でoperator_mapping取得
+  - `SearXNGProvider`: SearchEngineConfigManager経由でhost/timeout取得
+  - `src/search/__init__.py`: エクスポート追加
+- [x] テスト: 50件（全パス、§7.1準拠）
 
 #### 17.2.3 ステルス設定の外部化
 - [ ] User-Agent/ヘッダーパターンのYAML管理
