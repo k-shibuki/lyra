@@ -488,7 +488,7 @@ class JobScheduler:
             Job result.
         """
         if kind == JobKind.SERP:
-            from src.search.searxng import search_serp
+            from src.search import search_serp
             return {"results": await search_serp(**input_data, task_id=task_id)}
         
         elif kind == JobKind.FETCH:

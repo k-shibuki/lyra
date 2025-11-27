@@ -803,7 +803,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
 
 async def _handle_search_serp(args: dict[str, Any]) -> dict[str, Any]:
     """Handle search_serp tool call."""
-    from src.search.searxng import search_serp
+    from src.search import search_serp
     
     query = args["query"]
     engines = args.get("engines")

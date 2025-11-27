@@ -56,7 +56,7 @@ async def run_research(query: str) -> None:
         query: Research query.
     """
     from src.storage.database import get_database
-    from src.search.searxng import search_serp
+    from src.search import search_serp
     from src.crawler.fetcher import fetch_url
     from src.extractor.content import extract_content
     from src.filter.ranking import rank_candidates

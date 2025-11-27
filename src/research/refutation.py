@@ -225,7 +225,7 @@ class RefutationExecutor:
         Returns:
             List of detected refutations.
         """
-        from src.search.searxng import search_serp
+        from src.search import search_serp
         from src.crawler.fetcher import fetch_url
         from src.extractor.content import extract_content
         
