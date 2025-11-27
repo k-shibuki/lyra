@@ -859,11 +859,19 @@ E2Eテストを有効に実施するための前提：
 
 ハードコードされた設定やポリシーを外部設定化し、コード変更なしで調整可能にする。
 
-#### 17.2.1 ドメインポリシー完全外部化
-- [ ] `config/domains.yaml` への一元化
-  - 現状: YAMLとコード内ハードコードが混在
-- [ ] ホットリロード対応（再起動不要）
-- [ ] ポリシースキーマのバリデーション強化
+#### 17.2.1 ドメインポリシー完全外部化 ✅
+- [x] `config/domains.yaml` への一元化
+  - 実装: `src/utils/domain_policy.py` (DomainPolicyManager)
+  - pydanticモデルによるスキーマ定義・バリデーション
+  - allowlist/graylist/denylist/cloudflare_sites/internal_search_templatesの統合管理
+- [x] ホットリロード対応（再起動不要）
+  - ファイル変更検知（watch_interval設定可能）
+  - リロードコールバック機構
+- [x] ポリシースキーマのバリデーション強化
+  - TrustLevel/SkipReason列挙型
+  - QPS/headful_ratio等の範囲バリデーション
+  - ドメインパターンマッチング（glob/suffix対応）
+- テスト: 64件（全パス、§7.1準拠）
 
 #### 17.2.2 検索エンジン設定の動的管理
 - [ ] エンジン追加/削除のYAML変更のみ対応
@@ -954,7 +962,7 @@ E2Eテストを有効に実施するための前提：
 | Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
 | Phase 15: ドキュメント | 🔄 | 75% | Phase 14/16完了後に整備|
 | **Phase 16: 未実装機能** | 🔄 | 80% | **15項目残り** |
-| **Phase 17: 保守性改善** | 🔄 | 45% | 17.1プロバイダ抽象化完了 |
+| **Phase 17: 保守性改善** | 🔄 | 50% | 17.1プロバイダ抽象化、17.2.1ドメインポリシー外部化完了 |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
 
@@ -990,6 +998,7 @@ E2Eテストを有効に実施するための前提：
 - **LLMProvider抽象化**（Protocol/ABC定義、OllamaProvider実装、Registry、フォールバック機構、後方互換性維持）
 - **BrowserProvider抽象化**（Protocol/ABC定義、PlaywrightProvider/UndetectedChromeProvider実装、Registry）
 - **NotificationProvider抽象化**（Protocol/ABC定義、Linux/Windows/WSLプロバイダ実装、プラットフォーム自動検出、後方互換性維持）
+- **ドメインポリシー完全外部化**（DomainPolicyManager、YAML一元化、ホットリロード、pydanticスキーマ、64テスト）
 
 ---
 
