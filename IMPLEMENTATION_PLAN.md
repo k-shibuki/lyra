@@ -556,9 +556,12 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - `get_context()`に`registry_info`フィールド追加
   - ドメインエンティティに対する自動WHOIS/CT検索
   - 実装: `src/research/context.py` (_get_registry_info, RegistryInfo)
-- [ ] **エンティティKB正規化**
+- [x] **エンティティKB正規化** ✅
   - 抽出した名称/所在地/識別子のKB格納
   - 別表記・住所正規化・同一性推定
+  - 実装: `src/storage/entity_kb.py` (EntityKB, NameNormalizer, AddressNormalizer, IdentifierNormalizer)
+  - 統合: `src/crawler/entity_integration.py` (EntityExtractor, WHOIS/CT連携)
+  - テスト: 71件（全パス）
 
 #### 16.2.3 ページタイプ判定 (§3.1.2) ✅
 - [x] **自動分類ロジック**
@@ -922,10 +925,10 @@ E2Eテストを有効に実施するための前提：
 | 優先度 | 項目数 | 主要カテゴリ |
 |--------|--------|--------------|
 | 🔴 高（E2E前必須） | 9項目 | **半自動運用UX**、ヘッドフル操作 |
-| 🟡 中（MVP強化: E2E前推奨） | 11項目 | エンティティKB、Chain-of-Density |
+| 🟡 中（MVP強化: E2E前推奨） | 10項目 | Chain-of-Density |
 | 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
 
-**最終更新**: 2025-11-27 - HTTP/3(QUIC)方針 実装完了
+**最終更新**: 2025-11-27 - エンティティKB正規化 実装完了
 
 ### 完了済み（Phase 16）
 - sec-fetch-*ヘッダー整合、sec-ch-ua*ヘッダー
