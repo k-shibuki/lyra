@@ -1132,7 +1132,14 @@ class BrowserFetcher:
         task_id: str | None,
         challenge_type: str,
     ):
-        """Request manual intervention for challenge bypass.
+        """Request manual intervention for challenge bypass per §3.6.1.
+        
+        Safe Operation Policy:
+        - Sends toast notification
+        - Brings window to front via OS API
+        - Returns PENDING status immediately
+        - User finds and resolves challenge themselves
+        - NO DOM operations (scroll, highlight, focus)
         
         Args:
             url: Target URL.
@@ -1161,26 +1168,14 @@ class BrowserFetcher:
                 InterventionType.CLOUDFLARE,
             )
             
-            # Determine element selector for highlighting
-            element_selector = _get_challenge_element_selector(challenge_type)
-            
-            # Define success callback to check if challenge is bypassed
-            async def check_challenge_bypassed() -> bool:
-                try:
-                    content = await page.content()
-                    return not _is_challenge_page(content, {})
-                except Exception:
-                    return False
-            
-            # Request intervention
+            # Request intervention per §3.6.1 safe operation policy
+            # No element_selector or on_success_callback (DOM operations forbidden)
             result = await intervention_manager.request_intervention(
                 intervention_type=intervention_type,
                 url=url,
                 domain=domain,
                 task_id=task_id,
                 page=page,
-                element_selector=element_selector,
-                on_success_callback=check_challenge_bypassed,
             )
             
             return result
@@ -1306,25 +1301,8 @@ def _detect_challenge_type(content: str) -> str:
     return "cloudflare"  # Default
 
 
-def _get_challenge_element_selector(challenge_type: str) -> str | None:
-    """Get CSS selector for challenge element to highlight.
-    
-    Args:
-        challenge_type: Type of challenge.
-        
-    Returns:
-        CSS selector or None.
-    """
-    selectors = {
-        "turnstile": "[data-turnstile-container], .cf-turnstile, iframe[src*='turnstile']",
-        "hcaptcha": ".h-captcha, [data-hcaptcha-widget-id], iframe[src*='hcaptcha']",
-        "recaptcha": ".g-recaptcha, [data-sitekey], iframe[src*='recaptcha']",
-        "captcha": "[class*='captcha'], [id*='captcha'], iframe[src*='captcha']",
-        "cloudflare": "#cf-wrapper, .cf-browser-verification, #challenge-running",
-        "js_challenge": "#challenge-body-text, #challenge-running, .main-wrapper",
-    }
-    
-    return selectors.get(challenge_type)
+# NOTE: _get_challenge_element_selector has been removed per §3.6.1
+# (Safe Operation Policy - no DOM operations during authentication sessions)
 
 
 def _estimate_auth_effort(challenge_type: str) -> str:

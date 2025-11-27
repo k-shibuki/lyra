@@ -1,12 +1,17 @@
 """
 User notification system for Lancet.
-Handles toast notifications and manual intervention flows.
+Handles toast notifications and authentication queue management.
 
-Features:
+Features per §3.6.1 (Safe Operation Policy):
 - Toast notifications (Windows/Linux/WSL)
-- Tab bring-to-front for manual intervention
-- 3-minute SLA timeout handling per §3.6
+- Window bring-to-front via OS API only (no DOM operations)
+- Authentication queue for batch processing
+- User-driven completion (no timeout, no polling)
 - Intervention tracking and domain cooldown
+
+CDP Safety (§3.6.1):
+- Allowed: Page.navigate, Network.enable (passive), Page.bringToFront
+- Forbidden: Runtime.evaluate, DOM.*, Input.*, Emulation.*
 """
 
 import asyncio
@@ -14,7 +19,7 @@ import platform
 import subprocess
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Callable, Awaitable
+from typing import Any
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -79,14 +84,18 @@ class InterventionResult:
 
 
 class InterventionManager:
-    """Manages manual intervention flows with tab bring-to-front and timeout handling.
+    """Manages manual intervention flows with safe operation policy per §3.6.1.
     
-    Implements requirements from §3.6:
-    - Toast notification to user
-    - Automatic tab front-bring and element highlight
-    - 3-minute SLA timeout
-    - Cooldown on timeout (≥60 minutes)
+    Safe Operation Policy:
+    - Window bring-to-front via OS API only (no DOM operations)
+    - No timeout enforcement (user-driven completion)
+    - No polling or page content inspection
+    - Toast notification for awareness
     - Skip domain after 3 consecutive failures
+    
+    CDP Safety:
+    - Allowed: Page.bringToFront
+    - Forbidden: Runtime.evaluate, DOM.*, Input.*, scrollIntoView, etc.
     """
     
     def __init__(self):
@@ -95,11 +104,6 @@ class InterventionManager:
         self._domain_failures: dict[str, int] = {}  # domain -> consecutive failure count
         self._browser_page = None  # Current browser page for intervention
         self._intervention_lock = asyncio.Lock()
-        
-    @property
-    def intervention_timeout(self) -> int:
-        """Get intervention timeout in seconds (default 180 = 3 minutes)."""
-        return self._settings.notification.intervention_timeout
     
     @property
     def max_domain_failures(self) -> int:
@@ -120,17 +124,18 @@ class InterventionManager:
         message: str | None = None,
         task_id: str | None = None,
         page: Any | None = None,
-        element_selector: str | None = None,
-        on_success_callback: Callable[[], Awaitable[bool]] | None = None,
     ) -> InterventionResult:
-        """Request manual intervention with full lifecycle management.
+        """Request manual intervention with safe operation policy per §3.6.1.
         
-        This method:
+        Safe Operation Policy:
         1. Sends toast notification to user
-        2. Brings browser tab to front (if page provided)
-        3. Highlights target element (if selector provided)
-        4. Waits for user action with timeout
-        5. Handles timeout/failure with cooldown and skip logic
+        2. Brings browser window to front via OS API (if page provided)
+        3. Returns immediately with PENDING status
+        4. User finds and resolves challenge themselves
+        5. User calls complete_authentication when done
+        
+        NO DOM operations (scroll, highlight, focus) are performed.
+        NO timeout is enforced - user-driven completion only.
         
         Args:
             intervention_type: Type of intervention needed.
@@ -138,12 +143,10 @@ class InterventionManager:
             domain: Domain name.
             message: Message to display.
             task_id: Associated task ID.
-            page: Playwright page object for tab front-bring.
-            element_selector: CSS selector of element to highlight.
-            on_success_callback: Async callback to check if intervention succeeded.
+            page: Playwright page object for window front-bring (optional).
         
         Returns:
-            InterventionResult with status and next steps.
+            InterventionResult with PENDING status (user completes via complete_authentication).
         """
         if isinstance(intervention_type, str):
             try:
@@ -167,7 +170,6 @@ class InterventionManager:
         
         async with self._intervention_lock:
             intervention_id = f"{domain}_{datetime.now().strftime('%H%M%S%f')}"
-            timeout_seconds = self.intervention_timeout
             
             # Log intervention start
             db = await get_database()
@@ -180,29 +182,25 @@ class InterventionManager:
                 (task_id, domain, intervention_type.value, datetime.now(timezone.utc).isoformat()),
             )
             
-            # Store intervention state
+            # Store intervention state (minimal - no timeout, no element_selector)
             intervention_state = {
                 "id": intervention_id,
                 "type": intervention_type,
                 "url": url,
                 "domain": domain,
                 "started_at": datetime.now(timezone.utc),
-                "timeout_seconds": timeout_seconds,
                 "task_id": task_id,
-                "page": page,
-                "element_selector": element_selector,
-                "on_success_callback": on_success_callback,
             }
             self._pending_interventions[intervention_id] = intervention_state
             
-            # Build notification message
+            # Build notification message (no timeout info per §3.6.1)
             if message is None:
                 message = self._build_intervention_message(intervention_type, url, domain)
             
             notification_msg = (
                 f"{message}\n\n"
                 f"URL: {url}\n"
-                f"タイムアウト: {timeout_seconds}秒"
+                f"完了後、Cursorで complete_authentication を呼んでください"
             )
             
             # Step 1: Send toast notification
@@ -213,36 +211,26 @@ class InterventionManager:
                 timeout_seconds=10,
             )
             
-            # Step 2: Bring browser tab to front
+            # Step 2: Bring browser window to front via OS API only
+            # Per §3.6.1: No DOM operations (scroll, highlight, focus)
             if page is not None:
                 await self._bring_tab_to_front(page)
             
-            # Step 3: Highlight target element
-            if page is not None and element_selector:
-                await self._highlight_element(page, element_selector)
-            
             logger.info(
-                "Intervention requested",
+                "Intervention requested (safe mode)",
                 intervention_id=intervention_id,
                 type=intervention_type.value,
                 domain=domain,
-                timeout=timeout_seconds,
                 notification_sent=notification_sent,
             )
             
-            # Step 4: Wait for intervention with timeout
-            result = await self._wait_for_intervention(
-                intervention_state,
-                on_success_callback,
+            # Return immediately with PENDING status
+            # User will call complete_authentication when done
+            return InterventionResult(
+                intervention_id=intervention_id,
+                status=InterventionStatus.PENDING,
+                notes="Awaiting user completion via complete_authentication",
             )
-            
-            # Step 5: Handle result
-            await self._handle_intervention_result(result, intervention_state, db)
-            
-            # Clean up
-            self._pending_interventions.pop(intervention_id, None)
-            
-            return result
     
     def _build_intervention_message(
         self,
@@ -271,9 +259,12 @@ class InterventionManager:
         return messages.get(intervention_type, f"手動操作が必要です\nサイト: {domain}")
     
     async def _bring_tab_to_front(self, page) -> bool:
-        """Bring browser tab and window to front.
+        """Bring browser window to front using safe methods per §3.6.1.
         
-        Uses CDP commands to bring the browser window to the foreground.
+        Safe Operation Policy:
+        - Uses CDP Page.bringToFront (allowed)
+        - Uses OS API for window activation (SetForegroundWindow/wmctrl)
+        - Does NOT use: Runtime.evaluate, window.focus(), DOM operations
         
         Args:
             page: Playwright page object.
@@ -282,40 +273,32 @@ class InterventionManager:
             True if successful.
         """
         try:
-            # Get browser context and client
+            # Get browser context
             context = page.context
-            browser = context.browser
             
-            # Method 1: Use CDP to bring window to front
+            # Use CDP Page.bringToFront (allowed per §3.6.1)
             cdp_session = await context.new_cdp_session(page)
-            
-            # Activate the tab
             await cdp_session.send("Page.bringToFront")
-            
-            # Try to focus the window (may not work on all platforms)
-            try:
-                target_info = await cdp_session.send("Target.getTargetInfo")
-                logger.debug("Tab brought to front", target=target_info)
-            except Exception:
-                pass
-            
             await cdp_session.detach()
             
-            # Method 2: Use evaluate to try focus
-            try:
-                await page.evaluate("window.focus()")
-            except Exception:
-                pass
+            logger.info("Browser tab brought to front via CDP")
             
-            logger.info("Browser tab brought to front")
+            # Also try OS-level window activation for better visibility
+            try:
+                await self._platform_activate_window()
+            except Exception:
+                pass  # Best effort
+            
             return True
             
         except Exception as e:
-            logger.warning("Failed to bring tab to front", error=str(e))
+            logger.warning("CDP bring to front failed", error=str(e))
             
-            # Fallback: Try platform-specific window activation
+            # Fallback: Try OS-level window activation only
             try:
                 await self._platform_activate_window()
+                logger.info("Window activated via OS API fallback")
+                return True
             except Exception as e2:
                 logger.debug("Platform window activation failed", error=str(e2))
             
@@ -367,163 +350,9 @@ class InterventionManager:
             except Exception as e:
                 logger.debug("PowerShell window activation failed", error=str(e))
     
-    async def _highlight_element(self, page, selector: str) -> bool:
-        """Highlight element for user to see.
-        
-        Adds a visible border/highlight to the target element.
-        
-        Args:
-            page: Playwright page object.
-            selector: CSS selector of element to highlight.
-            
-        Returns:
-            True if element highlighted.
-        """
-        try:
-            # Add highlight style
-            highlight_script = f"""
-            (selector) => {{
-                const element = document.querySelector(selector);
-                if (element) {{
-                    // Save original style
-                    const originalStyle = element.getAttribute('style') || '';
-                    
-                    // Add highlight
-                    element.style.border = '3px solid red';
-                    element.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.5)';
-                    element.style.animation = 'lancet-highlight 1s ease-in-out infinite';
-                    
-                    // Add animation style if not exists
-                    if (!document.getElementById('lancet-highlight-style')) {{
-                        const style = document.createElement('style');
-                        style.id = 'lancet-highlight-style';
-                        style.textContent = `
-                            @keyframes lancet-highlight {{
-                                0%, 100% {{ box-shadow: 0 0 20px rgba(255, 0, 0, 0.5); }}
-                                50% {{ box-shadow: 0 0 40px rgba(255, 0, 0, 0.8); }}
-                            }}
-                        `;
-                        document.head.appendChild(style);
-                    }}
-                    
-                    // Scroll element into view
-                    element.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-                    
-                    return true;
-                }}
-                return false;
-            }}
-            """
-            
-            result = await page.evaluate(highlight_script, selector)
-            
-            if result:
-                logger.debug("Element highlighted", selector=selector)
-            else:
-                logger.warning("Element not found for highlighting", selector=selector)
-            
-            return result
-            
-        except Exception as e:
-            logger.warning("Failed to highlight element", selector=selector, error=str(e))
-            return False
-    
-    async def _wait_for_intervention(
-        self,
-        intervention_state: dict,
-        on_success_callback: Callable[[], Awaitable[bool]] | None,
-    ) -> InterventionResult:
-        """Wait for user intervention with timeout.
-        
-        Polls for intervention completion using callback or page state.
-        
-        Args:
-            intervention_state: Intervention state dict.
-            on_success_callback: Async callback to check success.
-            
-        Returns:
-            InterventionResult.
-        """
-        intervention_id = intervention_state["id"]
-        timeout_seconds = intervention_state["timeout_seconds"]
-        page = intervention_state.get("page")
-        domain = intervention_state["domain"]
-        started_at = intervention_state["started_at"]
-        
-        # Poll interval (check every 2 seconds)
-        poll_interval = 2.0
-        elapsed = 0.0
-        
-        while elapsed < timeout_seconds:
-            # Check if intervention succeeded
-            success = False
-            
-            if on_success_callback:
-                try:
-                    success = await asyncio.wait_for(
-                        on_success_callback(),
-                        timeout=poll_interval,
-                    )
-                except asyncio.TimeoutError:
-                    pass
-                except Exception as e:
-                    logger.debug("Success callback error", error=str(e))
-            elif page:
-                # Default check: see if challenge indicators are gone
-                try:
-                    content = await page.content()
-                    success = not self._has_challenge_indicators(content)
-                except Exception:
-                    pass
-            
-            if success:
-                return InterventionResult(
-                    intervention_id=intervention_id,
-                    status=InterventionStatus.SUCCESS,
-                    elapsed_seconds=elapsed,
-                )
-            
-            # Wait before next poll
-            await asyncio.sleep(poll_interval)
-            elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
-        
-        # Timeout reached
-        return InterventionResult(
-            intervention_id=intervention_id,
-            status=InterventionStatus.TIMEOUT,
-            elapsed_seconds=elapsed,
-            should_retry=True,
-            cooldown_until=datetime.now(timezone.utc) + timedelta(minutes=self.cooldown_minutes),
-            notes=f"Intervention timed out after {timeout_seconds} seconds",
-        )
-    
-    def _has_challenge_indicators(self, content: str) -> bool:
-        """Check if page content has challenge indicators.
-        
-        Args:
-            content: Page HTML content.
-            
-        Returns:
-            True if challenge indicators found.
-        """
-        content_lower = content.lower()
-        
-        indicators = [
-            "cf-browser-verification",
-            "cloudflare ray id",
-            "please wait while we verify",
-            "checking your browser",
-            "just a moment",
-            "_cf_chl_opt",
-            "recaptcha",
-            "hcaptcha",
-            "h-captcha",
-            "g-recaptcha",
-            "captcha-container",
-            "turnstile",
-        ]
-        
-        return any(ind in content_lower for ind in indicators)
+    # NOTE: _highlight_element, _wait_for_intervention, _has_challenge_indicators
+    # have been removed per §3.6.1 (Safe Operation Policy).
+    # DOM operations and polling are forbidden during authentication sessions.
     
     async def _handle_intervention_result(
         self,
@@ -826,6 +655,8 @@ class InterventionManager:
     ) -> dict[str, Any]:
         """Check status of a pending intervention.
         
+        Per §3.6.1: No timeout enforcement. User completes via complete_authentication.
+        
         Args:
             intervention_id: Intervention ID.
             
@@ -838,19 +669,13 @@ class InterventionManager:
             return {"status": "unknown", "intervention_id": intervention_id}
         
         elapsed = (datetime.now(timezone.utc) - intervention["started_at"]).total_seconds()
-        timeout = intervention["timeout_seconds"]
         
-        if elapsed >= timeout:
-            return {
-                "status": "timeout",
-                "intervention_id": intervention_id,
-                "elapsed_seconds": elapsed,
-            }
-        
+        # No timeout enforcement per §3.6.1
         return {
             "status": "pending",
             "intervention_id": intervention_id,
-            "remaining_seconds": timeout - elapsed,
+            "elapsed_seconds": elapsed,
+            "note": "Awaiting user completion via complete_authentication",
         }
     
     async def complete_intervention(
@@ -941,7 +766,7 @@ async def notify_user(
     event: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    """Send notification to user.
+    """Send notification to user per §3.6.1 safe operation policy.
     
     Args:
         event: Event type (captcha, login_required, cookie_banner, cloudflare, etc.).
@@ -950,10 +775,10 @@ async def notify_user(
             - domain: Domain name
             - message: Custom message (optional)
             - task_id: Associated task ID (optional)
-            - page: Playwright page object (optional)
-            - element_selector: CSS selector for highlight (optional)
-            - timeout_seconds: Custom timeout (optional)
-            - on_success_callback: Async callback to check success (optional)
+            - page: Playwright page object for window front-bring (optional)
+        
+        Note: element_selector and on_success_callback are no longer supported
+        per §3.6.1 (no DOM operations during authentication sessions).
         
     Returns:
         Notification/intervention result.
@@ -963,7 +788,7 @@ async def notify_user(
     intervention_types = {"captcha", "login_required", "cookie_banner", "cloudflare", "turnstile", "js_challenge"}
     
     if event in intervention_types:
-        # These require full intervention flow
+        # These require intervention flow (safe mode per §3.6.1)
         result = await manager.request_intervention(
             intervention_type=event,
             url=payload.get("url", ""),
@@ -971,8 +796,6 @@ async def notify_user(
             message=payload.get("message"),
             task_id=payload.get("task_id"),
             page=payload.get("page"),
-            element_selector=payload.get("element_selector"),
-            on_success_callback=payload.get("on_success_callback"),
         )
         return result.to_dict()
     else:
@@ -1031,11 +854,14 @@ def get_intervention_manager() -> InterventionManager:
 # ============================================================
 
 class InterventionQueue:
-    """Manages authentication queue for batch processing.
+    """Manages authentication queue for batch processing per §3.6.1.
     
-    This class enables semi-automatic operation where:
+    Safe Operation Policy:
     - Authentication challenges are queued instead of blocking
-    - User can process multiple authentications in a session
+    - User processes at their convenience (no timeout)
+    - start_session opens URLs and brings window to front only
+    - NO DOM operations (scroll, highlight, focus) are performed
+    - User completes via complete_authentication
     - Authenticated sessions can be reused for same domain
     """
     
@@ -1269,9 +1095,17 @@ class InterventionQueue:
         queue_ids: list[str] | None = None,
         priority_filter: str | None = None,
     ) -> dict[str, Any]:
-        """Start authentication session.
+        """Start authentication session per §3.6.1 safe operation policy.
         
-        Marks items as in_progress and prepares for user processing.
+        This method only marks items as in_progress and returns URLs.
+        Browser window opening and front-bringing should be done separately
+        via OS API (no DOM operations).
+        
+        Safe Operation Policy:
+        - Returns URLs for user to process
+        - NO DOM operations are performed
+        - User finds and resolves challenges themselves
+        - User calls complete_authentication when done
         
         Args:
             task_id: Task ID.

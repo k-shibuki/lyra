@@ -191,8 +191,7 @@ notification:
   windows_toast_enabled: true
   # Linux notify-send
   linux_notify_enabled: true
-  # Manual intervention timeout (seconds)
-  intervention_timeout: 180  # 3 minutes
+  # Note: intervention_timeout removed per §3.6.1 (user-driven completion, no timeout)
 
 # === Quality Thresholds ===
 quality:

@@ -213,32 +213,40 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - [x] Linux notify-send対応
 - [x] WSL→Windows通知橋渡し
 
-### 8.2 手動介入フロー（即時介入） ✅
+### 8.2 手動介入フロー【§3.6.2廃止→§3.6.1に統合】 ✅
 - [x] 基本フロー実装
-- [x] タブ前面化（CDP Page.bringToFront + プラットフォーム別フォールバック）
-- [x] タイムアウト処理完全化（3分SLA、§3.6準拠）
-- [x] 要素ハイライト（CAPTCHA/Cloudflare等の対象要素を視覚的に強調）
+- [x] ウィンドウ前面化（CDP Page.bringToFront + OS API フォールバック）
+- [x] ~~タイムアウト処理~~ → **廃止**（§3.6.1: ユーザー主導の完了報告のみ）
+- [x] ~~要素ハイライト~~ → **廃止**（§3.6.1: DOM操作禁止）
 - [x] ドメイン連続失敗追跡（3回失敗で当日スキップ、§3.1準拠）
-- [x] クールダウン適用（タイムアウト時≥60分、§3.5準拠）
-- [x] fetcher.pyへの統合（challenge検知→手動介入フロー自動呼び出し）
+- [x] クールダウン適用（明示的失敗時≥60分、§3.5準拠）
+- [x] fetcher.pyへの統合（challenge検知→認証キューへエンキュー）
 - [x] チャレンジタイプ検出（Cloudflare/CAPTCHA/Turnstile/hCaptcha等）
+- [x] **§3.6.1安全運用方針適用**
+  - CDP許可: `Page.bringToFront` のみ
+  - CDP禁止: `Runtime.evaluate`, `DOM.*`, `Input.*`, `Emulation.*`
+  - 完了検知: `complete_authentication` によるユーザー明示報告
 
-### 8.3 認証待ちキュー（半自動運用） ✅
+### 8.3 認証待ちキュー（§3.6.1 推奨方式） ✅
 - [x] `intervention_queue` テーブル（認証待ちキュー）
 - [x] `InterventionQueue` クラス
   - [x] `enqueue()`: 認証待ちをキューに積む
   - [x] `get_pending()`: 認証待ち一覧を取得
-  - [x] `start_session()`: 認証セッションを開始
+  - [x] `start_session()`: 認証セッションを開始（URL返却のみ、DOM操作なし）
   - [x] `complete()`: 認証完了を記録
   - [x] `skip()`: 認証をスキップ
   - [x] `get_session_for_domain()`: 認証済みセッションを取得
 - [x] MCPツール
   - [x] `get_pending_authentications`: 認証待ちキューを取得
-  - [x] `start_authentication_session`: 認証セッションを開始
-  - [x] `complete_authentication`: 認証完了を通知
+  - [x] `start_authentication_session`: 認証セッションを開始（URL開く+前面化のみ）
+  - [x] `complete_authentication`: 認証完了を通知（主たる完了検知手段）
   - [x] `skip_authentication`: 認証をスキップ
 - [x] `FetchResult` に `auth_queued`, `queue_id` フィールド追加
 - [x] `BrowserFetcher.fetch()` に `queue_auth` パラメータ追加
+- [x] **§3.6.1安全運用方針**
+  - 認証セッション中はDOM操作（スクロール、ハイライト、フォーカス）禁止
+  - ユーザーが自分でチャレンジを発見・解決
+  - タイムアウトなし（ユーザー主導の完了報告）
 
 ---
 

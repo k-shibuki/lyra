@@ -5,10 +5,12 @@ Test Classification (§7.1.7):
 - All tests here are unit tests (no external dependencies)
 - External dependencies (database, browser) are mocked
 
-Requirements tested:
-- §3.6: Manual intervention flows with 3-minute SLA
-- §3.1: Skip domain after 3 consecutive failures
-- §3.5: Cooldown after timeout (≥60 minutes)
+Requirements tested per §3.6.1 (Safe Operation Policy):
+- Authentication queue with user-driven completion (no timeout)
+- No DOM operations (scroll, highlight, focus) during auth sessions
+- Window bring-to-front via OS API only
+- Skip domain after 3 consecutive failures
+- Cooldown after explicit failures (≥60 minutes)
 """
 
 import asyncio
@@ -48,11 +50,10 @@ def mock_db():
 def mock_settings():
     """Mock settings with notification config.
     
-    Note: Uses short timeout (5s) instead of production value (180s)
-    for faster test execution per §7.1.4.2.
+    Note: intervention_timeout has been removed per §3.6.1 
+    (user-driven completion, no timeout).
     """
     settings = MagicMock()
-    settings.notification.intervention_timeout = 5  # Short timeout for test speed
     return settings
 
 
@@ -277,17 +278,9 @@ class TestInterventionResult:
 class TestInterventionManagerCore:
     """Core tests for InterventionManager.
     
-    Tests configuration properties and basic functionality.
+    Tests configuration properties and basic functionality per §3.6.1.
+    Note: intervention_timeout test removed (timeout no longer used).
     """
-    
-    def test_intervention_timeout_from_settings(self, intervention_manager, mock_settings):
-        """Test intervention timeout is read from settings."""
-        expected_timeout = 5  # From mock_settings fixture
-        actual_timeout = intervention_manager.intervention_timeout
-        
-        assert actual_timeout == expected_timeout, (
-            f"intervention_timeout should be {expected_timeout}, got {actual_timeout}"
-        )
     
     def test_max_domain_failures_is_three_per_spec(self, intervention_manager):
         """Test max domain failures is 3 per §3.1.
@@ -354,110 +347,11 @@ class TestInterventionManagerCore:
 
 
 # =============================================================================
-# Challenge Detection Tests
+# Challenge Detection Tests - REMOVED per §3.6.1
 # =============================================================================
-
-@pytest.mark.unit
-class TestChallengeDetection:
-    """Tests for challenge indicator detection.
-    
-    Verifies detection of various challenge types per §3.6.
-    """
-    
-    def test_detects_cloudflare_verification(self, intervention_manager):
-        """Test Cloudflare challenge detection."""
-        content = """
-        <html>
-        <head><title>Cloudflare</title></head>
-        <body>
-            <div class="cf-browser-verification">
-                Please wait while we verify your browser
-            </div>
-        </body>
-        </html>
-        """
-        
-        result = intervention_manager._has_challenge_indicators(content)
-        
-        assert result is True, (
-            "Should detect 'cf-browser-verification' as Cloudflare challenge"
-        )
-    
-    def test_detects_recaptcha(self, intervention_manager):
-        """Test reCAPTCHA detection."""
-        content = """
-        <html>
-        <body>
-            <div class="g-recaptcha" data-sitekey="xyz"></div>
-        </body>
-        </html>
-        """
-        
-        result = intervention_manager._has_challenge_indicators(content)
-        
-        assert result is True, (
-            "Should detect 'g-recaptcha' as CAPTCHA challenge"
-        )
-    
-    def test_detects_hcaptcha(self, intervention_manager):
-        """Test hCaptcha detection."""
-        content = """
-        <html>
-        <body>
-            <div class="h-captcha" data-sitekey="xyz"></div>
-        </body>
-        </html>
-        """
-        
-        result = intervention_manager._has_challenge_indicators(content)
-        
-        assert result is True, (
-            "Should detect 'h-captcha' as CAPTCHA challenge"
-        )
-    
-    def test_detects_turnstile(self, intervention_manager):
-        """Test Turnstile detection per §3.6."""
-        content = """
-        <html>
-        <body>
-            <div class="cf-turnstile"></div>
-        </body>
-        </html>
-        """
-        
-        result = intervention_manager._has_challenge_indicators(content)
-        
-        assert result is True, (
-            "Should detect 'cf-turnstile' as Turnstile challenge"
-        )
-    
-    def test_no_false_positive_on_normal_page(self, intervention_manager):
-        """Test normal page has no challenge indicators (no false positive)."""
-        content = """
-        <html>
-        <head><title>Normal Page</title></head>
-        <body>
-            <h1>Welcome to our website</h1>
-            <p>This is normal content about cloud computing and captioning services.</p>
-        </body>
-        </html>
-        """
-        
-        result = intervention_manager._has_challenge_indicators(content)
-        
-        assert result is False, (
-            "Should not detect challenges on normal page content"
-        )
-    
-    def test_empty_content_no_challenge(self, intervention_manager):
-        """Test empty content is not detected as challenge (boundary case)."""
-        content = ""
-        
-        result = intervention_manager._has_challenge_indicators(content)
-        
-        assert result is False, (
-            "Empty content should not be detected as challenge"
-        )
+# NOTE: TestChallengeDetection class has been removed.
+# _has_challenge_indicators method was deleted per §3.6.1 safe operation policy.
+# DOM content inspection during auth sessions is forbidden.
 
 
 # =============================================================================
@@ -638,21 +532,24 @@ class TestToastNotification:
 
 
 # =============================================================================
-# Tab Bring-to-Front Tests
+# Tab Bring-to-Front Tests (Safe Mode per §3.6.1)
 # =============================================================================
 
 @pytest.mark.unit
 class TestTabBringToFront:
-    """Tests for browser tab bring-to-front functionality per §3.6.
+    """Tests for browser window bring-to-front functionality per §3.6.1.
     
-    Per §3.6: 対象タブを自動で前面化（ヘッドフル）
+    Safe Operation Policy:
+    - Uses CDP Page.bringToFront only (allowed)
+    - Uses OS API fallback (SetForegroundWindow/wmctrl)
+    - Does NOT use Runtime.evaluate or window.focus() (forbidden)
     """
     
     @pytest.mark.asyncio
-    async def test_bring_tab_to_front_uses_cdp(
+    async def test_bring_tab_to_front_uses_cdp_safe_command(
         self, intervention_manager, mock_page
     ):
-        """Test that bring tab to front uses CDP Page.bringToFront command."""
+        """Test that bring tab to front uses only CDP Page.bringToFront (safe)."""
         # Arrange
         cdp_session = AsyncMock()
         cdp_session.send = AsyncMock()
@@ -662,14 +559,41 @@ class TestTabBringToFront:
         # Act
         await intervention_manager._bring_tab_to_front(mock_page)
         
-        # Assert
+        # Assert: Uses Page.bringToFront (allowed per §3.6.1)
         cdp_session.send.assert_any_call("Page.bringToFront")
     
     @pytest.mark.asyncio
-    async def test_bring_tab_to_front_falls_back_on_error(
+    async def test_bring_tab_does_not_use_forbidden_cdp(
+        self, intervention_manager, mock_page
+    ):
+        """Test that bring tab to front does NOT use forbidden CDP commands.
+        
+        Per §3.6.1: Runtime.evaluate, DOM.*, Input.* are forbidden.
+        """
+        # Arrange
+        cdp_session = AsyncMock()
+        cdp_session.send = AsyncMock()
+        cdp_session.detach = AsyncMock()
+        mock_page.context.new_cdp_session = AsyncMock(return_value=cdp_session)
+        
+        # Act
+        await intervention_manager._bring_tab_to_front(mock_page)
+        
+        # Assert: No forbidden commands were called
+        for call in cdp_session.send.call_args_list:
+            command = call[0][0]
+            forbidden_prefixes = ["Runtime.evaluate", "DOM.", "Input.", "Emulation."]
+            for prefix in forbidden_prefixes:
+                assert not command.startswith(prefix), (
+                    f"Forbidden CDP command '{command}' was called. Per §3.6.1, "
+                    f"only Page.navigate, Network.enable, Page.bringToFront are allowed."
+                )
+    
+    @pytest.mark.asyncio
+    async def test_bring_tab_to_front_falls_back_to_os_api(
         self, intervention_manager
     ):
-        """Test graceful fallback when CDP connection fails."""
+        """Test graceful fallback to OS API when CDP connection fails."""
         # Arrange
         page = AsyncMock()
         page.context.new_cdp_session = AsyncMock(side_effect=Exception("CDP error"))
@@ -682,87 +606,31 @@ class TestTabBringToFront:
             # Act
             await intervention_manager._bring_tab_to_front(page)
             
-            # Assert: Fallback should be called
+            # Assert: OS API fallback should be called
             mock_activate.assert_called_once()
 
 
 # =============================================================================
-# Element Highlighting Tests
+# Element Highlighting Tests - REMOVED per §3.6.1
 # =============================================================================
-
-@pytest.mark.unit
-class TestElementHighlighting:
-    """Tests for element highlighting functionality per §3.6.
-    
-    Per §3.6: 該当要素へスクロール/ハイライト
-    """
-    
-    @pytest.mark.asyncio
-    async def test_highlight_element_returns_true_when_found(
-        self, intervention_manager, mock_page
-    ):
-        """Test element highlighting returns True when element exists."""
-        # Arrange
-        mock_page.evaluate = AsyncMock(return_value=True)
-        
-        # Act
-        result = await intervention_manager._highlight_element(
-            mock_page,
-            ".captcha-container",
-        )
-        
-        # Assert
-        assert result is True, (
-            "highlight_element should return True when element is found"
-        )
-        mock_page.evaluate.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_highlight_element_returns_false_when_not_found(
-        self, intervention_manager, mock_page
-    ):
-        """Test element highlighting returns False when element doesn't exist."""
-        # Arrange
-        mock_page.evaluate = AsyncMock(return_value=False)
-        
-        # Act
-        result = await intervention_manager._highlight_element(
-            mock_page,
-            ".nonexistent",
-        )
-        
-        # Assert
-        assert result is False, (
-            "highlight_element should return False when element is not found"
-        )
-    
-    @pytest.mark.asyncio
-    async def test_highlight_element_handles_errors_gracefully(
-        self, intervention_manager, mock_page
-    ):
-        """Test graceful error handling during highlighting."""
-        # Arrange
-        mock_page.evaluate = AsyncMock(side_effect=Exception("Eval error"))
-        
-        # Act
-        result = await intervention_manager._highlight_element(
-            mock_page,
-            ".captcha",
-        )
-        
-        # Assert: Should not raise, should return False
-        assert result is False, (
-            "highlight_element should return False on error, not raise"
-        )
+# NOTE: TestElementHighlighting class has been removed.
+# _highlight_element method was deleted per §3.6.1 safe operation policy.
+# DOM operations (scroll, highlight) during auth sessions are forbidden.
 
 
 # =============================================================================
-# Full Intervention Flow Tests
+# Full Intervention Flow Tests (Updated per §3.6.1)
 # =============================================================================
 
 @pytest.mark.unit
 class TestInterventionFlow:
-    """Tests for the full intervention flow."""
+    """Tests for the intervention flow per §3.6.1.
+    
+    Key behavior changes per §3.6.1:
+    - request_intervention returns PENDING immediately (no waiting)
+    - No timeout enforcement (user-driven completion)
+    - User calls complete_authentication when done
+    """
     
     @pytest.mark.asyncio
     async def test_skips_domain_with_three_failures(
@@ -792,6 +660,41 @@ class TestInterventionFlow:
                 )
     
     @pytest.mark.asyncio
+    async def test_returns_pending_immediately_per_spec(
+        self, mock_settings, mock_db, mock_page
+    ):
+        """Test intervention returns PENDING immediately per §3.6.1.
+        
+        Per §3.6.1: No waiting/polling. Returns PENDING for user to complete.
+        """
+        with patch("src.utils.notification.get_settings", return_value=mock_settings):
+            with patch("src.utils.notification.get_database", return_value=mock_db):
+                # Arrange
+                manager = InterventionManager()
+                
+                with patch.object(
+                    manager, "send_toast", new_callable=AsyncMock, return_value=True
+                ):
+                    with patch.object(
+                        manager, "_bring_tab_to_front", new_callable=AsyncMock
+                    ):
+                        # Act
+                        result = await manager.request_intervention(
+                            intervention_type=InterventionType.CAPTCHA,
+                            url="https://example.com/page",
+                            domain="example.com",
+                            page=mock_page,
+                        )
+                        
+                        # Assert: Should return PENDING immediately
+                        assert result.status == InterventionStatus.PENDING, (
+                            f"Expected PENDING status per §3.6.1, got {result.status}"
+                        )
+                        assert "complete_authentication" in (result.notes or ""), (
+                            "Notes should mention complete_authentication method"
+                        )
+    
+    @pytest.mark.asyncio
     async def test_logs_intervention_to_database(
         self, intervention_manager, mock_db, mock_page
     ):
@@ -805,30 +708,21 @@ class TestInterventionFlow:
             ):
                 with patch.object(
                     intervention_manager,
-                    "_wait_for_intervention",
+                    "_bring_tab_to_front",
                     new_callable=AsyncMock,
-                    return_value=InterventionResult(
-                        intervention_id="test",
-                        status=InterventionStatus.SUCCESS,
-                    ),
                 ):
-                    with patch.object(
-                        intervention_manager,
-                        "_bring_tab_to_front",
-                        new_callable=AsyncMock,
-                    ):
-                        # Act
-                        await intervention_manager.request_intervention(
-                            intervention_type=InterventionType.CAPTCHA,
-                            url="https://example.com/page",
-                            domain="example.com",
-                            page=mock_page,
-                        )
-                        
-                        # Assert
-                        assert mock_db.execute.called, (
-                            "Database execute should be called to log intervention"
-                        )
+                    # Act
+                    await intervention_manager.request_intervention(
+                        intervention_type=InterventionType.CAPTCHA,
+                        url="https://example.com/page",
+                        domain="example.com",
+                        page=mock_page,
+                    )
+                    
+                    # Assert
+                    assert mock_db.execute.called, (
+                        "Database execute should be called to log intervention"
+                    )
     
     @pytest.mark.asyncio
     async def test_success_resets_failure_counter(
@@ -875,7 +769,7 @@ class TestInterventionFlow:
         with patch("src.utils.notification.get_database", return_value=mock_db):
             result = InterventionResult(
                 intervention_id="test",
-                status=InterventionStatus.TIMEOUT,
+                status=InterventionStatus.FAILED,  # Changed from TIMEOUT
             )
             
             # Act
@@ -903,7 +797,7 @@ class TestInterventionFlow:
 
 @pytest.mark.unit
 class TestNotifyUserFunction:
-    """Tests for the notify_user convenience function."""
+    """Tests for the notify_user convenience function per §3.6.1."""
     
     @pytest.mark.asyncio
     async def test_simple_event_returns_shown_and_event(self, mock_settings, mock_db):
@@ -935,10 +829,13 @@ class TestNotifyUserFunction:
                     )
     
     @pytest.mark.asyncio
-    async def test_captcha_event_triggers_intervention_flow(
+    async def test_captcha_event_returns_pending_per_spec(
         self, mock_settings, mock_db
     ):
-        """Test notify_user with captcha event triggers intervention flow."""
+        """Test notify_user with captcha event returns PENDING per §3.6.1.
+        
+        Per §3.6.1: Intervention returns PENDING immediately for user to complete.
+        """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
                 # Reset global manager
@@ -951,7 +848,8 @@ class TestNotifyUserFunction:
                     new_callable=AsyncMock,
                     return_value=InterventionResult(
                         intervention_id="test",
-                        status=InterventionStatus.SUCCESS,
+                        status=InterventionStatus.PENDING,
+                        notes="Awaiting user completion via complete_authentication",
                     ),
                 ):
                     # Act
@@ -963,113 +861,126 @@ class TestNotifyUserFunction:
                         },
                     )
                     
-                    # Assert
-                    assert result["status"] == "success", (
-                        f"Result 'status' should be 'success', got '{result['status']}'"
+                    # Assert: Should be PENDING per §3.6.1
+                    assert result["status"] == "pending", (
+                        f"Result 'status' should be 'pending' per §3.6.1, got '{result['status']}'"
                     )
 
 
 # =============================================================================
-# Integration-style Tests (still unit - using mocks)
+# Integration-style Tests (still unit - using mocks) - Updated per §3.6.1
 # =============================================================================
 
 @pytest.mark.unit
 class TestInterventionIntegration:
-    """Integration-style tests for intervention flows (mocked).
+    """Integration-style tests for intervention flows (mocked) per §3.6.1.
     
     Tests complete flows end-to-end with mocked dependencies.
+    
+    Key changes per §3.6.1:
+    - No timeout enforcement (user-driven completion)
+    - Returns PENDING immediately
+    - No element_selector or on_success_callback parameters
     """
     
     @pytest.mark.asyncio
-    async def test_full_lifecycle_success(
+    async def test_full_lifecycle_returns_pending_per_spec(
         self, mock_settings, mock_db, mock_page
     ):
-        """Test full intervention lifecycle with successful outcome."""
+        """Test full intervention lifecycle returns PENDING per §3.6.1."""
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
                 # Arrange
                 manager = InterventionManager()
                 domain = "example.com"
                 
-                async def success_callback():
-                    return True
-                
                 with patch.object(manager, "send_toast", new_callable=AsyncMock, return_value=True):
                     with patch.object(manager, "_bring_tab_to_front", new_callable=AsyncMock):
-                        with patch.object(manager, "_highlight_element", new_callable=AsyncMock):
-                            with patch.object(
-                                manager,
-                                "_wait_for_intervention",
-                                new_callable=AsyncMock,
-                                return_value=InterventionResult(
-                                    intervention_id="test",
-                                    status=InterventionStatus.SUCCESS,
-                                    elapsed_seconds=10.0,
-                                ),
-                            ):
-                                # Act
-                                result = await manager.request_intervention(
-                                    intervention_type=InterventionType.CLOUDFLARE,
-                                    url=f"https://{domain}",
-                                    domain=domain,
-                                    page=mock_page,
-                                    element_selector="#cf-wrapper",
-                                    on_success_callback=success_callback,
-                                )
-                                
-                                # Assert
-                                assert result.status == InterventionStatus.SUCCESS, (
-                                    f"Expected SUCCESS status, got {result.status}"
-                                )
-                                assert manager.get_domain_failures(domain) == 0, (
-                                    "Failure count should be 0 after success"
-                                )
+                        # Act: Per §3.6.1, no element_selector or on_success_callback
+                        result = await manager.request_intervention(
+                            intervention_type=InterventionType.CLOUDFLARE,
+                            url=f"https://{domain}",
+                            domain=domain,
+                            page=mock_page,
+                        )
+                        
+                        # Assert: Should return PENDING immediately
+                        assert result.status == InterventionStatus.PENDING, (
+                            f"Expected PENDING status per §3.6.1, got {result.status}"
+                        )
     
     @pytest.mark.asyncio
-    async def test_timeout_applies_cooldown_per_spec(
+    async def test_complete_intervention_marks_success(
         self, mock_settings, mock_db
     ):
-        """Test intervention timeout applies cooldown per §3.5.
+        """Test complete_intervention marks intervention as successful.
         
-        Per §3.5: クールダウン（最小60分）
+        Per §3.6.1: User calls complete_authentication when done.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
                 # Arrange
                 manager = InterventionManager()
-                cooldown_time = datetime.now(timezone.utc) + timedelta(minutes=60)
+                domain = "example.com"
+                intervention_id = f"{domain}_test123"
                 
-                with patch.object(manager, "send_toast", new_callable=AsyncMock, return_value=True):
-                    with patch.object(
-                        manager,
-                        "_wait_for_intervention",
-                        new_callable=AsyncMock,
-                        return_value=InterventionResult(
-                            intervention_id="test",
-                            status=InterventionStatus.TIMEOUT,
-                            elapsed_seconds=180.0,
-                            should_retry=True,
-                            cooldown_until=cooldown_time,
-                        ),
-                    ):
-                        # Act
-                        result = await manager.request_intervention(
-                            intervention_type=InterventionType.CAPTCHA,
-                            url="https://example.com",
-                            domain="example.com",
-                        )
-                        
-                        # Assert
-                        assert result.status == InterventionStatus.TIMEOUT, (
-                            f"Expected TIMEOUT status, got {result.status}"
-                        )
-                        assert result.cooldown_until is not None, (
-                            "cooldown_until should be set on timeout"
-                        )
-                        
-                        # Verify cooldown is at least 59 minutes (allowing for test execution time)
-                        cooldown_delta = result.cooldown_until - datetime.now(timezone.utc)
-                        min_expected_seconds = 59 * 60  # 59 minutes
-                        assert cooldown_delta.total_seconds() >= min_expected_seconds, (
-                            f"Cooldown should be >= 59 minutes, got {cooldown_delta.total_seconds()} seconds"
-                        )
+                # Simulate pending intervention
+                manager._pending_interventions[intervention_id] = {
+                    "id": intervention_id,
+                    "type": InterventionType.CAPTCHA,
+                    "domain": domain,
+                    "started_at": datetime.now(timezone.utc),
+                }
+                manager._domain_failures[domain] = 2
+                
+                # Act: User completes intervention
+                await manager.complete_intervention(
+                    intervention_id=intervention_id,
+                    success=True,
+                    notes="User resolved CAPTCHA",
+                )
+                
+                # Assert: Failure counter should be reset
+                failures = manager.get_domain_failures(domain)
+                assert failures == 0, (
+                    f"Failure count after success should be 0, got {failures}"
+                )
+                
+                # Assert: Intervention removed from pending
+                assert intervention_id not in manager._pending_interventions, (
+                    "Completed intervention should be removed from pending"
+                )
+    
+    @pytest.mark.asyncio
+    async def test_check_status_shows_pending_without_timeout(
+        self, mock_settings, mock_db
+    ):
+        """Test check_intervention_status shows pending without timeout per §3.6.1.
+        
+        Per §3.6.1: No timeout enforcement - user-driven completion only.
+        """
+        with patch("src.utils.notification.get_settings", return_value=mock_settings):
+            with patch("src.utils.notification.get_database", return_value=mock_db):
+                # Arrange
+                manager = InterventionManager()
+                intervention_id = "test_domain_123"
+                
+                # Simulate a pending intervention started 10 minutes ago
+                manager._pending_interventions[intervention_id] = {
+                    "id": intervention_id,
+                    "started_at": datetime.now(timezone.utc) - timedelta(minutes=10),
+                }
+                
+                # Act
+                status = await manager.check_intervention_status(intervention_id)
+                
+                # Assert: Should still be pending (no timeout per §3.6.1)
+                assert status["status"] == "pending", (
+                    f"Expected 'pending' status per §3.6.1, got '{status['status']}'"
+                )
+                assert "elapsed_seconds" in status, (
+                    "Status should include elapsed_seconds"
+                )
+                assert "note" in status, (
+                    "Status should include note about user completion"
+                )
