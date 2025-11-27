@@ -583,6 +583,58 @@ async def _cleanup_client() -> None:
         _client = None
 
 
+# ============================================================================
+# Provider-based Search (Phase 17.1.1)
+# ============================================================================
+
+
+async def _search_with_provider(
+    query: str,
+    engines: list[str] | None = None,
+    limit: int = 10,
+    time_range: str = "all",
+) -> list[dict[str, Any]]:
+    """
+    Execute search using the provider abstraction layer.
+    
+    This is the new provider-based implementation that will eventually
+    replace direct SearXNGClient usage.
+    
+    Args:
+        query: Search query.
+        engines: Engines to use.
+        limit: Maximum results.
+        time_range: Time filter.
+        
+    Returns:
+        List of normalized result dicts.
+    """
+    from src.search.provider import SearchOptions, get_registry
+    from src.search.searxng_provider import SearXNGProvider, get_searxng_provider
+    
+    # Ensure provider is registered
+    registry = get_registry()
+    if registry.get("searxng") is None:
+        provider = get_searxng_provider()
+        registry.register(provider, set_default=True)
+    
+    # Build options
+    options = SearchOptions(
+        engines=engines,
+        time_range=time_range,
+        limit=limit,
+    )
+    
+    # Search via registry (with fallback support)
+    response = await registry.search_with_fallback(query, options)
+    
+    if not response.ok:
+        return []
+    
+    # Convert to dict format for backward compatibility
+    return [r.to_dict() for r in response.results]
+
+
 def _normalize_query(query: str) -> str:
     """Normalize query for caching.
     
@@ -624,6 +676,7 @@ async def search_serp(
     task_id: str | None = None,
     use_cache: bool = True,
     transform_operators: bool = True,
+    use_provider: bool = False,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
     
@@ -635,6 +688,8 @@ async def search_serp(
         task_id: Associated task ID.
         use_cache: Whether to use cache.
         transform_operators: Whether to transform query operators for engines.
+        use_provider: Whether to use the new provider abstraction (Phase 17.1.1).
+                      Default False for backward compatibility.
         
     Returns:
         List of normalized SERP result dicts.
@@ -681,41 +736,51 @@ async def search_serp(
                 operators=operator_types,
             )
         
-        # Execute search
-        client = _get_client()
-        raw_results = await client.search(
-            query=search_query,
-            engines=engines,
-            time_range=time_range if time_range != "all" else None,
-        )
-        
-        # Normalize results
-        results = []
-        seen_urls = set()
-        
-        for idx, item in enumerate(raw_results.get("results", [])):
-            url = item.get("url", "")
+        # Execute search - choose between provider and legacy client
+        if use_provider:
+            # New provider-based implementation (Phase 17.1.1)
+            results = await _search_with_provider(
+                query=search_query,
+                engines=engines,
+                limit=limit,
+                time_range=time_range,
+            )
+        else:
+            # Legacy SearXNGClient implementation
+            client = _get_client()
+            raw_results = await client.search(
+                query=search_query,
+                engines=engines,
+                time_range=time_range if time_range != "all" else None,
+            )
             
-            # Skip duplicates
-            if url in seen_urls:
-                continue
-            seen_urls.add(url)
+            # Normalize results
+            results = []
+            seen_urls = set()
             
-            # Normalize to standard schema
-            result = {
-                "title": item.get("title", ""),
-                "url": url,
-                "snippet": item.get("content", ""),
-                "date": item.get("publishedDate"),
-                "engine": item.get("engine", "unknown"),
-                "rank": idx + 1,
-                "source_tag": _classify_source(url),
-            }
-            
-            results.append(result)
-            
-            if len(results) >= limit:
-                break
+            for idx, item in enumerate(raw_results.get("results", [])):
+                url = item.get("url", "")
+                
+                # Skip duplicates
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                
+                # Normalize to standard schema
+                result = {
+                    "title": item.get("title", ""),
+                    "url": url,
+                    "snippet": item.get("content", ""),
+                    "date": item.get("publishedDate"),
+                    "engine": item.get("engine", "unknown"),
+                    "rank": idx + 1,
+                    "source_tag": _classify_source(url),
+                }
+                
+                results.append(result)
+                
+                if len(results) >= limit:
+                    break
         
         # Store in database
         if task_id:
