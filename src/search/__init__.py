@@ -1,8 +1,20 @@
 """
 Lancet search module.
-Provides search engine integration and query management.
+
+Provides unified search interface through provider abstraction (Phase 17.1.1).
+All search operations now go through SearchProvider interface by default.
+
+Main entry point:
+    search_serp() - Execute search queries via registered provider
+
+Provider system:
+    SearchProvider - Protocol for search providers
+    SearchProviderRegistry - Registry for provider management
+    get_registry() - Get global provider registry
+    SearXNGProvider - Default SearXNG implementation
 """
 
+# Core search function (uses provider by default)
 from src.search.searxng import (
     search_serp,
     expand_query,
@@ -14,6 +26,8 @@ from src.search.searxng import (
     transform_query_for_engine,
     build_search_query,
 )
+
+# A/B Testing
 from src.search.ab_test import (
     run_query_ab_test,
     get_optimized_query,
@@ -26,6 +40,7 @@ from src.search.ab_test import (
     QueryVariantGenerator,
     HighYieldQueryCache,
 )
+
 # Provider abstraction (Phase 17.1.1)
 from src.search.provider import (
     SearchProvider,
@@ -47,7 +62,7 @@ from src.search.searxng_provider import (
 )
 
 __all__ = [
-    # SearXNG (legacy)
+    # Core search (provider-based)
     "search_serp",
     "expand_query",
     "generate_mirror_query",

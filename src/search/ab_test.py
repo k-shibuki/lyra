@@ -397,7 +397,7 @@ class ABTestExecutor:
         Returns:
             ABTestSession with results.
         """
-        from src.search.searxng import search_serp
+        from src.search import search_serp
         
         session_id = self._generate_session_id(task_id, base_query)
         

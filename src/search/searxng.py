@@ -676,7 +676,7 @@ async def search_serp(
     task_id: str | None = None,
     use_cache: bool = True,
     transform_operators: bool = True,
-    use_provider: bool = False,
+    use_provider: bool = True,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
     
@@ -688,8 +688,8 @@ async def search_serp(
         task_id: Associated task ID.
         use_cache: Whether to use cache.
         transform_operators: Whether to transform query operators for engines.
-        use_provider: Whether to use the new provider abstraction (Phase 17.1.1).
-                      Default False for backward compatibility.
+        use_provider: Whether to use the provider abstraction (Phase 17.1.1).
+                      Default True (recommended). Set False only for legacy compatibility.
         
     Returns:
         List of normalized SERP result dicts.

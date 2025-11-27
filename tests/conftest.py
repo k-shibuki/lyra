@@ -229,6 +229,25 @@ def make_mock_response():
 
 
 # =============================================================================
+# Provider Reset Fixtures (Phase 17.1.1)
+# =============================================================================
+
+@pytest.fixture(autouse=True)
+def reset_search_provider():
+    """Reset search provider singletons between tests.
+    
+    Ensures that each test starts with a fresh provider state.
+    This prevents 'Event loop is closed' errors from provider reuse.
+    """
+    yield
+    # Reset after each test
+    from src.search.provider import reset_registry
+    from src.search.searxng_provider import reset_searxng_provider
+    reset_registry()
+    reset_searxng_provider()
+
+
+# =============================================================================
 # Mock Fixtures for External Services (§7.1.7 Mock Strategy)
 # =============================================================================
 
