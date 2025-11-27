@@ -162,7 +162,6 @@ class NotificationConfig(BaseModel):
     """Notification configuration."""
     windows_toast_enabled: bool = True
     linux_notify_enabled: bool = True
-    intervention_timeout: int = 180
 
 
 class QualityConfig(BaseModel):

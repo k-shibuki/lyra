@@ -211,7 +211,7 @@ TOOLS = [
     ),
     Tool(
         name="notify_user",
-        description="Send notification to user (for CAPTCHA, login required, etc.).",
+        description="Send notification to user (for CAPTCHA, login required, etc.). Per §3.6.1: No DOM operations during auth sessions.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -226,8 +226,7 @@ TOOLS = [
                     "properties": {
                         "url": {"type": "string"},
                         "domain": {"type": "string"},
-                        "message": {"type": "string"},
-                        "timeout_seconds": {"type": "integer"}
+                        "message": {"type": "string"}
                     }
                 }
             },
@@ -256,7 +255,7 @@ TOOLS = [
     ),
     Tool(
         name="start_authentication_session",
-        description="Start authentication session. Marks items as in_progress for user to process.",
+        description="Start authentication session per §3.6.1. Opens URL and brings window to front only. NO DOM operations (scroll/highlight/focus). User finds challenge and completes it.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -280,7 +279,7 @@ TOOLS = [
     ),
     Tool(
         name="complete_authentication",
-        description="Mark authentication as complete after user bypasses challenge.",
+        description="Mark authentication as complete after user bypasses challenge. Per §3.6.1: This is the primary completion method (user-driven, no timeout).",
         inputSchema={
             "type": "object",
             "properties": {

@@ -1,13 +1,15 @@
 """
-Tests for InterventionQueue (Semi-automatic Operation).
+Tests for InterventionQueue (Semi-automatic Operation) per §3.6.1.
 
 Test Classification (§7.1.7):
 - All tests here are unit tests (no external dependencies)
 - Database uses in-memory SQLite for isolation
 
-Requirements tested:
-- §2 基本方針（追記）: 半自動運用の認証キュー
-- §3.6.1: 認証待ちキュー（推奨）
+Requirements tested per §3.6.1 (Safe Operation Policy):
+- Authentication queue with user-driven completion (no timeout)
+- start_session returns URLs only (no DOM operations)
+- User finds and resolves challenges themselves
+- complete_authentication is primary completion method
 
 Test Quality Standards (§7.1):
 - No conditional assertions (§7.1.1.1)
@@ -514,14 +516,18 @@ class TestGetPendingCount:
 
 
 # =============================================================================
-# Start Session Tests (§3.6.1)
+# Start Session Tests (§3.6.1 Safe Operation Policy)
 # =============================================================================
 
 @pytest.mark.unit
 class TestStartSession:
-    """Tests for start_session functionality.
+    """Tests for start_session functionality per §3.6.1.
     
-    Per §3.6.1: バッチ処理: ユーザーが都合の良いタイミングで「認証セッション」を開始
+    Safe Operation Policy:
+    - Returns URLs for user to process (no DOM operations)
+    - User finds and resolves challenges themselves
+    - User calls complete_authentication when done
+    - No timeout enforcement (user-driven completion)
     """
     
     @pytest.mark.asyncio
@@ -707,14 +713,16 @@ class TestStartSession:
 
 
 # =============================================================================
-# Complete Tests (§3.6.1)
+# Complete Tests (§3.6.1 - Primary Completion Method)
 # =============================================================================
 
 @pytest.mark.unit
 class TestComplete:
-    """Tests for complete functionality.
+    """Tests for complete functionality per §3.6.1.
     
-    Per §3.6.1: complete_authentication: 認証完了を通知
+    Per §3.6.1: complete_authentication is the primary completion method.
+    User explicitly reports when they have resolved the authentication challenge.
+    This is the only way to mark authentication as complete (no timeout/auto-detect).
     """
     
     @pytest.mark.asyncio
