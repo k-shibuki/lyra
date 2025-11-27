@@ -95,6 +95,7 @@ class SearXNGProvider(BaseSearchProvider):
     
     Implements the SearchProvider interface for the local SearXNG instance.
     Provides rate limiting, health monitoring, and standardized result format.
+    Uses DomainPolicyManager for QPS configuration.
     
     Example:
         provider = SearXNGProvider()
@@ -107,7 +108,6 @@ class SearXNGProvider(BaseSearchProvider):
     
     DEFAULT_BASE_URL = "http://localhost:8080"
     DEFAULT_TIMEOUT = 30
-    DEFAULT_MIN_INTERVAL = 4.0  # QPS = 0.25 (§4.3 rate control)
     
     def __init__(
         self,
@@ -118,16 +118,25 @@ class SearXNGProvider(BaseSearchProvider):
         """
         Initialize SearXNG provider.
         
+        Uses DomainPolicyManager for default min_interval if not specified.
+        
         Args:
             base_url: SearXNG instance URL. Default: SEARXNG_HOST env or localhost:8080.
             timeout: Request timeout in seconds. Default: 30.
-            min_interval: Minimum interval between requests in seconds. Default: 4.0.
+            min_interval: Minimum interval between requests in seconds. Default from config.
         """
         super().__init__("searxng")
         
         self._base_url = base_url or os.environ.get("SEARXNG_HOST", self.DEFAULT_BASE_URL)
         self._timeout = timeout or self.DEFAULT_TIMEOUT
-        self._min_interval = min_interval or self.DEFAULT_MIN_INTERVAL
+        
+        # Get default min_interval from DomainPolicyManager if not provided
+        if min_interval is None:
+            from src.utils.domain_policy import get_domain_policy_manager
+            policy_manager = get_domain_policy_manager()
+            self._min_interval = policy_manager.get_search_engine_min_interval()
+        else:
+            self._min_interval = min_interval
         
         self._session: aiohttp.ClientSession | None = None
         self._rate_limiter = asyncio.Semaphore(1)

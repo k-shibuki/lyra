@@ -35,27 +35,36 @@ class EngineCircuitBreaker:
     - OPEN -> HALF_OPEN: cooldown period elapsed
     - HALF_OPEN -> CLOSED: probe success
     - HALF_OPEN -> OPEN: probe failure
+    
+    Uses DomainPolicyManager for default cooldown configuration.
     """
     
     def __init__(
         self,
         engine: str,
-        failure_threshold: int = 2,
-        cooldown_min: int = 30,
-        cooldown_max: int = 120,
+        failure_threshold: int | None = None,
+        cooldown_min: int | None = None,
+        cooldown_max: int | None = None,
     ):
         """Initialize circuit breaker.
         
+        Uses DomainPolicyManager for default values if not specified.
+        
         Args:
             engine: Engine name.
-            failure_threshold: Failures before opening circuit.
-            cooldown_min: Minimum cooldown in minutes.
-            cooldown_max: Maximum cooldown in minutes.
+            failure_threshold: Failures before opening circuit. Default from config.
+            cooldown_min: Minimum cooldown in minutes. Default from config.
+            cooldown_max: Maximum cooldown in minutes. Default from config.
         """
+        from src.utils.domain_policy import get_domain_policy_manager
+        
         self.engine = engine
-        self.failure_threshold = failure_threshold
-        self.cooldown_min = cooldown_min
-        self.cooldown_max = cooldown_max
+        
+        # Get defaults from DomainPolicyManager if not provided
+        policy_manager = get_domain_policy_manager()
+        self.failure_threshold = failure_threshold if failure_threshold is not None else policy_manager.get_circuit_breaker_failure_threshold()
+        self.cooldown_min = cooldown_min if cooldown_min is not None else policy_manager.get_circuit_breaker_cooldown_min()
+        self.cooldown_max = cooldown_max if cooldown_max is not None else policy_manager.get_circuit_breaker_cooldown_max()
         
         self._state = CircuitState.CLOSED
         self._consecutive_failures = 0
@@ -293,6 +302,8 @@ class CircuitBreakerManager:
     async def get_breaker(self, engine: str) -> EngineCircuitBreaker:
         """Get or create circuit breaker for an engine.
         
+        Uses DomainPolicyManager for default settings via EngineCircuitBreaker.
+        
         Args:
             engine: Engine name.
             
@@ -301,12 +312,8 @@ class CircuitBreakerManager:
         """
         async with self._lock:
             if engine not in self._breakers:
-                breaker = EngineCircuitBreaker(
-                    engine=engine,
-                    failure_threshold=self._settings.circuit_breaker.failure_threshold,
-                    cooldown_min=self._settings.circuit_breaker.cooldown_min,
-                    cooldown_max=self._settings.circuit_breaker.cooldown_max,
-                )
+                # EngineCircuitBreaker gets defaults from DomainPolicyManager
+                breaker = EngineCircuitBreaker(engine=engine)
                 # Try to load existing state
                 await breaker.load_from_db()
                 self._breakers[engine] = breaker

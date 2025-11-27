@@ -455,15 +455,22 @@ class SearXNGClient:
     """Client for interacting with SearXNG."""
     
     def __init__(self):
-        """Initialize SearXNG client."""
+        """Initialize SearXNG client.
+        
+        Uses DomainPolicyManager for search engine QPS settings.
+        """
         import os
+        from src.utils.domain_policy import get_domain_policy_manager
+        
         self.settings = get_settings()
         # Use environment variable or default
         self.base_url = os.environ.get("SEARXNG_HOST", "http://localhost:8080")
         self._session: aiohttp.ClientSession | None = None
         self._rate_limiter = asyncio.Semaphore(1)
         self._last_request_time = 0.0
-        self._min_interval = 4.0  # QPS = 0.25
+        # Get min_interval from DomainPolicyManager
+        policy_manager = get_domain_policy_manager()
+        self._min_interval = policy_manager.get_search_engine_min_interval()
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session."""

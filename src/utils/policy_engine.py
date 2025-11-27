@@ -49,37 +49,157 @@ class ParameterBounds:
     step_down: float   # Amount to decrease per adjustment
 
 
-# Default parameter bounds
-DEFAULT_BOUNDS: dict[PolicyParameter, ParameterBounds] = {
-    PolicyParameter.ENGINE_WEIGHT: ParameterBounds(
-        min_value=0.1, max_value=2.0, default_value=1.0,
-        step_up=0.1, step_down=0.2,
-    ),
-    PolicyParameter.ENGINE_QPS: ParameterBounds(
-        min_value=0.1, max_value=0.5, default_value=0.25,
-        step_up=0.05, step_down=0.1,
-    ),
-    PolicyParameter.DOMAIN_QPS: ParameterBounds(
-        min_value=0.05, max_value=0.3, default_value=0.2,
-        step_up=0.02, step_down=0.05,
-    ),
-    PolicyParameter.DOMAIN_COOLDOWN: ParameterBounds(
-        min_value=30.0, max_value=240.0, default_value=60.0,
-        step_up=30.0, step_down=15.0,
-    ),
-    PolicyParameter.HEADFUL_RATIO: ParameterBounds(
-        min_value=0.0, max_value=0.5, default_value=0.1,
-        step_up=0.05, step_down=0.05,
-    ),
-    PolicyParameter.TOR_USAGE_RATIO: ParameterBounds(
-        min_value=0.0, max_value=0.2, default_value=0.0,
-        step_up=0.02, step_down=0.05,
-    ),
-    PolicyParameter.BROWSER_ROUTE_RATIO: ParameterBounds(
-        min_value=0.1, max_value=0.5, default_value=0.3,
-        step_up=0.05, step_down=0.05,
-    ),
-}
+def _get_default_bounds() -> dict["PolicyParameter", ParameterBounds]:
+    """Get default parameter bounds from DomainPolicyManager.
+    
+    Loads bounds from config/domains.yaml via DomainPolicyManager.
+    Falls back to hardcoded defaults if config not available.
+    
+    Returns:
+        Dictionary mapping PolicyParameter to ParameterBounds.
+    """
+    try:
+        from src.utils.domain_policy import get_domain_policy_manager
+        
+        policy_manager = get_domain_policy_manager()
+        policy_bounds = policy_manager.get_policy_bounds()
+        
+        # Map config schema to ParameterBounds
+        return {
+            PolicyParameter.ENGINE_WEIGHT: ParameterBounds(
+                min_value=policy_bounds.engine_weight.min,
+                max_value=policy_bounds.engine_weight.max,
+                default_value=policy_bounds.engine_weight.default,
+                step_up=policy_bounds.engine_weight.step_up,
+                step_down=policy_bounds.engine_weight.step_down,
+            ),
+            PolicyParameter.ENGINE_QPS: ParameterBounds(
+                min_value=policy_bounds.engine_qps.min,
+                max_value=policy_bounds.engine_qps.max,
+                default_value=policy_bounds.engine_qps.default,
+                step_up=policy_bounds.engine_qps.step_up,
+                step_down=policy_bounds.engine_qps.step_down,
+            ),
+            PolicyParameter.DOMAIN_QPS: ParameterBounds(
+                min_value=policy_bounds.domain_qps.min,
+                max_value=policy_bounds.domain_qps.max,
+                default_value=policy_bounds.domain_qps.default,
+                step_up=policy_bounds.domain_qps.step_up,
+                step_down=policy_bounds.domain_qps.step_down,
+            ),
+            PolicyParameter.DOMAIN_COOLDOWN: ParameterBounds(
+                min_value=policy_bounds.domain_cooldown.min,
+                max_value=policy_bounds.domain_cooldown.max,
+                default_value=policy_bounds.domain_cooldown.default,
+                step_up=policy_bounds.domain_cooldown.step_up,
+                step_down=policy_bounds.domain_cooldown.step_down,
+            ),
+            PolicyParameter.HEADFUL_RATIO: ParameterBounds(
+                min_value=policy_bounds.headful_ratio.min,
+                max_value=policy_bounds.headful_ratio.max,
+                default_value=policy_bounds.headful_ratio.default,
+                step_up=policy_bounds.headful_ratio.step_up,
+                step_down=policy_bounds.headful_ratio.step_down,
+            ),
+            PolicyParameter.TOR_USAGE_RATIO: ParameterBounds(
+                min_value=policy_bounds.tor_usage_ratio.min,
+                max_value=policy_bounds.tor_usage_ratio.max,
+                default_value=policy_bounds.tor_usage_ratio.default,
+                step_up=policy_bounds.tor_usage_ratio.step_up,
+                step_down=policy_bounds.tor_usage_ratio.step_down,
+            ),
+            PolicyParameter.BROWSER_ROUTE_RATIO: ParameterBounds(
+                min_value=policy_bounds.browser_route_ratio.min,
+                max_value=policy_bounds.browser_route_ratio.max,
+                default_value=policy_bounds.browser_route_ratio.default,
+                step_up=policy_bounds.browser_route_ratio.step_up,
+                step_down=policy_bounds.browser_route_ratio.step_down,
+            ),
+        }
+    except Exception as e:
+        logger.warning(f"Failed to load policy bounds from config: {e}, using hardcoded defaults")
+        # Fallback to hardcoded defaults
+        return {
+            PolicyParameter.ENGINE_WEIGHT: ParameterBounds(
+                min_value=0.1, max_value=2.0, default_value=1.0,
+                step_up=0.1, step_down=0.2,
+            ),
+            PolicyParameter.ENGINE_QPS: ParameterBounds(
+                min_value=0.1, max_value=0.5, default_value=0.25,
+                step_up=0.05, step_down=0.1,
+            ),
+            PolicyParameter.DOMAIN_QPS: ParameterBounds(
+                min_value=0.05, max_value=0.3, default_value=0.2,
+                step_up=0.02, step_down=0.05,
+            ),
+            PolicyParameter.DOMAIN_COOLDOWN: ParameterBounds(
+                min_value=30.0, max_value=240.0, default_value=60.0,
+                step_up=30.0, step_down=15.0,
+            ),
+            PolicyParameter.HEADFUL_RATIO: ParameterBounds(
+                min_value=0.0, max_value=0.5, default_value=0.1,
+                step_up=0.05, step_down=0.05,
+            ),
+            PolicyParameter.TOR_USAGE_RATIO: ParameterBounds(
+                min_value=0.0, max_value=0.2, default_value=0.0,
+                step_up=0.02, step_down=0.05,
+            ),
+            PolicyParameter.BROWSER_ROUTE_RATIO: ParameterBounds(
+                min_value=0.1, max_value=0.5, default_value=0.3,
+                step_up=0.05, step_down=0.05,
+            ),
+        }
+
+
+# Lazy-loaded default bounds (from config)
+_default_bounds: dict[PolicyParameter, ParameterBounds] | None = None
+
+
+def get_default_bounds() -> dict[PolicyParameter, ParameterBounds]:
+    """Get default parameter bounds (lazy-loaded singleton).
+    
+    Returns:
+        Dictionary mapping PolicyParameter to ParameterBounds.
+    """
+    global _default_bounds
+    if _default_bounds is None:
+        _default_bounds = _get_default_bounds()
+    return _default_bounds
+
+
+def reset_default_bounds() -> None:
+    """Reset default bounds cache (for testing/reloading config)."""
+    global _default_bounds
+    _default_bounds = None
+
+
+class _DefaultBoundsProxy:
+    """Proxy class that mimics dict access but loads bounds lazily."""
+    
+    def __getitem__(self, key: PolicyParameter) -> ParameterBounds:
+        return get_default_bounds()[key]
+    
+    def get(self, key: PolicyParameter, default: ParameterBounds | None = None) -> ParameterBounds | None:
+        return get_default_bounds().get(key, default)
+    
+    def keys(self):
+        return get_default_bounds().keys()
+    
+    def values(self):
+        return get_default_bounds().values()
+    
+    def items(self):
+        return get_default_bounds().items()
+    
+    def __iter__(self):
+        return iter(get_default_bounds())
+    
+    def __len__(self):
+        return len(get_default_bounds())
+
+
+# Backward compatibility: DEFAULT_BOUNDS acts like a dict but loads lazily
+DEFAULT_BOUNDS = _DefaultBoundsProxy()
 
 
 @dataclass

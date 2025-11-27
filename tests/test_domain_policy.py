@@ -26,6 +26,9 @@ from src.utils.domain_policy import (
     GraylistEntrySchema,
     InternalSearchTemplate,
     InternalSearchTemplateSchema,
+    PolicyBoundsEntrySchema,
+    PolicyBoundsSchema,
+    SearchEnginePolicySchema,
     TrustLevel,
     SkipReason,
     get_domain_policy,
@@ -53,6 +56,33 @@ default_policy:
   cooldown_minutes: 60
   max_retries: 3
   trust_level: "unknown"
+
+search_engine_policy:
+  default_qps: 0.25
+  site_search_qps: 0.1
+  cooldown_min: 30
+  cooldown_max: 120
+  failure_threshold: 2
+
+policy_bounds:
+  engine_weight:
+    min: 0.1
+    max: 2.0
+    default: 1.0
+    step_up: 0.1
+    step_down: 0.2
+  engine_qps:
+    min: 0.1
+    max: 0.5
+    default: 0.25
+    step_up: 0.05
+    step_down: 0.1
+  domain_qps:
+    min: 0.05
+    max: 0.3
+    default: 0.2
+    step_up: 0.02
+    step_down: 0.05
 
 allowlist:
   - domain: "go.jp"
@@ -970,4 +1000,309 @@ cloudflare_sites:
         # Assert - cloudflare settings applied
         assert policy.headful_required is True
         assert policy.tor_blocked is True
+
+
+# =============================================================================
+# Search Engine Policy Schema Tests (Phase 17.2.1)
+# =============================================================================
+
+class TestSearchEnginePolicySchema:
+    """Tests for SearchEnginePolicySchema (§3.1.4, §4.3)."""
+    
+    def test_default_values(self):
+        """Verify default values are correctly set."""
+        # Arrange & Act
+        schema = SearchEnginePolicySchema()
+        
+        # Assert
+        assert schema.default_qps == 0.25
+        assert schema.site_search_qps == 0.1
+        assert schema.cooldown_min == 30
+        assert schema.cooldown_max == 120
+        assert schema.failure_threshold == 2
+    
+    def test_custom_values(self):
+        """Verify custom values are accepted."""
+        # Arrange & Act
+        schema = SearchEnginePolicySchema(
+            default_qps=0.5,
+            site_search_qps=0.2,
+            cooldown_min=60,
+            cooldown_max=180,
+            failure_threshold=3,
+        )
+        
+        # Assert
+        assert schema.default_qps == 0.5
+        assert schema.site_search_qps == 0.2
+        assert schema.cooldown_min == 60
+        assert schema.cooldown_max == 180
+        assert schema.failure_threshold == 3
+    
+    def test_default_min_interval_property(self):
+        """Verify default_min_interval is calculated correctly."""
+        # Arrange & Act
+        schema = SearchEnginePolicySchema(default_qps=0.25)
+        
+        # Assert
+        assert schema.default_min_interval == 4.0  # 1 / 0.25
+    
+    def test_site_search_min_interval_property(self):
+        """Verify site_search_min_interval is calculated correctly."""
+        # Arrange & Act
+        schema = SearchEnginePolicySchema(site_search_qps=0.1)
+        
+        # Assert
+        assert schema.site_search_min_interval == 10.0  # 1 / 0.1
+    
+    def test_qps_validation_range(self):
+        """Verify QPS validation enforces valid range."""
+        # Assert - too low
+        with pytest.raises(ValueError):
+            SearchEnginePolicySchema(default_qps=0.01)
+        
+        # Assert - too high
+        with pytest.raises(ValueError):
+            SearchEnginePolicySchema(default_qps=2.0)
+
+
+class TestPolicyBoundsEntrySchema:
+    """Tests for PolicyBoundsEntrySchema (§4.6)."""
+    
+    def test_default_values(self):
+        """Verify default values are set."""
+        # Arrange & Act
+        entry = PolicyBoundsEntrySchema()
+        
+        # Assert
+        assert entry.min == 0.0
+        assert entry.max == 1.0
+        assert entry.default == 0.5
+        assert entry.step_up == 0.1
+        assert entry.step_down == 0.1
+    
+    def test_custom_values(self):
+        """Verify custom values are accepted."""
+        # Arrange & Act
+        entry = PolicyBoundsEntrySchema(
+            min=0.1,
+            max=2.0,
+            default=1.0,
+            step_up=0.1,
+            step_down=0.2,
+        )
+        
+        # Assert
+        assert entry.min == 0.1
+        assert entry.max == 2.0
+        assert entry.default == 1.0
+        assert entry.step_up == 0.1
+        assert entry.step_down == 0.2
+
+
+class TestPolicyBoundsSchema:
+    """Tests for PolicyBoundsSchema (§4.6)."""
+    
+    def test_default_bounds_exist(self):
+        """Verify all expected bounds parameters exist with defaults."""
+        # Arrange & Act
+        schema = PolicyBoundsSchema()
+        
+        # Assert - all parameters should exist
+        assert schema.engine_weight is not None
+        assert schema.engine_qps is not None
+        assert schema.domain_qps is not None
+        assert schema.domain_cooldown is not None
+        assert schema.headful_ratio is not None
+        assert schema.tor_usage_ratio is not None
+        assert schema.browser_route_ratio is not None
+    
+    def test_engine_weight_defaults(self):
+        """Verify engine_weight has correct default values."""
+        # Arrange & Act
+        schema = PolicyBoundsSchema()
+        
+        # Assert
+        assert schema.engine_weight.min == 0.1
+        assert schema.engine_weight.max == 2.0
+        assert schema.engine_weight.default == 1.0
+    
+    def test_domain_qps_defaults(self):
+        """Verify domain_qps has correct default values."""
+        # Arrange & Act
+        schema = PolicyBoundsSchema()
+        
+        # Assert
+        assert schema.domain_qps.min == 0.05
+        assert schema.domain_qps.max == 0.3
+        assert schema.domain_qps.default == 0.2
+
+
+# =============================================================================
+# Search Engine Policy Access Tests (Phase 17.2.1)
+# =============================================================================
+
+class TestSearchEnginePolicyAccess:
+    """Tests for DomainPolicyManager search engine policy methods."""
+    
+    def test_get_search_engine_policy(self, policy_manager: DomainPolicyManager):
+        """Verify get_search_engine_policy returns SearchEnginePolicySchema."""
+        # Act
+        policy = policy_manager.get_search_engine_policy()
+        
+        # Assert
+        assert isinstance(policy, SearchEnginePolicySchema)
+        assert policy.default_qps == 0.25
+        assert policy.site_search_qps == 0.1
+    
+    def test_get_search_engine_qps(self, policy_manager: DomainPolicyManager):
+        """Verify get_search_engine_qps returns correct value."""
+        # Act
+        qps = policy_manager.get_search_engine_qps()
+        
+        # Assert
+        assert qps == 0.25
+    
+    def test_get_search_engine_min_interval(self, policy_manager: DomainPolicyManager):
+        """Verify get_search_engine_min_interval returns 1/QPS."""
+        # Act
+        interval = policy_manager.get_search_engine_min_interval()
+        
+        # Assert
+        assert interval == 4.0  # 1 / 0.25
+    
+    def test_get_site_search_qps(self, policy_manager: DomainPolicyManager):
+        """Verify get_site_search_qps returns correct value."""
+        # Act
+        qps = policy_manager.get_site_search_qps()
+        
+        # Assert
+        assert qps == 0.1
+    
+    def test_get_site_search_min_interval(self, policy_manager: DomainPolicyManager):
+        """Verify get_site_search_min_interval returns 1/QPS."""
+        # Act
+        interval = policy_manager.get_site_search_min_interval()
+        
+        # Assert
+        assert interval == 10.0  # 1 / 0.1
+    
+    def test_get_circuit_breaker_cooldown_min(self, policy_manager: DomainPolicyManager):
+        """Verify get_circuit_breaker_cooldown_min returns correct value."""
+        # Act
+        cooldown = policy_manager.get_circuit_breaker_cooldown_min()
+        
+        # Assert
+        assert cooldown == 30
+    
+    def test_get_circuit_breaker_cooldown_max(self, policy_manager: DomainPolicyManager):
+        """Verify get_circuit_breaker_cooldown_max returns correct value."""
+        # Act
+        cooldown = policy_manager.get_circuit_breaker_cooldown_max()
+        
+        # Assert
+        assert cooldown == 120
+    
+    def test_get_circuit_breaker_failure_threshold(self, policy_manager: DomainPolicyManager):
+        """Verify get_circuit_breaker_failure_threshold returns correct value."""
+        # Act
+        threshold = policy_manager.get_circuit_breaker_failure_threshold()
+        
+        # Assert
+        assert threshold == 2
+
+
+# =============================================================================
+# Policy Bounds Access Tests (Phase 17.2.1)
+# =============================================================================
+
+class TestPolicyBoundsAccess:
+    """Tests for DomainPolicyManager policy bounds methods."""
+    
+    def test_get_policy_bounds(self, policy_manager: DomainPolicyManager):
+        """Verify get_policy_bounds returns PolicyBoundsSchema."""
+        # Act
+        bounds = policy_manager.get_policy_bounds()
+        
+        # Assert
+        assert isinstance(bounds, PolicyBoundsSchema)
+        assert bounds.engine_weight is not None
+        assert bounds.domain_qps is not None
+    
+    def test_get_bounds_for_parameter_engine_weight(self, policy_manager: DomainPolicyManager):
+        """Verify get_bounds_for_parameter returns correct bounds for engine_weight."""
+        # Act
+        bounds = policy_manager.get_bounds_for_parameter("engine_weight")
+        
+        # Assert
+        assert bounds is not None
+        assert bounds.min == 0.1
+        assert bounds.max == 2.0
+        assert bounds.default == 1.0
+        assert bounds.step_up == 0.1
+        assert bounds.step_down == 0.2
+    
+    def test_get_bounds_for_parameter_domain_qps(self, policy_manager: DomainPolicyManager):
+        """Verify get_bounds_for_parameter returns correct bounds for domain_qps."""
+        # Act
+        bounds = policy_manager.get_bounds_for_parameter("domain_qps")
+        
+        # Assert
+        assert bounds is not None
+        assert bounds.min == 0.05
+        assert bounds.max == 0.3
+        assert bounds.default == 0.2
+    
+    def test_get_bounds_for_parameter_nonexistent(self, policy_manager: DomainPolicyManager):
+        """Verify get_bounds_for_parameter returns None for unknown parameter."""
+        # Act
+        bounds = policy_manager.get_bounds_for_parameter("nonexistent_param")
+        
+        # Assert
+        assert bounds is None
+
+
+# =============================================================================
+# Default Config Fallback Tests (Phase 17.2.1)
+# =============================================================================
+
+class TestDefaultConfigFallback:
+    """Tests for fallback behavior when config sections are missing."""
+    
+    def test_missing_search_engine_policy_uses_defaults(self, tmp_path: Path):
+        """Verify missing search_engine_policy section uses defaults."""
+        # Arrange - config without search_engine_policy
+        config = """
+default_policy:
+  qps: 0.2
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+        
+        manager = DomainPolicyManager(config_path=config_path)
+        
+        # Act
+        qps = manager.get_search_engine_qps()
+        
+        # Assert - should use default value
+        assert qps == 0.25
+    
+    def test_missing_policy_bounds_uses_defaults(self, tmp_path: Path):
+        """Verify missing policy_bounds section uses defaults."""
+        # Arrange - config without policy_bounds
+        config = """
+default_policy:
+  qps: 0.2
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+        
+        manager = DomainPolicyManager(config_path=config_path)
+        
+        # Act
+        bounds = manager.get_policy_bounds()
+        
+        # Assert - should use default values
+        assert bounds.engine_weight.default == 1.0
+        assert bounds.domain_qps.default == 0.2
 

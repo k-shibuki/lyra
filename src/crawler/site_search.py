@@ -157,13 +157,12 @@ class SiteSearchManager:
     - Fallback to site: operator search
     - Success/harvest rate tracking
     - Automatic skip on consecutive failures
+    - DomainPolicyManager integration for QPS settings
     """
     
-    # Rate limit: QPS ≤ 0.1 (1 request per 10 seconds)
-    SITE_SEARCH_QPS = 0.1
-    MIN_INTERVAL = 1.0 / SITE_SEARCH_QPS  # 10 seconds
-    
     def __init__(self):
+        from src.utils.domain_policy import get_domain_policy_manager
+        
         self._settings = get_settings()
         self._templates: dict[str, SearchTemplate] = {}
         self._stats: dict[str, DomainSearchStats] = {}
@@ -171,8 +170,23 @@ class SiteSearchManager:
         self._lock = asyncio.Lock()
         self._link_extractor = LinkExtractor()
         
+        # Get QPS settings from DomainPolicyManager
+        policy_manager = get_domain_policy_manager()
+        self._site_search_qps = policy_manager.get_site_search_qps()
+        self._min_interval = policy_manager.get_site_search_min_interval()
+        
         # Load templates from config
         self._load_templates()
+    
+    @property
+    def site_search_qps(self) -> float:
+        """Get site search QPS from config."""
+        return self._site_search_qps
+    
+    @property
+    def min_interval(self) -> float:
+        """Get minimum interval between site searches."""
+        return self._min_interval
     
     def _load_templates(self) -> None:
         """Load search templates from config file."""
@@ -342,7 +356,7 @@ class SiteSearchManager:
         async with self._lock:
             last = self._last_search.get(domain, 0)
             elapsed = asyncio.get_event_loop().time() - last
-            wait_time = max(0, self.MIN_INTERVAL - elapsed)
+            wait_time = max(0, self._min_interval - elapsed)
             
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
