@@ -12,6 +12,11 @@ Features per §3.6.1 (Safe Operation Policy):
 CDP Safety (§3.6.1):
 - Allowed: Page.navigate, Network.enable (passive), Page.bringToFront
 - Forbidden: Runtime.evaluate, DOM.*, Input.*, Emulation.*
+
+Provider Abstraction (Phase 17.1.4):
+- NotificationProvider protocol for platform-specific implementations
+- Automatic platform detection and provider selection
+- Fallback mechanism for reliability
 """
 
 import asyncio
@@ -24,6 +29,12 @@ from typing import Any
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.storage.database import get_database
+from src.utils.notification_provider import (
+    NotificationOptions,
+    NotificationUrgency,
+    get_notification_registry,
+    is_wsl,
+)
 
 logger = get_logger(__name__)
 
@@ -311,10 +322,10 @@ class InterventionManager:
         """
         system = platform.system()
         
-        # Check for WSL
-        is_wsl = "microsoft" in platform.release().lower()
+        # Check for WSL using the provider module's detection
+        running_in_wsl = is_wsl()
         
-        if system == "Windows" or is_wsl:
+        if system == "Windows" or running_in_wsl:
             # Activate Chrome window using PowerShell
             ps_script = """
             Add-Type @'
@@ -491,7 +502,10 @@ class InterventionManager:
         *,
         timeout_seconds: int = 10,
     ) -> bool:
-        """Send a toast notification.
+        """Send a toast notification using the provider abstraction layer.
+        
+        Uses NotificationProviderRegistry for platform-specific notifications
+        with automatic fallback support (Phase 17.1.4).
         
         Args:
             title: Notification title.
@@ -501,152 +515,27 @@ class InterventionManager:
         Returns:
             True if notification was sent successfully.
         """
-        system = platform.system()
-        
         try:
-            if system == "Linux":
-                # Check if running in WSL
-                if self._is_wsl():
-                    return await self._send_wsl_toast(title, message, timeout_seconds)
-                else:
-                    return await self._send_linux_toast(title, message, timeout_seconds)
-            elif system == "Windows":
-                return await self._send_windows_toast(title, message, timeout_seconds)
-            else:
-                logger.warning("Unsupported platform for notifications", system=system)
-                return False
-                    
+            registry = get_notification_registry()
+            options = NotificationOptions(
+                timeout_seconds=timeout_seconds,
+                urgency=NotificationUrgency.CRITICAL,  # Use critical for intervention
+                icon="dialog-warning",
+                sound=True,
+            )
+            result = await registry.send(title, message, options)
+            
+            if not result.ok:
+                logger.warning(
+                    "Notification send failed",
+                    provider=result.provider,
+                    error=result.error,
+                )
+            
+            return result.ok
+            
         except Exception as e:
             logger.error("Failed to send notification", error=str(e))
-            return False
-    
-    def _is_wsl(self) -> bool:
-        """Check if running in WSL."""
-        try:
-            with open("/proc/version", "r") as f:
-                return "microsoft" in f.read().lower()
-        except Exception:
-            return "microsoft" in platform.release().lower()
-    
-    async def _send_linux_toast(
-        self,
-        title: str,
-        message: str,
-        timeout_seconds: int,
-    ) -> bool:
-        """Send notification using notify-send (Linux)."""
-        try:
-            timeout_ms = timeout_seconds * 1000
-            process = await asyncio.create_subprocess_exec(
-                "notify-send",
-                "-t", str(timeout_ms),
-                "-u", "critical",  # Use critical for intervention
-                "-i", "dialog-warning",
-                title,
-                message,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await process.wait()
-            return process.returncode == 0
-        except FileNotFoundError:
-            logger.warning("notify-send not found, install libnotify")
-            return False
-    
-    async def _send_windows_toast(
-        self,
-        title: str,
-        message: str,
-        timeout_seconds: int,
-    ) -> bool:
-        """Send notification using PowerShell (Windows)."""
-        # Escape special characters
-        title = title.replace("'", "''").replace("`", "``")
-        message = message.replace("'", "''").replace("`", "``").replace("\n", "&#10;")
-        
-        ps_script = f"""
-        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-        [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-        
-        $template = @"
-        <toast duration="long" scenario="reminder">
-            <visual>
-                <binding template="ToastText02">
-                    <text id="1">{title}</text>
-                    <text id="2">{message}</text>
-                </binding>
-            </visual>
-            <audio src="ms-winsoundevent:Notification.Reminder"/>
-        </toast>
-"@
-        
-        $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-        $xml.LoadXml($template)
-        
-        $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-        [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Lancet").Show($toast)
-        """
-        
-        try:
-            process = await asyncio.create_subprocess_exec(
-                "powershell.exe",
-                "-ExecutionPolicy", "Bypass",
-                "-Command", ps_script,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await process.wait()
-            return process.returncode == 0
-        except Exception as e:
-            logger.error("PowerShell notification failed", error=str(e))
-            return False
-    
-    async def _send_wsl_toast(
-        self,
-        title: str,
-        message: str,
-        timeout_seconds: int,
-    ) -> bool:
-        """Send notification from WSL to Windows.
-        
-        Uses PowerShell BurntToast module or fallback to NotifyIcon.
-        """
-        # Escape for PowerShell
-        title = title.replace("'", "''").replace('"', '`"').replace("\n", " ")
-        message = message.replace("'", "''").replace('"', '`"').replace("\n", "\\n")
-        
-        # Try BurntToast first (better notifications)
-        burnt_toast_script = f"""
-        if (Get-Module -ListAvailable -Name BurntToast) {{
-            Import-Module BurntToast
-            New-BurntToastNotification -Text '{title}', '{message}' -Sound 'Reminder'
-        }} else {{
-            Add-Type -AssemblyName System.Windows.Forms
-            $balloon = New-Object System.Windows.Forms.NotifyIcon
-            $balloon.Icon = [System.Drawing.SystemIcons]::Warning
-            $balloon.BalloonTipTitle = '{title}'
-            $balloon.BalloonTipText = '{message}'
-            $balloon.BalloonTipIcon = 'Warning'
-            $balloon.Visible = $true
-            $balloon.ShowBalloonTip({timeout_seconds * 1000})
-            Start-Sleep -Seconds {timeout_seconds + 1}
-            $balloon.Dispose()
-        }}
-        """
-        
-        try:
-            process = await asyncio.create_subprocess_exec(
-                "powershell.exe",
-                "-ExecutionPolicy", "Bypass",
-                "-Command", burnt_toast_script,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            # Don't wait for completion for balloon notifications
-            # They run async and clean up themselves
-            return True
-        except Exception as e:
-            logger.error("WSL notification failed", error=str(e))
             return False
     
     async def check_intervention_status(
