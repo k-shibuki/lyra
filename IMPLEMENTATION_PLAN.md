@@ -85,7 +85,7 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - [x] `schedule_job` - ジョブスケジュール
 - [x] `create_task` - タスク作成
 - [x] `get_task_status` - タスク状態取得
-- [x] `get_report_materials` - レポート素材提供（§2.1責任分界: レポート構成・執筆はCursor AI）
+- [x] `get_report_materials` - レポート素材提供（§2.1責任分界）
 - [x] `get_evidence_graph` - エビデンスグラフ直接参照（§3.2.1）
 
 ### 2.3 エラーハンドリング ✅
@@ -790,7 +790,7 @@ E2Eテストを有効に実施するための前提：
 **目的**: 重要主張ごとに初出/更新/訂正/撤回のタイムラインを付与
 **受け入れ基準**: タイムライン付与率≥90%（§7）
 
-#### 16.9.1 主張タイムライン構築
+#### 16.8.1 主張タイムライン構築
 - [ ] `ClaimTimeline`クラス（`src/filter/claim_timeline.py`）
   - イベント種別: first_appeared/updated/corrected/retracted/confirmed
   - データ: timestamp, source_url, evidence_fragment_id
