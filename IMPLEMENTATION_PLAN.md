@@ -783,13 +783,17 @@ E2Eテストを有効に実施するための前提：
 
 **目的**: 外部依存の変更に対する耐性向上と、将来の機能拡張を容易にするためのリファクタリング。
 
+**重要**: リファクタタスクの完了基準は「**既存コードへの移行完了**」までを含む。
+基盤実装のみで完了とせず、全呼び出し箇所が新しい抽象化を経由するまで継続すること。
+
 ---
 
 ### 17.1 プロバイダ抽象化 🔴
 
 外部サービスへの直接依存を抽象化し、実装の切り替えを容易にする。
+**完了基準**: Protocol/Registry実装 + 全呼び出し箇所のProvider経由への移行。
 
-#### 17.1.1 SearchProvider抽象化 ✅
+#### 17.1.1 SearchProvider抽象化 🔄
 - [x] `SearchProvider` プロトコル/ABC定義
   - `search(query, options) -> SearchResponse`
   - `get_health() -> HealthStatus`
@@ -802,7 +806,14 @@ E2Eテストを有効に実施するための前提：
 - [x] `search_serp`関数への統合（`use_provider`オプションで切替可能）
 - [x] テスト: 59件（全パス、§7.1準拠）
 - 実装: `src/search/provider.py`, `src/search/searxng_provider.py`
-- 影響範囲: `src/search/`
+- [ ] **既存コードのProvider経由への移行（残作業）**
+  - `src/mcp/server.py`: 直接`searxng`インポート → Provider経由に変更
+  - `src/scheduler/jobs.py`: 直接`searxng`インポート → Provider経由に変更
+  - `src/research/refutation.py`: 直接`searxng`インポート → Provider経由に変更
+  - `src/search/ab_test.py`: 直接`searxng`インポート → Provider経由に変更
+  - `src/main.py`: 直接`searxng`インポート → Provider経由に変更
+  - `src/research/executor.py`: 直接`searxng`インポート → Provider経由に変更
+  - `src/search/__init__.py`: エクスポート整理
 
 #### 17.1.2 LLMProvider抽象化 ✅
 - [x] `LLMProvider` プロトコル/ABC定義
@@ -817,6 +828,7 @@ E2Eテストを有効に実施するための前提：
 - [x] `OllamaProvider` 実装（現行コードのリファクタ）
 - [x] `LLMProviderRegistry` プロバイダ登録・切替・フォールバック機構
 - [x] 既存`llm.py`関数との後方互換性維持（OllamaClientラッパー）
+- [x] **既存コードの移行完了**: `llm.py`が後方互換レイヤーとしてProvider内部使用
 - [x] テスト: 62件（全パス、§7.1準拠）
 - 将来の拡張候補: `LlamaCppProvider`, `VLLMProvider`
 - 実装: `src/filter/provider.py`, `src/filter/ollama_provider.py`
@@ -836,6 +848,7 @@ E2Eテストを有効に実施するための前提：
 - [x] `UndetectedChromeProvider` 実装（現行コードのリファクタ）
 - [x] `BrowserProviderRegistry` プロバイダ登録・切替・フォールバック機構
 - [x] 既存`fetcher.py`との後方互換性維持（`use_provider`ポリシーオプション）
+- [x] **既存コードの移行完了**: `fetcher.py`がProvider内部使用
 - [x] テスト: 44件（全パス、§7.1準拠）
 - 実装: `src/crawler/browser_provider.py`, `src/crawler/playwright_provider.py`, `src/crawler/undetected_provider.py`
 - 影響範囲: `src/crawler/fetcher.py`
@@ -849,6 +862,7 @@ E2Eテストを有効に実施するための前提：
 - [x] `NotificationProviderRegistry` プロバイダ登録・切替・フォールバック機構
 - [x] プラットフォーム自動検出と切替
 - [x] 既存`InterventionManager.send_toast()`との後方互換性維持
+- [x] **既存コードの移行完了**: `notification.py`がProvider内部使用
 - [x] テスト: 74件（全パス、§7.1準拠）
 - 実装: `src/utils/notification_provider.py`
 - 影響範囲: `src/utils/notification.py`
@@ -858,9 +872,10 @@ E2Eテストを有効に実施するための前提：
 ### 17.2 設定・ポリシーの外部化 🟡
 
 ハードコードされた設定やポリシーを外部設定化し、コード変更なしで調整可能にする。
+**完了基準**: 外部設定ファイル + Manager実装 + 全ハードコード箇所の置換。
 
-#### 17.2.1 ドメインポリシー完全外部化 ✅
-- [x] `config/domains.yaml` への一元化
+#### 17.2.1 ドメインポリシー完全外部化 🔄
+- [x] `config/domains.yaml` への一元化（基盤実装）
   - 実装: `src/utils/domain_policy.py` (DomainPolicyManager)
   - pydanticモデルによるスキーマ定義・バリデーション
   - allowlist/graylist/denylist/cloudflare_sites/internal_search_templatesの統合管理
@@ -872,6 +887,13 @@ E2Eテストを有効に実施するための前提：
   - QPS/headful_ratio等の範囲バリデーション
   - ドメインパターンマッチング（glob/suffix対応）
 - テスト: 64件（全パス、§7.1準拠）
+- [ ] **既存コードのDomainPolicyManager統合（残作業）**
+  - `src/crawler/fetcher.py`: domain_qps/headful_ratio参照（12箇所）
+  - `src/search/searxng.py`, `searxng_provider.py`: MIN_INTERVAL定数
+  - `src/crawler/site_search.py`: SITE_SEARCH_QPS定数
+  - `src/storage/database.py`: cooldown定数
+  - `src/utils/policy_engine.py`: DEFAULT_BOUNDS
+  - `src/search/circuit_breaker.py`: cooldown_min/max
 
 #### 17.2.2 検索エンジン設定の動的管理
 - [ ] エンジン追加/削除のYAML変更のみ対応
@@ -886,6 +908,7 @@ E2Eテストを有効に実施するための前提：
 ### 17.3 汎用コンポーネントの抽出 🟡
 
 特定用途に実装されているパターンを汎用化し、再利用可能にする。
+**完了基準**: 汎用実装 + 既存の個別実装を汎用版に置換。
 
 #### 17.3.1 汎用サーキットブレーカ
 - [ ] `CircuitBreaker[T]` ジェネリック実装
@@ -942,37 +965,7 @@ E2Eテストを有効に実施するための前提：
 
 ---
 
-## 進捗トラッキング
-
-| Phase | 状態 | 進捗 | 備考 |
-|-------|------|------|------|
-| Phase 1: 基盤構築 | ✅ | 100% | |
-| Phase 2: MCPサーバー | ✅ | 100% | |
-| Phase 3: 検索機能 | ✅ | 100% | |
-| Phase 4: クローリング | ✅ | 100% | |
-| Phase 5: コンテンツ抽出 | ✅ | 100% | |
-| Phase 6: フィルタリング | ✅ | 100% | |
-| Phase 7: スケジューラ | ✅ | 100% | |
-| Phase 8: 通知/手動介入 | ✅ | 100% | |
-| Phase 9: レポート生成 | ✅ | 100% | |
-| Phase 10: 自動適応 | ✅ | 100% | |
-| Phase 11: 探索制御エンジン | ✅ | 100% | |
-| Phase 12: クローリング拡張 | ✅ | 100% | |
-| Phase 13: 信頼度キャリブレーション | ✅ | 100% | |
-| Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
-| Phase 15: ドキュメント | 🔄 | 75% | Phase 14/16完了後に整備|
-| **Phase 16: 未実装機能** | 🔄 | 80% | **15項目残り** |
-| **Phase 17: 保守性改善** | 🔄 | 50% | 17.1プロバイダ抽象化、17.2.1ドメインポリシー外部化完了 |
-
-**凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
-
-### Phase 16 優先度別サマリ
-
-| 優先度 | 項目数 | 主要カテゴリ |
-|--------|--------|--------------|
-| 🔴 高（E2E前必須） | 9項目 | **半自動運用UX**、ヘッドフル操作 |
-| 🟡 中（MVP強化: E2E前推奨） | 9項目 | ~~Chain-of-Density~~ |
-| 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
+## タスクの状況（Phase 16/17）
 
 ### 完了済み（Phase 16）
 - sec-fetch-*ヘッダー整合、sec-ch-ua*ヘッダー
@@ -991,14 +984,14 @@ E2Eテストを有効に実施するための前提：
 - **IPv6運用**（Happy Eyeballs風切替、ドメイン単位成功率学習、自動IPv6無効化）
 - **Chain-of-Density圧縮**（反復的密度向上、必須引用情報検証、LLM/ルールベース対応）
 
-**注意**: Phase 16はGap Analysisにより特定された残課題です。
-
 ### 完了済み（Phase 17）
-- **SearchProvider抽象化**（Protocol/ABC定義、SearXNGProvider実装、Registry、フォールバック機構）
-- **LLMProvider抽象化**（Protocol/ABC定義、OllamaProvider実装、Registry、フォールバック機構、後方互換性維持）
-- **BrowserProvider抽象化**（Protocol/ABC定義、PlaywrightProvider/UndetectedChromeProvider実装、Registry）
-- **NotificationProvider抽象化**（Protocol/ABC定義、Linux/Windows/WSLプロバイダ実装、プラットフォーム自動検出、後方互換性維持）
-- **ドメインポリシー完全外部化**（DomainPolicyManager、YAML一元化、ホットリロード、pydanticスキーマ、64テスト）
+- **LLMProvider抽象化** ✅（Protocol/ABC定義、OllamaProvider実装、Registry、フォールバック機構、後方互換性維持、**移行完了**）
+- **BrowserProvider抽象化** ✅（Protocol/ABC定義、PlaywrightProvider/UndetectedChromeProvider実装、Registry、**移行完了**）
+- **NotificationProvider抽象化** ✅（Protocol/ABC定義、Linux/Windows/WSLプロバイダ実装、プラットフォーム自動検出、後方互換性維持、**移行完了**）
+
+### 進行中（Phase 17）
+- **SearchProvider抽象化** 🔄（基盤実装完了、7ファイルの移行残）
+- **ドメインポリシー外部化** 🔄（基盤実装完了、6ファイルの移行残）
 
 ---
 
