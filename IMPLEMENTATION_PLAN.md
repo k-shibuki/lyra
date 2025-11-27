@@ -804,14 +804,23 @@ E2Eテストを有効に実施するための前提：
 - 実装: `src/search/provider.py`, `src/search/searxng_provider.py`
 - 影響範囲: `src/search/`
 
-#### 17.1.2 LLMProvider抽象化
-- [ ] `LLMProvider` プロトコル/ABC定義
+#### 17.1.2 LLMProvider抽象化 ✅
+- [x] `LLMProvider` プロトコル/ABC定義
   - `generate(prompt, options) -> LLMResponse`
-  - `embed(texts) -> Embeddings`
-  - `get_model_info() -> ModelInfo`
-- [ ] `OllamaProvider` 実装（現行コードのリファクタ）
-- [ ] 将来の拡張候補: `LlamaCppProvider`, `VLLMProvider`
-- 影響範囲: `src/filter/llm.py`, `src/filter/embedding.py`
+  - `chat(messages, options) -> LLMResponse`
+  - `embed(texts) -> EmbeddingResponse`
+  - `get_model_info(model) -> ModelInfo`
+  - `list_models() -> list[ModelInfo]`
+  - `get_health() -> LLMHealthStatus`
+  - `unload_model(model) -> bool`
+- [x] `LLMOptions`, `ChatMessage`, `LLMResponse`, `EmbeddingResponse`, `ModelInfo`, `LLMHealthStatus` データクラス
+- [x] `OllamaProvider` 実装（現行コードのリファクタ）
+- [x] `LLMProviderRegistry` プロバイダ登録・切替・フォールバック機構
+- [x] 既存`llm.py`関数との後方互換性維持（OllamaClientラッパー）
+- [x] テスト: 62件（全パス、§7.1準拠）
+- 将来の拡張候補: `LlamaCppProvider`, `VLLMProvider`
+- 実装: `src/filter/provider.py`, `src/filter/ollama_provider.py`
+- 影響範囲: `src/filter/llm.py`
 
 #### 17.1.3 BrowserProvider抽象化
 - [ ] `BrowserProvider` プロトコル/ABC定義
@@ -930,7 +939,7 @@ E2Eテストを有効に実施するための前提：
 | Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
 | Phase 15: ドキュメント | 🔄 | 75% | Phase 14/16完了後に整備|
 | **Phase 16: 未実装機能** | 🔄 | 80% | **15項目残り** |
-| **Phase 17: 保守性改善** | 🔄 | 10% | SearchProvider抽象化完了 |
+| **Phase 17: 保守性改善** | 🔄 | 25% | SearchProvider/LLMProvider抽象化完了 |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
 
@@ -942,7 +951,7 @@ E2Eテストを有効に実施するための前提：
 | 🟡 中（MVP強化: E2E前推奨） | 9項目 | ~~Chain-of-Density~~ |
 | 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
 
-**最終更新**: 2025-11-27 - Phase 17.1.1 SearchProvider抽象化 実装完了
+**最終更新**: 2025-11-27 - Phase 17.1.2 LLMProvider抽象化 実装完了
 
 ### 完了済み（Phase 16）
 - sec-fetch-*ヘッダー整合、sec-ch-ua*ヘッダー
@@ -965,6 +974,7 @@ E2Eテストを有効に実施するための前提：
 
 ### 完了済み（Phase 17）
 - **SearchProvider抽象化**（Protocol/ABC定義、SearXNGProvider実装、Registry、フォールバック機構）
+- **LLMProvider抽象化**（Protocol/ABC定義、OllamaProvider実装、Registry、フォールバック機構、後方互換性維持）
 
 ---
 

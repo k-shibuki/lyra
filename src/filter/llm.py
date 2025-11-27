@@ -3,119 +3,105 @@ LLM-based extraction for Lancet.
 Uses local Ollama models for fact/claim extraction and summarization.
 
 Per §4.2: LLM processes are destroyed after task completion to prevent memory leaks.
+
+This module provides high-level LLM extraction functions that use the LLMProvider
+abstraction layer. The provider can be configured or switched at runtime.
+
+Phase 17.1.2: Refactored to use LLMProvider abstraction.
 """
 
 import json
+import re
 from typing import Any
 
-import aiohttp
-
+from src.filter.ollama_provider import OllamaProvider, create_ollama_provider
+from src.filter.provider import (
+    ChatMessage,
+    LLMOptions,
+    LLMProvider,
+    LLMProviderRegistry,
+    get_llm_registry,
+    reset_llm_registry,
+)
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
-from src.utils.lifecycle import (
-    get_lifecycle_manager,
-    ResourceType,
-    register_ollama_session_for_task,
-)
 
 logger = get_logger(__name__)
 
 
+# ============================================================================
+# Legacy OllamaClient Compatibility
+# ============================================================================
+
+
 class OllamaClient:
-    """Client for Ollama API with lifecycle management.
+    """
+    Legacy compatibility wrapper for OllamaProvider.
     
     Per §4.2, LLM processes should be released after task completion.
-    This client supports:
-    - Task-scoped session management
-    - Model unloading to free VRAM
-    - Automatic cleanup via lifecycle manager
+    This client wraps the OllamaProvider to maintain backward compatibility.
+    
+    Deprecated: Use LLMProvider directly for new code.
     """
     
     def __init__(self):
+        self._provider: OllamaProvider | None = None
         self._settings = get_settings()
-        self._session: aiohttp.ClientSession | None = None
-        self._current_model: str | None = None
-        self._current_task_id: str | None = None
-        self._lifecycle_manager = get_lifecycle_manager()
     
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session."""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=120)
-            )
-        return self._session
+    def _get_provider(self) -> OllamaProvider:
+        """Get or create Ollama provider."""
+        if self._provider is None:
+            self._provider = create_ollama_provider()
+        return self._provider
+    
+    @property
+    def _current_task_id(self) -> str | None:
+        """Get current task ID from provider (legacy compatibility)."""
+        if self._provider is None:
+            return None
+        return self._provider._current_task_id
+    
+    @_current_task_id.setter
+    def _current_task_id(self, value: str | None) -> None:
+        """Set current task ID on provider (legacy compatibility)."""
+        provider = self._get_provider()
+        provider._current_task_id = value
+    
+    @property
+    def _current_model(self) -> str | None:
+        """Get current model from provider (legacy compatibility)."""
+        if self._provider is None:
+            return None
+        return self._provider._current_model
+    
+    @_current_model.setter
+    def _current_model(self, value: str | None) -> None:
+        """Set current model on provider (legacy compatibility)."""
+        provider = self._get_provider()
+        provider._current_model = value
     
     def set_task_id(self, task_id: str | None) -> None:
-        """Set current task ID for lifecycle tracking.
-        
-        Args:
-            task_id: Task identifier.
-        """
-        self._current_task_id = task_id
+        """Set current task ID for lifecycle tracking."""
+        provider = self._get_provider()
+        provider.set_task_id(task_id)
     
     async def close(self) -> None:
         """Close HTTP session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
+        if self._provider is not None:
+            await self._provider.close()
     
     async def unload_model(self, model: str | None = None) -> bool:
-        """Unload model to free VRAM.
-        
-        Per §4.2: LLM process context should be released after task completion.
-        
-        Args:
-            model: Model name to unload (uses current model if not specified).
-            
-        Returns:
-            True if unload was successful.
-        """
-        model = model or self._current_model
-        if not model:
+        """Unload model to free VRAM."""
+        if self._provider is None:
             return False
-        
-        try:
-            session = await self._get_session()
-            url = f"{self._settings.llm.ollama_host}/api/generate"
-            
-            # Ollama API: POST with keep_alive=0 unloads the model
-            payload = {
-                "model": model,
-                "prompt": "",
-                "keep_alive": 0,  # Unload immediately
-            }
-            
-            async with session.post(url, json=payload, timeout=10) as response:
-                if response.status == 200:
-                    logger.info("Ollama model unloaded", model=model)
-                    self._current_model = None
-                    return True
-                else:
-                    logger.debug(
-                        "Ollama model unload returned non-200",
-                        model=model,
-                        status=response.status,
-                    )
-                    return False
-                    
-        except Exception as e:
-            logger.debug(
-                "Ollama model unload failed (may be expected)",
-                model=model,
-                error=str(e),
-            )
-            return False
+        return await self._provider.unload_model(model)
     
     async def cleanup_for_task(self, unload_model: bool = True) -> None:
-        """Cleanup resources after task completion.
-        
-        Args:
-            unload_model: Whether to unload the model to free VRAM.
-        """
+        """Cleanup resources after task completion."""
         if unload_model and self._settings.llm.unload_on_task_complete:
             await self.unload_model()
-        
-        self._current_task_id = None
+        if self._provider:
+            self._provider.set_task_id(None)
     
     async def generate(
         self,
@@ -125,58 +111,22 @@ class OllamaClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
-        """Generate completion from Ollama.
+        """Generate completion from Ollama."""
+        provider = self._get_provider()
         
-        Args:
-            prompt: User prompt.
-            model: Model name (uses fast_model if not specified).
-            system: System prompt.
-            temperature: Generation temperature.
-            max_tokens: Maximum tokens to generate.
-            
-        Returns:
-            Generated text.
-        """
-        session = await self._get_session()
+        options = LLMOptions(
+            model=model,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
         
-        if model is None:
-            model = self._settings.llm.fast_model
-        if temperature is None:
-            temperature = self._settings.llm.temperature
+        response = await provider.generate(prompt, options)
         
-        # Track current model for cleanup
-        self._current_model = model
+        if not response.ok:
+            raise RuntimeError(f"Ollama error: {response.error}")
         
-        url = f"{self._settings.llm.ollama_host}/api/generate"
-        
-        payload = {
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-            },
-        }
-        
-        if system:
-            payload["system"] = system
-        
-        if max_tokens:
-            payload["options"]["num_predict"] = max_tokens
-        
-        try:
-            async with session.post(url, json=payload) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    logger.error("Ollama error", status=response.status, error=error_text)
-                    raise RuntimeError(f"Ollama error: {response.status}")
-                
-                data = await response.json()
-                return data.get("response", "")
-                
-        except Exception as e:
-            logger.error("Ollama request failed", error=str(e))
-            raise
+        return response.text
     
     async def chat(
         self,
@@ -184,55 +134,37 @@ class OllamaClient:
         model: str | None = None,
         temperature: float | None = None,
     ) -> str:
-        """Chat completion from Ollama.
+        """Chat completion from Ollama."""
+        provider = self._get_provider()
         
-        Args:
-            messages: List of message dicts with 'role' and 'content'.
-            model: Model name.
-            temperature: Generation temperature.
-            
-        Returns:
-            Assistant response.
-        """
-        session = await self._get_session()
+        # Convert dict messages to ChatMessage objects
+        chat_messages = [
+            ChatMessage(
+                role=m.get("role", "user"),
+                content=m.get("content", ""),
+            )
+            for m in messages
+        ]
         
-        if model is None:
-            model = self._settings.llm.fast_model
-        if temperature is None:
-            temperature = self._settings.llm.temperature
+        options = LLMOptions(
+            model=model,
+            temperature=temperature,
+        )
         
-        url = f"{self._settings.llm.ollama_host}/api/chat"
+        response = await provider.chat(chat_messages, options)
         
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-            },
-        }
+        if not response.ok:
+            raise RuntimeError(f"Ollama error: {response.error}")
         
-        try:
-            async with session.post(url, json=payload) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    logger.error("Ollama chat error", status=response.status, error=error_text)
-                    raise RuntimeError(f"Ollama error: {response.status}")
-                
-                data = await response.json()
-                return data.get("message", {}).get("content", "")
-                
-        except Exception as e:
-            logger.error("Ollama chat request failed", error=str(e))
-            raise
+        return response.text
 
 
-# Global client
+# Global client (legacy compatibility)
 _client: OllamaClient | None = None
 
 
 def _get_client() -> OllamaClient:
-    """Get or create Ollama client."""
+    """Get or create Ollama client (legacy)."""
     global _client
     if _client is None:
         _client = OllamaClient()
@@ -240,10 +172,7 @@ def _get_client() -> OllamaClient:
 
 
 async def _cleanup_client() -> None:
-    """Close and cleanup the global Ollama client.
-    
-    Used for testing cleanup and graceful shutdown.
-    """
+    """Close and cleanup the global Ollama client."""
     global _client
     if _client is not None:
         await _client.close()
@@ -251,13 +180,10 @@ async def _cleanup_client() -> None:
 
 
 async def cleanup_llm_for_task(task_id: str | None = None) -> None:
-    """Cleanup LLM resources after task completion.
+    """
+    Cleanup LLM resources after task completion.
     
     Per §4.2: LLM processes should be released after task completion.
-    This unloads the model to free VRAM.
-    
-    Args:
-        task_id: Task identifier (for logging).
     """
     global _client
     if _client is not None:
@@ -266,17 +192,146 @@ async def cleanup_llm_for_task(task_id: str | None = None) -> None:
 
 
 def set_llm_task_id(task_id: str | None) -> None:
-    """Set current task ID for LLM lifecycle tracking.
-    
-    Args:
-        task_id: Task identifier.
-    """
+    """Set current task ID for LLM lifecycle tracking."""
     global _client
     if _client is not None:
         _client.set_task_id(task_id)
 
 
-# Prompt templates
+# ============================================================================
+# Provider-based Functions (New API)
+# ============================================================================
+
+
+def _get_provider() -> LLMProvider:
+    """
+    Get the default LLM provider.
+    
+    Initializes the registry with Ollama provider if not already done.
+    
+    Returns:
+        The default LLM provider.
+        
+    Raises:
+        RuntimeError: If no provider is available.
+    """
+    registry = get_llm_registry()
+    
+    # Auto-register Ollama provider if registry is empty
+    if not registry.list_providers():
+        provider = create_ollama_provider()
+        registry.register(provider, set_default=True)
+    
+    default = registry.get_default()
+    if default is None:
+        raise RuntimeError("No LLM provider available")
+    
+    return default
+
+
+async def generate_with_provider(
+    prompt: str,
+    model: str | None = None,
+    system: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    provider_name: str | None = None,
+) -> str:
+    """
+    Generate text using the LLM provider abstraction.
+    
+    Args:
+        prompt: Input prompt.
+        model: Model name (uses provider default if not specified).
+        system: System prompt.
+        temperature: Generation temperature.
+        max_tokens: Maximum tokens to generate.
+        provider_name: Specific provider to use (default provider if not specified).
+        
+    Returns:
+        Generated text.
+        
+    Raises:
+        RuntimeError: If generation fails.
+    """
+    registry = get_llm_registry()
+    
+    # Get provider
+    if provider_name:
+        provider = registry.get(provider_name)
+        if provider is None:
+            raise RuntimeError(f"Provider '{provider_name}' not found")
+    else:
+        provider = _get_provider()
+    
+    options = LLMOptions(
+        model=model,
+        system=system,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+    
+    response = await provider.generate(prompt, options)
+    
+    if not response.ok:
+        raise RuntimeError(f"LLM generation failed: {response.error}")
+    
+    return response.text
+
+
+async def chat_with_provider(
+    messages: list[dict[str, str]],
+    model: str | None = None,
+    temperature: float | None = None,
+    provider_name: str | None = None,
+) -> str:
+    """
+    Chat completion using the LLM provider abstraction.
+    
+    Args:
+        messages: List of message dicts with 'role' and 'content'.
+        model: Model name.
+        temperature: Generation temperature.
+        provider_name: Specific provider to use.
+        
+    Returns:
+        Assistant response.
+    """
+    registry = get_llm_registry()
+    
+    if provider_name:
+        provider = registry.get(provider_name)
+        if provider is None:
+            raise RuntimeError(f"Provider '{provider_name}' not found")
+    else:
+        provider = _get_provider()
+    
+    chat_messages = [
+        ChatMessage(
+            role=m.get("role", "user"),
+            content=m.get("content", ""),
+        )
+        for m in messages
+    ]
+    
+    options = LLMOptions(
+        model=model,
+        temperature=temperature,
+    )
+    
+    response = await provider.chat(chat_messages, options)
+    
+    if not response.ok:
+        raise RuntimeError(f"LLM chat failed: {response.error}")
+    
+    return response.text
+
+
+# ============================================================================
+# Prompt Templates
+# ============================================================================
+
+
 EXTRACT_FACTS_PROMPT = """あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
 
 テキスト:
@@ -314,94 +369,190 @@ TRANSLATE_PROMPT = """以下のテキストを{target_lang}に翻訳してくだ
 翻訳:"""
 
 
+# ============================================================================
+# High-level Extraction Functions
+# ============================================================================
+
+
 async def llm_extract(
     passages: list[dict[str, Any]],
     task: str,
     context: str | None = None,
     use_slow_model: bool = False,
+    use_provider: bool = True,
 ) -> dict[str, Any]:
-    """Extract information using LLM.
+    """
+    Extract information using LLM.
     
     Args:
         passages: List of passage dicts with 'id' and 'text'.
         task: Task type (extract_facts, extract_claims, summarize, translate).
         context: Additional context (e.g., research question).
         use_slow_model: Whether to use the larger model.
+        use_provider: Whether to use the new provider API (default: True).
         
     Returns:
         Extraction result.
     """
-    client = _get_client()
     settings = get_settings()
     
-    model = settings.llm.slow_model if use_slow_model else settings.llm.fast_model
-    
-    results = []
-    
-    for passage in passages:
-        passage_id = passage.get("id", "unknown")
-        text = passage.get("text", "")
-        source_url = passage.get("source_url", "")
+    if use_provider:
+        # Use new provider-based API
+        registry = get_llm_registry()
         
-        # Select prompt based on task
-        if task == "extract_facts":
-            prompt = EXTRACT_FACTS_PROMPT.format(text=text[:4000])
-        elif task == "extract_claims":
-            prompt = EXTRACT_CLAIMS_PROMPT.format(
-                text=text[:4000],
-                context=context or "一般的な調査",
-            )
-        elif task == "summarize":
-            prompt = SUMMARIZE_PROMPT.format(text=text[:4000])
-        elif task == "translate":
-            target_lang = context or "英語"
-            prompt = TRANSLATE_PROMPT.format(
-                text=text[:4000],
-                target_lang=target_lang,
-            )
-        else:
-            raise ValueError(f"Unknown task: {task}")
+        # Auto-register if needed
+        if not registry.list_providers():
+            provider = create_ollama_provider()
+            registry.register(provider, set_default=True)
         
-        try:
-            response = await client.generate(prompt, model=model)
+        default_provider = registry.get_default()
+        if default_provider is None:
+            raise RuntimeError("No LLM provider available")
+        
+        # Determine model
+        model = None
+        if hasattr(default_provider, 'slow_model') and hasattr(default_provider, 'fast_model'):
+            model = default_provider.slow_model if use_slow_model else default_provider.fast_model
+        
+        results = []
+        
+        for passage in passages:
+            passage_id = passage.get("id", "unknown")
+            text = passage.get("text", "")
+            source_url = passage.get("source_url", "")
             
-            # Parse response based on task
-            if task in ("extract_facts", "extract_claims"):
-                # Try to parse JSON
-                try:
-                    # Find JSON array in response
-                    import re
-                    json_match = re.search(r"\[.*\]", response, re.DOTALL)
-                    if json_match:
-                        extracted = json.loads(json_match.group())
-                    else:
-                        extracted = []
-                except json.JSONDecodeError:
-                    extracted = [{"raw_response": response}]
-                
-                results.append({
-                    "id": passage_id,
-                    "source_url": source_url,
-                    "extracted": extracted,
-                })
+            # Select prompt based on task
+            if task == "extract_facts":
+                prompt = EXTRACT_FACTS_PROMPT.format(text=text[:4000])
+            elif task == "extract_claims":
+                prompt = EXTRACT_CLAIMS_PROMPT.format(
+                    text=text[:4000],
+                    context=context or "一般的な調査",
+                )
+            elif task == "summarize":
+                prompt = SUMMARIZE_PROMPT.format(text=text[:4000])
+            elif task == "translate":
+                target_lang = context or "英語"
+                prompt = TRANSLATE_PROMPT.format(
+                    text=text[:4000],
+                    target_lang=target_lang,
+                )
             else:
+                raise ValueError(f"Unknown task: {task}")
+            
+            try:
+                options = LLMOptions(model=model)
+                response = await default_provider.generate(prompt, options)
+                
+                if not response.ok:
+                    results.append({
+                        "id": passage_id,
+                        "error": response.error,
+                    })
+                    continue
+                
+                response_text = response.text
+                
+                # Parse response based on task
+                if task in ("extract_facts", "extract_claims"):
+                    try:
+                        json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
+                        if json_match:
+                            extracted = json.loads(json_match.group())
+                        else:
+                            extracted = []
+                    except json.JSONDecodeError:
+                        extracted = [{"raw_response": response_text}]
+                    
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "extracted": extracted,
+                    })
+                else:
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "result": response_text.strip(),
+                    })
+                    
+            except Exception as e:
+                logger.error(
+                    "LLM extraction error",
+                    passage_id=passage_id,
+                    task=task,
+                    error=str(e),
+                )
                 results.append({
                     "id": passage_id,
-                    "source_url": source_url,
-                    "result": response.strip(),
+                    "error": str(e),
                 })
+    else:
+        # Legacy path using OllamaClient
+        client = _get_client()
+        model = settings.llm.slow_model if use_slow_model else settings.llm.fast_model
+        
+        results = []
+        
+        for passage in passages:
+            passage_id = passage.get("id", "unknown")
+            text = passage.get("text", "")
+            source_url = passage.get("source_url", "")
+            
+            if task == "extract_facts":
+                prompt = EXTRACT_FACTS_PROMPT.format(text=text[:4000])
+            elif task == "extract_claims":
+                prompt = EXTRACT_CLAIMS_PROMPT.format(
+                    text=text[:4000],
+                    context=context or "一般的な調査",
+                )
+            elif task == "summarize":
+                prompt = SUMMARIZE_PROMPT.format(text=text[:4000])
+            elif task == "translate":
+                target_lang = context or "英語"
+                prompt = TRANSLATE_PROMPT.format(
+                    text=text[:4000],
+                    target_lang=target_lang,
+                )
+            else:
+                raise ValueError(f"Unknown task: {task}")
+            
+            try:
+                response_text = await client.generate(prompt, model=model)
                 
-        except Exception as e:
-            logger.error(
-                "LLM extraction error",
-                passage_id=passage_id,
-                task=task,
-                error=str(e),
-            )
-            results.append({
-                "id": passage_id,
-                "error": str(e),
-            })
+                if task in ("extract_facts", "extract_claims"):
+                    try:
+                        json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
+                        if json_match:
+                            extracted = json.loads(json_match.group())
+                        else:
+                            extracted = []
+                    except json.JSONDecodeError:
+                        extracted = [{"raw_response": response_text}]
+                    
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "extracted": extracted,
+                    })
+                else:
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "result": response_text.strip(),
+                    })
+                    
+            except Exception as e:
+                logger.error(
+                    "LLM extraction error",
+                    passage_id=passage_id,
+                    task=task,
+                    error=str(e),
+                )
+                results.append({
+                    "id": passage_id,
+                    "error": str(e),
+                })
     
     # Aggregate results
     if task == "extract_facts":
@@ -448,7 +599,8 @@ async def should_promote_to_slow_model(
     passage: dict[str, Any],
     scores: dict[str, float],
 ) -> bool:
-    """Determine if passage should be processed with slow model.
+    """
+    Determine if passage should be processed with slow model.
     
     Args:
         passage: Passage dict.
@@ -461,7 +613,6 @@ async def should_promote_to_slow_model(
     threshold = settings.llm.promote_to_slow_threshold
     
     # Use slow model if rerank score is below threshold
-    # (indicates ambiguous/difficult content)
     rerank_score = scores.get("score_rerank", 1.0)
     
     # Normalize rerank score to 0-1 range (assuming sigmoid output)
@@ -473,3 +624,32 @@ async def should_promote_to_slow_model(
     
     return False
 
+
+# ============================================================================
+# Module-level Cleanup
+# ============================================================================
+
+
+async def cleanup_all_providers() -> None:
+    """
+    Cleanup all LLM providers and the global registry.
+    
+    Should be called during application shutdown.
+    """
+    # Cleanup legacy client
+    await _cleanup_client()
+    
+    # Cleanup registry
+    from src.filter.provider import cleanup_llm_registry
+    await cleanup_llm_registry()
+
+
+def reset_for_testing() -> None:
+    """
+    Reset module state for testing.
+    
+    For testing purposes only.
+    """
+    global _client
+    _client = None
+    reset_llm_registry()

@@ -614,31 +614,31 @@ class TestLLMCleanup:
         client._current_model = "qwen2.5:3b"
         
         # Mock the entire aiohttp interaction
-        with patch('aiohttp.ClientSession') as mock_client_class:
-            mock_response = MagicMock()
-            mock_response.status = 200
-            
-            # Create async context manager for response
-            mock_cm = MagicMock()
-            mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_cm.__aexit__ = AsyncMock(return_value=None)
-            
-            # Create async context manager for session
-            mock_session = MagicMock()
-            mock_session.post.return_value = mock_cm
-            mock_session.closed = False
-            mock_session.close = AsyncMock()
-            
-            # Patch _get_session to return our mock
-            async def mock_get_session():
-                return mock_session
-            
-            client._get_session = mock_get_session
-            
+        mock_response = MagicMock()
+        mock_response.status = 200
+        
+        # Create async context manager for response
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+        
+        # Create async context manager for session
+        mock_session = MagicMock()
+        mock_session.post.return_value = mock_cm
+        mock_session.closed = False
+        mock_session.close = AsyncMock()
+        
+        # Get the provider and patch its _get_session
+        provider = client._get_provider()
+        
+        async def mock_get_session():
+            return mock_session
+        
+        with patch.object(provider, '_get_session', mock_get_session):
             result = await client.unload_model()
-            
-            assert result is True
-            assert client._current_model is None
+        
+        assert result is True
+        assert client._current_model is None
     
     @pytest.mark.asyncio
     async def test_cleanup_llm_for_task(self):
