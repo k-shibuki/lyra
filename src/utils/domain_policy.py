@@ -181,10 +181,68 @@ class LearningStateDomainSchema(BaseModel):
     cooldown_until: datetime | None = None
 
 
+class SearchEnginePolicySchema(BaseModel):
+    """Schema for search engine policy settings (§3.1.4, §4.3)."""
+    
+    default_qps: float = Field(default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines")
+    site_search_qps: float = Field(default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit")
+    cooldown_min: int = Field(default=30, ge=1, le=1440, description="Minimum cooldown in minutes")
+    cooldown_max: int = Field(default=120, ge=1, le=1440, description="Maximum cooldown in minutes")
+    failure_threshold: int = Field(default=2, ge=1, le=10, description="Failures before circuit open")
+    
+    @property
+    def default_min_interval(self) -> float:
+        """Get default minimum interval between requests in seconds."""
+        return 1.0 / self.default_qps if self.default_qps > 0 else 4.0
+    
+    @property
+    def site_search_min_interval(self) -> float:
+        """Get site search minimum interval in seconds."""
+        return 1.0 / self.site_search_qps if self.site_search_qps > 0 else 10.0
+
+
+class PolicyBoundsEntrySchema(BaseModel):
+    """Schema for a single policy bounds entry (§4.6)."""
+    
+    min: float = Field(default=0.0, description="Minimum value")
+    max: float = Field(default=1.0, description="Maximum value")
+    default: float = Field(default=0.5, description="Default value")
+    step_up: float = Field(default=0.1, description="Step for increase")
+    step_down: float = Field(default=0.1, description="Step for decrease")
+
+
+class PolicyBoundsSchema(BaseModel):
+    """Schema for policy auto-update bounds (§4.6)."""
+    
+    engine_weight: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
+    ))
+    engine_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.1, max=0.5, default=0.25, step_up=0.05, step_down=0.1
+    ))
+    domain_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.05, max=0.3, default=0.2, step_up=0.02, step_down=0.05
+    ))
+    domain_cooldown: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=30.0, max=240.0, default=60.0, step_up=30.0, step_down=15.0
+    ))
+    headful_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.0, max=0.5, default=0.1, step_up=0.05, step_down=0.05
+    ))
+    tor_usage_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.0, max=0.2, default=0.0, step_up=0.02, step_down=0.05
+    ))
+    browser_route_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.1, max=0.5, default=0.3, step_up=0.05, step_down=0.05
+    ))
+
+
 class DomainPolicyConfigSchema(BaseModel):
     """Root schema for domains.yaml configuration file."""
     
     default_policy: DefaultPolicySchema = Field(default_factory=DefaultPolicySchema)
+    search_engine_policy: SearchEnginePolicySchema = Field(default_factory=SearchEnginePolicySchema)
+    policy_bounds: PolicyBoundsSchema = Field(default_factory=PolicyBoundsSchema)
     allowlist: list[AllowlistEntrySchema] = Field(default_factory=list)
     graylist: list[GraylistEntrySchema] = Field(default_factory=list)
     denylist: list[DenylistEntrySchema] = Field(default_factory=list)
@@ -741,6 +799,98 @@ class DomainPolicyManager:
                 "cloudflare_count": len(self.config.cloudflare_sites),
                 "search_templates_count": len(self.config.internal_search_templates),
             }
+    
+    # =========================================================================
+    # Search Engine Policy Access (§3.1.4, §4.3)
+    # =========================================================================
+    
+    def get_search_engine_policy(self) -> SearchEnginePolicySchema:
+        """Get search engine policy configuration.
+        
+        Returns:
+            SearchEnginePolicySchema with search engine settings.
+        """
+        return self.config.search_engine_policy
+    
+    def get_search_engine_qps(self) -> float:
+        """Get default QPS for search engines.
+        
+        Returns:
+            Default QPS (requests per second).
+        """
+        return self.config.search_engine_policy.default_qps
+    
+    def get_search_engine_min_interval(self) -> float:
+        """Get minimum interval between search engine requests in seconds.
+        
+        Returns:
+            Minimum interval in seconds.
+        """
+        return self.config.search_engine_policy.default_min_interval
+    
+    def get_site_search_qps(self) -> float:
+        """Get QPS for site-internal search (§3.1.5).
+        
+        Returns:
+            Site search QPS.
+        """
+        return self.config.search_engine_policy.site_search_qps
+    
+    def get_site_search_min_interval(self) -> float:
+        """Get minimum interval for site-internal search in seconds.
+        
+        Returns:
+            Minimum interval in seconds.
+        """
+        return self.config.search_engine_policy.site_search_min_interval
+    
+    def get_circuit_breaker_cooldown_min(self) -> int:
+        """Get minimum cooldown time for circuit breaker in minutes.
+        
+        Returns:
+            Minimum cooldown in minutes.
+        """
+        return self.config.search_engine_policy.cooldown_min
+    
+    def get_circuit_breaker_cooldown_max(self) -> int:
+        """Get maximum cooldown time for circuit breaker in minutes.
+        
+        Returns:
+            Maximum cooldown in minutes.
+        """
+        return self.config.search_engine_policy.cooldown_max
+    
+    def get_circuit_breaker_failure_threshold(self) -> int:
+        """Get failure threshold for circuit breaker.
+        
+        Returns:
+            Failure threshold.
+        """
+        return self.config.search_engine_policy.failure_threshold
+    
+    # =========================================================================
+    # Policy Bounds Access (§4.6)
+    # =========================================================================
+    
+    def get_policy_bounds(self) -> PolicyBoundsSchema:
+        """Get policy bounds configuration for auto-adjustment.
+        
+        Returns:
+            PolicyBoundsSchema with all bounds.
+        """
+        return self.config.policy_bounds
+    
+    def get_bounds_for_parameter(self, param_name: str) -> PolicyBoundsEntrySchema | None:
+        """Get bounds for a specific parameter.
+        
+        Args:
+            param_name: Parameter name (e.g., "engine_weight", "domain_qps").
+            
+        Returns:
+            PolicyBoundsEntrySchema or None if not found.
+        """
+        bounds = self.config.policy_bounds
+        return getattr(bounds, param_name, None)
 
 
 # =============================================================================

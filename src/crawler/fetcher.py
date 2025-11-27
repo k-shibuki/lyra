@@ -474,7 +474,10 @@ class FetchResult:
 
 
 class RateLimiter:
-    """Per-domain rate limiter."""
+    """Per-domain rate limiter.
+    
+    Uses DomainPolicyManager for per-domain QPS configuration.
+    """
     
     def __init__(self):
         self._domain_locks: dict[str, asyncio.Lock] = {}
@@ -489,9 +492,13 @@ class RateLimiter:
     async def acquire(self, url: str) -> None:
         """Acquire rate limit slot for a domain.
         
+        Uses DomainPolicyManager to get per-domain QPS limits.
+        
         Args:
             url: URL to fetch.
         """
+        from src.utils.domain_policy import get_domain_policy_manager
+        
         domain = self._get_domain(url)
         
         if domain not in self._domain_locks:
@@ -499,7 +506,11 @@ class RateLimiter:
         
         async with self._domain_locks[domain]:
             last_request = self._domain_last_request.get(domain, 0)
-            min_interval = 1.0 / self._settings.crawler.domain_qps
+            
+            # Get domain-specific QPS from DomainPolicyManager
+            policy_manager = get_domain_policy_manager()
+            domain_policy = policy_manager.get_policy(domain)
+            min_interval = domain_policy.min_request_interval
             
             # Add jitter
             delay_min = self._settings.crawler.delay_min
