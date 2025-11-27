@@ -1,4 +1,5 @@
 ---
+description: コードを実行する前に、常に確認するルール
 alwaysApply: false
 ---
 # コード実行時のターミナル監視ルール
