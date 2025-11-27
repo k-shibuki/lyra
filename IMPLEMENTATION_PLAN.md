@@ -833,7 +833,7 @@ E2Eテストを有効に実施するための前提：
 外部サービスへの直接依存を抽象化し、実装の切り替えを容易にする。
 **完了基準**: Protocol/Registry実装 + 全呼び出し箇所のProvider経由への移行。
 
-#### 17.1.1 SearchProvider抽象化 🔄
+#### 17.1.1 SearchProvider抽象化 ✅
 - [x] `SearchProvider` プロトコル/ABC定義
   - `search(query, options) -> SearchResponse`
   - `get_health() -> HealthStatus`
@@ -843,17 +843,17 @@ E2Eテストを有効に実施するための前提：
   - プロバイダ登録/解除
   - デフォルトプロバイダ管理
   - フォールバック機構付き検索
-- [x] `search_serp`関数への統合（`use_provider`オプションで切替可能）
+- [x] `search_serp`関数への統合（`use_provider=True`がデフォルト）
 - [x] テスト: 59件（全パス、§7.1準拠）
 - 実装: `src/search/provider.py`, `src/search/searxng_provider.py`
-- [ ] **既存コードのProvider経由への移行（残作業）**
-  - `src/mcp/server.py`: 直接`searxng`インポート → Provider経由に変更
-  - `src/scheduler/jobs.py`: 直接`searxng`インポート → Provider経由に変更
-  - `src/research/refutation.py`: 直接`searxng`インポート → Provider経由に変更
-  - `src/search/ab_test.py`: 直接`searxng`インポート → Provider経由に変更
-  - `src/main.py`: 直接`searxng`インポート → Provider経由に変更
-  - `src/research/executor.py`: 直接`searxng`インポート → Provider経由に変更
-  - `src/search/__init__.py`: エクスポート整理
+- [x] **既存コードのProvider経由への移行（完了）**
+  - `src/mcp/server.py`: `from src.search import search_serp`
+  - `src/scheduler/jobs.py`: `from src.search import search_serp`
+  - `src/research/refutation.py`: `from src.search import search_serp`
+  - `src/search/ab_test.py`: `from src.search import search_serp`
+  - `src/main.py`: `from src.search import search_serp`
+  - `src/research/executor.py`: `from src.search import search_serp`
+  - `src/search/__init__.py`: エクスポート整理完了
 
 #### 17.1.2 LLMProvider抽象化 ✅
 - [x] `LLMProvider` プロトコル/ABC定義
@@ -1045,7 +1045,7 @@ podman exec lancet pytest tests/ --co -q
 
 **注意**:
 - ローカル環境ではなく必ず `podman exec lancet` 経由で実行する
-- 全1678件（ユニット + 統合）、約33秒で完了
+- 全1986件（ユニット + 統合）、約31秒で完了
 - IDE連携ツールからの実行は出力バッファリングで結果取得に失敗する場合あり
   → ファイルリダイレクト推奨: `podman exec lancet pytest tests/ > /tmp/result.txt`
 
