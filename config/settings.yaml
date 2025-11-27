@@ -108,6 +108,20 @@ ipv6:
   # EMA alpha for success rate updates (higher = faster adaptation)
   ema_alpha: 0.1
 
+# === HTTP/3 (QUIC) Settings (§4.3) ===
+http3:
+  # Enable HTTP/3 policy tracking
+  enabled: true
+  # EMA alpha for behavioral difference updates
+  ema_alpha: 0.1
+  # Behavioral difference threshold to trigger browser ratio boost
+  # When browser success rate exceeds HTTP client by this much, boost browser ratio
+  difference_threshold: 0.15
+  # Maximum browser ratio boost from HTTP/3 policy
+  max_browser_boost: 0.3
+  # Minimum samples required before adjusting browser ratio
+  min_samples: 5
+
 # === Browser Settings ===
 browser:
   # Chrome remote debugging
