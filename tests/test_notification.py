@@ -494,41 +494,69 @@ class TestDomainSkipLogic:
 
 @pytest.mark.unit
 class TestToastNotification:
-    """Tests for toast notification functionality."""
+    """Tests for toast notification functionality.
     
-    def test_is_wsl_returns_boolean(self, intervention_manager):
-        """Test WSL detection method returns boolean."""
-        result = intervention_manager._is_wsl()
+    Updated for Phase 17.1.4 NotificationProvider abstraction.
+    Toast notifications now use the provider registry.
+    """
+    
+    def test_is_wsl_function_returns_boolean(self):
+        """Test WSL detection function returns boolean.
+        
+        Note: is_wsl() is now a standalone function in notification_provider module,
+        not a method of InterventionManager (Phase 17.1.4 refactoring).
+        """
+        from src.utils.notification_provider import is_wsl
+        
+        result = is_wsl()
         
         assert isinstance(result, bool), (
-            f"_is_wsl() should return bool, got {type(result)}"
+            f"is_wsl() should return bool, got {type(result)}"
         )
     
     @pytest.mark.asyncio
     async def test_send_toast_returns_boolean(self, intervention_manager):
-        """Test send_toast returns boolean indicating success."""
-        with patch.object(
-            intervention_manager,
-            "_send_linux_toast",
-            new_callable=AsyncMock,
-            return_value=True
-        ):
-            with patch.object(intervention_manager, "_is_wsl", return_value=False):
-                with patch("platform.system", return_value="Linux"):
-                    # Act
-                    result = await intervention_manager.send_toast(
-                        "Test Title",
-                        "Test Message",
-                        timeout_seconds=5,
-                    )
-                    
-                    # Assert
-                    assert isinstance(result, bool), (
-                        f"send_toast should return bool, got {type(result)}"
-                    )
-                    assert result is True, (
-                        "send_toast should return True when _send_linux_toast succeeds"
-                    )
+        """Test send_toast returns boolean indicating success.
+        
+        Updated for Phase 17.1.4: send_toast now uses NotificationProviderRegistry
+        internally. We mock the registry's send() method.
+        """
+        from src.utils.notification_provider import (
+            NotificationResult,
+            reset_notification_registry,
+        )
+        
+        # Reset registry to ensure clean state
+        reset_notification_registry()
+        
+        # Mock the registry send method
+        mock_result = NotificationResult.success(provider="test", message_id="test_123")
+        
+        with patch("src.utils.notification.get_notification_registry") as mock_get_registry:
+            mock_registry = AsyncMock()
+            mock_registry.send = AsyncMock(return_value=mock_result)
+            mock_get_registry.return_value = mock_registry
+            
+            # Act
+            result = await intervention_manager.send_toast(
+                "Test Title",
+                "Test Message",
+                timeout_seconds=5,
+            )
+            
+            # Assert
+            assert isinstance(result, bool), (
+                f"send_toast should return bool, got {type(result)}"
+            )
+            assert result is True, (
+                "send_toast should return True when provider registry succeeds"
+            )
+            
+            # Verify registry was called with correct parameters
+            mock_registry.send.assert_called_once()
+        
+        # Cleanup
+        reset_notification_registry()
 
 
 # =============================================================================
