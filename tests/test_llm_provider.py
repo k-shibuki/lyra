@@ -2,11 +2,14 @@
 Unit tests for LLM provider abstraction layer.
 
 Tests the LLMProvider protocol, OllamaProvider implementation, and registry.
+Implements Phase 17.1.2 of IMPLEMENTATION_PLAN.md.
+
 Follows §7.1 test quality standards:
-- No conditional assertions
-- Specific expected values
-- Proper boundary testing
-- Realistic test data
+- No conditional assertions (§7.1.1)
+- Specific expected values (§7.1.2)
+- Proper boundary testing (§7.1.2)
+- Realistic test data with Ollama API format (§7.1.3)
+- External dependencies fully mocked (§7.1.7)
 """
 
 import asyncio
@@ -15,6 +18,9 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 
 from src.filter.provider import (
     BaseLLMProvider,
@@ -72,28 +78,28 @@ def ollama_provider():
 
 
 class TestLLMOptions:
-    """Tests for LLMOptions dataclass."""
+    """Tests for LLMOptions dataclass (§3.2.1 MCPツールIF仕様)."""
     
     def test_default_values(self):
         """LLMOptions should have None defaults for optional fields."""
         options = LLMOptions()
         
-        assert options.model is None
-        assert options.temperature is None
-        assert options.max_tokens is None
-        assert options.top_p is None
-        assert options.top_k is None
-        assert options.stop is None
-        assert options.system is None
-        assert options.timeout is None
+        assert options.model is None, "model should default to None"
+        assert options.temperature is None, "temperature should default to None"
+        assert options.max_tokens is None, "max_tokens should default to None"
+        assert options.top_p is None, "top_p should default to None"
+        assert options.top_k is None, "top_k should default to None"
+        assert options.stop is None, "stop should default to None"
+        assert options.system is None, "system should default to None"
+        assert options.timeout is None, "timeout should default to None"
     
     def test_to_dict_excludes_none(self):
-        """to_dict should exclude None values."""
+        """to_dict should exclude None values for clean API payloads."""
         options = LLMOptions(model="test", temperature=0.7)
         result = options.to_dict()
         
-        assert result == {"model": "test", "temperature": 0.7}
-        assert "max_tokens" not in result
+        assert result == {"model": "test", "temperature": 0.7}, f"Got {result}"
+        assert "max_tokens" not in result, "None values should be excluded"
     
     def test_to_dict_includes_all_set_values(self):
         """to_dict should include all explicitly set values."""
@@ -106,11 +112,11 @@ class TestLLMOptions:
         )
         result = options.to_dict()
         
-        assert result["model"] == "gpt-4"
-        assert result["temperature"] == 0.5
-        assert result["max_tokens"] == 100
-        assert result["top_p"] == 0.9
-        assert result["stop"] == [".", "!"]
+        assert result["model"] == "gpt-4", f"Expected gpt-4, got {result.get('model')}"
+        assert result["temperature"] == 0.5, f"Expected 0.5, got {result.get('temperature')}"
+        assert result["max_tokens"] == 100, f"Expected 100, got {result.get('max_tokens')}"
+        assert result["top_p"] == 0.9, f"Expected 0.9, got {result.get('top_p')}"
+        assert result["stop"] == [".", "!"], f"Expected ['.', '!'], got {result.get('stop')}"
 
 
 class TestChatMessage:
@@ -155,10 +161,10 @@ class TestChatMessage:
 
 
 class TestLLMResponse:
-    """Tests for LLMResponse dataclass."""
+    """Tests for LLMResponse dataclass (§3.2.1 MCPツールIF仕様)."""
     
     def test_success_response(self):
-        """success() should create a successful response."""
+        """success() should create a successful response with all fields set."""
         response = LLMResponse.success(
             text="Generated text",
             model="test-model",
@@ -166,29 +172,29 @@ class TestLLMResponse:
             elapsed_ms=100.5,
         )
         
-        assert response.ok is True
-        assert response.text == "Generated text"
-        assert response.model == "test-model"
-        assert response.provider == "test-provider"
-        assert response.elapsed_ms == 100.5
-        assert response.status == LLMResponseStatus.SUCCESS
-        assert response.error is None
+        assert response.ok is True, "Success response should have ok=True"
+        assert response.text == "Generated text", f"Expected 'Generated text', got '{response.text}'"
+        assert response.model == "test-model", f"Expected 'test-model', got '{response.model}'"
+        assert response.provider == "test-provider", f"Expected 'test-provider', got '{response.provider}'"
+        assert response.elapsed_ms == 100.5, f"Expected 100.5ms, got {response.elapsed_ms}ms"
+        assert response.status == LLMResponseStatus.SUCCESS, f"Expected SUCCESS, got {response.status}"
+        assert response.error is None, f"Error should be None for success, got '{response.error}'"
     
     def test_error_response(self):
-        """make_error() should create an error response."""
+        """make_error() should create an error response with empty text."""
         response = LLMResponse.make_error(
             error="Connection failed",
             model="test-model",
             provider="test-provider",
         )
         
-        assert response.ok is False
-        assert response.text == ""
-        assert response.error == "Connection failed"
-        assert response.status == LLMResponseStatus.ERROR
+        assert response.ok is False, "Error response should have ok=False"
+        assert response.text == "", f"Error response should have empty text, got '{response.text}'"
+        assert response.error == "Connection failed", f"Expected 'Connection failed', got '{response.error}'"
+        assert response.status == LLMResponseStatus.ERROR, f"Expected ERROR, got {response.status}"
     
     def test_timeout_error(self):
-        """make_error() with TIMEOUT status should indicate timeout."""
+        """make_error() with TIMEOUT status should indicate timeout (§4.3 抗堪性)."""
         response = LLMResponse.make_error(
             error="Request timed out",
             model="test-model",
@@ -196,11 +202,11 @@ class TestLLMResponse:
             status=LLMResponseStatus.TIMEOUT,
         )
         
-        assert response.status == LLMResponseStatus.TIMEOUT
-        assert response.ok is False
+        assert response.status == LLMResponseStatus.TIMEOUT, f"Expected TIMEOUT, got {response.status}"
+        assert response.ok is False, "Timeout response should have ok=False"
     
     def test_to_dict_serialization(self):
-        """to_dict should include ok property."""
+        """to_dict should include ok property for MCP response serialization."""
         response = LLMResponse.success(
             text="Test",
             model="m",
@@ -208,9 +214,9 @@ class TestLLMResponse:
         )
         result = response.to_dict()
         
-        assert result["ok"] is True
-        assert result["text"] == "Test"
-        assert result["status"] == "success"
+        assert result["ok"] is True, f"Expected ok=True in dict, got {result.get('ok')}"
+        assert result["text"] == "Test", f"Expected 'Test', got {result.get('text')}"
+        assert result["status"] == "success", f"Expected 'success', got {result.get('status')}"
 
 
 class TestEmbeddingResponse:
@@ -470,11 +476,12 @@ class TestOllamaProviderInit:
 
 
 class TestOllamaProviderGenerate:
-    """Tests for OllamaProvider.generate()."""
+    """Tests for OllamaProvider.generate() (Ollama /api/generate endpoint)."""
     
     @pytest.mark.asyncio
     async def test_generate_success(self, ollama_provider):
-        """generate() should return success response on 200."""
+        """generate() should return success response on HTTP 200 with Ollama format."""
+        # Ollama API response format: response, prompt_eval_count, eval_count
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value={
@@ -483,7 +490,7 @@ class TestOllamaProviderGenerate:
             "eval_count": 20,
         })
         
-        # Create a proper async context manager
+        # Create a proper async context manager for aiohttp
         mock_cm = AsyncMock()
         mock_cm.__aenter__.return_value = mock_response
         mock_cm.__aexit__.return_value = None
@@ -494,12 +501,12 @@ class TestOllamaProviderGenerate:
         with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
             response = await ollama_provider.generate("Test prompt")
         
-        assert response.ok is True
-        assert response.text == "Generated text here"
-        assert response.model == "test-fast:3b"
-        assert response.provider == "ollama"
-        assert response.usage["prompt_tokens"] == 10
-        assert response.usage["completion_tokens"] == 20
+        assert response.ok is True, f"Expected ok=True, got ok={response.ok}, error={response.error}"
+        assert response.text == "Generated text here", f"Expected 'Generated text here', got '{response.text}'"
+        assert response.model == "test-fast:3b", f"Expected 'test-fast:3b', got '{response.model}'"
+        assert response.provider == "ollama", f"Expected 'ollama', got '{response.provider}'"
+        assert response.usage["prompt_tokens"] == 10, f"Expected 10 prompt tokens, got {response.usage.get('prompt_tokens')}"
+        assert response.usage["completion_tokens"] == 20, f"Expected 20 completion tokens, got {response.usage.get('completion_tokens')}"
     
     @pytest.mark.asyncio
     async def test_generate_with_options(self, ollama_provider):
@@ -538,7 +545,7 @@ class TestOllamaProviderGenerate:
     
     @pytest.mark.asyncio
     async def test_generate_api_error(self, ollama_provider):
-        """generate() should return error response on non-200."""
+        """generate() should return error response on non-200 (§4.3 抗堪性)."""
         mock_response = MagicMock()
         mock_response.status = 500
         mock_response.text = AsyncMock(return_value="Internal server error")
@@ -553,9 +560,9 @@ class TestOllamaProviderGenerate:
         with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
             response = await ollama_provider.generate("Test prompt")
         
-        assert response.ok is False
-        assert "500" in response.error
-        assert response.status == LLMResponseStatus.ERROR
+        assert response.ok is False, f"API error should have ok=False, got {response.ok}"
+        assert "500" in response.error, f"Error message should contain status code 500: {response.error}"
+        assert response.status == LLMResponseStatus.ERROR, f"Expected ERROR status, got {response.status}"
     
     @pytest.mark.asyncio
     async def test_generate_tracks_model(self, ollama_provider):
@@ -578,11 +585,11 @@ class TestOllamaProviderGenerate:
 
 
 class TestOllamaProviderChat:
-    """Tests for OllamaProvider.chat()."""
+    """Tests for OllamaProvider.chat() (Ollama /api/chat endpoint)."""
     
     @pytest.mark.asyncio
     async def test_chat_success(self, ollama_provider):
-        """chat() should return assistant response."""
+        """chat() should return assistant response with content extracted."""
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value={
@@ -600,8 +607,8 @@ class TestOllamaProviderChat:
             messages = [ChatMessage(role="user", content="Hi")]
             response = await ollama_provider.chat(messages)
         
-        assert response.ok is True
-        assert response.text == "Hello! How can I help?"
+        assert response.ok is True, f"Expected ok=True, got ok={response.ok}, error={response.error}"
+        assert response.text == "Hello! How can I help?", f"Expected chat response content, got '{response.text}'"
     
     @pytest.mark.asyncio
     async def test_chat_converts_messages(self, ollama_provider):
@@ -793,7 +800,7 @@ class TestOllamaProviderListModels:
 
 
 class TestLLMProviderRegistry:
-    """Tests for LLMProviderRegistry."""
+    """Tests for LLMProviderRegistry (§5.2 プラグイン機構)."""
     
     def test_register_provider(self):
         """register() should add provider to registry."""
@@ -802,17 +809,19 @@ class TestLLMProviderRegistry:
         
         registry.register(provider)
         
-        assert "ollama" in registry.list_providers()
-        assert registry.get("ollama") is provider
+        providers = registry.list_providers()
+        assert "ollama" in providers, f"'ollama' not in registered providers: {providers}"
+        assert registry.get("ollama") is provider, "get() should return the registered provider instance"
     
     def test_register_sets_default(self):
-        """First registered provider should become default."""
+        """First registered provider should become default (§4.3.1 フォールバック)."""
         registry = LLMProviderRegistry()
         provider = OllamaProvider()
         
         registry.register(provider)
         
-        assert registry.get_default() is provider
+        default = registry.get_default()
+        assert default is provider, f"Expected default to be the registered provider, got {default}"
     
     def test_register_duplicate_raises(self):
         """register() should raise on duplicate name."""
@@ -897,7 +906,7 @@ class TestLLMProviderRegistry:
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_success(self):
-        """generate_with_fallback() should return on first success."""
+        """generate_with_fallback() should return on first success (§4.3.1 フォールバック)."""
         registry = LLMProviderRegistry()
         
         class SuccessProvider(BaseLLMProvider):
@@ -916,13 +925,13 @@ class TestLLMProviderRegistry:
         
         response = await registry.generate_with_fallback("Test prompt")
         
-        assert response.ok is True
-        assert response.text == "Success!"
-        assert response.provider == "good"
+        assert response.ok is True, f"Expected ok=True, got ok={response.ok}, error={response.error}"
+        assert response.text == "Success!", f"Expected 'Success!', got '{response.text}'"
+        assert response.provider == "good", f"Expected provider 'good', got '{response.provider}'"
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_tries_multiple(self):
-        """generate_with_fallback() should try next provider on failure."""
+        """generate_with_fallback() should try next provider on failure (§4.3.1 フォールバック)."""
         registry = LLMProviderRegistry()
         
         class FailProvider(BaseLLMProvider):
@@ -954,12 +963,12 @@ class TestLLMProviderRegistry:
         
         response = await registry.generate_with_fallback("Test")
         
-        assert response.ok is True
-        assert response.provider == "success"
+        assert response.ok is True, f"Fallback should succeed, got ok={response.ok}, error={response.error}"
+        assert response.provider == "success", f"Should fallback to 'success' provider, got '{response.provider}'"
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_skips_unhealthy(self):
-        """generate_with_fallback() should skip unhealthy providers."""
+        """generate_with_fallback() should skip unhealthy providers (§4.3.1 ヘルスチェック)."""
         registry = LLMProviderRegistry()
         
         class UnhealthyProvider(BaseLLMProvider):
@@ -991,12 +1000,12 @@ class TestLLMProviderRegistry:
         
         response = await registry.generate_with_fallback("Test")
         
-        assert response.ok is True
-        assert response.provider == "healthy"
+        assert response.ok is True, f"Should skip unhealthy and succeed, got ok={response.ok}"
+        assert response.provider == "healthy", f"Should use 'healthy' provider, got '{response.provider}'"
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_all_fail(self):
-        """generate_with_fallback() should return error when all fail."""
+        """generate_with_fallback() should return error when all fail (§4.3 異常系)."""
         registry = LLMProviderRegistry()
         
         class FailProvider(BaseLLMProvider):
@@ -1016,8 +1025,8 @@ class TestLLMProviderRegistry:
         
         response = await registry.generate_with_fallback("Test")
         
-        assert response.ok is False
-        assert "All providers failed" in response.error
+        assert response.ok is False, f"All providers failed should have ok=False, got {response.ok}"
+        assert "All providers failed" in response.error, f"Error should mention 'All providers failed': {response.error}"
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_no_providers(self):
