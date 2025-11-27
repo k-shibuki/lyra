@@ -1073,11 +1073,90 @@ class InterventionQueue:
             "items": items,
         }
     
+    async def get_pending_by_domain(self) -> dict[str, Any]:
+        """Get pending authentications grouped by domain.
+        
+        Returns a summary of pending authentications organized by domain,
+        including affected tasks and priority information.
+        
+        Returns:
+            Dict with:
+            - ok: Success status
+            - total_domains: Number of distinct domains with pending auth
+            - total_pending: Total number of pending items
+            - domains: List of domain info dicts
+        """
+        await self._ensure_db()
+        
+        now_iso = datetime.now(timezone.utc).isoformat()
+        
+        # Get all pending items
+        rows = await self._db.fetch_all(
+            """
+            SELECT id, task_id, url, domain, auth_type, priority
+            FROM intervention_queue
+            WHERE status = 'pending'
+              AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY domain, 
+                     CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+                     queued_at
+            """,
+            (now_iso,),
+        )
+        
+        # Group by domain
+        domain_map: dict[str, dict] = {}
+        for row in rows:
+            domain = row["domain"]
+            if domain not in domain_map:
+                domain_map[domain] = {
+                    "domain": domain,
+                    "pending_count": 0,
+                    "high_priority_count": 0,
+                    "affected_tasks": set(),
+                    "auth_types": set(),
+                    "urls": [],
+                }
+            
+            info = domain_map[domain]
+            info["pending_count"] += 1
+            if row["priority"] == "high":
+                info["high_priority_count"] += 1
+            info["affected_tasks"].add(row["task_id"])
+            info["auth_types"].add(row["auth_type"])
+            info["urls"].append(row["url"])
+        
+        # Convert sets to lists for JSON serialization
+        domains = []
+        for info in domain_map.values():
+            domains.append({
+                "domain": info["domain"],
+                "pending_count": info["pending_count"],
+                "high_priority_count": info["high_priority_count"],
+                "affected_tasks": list(info["affected_tasks"]),
+                "auth_types": list(info["auth_types"]),
+                "urls": info["urls"],
+            })
+        
+        # Sort by high priority count desc, then pending count desc
+        domains.sort(key=lambda d: (-d["high_priority_count"], -d["pending_count"]))
+        
+        total_pending = sum(d["pending_count"] for d in domains)
+        
+        return {
+            "ok": True,
+            "total_domains": len(domains),
+            "total_pending": total_pending,
+            "domains": domains,
+        }
+    
     async def complete(
         self,
         queue_id: str,
         success: bool,
         session_data: dict | None = None,
+        *,
+        task_id: str | None = None,
     ) -> dict[str, Any]:
         """Mark authentication as complete.
         
@@ -1085,6 +1164,7 @@ class InterventionQueue:
             queue_id: Queue item ID.
             success: Whether authentication succeeded.
             session_data: Session data to store (cookies, etc.).
+            task_id: Task ID (optional, for legacy API compatibility).
             
         Returns:
             Completion result.
@@ -1125,25 +1205,119 @@ class InterventionQueue:
             "domain": row["domain"] if row else None,
         }
     
-    async def skip(
+    async def complete_domain(
         self,
-        task_id: str,
-        queue_ids: list[str] | None = None,
+        domain: str,
+        success: bool,
+        session_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Skip authentications.
+        """Complete authentication for all pending items of a domain.
+        
+        This resolves all pending authentication requests for the given domain
+        across all tasks. Session data is stored and can be reused for
+        subsequent requests to the same domain.
         
         Args:
-            task_id: Task ID.
-            queue_ids: Specific queue IDs to skip (optional, skips all if omitted).
+            domain: Domain name to complete authentication for.
+            success: Whether authentication succeeded.
+            session_data: Session data to store (cookies, etc.).
             
         Returns:
-            Skip result.
+            Dict with:
+            - ok: Success status
+            - domain: The domain that was completed
+            - resolved_count: Number of items resolved
+            - affected_tasks: List of task IDs affected
+            - session_stored: Whether session data was stored
         """
         await self._ensure_db()
         
+        import json
+        
+        now_iso = datetime.now(timezone.utc).isoformat()
+        session_json = json.dumps(session_data) if session_data else None
+        status = "completed" if success else "skipped"
+        
+        # Get affected items before updating
+        affected_rows = await self._db.fetch_all(
+            """
+            SELECT id, task_id, url
+            FROM intervention_queue
+            WHERE domain = ? AND status IN ('pending', 'in_progress')
+              AND (expires_at IS NULL OR expires_at > ?)
+            """,
+            (domain, now_iso),
+        )
+        
+        if not affected_rows:
+            return {
+                "ok": True,
+                "domain": domain,
+                "resolved_count": 0,
+                "affected_tasks": [],
+                "session_stored": False,
+            }
+        
+        # Update all items for this domain
+        await self._db.execute(
+            """
+            UPDATE intervention_queue
+            SET status = ?, completed_at = datetime('now'), session_data = ?
+            WHERE domain = ? AND status IN ('pending', 'in_progress')
+            """,
+            (status, session_json, domain),
+        )
+        
+        # Collect affected task IDs
+        affected_tasks = list(set(row["task_id"] for row in affected_rows))
+        
+        logger.info(
+            "Domain authentication completed",
+            domain=domain,
+            success=success,
+            resolved_count=len(affected_rows),
+            affected_tasks=affected_tasks,
+        )
+        
+        return {
+            "ok": True,
+            "domain": domain,
+            "resolved_count": len(affected_rows),
+            "affected_tasks": affected_tasks,
+            "session_stored": session_data is not None,
+        }
+    
+    async def skip(
+        self,
+        task_id: str | None = None,
+        queue_ids: list[str] | None = None,
+        *,
+        domain: str | None = None,
+    ) -> dict[str, Any]:
+        """Skip authentications.
+        
+        Can skip by:
+        - Specific queue IDs (queue_ids parameter)
+        - All pending items for a domain (domain parameter)
+        - All pending items for a task (task_id parameter, when no queue_ids or domain)
+        
+        Args:
+            task_id: Task ID (optional, used when no queue_ids or domain specified).
+            queue_ids: Specific queue IDs to skip (optional).
+            domain: Domain to skip all pending items for (optional).
+            
+        Returns:
+            Skip result with affected_tasks for domain-based skips.
+        """
+        await self._ensure_db()
+        
+        now_iso = datetime.now(timezone.utc).isoformat()
+        affected_tasks: list[str] = []
+        
         if queue_ids:
+            # Skip specific queue IDs
             placeholders = ",".join("?" * len(queue_ids))
-            result = await self._db.execute(
+            await self._db.execute(
                 f"""
                 UPDATE intervention_queue
                 SET status = 'skipped', completed_at = datetime('now')
@@ -1152,8 +1326,57 @@ class InterventionQueue:
                 queue_ids,
             )
             skipped = len(queue_ids)
-        else:
-            result = await self._db.execute(
+            
+            logger.info(
+                "Authentications skipped by queue_ids",
+                queue_ids=queue_ids,
+                skipped=skipped,
+            )
+        elif domain:
+            # Skip all pending items for a domain
+            # First get affected tasks
+            affected_rows = await self._db.fetch_all(
+                """
+                SELECT DISTINCT task_id
+                FROM intervention_queue
+                WHERE domain = ? AND status IN ('pending', 'in_progress')
+                  AND (expires_at IS NULL OR expires_at > ?)
+                """,
+                (domain, now_iso),
+            )
+            affected_tasks = [row["task_id"] for row in affected_rows]
+            
+            # Count pending before update
+            count_row = await self._db.fetch_one(
+                """
+                SELECT COUNT(*) as count
+                FROM intervention_queue
+                WHERE domain = ? AND status IN ('pending', 'in_progress')
+                  AND (expires_at IS NULL OR expires_at > ?)
+                """,
+                (domain, now_iso),
+            )
+            skipped = count_row["count"] if count_row else 0
+            
+            # Update
+            await self._db.execute(
+                """
+                UPDATE intervention_queue
+                SET status = 'skipped', completed_at = datetime('now')
+                WHERE domain = ? AND status IN ('pending', 'in_progress')
+                """,
+                (domain,),
+            )
+            
+            logger.info(
+                "Authentications skipped by domain",
+                domain=domain,
+                skipped=skipped,
+                affected_tasks=affected_tasks,
+            )
+        elif task_id:
+            # Skip all pending items for a task
+            await self._db.execute(
                 """
                 UPDATE intervention_queue
                 SET status = 'skipped', completed_at = datetime('now')
@@ -1161,23 +1384,36 @@ class InterventionQueue:
                 """,
                 (task_id,),
             )
-            # Get count (SQLite doesn't return affected rows easily)
+            # Get count
             row = await self._db.fetch_one(
                 "SELECT COUNT(*) as count FROM intervention_queue WHERE task_id = ? AND status = 'skipped'",
                 (task_id,),
             )
             skipped = row["count"] if row else 0
+            
+            logger.info(
+                "Authentications skipped by task_id",
+                task_id=task_id,
+                skipped=skipped,
+            )
+        else:
+            # No filter specified
+            return {
+                "ok": False,
+                "error": "Must specify task_id, queue_ids, or domain",
+                "skipped": 0,
+            }
         
-        logger.info(
-            "Authentications skipped",
-            task_id=task_id,
-            skipped=skipped,
-        )
-        
-        return {
+        result: dict[str, Any] = {
             "ok": True,
             "skipped": skipped,
         }
+        
+        # Include affected_tasks for domain-based skips
+        if domain and affected_tasks:
+            result["affected_tasks"] = affected_tasks
+        
+        return result
     
     async def get_session_for_domain(
         self,
