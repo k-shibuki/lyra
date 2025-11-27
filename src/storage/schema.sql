@@ -188,6 +188,23 @@ CREATE TABLE IF NOT EXISTS domains (
     total_success INTEGER DEFAULT 0,
     total_failures INTEGER DEFAULT 0,
     total_captchas INTEGER DEFAULT 0,
+    -- IPv6 settings (§4.3)
+    ipv6_enabled BOOLEAN DEFAULT 1,
+    ipv6_success_rate REAL DEFAULT 0.5,
+    ipv4_success_rate REAL DEFAULT 0.5,
+    ipv6_preference TEXT DEFAULT 'auto',  -- ipv6_first, ipv4_first, auto
+    -- IPv6 counters
+    ipv6_attempts INTEGER DEFAULT 0,
+    ipv6_successes INTEGER DEFAULT 0,
+    ipv4_attempts INTEGER DEFAULT 0,
+    ipv4_successes INTEGER DEFAULT 0,
+    switch_count INTEGER DEFAULT 0,
+    switch_success_count INTEGER DEFAULT 0,
+    -- IPv6 timestamps
+    last_ipv6_success_at DATETIME,
+    last_ipv6_failure_at DATETIME,
+    last_ipv4_success_at DATETIME,
+    last_ipv4_failure_at DATETIME,
     -- Timestamps
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
