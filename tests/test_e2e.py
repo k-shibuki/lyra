@@ -128,7 +128,7 @@ class TestSearchToReportPipeline:
         - Query execution with real SearXNG
         - Result normalization (title, url, snippet, engine, rank)
         """
-        from src.search.searxng import search_serp
+        from src.search import search_serp
         
         # Execute a simple search query
         results = await search_serp(

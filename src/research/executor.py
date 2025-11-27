@@ -274,8 +274,8 @@ class SubqueryExecutor:
         return expanded
     
     async def _execute_search(self, query: str) -> list[dict[str, Any]]:
-        """Execute search via SearXNG."""
-        from src.search.searxng import search_serp
+        """Execute search via search provider."""
+        from src.search import search_serp
         
         try:
             results = await search_serp(
