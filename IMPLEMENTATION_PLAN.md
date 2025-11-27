@@ -233,17 +233,26 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - [x] `InterventionQueue` クラス
   - [x] `enqueue()`: 認証待ちをキューに積む
   - [x] `get_pending()`: 認証待ち一覧を取得
+  - [x] `get_pending_by_domain()`: ドメイン別にグループ化した認証待ちを取得
   - [x] `start_session()`: 認証セッションを開始（URL返却のみ、DOM操作なし）
-  - [x] `complete()`: 認証完了を記録
-  - [x] `skip()`: 認証をスキップ
+  - [x] `complete()`: 認証完了を記録（単一キューアイテム）
+  - [x] `complete_domain()`: ドメイン単位で認証を一括完了
+  - [x] `skip()`: 認証をスキップ（キューID指定またはドメイン指定）
   - [x] `get_session_for_domain()`: 認証済みセッションを取得
 - [x] MCPツール
   - [x] `get_pending_authentications`: 認証待ちキューを取得
+  - [x] `get_pending_by_domain`: ドメイン別にグループ化した認証待ちを取得
   - [x] `start_authentication_session`: 認証セッションを開始（URL開く+前面化のみ）
   - [x] `complete_authentication`: 認証完了を通知（主たる完了検知手段）
+  - [x] `complete_domain_authentication`: ドメイン単位で認証を一括完了
   - [x] `skip_authentication`: 認証をスキップ
+  - [x] `skip_domain_authentication`: ドメイン単位でスキップ
 - [x] `FetchResult` に `auth_queued`, `queue_id` フィールド追加
 - [x] `BrowserFetcher.fetch()` に `queue_auth` パラメータ追加
+- [x] **ドメインベース認証管理**（§3.6.1）
+  - 同一ドメインの認証完了で複数タスクのキューを一括解決
+  - 認証済みセッション（Cookie等）を同一ドメインで共有
+  - ドメイン単位でのスキップ機能
 - [x] **§3.6.1安全運用方針**
   - 認証セッション中はDOM操作（スクロール、ハイライト、フォーカス）禁止
   - ユーザーが自分でチャレンジを発見・解決

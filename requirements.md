@@ -778,11 +778,25 @@ Cursor AI                          Lancet MCP
   - `oldest_queued_at`: 最古のキュー時刻
   - `by_auth_type`: 認証タイプ別カウント（cloudflare/captcha/turnstile等）
   - 閾値アラート: ≥3件でwarning、≥5件または高優先度≥2件でcriticalをwarnings配列に追加
+- **ドメインベース認証管理**: 同一ドメインの認証は1回の突破で複数タスク/URLに適用される
+  - **一括解決**: ドメインAの認証を完了すると、ドメインAを待つ全タスクのキューが解決
+  - **セッション共有**: 認証済みCookie/セッションは同一ドメインの後続リクエストで自動再利用
+  - **ドメイン別スキップ**: 特定ドメインを一括でスキップ可能（例: ログイン必須サイト）
 - **MCPツール**:
-  - `get_pending_authentications`: 認証待ちキューを取得
+  - `get_pending_authentications`: 認証待ちキューを取得（タスク/優先度でフィルタ可能）
+  - `get_pending_by_domain`: ドメイン別にグループ化した認証待ちを取得
+    - 出力: `{ok, total_domains, total_pending, domains: [{domain, pending_count, high_priority_count, affected_tasks, auth_types}]}`
   - `start_authentication_session`: 認証セッションを開始（URLを開きウィンドウ前面化のみ、DOM操作なし）
-  - `complete_authentication`: ユーザーが認証完了を報告
-  - `skip_authentication`: 認証をスキップ
+  - `complete_authentication`: ユーザーが認証完了を報告（単一キューアイテム）
+  - `complete_domain_authentication`: ドメイン単位で認証を完了
+    - 入力: `domain`, `success`, `session_data?`
+    - 出力: `{ok, domain, resolved_count, affected_tasks, session_stored}`
+    - 効果: 当該ドメインの全pendingキューを一括解決
+  - `skip_authentication`: 認証をスキップ（キューID指定またはタスク全体）
+  - `skip_domain_authentication`: ドメイン単位でスキップ
+    - 入力: `domain`
+    - 出力: `{ok, skipped, affected_tasks}`
+    - 効果: 当該ドメインの全pendingキューを一括スキップ
 
 ##### 認証セッションの安全運用方針
 
