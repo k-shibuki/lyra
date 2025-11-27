@@ -785,18 +785,28 @@ E2Eテストを有効に実施するための前提：
 
 ---
 
-### 16.8 タイムライン機能（§3.4, §7） 🔴
+### 16.8 タイムライン機能（§3.4, §7） ✅
 
 **目的**: 重要主張ごとに初出/更新/訂正/撤回のタイムラインを付与
 **受け入れ基準**: タイムライン付与率≥90%（§7）
 
 #### 16.8.1 主張タイムライン構築
-- [ ] `ClaimTimeline`クラス（`src/filter/claim_timeline.py`）
+- [x] `ClaimTimeline`クラス（`src/filter/claim_timeline.py`）
   - イベント種別: first_appeared/updated/corrected/retracted/confirmed
-  - データ: timestamp, source_url, evidence_fragment_id
-- [ ] Wayback差分との連携（Phase 12.4 WaybackExplorer統合）
-- [ ] タイムライン付与率メトリクス（`src/utils/metrics.py`）
-- [ ] レポートへのタイムライン出力（`src/report/generator.py`）
+  - データ: timestamp, source_url, evidence_fragment_id, wayback_snapshot_url
+  - 信頼度調整（撤回ペナルティ、確認ボーナス）
+  - 実装: `ClaimTimeline`, `TimelineEvent`, `TimelineEventType`, `ClaimTimelineManager`
+- [x] Wayback差分との連携（Phase 12.4 WaybackExplorer統合）
+  - `integrate_wayback_result()`: Wayback結果からタイムライン自動構築
+  - first_appeared/updated イベントの自動検出
+- [x] タイムライン付与率メトリクス（`src/utils/metrics.py`）
+  - 既存の`TIMELINE_COVERAGE`と`claims_with_timeline`を活用
+  - `get_timeline_coverage()`: タスク別カバレッジ算出
+- [x] レポートへのタイムライン出力（`src/report/generator.py`）
+  - Markdownレポート: 撤回/訂正警告、主要主張のタイムライン表示
+  - JSONレポート: タイムライン統計情報を含む
+  - `get_report_materials()`: タイムラインカバレッジ率を返却
+- テスト: 47件（全パス、§7.1準拠）
 
 ---
 
