@@ -433,9 +433,13 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
   - 実装: `src/crawler/dns_policy.py` (DNSPolicyManager, get_dns_policy_manager)
   - HTTPFetcher統合: socks5:// → socks5h://への変更
   - テスト: 37件（全パス）
-- [ ] **HTTP/3(QUIC)方針** (§4.3)
+- [x] **HTTP/3(QUIC)方針** (§4.3) ✅
   - ブラウザ経由でのHTTP/3自然利用検知
   - HTTP/3提供サイトでのブラウザ経路比率自動増加
+  - 実装: `src/crawler/http3_policy.py` (HTTP3PolicyManager, ProtocolVersion, HTTP3DomainStats)
+  - 設定: `config/settings.yaml` http3セクション追加
+  - スキーマ: `domains`テーブルにHTTP/3関連カラム追加
+  - テスト: 45件（全パス、§7.1準拠）
 
 #### 16.1.2 トランスポート/TLS層
 - [x] **sec-fetch-*ヘッダー整合** (§4.3) ✅
@@ -917,9 +921,11 @@ E2Eテストを有効に実施するための前提：
 
 | 優先度 | 項目数 | 主要カテゴリ |
 |--------|--------|--------------|
-| 🔴 高（E2E前必須） | 10項目 | HTTP/3(QUIC)、**半自動運用UX** |
+| 🔴 高（E2E前必須） | 9項目 | **半自動運用UX**、ヘッドフル操作 |
 | 🟡 中（MVP強化: E2E前推奨） | 11項目 | エンティティKB、Chain-of-Density |
 | 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
+
+**最終更新**: 2025-11-27 - HTTP/3(QUIC)方針 実装完了
 
 ### 完了済み（Phase 16）
 - sec-fetch-*ヘッダー整合、sec-ch-ua*ヘッダー
