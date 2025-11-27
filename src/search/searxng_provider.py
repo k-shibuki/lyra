@@ -95,7 +95,7 @@ class SearXNGProvider(BaseSearchProvider):
     
     Implements the SearchProvider interface for the local SearXNG instance.
     Provides rate limiting, health monitoring, and standardized result format.
-    Uses DomainPolicyManager for QPS configuration.
+    Uses SearchEngineConfigManager for configuration (Phase 17.2.2).
     
     Example:
         provider = SearXNGProvider()
@@ -118,25 +118,51 @@ class SearXNGProvider(BaseSearchProvider):
         """
         Initialize SearXNG provider.
         
-        Uses DomainPolicyManager for default min_interval if not specified.
+        Uses SearchEngineConfigManager for default configuration (Phase 17.2.2).
+        Falls back to DomainPolicyManager for min_interval if not specified.
         
         Args:
-            base_url: SearXNG instance URL. Default: SEARXNG_HOST env or localhost:8080.
-            timeout: Request timeout in seconds. Default: 30.
+            base_url: SearXNG instance URL. Default: from config or SEARXNG_HOST env.
+            timeout: Request timeout in seconds. Default: from config or 30.
             min_interval: Minimum interval between requests in seconds. Default from config.
         """
         super().__init__("searxng")
         
-        self._base_url = base_url or os.environ.get("SEARXNG_HOST", self.DEFAULT_BASE_URL)
-        self._timeout = timeout or self.DEFAULT_TIMEOUT
+        # Try to get settings from SearchEngineConfigManager first (Phase 17.2.2)
+        engine_manager = None
+        try:
+            from src.search.engine_config import get_engine_config_manager
+            engine_manager = get_engine_config_manager()
+        except ImportError:
+            pass
         
-        # Get default min_interval from DomainPolicyManager if not provided
-        if min_interval is None:
+        # Resolve base_url - Environment variable takes highest priority for container deployments
+        if base_url is not None:
+            self._base_url = base_url
+        elif os.environ.get("SEARXNG_HOST"):
+            # Environment variable overrides config file (for container/deployment flexibility)
+            self._base_url = os.environ["SEARXNG_HOST"]
+        elif engine_manager is not None:
+            self._base_url = engine_manager.get_searxng_host()
+        else:
+            self._base_url = self.DEFAULT_BASE_URL
+        
+        # Resolve timeout
+        if timeout is not None:
+            self._timeout = timeout
+        elif engine_manager is not None:
+            self._timeout = engine_manager.get_searxng_timeout()
+        else:
+            self._timeout = self.DEFAULT_TIMEOUT
+        
+        # Resolve min_interval
+        if min_interval is not None:
+            self._min_interval = min_interval
+        else:
+            # Try DomainPolicyManager for backward compatibility
             from src.utils.domain_policy import get_domain_policy_manager
             policy_manager = get_domain_policy_manager()
             self._min_interval = policy_manager.get_search_engine_min_interval()
-        else:
-            self._min_interval = min_interval
         
         self._session: aiohttp.ClientSession | None = None
         self._rate_limiter = asyncio.Semaphore(1)
@@ -147,6 +173,9 @@ class SearXNGProvider(BaseSearchProvider):
         self._failure_count = 0
         self._total_latency = 0.0
         self._last_error: str | None = None
+        
+        # Store engine manager reference for later use
+        self._engine_manager = engine_manager
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session."""

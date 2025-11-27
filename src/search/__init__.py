@@ -12,6 +12,11 @@ Provider system:
     SearchProviderRegistry - Registry for provider management
     get_registry() - Get global provider registry
     SearXNGProvider - Default SearXNG implementation
+
+Engine configuration (Phase 17.2.2):
+    SearchEngineConfigManager - Centralized engine configuration
+    get_engine_config_manager() - Get global engine config manager
+    EngineConfig - Individual engine configuration
 """
 
 # Core search function (uses provider by default)
@@ -25,6 +30,21 @@ from src.search.searxng import (
     parse_query_operators,
     transform_query_for_engine,
     build_search_query,
+)
+
+# Engine configuration (Phase 17.2.2)
+from src.search.engine_config import (
+    SearchEngineConfigManager,
+    get_engine_config_manager,
+    reset_engine_config_manager,
+    EngineConfig,
+    EngineCategory,
+    EngineStatus,
+    DirectSource,
+    get_engine_config,
+    get_available_search_engines,
+    get_engine_operator_mapping,
+    is_search_engine_available,
 )
 
 # A/B Testing
@@ -98,5 +118,17 @@ __all__ = [
     "SearXNGProvider",
     "get_searxng_provider",
     "cleanup_searxng_provider",
+    # Engine configuration (Phase 17.2.2)
+    "SearchEngineConfigManager",
+    "get_engine_config_manager",
+    "reset_engine_config_manager",
+    "EngineConfig",
+    "EngineCategory",
+    "EngineStatus",
+    "DirectSource",
+    "get_engine_config",
+    "get_available_search_engines",
+    "get_engine_operator_mapping",
+    "is_search_engine_available",
 ]
 

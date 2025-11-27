@@ -65,6 +65,7 @@ class QueryOperatorProcessor:
     - after:YYYY-MM-DD - Date filter
     
     Implements engine-specific mapping from config/engines.yaml (§3.1.4).
+    Now uses SearchEngineConfigManager for centralized configuration (Phase 17.2.2).
     """
     
     # Regex patterns for operator detection
@@ -86,16 +87,41 @@ class QueryOperatorProcessor:
     }
     
     def __init__(self, config_path: str | None = None):
-        """Initialize with optional custom config path."""
+        """Initialize with optional custom config path.
+        
+        Args:
+            config_path: Optional path to engines.yaml. If None, uses
+                         SearchEngineConfigManager singleton.
+        """
         self._operator_mapping: dict[str, dict[str, str | None]] = {}
+        self._config_manager = None
         self._load_config(config_path)
     
     def _load_config(self, config_path: str | None = None) -> None:
-        """Load operator mapping from config file."""
+        """Load operator mapping from SearchEngineConfigManager or config file.
+        
+        Uses SearchEngineConfigManager by default for centralized config.
+        Falls back to direct file loading for custom paths or testing.
+        """
+        # Try to use SearchEngineConfigManager (Phase 17.2.2)
+        try:
+            from src.search.engine_config import get_engine_config_manager
+            
+            if config_path is None:
+                self._config_manager = get_engine_config_manager()
+                self._operator_mapping = self._config_manager.get_all_operator_mappings()
+                logger.debug(
+                    "Loaded operator mapping from SearchEngineConfigManager",
+                    operators=list(self._operator_mapping.keys()),
+                )
+                return
+        except ImportError:
+            logger.debug("SearchEngineConfigManager not available, falling back to direct load")
+        
+        # Fallback: direct file loading (for custom paths or when manager not available)
         import os
         
         if config_path is None:
-            # Try to find config/engines.yaml
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             config_path = os.path.join(base_dir, "config", "engines.yaml")
         
@@ -105,7 +131,7 @@ class QueryOperatorProcessor:
             
             if config and "operator_mapping" in config:
                 self._operator_mapping = config["operator_mapping"]
-                logger.debug("Loaded operator mapping", operators=list(self._operator_mapping.keys()))
+                logger.debug("Loaded operator mapping from file", operators=list(self._operator_mapping.keys()))
             else:
                 logger.warning("No operator_mapping found in config, using defaults")
                 self._init_default_mapping()
@@ -158,6 +184,16 @@ class QueryOperatorProcessor:
                 "google": "after:{date}",
             },
         }
+    
+    def reload_config(self) -> None:
+        """Reload operator mappings from SearchEngineConfigManager.
+        
+        Useful for hot-reload scenarios where config has changed.
+        """
+        if self._config_manager is not None:
+            self._config_manager.reload()
+            self._operator_mapping = self._config_manager.get_all_operator_mappings()
+            logger.debug("Reloaded operator mapping", operators=list(self._operator_mapping.keys()))
     
     def parse(self, query: str) -> ParsedQuery:
         """
