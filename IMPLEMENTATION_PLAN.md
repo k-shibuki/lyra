@@ -822,15 +822,23 @@ E2Eテストを有効に実施するための前提：
 - 実装: `src/filter/provider.py`, `src/filter/ollama_provider.py`
 - 影響範囲: `src/filter/llm.py`
 
-#### 17.1.3 BrowserProvider抽象化
-- [ ] `BrowserProvider` プロトコル/ABC定義
+#### 17.1.3 BrowserProvider抽象化 ✅
+- [x] `BrowserProvider` プロトコル/ABC定義
   - `navigate(url, options) -> PageResult`
   - `execute_script(script) -> Any`
   - `get_cookies() -> list[Cookie]`
-- [ ] `PlaywrightProvider` 実装（現行コードのリファクタ）
-- [ ] `UndetectedChromeProvider` 実装（現行コードのリファクタ）
-- [ ] 自動フォールバック戦略の分離
-- 影響範囲: `src/crawler/fetcher.py`, `src/crawler/undetected.py`
+  - `set_cookies(cookies) -> None`
+  - `take_screenshot(path, full_page) -> str | None`
+  - `get_health() -> BrowserHealthStatus`
+  - `close() -> None`
+- [x] `BrowserOptions`, `PageResult`, `Cookie`, `BrowserHealthStatus` データクラス
+- [x] `PlaywrightProvider` 実装（現行コードのリファクタ）
+- [x] `UndetectedChromeProvider` 実装（現行コードのリファクタ）
+- [x] `BrowserProviderRegistry` プロバイダ登録・切替・フォールバック機構
+- [x] 既存`fetcher.py`との後方互換性維持（`use_provider`ポリシーオプション）
+- [x] テスト: 44件（全パス、§7.1準拠）
+- 実装: `src/crawler/browser_provider.py`, `src/crawler/playwright_provider.py`, `src/crawler/undetected_provider.py`
+- 影響範囲: `src/crawler/fetcher.py`
 
 #### 17.1.4 NotificationProvider抽象化
 - [ ] `NotificationProvider` プロトコル/ABC定義
