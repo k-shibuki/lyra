@@ -6,12 +6,14 @@ Implements DNS policies per §4.3:
 - Disable EDNS Client Subnet (ECS) to prevent location leakage
 - Respect DNS cache TTL to reduce exposure from frequent re-resolution
 - DNS leak detection metrics
+- IPv6/IPv4 preference with Happy Eyeballs-style fallback
 
 Key Design:
 - When using Tor, DNS MUST be resolved through the Tor network (socks5h://)
   to prevent DNS leaks where the local resolver reveals the user's IP.
 - For direct routes, use OS resolver with ECS disabled where possible.
 - Cache DNS results respecting TTL to minimize exposure.
+- IPv6-first with automatic fallback based on learned success rates.
 """
 
 import asyncio
@@ -19,12 +21,19 @@ import socket
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from urllib.parse import urlparse
 
 import structlog
 
 from src.utils.config import get_settings
+
+if TYPE_CHECKING:
+    from src.crawler.ipv6_manager import (
+        IPv6ConnectionManager,
+        AddressFamily,
+        IPv6Address,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -460,6 +469,115 @@ class DNSPolicyManager:
             return DNSLeakType.LOCAL_RESOLUTION_DURING_TOR
         
         return DNSLeakType.NONE
+    
+    # =========================================================================
+    # IPv6 Integration (§4.3)
+    # =========================================================================
+    
+    async def resolve_with_ipv6_preference(
+        self,
+        hostname: str,
+        domain: str | None = None,
+    ) -> list["IPv6Address"]:
+        """Resolve hostname with IPv6 preference.
+        
+        Integrates with IPv6ConnectionManager for Happy Eyeballs-style
+        address resolution with learned preferences.
+        
+        Args:
+            hostname: Hostname to resolve.
+            domain: Domain for per-domain preference lookup.
+            
+        Returns:
+            List of addresses sorted by preference.
+        """
+        from src.crawler.ipv6_manager import get_ipv6_manager
+        
+        manager = get_ipv6_manager()
+        return await manager.get_preferred_addresses(hostname, domain)
+    
+    def get_preferred_address_family(
+        self,
+        domain: str | None = None,
+    ) -> "AddressFamily":
+        """Get preferred address family for a domain.
+        
+        Args:
+            domain: Domain to check (optional).
+            
+        Returns:
+            Preferred address family.
+        """
+        from src.crawler.ipv6_manager import (
+            get_ipv6_manager,
+            AddressFamily,
+            IPv6Preference,
+        )
+        
+        manager = get_ipv6_manager()
+        
+        if not manager.is_ipv6_enabled():
+            return AddressFamily.IPV4
+        
+        # Get global preference from settings
+        ipv6_settings = manager._get_ipv6_settings()
+        preference_str = ipv6_settings.get("preference", "ipv6_first")
+        
+        try:
+            global_preference = IPv6Preference(preference_str)
+        except ValueError:
+            global_preference = IPv6Preference.IPV6_FIRST
+        
+        # Without domain info, use global preference
+        if not domain:
+            if global_preference == IPv6Preference.IPV4_FIRST:
+                return AddressFamily.IPV4
+            return AddressFamily.IPV6
+        
+        # With domain, use manager's logic (will be async in actual usage)
+        # This is a synchronous approximation for simple cases
+        if global_preference == IPv6Preference.IPV4_FIRST:
+            return AddressFamily.IPV4
+        return AddressFamily.IPV6
+    
+    async def get_preferred_address_family_async(
+        self,
+        domain: str,
+    ) -> "AddressFamily":
+        """Get preferred address family for a domain (async version).
+        
+        Args:
+            domain: Domain to check.
+            
+        Returns:
+            Preferred address family based on learned stats.
+        """
+        from src.crawler.ipv6_manager import (
+            get_ipv6_manager,
+            AddressFamily,
+            IPv6Preference,
+        )
+        
+        manager = get_ipv6_manager()
+        
+        if not manager.is_ipv6_enabled():
+            return AddressFamily.IPV4
+        
+        if not await manager.is_ipv6_enabled_for_domain(domain):
+            return AddressFamily.IPV4
+        
+        # Get global preference
+        ipv6_settings = manager._get_ipv6_settings()
+        preference_str = ipv6_settings.get("preference", "ipv6_first")
+        
+        try:
+            global_preference = IPv6Preference(preference_str)
+        except ValueError:
+            global_preference = IPv6Preference.IPV6_FIRST
+        
+        # Get domain stats and determine preference
+        stats = await manager.get_domain_stats(domain)
+        return stats.get_preferred_family(global_preference)
 
 
 # Global DNS policy manager instance

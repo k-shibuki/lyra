@@ -93,6 +93,21 @@ tor:
     # Enable DNS leak detection metrics
     leak_detection_enabled: true
 
+# === IPv6 Settings (§4.3) ===
+ipv6:
+  # Enable/disable IPv6 globally
+  enabled: true
+  # Default preference: ipv6_first, ipv4_first, auto
+  preference: "ipv6_first"
+  # Timeout before falling back to alternative address family (seconds)
+  fallback_timeout: 5.0
+  # Success rate threshold below which IPv6 will be disabled for a domain
+  learning_threshold: 0.3
+  # Minimum samples required before adjusting preferences
+  min_samples: 5
+  # EMA alpha for success rate updates (higher = faster adaptation)
+  ema_alpha: 0.1
+
 # === Browser Settings ===
 browser:
   # Chrome remote debugging
