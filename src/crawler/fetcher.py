@@ -49,6 +49,13 @@ from src.crawler.undetected import (
     get_undetected_fetcher,
     close_undetected_fetcher,
 )
+from src.crawler.browser_provider import (
+    BrowserProviderRegistry,
+    BrowserOptions,
+    BrowserMode,
+    PageResult as ProviderPageResult,
+    get_browser_registry,
+)
 from src.crawler.dns_policy import (
     get_dns_policy_manager,
     DNSRoute,
@@ -1631,6 +1638,8 @@ async def fetch_url(
             - skip_cache: Skip cache lookup and conditional requests.
             - max_retries: Override max retries (default: 3).
             - allow_intervention: Allow manual intervention on challenge (default: True).
+            - use_provider: Use BrowserProviderRegistry for browser fetching (default: False).
+            - provider_name: Specific provider to use (e.g., "playwright", "undetected_chrome").
         task_id: Associated task ID.
         
     Returns:
@@ -1661,6 +1670,8 @@ async def fetch_url(
         use_tor = policy.get("use_tor", False)
         skip_cache = policy.get("skip_cache", False)
         max_retries = policy.get("max_retries", settings.crawler.max_retries)
+        use_provider = policy.get("use_provider", False)
+        provider_name = policy.get("provider_name", None)
         
         # Initialize fetchers
         if _http_fetcher is None:
@@ -1745,9 +1756,62 @@ async def fetch_url(
                 force_browser = True
         
         # =====================================================================
-        # Stage 2: Browser Headless (auto mode selection)
+        # Stage 2: Browser via Provider (if use_provider=True)
         # =====================================================================
-        if force_browser and not force_headful:
+        if force_browser and use_provider:
+            registry = get_browser_registry()
+            
+            browser_options = BrowserOptions(
+                mode=BrowserMode.HEADFUL if force_headful else BrowserMode.HEADLESS,
+                referer=context.get("referer"),
+                simulate_human=True,
+                take_screenshot=True,
+            )
+            
+            if provider_name:
+                # Use specific provider
+                provider = registry.get(provider_name)
+                if provider:
+                    provider_result = await provider.navigate(url, browser_options)
+                else:
+                    logger.warning(f"Provider {provider_name} not found, using fallback")
+                    provider_result = await registry.navigate_with_fallback(url, browser_options)
+            else:
+                # Use fallback strategy
+                provider_result = await registry.navigate_with_fallback(url, browser_options)
+            
+            escalation_path.append(f"provider({provider_result.provider})")
+            
+            if provider_result.ok:
+                # Convert ProviderPageResult to FetchResult
+                result = FetchResult(
+                    ok=True,
+                    url=url,
+                    status=provider_result.status,
+                    html_path=provider_result.html_path,
+                    screenshot_path=provider_result.screenshot_path,
+                    content_hash=provider_result.content_hash,
+                    method=f"provider_{provider_result.provider}",
+                    from_cache=False,
+                )
+            else:
+                result = FetchResult(
+                    ok=False,
+                    url=url,
+                    status=provider_result.status,
+                    reason=provider_result.error,
+                    method=f"provider_{provider_result.provider}",
+                    auth_type=provider_result.challenge_type,
+                )
+                
+                if provider_result.challenge_detected:
+                    # Update domain policy for future
+                    await _update_domain_headful_ratio(db, domain, increase=True)
+        
+        # =====================================================================
+        # Stage 2b: Browser Headless (legacy path, auto mode selection)
+        # =====================================================================
+        elif force_browser and not force_headful:
             allow_intervention = policy.get("allow_intervention", True)
             result = await _browser_fetcher.fetch(
                 url,
