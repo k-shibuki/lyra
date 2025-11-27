@@ -840,10 +840,17 @@ E2Eテストを有効に実施するための前提：
 - 実装: `src/crawler/browser_provider.py`, `src/crawler/playwright_provider.py`, `src/crawler/undetected_provider.py`
 - 影響範囲: `src/crawler/fetcher.py`
 
-#### 17.1.4 NotificationProvider抽象化
-- [ ] `NotificationProvider` プロトコル/ABC定義
-- [ ] `WindowsToastProvider`, `LinuxNotifyProvider` 実装
-- [ ] プラットフォーム自動検出と切替
+#### 17.1.4 NotificationProvider抽象化 ✅
+- [x] `NotificationProvider` プロトコル/ABC定義
+- [x] `NotificationResult`, `NotificationOptions`, `NotificationHealthStatus` データクラス
+- [x] `LinuxNotifyProvider` 実装（notify-send）
+- [x] `WindowsToastProvider` 実装（PowerShell UWP Toast）
+- [x] `WSLBridgeProvider` 実装（WSL-Windows橋渡し）
+- [x] `NotificationProviderRegistry` プロバイダ登録・切替・フォールバック機構
+- [x] プラットフォーム自動検出と切替
+- [x] 既存`InterventionManager.send_toast()`との後方互換性維持
+- [x] テスト: 74件（全パス、§7.1準拠）
+- 実装: `src/utils/notification_provider.py`
 - 影響範囲: `src/utils/notification.py`
 
 ---
@@ -947,7 +954,7 @@ E2Eテストを有効に実施するための前提：
 | Phase 14: テスト | 🔄 | 95% | E2E/ミューテーション未完 |
 | Phase 15: ドキュメント | 🔄 | 75% | Phase 14/16完了後に整備|
 | **Phase 16: 未実装機能** | 🔄 | 80% | **15項目残り** |
-| **Phase 17: 保守性改善** | 🔄 | 25% | SearchProvider/LLMProvider抽象化完了 |
+| **Phase 17: 保守性改善** | 🔄 | 45% | 17.1プロバイダ抽象化完了 |
 
 **凡例**: ✅ 完了 / 🔄 進行中 / ⏳ 未着手
 
@@ -958,8 +965,6 @@ E2Eテストを有効に実施するための前提：
 | 🔴 高（E2E前必須） | 9項目 | **半自動運用UX**、ヘッドフル操作 |
 | 🟡 中（MVP強化: E2E前推奨） | 9項目 | ~~Chain-of-Density~~ |
 | 🟢 低（将来拡張） | 7項目 | GROBID、faiss-gpu、Privoxy |
-
-**最終更新**: 2025-11-27 - Phase 17.1.2 LLMProvider抽象化 実装完了
 
 ### 完了済み（Phase 16）
 - sec-fetch-*ヘッダー整合、sec-ch-ua*ヘッダー
@@ -983,6 +988,8 @@ E2Eテストを有効に実施するための前提：
 ### 完了済み（Phase 17）
 - **SearchProvider抽象化**（Protocol/ABC定義、SearXNGProvider実装、Registry、フォールバック機構）
 - **LLMProvider抽象化**（Protocol/ABC定義、OllamaProvider実装、Registry、フォールバック機構、後方互換性維持）
+- **BrowserProvider抽象化**（Protocol/ABC定義、PlaywrightProvider/UndetectedChromeProvider実装、Registry）
+- **NotificationProvider抽象化**（Protocol/ABC定義、Linux/Windows/WSLプロバイダ実装、プラットフォーム自動検出、後方互換性維持）
 
 ---
 
