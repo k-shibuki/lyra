@@ -681,6 +681,33 @@ TOOLS = [
             "required": ["question"]
         }
     ),
+    # ============================================================
+    # Phase 16.2.7: Chain-of-Density Compression (§3.3.1)
+    # ============================================================
+    Tool(
+        name="compress_with_chain_of_density",
+        description="Compress claims and fragments into a dense summary using Chain-of-Density technique. Per §3.3.1: Increases information density while ensuring all claims have deep links, discovery timestamps, and excerpts.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to compress materials for"
+                },
+                "max_iterations": {
+                    "type": "integer",
+                    "description": "Maximum densification iterations (default: 5)",
+                    "default": 5
+                },
+                "use_llm": {
+                    "type": "boolean",
+                    "description": "Use LLM for compression (True) or rule-based (False). Default: True",
+                    "default": True
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
 ]
 
 
@@ -759,6 +786,8 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "rollback_calibration": _handle_rollback_calibration,
         # Phase 16.2.6: Claim Decomposition (§3.3.1)
         "decompose_question": _handle_decompose_question,
+        # Phase 16.2.7: Chain-of-Density Compression (§3.3.1)
+        "compress_with_chain_of_density": _handle_compress_with_chain_of_density,
     }
     
     handler = handlers.get(name)
@@ -1347,6 +1376,58 @@ async def _handle_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
     )
     
     return result.to_dict()
+
+
+# ============================================================
+# Phase 16.2.7: Chain-of-Density Compression Handlers (§3.3.1)
+# ============================================================
+
+async def _handle_compress_with_chain_of_density(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle compress_with_chain_of_density tool call.
+    
+    Implements §3.3.1: 圧縮と引用の厳格化.
+    - Chain-of-Density風に要約密度を上げる
+    - 全主張に深いリンク・発見日時・抜粋を必須付与
+    """
+    from src.report.chain_of_density import compress_with_chain_of_density
+    from src.report.generator import get_report_materials
+    
+    task_id = args["task_id"]
+    max_iterations = args.get("max_iterations", 5)
+    use_llm = args.get("use_llm", True)
+    
+    with LogContext(task_id=task_id):
+        # Get claims and fragments from task
+        materials = await get_report_materials(
+            task_id=task_id,
+            include_evidence_graph=False,
+            include_fragments=True,
+        )
+        
+        if not materials.get("ok"):
+            return materials
+        
+        # Extract claims (flatten high/low confidence)
+        claims_data = materials.get("claims", {})
+        all_claims = (
+            claims_data.get("high_confidence", []) +
+            claims_data.get("low_confidence", [])
+        )
+        
+        fragments = materials.get("fragments", [])
+        task_query = materials.get("original_query", "")
+        
+        # Compress using Chain-of-Density
+        result = await compress_with_chain_of_density(
+            claims=all_claims,
+            fragments=fragments,
+            task_query=task_query,
+            max_iterations=max_iterations,
+            use_llm=use_llm,
+        )
+        
+        return result
 
 
 # ============================================================
