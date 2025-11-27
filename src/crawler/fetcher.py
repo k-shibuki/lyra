@@ -58,6 +58,12 @@ from src.crawler.ipv6_manager import (
     IPv6ConnectionResult,
     AddressFamily,
 )
+from src.crawler.http3_policy import (
+    get_http3_policy_manager,
+    HTTP3RequestResult,
+    ProtocolVersion,
+    detect_protocol_from_playwright_response,
+)
 
 logger = get_logger(__name__)
 
@@ -644,6 +650,19 @@ class HTTPFetcher:
                 request_headers=req_headers,
             )
             
+            # Record HTTP client request for HTTP/3 policy tracking (§4.3)
+            # HTTP client uses HTTP/2 by default, not HTTP/3
+            domain = urlparse(url).netloc.lower()
+            http3_manager = get_http3_policy_manager()
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="http_client",
+                success=True,
+                protocol=ProtocolVersion.HTTP_2,  # curl_cffi uses HTTP/2
+                status_code=response.status_code,
+            ))
+            
             logger.info(
                 "HTTP fetch success",
                 url=url[:80],
@@ -669,6 +688,19 @@ class HTTPFetcher:
             
         except Exception as e:
             logger.error("HTTP fetch error", url=url, error=str(e))
+            
+            # Record failed HTTP client request for HTTP/3 policy tracking
+            domain = urlparse(url).netloc.lower()
+            http3_manager = get_http3_policy_manager()
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="http_client",
+                success=False,
+                protocol=ProtocolVersion.UNKNOWN,
+                error=str(e),
+            ))
+            
             return FetchResult(
                 ok=False,
                 url=url,
@@ -866,7 +898,8 @@ class BrowserFetcher:
     async def _should_use_headful(self, domain: str) -> bool:
         """Determine if headful mode should be used for domain.
         
-        Based on domain policy's headful_ratio and past failure history.
+        Based on domain policy's headful_ratio, past failure history,
+        and HTTP/3 policy (§4.3).
         
         Args:
             domain: Domain name.
@@ -883,17 +916,21 @@ class BrowserFetcher:
         )
         
         if domain_info is None:
-            # Default to settings-based ratio
-            return random.random() < self._settings.browser.headful_ratio_initial
+            base_ratio = self._settings.browser.headful_ratio_initial
+        else:
+            base_ratio = domain_info.get("headful_ratio", 0.1)
+            captcha_rate = domain_info.get("captcha_rate", 0.0)
+            
+            # Increase headful probability if domain has high captcha rate
+            if captcha_rate > 0.3:
+                base_ratio = min(1.0, base_ratio * 2)
         
-        headful_ratio = domain_info.get("headful_ratio", 0.1)
-        captcha_rate = domain_info.get("captcha_rate", 0.0)
+        # Apply HTTP/3 policy adjustment (§4.3)
+        # HTTP/3 sites may perform better with browser route
+        http3_manager = get_http3_policy_manager()
+        adjusted_ratio = await http3_manager.get_adjusted_browser_ratio(domain, base_ratio)
         
-        # Increase headful probability if domain has high captcha rate
-        if captcha_rate > 0.3:
-            headful_ratio = min(1.0, headful_ratio * 2)
-        
-        return random.random() < headful_ratio
+        return random.random() < adjusted_ratio
     
     async def fetch(
         self,
@@ -1111,6 +1148,20 @@ class BrowserFetcher:
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
             resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
             
+            # Detect HTTP/3 protocol usage (§4.3)
+            protocol = await detect_protocol_from_playwright_response(response)
+            
+            # Record HTTP/3 usage for policy tracking
+            http3_manager = get_http3_policy_manager()
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="browser",
+                success=True,
+                protocol=protocol,
+                status_code=response.status,
+            ))
+            
             logger.info(
                 "Browser fetch success",
                 url=url[:80],
@@ -1119,6 +1170,7 @@ class BrowserFetcher:
                 headful=headful,
                 has_etag=bool(resp_etag),
                 has_last_modified=bool(resp_last_modified),
+                protocol=protocol.value,
             )
             
             return FetchResult(
@@ -1138,6 +1190,18 @@ class BrowserFetcher:
             
         except Exception as e:
             logger.error("Browser fetch error", url=url, headful=headful, error=str(e))
+            
+            # Record failed request for HTTP/3 policy tracking
+            http3_manager = get_http3_policy_manager()
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="browser",
+                success=False,
+                protocol=ProtocolVersion.UNKNOWN,
+                error=str(e),
+            ))
+            
             return FetchResult(
                 ok=False,
                 url=url,
