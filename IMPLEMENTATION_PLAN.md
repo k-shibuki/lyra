@@ -965,36 +965,6 @@ E2Eテストを有効に実施するための前提：
 
 ---
 
-## タスクの状況（Phase 16/17）
-
-### 完了済み（Phase 16）
-- sec-fetch-*ヘッダー整合、sec-ch-ua*ヘッダー
-- navigator.webdriverオーバーライド、viewportジッター
-- プロファイル健全性監査、セッション移送ユーティリティ
-- ブラウザ経路アーカイブ保存
-- プロセスライフサイクル管理（ブラウザ/LLM破棄）
-- ページタイプ判定（記事/ナレッジ/フォーラム/ログイン壁/一覧）
-- undetected-chromedriverフォールバック（Cloudflare強/Turnstile対策）
-- 時系列整合チェック（主張時点 vs ページ更新日の不整合検出、信頼度減衰）
-- **校正ロールバック**（デグレ検知、パラメータ履歴保持、自動ロールバック）
-- **DNS方針**（socks5h://によるTor経路DNSリーク防止、キャッシュTTL尊重、リーク検出）
-- **UCB1風予算再配分**（収穫率ベースの動的予算配分、探索木制御最適化）
-- **クエリABテスト**（表記ゆれ/助詞/語順バリアント、高収穫クエリキャッシュ）
-- **ピボット探索（エンティティ拡張）**（企業→子会社/役員/ドメイン、ドメイン→証明書SAN、個人→所属）
-- **IPv6運用**（Happy Eyeballs風切替、ドメイン単位成功率学習、自動IPv6無効化）
-- **Chain-of-Density圧縮**（反復的密度向上、必須引用情報検証、LLM/ルールベース対応）
-
-### 完了済み（Phase 17）
-- **LLMProvider抽象化** ✅（Protocol/ABC定義、OllamaProvider実装、Registry、フォールバック機構、後方互換性維持、**移行完了**）
-- **BrowserProvider抽象化** ✅（Protocol/ABC定義、PlaywrightProvider/UndetectedChromeProvider実装、Registry、**移行完了**）
-- **NotificationProvider抽象化** ✅（Protocol/ABC定義、Linux/Windows/WSLプロバイダ実装、プラットフォーム自動検出、後方互換性維持、**移行完了**）
-
-### 進行中（Phase 17）
-- **SearchProvider抽象化** 🔄（基盤実装完了、7ファイルの移行残）
-- **ドメインポリシー外部化** 🔄（基盤実装完了、6ファイルの移行残）
-
----
-
 ## 開発環境
 
 ### 起動方法
