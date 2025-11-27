@@ -210,7 +210,7 @@ class TestABTestExecutor:
     async def test_run_ab_test_basic(self, mock_db, mock_search):
         """Test basic A/B test execution."""
         with patch("src.search.ab_test.get_database", return_value=mock_db):
-            with patch("src.search.searxng.search_serp", mock_search):
+            with patch("src.search.search_serp", mock_search):
                 executor = ABTestExecutor()
                 
                 session = await executor.run_ab_test(
@@ -237,7 +237,7 @@ class TestABTestExecutor:
             return [{"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(8)]
         
         with patch("src.search.ab_test.get_database", return_value=mock_db):
-            with patch("src.search.searxng.search_serp", _search):
+            with patch("src.search.search_serp", _search):
                 executor = ABTestExecutor()
                 
                 session = await executor.run_ab_test(
@@ -253,7 +253,7 @@ class TestABTestExecutor:
     async def test_run_ab_test_saves_session(self, mock_db, mock_search):
         """Test that session is saved to database."""
         with patch("src.search.ab_test.get_database", return_value=mock_db):
-            with patch("src.search.searxng.search_serp", mock_search):
+            with patch("src.search.search_serp", mock_search):
                 executor = ABTestExecutor()
                 
                 session = await executor.run_ab_test(
@@ -468,7 +468,7 @@ class TestABTestIntegration:
             return results_by_query["default"]
         
         with patch("src.search.ab_test.get_database", return_value=mock_db):
-            with patch("src.search.searxng.search_serp", _search):
+            with patch("src.search.search_serp", _search):
                 from src.search.ab_test import run_query_ab_test
                 
                 session = await run_query_ab_test(
@@ -487,7 +487,7 @@ class TestABTestIntegration:
             return [{"title": "Test", "url": "http://test.com", "snippet": "..."}]
         
         with patch("src.search.ab_test.get_database", return_value=mock_db):
-            with patch("src.search.searxng.search_serp", _search):
+            with patch("src.search.search_serp", _search):
                 from src.search.ab_test import run_query_ab_test
                 
                 session = await run_query_ab_test(

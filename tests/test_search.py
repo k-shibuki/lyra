@@ -278,6 +278,7 @@ class TestSearchSerp:
                     query="test query",
                     limit=10,
                     use_cache=False,
+                    use_provider=False,  # Test legacy code path
                 )
         
         assert len(results) == 3
@@ -304,7 +305,7 @@ class TestSearchSerp:
             mock_get_client.return_value = mock_client
             
             with patch.object(searxng, "get_database", return_value=test_database):
-                results = await searxng.search_serp("query", use_cache=False)
+                results = await searxng.search_serp("query", use_cache=False, use_provider=False)
         
         # Should only have 2 unique URLs
         assert len(results) == 2
@@ -329,7 +330,7 @@ class TestSearchSerp:
             mock_get_client.return_value = mock_client
             
             with patch.object(searxng, "get_database", return_value=test_database):
-                results = await searxng.search_serp("query", limit=5, use_cache=False)
+                results = await searxng.search_serp("query", limit=5, use_cache=False, use_provider=False)
         
         assert len(results) == 5
 
@@ -344,7 +345,7 @@ class TestSearchSerp:
             mock_get_client.return_value = mock_client
             
             with patch.object(searxng, "get_database", return_value=test_database):
-                results = await searxng.search_serp("query", use_cache=False)
+                results = await searxng.search_serp("query", use_cache=False, use_provider=False)
         
         # Check source tags are assigned
         source_tags = [r["source_tag"] for r in results]
@@ -363,7 +364,7 @@ class TestSearchSerp:
             mock_get_client.return_value = mock_client
             
             with patch.object(searxng, "get_database", return_value=test_database):
-                results1 = await searxng.search_serp("cached query", use_cache=True)
+                results1 = await searxng.search_serp("cached query", use_cache=True, use_provider=False)
         
         # Second call - should use cache
         with patch.object(searxng, "_get_client") as mock_get_client:
@@ -372,7 +373,7 @@ class TestSearchSerp:
             mock_get_client.return_value = mock_client
             
             with patch.object(searxng, "get_database", return_value=test_database):
-                results2 = await searxng.search_serp("cached query", use_cache=True)
+                results2 = await searxng.search_serp("cached query", use_cache=True, use_provider=False)
         
         # Results should be same (from cache)
         assert len(results1) == len(results2)
@@ -395,6 +396,7 @@ class TestSearchSerp:
                     "stored query",
                     task_id=task_id,
                     use_cache=False,
+                    use_provider=False,  # Test legacy code path
                 )
         
         # Check query was stored
