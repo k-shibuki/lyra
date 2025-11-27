@@ -205,6 +205,19 @@ CREATE TABLE IF NOT EXISTS domains (
     last_ipv6_failure_at DATETIME,
     last_ipv4_success_at DATETIME,
     last_ipv4_failure_at DATETIME,
+    -- HTTP/3 (QUIC) settings (§4.3)
+    http3_detected BOOLEAN DEFAULT 0,
+    http3_first_seen_at DATETIME,
+    http3_last_seen_at DATETIME,
+    -- HTTP/3 request counters
+    browser_requests INTEGER DEFAULT 0,
+    browser_http3_requests INTEGER DEFAULT 0,
+    browser_successes INTEGER DEFAULT 0,
+    http_client_requests INTEGER DEFAULT 0,
+    http_client_successes INTEGER DEFAULT 0,
+    -- HTTP/3 behavioral difference tracking
+    behavioral_difference_ema REAL DEFAULT 0.0,
+    browser_ratio_boost REAL DEFAULT 0.0,
     -- Timestamps
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
