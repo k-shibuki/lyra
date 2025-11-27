@@ -85,7 +85,8 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - [x] `schedule_job` - ジョブスケジュール
 - [x] `create_task` - タスク作成
 - [x] `get_task_status` - タスク状態取得
-- [x] `generate_report` - レポート生成
+- [x] `get_report_materials` - レポート素材提供（§2.1責任分界: レポート構成・執筆はCursor AI）
+- [x] `get_evidence_graph` - エビデンスグラフ直接参照（§3.2.1）
 
 ### 2.3 エラーハンドリング ✅
 - [x] タイムアウト管理
@@ -402,6 +403,23 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 - [x] 統合テスト（26件：パイプライン、エビデンスグラフ、スケジューラ等）
 - [ ] 受け入れテスト（E2E）
 - [ ] ミューテーションテスト
+
+---
+
+## Phase 15: ドキュメント/運用 🔄
+
+### 15.1 ドキュメント 🔄
+- [ ] README.md（プロジェクト概要、セットアップ手順、アーキテクチャ図）
+- [ ] LICENSE（検討中）
+- [x] 本実装計画書
+- [ ] 手動介入運用手順書（§6成果物: 認証待ちキュー運用、バッチ処理手順、スキップ判断基準）
+- [ ] MCPツール仕様書（§6成果物: I/Oスキーマ、タイムアウト、リトライ方針）
+- [ ] ジョブスケジューラ仕様書（§6成果物: スロット定義、排他ルール、予算制御）
+- [ ] プロファイル健全性監査運用手順（§6成果物: 監査項目、自動修復フロー）
+
+### 15.2 運用スクリプト ✅
+- [x] `scripts/dev.sh` - 開発環境管理
+- [x] `scripts/start-chrome.sh` - Chrome起動（Windows側）
 
 ---
 
@@ -767,15 +785,18 @@ E2Eテストを有効に実施するための前提：
 
 ---
 
-## Phase 15: ドキュメント/運用 ✅
+### 16.8 タイムライン機能（§3.4, §7） 🔴
 
-### 15.1 ドキュメント ✅
-- [ ] README.md
-- [x] 本実装計画書
+**目的**: 重要主張ごとに初出/更新/訂正/撤回のタイムラインを付与
+**受け入れ基準**: タイムライン付与率≥90%（§7）
 
-### 15.2 運用スクリプト ✅
-- [x] `scripts/dev.sh` - 開発環境管理
-- [x] `scripts/start-chrome.sh` - Chrome起動（Windows側）
+#### 16.9.1 主張タイムライン構築
+- [ ] `ClaimTimeline`クラス（`src/filter/claim_timeline.py`）
+  - イベント種別: first_appeared/updated/corrected/retracted/confirmed
+  - データ: timestamp, source_url, evidence_fragment_id
+- [ ] Wayback差分との連携（Phase 12.4 WaybackExplorer統合）
+- [ ] タイムライン付与率メトリクス（`src/utils/metrics.py`）
+- [ ] レポートへのタイムライン出力（`src/report/generator.py`）
 
 ---
 
@@ -887,7 +908,7 @@ E2Eテストを有効に実施するための前提：
   - QPS/headful_ratio等の範囲バリデーション
   - ドメインパターンマッチング（glob/suffix対応）
 - テスト: 64件（全パス、§7.1準拠）
-- [ ] **既存コードのDomainPolicyManager統合（残作業）**
+- [ ] 既存コードのDomainPolicyManager統合（残作業）**
   - `src/crawler/fetcher.py`: domain_qps/headful_ratio参照（12箇所）
   - `src/search/searxng.py`, `searxng_provider.py`: MIN_INTERVAL定数
   - `src/crawler/site_search.py`: SITE_SEARCH_QPS定数
