@@ -1019,6 +1019,60 @@ E2Eテストを有効に実施するための前提：
 - [ ] Cloudflare対策の動作確認テスト
 - [ ] モデル出力形式の互換性テスト
 
+### 17.6 テスト分類・リスク管理 🔴
+
+**背景**: E2Eテストが外部検索エンジンを直接叩くことでbot検知され、DuckDuckGo/Brave/QwantがCAPTCHAやレート制限でブロックされる事態が発生。テストのリスクレベル分類と実行制御が必要。
+
+**設計思想**:
+- **デフォルト安全**: `pytest tests/`でハイリスクテストは実行されない
+- **明示的オプトイン**: ハイリスクテストは明示的なフラグで実行
+- **リスクの可視化**: マーカーとドキュメントでリスクを明示
+- **段階的テスト**: CI/ローカル/統合環境で異なるテストセットを実行
+
+#### 17.6.1 リスクベーステスト分類
+- [ ] **マーカー拡張**
+  - `@pytest.mark.external`: 外部サービス（SearXNG経由の検索エンジン）を直接叩く
+  - `@pytest.mark.rate_limited`: レート制限のあるAPI（DuckDuckGo, Brave等）
+  - `@pytest.mark.destructive`: 副作用を伴う（DB書き込み、ファイル生成等）
+  - `@pytest.mark.manual`: 手動介入が必要（CAPTCHA解決等）
+- [ ] **デフォルト除外設定**（pytest.ini / conftest.py）
+  - `external`と`rate_limited`をデフォルトで除外
+  - `--run-external`フラグで明示的に有効化
+- [ ] **既存テストのマーカー付け直し**
+  - `test_e2e.py`のsearch系テストに`@pytest.mark.external`追加
+  - 各テストのリスクレベル再評価
+
+#### 17.6.2 外部依存テストのモック化戦略
+- [ ] **VCR/レコード再生方式**
+  - 外部APIレスポンスを一度記録し、テストではリプレイ
+  - `tests/fixtures/vcr_cassettes/`にレスポンス保存
+- [ ] **SearXNGモックサーバ**
+  - テスト用の軽量SearXNGモック（固定レスポンス）
+  - `docker-compose.test.yml`で起動
+- [ ] **フォールバック戦略**
+  - 外部サービス不可時はモックにフォールバック
+  - `LANCET_USE_MOCK_SERVICES=1`環境変数で制御
+
+#### 17.6.3 CAPTCHA検知→誘導の統合テスト
+- [ ] **CAPTCHAシミュレーション**
+  - SearXNGの`unresponsive_engines`レスポンスをトリガーに
+  - `auth_type="captcha"`でInterventionQueueに追加
+- [ ] **再試行フローのテスト**
+  - CAPTCHA検知 → キュー追加 → 手動解決（モック）→ 再試行
+  - 成功/タイムアウト/スキップの各パス
+- [ ] **ドメイン単位のブロック状態管理**
+  - エンジン別のブロック状態追跡
+  - 自動フォールバック（ブロックされたエンジンを避ける）
+
+#### 17.6.4 テスト実行ガイドライン
+- [ ] **ドキュメント整備**
+  - `docs/testing.md`: テスト分類と実行方法
+  - 各マーカーの意味とリスク
+  - CI/ローカル/統合環境での実行コマンド
+- [ ] **CI設定更新**
+  - PR時: `pytest tests/ -m "not external and not rate_limited"`
+  - Nightly: `pytest tests/ --run-external --run-rate-limited`（オプション）
+
 ---
 
 ## 開発環境
