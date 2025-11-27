@@ -1,4 +1,5 @@
 ---
+description: テストを計画または実行する前に、常に確認するルール
 alwaysApply: false
 ---
 # テスト修正ルール
