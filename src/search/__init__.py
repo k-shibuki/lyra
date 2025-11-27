@@ -26,9 +26,28 @@ from src.search.ab_test import (
     QueryVariantGenerator,
     HighYieldQueryCache,
 )
+# Provider abstraction (Phase 17.1.1)
+from src.search.provider import (
+    SearchProvider,
+    BaseSearchProvider,
+    SearchResult,
+    SearchResponse,
+    SearchOptions,
+    HealthStatus,
+    HealthState,
+    SourceTag,
+    SearchProviderRegistry,
+    get_registry,
+    cleanup_registry,
+)
+from src.search.searxng_provider import (
+    SearXNGProvider,
+    get_searxng_provider,
+    cleanup_searxng_provider,
+)
 
 __all__ = [
-    # SearXNG
+    # SearXNG (legacy)
     "search_serp",
     "expand_query",
     "generate_mirror_query",
@@ -49,5 +68,20 @@ __all__ = [
     "ABTestExecutor",
     "QueryVariantGenerator",
     "HighYieldQueryCache",
+    # Provider abstraction (Phase 17.1.1)
+    "SearchProvider",
+    "BaseSearchProvider",
+    "SearchResult",
+    "SearchResponse",
+    "SearchOptions",
+    "HealthStatus",
+    "HealthState",
+    "SourceTag",
+    "SearchProviderRegistry",
+    "get_registry",
+    "cleanup_registry",
+    "SearXNGProvider",
+    "get_searxng_provider",
+    "cleanup_searxng_provider",
 ]
 
