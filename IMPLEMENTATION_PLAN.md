@@ -914,7 +914,7 @@ E2Eテストを有効に実施するための前提：
 ハードコードされた設定やポリシーを外部設定化し、コード変更なしで調整可能にする。
 **完了基準**: 外部設定ファイル + Manager実装 + 全ハードコード箇所の置換。
 
-#### 17.2.1 ドメインポリシー完全外部化 🔄
+#### 17.2.1 ドメインポリシー完全外部化 ✅
 - [x] `config/domains.yaml` への一元化（基盤実装）
   - 実装: `src/utils/domain_policy.py` (DomainPolicyManager)
   - pydanticモデルによるスキーマ定義・バリデーション
@@ -926,14 +926,17 @@ E2Eテストを有効に実施するための前提：
   - TrustLevel/SkipReason列挙型
   - QPS/headful_ratio等の範囲バリデーション
   - ドメインパターンマッチング（glob/suffix対応）
-- テスト: 64件（全パス、§7.1準拠）
-- [ ] 既存コードのDomainPolicyManager統合（残作業）**
-  - `src/crawler/fetcher.py`: domain_qps/headful_ratio参照（12箇所）
-  - `src/search/searxng.py`, `searxng_provider.py`: MIN_INTERVAL定数
-  - `src/crawler/site_search.py`: SITE_SEARCH_QPS定数
-  - `src/storage/database.py`: cooldown定数
-  - `src/utils/policy_engine.py`: DEFAULT_BOUNDS
-  - `src/search/circuit_breaker.py`: cooldown_min/max
+- [x] 検索エンジン/サーキットブレーカ設定の外部化
+  - `config/domains.yaml`: search_engine_policy, policy_bounds セクション追加
+  - `SearchEnginePolicySchema`, `PolicyBoundsSchema` スキーマ追加
+  - `get_search_engine_*()`, `get_circuit_breaker_*()`, `get_policy_bounds()` メソッド追加
+- [x] 既存コードのDomainPolicyManager統合（完了）
+  - `src/crawler/fetcher.py`: RateLimiter がドメイン別 QPS を Manager 経由で取得
+  - `src/search/searxng.py`, `searxng_provider.py`: min_interval を Manager から取得
+  - `src/crawler/site_search.py`: site_search_qps を Manager から取得
+  - `src/utils/policy_engine.py`: DEFAULT_BOUNDS を遅延ロード化、config から取得
+  - `src/search/circuit_breaker.py`: cooldown_min/max を Manager から取得
+- テスト: 88件（全パス、§7.1準拠）
 
 #### 17.2.2 検索エンジン設定の動的管理
 - [ ] エンジン追加/削除のYAML変更のみ対応
