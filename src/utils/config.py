@@ -25,8 +25,8 @@ class TaskLimitsConfig(BaseModel):
 
 class SearchConfig(BaseModel):
     """Search configuration."""
-    # Provider selection (Phase 16.9)
-    use_browser: bool = True  # Use BrowserSearchProvider instead of SearXNG
+    # BrowserSearchProvider is used for all searches
+    use_browser: bool = True
     default_engine: str = "duckduckgo"  # Default search engine for browser provider
     
     initial_query_count_gpu: int = 12

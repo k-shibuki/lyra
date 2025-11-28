@@ -1,25 +1,21 @@
 # Lancet - Search Engine Configuration
 # allowlist/denylist and per-engine settings
 
-# === SearXNG Settings ===
-searxng:
-  host: "http://localhost:8080"
-  timeout: 30
-  # Default engines to enable
-  default_engines:
-    - wikipedia
-    - wikidata
-    - mojeek
-    - marginalia
-    - qwant
-    - duckduckgo
-  # Last-mile engines (strict limits)
-  lastmile_engines:
-    - brave
-  # Disabled by default (high block rate)
-  disabled_engines:
-    - google
-    - bing
+# === Engine Selection Policy ===
+# Default engines to enable for general searches
+default_engines:
+  - wikipedia
+  - wikidata
+  - mojeek
+  - marginalia
+  - qwant
+  - duckduckgo
+
+# Last-mile engines (strict limits, used when other engines fail)
+lastmile_engines:
+  - brave
+  - google
+  - bing
 
 # === Engine Definitions ===
 engines:
@@ -82,6 +78,7 @@ engines:
     block_resistant: true
     
   # === Last-mile (Strict Limits) ===
+  # These engines have low priority and weight, used only when others fail
   brave:
     priority: 5
     weight: 0.3
@@ -91,22 +88,20 @@ engines:
     daily_limit: 50
     
   google:
-    priority: 10  # Very low priority
+    priority: 10  # Very low priority (last-mile only)
     weight: 0.1
     categories: [general]
     qps: 0.05
     block_resistant: false
     daily_limit: 10
-    disabled: true
     
   bing:
-    priority: 10
+    priority: 10  # Very low priority (last-mile only)
     weight: 0.1
     categories: [general]
     qps: 0.05
     block_resistant: false
     daily_limit: 10
-    disabled: true
 
 # === Query Operator Mapping ===
 # Maps standard operators to engine-specific syntax
@@ -200,4 +195,3 @@ direct_sources:
       
     - domain: "who.int"
       priority: 1
-

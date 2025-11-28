@@ -47,13 +47,9 @@ from src.search.engine_config import (
 def sample_config_data():
     """Sample engines.yaml configuration data."""
     return {
-        "searxng": {
-            "host": "http://localhost:8080",
-            "timeout": 30,
-            "default_engines": ["duckduckgo", "wikipedia"],
-            "lastmile_engines": ["brave"],
-            "disabled_engines": ["google"],
-        },
+        # Engine selection policy (root level)
+        "default_engines": ["duckduckgo", "wikipedia"],
+        "lastmile_engines": ["brave"],
         "engines": {
             "duckduckgo": {
                 "priority": 3,
@@ -239,14 +235,14 @@ class TestConfigLoading:
     
     def test_load_valid_config(self, manager, sample_config_data):
         """Test loading valid configuration file."""
-        # Verify SearXNG settings
-        assert manager.get_searxng_host() == "http://localhost:8080"
-        assert manager.get_searxng_timeout() == 30
-        
         # Verify default engines
         default_engines = manager.get_default_engines()
         assert "duckduckgo" in default_engines
         assert "wikipedia" in default_engines
+        
+        # Verify lastmile engines
+        lastmile_engines = manager.get_lastmile_engines()
+        assert "brave" in lastmile_engines
         
         # Verify engine count
         all_engines = manager.get_all_engines()
@@ -525,11 +521,11 @@ class TestHotReload:
             enable_hot_reload=True,
         )
         
-        # Initial state
-        assert manager.get_searxng_timeout() == 30
+        # Initial state - 2 default engines
+        assert len(manager.get_default_engines()) == 2
         
-        # Modify config
-        sample_config_data["searxng"]["timeout"] = 60
+        # Modify config - add a new default engine
+        sample_config_data["default_engines"].append("arxiv")
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(sample_config_data, f)
         
@@ -538,7 +534,7 @@ class TestHotReload:
         
         # Access config to trigger reload check
         manager._last_check = 0  # Force check
-        assert manager.get_searxng_timeout() == 60
+        assert len(manager.get_default_engines()) == 3
     
     def test_hot_reload_disabled(self, temp_config_file, sample_config_data):
         """Test that hot-reload can be disabled."""
@@ -547,16 +543,16 @@ class TestHotReload:
             enable_hot_reload=False,
         )
         
-        # Initial state
-        assert manager.get_searxng_timeout() == 30
+        # Initial state - 2 default engines
+        assert len(manager.get_default_engines()) == 2
         
-        # Modify config
-        sample_config_data["searxng"]["timeout"] = 60
+        # Modify config - add a new default engine
+        sample_config_data["default_engines"].append("arxiv")
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(sample_config_data, f)
         
         # Should NOT reload
-        assert manager.get_searxng_timeout() == 30
+        assert len(manager.get_default_engines()) == 2
     
     def test_manual_reload(self, temp_config_file, sample_config_data):
         """Test manual reload works."""
@@ -565,15 +561,15 @@ class TestHotReload:
             enable_hot_reload=False,
         )
         
-        # Modify config
-        sample_config_data["searxng"]["timeout"] = 60
+        # Modify config - add a new default engine
+        sample_config_data["default_engines"].append("arxiv")
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(sample_config_data, f)
         
         # Manual reload
         manager.reload()
         
-        assert manager.get_searxng_timeout() == 60
+        assert len(manager.get_default_engines()) == 3
     
     def test_reload_callback(self, temp_config_file, sample_config_data):
         """Test reload callbacks are called."""
@@ -657,9 +653,9 @@ class TestConvenienceFunctions:
     
     def test_get_engine_config_function(self, temp_config_file):
         """Test get_engine_config convenience function."""
-        # Set up singleton with test config
-        SearchEngineConfigManager._instance = None
-        manager = SearchEngineConfigManager.get_instance(
+        # Reset module-level singleton and set up with test config
+        reset_engine_config_manager()
+        get_engine_config_manager(
             config_path=temp_config_file,
             enable_hot_reload=False,
         )
@@ -671,8 +667,8 @@ class TestConvenienceFunctions:
     
     def test_get_available_search_engines_function(self, temp_config_file):
         """Test get_available_search_engines convenience function."""
-        SearchEngineConfigManager._instance = None
-        SearchEngineConfigManager.get_instance(
+        reset_engine_config_manager()
+        get_engine_config_manager(
             config_path=temp_config_file,
             enable_hot_reload=False,
         )
@@ -681,12 +677,12 @@ class TestConvenienceFunctions:
         
         assert len(engines) > 0
         names = {e.name for e in engines}
-        assert "google" not in names  # Disabled
+        assert "google" not in names  # Disabled in test fixture
     
     def test_get_engine_operator_mapping_function(self, temp_config_file):
         """Test get_engine_operator_mapping convenience function."""
-        SearchEngineConfigManager._instance = None
-        SearchEngineConfigManager.get_instance(
+        reset_engine_config_manager()
+        get_engine_config_manager(
             config_path=temp_config_file,
             enable_hot_reload=False,
         )
@@ -697,14 +693,14 @@ class TestConvenienceFunctions:
     
     def test_is_search_engine_available_function(self, temp_config_file):
         """Test is_search_engine_available convenience function."""
-        SearchEngineConfigManager._instance = None
-        SearchEngineConfigManager.get_instance(
+        reset_engine_config_manager()
+        get_engine_config_manager(
             config_path=temp_config_file,
             enable_hot_reload=False,
         )
         
         assert is_search_engine_available("duckduckgo") is True
-        assert is_search_engine_available("google") is False  # Disabled
+        assert is_search_engine_available("google") is False  # Disabled in test fixture
 
 
 # =============================================================================

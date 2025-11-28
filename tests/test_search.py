@@ -2,7 +2,6 @@
 Tests for src/search/search_api.py
 
 Tests query processing, source classification, and query expansion.
-SearXNG has been removed (Phase 16.9.5), so SearXNGClient tests are deleted.
 """
 
 import json
@@ -131,8 +130,7 @@ class TestClassifySource:
         assert _classify_source("https://example.org/article") == "unknown"
 
 
-# Note: TestSearchSerp has been removed (Phase 16.9.5 - SearXNG removal)
-# search_serp() now uses BrowserSearchProvider via provider abstraction
+# search_serp() uses BrowserSearchProvider via provider abstraction
 # Tests for provider-based search are in test_browser_search_provider.py
 
 

@@ -318,16 +318,6 @@ class TestGenerateHeadersForSerpClick:
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Referer"] == "https://duckduckgo.com/?q=test"
 
-    def test_searxng_to_article(self):
-        """Test clicking SearXNG search result (local search engine)."""
-        headers = generate_headers_for_serp_click(
-            target_url="https://example.com/page",
-            serp_url="http://localhost:8080/search?q=test",
-        )
-        
-        assert headers["Sec-Fetch-Site"] == "cross-site"
-        assert headers["Sec-Fetch-Mode"] == "navigate"
-
 
 @pytest.mark.unit
 class TestGenerateHeadersForDirectNavigation:

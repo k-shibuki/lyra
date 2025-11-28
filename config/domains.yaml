@@ -13,7 +13,7 @@ default_policy:
 
 # === Search Engine Settings ===
 search_engine_policy:
-  # Default QPS for SearXNG and search engines (§4.3: QPS ≤ 0.25)
+  # Default QPS for search engines (§4.3: QPS ≤ 0.25)
   default_qps: 0.25
   # Site-internal search QPS limit (§3.1.5: QPS ≤ 0.1)
   site_search_qps: 0.1
