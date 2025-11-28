@@ -1069,22 +1069,42 @@ E2Eテストを有効に実施するための前提：
 | CAPTCHA誘導 | ⏳ 未検証 | 今回はCAPTCHA発生せず |
 | セッション転送 | ⏳ 未検証 | 検索のみのため未使用 |
 
-**検証環境セットアップ手順**:
+**AIエージェントによるWSL2からの検証環境セットアップ手順**:
 
 1. **専用Chromeプロファイル作成**（Googleアカウント未ログイン推奨）
-2. **Chromeをリモートデバッグモードで起動**（PowerShell）:
+
+2. **⚠️ 重要: すべてのChromeを完全終了**
    ```powershell
-   Start-Process -FilePath "C:\Program Files\Google\Chrome\Application\chrome.exe" -ArgumentList "--remote-debugging-port=9222","--remote-debugging-address=0.0.0.0","--user-data-dir=$env:LOCALAPPDATA\Google\Chrome\User Data","--profile-directory=Profile-Research"
+   Stop-Process -Name chrome -Force -ErrorAction SilentlyContinue
    ```
-3. **ポートフォワーディング設定**（管理者PowerShell）:
+   > **注意**: 既存のChromeプロセスが残っていると、新規起動が既存インスタンスに統合され、
+   > リモートデバッグポートが開かない。タスクマネージャーでchromeプロセスが0であることを確認。
+
+3. **Chromeをリモートデバッグモードで起動**（PowerShell）:
    ```powershell
-   # WSL2からのアクセスを許可（WSL2 gateway → localhost:9222）
+   & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 "--user-data-dir=C:\Users\<USERNAME>\AppData\Local\Google\Chrome\User Data" --profile-directory=Profile-Research
+   ```
+   > **注意**: `--remote-debugging-address=0.0.0.0`は不要。ポートプロキシで対応する。
+
+4. **起動確認**（Windows側で実行）:
+   ```powershell
+   curl http://localhost:9222/json/version
+   ```
+   → JSONが返れば成功。失敗する場合は手順2に戻る。
+
+5. **ポートフォワーディング設定**（初回のみ、管理者PowerShell）:
+   ```powershell
+   # WSL2ゲートウェイIP確認（WSL2側で実行: ip route | grep default | awk '{print $3}'）
+   # 例: 172.29.224.1
+   
+   # ポートプロキシ設定
    netsh interface portproxy add v4tov4 listenaddress=<WSL2_GATEWAY_IP> listenport=9222 connectaddress=127.0.0.1 connectport=9222
+   
    # ファイアウォールルール
    New-NetFirewallRule -DisplayName "Chrome Debug WSL2" -Direction Inbound -LocalPort 9222 -Protocol TCP -Action Allow
    ```
-   ※ WSL2ゲートウェイIP確認: `ip route | grep default | awk '{print $3}'`
-4. **環境変数設定**（`.env`ファイル）:
+
+6. **環境変数設定**（初回のみ、`.env`ファイル）:
    ```bash
    # .env.example を .env にコピーして編集
    cp .env.example .env
@@ -1092,8 +1112,19 @@ E2Eテストを有効に実施するための前提：
    echo "LANCET_BROWSER__CHROME_HOST=<WSL2_GATEWAY_IP>" >> .env
    ```
    ※ `settings.yaml`は変更不要（`.env`が優先される）
-5. **コンテナ再起動**（.env反映）: `./scripts/dev.sh down && ./scripts/dev.sh up`
-6. **テスト実行**: `podman exec lancet python tests/scripts/verify_browser_search.py`
+
+7. **コンテナ再起動**（初回のみ、`.env`反映）: `./scripts/dev.sh down && ./scripts/dev.sh up`
+
+8. **テスト実行**: `podman exec lancet python tests/scripts/verify_browser_search.py`
+
+**トラブルシューティング**:
+
+| 症状 | 原因 | 対処 |
+|------|------|------|
+| `curl localhost:9222` が失敗 | 既存Chromeが残っている | 手順2ですべてのChromeを終了 |
+| `netstat`で127.0.0.1:9222が見えない | 同上 | 同上 |
+| WSL2から接続できない | ポートプロキシ未設定 | 手順5を実行 |
+| Podmanから接続できない | `.env`未設定 or コンテナ未再起動 | 手順6,7を実行 |
 
 ---
 

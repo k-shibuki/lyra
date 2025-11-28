@@ -31,9 +31,8 @@ services:
       - TOR_SOCKS_HOST=tor
       - TOR_SOCKS_PORT=9050
       - TOR_CONTROL_PORT=9051
-      # For Chrome connection (Windows host)
-      - CHROME_DEBUG_HOST=host.containers.internal
-      - CHROME_DEBUG_PORT=9222
+      # Chrome connection is configured via .env file:
+      # LANCET_BROWSER__CHROME_HOST=<WSL2_GATEWAY_IP>
     # Keep container running for exec access
     command: ["tail", "-f", "/dev/null"]
     stdin_open: true
