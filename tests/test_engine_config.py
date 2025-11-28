@@ -758,50 +758,11 @@ class TestIntegration:
             enable_hot_reload=False,
         )
         
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         
         # Should have loaded mappings from manager
         assert "site" in processor._operator_mapping
         assert processor._operator_mapping["site"]["default"] == "site:{domain}"
-    
-    def test_searxng_provider_uses_config(self, temp_config_file, monkeypatch):
-        """Test SearXNGProvider uses config from manager when env var not set."""
-        reset_engine_config_manager()
-        SearchEngineConfigManager._instance = None
-        SearchEngineConfigManager.get_instance(
-            config_path=temp_config_file,
-            enable_hot_reload=False,
-        )
-        
-        # Clear environment variable to test config file fallback
-        monkeypatch.delenv("SEARXNG_HOST", raising=False)
-        
-        from src.search.searxng_provider import SearXNGProvider
-        
-        provider = SearXNGProvider()
-        
-        # Should use config from manager (when env var not set)
-        assert provider._base_url == "http://localhost:8080"
-        assert provider._timeout == 30
-    
-    def test_searxng_provider_env_var_priority(self, temp_config_file, monkeypatch):
-        """Test SearXNGProvider prioritizes environment variable over config."""
-        reset_engine_config_manager()
-        SearchEngineConfigManager._instance = None
-        SearchEngineConfigManager.get_instance(
-            config_path=temp_config_file,
-            enable_hot_reload=False,
-        )
-        
-        # Set environment variable - should take priority
-        monkeypatch.setenv("SEARXNG_HOST", "http://searxng:8080")
-        
-        from src.search.searxng_provider import SearXNGProvider
-        
-        provider = SearXNGProvider()
-        
-        # Environment variable should override config file
-        assert provider._base_url == "http://searxng:8080"
 

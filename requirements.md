@@ -349,7 +349,11 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 
 ### 3.2. エージェント実行機能（Python）
 - ブラウザ操作: Playwright（CDP接続）を一次手段とし、Windows側Chromeの実プロファイルをpersistent contextで利用。必要時のみヘッドフルに昇格する。
-- 検索エンジン統合: ローカルで稼働するSearXNG（メタ検索エンジン）に対しクエリを送信し、結果を取得する。
+- 検索エンジン統合: Playwright経由で検索エンジンを直接検索する。
+  - ユーザーのブラウザプロファイル（Cookie/指紋）を使用し、人間らしい検索を実現
+  - 対応エンジン: DuckDuckGo, Google, Bing, mojeek（検索結果パーサー実装）
+  - CAPTCHA発生時は手動介入フロー（§3.6.1）に移行し、解決後に検索を継続
+  - セッション転送（§3.1.2）が検索にも適用され、抗堅性を確保
 - コンテンツ抽出: 検索結果のページ（HTML/PDF）からテキスト情報を抽出する。不要な広告やナビゲーションは除外する。
 - GUI連携: WSL2からWindows側Chromeへ`connect_over_cdp`で接続し、既存ユーザープロファイルを再利用する
  - 調査専用プロファイル運用:
@@ -836,13 +840,13 @@ Cursor AI                          Lancet MCP
 - 外部API利用不可: Google Search API, OpenAI API等の従量課金SaaSは使用しない。
 - コストゼロ: Cursorのサブスクリプション費用以外の追加コストを発生させない。
  - 禁止事項: 有料プロキシ／リクエスト代行SaaS／有料CAPTCHA代行の利用を禁止する。
- - 許容OSS: Tor、Ollama、SearXNG、curl_cffi、undetected-chromedriver、trafilatura 等の無償OSSのみを使用する。
+ - 許容OSS: Tor、Ollama、Playwright、curl_cffi、undetected-chromedriver、trafilatura 等の無償OSSのみを使用する。
 
 ### 4.2. 実行環境とリソース制約
 - プラットフォーム: Windows 11 (UI/Cursor) + WSL2 Ubuntu (Runtime/MCP Server)
 - メモリ管理: Hostマシン（64GB）のうち、WSL2に割り当てられた32GBの範囲内で動作させる。
 - プロセスライフサイクル: ブラウザインスタンスやLLMプロセスはタスク完了ごとに破棄（Kill）し、メモリリークを防ぐ。
-- コンテナ: SearXNG等の依存サービスはPodman等の軽量コンテナで運用する。
+- コンテナ: 依存サービス（Ollama、Tor等）はPodman等の軽量コンテナで運用する。
 - 通知: Windowsのトースト通知はWSL2→PowerShell橋渡しで実行（無料）。Linux/WSLgでは`libnotify`（`notify-send`）を用いる
 - ブラウザ: Windows側Chromeをリモートデバッグ（既存プロファイル/フォント/ロケールを活用）し、WSL2から制御
  - GPU: RTX 4060 Laptop前提。Windows側にNVIDIAドライバ、WSL2でCUDA Toolkit/ドライバを有効化（`nvidia-smi`で確認）。Ollama/Torch/ONNX RuntimeはCUDA版を利用
@@ -852,7 +856,7 @@ Cursor AI                          Lancet MCP
   - Tor（SOCKS5）経由の出口ローテーション（StemでCircuit更新、ドメイン単位Sticky 15分）
   - ドメイン同時実行数=1、リクエスト間隔U(1.5,5.5)s、時間帯・日次の予算上限を設定
   - 429/403/Cloudflare検出時は指数バックオフ、回線更新、ドメインのクールダウンを適用
-  - 検索段階の安全化: SearXNGは原則非Tor経路で実行（Google/Bing系は既定無効または低重み）、BANやCAPTCHAの発生率を低減（取得本体は状況によりTor/非Torを選択）
+  - 検索段階の安全化: ブラウザ経由の検索は原則非Tor経路で実行（Google/Bing系は既定無効または低重み）、BANやCAPTCHAの発生率を低減（取得本体は状況によりTor/非Torを選択）
   - 事前軽量チェック: HEAD/軽量GETで`server=cloudflare`やJSチャレンジ指標（`cf-ray`等）を検知し、回線更新・ヘッドフル昇格・クールダウンを即時判断
   - Tor利用ポリシーの厳密化:
     - 既定は非Tor（直回線）で開始し、403/JSチャレンジ/レート制限の発生時のみドメイン限定でTorへ昇格
@@ -1073,8 +1077,9 @@ Cursor AI                          Lancet MCP
  - PDF Extraction: PyMuPDF（`fitz`）でPDFからテキスト/画像を抽出（必要時のみOCRをGPUで適用）
 - Network: Tor + Stem（回線制御）＋（任意）Privoxy
 - Storage: SQLite / JSON（エビデンスグラフ・ログ）
-- Search Engine: SearXNG (via Podman)
- - SearXNGエンジンallowlist（既定）: Wikipedia/Wikidata, Mojeek, Marginalia, Qwant, DuckDuckGo-Lite（状況によりBrave）。Google/Bingは既定無効または低重み
+- Search Engine: Playwright経由の直接ブラウザ検索（BrowserSearchProvider）
+ - 対応エンジン: DuckDuckGo, Mojeek, Qwant, Brave, Google, Bing
+ - エンジンallowlist（既定）: DuckDuckGo, Mojeek, Qwant。Google/Bingは既定無効または低重み
 - Tokenization/Retrieval: 日本語形態素解析（SudachiPy/MeCab）＋ SQLite FTS5（BM25）で一次粗選別＋（任意）hnswlib/sqlite-vecで近傍検索
  - Notification: Windowsトースト（PowerShell）、Linuxは`libnotify`（`notify-send`）
 #### 5.1.1. 補助OSS（任意・無償）
@@ -1289,7 +1294,7 @@ Cursor AI                          Lancet MCP
    - CIでは`unit`と`integration`のみ自動実行（`pytest -m "unit or integration"`）
 
 3. **モック戦略**
-   - 外部サービス（SearXNG、Ollama、Chrome）は原則モック化
+   - 外部サービス（Ollama、Chrome）は原則モック化
    - ファイルI/Oは一時ディレクトリ（`tmp_path`フィクスチャ）を使用
    - DBはインメモリSQLite（`:memory:`）または一時ファイルを使用
    - ネットワークアクセスは`unit`テストで禁止（`@pytest.mark.unit`で強制）

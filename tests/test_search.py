@@ -1,5 +1,8 @@
 """
-Tests for src/search/searxng.py
+Tests for src/search/search_api.py
+
+Tests query processing, source classification, and query expansion.
+SearXNG has been removed (Phase 16.9.5), so SearXNGClient tests are deleted.
 """
 
 import json
@@ -8,138 +11,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tests.conftest import MockResponse
-
-
-class TestSearXNGClient:
-    """Tests for SearXNGClient class."""
-
-    @pytest.mark.asyncio
-    async def test_search_basic(self, mock_searxng_response, make_mock_response):
-        """Test basic search functionality."""
-        from src.search.searxng import SearXNGClient
-        
-        client = SearXNGClient()
-        
-        mock_response = make_mock_response(mock_searxng_response)
-        
-        with patch.object(client, "_get_session") as mock_get_session:
-            mock_session = MagicMock()
-            mock_session.get.return_value = mock_response
-            mock_get_session.return_value = mock_session
-            
-            result = await client.search("test query")
-        
-        assert "results" in result
-        assert len(result["results"]) == 3
-        
-        await client.close()
-
-    @pytest.mark.asyncio
-    async def test_search_with_engines(self, mock_searxng_response, make_mock_response):
-        """Test search with specific engines."""
-        from src.search.searxng import SearXNGClient
-        
-        client = SearXNGClient()
-        mock_response = make_mock_response(mock_searxng_response)
-        
-        with patch.object(client, "_get_session") as mock_get_session:
-            mock_session = MagicMock()
-            mock_session.get.return_value = mock_response
-            mock_get_session.return_value = mock_session
-            
-            await client.search(
-                "test query",
-                engines=["google", "duckduckgo"],
-            )
-            
-            # Verify engines parameter was included in URL
-            call_args = mock_session.get.call_args
-            url = call_args[0][0]
-            assert "engines=google%2Cduckduckgo" in url or "engines=duckduckgo%2Cgoogle" in url
-        
-        await client.close()
-
-    @pytest.mark.asyncio
-    async def test_search_http_error(self, make_mock_response):
-        """Test search handles HTTP errors."""
-        from src.search.searxng import SearXNGClient
-        
-        client = SearXNGClient()
-        mock_response = make_mock_response({}, status=500)
-        
-        with patch.object(client, "_get_session") as mock_get_session:
-            mock_session = MagicMock()
-            mock_session.get.return_value = mock_response
-            mock_get_session.return_value = mock_session
-            
-            result = await client.search("test query")
-        
-        assert result["results"] == []
-        assert "error" in result
-        assert "500" in result["error"]
-        
-        await client.close()
-
-    @pytest.mark.asyncio
-    async def test_search_timeout(self):
-        """Test search handles timeout."""
-        import asyncio
-        from src.search.searxng import SearXNGClient
-        
-        client = SearXNGClient()
-        
-        # Create a mock that raises TimeoutError when used as context manager
-        class TimeoutContextManager:
-            async def __aenter__(self):
-                raise asyncio.TimeoutError()
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
-        
-        with patch.object(client, "_get_session") as mock_get_session:
-            mock_session = MagicMock()
-            mock_session.get.return_value = TimeoutContextManager()
-            mock_get_session.return_value = mock_session
-            
-            result = await client.search("test query")
-        
-        assert result["results"] == []
-        assert result["error"] == "Timeout"
-        
-        await client.close()
-
-    @pytest.mark.asyncio
-    async def test_rate_limiting(self, mock_searxng_response, make_mock_response):
-        """Test rate limiting delays requests."""
-        import time
-        from src.search.searxng import SearXNGClient
-        
-        client = SearXNGClient()
-        client._min_interval = 0.1  # Shorter interval for testing
-        mock_response = make_mock_response(mock_searxng_response)
-        
-        with patch.object(client, "_get_session") as mock_get_session:
-            mock_session = MagicMock()
-            mock_session.get.return_value = mock_response
-            mock_get_session.return_value = mock_session
-            
-            start_time = time.time()
-            await client.search("query 1")
-            await client.search("query 2")
-            elapsed = time.time() - start_time
-        
-        # Should take at least min_interval between requests
-        assert elapsed >= client._min_interval
-        
-        await client.close()
-
 
 class TestNormalizeQuery:
     """Tests for query normalization."""
 
     def test_normalize_query_basic(self):
         """Test basic query normalization."""
-        from src.search.searxng import _normalize_query
+        from src.search.search_api import _normalize_query
         
         assert _normalize_query("Test Query") == "test query"
         assert _normalize_query("  Multiple   Spaces  ") == "multiple spaces"
@@ -151,7 +29,7 @@ class TestGetCacheKey:
 
     def test_cache_key_deterministic(self):
         """Test cache key is deterministic for same inputs."""
-        from src.search.searxng import _get_cache_key
+        from src.search.search_api import _get_cache_key
         
         key1 = _get_cache_key("test query", ["google"], "day")
         key2 = _get_cache_key("test query", ["google"], "day")
@@ -160,7 +38,7 @@ class TestGetCacheKey:
 
     def test_cache_key_different_for_different_queries(self):
         """Test cache key differs for different queries."""
-        from src.search.searxng import _get_cache_key
+        from src.search.search_api import _get_cache_key
         
         key1 = _get_cache_key("query 1", ["google"], "day")
         key2 = _get_cache_key("query 2", ["google"], "day")
@@ -169,7 +47,7 @@ class TestGetCacheKey:
 
     def test_cache_key_different_for_different_engines(self):
         """Test cache key differs for different engines."""
-        from src.search.searxng import _get_cache_key
+        from src.search.search_api import _get_cache_key
         
         key1 = _get_cache_key("query", ["google"], "day")
         key2 = _get_cache_key("query", ["bing"], "day")
@@ -178,7 +56,7 @@ class TestGetCacheKey:
 
     def test_cache_key_engine_order_independent(self):
         """Test cache key is same regardless of engine order."""
-        from src.search.searxng import _get_cache_key
+        from src.search.search_api import _get_cache_key
         
         key1 = _get_cache_key("query", ["google", "bing"], "day")
         key2 = _get_cache_key("query", ["bing", "google"], "day")
@@ -191,7 +69,7 @@ class TestClassifySource:
 
     def test_classify_academic(self):
         """Test academic source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://arxiv.org/abs/1234.5678") == "academic"
         assert _classify_source("https://pubmed.ncbi.nlm.nih.gov/12345") == "academic"
@@ -199,7 +77,7 @@ class TestClassifySource:
 
     def test_classify_government(self):
         """Test government source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://www.go.jp/ministry/report") == "government"
         assert _classify_source("https://www.gov.uk/policy") == "government"
@@ -207,7 +85,7 @@ class TestClassifySource:
 
     def test_classify_standards(self):
         """Test standards source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://www.iso.org/standard/12345") == "standards"
         assert _classify_source("https://tools.ietf.org/html/rfc1234") == "standards"
@@ -215,14 +93,14 @@ class TestClassifySource:
 
     def test_classify_knowledge(self):
         """Test knowledge source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://en.wikipedia.org/wiki/Test") == "knowledge"
         assert _classify_source("https://www.wikidata.org/wiki/Q123") == "knowledge"
 
     def test_classify_news(self):
         """Test news source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://www.bbc.com/news/article") == "news"
         assert _classify_source("https://www.reuters.com/article/xyz") == "news"
@@ -230,7 +108,7 @@ class TestClassifySource:
 
     def test_classify_technical(self):
         """Test technical source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://github.com/user/repo") == "technical"
         assert _classify_source("https://stackoverflow.com/questions/123") == "technical"
@@ -238,7 +116,7 @@ class TestClassifySource:
 
     def test_classify_blog(self):
         """Test blog source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://medium.com/@user/article") == "blog"
         assert _classify_source("https://qiita.com/user/items/xxx") == "blog"
@@ -247,170 +125,15 @@ class TestClassifySource:
 
     def test_classify_unknown(self):
         """Test unknown source classification."""
-        from src.search.searxng import _classify_source
+        from src.search.search_api import _classify_source
         
         assert _classify_source("https://random-site.com/page") == "unknown"
         assert _classify_source("https://example.org/article") == "unknown"
 
 
-@pytest.mark.integration
-class TestSearchSerp:
-    """Tests for search_serp function.
-    
-    Integration tests per §7.1.7 - uses temporary database.
-    """
-
-    @pytest.mark.asyncio
-    async def test_search_serp_basic(self, test_database, mock_searxng_response, make_mock_response):
-        """Test basic search_serp functionality."""
-        from src.search import searxng
-        
-        # Mock the client
-        mock_response = make_mock_response(mock_searxng_response)
-        
-        with patch.object(searxng, "_get_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.search = AsyncMock(return_value=mock_searxng_response)
-            mock_get_client.return_value = mock_client
-            
-            with patch.object(searxng, "get_database", return_value=test_database):
-                results = await searxng.search_serp(
-                    query="test query",
-                    limit=10,
-                    use_cache=False,
-                    use_provider=False,  # Test legacy code path
-                )
-        
-        assert len(results) == 3
-        assert results[0]["title"] == "Test Result 1"
-        assert results[0]["url"] == "https://example.com/page1"
-        assert results[0]["rank"] == 1
-
-    @pytest.mark.asyncio
-    async def test_search_serp_deduplicates_urls(self, test_database):
-        """Test that search_serp removes duplicate URLs."""
-        from src.search import searxng
-        
-        duplicate_response = {
-            "results": [
-                {"title": "Result 1", "url": "https://example.com/page", "content": "Content 1"},
-                {"title": "Result 2", "url": "https://example.com/page", "content": "Content 2"},
-                {"title": "Result 3", "url": "https://other.com/page", "content": "Content 3"},
-            ]
-        }
-        
-        with patch.object(searxng, "_get_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.search = AsyncMock(return_value=duplicate_response)
-            mock_get_client.return_value = mock_client
-            
-            with patch.object(searxng, "get_database", return_value=test_database):
-                results = await searxng.search_serp("query", use_cache=False, use_provider=False)
-        
-        # Should only have 2 unique URLs
-        assert len(results) == 2
-        urls = [r["url"] for r in results]
-        assert len(set(urls)) == len(urls)
-
-    @pytest.mark.asyncio
-    async def test_search_serp_respects_limit(self, test_database):
-        """Test that search_serp respects limit parameter."""
-        from src.search import searxng
-        
-        many_results = {
-            "results": [
-                {"title": f"Result {i}", "url": f"https://example.com/page{i}", "content": f"Content {i}"}
-                for i in range(20)
-            ]
-        }
-        
-        with patch.object(searxng, "_get_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.search = AsyncMock(return_value=many_results)
-            mock_get_client.return_value = mock_client
-            
-            with patch.object(searxng, "get_database", return_value=test_database):
-                results = await searxng.search_serp("query", limit=5, use_cache=False, use_provider=False)
-        
-        assert len(results) == 5
-
-    @pytest.mark.asyncio
-    async def test_search_serp_classifies_sources(self, test_database, mock_searxng_response):
-        """Test that search_serp classifies source types."""
-        from src.search import searxng
-        
-        with patch.object(searxng, "_get_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.search = AsyncMock(return_value=mock_searxng_response)
-            mock_get_client.return_value = mock_client
-            
-            with patch.object(searxng, "get_database", return_value=test_database):
-                results = await searxng.search_serp("query", use_cache=False, use_provider=False)
-        
-        # Check source tags are assigned
-        source_tags = [r["source_tag"] for r in results]
-        assert "academic" in source_tags  # arxiv.org
-        assert "government" in source_tags  # go.jp
-
-    @pytest.mark.asyncio
-    async def test_search_serp_cache_hit(self, test_database, mock_searxng_response):
-        """Test search_serp returns cached results."""
-        from src.search import searxng
-        
-        # First call - populate cache
-        with patch.object(searxng, "_get_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.search = AsyncMock(return_value=mock_searxng_response)
-            mock_get_client.return_value = mock_client
-            
-            with patch.object(searxng, "get_database", return_value=test_database):
-                results1 = await searxng.search_serp("cached query", use_cache=True, use_provider=False)
-        
-        # Second call - should use cache
-        with patch.object(searxng, "_get_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.search = AsyncMock(return_value={"results": []})
-            mock_get_client.return_value = mock_client
-            
-            with patch.object(searxng, "get_database", return_value=test_database):
-                results2 = await searxng.search_serp("cached query", use_cache=True, use_provider=False)
-        
-        # Results should be same (from cache)
-        assert len(results1) == len(results2)
-        assert results1[0]["url"] == results2[0]["url"]
-
-    @pytest.mark.asyncio
-    async def test_search_serp_stores_in_database(self, test_database, mock_searxng_response):
-        """Test search_serp stores results in database when task_id provided."""
-        from src.search import searxng
-        
-        task_id = await test_database.create_task("test task")
-        
-        with patch.object(searxng, "_get_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_client.search = AsyncMock(return_value=mock_searxng_response)
-            mock_get_client.return_value = mock_client
-            
-            with patch.object(searxng, "get_database", return_value=test_database):
-                await searxng.search_serp(
-                    "stored query",
-                    task_id=task_id,
-                    use_cache=False,
-                    use_provider=False,  # Test legacy code path
-                )
-        
-        # Check query was stored
-        query = await test_database.fetch_one(
-            "SELECT * FROM queries WHERE task_id = ?", (task_id,)
-        )
-        assert query is not None
-        assert query["query_text"] == "stored query"
-        
-        # Check SERP items were stored
-        serp_items = await test_database.fetch_all(
-            "SELECT * FROM serp_items WHERE query_id = ?", (query["id"],)
-        )
-        assert len(serp_items) == 3
+# Note: TestSearchSerp has been removed (Phase 16.9.5 - SearXNG removal)
+# search_serp() now uses BrowserSearchProvider via provider abstraction
+# Tests for provider-based search are in test_browser_search_provider.py
 
 
 class TestQueryExpander:
@@ -418,7 +141,7 @@ class TestQueryExpander:
 
     def test_tokenize_basic(self):
         """Test basic tokenization."""
-        from src.search.searxng import QueryExpander
+        from src.search.search_api import QueryExpander
         
         expander = QueryExpander()
         tokens = expander.tokenize("人工知能の研究")
@@ -433,7 +156,7 @@ class TestQueryExpander:
         
         Validates §3.1.1 synonym expansion for search query diversification.
         """
-        from src.search.searxng import QueryExpander
+        from src.search.search_api import QueryExpander
         
         expander = QueryExpander()
         expander._ensure_initialized()
@@ -447,7 +170,7 @@ class TestQueryExpander:
 
     def test_get_synonyms_unknown_word(self):
         """Test getting synonyms for unknown words."""
-        from src.search.searxng import QueryExpander
+        from src.search.search_api import QueryExpander
         
         expander = QueryExpander()
         expander._ensure_initialized()
@@ -463,7 +186,7 @@ class TestQueryExpander:
         Validates query variant generation for §3.1.1 search diversification.
         Original query must always be included in results.
         """
-        from src.search.searxng import QueryExpander
+        from src.search.search_api import QueryExpander
         
         expander = QueryExpander()
         
@@ -482,7 +205,7 @@ class TestQueryExpander:
         Validates §3.1.1 query diversification via synonyms.
         Original query must always be first, additional variants expected.
         """
-        from src.search.searxng import QueryExpander
+        from src.search.search_api import QueryExpander
         
         expander = QueryExpander()
         
@@ -500,7 +223,7 @@ class TestQueryExpander:
         Validates combined query expansion for §3.1.1.
         人工知能 has synonyms ["AI", "エーアイ", "機械知能"].
         """
-        from src.search.searxng import QueryExpander
+        from src.search.search_api import QueryExpander
         
         expander = QueryExpander()
         
@@ -521,7 +244,7 @@ class TestQueryExpander:
 
     def test_generate_variants_respects_max_results(self):
         """Test that variant generation respects max_results."""
-        from src.search.searxng import QueryExpander
+        from src.search.search_api import QueryExpander
         
         expander = QueryExpander()
         
@@ -541,7 +264,7 @@ class TestExpandQuery:
     @pytest.mark.asyncio
     async def test_expand_query_returns_base(self):
         """Test expand_query returns at least the base query."""
-        from src.search.searxng import expand_query
+        from src.search.search_api import expand_query
         
         results = await expand_query("test query")
         
@@ -553,7 +276,7 @@ class TestExpandQuery:
         
         Validates §3.1.1 query expansion for Japanese text.
         """
-        from src.search.searxng import expand_query
+        from src.search.search_api import expand_query
         
         query = "人工知能 の 影響"
         results = await expand_query(query, language="ja")
@@ -566,7 +289,7 @@ class TestExpandQuery:
     @pytest.mark.asyncio
     async def test_expand_query_synonyms_only(self):
         """Test expand_query with synonyms expansion only."""
-        from src.search.searxng import expand_query
+        from src.search.search_api import expand_query
         
         results = await expand_query("AI", expansion_type="synonyms", language="ja")
         
@@ -575,7 +298,7 @@ class TestExpandQuery:
     @pytest.mark.asyncio
     async def test_expand_query_normalized_only(self):
         """Test expand_query with normalized expansion only."""
-        from src.search.searxng import expand_query
+        from src.search.search_api import expand_query
         
         results = await expand_query("テスト", expansion_type="normalized", language="ja")
         
@@ -584,7 +307,7 @@ class TestExpandQuery:
     @pytest.mark.asyncio
     async def test_expand_query_non_japanese(self):
         """Test expand_query with non-Japanese language returns original."""
-        from src.search.searxng import expand_query
+        from src.search.search_api import expand_query
         
         results = await expand_query("artificial intelligence", language="en")
         
@@ -594,7 +317,7 @@ class TestExpandQuery:
     @pytest.mark.asyncio
     async def test_expand_query_empty_string(self):
         """Test expand_query with empty string."""
-        from src.search.searxng import expand_query
+        from src.search.search_api import expand_query
         
         results = await expand_query("")
         
@@ -603,7 +326,7 @@ class TestExpandQuery:
     @pytest.mark.asyncio
     async def test_expand_query_max_results(self):
         """Test expand_query respects max_results."""
-        from src.search.searxng import expand_query
+        from src.search.search_api import expand_query
         
         results = await expand_query(
             "問題 方法 影響 分析",
@@ -620,7 +343,7 @@ class TestGenerateMirrorQuery:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_returns_none(self):
         """Test generate_mirror_query returns None (not implemented)."""
-        from src.search.searxng import generate_mirror_query
+        from src.search.search_api import generate_mirror_query
         
         result = await generate_mirror_query("テストクエリ", "ja", "en")
         
@@ -646,7 +369,7 @@ class TestParsedOperator:
         Verifies that ParsedOperator correctly stores operator_type, value,
         and raw_text fields as specified.
         """
-        from src.search.searxng import ParsedOperator
+        from src.search.search_api import ParsedOperator
         
         op = ParsedOperator(
             operator_type="site",
@@ -672,7 +395,7 @@ class TestParsedQuery:
         Verifies that has_operator correctly identifies presence/absence
         of specific operator types in the parsed query.
         """
-        from src.search.searxng import ParsedQuery, ParsedOperator
+        from src.search.search_api import ParsedQuery, ParsedOperator
         
         parsed = ParsedQuery(
             base_query="test",
@@ -692,7 +415,7 @@ class TestParsedQuery:
         Verifies that get_operators returns correct list of operators
         filtered by type.
         """
-        from src.search.searxng import ParsedQuery, ParsedOperator
+        from src.search.search_api import ParsedQuery, ParsedOperator
         
         parsed = ParsedQuery(
             base_query="test",
@@ -724,7 +447,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: site: operator for domain restriction (e.g., site:go.jp).
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("AI規制 site:go.jp")
@@ -739,7 +462,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: filetype: operator for file type restriction.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("技術仕様 filetype:pdf")
@@ -754,7 +477,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: intitle: operator for title search.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("intitle:重要 調査レポート")
@@ -769,7 +492,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: intitle:"phrase" for multi-word title search.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse('intitle:"重要なお知らせ" 情報')
@@ -784,7 +507,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: フレーズ固定（"..."）for exact phrase matching.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse('"人工知能の発展" 影響')
@@ -799,7 +522,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: 必須/除外（+/-）for term exclusion.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("AI -spam -広告")
@@ -816,7 +539,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: 必須/除外（+/-）for required terms.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("機械学習 +Python +TensorFlow")
@@ -833,7 +556,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: after: operator for time range filtering.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("最新技術 after:2024-01-01")
@@ -848,7 +571,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.1: after: operator with abbreviated date format.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("研究 after:2023")
@@ -862,7 +585,7 @@ class TestQueryOperatorProcessor:
         Validates §3.1.1: systematic application of multiple operators in a single query.
         Tests the combination of site:, filetype:, "...", -, and after: operators.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         query = 'AI規制 site:go.jp filetype:pdf "ガイドライン" -draft after:2023'
@@ -894,7 +617,7 @@ class TestQueryOperatorProcessor:
         
         Verifies that plain text queries are handled correctly without operator extraction.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("simple query text")
@@ -907,7 +630,7 @@ class TestQueryOperatorProcessor:
         
         Validates edge case: -10 (negative number) should not be parsed as exclude operator.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("temperature -10 degrees")
@@ -921,7 +644,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.4: Google supports all standard operators including after:.
         """
-        from src.search.searxng import QueryOperatorProcessor, ParsedQuery, ParsedOperator
+        from src.search.search_api import QueryOperatorProcessor, ParsedQuery, ParsedOperator
         
         processor = QueryOperatorProcessor()
         parsed = ParsedQuery(
@@ -946,7 +669,7 @@ class TestQueryOperatorProcessor:
         Validates §3.1.4: DuckDuckGo doesn't support date_after operator,
         which should be omitted from the transformed query.
         """
-        from src.search.searxng import QueryOperatorProcessor, ParsedQuery, ParsedOperator
+        from src.search.search_api import QueryOperatorProcessor, ParsedQuery, ParsedOperator
         
         processor = QueryOperatorProcessor()
         parsed = ParsedQuery(
@@ -969,7 +692,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.4: exact phrase quotes must be preserved in transformation.
         """
-        from src.search.searxng import QueryOperatorProcessor, ParsedQuery, ParsedOperator
+        from src.search.search_api import QueryOperatorProcessor, ParsedQuery, ParsedOperator
         
         processor = QueryOperatorProcessor()
         parsed = ParsedQuery(
@@ -988,7 +711,7 @@ class TestQueryOperatorProcessor:
         
         Validates end-to-end query processing: parse + transform in one call.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         
@@ -1008,7 +731,7 @@ class TestQueryOperatorProcessor:
         Validates §3.1.1: systematic query construction using build_query API.
         This is used for OSINT vertical templates (§3.1.3).
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         
@@ -1032,7 +755,7 @@ class TestQueryOperatorProcessor:
         
         Validates that multiple exact phrases are correctly quoted and included.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         
@@ -1050,7 +773,7 @@ class TestQueryOperatorProcessor:
         
         Validates §3.1.4: operator support varies by engine.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         
@@ -1077,7 +800,7 @@ class TestQueryOperatorHelperFunctions:
         
         Validates the module-level parse_query_operators() function.
         """
-        from src.search.searxng import parse_query_operators
+        from src.search.search_api import parse_query_operators
         
         parsed = parse_query_operators("test site:example.com")
         
@@ -1089,7 +812,7 @@ class TestQueryOperatorHelperFunctions:
         
         Validates the module-level transform_query_for_engine() function.
         """
-        from src.search.searxng import transform_query_for_engine
+        from src.search.search_api import transform_query_for_engine
         
         result = transform_query_for_engine("AI site:go.jp", "duckduckgo")
         
@@ -1102,7 +825,7 @@ class TestQueryOperatorHelperFunctions:
         Validates §3.1.1/§3.1.3: programmatic query construction for OSINT templates.
         Example from §3.1.3: `site:go.jp 企業名`, `filetype:pdf 会社名 仕様`
         """
-        from src.search.searxng import build_search_query
+        from src.search.search_api import build_search_query
         
         # Build a query matching OSINT template pattern from §3.1.3
         result = build_search_query(
@@ -1120,7 +843,7 @@ class TestQueryOperatorHelperFunctions:
         
         Validates §3.1.1: after: operator for time-based filtering.
         """
-        from src.search.searxng import build_search_query
+        from src.search.search_api import build_search_query
         
         result = build_search_query(
             base_query="最新ニュース",
@@ -1144,7 +867,7 @@ class TestQueryOperatorEdgeCases:
         
         Boundary condition: empty string input should produce empty result.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("")
@@ -1157,7 +880,7 @@ class TestQueryOperatorEdgeCases:
         
         Boundary condition: query consisting only of operators.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("site:example.com filetype:pdf")
@@ -1171,7 +894,7 @@ class TestQueryOperatorEdgeCases:
         
         Validates parsing of complex domain names with subdomains and hyphens.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse("test site:sub.domain-name.co.jp")
@@ -1184,7 +907,7 @@ class TestQueryOperatorEdgeCases:
         
         Validates Japanese text in intitle: and exact phrase operators.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse('intitle:日本語タイトル "検索テスト"')
@@ -1202,7 +925,7 @@ class TestQueryOperatorEdgeCases:
         
         Validates that multiple quoted phrases are correctly extracted.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         parsed = processor.parse('"phrase one" test "phrase two"')
@@ -1219,7 +942,7 @@ class TestQueryOperatorEdgeCases:
         
         Validates that SITE:, Site:, and site: are all recognized as site operator.
         """
-        from src.search.searxng import QueryOperatorProcessor
+        from src.search.search_api import QueryOperatorProcessor
         
         processor = QueryOperatorProcessor()
         
@@ -1260,7 +983,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client):
         """Test Japanese to English translation (§3.1.1)."""
-        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
         
         # Clear cache
         _mirror_query_cache.clear()
@@ -1278,7 +1001,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client):
         """Test English to Japanese translation (§3.1.1)."""
-        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
         
         _mirror_query_cache.clear()
         
@@ -1295,7 +1018,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_same_language(self):
         """Test that same-language returns original query."""
-        from src.search.searxng import generate_mirror_query
+        from src.search.search_api import generate_mirror_query
         
         result = await generate_mirror_query(
             "test query",
@@ -1308,7 +1031,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_empty_input(self):
         """Test handling of empty input."""
-        from src.search.searxng import generate_mirror_query
+        from src.search.search_api import generate_mirror_query
         
         result = await generate_mirror_query("", source_lang="ja", target_lang="en")
         assert result is None, "Empty input should return None"
@@ -1319,7 +1042,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_caching(self):
         """Test that translations are cached."""
-        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
         
         _mirror_query_cache.clear()
         
@@ -1343,7 +1066,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_queries_multiple_languages(self, mock_ollama_client):
         """Test generating mirrors in multiple target languages."""
-        from src.search.searxng import generate_mirror_queries, _mirror_query_cache
+        from src.search.search_api import generate_mirror_queries, _mirror_query_cache
         
         _mirror_query_cache.clear()
         
@@ -1362,7 +1085,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_error_handling(self):
         """Test graceful handling of LLM errors."""
-        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
         
         _mirror_query_cache.clear()
         
@@ -1378,7 +1101,7 @@ class TestMirrorQueryGeneration:
     @pytest.mark.asyncio
     async def test_generate_mirror_query_cleans_response(self):
         """Test that quoted responses are cleaned."""
-        from src.search.searxng import generate_mirror_query, _mirror_query_cache
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
         
         _mirror_query_cache.clear()
         

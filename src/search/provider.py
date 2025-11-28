@@ -2,7 +2,7 @@
 Search provider abstraction layer for Lancet.
 
 Provides a unified interface for search providers, enabling easy switching
-between different search backends (SearXNG, future providers).
+between different search backends (BrowserSearchProvider is the default).
 
 Implements Phase 17.1.1 of IMPLEMENTATION_PLAN.md:
 - SearchProvider protocol/ABC definition
@@ -375,10 +375,10 @@ class SearchProviderRegistry:
     
     Example usage:
         registry = SearchProviderRegistry()
-        registry.register(SearXNGProvider())
+        registry.register(BrowserSearchProvider())
         
         # Get specific provider
-        provider = registry.get("searxng")
+        provider = registry.get("browser_search")
         
         # Get default provider
         provider = registry.get_default()

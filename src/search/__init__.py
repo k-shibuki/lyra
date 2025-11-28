@@ -11,8 +11,7 @@ Provider system:
     SearchProvider - Protocol for search providers
     SearchProviderRegistry - Registry for provider management
     get_registry() - Get global provider registry
-    BrowserSearchProvider - Direct Playwright-based search (Phase 16.9, recommended)
-    SearXNGProvider - SearXNG implementation (deprecated, use BrowserSearchProvider)
+    BrowserSearchProvider - Direct Playwright-based search (Phase 16.9, default)
 
 Engine configuration (Phase 17.2.2):
     SearchEngineConfigManager - Centralized engine configuration
@@ -22,10 +21,14 @@ Engine configuration (Phase 17.2.2):
 Parser system (Phase 16.9):
     ParserConfigManager - Parser configuration management
     get_parser() - Get parser for a search engine
+
+.. note:: Phase 16.9.5 - SearXNG Removed
+    SearXNG has been removed from Lancet. All searches now use
+    BrowserSearchProvider for direct browser-based search.
 """
 
 # Core search function (uses provider by default)
-from src.search.searxng import (
+from src.search.search_api import (
     search_serp,
     expand_query,
     generate_mirror_query,
@@ -80,13 +83,8 @@ from src.search.provider import (
     get_registry,
     cleanup_registry,
 )
-from src.search.searxng_provider import (
-    SearXNGProvider,
-    get_searxng_provider,
-    cleanup_searxng_provider,
-)
 
-# Browser-based search provider (Phase 16.9 - recommended)
+# Browser-based search provider (Phase 16.9 - default)
 from src.search.browser_search_provider import (
     BrowserSearchProvider,
     get_browser_search_provider,
@@ -139,10 +137,7 @@ __all__ = [
     "SearchProviderRegistry",
     "get_registry",
     "cleanup_registry",
-    "SearXNGProvider",
-    "get_searxng_provider",
-    "cleanup_searxng_provider",
-    # Browser search provider (Phase 16.9 - recommended)
+    # Browser search provider (Phase 16.9 - default)
     "BrowserSearchProvider",
     "get_browser_search_provider",
     "cleanup_browser_search_provider",

@@ -7,7 +7,7 @@ Test Classification (§7.1.7):
 - @pytest.mark.e2e: Real environment, manual execution only
 
 Mock Strategy (§7.1.7):
-- External services (SearXNG, Ollama, Chrome): Always mocked in unit/integration
+- External services (Ollama, Chrome): Always mocked in unit/integration
 - File I/O: Use tmp_path fixture
 - Database: Use in-memory SQLite or temp file
 """
@@ -139,37 +139,6 @@ def mock_settings():
 
 
 @pytest.fixture
-def mock_searxng_response():
-    """Mock SearXNG API response."""
-    return {
-        "results": [
-            {
-                "title": "Test Result 1",
-                "url": "https://example.com/page1",
-                "content": "This is the first test result snippet.",
-                "engine": "google",
-                "publishedDate": "2024-01-15",
-            },
-            {
-                "title": "Test Result 2 - Academic",
-                "url": "https://arxiv.org/abs/1234.5678",
-                "content": "This is an academic paper snippet.",
-                "engine": "google",
-                "publishedDate": "2024-01-10",
-            },
-            {
-                "title": "Government Report",
-                "url": "https://www.go.jp/report/2024",
-                "content": "Official government report on the topic.",
-                "engine": "duckduckgo",
-            },
-        ],
-        "infoboxes": [],
-        "suggestions": ["related search 1", "related search 2"],
-    }
-
-
-@pytest.fixture
 def sample_passages():
     """Sample passages for ranking tests."""
     return [
@@ -242,28 +211,12 @@ def reset_search_provider():
     yield
     # Reset after each test
     from src.search.provider import reset_registry
-    from src.search.searxng_provider import reset_searxng_provider
     reset_registry()
-    reset_searxng_provider()
 
 
 # =============================================================================
 # Mock Fixtures for External Services (§7.1.7 Mock Strategy)
 # =============================================================================
-
-@pytest.fixture
-def mock_searxng_client():
-    """Mock SearXNG client for unit tests.
-    
-    Per §7.1.7: External services (SearXNG) should be mocked in unit/integration tests.
-    """
-    with patch("src.search.searxng._get_client") as mock_get_client:
-        mock_client = MagicMock()
-        mock_client.search = AsyncMock(return_value={"results": []})
-        mock_client.close = AsyncMock()
-        mock_get_client.return_value = mock_client
-        yield mock_client
-
 
 @pytest.fixture
 def mock_ollama():
@@ -416,13 +369,6 @@ def cleanup_aiohttp_sessions(request):
     
     # Cleanup after all tests complete
     async def _cleanup():
-        # Cleanup SearXNG client
-        try:
-            from src.search.searxng import _cleanup_client as cleanup_searxng
-            await cleanup_searxng()
-        except ImportError:
-            pass
-        
         # Cleanup Ollama client
         try:
             from src.filter.llm import _cleanup_client as cleanup_ollama
