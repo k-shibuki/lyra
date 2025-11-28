@@ -511,3 +511,4 @@ class TestGetCertTransparencyClient:
         assert client._fetcher is None
 
 
+

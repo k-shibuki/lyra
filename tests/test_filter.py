@@ -389,4 +389,3 @@ class TestBM25Integration:
         assert len(scores) == 3
         # Japanese doc should score highest
         assert scores[0] > scores[1]
-
