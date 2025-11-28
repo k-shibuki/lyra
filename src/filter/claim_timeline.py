@@ -35,12 +35,16 @@ FRESHNESS_THRESHOLD_DAYS = 365
 
 
 class TimelineEventType(str, Enum):
-    """Types of timeline events (§3.4)."""
+    """Types of timeline events (§3.4, §16.12.2)."""
     FIRST_APPEARED = "first_appeared"   # Initial discovery
     UPDATED = "updated"                  # Content modified
     CORRECTED = "corrected"              # Error correction issued
     RETRACTED = "retracted"              # Claim withdrawn
     CONFIRMED = "confirmed"              # Additional supporting evidence
+    # §16.12.2: Archive-related events
+    CONTENT_MODIFIED = "content_modified"    # Archive differs from current
+    CONTENT_MAJOR_CHANGE = "content_major_change"  # Significant archive diff
+    ARCHIVE_ONLY = "archive_only"            # Only available in archive
 
 
 @dataclass
@@ -696,6 +700,99 @@ class ClaimTimelineManager:
             )
         
         return events_added
+    
+    async def add_archive_diff_event(
+        self,
+        claim_id: str,
+        source_url: str,
+        diff_result: dict[str, Any],
+        fragment_id: str | None = None,
+    ) -> TimelineEvent | None:
+        """Add a timeline event from archive diff comparison.
+        
+        Per §16.12.2: Records content changes detected between
+        archived and current versions.
+        
+        Args:
+            claim_id: Claim ID.
+            source_url: Source URL.
+            diff_result: ArchiveDiffResult.to_dict() output.
+            fragment_id: Optional fragment ID.
+            
+        Returns:
+            Created event or None if no significant changes.
+        """
+        has_changes = diff_result.get("has_significant_changes", False)
+        event_type_str = diff_result.get("timeline_event_type", "content_unchanged")
+        
+        # Skip if no significant changes
+        if event_type_str == "content_unchanged" and not has_changes:
+            return None
+        
+        timeline = await self.get_timeline(claim_id)
+        if timeline is None:
+            timeline = ClaimTimeline(claim_id=claim_id)
+        
+        # Map event type
+        if event_type_str == "content_major_change":
+            event_type = TimelineEventType.CONTENT_MAJOR_CHANGE
+        elif event_type_str == "content_modified":
+            event_type = TimelineEventType.CONTENT_MODIFIED
+        else:
+            event_type = TimelineEventType.UPDATED
+        
+        # Get archive date
+        archive_date_str = diff_result.get("archive_date")
+        if archive_date_str:
+            try:
+                archive_date = datetime.fromisoformat(
+                    archive_date_str.replace("Z", "+00:00")
+                )
+            except (ValueError, TypeError):
+                archive_date = datetime.now(timezone.utc)
+        else:
+            archive_date = datetime.now(timezone.utc)
+        
+        # Calculate confidence based on freshness
+        freshness_penalty = diff_result.get("freshness_penalty", 0.0)
+        adjusted_confidence = diff_result.get("adjusted_confidence", 1.0)
+        
+        # Generate notes
+        notes = diff_result.get("timeline_notes", "")
+        if not notes:
+            key_changes = diff_result.get("key_changes", [])
+            if key_changes:
+                notes = "; ".join(key_changes[:3])
+        
+        # Add similarity info to notes
+        similarity = diff_result.get("similarity_ratio", 1.0)
+        if similarity < 1.0:
+            notes = f"Similarity: {similarity:.1%}. {notes}"
+        
+        event = timeline.add_event(
+            event_type=event_type,
+            timestamp=datetime.now(timezone.utc),  # When we detected
+            source_url=source_url,
+            evidence_fragment_id=fragment_id,
+            notes=notes,
+            confidence=adjusted_confidence,
+        )
+        
+        await self.save_timeline(timeline)
+        
+        # If significant changes, also apply confidence adjustment
+        if event_type == TimelineEventType.CONTENT_MAJOR_CHANGE:
+            await self._apply_confidence_adjustment(claim_id, timeline)
+        
+        logger.info(
+            "Archive diff event added",
+            claim_id=claim_id,
+            event_type=event_type.value,
+            similarity=similarity,
+            freshness_penalty=freshness_penalty,
+        )
+        
+        return event
     
     async def get_timeline_coverage(self, task_id: str) -> dict[str, Any]:
         """Calculate timeline coverage metrics for a task.

@@ -540,3 +540,267 @@ class TestFetchResultArchiveFields:
         assert "archive_url" not in d
         assert "freshness_penalty" not in d
 
+
+# =============================================================================
+# 16.12.2 Tests: Diff Detection Enhancement
+# =============================================================================
+
+class TestApplyFreshnessPenalty:
+    """Tests for apply_freshness_penalty function."""
+    
+    def test_no_penalty_no_change(self):
+        """Test zero penalty doesn't change confidence."""
+        from src.crawler.wayback import apply_freshness_penalty
+        
+        result = apply_freshness_penalty(0.9, 0.0)
+        assert result == 0.9
+    
+    def test_max_penalty_halves_confidence(self):
+        """Test max penalty with default weight reduces by 50%."""
+        from src.crawler.wayback import apply_freshness_penalty
+        
+        # 1.0 penalty with 0.5 weight = 50% reduction
+        result = apply_freshness_penalty(1.0, 1.0, weight=0.5)
+        assert result == 0.5
+    
+    def test_moderate_penalty(self):
+        """Test moderate penalty application."""
+        from src.crawler.wayback import apply_freshness_penalty
+        
+        # 0.5 penalty with 0.5 weight = 25% reduction
+        result = apply_freshness_penalty(0.8, 0.5, weight=0.5)
+        assert 0.55 < result < 0.65
+    
+    def test_custom_weight(self):
+        """Test custom weight parameter."""
+        from src.crawler.wayback import apply_freshness_penalty
+        
+        # 1.0 penalty with 0.3 weight = 30% reduction
+        result = apply_freshness_penalty(1.0, 1.0, weight=0.3)
+        assert result == 0.7
+    
+    def test_bounds(self):
+        """Test result stays within [0.0, 1.0]."""
+        from src.crawler.wayback import apply_freshness_penalty
+        
+        # Should not go below 0
+        result = apply_freshness_penalty(0.1, 1.0, weight=1.0)
+        assert result == 0.0
+        
+        # Should not exceed 1
+        result = apply_freshness_penalty(1.0, 0.0)
+        assert result == 1.0
+
+
+class TestArchiveDiffResult:
+    """Tests for ArchiveDiffResult dataclass."""
+    
+    def test_default_values(self):
+        """Test default values."""
+        from src.crawler.wayback import ArchiveDiffResult
+        
+        result = ArchiveDiffResult(url="https://example.com")
+        
+        assert result.has_significant_changes is False
+        assert result.similarity_ratio == 1.0
+        assert result.headings_added == []
+        assert result.headings_removed == []
+        assert result.timeline_event_type == "content_unchanged"
+    
+    def test_to_dict(self):
+        """Test to_dict conversion."""
+        from src.crawler.wayback import ArchiveDiffResult
+        
+        result = ArchiveDiffResult(
+            url="https://example.com",
+            has_significant_changes=True,
+            similarity_ratio=0.7,
+            headings_added=["New Section"],
+            headings_removed=["Old Section"],
+            timeline_event_type="content_modified",
+            freshness_penalty=0.3,
+            adjusted_confidence=0.85,
+        )
+        
+        d = result.to_dict()
+        
+        assert d["url"] == "https://example.com"
+        assert d["has_significant_changes"] is True
+        assert d["similarity_ratio"] == 0.7
+        assert d["headings_added"] == ["New Section"]
+        assert d["headings_removed"] == ["Old Section"]
+        assert d["freshness_penalty"] == 0.3
+        assert d["adjusted_confidence"] == 0.85
+    
+    def test_generate_timeline_notes_outdated(self):
+        """Test timeline notes for outdated archive."""
+        from src.crawler.wayback import ArchiveDiffResult
+        
+        result = ArchiveDiffResult(
+            url="https://example.com",
+            freshness_penalty=0.6,
+        )
+        
+        notes = result.generate_timeline_notes()
+        assert "significantly outdated" in notes.lower()
+    
+    def test_generate_timeline_notes_headings(self):
+        """Test timeline notes include heading changes."""
+        from src.crawler.wayback import ArchiveDiffResult
+        
+        result = ArchiveDiffResult(
+            url="https://example.com",
+            headings_added=["New Feature", "Updates"],
+            headings_removed=["Deprecated"],
+        )
+        
+        notes = result.generate_timeline_notes()
+        assert "New Feature" in notes or "New sections" in notes
+        assert "Deprecated" in notes or "Removed sections" in notes
+
+
+class TestCompareWithCurrent:
+    """Tests for WaybackFallback.compare_with_current method."""
+    
+    @pytest.fixture
+    def wayback_fallback(self):
+        """Create WaybackFallback instance."""
+        return WaybackFallback()
+    
+    @pytest.mark.asyncio
+    async def test_compare_no_archive(self, wayback_fallback):
+        """Test comparison when no archive available."""
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get:
+            mock_get.return_value = []
+            
+            result = await wayback_fallback.compare_with_current(
+                "https://example.com",
+                "<html><body>Current content</body></html>",
+            )
+            
+            assert result.has_significant_changes is False
+            assert "No archive" in result.timeline_notes
+    
+    @pytest.mark.asyncio
+    async def test_compare_similar_content(self, wayback_fallback):
+        """Test comparison with similar content."""
+        snapshot = Snapshot(
+            url="https://example.com",
+            original_url="https://example.com",
+            timestamp=datetime.now(timezone.utc) - timedelta(days=5),
+        )
+        
+        current_html = "<html><body><h1>Title</h1><p>Some content here.</p></body></html>"
+        archived_html = "<html><body><h1>Title</h1><p>Some content here.</p></body></html>"
+        
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_get.return_value = [snapshot]
+            mock_fetch.return_value = archived_html
+            
+            result = await wayback_fallback.compare_with_current(
+                "https://example.com",
+                current_html,
+            )
+            
+            assert result.similarity_ratio > 0.9
+            assert result.timeline_event_type == "content_unchanged"
+    
+    @pytest.mark.asyncio
+    async def test_compare_modified_content(self, wayback_fallback):
+        """Test comparison with modified content."""
+        snapshot = Snapshot(
+            url="https://example.com",
+            original_url="https://example.com",
+            timestamp=datetime.now(timezone.utc) - timedelta(days=30),
+        )
+        
+        current_html = """
+        <html><body>
+        <h1>Title</h1>
+        <h2>New Section</h2>
+        <p>Completely new content that wasn't there before.</p>
+        <p>More new paragraphs with different information.</p>
+        </body></html>
+        """
+        archived_html = """
+        <html><body>
+        <h1>Title</h1>
+        <h2>Old Section</h2>
+        <p>Original content from before.</p>
+        </body></html>
+        """
+        
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_get.return_value = [snapshot]
+            mock_fetch.return_value = archived_html
+            
+            result = await wayback_fallback.compare_with_current(
+                "https://example.com",
+                current_html,
+            )
+            
+            assert result.has_significant_changes is True
+            assert result.similarity_ratio < 0.9
+            assert "New Section" in result.headings_added
+            assert "Old Section" in result.headings_removed
+    
+    @pytest.mark.asyncio
+    async def test_compare_applies_freshness_penalty(self, wayback_fallback):
+        """Test that comparison applies freshness penalty to confidence."""
+        snapshot = Snapshot(
+            url="https://example.com",
+            original_url="https://example.com",
+            timestamp=datetime.now(timezone.utc) - timedelta(days=200),  # ~6 months old
+        )
+        
+        current_html = "<html><body><h1>Content</h1></body></html>"
+        archived_html = "<html><body><h1>Content</h1></body></html>"
+        
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_get.return_value = [snapshot]
+            mock_fetch.return_value = archived_html
+            
+            result = await wayback_fallback.compare_with_current(
+                "https://example.com",
+                current_html,
+                base_confidence=1.0,
+            )
+            
+            # 6 months = ~0.5 penalty
+            assert result.freshness_penalty > 0.4
+            assert result.adjusted_confidence < 1.0
+            assert result.adjusted_confidence > 0.7
+
+
+class TestTimelineEventTypes:
+    """Tests for new timeline event types."""
+    
+    def test_content_modified_event_type(self):
+        """Test CONTENT_MODIFIED event type exists."""
+        from src.filter.claim_timeline import TimelineEventType
+        
+        assert TimelineEventType.CONTENT_MODIFIED.value == "content_modified"
+        assert TimelineEventType.CONTENT_MAJOR_CHANGE.value == "content_major_change"
+        assert TimelineEventType.ARCHIVE_ONLY.value == "archive_only"
+
