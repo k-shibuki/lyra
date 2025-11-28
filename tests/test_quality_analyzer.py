@@ -343,7 +343,10 @@ class TestContentQualityAnalyzer:
         result = analyzer.analyze(html)
         
         # Should detect SEO spam patterns
-        assert QualityIssue.SEO_SPAM in result.issues or result.features.keyword_density > 0.03
+        assert QualityIssue.SEO_SPAM in result.issues, (
+            f"Expected SEO_SPAM issue for keyword-stuffed content. "
+            f"Detected issues: {result.issues}, keyword_density: {result.features.keyword_density}"
+        )
     
     # === Aggregator/Curation Site Detection ===
     
@@ -650,7 +653,8 @@ class TestContentQualityAnalyzer:
         result = analyzer.analyze(html)
         
         assert result.reason
-        assert len(result.reason) > 0
+        # Reason should be a meaningful explanation (at least 10 chars)
+        assert len(result.reason) >= 10, f"Expected reason >=10 chars, got: {result.reason}"
 
 
 class TestConvenienceFunctions:

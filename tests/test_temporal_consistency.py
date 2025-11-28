@@ -450,9 +450,9 @@ class TestEdgeCases:
         claim_text = "Event on 2024-13-45"  # Invalid month/day
         page_metadata = {"published_date": "2024-01-01"}
         
-        # Should not raise exception
+        # Should not raise exception, return valid result
         result = checker.check_consistency(claim_text, page_metadata)
-        assert result is not None
+        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
     
     def test_very_old_date(self, checker):
         """Should handle very old dates."""
@@ -461,7 +461,7 @@ class TestEdgeCases:
         
         result = checker.check_consistency(claim_text, page_metadata)
         # 1800 is not matched by our patterns (20\d{2})
-        assert result is not None
+        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
     
     def test_future_page_date(self, checker):
         """Should handle future page dates."""
@@ -470,7 +470,7 @@ class TestEdgeCases:
         current_time = datetime(2024, 6, 15, tzinfo=timezone.utc)
         
         result = checker.check_consistency(claim_text, page_metadata, current_time)
-        assert result is not None
+        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
     
     def test_same_date_claim_and_page(self, checker):
         """Should handle same date for claim and page."""
@@ -496,8 +496,9 @@ class TestEdgeCases:
         page_metadata = {"published_date": "2024-07-01"}
         
         result = checker.check_consistency(claim_text, page_metadata)
-        assert result is not None
-        assert result.claim_date is not None
+        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
+        # Japanese era year should be parsed as 2024
+        assert result.claim_date is not None, "Expected claim_date for Japanese era text"
     
     def test_mixed_languages(self, checker):
         """Should handle mixed language text."""
@@ -505,7 +506,7 @@ class TestEdgeCases:
         page_metadata = {"published_date": "2024-07-01"}
         
         result = checker.check_consistency(claim_text, page_metadata)
-        assert result is not None
+        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
 
 
 # =============================================================================

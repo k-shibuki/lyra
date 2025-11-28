@@ -150,8 +150,9 @@ class TestPlattScaling:
         
         A, B = PlattScaling.fit(logits, OVERCONFIDENT_LABELS)
         
-        # A and B should be non-trivial values
-        assert A != 1.0 or B != 0.0
+        # A and B should be non-trivial (not both at default values)
+        is_default = (A == 1.0 and B == 0.0)
+        assert not is_default, f"Expected non-default parameters, got A={A}, B={B}"
     
     def test_transform_valid_range(self):
         """Transform should output valid probabilities."""
@@ -1138,7 +1139,8 @@ class TestCalibrationEvaluator:
         assert evaluation.source == "test_source"
         assert evaluation.samples_evaluated == 10
         assert 0 <= evaluation.brier_score <= 1
-        assert len(evaluation.bins) > 0
+        # Should have at least 1 calibration bin
+        assert len(evaluation.bins) >= 1, f"Expected >=1 bins, got {len(evaluation.bins)}"
         mock_db.execute.assert_called()
         mock_db.commit.assert_called()
     

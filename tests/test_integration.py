@@ -74,8 +74,8 @@ class TestSearchToExtractPipeline:
         result = await extract_content(html=mock_html_content, content_type="html")
         
         assert result["ok"] is True
-        # Should extract text content
-        assert "text" in result or "content" in result
+        # Should extract text content (returned as "text" key)
+        assert "text" in result, f"Expected 'text' in result, got keys: {list(result.keys())}"
     
     @pytest.mark.asyncio
     async def test_rank_candidates_bm25(self, sample_passages):
@@ -89,8 +89,11 @@ class TestSearchToExtractPipeline:
         scores = ranker.get_scores("healthcare AI medical")
         
         assert len(scores) == len(texts)
-        # Healthcare-related passages should score higher
-        assert scores[0] > 0 or scores[2] > 0 or scores[4] > 0
+        # At least one healthcare-related passage should have a positive score
+        healthcare_scores = [scores[0], scores[2], scores[4]]  # indices with healthcare content
+        assert any(s > 0 for s in healthcare_scores), (
+            f"Expected positive score for healthcare passages, got: {healthcare_scores}"
+        )
 
 
 # =============================================================================
@@ -383,16 +386,19 @@ class TestReportIntegration:
         slug = generate_anchor_slug("Section 3.1: Key Findings")
         assert slug == "section-31-key-findings"
         
-        # Test with Japanese
+        # Test with Japanese - should preserve characters
         slug_ja = generate_anchor_slug("第1章 概要")
-        assert "第1章" in slug_ja or "概要" in slug_ja
+        # Both Japanese terms should be in the slug
+        assert "第1章" in slug_ja, f"Expected '第1章' in slug: {slug_ja}"
+        assert "概要" in slug_ja, f"Expected '概要' in slug: {slug_ja}"
     
     @pytest.mark.asyncio
     async def test_report_generator_class_exists(self):
-        """Verify ReportGenerator can be imported."""
+        """Verify ReportGenerator can be imported and is callable."""
         from src.report.generator import ReportGenerator
         
-        assert ReportGenerator is not None
+        # Should be a class (callable) with expected interface
+        assert callable(ReportGenerator), "ReportGenerator should be a callable class"
 
 
 # =============================================================================
@@ -465,7 +471,8 @@ class TestCalibrationIntegration:
             from src.utils.calibration import Calibrator
             
             calibrator = Calibrator()
-            assert calibrator is not None
+            # Verify instance type (more specific than is not None)
+            assert isinstance(calibrator, Calibrator), f"Expected Calibrator instance, got {type(calibrator)}"
     
     @pytest.mark.asyncio
     async def test_escalation_decider_initialization(self, tmp_path):
@@ -478,7 +485,8 @@ class TestCalibrationIntegration:
             calibrator = Calibrator()
             decider = EscalationDecider(calibrator=calibrator)
             
-            assert decider is not None
+            # Verify instance type
+            assert isinstance(decider, EscalationDecider), f"Expected EscalationDecider, got {type(decider)}"
 
 
 # =============================================================================
@@ -495,7 +503,8 @@ class TestMetricsPolicyIntegration:
         from src.utils.metrics import MetricsCollector
         
         collector = MetricsCollector()
-        assert collector is not None
+        # Verify instance type
+        assert isinstance(collector, MetricsCollector), f"Expected MetricsCollector, got {type(collector)}"
     
     @pytest.mark.asyncio
     async def test_policy_engine_initialization(self):
@@ -503,7 +512,8 @@ class TestMetricsPolicyIntegration:
         from src.utils.policy_engine import PolicyEngine
         
         policy = PolicyEngine()
-        assert policy is not None
+        # Verify instance type
+        assert isinstance(policy, PolicyEngine), f"Expected PolicyEngine, got {type(policy)}"
 
 
 # =============================================================================
@@ -520,7 +530,8 @@ class TestNotificationIntegration:
         from src.utils.notification import InterventionManager
         
         manager = InterventionManager()
-        assert manager is not None
+        # Verify instance type
+        assert isinstance(manager, InterventionManager), f"Expected InterventionManager, got {type(manager)}"
     
     @pytest.mark.asyncio
     async def test_intervention_types(self):
