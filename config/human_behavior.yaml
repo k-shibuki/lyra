@@ -1,0 +1,96 @@
+# Human Behavior Configuration for Lancet
+# 
+# Controls mouse movement, typing rhythm, and scrolling patterns
+# to simulate realistic human interactions (§4.3.4).
+#
+# This configuration can be adjusted without code changes.
+# Hot-reload is supported - changes take effect on next simulator creation.
+
+# =============================================================================
+# Mouse Movement Configuration
+# =============================================================================
+mouse:
+  # Base speed in pixels per second
+  base_speed: 800.0
+  # Speed variance (±30% by default)
+  speed_variance: 0.3
+  
+  # Bezier curve control points
+  # Higher variance = more curved paths
+  control_point_variance: 80.0
+  # Number of intermediate control points (2-3 recommended)
+  num_control_points: 2
+  
+  # Acceleration/deceleration phases
+  # Natural mouse movement starts slow, speeds up, then slows down
+  acceleration_ratio: 0.2  # First 20% of path accelerates
+  deceleration_ratio: 0.3  # Last 30% of path decelerates
+  
+  # Micro-jitter (small random movements)
+  # Simulates natural hand tremor
+  jitter_amplitude: 2.0  # pixels
+  jitter_frequency: 0.3  # probability per step (0-1)
+  
+  # Path resolution
+  min_steps: 10
+  max_steps: 50
+
+# =============================================================================
+# Typing Configuration
+# =============================================================================
+typing:
+  # Key delay parameters (milliseconds)
+  # Uses Gaussian distribution centered at mean_delay_ms
+  mean_delay_ms: 100.0
+  std_delay_ms: 30.0
+  min_delay_ms: 30.0
+  max_delay_ms: 300.0
+  
+  # Post-punctuation pause
+  # Humans naturally pause longer after . , ; : ! ?
+  punctuation_delay_multiplier: 2.5
+  punctuation_chars: ".,;:!?"
+  
+  # Typo simulation
+  # Creates realistic mistakes that are immediately corrected
+  typo_probability: 0.01  # 1% chance per character
+  
+  # Correction timing
+  typo_detection_delay_ms: 300.0  # Time before "noticing" typo
+  backspace_delay_ms: 80.0  # Backspace key delay
+
+# =============================================================================
+# Scrolling Configuration
+# =============================================================================
+scroll:
+  # Base scroll amount in pixels
+  base_scroll_amount: 400.0
+  # Scroll amount variance (±40% by default)
+  scroll_variance: 0.4
+  
+  # Inertial animation parameters
+  # Creates smooth, natural-looking scroll
+  animation_duration_ms: 400.0
+  # Ease-out power (higher = more pronounced deceleration)
+  # 2 = quadratic, 3 = cubic, etc.
+  ease_out_power: 3.0
+  
+  # Reading pauses
+  # Humans pause to read content after scrolling
+  pause_probability: 0.2  # 20% chance to pause
+  pause_min_ms: 500.0
+  pause_max_ms: 2000.0
+  
+  # Reverse scroll probability
+  # Sometimes humans scroll back slightly to re-read
+  reverse_probability: 0.05  # 5% chance
+
+# =============================================================================
+# General Timing
+# =============================================================================
+
+# "Thinking" delays between actions
+# Simulates cognitive processing time
+think_time_min_ms: 200.0
+think_time_max_ms: 800.0
+

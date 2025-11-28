@@ -1,14 +1,17 @@
 """
 Wayback Machine differential exploration for Lancet.
 
-Implements archive snapshot retrieval and diff extraction (§3.1.6):
+Implements archive snapshot retrieval and diff extraction (§3.1.6, §16.12):
 - Snapshot discovery via HTML scraping (no API)
 - Content comparison across time
 - Timeline construction for claims
 - Budget control per domain/task
+- Automatic fallback for 403/CAPTCHA blocked URLs (§16.12)
+- Freshness penalty calculation for archived content
 
 References:
 - §3.1.6: Wayback Differential Exploration
+- §16.12: Wayback Fallback Strengthening
 """
 
 import asyncio
@@ -862,6 +865,242 @@ async def check_content_modified(
         "url": url,
         "has_significant_changes": has_changes,
     }
+
+
+# =============================================================================
+# Wayback Fallback (§16.12)
+# =============================================================================
+
+@dataclass
+class FallbackResult:
+    """Result of Wayback fallback attempt.
+    
+    Per §16.12: Contains archived content and freshness metadata.
+    """
+    
+    ok: bool
+    url: str
+    html: str | None = None
+    snapshot: Snapshot | None = None
+    freshness_penalty: float = 0.0
+    error: str | None = None
+    attempts: int = 0
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "ok": self.ok,
+            "url": self.url,
+            "has_content": self.html is not None,
+            "snapshot_date": self.snapshot.timestamp.isoformat() if self.snapshot else None,
+            "snapshot_url": self.snapshot.wayback_url if self.snapshot else None,
+            "freshness_penalty": self.freshness_penalty,
+            "error": self.error,
+            "attempts": self.attempts,
+        }
+
+
+def calculate_freshness_penalty(snapshot_date: datetime) -> float:
+    """Calculate freshness penalty based on snapshot age.
+    
+    Per §16.12: Older content gets higher penalty to reflect staleness.
+    
+    Penalty scale:
+    - < 7 days: 0.0 (no penalty)
+    - 7-30 days: 0.0-0.2 (minor penalty)
+    - 1-6 months: 0.2-0.5 (moderate penalty)
+    - 6-12 months: 0.5-0.7 (significant penalty)
+    - > 12 months: 0.7-1.0 (major penalty)
+    
+    Args:
+        snapshot_date: Date of the snapshot.
+        
+    Returns:
+        Freshness penalty (0.0-1.0).
+    """
+    now = datetime.now(timezone.utc)
+    age_days = (now - snapshot_date).days
+    
+    if age_days < 0:
+        # Future date (shouldn't happen, but handle gracefully)
+        return 0.0
+    elif age_days < 7:
+        return 0.0
+    elif age_days < 30:
+        # Linear from 0.0 to 0.2
+        return 0.2 * (age_days - 7) / 23
+    elif age_days < 180:
+        # Linear from 0.2 to 0.5
+        return 0.2 + 0.3 * (age_days - 30) / 150
+    elif age_days < 365:
+        # Linear from 0.5 to 0.7
+        return 0.5 + 0.2 * (age_days - 180) / 185
+    else:
+        # Linear from 0.7 to 1.0 (capped at 1.0)
+        penalty = 0.7 + 0.3 * min((age_days - 365) / 730, 1.0)
+        return min(penalty, 1.0)
+
+
+class WaybackFallback:
+    """Provides Wayback Machine fallback for blocked URLs.
+    
+    Per §16.12: Automatically retrieves archived content when direct
+    access fails due to 403/CAPTCHA/blocking.
+    """
+    
+    DEFAULT_MAX_ATTEMPTS = 3  # Try up to 3 snapshots
+    
+    def __init__(self):
+        self._client = WaybackClient()
+        self._analyzer = ContentAnalyzer()
+    
+    async def get_fallback_content(
+        self,
+        url: str,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    ) -> FallbackResult:
+        """Get content from Wayback Machine as fallback.
+        
+        Tries the most recent snapshots first, up to max_attempts.
+        
+        Args:
+            url: Original URL that was blocked.
+            max_attempts: Maximum number of snapshots to try.
+            
+        Returns:
+            FallbackResult with content if successful.
+        """
+        result = FallbackResult(ok=False, url=url)
+        
+        try:
+            # Get available snapshots (newest first)
+            snapshots = await self._client.get_snapshots(url, limit=max_attempts)
+            
+            if not snapshots:
+                result.error = "no_snapshots_available"
+                logger.info(
+                    "No Wayback snapshots available",
+                    url=url[:80],
+                )
+                return result
+            
+            # Try each snapshot until success
+            for i, snapshot in enumerate(snapshots):
+                result.attempts = i + 1
+                
+                html = await self._client.fetch_snapshot(snapshot)
+                
+                if html and len(html) > 500:  # Basic validity check
+                    # Verify it's not an error page
+                    if not self._is_error_page(html):
+                        result.ok = True
+                        result.html = html
+                        result.snapshot = snapshot
+                        result.freshness_penalty = calculate_freshness_penalty(
+                            snapshot.timestamp
+                        )
+                        
+                        logger.info(
+                            "Wayback fallback successful",
+                            url=url[:80],
+                            snapshot_date=snapshot.timestamp.isoformat(),
+                            freshness_penalty=result.freshness_penalty,
+                            attempt=result.attempts,
+                        )
+                        return result
+                
+                # Rate limit between attempts
+                await asyncio.sleep(1.0)
+            
+            result.error = "all_snapshots_failed"
+            logger.warning(
+                "All Wayback snapshots failed",
+                url=url[:80],
+                attempts=result.attempts,
+            )
+            
+        except Exception as e:
+            result.error = str(e)
+            logger.error(
+                "Wayback fallback error",
+                url=url[:80],
+                error=str(e),
+            )
+        
+        return result
+    
+    def _is_error_page(self, html: str) -> bool:
+        """Check if HTML is a Wayback error page.
+        
+        Args:
+            html: HTML content.
+            
+        Returns:
+            True if this appears to be an error page.
+        """
+        html_lower = html.lower()
+        
+        error_indicators = [
+            "wayback machine has not archived",
+            "this url has been excluded",
+            "snapshot cannot be displayed",
+            "this page is not available",
+            "access denied",
+            "error retrieving",
+        ]
+        
+        return any(ind in html_lower for ind in error_indicators)
+    
+    async def get_best_snapshot_content(
+        self,
+        url: str,
+        prefer_recent: bool = True,
+    ) -> tuple[str | None, Snapshot | None, float]:
+        """Get the best available archived content for a URL.
+        
+        Args:
+            url: Original URL.
+            prefer_recent: Prefer more recent snapshots.
+            
+        Returns:
+            Tuple of (html, snapshot, freshness_penalty) or (None, None, 0.0).
+        """
+        result = await self.get_fallback_content(url)
+        
+        if result.ok:
+            return result.html, result.snapshot, result.freshness_penalty
+        
+        return None, None, 0.0
+
+
+# Global fallback instance
+_wayback_fallback: WaybackFallback | None = None
+
+
+def get_wayback_fallback() -> WaybackFallback:
+    """Get or create global WaybackFallback instance."""
+    global _wayback_fallback
+    if _wayback_fallback is None:
+        _wayback_fallback = WaybackFallback()
+    return _wayback_fallback
+
+
+async def get_fallback_for_blocked_url(
+    url: str,
+    max_attempts: int = 3,
+) -> dict[str, Any]:
+    """Get Wayback fallback content for a blocked URL (for integration).
+    
+    Args:
+        url: URL that was blocked.
+        max_attempts: Maximum snapshots to try.
+        
+    Returns:
+        Fallback result dictionary.
+    """
+    fallback = get_wayback_fallback()
+    result = await fallback.get_fallback_content(url, max_attempts)
+    return result.to_dict()
 
 
 
