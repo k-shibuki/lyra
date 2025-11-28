@@ -2,7 +2,7 @@
 Tests for claim decomposition module.
 
 Per §7.1.1: Tests validate specifications, not just "pass tests".
-Per §3.3.1: 問い→主張分解 functionality.
+Per §3.3.1: Question-to-Claim Decomposition functionality.
 """
 
 import pytest

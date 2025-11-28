@@ -78,7 +78,7 @@ def ollama_provider():
 
 
 class TestLLMOptions:
-    """Tests for LLMOptions dataclass (§3.2.1 MCPツールIF仕様)."""
+    """Tests for LLMOptions dataclass (§3.2.1 MCP Tool IF Spec)."""
     
     def test_default_values(self):
         """LLMOptions should have None defaults for optional fields."""
@@ -161,7 +161,7 @@ class TestChatMessage:
 
 
 class TestLLMResponse:
-    """Tests for LLMResponse dataclass (§3.2.1 MCPツールIF仕様)."""
+    """Tests for LLMResponse dataclass (§3.2.1 MCP Tool IF Spec)."""
     
     def test_success_response(self):
         """success() should create a successful response with all fields set."""
@@ -194,7 +194,7 @@ class TestLLMResponse:
         assert response.status == LLMResponseStatus.ERROR, f"Expected ERROR, got {response.status}"
     
     def test_timeout_error(self):
-        """make_error() with TIMEOUT status should indicate timeout (§4.3 抗堪性)."""
+        """make_error() with TIMEOUT status should indicate timeout (§4.3 Resilience)."""
         response = LLMResponse.make_error(
             error="Request timed out",
             model="test-model",
@@ -545,7 +545,7 @@ class TestOllamaProviderGenerate:
     
     @pytest.mark.asyncio
     async def test_generate_api_error(self, ollama_provider):
-        """generate() should return error response on non-200 (§4.3 抗堪性)."""
+        """generate() should return error response on non-200 (§4.3 Resilience)."""
         mock_response = MagicMock()
         mock_response.status = 500
         mock_response.text = AsyncMock(return_value="Internal server error")
@@ -800,7 +800,7 @@ class TestOllamaProviderListModels:
 
 
 class TestLLMProviderRegistry:
-    """Tests for LLMProviderRegistry (§5.2 プラグイン機構)."""
+    """Tests for LLMProviderRegistry (§5.2 Plugin Mechanism)."""
     
     def test_register_provider(self):
         """register() should add provider to registry."""
@@ -814,7 +814,7 @@ class TestLLMProviderRegistry:
         assert registry.get("ollama") is provider, "get() should return the registered provider instance"
     
     def test_register_sets_default(self):
-        """First registered provider should become default (§4.3.1 フォールバック)."""
+        """First registered provider should become default (§4.3.1 Fallback)."""
         registry = LLMProviderRegistry()
         provider = OllamaProvider()
         
@@ -906,7 +906,7 @@ class TestLLMProviderRegistry:
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_success(self):
-        """generate_with_fallback() should return on first success (§4.3.1 フォールバック)."""
+        """generate_with_fallback() should return on first success (§4.3.1 Fallback)."""
         registry = LLMProviderRegistry()
         
         class SuccessProvider(BaseLLMProvider):
@@ -931,7 +931,7 @@ class TestLLMProviderRegistry:
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_tries_multiple(self):
-        """generate_with_fallback() should try next provider on failure (§4.3.1 フォールバック)."""
+        """generate_with_fallback() should try next provider on failure (§4.3.1 Fallback)."""
         registry = LLMProviderRegistry()
         
         class FailProvider(BaseLLMProvider):
@@ -968,7 +968,7 @@ class TestLLMProviderRegistry:
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_skips_unhealthy(self):
-        """generate_with_fallback() should skip unhealthy providers (§4.3.1 ヘルスチェック)."""
+        """generate_with_fallback() should skip unhealthy providers (§4.3.1 Health Check)."""
         registry = LLMProviderRegistry()
         
         class UnhealthyProvider(BaseLLMProvider):
@@ -1005,7 +1005,7 @@ class TestLLMProviderRegistry:
     
     @pytest.mark.asyncio
     async def test_generate_with_fallback_all_fail(self):
-        """generate_with_fallback() should return error when all fail (§4.3 異常系)."""
+        """generate_with_fallback() should return error when all fail (§4.3 Error Cases)."""
         registry = LLMProviderRegistry()
         
         class FailProvider(BaseLLMProvider):

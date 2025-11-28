@@ -53,7 +53,7 @@ class TestResearchContext:
         """
         Verify that get_context extracts and returns entities from the query.
         
-        §3.1.7.1: ResearchContext extracts entities (人名/組織/地名等)
+        §3.1.7.1: ResearchContext extracts entities (person/organization/location/etc.)
         """
         # Arrange
         task_id = await test_database.create_task(
@@ -364,7 +364,7 @@ class TestExplorationState:
         # Act - now async per §16.7.1
         status = await state.get_status()
         
-        # Assert - verify structure per §3.2.1 MCPツールIF仕様
+        # Assert - verify structure per §3.2.1 MCP Tool IF Spec
         assert status["ok"] is True
         assert status["task_id"] == task_id
         assert "task_status" in status
@@ -666,7 +666,7 @@ class TestRefutationExecutor:
         """
         Verify all required refutation suffixes are defined.
         
-        §3.1.7.5: Suffixes include 課題/批判/問題点/limitations等.
+        §3.1.7.5: Suffixes include issues/criticism/problems/limitations etc.
         """
         # Assert
         assert "課題" in REFUTATION_SUFFIXES

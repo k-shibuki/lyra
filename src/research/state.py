@@ -637,8 +637,8 @@ class ExplorationState:
         """Generate alerts for authentication queue status.
         
         Per §16.7.3: Warning levels based on queue depth.
-        - warning: 認証待ち≥3件
-        - critical: 認証待ち≥5件 または 高優先度≥2件
+        - warning: pending auth ≥3 items
+        - critical: pending auth ≥5 items OR high priority ≥2 items
         
         Args:
             auth_queue: Authentication queue summary.

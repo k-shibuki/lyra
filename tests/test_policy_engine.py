@@ -2,7 +2,7 @@
 Tests for policy engine module.
 Tests PolicyEngine, ParameterState, and auto-adjustment logic.
 
-Related spec: §4.6 ポリシー自動更新（クローズドループ制御）
+Related spec: §4.6 Policy Auto-update (Closed-loop Control)
 """
 
 import asyncio
@@ -208,7 +208,7 @@ class TestPolicyEngine:
         Hysteresis is disabled (interval=0) to test immediate adjustment logic
         without timing dependencies.
         
-        Related spec: §4.6 ポリシー自動更新
+        Related spec: §4.6 Policy Auto-update
         """
         collector = MetricsCollector()
         engine = PolicyEngine(
@@ -248,7 +248,7 @@ class TestPolicyEngine:
         headful_ratio should increase. Hysteresis is disabled (interval=0)
         to test immediate adjustment logic.
         
-        Related spec: §4.6 ポリシー自動更新、§4.3 抗堪性とステルス性
+        Related spec: §4.6 Policy Auto-update, §4.3 Resilience and Stealth
         """
         collector = MetricsCollector()
         engine = PolicyEngine(

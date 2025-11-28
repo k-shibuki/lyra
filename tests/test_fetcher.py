@@ -313,7 +313,7 @@ class TestFetchResultCacheFields:
     def test_fetch_result_304_response(self):
         """Test FetchResult for 304 Not Modified response.
         
-        Per §4.3: 304活用率≥70% requires proper 304 handling.
+        Per §4.3: 304 utilization rate ≥70% requires proper 304 handling.
         """
         from src.crawler.fetcher import FetchResult
         

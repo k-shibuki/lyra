@@ -45,7 +45,7 @@ class TestPivotExpander:
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
     
     def test_expand_organization_includes_subsidiary_pivot(self, expander):
-        """Organization should have subsidiary pivot (子会社)."""
+        """Organization should have subsidiary pivot."""
         suggestions = expander.expand_entity(
             entity_text="ソニーグループ",
             entity_type=EntityType.ORGANIZATION,
@@ -60,7 +60,7 @@ class TestPivotExpander:
         assert "子会社" in " ".join(subsidiary_pivot.query_examples)
     
     def test_expand_organization_includes_officer_pivot(self, expander):
-        """Organization should have officer pivot (役員)."""
+        """Organization should have officer pivot."""
         suggestions = expander.expand_entity(
             entity_text="株式会社日立製作所",
             entity_type=EntityType.ORGANIZATION,
@@ -75,7 +75,7 @@ class TestPivotExpander:
         assert officer_pivot.target_entity_type == EntityType.PERSON
     
     def test_expand_organization_includes_location_pivot(self, expander):
-        """Organization should have location pivot (所在地)."""
+        """Organization should have location pivot."""
         suggestions = expander.expand_entity(
             entity_text="任天堂株式会社",
             entity_type=EntityType.ORGANIZATION,
@@ -85,7 +85,7 @@ class TestPivotExpander:
         assert PivotType.ORG_LOCATION in pivot_types
     
     def test_expand_organization_includes_domain_pivot(self, expander):
-        """Organization should have domain pivot (公式サイト)."""
+        """Organization should have domain pivot (official site)."""
         suggestions = expander.expand_entity(
             entity_text="楽天グループ株式会社",
             entity_type=EntityType.ORGANIZATION,
@@ -95,7 +95,7 @@ class TestPivotExpander:
         assert PivotType.ORG_DOMAIN in pivot_types
     
     def test_expand_organization_includes_registration_pivot(self, expander):
-        """Organization should have registration pivot (法人登記)."""
+        """Organization should have registration pivot (corporate registry)."""
         suggestions = expander.expand_entity(
             entity_text="パナソニック株式会社",
             entity_type=EntityType.ORGANIZATION,
@@ -164,7 +164,7 @@ class TestPivotExpander:
         assert PivotType.DOMAIN_WHOIS in pivot_types
     
     def test_expand_domain_includes_organization_pivot(self, expander):
-        """Domain should have organization pivot (運営会社)."""
+        """Domain should have organization pivot (operating company)."""
         suggestions = expander.expand_entity(
             entity_text="rakuten.co.jp",
             entity_type=EntityType.DOMAIN,
@@ -206,7 +206,7 @@ class TestPivotExpander:
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
     
     def test_expand_person_includes_alias_pivot(self, expander):
-        """Person should have alias pivot (別名)."""
+        """Person should have alias pivot."""
         suggestions = expander.expand_entity(
             entity_text="田中一郎",
             entity_type=EntityType.PERSON,
@@ -216,7 +216,7 @@ class TestPivotExpander:
         assert PivotType.PERSON_ALIAS in pivot_types
     
     def test_expand_person_includes_affiliation_pivot(self, expander):
-        """Person should have affiliation pivot (所属)."""
+        """Person should have affiliation pivot."""
         suggestions = expander.expand_entity(
             entity_text="佐藤花子",
             entity_type=EntityType.PERSON,
@@ -231,7 +231,7 @@ class TestPivotExpander:
         assert affiliation_pivot.target_entity_type == EntityType.ORGANIZATION
     
     def test_expand_person_includes_publication_pivot(self, expander):
-        """Person should have publication pivot (論文・著書)."""
+        """Person should have publication pivot (papers/books)."""
         suggestions = expander.expand_entity(
             entity_text="鈴木教授",
             entity_type=EntityType.PERSON,

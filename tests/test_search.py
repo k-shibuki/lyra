@@ -503,7 +503,7 @@ class TestQueryOperatorProcessor:
     def test_parse_exact_phrase(self):
         """Test parsing exact phrase with quotes.
         
-        Validates §3.1.1: フレーズ固定（"..."）for exact phrase matching.
+        Validates §3.1.1: Phrase fixing ("...") for exact phrase matching.
         """
         from src.search.search_api import QueryOperatorProcessor
         
@@ -518,7 +518,7 @@ class TestQueryOperatorProcessor:
     def test_parse_exclude_operator(self):
         """Test parsing exclude (-) operator.
         
-        Validates §3.1.1: 必須/除外（+/-）for term exclusion.
+        Validates §3.1.1: Required/Exclude (+/-) for term exclusion.
         """
         from src.search.search_api import QueryOperatorProcessor
         
@@ -535,7 +535,7 @@ class TestQueryOperatorProcessor:
     def test_parse_required_operator(self):
         """Test parsing required (+) operator.
         
-        Validates §3.1.1: 必須/除外（+/-）for required terms.
+        Validates §3.1.1: Required/Exclude (+/-) for required terms.
         """
         from src.search.search_api import QueryOperatorProcessor
         

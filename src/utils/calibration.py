@@ -1720,15 +1720,15 @@ class CalibrationEvaluation:
 class CalibrationEvaluator:
     """Manages calibration evaluation persistence (§4.6.1).
     
-    Responsibilities (Lancet作業側):
-    - 評価計算の実行
-    - 評価結果のDB永続化
-    - 構造化データの返却
+    Responsibilities (Lancet Worker):
+    - Execute evaluation calculations
+    - Persist evaluation results to DB
+    - Return structured data
     
-    NOT responsible for (Cursor AI思考側):
-    - レポートの生成・構成
-    - 評価結果の解釈
-    - 対応方針の決定
+    NOT responsible for (Cursor AI Thinking):
+    - Report generation/composition
+    - Interpretation of evaluation results
+    - Decision on response policies
     """
     
     def __init__(self, db: Any = None):
@@ -2066,7 +2066,7 @@ async def save_calibration_evaluation(
 ) -> dict[str, Any]:
     """Execute evaluation and save to database (for MCP tool use).
     
-    Implements §4.6.1: Lancet責任 - 評価計算・DB保存.
+    Implements §4.6.1: Lancet Worker - Evaluation calculation and DB persistence.
     
     Args:
         source: Source model identifier.
@@ -2093,7 +2093,7 @@ async def get_calibration_evaluations(
 ) -> dict[str, Any]:
     """Get evaluation history (for MCP tool use).
     
-    Implements §4.6.1: Lancet責任 - 構造化データの返却.
+    Implements §4.6.1: Lancet Worker - Return structured data.
     
     Args:
         source: Optional source filter.
@@ -2133,7 +2133,7 @@ async def get_reliability_diagram_data(
 ) -> dict[str, Any]:
     """Get reliability diagram data for visualization (for MCP tool use).
     
-    Implements §4.6.1: Lancet責任 - 信頼度-精度曲線用ビンデータ返却.
+    Implements §4.6.1: Lancet Worker - Return bin data for reliability curve.
     
     Args:
         source: Source model identifier.

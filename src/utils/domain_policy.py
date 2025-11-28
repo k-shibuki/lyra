@@ -43,13 +43,13 @@ logger = get_logger(__name__)
 # =============================================================================
 
 class TrustLevel(str, Enum):
-    """Trust level for domain classification (§3.3 信頼度スコアリング)."""
-    PRIMARY = "primary"        # 一次資料（政府/学術/規格/公式発表）
-    GOVERNMENT = "government"  # 公的機関
-    ACADEMIC = "academic"      # 学術機関
-    TRUSTED = "trusted"        # 信頼メディア
-    UNKNOWN = "unknown"        # 未分類
-    SUSPICIOUS = "suspicious"  # 疑わしい
+    """Trust level for domain classification (§3.3 Trust Scoring)."""
+    PRIMARY = "primary"        # Primary sources (government/academic/standard/official)
+    GOVERNMENT = "government"  # Government agencies
+    ACADEMIC = "academic"      # Academic institutions
+    TRUSTED = "trusted"        # Trusted media
+    UNKNOWN = "unknown"        # Unclassified
+    SUSPICIOUS = "suspicious"  # Suspicious
 
 
 class SkipReason(str, Enum):
@@ -62,7 +62,7 @@ class SkipReason(str, Enum):
     PERSISTENT_CAPTCHA = "persistent_captcha"
 
 
-# Default trust level weights (§3.3 信頼度スコアリング)
+# Default trust level weights (§3.3 Trust Scoring)
 DEFAULT_TRUST_WEIGHTS: dict[TrustLevel, float] = {
     TrustLevel.PRIMARY: 1.0,
     TrustLevel.GOVERNMENT: 0.95,

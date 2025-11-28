@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 # =============================================================================
 
 # Minimal stealth.js equivalent - overrides navigator.webdriver and related properties
-# per §4.3 (ブラウザ/JS層)
+# per §4.3 (Browser/JS Layer)
 STEALTH_JS = """
 (() => {
     // Override navigator.webdriver

@@ -2,7 +2,7 @@
 Tests for metrics collection module.
 Tests the MetricsCollector, TaskMetrics, and related functionality.
 
-Related spec: §4.6 自動適応・メトリクス駆動制御
+Related spec: §4.6 Auto-adaptation and Metrics-driven Control
 """
 
 import asyncio
@@ -289,7 +289,7 @@ class TestMetricsCollector:
         
         Verifies that global metrics dictionary contains expected metric types
         with proper MetricValue structure (raw, ema_short, ema_long, samples).
-        Related spec: §4.6 メトリクス定義
+        Related spec: §4.6 Metrics Definition
         """
         collector = MetricsCollector()
         
@@ -308,7 +308,7 @@ class TestMetricsCollector:
         
         Verifies that domain metrics are properly tracked and contain
         expected keys with valid values after recording fetch and error events.
-        Related spec: §4.6 メトリクス定義
+        Related spec: §4.6 Metrics Definition
         """
         collector = MetricsCollector()
         

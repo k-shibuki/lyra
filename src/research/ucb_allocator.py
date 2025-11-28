@@ -5,8 +5,8 @@ Implements UCB1 (Upper Confidence Bound) algorithm for dynamic budget reallocati
 based on subquery harvest rates. High-yield subqueries receive more budget.
 
 See requirements.md §3.1.1:
-- 「サブクエリごとの収穫率（有用断片/取得件数）で予算を動的再配分（UCB1風）」
-- 「探索木制御の最適化」
+- Dynamic budget reallocation based on harvest rate (useful fragments / fetched pages) per subquery (UCB1-style)
+- Exploration tree control optimization
 """
 
 import math

@@ -1250,7 +1250,7 @@ async def _handle_save_calibration_evaluation(args: dict[str, Any]) -> dict[str,
     """
     Handle save_calibration_evaluation tool call.
     
-    Implements §4.6.1: Lancet責任 - 評価計算・DB保存.
+    Implements §4.6.1: Lancet Worker - Evaluation calculation and DB persistence.
     """
     from src.utils.calibration import save_calibration_evaluation
     
@@ -1269,7 +1269,7 @@ async def _handle_get_calibration_evaluations(args: dict[str, Any]) -> dict[str,
     """
     Handle get_calibration_evaluations tool call.
     
-    Implements §4.6.1: Lancet責任 - 構造化データの返却.
+    Implements §4.6.1: Lancet Worker - Return structured data.
     """
     from src.utils.calibration import get_calibration_evaluations
     
@@ -1288,7 +1288,7 @@ async def _handle_get_reliability_diagram_data(args: dict[str, Any]) -> dict[str
     """
     Handle get_reliability_diagram_data tool call.
     
-    Implements §4.6.1: Lancet責任 - 信頼度-精度曲線用ビンデータ返却.
+    Implements §4.6.1: Lancet Worker - Return bin data for reliability curve.
     """
     from src.utils.calibration import get_reliability_diagram_data
     
@@ -1360,7 +1360,7 @@ async def _handle_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle decompose_question tool call.
     
-    Implements §3.3.1: 問い→主張分解.
+    Implements §3.3.1: Question-to-Claim Decomposition.
     Decomposes research questions into atomic claims for systematic verification.
     """
     from src.filter.claim_decomposition import decompose_question
@@ -1386,9 +1386,9 @@ async def _handle_compress_with_chain_of_density(args: dict[str, Any]) -> dict[s
     """
     Handle compress_with_chain_of_density tool call.
     
-    Implements §3.3.1: 圧縮と引用の厳格化.
-    - Chain-of-Density風に要約密度を上げる
-    - 全主張に深いリンク・発見日時・抜粋を必須付与
+    Implements §3.3.1: Compression and Citation Strictness.
+    - Increase summary density using Chain-of-Density approach
+    - Require deep links, discovery timestamps, and excerpts for all claims
     """
     from src.report.chain_of_density import compress_with_chain_of_density
     from src.report.generator import get_report_materials
