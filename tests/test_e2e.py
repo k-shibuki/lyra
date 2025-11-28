@@ -1,19 +1,19 @@
 """
 End-to-End Tests for Lancet.
 
-Per §7.1.7: E2E tests require real environment (SearXNG, Ollama, etc.) and
+Per §7.1.7: E2E tests require real environment (Browser, Ollama, etc.) and
 should be executed manually, not in CI.
 
 These tests validate:
-1. SearXNG → Fetch → Extract → Report pipeline
+1. Browser Search → Fetch → Extract → Report pipeline
 2. Authentication queue → Manual intervention → Resume flow
 
 Usage:
-    # Run E2E tests (requires running services)
-    podman exec lancet pytest tests/test_e2e.py -v -m e2e
+    # Run E2E tests (requires running services and display)
+    pytest tests/test_e2e.py -v -m e2e
 
     # Skip if services not available
-    podman exec lancet pytest tests/test_e2e.py -v -m e2e --ignore-missing-services
+    pytest tests/test_e2e.py -v -m e2e --ignore-missing-services
 """
 
 import asyncio
@@ -33,16 +33,25 @@ pytestmark = pytest.mark.e2e
 # Service Availability Checks
 # =============================================================================
 
-async def is_searxng_available() -> bool:
-    """Check if SearXNG is available."""
+async def is_browser_search_available() -> bool:
+    """Check if browser-based search is available.
+    
+    Returns True only if:
+    - Playwright is installed
+    - A display is available (for headed mode) or headless mode is configured
+    """
     try:
-        import aiohttp
+        # Check if running in container without display
+        display = os.environ.get("DISPLAY")
+        headless = os.environ.get("LANCET_HEADLESS", "false").lower() == "true"
         
-        searxng_host = os.environ.get("SEARXNG_HOST", "http://localhost:8080")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{searxng_host}/", timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                return resp.status == 200
-    except Exception:
+        if not display and not headless:
+            return False
+        
+        # Check if Playwright is available
+        from playwright.async_api import async_playwright
+        return True
+    except ImportError:
         return False
 
 
@@ -82,11 +91,11 @@ async def e2e_database(tmp_path_factory):
 
 
 @pytest_asyncio.fixture(scope="module")
-async def check_searxng():
-    """Check SearXNG availability and skip if not available."""
-    available = await is_searxng_available()
+async def check_browser_search():
+    """Check browser search availability and skip if not available."""
+    available = await is_browser_search_available()
     if not available:
-        pytest.skip("SearXNG is not available. Start with: podman-compose up searxng")
+        pytest.skip("Browser search not available. Requires display or LANCET_HEADLESS=true")
     return True
 
 
@@ -100,7 +109,7 @@ async def check_ollama():
 
 
 # =============================================================================
-# E2E Test 1: SearXNG → Fetch → Extract → Report Pipeline
+# E2E Test 1: Browser Search → Fetch → Extract → Report Pipeline
 # =============================================================================
 
 @pytest.mark.e2e
@@ -109,23 +118,23 @@ class TestSearchToReportPipeline:
     E2E test for the complete research pipeline.
     
     Verifies §3.1-§3.4 requirements:
-    - Search execution via SearXNG
+    - Search execution via browser-based search
     - URL fetching with rate limiting
     - Content extraction from HTML
     - Report material generation
     
     Requirements:
-    - SearXNG container running (localhost:8080)
+    - Display available or LANCET_HEADLESS=true
     - Network access for URL fetching
     """
     
     @pytest.mark.asyncio
-    async def test_search_returns_results(self, check_searxng, e2e_database):
+    async def test_search_returns_results(self, check_browser_search, e2e_database):
         """
-        Verify SearXNG search returns normalized results.
+        Verify browser-based search returns normalized results.
         
         Tests §3.2.1 search_serp tool:
-        - Query execution with real SearXNG
+        - Query execution with real browser search
         - Result normalization (title, url, snippet, engine, rank)
         """
         from src.search import search_serp
@@ -160,7 +169,7 @@ class TestSearchToReportPipeline:
         print(f"[E2E] First result: {first_result['title'][:50]}...")
     
     @pytest.mark.asyncio
-    async def test_fetch_and_extract_content(self, check_searxng, e2e_database):
+    async def test_fetch_and_extract_content(self, check_browser_search, e2e_database):
         """
         Verify URL fetching and content extraction.
         
@@ -210,14 +219,14 @@ class TestSearchToReportPipeline:
             pytest.skip("Could not retrieve HTML content for extraction test")
     
     @pytest.mark.asyncio
-    async def test_full_pipeline_simulation(self, check_searxng, e2e_database):
+    async def test_full_pipeline_simulation(self, check_browser_search, e2e_database):
         """
         Simulate a complete research pipeline.
         
         Tests the flow: Search → Fetch → Extract → Store
         Verifies §3.1.7 exploration control and §3.3 filtering.
         """
-        from src.search.searxng import search_serp
+        from src.search import search_serp
         from src.crawler.fetcher import fetch_url
         from src.extractor.content import extract_content
         from src.research.context import ResearchContext
@@ -278,7 +287,7 @@ class TestSearchToReportPipeline:
         print(f"[E2E] Subquery status: {status['subqueries'][0]['status']}")
     
     @pytest.mark.asyncio
-    async def test_report_materials_generation(self, check_searxng, e2e_database):
+    async def test_report_materials_generation(self, check_browser_search, e2e_database):
         """
         Test report materials can be generated from research data.
         
@@ -856,7 +865,7 @@ class TestCompleteResearchFlow:
     """
     
     @pytest.mark.asyncio
-    async def test_end_to_end_research_workflow(self, check_searxng, e2e_database):
+    async def test_end_to_end_research_workflow(self, check_browser_search, e2e_database):
         """
         Complete E2E test of the research workflow.
         
@@ -868,13 +877,13 @@ class TestCompleteResearchFlow:
         5. Build evidence graph
         6. Generate report materials
         
-        This test uses real SearXNG but mocks content fetching
+        This test uses real browser search but mocks content fetching
         to avoid rate limiting and external dependencies.
         """
         from src.research.context import ResearchContext
         from src.research.state import ExplorationState, SubqueryStatus
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
-        from src.search.searxng import search_serp
+        from src.search import search_serp
         
         # Step 1: Create research task
         query = "What are the main features of Python 3.12?"

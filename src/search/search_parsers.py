@@ -858,11 +858,11 @@ def _classify_source(url: str) -> SourceTag:
     """
     Classify source type based on URL.
     
-    Reuses classification logic from searxng_provider.
+    Reuses classification logic from search_api.
     """
     # Import here to avoid circular dependency
     try:
-        from src.search.searxng_provider import classify_source
+        from src.search.search_api import _classify_source as classify_source
         return classify_source(url)
     except ImportError:
         # Fallback classification

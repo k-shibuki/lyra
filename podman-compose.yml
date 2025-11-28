@@ -26,7 +26,6 @@ services:
     environment:
       - LANCET_ENV=development
       - LANCET_LOG_LEVEL=INFO
-      - SEARXNG_HOST=http://searxng:8080
       - OLLAMA_HOST=http://ollama:11434
       - TOR_SOCKS_HOST=tor
       - TOR_SOCKS_PORT=9050
@@ -38,34 +37,11 @@ services:
     stdin_open: true
     tty: true
     depends_on:
-      - searxng
       - tor
       - ollama
     networks:
       - lancet-net
     restart: unless-stopped
-
-  # ============================================================
-  # SearXNG - Meta Search Engine
-  # ============================================================
-  searxng:
-    image: docker.io/searxng/searxng:latest
-    container_name: lancet-searxng
-    volumes:
-      - ./config/searxng:/etc/searxng:rw
-    environment:
-      - SEARXNG_BASE_URL=http://localhost:8080
-    ports:
-      - "8080:8080"
-    networks:
-      - lancet-net
-    restart: unless-stopped
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
 
   # ============================================================
   # Tor - Anonymous Network

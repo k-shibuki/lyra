@@ -2,34 +2,30 @@
 Search integration for Lancet.
 
 Provides unified search interface through provider abstraction.
-Originally handled search queries through SearXNG, now supports
-BrowserSearchProvider (recommended) via Phase 16.9.
+Uses BrowserSearchProvider by default (Phase 16.9).
 
 Key functions:
 - search_serp() - Execute search queries (uses provider system)
 - expand_query() - Query expansion with synonyms
 - generate_mirror_query() - Cross-language query generation
+- QueryOperatorProcessor - Parse and transform search operators
 
-.. note:: Phase 16.9 Migration
-    The SearXNGClient class is deprecated. New code should use:
-    - BrowserSearchProvider for direct browser-based search
-    - search_serp() which automatically uses the configured provider
-    
-    Set `search.use_browser: true` in config/settings.yaml (default)
-    to use BrowserSearchProvider.
+.. note:: Phase 16.9.5 - SearXNG Removed
+    SearXNG has been removed from Lancet. All searches now use
+    BrowserSearchProvider for direct browser-based search, which:
+    - Uses the user's browser profile (Cookie/fingerprint)
+    - Enables CAPTCHA resolution via manual intervention (§3.6.1)
+    - Maintains session consistency with fetch operations
 """
 
 import asyncio
 import hashlib
 import json
 import re
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import urlencode, quote_plus
 
-import aiohttp
 import yaml
 
 from src.utils.config import get_settings
@@ -499,150 +495,6 @@ def build_search_query(
 
 
 # ============================================================================
-# SearXNG Client
-# ============================================================================
-
-
-class SearXNGClient:
-    """Client for interacting with SearXNG."""
-    
-    def __init__(self):
-        """Initialize SearXNG client.
-        
-        Uses DomainPolicyManager for search engine QPS settings.
-        """
-        import os
-        from src.utils.domain_policy import get_domain_policy_manager
-        
-        self.settings = get_settings()
-        # Use environment variable or default
-        self.base_url = os.environ.get("SEARXNG_HOST", "http://localhost:8080")
-        self._session: aiohttp.ClientSession | None = None
-        self._rate_limiter = asyncio.Semaphore(1)
-        self._last_request_time = 0.0
-        # Get min_interval from DomainPolicyManager
-        policy_manager = get_domain_policy_manager()
-        self._min_interval = policy_manager.get_search_engine_min_interval()
-    
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session."""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
-        return self._session
-    
-    async def close(self) -> None:
-        """Close the HTTP session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-    
-    async def _rate_limit(self) -> None:
-        """Apply rate limiting."""
-        async with self._rate_limiter:
-            elapsed = time.time() - self._last_request_time
-            if elapsed < self._min_interval:
-                await asyncio.sleep(self._min_interval - elapsed)
-            self._last_request_time = time.time()
-    
-    async def search(
-        self,
-        query: str,
-        engines: list[str] | None = None,
-        categories: list[str] | None = None,
-        language: str = "ja",
-        time_range: str | None = None,
-        pageno: int = 1,
-    ) -> dict[str, Any]:
-        """Execute a search query.
-        
-        Args:
-            query: Search query text.
-            engines: List of engines to use.
-            categories: List of categories.
-            language: Search language.
-            time_range: Time range filter (day, week, month, year).
-            pageno: Page number.
-            
-        Returns:
-            Search results dictionary.
-        """
-        await self._rate_limit()
-        
-        session = await self._get_session()
-        
-        params = {
-            "q": query,
-            "format": "json",
-            "language": language,
-            "pageno": pageno,
-        }
-        
-        if engines:
-            params["engines"] = ",".join(engines)
-        
-        if categories:
-            params["categories"] = ",".join(categories)
-        
-        if time_range and time_range != "all":
-            params["time_range"] = time_range
-        
-        url = f"{self.base_url}/search?{urlencode(params)}"
-        
-        logger.debug("SearXNG request", url=url, query=query)
-        
-        try:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    logger.error(
-                        "SearXNG error",
-                        status=response.status,
-                        query=query,
-                    )
-                    return {"results": [], "error": f"HTTP {response.status}"}
-                
-                data = await response.json()
-                
-                logger.info(
-                    "SearXNG search completed",
-                    query=query[:50],
-                    result_count=len(data.get("results", [])),
-                )
-                
-                return data
-                
-        except asyncio.TimeoutError:
-            logger.error("SearXNG timeout", query=query)
-            return {"results": [], "error": "Timeout"}
-        except Exception as e:
-            logger.error("SearXNG error", query=query, error=str(e))
-            return {"results": [], "error": str(e)}
-
-
-# Global client instance
-_client: SearXNGClient | None = None
-
-
-def _get_client() -> SearXNGClient:
-    """Get or create the global SearXNG client."""
-    global _client
-    if _client is None:
-        _client = SearXNGClient()
-    return _client
-
-
-async def _cleanup_client() -> None:
-    """Close and cleanup the global SearXNG client.
-    
-    Used for testing cleanup and graceful shutdown.
-    """
-    global _client
-    if _client is not None:
-        await _client.close()
-        _client = None
-
-
-# ============================================================================
 # Provider-based Search (Phase 17.1.1)
 # ============================================================================
 
@@ -656,8 +508,7 @@ async def _search_with_provider(
     """
     Execute search using the provider abstraction layer.
     
-    Per Phase 16.9: Uses BrowserSearchProvider by default (config: search.use_browser).
-    Falls back to SearXNGProvider if browser search is disabled.
+    Uses BrowserSearchProvider for direct browser-based search (Phase 16.9).
     
     Args:
         query: Search query.
@@ -669,36 +520,20 @@ async def _search_with_provider(
         List of normalized result dicts.
     """
     from src.search.provider import SearchOptions, get_registry
-    from src.utils.config import get_settings
-    
-    settings = get_settings()
-    use_browser = getattr(settings.search, "use_browser", True)
     
     # Ensure provider is registered
     registry = get_registry()
     
-    if use_browser:
-        # Phase 16.9: Use BrowserSearchProvider (recommended)
-        if registry.get("browser_search") is None:
-            from src.search.browser_search_provider import get_browser_search_provider
-            provider = get_browser_search_provider()
-            registry.register(provider, set_default=True)
-        
-        # Set as default if not already
-        if registry.get_default() is None or registry.get_default().name != "browser_search":
-            if registry.get("browser_search"):
-                registry.set_default("browser_search")
-    else:
-        # Legacy: Use SearXNGProvider
-        if registry.get("searxng") is None:
-            from src.search.searxng_provider import get_searxng_provider
-            provider = get_searxng_provider()
-            registry.register(provider, set_default=True)
-        
-        # Set as default if not already
-        if registry.get_default() is None or registry.get_default().name != "searxng":
-            if registry.get("searxng"):
-                registry.set_default("searxng")
+    # Use BrowserSearchProvider (Phase 16.9)
+    if registry.get("browser_search") is None:
+        from src.search.browser_search_provider import get_browser_search_provider
+        provider = get_browser_search_provider()
+        registry.register(provider, set_default=True)
+    
+    # Set as default if not already
+    if registry.get_default() is None or registry.get_default().name != "browser_search":
+        if registry.get("browser_search"):
+            registry.set_default("browser_search")
     
     # Build options
     options = SearchOptions(
@@ -764,9 +599,10 @@ async def search_serp(
     task_id: str | None = None,
     use_cache: bool = True,
     transform_operators: bool = True,
-    use_provider: bool = True,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
+    
+    Uses provider abstraction (BrowserSearchProvider by default, per Phase 16.9).
     
     Args:
         query: Search query (may contain operators like site:, filetype:, etc.).
@@ -776,8 +612,6 @@ async def search_serp(
         task_id: Associated task ID.
         use_cache: Whether to use cache.
         transform_operators: Whether to transform query operators for engines.
-        use_provider: Whether to use the provider abstraction (Phase 17.1.1).
-                      Default True (recommended). Set False only for legacy compatibility.
         
     Returns:
         List of normalized SERP result dicts.
@@ -808,8 +642,8 @@ async def search_serp(
                 )
                 return json.loads(cached["result_json"])
         
-        # Transform query for SearXNG (use default format)
-        # Note: SearXNG handles most operators internally for its backends
+        # Transform query operators to engine-specific format
+        # Uses default format which works across most search engines
         search_query = query
         if transform_operators and parsed_query and parsed_query.operators:
             processor = _get_operator_processor()
@@ -824,51 +658,13 @@ async def search_serp(
                 operators=operator_types,
             )
         
-        # Execute search - choose between provider and legacy client
-        if use_provider:
-            # New provider-based implementation (Phase 17.1.1)
-            results = await _search_with_provider(
-                query=search_query,
-                engines=engines,
-                limit=limit,
-                time_range=time_range,
-            )
-        else:
-            # Legacy SearXNGClient implementation
-            client = _get_client()
-            raw_results = await client.search(
-                query=search_query,
-                engines=engines,
-                time_range=time_range if time_range != "all" else None,
-            )
-            
-            # Normalize results
-            results = []
-            seen_urls = set()
-            
-            for idx, item in enumerate(raw_results.get("results", [])):
-                url = item.get("url", "")
-                
-                # Skip duplicates
-                if url in seen_urls:
-                    continue
-                seen_urls.add(url)
-                
-                # Normalize to standard schema
-                result = {
-                    "title": item.get("title", ""),
-                    "url": url,
-                    "snippet": item.get("content", ""),
-                    "date": item.get("publishedDate"),
-                    "engine": item.get("engine", "unknown"),
-                    "rank": idx + 1,
-                    "source_tag": _classify_source(url),
-                }
-                
-                results.append(result)
-                
-                if len(results) >= limit:
-                    break
+        # Execute search via provider abstraction
+        results = await _search_with_provider(
+            query=search_query,
+            engines=engines,
+            limit=limit,
+            time_range=time_range,
+        )
         
         # Store in database
         if task_id:

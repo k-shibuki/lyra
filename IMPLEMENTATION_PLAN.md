@@ -1028,10 +1028,15 @@ E2Eテストを有効に実施するための前提：
 - [x] 新規テスト追加（53件全パス）
 - [x] 全テスト回帰なし（2097件パス）
 
-**Phase 16.9.5: SearXNG完全廃止（最終段階）** ⏳
-- [ ] SearXNGコンテナ削除（podman-compose.yml）
-- [ ] SearXNG関連コード削除
-- [ ] ドキュメント更新
+**Phase 16.9.5: SearXNG完全廃止（最終段階）** ✅
+- [x] SearXNGコンテナ削除（podman-compose.yml）
+- [x] SearXNG関連コード削除
+  - `src/search/searxng.py` から `SearXNGClient` クラス削除
+  - `src/search/searxng_provider.py` 削除
+  - `config/searxng/` ディレクトリ削除
+  - `tests/conftest.py` から SearXNG モック削除
+  - `tests/test_search.py` から `TestSearXNGClient`, `TestSearchSerp` 削除
+- [x] ドキュメント更新
 
 ---
 

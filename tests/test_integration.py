@@ -31,37 +31,6 @@ async def integration_db(tmp_path):
 
 
 @pytest.fixture
-def mock_searxng_results():
-    """Mock SearXNG search results."""
-    return {
-        "results": [
-            {
-                "title": "Government Report on Topic X",
-                "url": "https://www.go.jp/report/2024/topic-x",
-                "content": "Official government findings on topic X indicate that...",
-                "engine": "duckduckgo",
-                "publishedDate": "2024-06-01",
-            },
-            {
-                "title": "Academic Paper: Analysis of X",
-                "url": "https://arxiv.org/abs/2024.12345",
-                "content": "This paper presents a comprehensive analysis of X...",
-                "engine": "google",
-                "publishedDate": "2024-05-15",
-            },
-            {
-                "title": "Wikipedia: Topic X Overview",
-                "url": "https://en.wikipedia.org/wiki/Topic_X",
-                "content": "Topic X is a subject that encompasses...",
-                "engine": "wikipedia",
-            },
-        ],
-        "infoboxes": [],
-        "suggestions": ["topic x analysis", "topic x research"],
-    }
-
-
-@pytest.fixture
 def mock_html_content():
     """Mock HTML content for extraction."""
     return """
@@ -96,24 +65,6 @@ def mock_html_content():
 @pytest.mark.integration
 class TestSearchToExtractPipeline:
     """Test the search → fetch → extract pipeline."""
-    
-    @pytest.mark.asyncio
-    async def test_search_returns_normalized_results(self, mock_searxng_results):
-        """Verify search normalizes results from SearXNG."""
-        from src.search.searxng import SearXNGClient
-        
-        with patch.object(SearXNGClient, "_get_session") as mock_session:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(return_value=mock_searxng_results)
-            
-            mock_session.return_value.get = AsyncMock(
-                return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response))
-            )
-            
-            client = SearXNGClient()
-            # Test that client can be instantiated
-            assert client is not None
     
     @pytest.mark.asyncio
     async def test_extract_content_from_html(self, mock_html_content):

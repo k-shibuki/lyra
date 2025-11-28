@@ -6,13 +6,15 @@ Validates:
 - SearchProvider protocol and BaseSearchProvider
 - SearchResult and SearchResponse data classes
 - SearchProviderRegistry registration and fallback
-- SearXNGProvider implementation
 
 Follows §7.1 test code quality standards:
 - Specific assertions with concrete values
 - No conditional assertions
 - Proper mocking of external dependencies
 - Boundary conditions coverage
+
+Note: SearXNGProvider tests have been removed (Phase 16.9.5).
+      BrowserSearchProvider tests are in test_browser_search_provider.py.
 """
 
 import asyncio
@@ -32,12 +34,6 @@ from src.search.provider import (
     SourceTag,
     get_registry,
     reset_registry,
-)
-from src.search.searxng_provider import (
-    SearXNGProvider,
-    classify_source,
-    get_searxng_provider,
-    reset_searxng_provider,
 )
 
 
@@ -130,10 +126,8 @@ def mock_provider(sample_results) -> MockSearchProvider:
 def cleanup():
     """Reset global state before and after each test."""
     reset_registry()
-    reset_searxng_provider()
     yield
     reset_registry()
-    reset_searxng_provider()
 
 
 # ============================================================================
@@ -542,332 +536,11 @@ class TestSearchProviderRegistry:
         assert mock_provider.is_closed
 
 
-# ============================================================================
-# classify_source Tests
-# ============================================================================
+# Note: TestClassifySource moved to test_search.py (uses _classify_source from searxng.py)
 
 
-class TestClassifySource:
-    """Tests for source classification function."""
-    
-    def test_academic_arxiv(self):
-        """Test arxiv.org classified as academic."""
-        assert classify_source("https://arxiv.org/abs/1234.5678") == SourceTag.ACADEMIC
-    
-    def test_academic_pubmed(self):
-        """Test pubmed classified as academic."""
-        assert classify_source("https://pubmed.ncbi.nlm.nih.gov/12345") == SourceTag.ACADEMIC
-    
-    def test_government_go_jp(self):
-        """Test .go.jp classified as government."""
-        assert classify_source("https://www.mhlw.go.jp/report") == SourceTag.GOVERNMENT
-    
-    def test_government_gov(self):
-        """Test .gov classified as government."""
-        assert classify_source("https://www.cdc.gov/health") == SourceTag.GOVERNMENT
-    
-    def test_standards_iso(self):
-        """Test iso.org classified as standards."""
-        assert classify_source("https://www.iso.org/standard/1234") == SourceTag.STANDARDS
-    
-    def test_standards_ietf(self):
-        """Test ietf.org classified as standards."""
-        assert classify_source("https://www.ietf.org/rfc/rfc1234") == SourceTag.STANDARDS
-    
-    def test_knowledge_wikipedia(self):
-        """Test wikipedia classified as knowledge."""
-        assert classify_source("https://ja.wikipedia.org/wiki/Test") == SourceTag.KNOWLEDGE
-    
-    def test_news_reuters(self):
-        """Test reuters.com classified as news."""
-        assert classify_source("https://www.reuters.com/article/123") == SourceTag.NEWS
-    
-    def test_technical_github(self):
-        """Test github.com classified as technical."""
-        assert classify_source("https://github.com/user/repo") == SourceTag.TECHNICAL
-    
-    def test_technical_docs(self):
-        """Test docs. subdomain classified as technical."""
-        assert classify_source("https://docs.python.org/3/") == SourceTag.TECHNICAL
-    
-    def test_blog_medium(self):
-        """Test medium.com classified as blog."""
-        assert classify_source("https://medium.com/@user/article") == SourceTag.BLOG
-    
-    def test_blog_qiita(self):
-        """Test qiita.com classified as blog."""
-        assert classify_source("https://qiita.com/user/items/123") == SourceTag.BLOG
-    
-    def test_unknown_generic(self):
-        """Test generic URL classified as unknown."""
-        assert classify_source("https://random-site.com/page") == SourceTag.UNKNOWN
-    
-    def test_case_insensitive(self):
-        """Test classification is case insensitive."""
-        assert classify_source("https://ARXIV.ORG/abs/1234") == SourceTag.ACADEMIC
-        assert classify_source("HTTPS://WWW.GO.JP/test") == SourceTag.GOVERNMENT
-
-
-# ============================================================================
-# SearXNGProvider Tests
-# ============================================================================
-
-
-class TestSearXNGProvider:
-    """Tests for SearXNGProvider implementation."""
-    
-    def test_init_default_values(self):
-        """Test provider initializes with default values."""
-        provider = SearXNGProvider()
-        
-        assert provider.name == "searxng"
-        assert not provider.is_closed
-    
-    def test_init_custom_values(self):
-        """Test provider accepts custom configuration."""
-        provider = SearXNGProvider(
-            base_url="http://custom:9090",
-            timeout=60,
-            min_interval=2.0,
-        )
-        
-        assert provider._base_url == "http://custom:9090"
-        assert provider._timeout == 60
-        assert provider._min_interval == 2.0
-    
-    @pytest.mark.asyncio
-    async def test_search_success(self):
-        """Test successful search with mocked HTTP response."""
-        provider = SearXNGProvider()
-        
-        mock_response_data = {
-            "results": [
-                {
-                    "title": "Test Result",
-                    "url": "https://example.com/test",
-                    "content": "Test content",
-                    "engine": "google",
-                },
-            ],
-        }
-        
-        with patch.object(provider, "_get_session", new_callable=AsyncMock) as mock_get_session:
-            mock_resp = MagicMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(return_value=mock_response_data)
-            
-            # Create async context manager for session.get
-            mock_cm = MagicMock()
-            mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
-            mock_cm.__aexit__ = AsyncMock(return_value=None)
-            
-            session = MagicMock()
-            session.get.return_value = mock_cm
-            mock_get_session.return_value = session
-            
-            response = await provider.search("test query")
-        
-        assert response.ok
-        assert len(response.results) == 1
-        assert response.results[0].title == "Test Result"
-        assert response.results[0].url == "https://example.com/test"
-        assert response.provider == "searxng"
-    
-    @pytest.mark.asyncio
-    async def test_search_http_error(self):
-        """Test handling of HTTP error response."""
-        provider = SearXNGProvider()
-        
-        with patch.object(provider, "_get_session", new_callable=AsyncMock) as mock_get_session:
-            mock_resp = MagicMock()
-            mock_resp.status = 500
-            
-            # Create async context manager for session.get
-            mock_cm = MagicMock()
-            mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
-            mock_cm.__aexit__ = AsyncMock(return_value=None)
-            
-            session = MagicMock()
-            session.get.return_value = mock_cm
-            mock_get_session.return_value = session
-            
-            response = await provider.search("test query")
-        
-        assert not response.ok
-        assert "HTTP 500" in response.error
-    
-    @pytest.mark.asyncio
-    async def test_search_timeout(self):
-        """Test handling of timeout error."""
-        provider = SearXNGProvider()
-        
-        with patch.object(provider, "_get_session", new_callable=AsyncMock) as mock_get_session:
-            # Create async context manager that raises TimeoutError on enter
-            mock_cm = MagicMock()
-            mock_cm.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
-            mock_cm.__aexit__ = AsyncMock(return_value=None)
-            
-            session = MagicMock()
-            session.get.return_value = mock_cm
-            mock_get_session.return_value = session
-            
-            response = await provider.search("test query")
-        
-        assert not response.ok
-        assert response.error == "Timeout"
-    
-    @pytest.mark.asyncio
-    async def test_search_exception(self):
-        """Test handling of general exception."""
-        provider = SearXNGProvider()
-        
-        with patch.object(provider, "_get_session", new_callable=AsyncMock) as mock_get_session:
-            # Create async context manager that raises Exception on enter
-            mock_cm = MagicMock()
-            mock_cm.__aenter__ = AsyncMock(side_effect=Exception("Connection refused"))
-            mock_cm.__aexit__ = AsyncMock(return_value=None)
-            
-            session = MagicMock()
-            session.get.return_value = mock_cm
-            mock_get_session.return_value = session
-            
-            response = await provider.search("test query")
-        
-        assert not response.ok
-        assert "Connection refused" in response.error
-    
-    @pytest.mark.asyncio
-    async def test_search_with_options(self):
-        """Test search passes options correctly."""
-        provider = SearXNGProvider()
-        
-        options = SearchOptions(
-            engines=["google", "duckduckgo"],
-            language="en",
-            time_range="week",
-            limit=5,
-        )
-        
-        with patch.object(provider, "_get_session", new_callable=AsyncMock) as mock_get_session:
-            mock_resp = MagicMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(return_value={"results": []})
-            
-            # Create async context manager for session.get
-            mock_cm = MagicMock()
-            mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
-            mock_cm.__aexit__ = AsyncMock(return_value=None)
-            
-            session = MagicMock()
-            session.get.return_value = mock_cm
-            mock_get_session.return_value = session
-            
-            await provider.search("test", options)
-            
-            # Verify URL contains expected parameters
-            call_args = session.get.call_args
-            url = call_args[0][0]
-            assert "engines=google%2Cduckduckgo" in url or "engines=google,duckduckgo" in url
-            assert "language=en" in url
-            assert "time_range=week" in url
-    
-    @pytest.mark.asyncio
-    async def test_search_deduplicates_urls(self):
-        """Test that duplicate URLs are removed from results."""
-        provider = SearXNGProvider()
-        
-        mock_response_data = {
-            "results": [
-                {"title": "First", "url": "https://example.com", "content": "A", "engine": "google"},
-                {"title": "Duplicate", "url": "https://example.com", "content": "B", "engine": "bing"},
-                {"title": "Second", "url": "https://other.com", "content": "C", "engine": "duckduckgo"},
-            ],
-        }
-        
-        with patch.object(provider, "_get_session", new_callable=AsyncMock) as mock_get_session:
-            mock_resp = MagicMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(return_value=mock_response_data)
-            
-            # Create async context manager for session.get
-            mock_cm = MagicMock()
-            mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
-            mock_cm.__aexit__ = AsyncMock(return_value=None)
-            
-            session = MagicMock()
-            session.get.return_value = mock_cm
-            mock_get_session.return_value = session
-            
-            response = await provider.search("test")
-        
-        assert len(response.results) == 2
-        urls = [r.url for r in response.results]
-        assert urls == ["https://example.com", "https://other.com"]
-    
-    @pytest.mark.asyncio
-    async def test_get_health_unknown_no_requests(self):
-        """Test health is unknown when no requests made."""
-        provider = SearXNGProvider()
-        
-        health = await provider.get_health()
-        
-        assert health.state == HealthState.UNKNOWN
-    
-    @pytest.mark.asyncio
-    async def test_get_health_healthy(self):
-        """Test health is healthy after successful requests."""
-        provider = SearXNGProvider()
-        provider._success_count = 10
-        provider._failure_count = 0
-        provider._total_latency = 500.0
-        
-        health = await provider.get_health()
-        
-        assert health.state == HealthState.HEALTHY
-        assert health.latency_ms == 50.0
-    
-    @pytest.mark.asyncio
-    async def test_get_health_degraded(self):
-        """Test health is degraded with some failures."""
-        provider = SearXNGProvider()
-        provider._success_count = 7
-        provider._failure_count = 3
-        provider._last_error = "Occasional timeout"
-        
-        health = await provider.get_health()
-        
-        assert health.state == HealthState.DEGRADED
-        assert health.success_rate == 0.7
-    
-    @pytest.mark.asyncio
-    async def test_get_health_unhealthy(self):
-        """Test health is unhealthy with many failures."""
-        provider = SearXNGProvider()
-        provider._success_count = 2
-        provider._failure_count = 8
-        provider._last_error = "Service unavailable"
-        
-        health = await provider.get_health()
-        
-        assert health.state == HealthState.UNHEALTHY
-    
-    @pytest.mark.asyncio
-    async def test_close_provider(self):
-        """Test closing provider marks it as closed."""
-        provider = SearXNGProvider()
-        
-        await provider.close()
-        
-        assert provider.is_closed
-    
-    @pytest.mark.asyncio
-    async def test_search_after_close_raises(self):
-        """Test that searching after close raises error."""
-        provider = SearXNGProvider()
-        await provider.close()
-        
-        with pytest.raises(RuntimeError, match="closed"):
-            await provider.search("test")
+# Note: SearXNGProvider tests removed in Phase 16.9.5
+# See test_browser_search_provider.py for BrowserSearchProvider tests
 
 
 # ============================================================================
@@ -895,30 +568,4 @@ class TestGlobalRegistry:
         
         assert registry1 is not registry2
         assert len(registry2.list_providers()) == 0
-
-
-# ============================================================================
-# Global Provider Tests
-# ============================================================================
-
-
-class TestGlobalProvider:
-    """Tests for global SearXNG provider functions."""
-    
-    def test_get_searxng_provider_singleton(self):
-        """Test that get_searxng_provider returns singleton."""
-        provider1 = get_searxng_provider()
-        provider2 = get_searxng_provider()
-        
-        assert provider1 is provider2
-        assert provider1.name == "searxng"
-    
-    def test_reset_searxng_provider(self):
-        """Test that reset creates new instance."""
-        provider1 = get_searxng_provider()
-        
-        reset_searxng_provider()
-        provider2 = get_searxng_provider()
-        
-        assert provider1 is not provider2
 
