@@ -11,12 +11,17 @@ Provider system:
     SearchProvider - Protocol for search providers
     SearchProviderRegistry - Registry for provider management
     get_registry() - Get global provider registry
-    SearXNGProvider - Default SearXNG implementation
+    BrowserSearchProvider - Direct Playwright-based search (Phase 16.9, recommended)
+    SearXNGProvider - SearXNG implementation (deprecated, use BrowserSearchProvider)
 
 Engine configuration (Phase 17.2.2):
     SearchEngineConfigManager - Centralized engine configuration
     get_engine_config_manager() - Get global engine config manager
     EngineConfig - Individual engine configuration
+
+Parser system (Phase 16.9):
+    ParserConfigManager - Parser configuration management
+    get_parser() - Get parser for a search engine
 """
 
 # Core search function (uses provider by default)
@@ -81,6 +86,25 @@ from src.search.searxng_provider import (
     cleanup_searxng_provider,
 )
 
+# Browser-based search provider (Phase 16.9 - recommended)
+from src.search.browser_search_provider import (
+    BrowserSearchProvider,
+    get_browser_search_provider,
+    cleanup_browser_search_provider,
+)
+
+# Parser system (Phase 16.9)
+from src.search.parser_config import (
+    ParserConfigManager,
+    get_parser_config_manager,
+    get_engine_parser_config,
+)
+from src.search.search_parsers import (
+    BaseSearchParser,
+    get_parser,
+    get_available_parsers,
+)
+
 __all__ = [
     # Core search (provider-based)
     "search_serp",
@@ -118,6 +142,17 @@ __all__ = [
     "SearXNGProvider",
     "get_searxng_provider",
     "cleanup_searxng_provider",
+    # Browser search provider (Phase 16.9 - recommended)
+    "BrowserSearchProvider",
+    "get_browser_search_provider",
+    "cleanup_browser_search_provider",
+    # Parser system (Phase 16.9)
+    "ParserConfigManager",
+    "get_parser_config_manager",
+    "get_engine_parser_config",
+    "BaseSearchParser",
+    "get_parser",
+    "get_available_parsers",
     # Engine configuration (Phase 17.2.2)
     "SearchEngineConfigManager",
     "get_engine_config_manager",

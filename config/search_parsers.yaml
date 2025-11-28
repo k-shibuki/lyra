@@ -1,0 +1,300 @@
+# Lancet - Search Result Parser Configuration
+# Defines CSS selectors and patterns for parsing search engine result pages
+#
+# Design Philosophy:
+# - Selectors are externalized to enable quick fixes without code changes
+# - Each selector has 'required' flag - if required selector not found, parser fails loudly
+# - 'diagnostic_message' provides AI-friendly error messages for quick debugging
+#
+# When a selector stops working:
+# 1. Parser logs detailed error with diagnostic_message
+# 2. Failed HTML is saved to debug/search_html/ for inspection
+# 3. Fix selector in this file and reload (no code changes needed)
+
+# =============================================================================
+# Parser Settings
+# =============================================================================
+settings:
+  # Directory to save failed HTML for debugging
+  debug_html_dir: "debug/search_html"
+  
+  # Whether to save HTML on parse failure
+  save_failed_html: true
+  
+  # Maximum results to extract per page
+  max_results_per_page: 20
+  
+  # Request timeout for search pages (seconds)
+  search_timeout: 30
+
+# =============================================================================
+# DuckDuckGo Parser
+# =============================================================================
+duckduckgo:
+  # Search URL template
+  search_url: "https://duckduckgo.com/?q={query}&kl={region}&df={time_range}"
+  
+  # Default region (wt-wt = worldwide)
+  default_region: "wt-wt"
+  
+  # Time range mapping
+  time_ranges:
+    all: ""
+    day: "d"
+    week: "w"
+    month: "m"
+    year: "y"
+  
+  # Selectors for parsing results
+  selectors:
+    # Container for all results
+    results_container:
+      selector: "[data-testid='result']"
+      required: true
+      diagnostic_message: |
+        DuckDuckGo results container not found.
+        Expected: Elements with data-testid='result'
+        Possible causes:
+        - HTML structure changed (check for new container class)
+        - CAPTCHA page rendered instead of results
+        - JavaScript-only rendering (need to wait for dynamic content)
+        Action: Save page HTML and inspect for new result container pattern.
+    
+    # Alternative container (fallback)
+    results_container_alt:
+      selector: ".react-results--main article, .result, .results_links"
+      required: false
+      diagnostic_message: "Alternative result container selector"
+    
+    # Title element within a result
+    title:
+      selector: "h2 a, a[data-testid='result-title-a'], .result__title a"
+      required: true
+      diagnostic_message: |
+        Result title not found within result container.
+        Expected: h2 > a or a[data-testid='result-title-a']
+        Action: Inspect result HTML for title element pattern.
+    
+    # URL element (may be same as title link)
+    url:
+      selector: "a[data-testid='result-title-a'], h2 a, .result__url"
+      required: true
+      diagnostic_message: |
+        Result URL not found.
+        Expected: Link in title or dedicated URL element.
+    
+    # Snippet/description
+    snippet:
+      selector: "[data-testid='result-snippet'], .result__snippet, .result__snippet span"
+      required: false
+      diagnostic_message: "Snippet element not found, will use empty string"
+    
+    # Date (if available)
+    date:
+      selector: ".result__timestamp, time"
+      required: false
+      diagnostic_message: "Date element not found, will be null"
+  
+  # CAPTCHA detection patterns
+  captcha_patterns:
+    - pattern: "g-recaptcha"
+      type: "recaptcha"
+    - pattern: "cf-turnstile"
+      type: "turnstile"
+    - pattern: "challenge-form"
+      type: "ddg_challenge"
+    - pattern: "please verify you are a human"
+      type: "verification"
+      case_insensitive: true
+
+# =============================================================================
+# Mojeek Parser
+# =============================================================================
+mojeek:
+  search_url: "https://www.mojeek.com/search?q={query}&t={time_range}"
+  
+  time_ranges:
+    all: ""
+    day: "1"
+    week: "7"
+    month: "31"
+    year: "365"
+  
+  selectors:
+    results_container:
+      selector: ".results-standard li, .results li"
+      required: true
+      diagnostic_message: |
+        Mojeek results container not found.
+        Expected: li elements within .results-standard or .results
+        Possible causes:
+        - HTML structure changed
+        - No results for query
+        - Rate limited or blocked
+        Action: Check debug HTML for current structure.
+    
+    title:
+      selector: "a.title, h2 a, .result-title a"
+      required: true
+      diagnostic_message: "Mojeek title selector not found"
+    
+    url:
+      selector: "a.title, h2 a, .ob"
+      required: true
+      diagnostic_message: "Mojeek URL selector not found"
+    
+    snippet:
+      selector: ".s, .result-snippet, p.s"
+      required: false
+      diagnostic_message: "Mojeek snippet not found"
+    
+    date:
+      selector: ".date, time"
+      required: false
+  
+  captcha_patterns:
+    - pattern: "unusual traffic"
+      type: "rate_limit"
+      case_insensitive: true
+    - pattern: "verify you're not a robot"
+      type: "captcha"
+      case_insensitive: true
+
+# =============================================================================
+# Google Parser (optional, high block risk)
+# =============================================================================
+google:
+  search_url: "https://www.google.com/search?q={query}&hl={language}&tbs={time_range}"
+  
+  default_language: "ja"
+  
+  time_ranges:
+    all: ""
+    day: "qdr:d"
+    week: "qdr:w"
+    month: "qdr:m"
+    year: "qdr:y"
+  
+  selectors:
+    results_container:
+      selector: "#search .g, div.g, .MjjYud"
+      required: true
+      diagnostic_message: |
+        Google results container not found.
+        Expected: div.g elements within #search
+        WARNING: Google heavily blocks automated access.
+        Consider using other search engines.
+    
+    title:
+      selector: "h3, .LC20lb"
+      required: true
+      diagnostic_message: "Google title (h3 or .LC20lb) not found"
+    
+    url:
+      selector: "a[href^='http'], a[data-ved]"
+      required: true
+      diagnostic_message: "Google URL link not found"
+    
+    snippet:
+      selector: ".VwiC3b, .IsZvec, .aCOpRe span"
+      required: false
+    
+    date:
+      selector: ".MUxGbd, span.LEwnzc"
+      required: false
+  
+  captcha_patterns:
+    - pattern: "g-recaptcha"
+      type: "recaptcha"
+    - pattern: "unusual traffic"
+      type: "rate_limit"
+      case_insensitive: true
+    - pattern: "automated queries"
+      type: "blocked"
+      case_insensitive: true
+
+# =============================================================================
+# Brave Search Parser (optional)
+# =============================================================================
+brave:
+  search_url: "https://search.brave.com/search?q={query}&tf={time_range}"
+  
+  time_ranges:
+    all: ""
+    day: "pd"
+    week: "pw"
+    month: "pm"
+    year: "py"
+  
+  selectors:
+    results_container:
+      selector: "#results .snippet, .result"
+      required: true
+      diagnostic_message: |
+        Brave Search results not found.
+        Expected: .snippet elements within #results
+    
+    title:
+      selector: ".title, .snippet-title"
+      required: true
+    
+    url:
+      selector: ".url, a[href^='http']"
+      required: true
+    
+    snippet:
+      selector: ".snippet-description, .desc"
+      required: false
+    
+    date:
+      selector: ".date, time"
+      required: false
+  
+  captcha_patterns:
+    - pattern: "captcha"
+      type: "captcha"
+      case_insensitive: true
+
+# =============================================================================
+# Qwant Parser
+# =============================================================================
+qwant:
+  search_url: "https://www.qwant.com/?q={query}&t=web&freshness={time_range}"
+  
+  time_ranges:
+    all: ""
+    day: "day"
+    week: "week"
+    month: "month"
+  
+  selectors:
+    results_container:
+      selector: "[data-testid='webResult'], .result, .web-results article"
+      required: true
+      diagnostic_message: |
+        Qwant results container not found.
+        Expected: Elements with data-testid='webResult'
+        Note: Qwant may require JavaScript rendering.
+    
+    title:
+      selector: "a h2, .title, [data-testid='webResultTitle']"
+      required: true
+    
+    url:
+      selector: "a[href^='http']"
+      required: true
+    
+    snippet:
+      selector: "[data-testid='webResultDescription'], .desc, p"
+      required: false
+    
+    date:
+      selector: "time, .date"
+      required: false
+  
+  captcha_patterns:
+    - pattern: "verify you are human"
+      type: "captcha"
+      case_insensitive: true
+
+
