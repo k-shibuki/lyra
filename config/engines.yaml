@@ -61,6 +61,31 @@ engines:
     categories: [general]
     qps: 0.2
     block_resistant: false
+  
+  # === Additional Engines (Phase 16.13) ===
+  ecosia:
+    priority: 4
+    weight: 0.5
+    categories: [general]
+    qps: 0.15
+    block_resistant: false
+    description: "Bing-based, relatively lenient, privacy-focused"
+    
+  metager:
+    priority: 4
+    weight: 0.4
+    categories: [general]
+    qps: 0.15
+    block_resistant: true
+    description: "German meta-search engine, high block resistance"
+    
+  startpage:
+    priority: 5
+    weight: 0.3
+    categories: [general]
+    qps: 0.1
+    block_resistant: false
+    description: "Google-based, privacy-focused"
     
   # === Academic/Specialized ===
   arxiv:
@@ -112,12 +137,16 @@ operator_mapping:
     bing: "site:{domain}"
     duckduckgo: "site:{domain}"
     qwant: "site:{domain}"
+    ecosia: "site:{domain}"
+    startpage: "site:{domain}"
     
   filetype:
     default: "filetype:{type}"
     google: "filetype:{type}"
     bing: "filetype:{type}"
     duckduckgo: "filetype:{type}"
+    ecosia: "filetype:{type}"
+    startpage: "filetype:{type}"
     
   intitle:
     default: "intitle:{text}"
@@ -129,11 +158,16 @@ operator_mapping:
     google: '"{text}"'
     bing: '"{text}"'
     duckduckgo: '"{text}"'
+    ecosia: '"{text}"'
+    metager: '"{text}"'
+    startpage: '"{text}"'
     
   exclude:
     default: "-{term}"
     google: "-{term}"
     bing: "-{term}"
+    ecosia: "-{term}"
+    startpage: "-{term}"
     
   date_after:
     default: null  # Not all engines support
@@ -147,6 +181,9 @@ category_engines:
     - marginalia
     - qwant
     - duckduckgo
+    - ecosia
+    - metager
+    - startpage
     
   academic:
     - arxiv

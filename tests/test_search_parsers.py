@@ -39,6 +39,9 @@ from src.search.search_parsers import (
     BaseSearchParser,
     DuckDuckGoParser,
     MojeekParser,
+    EcosiaParser,
+    MetaGerParser,
+    StartpageParser,
     ParseResult,
     ParsedResult,
     get_parser,
@@ -76,6 +79,27 @@ def duckduckgo_captcha_html(fixtures_dir: Path) -> str:
 def mojeek_html(fixtures_dir: Path) -> str:
     """Load Mojeek sample HTML."""
     html_file = fixtures_dir / "mojeek_results.html"
+    return html_file.read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def ecosia_html(fixtures_dir: Path) -> str:
+    """Load Ecosia sample HTML."""
+    html_file = fixtures_dir / "ecosia_results.html"
+    return html_file.read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def metager_html(fixtures_dir: Path) -> str:
+    """Load MetaGer sample HTML."""
+    html_file = fixtures_dir / "metager_results.html"
+    return html_file.read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def startpage_html(fixtures_dir: Path) -> str:
+    """Load Startpage sample HTML."""
+    html_file = fixtures_dir / "startpage_results.html"
     return html_file.read_text(encoding="utf-8")
 
 
@@ -490,4 +514,339 @@ class TestParserErrorHandling:
                 # Path might be None if save is disabled in actual config
                 # Just verify the mechanism works
                 assert result.ok is False
+
+
+# ============================================================================
+# Ecosia Parser Tests (Phase 16.13)
+# ============================================================================
+
+
+class TestEcosiaParser:
+    """Tests for EcosiaParser (Bing-based, relatively lenient)."""
+    
+    def test_parse_results(self, ecosia_html: str):
+        """Test parsing Ecosia search results."""
+        parser = EcosiaParser()
+        result = parser.parse(ecosia_html, "test query")
+        
+        assert result.ok is True
+        assert len(result.results) == 3
+        assert result.is_captcha is False
+        assert result.error is None
+    
+    def test_parse_result_titles(self, ecosia_html: str):
+        """Test extracted titles from Ecosia."""
+        parser = EcosiaParser()
+        result = parser.parse(ecosia_html, "test")
+        
+        titles = [r.title for r in result.results]
+        assert "Ecosia Result One" in titles
+        assert "Nature Article" in titles
+        assert "UK Government Document" in titles
+    
+    def test_parse_result_urls(self, ecosia_html: str):
+        """Test extracted URLs from Ecosia."""
+        parser = EcosiaParser()
+        result = parser.parse(ecosia_html, "test")
+        
+        urls = [r.url for r in result.results]
+        assert "https://example.com/ecosia1" in urls
+        assert "https://nature.com/article/123" in urls
+        assert "https://www.gov.uk/document" in urls
+    
+    def test_parse_result_snippets(self, ecosia_html: str):
+        """Test extracted snippets from Ecosia match expected content."""
+        parser = EcosiaParser()
+        result = parser.parse(ecosia_html, "test")
+        
+        # Verify specific snippet content by index (deterministic order from fixture)
+        assert len(result.results) == 3
+        assert "first result from Ecosia" in result.results[0].snippet
+        assert "environmental research" in result.results[1].snippet
+        assert "UK government document" in result.results[2].snippet
+    
+    def test_parse_result_ranks(self, ecosia_html: str):
+        """Test results have correct ranks assigned."""
+        parser = EcosiaParser()
+        result = parser.parse(ecosia_html, "test")
+        
+        ranks = [r.rank for r in result.results]
+        assert ranks == [1, 2, 3]
+    
+    def test_build_search_url(self):
+        """Test building Ecosia search URL contains domain and encoded query."""
+        parser = EcosiaParser()
+        url = parser.build_search_url("test query")
+        
+        assert "ecosia.org" in url
+        # Query should be URL-encoded (space becomes + or %20)
+        assert "test" in url
+        assert "query" in url
+    
+    def test_government_source_classification(self, ecosia_html: str):
+        """Test UK government source is classified correctly."""
+        parser = EcosiaParser()
+        result = parser.parse(ecosia_html, "test")
+        
+        gov_result = next(
+            (r for r in result.results if ".gov.uk" in r.url),
+            None,
+        )
+        assert gov_result is not None
+        
+        search_result = gov_result.to_search_result("ecosia")
+        assert search_result.source_tag == SourceTag.GOVERNMENT
+    
+    def test_empty_html(self):
+        """Test empty HTML returns failure with selector errors for required selectors."""
+        parser = EcosiaParser()
+        result = parser.parse("", "test")
+        
+        assert result.ok is False
+        # Ecosia has 3 required selectors: results_container, title, url
+        assert len(result.selector_errors) == 3
+
+
+# ============================================================================
+# MetaGer Parser Tests (Phase 16.13)
+# ============================================================================
+
+
+class TestMetaGerParser:
+    """Tests for MetaGerParser (German meta-search, high block resistance)."""
+    
+    def test_parse_results(self, metager_html: str):
+        """Test parsing MetaGer search results."""
+        parser = MetaGerParser()
+        result = parser.parse(metager_html, "test query")
+        
+        assert result.ok is True
+        assert len(result.results) == 2
+        assert result.is_captcha is False
+        assert result.error is None
+    
+    def test_parse_result_titles(self, metager_html: str):
+        """Test extracted titles from MetaGer."""
+        parser = MetaGerParser()
+        result = parser.parse(metager_html, "test")
+        
+        titles = [r.title for r in result.results]
+        assert "MetaGer Ergebnis Eins" in titles
+        assert "PubMed Medical Article" in titles
+    
+    def test_parse_result_urls(self, metager_html: str):
+        """Test extracted URLs from MetaGer."""
+        parser = MetaGerParser()
+        result = parser.parse(metager_html, "test")
+        
+        urls = [r.url for r in result.results]
+        assert "https://example.de/metager1" in urls
+        assert "https://pubmed.ncbi.nlm.nih.gov/12345" in urls
+    
+    def test_parse_result_snippets(self, metager_html: str):
+        """Test extracted snippets from MetaGer match expected content."""
+        parser = MetaGerParser()
+        result = parser.parse(metager_html, "test")
+        
+        # Verify specific snippet content by index (deterministic order from fixture)
+        assert len(result.results) == 2
+        # German text in first result
+        assert "Ergebnis von MetaGer" in result.results[0].snippet
+        # English text in second result
+        assert "Medical research article" in result.results[1].snippet
+    
+    def test_build_search_url(self):
+        """Test building MetaGer search URL."""
+        parser = MetaGerParser()
+        url = parser.build_search_url("test query")
+        
+        assert "metager.org" in url
+    
+    def test_academic_source_classification(self, metager_html: str):
+        """Test PubMed source is classified as academic."""
+        parser = MetaGerParser()
+        result = parser.parse(metager_html, "test")
+        
+        academic_result = next(
+            (r for r in result.results if "pubmed" in r.url.lower()),
+            None,
+        )
+        assert academic_result is not None
+        
+        search_result = academic_result.to_search_result("metager")
+        assert search_result.source_tag == SourceTag.ACADEMIC
+    
+    def test_empty_html(self):
+        """Test empty HTML returns failure with selector errors for required selectors."""
+        parser = MetaGerParser()
+        result = parser.parse("", "test")
+        
+        assert result.ok is False
+        # MetaGer has 3 required selectors: results_container, title, url
+        assert len(result.selector_errors) == 3
+    
+    def test_captcha_detection_german(self):
+        """Test German CAPTCHA patterns are detected."""
+        parser = MetaGerParser()
+        
+        # German rate limit message
+        html = "<html><body>Zu viele Anfragen von Ihrer IP</body></html>"
+        result = parser.parse(html, "test")
+        assert result.is_captcha is True
+
+
+# ============================================================================
+# Startpage Parser Tests (Phase 16.13)
+# ============================================================================
+
+
+class TestStartpageParser:
+    """Tests for StartpageParser (Google-based, privacy-focused)."""
+    
+    def test_parse_results(self, startpage_html: str):
+        """Test parsing Startpage search results."""
+        parser = StartpageParser()
+        result = parser.parse(startpage_html, "test query")
+        
+        assert result.ok is True
+        assert len(result.results) == 3
+        assert result.is_captcha is False
+        assert result.error is None
+    
+    def test_parse_result_titles(self, startpage_html: str):
+        """Test extracted titles from Startpage."""
+        parser = StartpageParser()
+        result = parser.parse(startpage_html, "test")
+        
+        titles = [r.title for r in result.results]
+        assert "Startpage Result One" in titles
+        assert "Google Scholar Paper" in titles
+        assert "Japanese Government Law" in titles
+    
+    def test_parse_result_urls(self, startpage_html: str):
+        """Test extracted URLs from Startpage."""
+        parser = StartpageParser()
+        result = parser.parse(startpage_html, "test")
+        
+        urls = [r.url for r in result.results]
+        assert "https://example.com/startpage1" in urls
+        assert "https://scholar.google.com/paper123" in urls
+        assert "https://www.e-gov.go.jp/law" in urls
+    
+    def test_parse_result_snippets(self, startpage_html: str):
+        """Test extracted snippets from Startpage match expected content."""
+        parser = StartpageParser()
+        result = parser.parse(startpage_html, "test")
+        
+        # Verify specific snippet content by index (deterministic order from fixture)
+        assert len(result.results) == 3
+        assert "privacy search" in result.results[0].snippet
+        assert "Academic paper" in result.results[1].snippet
+        assert "Legal document" in result.results[2].snippet
+    
+    def test_parse_result_ranks(self, startpage_html: str):
+        """Test results have correct ranks assigned."""
+        parser = StartpageParser()
+        result = parser.parse(startpage_html, "test")
+        
+        ranks = [r.rank for r in result.results]
+        assert ranks == [1, 2, 3]
+    
+    def test_build_search_url(self):
+        """Test building Startpage search URL."""
+        parser = StartpageParser()
+        url = parser.build_search_url("test query")
+        
+        assert "startpage.com" in url
+    
+    def test_academic_source_classification(self, startpage_html: str):
+        """Test Google Scholar source is classified as academic."""
+        parser = StartpageParser()
+        result = parser.parse(startpage_html, "test")
+        
+        academic_result = next(
+            (r for r in result.results if "scholar.google" in r.url.lower()),
+            None,
+        )
+        assert academic_result is not None
+        
+        search_result = academic_result.to_search_result("startpage")
+        assert search_result.source_tag == SourceTag.ACADEMIC
+    
+    def test_government_source_classification(self, startpage_html: str):
+        """Test Japanese government source is classified correctly."""
+        parser = StartpageParser()
+        result = parser.parse(startpage_html, "test")
+        
+        gov_result = next(
+            (r for r in result.results if ".go.jp" in r.url),
+            None,
+        )
+        assert gov_result is not None
+        
+        search_result = gov_result.to_search_result("startpage")
+        assert search_result.source_tag == SourceTag.GOVERNMENT
+    
+    def test_empty_html(self):
+        """Test empty HTML returns failure with selector errors for required selectors."""
+        parser = StartpageParser()
+        result = parser.parse("", "test")
+        
+        assert result.ok is False
+        # Startpage has 3 required selectors: results_container, title, url
+        assert len(result.selector_errors) == 3
+    
+    def test_captcha_detection(self):
+        """Test reCAPTCHA pattern is detected in HTML."""
+        parser = StartpageParser()
+        
+        # reCAPTCHA
+        html = "<html><body><div class='g-recaptcha'></div></body></html>"
+        result = parser.parse(html, "test")
+        assert result.is_captcha is True
+        assert result.captcha_type == "recaptcha"
+
+
+# ============================================================================
+# Phase 16.13 Parser Registry Tests
+# ============================================================================
+
+
+class TestPhase1613ParserRegistry:
+    """Tests for new parsers added in Phase 16.13."""
+    
+    def test_ecosia_parser_available(self):
+        """Test Ecosia parser is registered and returns correct type."""
+        parser = get_parser("ecosia")
+        assert parser is not None
+        assert isinstance(parser, EcosiaParser)
+    
+    def test_metager_parser_available(self):
+        """Test MetaGer parser is registered and returns correct type."""
+        parser = get_parser("metager")
+        assert parser is not None
+        assert isinstance(parser, MetaGerParser)
+    
+    def test_startpage_parser_available(self):
+        """Test Startpage parser is registered and returns correct type."""
+        parser = get_parser("startpage")
+        assert parser is not None
+        assert isinstance(parser, StartpageParser)
+    
+    def test_new_parsers_in_available_list(self):
+        """Test all Phase 16.13 parsers appear in available parsers list."""
+        parsers = get_available_parsers()
+        
+        # Verify each new parser is present
+        assert "ecosia" in parsers, f"ecosia not in {parsers}"
+        assert "metager" in parsers, f"metager not in {parsers}"
+        assert "startpage" in parsers, f"startpage not in {parsers}"
+    
+    def test_all_parsers_count(self):
+        """Test total parser count is exactly 8 (5 original + 3 new)."""
+        parsers = get_available_parsers()
+        
+        # Exactly 8 parsers:
+        # duckduckgo, mojeek, google, qwant, brave, ecosia, metager, startpage
+        assert len(parsers) == 8, f"Expected 8 parsers, got {len(parsers)}: {parsers}"
 
