@@ -5,6 +5,14 @@ Implements the SearchProvider interface for SearXNG, providing
 a standardized way to execute searches through the local SearXNG instance.
 
 Part of Phase 17.1.1: SearchProvider abstraction.
+
+.. deprecated:: Phase 16.9
+    This provider is deprecated in favor of BrowserSearchProvider.
+    SearXNG has IP evaluation issues due to server-side requests
+    without user cookies/fingerprints. Use BrowserSearchProvider instead.
+    
+    To switch back to SearXNG (not recommended):
+        Set `search.use_browser: false` in config/settings.yaml
 """
 
 import asyncio

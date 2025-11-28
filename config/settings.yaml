@@ -20,6 +20,12 @@ task_limits:
 
 # === Search Settings ===
 search:
+  # Provider selection (Phase 16.9)
+  # true = BrowserSearchProvider (direct Playwright search)
+  # false = SearXNGProvider (legacy, via SearXNG container)
+  use_browser: true
+  default_engine: "duckduckgo"  # Default search engine for browser provider
+  
   initial_query_count_gpu: 12  # 10-16
   initial_query_count_cpu: 10  # 8-12
   results_per_query: 7  # 5-10
