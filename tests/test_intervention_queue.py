@@ -113,7 +113,7 @@ class TestInterventionQueueInit:
 class TestEnqueue:
     """Tests for enqueue functionality.
     
-    Per §3.6.1: 認証が必要なURLは即時ブロックせず、認証待ちキューに積む
+    Per §3.6.1: Queue URLs requiring auth instead of blocking immediately.
     """
     
     @pytest.mark.asyncio
@@ -272,7 +272,7 @@ class TestEnqueue:
 class TestGetPending:
     """Tests for get_pending functionality.
     
-    Per §3.6.1: 優先度管理: 高優先度（一次資料）、中優先度（二次資料）、低優先度で分類
+    Per §3.6.1: Priority management: high (primary sources), medium (secondary), low.
     """
     
     @pytest.mark.asyncio
@@ -320,7 +320,7 @@ class TestGetPending:
     async def test_get_pending_orders_by_priority(self, queue_with_db, sample_task_id):
         """Test get_pending returns items ordered by priority (high first).
         
-        Per §3.6.1: 優先度管理 - high > medium > low
+        Per §3.6.1: Priority management - high > medium > low.
         """
         # Arrange: Add items in reverse priority order
         await queue_with_db.enqueue(
@@ -781,7 +781,7 @@ class TestComplete:
     ):
         """Test complete stores session data when provided.
         
-        Per §3.6.1: セッション再利用: 認証済みセッション情報を保存
+        Per §3.6.1: Session reuse - store authenticated session data.
         """
         # Arrange
         queue_id = await queue_with_db.enqueue(
@@ -851,7 +851,7 @@ class TestComplete:
 class TestSkip:
     """Tests for skip functionality.
     
-    Per §3.6.1: skip_authentication: 認証をスキップ
+    Per §3.6.1: skip_authentication - skip authentication.
     """
     
     @pytest.mark.asyncio
@@ -941,7 +941,7 @@ class TestSkip:
 class TestGetSessionForDomain:
     """Tests for get_session_for_domain functionality.
     
-    Per §3.6.1: セッション再利用: 同一ドメインの後続リクエストで再利用
+    Per §3.6.1: Session reuse - reuse for subsequent requests to same domain.
     """
     
     @pytest.mark.asyncio

@@ -1,10 +1,10 @@
 """
 Tests for Chain-of-Density compression module.
 
-Per §7.1: テストコード品質基準
-- 禁止パターン（条件付きアサーション、曖昧なアサーション等）を回避
-- 具体的なアサーション、境界条件の網羅
-- 本番設定でのテスト
+Per §7.1: Test Code Quality Standards
+- Avoid prohibited patterns (conditional assertions, vague assertions, etc.)
+- Cover specific assertions and boundary conditions
+- Test with production settings
 """
 
 import pytest
@@ -526,7 +526,7 @@ class TestChainOfDensityIntegration:
     async def test_citation_mandatory_fields_enforced(self):
         """Test that all mandatory citation fields are enforced.
         
-        Per §3.3.1: 全主張に深いリンク・発見日時・抜粋を必須付与
+        Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
         """
         claims = [
             {

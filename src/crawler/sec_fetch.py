@@ -92,7 +92,7 @@ class SecFetchHeaders:
     """Generated Sec-Fetch-* headers for a request.
     
     Implements §4.3 requirement:
-    `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin を遷移コンテキストと整合
+    Align `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin with navigation context.
     """
     site: SecFetchSite
     mode: SecFetchMode
@@ -592,7 +592,7 @@ def generate_all_security_headers(
     
     Combines Sec-Fetch-* and Sec-CH-UA-* headers for complete stealth.
     Implements §4.3 requirement:
-    `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin を遷移コンテキストと整合
+    Align `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin with navigation context.
     
     Args:
         context: Navigation context with target URL, referer, etc.

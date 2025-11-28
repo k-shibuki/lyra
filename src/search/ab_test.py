@@ -1,9 +1,9 @@
 """
 Query A/B testing module for Lancet.
 
-Implements §3.1.1: クエリABテスト
-- 表記ゆれ/助詞/語順のバリアントを小規模A/B
-- 高収穫クエリはキャッシュし再利用
+Implements §3.1.1: Query A/B Testing
+- Small-scale A/B tests with notation/particle/word-order variants
+- Cache and reuse high-yield queries
 
 This module generates query variants, executes them in parallel,
 and tracks which variants produce the highest harvest rates.
@@ -32,10 +32,10 @@ logger = get_logger(__name__)
 class VariantType(str, Enum):
     """Type of query variant."""
     ORIGINAL = "original"
-    NOTATION = "notation"  # 表記ゆれ
-    PARTICLE = "particle"  # 助詞変更
-    ORDER = "order"  # 語順変更
-    COMBINED = "combined"  # 複合変更
+    NOTATION = "notation"  # Notation variation (e.g., kanji vs hiragana)
+    PARTICLE = "particle"  # Particle substitution
+    ORDER = "order"  # Word order change
+    COMBINED = "combined"  # Combined changes
 
 
 @dataclass
@@ -100,9 +100,9 @@ class QueryVariantGenerator:
     Generate query variants for A/B testing.
     
     Implements three types of variations:
-    1. Notation (表記ゆれ): Kanji↔Hiragana, long vowels, etc.
-    2. Particle (助詞): Japanese particle substitutions
-    3. Order (語順): Reordering of query terms
+    1. Notation: Kanji↔Hiragana, long vowels, etc.
+    2. Particle: Japanese particle substitutions
+    3. Order: Reordering of query terms
     """
     
     def __init__(self):
@@ -189,7 +189,7 @@ class QueryVariantGenerator:
     
     def generate_notation_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
-        Generate notation variants (表記ゆれ).
+        Generate notation variants.
         
         Args:
             query: Original query.
@@ -219,7 +219,7 @@ class QueryVariantGenerator:
     
     def generate_particle_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
-        Generate particle variants (助詞変更).
+        Generate particle variants.
         
         Args:
             query: Original query.
@@ -247,7 +247,7 @@ class QueryVariantGenerator:
     
     def generate_order_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
-        Generate word order variants (語順変更).
+        Generate word order variants.
         
         Args:
             query: Original query.
@@ -634,7 +634,7 @@ class HighYieldQueryCache:
     """
     Cache and retrieve high-yield query patterns.
     
-    Implements §3.1.1: 高収穫クエリはキャッシュし再利用
+    Implements §3.1.1: Cache and reuse high-yield queries.
     """
     
     async def get_improved_query(

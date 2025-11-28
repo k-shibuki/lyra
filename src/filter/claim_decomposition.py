@@ -4,13 +4,13 @@ Claim decomposition for Lancet.
 Decomposes high-level research questions into atomic claims
 for systematic verification.
 
-Per §3.3.1: 問い→主張分解
-- 上位の問いを原子主張へ分解
-- スキーマ: claim_id, text, expected_polarity, granularity
+Per §3.3.1: Question-to-Claim Decomposition
+- Decompose high-level questions into atomic claims
+- Schema: claim_id, text, expected_polarity, granularity
 
-Per §2.1.4: ローカルLLMの役割
-- 断片からの事実/主張抽出は許可される用途
-- サブクエリの設計・候補生成は禁止（Cursor AIの専権）
+Per §2.1.4: Local LLM Role
+- Fact/claim extraction from fragments is permitted
+- Sub-query design/candidate generation is prohibited (Cursor AI exclusive)
 """
 
 import json
@@ -59,7 +59,7 @@ class AtomicClaim:
     """
     An atomic claim extracted from a research question.
     
-    Per §3.3.1: スキーマ: claim_id, text, expected_polarity, granularity
+    Per §3.3.1: Schema: claim_id, text, expected_polarity, granularity
     """
     
     claim_id: str
@@ -165,12 +165,12 @@ class ClaimDecomposer:
     """
     Decomposes research questions into atomic claims.
     
-    Per §3.3.1: 問い→主張分解
-    - 上位の問いを原子主張へ分解
-    - LLMまたはルールベースでの分解ロジック
+    Per §3.3.1: Question-to-Claim Decomposition
+    - Decompose high-level questions into atomic claims
+    - LLM or rule-based decomposition logic
     
-    Per §2.1.4: ローカルLLMの許可される用途
-    - 断片からの事実/主張抽出は許可
+    Per §2.1.4: Permitted uses of local LLM
+    - Fact/claim extraction from fragments is allowed
     """
     
     def __init__(self, use_llm: bool = True):

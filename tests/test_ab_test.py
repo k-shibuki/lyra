@@ -1,9 +1,9 @@
 """
 Tests for Query A/B Testing module.
 
-Tests §3.1.1: クエリABテスト
-- 表記ゆれ/助詞/語順のバリアントを小規模A/B
-- 高収穫クエリはキャッシュし再利用
+Tests §3.1.1: Query A/B Testing
+- Small-scale A/B tests with notation/particle/word-order variants
+- Cache and reuse high-yield queries
 """
 
 import pytest

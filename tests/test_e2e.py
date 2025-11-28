@@ -735,7 +735,7 @@ class TestAuthenticationQueueFlow:
         assert counts["low"] == 1, f"Expected 1 low priority, got {counts['low']}"
         
         # Verify threshold alerts would be triggered
-        # Per §3.6.1: ≥3件でwarning、≥5件またはhigh≥2件でcritical
+        # Per §3.6.1: ≥3 items triggers warning, ≥5 items OR high≥2 triggers critical
         assert counts["total"] >= 3, "Should trigger warning threshold"
         assert counts["high"] >= 2, "Should trigger critical due to high priority count"
         

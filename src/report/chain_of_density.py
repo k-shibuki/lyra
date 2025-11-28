@@ -4,9 +4,9 @@ Chain-of-Density compression for Lancet.
 Implements iterative summarization that increases information density
 while preserving all essential citations and evidence.
 
-Per §3.3.1: 圧縮と引用の厳格化
-- Chain-of-Density風に要約密度を上げつつ
-- 全主張に深いリンク・発見日時・抜粋を必須付与
+Per §3.3.1: Compression and Citation Strictness
+- Increase summary density using Chain-of-Density approach
+- Require deep links, discovery timestamps, and excerpts for all claims
 """
 
 import json
@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 class CitationInfo:
     """Citation information required for each claim.
     
-    Per §3.3.1: 全主張に深いリンク・発見日時・抜粋を必須付与
+    Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
     """
     
     url: str
@@ -117,7 +117,7 @@ class CitationInfo:
 class DenseClaim:
     """A claim with mandatory citation information.
     
-    Per §3.3.1: 全主張に深いリンク・発見日時・抜粋を必須付与
+    Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
     """
     
     claim_id: str
@@ -170,7 +170,7 @@ class DenseClaim:
 class DenseSummary:
     """A dense summary with increasing information density.
     
-    Per §3.3.1: Chain-of-Density風に要約密度を上げる
+    Per §3.3.1: Increase summary density using Chain-of-Density approach.
     """
     
     iteration: int
@@ -262,8 +262,8 @@ class ChainOfDensityCompressor:
     2. Iteratively adds missing entities while maintaining length
     3. Increases information density with each iteration
     
-    Per §3.3.1: Chain-of-Density風に要約密度を上げつつ、
-    全主張に深いリンク・発見日時・抜粋を必須付与
+    Per §3.3.1: Increase summary density using Chain-of-Density approach,
+    requiring deep links, discovery timestamps, and excerpts for all claims.
     """
     
     def __init__(
@@ -789,9 +789,9 @@ async def compress_with_chain_of_density(
     """
     Compress claims and fragments using Chain-of-Density.
     
-    Per §3.3.1: 圧縮と引用の厳格化
-    - Chain-of-Density風に要約密度を上げる
-    - 全主張に深いリンク・発見日時・抜粋を必須付与
+    Per §3.3.1: Compression and Citation Strictness
+    - Increase summary density using Chain-of-Density approach
+    - Require deep links, discovery timestamps, and excerpts for all claims
     
     Args:
         claims: List of claim records.

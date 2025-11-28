@@ -2,7 +2,7 @@
 Tests for replay module.
 Tests DecisionLogger, ReplayEngine, and decision tracking.
 
-Related spec: §4.6 リプレイ/再現モード
+Related spec: §4.6 Replay/Reproduction Mode
 """
 
 import asyncio

@@ -739,7 +739,7 @@ def get_intervention_manager() -> InterventionManager:
 
 
 # ============================================================
-# Intervention Queue (半自動運用)
+# Intervention Queue (Semi-automated Operation)
 # ============================================================
 
 class InterventionQueue:

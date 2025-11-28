@@ -285,7 +285,7 @@ class TestInterventionManagerCore:
     def test_max_domain_failures_is_three_per_spec(self, intervention_manager):
         """Test max domain failures is 3 per §3.1.
         
-        Per §3.1: 3回失敗で当該ドメインを当日スキップ
+        Per §3.1: Skip domain for the day after 3 failures.
         """
         expected_max = 3
         actual_max = intervention_manager.max_domain_failures
@@ -297,7 +297,7 @@ class TestInterventionManagerCore:
     def test_cooldown_at_least_60_minutes_per_spec(self, intervention_manager):
         """Test cooldown is ≥60 minutes per §3.5.
         
-        Per §3.5: クールダウン（最小60分）
+        Per §3.5: Cooldown (minimum 60 minutes).
         """
         actual_cooldown = intervention_manager.cooldown_minutes
         min_cooldown = 60
@@ -413,7 +413,7 @@ class TestInterventionMessages:
 class TestDomainSkipLogic:
     """Tests for domain skip logic per §3.1.
     
-    Per §3.1: 3回失敗（回線更新・ヘッドフル昇格・冷却適用後）で当該ドメインを当日スキップ
+    Per §3.1: Skip domain for the day after 3 failures (after connection refresh, headful escalation, cooldown applied).
     """
     
     @pytest.mark.asyncio

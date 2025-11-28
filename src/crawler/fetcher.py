@@ -1859,7 +1859,7 @@ async def fetch_url(
                 await _update_domain_headful_ratio(db, domain, increase=True)
         
         # =====================================================================
-        # Stage 4: Undetected ChromeDriver (for Cloudflare強/Turnstile, §4.3)
+        # Stage 4: Undetected ChromeDriver (for Cloudflare advanced/Turnstile, §4.3)
         # =====================================================================
         use_undetected = policy.get("use_undetected", False)
         

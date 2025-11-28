@@ -125,7 +125,7 @@ class Citation:
     
     @property
     def is_primary_source(self) -> bool:
-        """Check if this is a primary source (§3.4: 出典の優先序)."""
+        """Check if this is a primary source (§3.4: Source Priority Order)."""
         if not self.source_tag:
             return False
         return self.source_tag in ("government", "academic", "official", "standard", "registry")
@@ -384,7 +384,7 @@ class ReportGenerator:
             lines.append("*主張の抽出結果がありません*")
             lines.append("")
         
-        # Evidence with deep links (§3.4: 出典の優先序)
+        # Evidence with deep links (§3.4: Source Priority Order)
         lines.append("## エビデンス")
         lines.append("")
         
@@ -452,7 +452,7 @@ class ReportGenerator:
             lines.append("*エビデンスがありません*")
             lines.append("")
         
-        # Sources with full citations (§3.4: 深いリンク生成)
+        # Sources with full citations (§3.4: Deep Link Generation)
         lines.append("## 出典一覧")
         lines.append("")
         
@@ -797,7 +797,7 @@ async def get_report_materials(
             (task_id,),
         )
         
-        # Classify by source type (§3.4: 出典の優先序)
+        # Classify by source type (§3.4: Source Priority Order)
         for frag in fragments:
             frag["is_primary_source"] = frag.get("source_tag") in (
                 "government", "academic", "official", "standard", "registry"

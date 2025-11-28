@@ -40,8 +40,8 @@ class TestTaskBudget:
         """Test default initialization matches §3.1 requirements.
         
         Verifies default values:
-        - max_pages=120 (§3.1: 総ページ数≤120/タスク)
-        - max_llm_ratio=0.30 (§3.1: LLM処理≤30%)
+        - max_pages=120 (§3.1: Total pages ≤120/task)
+        - max_llm_ratio=0.30 (§3.1: LLM processing ≤30%)
         """
         budget = TaskBudget(task_id="test-1")
         
@@ -124,7 +124,7 @@ class TestTaskBudget:
         assert budget.can_fetch_page() is False
     
     def test_can_continue_page_limit(self):
-        """Test can_continue with page limit exceeded (§3.1: 総ページ数≤120)."""
+        """Test can_continue with page limit exceeded (§3.1: Total pages ≤120)."""
         budget = TaskBudget(task_id="test-1", max_pages=10)
         
         can_continue, reason = budget.can_continue()
@@ -137,7 +137,7 @@ class TestTaskBudget:
         assert reason == BudgetExceededReason.PAGE_LIMIT, "reason should be PAGE_LIMIT"
     
     def test_can_continue_time_limit(self):
-        """Test can_continue with time limit exceeded (§3.1: 総時間≤20分)."""
+        """Test can_continue with time limit exceeded (§3.1: Total time ≤20min)."""
         budget = TaskBudget(
             task_id="test-1",
             max_time_seconds=60.0,
@@ -654,7 +654,7 @@ class TestBudgetIntegrationScenarios:
         3. Records LLM processing time
         4. Hits page limit and stops
         
-        Verifies §3.1 requirement: 総ページ数≤max_pages
+        Verifies §3.1 requirement: Total pages ≤max_pages.
         """
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
             manager = BudgetManager()

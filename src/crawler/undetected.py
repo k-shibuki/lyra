@@ -2,7 +2,7 @@
 Undetected ChromeDriver integration for Lancet.
 
 Provides fallback browser automation for Cloudflare/Turnstile bypass per §4.3:
-- Cloudflare強 challenge bypass
+- Cloudflare advanced challenge bypass
 - Turnstile CAPTCHA bypass
 - Other sophisticated anti-bot protection bypass
 

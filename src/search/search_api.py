@@ -1070,7 +1070,7 @@ async def generate_mirror_query(
 ) -> str | None:
     """Generate a mirror query in another language using local LLM.
     
-    Implements §3.1.1: 言語横断（日⇄英）のミラークエリを自動生成
+    Implements §3.1.1: Cross-language (JA↔EN) mirror query auto-generation.
     Uses Ollama for translation to maintain Zero OpEx requirement.
     
     Args:
