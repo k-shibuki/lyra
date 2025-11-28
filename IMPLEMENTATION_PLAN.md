@@ -1038,6 +1038,16 @@ E2Eテストを有効に実施するための前提：
   - `tests/test_search.py` から `TestSearXNGClient`, `TestSearchSerp` 削除
 - [x] ドキュメント更新
 
+**Phase 16.9.6: SearXNG残存コード完全削除** ✅ 
+- [x] `config/engines.yaml`: `searxng:`セクション削除、エンジンポリシーをルートレベルに移動
+- [x] `src/search/engine_config.py`: `SearXNGSettingsSchema`クラス削除、`get_searxng_*`メソッド削除
+- [x] `scripts/dev.sh`: SearXNG起動メッセージ・環境変数削除
+- [x] Google/Bing: `disabled: true`削除、低重み（priority=10, weight=0.1）でlastmile運用に変更
+- [x] テスト修正: `test_engine_config.py`, `test_search_provider.py`, `test_sec_fetch.py`
+- [x] コメント整理: 全ファイルからSearXNG言及を削除
+- [x] 静的解析: `grep -ri "searxng" src/ tests/ config/ scripts/` で残存ゼロを確認
+- [x] 全テストパス確認
+
 ---
 
 #### テスト計画
