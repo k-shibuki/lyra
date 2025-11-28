@@ -394,10 +394,11 @@ class TestReportIntegration:
     
     @pytest.mark.asyncio
     async def test_report_generator_class_exists(self):
-        """Verify ReportGenerator can be imported."""
+        """Verify ReportGenerator can be imported and is callable."""
         from src.report.generator import ReportGenerator
         
-        assert ReportGenerator is not None
+        # Should be a class (callable) with expected interface
+        assert callable(ReportGenerator), "ReportGenerator should be a callable class"
 
 
 # =============================================================================
@@ -470,7 +471,8 @@ class TestCalibrationIntegration:
             from src.utils.calibration import Calibrator
             
             calibrator = Calibrator()
-            assert calibrator is not None
+            # Verify instance type (more specific than is not None)
+            assert isinstance(calibrator, Calibrator), f"Expected Calibrator instance, got {type(calibrator)}"
     
     @pytest.mark.asyncio
     async def test_escalation_decider_initialization(self, tmp_path):
@@ -483,7 +485,8 @@ class TestCalibrationIntegration:
             calibrator = Calibrator()
             decider = EscalationDecider(calibrator=calibrator)
             
-            assert decider is not None
+            # Verify instance type
+            assert isinstance(decider, EscalationDecider), f"Expected EscalationDecider, got {type(decider)}"
 
 
 # =============================================================================
@@ -500,7 +503,8 @@ class TestMetricsPolicyIntegration:
         from src.utils.metrics import MetricsCollector
         
         collector = MetricsCollector()
-        assert collector is not None
+        # Verify instance type
+        assert isinstance(collector, MetricsCollector), f"Expected MetricsCollector, got {type(collector)}"
     
     @pytest.mark.asyncio
     async def test_policy_engine_initialization(self):
@@ -508,7 +512,8 @@ class TestMetricsPolicyIntegration:
         from src.utils.policy_engine import PolicyEngine
         
         policy = PolicyEngine()
-        assert policy is not None
+        # Verify instance type
+        assert isinstance(policy, PolicyEngine), f"Expected PolicyEngine, got {type(policy)}"
 
 
 # =============================================================================
@@ -525,7 +530,8 @@ class TestNotificationIntegration:
         from src.utils.notification import InterventionManager
         
         manager = InterventionManager()
-        assert manager is not None
+        # Verify instance type
+        assert isinstance(manager, InterventionManager), f"Expected InterventionManager, got {type(manager)}"
     
     @pytest.mark.asyncio
     async def test_intervention_types(self):
