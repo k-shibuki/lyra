@@ -564,9 +564,11 @@ class TestEdgeCases:
         # At minimum, should return valid types without exception
         assert isinstance(text, str), "extract_text should return str"
         assert isinstance(headings, list), "extract_headings should return list"
-        # The content should be extracted in some form
+        # Some content should be extracted (text from h1 or p tag)
         combined = text + " ".join(headings)
-        assert "Unclosed" in combined or "Text" in combined, "Expected some content to be extracted from malformed HTML"
+        assert len(combined) > 0, f"Expected some content extracted, got empty string"
+        # Verify actual content from the input is present
+        assert "Unclosed" in combined, f"Expected 'Unclosed' (from h1) in: {combined}"
     
     def test_compare_empty_content(self):
         """Should handle empty content comparison."""

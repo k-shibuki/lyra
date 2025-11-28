@@ -457,9 +457,10 @@ class TestChainOfDensityCompressor:
         
         entities = compressor._extract_all_entities(dense_claims, sample_fragments)
         
-        assert len(entities) > 0
-        # Should extract year patterns
-        assert "2024年" in entities or any("2024" in e for e in entities)
+        assert len(entities) >= 1, f"Expected at least 1 entity, got {len(entities)}"
+        # Should extract year patterns - verify year is present in any format
+        has_year = any("2024" in str(e) for e in entities)
+        assert has_year, f"Expected '2024' in entities: {entities}"
     
     @pytest.mark.asyncio
     async def test_compress_empty_input(self):

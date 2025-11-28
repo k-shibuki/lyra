@@ -348,10 +348,13 @@ class TestClaimDecomposerRuleBased:
         assert len(result.claims) >= 1
         
         claim = result.claims[0]
-        assert len(claim.keywords) > 0
-        # Should contain significant terms
+        assert len(claim.keywords) >= 1, f"Expected at least 1 keyword, got {len(claim.keywords)}"
+        # Should contain significant terms from input "OpenAIのGPT-4"
         keywords_lower = [k.lower() for k in claim.keywords]
-        assert any("openai" in k or "gpt" in k for k in keywords_lower)
+        # Verify significant terms are extracted
+        has_openai = any("openai" in k for k in keywords_lower)
+        has_gpt = any("gpt" in k for k in keywords_lower)
+        assert has_openai or has_gpt, f"Expected 'openai' or 'gpt' in keywords: {claim.keywords}"
     
     @pytest.mark.asyncio
     async def test_verification_hints_generation(self, decomposer):

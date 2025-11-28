@@ -192,8 +192,10 @@ class TestSearchToReportPipeline:
         
         # Verify fetch succeeded
         assert fetch_result["ok"] is True, f"Fetch failed: {fetch_result.get('reason')}"
-        assert "html_path" in fetch_result or "content" in fetch_result, \
-            "Expected html_path or content in fetch result"
+        # Result should contain html_path (primary) for saved content
+        assert "html_path" in fetch_result, (
+            f"Expected 'html_path' in fetch result, got keys: {list(fetch_result.keys())}"
+        )
         
         # Extract content
         html_content = None

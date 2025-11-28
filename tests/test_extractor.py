@@ -53,7 +53,12 @@ class TestExtractContent:
             result = await extract_content(html=html, content_type="html")
         
         assert result["ok"] is True
-        assert "Test Heading" in result["text"] or len(result["headings"]) > 0
+        # Heading is extracted to headings list (as dict with 'text' key)
+        assert "headings" in result, f"Expected 'headings' in result keys: {list(result.keys())}"
+        heading_texts = [h.get("text", "") if isinstance(h, dict) else str(h) for h in result["headings"]]
+        assert "Test Heading" in heading_texts, (
+            f"Expected 'Test Heading' in headings: {result['headings']}"
+        )
 
     @pytest.mark.asyncio
     async def test_extract_html_detects_headings(self):
@@ -454,9 +459,10 @@ class TestFallbackExtraction:
         
         result = await _fallback_extract_html(html)
         
-        # Result depends on actual readability behavior
-        # At minimum, it should return something or None
-        assert result is None or isinstance(result, str)
+        # Result should be either None (extraction failed) or a string
+        assert isinstance(result, (str, type(None))), (
+            f"Expected str or None, got {type(result).__name__}"
+        )
 
     @pytest.mark.asyncio
     async def test_fallback_handles_empty_html(self):
@@ -465,6 +471,7 @@ class TestFallbackExtraction:
         
         result = await _fallback_extract_html("<html><body></body></html>")
         
-        # Should return None for empty content
-        assert result is None or result == ""
+        # Should return None or empty string for empty content
+        is_empty = (result is None) or (result == "")
+        assert is_empty, f"Expected None or empty string for empty HTML, got: {result!r}"
 
