@@ -2,10 +2,10 @@
 # テスト実行スクリプト（Cursor AI対応）
 #
 # 使用方法:
-#   ./scripts/quick_test.sh run [target]  # テスト実行
-#   ./scripts/quick_test.sh check         # 完了確認
-#   ./scripts/quick_test.sh get           # 結果取得
-#   ./scripts/quick_test.sh kill          # 強制終了
+#   ./scripts/test.sh run [target]  # テスト実行
+#   ./scripts/test.sh check         # 完了確認
+#   ./scripts/test.sh get           # 結果取得
+#   ./scripts/test.sh kill          # 強制終了
 
 set -e
 
@@ -23,7 +23,7 @@ case "$ACTION" in
         # podman exec -d でデタッチ実行（コンテナ内で独立プロセス）
         podman exec lancet rm -f "$RESULT_FILE"
         podman exec -d lancet sh -c "PYTHONUNBUFFERED=1 pytest $TARGET -m 'not e2e' --tb=short -q > $RESULT_FILE 2>&1"
-        echo "Started. Run: ./scripts/quick_test.sh check"
+        echo "Started. Run: ./scripts/test.sh check"
         ;;
     
     check)

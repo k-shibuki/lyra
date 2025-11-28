@@ -40,12 +40,12 @@
 
 ## scripts/ の使い方
 
-### quick_test.sh（AIフレンドリーなテスト実行）
+### test.sh（テスト実行）
 ```bash
-./scripts/quick_test.sh run [target]  # テスト開始（デフォルト: tests/）
-./scripts/quick_test.sh check         # 完了確認（DONE/RUNNING）
-./scripts/quick_test.sh get           # 結果取得（最後の20行）
-./scripts/quick_test.sh kill          # pytestプロセス強制終了
+./scripts/test.sh run [target]  # テスト開始（デフォルト: tests/）
+./scripts/test.sh check         # 完了確認（DONE/RUNNING）
+./scripts/test.sh get           # 結果取得（最後の20行）
+./scripts/test.sh kill          # pytestプロセス強制終了
 ```
 
 ### dev.sh（開発環境管理）
@@ -53,14 +53,18 @@
 ./scripts/dev.sh up       # コンテナ起動
 ./scripts/dev.sh down     # コンテナ停止
 ./scripts/dev.sh shell    # 開発シェルに入る
-./scripts/dev.sh logs     # ログ表示
+./scripts/dev.sh logs     # ログ表示（最新50行、ハングしない）
+./scripts/dev.sh logs -f  # ログをフォロー（Ctrl+Cで終了）
 ./scripts/dev.sh status   # コンテナ状態確認
 ```
 
-### start-chrome.sh（E2Eテスト用Chrome起動）
+### chrome.sh（Chrome管理）
 ```bash
-./scripts/start-chrome.sh [port] [profile]  # デフォルト: 9222, Profile-Research
+./scripts/chrome.sh check   # 接続可能か確認
+./scripts/chrome.sh start   # Chrome起動（独立プロファイル）
+./scripts/chrome.sh stop    # Chrome停止
+./scripts/chrome.sh setup   # 初回セットアップ手順表示
 ```
-WSL/Windows/Linuxで動作。Playwright CDPで接続:
-`chromium.connect_over_cdp('http://localhost:9222')`
+既存のChromeセッションに影響せず、専用プロファイル`LancetChrome`で起動。
+Playwright CDPで接続（出力されるURLを使用）
 
