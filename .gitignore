@@ -85,3 +85,4 @@ htmlcov/
 # Podman/Docker
 # Don't ignore compose files, but ignore runtime data
 
+.cursorignore
