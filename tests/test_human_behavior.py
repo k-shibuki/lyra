@@ -312,8 +312,9 @@ class TestInertialScroll:
             viewport_height=800,
         )
         
-        # Should have multiple steps
-        assert len(steps) > 0
+        # Should have multiple steps (scrollable area 1200px / ~400px base = ~3+ scrolls)
+        # Each scroll generates ~10 animation steps, so expect at least 10 total
+        assert len(steps) >= 10, f"Expected at least 10 steps for 1200px scroll, got {len(steps)}"
         
         # Each step should have position and delay
         for step in steps:
@@ -368,7 +369,8 @@ class TestInertialScroll:
         scroll = InertialScroll()
         steps = scroll.generate_single_scroll(direction=1)
         
-        assert len(steps) > 0
+        # Single scroll generates 8 animation steps (as defined in generate_single_scroll)
+        assert len(steps) == 8, f"Expected 8 animation steps, got {len(steps)}"
         # All positions should be positive (scrolling down)
         final_position = steps[-1].position
         assert final_position > 0
@@ -378,7 +380,8 @@ class TestInertialScroll:
         scroll = InertialScroll()
         steps = scroll.generate_single_scroll(direction=-1)
         
-        assert len(steps) > 0
+        # Single scroll generates 8 animation steps
+        assert len(steps) == 8, f"Expected 8 animation steps, got {len(steps)}"
         # All positions should be negative (scrolling up)
         final_position = steps[-1].position
         assert final_position < 0

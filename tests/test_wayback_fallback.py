@@ -219,7 +219,9 @@ class TestWaybackFallback:
             )
             
             assert result.ok is True
-            assert result.html is not None
+            # Verify HTML content is present and contains expected text
+            assert result.html is not None, "Expected HTML content but got None"
+            assert len(result.html) > 500, f"Expected content > 500 chars, got {len(result.html)}"
             assert "Archived content" in result.html
             assert result.snapshot == snapshot
             assert result.freshness_penalty > 0  # 10 days old
@@ -424,7 +426,10 @@ class TestWaybackFallback:
                 "https://example.com/page"
             )
             
-            assert html is not None
+            # Verify content is returned and matches expected
+            assert html is not None, "Expected HTML content but got None"
+            assert len(html) > 500, f"Expected content > 500 chars, got {len(html)}"
+            assert "Content from archive" in html
             assert snap == snapshot
             assert penalty == 0.0  # 5 days old, no penalty
     
@@ -655,8 +660,12 @@ class TestArchiveDiffResult:
         )
         
         notes = result.generate_timeline_notes()
-        assert "New Feature" in notes or "New sections" in notes
-        assert "Deprecated" in notes or "Removed sections" in notes
+        # Notes should contain section references
+        assert "New sections:" in notes, f"Expected 'New sections:' in notes: {notes}"
+        assert "Removed sections:" in notes, f"Expected 'Removed sections:' in notes: {notes}"
+        # Should include heading names (first 3)
+        assert "New Feature" in notes, f"Expected 'New Feature' in notes: {notes}"
+        assert "Deprecated" in notes, f"Expected 'Deprecated' in notes: {notes}"
 
 
 class TestCompareWithCurrent:
