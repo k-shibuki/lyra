@@ -70,7 +70,12 @@ case "${1:-help}" in
         ;;
     
     logs)
-        $COMPOSE logs -f "${2:-}"
+        # AI-friendly: no -f by default, use --tail
+        if [ "$2" = "-f" ]; then
+            $COMPOSE logs -f "${3:-}"
+        else
+            $COMPOSE logs --tail=50 "${2:-}"
+        fi
         ;;
     
     test)
@@ -112,7 +117,7 @@ case "${1:-help}" in
         echo "  build     Build containers"
         echo "  rebuild   Rebuild containers (no cache)"
         echo "  shell     Enter development shell"
-        echo "  logs      Show logs (optionally: logs [service])"
+        echo "  logs      Show logs (logs [service] or logs -f [service])"
         echo "  test      Run tests"
         echo "  mcp       Start MCP server"
         echo "  research  Run research query"

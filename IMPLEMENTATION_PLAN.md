@@ -472,7 +472,8 @@ Lancetは「Zero OpEx」を掲げつつ、IPブロックを完全回避するこ
 
 ### 15.2 運用スクリプト ✅
 - [x] `scripts/dev.sh` - 開発環境管理
-- [x] `scripts/start-chrome.sh` - Chrome起動（Windows側）
+- [x] `scripts/chrome.sh` - Chrome管理（check/start/stop/setup）
+- [x] `scripts/test.sh` - テスト実行（run/check/get/kill）
 
 ---
 
@@ -1216,7 +1217,7 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
 - [x] **全テストファイルへのpytestmark付与**（2024-11-28完了）
   - 43ファイルにファイルレベルの`pytestmark`を追加
   - unit: 1929テスト / integration: 123テスト / e2e: 17テスト
-  - テスト実行スクリプト `scripts/quick_test.sh` 作成
+  - テスト実行スクリプト `scripts/test.sh` 作成
 
 ##### E2E実行環境
 
