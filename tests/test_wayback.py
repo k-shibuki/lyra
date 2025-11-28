@@ -329,7 +329,8 @@ class TestContentAnalyzer:
         summary = analyzer.summarize_content(SAMPLE_HTML_V1, max_length=100)
         
         assert len(summary) <= 100
-        assert len(summary) > 0
+        # Summary should have meaningful content (at least a short sentence)
+        assert len(summary) >= 10, f"Expected summary >=10 chars, got {len(summary)}: {summary}"
 
 
 # =============================================================================
@@ -564,9 +565,11 @@ class TestEdgeCases:
         # At minimum, should return valid types without exception
         assert isinstance(text, str), "extract_text should return str"
         assert isinstance(headings, list), "extract_headings should return list"
-        # The content should be extracted in some form
+        # Some content should be extracted (text from h1 or p tag)
         combined = text + " ".join(headings)
-        assert "Unclosed" in combined or "Text" in combined, "Expected some content to be extracted from malformed HTML"
+        # Verify actual content from the input is present (also ensures non-empty)
+        assert "Unclosed" in combined, f"Expected 'Unclosed' (from h1) in: {combined}"
+        assert "Text" in combined, f"Expected 'Text' (from paragraph) in: {combined}"
     
     def test_compare_empty_content(self):
         """Should handle empty content comparison."""

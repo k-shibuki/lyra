@@ -41,7 +41,8 @@ class TestPivotExpander:
             entity_type=EntityType.ORGANIZATION,
         )
         
-        assert len(suggestions) > 0
+        # Organization should generate at least 2 pivot suggestions (e.g., subsidiary, official site)
+        assert len(suggestions) >= 2, f"Expected >=2 suggestions, got {len(suggestions)}"
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
     
     def test_expand_organization_includes_subsidiary_pivot(self, expander):
@@ -117,7 +118,8 @@ class TestPivotExpander:
             entity_type=EntityType.ORGANIZATION,
         )
         
-        assert len(suggestions) > 0
+        # Organization should generate at least 2 pivot suggestions
+        assert len(suggestions) >= 2, f"Expected >=2 suggestions for 'Google Inc', got {len(suggestions)}"
         # Should include English query variants
         subsidiary_pivot = next(
             s for s in suggestions if s.pivot_type == PivotType.ORG_SUBSIDIARY
@@ -135,7 +137,8 @@ class TestPivotExpander:
             entity_type=EntityType.DOMAIN,
         )
         
-        assert len(suggestions) > 0
+        # Domain should generate at least 1 pivot suggestion (e.g., WHOIS, related domains)
+        assert len(suggestions) >= 1, f"Expected >=1 suggestions for domain, got {len(suggestions)}"
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
     
     def test_expand_domain_includes_certificate_pivot(self, expander):
@@ -189,7 +192,8 @@ class TestPivotExpander:
         for suggestion in suggestions:
             for example in suggestion.query_examples:
                 assert "https://" not in example
-                assert "www.example.com" in example or "example.com" in example
+                # Domain should be present in some form (with or without www)
+                assert "example.com" in example, f"Expected 'example.com' in query: {example}"
     
     # ==========================================================================
     # Person Expansion Tests (§3.1.1)
@@ -202,7 +206,8 @@ class TestPivotExpander:
             entity_type=EntityType.PERSON,
         )
         
-        assert len(suggestions) > 0
+        # Person should generate at least 1 pivot suggestion (e.g., affiliation, social)
+        assert len(suggestions) >= 1, f"Expected >=1 suggestions for person, got {len(suggestions)}"
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
     
     def test_expand_person_includes_alias_pivot(self, expander):
@@ -372,7 +377,8 @@ class TestPivotExpander:
             entity_type="organization",  # String instead of enum
         )
         
-        assert len(suggestions) > 0
+        # Should still work with string type, generating suggestions
+        assert len(suggestions) >= 1, f"Expected >=1 suggestions with string type, got {len(suggestions)}"
     
     def test_handle_unknown_string_entity_type(self, expander):
         """Should handle unknown string entity types gracefully."""
@@ -435,7 +441,8 @@ class TestGetPivotExpander:
             entity_text="テスト株式会社",
             entity_type=EntityType.ORGANIZATION,
         )
-        assert len(suggestions) > 0
+        # Singleton should return valid suggestions
+        assert len(suggestions) >= 1, f"Expected >=1 suggestions from singleton, got {len(suggestions)}"
 
 
 

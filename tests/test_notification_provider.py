@@ -538,7 +538,8 @@ class TestWindowsToastProvider:
         # Verify escaping happened
         call_args = mock_exec.call_args[0]
         ps_command = call_args[-1]  # Last argument is the command
-        assert "''" in ps_command or "&#10;" in ps_command
+        # Single quote should be escaped ('' for PowerShell)
+        assert "''" in ps_command, f"Expected escaped single quote in: {ps_command[:200]}"
     
     @pytest.mark.asyncio
     async def test_get_health_available(self):

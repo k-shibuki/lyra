@@ -17,6 +17,7 @@ Per §7.1 test quality standards:
 """
 
 import asyncio
+from datetime import datetime
 
 import pytest
 
@@ -287,7 +288,10 @@ class TestDomainIPv6Stats:
         assert stats.ipv6_success_rate == pytest.approx(0.55)
         assert stats.ipv6_attempts == 1
         assert stats.ipv6_successes == 1
-        assert stats.last_ipv6_success_at is not None
+        # Success timestamp should be set (Unix timestamp as float)
+        assert isinstance(stats.last_ipv6_success_at, (int, float)), (
+            f"Expected numeric timestamp, got {type(stats.last_ipv6_success_at)}"
+        )
 
     def test_update_success_rate_ipv6_failure(self):
         """update_success_rate should update IPv6 success rate on failure."""
@@ -299,7 +303,10 @@ class TestDomainIPv6Stats:
         assert stats.ipv6_success_rate == pytest.approx(0.45)
         assert stats.ipv6_attempts == 1
         assert stats.ipv6_successes == 0
-        assert stats.last_ipv6_failure_at is not None
+        # Failure timestamp should be set (Unix timestamp as float)
+        assert isinstance(stats.last_ipv6_failure_at, (int, float)), (
+            f"Expected numeric timestamp, got {type(stats.last_ipv6_failure_at)}"
+        )
 
     def test_update_success_rate_ipv4(self):
         """update_success_rate should update IPv4 success rate."""

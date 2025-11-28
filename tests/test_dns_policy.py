@@ -349,7 +349,8 @@ class TestDNSPolicyManagerResolution:
             
             # localhost should resolve to 127.0.0.1 or ::1
             assert result.success
-            assert len(result.addresses) > 0
+            # Should have at least 1 resolved address
+            assert len(result.addresses) >= 1, f"Expected >=1 addresses, got {result.addresses}"
             assert result.leak_detected == DNSLeakType.NONE
 
     @pytest.mark.asyncio

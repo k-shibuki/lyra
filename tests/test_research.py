@@ -95,8 +95,8 @@ class TestResearchContext:
         # Assert
         assert result["ok"] is True
         templates = result["applicable_templates"]
-        assert len(templates) > 0
-        # Query contains "研究" so academic template should be suggested
+        # Query contains "研究" so at least academic template should be suggested
+        assert len(templates) >= 1, f"Expected >=1 templates, got {len(templates)}"
         template_names = [t["name"] for t in templates]
         assert "academic" in template_names
     
@@ -144,7 +144,10 @@ class TestResearchContext:
         assert result["ok"] is True
         assert "recommended_engines" in result
         assert isinstance(result["recommended_engines"], list)
-        assert len(result["recommended_engines"]) > 0
+        # Should recommend at least 1 engine
+        assert len(result["recommended_engines"]) >= 1, (
+            f"Expected >=1 recommended engines, got {result['recommended_engines']}"
+        )
     
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -574,7 +577,10 @@ class TestExplorationState:
         assert result["final_status"] == "partial"  # Not all satisfied
         assert result["summary"]["satisfied_subqueries"] == 1
         assert "sq_002" in result["summary"]["unsatisfied_subqueries"]
-        assert len(result["followup_suggestions"]) > 0
+        # Should have followup suggestions for unsatisfied subqueries
+        assert len(result["followup_suggestions"]) >= 1, (
+            f"Expected >=1 followup suggestions, got {result['followup_suggestions']}"
+        )
 
 
 # =============================================================================
@@ -621,8 +627,9 @@ class TestSubqueryExecutor:
         assert original_query in expanded  # Original always included
         # Expanded queries should only add operators, not change meaning
         for eq in expanded:
-            # All expanded queries should contain the original query text
-            assert "機械学習" in eq or "研究" in eq or "論文" in eq
+            # All expanded queries should contain the core term "機械学習"
+            # (expansion may add operators but shouldn't change the core meaning)
+            assert "機械学習" in eq, f"Expected '機械学習' in expanded query: {eq}"
     
     @pytest.mark.unit
     def test_generate_refutation_queries_mechanical(self):
@@ -639,8 +646,8 @@ class TestSubqueryExecutor:
         # Act
         refutation_queries = executor.generate_refutation_queries(base_query)
         
-        # Assert
-        assert len(refutation_queries) > 0
+        # Assert - should generate at least 1 refutation query
+        assert len(refutation_queries) >= 1, f"Expected >=1 refutation queries, got {len(refutation_queries)}"
         # All queries should be base_query + suffix
         for rq in refutation_queries:
             assert base_query in rq
@@ -691,8 +698,8 @@ class TestRefutationExecutor:
         # Act
         reverse_queries = executor._generate_reverse_queries(claim_text)
         
-        # Assert
-        assert len(reverse_queries) > 0
+        # Assert - should generate at least 1 reverse query
+        assert len(reverse_queries) >= 1, f"Expected >=1 reverse queries, got {len(reverse_queries)}"
         for rq in reverse_queries:
             # Each reverse query should contain part of claim + suffix
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)

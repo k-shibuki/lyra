@@ -424,7 +424,8 @@ class TestBrowserSearchProvider:
         engines = provider.get_available_engines()
         
         assert isinstance(engines, list)
-        assert len(engines) > 0
+        # Should have at least 1 engine available
+        assert len(engines) >= 1, f"Expected >=1 engines, got {len(engines)}"
     
     def test_get_stats(self):
         """Test getting provider statistics."""
