@@ -12,6 +12,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: lancet
+    env_file:
+      - .env
     volumes:
       # Mount source code for development (rw for editing)
       - ./src:/app/src:rw
