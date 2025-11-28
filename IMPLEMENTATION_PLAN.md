@@ -1296,7 +1296,7 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 
 ---
 
-### 16.11 ヒューマンライク操作強化 🟡 (§4.3.4)
+### 16.11 ヒューマンライク操作強化 ✅ (§4.3.4)
 
 **目的**: bot検知回避のためのより自然な操作パターンの実装。
 
@@ -1305,52 +1305,52 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 - 設定外部化により調整可能に
 
 #### 16.11.1 マウス軌跡自然化
-- [ ] `MouseTrajectory`クラス: Bezier曲線による自然な軌跡生成
+- [x] `MouseTrajectory`クラス: Bezier曲線による自然な軌跡生成
   - 開始点・終了点間の制御点をランダム化
   - 移動速度の加減速（始点で加速、終点で減速）
   - 微細なジッター（ノイズ）の付与
-- [ ] 実装: `src/crawler/human_behavior.py`
+- [x] 実装: `src/crawler/human_behavior.py`
 
 #### 16.11.2 タイピングリズム
-- [ ] `HumanTyping`クラス: 自然なタイピング模倣
+- [x] `HumanTyping`クラス: 自然なタイピング模倣
   - キー間遅延: ガウス分布（平均100ms, σ=30ms）
   - 句読点後の長い間（200-400ms）
   - 稀なタイポ模倣（1%確率でバックスペース＋再入力）
-- [ ] 実装: `src/crawler/human_behavior.py`
+- [x] 実装: `src/crawler/human_behavior.py`
 
 #### 16.11.3 スクロール慣性
-- [ ] `InertialScroll`クラス: 慣性付きスクロール
+- [x] `InertialScroll`クラス: 慣性付きスクロール
   - イージング関数（ease-out）による自然な減速
   - スクロール量のばらつき
   - 中間停止の確率的挿入
-- [ ] 実装: `src/crawler/human_behavior.py`
+- [x] 実装: `src/crawler/human_behavior.py`
 
 #### 16.11.4 設定外部化
-- [ ] `config/human_behavior.yaml`: パラメータ外部化
+- [x] `config/human_behavior.yaml`: パラメータ外部化
   - マウス速度範囲、ジッター幅
   - タイピング速度分布
   - スクロールイージング係数
-- [ ] ホットリロード対応
+- [x] ホットリロード対応
 
 **成果物**:
-- `src/crawler/human_behavior.py`
-- `config/human_behavior.yaml`
-- テスト: `tests/test_human_behavior.py`
+- `src/crawler/human_behavior.py` ✅
+- `config/human_behavior.yaml` ✅
+- テスト: `tests/test_human_behavior.py` ✅
 
 ---
 
-### 16.12 Waybackフォールバック強化 🔴 (§3.1.6)
+### 16.12 Waybackフォールバック強化 🔄 (§3.1.6)
 
 **目的**: 403/CAPTCHAブロック時にWayback Machineから代替コンテンツを取得。
 
 **既存**: `src/crawler/wayback.py` - 基本的なWayback取得実装済み
 
-#### 16.12.1 自動フォールバック統合
-- [ ] `fetcher.py`への統合
+#### 16.12.1 自動フォールバック統合 ✅
+- [x] `fetcher.py`への統合
   - 403/CAPTCHA検知時に自動Wayback参照
   - 最新スナップショット優先、なければ直近3件を試行
   - フォールバック成功率をドメインポリシーに反映
-- [ ] `FetchResult`拡張
+- [x] `FetchResult`拡張
   - `is_archived: bool`: アーカイブからの取得か
   - `archive_date: datetime | None`: アーカイブ日時
   - `archive_url: str | None`: 元のWayback URL
@@ -1363,9 +1363,9 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 - [ ] 信頼度スコアへの鮮度ペナルティ適用
 
 **成果物**:
-- `src/crawler/fetcher.py`（拡張）
-- `src/crawler/wayback.py`（拡張）
-- テスト: `tests/test_wayback_fallback.py`
+- `src/crawler/fetcher.py`（拡張）✅
+- `src/crawler/wayback.py`（拡張）✅
+- テスト: `tests/test_wayback_fallback.py` ✅
 
 ---
 
@@ -1981,9 +1981,9 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 |-------|------|--------|------|----------|
 | **18.0** | **API仕様調査・ドキュメント化** | **最高** | **小** | **なし** |
 | 18.1 | 政府API統合 | 高 | 中 | 18.0 |
-| 16.12 | Waybackフォールバック強化 | 高 | 小 | なし |
+| ~~16.12~~ | ~~Waybackフォールバック強化~~ | ~~高~~ | ~~小~~ | ~~なし~~ | **🔄部分完了（16.12.1✅）** |
 | 18.2 | 学術API統合 | 高 | 中 | 18.0 |
-| 16.11 | ヒューマンライク操作 | 中 | 中 | なし |
+| ~~16.11~~ | ~~ヒューマンライク操作~~ | ~~中~~ | ~~中~~ | ~~なし~~ | **✅完了** |
 | 18.3 | ファクトチェック連携 | 中 | 小 | なし |
 | 16.13 | 検索エンジン多様化 | 中 | 小 | なし |
 | 18.4 | エンティティ解決強化 | 中 | 中 | 18.1, 18.2 |
