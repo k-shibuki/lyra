@@ -6,6 +6,11 @@ in the test environment.
 """
 
 import asyncio
+
+import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 import hashlib
 import pytest
 from pathlib import Path

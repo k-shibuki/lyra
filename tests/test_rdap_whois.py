@@ -5,6 +5,9 @@ Tests §3.1.2: RDAP/WHOIS registry integration via HTML scraping.
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 

@@ -8,6 +8,9 @@ Covers:
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.crawler.bfs import (

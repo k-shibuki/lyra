@@ -3,6 +3,11 @@ Tests for src/utils/config.py and src/utils/logging.py
 """
 
 import os
+
+import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 import tempfile
 from pathlib import Path
 from unittest.mock import patch

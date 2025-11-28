@@ -7,6 +7,9 @@ Tests §3.1.1: クエリABテスト
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.search.ab_test import (

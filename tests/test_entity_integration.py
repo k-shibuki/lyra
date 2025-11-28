@@ -4,12 +4,18 @@ Tests for Entity Integration module.
 Tests integration between RDAP/WHOIS, Certificate Transparency, and Entity KB.
 Follows §7.1 test quality standards.
 
+Note: This tests the "EntityIntegration" module, not integration tests as a test type.
+All external dependencies are mocked.
+
 References:
 - §3.1.2: Infrastructure/Registry Direct Access - Entity KB normalization
 - §7.1: Test code quality standards
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 

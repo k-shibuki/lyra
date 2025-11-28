@@ -8,6 +8,11 @@ OCR functionality tests (§5.1.1):
 """
 
 import io
+
+import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 

@@ -8,6 +8,9 @@ See requirements.md §3.1.1.
 import math
 import pytest
 
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
+
 from src.research.ucb_allocator import UCBAllocator, SubqueryArm
 
 

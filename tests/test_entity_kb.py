@@ -14,6 +14,9 @@ References:
 """
 
 import pytest
+
+# All tests in this module are integration tests (use database)
+pytestmark = pytest.mark.integration
 import pytest_asyncio
 import asyncio
 from datetime import datetime, timezone

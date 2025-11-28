@@ -7,6 +7,9 @@ for browser-fetched pages.
 
 import json
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 import time
 from pathlib import Path
 

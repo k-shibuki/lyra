@@ -9,6 +9,9 @@ Tests entity expansion patterns per §3.1.1:
 
 import pytest
 
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
+
 from src.research.pivot import (
     PivotExpander,
     PivotSuggestion,

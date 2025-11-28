@@ -10,6 +10,9 @@ Covers:
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 import math
 from datetime import datetime, timezone, timedelta
 from pathlib import Path

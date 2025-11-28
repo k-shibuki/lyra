@@ -7,6 +7,9 @@ Per §3.3.1: 問い→主張分解 functionality.
 
 import pytest
 
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
+
 from src.filter.claim_decomposition import (
     AtomicClaim,
     ClaimDecomposer,

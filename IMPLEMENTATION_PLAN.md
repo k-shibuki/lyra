@@ -1191,27 +1191,32 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
 - 実行タイミングを人が制御する必要がある
 - CIから除外すべき（IP汚染リスク）
 
-##### テスト分類ガイドライン
+##### テスト分類ガイドライン ✅
 
-- [ ] **unit/integration/e2eの境界定義**
-  - unit: 単一クラス/関数、外部依存なし
-  - integration: 複数コンポーネント連携、外部はモック
+- [x] **unit/integration/e2eの境界定義**（`tests/conftest.py`冒頭のdocstring）
+  - unit: 単一クラス/関数、外部依存なし（<1s/test）
+  - integration: 複数コンポーネント連携、外部はモック（<5s/test）
   - e2e: 実サービス使用（低リスクIP環境限定）
-- [ ] **各マーカーの意味と使用基準**
-  - `@pytest.mark.unit`: デフォルト実行、高速（<1秒/テスト）
-  - `@pytest.mark.integration`: デフォルト実行、中速（<5秒/テスト）
-  - `@pytest.mark.e2e`: デフォルト除外、`-m e2e`で明示実行
-  - `@pytest.mark.slow`: デフォルト除外、`-m slow`で明示実行
+- [x] **各マーカーの意味と使用基準**
+  - `@pytest.mark.unit`: デフォルト実行、高速（マーカーなしテストは自動付与）
+  - `@pytest.mark.integration`: デフォルト実行、中速
+  - `@pytest.mark.e2e`: デフォルト除外、`pytest -m e2e`で明示実行
+  - `@pytest.mark.slow`: デフォルト除外、`pytest -m slow`で明示実行
 
-##### リスクベースマーカー
+##### リスクベースマーカー ✅
 
-- [ ] **追加マーカー実装**
-  - `@external`: 外部サービス使用（mojeek等ブロック耐性高）
-  - `@rate_limited`: レート制限厳しい（DuckDuckGo等）
-- [ ] **conftest.py設定**
-  - デフォルト: `-m "not e2e and not slow"`
-  - `--run-e2e`: E2Eテスト含む
-  - `--run-all`: 全テスト実行
+- [x] **追加マーカー実装**（`tests/conftest.py`, `pyproject.toml`）
+  - `@external`: 外部サービス使用（Mojeek, Qwant等ブロック耐性高）
+  - `@rate_limited`: レート制限厳しい（DuckDuckGo, Google等）
+  - `@manual`: 人手介入必須（CAPTCHA解決等）
+- [x] **pyproject.toml設定**
+  - デフォルト: `addopts = "-m 'not e2e and not slow'"`
+  - E2E実行: `pytest -m e2e`
+  - 全テスト: `pytest -m ""`
+- [x] **全テストファイルへのpytestmark付与**（2024-11-28完了）
+  - 43ファイルにファイルレベルの`pytestmark`を追加
+  - unit: 1929テスト / integration: 123テスト / e2e: 17テスト
+  - テスト実行スクリプト `scripts/quick_test.sh` 作成
 
 ##### E2E実行環境
 

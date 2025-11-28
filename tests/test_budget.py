@@ -10,6 +10,11 @@ Test quality: Follows §7.1 test code quality standards.
 """
 
 import asyncio
+
+import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 import time
 from unittest.mock import patch, MagicMock
 
