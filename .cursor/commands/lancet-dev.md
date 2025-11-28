@@ -38,3 +38,29 @@
 - 現時点の進捗を「🔄」で実装計画書に記録
 - 未完了項目を明示してコミット
 
+## scripts/ の使い方
+
+### quick_test.sh（AIフレンドリーなテスト実行）
+```bash
+./scripts/quick_test.sh run [target]  # テスト開始（デフォルト: tests/）
+./scripts/quick_test.sh check         # 完了確認（DONE/RUNNING）
+./scripts/quick_test.sh get           # 結果取得（最後の20行）
+./scripts/quick_test.sh kill          # pytestプロセス強制終了
+```
+
+### dev.sh（開発環境管理）
+```bash
+./scripts/dev.sh up       # コンテナ起動
+./scripts/dev.sh down     # コンテナ停止
+./scripts/dev.sh shell    # 開発シェルに入る
+./scripts/dev.sh logs     # ログ表示
+./scripts/dev.sh status   # コンテナ状態確認
+```
+
+### start-chrome.sh（E2Eテスト用Chrome起動）
+```bash
+./scripts/start-chrome.sh [port] [profile]  # デフォルト: 9222, Profile-Research
+```
+WSL/Windows/Linuxで動作。Playwright CDPで接続:
+`chromium.connect_over_cdp('http://localhost:9222')`
+
