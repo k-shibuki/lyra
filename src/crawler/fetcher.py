@@ -71,23 +71,35 @@ from src.crawler.http3_policy import (
     ProtocolVersion,
     detect_protocol_from_playwright_response,
 )
+from src.crawler.wayback import (
+    get_wayback_fallback,
+    calculate_freshness_penalty,
+)
 
 logger = get_logger(__name__)
 
 
 # =============================================================================
-# Human-like Behavior Simulation
+# Human-like Behavior Simulation (delegated to human_behavior module)
 # =============================================================================
 
+# Import from dedicated module for advanced human-like behavior
+from src.crawler.human_behavior import (
+    HumanBehaviorSimulator,
+    get_human_behavior_simulator,
+)
+
+
 class HumanBehavior:
-    """Simulates human-like browser interactions.
+    """Legacy wrapper for human-like browser interactions.
     
-    Implements realistic delays, mouse movements, and scrolling patterns
-    to reduce bot detection per §4.3 (stealth requirements).
+    Delegates to the new HumanBehaviorSimulator for enhanced functionality.
+    Kept for backward compatibility with existing code.
     """
     
     def __init__(self):
         self._settings = get_settings()
+        self._simulator = get_human_behavior_simulator()
     
     @staticmethod
     def random_delay(min_seconds: float = 0.5, max_seconds: float = 2.0) -> float:
@@ -102,12 +114,8 @@ class HumanBehavior:
         Returns:
             Delay in seconds.
         """
-        # Log-normal distribution parameters (median ~= 1.0s)
-        mu = 0.0
-        sigma = 0.5
-        
-        delay = random.lognormvariate(mu, sigma)
-        return max(min_seconds, min(delay, max_seconds))
+        simulator = get_human_behavior_simulator()
+        return simulator.random_delay(min_seconds, max_seconds)
     
     @staticmethod
     def scroll_pattern(page_height: int, viewport_height: int) -> list[tuple[int, float]]:
@@ -120,20 +128,14 @@ class HumanBehavior:
         Returns:
             List of (scroll_position, delay) tuples.
         """
-        positions = []
-        current = 0
-        max_scroll = max(0, page_height - viewport_height)
-        
-        while current < max_scroll:
-            # Variable scroll amount (50-150% of viewport)
-            scroll_amount = int(viewport_height * random.uniform(0.5, 1.5))
-            current = min(current + scroll_amount, max_scroll)
-            
-            # Human-like pause after scrolling
-            delay = HumanBehavior.random_delay(0.3, 1.5)
-            positions.append((current, delay))
-        
-        return positions
+        simulator = get_human_behavior_simulator()
+        steps = simulator._scroll.generate_scroll_sequence(
+            current_position=0,
+            page_height=page_height,
+            viewport_height=viewport_height,
+        )
+        # Convert to legacy format: (position, delay_seconds)
+        return [(step.position, step.delay_ms / 1000) for step in steps]
     
     @staticmethod
     def mouse_path(
@@ -155,26 +157,13 @@ class HumanBehavior:
         Returns:
             List of (x, y) coordinates.
         """
-        path = []
-        
-        # Add random control point for bezier curve
-        ctrl_x = (start_x + end_x) / 2 + random.uniform(-50, 50)
-        ctrl_y = (start_y + end_y) / 2 + random.uniform(-50, 50)
-        
-        for i in range(steps + 1):
-            t = i / steps
-            
-            # Quadratic bezier interpolation
-            x = (1 - t) ** 2 * start_x + 2 * (1 - t) * t * ctrl_x + t ** 2 * end_x
-            y = (1 - t) ** 2 * start_y + 2 * (1 - t) * t * ctrl_y + t ** 2 * end_y
-            
-            # Add small jitter
-            x += random.uniform(-2, 2)
-            y += random.uniform(-2, 2)
-            
-            path.append((int(x), int(y)))
-        
-        return path
+        simulator = get_human_behavior_simulator()
+        path = simulator._mouse.generate_path(
+            start=(float(start_x), float(start_y)),
+            end=(float(end_x), float(end_y)),
+        )
+        # Convert to legacy format: (x, y) only (no delays)
+        return [(int(x), int(y)) for x, y, _ in path]
     
     async def simulate_reading(self, page, content_length: int) -> None:
         """Simulate human reading behavior on page.
@@ -184,24 +173,7 @@ class HumanBehavior:
             content_length: Approximate content length.
         """
         try:
-            # Get page dimensions
-            dimensions = await page.evaluate("""
-                () => ({
-                    height: document.body.scrollHeight,
-                    viewportHeight: window.innerHeight
-                })
-            """)
-            
-            page_height = dimensions.get("height", 2000)
-            viewport_height = dimensions.get("viewportHeight", 1080)
-            
-            # Scroll through page
-            scroll_positions = self.scroll_pattern(page_height, viewport_height)
-            
-            for scroll_y, delay in scroll_positions[:5]:  # Limit scrolls
-                await page.evaluate(f"window.scrollTo(0, {scroll_y})")
-                await asyncio.sleep(delay)
-                
+            await self._simulator.read_page(page, max_scrolls=5)
         except Exception as e:
             logger.debug("Reading simulation error", error=str(e))
     
@@ -213,30 +185,7 @@ class HumanBehavior:
             selector: CSS selector for target element.
         """
         try:
-            element = await page.query_selector(selector)
-            if not element:
-                return
-            
-            box = await element.bounding_box()
-            if not box:
-                return
-            
-            # Current mouse position (assume center)
-            viewport = page.viewport_size or {"width": 1920, "height": 1080}
-            start_x = viewport["width"] // 2
-            start_y = viewport["height"] // 2
-            
-            # Target position (center of element with jitter)
-            end_x = int(box["x"] + box["width"] / 2 + random.uniform(-5, 5))
-            end_y = int(box["y"] + box["height"] / 2 + random.uniform(-5, 5))
-            
-            # Generate path and move
-            path = self.mouse_path(start_x, start_y, end_x, end_y)
-            
-            for x, y in path:
-                await page.mouse.move(x, y)
-                await asyncio.sleep(random.uniform(0.01, 0.03))
-                
+            await self._simulator.move_to_element(page, selector)
         except Exception as e:
             logger.debug("Mouse movement error", error=str(e))
 
@@ -390,6 +339,7 @@ class FetchResult:
     
     Per §16.7.4: Includes detailed authentication information.
     Per §4.3: Includes IPv6 connection information.
+    Per §16.12: Includes archive/Wayback fallback information.
     """
     
     def __init__(
@@ -418,6 +368,11 @@ class FetchResult:
         # §4.3: IPv6 connection information
         ip_family: str | None = None,  # ipv4/ipv6/unknown
         ip_switched: bool = False,  # True if we switched from primary family
+        # §16.12: Wayback/archive fallback information
+        is_archived: bool = False,  # True if content came from Wayback
+        archive_date: datetime | None = None,  # Date of the archive snapshot
+        archive_url: str | None = None,  # Original Wayback Machine URL
+        freshness_penalty: float = 0.0,  # Penalty for stale content (0.0-1.0)
     ):
         self.ok = ok
         self.url = url
@@ -439,6 +394,11 @@ class FetchResult:
         self.estimated_effort = estimated_effort
         self.ip_family = ip_family
         self.ip_switched = ip_switched
+        # Archive fields
+        self.is_archived = is_archived
+        self.archive_date = archive_date
+        self.archive_url = archive_url
+        self.freshness_penalty = freshness_penalty
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -470,6 +430,12 @@ class FetchResult:
             result["ip_family"] = self.ip_family
         if self.ip_switched:
             result["ip_switched"] = self.ip_switched
+        # §16.12: Include archive details when content is from archive
+        if self.is_archived:
+            result["is_archived"] = self.is_archived
+            result["archive_date"] = self.archive_date.isoformat() if self.archive_date else None
+            result["archive_url"] = self.archive_url
+            result["freshness_penalty"] = self.freshness_penalty
         return result
 
 
@@ -1942,6 +1908,86 @@ async def fetch_url(
                 )
         
         # =====================================================================
+        # Stage 5: Wayback Fallback (for persistent 403/CAPTCHA, §16.12)
+        # =====================================================================
+        use_wayback_fallback = policy.get("use_wayback_fallback", True)
+        
+        # Auto-fallback to Wayback if:
+        # 1. Fallback is enabled, AND
+        # 2. All previous stages failed with 403/CAPTCHA/blocking
+        if use_wayback_fallback and result and not result.ok:
+            should_try_wayback = (
+                result.status in (403, 429, 451, 503) or
+                result.reason in (
+                    "challenge_detected",
+                    "challenge_detected_after_intervention",
+                    "challenge_detected_escalate_headful",
+                    "intervention_timeout",
+                    "intervention_failed",
+                    "auth_required",
+                )
+            )
+            
+            if should_try_wayback:
+                logger.info(
+                    "Attempting Wayback fallback",
+                    url=url[:80],
+                    reason=result.reason,
+                    status=result.status,
+                )
+                
+                try:
+                    wayback_fallback = get_wayback_fallback()
+                    fallback_result = await wayback_fallback.get_fallback_content(url)
+                    
+                    if fallback_result.ok and fallback_result.html:
+                        # Save archived content
+                        archived_content = fallback_result.html.encode("utf-8")
+                        content_hash = hashlib.sha256(archived_content).hexdigest()
+                        html_path = await _save_content(url, archived_content, {})
+                        
+                        # Create successful result from archive
+                        result = FetchResult(
+                            ok=True,
+                            url=url,
+                            status=200,  # Treat as successful
+                            html_path=str(html_path) if html_path else None,
+                            content_hash=content_hash,
+                            method="wayback_fallback",
+                            from_cache=False,
+                            # Archive-specific fields
+                            is_archived=True,
+                            archive_date=fallback_result.snapshot.timestamp if fallback_result.snapshot else None,
+                            archive_url=fallback_result.snapshot.wayback_url if fallback_result.snapshot else None,
+                            freshness_penalty=fallback_result.freshness_penalty,
+                        )
+                        escalation_path.append("wayback_fallback")
+                        
+                        logger.info(
+                            "Wayback fallback successful",
+                            url=url[:80],
+                            archive_date=result.archive_date.isoformat() if result.archive_date else None,
+                            freshness_penalty=result.freshness_penalty,
+                        )
+                        
+                        # Update domain's wayback success rate for future reference
+                        await _update_domain_wayback_success(db, domain, success=True)
+                    else:
+                        logger.warning(
+                            "Wayback fallback failed",
+                            url=url[:80],
+                            error=fallback_result.error,
+                        )
+                        await _update_domain_wayback_success(db, domain, success=False)
+                        
+                except Exception as e:
+                    logger.error(
+                        "Wayback fallback error",
+                        url=url[:80],
+                        error=str(e),
+                    )
+        
+        # =====================================================================
         # Update Metrics and Store Results
         # =====================================================================
         
@@ -2024,26 +2070,34 @@ async def fetch_url(
                 )
         
         # Log event
+        event_details = {
+            "url": url,
+            "ok": result.ok,
+            "method": result.method,
+            "status": result.status,
+            "reason": result.reason,
+            "from_cache": result.from_cache,
+            "has_etag": bool(result.etag),
+            "has_last_modified": bool(result.last_modified),
+            "escalation_path": " -> ".join(escalation_path),
+            "retry_count": retry_count,
+            "ip_family": result.ip_family,
+            "ip_switched": result.ip_switched,
+        }
+        
+        # Add archive details if content is from Wayback (§16.12)
+        if result.is_archived:
+            event_details["is_archived"] = True
+            event_details["archive_date"] = result.archive_date.isoformat() if result.archive_date else None
+            event_details["freshness_penalty"] = result.freshness_penalty
+        
         await db.log_event(
             event_type="fetch",
             message=f"Fetched {url[:60]}",
             task_id=task_id,
             cause_id=trace.id,
             component="crawler",
-            details={
-                "url": url,
-                "ok": result.ok,
-                "method": result.method,
-                "status": result.status,
-                "reason": result.reason,
-                "from_cache": result.from_cache,
-                "has_etag": bool(result.etag),
-                "has_last_modified": bool(result.last_modified),
-                "escalation_path": " -> ".join(escalation_path),
-                "retry_count": retry_count,
-                "ip_family": result.ip_family,
-                "ip_switched": result.ip_switched,
-            },
+            details=event_details,
         )
         
         return result.to_dict()
@@ -2087,6 +2141,60 @@ async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -
             domain=domain,
             old_ratio=ratio,
             new_ratio=new_ratio,
+        )
+
+
+async def _update_domain_wayback_success(db, domain: str, success: bool) -> None:
+    """Update domain's Wayback fallback success rate.
+    
+    Per §16.12: Track Wayback fallback success to inform future fallback decisions.
+    
+    Args:
+        db: Database instance.
+        domain: Domain name.
+        success: Whether the Wayback fallback was successful.
+    """
+    current = await db.fetch_one(
+        "SELECT wayback_success_count, wayback_failure_count FROM domains WHERE domain = ?",
+        (domain,),
+    )
+    
+    if current is None:
+        # Create domain record with initial Wayback stats
+        await db.insert("domains", {
+            "domain": domain,
+            "wayback_success_count": 1 if success else 0,
+            "wayback_failure_count": 0 if success else 1,
+        }, auto_id=False)
+    else:
+        success_count = current.get("wayback_success_count", 0) or 0
+        failure_count = current.get("wayback_failure_count", 0) or 0
+        
+        if success:
+            success_count += 1
+        else:
+            failure_count += 1
+        
+        await db.update(
+            "domains",
+            {
+                "wayback_success_count": success_count,
+                "wayback_failure_count": failure_count,
+            },
+            "domain = ?",
+            (domain,),
+        )
+        
+        # Calculate success rate for logging
+        total = success_count + failure_count
+        success_rate = success_count / total if total > 0 else 0.0
+        
+        logger.debug(
+            "Updated domain Wayback success rate",
+            domain=domain,
+            success_rate=success_rate,
+            success_count=success_count,
+            failure_count=failure_count,
         )
 
 
