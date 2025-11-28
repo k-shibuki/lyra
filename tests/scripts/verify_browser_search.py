@@ -145,22 +145,22 @@ class BrowserSearchVerifier:
         """DuckDuckGo検索の動作検証。"""
         print("\n[2/5] Verifying DuckDuckGo search (§3.2 検索エンジン統合)...")
         
-        from src.search.browser_search_provider import BrowserSearchProvider
-        from src.search.provider import SearchOptions
-        
-        provider = BrowserSearchProvider()
-        
-        try:
+    from src.search.browser_search_provider import BrowserSearchProvider
+    from src.search.provider import SearchOptions
+    
+    provider = BrowserSearchProvider()
+    
+    try:
             test_query = "Python programming language"
             
             print(f"    Query: '{test_query}'")
-            
-            options = SearchOptions(
-                engines=["duckduckgo"],
-                limit=5,
-                time_range=None,
-            )
-            
+        
+        options = SearchOptions(
+            engines=["duckduckgo"],
+            limit=5,
+            time_range=None,
+        )
+        
             start_time = time.time()
             result = await provider.search(test_query, options)
             elapsed = time.time() - start_time
@@ -315,7 +315,7 @@ class BrowserSearchVerifier:
                         "has_expected_result": has_expected,
                     },
                 )
-            else:
+        else:
                 return VerificationResult(
                     name="Parser Accuracy",
                     spec_ref="§3.2 コンテンツ抽出",
@@ -375,7 +375,7 @@ class BrowserSearchVerifier:
                     passed=True,
                     details=stealth_checks,
                 )
-            else:
+        else:
                 failed = [k for k, v in stealth_checks.items() if not v]
                 return VerificationResult(
                     name="Stealth",
@@ -422,7 +422,7 @@ class BrowserSearchVerifier:
                 print(f"    ✓ Search session created")
                 print(f"      - Success count: {search_session.success_count}")
                 print(f"      - CAPTCHA count: {search_session.captcha_count}")
-            else:
+        else:
                 print("    ! No search session (may be normal if CAPTCHA hit)")
             
             # Check session transfer manager

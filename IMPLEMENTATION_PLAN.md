@@ -1275,6 +1275,118 @@ podman exec lancet python tests/scripts/verify_browser_search.py
 
 ---
 
+### 16.11 ヒューマンライク操作強化 🟡 (§4.3.4)
+
+**目的**: bot検知回避のためのより自然な操作パターンの実装。
+
+**設計原則**:
+- ステルス機能（`stealth.py`）から分離し、操作パターンを専門に扱う
+- 設定外部化により調整可能に
+
+#### 16.11.1 マウス軌跡自然化
+- [ ] `MouseTrajectory`クラス: Bezier曲線による自然な軌跡生成
+  - 開始点・終了点間の制御点をランダム化
+  - 移動速度の加減速（始点で加速、終点で減速）
+  - 微細なジッター（ノイズ）の付与
+- [ ] 実装: `src/crawler/human_behavior.py`
+
+#### 16.11.2 タイピングリズム
+- [ ] `HumanTyping`クラス: 自然なタイピング模倣
+  - キー間遅延: ガウス分布（平均100ms, σ=30ms）
+  - 句読点後の長い間（200-400ms）
+  - 稀なタイポ模倣（1%確率でバックスペース＋再入力）
+- [ ] 実装: `src/crawler/human_behavior.py`
+
+#### 16.11.3 スクロール慣性
+- [ ] `InertialScroll`クラス: 慣性付きスクロール
+  - イージング関数（ease-out）による自然な減速
+  - スクロール量のばらつき
+  - 中間停止の確率的挿入
+- [ ] 実装: `src/crawler/human_behavior.py`
+
+#### 16.11.4 設定外部化
+- [ ] `config/human_behavior.yaml`: パラメータ外部化
+  - マウス速度範囲、ジッター幅
+  - タイピング速度分布
+  - スクロールイージング係数
+- [ ] ホットリロード対応
+
+**成果物**:
+- `src/crawler/human_behavior.py`
+- `config/human_behavior.yaml`
+- テスト: `tests/test_human_behavior.py`
+
+---
+
+### 16.12 Waybackフォールバック強化 🔴 (§3.1.6)
+
+**目的**: 403/CAPTCHAブロック時にWayback Machineから代替コンテンツを取得。
+
+**既存**: `src/crawler/wayback.py` - 基本的なWayback取得実装済み
+
+#### 16.12.1 自動フォールバック統合
+- [ ] `fetcher.py`への統合
+  - 403/CAPTCHA検知時に自動Wayback参照
+  - 最新スナップショット優先、なければ直近3件を試行
+  - フォールバック成功率をドメインポリシーに反映
+- [ ] `FetchResult`拡張
+  - `is_archived: bool`: アーカイブからの取得か
+  - `archive_date: datetime | None`: アーカイブ日時
+  - `archive_url: str | None`: 元のWayback URL
+  - `freshness_penalty: float`: 鮮度ペナルティ（0.0-1.0）
+
+#### 16.12.2 差分検出強化
+- [ ] 見出し・要点レベルの差分検出
+  - 現行版とアーカイブ版の見出し比較
+  - 大幅な差分がある場合はタイムラインに明示
+- [ ] 信頼度スコアへの鮮度ペナルティ適用
+
+**成果物**:
+- `src/crawler/fetcher.py`（拡張）
+- `src/crawler/wayback.py`（拡張）
+- テスト: `tests/test_wayback_fallback.py`
+
+---
+
+### 16.13 検索エンジン多様化 🟡
+
+**目的**: 検索エンジンの選択肢を増やし、ブロック耐性と情報多様性を向上。
+
+**設計原則（Phase 16.9の教訓）**:
+- すべての検索はBrowserSearchProvider経由（ブラウザ直接アクセス）
+- サーバーサイドサービス禁止（SearXNG/公開SearXインスタンス等）
+- 理由: Cookie/指紋使用不可、CAPTCHA解決不可、IP汚染リスク
+
+#### 16.13.1 追加エンジン（ブラウザ経由のみ）
+- [ ] `ecosia`: Bing再販、比較的緩い
+  - `config/engines.yaml`: priority=4, weight=0.5
+  - `config/search_parsers.yaml`: パーサー定義
+- [ ] `metager`: ドイツ、ブロック耐性高い
+  - priority=4, weight=0.4
+- [ ] `yandex`: ロシア語圏ソースに有用
+  - priority=5, weight=0.3
+- [ ] `startpage`: Google再販（プライバシー重視）
+  - priority=5, weight=0.3
+
+#### 16.13.2 パーサー実装
+- [ ] 各エンジンの検索結果パーサー
+  - `EcosiaSearchParser`
+  - `MetagerSearchParser`
+  - `YandexSearchParser`
+  - `StartpageSearchParser`
+- [ ] 実装: `src/search/parsers/`
+
+#### 16.13.3 除外
+- 公開SearXインスタンス（searx.be等）→ サーバーサイド問題のため除外
+
+**成果物**:
+- `config/engines.yaml`（更新）
+- `config/search_parsers.yaml`（更新）
+- `src/search/parsers/`（新規パーサー）
+- テスト: `tests/test_search_parsers.py`（拡張）
+
+---
+
 ## Phase 17: 保守性・拡張性改善 ⏳
 
 **目的**: 外部依存の変更に対する耐性向上と、将来の機能拡張を容易にするためのリファクタリング。
@@ -1433,10 +1545,39 @@ podman exec lancet python tests/scripts/verify_browser_search.py
 - [ ] デコレータ/コンテキストマネージャ形式
 - [ ] 現行の個別実装を統一
 
-#### 17.3.3 汎用キャッシュレイヤ
-- [ ] `CacheProvider` 抽象化
-- [ ] TTL/LRU/サイズ制限の統一インターフェース
-- [ ] 現行の個別キャッシュ（SERP、Fetch、Embed）を統合
+#### 17.3.3 汎用キャッシュレイヤ 🟢
+
+**目的**: 既存の個別キャッシュ実装を統一インターフェースで抽象化。
+
+##### 17.3.3.1 抽象化
+- [ ] `CacheProvider` プロトコル定義
+  ```python
+  class CacheProvider(Protocol[K, V]):
+      def get(self, key: K) -> V | None: ...
+      def set(self, key: K, value: V, ttl: int | None = None) -> None: ...
+      def delete(self, key: K) -> bool: ...
+      def exists(self, key: K) -> bool: ...
+      def clear(self, pattern: str | None = None) -> int: ...
+  ```
+- [ ] `CacheConfig`データクラス
+  - `max_size: int | None`: 最大エントリ数
+  - `default_ttl: int`: デフォルトTTL（秒）
+  - `eviction_policy: Literal["lru", "ttl"]`
+
+##### 17.3.3.2 実装
+- [ ] `SQLiteCache`: 既存SQLiteテーブルのラッパー
+  - serp_cache, fetch_cache, embed_cache対応
+  - TTL/サイズ制限の統一管理
+- [ ] `CacheRegistry`: キャッシュプロバイダの登録・取得
+
+##### 17.3.3.3 既存キャッシュの移行
+- [ ] `serp_cache`（キー: 正規化クエリ＋エンジン, TTL=24h）
+- [ ] `fetch_cache`（キー: URL＋ETag, TTL=7d）
+- [ ] `embed_cache`/`rerank_cache`（キー: テキストハッシュ, TTL=7d）
+
+**成果物**:
+- `src/utils/cache.py`
+- テスト: `tests/test_cache.py`
 
 ---
 
@@ -1481,6 +1622,355 @@ podman exec lancet python tests/scripts/verify_browser_search.py
 
 #### 17.6.1 計画策定
 - [ ] テストのリファクタリング計画を策定する
+
+---
+
+## Phase 18: 外部データソース統合 🟡
+
+**目的**: 無料API/データソースを活用し、OSINT品質を向上。
+
+**API vs 検索エンジンの違い**:
+- 公式API（e-Stat, OpenAlex等）: 正当な利用として認められ、bot検知問題なし
+- 検索エンジン: bot検知が厳しく、ブラウザ経由が必須
+
+---
+
+### 18.0 API仕様調査・ドキュメント化 🔴
+
+**目的**: 実装前に各APIの仕様を調査し、実装可能性と制約を確認。
+
+**前提**: このフェーズは18.1以降の実装に先立って完了する必要がある。
+
+#### 18.0.1 調査項目
+
+各APIについて以下を確認・ドキュメント化:
+
+| 項目 | 内容 |
+|------|------|
+| **認証** | APIキー要否、取得方法、無料枠の制限 |
+| **エンドポイント** | ベースURL、主要エンドポイント一覧 |
+| **レート制限** | リクエスト/秒、日次上限、バースト許容 |
+| **レスポンス形式** | JSON/XML、ページネーション方式、文字コード |
+| **利用規約** | 商用利用可否、帰属表示要件、禁止事項 |
+| **安定性** | API廃止リスク、バージョニングポリシー、SLA |
+| **サンプル** | リクエスト/レスポンス例の収集 |
+
+#### 18.0.2 日本政府API調査
+
+- [ ] **e-Stat API**
+  - appId登録手順
+  - 統計表検索/データ取得のエンドポイント
+  - レート制限（未公開の場合は実測）
+- [ ] **法令API（e-Gov）**
+  - 認証不要の確認
+  - 法令検索/条文取得エンドポイント
+- [ ] **国会会議録API**
+  - 認証方式
+  - 検索パラメータ仕様
+- [ ] **gBizINFO API**
+  - 認証方式（要APIキー？）
+  - 法人検索エンドポイント
+- [ ] **EDINET API**
+  - 認証方式
+  - 開示書類検索/取得エンドポイント
+
+#### 18.0.3 学術API調査
+
+- [ ] **OpenAlex API**
+  - 認証不要、polite poolの仕様（mailto推奨）
+  - Works/Authors/Institutionsエンドポイント
+  - レート制限（10 req/s polite, 100 req/s with key）
+- [ ] **Semantic Scholar API**
+  - APIキー取得手順（推奨）
+  - Paper/Author検索エンドポイント
+  - レート制限
+- [ ] **Crossref API**
+  - polite pool仕様（mailto推奨）
+  - Works検索/DOI解決エンドポイント
+- [ ] **Unpaywall API**
+  - email必須の確認
+  - DOI→OAリンク取得エンドポイント
+
+#### 18.0.4 エンティティAPI調査
+
+- [ ] **Wikidata API**
+  - 認証不要の確認
+  - wbsearchentities/wbgetentitiesエンドポイント
+  - SPARQL endpointの仕様
+- [ ] **DBpedia SPARQL**
+  - 認証不要の確認
+  - SPARQLクエリ例の収集
+  - 日本語DBpediaの状況
+
+#### 18.0.5 成果物
+
+- [ ] `docs/api_specifications/` ディレクトリ作成
+  - `government_jp.md`: 日本政府API仕様まとめ
+  - `academic.md`: 学術API仕様まとめ
+  - `entity.md`: エンティティAPI仕様まとめ
+- [ ] 各APIのサンプルリクエスト/レスポンス（JSON）
+- [ ] 実装優先度の見直し（調査結果に基づく）
+
+**完了基準**: 全APIの仕様がドキュメント化され、実装上の制約（認証、レート制限等）が明確になっていること。
+
+---
+
+### 18.1 日本政府・公的機関API統合 🔴
+
+**目的**: 日本の公的データソースへの構造化アクセス。
+
+#### 18.1.1 DataSourceProviderプロトコル
+- [ ] `DataSourceProvider` プロトコル定義
+  - `search(query, options) -> list[DataSourceResult]`
+  - `get_metadata(id) -> DataSourceMetadata`
+  - `get_content(id) -> DataSourceContent`
+- [ ] `DataSourceResult`, `DataSourceMetadata` データクラス
+
+#### 18.1.2 e-Stat API統合
+- [ ] `EStatClient`: e-Stat APIクライアント
+  - 統計表検索（getStatsList）
+  - 統計データ取得（getStatsData）
+  - メタ情報取得（getMetaInfo）
+- [ ] 実装: `src/datasource/government_jp.py`
+
+#### 18.1.3 法令API（e-Gov）統合
+- [ ] `ElawsClient`: 法令API クライアント
+  - 法令全文検索
+  - 条文取得
+  - 法令一覧取得
+- [ ] 実装: `src/datasource/government_jp.py`
+
+#### 18.1.4 国会会議録API統合
+- [ ] `KokkaiClient`: 国会会議録 APIクライアント
+  - 会議録検索
+  - 発言者検索
+- [ ] 実装: `src/datasource/government_jp.py`
+
+#### 18.1.5 gBizINFO API統合
+- [ ] `GBizClient`: gBizINFO APIクライアント
+  - 法人基本情報取得
+  - 認定・届出情報
+- [ ] 実装: `src/datasource/government_jp.py`
+
+#### 18.1.6 ResearchContext統合
+- [ ] `get_research_context`で適用可能データソースを提案
+  - クエリからエンティティ抽出（企業名→gBizINFO、法令→Elaws等）
+  - 利用可能データソースのリスト化
+
+**成果物**:
+- `src/datasource/__init__.py`
+- `src/datasource/government_jp.py`
+- `config/datasources.yaml`
+- テスト: `tests/test_government_jp.py`
+
+---
+
+### 18.2 学術API統合 🔴
+
+**目的**: 学術論文メタデータと引用ネットワークへのアクセス。
+
+#### 18.2.1 OpenAlex API統合
+- [ ] `OpenAlexClient`: OpenAlex APIクライアント
+  - Works検索（論文メタデータ）
+  - Authors検索
+  - Institutions検索
+  - Cited_by/References取得
+- [ ] 実装: `src/datasource/academic.py`
+
+#### 18.2.2 Semantic Scholar API統合
+- [ ] `SemanticScholarClient`: S2 APIクライアント
+  - 論文検索
+  - 引用/被引用ネットワーク
+  - 著者情報
+- [ ] 実装: `src/datasource/academic.py`
+
+#### 18.2.3 Crossref API統合
+- [ ] `CrossrefClient`: Crossref APIクライアント
+  - DOI解決
+  - 引用情報取得
+- [ ] 実装: `src/datasource/academic.py`
+
+#### 18.2.4 Unpaywall API統合
+- [ ] `UnpaywallClient`: Unpaywall APIクライアント
+  - OA版論文リンク取得
+- [ ] 実装: `src/datasource/academic.py`
+
+#### 18.2.5 エビデンスグラフ統合
+- [ ] エビデンスグラフに`cites_academic`エッジ追加
+  - 学術論文からの引用関係
+  - 被引用数・影響力スコアの反映
+
+**成果物**:
+- `src/datasource/academic.py`
+- `src/filter/evidence_graph.py`（拡張）
+- テスト: `tests/test_academic.py`
+
+---
+
+### 18.3 ファクトチェックソース連携 🟡
+
+**目的**: 既存のファクトチェック結果を探索に活用。
+
+#### 18.3.1 ファクトチェック検索
+- [ ] `FactCheckSearcher`: ファクトチェックサイト検索
+  - **ブラウザ経由でアクセス**（サーバーサイド問題回避）
+  - 対象: Snopes, FactCheck.org, PolitiFact, FIJ（日本）
+  - 主張に対する既存ファクトチェック結果を検索
+- [ ] 実装: `src/datasource/factcheck.py`
+
+#### 18.3.2 ResearchContext統合
+- [ ] 主張に関連するファクトチェック結果を提案
+  - 類似主張の既存検証結果
+  - 評価（True/False/Mixed等）の取得
+
+**成果物**:
+- `src/datasource/factcheck.py`
+- テスト: `tests/test_factcheck.py`
+
+---
+
+### 18.4 エンティティ解決強化 🟡
+
+**目的**: エンティティの正規化と曖昧性解消。
+
+**既存**: `src/storage/entity_kb.py` - 基本的なエンティティKB
+
+#### 18.4.1 Wikidata API統合
+- [ ] `WikidataResolver`: Wikidata APIクライアント
+  - エンティティ検索（wbsearchentities）
+  - エンティティ詳細取得（wbgetentities）
+  - 同義語/別名の取得
+- [ ] 実装: `src/datasource/entity_resolver.py`
+
+#### 18.4.2 DBpedia SPARQL統合
+- [ ] `DBpediaResolver`: DBpedia SPARQLクライアント
+  - エンティティ検索
+  - 関連エンティティの取得
+  - 日本語・英語の対応付け
+- [ ] 実装: `src/datasource/entity_resolver.py`
+
+#### 18.4.3 entity_kb.py拡張
+- [ ] `EntityResolver`クラス追加
+  - 複数ソース（Wikidata, DBpedia, ローカルKB）からの統合解決
+  - 信頼度スコア付きの候補返却
+- [ ] 既存エンティティKBとの統合
+
+**成果物**:
+- `src/datasource/entity_resolver.py`
+- `src/storage/entity_kb.py`（拡張）
+- テスト: `tests/test_entity_resolver.py`
+
+---
+
+## Phase 19: LLM/分析強化 🟢
+
+**目的**: ローカルLLMの効率的な活用と分析パイプラインの強化。
+
+---
+
+### 19.1 モデル選択最適化 🟢
+
+**目的**: タスク特性に応じた最適なモデルの自動選択。
+
+#### 19.1.1 設定外部化
+- [ ] `config/llm_models.yaml`: タスク別モデル設定
+  ```yaml
+  models:
+    fast:
+      name: "qwen2.5:3b-instruct-q4_K_M"
+      tasks: [extraction, classification, ner]
+      max_tokens: 512
+    medium:
+      name: "qwen2.5:7b-instruct-q5_K_M"
+      tasks: [claim_decompose, quality_evaluation]
+      max_tokens: 1024
+    slow:
+      name: "llama3.1:8b-instruct-q6_K"
+      tasks: [complex_reasoning, summarization]
+      max_tokens: 2048
+  task_mapping:
+    extraction: fast
+    claim_decompose: medium
+    nli: fast
+    quality: medium
+    summary: slow
+  ```
+
+#### 19.1.2 OllamaProvider拡張
+- [ ] `select_model(task: str) -> str`: タスクに応じたモデル選択
+- [ ] モデル切替のオーバーヘッド最小化
+  - 頻繁に使うモデルは常駐
+  - 使用頻度の低いモデルは遅延ロード
+
+**成果物**:
+- `config/llm_models.yaml`
+- `src/filter/ollama_provider.py`（拡張）
+- テスト: `tests/test_model_selection.py`
+
+---
+
+### 19.2 プロンプトテンプレート外部化 🟢
+
+**目的**: LLMプロンプトの外部管理と改善サイクルの容易化。
+
+#### 19.2.1 テンプレートディレクトリ
+- [ ] `config/prompts/` ディレクトリ作成
+  - `extraction.yaml`: 事実/主張抽出プロンプト
+  - `claim_decompose.yaml`: 問い→主張分解プロンプト
+  - `nli.yaml`: スタンス推定プロンプト
+  - `quality.yaml`: コンテンツ品質評価プロンプト
+  - `summary.yaml`: 要約プロンプト
+
+#### 19.2.2 テンプレート形式
+- [ ] Jinja2テンプレート対応
+- [ ] Few-shot例の外部管理
+  ```yaml
+  template: |
+    Given the following passage, extract key facts.
+    
+    {% for example in few_shot_examples %}
+    Example {{ loop.index }}:
+    Input: {{ example.input }}
+    Output: {{ example.output }}
+    {% endfor %}
+    
+    Input: {{ passage }}
+    Output:
+  few_shot_examples:
+    - input: "..."
+      output: "..."
+  ```
+
+#### 19.2.3 PromptManager実装
+- [ ] `PromptManager`クラス
+  - テンプレートのロード・キャッシュ
+  - 変数置換
+  - バージョン管理
+
+**成果物**:
+- `config/prompts/`（新規ディレクトリ）
+- `src/filter/prompt_manager.py`
+- テスト: `tests/test_prompt_manager.py`
+
+---
+
+## 実装優先度サマリ
+
+| Phase | 項目 | 優先度 | 工数 | 依存関係 |
+|-------|------|--------|------|----------|
+| **18.0** | **API仕様調査・ドキュメント化** | **最高** | **小** | **なし** |
+| 18.1 | 政府API統合 | 高 | 中 | 18.0 |
+| 16.12 | Waybackフォールバック強化 | 高 | 小 | なし |
+| 18.2 | 学術API統合 | 高 | 中 | 18.0 |
+| 16.11 | ヒューマンライク操作 | 中 | 中 | なし |
+| 18.3 | ファクトチェック連携 | 中 | 小 | なし |
+| 16.13 | 検索エンジン多様化 | 中 | 小 | なし |
+| 18.4 | エンティティ解決強化 | 中 | 中 | 18.1, 18.2 |
+| 17.3.3 | 汎用キャッシュレイヤ | 低 | 中 | なし |
+| 19.1 | LLMモデル選択最適化 | 低 | 小 | なし |
+| 19.2 | プロンプトテンプレート外部化 | 低 | 小 | 19.1 |
+
+**注意**: Phase 18.0は18.1/18.2/18.4の前提条件。API仕様が確定するまで実装に着手しない。
 
 ---
 
