@@ -941,6 +941,116 @@ def calculate_freshness_penalty(snapshot_date: datetime) -> float:
         return min(penalty, 1.0)
 
 
+def apply_freshness_penalty(
+    confidence: float,
+    freshness_penalty: float,
+    weight: float = 0.5,
+) -> float:
+    """Apply freshness penalty to a confidence score.
+    
+    Per §16.12.2: Reduces confidence for stale archived content.
+    
+    Formula: adjusted = confidence * (1 - weight * penalty)
+    
+    Args:
+        confidence: Original confidence score (0.0-1.0).
+        freshness_penalty: Freshness penalty (0.0-1.0).
+        weight: How much the penalty affects confidence (0.0-1.0).
+            Default 0.5 means max 50% reduction for very old content.
+            
+    Returns:
+        Adjusted confidence score (0.0-1.0).
+    """
+    if freshness_penalty <= 0:
+        return confidence
+    
+    # Apply weighted penalty
+    adjustment = 1.0 - (weight * freshness_penalty)
+    adjusted = confidence * adjustment
+    
+    # Keep within bounds
+    return max(0.0, min(1.0, adjusted))
+
+
+@dataclass
+class ArchiveDiffResult:
+    """Result of comparing archived content with current version.
+    
+    Per §16.12.2: Contains detailed diff information for timeline integration.
+    """
+    
+    url: str
+    has_significant_changes: bool = False
+    
+    # Content comparison
+    content_diff: ContentDiff | None = None
+    similarity_ratio: float = 1.0
+    
+    # Heading changes summary
+    headings_added: list[str] = field(default_factory=list)
+    headings_removed: list[str] = field(default_factory=list)
+    
+    # Key points extracted
+    key_changes: list[str] = field(default_factory=list)  # Human-readable change descriptions
+    
+    # Freshness info
+    archive_date: datetime | None = None
+    freshness_penalty: float = 0.0
+    adjusted_confidence: float = 1.0
+    
+    # Timeline event info
+    timeline_event_type: str = "content_unchanged"  # content_unchanged/content_modified/content_major_change
+    timeline_notes: str = ""
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "url": self.url,
+            "has_significant_changes": self.has_significant_changes,
+            "similarity_ratio": self.similarity_ratio,
+            "headings_added": self.headings_added,
+            "headings_removed": self.headings_removed,
+            "key_changes": self.key_changes,
+            "archive_date": self.archive_date.isoformat() if self.archive_date else None,
+            "freshness_penalty": self.freshness_penalty,
+            "adjusted_confidence": self.adjusted_confidence,
+            "timeline_event_type": self.timeline_event_type,
+            "timeline_notes": self.timeline_notes,
+            "content_diff": self.content_diff.to_dict() if self.content_diff else None,
+        }
+    
+    def generate_timeline_notes(self) -> str:
+        """Generate human-readable timeline notes.
+        
+        Returns:
+            Notes string for timeline event.
+        """
+        parts = []
+        
+        if self.freshness_penalty > 0.5:
+            parts.append(f"Archive is significantly outdated (penalty: {self.freshness_penalty:.2f})")
+        elif self.freshness_penalty > 0.2:
+            parts.append(f"Archive is moderately outdated (penalty: {self.freshness_penalty:.2f})")
+        
+        if self.headings_added:
+            parts.append(f"New sections: {', '.join(self.headings_added[:3])}")
+        
+        if self.headings_removed:
+            parts.append(f"Removed sections: {', '.join(self.headings_removed[:3])}")
+        
+        if self.content_diff and self.content_diff.word_count_change != 0:
+            change = self.content_diff.word_count_change
+            if change > 0:
+                parts.append(f"Content expanded (+{change} words)")
+            else:
+                parts.append(f"Content reduced ({change} words)")
+        
+        if self.key_changes:
+            parts.extend(self.key_changes[:2])
+        
+        return "; ".join(parts) if parts else "No significant changes detected"
+
+
 class WaybackFallback:
     """Provides Wayback Machine fallback for blocked URLs.
     
@@ -1071,6 +1181,151 @@ class WaybackFallback:
             return result.html, result.snapshot, result.freshness_penalty
         
         return None, None, 0.0
+    
+    async def compare_with_current(
+        self,
+        url: str,
+        current_html: str,
+        base_confidence: float = 1.0,
+    ) -> ArchiveDiffResult:
+        """Compare current HTML with archived version.
+        
+        Per §16.12.2: Detects heading/key point changes and generates
+        timeline information for significant differences.
+        
+        Args:
+            url: URL being compared.
+            current_html: Current HTML content.
+            base_confidence: Base confidence score to adjust.
+            
+        Returns:
+            ArchiveDiffResult with comparison details.
+        """
+        result = ArchiveDiffResult(url=url)
+        
+        try:
+            # Get most recent archived snapshot
+            snapshots = await self._client.get_snapshots(url, limit=1)
+            
+            if not snapshots:
+                result.timeline_notes = "No archive available for comparison"
+                return result
+            
+            snapshot = snapshots[0]
+            archived_html = await self._client.fetch_snapshot(snapshot)
+            
+            if not archived_html:
+                result.timeline_notes = "Failed to retrieve archived content"
+                return result
+            
+            # Calculate freshness penalty
+            result.archive_date = snapshot.timestamp
+            result.freshness_penalty = calculate_freshness_penalty(snapshot.timestamp)
+            result.adjusted_confidence = apply_freshness_penalty(
+                base_confidence, result.freshness_penalty
+            )
+            
+            # Create snapshot for current content
+            current_snapshot = Snapshot(
+                url=url,
+                original_url=url,
+                timestamp=datetime.now(timezone.utc),
+            )
+            
+            # Compare content
+            diff = self._analyzer.compare(
+                archived_html,
+                current_html,
+                snapshot,
+                current_snapshot,
+            )
+            
+            result.content_diff = diff
+            result.similarity_ratio = diff.similarity_ratio
+            result.has_significant_changes = diff.is_significant()
+            
+            # Extract heading changes
+            for action, old, new in diff.heading_changes:
+                if action == "added":
+                    result.headings_added.append(new)
+                elif action == "removed":
+                    result.headings_removed.append(old)
+            
+            # Generate key changes summary
+            result.key_changes = self._generate_key_changes(diff)
+            
+            # Determine timeline event type
+            if not result.has_significant_changes:
+                result.timeline_event_type = "content_unchanged"
+            elif diff.similarity_ratio < 0.5:
+                result.timeline_event_type = "content_major_change"
+            else:
+                result.timeline_event_type = "content_modified"
+            
+            # Generate timeline notes
+            result.timeline_notes = result.generate_timeline_notes()
+            
+            logger.info(
+                "Archive comparison complete",
+                url=url[:80],
+                similarity=diff.similarity_ratio,
+                has_changes=result.has_significant_changes,
+                freshness_penalty=result.freshness_penalty,
+            )
+            
+        except Exception as e:
+            logger.error(
+                "Archive comparison error",
+                url=url[:80],
+                error=str(e),
+            )
+            result.timeline_notes = f"Comparison failed: {str(e)}"
+        
+        return result
+    
+    def _generate_key_changes(self, diff: ContentDiff) -> list[str]:
+        """Generate human-readable key change descriptions.
+        
+        Args:
+            diff: ContentDiff from comparison.
+            
+        Returns:
+            List of key change descriptions.
+        """
+        changes = []
+        
+        # Word count changes
+        if diff.word_count_change > 200:
+            changes.append(f"Significant content expansion (+{diff.word_count_change} words)")
+        elif diff.word_count_change < -200:
+            changes.append(f"Significant content reduction ({diff.word_count_change} words)")
+        
+        # Heading structure changes
+        heading_adds = sum(1 for a, _, _ in diff.heading_changes if a == "added")
+        heading_removes = sum(1 for a, _, _ in diff.heading_changes if a == "removed")
+        
+        if heading_adds > 0:
+            changes.append(f"{heading_adds} new section(s) added")
+        if heading_removes > 0:
+            changes.append(f"{heading_removes} section(s) removed")
+        
+        # Content similarity
+        if diff.similarity_ratio < 0.3:
+            changes.append("Page substantially rewritten")
+        elif diff.similarity_ratio < 0.6:
+            changes.append("Major content revisions")
+        elif diff.similarity_ratio < 0.8:
+            changes.append("Moderate content updates")
+        
+        # Specific notable changes (sample from added/removed lines)
+        if diff.added_lines and len(changes) < 5:
+            # Look for important-looking additions
+            for line in diff.added_lines[:10]:
+                if any(kw in line.lower() for kw in ["important", "update", "new", "changed", "revised"]):
+                    changes.append(f"Notable addition: {line[:100]}...")
+                    break
+        
+        return changes[:5]  # Limit to 5 key changes
 
 
 # Global fallback instance
