@@ -150,8 +150,9 @@ class TestPlattScaling:
         
         A, B = PlattScaling.fit(logits, OVERCONFIDENT_LABELS)
         
-        # A and B should be non-trivial values
-        assert A != 1.0 or B != 0.0
+        # A and B should be non-trivial (not both at default values)
+        is_default = (A == 1.0 and B == 0.0)
+        assert not is_default, f"Expected non-default parameters, got A={A}, B={B}"
     
     def test_transform_valid_range(self):
         """Transform should output valid probabilities."""

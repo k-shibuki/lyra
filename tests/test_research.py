@@ -621,8 +621,9 @@ class TestSubqueryExecutor:
         assert original_query in expanded  # Original always included
         # Expanded queries should only add operators, not change meaning
         for eq in expanded:
-            # All expanded queries should contain the original query text
-            assert "機械学習" in eq or "研究" in eq or "論文" in eq
+            # All expanded queries should contain the core term "機械学習"
+            # (expansion may add operators but shouldn't change the core meaning)
+            assert "機械学習" in eq, f"Expected '機械学習' in expanded query: {eq}"
     
     @pytest.mark.unit
     def test_generate_refutation_queries_mechanical(self):

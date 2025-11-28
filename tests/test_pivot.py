@@ -189,7 +189,8 @@ class TestPivotExpander:
         for suggestion in suggestions:
             for example in suggestion.query_examples:
                 assert "https://" not in example
-                assert "www.example.com" in example or "example.com" in example
+                # Domain should be present in some form (with or without www)
+                assert "example.com" in example, f"Expected 'example.com' in query: {example}"
     
     # ==========================================================================
     # Person Expansion Tests (§3.1.1)

@@ -74,8 +74,8 @@ class TestSearchToExtractPipeline:
         result = await extract_content(html=mock_html_content, content_type="html")
         
         assert result["ok"] is True
-        # Should extract text content
-        assert "text" in result or "content" in result
+        # Should extract text content (returned as "text" key)
+        assert "text" in result, f"Expected 'text' in result, got keys: {list(result.keys())}"
     
     @pytest.mark.asyncio
     async def test_rank_candidates_bm25(self, sample_passages):
@@ -89,8 +89,11 @@ class TestSearchToExtractPipeline:
         scores = ranker.get_scores("healthcare AI medical")
         
         assert len(scores) == len(texts)
-        # Healthcare-related passages should score higher
-        assert scores[0] > 0 or scores[2] > 0 or scores[4] > 0
+        # At least one healthcare-related passage should have a positive score
+        healthcare_scores = [scores[0], scores[2], scores[4]]  # indices with healthcare content
+        assert any(s > 0 for s in healthcare_scores), (
+            f"Expected positive score for healthcare passages, got: {healthcare_scores}"
+        )
 
 
 # =============================================================================
@@ -383,9 +386,11 @@ class TestReportIntegration:
         slug = generate_anchor_slug("Section 3.1: Key Findings")
         assert slug == "section-31-key-findings"
         
-        # Test with Japanese
+        # Test with Japanese - should preserve characters
         slug_ja = generate_anchor_slug("第1章 概要")
-        assert "第1章" in slug_ja or "概要" in slug_ja
+        # Both Japanese terms should be in the slug
+        assert "第1章" in slug_ja, f"Expected '第1章' in slug: {slug_ja}"
+        assert "概要" in slug_ja, f"Expected '概要' in slug: {slug_ja}"
     
     @pytest.mark.asyncio
     async def test_report_generator_class_exists(self):
