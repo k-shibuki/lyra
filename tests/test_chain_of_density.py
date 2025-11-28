@@ -128,9 +128,8 @@ class TestCitationInfo:
         assert citation.source_tag == "government"
         assert citation.is_primary is True
         
-        # Verify excerpt is populated
-        assert len(citation.excerpt) > 0
-        assert "経済成長率" in citation.excerpt
+        # Verify excerpt is populated with expected content
+        assert "経済成長率" in citation.excerpt, f"Expected '経済成長率' in excerpt: {citation.excerpt}"
     
     def test_from_fragment_without_heading(self):
         """Test creating CitationInfo when heading_context is None."""
@@ -442,8 +441,9 @@ class TestChainOfDensityCompressor:
         summary = summaries[0]
         
         assert summary.iteration == 0
-        assert len(summary.text) > 0
-        assert summary.word_count > 0
+        # Text should have meaningful content (word_count check below ensures non-empty)
+        assert summary.word_count > 0, f"Expected word_count > 0, got {summary.word_count}"
+        assert len(summary.text) >= 10, f"Expected text >=10 chars, got: {summary.text}"
         assert summary.density_score >= 0
     
     def test_extract_all_entities(self, sample_claims, sample_fragments):

@@ -633,7 +633,8 @@ class TestClassifierUtilities:
         result = classifier.classify(html)
         
         assert result.reason  # Should have a reason
-        assert len(result.reason) > 0
+        # Reason should be a meaningful explanation (at least 10 chars)
+        assert len(result.reason) >= 10, f"Expected reason >=10 chars, got: {result.reason}"
 
 
 class TestMixedSignals:

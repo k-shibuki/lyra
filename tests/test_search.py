@@ -144,9 +144,9 @@ class TestQueryExpander:
         expander = QueryExpander()
         tokens = expander.tokenize("人工知能の研究")
         
-        # Should return list of token dicts
+        # Should return list of token dicts (Japanese text should have >=2 tokens)
         assert isinstance(tokens, list)
-        assert len(tokens) > 0
+        assert len(tokens) >= 2, f"Expected >=2 tokens for Japanese text, got {len(tokens)}"
         assert all("surface" in t for t in tokens)
 
     def test_get_synonyms_known_word(self):

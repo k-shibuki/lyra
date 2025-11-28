@@ -684,7 +684,8 @@ class TestConvenienceFunctions:
         
         engines = get_available_search_engines()
         
-        assert len(engines) > 0
+        # Should have at least 1 engine available
+        assert len(engines) >= 1, f"Expected >=1 engines, got {len(engines)}"
         names = {e.name for e in engines}
         assert "google" not in names  # Disabled in test fixture
     
