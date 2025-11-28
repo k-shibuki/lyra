@@ -1,6 +1,22 @@
 """
-SearXNG integration for Lancet.
-Handles search queries through the local SearXNG instance.
+Search integration for Lancet.
+
+Provides unified search interface through provider abstraction.
+Originally handled search queries through SearXNG, now supports
+BrowserSearchProvider (recommended) via Phase 16.9.
+
+Key functions:
+- search_serp() - Execute search queries (uses provider system)
+- expand_query() - Query expansion with synonyms
+- generate_mirror_query() - Cross-language query generation
+
+.. note:: Phase 16.9 Migration
+    The SearXNGClient class is deprecated. New code should use:
+    - BrowserSearchProvider for direct browser-based search
+    - search_serp() which automatically uses the configured provider
+    
+    Set `search.use_browser: true` in config/settings.yaml (default)
+    to use BrowserSearchProvider.
 """
 
 import asyncio
@@ -640,8 +656,8 @@ async def _search_with_provider(
     """
     Execute search using the provider abstraction layer.
     
-    This is the new provider-based implementation that will eventually
-    replace direct SearXNGClient usage.
+    Per Phase 16.9: Uses BrowserSearchProvider by default (config: search.use_browser).
+    Falls back to SearXNGProvider if browser search is disabled.
     
     Args:
         query: Search query.
@@ -653,13 +669,36 @@ async def _search_with_provider(
         List of normalized result dicts.
     """
     from src.search.provider import SearchOptions, get_registry
-    from src.search.searxng_provider import SearXNGProvider, get_searxng_provider
+    from src.utils.config import get_settings
+    
+    settings = get_settings()
+    use_browser = getattr(settings.search, "use_browser", True)
     
     # Ensure provider is registered
     registry = get_registry()
-    if registry.get("searxng") is None:
-        provider = get_searxng_provider()
-        registry.register(provider, set_default=True)
+    
+    if use_browser:
+        # Phase 16.9: Use BrowserSearchProvider (recommended)
+        if registry.get("browser_search") is None:
+            from src.search.browser_search_provider import get_browser_search_provider
+            provider = get_browser_search_provider()
+            registry.register(provider, set_default=True)
+        
+        # Set as default if not already
+        if registry.get_default() is None or registry.get_default().name != "browser_search":
+            if registry.get("browser_search"):
+                registry.set_default("browser_search")
+    else:
+        # Legacy: Use SearXNGProvider
+        if registry.get("searxng") is None:
+            from src.search.searxng_provider import get_searxng_provider
+            provider = get_searxng_provider()
+            registry.register(provider, set_default=True)
+        
+        # Set as default if not already
+        if registry.get_default() is None or registry.get_default().name != "searxng":
+            if registry.get("searxng"):
+                registry.set_default("searxng")
     
     # Build options
     options = SearchOptions(
@@ -672,6 +711,12 @@ async def _search_with_provider(
     response = await registry.search_with_fallback(query, options)
     
     if not response.ok:
+        logger.warning(
+            "Search failed",
+            query=query[:50],
+            provider=response.provider,
+            error=response.error,
+        )
         return []
     
     # Convert to dict format for backward compatibility
