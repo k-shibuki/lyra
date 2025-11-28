@@ -16,6 +16,9 @@ Tests content quality detection including:
 
 import pytest
 
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
+
 from src.extractor.quality_analyzer import (
     ContentQualityAnalyzer,
     QualityIssue,

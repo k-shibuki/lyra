@@ -9,6 +9,9 @@ Tests the temporal consistency validation functionality including:
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from datetime import datetime, timezone, timedelta
 
 from src.filter.temporal_consistency import (

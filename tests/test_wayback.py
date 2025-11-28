@@ -9,6 +9,9 @@ Covers:
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 

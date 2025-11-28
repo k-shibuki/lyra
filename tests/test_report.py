@@ -6,6 +6,9 @@ Tests deep link generation and citation formatting per §3.4 and §9.2.
 
 import pytest
 
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
+
 from src.report.generator import (
     generate_anchor_slug,
     generate_deep_link,

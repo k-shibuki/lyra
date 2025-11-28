@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
+
 
 class TestBM25Ranker:
     """Tests for BM25Ranker class."""

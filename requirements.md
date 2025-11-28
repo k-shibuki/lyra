@@ -157,12 +157,12 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   - 言語横断（日⇄英）のミラークエリを自動生成（ローカルLLMで翻訳・正規化）
   - 英→多言語（de/fr/zh等）のミラークエリを少数サンプルで発行し、回収率に応じて枠を自動拡張
 - エンジン選択と重み付け:
-  - ブロック耐性優先のallowlistを既定（例: Wikipedia/Wikidata, Mojeek, Marginalia, Qwant, DuckDuckGo-Lite。Google/Bingは既定無効または極小重み）
+  - ブロック耐性優先のallowlistを既定（例: Wikipedia/Wikidata, Mojeek, Marginalia, Qwant, DuckDuckGo-Lite。Googleは極小重み）
   - カテゴリ（ニュース/学術/政府/技術）で層別化し、過去の精度/失敗率/ブロック率で重みを学習
   - エンジン別レート制御（並列度=1、厳格QPS）とサーキットブレーカ（故障切替・冷却）を実装
   - 学術・公的は直接ソース（arXiv, PubMed, gov.uk 等）を優先し、一般検索への依存を抑制
   - エンジンキャッシュ／ブラックリストを自動管理（短期で故障・高失敗のエンジンは一定時間無効化）
-  - ラストマイル・スロット: 回収率の最後の10%を狙う限定枠としてGoogle/Bing/Brave-Liteを最小限開放（厳格なQPS・回数・時間帯制御）
+  - ラストマイル・スロット: 回収率の最後の10%を狙う限定枠としてGoogle/Braveを最小限開放（厳格なQPS・回数・時間帯制御）
   - エンジン正規化レイヤ: フレーズ/演算子/期間指定等の対応差を吸収するクエリ正規化を実装（エンジン別に最適化）
 - 探索木制御:
   - 初期は幅優先、情報新規性が高い枝は優先的に深掘り（best-first with novelty）
@@ -351,7 +351,7 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 - ブラウザ操作: Playwright（CDP接続）を一次手段とし、Windows側Chromeの実プロファイルをpersistent contextで利用。必要時のみヘッドフルに昇格する。
 - 検索エンジン統合: Playwright経由で検索エンジンを直接検索する。
   - ユーザーのブラウザプロファイル（Cookie/指紋）を使用し、人間らしい検索を実現
-  - 対応エンジン: DuckDuckGo, Google, Bing, mojeek（検索結果パーサー実装）
+  - 対応エンジン: DuckDuckGo, Google, Mojeek, Qwant, Brave（検索結果パーサー実装）
   - CAPTCHA発生時は手動介入フロー（§3.6.1）に移行し、解決後に検索を継続
   - セッション転送（§3.1.2）が検索にも適用され、抗堅性を確保
 - コンテンツ抽出: 検索結果のページ（HTML/PDF）からテキスト情報を抽出する。不要な広告やナビゲーションは除外する。
@@ -856,7 +856,7 @@ Cursor AI                          Lancet MCP
   - Tor（SOCKS5）経由の出口ローテーション（StemでCircuit更新、ドメイン単位Sticky 15分）
   - ドメイン同時実行数=1、リクエスト間隔U(1.5,5.5)s、時間帯・日次の予算上限を設定
   - 429/403/Cloudflare検出時は指数バックオフ、回線更新、ドメインのクールダウンを適用
-  - 検索段階の安全化: ブラウザ経由の検索は原則非Tor経路で実行（Google/Bing系は既定無効または低重み）、BANやCAPTCHAの発生率を低減（取得本体は状況によりTor/非Torを選択）
+  - 検索段階の安全化: ブラウザ経由の検索は原則非Tor経路で実行（Googleは既定無効または低重み）、BANやCAPTCHAの発生率を低減（取得本体は状況によりTor/非Torを選択）
   - 事前軽量チェック: HEAD/軽量GETで`server=cloudflare`やJSチャレンジ指標（`cf-ray`等）を検知し、回線更新・ヘッドフル昇格・クールダウンを即時判断
   - Tor利用ポリシーの厳密化:
     - 既定は非Tor（直回線）で開始し、403/JSチャレンジ/レート制限の発生時のみドメイン限定でTorへ昇格
@@ -1078,8 +1078,8 @@ Cursor AI                          Lancet MCP
 - Network: Tor + Stem（回線制御）＋（任意）Privoxy
 - Storage: SQLite / JSON（エビデンスグラフ・ログ）
 - Search Engine: Playwright経由の直接ブラウザ検索（BrowserSearchProvider）
- - 対応エンジン: DuckDuckGo, Mojeek, Qwant, Brave, Google, Bing
- - エンジンallowlist（既定）: DuckDuckGo, Mojeek, Qwant。Google/Bingは既定無効または低重み
+  - 対応エンジン: DuckDuckGo, Mojeek, Qwant, Brave, Google
+  - エンジンallowlist（既定）: DuckDuckGo, Mojeek, Qwant。Googleは低重み
 - Tokenization/Retrieval: 日本語形態素解析（SudachiPy/MeCab）＋ SQLite FTS5（BM25）で一次粗選別＋（任意）hnswlib/sqlite-vecで近傍検索
  - Notification: Windowsトースト（PowerShell）、Linuxは`libnotify`（`notify-send`）
 #### 5.1.1. 補助OSS（任意・無償）

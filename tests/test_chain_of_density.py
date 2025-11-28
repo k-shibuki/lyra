@@ -8,6 +8,9 @@ Per §7.1: テストコード品質基準
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 

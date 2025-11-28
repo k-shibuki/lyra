@@ -9,6 +9,11 @@ Test design follows §7.1 Test Code Quality Standards:
 """
 
 import tempfile
+
+import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path

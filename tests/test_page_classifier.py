@@ -11,6 +11,9 @@ Tests page type classification for:
 """
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 from src.extractor.page_classifier import (
     PageType,
     PageClassifier,

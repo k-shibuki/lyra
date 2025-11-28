@@ -17,6 +17,11 @@ Per §7.1 test quality standards:
 """
 
 import asyncio
+
+import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 import socket
 import time
 from unittest.mock import patch, MagicMock, AsyncMock

@@ -2,6 +2,13 @@
 
 @requirements.md の仕様に沿ってLancetというプロダクトを開発中である。
 @IMPLEMENTATION_PLAN.md を見て、コードベースと照合しつつ現状を把握せよ。
+タスクの設計時に、後述する関連ルールを読み込み、それらを遵守できる実行計画をかけ。
+
+## 関連ルール
+- コード実行時: @.cursor/rules/code-execution.mdc
+- テスト関連タスク: @.cursor/rules/test.mdc
+- リファクタ関連タスク: @.cursor/rules/refactoring.mdc
+- git commit: @.cursor/rules/git-commit.mdc
 
 ## タスク選定
 1. 優先度（🔴高 > 🟡中 > 🟢低）と依存関係を考慮して**1つ**のタスクを選定
@@ -31,8 +38,3 @@
 - 現時点の進捗を「🔄」で実装計画書に記録
 - 未完了項目を明示してコミット
 
-## 関連ルール
-- コード実行時: @.cursor/rules/code-execution.mdc
-- テスト関連タスク: @.cursor/rules/test.mdc
-- リファクタ関連タスク: @.cursor/rules/refactoring.mdc
-- git commit: @.cursor/rules/git-commit.mdc

@@ -1,15 +1,71 @@
 """
 Pytest fixtures and configuration for Lancet tests.
 
-Test Classification (§7.1.7):
-- @pytest.mark.unit: No external dependencies, fast (<30s total)
-- @pytest.mark.integration: Mocked external dependencies (<2min total)
-- @pytest.mark.e2e: Real environment, manual execution only
+=============================================================================
+Test Classification (§7.1.7, §16.10.1)
+=============================================================================
 
-Mock Strategy (§7.1.7):
+Primary Markers (Execution Speed):
+- @pytest.mark.unit: Single class/function, no external dependencies
+  - Fast (<1s per test, <30s total)
+  - All external services fully mocked
+  - Can run anywhere (CI, local, container)
+  - DEFAULT: Tests without marker are auto-classified as unit
+
+- @pytest.mark.integration: Multiple components, mocked external dependencies
+  - Medium (<5s per test, <2min total)
+  - Component integration verified
+  - External services mocked but realistic behavior simulated
+  - Can run anywhere
+
+- @pytest.mark.e2e: Real environment, actual external services
+  - Variable duration
+  - Requires real Chrome, Ollama, network access
+  - DEFAULT EXCLUDED: Must use `pytest -m e2e` to run
+  - Risk of IP pollution, rate limiting
+
+- @pytest.mark.slow: Tests taking >5 seconds
+  - DEFAULT EXCLUDED: Must use `pytest -m slow` to run
+  - Typically heavy LLM or large data processing
+
+Risk-Based Sub-Markers (E2E only, §16.10.1):
+- @pytest.mark.external: Uses external services with moderate block risk
+  - Example: Mojeek, Qwant (block-resistant engines)
+  - Run with: `pytest -m "e2e and external"`
+
+- @pytest.mark.rate_limited: Uses services with strict rate limits / high block risk
+  - Example: DuckDuckGo, Google (easily blocked)
+  - Run with: `pytest -m "e2e and rate_limited"`
+  - WARNING: May pollute host IP
+
+- @pytest.mark.manual: Requires human interaction (CAPTCHA, etc.)
+  - Run with: `pytest -m "e2e and manual"`
+  - Should be run from tests/scripts/ as standalone scripts
+
+=============================================================================
+Default Execution
+=============================================================================
+
+By default, pytest runs: unit + integration (excludes e2e, slow)
+
+To run all tests:
+    pytest -m ""  # Empty marker filter
+
+To run E2E tests:
+    pytest -m e2e
+
+To run E2E with specific risk level:
+    pytest -m "e2e and external"
+    pytest -m "e2e and rate_limited"
+
+=============================================================================
+Mock Strategy (§7.1.7)
+=============================================================================
+
 - External services (Ollama, Chrome): Always mocked in unit/integration
 - File I/O: Use tmp_path fixture
-- Database: Use in-memory SQLite or temp file
+- Database: Use in-memory SQLite (:memory:) or temp file
+- Network: Prohibited in unit tests (use responses/aioresponses library)
 """
 
 import asyncio
@@ -32,18 +88,30 @@ os.environ["LANCET_GENERAL__LOG_LEVEL"] = "DEBUG"
 # =============================================================================
 
 def pytest_configure(config):
-    """Register custom markers for test classification per §7.1.7."""
+    """Register custom markers for test classification per §7.1.7 and §16.10.1."""
+    # Primary classification markers
     config.addinivalue_line(
-        "markers", "unit: Unit tests with no external dependencies (fast, <30s total)"
+        "markers", "unit: Unit tests with no external dependencies (fast, <1s/test)"
     )
     config.addinivalue_line(
-        "markers", "integration: Integration tests with mocked external dependencies (<2min total)"
+        "markers", "integration: Integration tests with mocked external dependencies (<5s/test)"
     )
     config.addinivalue_line(
-        "markers", "e2e: End-to-end tests requiring real environment (manual execution only)"
+        "markers", "e2e: End-to-end tests requiring real environment (excluded by default)"
     )
     config.addinivalue_line(
-        "markers", "slow: Tests that take more than 5 seconds"
+        "markers", "slow: Tests that take more than 5 seconds (excluded by default)"
+    )
+    
+    # Risk-based sub-markers for E2E tests (§16.10.1)
+    config.addinivalue_line(
+        "markers", "external: E2E using external services with moderate block risk (Mojeek, Qwant)"
+    )
+    config.addinivalue_line(
+        "markers", "rate_limited: E2E using services with high block risk (DuckDuckGo, Google)"
+    )
+    config.addinivalue_line(
+        "markers", "manual: E2E requiring human interaction (CAPTCHA resolution)"
     )
 
 
@@ -382,4 +450,5 @@ def cleanup_aiohttp_sessions(request):
     except RuntimeError:
         # Event loop already running (shouldn't happen in session teardown)
         pass
+
 
