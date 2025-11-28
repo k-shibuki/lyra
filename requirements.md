@@ -237,6 +237,18 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   - 官報/法令データベース/規制当局発表/パブコメ
 - 採用/人物:
   - 公式採用/求人票/講演資料（ソーシャルは原則スキップまたは手動モード）
+- 無料公的API連携:
+  - e-Stat API: 統計データ（人口、経済、産業等）の構造化取得
+  - 法令API（e-Gov）: 法令全文検索、条文取得
+  - 国会会議録API: 国会議事録の全文検索
+  - gBizINFO API: 法人基本情報（法人番号、所在地、業種等）
+  - EDINET API: 有価証券報告書等の開示書類取得
+  - OpenAlex API: 学術論文メタデータ/引用グラフ（MAG後継）
+  - Semantic Scholar API: 論文/引用ネットワーク
+  - Crossref API: DOI/引用情報
+  - Unpaywall API: OA版論文リンク
+  - Wikidata API: 構造化エンティティ情報（正規化の補完）
+  - **注意**: これらは公式APIであり、検索エンジンのようなbot検知問題はない
 
 #### 3.1.4. 検索エンジン健全性・正規化レイヤ
 - ヘルスチェック/サーキットブレーカ:
@@ -916,6 +928,29 @@ Cursor AI                          Lancet MCP
 - 任意: CDPのNetworkイベントから簡易HARを生成し、後追い取得でWARCへ充填
 - 一貫性: 同一URLのHTTPクライアント経路WARCと紐付け、再解析時はWARCを優先
 
+#### 4.3.3. ステルス設計方針
+- 基本方針: 「偽装」ではなく「実プロファイルの一貫性」を重視
+  - 自動化フラグ（`navigator.webdriver`等）の隠蔽のみ実装
+  - Canvas/Audio/WebGL等の指紋は実プロファイルで本物を維持
+  - 過剰な指紋偽装は逆に検知リスクを高めるため避ける
+- playwright-stealth等の全機能移植は行わない:
+  - playwright-stealthは「ヘッドレスを人間に偽装」する設計
+  - Lancetは「実プロファイルを使い一貫性を維持」する設計（根本的に異なる）
+  - 実プロファイル使用時には偽装機能の多くが不要
+- 将来の拡張基準:
+  - 具体的な検知パターンが特定された場合のみ対応
+  - 「偽装」ではなく「漏洩防止」観点の機能を優先（WebRTC IP漏洩等）
+- サーバーサイドサービス禁止:
+  - SearXNG/公開SearXインスタンス等のサーバーサイドサービスは使用しない
+  - 理由: ユーザーのCookie/指紋を使用不可、CAPTCHA解決が効かない、IP汚染リスク
+  - すべての検索・取得はブラウザ経由（BrowserSearchProvider）で実行
+
+#### 4.3.4. ヒューマンライク操作
+- マウス軌跡自然化: Bezier曲線による自然な軌跡生成、微細なジッター付与
+- タイピングリズム: ガウス分布ベースの遅延、句読点後の長い間、稀なタイポ模倣
+- スクロール慣性: 慣性付きスクロール、easing関数による自然な減速
+- 待機時間分布: 人間らしい閲覧パターンを模倣した待機時間の分布
+
 - ドメインポリシーDB:
   - `block_score`, `cooldown_until`, `headful_ratio`, `last_captcha_at`, `tor_success_rate`, `tor_usage_ratio`, `captcha_type_last_seen`, `referer_match_rate`, `headful_failures` 等を記録し、経路選択/昇格/スキップ判定に利用
  - ポリシー自動学習:
@@ -1094,6 +1129,12 @@ Cursor AI                          Lancet MCP
  - OCR: `PaddleOCR`（GPU対応, スキャンPDF/画像主体の分野のみ適用）, `Tesseract`（軽量フォールバック）
  - 表抽出: `Camelot`, `Tabula`（PDFのテーブル抽出）
  - ベクトル検索: `faiss-gpu`（コーパスが大規模な場合の任意採用）
+- 外部データソースAPI（無料・公式）:
+  - 日本政府: e-Stat API, 法令API（e-Gov）, 国会会議録API, gBizINFO API, EDINET API
+  - 学術: OpenAlex API, Semantic Scholar API, Crossref API, Unpaywall API
+  - エンティティ: Wikidata API, DBpedia SPARQL
+  - ファクトチェック: 既存ファクトチェックサイト（Snopes, FactCheck.org, FIJ等）のブラウザ経由検索
+  - **注意**: これらは公式APIであり、検索エンジンのようなbot検知問題はない
 
 #### 5.1.2. システム構成補強（キャッシュ/DB/キュー）
 - キャッシュ階層:
