@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
 """
-検証対象: §3.1.2 セッション移送ユーティリティ
+Verification target: §3.1.2 Session Transfer Utility
 
-検証項目:
-1. ブラウザからのセッションキャプチャ（Cookie/ETag/UA）
-2. 同一ドメイン制約の強制（§3.1.2 同一ドメイン限定）
-3. HTTPクライアントへのヘッダー移送
-4. sec-fetch-*/Refererの整合性（§3.1.2 Referer/sec-fetch-*の整合）
-5. 304再訪の検証（§3.1.2 304再訪を優先）
-6. セッションライフサイクル（TTL/最大数）
+Verification items:
+1. Browser session capture (Cookie/ETag/UA)
+2. Same-domain constraint enforcement (§3.1.2 Same Domain Only)
+3. HTTP client header transfer
+4. sec-fetch-*/Referer consistency (§3.1.2 Referer/sec-fetch-* Consistency)
+5. 304 revisit verification (§3.1.2 Prefer 304 Revisit)
+6. Session lifecycle (TTL/max count)
 
-前提条件:
-- Windows側でChromeをリモートデバッグモードで起動済み
-- config/settings.yaml の browser.chrome_host が正しく設定済み
-- 詳細: IMPLEMENTATION_PLAN.md 16.9「検証環境セットアップ手順」参照
+Prerequisites:
+- Chrome running with remote debugging on Windows
+- config/settings.yaml browser.chrome_host configured correctly
+- See: IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
 
-受け入れ基準（§7）:
-- 304活用率≥70%
-- Referer整合率≥90%
+Acceptance criteria (§7):
+- 304 utilization rate ≥70%
+- Referer consistency rate ≥90%
 
 Usage:
     podman exec lancet python tests/scripts/verify_session_transfer.py
 
 Exit codes:
-    0: 全検証パス
-    1: いずれか失敗
-    2: 前提条件未充足でスキップ
+    0: All verifications passed
+    1: Some verifications failed
+    2: Prerequisites not met (skipped)
 """
 
 import asyncio
@@ -46,7 +46,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class VerificationResult:
-    """検証結果を保持するデータクラス。"""
+    """Data class to hold verification results."""
     name: str
     spec_ref: str
     passed: bool
@@ -57,7 +57,7 @@ class VerificationResult:
 
 
 class SessionTransferVerifier:
-    """§3.1.2 セッション移送ユーティリティの検証を実施するクラス。"""
+    """Verifier for §3.1.2 session transfer utility."""
     
     def __init__(self):
         self.results: list[VerificationResult] = []
@@ -65,7 +65,7 @@ class SessionTransferVerifier:
         self.captured_session_id: Optional[str] = None
         
     async def check_prerequisites(self) -> bool:
-        """前提条件を確認。"""
+        """Check environment prerequisites."""
         print("\n[Prerequisites] Checking environment...")
         
         # Check browser connectivity
@@ -97,7 +97,7 @@ class SessionTransferVerifier:
         return True
 
     async def verify_browser_session_capture(self) -> VerificationResult:
-        """§3.1.2: ブラウザからのセッションキャプチャ。"""
+        """§3.1.2: Browser session capture."""
         print("\n[1/6] Verifying browser session capture (§3.1.2 セッションキャプチャ)...")
         
         from src.crawler.fetcher import BrowserFetcher, FetchPolicy
@@ -216,7 +216,7 @@ class SessionTransferVerifier:
             await fetcher.close()
 
     async def verify_domain_restriction(self) -> VerificationResult:
-        """§3.1.2 同一ドメイン限定: クロスドメインリクエストの拒否。"""
+        """§3.1.2 Same Domain Only: Reject cross-domain requests."""
         print("\n[2/6] Verifying domain restriction (§3.1.2 同一ドメイン限定)...")
         
         from src.crawler.session_transfer import (
@@ -340,7 +340,7 @@ class SessionTransferVerifier:
             )
 
     async def verify_header_transfer(self) -> VerificationResult:
-        """§3.1.2: HTTPクライアントへのヘッダー移送。"""
+        """§3.1.2: Header transfer to HTTP client."""
         print("\n[3/6] Verifying header transfer (§3.1.2 ヘッダー移送)...")
         
         from src.crawler.session_transfer import (
@@ -451,7 +451,7 @@ class SessionTransferVerifier:
             )
 
     async def verify_sec_fetch_consistency(self) -> VerificationResult:
-        """§3.1.2 Referer/sec-fetch-*の整合: ヘッダー整合性。"""
+        """§3.1.2 Referer/sec-fetch-* Consistency: Header consistency."""
         print("\n[4/6] Verifying sec-fetch consistency (§3.1.2 sec-fetch整合)...")
         
         from src.crawler.session_transfer import (
@@ -561,7 +561,7 @@ class SessionTransferVerifier:
             )
 
     async def verify_304_revisit(self) -> VerificationResult:
-        """§3.1.2 304再訪を優先: 条件付きリクエストで304を受けること。"""
+        """§3.1.2 Prefer 304 Revisit: Receive 304 with conditional requests."""
         print("\n[5/6] Verifying 304 revisit (§3.1.2 304再訪)...")
         
         from src.crawler.fetcher import BrowserFetcher, HTTPFetcher, FetchPolicy
@@ -732,7 +732,7 @@ class SessionTransferVerifier:
             await http_fetcher.close()
 
     async def verify_session_lifecycle(self) -> VerificationResult:
-        """セッションライフサイクル: TTLと最大数の制御。"""
+        """Session lifecycle: TTL and max count control."""
         print("\n[6/6] Verifying session lifecycle (TTL/max sessions)...")
         
         from src.crawler.session_transfer import SessionTransferManager, SessionData
@@ -816,7 +816,7 @@ class SessionTransferVerifier:
             )
 
     async def run_all(self) -> int:
-        """全検証を実行し、結果を出力。"""
+        """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("Phase 16.10.3: Session Transfer Verification")
         print("検証対象: §3.1.2 セッション移送ユーティリティ")

@@ -1,35 +1,35 @@
 #!/usr/bin/env python3
 """
-検証対象: §3.2 エージェント実行機能（検索→取得の一貫性）
+Verification target: §3.2 Agent Execution (Search -> Fetch Consistency)
 
-検証項目:
-1. ブラウザ検索の実行（§3.2 検索エンジン統合）
-2. 検索結果URLの取得
-3. 同一セッションでの結果ページ取得（§3.1.2 セッション移送）
-4. セッション一貫性の確認（Cookie/指紋の維持）
-5. CAPTCHA発生時の継続性（§3.2, §3.6.1）
-6. 複数エンジンでの動作確認
+Verification items:
+1. Browser search execution (§3.2 Search Engine Integration)
+2. Search result URL fetching
+3. Same-session result page fetching (§3.1.2 Session Transfer)
+4. Session consistency (Cookie/fingerprint maintenance)
+5. CAPTCHA continuity (§3.2, §3.6.1)
+6. Multi-engine operation
 
-前提条件:
-- Windows側でChromeをリモートデバッグモードで起動済み
-- config/settings.yaml の browser.chrome_host が正しく設定済み
-- 詳細: IMPLEMENTATION_PLAN.md 16.9「検証環境セットアップ手順」参照
+Prerequisites:
+- Chrome running with remote debugging on Windows
+- config/settings.yaml browser.chrome_host configured correctly
+- See: IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
 
-受け入れ基準（§7）:
-- CAPTCHA: 発生検知100%、自動→手動誘導に確実に移行
-- スクレイピング成功率≥95%
+Acceptance criteria (§7):
+- CAPTCHA: 100% detection, reliable transition to manual intervention
+- Scraping success rate ≥95%
 
 Usage:
     podman exec lancet python tests/scripts/verify_search_then_fetch.py
 
 Exit codes:
-    0: 全検証パス
-    1: いずれか失敗
-    2: 前提条件未充足でスキップ
+    0: All verifications passed
+    1: Some verifications failed
+    2: Prerequisites not met (skipped)
 
 Note:
-    このスクリプトは実際の検索エンジンにアクセスします。
-    IPブロックのリスクがあるため、低リスク環境で実行してください。
+    This script accesses real search engines.
+    Run in a low-risk IP environment to avoid blocks.
 """
 
 import asyncio
@@ -50,7 +50,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class VerificationResult:
-    """検証結果を保持するデータクラス。"""
+    """Data class to hold verification results."""
     name: str
     spec_ref: str
     passed: bool
@@ -61,7 +61,7 @@ class VerificationResult:
 
 
 class SearchFetchVerifier:
-    """§3.2 検索→取得の一貫性検証を実施するクラス。"""
+    """Verifier for §3.2 search -> fetch consistency."""
     
     def __init__(self):
         self.results: list[VerificationResult] = []
@@ -70,7 +70,7 @@ class SearchFetchVerifier:
         self.search_session_id: Optional[str] = None
         
     async def check_prerequisites(self) -> bool:
-        """前提条件を確認。"""
+        """Check environment prerequisites."""
         print("\n[Prerequisites] Checking environment...")
         
         # Check browser connectivity
@@ -106,7 +106,7 @@ class SearchFetchVerifier:
         return True
 
     async def verify_browser_search(self) -> VerificationResult:
-        """§3.2 検索エンジン統合: ブラウザベース検索の実行。"""
+        """§3.2 Search Engine Integration: Browser-based search execution."""
         print("\n[1/6] Verifying browser search (§3.2 検索エンジン統合)...")
         
         from src.search.browser_search_provider import BrowserSearchProvider
@@ -207,7 +207,7 @@ class SearchFetchVerifier:
             await provider.close()
 
     async def verify_result_fetch(self) -> VerificationResult:
-        """検索結果URLの取得。"""
+        """Fetch search result URLs."""
         print("\n[2/6] Verifying result fetch (検索結果URL取得)...")
         
         if not self.search_results:
@@ -302,7 +302,7 @@ class SearchFetchVerifier:
             await fetcher.close()
 
     async def verify_session_consistency(self) -> VerificationResult:
-        """§3.1.2 セッション移送: 検索→取得間のセッション一貫性。"""
+        """§3.1.2 Session Transfer: Session consistency between search and fetch."""
         print("\n[3/6] Verifying session consistency (§3.1.2 セッション一貫性)...")
         
         from src.crawler.session_transfer import get_session_transfer_manager
@@ -397,7 +397,7 @@ class SearchFetchVerifier:
             )
 
     async def verify_cross_domain_isolation(self) -> VerificationResult:
-        """クロスドメイン分離: 異なるドメイン間でセッションが混在しないこと。"""
+        """Cross-domain isolation: Sessions don't mix between different domains."""
         print("\n[4/6] Verifying cross-domain isolation (ドメイン分離)...")
         
         from src.crawler.session_transfer import get_session_transfer_manager
@@ -479,7 +479,7 @@ class SearchFetchVerifier:
             )
 
     async def verify_captcha_detection(self) -> VerificationResult:
-        """§3.2 CAPTCHA発生時の継続性: CAPTCHA検知と手動介入への移行。"""
+        """§3.2 CAPTCHA Continuity: CAPTCHA detection and manual intervention."""
         print("\n[5/6] Verifying CAPTCHA detection (§3.2 CAPTCHA対応)...")
         
         from src.crawler.fetcher import BrowserFetcher, FetchPolicy
@@ -573,7 +573,7 @@ class SearchFetchVerifier:
             await fetcher.close()
 
     async def verify_multiple_engines(self) -> VerificationResult:
-        """複数エンジンでの動作確認。"""
+        """Multi-engine operation verification."""
         print("\n[6/6] Verifying multiple engines (複数エンジン対応)...")
         
         from src.search.browser_search_provider import BrowserSearchProvider
@@ -665,7 +665,7 @@ class SearchFetchVerifier:
             await provider.close()
 
     async def run_all(self) -> int:
-        """全検証を実行し、結果を出力。"""
+        """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("Phase 16.10.3: Search→Fetch Consistency Verification")
         print("検証対象: §3.2 エージェント実行機能")

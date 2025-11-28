@@ -1,8 +1,10 @@
 # lancet-dev
 
-@requirements.md の仕様に沿ってLancetというプロダクトを開発中である。
-@IMPLEMENTATION_PLAN.md を見て、コードベースと照合しつつ現状を把握せよ。
+Lancetというプロダクトを開発中である。
+@IMPLEMENTATION_PLAN.md を見て、現状を把握せよ。
+
 タスクの設計時に、後述する関連ルールを読み込み、それらを遵守できる実行計画をかけ。
+なお、必要に応じて、 @requirements.md の仕様とコードベースを `grep` 等のツールで、事前に確認せよ。
 
 ## 関連ルール
 - コード実行時: @.cursor/rules/code-execution.mdc
