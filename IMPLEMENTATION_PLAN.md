@@ -1731,6 +1731,54 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 - [ ] Cloudflare対策の動作確認テスト
 - [ ] モデル出力形式の互換性テスト
 
+#### 17.5.3 パーサー自己修復（AI駆動） 🔴
+
+**目的**: 検索エンジンのHTML変更に対してAIが自動修復し、保守コストをゼロに近づける。
+
+**背景（Phase 16.13 E2E検証で実証）**:
+- 検索エンジンはHTMLを予告なく変更する（Ecosia, Startpage等で確認）
+- ユニットテストはフィクスチャ固定のため実サイト変更を検知不可
+- E2Eで失敗時、デバッグHTMLが保存され、AIが分析・修正可能
+
+**既存基盤**:
+- `debug/search_html/`: 失敗時のHTML自動保存
+- `config/search_parsers.yaml`: セレクター外部化（YAML編集のみで修正可）
+- 構造化ログ: 失敗セレクター名を明示
+
+**実装案**:
+
+| 方式 | 説明 | 利点 | 欠点 |
+|------|------|------|------|
+| **Cursorカスタムコマンド** | `/fix-parser ecosia`で修復フロー起動 | 既存ツール活用、対話的 | 手動トリガー必要 |
+| **GitHub Actions** | 週次E2E→失敗時Issue作成→AI修正PR | 完全自動化 | 設定複雑、外部依存 |
+| **MCP経由** | Lancet自身がパーサー破損を検知→Cursor AIに依頼 | 自己完結 | 実装コスト高 |
+
+**タスク**:
+- [x] 通常運用での検知（既存: 失敗時ログ + HTML保存）
+- [ ] **AIフレンドリーな失敗ログ強化**
+  - 失敗セレクター一覧
+  - 試行したCSSパターン
+  - 結果コンテナのHTMLサンプル（先頭500文字）
+  - 修復コマンド提案（例: `cursor /fix-parser ecosia`）
+- [ ] 修正ワークフロー設計（Cursorカスタムコマンド or 会話ベース）
+- [ ] AI修正フロー（HTML分析→セレクター推論→YAML修正→テスト）
+
+**ログ改善例**:
+```
+ERROR Parser failure detected  engine=ecosia
+      failed_selectors: [title, url]
+      tried_patterns: [".result-title", "h2 a"]
+      html_sample: "<div class='result__body'>..."
+      debug_html: debug/search_html/ecosia_1234.html
+      suggested_fix: "Ask AI to fix with: /fix-parser ecosia"
+```
+
+**成功基準**:
+- パーサー破損から修復まで人間介入は承認のみ
+- AIがログを見て即座に修正可能
+
+---
+
 ### 17.6 テストの品質向上 🟡
 
 すべてのテストが品質基準を満たす、意味のあるテストになっているか検証し、テストでカバーしていない重要な機能があるか確かめ、修正する。
