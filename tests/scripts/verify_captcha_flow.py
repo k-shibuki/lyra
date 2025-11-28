@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 """
-検証対象: §3.6.1 認証待ちキュー
+Verification target: §3.6.1 Authentication Queue
 
-検証項目:
-1. CAPTCHA検知→キュー積み（§3.6.1 キュー積み）
-2. ドメイン一括解決（§3.6.1 ドメインベース認証管理）
-3. 認証待ち中の並行処理（§3.6.1 並行処理）
-4. 優先度管理（§3.6.1 優先度管理）
-5. トースト通知（§3.6 通知）
-6. ウィンドウ前面化（§3.6.1 安全運用方針）
-7. セッション再利用（§3.6.1 セッション再利用）
+Verification items:
+1. CAPTCHA detection -> queue enqueue (§3.6.1 Queue Enqueue)
+2. Domain batch resolution (§3.6.1 Domain-based Auth Management)
+3. Parallel processing while auth pending (§3.6.1 Parallel Processing)
+4. Priority management (§3.6.1 Priority Management)
+5. Toast notification (§3.6 Notification)
+6. Window foreground (§3.6.1 Safe Operation Policy)
+7. Session reuse (§3.6.1 Session Reuse)
 
-前提条件:
-- Windows側でChromeをリモートデバッグモードで起動済み
-- config/settings.yaml の browser.chrome_host が正しく設定済み
-- 詳細: IMPLEMENTATION_PLAN.md 16.9「検証環境セットアップ手順」参照
+Prerequisites:
+- Chrome running with remote debugging on Windows
+- config/settings.yaml browser.chrome_host configured correctly
+- See: IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
 
-受け入れ基準（§7）:
-- 認証待ちキューへの通知成功率≥99%
-- ウィンドウ前面化成功率≥95%
-- 認証突破効果: 認証セッションで処理した案件の突破率≥80%
+Acceptance criteria (§7):
+- Notification success rate ≥99%
+- Window foreground success rate ≥95%
+- Auth breakthrough: ≥80% success rate for auth session processed items
 
 Usage:
     podman exec lancet python tests/scripts/verify_captcha_flow.py
 
 Exit codes:
-    0: 全検証パス
-    1: いずれか失敗
-    2: 前提条件未充足でスキップ
+    0: All verifications passed
+    1: Some verifications failed
+    2: Prerequisites not met (skipped)
 """
 
 import asyncio
@@ -47,7 +47,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class VerificationResult:
-    """検証結果を保持するデータクラス。"""
+    """Data class to hold verification results."""
     name: str
     spec_ref: str
     passed: bool
@@ -58,14 +58,14 @@ class VerificationResult:
 
 
 class CAPTCHAFlowVerifier:
-    """§3.6.1 認証待ちキューの検証を実施するクラス。"""
+    """Verifier for §3.6.1 authentication queue functionality."""
     
     def __init__(self):
         self.results: list[VerificationResult] = []
         self.browser_available = False
         
     async def check_prerequisites(self) -> bool:
-        """前提条件を確認。"""
+        """Check environment prerequisites."""
         print("\n[Prerequisites] Checking environment...")
         
         # Check browser connectivity
@@ -107,7 +107,7 @@ class CAPTCHAFlowVerifier:
         return True
 
     async def verify_queue_enqueue(self) -> VerificationResult:
-        """§3.6.1 キュー積み: 認証が必要なURLはキューに積まれること。"""
+        """§3.6.1 Queue Enqueue: URLs requiring auth are queued."""
         print("\n[1/7] Verifying queue enqueue (§3.6.1 キュー積み)...")
         
         from src.utils.notification import get_intervention_queue
@@ -176,7 +176,7 @@ class CAPTCHAFlowVerifier:
                     pass
 
     async def verify_domain_batch_resolution(self) -> VerificationResult:
-        """§3.6.1 ドメインベース認証管理: 同一ドメインの一括解決。"""
+        """§3.6.1 Domain-based Auth: Batch resolution for same domain."""
         print("\n[2/7] Verifying domain batch resolution (§3.6.1 ドメインベース認証管理)...")
         
         from src.utils.notification import get_intervention_queue
@@ -284,7 +284,7 @@ class CAPTCHAFlowVerifier:
             )
 
     async def verify_parallel_processing(self) -> VerificationResult:
-        """§3.6.1 並行処理: 認証待ち中も認証不要ソースの探索を継続。"""
+        """§3.6.1 Parallel: Continue exploring auth-free sources while waiting."""
         print("\n[3/7] Verifying parallel processing (§3.6.1 並行処理)...")
         
         from src.utils.notification import get_intervention_queue
@@ -361,7 +361,7 @@ class CAPTCHAFlowVerifier:
             )
 
     async def verify_priority_ordering(self) -> VerificationResult:
-        """§3.6.1 優先度管理: 高優先度（一次資料）が先に処理されること。"""
+        """§3.6.1 Priority: High priority (primary sources) processed first."""
         print("\n[4/7] Verifying priority ordering (§3.6.1 優先度管理)...")
         
         from src.utils.notification import get_intervention_queue
@@ -429,7 +429,7 @@ class CAPTCHAFlowVerifier:
                     pass
 
     async def verify_toast_notification(self) -> VerificationResult:
-        """§3.6 通知: トースト通知が送信されること。"""
+        """§3.6 Notification: Toast notification is sent."""
         print("\n[5/7] Verifying toast notification (§3.6 通知)...")
         
         from src.utils.notification import InterventionManager
@@ -488,7 +488,7 @@ class CAPTCHAFlowVerifier:
             )
 
     async def verify_window_foreground(self) -> VerificationResult:
-        """§3.6.1 安全運用方針: ウィンドウ前面化。"""
+        """§3.6.1 Safe Operation: Window foreground."""
         print("\n[6/7] Verifying window foreground (§3.6.1 安全運用方針)...")
         
         if not self.browser_available:
@@ -555,7 +555,7 @@ class CAPTCHAFlowVerifier:
             )
 
     async def verify_session_reuse(self) -> VerificationResult:
-        """§3.6.1 セッション再利用: 認証済みセッションが再利用されること。"""
+        """§3.6.1 Session Reuse: Authenticated sessions are reused."""
         print("\n[7/7] Verifying session reuse (§3.6.1 セッション再利用)...")
         
         from src.utils.notification import get_intervention_queue
@@ -643,7 +643,7 @@ class CAPTCHAFlowVerifier:
             )
 
     async def run_all(self) -> int:
-        """全検証を実行し、結果を出力。"""
+        """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("Phase 16.10.3: CAPTCHA Flow Verification")
         print("検証対象: §3.6.1 認証待ちキュー")

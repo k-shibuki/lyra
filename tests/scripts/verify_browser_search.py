@@ -1,34 +1,34 @@
 #!/usr/bin/env python3
 """
-検証対象: §3.2 エージェント実行機能（ブラウザ検索）
+Verification target: §3.2 Agent Execution (Browser Search)
 
-検証項目:
-1. CDP接続（Windows Chrome → WSL2/Podman）
-2. DuckDuckGo検索の動作
-3. 検索結果パーサーの正確性
-4. Stealth偽装（bot検知回避）
-5. セッション管理（BrowserSearchSession）
+Verification items:
+1. CDP connection (Windows Chrome -> WSL2/Podman)
+2. DuckDuckGo search operation
+3. Search result parser accuracy
+4. Stealth evasion (bot detection avoidance)
+5. Session management (BrowserSearchSession)
 
-前提条件:
-- Windows側でChromeをリモートデバッグモードで起動済み
-- config/settings.yaml の browser.chrome_host が正しく設定済み
-- 詳細: IMPLEMENTATION_PLAN.md 16.9「検証環境セットアップ手順」参照
+Prerequisites:
+- Chrome running with remote debugging on Windows
+- config/settings.yaml browser.chrome_host configured correctly
+- See: IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
 
-受け入れ基準（§7）:
-- CAPTCHA: 発生検知100%、自動→手動誘導に確実に移行
-- スクレイピング成功率≥95%
+Acceptance criteria (§7):
+- CAPTCHA: 100% detection, reliable transition to manual intervention
+- Scraping success rate ≥95%
 
 Usage:
     podman exec lancet python tests/scripts/verify_browser_search.py
 
 Exit codes:
-    0: 全検証パス
-    1: いずれか失敗
-    2: 前提条件未充足でスキップ
+    0: All verifications passed
+    1: Some verifications failed
+    2: Prerequisites not met (skipped)
 
 Note:
-    このスクリプトは実際の検索エンジンにアクセスします。
-    IPブロックのリスクがあるため、低リスク環境で実行してください。
+    This script accesses real search engines.
+    Run in a low-risk IP environment to avoid blocks.
 """
 
 import asyncio
@@ -48,7 +48,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class VerificationResult:
-    """検証結果を保持するデータクラス。"""
+    """Data class to hold verification results."""
     name: str
     spec_ref: str
     passed: bool
@@ -59,14 +59,14 @@ class VerificationResult:
 
 
 class BrowserSearchVerifier:
-    """§3.2 ブラウザ検索機能の検証を実施するクラス。"""
+    """Verifier for §3.2 browser search functionality."""
     
     def __init__(self):
         self.results: list[VerificationResult] = []
         self.browser_available = False
         
     async def check_prerequisites(self) -> bool:
-        """前提条件を確認。"""
+        """Check environment prerequisites."""
         print("\n[Prerequisites] Checking environment...")
         
         # Check browser connectivity
@@ -91,7 +91,7 @@ class BrowserSearchVerifier:
         return True
 
     async def verify_cdp_connection(self) -> VerificationResult:
-        """CDP接続の検証。"""
+        """Verify CDP connection."""
         print("\n[1/5] Verifying CDP connection (§3.2 GUI連携)...")
         
         from src.crawler.browser_provider import get_browser_provider
@@ -142,7 +142,7 @@ class BrowserSearchVerifier:
             )
 
     async def verify_duckduckgo_search(self) -> VerificationResult:
-        """DuckDuckGo検索の動作検証。"""
+        """Verify DuckDuckGo search operation."""
         print("\n[2/5] Verifying DuckDuckGo search (§3.2 検索エンジン統合)...")
         
     from src.search.browser_search_provider import BrowserSearchProvider
@@ -226,7 +226,7 @@ class BrowserSearchVerifier:
             await provider.close()
 
     async def verify_parser_accuracy(self) -> VerificationResult:
-        """検索結果パーサーの正確性検証。"""
+        """Verify search result parser accuracy."""
         print("\n[3/5] Verifying parser accuracy (§3.2 コンテンツ抽出)...")
         
         from src.search.browser_search_provider import BrowserSearchProvider
@@ -335,7 +335,7 @@ class BrowserSearchVerifier:
             await provider.close()
 
     async def verify_stealth(self) -> VerificationResult:
-        """Stealth偽装（bot検知回避）の検証。"""
+        """Verify stealth evasion (bot detection avoidance)."""
         print("\n[4/5] Verifying stealth (§4.3 ブラウザ/JS層)...")
         
         from src.crawler.fetcher import BrowserFetcher, FetchPolicy
@@ -396,7 +396,7 @@ class BrowserSearchVerifier:
             await fetcher.close()
 
     async def verify_session_management(self) -> VerificationResult:
-        """セッション管理の検証。"""
+        """Verify session management."""
         print("\n[5/5] Verifying session management (§3.6.1 セッション再利用)...")
         
         from src.search.browser_search_provider import BrowserSearchProvider
@@ -460,7 +460,7 @@ class BrowserSearchVerifier:
             await provider.close()
 
     async def run_all(self) -> int:
-        """全検証を実行し、結果を出力。"""
+        """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("Phase 16.9: Browser Search Verification")
         print("検証対象: §3.2 エージェント実行機能（ブラウザ検索）")

@@ -1166,12 +1166,12 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
 
 ---
 
-### 16.10 E2Eテスト設計・実装 🔴
+### 16.10 E2Eテスト設計・実装 ✅
 
 > **依存**: Phase 16.9（検索経路の再設計）完了後に実施
 > **背景**: Phase 14.3.2 参照
 
-#### 16.10.1 テスト基盤設計
+#### 16.10.1 テスト基盤設計 ✅
 
 ##### E2Eテストの技術方針（pytest vs スクリプト）
 
@@ -1219,36 +1219,54 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
   - unit: 1929テスト / integration: 123テスト / e2e: 17テスト
   - テスト実行スクリプト `scripts/test.sh` 作成
 
-##### E2E実行環境
+##### E2E実行環境 ✅
 
-- [ ] **低リスクIP環境の要件**
+- [x] **低リスクIP環境の要件**
   - 自宅回線（固定IP推奨）
   - VPN（信頼性の高いもの）
   - 検索エンジンからブロックされていないIP
-- [ ] **実行前チェックリスト**
+- [x] **実行前チェックリスト**
   - IP確認（`curl ifconfig.me`）
   - エンジン健全性確認（手動で1件検索）
   - Chromeプロファイル準備
 
-#### 16.10.2 pytest E2E（自動実行可能）
+#### 16.10.2 pytest E2E（自動実行可能） ✅
 
-- [ ] **LLM連携E2E**
-  - `test_e2e_llm.py`: 実Ollamaでのクレーム分解・NLI・要約
-  - モック: Ollamaレスポンスのスナップショット使用可
-- [ ] **フルパイプラインE2E**
-  - `test_e2e_pipeline.py`: 検索→抽出→分析→レポート
-  - モック: 検索結果HTML/Ollamaレスポンスのスナップショット
+- [x] **`test_e2e.py`**: 包括的E2Eテスト（17テスト）
+  - `TestSearchToReportPipeline`: 検索→取得→抽出→レポート（4テスト）
+  - `TestAuthenticationQueueFlow`: 認証待ちキュー（8テスト）
+  - `TestInterventionManagerFlow`: 手動介入フロー（2テスト）
+  - `TestCompleteResearchFlow`: 完全リサーチワークフロー（1テスト）
+  - `TestLLMIntegration`: Ollama連携（2テスト）
 
-#### 16.10.3 手動検証スクリプト（tests/scripts/）
+#### 16.10.3 手動検証スクリプト（tests/scripts/） ✅
 
 対話的操作や特殊な実行環境が必要なテスト。pytestではなくスタンドアロンスクリプトとして実装。
 
-| スクリプト | 検証内容 | 状態 |
-|-----------|----------|------|
-| `verify_browser_search.py` | CDP接続、検索動作、Stealth、セッション管理 | ✅ 完了 |
-| `verify_captcha_flow.py` | CAPTCHA検知→通知→手動解決→継続 | ⏳ 未実装 |
-| `verify_session_transfer.py` | ブラウザ→HTTPクライアント間のセッション移送 | ⏳ 未実装 |
-| `verify_search_then_fetch.py` | 検索→取得の一貫性（同一セッション維持） | ⏳ 未実装 |
+| スクリプト | 検証内容 | 仕様 | 状態 |
+|-----------|----------|------|------|
+| `verify_browser_search.py` | CDP接続、検索動作、Stealth、セッション管理 | §3.2 | ✅ 完了 |
+| `verify_captcha_flow.py` | CAPTCHA検知→通知→手動解決→継続 | §3.6.1 | ✅ 完了 |
+| `verify_session_transfer.py` | ブラウザ→HTTPクライアント間のセッション移送 | §3.1.2 | ✅ 完了 |
+| `verify_search_then_fetch.py` | 検索→取得の一貫性（同一セッション維持） | §3.2 | ✅ 完了 |
+| `verify_network_resilience.py` | 回復力、IPv6、DNSリーク、304活用 | §7 | ✅ 完了 |
+| `verify_profile_health.py` | プロファイル健全性、自動修復 | §7 | ✅ 完了 |
+
+**§7受け入れ基準とのマッピング**:
+
+| 受け入れ基準 | 数値目標 | 検証スクリプト |
+|-------------|---------|---------------|
+| スクレイピング成功率 | ≥95% | `verify_search_then_fetch.py` |
+| 回復力 | ≥70% | `verify_network_resilience.py` |
+| CAPTCHA検知 | 100% | `verify_captcha_flow.py` |
+| 通知成功率 | ≥99% | `verify_captcha_flow.py` |
+| 前面化成功率 | ≥95% | `verify_captcha_flow.py` |
+| 304活用率 | ≥70% | `verify_network_resilience.py`, `verify_session_transfer.py` |
+| Referer整合率 | ≥90% | `verify_session_transfer.py` |
+| IPv6成功率 | ≥80% | `verify_network_resilience.py` |
+| DNSリーク | 0件 | `verify_network_resilience.py` |
+| 健全性チェック | ≥99% | `verify_profile_health.py` |
+| 自動修復 | ≥90% | `verify_profile_health.py` |
 
 **実行方法**:
 ```bash
@@ -1257,9 +1275,12 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
 
 # スクリプト実行
 podman exec lancet python tests/scripts/verify_browser_search.py
+podman exec lancet python tests/scripts/verify_network_resilience.py
 ```
 
-#### 16.10.4 モック化戦略（CI安定化）
+#### 16.10.4 モック化戦略（CI安定化） 🟢
+
+将来の拡張として検討。現時点ではE2Eテストは手動実行を前提とする。
 
 - [ ] **VCR/レコード再生方式の導入**
   - `tests/fixtures/vcr_cassettes/`に外部レスポンス保存
@@ -1269,9 +1290,9 @@ podman exec lancet python tests/scripts/verify_browser_search.py
   - `LANCET_USE_MOCK_SERVICES=1`でモック切替
   - CIではモック使用、ローカルE2Eでは実サービス
 
-#### 16.10.5 その他
+#### 16.10.5 その他 🟢
 
-- [ ] ミューテーションテスト
+- [ ] ミューテーションテスト（月次実施予定）
 
 ---
 
