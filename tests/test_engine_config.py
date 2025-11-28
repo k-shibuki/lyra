@@ -520,6 +520,8 @@ class TestHotReload:
     
     def test_hot_reload_detects_changes(self, temp_config_file, sample_config_data):
         """Test that hot-reload detects config file changes."""
+        import os
+        
         manager = SearchEngineConfigManager(
             config_path=temp_config_file,
             watch_interval=0.1,  # Short interval for testing
@@ -534,8 +536,10 @@ class TestHotReload:
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(sample_config_data, f)
         
-        # Wait for file mtime to update
-        time.sleep(0.2)
+        # Explicitly set future mtime to ensure change detection
+        # (filesystem mtime precision is often 1 second, sleep(0.2) is insufficient)
+        future_time = time.time() + 2
+        os.utime(temp_config_file, (future_time, future_time))
         
         # Access config to trigger reload check
         manager._last_check = 0  # Force check
