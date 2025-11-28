@@ -329,7 +329,8 @@ class TestContentAnalyzer:
         summary = analyzer.summarize_content(SAMPLE_HTML_V1, max_length=100)
         
         assert len(summary) <= 100
-        assert len(summary) > 0
+        # Summary should have meaningful content (at least a short sentence)
+        assert len(summary) >= 10, f"Expected summary >=10 chars, got {len(summary)}: {summary}"
 
 
 # =============================================================================

@@ -99,9 +99,9 @@ class TestParserConfigManager:
         """Test configuration loading from YAML."""
         manager = get_parser_config_manager()
         
-        # Should have loaded engines
+        # Should have loaded engines (at least duckduckgo and mojeek)
         engines = manager.get_available_engines()
-        assert len(engines) > 0
+        assert len(engines) >= 2, f"Expected >=2 engines, got {len(engines)}: {engines}"
         assert "duckduckgo" in engines
         assert "mojeek" in engines
     
@@ -149,7 +149,10 @@ class TestParserConfigManager:
         selector = config.get_selector("results_container")
         assert selector is not None
         assert selector.required is True
-        assert len(selector.diagnostic_message) > 0
+        # Diagnostic message should be meaningful for debugging
+        assert len(selector.diagnostic_message) >= 10, (
+            f"Expected diagnostic message >=10 chars, got: {selector.diagnostic_message}"
+        )
     
     def test_settings(self):
         """Test global settings are loaded."""
@@ -203,7 +206,8 @@ class TestEngineParserConfig:
         assert config is not None
         
         required = config.get_required_selectors()
-        assert len(required) > 0
+        # DuckDuckGo should have at least 1 required selector (results_container)
+        assert len(required) >= 1, f"Expected >=1 required selectors, got {len(required)}"
         
         # results_container should be required
         names = [s.name for s in required]
@@ -293,9 +297,9 @@ class TestDuckDuckGoParser:
         parser = DuckDuckGoParser()
         result = parser.parse("", "test")
         
-        # Should fail with selector errors
+        # Should fail with selector errors (at least 1 for missing container)
         assert result.ok is False
-        assert len(result.selector_errors) > 0
+        assert len(result.selector_errors) >= 1, f"Expected >=1 selector errors, got {result.selector_errors}"
     
     def test_malformed_html(self):
         """Test handling of malformed HTML."""
@@ -399,7 +403,8 @@ class TestParserRegistry:
         parsers = get_available_parsers()
         
         assert isinstance(parsers, list)
-        assert len(parsers) > 0
+        # Should have at least duckduckgo and mojeek
+        assert len(parsers) >= 2, f"Expected >=2 parsers, got {len(parsers)}: {parsers}"
         assert "duckduckgo" in parsers
         assert "mojeek" in parsers
 
