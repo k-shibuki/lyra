@@ -129,6 +129,10 @@ class SearchParsersConfigSchema(BaseModel):
     google: EngineParserSchema | None = None
     brave: EngineParserSchema | None = None
     qwant: EngineParserSchema | None = None
+    # Phase 16.13: Additional engines
+    ecosia: EngineParserSchema | None = None
+    metager: EngineParserSchema | None = None
+    startpage: EngineParserSchema | None = None
     
     def get_engine(self, name: str) -> EngineParserSchema | None:
         """Get parser config for an engine by name."""
@@ -138,7 +142,9 @@ class SearchParsersConfigSchema(BaseModel):
     def get_available_engines(self) -> list[str]:
         """Get list of configured engine names."""
         engines = []
-        for name in ["duckduckgo", "mojeek", "google", "brave", "qwant"]:
+        # All supported engines including Phase 16.13 additions
+        for name in ["duckduckgo", "mojeek", "google", "brave", "qwant", 
+                     "ecosia", "metager", "startpage"]:
             if getattr(self, name, None) is not None:
                 engines.append(name)
         return engines
@@ -336,8 +342,9 @@ class ParserConfigManager:
             with open(self._config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             
-            # Parse engine sections
-            for engine_name in ["duckduckgo", "mojeek", "google", "brave", "qwant"]:
+            # Parse engine sections (including Phase 16.13 additions)
+            for engine_name in ["duckduckgo", "mojeek", "google", "brave", "qwant",
+                                "ecosia", "metager", "startpage"]:
                 if engine_name in data and isinstance(data[engine_name], dict):
                     data[engine_name] = EngineParserSchema(**data[engine_name])
             
