@@ -434,3 +434,4 @@ class TestGetPivotExpander:
         )
         assert len(suggestions) > 0
 
+
