@@ -1053,9 +1053,47 @@ E2Eテストを有効に実施するための前提：
   - `test_source_classification`: ソース分類
 
 **E2Eテスト（低リスクIP環境で実施）** → Phase 16.10へ:
-- [ ] `test_browser_search_e2e`: 実際の検索動作
-- [ ] `test_captcha_resolution_flow`: CAPTCHA解決フロー
+- [x] `test_browser_search_e2e`: 実際の検索動作 ✅ **手動検証完了（2024-11-28）**
+- [ ] `test_captcha_resolution_flow`: CAPTCHA解決フロー（今回はCAPTCHA発生せず）
 - [ ] `test_search_then_fetch`: 検索→取得の一貫性
+
+**手動E2E検証結果（2024-11-28）**:
+
+| 項目 | 結果 | 備考 |
+|------|------|------|
+| CDP接続 | ✅ 成功 | Windows Chrome 142.0へ接続 |
+| DuckDuckGo検索 | ✅ 成功 | 5件取得、3.4秒、bot検知なし |
+| パーサー | ✅ 成功 | 10件パース → 5件返却 |
+| Stealth偽装 | ✅ 機能 | bot検知されず検索成功 |
+| セッション管理 | ✅ 機能 | BrowserSearchSession作成、CAPTCHA=0 |
+| CAPTCHA誘導 | ⏳ 未検証 | 今回はCAPTCHA発生せず |
+| セッション転送 | ⏳ 未検証 | 検索のみのため未使用 |
+
+**検証環境セットアップ手順**:
+
+1. **専用Chromeプロファイル作成**（Googleアカウント未ログイン推奨）
+2. **Chromeをリモートデバッグモードで起動**（PowerShell）:
+   ```powershell
+   Start-Process -FilePath "C:\Program Files\Google\Chrome\Application\chrome.exe" -ArgumentList "--remote-debugging-port=9222","--remote-debugging-address=0.0.0.0","--user-data-dir=$env:LOCALAPPDATA\Google\Chrome\User Data","--profile-directory=Profile-Research"
+   ```
+3. **ポートフォワーディング設定**（管理者PowerShell）:
+   ```powershell
+   # WSL2からのアクセスを許可（WSL2 gateway → localhost:9222）
+   netsh interface portproxy add v4tov4 listenaddress=<WSL2_GATEWAY_IP> listenport=9222 connectaddress=127.0.0.1 connectport=9222
+   # ファイアウォールルール
+   New-NetFirewallRule -DisplayName "Chrome Debug WSL2" -Direction Inbound -LocalPort 9222 -Protocol TCP -Action Allow
+   ```
+   ※ WSL2ゲートウェイIP確認: `ip route | grep default | awk '{print $3}'`
+4. **環境変数設定**（`.env`ファイル）:
+   ```bash
+   # .env.example を .env にコピーして編集
+   cp .env.example .env
+   # WSL2ゲートウェイIPを設定
+   echo "LANCET_BROWSER__CHROME_HOST=<WSL2_GATEWAY_IP>" >> .env
+   ```
+   ※ `settings.yaml`は変更不要（`.env`が優先される）
+5. **コンテナ再起動**（.env反映）: `./scripts/dev.sh down && ./scripts/dev.sh up`
+6. **テスト実行**: `podman exec lancet python tests/scripts/verify_browser_search.py`
 
 ---
 
@@ -1088,34 +1126,88 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
 
 #### 16.10.1 テスト基盤設計
 
-- [ ] **テスト分類ガイドライン策定**
-  - unit/integration/e2eの境界定義
-  - 各マーカーの意味と使用基準
-  - 「何をモックすべきか」の判断基準
-- [ ] **リスクベースマーカー実装**
-  - `@external`, `@rate_limited`, `@manual` マーカー追加
-  - `conftest.py`でデフォルト除外設定
-  - `--run-external`, `--run-rate-limited`フラグ
-- [ ] **E2E実行環境の定義**
-  - 低リスクIP環境の要件（自宅回線、VPN等）
-  - 実行前チェックリスト（IP確認、エンジン健全性確認）
-  - CI vs ローカル vs 自宅環境の使い分け
+##### E2Eテストの技術方針（pytest vs スクリプト）
 
-#### 16.10.2 核心機能E2E（低リスクIP環境で実施）
+| 分類 | 方式 | 配置 | 実行方法 | 用途 |
+|------|------|------|----------|------|
+| **自動E2E** | pytest | `tests/test_e2e_*.py` | `pytest -m e2e` | モック可能、CI実行可 |
+| **手動検証** | スクリプト | `tests/scripts/verify_*.py` | `python tests/scripts/verify_*.py` | 対話的、人が実行 |
+
+**pytest方式を選ぶ基準**:
+- 外部サービスをモック可能
+- 対話的操作が不要
+- CI/CDで自動実行したい
+- フィクスチャ・アサーションを再利用したい
+
+**スクリプト方式を選ぶ基準**:
+- CAPTCHA解決など手動介入が必須
+- 実行環境（IP、Chromeプロファイル）に強く依存
+- 実行タイミングを人が制御する必要がある
+- CIから除外すべき（IP汚染リスク）
+
+##### テスト分類ガイドライン
+
+- [ ] **unit/integration/e2eの境界定義**
+  - unit: 単一クラス/関数、外部依存なし
+  - integration: 複数コンポーネント連携、外部はモック
+  - e2e: 実サービス使用（低リスクIP環境限定）
+- [ ] **各マーカーの意味と使用基準**
+  - `@pytest.mark.unit`: デフォルト実行、高速（<1秒/テスト）
+  - `@pytest.mark.integration`: デフォルト実行、中速（<5秒/テスト）
+  - `@pytest.mark.e2e`: デフォルト除外、`-m e2e`で明示実行
+  - `@pytest.mark.slow`: デフォルト除外、`-m slow`で明示実行
+
+##### リスクベースマーカー
+
+- [ ] **追加マーカー実装**
+  - `@external`: 外部サービス使用（mojeek等ブロック耐性高）
+  - `@rate_limited`: レート制限厳しい（DuckDuckGo等）
+- [ ] **conftest.py設定**
+  - デフォルト: `-m "not e2e and not slow"`
+  - `--run-e2e`: E2Eテスト含む
+  - `--run-all`: 全テスト実行
+
+##### E2E実行環境
+
+- [ ] **低リスクIP環境の要件**
+  - 自宅回線（固定IP推奨）
+  - VPN（信頼性の高いもの）
+  - 検索エンジンからブロックされていないIP
+- [ ] **実行前チェックリスト**
+  - IP確認（`curl ifconfig.me`）
+  - エンジン健全性確認（手動で1件検索）
+  - Chromeプロファイル準備
+
+#### 16.10.2 pytest E2E（自動実行可能）
 
 - [ ] **LLM連携E2E**
-  - クレーム分解（§3.2）の実Ollama検証
-  - NLI矛盾検出（§3.4）の実Ollama検証
-  - Chain of Density要約（§3.5）の実Ollama検証
+  - `test_e2e_llm.py`: 実Ollamaでのクレーム分解・NLI・要約
+  - モック: Ollamaレスポンスのスナップショット使用可
 - [ ] **フルパイプラインE2E**
-  - 検索→抽出→分析→レポート
-  - 直接ブラウザ検索との統合
-- [ ] **CAPTCHA検知→誘導フロー**
-  - Phase 16.9.2のBrowserSearchProviderとの連携
-  - InterventionQueue統合テスト
-  - セッション再利用確認
+  - `test_e2e_pipeline.py`: 検索→抽出→分析→レポート
+  - モック: 検索結果HTML/Ollamaレスポンスのスナップショット
 
-#### 16.10.3 モック化戦略（CI安定化）
+#### 16.10.3 手動検証スクリプト（tests/scripts/）
+
+対話的操作や特殊な実行環境が必要なテスト。pytestではなくスタンドアロンスクリプトとして実装。
+
+| スクリプト | 検証内容 | 状態 |
+|-----------|----------|------|
+| `verify_browser_search.py` | CDP接続、検索動作、Stealth、セッション管理 | ✅ 完了 |
+| `verify_captcha_flow.py` | CAPTCHA検知→通知→手動解決→継続 | ⏳ 未実装 |
+| `verify_session_transfer.py` | ブラウザ→HTTPクライアント間のセッション移送 | ⏳ 未実装 |
+| `verify_search_then_fetch.py` | 検索→取得の一貫性（同一セッション維持） | ⏳ 未実装 |
+
+**実行方法**:
+```bash
+# Chromeをリモートデバッグモードで起動（Windows側）
+# → IMPLEMENTATION_PLAN.md 16.9「検証環境セットアップ手順」参照
+
+# スクリプト実行
+podman exec lancet python tests/scripts/verify_browser_search.py
+```
+
+#### 16.10.4 モック化戦略（CI安定化）
 
 - [ ] **VCR/レコード再生方式の導入**
   - `tests/fixtures/vcr_cassettes/`に外部レスポンス保存
@@ -1125,7 +1217,7 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
   - `LANCET_USE_MOCK_SERVICES=1`でモック切替
   - CIではモック使用、ローカルE2Eでは実サービス
 
-#### 16.10.4 その他
+#### 16.10.5 その他
 
 - [ ] ミューテーションテスト
 
