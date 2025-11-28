@@ -567,9 +567,9 @@ class TestEdgeCases:
         assert isinstance(headings, list), "extract_headings should return list"
         # Some content should be extracted (text from h1 or p tag)
         combined = text + " ".join(headings)
-        assert len(combined) > 0, f"Expected some content extracted, got empty string"
-        # Verify actual content from the input is present
+        # Verify actual content from the input is present (also ensures non-empty)
         assert "Unclosed" in combined, f"Expected 'Unclosed' (from h1) in: {combined}"
+        assert "Text" in combined, f"Expected 'Text' (from paragraph) in: {combined}"
     
     def test_compare_empty_content(self):
         """Should handle empty content comparison."""

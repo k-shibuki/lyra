@@ -1139,7 +1139,8 @@ class TestCalibrationEvaluator:
         assert evaluation.source == "test_source"
         assert evaluation.samples_evaluated == 10
         assert 0 <= evaluation.brier_score <= 1
-        assert len(evaluation.bins) > 0
+        # Should have at least 1 calibration bin
+        assert len(evaluation.bins) >= 1, f"Expected >=1 bins, got {len(evaluation.bins)}"
         mock_db.execute.assert_called()
         mock_db.commit.assert_called()
     

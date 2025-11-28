@@ -653,7 +653,8 @@ class TestContentQualityAnalyzer:
         result = analyzer.analyze(html)
         
         assert result.reason
-        assert len(result.reason) > 0
+        # Reason should be a meaningful explanation (at least 10 chars)
+        assert len(result.reason) >= 10, f"Expected reason >=10 chars, got: {result.reason}"
 
 
 class TestConvenienceFunctions:

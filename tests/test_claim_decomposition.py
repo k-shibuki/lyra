@@ -367,7 +367,10 @@ class TestClaimDecomposerRuleBased:
         assert len(result.claims) >= 1
         
         claim = result.claims[0]
-        assert len(claim.verification_hints) > 0
+        # Should provide at least 1 verification hint
+        assert len(claim.verification_hints) >= 1, (
+            f"Expected >=1 verification hints, got {len(claim.verification_hints)}"
+        )
     
     @pytest.mark.asyncio
     async def test_source_question_preserved(self, decomposer):

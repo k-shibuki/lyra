@@ -152,7 +152,7 @@ class TestSearchToReportPipeline:
         
         # Verify results structure
         assert isinstance(results, list), f"Expected list, got {type(results)}"
-        assert len(results) > 0, "Expected at least one search result"
+        assert len(results) >= 1, f"Expected >=1 search results, got {len(results)}"
         
         # Verify result fields per §3.2.1
         first_result = results[0]

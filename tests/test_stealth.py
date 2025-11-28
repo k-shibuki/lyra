@@ -60,8 +60,8 @@ class TestStealthJS:
     def test_cdp_stealth_js_exists(self):
         """Verify CDP-specific stealth script exists."""
         assert CDP_STEALTH_JS is not None
-        assert len(CDP_STEALTH_JS) > 0
-        assert "webdriver" in CDP_STEALTH_JS
+        # CDP stealth script should contain webdriver detection bypass
+        assert "webdriver" in CDP_STEALTH_JS, "Expected 'webdriver' in CDP_STEALTH_JS"
     
     def test_cdp_stealth_js_removes_cdp_markers(self):
         """Verify CDP stealth removes CDP-specific detection markers."""
@@ -212,7 +212,8 @@ class TestGetStealthArgs:
         args = get_stealth_args()
         
         assert isinstance(args, list)
-        assert len(args) > 0
+        # Should have at least 1 stealth argument
+        assert len(args) >= 1, f"Expected >=1 stealth args, got {len(args)}"
     
     def test_contains_automation_controlled_disable(self):
         """Test includes --disable-blink-features=AutomationControlled."""
