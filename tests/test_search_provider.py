@@ -13,8 +13,7 @@ Follows §7.1 test code quality standards:
 - Proper mocking of external dependencies
 - Boundary conditions coverage
 
-Note: SearXNGProvider tests have been removed (Phase 16.9.5).
-      BrowserSearchProvider tests are in test_browser_search_provider.py.
+BrowserSearchProvider tests are in test_browser_search_provider.py.
 """
 
 import asyncio
@@ -246,7 +245,7 @@ class TestSearchResponse:
         response = SearchResponse(
             results=sample_results,
             query="test query",
-            provider="searxng",
+            provider="browser",
             total_count=3,
             elapsed_ms=150.5,
         )
@@ -255,7 +254,7 @@ class TestSearchResponse:
         assert response.error is None
         assert len(response.results) == 3
         assert response.query == "test query"
-        assert response.provider == "searxng"
+        assert response.provider == "browser"
         assert response.total_count == 3
         assert response.elapsed_ms == 150.5
     
@@ -264,7 +263,7 @@ class TestSearchResponse:
         response = SearchResponse(
             results=[],
             query="failed query",
-            provider="searxng",
+            provider="browser",
             error="Connection timeout",
         )
         
@@ -536,10 +535,7 @@ class TestSearchProviderRegistry:
         assert mock_provider.is_closed
 
 
-# Note: TestClassifySource moved to test_search.py (uses _classify_source from searxng.py)
-
-
-# Note: SearXNGProvider tests removed in Phase 16.9.5
+# Note: TestClassifySource moved to test_search.py
 # See test_browser_search_provider.py for BrowserSearchProvider tests
 
 

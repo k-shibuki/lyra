@@ -10,12 +10,10 @@ Key functions:
 - generate_mirror_query() - Cross-language query generation
 - QueryOperatorProcessor - Parse and transform search operators
 
-.. note:: Phase 16.9.5 - SearXNG Removed
-    SearXNG has been removed from Lancet. All searches now use
-    BrowserSearchProvider for direct browser-based search, which:
-    - Uses the user's browser profile (Cookie/fingerprint)
-    - Enables CAPTCHA resolution via manual intervention (§3.6.1)
-    - Maintains session consistency with fetch operations
+BrowserSearchProvider handles all searches:
+- Uses the user's browser profile (Cookie/fingerprint)
+- Enables CAPTCHA resolution via manual intervention (§3.6.1)
+- Maintains session consistency with fetch operations
 """
 
 import asyncio

@@ -117,20 +117,14 @@ class DirectSourceSchema(BaseModel):
         return v.lower().strip()
 
 
-class SearXNGSettingsSchema(BaseModel):
-    """Schema for SearXNG instance settings."""
-    
-    host: str = Field(default="http://localhost:8080")
-    timeout: int = Field(default=30, ge=5, le=120)
-    default_engines: list[str] = Field(default_factory=list)
-    lastmile_engines: list[str] = Field(default_factory=list)
-    disabled_engines: list[str] = Field(default_factory=list)
-
-
 class SearchEngineConfigSchema(BaseModel):
     """Root schema for engines.yaml configuration file."""
     
-    searxng: SearXNGSettingsSchema = Field(default_factory=SearXNGSettingsSchema)
+    # Engine selection policy
+    default_engines: list[str] = Field(default_factory=list)
+    lastmile_engines: list[str] = Field(default_factory=list)
+    
+    # Engine definitions and mappings
     engines: dict[str, EngineDefinitionSchema] = Field(default_factory=dict)
     operator_mapping: dict[str, dict[str, str | None]] = Field(default_factory=dict)
     category_engines: dict[str, list[str]] = Field(default_factory=dict)
@@ -140,12 +134,12 @@ class SearchEngineConfigSchema(BaseModel):
     def validate_config(self) -> "SearchEngineConfigSchema":
         """Validate configuration consistency."""
         # Ensure default_engines exist in engines
-        for engine in self.searxng.default_engines:
+        for engine in self.default_engines:
             if engine not in self.engines:
                 logger.warning(f"Default engine '{engine}' not defined in engines section")
         
         # Ensure lastmile_engines exist
-        for engine in self.searxng.lastmile_engines:
+        for engine in self.lastmile_engines:
             if engine not in self.engines:
                 logger.warning(f"Lastmile engine '{engine}' not defined in engines section")
         
@@ -353,7 +347,7 @@ class SearchEngineConfigManager:
                 "Engine config loaded",
                 path=str(self._config_path),
                 engine_count=len(self._config.engines),
-                default_engines=len(self._config.searxng.default_engines),
+                default_engines=len(self._config.default_engines),
                 operator_types=len(self._config.operator_mapping),
             )
             
@@ -425,28 +419,16 @@ class SearchEngineConfigManager:
         return self._config  # type: ignore
     
     # =========================================================================
-    # SearXNG Settings
+    # Engine Selection Policy
     # =========================================================================
-    
-    def get_searxng_host(self) -> str:
-        """Get SearXNG host URL."""
-        return self.config.searxng.host
-    
-    def get_searxng_timeout(self) -> int:
-        """Get SearXNG request timeout."""
-        return self.config.searxng.timeout
     
     def get_default_engines(self) -> list[str]:
         """Get list of default enabled engines."""
-        return list(self.config.searxng.default_engines)
+        return list(self.config.default_engines)
     
     def get_lastmile_engines(self) -> list[str]:
         """Get list of lastmile engines (strict limits)."""
-        return list(self.config.searxng.lastmile_engines)
-    
-    def get_disabled_engines(self) -> list[str]:
-        """Get list of disabled engines."""
-        return list(self.config.searxng.disabled_engines)
+        return list(self.config.lastmile_engines)
     
     # =========================================================================
     # Engine Configuration
@@ -477,9 +459,9 @@ class SearchEngineConfigManager:
         
         # Determine status
         status = EngineStatus.ENABLED
-        if engine_def.disabled or name_lower in self.config.searxng.disabled_engines:
+        if engine_def.disabled:
             status = EngineStatus.DISABLED
-        elif name_lower in self.config.searxng.lastmile_engines:
+        elif name_lower in self.config.lastmile_engines:
             status = EngineStatus.LASTMILE
         
         # Create config object
@@ -752,9 +734,8 @@ class SearchEngineConfigManager:
             return {
                 "cached_engines": len(self._engine_cache),
                 "total_engines": len(self.config.engines),
-                "default_engines": len(self.config.searxng.default_engines),
-                "lastmile_engines": len(self.config.searxng.lastmile_engines),
-                "disabled_engines": len(self.config.searxng.disabled_engines),
+                "default_engines": len(self.config.default_engines),
+                "lastmile_engines": len(self.config.lastmile_engines),
                 "operator_types": len(self.config.operator_mapping),
                 "categories": len(self.get_all_categories()),
                 "direct_source_categories": len(self.config.direct_sources),

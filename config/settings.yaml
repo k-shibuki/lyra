@@ -20,9 +20,7 @@ task_limits:
 
 # === Search Settings ===
 search:
-  # Provider selection (Phase 16.9)
-  # true = BrowserSearchProvider (direct Playwright search)
-  # false = SearXNGProvider (legacy, via SearXNG container)
+  # BrowserSearchProvider is used for all searches (direct Playwright search)
   use_browser: true
   default_engine: "duckduckgo"  # Default search engine for browser provider
   

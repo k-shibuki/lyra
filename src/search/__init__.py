@@ -22,9 +22,7 @@ Parser system (Phase 16.9):
     ParserConfigManager - Parser configuration management
     get_parser() - Get parser for a search engine
 
-.. note:: Phase 16.9.5 - SearXNG Removed
-    SearXNG has been removed from Lancet. All searches now use
-    BrowserSearchProvider for direct browser-based search.
+All searches use BrowserSearchProvider for direct browser-based search.
 """
 
 # Core search function (uses provider by default)

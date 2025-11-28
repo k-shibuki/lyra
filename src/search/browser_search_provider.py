@@ -1,7 +1,7 @@
 """
 Browser-based Search Provider for Lancet.
 
-Implements direct browser-based search using Playwright, replacing SearXNG
+Implements direct browser-based search using Playwright
 for improved resilience and session management.
 
 Design Philosophy:
@@ -93,7 +93,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     fingerprint and session across search and fetch stages.
     
     Features:
-    - Direct browser search (no SearXNG)
+    - Direct browser search via Playwright
     - Cookie/fingerprint consistency
     - CAPTCHA detection and intervention queue integration
     - Session preservation across searches

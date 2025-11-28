@@ -30,7 +30,6 @@ case "${1:-help}" in
         $COMPOSE up -d
         echo ""
         echo "Services started:"
-        echo "  - SearXNG: http://localhost:8080"
         echo "  - Tor SOCKS: localhost:9050"
         echo "  - Lancet: Running in container"
         echo ""
@@ -64,7 +63,6 @@ case "${1:-help}" in
             -v "$PROJECT_DIR/logs:/app/logs:rw" \
             -v "$PROJECT_DIR/tests:/app/tests:rw" \
             --network lancet_lancet-net \
-            -e SEARXNG_HOST=http://lancet-searxng:8080 \
             -e TOR_SOCKS_HOST=lancet-tor \
             --name lancet-dev \
             lancet-dev:latest \
