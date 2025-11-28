@@ -1339,7 +1339,7 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 
 ---
 
-### 16.12 Waybackフォールバック強化 🔄 (§3.1.6)
+### 16.12 Waybackフォールバック強化 ✅ (§3.1.6)
 
 **目的**: 403/CAPTCHAブロック時にWayback Machineから代替コンテンツを取得。
 
@@ -1356,15 +1356,20 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
   - `archive_url: str | None`: 元のWayback URL
   - `freshness_penalty: float`: 鮮度ペナルティ（0.0-1.0）
 
-#### 16.12.2 差分検出強化
-- [ ] 見出し・要点レベルの差分検出
+#### 16.12.2 差分検出強化 ✅
+- [x] 見出し・要点レベルの差分検出
   - 現行版とアーカイブ版の見出し比較
   - 大幅な差分がある場合はタイムラインに明示
-- [ ] 信頼度スコアへの鮮度ペナルティ適用
+  - `ArchiveDiffResult`データクラス
+  - `compare_with_current()`メソッド
+- [x] 信頼度スコアへの鮮度ペナルティ適用
+  - `apply_freshness_penalty()`関数
+  - タイムライン新イベントタイプ: CONTENT_MODIFIED, CONTENT_MAJOR_CHANGE, ARCHIVE_ONLY
 
 **成果物**:
 - `src/crawler/fetcher.py`（拡張）✅
 - `src/crawler/wayback.py`（拡張）✅
+- `src/filter/claim_timeline.py`（拡張）✅
 - テスト: `tests/test_wayback_fallback.py` ✅
 
 ---
@@ -1981,7 +1986,7 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 |-------|------|--------|------|----------|
 | **18.0** | **API仕様調査・ドキュメント化** | **最高** | **小** | **なし** |
 | 18.1 | 政府API統合 | 高 | 中 | 18.0 |
-| ~~16.12~~ | ~~Waybackフォールバック強化~~ | ~~高~~ | ~~小~~ | ~~なし~~ | **🔄部分完了（16.12.1✅）** |
+| ~~16.12~~ | ~~Waybackフォールバック強化~~ | ~~高~~ | ~~小~~ | ~~なし~~ | **✅完了** |
 | 18.2 | 学術API統合 | 高 | 中 | 18.0 |
 | ~~16.11~~ | ~~ヒューマンライク操作~~ | ~~中~~ | ~~中~~ | ~~なし~~ | **✅完了** |
 | 18.3 | ファクトチェック連携 | 中 | 小 | なし |
