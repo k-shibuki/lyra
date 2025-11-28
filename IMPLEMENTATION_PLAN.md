@@ -413,15 +413,17 @@ Lancetは設計支援情報の提供と実行に専念する（候補生成は�
 - [x] OCRテスト修正（モック戦略改善）
 - [x] 統合テスト（26件：パイプライン、エビデンスグラフ、スケジューラ等）
 
-#### 14.3.2 E2E設計・リスク管理 🔴
+#### 14.3.2 E2E設計方針（実装タスクはPhase 16.10へ移動）
+
+> **実装タスク**: Phase 16.10 に統合済み（Phase 16.9完了後に実施）
 
 ##### 背景・保留理由
 
-E2Eテストは外部サービス（SearXNG経由の検索エンジン）を実際に叩くため、以下のリスクがある：
+E2Eテストは外部サービス（検索エンジン）を実際に叩くため、以下のリスクがある：
 
 - **bot検知**: DuckDuckGo/Brave/Qwant等はCAPTCHA/レート制限でブロックされやすい
 - **IPリスク**: 開発環境のIPは検索エンジンからブロックされやすい
-- **IP汚染**: Podmanコンテナ（SearXNG）はホストと同じグローバルIPを使用するため、テスト実行でホストIPが汚染され、**通常のブラウザ利用にも影響**（CAPTCHAが出る）
+- **IP汚染**: テスト実行でホストIPが汚染され、**通常のブラウザ利用にも影響**（CAPTCHAが出る）
 
 → **低リスクなIP（自宅環境等）でE2E実装を進めるため、意図的に保留していた。**
 
@@ -451,207 +453,9 @@ Lancetは「Zero OpEx」を掲げつつ、IPブロックを完全回避するこ
 | マーカー | リスク | 例 | デフォルト実行 |
 |----------|--------|-----|---------------|
 | `@e2e` | 低 | DB操作、ローカルOllama | ❌ 除外 |
-| `@e2e @external` | 中 | SearXNG（mojeek等ブロック耐性エンジン） | ❌ 除外 |
-| `@e2e @rate_limited` | 高 | DuckDuckGo/Brave（ブロックされやすい） | ❌ 除外 |
+| `@e2e @external` | 中 | 直接ブラウザ検索（mojeek等ブロック耐性エンジン） | ❌ 除外 |
+| `@e2e @rate_limited` | 高 | DuckDuckGo/Google（ブロックされやすい） | ❌ 除外 |
 | `@e2e @manual` | 特殊 | CAPTCHA解決フロー | ❌ 除外 |
-
----
-
-##### 実装ギャップ：CAPTCHA検知→誘導フローの欠落
-
-**現状の問題**:
-
-```
-実装済みコンポーネント（互いに連携していない）:
-
-┌─────────────────────────┐    ┌─────────────────────────┐
-│ EngineCircuitBreaker    │    │ InterventionQueue       │
-│ src/search/circuit_     │    │ src/utils/notification  │
-│ breaker.py              │    │ .py                     │
-│                         │    │                         │
-│ - record_failure()      │    │ - enqueue()             │
-│   is_captcha=True       │    │ - get_pending()         │
-│ - captcha_rate追跡      │    │ - complete()            │
-│ - エンジン停止          │    │ - skip()                │
-└─────────────────────────┘    └─────────────────────────┘
-         ↓                              ↓
-    失敗を記録するだけ           手動介入待ちを管理
-    （キューに追加しない）       （自動追加されない）
-
-┌─────────────────────────┐    ┌─────────────────────────┐
-│ SearXNGProvider         │    │ NotificationProvider    │
-│ src/search/searxng_     │    │ src/utils/notification  │
-│ provider.py             │    │ _provider.py            │
-│                         │    │                         │
-│ - search()              │    │ - send()                │
-│ - unresponsive_engines  │    │ - WSL→Windows Toast     │
-│   ⚠️ 無視されている     │    │ - 通知送信機能          │
-└─────────────────────────┘    └─────────────────────────┘
-         ↓                              ↓
-    CAPTCHAを検知できるが        通知機能はあるが
-    何もしない                   呼び出されない
-```
-
-**SearXNGレスポンス例（CAPTCHA検知時）**:
-```json
-{
-  "results": [],
-  "infoboxes": [],
-  "unresponsive_engines": [
-    ["duckduckgo", "CAPTCHA"],
-    ["brave", "一時停止: リクエストが多すぎます"]
-  ]
-}
-```
-
-現在の`SearXNGProvider.search()`は`results`のみ処理し、`unresponsive_engines`を**完全に無視**している。
-
----
-
-##### あるべきフロー（§3.6.1準拠）
-
-```
-[検知フェーズ]
-SearXNG応答: unresponsive_engines: [["duckduckgo", "CAPTCHA"]]
-                    │
-                    ▼
-1. SearXNGProvider._handle_unresponsive_engines()  ← 新規実装
-   - unresponsive_enginesを解析
-   - 各エンジンのエラー種別を判定（CAPTCHA/rate_limit/error）
-                    │
-                    ▼
-2. EngineCircuitBreaker.record_failure(
-     engine="duckduckgo",
-     is_captcha=True
-   )
-   - captcha_rate更新
-   - 連続失敗カウント
-   - サーキット状態更新（OPEN/HALF_OPEN）
-                    │
-                    ▼
-[キュー追加フェーズ]
-3. InterventionQueue.enqueue(                      ← 新規連携
-     task_id=current_task_id,
-     domain="engine:duckduckgo",  # 検索エンジンは"engine:"プレフィックス
-     auth_type="captcha",
-     url="https://duckduckgo.com/",  # 解決用URL
-     priority="medium"
-   )
-                    │
-                    ▼
-4. NotificationProvider.send(                      ← 新規連携
-     title="🔐 認証が必要です",
-     message="DuckDuckGoがCAPTCHAを要求しています。\n"
-             "手動で解決するか、スキップしてください。",
-     urgency=NORMAL
-   )
-                    │
-                    ▼
-[報告フェーズ]
-5. get_exploration_status() で authentication_queue に反映
-   - pending_count: 1
-   - domains: ["engine:duckduckgo"]
-   - warnings: ["認証待ち1件"]
-                    │
-                    ▼
-6. Cursor AI → ユーザーに状況報告・判断を仰ぐ
-
-[解決フェーズ（ユーザー主導）]
-7. ユーザーがブラウザでDuckDuckGoにアクセス
-   - https://duckduckgo.com/ を開く
-   - CAPTCHAを解決
-                    │
-                    ▼
-8. complete_domain_authentication(domain="engine:duckduckgo")
-   - InterventionQueueのステータス更新
-   - セッション情報保存（Cookie等）
-                    │
-                    ▼
-9. EngineCircuitBreaker.reset("duckduckgo")        ← 新規連携
-   - サーキット状態をCLOSEDに
-   - captcha_rateリセット
-                    │
-                    ▼
-10. 検索再試行（同一クエリ）
-```
-
----
-
-##### 実装タスク詳細
-
-**1. SearXNGProvider拡張** (`src/search/searxng_provider.py`)
-- [ ] `_handle_unresponsive_engines(data: dict, task_id: str | None)` メソッド追加
-- [ ] `search()`内で`data.get("unresponsive_engines", [])`を処理
-- [ ] エラー種別の判定ロジック:
-  ```python
-  CAPTCHA_PATTERNS = ["CAPTCHA", "captcha", "challenge"]
-  RATE_LIMIT_PATTERNS = ["リクエストが多すぎます", "too many", "rate limit", "429"]
-  ACCESS_DENIED_PATTERNS = ["アクセスが拒否", "access denied", "403", "forbidden"]
-  ```
-- [ ] `SearchResponse`に`unresponsive_engines`フィールド追加
-
-**2. 連携モジュール新規作成** (`src/search/intervention_bridge.py`)
-- [ ] `handle_search_engine_block(engine: str, reason: str, task_id: str | None)`
-  - EngineCircuitBreaker.record_failure()呼び出し
-  - InterventionQueue.enqueue()呼び出し
-  - NotificationProvider.send()呼び出し
-- [ ] `handle_authentication_complete(domain: str)`
-  - EngineCircuitBreaker.reset()呼び出し
-  - 再試行トリガー
-
-**3. InterventionQueue拡張** (`src/utils/notification.py`)
-- [ ] 検索エンジン用のドメイン命名規則: `engine:{engine_name}`
-- [ ] `complete_domain_authentication`で関連するサーキットブレーカをリセット
-
-**4. MCPツール拡張** (`src/mcp/`)
-- [ ] `get_exploration_status`に検索エンジンブロック状況を追加
-- [ ] `complete_domain_authentication`でエンジンリセットをトリガー
-
-**5. E2Eテスト** (`tests/test_e2e.py`)
-- [ ] `TestSearchEngineBlockDetection`クラス追加
-  - `test_captcha_detected_and_queued`: CAPTCHA検知→キュー追加
-  - `test_notification_sent_on_block`: 通知送信確認
-  - `test_authentication_complete_resets_breaker`: 認証完了→リセット
-  - `test_retry_after_authentication`: 認証後の再試行成功
-- [ ] モック戦略: SearXNGレスポンスをモック化（実際のCAPTCHAは発生させない）
-
----
-
-##### 設計タスク
-
-- [ ] **テスト分類ガイドライン策定**
-  - unit/integration/e2eの境界定義
-  - 各マーカーの意味と使用基準
-  - 「何をモックすべきか」の判断基準
-- [ ] **リスクベースマーカー実装**
-  - `@external`, `@rate_limited`, `@manual` マーカー追加
-  - `conftest.py`でデフォルト除外設定
-  - `--run-external`, `--run-rate-limited`フラグ
-- [ ] **E2E実行環境の定義**
-  - 低リスクIP環境の要件（自宅回線、VPN等）
-  - 実行前チェックリスト（IP確認、エンジン健全性確認）
-  - CI vs ローカル vs 自宅環境の使い分け
-
----
-
-##### E2E実装タスク（低リスクIP環境で実施）
-
-- [ ] **核心機能E2E**
-  - クレーム分解（§3.2）の実Ollama検証
-  - NLI矛盾検出（§3.4）の実Ollama検証
-  - Chain of Density要約（§3.5）の実Ollama検証
-  - フルパイプライン（検索→抽出→分析→レポート）
-- [ ] **CAPTCHA検知→誘導フロー**（上記実装タスク）
-- [ ] **モック化戦略**（CI安定化用）
-  - VCR/レコード再生方式の導入
-  - `tests/fixtures/vcr_cassettes/`に外部レスポンス保存
-  - `LANCET_USE_MOCK_SERVICES=1`でフォールバック
-
----
-
-##### その他
-
-- [ ] ミューテーションテスト
 
 ---
 
@@ -1267,6 +1071,56 @@ SearXNGは最終段階まで残すため、問題発生時は以下で対応：
 1. `SearchProviderRegistry` のデフォルトを`SearXNGProvider`に戻す
 2. `config/settings.yaml` に `search.use_browser: false` フラグ追加
 3. フラグに応じてプロバイダを切り替え
+
+---
+
+### 16.10 E2Eテスト設計・実装 🔴
+
+> **依存**: Phase 16.9（検索経路の再設計）完了後に実施
+> **背景**: Phase 14.3.2 参照
+
+#### 16.10.1 テスト基盤設計
+
+- [ ] **テスト分類ガイドライン策定**
+  - unit/integration/e2eの境界定義
+  - 各マーカーの意味と使用基準
+  - 「何をモックすべきか」の判断基準
+- [ ] **リスクベースマーカー実装**
+  - `@external`, `@rate_limited`, `@manual` マーカー追加
+  - `conftest.py`でデフォルト除外設定
+  - `--run-external`, `--run-rate-limited`フラグ
+- [ ] **E2E実行環境の定義**
+  - 低リスクIP環境の要件（自宅回線、VPN等）
+  - 実行前チェックリスト（IP確認、エンジン健全性確認）
+  - CI vs ローカル vs 自宅環境の使い分け
+
+#### 16.10.2 核心機能E2E（低リスクIP環境で実施）
+
+- [ ] **LLM連携E2E**
+  - クレーム分解（§3.2）の実Ollama検証
+  - NLI矛盾検出（§3.4）の実Ollama検証
+  - Chain of Density要約（§3.5）の実Ollama検証
+- [ ] **フルパイプラインE2E**
+  - 検索→抽出→分析→レポート
+  - 直接ブラウザ検索との統合
+- [ ] **CAPTCHA検知→誘導フロー**
+  - Phase 16.9.2のBrowserSearchProviderとの連携
+  - InterventionQueue統合テスト
+  - セッション再利用確認
+
+#### 16.10.3 モック化戦略（CI安定化）
+
+- [ ] **VCR/レコード再生方式の導入**
+  - `tests/fixtures/vcr_cassettes/`に外部レスポンス保存
+  - 検索結果HTMLのスナップショット
+  - Ollamaレスポンスのスナップショット
+- [ ] **フォールバック機構**
+  - `LANCET_USE_MOCK_SERVICES=1`でモック切替
+  - CIではモック使用、ローカルE2Eでは実サービス
+
+#### 16.10.4 その他
+
+- [ ] ミューテーションテスト
 
 ---
 
