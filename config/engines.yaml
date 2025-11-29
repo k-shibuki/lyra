@@ -71,14 +71,6 @@ engines:
     block_resistant: false
     description: "Bing-based, relatively lenient, privacy-focused"
     
-  metager:
-    priority: 4
-    weight: 0.4
-    categories: [general]
-    qps: 0.15
-    block_resistant: true
-    description: "German meta-search engine, high block resistance"
-    
   startpage:
     priority: 5
     weight: 0.3
@@ -159,7 +151,6 @@ operator_mapping:
     bing: '"{text}"'
     duckduckgo: '"{text}"'
     ecosia: '"{text}"'
-    metager: '"{text}"'
     startpage: '"{text}"'
     
   exclude:
@@ -182,7 +173,6 @@ category_engines:
     - qwant
     - duckduckgo
     - ecosia
-    - metager
     - startpage
     
   academic:

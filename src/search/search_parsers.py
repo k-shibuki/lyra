@@ -812,15 +812,18 @@ class EcosiaParser(BaseSearchParser):
     
     def _extract_single_result(self, container: Tag) -> ParsedResult | None:
         """Extract a single result from container."""
-        # Extract title
-        title_elem = container.select_one(".result-title, h2 a, .mainline-top__title a")
+        # Extract title (updated for current Ecosia HTML structure)
+        # Title is in .result__title or .result-title__heading
+        title_elem = container.select_one(".result-title__heading, .result__title, h2 a")
         if title_elem is None:
             return None
         
         title = self._extract_text(title_elem)
+        if not title:
+            return None
         
-        # Extract URL
-        url_elem = container.select_one(".result-title a, h2 a, .result-url a")
+        # Extract URL - the actual result link is inside .result__title or has data-test-id="result-link"
+        url_elem = container.select_one("a[data-test-id='result-link'], .result__title a, a.result__link[href^='http']")
         if url_elem is None:
             # Try parent link
             if title_elem.name == "a":
@@ -839,8 +842,8 @@ class EcosiaParser(BaseSearchParser):
         if not url:
             return None
         
-        # Extract snippet
-        snippet_elem = container.select_one(".result-snippet, .mainline-top__description, p")
+        # Extract snippet (updated for current Ecosia HTML structure)
+        snippet_elem = container.select_one(".result__description, .web-result__description, p")
         snippet = self._extract_text(snippet_elem)
         
         # Extract date
@@ -858,91 +861,6 @@ class EcosiaParser(BaseSearchParser):
         """Check if URL is internal to Ecosia."""
         ecosia_domains = ["ecosia.org", "bing.com"]
         return any(ed in netloc.lower() for ed in ecosia_domains)
-
-
-# =============================================================================
-# MetaGer Parser
-# =============================================================================
-
-
-class MetaGerParser(BaseSearchParser):
-    """Parser for MetaGer search results (German meta-search, high block resistance)."""
-    
-    def __init__(self):
-        super().__init__("metager")
-    
-    def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
-        """Extract results from MetaGer SERP."""
-        results = []
-        
-        containers = self.find_elements(soup, "results_container")
-        
-        for container in containers:
-            result = self._extract_single_result(container)
-            if result:
-                results.append(result)
-        
-        return results
-    
-    def _extract_single_result(self, container: Tag) -> ParsedResult | None:
-        """Extract a single result from container."""
-        # Extract title - try multiple patterns including a.result-title (link itself has class)
-        title_elem = container.select_one("a.result-title, .result-title a, h2 a, .title a")
-        if title_elem is None:
-            # Try finding any link in container
-            title_elem = container.select_one("a")
-        
-        if title_elem is None:
-            return None
-        
-        # Title text might be in a child element (e.g., h2)
-        title_text_elem = title_elem.select_one("h2, h3, span") or title_elem
-        title = self._extract_text(title_text_elem)
-        
-        # URL is typically in the title link
-        url = self._extract_href(title_elem)
-        if not url:
-            return None
-        
-        # MetaGer sometimes uses redirect URLs
-        url = self._clean_metager_url(url)
-        
-        url = self._normalize_url(url, "https://metager.org")
-        if not url:
-            return None
-        
-        # Extract snippet
-        snippet_elem = container.select_one(".result-description, .result-snippet, .description")
-        snippet = self._extract_text(snippet_elem)
-        
-        # Extract date
-        date_elem = container.select_one(".result-date, time")
-        date = self._extract_text(date_elem) if date_elem else None
-        
-        return ParsedResult(
-            title=title,
-            url=url,
-            snippet=snippet,
-            date=date,
-        )
-    
-    def _clean_metager_url(self, url: str) -> str:
-        """Clean MetaGer redirect URL to get actual destination."""
-        from urllib.parse import parse_qs, urlparse
-        
-        # MetaGer uses /redir for tracking
-        if "/redir" in url or "proxy" in url:
-            parsed = urlparse(url)
-            params = parse_qs(parsed.query)
-            if "url" in params:
-                return params["url"][0]
-            if "q" in params:
-                return params["q"][0]
-        return url
-    
-    def _is_internal_url(self, netloc: str) -> bool:
-        """Check if URL is internal to MetaGer."""
-        return "metager.org" in netloc.lower() or "metager.de" in netloc.lower()
 
 
 # =============================================================================
@@ -971,15 +889,18 @@ class StartpageParser(BaseSearchParser):
     
     def _extract_single_result(self, container: Tag) -> ParsedResult | None:
         """Extract a single result from container."""
-        # Extract title
-        title_elem = container.select_one(".w-gl__result-title, h3, .result-title a")
+        # Extract title (updated for current Startpage HTML structure)
+        # .wgl-title contains text, .result-title is the link element
+        title_elem = container.select_one(".wgl-title, .result-title, h3")
         if title_elem is None:
             return None
         
         title = self._extract_text(title_elem)
+        if not title:
+            return None
         
-        # Extract URL
-        url_elem = container.select_one("a.w-gl__result-url, .result-link, a[href^='http']")
+        # Extract URL - .result-title is usually the link itself
+        url_elem = container.select_one("a.result-title, a.result-link, a[href^='http']")
         if url_elem is None:
             # Try parent link or find link in container
             if title_elem.name == "a":
@@ -987,7 +908,7 @@ class StartpageParser(BaseSearchParser):
             else:
                 url_elem = title_elem.find_parent("a")
                 if url_elem is None:
-                    url_elem = container.select_one("a")
+                    url_elem = container.select_one("a[href^='http']")
         
         if url_elem is None:
             return None
@@ -1003,8 +924,8 @@ class StartpageParser(BaseSearchParser):
         if not url:
             return None
         
-        # Extract snippet
-        snippet_elem = container.select_one(".w-gl__description, .result-snippet, p")
+        # Extract snippet (updated for current Startpage HTML structure)
+        snippet_elem = container.select_one(".description, .w-gl__description, p.description")
         snippet = self._extract_text(snippet_elem)
         
         # Extract date
@@ -1049,7 +970,6 @@ _parser_registry: dict[str, type[BaseSearchParser]] = {
     "qwant": QwantParser,
     "brave": BraveParser,
     "ecosia": EcosiaParser,
-    "metager": MetaGerParser,
     "startpage": StartpageParser,
 }
 

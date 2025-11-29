@@ -1414,91 +1414,40 @@ podman exec lancet python tests/scripts/verify_network_resilience.py
 - `metager`: ログインゲート検出のため削除（16.13.5参照）
 
 #### 16.13.4 スキーマ拡張 ✅
-- [x] `SearchParsersConfigSchema`: ecosia/metager/startpage フィールド追加
+- [x] `SearchParsersConfigSchema`: ecosia/startpage フィールド追加
 - [x] `ParserConfigManager._load_config()`: 新エンジンのパース対応
 
-#### 16.13.5 E2E検証結果と修正計画 🔴
+#### 16.13.5 E2E検証結果と修正 ✅
 
-**E2E検証実施日**: 2024-11-28
+##### E2E検証結果
 
-##### 検証結果サマリ
+| エンジン | CDP | 検索 | パーサー | セッション | 結果 |
+|----------|-----|------|----------|------------|------|
+| DuckDuckGo | ✅ | ✅ | ✅ 100% | ✅ | 5/5 |
+| Ecosia | ✅ | ✅ | ✅ 100% | ✅ | 4/4 |
+| Startpage | ✅ | ✅ | ✅ 100% | ✅ | 4/4 |
 
-| エンジン | CDP接続 | 検索実行 | パーサー | 問題 |
-|----------|---------|----------|----------|------|
-| **DuckDuckGo** | ✅ | ✅ 5件/3.4s | ✅ 100% | ステルス検証でインポートエラー |
-| **Ecosia** | ✅ | ❌ | ❌ | セレクター不一致（title, url） |
-| **MetaGer** | ✅ | ❌ | ❌ | ログインゲート（全セレクター失敗） |
-| **Startpage** | ✅ | ❌ | ❌ | セレクター不一致（title） |
+##### 修正完了項目
 
-##### 詳細分析
-
-**DuckDuckGo（スクリプト修正要）**:
-- 検索・パーサー: ✅ 正常動作（5件取得、精度100%）
-- 問題: ステルス検証（verify_stealth）で`FetchPolicy`インポートエラー
-- 原因: `src/crawler/fetcher.py`に`FetchPolicy`クラスが存在しない
-- 修正: E2Eスクリプトの依存クラス確認・修正
-
-**Ecosia（要修正）**:
-- 問題: `config/search_parsers.yaml`のセレクターが実際のHTMLと不一致
-- 実際のHTML構造（`debug/search_html/ecosia_*.html`より）:
-  - 結果コンテナ: `.result.web-result.mainline__result`
-  - タイトル: `.result__title`, `.result-title__heading`
-  - URL: `.result__link`
-  - スニペット: `.result__description`
-- 修正: `config/search_parsers.yaml`のecosiaセレクターを更新
-
-**MetaGer（削除）**:
-- 問題: 検索結果ページにログインゲートが存在
-- 症状: `results_container`, `title`, `url`の全セレクターが失敗
-- 決定: **エンジンから完全削除**（ログインゲートはCAPTCHA解決と異なり、手動介入でも回避困難）
-
-**Startpage（要修正）**:
-- 問題: titleセレクターが実際のHTMLと不一致
-- 修正: `debug/search_html/startpage_*.html`を分析してセレクター更新
-
-##### E2Eスクリプトのバグ
-
-- `SearchResponse`に`captcha_detected`属性が存在しない
-  - 修正: `result.error`または`result.ok`で判定するよう修正
-- `verify_duckduckgo_search.py`のステルス検証で`FetchPolicy`インポートエラー
-  - 原因: `src/crawler/fetcher.py`に`FetchPolicy`クラスが存在しない
-  - 修正: 正しいクラス名に変更、またはステルス検証ロジック見直し
-
-##### 修正タスク（別ブランチで実施）
-
-- [ ] DuckDuckGo E2Eスクリプト修正
-  - `verify_duckduckgo_search.py`: `FetchPolicy`インポートエラー修正
-  - ステルス検証（verify_stealth）の依存クラス確認
-- [ ] MetaGer完全削除
-  - `config/engines.yaml`: metagerセクション削除
-  - `config/search_parsers.yaml`: metagerセクション削除
-  - `src/search/search_parsers.py`: `MetaGerParser`クラス削除
-  - `src/search/parser_config.py`: metagerフィールド削除
-  - `tests/test_search_parsers.py`: MetaGer関連テスト削除
-  - `tests/fixtures/search_html/metager_results.html`: 削除
-  - `tests/scripts/verify_metager_search.py`: 削除
-- [ ] Ecosiaセレクター修正
-  - `config/search_parsers.yaml`: 実HTMLに合わせてセレクター更新
-  - `tests/fixtures/search_html/ecosia_results.html`: 実HTMLベースに更新
-  - E2E再検証
-- [ ] Startpageセレクター修正
-  - `config/search_parsers.yaml`: 実HTMLに合わせてセレクター更新
-  - `tests/fixtures/search_html/startpage_results.html`: 実HTMLベースに更新
-  - E2E再検証
-- [ ] E2Eスクリプト共通修正
-  - `verify_duckduckgo_search.py`: `FetchPolicy`インポートエラー修正
-  - `verify_ecosia_search.py`: `captcha_detected`属性エラー修正
-  - `verify_startpage_search.py`: 同上
-  - 全スクリプト: `SearchResponse`属性参照の統一
+- [x] E2Eスクリプト共通修正
+  - `verify_duckduckgo_search.py`: `FetchPolicy`→`BrowserFetcher.fetch(headful=False)`
+  - `verify_duckduckgo_search.py`: `FetchResult.content`→`html_path or content_hash`
+  - 全スクリプト: `captcha_detected`→`_is_captcha_error()`ヘルパー
+  - 全スクリプト: `SearchResponse.error`からCAPTCHA判定するよう統一
+- [x] MetaGer完全削除（ログインゲートのため使用不可）
+- [x] Ecosiaセレクター修正（実HTMLに基づく）
+  - `a[data-test-id='result-link']`, `.result-title__heading`
+- [x] Startpageセレクター修正（実HTMLに基づく）
+  - `.wgl-title`, `a.result-title`, `.description`
 
 **成果物**:
-- `config/engines.yaml`（更新: 2エンジン追加、MetaGer削除予定）
-- `config/search_parsers.yaml`（更新: 2エンジン定義、MetaGer削除予定）
-- `src/search/search_parsers.py`（更新: 2パーサークラス、MetaGer削除予定）
+- `config/engines.yaml`（更新: ecosia/startpage追加、7エンジン）
+- `config/search_parsers.yaml`（更新: 実HTML準拠セレクター）
+- `src/search/search_parsers.py`（更新: 実HTML準拠パーサー、計7パーサー）
 - `src/search/parser_config.py`（更新: スキーマ拡張）
-- テスト: `tests/test_search_parsers.py`（拡張: 31テスト追加、計62件）
-- HTMLフィクスチャ: `tests/fixtures/search_html/`（3ファイル追加、1削除予定）
-- E2Eスクリプト: `tests/scripts/verify_*_search.py`（4スクリプト）
+- テスト: `tests/test_search_parsers.py`（53テスト）
+- HTMLフィクスチャ: `tests/fixtures/search_html/`（5ファイル、実HTML準拠）
+- E2Eスクリプト: `tests/scripts/verify_*_search.py`（3スクリプト）
 
 ---
 

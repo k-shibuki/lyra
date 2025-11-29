@@ -40,7 +40,6 @@ from src.search.search_parsers import (
     DuckDuckGoParser,
     MojeekParser,
     EcosiaParser,
-    MetaGerParser,
     StartpageParser,
     ParseResult,
     ParsedResult,
@@ -86,13 +85,6 @@ def mojeek_html(fixtures_dir: Path) -> str:
 def ecosia_html(fixtures_dir: Path) -> str:
     """Load Ecosia sample HTML."""
     html_file = fixtures_dir / "ecosia_results.html"
-    return html_file.read_text(encoding="utf-8")
-
-
-@pytest.fixture
-def metager_html(fixtures_dir: Path) -> str:
-    """Load MetaGer sample HTML."""
-    html_file = fixtures_dir / "metager_results.html"
     return html_file.read_text(encoding="utf-8")
 
 
@@ -608,94 +600,6 @@ class TestEcosiaParser:
 
 
 # ============================================================================
-# MetaGer Parser Tests (Phase 16.13)
-# ============================================================================
-
-
-class TestMetaGerParser:
-    """Tests for MetaGerParser (German meta-search, high block resistance)."""
-    
-    def test_parse_results(self, metager_html: str):
-        """Test parsing MetaGer search results."""
-        parser = MetaGerParser()
-        result = parser.parse(metager_html, "test query")
-        
-        assert result.ok is True
-        assert len(result.results) == 2
-        assert result.is_captcha is False
-        assert result.error is None
-    
-    def test_parse_result_titles(self, metager_html: str):
-        """Test extracted titles from MetaGer."""
-        parser = MetaGerParser()
-        result = parser.parse(metager_html, "test")
-        
-        titles = [r.title for r in result.results]
-        assert "MetaGer Ergebnis Eins" in titles
-        assert "PubMed Medical Article" in titles
-    
-    def test_parse_result_urls(self, metager_html: str):
-        """Test extracted URLs from MetaGer."""
-        parser = MetaGerParser()
-        result = parser.parse(metager_html, "test")
-        
-        urls = [r.url for r in result.results]
-        assert "https://example.de/metager1" in urls
-        assert "https://pubmed.ncbi.nlm.nih.gov/12345" in urls
-    
-    def test_parse_result_snippets(self, metager_html: str):
-        """Test extracted snippets from MetaGer match expected content."""
-        parser = MetaGerParser()
-        result = parser.parse(metager_html, "test")
-        
-        # Verify specific snippet content by index (deterministic order from fixture)
-        assert len(result.results) == 2
-        # German text in first result
-        assert "Ergebnis von MetaGer" in result.results[0].snippet
-        # English text in second result
-        assert "Medical research article" in result.results[1].snippet
-    
-    def test_build_search_url(self):
-        """Test building MetaGer search URL."""
-        parser = MetaGerParser()
-        url = parser.build_search_url("test query")
-        
-        assert "metager.org" in url
-    
-    def test_academic_source_classification(self, metager_html: str):
-        """Test PubMed source is classified as academic."""
-        parser = MetaGerParser()
-        result = parser.parse(metager_html, "test")
-        
-        academic_result = next(
-            (r for r in result.results if "pubmed" in r.url.lower()),
-            None,
-        )
-        assert academic_result is not None
-        
-        search_result = academic_result.to_search_result("metager")
-        assert search_result.source_tag == SourceTag.ACADEMIC
-    
-    def test_empty_html(self):
-        """Test empty HTML returns failure with selector errors for required selectors."""
-        parser = MetaGerParser()
-        result = parser.parse("", "test")
-        
-        assert result.ok is False
-        # MetaGer has 3 required selectors: results_container, title, url
-        assert len(result.selector_errors) == 3
-    
-    def test_captcha_detection_german(self):
-        """Test German CAPTCHA patterns are detected."""
-        parser = MetaGerParser()
-        
-        # German rate limit message
-        html = "<html><body>Zu viele Anfragen von Ihrer IP</body></html>"
-        result = parser.parse(html, "test")
-        assert result.is_captcha is True
-
-
-# ============================================================================
 # Startpage Parser Tests (Phase 16.13)
 # ============================================================================
 
@@ -821,12 +725,6 @@ class TestPhase1613ParserRegistry:
         assert parser is not None
         assert isinstance(parser, EcosiaParser)
     
-    def test_metager_parser_available(self):
-        """Test MetaGer parser is registered and returns correct type."""
-        parser = get_parser("metager")
-        assert parser is not None
-        assert isinstance(parser, MetaGerParser)
-    
     def test_startpage_parser_available(self):
         """Test Startpage parser is registered and returns correct type."""
         parser = get_parser("startpage")
@@ -834,19 +732,16 @@ class TestPhase1613ParserRegistry:
         assert isinstance(parser, StartpageParser)
     
     def test_new_parsers_in_available_list(self):
-        """Test all Phase 16.13 parsers appear in available parsers list."""
+        """Test Phase 16.13 parsers appear in available parsers list."""
         parsers = get_available_parsers()
         
-        # Verify each new parser is present
         assert "ecosia" in parsers, f"ecosia not in {parsers}"
-        assert "metager" in parsers, f"metager not in {parsers}"
         assert "startpage" in parsers, f"startpage not in {parsers}"
     
     def test_all_parsers_count(self):
-        """Test total parser count is exactly 8 (5 original + 3 new)."""
+        """Test total parser count is exactly 7."""
         parsers = get_available_parsers()
         
-        # Exactly 8 parsers:
-        # duckduckgo, mojeek, google, qwant, brave, ecosia, metager, startpage
-        assert len(parsers) == 8, f"Expected 8 parsers, got {len(parsers)}: {parsers}"
+        # duckduckgo, mojeek, google, qwant, brave, ecosia, startpage
+        assert len(parsers) == 7, f"Expected 7 parsers, got {len(parsers)}: {parsers}"
 
