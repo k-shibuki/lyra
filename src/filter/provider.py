@@ -3,12 +3,6 @@ LLM provider abstraction layer for Lancet.
 
 Provides a unified interface for LLM providers, enabling easy switching
 between different backends (Ollama, future providers like llama.cpp, vLLM).
-
-Implements Phase 17.1.2 of IMPLEMENTATION_PLAN.md:
-- LLMProvider protocol/ABC definition
-- Provider registration and switching mechanism
-- Health status interface
-- Model info interface
 """
 
 from abc import ABC, abstractmethod

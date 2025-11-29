@@ -1,5 +1,5 @@
 """
-Tests for SearchEngineConfigManager (Phase 17.2.2).
+Tests for SearchEngineConfigManager.
 
 Tests:
 - Configuration loading and parsing

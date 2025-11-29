@@ -1,7 +1,7 @@
 """
 Unit tests for the search provider abstraction layer.
 
-Tests for Phase 17.1.1: SearchProvider abstraction.
+Tests for SearchProvider abstraction.
 Validates:
 - SearchProvider protocol and BaseSearchProvider
 - SearchResult and SearchResponse data classes

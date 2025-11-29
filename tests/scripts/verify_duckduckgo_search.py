@@ -487,7 +487,7 @@ class BrowserSearchVerifier:
     async def run_all(self) -> int:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
-        print("Phase 16.9: Browser Search Verification")
+        print("E2E: Browser Search Verification")
         print("検証対象: §3.2 エージェント実行機能（ブラウザ検索）")
         print("=" * 70)
         

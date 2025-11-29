@@ -13,7 +13,7 @@ CDP Safety (§3.6.1):
 - Allowed: Page.navigate, Network.enable (passive), Page.bringToFront
 - Forbidden: Runtime.evaluate, DOM.*, Input.*, Emulation.*
 
-Provider Abstraction (Phase 17.1.4):
+Provider Abstraction:
 - NotificationProvider protocol for platform-specific implementations
 - Automatic platform detection and provider selection
 - Fallback mechanism for reliability
@@ -505,7 +505,7 @@ class InterventionManager:
         """Send a toast notification using the provider abstraction layer.
         
         Uses NotificationProviderRegistry for platform-specific notifications
-        with automatic fallback support (Phase 17.1.4).
+        with automatic fallback support.
         
         Args:
             title: Notification title.

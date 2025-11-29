@@ -392,7 +392,7 @@ class EcosiaSearchVerifier:
     async def run_all(self) -> int:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
-        print(f"Phase 16.13: {self.ENGINE_DISPLAY} Search E2E Verification")
+        print(f"E2E: {self.ENGINE_DISPLAY} Search Verification")
         print("=" * 70)
         
         # Prerequisites

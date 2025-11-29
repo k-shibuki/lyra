@@ -487,7 +487,7 @@ LEFT JOIN claims c ON t.id = c.task_id
 GROUP BY t.id;
 
 -- ============================================================
--- Metrics & Policy (Phase 10: Auto-adaptation)
+-- Metrics & Policy (Auto-adaptation)
 -- ============================================================
 
 -- Global metrics snapshots (periodic system-wide metrics)

@@ -493,7 +493,7 @@ class NetworkResilienceVerifier:
     async def run_all(self) -> int:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
-        print("Phase 16.10: Network Resilience Verification")
+        print("E2E: Network Resilience Verification")
         print("Target: §7 Acceptance Criteria - Network Resilience")
         print("=" * 70)
         

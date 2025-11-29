@@ -818,7 +818,7 @@ class SessionTransferVerifier:
     async def run_all(self) -> int:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
-        print("Phase 16.10.3: Session Transfer Verification")
+        print("E2E: Session Transfer Verification")
         print("検証対象: §3.1.2 セッション移送ユーティリティ")
         print("=" * 70)
         

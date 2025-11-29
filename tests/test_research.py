@@ -1,5 +1,5 @@
 """
-Tests for Phase 11: Exploration Control Engine.
+Tests for Exploration Control Engine.
 
 These tests verify the exploration control functionality per §2.1 and §3.1.7:
 - ResearchContext provides design support information (not subquery candidates)

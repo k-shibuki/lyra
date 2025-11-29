@@ -3,11 +3,6 @@ Search provider abstraction layer for Lancet.
 
 Provides a unified interface for search providers, enabling easy switching
 between different search backends (BrowserSearchProvider is the default).
-
-Implements Phase 17.1.1 of IMPLEMENTATION_PLAN.md:
-- SearchProvider protocol/ABC definition
-- Provider registration and switching mechanism
-- Health status interface
 """
 
 from abc import ABC, abstractmethod

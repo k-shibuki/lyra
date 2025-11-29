@@ -2,7 +2,6 @@
 Ollama LLM provider implementation for Lancet.
 
 Implements the LLMProvider interface for Ollama backend.
-Refactored from src/filter/llm.py as part of Phase 17.1.2.
 
 Per §4.2: LLM processes are destroyed after task completion to prevent memory leaks.
 """

@@ -8,11 +8,6 @@ Design Philosophy:
 - Required selectors fail loudly with diagnostic messages
 - Failed HTML is saved for debugging
 - AI-friendly error messages enable quick fixes
-
-Per Phase 16.9 of IMPLEMENTATION_PLAN.md:
-- BaseSearchParser with structure validation
-- DuckDuckGoParser, MojeekParser implementations
-- HTML snapshot saving on parse failure
 """
 
 from __future__ import annotations

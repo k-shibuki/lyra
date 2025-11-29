@@ -5,7 +5,7 @@ Test Classification (§7.1.7):
 - All tests here are unit tests (no external dependencies)
 - External dependencies (subprocess, platform) are mocked
 
-Requirements tested per Phase 17.1.4:
+Requirements tested:
 - NotificationProvider protocol/ABC implementation
 - Platform detection accuracy
 - Provider registration and switching

@@ -1,7 +1,7 @@
 """
 Lancet search module.
 
-Provides unified search interface through provider abstraction (Phase 17.1.1).
+Provides unified search interface through provider abstraction.
 All search operations now go through SearchProvider interface by default.
 
 Main entry point:
@@ -11,14 +11,14 @@ Provider system:
     SearchProvider - Protocol for search providers
     SearchProviderRegistry - Registry for provider management
     get_registry() - Get global provider registry
-    BrowserSearchProvider - Direct Playwright-based search (Phase 16.9, default)
+    BrowserSearchProvider - Direct Playwright-based search (default)
 
-Engine configuration (Phase 17.2.2):
+Engine configuration:
     SearchEngineConfigManager - Centralized engine configuration
     get_engine_config_manager() - Get global engine config manager
     EngineConfig - Individual engine configuration
 
-Parser system (Phase 16.9):
+Parser system:
     ParserConfigManager - Parser configuration management
     get_parser() - Get parser for a search engine
 
@@ -38,7 +38,7 @@ from src.search.search_api import (
     build_search_query,
 )
 
-# Engine configuration (Phase 17.2.2)
+# Engine configuration
 from src.search.engine_config import (
     SearchEngineConfigManager,
     get_engine_config_manager,
@@ -67,7 +67,7 @@ from src.search.ab_test import (
     HighYieldQueryCache,
 )
 
-# Provider abstraction (Phase 17.1.1)
+# Provider abstraction
 from src.search.provider import (
     SearchProvider,
     BaseSearchProvider,
@@ -82,14 +82,14 @@ from src.search.provider import (
     cleanup_registry,
 )
 
-# Browser-based search provider (Phase 16.9 - default)
+# Browser-based search provider (default)
 from src.search.browser_search_provider import (
     BrowserSearchProvider,
     get_browser_search_provider,
     cleanup_browser_search_provider,
 )
 
-# Parser system (Phase 16.9)
+# Parser system
 from src.search.parser_config import (
     ParserConfigManager,
     get_parser_config_manager,
@@ -123,7 +123,7 @@ __all__ = [
     "ABTestExecutor",
     "QueryVariantGenerator",
     "HighYieldQueryCache",
-    # Provider abstraction (Phase 17.1.1)
+    # Provider abstraction
     "SearchProvider",
     "BaseSearchProvider",
     "SearchResult",
@@ -135,18 +135,18 @@ __all__ = [
     "SearchProviderRegistry",
     "get_registry",
     "cleanup_registry",
-    # Browser search provider (Phase 16.9 - default)
+    # Browser search provider (default)
     "BrowserSearchProvider",
     "get_browser_search_provider",
     "cleanup_browser_search_provider",
-    # Parser system (Phase 16.9)
+    # Parser system
     "ParserConfigManager",
     "get_parser_config_manager",
     "get_engine_parser_config",
     "BaseSearchParser",
     "get_parser",
     "get_available_parsers",
-    # Engine configuration (Phase 17.2.2)
+    # Engine configuration
     "SearchEngineConfigManager",
     "get_engine_config_manager",
     "reset_engine_config_manager",

@@ -62,7 +62,7 @@ engines:
     qps: 0.2
     block_resistant: false
   
-  # === Additional Engines (Phase 16.13) ===
+  # === Additional Engines ===
   ecosia:
     priority: 4
     weight: 0.5

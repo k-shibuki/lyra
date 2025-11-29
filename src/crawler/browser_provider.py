@@ -3,12 +3,6 @@ Browser provider abstraction layer for Lancet.
 
 Provides a unified interface for browser automation providers, enabling easy
 switching between different backends (Playwright, undetected-chromedriver).
-
-Implements Phase 17.1.3 of IMPLEMENTATION_PLAN.md:
-- BrowserProvider protocol/ABC definition
-- Provider registration and switching mechanism
-- Health status interface
-- Automatic fallback strategy
 """
 
 from abc import ABC, abstractmethod

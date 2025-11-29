@@ -97,7 +97,7 @@ class TestSearchToExtractPipeline:
 
 
 # =============================================================================
-# Exploration Control Engine Integration Tests (Phase 11)
+# Exploration Control Engine Integration Tests
 # =============================================================================
 
 @pytest.mark.integration

@@ -667,7 +667,7 @@ class SearchFetchVerifier:
     async def run_all(self) -> int:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
-        print("Phase 16.10.3: Search→Fetch Consistency Verification")
+        print("E2E: Search→Fetch Consistency Verification")
         print("検証対象: §3.2 エージェント実行機能")
         print("=" * 70)
         

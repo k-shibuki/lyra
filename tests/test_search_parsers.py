@@ -1,7 +1,7 @@
 """
 Unit tests for search result parsers.
 
-Tests for Phase 16.9: Direct browser-based search.
+Tests for search result parsers.
 Validates:
 - ParserConfigManager configuration loading
 - BaseSearchParser functionality
@@ -509,7 +509,7 @@ class TestParserErrorHandling:
 
 
 # ============================================================================
-# Ecosia Parser Tests (Phase 16.13)
+# Ecosia Parser Tests
 # ============================================================================
 
 
@@ -600,7 +600,7 @@ class TestEcosiaParser:
 
 
 # ============================================================================
-# Startpage Parser Tests (Phase 16.13)
+# Startpage Parser Tests
 # ============================================================================
 
 
@@ -712,12 +712,12 @@ class TestStartpageParser:
 
 
 # ============================================================================
-# Phase 16.13 Parser Registry Tests
+# Additional Parser Registry Tests
 # ============================================================================
 
 
 class TestPhase1613ParserRegistry:
-    """Tests for new parsers added in Phase 16.13."""
+    """Tests for additional parsers (Ecosia, Startpage)."""
     
     def test_ecosia_parser_available(self):
         """Test Ecosia parser is registered and returns correct type."""
@@ -732,7 +732,7 @@ class TestPhase1613ParserRegistry:
         assert isinstance(parser, StartpageParser)
     
     def test_new_parsers_in_available_list(self):
-        """Test Phase 16.13 parsers appear in available parsers list."""
+        """Test additional parsers appear in available parsers list."""
         parsers = get_available_parsers()
         
         assert "ecosia" in parsers, f"ecosia not in {parsers}"

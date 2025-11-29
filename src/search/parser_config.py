@@ -8,11 +8,6 @@ Design Philosophy:
 - Each selector has 'required' flag and 'diagnostic_message' for AI-friendly debugging
 - Hot-reload support for configuration changes
 - Failed HTML is saved for inspection when parsing fails
-
-Per Phase 16.9 of IMPLEMENTATION_PLAN.md:
-- Selector externalization for easy maintenance
-- Diagnostic messages for AI-assisted debugging
-- HTML snapshot saving for parse failure analysis
 """
 
 from __future__ import annotations
@@ -129,7 +124,7 @@ class SearchParsersConfigSchema(BaseModel):
     google: EngineParserSchema | None = None
     brave: EngineParserSchema | None = None
     qwant: EngineParserSchema | None = None
-    # Phase 16.13: Additional engines
+    # Additional engines
     ecosia: EngineParserSchema | None = None
     startpage: EngineParserSchema | None = None
     
@@ -141,7 +136,7 @@ class SearchParsersConfigSchema(BaseModel):
     def get_available_engines(self) -> list[str]:
         """Get list of configured engine names."""
         engines = []
-        # All supported engines including Phase 16.13 additions
+        # All supported engines
         for name in ["duckduckgo", "mojeek", "google", "brave", "qwant", 
                      "ecosia", "startpage"]:
             if getattr(self, name, None) is not None:

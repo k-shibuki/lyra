@@ -1008,7 +1008,7 @@ cloudflare_sites:
 
 
 # =============================================================================
-# Search Engine Policy Schema Tests (Phase 17.2.1)
+# Search Engine Policy Schema Tests
 # =============================================================================
 
 class TestSearchEnginePolicySchema:
@@ -1144,7 +1144,7 @@ class TestPolicyBoundsSchema:
 
 
 # =============================================================================
-# Search Engine Policy Access Tests (Phase 17.2.1)
+# Search Engine Policy Access Tests
 # =============================================================================
 
 class TestSearchEnginePolicyAccess:
@@ -1218,7 +1218,7 @@ class TestSearchEnginePolicyAccess:
 
 
 # =============================================================================
-# Policy Bounds Access Tests (Phase 17.2.1)
+# Policy Bounds Access Tests
 # =============================================================================
 
 class TestPolicyBoundsAccess:
@@ -1268,7 +1268,7 @@ class TestPolicyBoundsAccess:
 
 
 # =============================================================================
-# Default Config Fallback Tests (Phase 17.2.1)
+# Default Config Fallback Tests
 # =============================================================================
 
 class TestDefaultConfigFallback:
