@@ -45,6 +45,21 @@ logger = get_logger(__name__)
 
 
 # =============================================================================
+# Exceptions
+# =============================================================================
+
+
+class CDPConnectionError(Exception):
+    """
+    Raised when CDP connection to Chrome fails.
+    
+    This indicates Chrome is not running with remote debugging enabled.
+    Per spec (§4.3.3), headless fallback is not supported.
+    """
+    pass
+
+
+# =============================================================================
 # Data Classes
 # =============================================================================
 
@@ -140,6 +155,9 @@ class BrowserSearchProvider(BaseSearchProvider):
         # Session management
         self._sessions: dict[str, BrowserSearchSession] = {}
         
+        # CDP connection state
+        self._cdp_connected = False
+        
         # Health metrics
         self._success_count = 0
         self._failure_count = 0
@@ -148,29 +166,40 @@ class BrowserSearchProvider(BaseSearchProvider):
         self._last_error: str | None = None
     
     async def _ensure_browser(self) -> None:
-        """Ensure browser is initialized."""
+        """
+        Ensure browser is initialized via CDP connection.
+        
+        Per spec (§3.2, §4.3.3), CDP connection to real Chrome profile is required.
+        Headless fallback is not supported as it violates the "real profile consistency" principle.
+        
+        Raises:
+            CDPConnectionError: If CDP connection fails (Chrome not running or not accessible).
+        """
         if self._playwright is None:
             try:
                 from playwright.async_api import async_playwright
                 
                 self._playwright = await async_playwright().start()
                 
-                # Try CDP connection to Windows Chrome first
+                # CDP connection to Chrome (required, no fallback)
                 chrome_host = getattr(self._settings.browser, "chrome_host", "localhost")
                 chrome_port = getattr(self._settings.browser, "chrome_port", 9222)
                 cdp_url = f"http://{chrome_host}:{chrome_port}"
                 
                 try:
                     self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+                    self._cdp_connected = True
                     logger.info("Connected to Chrome via CDP", url=cdp_url)
                 except Exception as e:
-                    logger.warning(
-                        "CDP connection failed, launching browser",
-                        error=str(e),
-                    )
-                    self._browser = await self._playwright.chromium.launch(
-                        headless=True,
-                    )
+                    # CDP connection failed - do NOT fall back to headless
+                    # Per spec: "real profile consistency" is required
+                    self._cdp_connected = False
+                    await self._playwright.stop()
+                    self._playwright = None
+                    raise CDPConnectionError(
+                        f"CDP connection failed: {e}. "
+                        f"Start Chrome with: ./scripts/chrome.sh start"
+                    ) from e
                 
                 # Create context with realistic settings
                 self._context = await self._browser.new_context(
@@ -186,6 +215,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                     lambda route: route.abort(),
                 )
                 
+            except CDPConnectionError:
+                raise
             except Exception as e:
                 logger.error("Failed to initialize browser", error=str(e))
                 raise
@@ -254,6 +285,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                     provider=self.name,
                     error=f"No parser available for engine: {engine}",
                     elapsed_ms=(time.time() - start_time) * 1000,
+                    connection_mode="cdp" if self._cdp_connected else None,
                 )
             
             # Build search URL
@@ -279,8 +311,13 @@ class BrowserSearchProvider(BaseSearchProvider):
                 wait_until="domcontentloaded",
             )
             
-            # Wait for content to load
-            await page.wait_for_load_state("networkidle", timeout=10000)
+            # Wait for content to load (with fallback for JS-heavy sites)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                # Some engines (e.g., Brave) have constant JS activity
+                # Fall back to a short fixed wait
+                await asyncio.sleep(2)
             
             # Get HTML content
             html = await page.content()
@@ -314,6 +351,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         provider=self.name,
                         error=f"CAPTCHA detected: {parse_result.captcha_type}",
                         elapsed_ms=elapsed_ms,
+                        connection_mode="cdp",
                     )
             
             # Handle parse failure
@@ -340,6 +378,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                     provider=self.name,
                     error=error_msg,
                     elapsed_ms=elapsed_ms,
+                    connection_mode="cdp",
                 )
             
             # Convert results
@@ -368,6 +407,27 @@ class BrowserSearchProvider(BaseSearchProvider):
                 provider=self.name,
                 total_count=len(parse_result.results),
                 elapsed_ms=elapsed_ms,
+                connection_mode="cdp",
+            )
+            
+        except CDPConnectionError as e:
+            # CDP connection failed - Chrome not running with remote debugging
+            self._failure_count += 1
+            self._last_error = str(e)
+            elapsed_ms = (time.time() - start_time) * 1000
+            
+            logger.error(
+                "CDP connection failed",
+                error=str(e),
+            )
+            
+            return SearchResponse(
+                results=[],
+                query=query,
+                provider=self.name,
+                error=str(e),
+                elapsed_ms=elapsed_ms,
+                connection_mode=None,
             )
             
         except asyncio.TimeoutError:
@@ -383,6 +443,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 provider=self.name,
                 error="Timeout",
                 elapsed_ms=elapsed_ms,
+                connection_mode="cdp" if self._cdp_connected else None,
             )
             
         except Exception as e:
@@ -403,6 +464,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 provider=self.name,
                 error=str(e),
                 elapsed_ms=elapsed_ms,
+                connection_mode="cdp" if self._cdp_connected else None,
             )
     
     async def _request_intervention(

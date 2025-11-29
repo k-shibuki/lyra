@@ -98,6 +98,7 @@ class SearchResponse:
         error: Error message if search failed.
         provider: Provider name that returned this response.
         elapsed_ms: Time taken for search in milliseconds.
+        connection_mode: Browser connection mode used ("cdp" or None if not applicable).
     """
     results: list[SearchResult]
     query: str
@@ -105,6 +106,7 @@ class SearchResponse:
     total_count: int = 0
     error: str | None = None
     elapsed_ms: float = 0.0
+    connection_mode: str | None = None
     
     @property
     def ok(self) -> bool:
@@ -121,6 +123,7 @@ class SearchResponse:
             "error": self.error,
             "elapsed_ms": self.elapsed_ms,
             "ok": self.ok,
+            "connection_mode": self.connection_mode,
         }
 
 

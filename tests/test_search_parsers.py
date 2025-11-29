@@ -747,11 +747,11 @@ class TestPhase1613ParserRegistry:
         assert "startpage" in parsers, f"startpage not in {parsers}"
     
     def test_all_parsers_count(self):
-        """Test total parser count is exactly 8."""
+        """Test total parser count is exactly 7."""
         parsers = get_available_parsers()
         
-        # duckduckgo, mojeek, google, qwant, brave, ecosia, startpage, bing
-        assert len(parsers) == 8, f"Expected 8 parsers, got {len(parsers)}: {parsers}"
+        # duckduckgo, mojeek, google, brave, ecosia, startpage, bing
+        assert len(parsers) == 7, f"Expected 7 parsers, got {len(parsers)}: {parsers}"
 
 
 # ============================================================================

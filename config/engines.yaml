@@ -8,7 +8,6 @@ default_engines:
   - wikidata
   - mojeek
   - marginalia
-  - qwant
   - duckduckgo
 
 # Last-mile engines (strict limits, used when other engines fail)
@@ -47,13 +46,6 @@ engines:
     categories: [general, technical]
     qps: 0.25
     block_resistant: true
-    
-  qwant:
-    priority: 3
-    weight: 0.75
-    categories: [general, news]
-    qps: 0.2
-    block_resistant: false
     
   duckduckgo:
     priority: 3
