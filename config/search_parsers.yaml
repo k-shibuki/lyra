@@ -256,49 +256,6 @@ brave:
       case_insensitive: true
 
 # =============================================================================
-# Qwant Parser
-# =============================================================================
-qwant:
-  search_url: "https://www.qwant.com/?q={query}&t=web&freshness={time_range}"
-  
-  time_ranges:
-    all: ""
-    day: "day"
-    week: "week"
-    month: "month"
-  
-  selectors:
-    results_container:
-      selector: "[data-testid='webResult'], .result, .web-results article"
-      required: true
-      diagnostic_message: |
-        Qwant results container not found.
-        Expected: Elements with data-testid='webResult'
-        Note: Qwant may require JavaScript rendering.
-    
-    title:
-      selector: "a h2, .title, [data-testid='webResultTitle']"
-      required: true
-    
-    url:
-      selector: "a[href^='http']"
-      required: true
-    
-    snippet:
-      selector: "[data-testid='webResultDescription'], .desc, p"
-      required: false
-    
-    date:
-      selector: "time, .date"
-      required: false
-  
-  captcha_patterns:
-    - pattern: "verify you are human"
-      type: "captcha"
-      case_insensitive: true
-
-
-# =============================================================================
 # Ecosia Parser (Bing-based, relatively lenient)
 # =============================================================================
 ecosia:

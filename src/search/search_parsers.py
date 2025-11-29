@@ -654,69 +654,6 @@ class GoogleParser(BaseSearchParser):
 
 
 # =============================================================================
-# Qwant Parser
-# =============================================================================
-
-
-class QwantParser(BaseSearchParser):
-    """Parser for Qwant search results."""
-    
-    def __init__(self):
-        super().__init__("qwant")
-    
-    def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
-        """Extract results from Qwant SERP."""
-        results = []
-        
-        containers = self.find_elements(soup, "results_container")
-        
-        for container in containers:
-            result = self._extract_single_result(container)
-            if result:
-                results.append(result)
-        
-        return results
-    
-    def _extract_single_result(self, container: Tag) -> ParsedResult | None:
-        """Extract a single result from container."""
-        # Extract title
-        title_elem = container.select_one("a h2, .title, [data-testid='webResultTitle']")
-        if title_elem is None:
-            return None
-        
-        title = self._extract_text(title_elem)
-        
-        # Extract URL
-        url_elem = container.select_one("a[href^='http']")
-        if url_elem is None:
-            return None
-        
-        url = self._extract_href(url_elem)
-        if not url:
-            return None
-        
-        url = self._normalize_url(url, "https://www.qwant.com")
-        if not url:
-            return None
-        
-        # Extract snippet
-        snippet_elem = container.select_one(
-            "[data-testid='webResultDescription'], .desc, p"
-        )
-        snippet = self._extract_text(snippet_elem)
-        
-        return ParsedResult(
-            title=title,
-            url=url,
-            snippet=snippet,
-        )
-    
-    def _is_internal_url(self, netloc: str) -> bool:
-        """Check if URL is internal to Qwant."""
-        return "qwant.com" in netloc.lower()
-
-
-# =============================================================================
 # Brave Parser
 # =============================================================================
 
@@ -1059,7 +996,6 @@ _parser_registry: dict[str, type[BaseSearchParser]] = {
     "duckduckgo": DuckDuckGoParser,
     "mojeek": MojeekParser,
     "google": GoogleParser,
-    "qwant": QwantParser,
     "brave": BraveParser,
     "ecosia": EcosiaParser,
     "startpage": StartpageParser,

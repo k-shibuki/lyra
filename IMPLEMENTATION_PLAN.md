@@ -392,6 +392,11 @@ pytest -m ""
 | `verify_duckduckgo_search.py` | DuckDuckGo検索、パーサー、セッション | §3.2 | ✅ 5/5 |
 | `verify_ecosia_search.py` | Ecosia検索（Bing再販） | §3.2 | ✅ 4/4 |
 | `verify_startpage_search.py` | Startpage検索（Google再販） | §3.2 | ✅ 4/4 |
+| `verify_mojeek_search.py` | Mojeek検索（独立エンジン） | §3.2 | ✅ 4/4 |
+| `verify_qwant_search.py` | Qwant検索（EU系） | §3.2 | ✅ 4/4 |
+| `verify_brave_search.py` | Brave検索（独自インデックス） | §3.2 | ✅ 4/4 |
+| `verify_google_search.py` | Google検索（高リスク） | §3.2 | ✅ 4/4 |
+| `verify_bing_search.py` | Bing検索（高リスク） | §3.2 | ✅ 4/4 |
 | `verify_captcha_flow.py` | CAPTCHA→通知→手動解決→継続 | §3.6.1 | ✅ |
 | `verify_session_transfer.py` | ブラウザ→HTTP間セッション移送 | §3.1.2 | ✅ |
 | `verify_search_then_fetch.py` | 検索→取得の一貫性 | §3.2 | ✅ |
@@ -407,13 +412,12 @@ pytest -m ""
 | エンジン | 仕様書§3.2 | engines.yaml | パーサー | E2Eスクリプト | E2E検証 | 状態 |
 |----------|:----------:|:------------:|:--------:|:-------------:|:-------:|------|
 | DuckDuckGo | ✅ | ✅ | ✅ | ✅ | ✅ 5/5 | **完了** |
-| Mojeek | ✅ | ✅ | ✅ | ❌ | - | パーサー済 |
-| Google | ✅ | ✅ | ✅ | ❌ | - | パーサー済 |
-| Qwant | ✅ | ✅ | ✅ | ❌ | - | パーサー済 |
-| Brave | ✅ | ✅ | ✅ | ❌ | - | パーサー済 |
+| Mojeek | ✅ | ✅ | ✅ | ✅ | - | E2E作成済 |
+| Google | ✅ | ✅ | ✅ | ✅ | - | E2E作成済 |
+| Brave | ✅ | ✅ | ✅ | ✅ | - | E2E作成済 |
 | Ecosia | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
 | Startpage | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
-| Bing | - | ✅ | ✅ | ❌ | - | パーサー済 |
+| Bing | - | ✅ | ✅ | ✅ | - | E2E作成済 |
 
 ### H.2 E2E検証で判明した知見
 
@@ -457,7 +461,32 @@ url: "a.result-title, a.result-link"
 snippet: ".description"
 ```
 
-#### H.2.3 E2Eスクリプトの共通修正
+#### H.2.3 E2E検証で判明した追加問題
+
+**Qwant地域制限**:
+- 症状: 「Unfortunately we are not yet available in your country」
+- 原因: Qwantは日本からのアクセスを制限している
+- 対応: engines.yamlからQwantを削除（地域制限はCAPTCHAと異なり回避困難）
+
+**Braveタイムアウト**: ✅ 修正済み
+- 症状: `networkidle`待機で10秒タイムアウト
+- 原因: BraveはJSで常時ネットワークリクエストを発生させる
+- 対応: `networkidle`を5秒try後、`asyncio.sleep(2)`にフォールバック
+
+**BrowserSearchProvider CDPフォールバック問題**: ✅ 修正済み
+- 症状: Chromeが起動していない時に「CAPTCHA detected」と報告されていた
+- 根本原因: CDP接続失敗時にヘッドレスフォールバックが発生（仕様違反）
+- 修正内容:
+  1. ヘッドレスフォールバックを削除（§4.3.3「実プロファイルの一貫性」に準拠）
+  2. CDP接続失敗時は明確なエラーメッセージを返す
+  3. エラーメッセージに`./scripts/chrome.sh start`の案内を含める
+  4. `SearchResponse.connection_mode`フィールド追加（診断用）
+- 変更ファイル:
+  - `src/search/provider.py`: `SearchResponse`に`connection_mode`追加
+  - `src/search/browser_search_provider.py`: フォールバック削除、`CDPConnectionError`追加
+  - `tests/test_browser_search_provider.py`: CDP接続テスト追加
+
+#### H.2.4 E2Eスクリプトの共通修正
 
 **問題1**: `SearchResponse`に`captcha_detected`属性がない
 **修正**: `result.error`文字列から"CAPTCHA detected"を検索するヘルパー関数を追加
@@ -486,13 +515,19 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
   - `tests/test_search_parsers.py`にBingテスト追加
 
 #### 優先度中（E2Eカバレッジ向上）
-- [ ] `verify_mojeek_search.py`作成
-- [ ] `verify_qwant_search.py`作成
-- [ ] `verify_brave_search.py`作成
+- [x] `verify_mojeek_search.py`作成 ✅
+- [x] ~~`verify_qwant_search.py`作成~~ → Qwant削除（地域制限）
+- [x] `verify_brave_search.py`作成 ✅
 
 #### 優先度低（高リスクエンジン）
-- [ ] `verify_google_search.py`作成（CAPTCHA高頻度のため後回し）
-- [ ] `verify_bing_search.py`作成（パーサー実装後）
+- [x] `verify_google_search.py`作成 ✅（CAPTCHA高頻度）
+- [x] `verify_bing_search.py`作成 ✅
+
+#### 技術的課題
+- [x] **CDPフォールバック問題の修正** ✅
+  - ヘッドレスフォールバック削除（仕様§4.3.3準拠）
+  - CDP接続失敗時は明確なエラー + `chrome.sh`案内
+  - `SearchResponse.connection_mode`フィールド追加
 
 #### 確認事項
 - [ ] MCPサーバ経由での動作確認（現在はPythonモジュール直接使用）
