@@ -366,8 +366,10 @@ class BraveSearchVerifier:
                 )
             
             # Test with known CAPTCHA patterns
+            # Note: Patterns must match those in config/search_parsers.yaml
             test_cases = [
-                ("<html><body>captcha verification required</body></html>", True, "captcha"),
+                ("<html><body>please complete the captcha to continue</body></html>", True, "captcha"),
+                ("<html><body><div class='g-recaptcha'></div></body></html>", True, "recaptcha"),
                 ("<html><body>Normal search results</body></html>", False, None),
             ]
             

@@ -251,9 +251,20 @@ brave:
       required: false
   
   captcha_patterns:
-    - pattern: "captcha"
+    # Note: Simple "captcha" pattern causes false positives due to JS variable names
+    # (e.g., "captchacookiename" in Brave's config). Use more specific patterns.
+    - pattern: "please complete the captcha"
       type: "captcha"
       case_insensitive: true
+    - pattern: "verify you are human"
+      type: "captcha"
+      case_insensitive: true
+    - pattern: "g-recaptcha"
+      type: "recaptcha"
+    - pattern: "cf-turnstile"
+      type: "turnstile"
+    - pattern: "challenge-form"
+      type: "challenge"
 
 # =============================================================================
 # Ecosia Parser (Bing-based, relatively lenient)
