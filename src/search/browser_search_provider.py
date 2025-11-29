@@ -279,8 +279,13 @@ class BrowserSearchProvider(BaseSearchProvider):
                 wait_until="domcontentloaded",
             )
             
-            # Wait for content to load
-            await page.wait_for_load_state("networkidle", timeout=10000)
+            # Wait for content to load (with fallback for JS-heavy sites)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                # Some engines (e.g., Brave) have constant JS activity
+                # Fall back to a short fixed wait
+                await asyncio.sleep(2)
             
             # Get HTML content
             html = await page.content()
