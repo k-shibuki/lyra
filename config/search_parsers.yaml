@@ -407,3 +407,59 @@ startpage:
       case_insensitive: true
 
 
+# =============================================================================
+# Bing Parser (optional, high block risk)
+# =============================================================================
+bing:
+  search_url: "https://www.bing.com/search?q={query}&setlang={language}&filters={time_range}"
+  
+  default_language: "ja"
+  
+  time_ranges:
+    all: ""
+    day: "ex1:\"ez1\""
+    week: "ex1:\"ez2\""
+    month: "ex1:\"ez3\""
+  
+  selectors:
+    results_container:
+      selector: "#b_results .b_algo, .b_algo"
+      required: true
+      diagnostic_message: |
+        Bing results container not found.
+        Expected: .b_algo elements within #b_results
+        WARNING: Bing may block automated access.
+        Consider using other search engines like Ecosia (Bing-based).
+    
+    title:
+      selector: "h2 a, .b_title a"
+      required: true
+      diagnostic_message: "Bing title (h2 a or .b_title a) not found"
+    
+    url:
+      selector: "h2 a, .b_title a, cite"
+      required: true
+      diagnostic_message: "Bing URL link not found"
+    
+    snippet:
+      selector: ".b_caption p, .b_lineclamp2, .b_paractl"
+      required: false
+    
+    date:
+      selector: ".news_dt, span.sc_hl"
+      required: false
+  
+  captcha_patterns:
+    - pattern: "g-recaptcha"
+      type: "recaptcha"
+    - pattern: "unusual traffic"
+      type: "rate_limit"
+      case_insensitive: true
+    - pattern: "automated queries"
+      type: "blocked"
+      case_insensitive: true
+    - pattern: "captcha"
+      type: "captcha"
+      case_insensitive: true
+
+
