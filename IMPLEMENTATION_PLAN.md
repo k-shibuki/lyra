@@ -461,7 +461,7 @@ url: "a.result-title, a.result-link"
 snippet: ".description"
 ```
 
-#### H.2.3 E2E検証で判明した追加問題（2024-11-29）
+#### H.2.3 E2E検証で判明した追加問題
 
 **Qwant地域制限**:
 - 症状: 「Unfortunately we are not yet available in your country」
@@ -473,21 +473,18 @@ snippet: ".description"
 - 原因: BraveはJSで常時ネットワークリクエストを発生させる
 - 対応: `networkidle`を5秒try後、`asyncio.sleep(2)`にフォールバック
 
-**BrowserSearchProvider CDPフォールバック問題**: 🔄 残タスク
-- 症状: Chromeが起動していない時に「CAPTCHA detected」と報告される
-- 実際の原因: CDP接続失敗
-- 動作分析:
-  1. CDP接続試行 → 失敗
-  2. フォールバックでheadlessブラウザ起動（`chromium.launch(headless=True)`）
-  3. headlessブラウザはステルス性が低い
-  4. Brave等がCAPTCHAを返す
-  5. 「CAPTCHA detected」と報告（真の原因が隠れる）
-- 該当コード: `src/search/browser_search_provider.py` L163-173
-- 問題点: ユーザーにとってデバッグ困難
-- 修正案:
-  1. SearchResponseに`cdp_fallback: bool`フィールド追加
-  2. フォールバック使用時はエラーメッセージに明示
-  3. E2Eスクリプトではフォールバック禁止オプション追加
+**BrowserSearchProvider CDPフォールバック問題**: ✅ 修正済み
+- 症状: Chromeが起動していない時に「CAPTCHA detected」と報告されていた
+- 根本原因: CDP接続失敗時にヘッドレスフォールバックが発生（仕様違反）
+- 修正内容:
+  1. ヘッドレスフォールバックを削除（§4.3.3「実プロファイルの一貫性」に準拠）
+  2. CDP接続失敗時は明確なエラーメッセージを返す
+  3. エラーメッセージに`./scripts/chrome.sh start`の案内を含める
+  4. `SearchResponse.connection_mode`フィールド追加（診断用）
+- 変更ファイル:
+  - `src/search/provider.py`: `SearchResponse`に`connection_mode`追加
+  - `src/search/browser_search_provider.py`: フォールバック削除、`CDPConnectionError`追加
+  - `tests/test_browser_search_provider.py`: CDP接続テスト追加
 
 #### H.2.4 E2Eスクリプトの共通修正
 
@@ -527,9 +524,10 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - [x] `verify_bing_search.py`作成 ✅
 
 #### 技術的課題
-- [ ] **CDPフォールバック問題の修正**（H.2.3参照）
-  - CDP接続失敗時にheadlessフォールバック → CAPTCHA誤報告
-  - SearchResponseに`cdp_fallback`フィールド追加必要
+- [x] **CDPフォールバック問題の修正** ✅
+  - ヘッドレスフォールバック削除（仕様§4.3.3準拠）
+  - CDP接続失敗時は明確なエラー + `chrome.sh`案内
+  - `SearchResponse.connection_mode`フィールド追加
 
 #### 確認事項
 - [ ] MCPサーバ経由での動作確認（現在はPythonモジュール直接使用）
