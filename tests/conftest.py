@@ -266,7 +266,7 @@ def make_mock_response():
 
 
 # =============================================================================
-# Provider Reset Fixtures (Phase 17.1.1)
+# Provider Reset Fixtures
 # =============================================================================
 
 @pytest.fixture(autouse=True)

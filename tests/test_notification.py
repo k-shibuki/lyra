@@ -496,7 +496,7 @@ class TestDomainSkipLogic:
 class TestToastNotification:
     """Tests for toast notification functionality.
     
-    Updated for Phase 17.1.4 NotificationProvider abstraction.
+    Updated for NotificationProvider abstraction.
     Toast notifications now use the provider registry.
     """
     
@@ -504,7 +504,7 @@ class TestToastNotification:
         """Test WSL detection function returns boolean.
         
         Note: is_wsl() is now a standalone function in notification_provider module,
-        not a method of InterventionManager (Phase 17.1.4 refactoring).
+        not a method of InterventionManager.
         """
         from src.utils.notification_provider import is_wsl
         
@@ -518,7 +518,7 @@ class TestToastNotification:
     async def test_send_toast_returns_boolean(self, intervention_manager):
         """Test send_toast returns boolean indicating success.
         
-        Updated for Phase 17.1.4: send_toast now uses NotificationProviderRegistry
+        Updated: send_toast now uses NotificationProviderRegistry
         internally. We mock the registry's send() method.
         """
         from src.utils.notification_provider import (

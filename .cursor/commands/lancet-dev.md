@@ -5,6 +5,7 @@ Lancetというプロダクトを開発中である。
 
 タスクの設計時に、後述する関連ルールを読み込み、それらを遵守できる実行計画をかけ。
 なお、必要に応じて、 @requirements.md の仕様とコードベースを `grep` 等のツールで、事前に確認せよ。
+コード中のコメントで @IMPLEMENTATION_PLAN.md を参照させることは禁止する。
 
 ## 関連ルール
 - コード実行時: @.cursor/rules/code-execution.mdc

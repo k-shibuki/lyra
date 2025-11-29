@@ -2,7 +2,7 @@
 Search integration for Lancet.
 
 Provides unified search interface through provider abstraction.
-Uses BrowserSearchProvider by default (Phase 16.9).
+Uses BrowserSearchProvider by default.
 
 Key functions:
 - search_serp() - Execute search queries (uses provider system)
@@ -75,7 +75,7 @@ class QueryOperatorProcessor:
     - after:YYYY-MM-DD - Date filter
     
     Implements engine-specific mapping from config/engines.yaml (§3.1.4).
-    Now uses SearchEngineConfigManager for centralized configuration (Phase 17.2.2).
+    Uses SearchEngineConfigManager for centralized configuration.
     """
     
     # Regex patterns for operator detection
@@ -113,7 +113,7 @@ class QueryOperatorProcessor:
         Uses SearchEngineConfigManager by default for centralized config.
         Falls back to direct file loading for custom paths or testing.
         """
-        # Try to use SearchEngineConfigManager (Phase 17.2.2)
+        # Try to use SearchEngineConfigManager
         try:
             from src.search.engine_config import get_engine_config_manager
             
@@ -493,7 +493,7 @@ def build_search_query(
 
 
 # ============================================================================
-# Provider-based Search (Phase 17.1.1)
+# Provider-based Search
 # ============================================================================
 
 
@@ -506,7 +506,7 @@ async def _search_with_provider(
     """
     Execute search using the provider abstraction layer.
     
-    Uses BrowserSearchProvider for direct browser-based search (Phase 16.9).
+    Uses BrowserSearchProvider for direct browser-based search.
     
     Args:
         query: Search query.
@@ -522,7 +522,7 @@ async def _search_with_provider(
     # Ensure provider is registered
     registry = get_registry()
     
-    # Use BrowserSearchProvider (Phase 16.9)
+    # Use BrowserSearchProvider
     if registry.get("browser_search") is None:
         from src.search.browser_search_provider import get_browser_search_provider
         provider = get_browser_search_provider()
@@ -600,7 +600,7 @@ async def search_serp(
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
     
-    Uses provider abstraction (BrowserSearchProvider by default, per Phase 16.9).
+    Uses provider abstraction (BrowserSearchProvider by default).
     
     Args:
         query: Search query (may contain operators like site:, filetype:, etc.).

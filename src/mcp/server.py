@@ -433,7 +433,7 @@ TOOLS = [
         }
     ),
     # ============================================================
-    # Phase 11: Exploration Control Tools
+    # Exploration Control Tools
     # ============================================================
     Tool(
         name="get_research_context",
@@ -532,7 +532,7 @@ TOOLS = [
         }
     ),
     # ============================================================
-    # Phase 16.3.2: Calibration Evaluation Tools (§4.6.1)
+    # Calibration Evaluation Tools (§4.6.1)
     # ============================================================
     Tool(
         name="save_calibration_evaluation",
@@ -655,7 +655,7 @@ TOOLS = [
         }
     ),
     # ============================================================
-    # Phase 16.2.6: Claim Decomposition (§3.3.1)
+    # Claim Decomposition (§3.3.1)
     # ============================================================
     Tool(
         name="decompose_question",
@@ -682,7 +682,7 @@ TOOLS = [
         }
     ),
     # ============================================================
-    # Phase 16.2.7: Chain-of-Density Compression (§3.3.1)
+    # Chain-of-Density Compression (§3.3.1)
     # ============================================================
     Tool(
         name="compress_with_chain_of_density",
@@ -771,22 +771,22 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "get_task_status": _handle_get_task_status,
         "get_report_materials": _handle_get_report_materials,
         "get_evidence_graph": _handle_get_evidence_graph,
-        # Phase 11: Exploration Control
+        # Exploration Control
         "get_research_context": _handle_get_research_context,
         "execute_subquery": _handle_execute_subquery,
         "get_exploration_status": _handle_get_exploration_status,
         "execute_refutation": _handle_execute_refutation,
         "finalize_exploration": _handle_finalize_exploration,
-        # Phase 16.3.2: Calibration Evaluation (§4.6.1)
+        # Calibration Evaluation (§4.6.1)
         "save_calibration_evaluation": _handle_save_calibration_evaluation,
         "get_calibration_evaluations": _handle_get_calibration_evaluations,
         "get_reliability_diagram_data": _handle_get_reliability_diagram_data,
         "add_calibration_sample": _handle_add_calibration_sample,
         "get_calibration_stats": _handle_get_calibration_stats,
         "rollback_calibration": _handle_rollback_calibration,
-        # Phase 16.2.6: Claim Decomposition (§3.3.1)
+        # Claim Decomposition (§3.3.1)
         "decompose_question": _handle_decompose_question,
-        # Phase 16.2.7: Chain-of-Density Compression (§3.3.1)
+        # Chain-of-Density Compression (§3.3.1)
         "compress_with_chain_of_density": _handle_compress_with_chain_of_density,
     }
     
@@ -1113,7 +1113,7 @@ async def _handle_get_evidence_graph(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Phase 11: Exploration Control Handlers
+# Exploration Control Handlers
 # ============================================================
 
 # Global state managers (per task)
@@ -1243,7 +1243,7 @@ async def _handle_finalize_exploration(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Phase 16.3.2: Calibration Evaluation Handlers (§4.6.1)
+# Calibration Evaluation Handlers (§4.6.1)
 # ============================================================
 
 async def _handle_save_calibration_evaluation(args: dict[str, Any]) -> dict[str, Any]:
@@ -1353,7 +1353,7 @@ async def _handle_rollback_calibration(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Phase 16.2.6: Claim Decomposition Handlers (§3.3.1)
+# Claim Decomposition Handlers (§3.3.1)
 # ============================================================
 
 async def _handle_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
@@ -1379,7 +1379,7 @@ async def _handle_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Phase 16.2.7: Chain-of-Density Compression Handlers (§3.3.1)
+# Chain-of-Density Compression Handlers (§3.3.1)
 # ============================================================
 
 async def _handle_compress_with_chain_of_density(args: dict[str, Any]) -> dict[str, Any]:

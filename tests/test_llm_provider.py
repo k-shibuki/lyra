@@ -2,7 +2,6 @@
 Unit tests for LLM provider abstraction layer.
 
 Tests the LLMProvider protocol, OllamaProvider implementation, and registry.
-Implements Phase 17.1.2 of IMPLEMENTATION_PLAN.md.
 
 Follows §7.1 test quality standards:
 - No conditional assertions (§7.1.1)

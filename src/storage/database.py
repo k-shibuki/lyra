@@ -684,7 +684,7 @@ class Database:
         return cursor.rowcount
     
     # ============================================================
-    # Metrics & Policy Operations (Phase 10)
+    # Metrics & Policy Operations
     # ============================================================
     
     async def save_metrics_snapshot(

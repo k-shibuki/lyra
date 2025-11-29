@@ -1,7 +1,7 @@
 """
 Unit tests for BrowserSearchProvider.
 
-Tests for Phase 16.9: Direct browser-based search.
+Tests for browser-based search provider.
 Validates:
 - BrowserSearchProvider initialization
 - Search execution with mocked browser

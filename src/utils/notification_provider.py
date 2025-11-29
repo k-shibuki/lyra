@@ -3,12 +3,6 @@ Notification provider abstraction layer for Lancet.
 
 Provides a unified interface for notification providers, enabling easy
 switching between different backends (Linux notify-send, Windows Toast, WSL).
-
-Implements Phase 17.1.4 of IMPLEMENTATION_PLAN.md:
-- NotificationProvider protocol/ABC definition
-- Provider registration and switching mechanism
-- Health status interface
-- Platform auto-detection
 """
 
 import asyncio

@@ -10,12 +10,6 @@ Design Philosophy:
 - Session cookies are preserved for subsequent searches
 - Parsers are externalized for easy maintenance
 
-Per Phase 16.9 of IMPLEMENTATION_PLAN.md:
-- Direct Playwright-based search
-- Cookie/fingerprint consistency with fetch stage
-- CAPTCHA detection and manual intervention support
-- Session transfer (§3.1.2) applicable to search
-
 References:
 - §3.2 (Browser automation)
 - §3.6.1 (Authentication queue)

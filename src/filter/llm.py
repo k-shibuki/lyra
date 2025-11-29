@@ -6,8 +6,6 @@ Per §4.2: LLM processes are destroyed after task completion to prevent memory l
 
 This module provides high-level LLM extraction functions that use the LLMProvider
 abstraction layer. The provider can be configured or switched at runtime.
-
-Phase 17.1.2: Refactored to use LLMProvider abstraction.
 """
 
 import json

@@ -407,7 +407,7 @@ class ProfileHealthVerifier:
     async def run_all(self) -> int:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
-        print("Phase 16.10: Profile Health Verification")
+        print("E2E: Profile Health Verification")
         print("Target: §7 Acceptance Criteria - Profile Health")
         print("=" * 70)
         
