@@ -9,9 +9,9 @@ Lancetというプロダクトを開発中である。
 
 ## 関連ルール
 - コード実行時: @.cursor/rules/code-execution.mdc
-- テスト関連タスク: @.cursor/rules/test.mdc
+- テスト関連タスク: @.cursor/rules/test-strategy.mdc
 - リファクタ関連タスク: @.cursor/rules/refactoring.mdc
-- git commit: @.cursor/rules/git-commit.mdc
+- git commit: @.cursor/rules/commit-message-format.mdc
 
 ## タスク選定
 1. 優先度（🔴高 > 🟡中 > 🟢低）と依存関係を考慮して**1つ**のタスクを選定
@@ -26,7 +26,7 @@ Lancetというプロダクトを開発中である。
 ## 完了条件
 - [ ] 実装コードが完成
 - [ ] テストコードが完成
-- [ ] @.cursor/rules/test.mdc を再度読み込み、テストの品質を独立したステップ検証の上で修正
+- [ ] @.cursor/rules/test-strategy.mdc を再度読み込み、テストの品質を独立したステップ検証の上で修正
 - [ ] 実装したテストが全パス
 - [ ] 全テスト実行で回帰なし（`podman exec lancet pytest tests/ --tb=no -q`）
 - [ ] 実装計画書の進捗を更新
