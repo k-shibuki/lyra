@@ -53,6 +53,18 @@ from src.utils.logging import get_logger, configure_logging
 logger = get_logger(__name__)
 
 
+def _is_captcha_error(result) -> bool:
+    """Check if search result indicates CAPTCHA detection."""
+    return result.error is not None and "CAPTCHA detected" in result.error
+
+
+def _get_captcha_type(result) -> str | None:
+    """Extract CAPTCHA type from error message."""
+    if result.error and "CAPTCHA detected:" in result.error:
+        return result.error.split("CAPTCHA detected:", 1)[1].strip()
+    return None
+
+
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
@@ -178,15 +190,16 @@ class BrowserSearchVerifier:
             elapsed = time.time() - start_time
             
             if not result.ok:
-                if result.captcha_detected:
-                    print(f"    ! CAPTCHA detected: {result.captcha_type}")
+                if _is_captcha_error(result):
+                    captcha_type = _get_captcha_type(result)
+                    print(f"    ! CAPTCHA detected: {captcha_type}")
                     return VerificationResult(
                         name="DuckDuckGo Search",
                         spec_ref="§3.2 検索エンジン統合",
                         passed=True,
                         details={
                             "captcha_detected": True,
-                            "captcha_type": result.captcha_type,
+                            "captcha_type": captcha_type,
                             "note": "CAPTCHA detection working",
                         },
                     )
@@ -258,7 +271,7 @@ class BrowserSearchVerifier:
             result = await provider.search(test_query, options)
             
             if not result.ok:
-                if result.captcha_detected:
+                if _is_captcha_error(result):
                     return VerificationResult(
                         name="Parser Accuracy",
                         spec_ref="§3.2 コンテンツ抽出",
@@ -350,7 +363,7 @@ class BrowserSearchVerifier:
         """Verify stealth evasion (bot detection avoidance)."""
         print("\n[4/5] Verifying stealth (§4.3 ブラウザ/JS層)...")
         
-        from src.crawler.fetcher import BrowserFetcher, FetchPolicy
+        from src.crawler.fetcher import BrowserFetcher
         
         fetcher = BrowserFetcher()
         
@@ -358,8 +371,8 @@ class BrowserSearchVerifier:
             # Fetch a page and check for bot detection indicators
             test_url = "https://example.com"
             
-            policy = FetchPolicy(use_browser=True, allow_headful=False)
-            result = await fetcher.fetch(test_url, policy=policy)
+            # Use headful=False for headless stealth mode
+            result = await fetcher.fetch(test_url, headful=False)
             
             if not result.ok:
                 return VerificationResult(
@@ -369,11 +382,11 @@ class BrowserSearchVerifier:
                     error=f"Fetch failed: {result.reason}",
                 )
             
-            # Check if webdriver property is hidden
+            # Check stealth indicators
             stealth_checks = {
                 "page_loaded": result.ok,
-                "no_challenge": not result.challenge_detected if hasattr(result, 'challenge_detected') else True,
-                "content_received": bool(result.content),
+                "no_challenge": not getattr(result, 'auth_queued', False),
+                "content_received": bool(result.html_path or result.content_hash),
             }
             
             print(f"    ✓ Page loaded: {stealth_checks['page_loaded']}")

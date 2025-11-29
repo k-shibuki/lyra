@@ -57,6 +57,18 @@ from src.utils.logging import get_logger, configure_logging
 logger = get_logger(__name__)
 
 
+def _is_captcha_error(result) -> bool:
+    """Check if search result indicates CAPTCHA detection."""
+    return result.error is not None and "CAPTCHA detected" in result.error
+
+
+def _get_captcha_type(result) -> str | None:
+    """Extract CAPTCHA type from error message."""
+    if result.error and "CAPTCHA detected:" in result.error:
+        return result.error.split("CAPTCHA detected:", 1)[1].strip()
+    return None
+
+
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
@@ -181,15 +193,16 @@ class EcosiaSearchVerifier:
             elapsed = time.time() - start_time
             
             if not result.ok:
-                if result.captcha_detected:
-                    print(f"    ! CAPTCHA detected: {result.captcha_type}")
+                if _is_captcha_error(result):
+                    captcha_type = _get_captcha_type(result)
+                    print(f"    ! CAPTCHA detected: {captcha_type}")
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
                         spec_ref="§3.2",
                         passed=True,
                         details={
                             "captcha_detected": True,
-                            "captcha_type": result.captcha_type,
+                            "captcha_type": captcha_type,
                             "note": "CAPTCHA detection working correctly",
                         },
                     )
@@ -261,7 +274,7 @@ class EcosiaSearchVerifier:
             result = await provider.search(test_query, options)
             
             if not result.ok:
-                if result.captcha_detected:
+                if _is_captcha_error(result):
                     return VerificationResult(
                         name="Parser Accuracy",
                         spec_ref="§3.2",

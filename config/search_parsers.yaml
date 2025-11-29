@@ -312,28 +312,28 @@ ecosia:
   
   selectors:
     results_container:
-      selector: ".result, .mainline-top__result, [data-test-id='mainline-result-web']"
+      selector: ".mainline__result-wrapper, .result, [data-test-id='mainline-result-web']"
       required: true
       diagnostic_message: |
         Ecosia results container not found.
-        Expected: .result or .mainline-top__result elements
+        Expected: .mainline__result-wrapper elements
         Possible causes:
         - HTML structure changed (Ecosia uses Bing backend, may update)
         - No results for query
         Action: Save page HTML and inspect for new result container pattern.
     
     title:
-      selector: ".result-title, h2 a, .mainline-top__title a"
+      selector: ".result-title__heading, .result__title, h2 a"
       required: true
       diagnostic_message: "Ecosia title selector not found"
     
     url:
-      selector: ".result-title, h2 a, .result-url"
+      selector: "a[data-test-id='result-link'], .result__title a, a.result__link[href^='http']"
       required: true
       diagnostic_message: "Ecosia URL selector not found"
     
     snippet:
-      selector: ".result-snippet, .mainline-top__description, p"
+      selector: ".result__description, .web-result__description, p"
       required: false
       diagnostic_message: "Ecosia snippet not found"
     
@@ -347,57 +347,6 @@ ecosia:
       case_insensitive: true
     - pattern: "prove you are human"
       type: "captcha"
-      case_insensitive: true
-
-
-# =============================================================================
-# MetaGer Parser (German, high block resistance)
-# =============================================================================
-metager:
-  search_url: "https://metager.org/meta/meta.ger3?eingabe={query}&time={time_range}"
-  
-  time_ranges:
-    all: ""
-    day: "1"
-    week: "7"
-    month: "31"
-    year: "365"
-  
-  selectors:
-    results_container:
-      selector: ".result, .result-content"
-      required: true
-      diagnostic_message: |
-        MetaGer results container not found.
-        Expected: .result elements
-        Note: MetaGer is a German meta-search engine with high block resistance.
-        Action: Check debug HTML for current structure.
-    
-    title:
-      selector: "a.result-title, .result-title a, h2 a, .title a"
-      required: true
-      diagnostic_message: "MetaGer title selector not found"
-    
-    url:
-      selector: "a.result-title, .result-title a, .result-url, .url"
-      required: true
-      diagnostic_message: "MetaGer URL selector not found"
-    
-    snippet:
-      selector: ".result-description, .result-snippet, .description"
-      required: false
-      diagnostic_message: "MetaGer snippet not found"
-    
-    date:
-      selector: ".result-date, time"
-      required: false
-  
-  captcha_patterns:
-    - pattern: "zu viele anfragen"
-      type: "rate_limit"
-      case_insensitive: true
-    - pattern: "too many requests"
-      type: "rate_limit"
       case_insensitive: true
 
 
@@ -416,11 +365,11 @@ startpage:
   
   selectors:
     results_container:
-      selector: ".w-gl__result, .result, .search-result"
+      selector: ".result, .w-gl__result, .search-result"
       required: true
       diagnostic_message: |
         Startpage results container not found.
-        Expected: .w-gl__result or .result elements
+        Expected: .result elements (may have CSS hash suffix)
         Note: Startpage uses Google backend with privacy layer.
         Possible causes:
         - HTML structure changed
@@ -428,17 +377,17 @@ startpage:
         Action: Check debug HTML for current structure.
     
     title:
-      selector: ".w-gl__result-title, h3, .result-title a"
+      selector: ".wgl-title, .result-title, h3"
       required: true
       diagnostic_message: "Startpage title selector not found"
     
     url:
-      selector: ".w-gl__result-title, a.w-gl__result-url, .result-link"
+      selector: "a.result-title, a.result-link, a[href^='http']"
       required: true
       diagnostic_message: "Startpage URL selector not found"
     
     snippet:
-      selector: ".w-gl__description, .result-snippet, p"
+      selector: ".description, .w-gl__description, p.description"
       required: false
       diagnostic_message: "Startpage snippet not found"
     
