@@ -79,19 +79,17 @@ class TestMinHashDeduplicator:
         """
         from src.filter.deduplication import MinHashDeduplicator
         
-        # Use production threshold (0.5) - do NOT lower to make tests pass
+        # Given: A MinHashDeduplicator with production threshold and test fragments
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.5)
-        
-        # Use identical texts to ensure detection works at production threshold
         dedup.add("f1", "The quick brown fox jumps over the lazy dog")
         dedup.add("f2", "The quick brown fox jumps over the lazy dog")  # Identical
         dedup.add("f3", "Python is a completely different programming language")
         
+        # When: Querying for similar fragments (excluding the query fragment itself)
         similar = dedup.query("The quick brown fox jumps over the lazy dog", exclude_id="f1")
         
-        # STRICT: f2 MUST be found (identical text)
+        # Then: Identical text is found, unrelated text is not
         assert "f2" in similar, f"Identical text not found. Got: {similar}"
-        # STRICT: f3 must NOT be found
         assert "f3" not in similar, "Unrelated text incorrectly marked as similar"
 
     def test_find_duplicates(self):
@@ -101,18 +99,17 @@ class TestMinHashDeduplicator:
         """
         from src.filter.deduplication import MinHashDeduplicator
         
-        # Production threshold
+        # Given: A deduplicator with identical and unrelated fragments
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.5)
-        
-        # Use texts with known high similarity (>80% word overlap)
         dedup.add("f1", "Machine learning and artificial intelligence are transforming technology")
         dedup.add("f2", "Machine learning and artificial intelligence are transforming technology")  # Identical
         dedup.add("f3", "The weather forecast predicts sunny skies and warm temperatures tomorrow")
         
+        # When: Finding duplicates of f1
         duplicates = dedup.find_duplicates("f1")
         duplicate_ids = [d[0] for d in duplicates]
         
-        # STRICT assertions - no conditional skipping
+        # Then: Identical text is found as duplicate, unrelated text is not
         assert len(duplicate_ids) >= 1, "No duplicates found for identical text"
         assert "f2" in duplicate_ids, f"Identical text f2 not found. Got: {duplicate_ids}"
         assert "f3" not in duplicate_ids, "Unrelated text f3 incorrectly marked as duplicate"
@@ -121,13 +118,15 @@ class TestMinHashDeduplicator:
         """Test similarity calculation."""
         from src.filter.deduplication import MinHashDeduplicator
         
+        # Given: A deduplicator with two identical text fragments
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.3)
-        
-        # Identical texts should have high similarity
         dedup.add("f1", "Hello world this is a test")
         dedup.add("f2", "Hello world this is a test")
         
+        # When: Calculating similarity between the fragments
         similarity = dedup.get_similarity("f1", "f2")
+        
+        # Then: Similarity is very high (>0.9) for identical texts
         assert similarity > 0.9
 
     def test_get_clusters(self):
@@ -137,19 +136,17 @@ class TestMinHashDeduplicator:
         """
         from src.filter.deduplication import MinHashDeduplicator
         
+        # Given: A deduplicator with duplicate pair and one unique fragment
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.5)
-        
-        # Add exact duplicate pair (must cluster)
         dedup.add("f1", "The cat sat on the mat in the afternoon")
         dedup.add("f2", "The cat sat on the mat in the afternoon")  # Identical
         dedup.add("f3", "Completely unrelated content about programming")  # Unique
         
+        # When: Getting duplicate clusters
         clusters = dedup.get_clusters()
         
-        # STRICT: Must have exactly 1 cluster (f1+f2), f3 is unique
+        # Then: Exactly one cluster containing the duplicate pair
         assert len(clusters) == 1, f"Expected 1 cluster, got {len(clusters)}"
-        
-        # STRICT: Cluster must contain both f1 and f2
         cluster = clusters[0]
         assert "f1" in cluster.fragment_ids, "f1 not in cluster"
         assert "f2" in cluster.fragment_ids, "f2 not in cluster"
@@ -164,35 +161,35 @@ class TestMinHashDeduplicator:
         """
         from src.filter.deduplication import MinHashDeduplicator
         
+        # Given: 3 fragments where 2 are identical duplicates
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.8)
-        
-        # Setup: 3 fragments, 2 are identical duplicates
-        # Expected: 1 duplicate (f2 is dup of f1), ratio = 1/3 ≈ 0.33
         dedup.add("f1", "Exact same text here for testing purposes")
         dedup.add("f2", "Exact same text here for testing purposes")  # Duplicate
         dedup.add("f3", "Completely different and unrelated content")
         
+        # When: Calculating the duplicate ratio
         ratio = dedup.get_duplicate_ratio()
         
-        # STRICT: Verify specific expected ratio (1 dup out of 3 = 0.33)
-        # Allow small tolerance for floating point
-        expected_ratio = 1 / 3  # 0.333...
+        # Then: Ratio is approximately 1/3 (one duplicate out of three)
+        expected_ratio = 1 / 3
         assert abs(ratio - expected_ratio) < 0.1, f"Expected ratio ~{expected_ratio:.2f}, got {ratio:.2f}"
 
     def test_deduplicate_keep_first(self):
         """Test deduplication with keep='first' strategy."""
         from src.filter.deduplication import MinHashDeduplicator
         
+        # Given: A list of fragments with duplicates
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.8)
-        
         fragments = [
             {"id": "f1", "text": "This is a test sentence for deduplication"},
             {"id": "f2", "text": "This is a test sentence for deduplication"},
             {"id": "f3", "text": "Unique content here"},
         ]
         
+        # When: Deduplicating with keep='first' strategy
         result = dedup.deduplicate(fragments, keep="first")
         
+        # Then: First occurrence and unique fragments are kept
         assert len(result) == 2
         result_ids = [f["id"] for f in result]
         assert "f1" in result_ids  # First kept
@@ -202,30 +199,34 @@ class TestMinHashDeduplicator:
         """Test deduplication with keep='longest' strategy."""
         from src.filter.deduplication import MinHashDeduplicator
         
+        # Given: Fragments with similar content of varying lengths
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.5)
-        
         fragments = [
             {"id": "f1", "text": "Short text"},
             {"id": "f2", "text": "Short text with additional words"},
             {"id": "f3", "text": "Different content"},
         ]
         
+        # When: Deduplicating with keep='longest' strategy
         result = dedup.deduplicate(fragments, keep="longest")
         result_ids = [f["id"] for f in result]
         
-        # Longest of similar should be kept
+        # Then: Unique content is preserved
         assert "f3" in result_ids
 
     def test_clear(self):
         """Test clearing the deduplicator."""
         from src.filter.deduplication import MinHashDeduplicator
         
+        # Given: A deduplicator with one fragment added
         dedup = MinHashDeduplicator(num_perm=64, threshold=0.5)
-        
         dedup.add("f1", "Test content")
         assert len(dedup._minhashes) == 1
         
+        # When: Clearing the deduplicator
         dedup.clear()
+        
+        # Then: All stored minhashes are removed
         assert len(dedup._minhashes) == 0
 
 
@@ -236,73 +237,84 @@ class TestSimHash:
         """Test SimHash for identical texts."""
         from src.filter.deduplication import SimHash
         
+        # Given: A SimHash instance and identical text inputs
         sh = SimHash(bit_size=64, shingle_size=3)
-        
         text = "The quick brown fox"
+        
+        # When: Computing hash for the same text twice
         h1 = sh.compute(text)
         h2 = sh.compute(text)
         
+        # Then: Hashes are identical
         assert h1 == h2
 
     def test_hamming_distance_identical(self):
         """Test Hamming distance for identical hashes."""
         from src.filter.deduplication import SimHash
         
+        # Given: Two identical binary values
+        # When: Calculating Hamming distance
         dist = SimHash.hamming_distance(0b1010, 0b1010)
+        
+        # Then: Distance is zero
         assert dist == 0
 
     def test_hamming_distance_different(self):
         """Test Hamming distance for different hashes."""
         from src.filter.deduplication import SimHash
         
-        # 0b1010 vs 0b1111 differ in 2 bits
+        # Given: Two binary values differing in 2 bits (0b1010 vs 0b1111)
+        # When: Calculating Hamming distance
         dist = SimHash.hamming_distance(0b1010, 0b1111)
+        
+        # Then: Distance equals the number of differing bits
         assert dist == 2
 
     def test_add_and_get_distance(self):
         """Test adding fragments and getting distance."""
         from src.filter.deduplication import SimHash
         
+        # Given: Three fragments with varying similarity
         sh = SimHash(bit_size=64, shingle_size=3)
-        
         sh.add("f1", "Machine learning is amazing")
         sh.add("f2", "Machine learning is wonderful")
         sh.add("f3", "The weather is cold today")
         
+        # When: Getting distances between fragments
         dist_f1_f2 = sh.get_distance("f1", "f2")
         dist_f1_f3 = sh.get_distance("f1", "f3")
         
-        # f1 and f2 should be closer than f1 and f3
+        # Then: Similar texts have lower distance than dissimilar texts
         assert dist_f1_f2 < dist_f1_f3
 
     def test_is_similar(self):
         """Test similarity check."""
         from src.filter.deduplication import SimHash
         
+        # Given: Two identical text fragments
         sh = SimHash(bit_size=64, shingle_size=3)
-        
         sh.add("f1", "Identical text here")
         sh.add("f2", "Identical text here")
         
+        # When: Checking if fragments are similar
+        # Then: Identical texts are considered similar
         assert sh.is_similar("f1", "f2", max_distance=3)
 
     def test_find_similar(self):
         """Test finding similar fragments with SimHash."""
         from src.filter.deduplication import SimHash
         
+        # Given: Fragments with identical and different texts
         sh = SimHash(bit_size=64, shingle_size=3)
-        
-        # Use texts with clear similarity hierarchy
         sh.add("f1", "Python programming language guide")
         sh.add("f2", "Python programming language guide")  # Identical
         sh.add("f3", "JavaScript web development framework")  # Different
         
+        # When: Finding similar fragments to f1
         similar = sh.find_similar("f1", max_distance=5)
         
-        # STRICT: Similar list must not be empty for identical text
+        # Then: Identical text is found in similar results
         assert len(similar) >= 1, "No similar fragments found for identical text"
-        
-        # STRICT: f2 (identical) must be found
         similar_ids = [s[0] for s in similar]
         assert "f2" in similar_ids, f"Identical text f2 not found. Got: {similar_ids}"
 
@@ -314,21 +326,21 @@ class TestHybridDeduplicator:
         """Test hybrid deduplication combines MinHash and SimHash correctly."""
         from src.filter.deduplication import HybridDeduplicator
         
+        # Given: A hybrid deduplicator with identical and different fragments
         dedup = HybridDeduplicator(
             minhash_threshold=0.5,
             simhash_max_distance=10,
             num_perm=128,
         )
-        
-        # Use identical text to ensure detection
         dedup.add("f1", "This is a sample document for testing hybrid dedup")
         dedup.add("f2", "This is a sample document for testing hybrid dedup")  # Identical
         dedup.add("f3", "Completely unrelated content about different topic")
         
+        # When: Finding duplicates of f1
         duplicates = dedup.find_duplicates("f1")
         dup_ids = [d[0] for d in duplicates]
         
-        # STRICT: Identical text must be found
+        # Then: Identical text is detected as duplicate
         assert len(duplicates) >= 1, "No duplicates found for identical text"
         assert "f2" in dup_ids, f"Identical text f2 not found. Got: {dup_ids}"
 
@@ -336,15 +348,17 @@ class TestHybridDeduplicator:
         """Test batch adding."""
         from src.filter.deduplication import HybridDeduplicator
         
+        # Given: A hybrid deduplicator and a list of fragments
         dedup = HybridDeduplicator()
-        
         fragments = [
             {"id": "f1", "text": "First fragment"},
             {"id": "f2", "text": "Second fragment"},
         ]
         
+        # When: Adding fragments in batch
         dedup.add_batch(fragments)
         
+        # Then: All fragments are added to both MinHash and SimHash indices
         assert "f1" in dedup.minhash._minhashes
         assert "f2" in dedup.simhash._hashes
 
@@ -355,7 +369,7 @@ class TestDeduplicateFragments:
     @pytest.mark.asyncio
     async def test_deduplicate_fragments_basic(self):
         """Test basic deduplication."""
-        # Clear global deduplicator
+        # Given: A list of fragments with duplicates
         import src.filter.deduplication as dedup_module
         dedup_module._deduplicator = None
         
@@ -367,8 +381,10 @@ class TestDeduplicateFragments:
             {"id": "f3", "text": "Completely different text here"},
         ]
         
+        # When: Running the deduplication function
         result = await deduplicate_fragments(fragments)
         
+        # Then: Result contains expected keys and original count
         assert "fragments" in result
         assert "clusters" in result
         assert "duplicate_ratio" in result
@@ -377,13 +393,16 @@ class TestDeduplicateFragments:
     @pytest.mark.asyncio
     async def test_deduplicate_fragments_empty(self):
         """Test deduplication with empty list."""
+        # Given: An empty list of fragments
         import src.filter.deduplication as dedup_module
         dedup_module._deduplicator = None
         
         from src.filter.deduplication import deduplicate_fragments
         
+        # When: Running deduplication on empty input
         result = await deduplicate_fragments([])
         
+        # Then: Result is empty with zero duplicate ratio
         assert result["fragments"] == []
         assert result["duplicate_ratio"] == 0.0
 
@@ -395,6 +414,7 @@ class TestDuplicateCluster:
         """Test __len__ method."""
         from src.filter.deduplication import DuplicateCluster
         
+        # Given: A DuplicateCluster with 3 fragment IDs
         cluster = DuplicateCluster(
             cluster_id="abc123",
             canonical_id="f1",
@@ -402,5 +422,7 @@ class TestDuplicateCluster:
             similarity=0.85,
         )
         
+        # When: Getting the length of the cluster
+        # Then: Length equals the number of fragment IDs
         assert len(cluster) == 3
 
