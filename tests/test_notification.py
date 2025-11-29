@@ -11,6 +11,43 @@ Requirements tested per §3.6.1 (Safe Operation Policy):
 - Window bring-to-front via OS API only
 - Skip domain after 3 consecutive failures
 - Cooldown after explicit failures (≥60 minutes)
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-IS-N-01 | InterventionStatus | Equivalence – normal | All statuses defined | - |
+| TC-IT-N-01 | InterventionType | Equivalence – normal | All types defined | - |
+| TC-IR-N-01 | Success result | Equivalence – normal | Correct defaults | - |
+| TC-IR-N-02 | Timeout result | Equivalence – normal | Cooldown set | - |
+| TC-IR-N-03 | to_dict | Equivalence – normal | Serializable | - |
+| TC-IM-N-01 | max_domain_failures | Equivalence – normal | Returns 3 | §3.1 |
+| TC-IM-N-02 | cooldown_minutes | Equivalence – normal | ≥60 min | §3.5 |
+| TC-IM-N-03 | Initial failure count | Boundary – zero | Returns 0 | - |
+| TC-IM-N-04 | Set/get failures | Equivalence – normal | Value stored | - |
+| TC-IM-N-05 | Reset failures | Equivalence – normal | Returns to 0 | - |
+| TC-MSG-N-01 | CAPTCHA message | Equivalence – normal | Contains type/domain | - |
+| TC-MSG-N-02 | Cloudflare message | Equivalence – normal | Contains type/domain | - |
+| TC-MSG-N-03 | Login message | Equivalence – normal | In Japanese | - |
+| TC-SK-B-01 | Skip at 0/1/2 failures | Boundary – threshold | False | - |
+| TC-SK-B-02 | Skip at 3/4 failures | Boundary – threshold | True | - |
+| TC-SK-N-01 | Active cooldown | Equivalence – normal | Skipped | - |
+| TC-SK-N-02 | Expired cooldown | Equivalence – normal | Not skipped | - |
+| TC-TN-N-01 | is_wsl returns bool | Equivalence – normal | Boolean result | - |
+| TC-TN-N-02 | send_toast | Equivalence – normal | Returns bool | - |
+| TC-TB-N-01 | Safe CDP command | Equivalence – normal | Page.bringToFront | §3.6.1 |
+| TC-TB-A-01 | Forbidden commands | Equivalence – abnormal | Not called | §3.6.1 |
+| TC-TB-N-02 | CDP fail fallback | Equivalence – normal | OS API used | - |
+| TC-IF-N-01 | Skip 3 failures | Equivalence – normal | SKIPPED status | - |
+| TC-IF-N-02 | Returns PENDING | Equivalence – normal | Immediate return | §3.6.1 |
+| TC-IF-N-03 | Logs to database | Equivalence – normal | execute called | - |
+| TC-IF-N-04 | Success resets | Equivalence – normal | Counter = 0 | - |
+| TC-IF-N-05 | Failure increments | Equivalence – normal | Counter +1 | - |
+| TC-NU-N-01 | Simple event | Equivalence – normal | shown + event | - |
+| TC-NU-N-02 | CAPTCHA event | Equivalence – normal | pending status | §3.6.1 |
+| TC-II-N-01 | Full lifecycle | Equivalence – normal | Returns PENDING | §3.6.1 |
+| TC-II-N-02 | Complete marks success | Equivalence – normal | Counter reset | - |
+| TC-II-N-03 | Check status pending | Equivalence – normal | No timeout | §3.6.1 |
 """
 
 import asyncio
@@ -124,7 +161,7 @@ class TestInterventionStatus:
     
     def test_all_statuses_exist(self):
         """Verify all required statuses are defined with correct values."""
-        # Arrange: Expected status mappings
+        # Given: Expected status mappings
         expected_statuses = {
             "PENDING": "pending",
             "IN_PROGRESS": "in_progress",
@@ -134,7 +171,7 @@ class TestInterventionStatus:
             "SKIPPED": "skipped",
         }
         
-        # Act & Assert: Check each status
+        # When/Then: Check each status has correct value
         for attr_name, expected_value in expected_statuses.items():
             status = getattr(InterventionStatus, attr_name)
             assert status.value == expected_value, (
@@ -152,7 +189,7 @@ class TestInterventionType:
     
     def test_all_types_exist(self):
         """Verify all required intervention types are defined."""
-        # Arrange: Expected type mappings per §3.6
+        # Given: Expected type mappings per §3.6
         expected_types = {
             "CAPTCHA": "captcha",
             "LOGIN_REQUIRED": "login_required",
@@ -162,7 +199,7 @@ class TestInterventionType:
             "JS_CHALLENGE": "js_challenge",
         }
         
-        # Act & Assert: Check each type
+        # When: Assert: Check each type
         for attr_name, expected_value in expected_types.items():
             intervention_type = getattr(InterventionType, attr_name)
             assert intervention_type.value == expected_value, (
@@ -191,7 +228,7 @@ class TestInterventionResult:
             elapsed_seconds=30.5,
         )
         
-        # Assert: All fields have expected values
+        # Then: All fields have expected values
         assert result.intervention_id == "test_123", (
             f"intervention_id should be 'test_123', got '{result.intervention_id}'"
         )
@@ -216,10 +253,10 @@ class TestInterventionResult:
         
         Per §3.6: Timeout should trigger cooldown of ≥60 minutes.
         """
-        # Arrange
+        # Given
         cooldown = datetime.now(timezone.utc) + timedelta(minutes=60)
         
-        # Act
+        # When
         result = InterventionResult(
             intervention_id="test_456",
             status=InterventionStatus.TIMEOUT,
@@ -229,7 +266,7 @@ class TestInterventionResult:
             notes="Timed out after 180 seconds",
         )
         
-        # Assert
+        # Then
         assert result.status == InterventionStatus.TIMEOUT, (
             f"status should be TIMEOUT, got {result.status}"
         )
@@ -245,17 +282,17 @@ class TestInterventionResult:
     
     def test_to_dict_serialization(self):
         """Test serialization to dict for JSON output."""
-        # Arrange
+        # Given
         result = InterventionResult(
             intervention_id="test_789",
             status=InterventionStatus.SKIPPED,
             skip_domain_today=True,
         )
         
-        # Act
+        # When
         serialized = result.to_dict()
         
-        # Assert: Check specific keys and values
+        # Then: Check specific keys and values
         assert serialized["intervention_id"] == "test_789", (
             f"intervention_id should be 'test_789', got '{serialized['intervention_id']}'"
         )
@@ -320,11 +357,11 @@ class TestInterventionManagerCore:
         domain = "example.com"
         expected_failures = 2
         
-        # Act: Set failures
+        # When: Set failures
         intervention_manager._domain_failures[domain] = expected_failures
         actual_failures = intervention_manager.get_domain_failures(domain)
         
-        # Assert
+        # Then
         assert actual_failures == expected_failures, (
             f"Failure count for '{domain}' should be {expected_failures}, got {actual_failures}"
         )
@@ -333,13 +370,13 @@ class TestInterventionManagerCore:
         """Test resetting domain failure counter."""
         domain = "example.com"
         
-        # Arrange: Set some failures
+        # Given: Set some failures
         intervention_manager._domain_failures[domain] = 2
         
-        # Act: Reset
+        # When: Reset
         intervention_manager.reset_domain_failures(domain)
         
-        # Assert
+        # Then
         failures = intervention_manager.get_domain_failures(domain)
         assert failures == 0, (
             f"Failure count after reset should be 0, got {failures}"
@@ -439,13 +476,13 @@ class TestDomainSkipLogic:
         domain = "test.com"
         
         with patch("src.utils.notification.get_database", return_value=mock_db):
-            # Arrange
+            # Given
             intervention_manager._domain_failures[domain] = failure_count
             
-            # Act
+            # When
             result = await intervention_manager._should_skip_domain(domain)
             
-            # Assert
+            # Then
             assert result is should_skip, (
                 f"With {failure_count} failures, should_skip should be {should_skip}, "
                 f"got {result}"
@@ -456,15 +493,15 @@ class TestDomainSkipLogic:
         self, intervention_manager, mock_db
     ):
         """Test domain is skipped when in active cooldown period."""
-        # Arrange: Future cooldown time
+        # Given: Future cooldown time
         future_time = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
         mock_db.fetch_one = AsyncMock(return_value={"cooldown_until": future_time})
         
         with patch("src.utils.notification.get_database", return_value=mock_db):
-            # Act
+            # When
             result = await intervention_manager._should_skip_domain("test.com")
             
-            # Assert
+            # Then
             assert result is True, (
                 "Domain with future cooldown time should be skipped"
             )
@@ -474,15 +511,15 @@ class TestDomainSkipLogic:
         self, intervention_manager, mock_db
     ):
         """Test domain is not skipped when cooldown has expired."""
-        # Arrange: Past cooldown time
+        # Given: Past cooldown time
         past_time = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
         mock_db.fetch_one = AsyncMock(return_value={"cooldown_until": past_time})
         
         with patch("src.utils.notification.get_database", return_value=mock_db):
-            # Act
+            # When
             result = await intervention_manager._should_skip_domain("test.com")
             
-            # Assert
+            # Then
             assert result is False, (
                 "Domain with expired cooldown should not be skipped"
             )
@@ -537,14 +574,14 @@ class TestToastNotification:
             mock_registry.send = AsyncMock(return_value=mock_result)
             mock_get_registry.return_value = mock_registry
             
-            # Act
+            # When
             result = await intervention_manager.send_toast(
                 "Test Title",
                 "Test Message",
                 timeout_seconds=5,
             )
             
-            # Assert
+            # Then
             assert isinstance(result, bool), (
                 f"send_toast should return bool, got {type(result)}"
             )
@@ -578,16 +615,16 @@ class TestTabBringToFront:
         self, intervention_manager, mock_page
     ):
         """Test that bring tab to front uses only CDP Page.bringToFront (safe)."""
-        # Arrange
+        # Given
         cdp_session = AsyncMock()
         cdp_session.send = AsyncMock()
         cdp_session.detach = AsyncMock()
         mock_page.context.new_cdp_session = AsyncMock(return_value=cdp_session)
         
-        # Act
+        # When
         await intervention_manager._bring_tab_to_front(mock_page)
         
-        # Assert: Uses Page.bringToFront (allowed per §3.6.1)
+        # Then: Uses Page.bringToFront (allowed per §3.6.1)
         cdp_session.send.assert_any_call("Page.bringToFront")
     
     @pytest.mark.asyncio
@@ -598,16 +635,16 @@ class TestTabBringToFront:
         
         Per §3.6.1: Runtime.evaluate, DOM.*, Input.* are forbidden.
         """
-        # Arrange
+        # Given
         cdp_session = AsyncMock()
         cdp_session.send = AsyncMock()
         cdp_session.detach = AsyncMock()
         mock_page.context.new_cdp_session = AsyncMock(return_value=cdp_session)
         
-        # Act
+        # When
         await intervention_manager._bring_tab_to_front(mock_page)
         
-        # Assert: No forbidden commands were called
+        # Then: No forbidden commands were called
         for call in cdp_session.send.call_args_list:
             command = call[0][0]
             forbidden_prefixes = ["Runtime.evaluate", "DOM.", "Input.", "Emulation."]
@@ -622,7 +659,7 @@ class TestTabBringToFront:
         self, intervention_manager
     ):
         """Test graceful fallback to OS API when CDP connection fails."""
-        # Arrange
+        # Given
         page = AsyncMock()
         page.context.new_cdp_session = AsyncMock(side_effect=Exception("CDP error"))
         
@@ -631,10 +668,10 @@ class TestTabBringToFront:
             "_platform_activate_window",
             new_callable=AsyncMock
         ) as mock_activate:
-            # Act
+            # When
             await intervention_manager._bring_tab_to_front(page)
             
-            # Assert: OS API fallback should be called
+            # Then: OS API fallback should be called
             mock_activate.assert_called_once()
 
 
@@ -667,19 +704,19 @@ class TestInterventionFlow:
         """Test intervention is skipped for domains with 3 failures per §3.1."""
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
-                # Arrange
+                # Given
                 manager = InterventionManager()
                 domain = "blocked.com"
                 manager._domain_failures[domain] = 3
                 
-                # Act
+                # When
                 result = await manager.request_intervention(
                     intervention_type=InterventionType.CAPTCHA,
                     url=f"https://{domain}/page",
                     domain=domain,
                 )
                 
-                # Assert
+                # Then
                 assert result.status == InterventionStatus.SKIPPED, (
                     f"Expected SKIPPED status, got {result.status}"
                 )
@@ -697,7 +734,7 @@ class TestInterventionFlow:
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
-                # Arrange
+                # Given
                 manager = InterventionManager()
                 
                 with patch.object(
@@ -706,7 +743,7 @@ class TestInterventionFlow:
                     with patch.object(
                         manager, "_bring_tab_to_front", new_callable=AsyncMock
                     ):
-                        # Act
+                        # When
                         result = await manager.request_intervention(
                             intervention_type=InterventionType.CAPTCHA,
                             url="https://example.com/page",
@@ -714,7 +751,7 @@ class TestInterventionFlow:
                             page=mock_page,
                         )
                         
-                        # Assert: Should return PENDING immediately
+                        # Then: Should return PENDING immediately
                         assert result.status == InterventionStatus.PENDING, (
                             f"Expected PENDING status per §3.6.1, got {result.status}"
                         )
@@ -739,7 +776,7 @@ class TestInterventionFlow:
                     "_bring_tab_to_front",
                     new_callable=AsyncMock,
                 ):
-                    # Act
+                    # When
                     await intervention_manager.request_intervention(
                         intervention_type=InterventionType.CAPTCHA,
                         url="https://example.com/page",
@@ -747,7 +784,7 @@ class TestInterventionFlow:
                         page=mock_page,
                     )
                     
-                    # Assert
+                    # Then
                     assert mock_db.execute.called, (
                         "Database execute should be called to log intervention"
                     )
@@ -757,7 +794,7 @@ class TestInterventionFlow:
         self, intervention_manager, mock_db
     ):
         """Test successful intervention resets failure counter to 0."""
-        # Arrange
+        # Given
         domain = "example.com"
         intervention_manager._domain_failures[domain] = 2
         
@@ -767,7 +804,7 @@ class TestInterventionFlow:
                 status=InterventionStatus.SUCCESS,
             )
             
-            # Act
+            # When
             await intervention_manager._handle_intervention_result(
                 result,
                 {
@@ -778,7 +815,7 @@ class TestInterventionFlow:
                 mock_db,
             )
             
-            # Assert
+            # Then
             failures = intervention_manager._domain_failures[domain]
             assert failures == 0, (
                 f"Failure count after success should be 0, got {failures}"
@@ -789,7 +826,7 @@ class TestInterventionFlow:
         self, intervention_manager, mock_db
     ):
         """Test failed intervention increments failure counter."""
-        # Arrange
+        # Given
         domain = "example.com"
         initial_failures = 1
         intervention_manager._domain_failures[domain] = initial_failures
@@ -800,7 +837,7 @@ class TestInterventionFlow:
                 status=InterventionStatus.FAILED,  # Changed from TIMEOUT
             )
             
-            # Act
+            # When
             await intervention_manager._handle_intervention_result(
                 result,
                 {
@@ -811,7 +848,7 @@ class TestInterventionFlow:
                 mock_db,
             )
             
-            # Assert
+            # Then
             failures = intervention_manager._domain_failures[domain]
             expected = initial_failures + 1
             assert failures == expected, (
@@ -842,13 +879,13 @@ class TestNotifyUserFunction:
                     new_callable=AsyncMock,
                     return_value=True,
                 ):
-                    # Act
+                    # When
                     result = await notify_user(
                         "info",
                         {"message": "Task completed"},
                     )
                     
-                    # Assert
+                    # Then
                     assert result["shown"] is True, (
                         "Result 'shown' should be True when toast succeeds"
                     )
@@ -880,7 +917,7 @@ class TestNotifyUserFunction:
                         notes="Awaiting user completion via complete_authentication",
                     ),
                 ):
-                    # Act
+                    # When
                     result = await notify_user(
                         "captcha",
                         {
@@ -889,7 +926,7 @@ class TestNotifyUserFunction:
                         },
                     )
                     
-                    # Assert: Should be PENDING per §3.6.1
+                    # Then: Should be PENDING per §3.6.1
                     assert result["status"] == "pending", (
                         f"Result 'status' should be 'pending' per §3.6.1, got '{result['status']}'"
                     )
@@ -918,13 +955,13 @@ class TestInterventionIntegration:
         """Test full intervention lifecycle returns PENDING per §3.6.1."""
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
-                # Arrange
+                # Given
                 manager = InterventionManager()
                 domain = "example.com"
                 
                 with patch.object(manager, "send_toast", new_callable=AsyncMock, return_value=True):
                     with patch.object(manager, "_bring_tab_to_front", new_callable=AsyncMock):
-                        # Act: Per §3.6.1, no element_selector or on_success_callback
+                        # When: Per §3.6.1, no element_selector or on_success_callback
                         result = await manager.request_intervention(
                             intervention_type=InterventionType.CLOUDFLARE,
                             url=f"https://{domain}",
@@ -932,7 +969,7 @@ class TestInterventionIntegration:
                             page=mock_page,
                         )
                         
-                        # Assert: Should return PENDING immediately
+                        # Then: Should return PENDING immediately
                         assert result.status == InterventionStatus.PENDING, (
                             f"Expected PENDING status per §3.6.1, got {result.status}"
                         )
@@ -947,7 +984,7 @@ class TestInterventionIntegration:
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
-                # Arrange
+                # Given
                 manager = InterventionManager()
                 domain = "example.com"
                 intervention_id = f"{domain}_test123"
@@ -961,20 +998,20 @@ class TestInterventionIntegration:
                 }
                 manager._domain_failures[domain] = 2
                 
-                # Act: User completes intervention
+                # When: User completes intervention
                 await manager.complete_intervention(
                     intervention_id=intervention_id,
                     success=True,
                     notes="User resolved CAPTCHA",
                 )
                 
-                # Assert: Failure counter should be reset
+                # Then: Failure counter should be reset
                 failures = manager.get_domain_failures(domain)
                 assert failures == 0, (
                     f"Failure count after success should be 0, got {failures}"
                 )
                 
-                # Assert: Intervention removed from pending
+                # Then: Intervention removed from pending
                 assert intervention_id not in manager._pending_interventions, (
                     "Completed intervention should be removed from pending"
                 )
@@ -989,7 +1026,7 @@ class TestInterventionIntegration:
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", return_value=mock_db):
-                # Arrange
+                # Given
                 manager = InterventionManager()
                 intervention_id = "test_domain_123"
                 
@@ -999,10 +1036,10 @@ class TestInterventionIntegration:
                     "started_at": datetime.now(timezone.utc) - timedelta(minutes=10),
                 }
                 
-                # Act
+                # When
                 status = await manager.check_intervention_status(intervention_id)
                 
-                # Assert: Should still be pending (no timeout per §3.6.1)
+                # Then: Should still be pending (no timeout per §3.6.1)
                 assert status["status"] == "pending", (
                     f"Expected 'pending' status per §3.6.1, got '{status['status']}'"
                 )

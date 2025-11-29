@@ -7,6 +7,83 @@ Covers:
 - Brier score and ECE metrics
 - Calibrator: Main calibration manager
 - EscalationDecider: Model escalation decisions
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-CS-N-01 | CalibrationSample | Equivalence – normal | All fields set | - |
+| TC-CS-N-02 | Default values | Equivalence – normal | Sensible defaults | - |
+| TC-CP-N-01 | to_dict | Equivalence – normal | Serializable dict | - |
+| TC-CP-N-02 | from_dict | Equivalence – normal | Instance created | - |
+| TC-PS-N-01 | Platt fit | Equivalence – normal | Improves calibration | - |
+| TC-PS-N-02 | transform range | Equivalence – normal | [0, 1] output | - |
+| TC-PS-N-03 | Identity transform | Equivalence – normal | sigmoid(0)=0.5 | - |
+| TC-TS-N-01 | Temp fit positive | Equivalence – normal | T > 0 | - |
+| TC-TS-N-02 | High T reduces conf | Equivalence – normal | Closer to 0.5 | - |
+| TC-TS-N-03 | transform range | Equivalence – normal | [0, 1] output | - |
+| TC-BS-N-01 | Perfect predictions | Equivalence – normal | Score = 0 | - |
+| TC-BS-N-02 | Worst predictions | Equivalence – normal | Score = 1 | - |
+| TC-BS-N-03 | Uncertain 0.5 | Equivalence – normal | Score = 0.25 | - |
+| TC-BS-N-04 | Calibrated < overconf | Equivalence – normal | Lower score | - |
+| TC-EC-N-01 | Perfect ECE | Equivalence – normal | ECE ≈ 0 | - |
+| TC-EC-N-02 | Returns bins | Equivalence – normal | Bin data present | - |
+| TC-CA-N-01 | fit_temperature | Equivalence – normal | Params returned | - |
+| TC-CA-N-02 | fit_platt | Equivalence – normal | Params returned | - |
+| TC-CA-N-03 | calibrate valid | Equivalence – normal | [0, 1] output | - |
+| TC-CA-N-04 | calibrate no params | Equivalence – normal | Original returned | - |
+| TC-CA-N-05 | evaluate metrics | Equivalence – normal | Metrics returned | - |
+| TC-CA-N-06 | needs_recalib new | Equivalence – normal | False initially | - |
+| TC-CA-N-07 | needs_recalib pending | Equivalence – normal | True at threshold | - |
+| TC-CA-N-08 | add_sample accumulates | Equivalence – normal | Count increases | - |
+| TC-CA-N-09 | add_sample triggers | Equivalence – normal | Returns True | - |
+| TC-ED-N-01 | Escalate low conf | Equivalence – normal | True | - |
+| TC-ED-N-02 | No escalate high | Equivalence – normal | False | - |
+| TC-ED-N-03 | Uses calibrated | Equivalence – normal | Calibrated used | - |
+| TC-MF-N-01 | calibrate_confidence | Equivalence – normal | Result dict | - |
+| TC-MF-N-02 | evaluate_calibration | Equivalence – normal | Metrics dict | - |
+| TC-MF-N-03 | fit_calibration | Equivalence – normal | Params dict | - |
+| TC-MF-N-04 | check_escalation | Equivalence – normal | Decision dict | - |
+| TC-MF-N-05 | add_calibration_sample | Equivalence – normal | Status dict | - |
+| TC-EC-B-01 | Empty brier score | Boundary – empty | NaN | - |
+| TC-EC-B-02 | Insufficient samples | Boundary – min | Default params | - |
+| TC-EC-B-03 | Extreme probs | Boundary – 0/1 | No exception | - |
+| TC-RE-N-01 | RollbackEvent create | Equivalence – normal | All fields set | - |
+| TC-RE-N-02 | to_dict | Equivalence – normal | Serializable | - |
+| TC-RE-N-03 | from_dict | Equivalence – normal | Instance created | - |
+| TC-CH-N-01 | add_params version | Equivalence – normal | Incrementing | - |
+| TC-CH-N-02 | get_latest | Equivalence – normal | Most recent | - |
+| TC-CH-N-03 | get_previous | Equivalence – normal | Second most recent | - |
+| TC-CH-N-04 | get_by_version | Equivalence – normal | Specific version | - |
+| TC-CH-N-05 | max_history | Equivalence – normal | Limit enforced | - |
+| TC-CH-N-06 | check_degradation | Equivalence – normal | Detects worse | - |
+| TC-CH-N-07 | accepts improvement | Equivalence – normal | No flag | - |
+| TC-CH-N-08 | rollback removes | Equivalence – normal | Current removed | - |
+| TC-CH-N-09 | rollback logs event | Equivalence – normal | Event created | - |
+| TC-CH-N-10 | rollback_to_version | Equivalence – normal | Goes to version | - |
+| TC-CH-N-11 | get_stats | Equivalence – normal | Stats returned | - |
+| TC-CR-N-01 | fit stores history | Equivalence – normal | History grows | - |
+| TC-CR-N-02 | manual rollback | Equivalence – normal | Restores previous | - |
+| TC-CR-N-03 | rollback_to_version | Equivalence – normal | Goes to version | - |
+| TC-CR-N-04 | get_rollback_log | Equivalence – normal | Events returned | - |
+| TC-CR-N-05 | get_history_stats | Equivalence – normal | Stats returned | - |
+| TC-CR-N-06 | set_auto_rollback | Equivalence – normal | Toggles setting | - |
+| TC-MR-N-01 | rollback success | Equivalence – normal | ok=True | - |
+| TC-MR-N-02 | rollback no prev | Equivalence – normal | ok=False | - |
+| TC-MR-N-03 | get_history | Equivalence – normal | Version list | - |
+| TC-MR-N-04 | get_rollback_events | Equivalence – normal | Event list | - |
+| TC-MR-N-05 | get_stats | Equivalence – normal | Comprehensive | - |
+| TC-CE-N-01 | Evaluation create | Equivalence – normal | All fields set | - |
+| TC-CE-N-02 | to_dict | Equivalence – normal | Serializable | - |
+| TC-EV-N-01 | save_evaluation | Equivalence – normal | Saved to DB | - |
+| TC-EV-N-02 | correct brier | Equivalence – normal | Score = 0 | - |
+| TC-EV-N-03 | generate_id | Equivalence – normal | Unique IDs | - |
+| TC-EV-N-04 | get_evaluations empty | Equivalence – normal | Empty list | - |
+| TC-EV-N-05 | diagram no eval | Equivalence – normal | Error returned | - |
+| TC-EV-N-06 | count_evaluations | Equivalence – normal | Count returned | - |
+| TC-ME-N-01 | save_calibration_eval | Equivalence – normal | ok=True | - |
+| TC-ME-N-02 | get_evaluations | Equivalence – normal | List returned | - |
+| TC-ME-N-03 | get_diagram_data | Equivalence – normal | Bins returned | - |
 """
 
 import pytest
