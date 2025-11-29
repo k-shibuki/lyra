@@ -41,6 +41,7 @@ from src.search.search_parsers import (
     MojeekParser,
     EcosiaParser,
     StartpageParser,
+    BingParser,
     ParseResult,
     ParsedResult,
     get_parser,
@@ -92,6 +93,13 @@ def ecosia_html(fixtures_dir: Path) -> str:
 def startpage_html(fixtures_dir: Path) -> str:
     """Load Startpage sample HTML."""
     html_file = fixtures_dir / "startpage_results.html"
+    return html_file.read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def bing_html(fixtures_dir: Path) -> str:
+    """Load Bing sample HTML."""
+    html_file = fixtures_dir / "bing_results.html"
     return html_file.read_text(encoding="utf-8")
 
 
@@ -739,9 +747,140 @@ class TestPhase1613ParserRegistry:
         assert "startpage" in parsers, f"startpage not in {parsers}"
     
     def test_all_parsers_count(self):
-        """Test total parser count is exactly 7."""
+        """Test total parser count is exactly 8."""
         parsers = get_available_parsers()
         
-        # duckduckgo, mojeek, google, qwant, brave, ecosia, startpage
-        assert len(parsers) == 7, f"Expected 7 parsers, got {len(parsers)}: {parsers}"
+        # duckduckgo, mojeek, google, qwant, brave, ecosia, startpage, bing
+        assert len(parsers) == 8, f"Expected 8 parsers, got {len(parsers)}: {parsers}"
+
+
+# ============================================================================
+# Bing Parser Tests
+# ============================================================================
+
+
+class TestBingParser:
+    """Tests for BingParser (high block risk)."""
+    
+    def test_parse_results(self, bing_html: str):
+        """Test parsing Bing search results."""
+        parser = BingParser()
+        result = parser.parse(bing_html, "test query")
+        
+        assert result.ok is True
+        assert len(result.results) == 3
+        assert result.is_captcha is False
+        assert result.error is None
+    
+    def test_parse_result_titles(self, bing_html: str):
+        """Test extracted titles from Bing."""
+        parser = BingParser()
+        result = parser.parse(bing_html, "test")
+        
+        titles = [r.title for r in result.results]
+        assert "Bing Result One" in titles
+        assert "ArXiv Research Paper" in titles
+        assert "Japanese Government Law" in titles
+    
+    def test_parse_result_urls(self, bing_html: str):
+        """Test extracted URLs from Bing."""
+        parser = BingParser()
+        result = parser.parse(bing_html, "test")
+        
+        urls = [r.url for r in result.results]
+        assert "https://example.com/bing1" in urls
+        assert "https://arxiv.org/abs/2024.12345" in urls
+        assert "https://www.e-gov.go.jp/law/document" in urls
+    
+    def test_parse_result_snippets(self, bing_html: str):
+        """Test extracted snippets from Bing match expected content."""
+        parser = BingParser()
+        result = parser.parse(bing_html, "test")
+        
+        # Verify specific snippet content by index (deterministic order from fixture)
+        assert len(result.results) == 3
+        assert "first result from Bing" in result.results[0].snippet
+        assert "machine learning research" in result.results[1].snippet
+        assert "Japanese government legal" in result.results[2].snippet
+    
+    def test_parse_result_ranks(self, bing_html: str):
+        """Test results have correct ranks assigned."""
+        parser = BingParser()
+        result = parser.parse(bing_html, "test")
+        
+        ranks = [r.rank for r in result.results]
+        assert ranks == [1, 2, 3]
+    
+    def test_build_search_url(self):
+        """Test building Bing search URL contains domain and encoded query."""
+        parser = BingParser()
+        url = parser.build_search_url("test query")
+        
+        assert "bing.com" in url
+        # Query should be URL-encoded (space becomes + or %20)
+        assert "test" in url
+        assert "query" in url
+    
+    def test_academic_source_classification(self, bing_html: str):
+        """Test arxiv source is classified as academic."""
+        parser = BingParser()
+        result = parser.parse(bing_html, "test")
+        
+        academic_result = next(
+            (r for r in result.results if "arxiv.org" in r.url.lower()),
+            None,
+        )
+        assert academic_result is not None
+        
+        search_result = academic_result.to_search_result("bing")
+        assert search_result.source_tag == SourceTag.ACADEMIC
+    
+    def test_government_source_classification(self, bing_html: str):
+        """Test Japanese government source is classified correctly."""
+        parser = BingParser()
+        result = parser.parse(bing_html, "test")
+        
+        gov_result = next(
+            (r for r in result.results if ".go.jp" in r.url),
+            None,
+        )
+        assert gov_result is not None
+        
+        search_result = gov_result.to_search_result("bing")
+        assert search_result.source_tag == SourceTag.GOVERNMENT
+    
+    def test_empty_html(self):
+        """Test empty HTML returns failure with selector errors for required selectors."""
+        parser = BingParser()
+        result = parser.parse("", "test")
+        
+        assert result.ok is False
+        # Bing has 3 required selectors: results_container, title, url
+        assert len(result.selector_errors) == 3
+    
+    def test_captcha_detection(self):
+        """Test reCAPTCHA pattern is detected in HTML."""
+        parser = BingParser()
+        
+        # reCAPTCHA
+        html = "<html><body><div class='g-recaptcha'></div></body></html>"
+        result = parser.parse(html, "test")
+        assert result.is_captcha is True
+        assert result.captcha_type == "recaptcha"
+
+
+class TestBingParserRegistry:
+    """Tests for Bing parser registration."""
+    
+    def test_bing_parser_available(self):
+        """Test Bing parser is registered and returns correct type."""
+        parser = get_parser("bing")
+        assert parser is not None
+        assert isinstance(parser, BingParser)
+    
+    def test_bing_in_available_list(self):
+        """Test Bing parser appears in available parsers list."""
+        parsers = get_available_parsers()
+        
+        assert "bing" in parsers, f"bing not in {parsers}"
 

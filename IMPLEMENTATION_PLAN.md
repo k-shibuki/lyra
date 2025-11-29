@@ -383,7 +383,7 @@ pytest -m e2e
 pytest -m ""
 ```
 
-**現在のテスト数**: 2154件（全パス）
+**現在のテスト数**: 2166件（全パス）
 
 ### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -413,7 +413,7 @@ pytest -m ""
 | Brave | ✅ | ✅ | ✅ | ❌ | - | パーサー済 |
 | Ecosia | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
 | Startpage | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
-| Bing | - | ✅ | ❌ | ❌ | - | **未実装** |
+| Bing | - | ✅ | ✅ | ❌ | - | パーサー済 |
 
 ### H.2 E2E検証で判明した知見
 
@@ -479,7 +479,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 ### H.3 残作業
 
 #### 優先度高（仕様書§3.2準拠）
-- [ ] **Bingパーサー実装**
+- [x] **Bingパーサー実装** ✅
   - `config/search_parsers.yaml`にbing定義追加
   - `src/search/search_parsers.py`にBingParser追加
   - `src/search/parser_config.py`にbingフィールド追加
