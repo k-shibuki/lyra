@@ -11,6 +11,85 @@ Requirements tested:
 - Provider registration and switching
 - Fallback mechanism
 - Health status reporting
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-NU-N-01 | Urgency enum | Equivalence – normal | All levels defined | - |
+| TC-PL-N-01 | Platform enum | Equivalence – normal | All platforms defined | - |
+| TC-NO-N-01 | Default options | Equivalence – normal | Correct defaults | - |
+| TC-NO-N-02 | Custom options | Equivalence – normal | Values stored | - |
+| TC-NO-N-03 | to_dict | Equivalence – normal | Serializable | - |
+| TC-NR-N-01 | Success factory | Equivalence – normal | ok=True | - |
+| TC-NR-N-02 | Failure factory | Equivalence – normal | ok=False | - |
+| TC-NR-N-03 | to_dict | Equivalence – normal | Serializable | - |
+| TC-HS-N-01 | healthy factory | Equivalence – normal | state=HEALTHY | - |
+| TC-HS-N-02 | degraded factory | Equivalence – normal | state=DEGRADED | - |
+| TC-HS-N-03 | unhealthy factory | Equivalence – normal | state=UNHEALTHY | - |
+| TC-HS-N-04 | unavailable factory | Equivalence – normal | available=False | - |
+| TC-HS-N-05 | to_dict | Equivalence – normal | Serializable | - |
+| TC-PD-N-01 | Detect Linux | Equivalence – normal | Platform.LINUX | - |
+| TC-PD-N-02 | Detect WSL proc | Equivalence – normal | Platform.WSL | - |
+| TC-PD-N-03 | Detect WSL release | Equivalence – normal | Platform.WSL | - |
+| TC-PD-N-04 | Detect Windows | Equivalence – normal | Platform.WINDOWS | - |
+| TC-PD-N-05 | Detect macOS | Equivalence – normal | Platform.MACOS | - |
+| TC-PD-N-06 | Detect unknown | Equivalence – normal | Platform.UNKNOWN | - |
+| TC-PD-N-07 | is_wsl true | Equivalence – normal | True | - |
+| TC-PD-N-08 | is_wsl false | Equivalence – normal | False | - |
+| TC-LP-N-01 | provider_name | Equivalence – normal | "linux_notify" | - |
+| TC-LP-N-02 | target_platform | Equivalence – normal | Platform.LINUX | - |
+| TC-LP-N-03 | send success | Equivalence – normal | ok=True | - |
+| TC-LP-A-01 | notify-send missing | Equivalence – abnormal | ok=False | - |
+| TC-LP-N-04 | send with options | Equivalence – normal | Options applied | - |
+| TC-LP-A-02 | send failure | Equivalence – abnormal | ok=False | - |
+| TC-LP-N-05 | health available | Equivalence – normal | HEALTHY | - |
+| TC-LP-A-03 | health wrong platform | Equivalence – abnormal | UNHEALTHY | - |
+| TC-LP-A-04 | health missing | Equivalence – abnormal | UNHEALTHY | - |
+| TC-WP-N-01 | provider_name | Equivalence – normal | "windows_toast" | - |
+| TC-WP-N-02 | target_platform | Equivalence – normal | Platform.WINDOWS | - |
+| TC-WP-N-03 | send success | Equivalence – normal | ok=True | - |
+| TC-WP-N-04 | Escapes chars | Equivalence – normal | Escaped | - |
+| TC-WP-N-05 | health available | Equivalence – normal | HEALTHY | - |
+| TC-WP-A-01 | health wrong platform | Equivalence – abnormal | UNHEALTHY | - |
+| TC-WB-N-01 | provider_name | Equivalence – normal | "wsl_bridge" | - |
+| TC-WB-N-02 | target_platform | Equivalence – normal | Platform.WSL | - |
+| TC-WB-N-03 | send success | Equivalence – normal | ok=True | - |
+| TC-WB-A-01 | PS not found | Equivalence – abnormal | ok=False | - |
+| TC-WB-N-04 | health available | Equivalence – normal | HEALTHY | - |
+| TC-WB-A-02 | health wrong platform | Equivalence – abnormal | UNHEALTHY | - |
+| TC-BP-N-01 | success_rate tracking | Equivalence – normal | Rate calculated | - |
+| TC-BP-N-02 | close sets flag | Equivalence – normal | is_closed=True | - |
+| TC-BP-A-01 | closed raises | Equivalence – abnormal | RuntimeError | - |
+| TC-RG-N-01 | register provider | Equivalence – normal | In list | - |
+| TC-RG-A-01 | register duplicate | Equivalence – abnormal | ValueError | - |
+| TC-RG-N-02 | First is default | Equivalence – normal | Default set | - |
+| TC-RG-N-03 | set_default | Equivalence – normal | Changed | - |
+| TC-RG-N-04 | unregister | Equivalence – normal | Removed | - |
+| TC-RG-A-02 | unregister nonexistent | Equivalence – abnormal | Returns None | - |
+| TC-RG-N-05 | set_default | Equivalence – normal | Changed | - |
+| TC-RG-A-03 | set_default nonexistent | Equivalence – abnormal | ValueError | - |
+| TC-RG-N-06 | list_providers | Equivalence – normal | All listed | - |
+| TC-RG-N-07 | get_all_health | Equivalence – normal | All statuses | - |
+| TC-RG-N-08 | send uses default | Equivalence – normal | Correct provider | - |
+| TC-RG-N-09 | send fallback | Equivalence – normal | Next provider | - |
+| TC-RG-A-04 | send all fail | Equivalence – abnormal | Error | - |
+| TC-RG-A-05 | send no providers | Equivalence – abnormal | RuntimeError | - |
+| TC-RG-N-10 | close_all | Equivalence – normal | All closed | - |
+| TC-AR-N-01 | auto_register Linux | Equivalence – normal | linux_notify | - |
+| TC-AR-N-02 | auto_register Windows | Equivalence – normal | windows_toast | - |
+| TC-AR-N-03 | auto_register WSL | Equivalence – normal | wsl_bridge + linux | - |
+| TC-GR-N-01 | get creates registry | Equivalence – normal | Instance returned | - |
+| TC-GR-N-02 | get returns same | Equivalence – normal | Singleton | - |
+| TC-GR-N-03 | cleanup | Equivalence – normal | Reset works | - |
+| TC-PC-N-01 | Linux is provider | Equivalence – normal | True | - |
+| TC-PC-N-02 | Windows is provider | Equivalence – normal | True | - |
+| TC-PC-N-03 | WSL is provider | Equivalence – normal | True | - |
+| TC-EC-B-01 | Empty title/message | Boundary – empty | Still succeeds | - |
+| TC-EC-N-01 | Unicode chars | Equivalence – normal | Succeeds | - |
+| TC-EC-B-02 | Very long message | Boundary – max | Succeeds | - |
+| TC-EC-B-03 | No operations rate | Boundary – zero | Returns 1.0 | - |
+| TC-EC-A-01 | Timeout handling | Equivalence – abnormal | ok=False | - |
 """
 
 import asyncio

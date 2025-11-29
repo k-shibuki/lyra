@@ -39,14 +39,14 @@
 | test_evidence_graph.py | 41 | 897 | ✓ | 41 | ✓ | 3 | Done |
 | test_deduplication.py | 23 | 436 | ✓ | 23 | ✓ | 3 | Done |
 | test_extractor.py | 20 | 496 | ✓ | 20 | ✓ | 3 | Done |
-| test_calibration.py | 72 | 1307 | ✓ | 0 | ✓ | 1 | 2 |
+| test_calibration.py | 72 | 1307 | ✓ | 72 | ✓ | 3 | Done |
 | test_policy_engine.py | 18 | 362 | ✓ | 18 | ✓ | 3 | Done |
-| test_metrics.py | 26 | 398 | ✓ | 0 | ✓ | 1 | 2 |
-| test_intervention_queue.py | 42 | 1406 | ✓ | 0 | - | 1 | 2 |
-| test_notification.py | 31 | 1038 | ✓ | 0 | - | 1 | 2 |
-| test_notification_provider.py | 74 | 1055 | ✓ | 0 | - | 1 | 2 |
-| test_circuit_breaker.py | 29 | 471 | ✓ | 0 | - | 1 | 2 |
-| test_domain_policy.py | 88 | 1332 | ✓ | 0 | ✓ | 1 | 2 |
+| test_metrics.py | 26 | 398 | ✓ | 26 | ✓ | 3 | Done |
+| test_intervention_queue.py | 42 | 1406 | ✓ | 42 | ✓ | 3 | Done |
+| test_notification.py | 31 | 1038 | ✓ | 31 | ✓ | 3 | Done |
+| test_notification_provider.py | 74 | 1055 | ✓ | 74 | ✓ | 3 | Done |
+| test_circuit_breaker.py | 29 | 471 | ✓ | 29 | ✓ | 3 | Done |
+| test_domain_policy.py | 88 | 1332 | ✓ | 88 | ✓ | 3 | Done |
 | test_ab_test.py | 38 | 565 | - | 0 | ✓ | 0 | 3 |
 | test_bfs.py | 31 | 659 | - | 0 | ✓ | 0 | 3 |
 | test_browser_archive.py | 37 | 789 | - | 0 | ✓ | 0 | 3 |
@@ -157,22 +157,22 @@ with pytest.raises(ValueError, match="expected message"):
 
 **推定作業量**: 約70テストケースにG/W/T追加
 
-### Phase 2: Level 1 → Level 3 昇格（12ファイル）
+### Phase 2: Level 1 → Level 3 昇格（8ファイル） ✅ 完了
 
 **目標**: 観点表はあるがG/W/Tがないファイルを完全準拠に
 
-| ファイル | テスト数 | 作業内容 |
-|----------|---------|----------|
-| test_calibration.py | 72 | 72件のG/W/T追加 |
-| ~~test_policy_engine.py~~ | ~~18~~ | ~~18件のG/W/T追加~~ ✅ Done |
-| test_metrics.py | 26 | 26件のG/W/T追加 |
-| test_intervention_queue.py | 42 | 42件のG/W/T追加、pytestmark |
-| test_notification.py | 31 | 31件のG/W/T追加、pytestmark |
-| test_notification_provider.py | 74 | 74件のG/W/T追加、pytestmark |
-| test_circuit_breaker.py | 29 | 29件のG/W/T追加、pytestmark |
-| test_domain_policy.py | 88 | 88件のG/W/T追加 |
+| ファイル | テスト数 | 作業内容 | 状態 |
+|----------|---------|----------|------|
+| ~~test_calibration.py~~ | ~~72~~ | ~~72件のG/W/T追加~~ | ✅ Done |
+| ~~test_policy_engine.py~~ | ~~18~~ | ~~18件のG/W/T追加~~ | ✅ Done |
+| ~~test_metrics.py~~ | ~~26~~ | ~~26件のG/W/T追加~~ | ✅ Done |
+| ~~test_intervention_queue.py~~ | ~~42~~ | ~~42件のG/W/T追加、pytestmark~~ | ✅ Done |
+| ~~test_notification.py~~ | ~~31~~ | ~~31件のG/W/T追加、pytestmark~~ | ✅ Done |
+| ~~test_notification_provider.py~~ | ~~74~~ | ~~74件のG/W/T追加、pytestmark~~ | ✅ Done |
+| ~~test_circuit_breaker.py~~ | ~~29~~ | ~~29件のG/W/T追加、pytestmark~~ | ✅ Done |
+| ~~test_domain_policy.py~~ | ~~88~~ | ~~88件のG/W/T追加~~ | ✅ Done |
 
-**推定作業量**: 約380テストケースにG/W/T追加
+**完了**: 380テストケースにG/W/T追加完了
 
 ### Phase 3: Level 0 → Level 3（33ファイル）
 
@@ -263,13 +263,20 @@ with pytest.raises(ValueError, match="expected message"):
 - [x] test_deduplication.py (Level 3)
 - [x] test_extractor.py (Level 3)
 
-### Phase 2 進行中 🔄
+### Phase 2 完了 ✅
 
 - [x] test_policy_engine.py (Level 3) ✅
+- [x] test_metrics.py (Level 3) ✅
+- [x] test_circuit_breaker.py (Level 3) ✅
+- [x] test_notification.py (Level 3) ✅
+- [x] test_intervention_queue.py (Level 3) ✅
+- [x] test_calibration.py (Level 3) ✅
+- [x] test_notification_provider.py (Level 3) ✅
+- [x] test_domain_policy.py (Level 3) ✅
 
 ### Phase 3 待機中
 
-（Phase 2 完了後に開始）
+（Phase 2 完了、Phase 3 開始可能）
 
 ### Phase 4 待機中
 
