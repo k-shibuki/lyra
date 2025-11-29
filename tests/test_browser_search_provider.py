@@ -30,6 +30,7 @@ import pytest
 from src.search.browser_search_provider import (
     BrowserSearchProvider,
     BrowserSearchSession,
+    CDPConnectionError,
     get_browser_search_provider,
     reset_browser_search_provider,
 )
@@ -491,6 +492,136 @@ class TestFactoryFunctions:
 # ============================================================================
 # SearchOptions Integration Tests
 # ============================================================================
+
+
+class TestCDPConnection:
+    """
+    Tests for CDP connection handling.
+    
+    Per spec (§3.2, §4.3.3), CDP connection is required and headless
+    fallback is not supported.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_cdp_connection_failure_returns_clear_error(self):
+        """
+        Test that CDP connection failure returns a clear error message.
+        
+        Validates:
+        - No headless fallback (per §4.3.3)
+        - Error message includes chrome.sh guidance
+        - connection_mode is None when CDP fails
+        """
+        provider = BrowserSearchProvider()
+        
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            # Mock playwright startup
+            mock_playwright = AsyncMock()
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+            
+            # Mock CDP connection failure
+            mock_playwright.chromium = MagicMock()
+            mock_playwright.chromium.connect_over_cdp = AsyncMock(
+                side_effect=Exception("Connection refused")
+            )
+            mock_playwright.stop = AsyncMock()
+            
+            with patch(
+                "src.search.browser_search_provider.get_parser"
+            ) as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
+                )
+                mock_get_parser.return_value = mock_parser
+                
+                response = await provider.search("test query")
+                
+                # Verify error response
+                assert response.ok is False
+                assert response.error is not None
+                assert "CDP connection failed" in response.error
+                assert "chrome.sh" in response.error
+                assert response.connection_mode is None
+    
+    @pytest.mark.asyncio
+    async def test_cdp_connection_success_sets_connection_mode(
+        self,
+        mock_playwright,
+        mock_parse_result,
+    ):
+        """
+        Test that successful CDP connection sets connection_mode to 'cdp'.
+        """
+        provider = BrowserSearchProvider()
+        
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(
+                return_value=mock_playwright
+            )
+            
+            with patch(
+                "src.search.browser_search_provider.get_parser"
+            ) as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
+                
+                response = await provider.search("test query")
+                
+                assert response.ok is True
+                assert response.connection_mode == "cdp"
+        
+        await provider.close()
+    
+    @pytest.mark.asyncio
+    async def test_captcha_detection_includes_connection_mode(
+        self,
+        mock_playwright,
+    ):
+        """
+        Test that CAPTCHA response includes connection_mode='cdp'.
+        """
+        provider = BrowserSearchProvider()
+        
+        captcha_parse_result = ParseResult(
+            ok=False,
+            is_captcha=True,
+            captcha_type="turnstile",
+            error="CAPTCHA detected",
+        )
+        
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(
+                return_value=mock_playwright
+            )
+            
+            with patch(
+                "src.search.browser_search_provider.get_parser"
+            ) as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
+                )
+                mock_parser.parse = MagicMock(return_value=captcha_parse_result)
+                mock_get_parser.return_value = mock_parser
+                
+                with patch.object(
+                    provider,
+                    "_request_intervention",
+                    AsyncMock(return_value=False),
+                ):
+                    response = await provider.search("test query")
+                    
+                    assert response.ok is False
+                    assert "CAPTCHA" in response.error
+                    # CAPTCHA detected via CDP connection, so mode is 'cdp'
+                    assert response.connection_mode == "cdp"
+        
+        await provider.close()
 
 
 class TestSearchOptionsIntegration:
