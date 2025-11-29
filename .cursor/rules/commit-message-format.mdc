@@ -1,8 +1,6 @@
 ---
-alwaysApply: false
-description: Gitコミットメッセージの書式ルール（Prefix + サマリ + 箇条書き）
+alwaysApply: true
 ---
-
 # Gitコミットメッセージの書式ルール
 
 このルールは、すべてのコミットに対して適用されるコミットメッセージのガイドラインです。
@@ -16,7 +14,7 @@ description: Gitコミットメッセージの書式ルール（Prefix + サマ�
 ## 言語指定
 
 - このルールファイルでは、コミットメッセージに用いる言語を表す論理名として `language` を用いる。
-- `language = "ja"`
+- `language = "en"`
 - サマリおよび本文は、原則として `language` で指定した言語で記述する。
 
 ## 基本フォーマット（必須）
