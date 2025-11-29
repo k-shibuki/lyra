@@ -963,18 +963,30 @@ class BingParser(BaseSearchParser):
     
     def _clean_bing_url(self, url: str) -> str | None:
         """Clean Bing redirect URL to get actual destination."""
-        from urllib.parse import parse_qs, urlparse
+        import base64
+        from urllib.parse import parse_qs, urlparse, unquote
         
         # Bing uses /ck/a for click tracking
         if "/ck/a" in url or "bing.com/ck" in url:
             parsed = urlparse(url)
             params = parse_qs(parsed.query)
             if "u" in params:
-                # Bing encodes the URL in 'u' parameter
+                # Bing encodes the URL in 'u' parameter with base64
                 encoded_url = params["u"][0]
-                # Bing uses a1, a2, etc. prefixes
-                if encoded_url.startswith("a1"):
-                    return encoded_url[2:]
+                # Bing uses a1, a2, etc. prefixes before base64
+                if encoded_url.startswith(("a1", "a2", "a3")):
+                    try:
+                        # Remove prefix and decode base64
+                        b64_part = encoded_url[2:]
+                        # Add padding if needed
+                        padding = 4 - len(b64_part) % 4
+                        if padding != 4:
+                            b64_part += "=" * padding
+                        decoded = base64.urlsafe_b64decode(b64_part).decode("utf-8")
+                        return decoded
+                    except Exception:
+                        # If decode fails, return as-is
+                        return encoded_url[2:]
                 return encoded_url
         return url
     
