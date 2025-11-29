@@ -383,7 +383,7 @@ pytest -m e2e
 pytest -m ""
 ```
 
-**現在のテスト数**: 2166件（全パス）
+**現在のテスト数**: 2169件（全パス）
 
 ### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -412,12 +412,12 @@ pytest -m ""
 | エンジン | 仕様書§3.2 | engines.yaml | パーサー | E2Eスクリプト | E2E検証 | 状態 |
 |----------|:----------:|:------------:|:--------:|:-------------:|:-------:|------|
 | DuckDuckGo | ✅ | ✅ | ✅ | ✅ | ✅ 5/5 | **完了** |
-| Mojeek | ✅ | ✅ | ✅ | ✅ | - | E2E作成済 |
-| Google | ✅ | ✅ | ✅ | ✅ | - | E2E作成済 |
-| Brave | ✅ | ✅ | ✅ | ✅ | - | E2E作成済 |
+| Mojeek | ✅ | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
+| Google | ✅ | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
+| Brave | ✅ | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
 | Ecosia | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
 | Startpage | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
-| Bing | - | ✅ | ✅ | ✅ | - | E2E作成済 |
+| Bing | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
 
 ### H.2 E2E検証で判明した知見
 
@@ -485,6 +485,17 @@ snippet: ".description"
   - `src/search/provider.py`: `SearchResponse`に`connection_mode`追加
   - `src/search/browser_search_provider.py`: フォールバック削除、`CDPConnectionError`追加
   - `tests/test_browser_search_provider.py`: CDP接続テスト追加
+
+**Brave CAPTCHA誤検出問題**: ✅ 修正済み
+- 症状: 正常な検索結果ページで「CAPTCHA detected」と誤報告
+- 根本原因: `captcha_patterns`の`"captcha"`パターンがJS変数名（`captchacookiename`等）にマッチ
+- 修正内容: `config/search_parsers.yaml`のBrave用パターンをより具体的に変更
+  - `"captcha"` → `"please complete the captcha"`, `"verify you are human"`
+
+**Bing URLデコード問題**: ✅ 修正済み
+- 症状: Bing検索結果が0件として返される
+- 根本原因: BingのリダイレクトURL（`u=a1aHR0cHM6...`）がbase64エンコードされているが、デコード処理が欠落
+- 修正内容: `src/search/search_parsers.py`の`_clean_bing_url`にbase64デコード追加
 
 #### H.2.4 E2Eスクリプトの共通修正
 
