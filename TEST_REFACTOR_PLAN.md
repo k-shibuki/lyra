@@ -40,7 +40,7 @@
 | test_deduplication.py | 23 | 436 | ✓ | 23 | ✓ | 3 | Done |
 | test_extractor.py | 20 | 496 | ✓ | 20 | ✓ | 3 | Done |
 | test_calibration.py | 72 | 1307 | ✓ | 0 | ✓ | 1 | 2 |
-| test_policy_engine.py | 18 | 362 | ✓ | 0 | ✓ | 1 | 2 |
+| test_policy_engine.py | 18 | 362 | ✓ | 18 | ✓ | 3 | Done |
 | test_metrics.py | 26 | 398 | ✓ | 0 | ✓ | 1 | 2 |
 | test_intervention_queue.py | 42 | 1406 | ✓ | 0 | - | 1 | 2 |
 | test_notification.py | 31 | 1038 | ✓ | 0 | - | 1 | 2 |
@@ -164,7 +164,7 @@ with pytest.raises(ValueError, match="expected message"):
 | ファイル | テスト数 | 作業内容 |
 |----------|---------|----------|
 | test_calibration.py | 72 | 72件のG/W/T追加 |
-| test_policy_engine.py | 18 | 18件のG/W/T追加 |
+| ~~test_policy_engine.py~~ | ~~18~~ | ~~18件のG/W/T追加~~ ✅ Done |
 | test_metrics.py | 26 | 26件のG/W/T追加 |
 | test_intervention_queue.py | 42 | 42件のG/W/T追加、pytestmark |
 | test_notification.py | 31 | 31件のG/W/T追加、pytestmark |
@@ -263,9 +263,9 @@ with pytest.raises(ValueError, match="expected message"):
 - [x] test_deduplication.py (Level 3)
 - [x] test_extractor.py (Level 3)
 
-### Phase 2 待機中
+### Phase 2 進行中 🔄
 
-（Phase 1 完了後に開始）
+- [x] test_policy_engine.py (Level 3) ✅
 
 ### Phase 3 待機中
 
