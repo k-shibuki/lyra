@@ -405,7 +405,7 @@ pytest -m ""
 
 ---
 
-## Phase H: 検索エンジン多様化 🔄
+## Phase H: 検索エンジン多様化 ✅
 
 ### H.1 実装状況マトリクス
 
@@ -541,7 +541,10 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
   - `SearchResponse.connection_mode`フィールド追加
 
 #### 確認事項
-- [ ] MCPサーバ経由での動作確認（現在はPythonモジュール直接使用）
+- [x] **MCPサーバ経由での動作確認** ✅
+  - `tests/scripts/verify_mcp_tools.py`作成（MCPツールハンドラ検証）
+  - `search_serp`ツール経由での検索が正常動作することを確認
+  - バグ修正: `search_parsers._classify_source`が文字列を返していた問題を修正（SourceTag Enumに変換）
 
 ---
 

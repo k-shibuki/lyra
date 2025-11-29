@@ -1073,12 +1073,17 @@ def _classify_source(url: str) -> SourceTag:
     """
     Classify source type based on URL.
     
-    Reuses classification logic from search_api.
+    Reuses classification logic from search_api and converts to SourceTag enum.
     """
     # Import here to avoid circular dependency
     try:
         from src.search.search_api import _classify_source as classify_source
-        return classify_source(url)
+        tag_str = classify_source(url)
+        # Convert string to SourceTag enum
+        try:
+            return SourceTag(tag_str)
+        except ValueError:
+            return SourceTag.UNKNOWN
     except ImportError:
         # Fallback classification
         url_lower = url.lower()
