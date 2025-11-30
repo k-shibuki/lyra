@@ -14,6 +14,28 @@ Usage:
 
     # Skip if services not available
     pytest tests/test_e2e.py -v -m e2e --ignore-missing-services
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-E2E-N-01 | Valid search query, mojeek engine | Equivalence – normal search | Returns ≥1 results with required fields | Browser search integration |
+| TC-E2E-N-02 | Valid Wikipedia URL | Equivalence – normal fetch/extract | Fetch succeeds, extracts >100 chars | HTTP fetch + extraction |
+| TC-E2E-N-03 | Complete pipeline (task→search→graph) | Equivalence – full workflow | Task created, subquery registered, status available | Multi-component integration |
+| TC-E2E-N-04 | Claims + fragments in evidence graph | Equivalence – report materials | Graph has 2 claims, 1 supporting evidence | Evidence graph building |
+| TC-E2E-N-05 | Auth queue with high/medium/low priority | Equivalence – enqueue operation | Queue IDs generated with iq_ prefix | Authentication queue |
+| TC-E2E-N-06 | Multiple tasks for same domain | Equivalence – domain grouping | Results grouped by domain, affected_tasks correct | Domain-based auth |
+| TC-E2E-N-07 | Single auth item completion | Equivalence – single complete | Status becomes 'completed' | Legacy API |
+| TC-E2E-N-08 | Domain-wide auth completion | Equivalence – batch resolution | All items for domain resolved, session stored | Domain-based completion |
+| TC-E2E-N-09 | Skip specific queue_ids | Equivalence – selective skip | Only specified items skipped | Item-level skip |
+| TC-E2E-N-10 | Skip by domain | Equivalence – domain skip | All items for domain skipped | Domain-level skip |
+| TC-E2E-N-11 | Pending count with mixed priorities | Equivalence – count summary | Correct total/high/medium/low counts | Priority counting |
+| TC-E2E-B-01 | Expired queue items | Boundary – expiration | Expired items cleaned up | Expiration handling |
+| TC-E2E-N-12 | New domain for skip check | Equivalence – initial state | Should not be skipped (no failures) | Domain failure tracking |
+| TC-E2E-N-13 | Domain failure tracking | Equivalence – failure counter | Initial failures=0, max_failures=3 | Failure limit |
+| TC-E2E-N-14 | Full research workflow | Equivalence – complete flow | 3 subqueries, ≥1 claims, evidence linked | End-to-end workflow |
+| TC-E2E-N-15 | Ollama availability check | Equivalence – service check | Status 200, models list returned | LLM service check |
+| TC-E2E-N-16 | LLM extract with simple passage | Equivalence – LLM extraction | Extraction succeeds | LLM integration |
 """
 
 import asyncio
@@ -139,9 +161,10 @@ class TestSearchToReportPipeline:
         """
         from src.search import search_serp
         
-        # Execute a simple search query
-        # Use mojeek as it's block-resistant and returns results reliably
-        # duckduckgo/qwant/brave often blocked by CAPTCHA/rate limits
+        # Given: Browser search is available and a valid search query
+        # (check_browser_search fixture ensures browser is available)
+        
+        # When: Execute a simple search query using mojeek (block-resistant)
         results = await search_serp(
             query="Python programming language",
             engines=["mojeek"],
@@ -150,21 +173,18 @@ class TestSearchToReportPipeline:
             use_cache=False,  # Skip cache for E2E test
         )
         
-        # Verify results structure
+        # Then: Results are returned with required fields
         assert isinstance(results, list), f"Expected list, got {type(results)}"
         assert len(results) >= 1, f"Expected >=1 search results, got {len(results)}"
         
-        # Verify result fields per §3.2.1
         first_result = results[0]
         required_fields = ["title", "url", "snippet", "engine", "rank"]
         for field in required_fields:
             assert field in first_result, f"Missing required field: {field}"
         
-        # Verify URL is valid
         assert first_result["url"].startswith(("http://", "https://")), \
             f"Invalid URL: {first_result['url']}"
         
-        # Log for manual inspection
         print(f"\n[E2E] Search returned {len(results)} results")
         print(f"[E2E] First result: {first_result['title'][:50]}...")
     
@@ -181,23 +201,23 @@ class TestSearchToReportPipeline:
         from src.crawler.fetcher import fetch_url
         from src.extractor.content import extract_content
         
-        # Fetch a known stable URL (Wikipedia)
+        # Given: A known stable URL (Wikipedia) to fetch
         test_url = "https://en.wikipedia.org/wiki/Python_(programming_language)"
         
+        # When: Fetch the URL with HTTP client
         fetch_result = await fetch_url(
             url=test_url,
             context={"referer": "https://www.google.com/"},
             policy={"force_browser": False, "max_retries": 2},
         )
         
-        # Verify fetch succeeded
+        # Then: Fetch succeeds and returns html_path
         assert fetch_result["ok"] is True, f"Fetch failed: {fetch_result.get('reason')}"
-        # Result should contain html_path (primary) for saved content
         assert "html_path" in fetch_result, (
             f"Expected 'html_path' in fetch result, got keys: {list(fetch_result.keys())}"
         )
         
-        # Extract content
+        # Given: Fetched HTML content exists
         html_content = None
         if "html_path" in fetch_result and fetch_result["html_path"]:
             html_path = Path(fetch_result["html_path"])
@@ -207,11 +227,12 @@ class TestSearchToReportPipeline:
             html_content = fetch_result["content"]
         
         if html_content:
+            # When: Extract content from HTML
             extract_result = await extract_content(html=html_content, content_type="html")
             
+            # Then: Extraction succeeds with substantial content
             assert extract_result["ok"] is True, f"Extract failed: {extract_result.get('error')}"
             
-            # Verify extracted content
             text = extract_result.get("text", "")
             assert len(text) > 100, "Expected substantial text content"
             assert "Python" in text, "Expected 'Python' in extracted text"
@@ -234,40 +255,40 @@ class TestSearchToReportPipeline:
         from src.research.context import ResearchContext
         from src.research.state import ExplorationState, SubqueryStatus
         
-        # Step 1: Create research task
+        # Given: A research query to investigate
         task_id = await e2e_database.create_task(
             query="What is the history of Python programming language?"
         )
         assert task_id is not None, "Failed to create task"
         
-        # Step 2: Initialize research context
+        # When: Initialize research context
         context = ResearchContext(task_id)
         context._db = e2e_database
         ctx_result = await context.get_context()
         
+        # Then: Context is retrieved successfully
         assert ctx_result["ok"] is True, f"Context retrieval failed: {ctx_result}"
         assert "extracted_entities" in ctx_result
         
-        # Step 3: Initialize exploration state
+        # Given: Exploration state initialized with a subquery
         state = ExplorationState(task_id)
         state._db = e2e_database
         
-        # Register a subquery (as if designed by Cursor AI)
         state.register_subquery(
             subquery_id="sq_python_history",
             text="Python programming language history site:wikipedia.org",
             priority="high",
         )
         
-        # Step 4: Execute search
+        # When: Execute search for the subquery
         results = await search_serp(
             query="Python programming language history",
-            engines=["mojeek"],  # Use block-resistant engine
+            engines=["mojeek"],
             limit=3,
             use_cache=False,
         )
         
-        # Step 5: Update subquery status based on results
+        # Then: Subquery status is updated based on results
         sq = state.get_subquery("sq_python_history")
         assert sq is not None
         
@@ -277,9 +298,10 @@ class TestSearchToReportPipeline:
         else:
             sq.status = SubqueryStatus.EXHAUSTED
         
-        # Step 6: Get exploration status
+        # When: Get exploration status
         status = await state.get_status()
         
+        # Then: Status contains registered subqueries
         assert "subqueries" in status
         assert len(status["subqueries"]) == 1
         
@@ -298,15 +320,13 @@ class TestSearchToReportPipeline:
         """
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         
-        # Create task with evidence
+        # Given: A task with claims and supporting fragments
         task_id = await e2e_database.create_task(
             query="E2E test query for report generation"
         )
         
-        # Build evidence graph with mock data
         graph = EvidenceGraph(task_id=task_id)
         
-        # Add claims (would normally come from LLM extraction)
         graph.add_node(
             NodeType.CLAIM,
             "claim_1",
@@ -320,7 +340,6 @@ class TestSearchToReportPipeline:
             confidence=0.9,
         )
         
-        # Add supporting fragments
         graph.add_node(
             NodeType.FRAGMENT,
             "frag_1",
@@ -328,7 +347,6 @@ class TestSearchToReportPipeline:
             url="https://en.wikipedia.org/wiki/Python_(programming_language)",
         )
         
-        # Add support relationship
         graph.add_edge(
             NodeType.FRAGMENT, "frag_1",
             NodeType.CLAIM, "claim_1",
@@ -336,16 +354,15 @@ class TestSearchToReportPipeline:
             confidence=0.92,
         )
         
-        # Verify graph structure using get_stats()
+        # When: Query graph statistics and evidence
         stats = graph.get_stats()
         claim_count = stats["node_counts"].get("claim", 0)
-        assert claim_count == 2, f"Expected 2 claims, got {claim_count}"
-        
         evidence = graph.get_supporting_evidence("claim_1")
-        assert len(evidence) == 1, f"Expected 1 evidence, got {len(evidence)}"
-        
-        # Get primary source ratio
         ratio_info = graph.get_primary_source_ratio()
+        
+        # Then: Graph contains expected claims and evidence
+        assert claim_count == 2, f"Expected 2 claims, got {claim_count}"
+        assert len(evidence) == 1, f"Expected 1 evidence, got {len(evidence)}"
         assert "primary_ratio" in ratio_info
         
         print(f"\n[E2E] Report materials generated")
@@ -388,13 +405,12 @@ class TestAuthenticationQueueFlow:
         """
         from src.utils.notification import InterventionQueue
         
+        # Given: An intervention queue and a task requiring authentication
         queue = InterventionQueue()
         queue._db = e2e_database
-        
-        # Create task first (required for foreign key constraint)
         task_id = await e2e_database.create_task(query="E2E auth queue test")
         
-        # High priority (primary source)
+        # When: Enqueue authentication challenges with different priorities
         queue_id_1 = await queue.enqueue(
             task_id=task_id,
             url="https://protected.go.jp/document.pdf",
@@ -403,7 +419,6 @@ class TestAuthenticationQueueFlow:
             priority="high",
         )
         
-        # Medium priority
         queue_id_2 = await queue.enqueue(
             task_id=task_id,
             url="https://secure.example.com/page",
@@ -412,7 +427,6 @@ class TestAuthenticationQueueFlow:
             priority="medium",
         )
         
-        # Low priority
         queue_id_3 = await queue.enqueue(
             task_id=task_id,
             url="https://blog.example.com/article",
@@ -421,7 +435,7 @@ class TestAuthenticationQueueFlow:
             priority="low",
         )
         
-        # Verify queue IDs are generated
+        # Then: Queue IDs are generated with correct format
         assert queue_id_1.startswith("iq_"), f"Invalid queue ID format: {queue_id_1}"
         assert queue_id_2.startswith("iq_"), f"Invalid queue ID format: {queue_id_2}"
         assert queue_id_3.startswith("iq_"), f"Invalid queue ID format: {queue_id_3}"
@@ -444,14 +458,13 @@ class TestAuthenticationQueueFlow:
         """
         from src.utils.notification import InterventionQueue
         
+        # Given: Multiple tasks needing auth for overlapping domains
         queue = InterventionQueue()
         queue._db = e2e_database
         
-        # Create two tasks
         task_a = await e2e_database.create_task(query="E2E task A")
         task_b = await e2e_database.create_task(query="E2E task B")
         
-        # Both tasks need auth for same domain (protected.go.jp)
         await queue.enqueue(
             task_id=task_a,
             url="https://protected.go.jp/doc1.pdf",
@@ -466,8 +479,6 @@ class TestAuthenticationQueueFlow:
             auth_type="cloudflare",
             priority="medium",
         )
-        
-        # Another domain
         await queue.enqueue(
             task_id=task_a,
             url="https://example.com/page",
@@ -476,9 +487,10 @@ class TestAuthenticationQueueFlow:
             priority="low",
         )
         
-        # Get pending by domain
+        # When: Get pending items grouped by domain
         result = await queue.get_pending_by_domain()
         
+        # Then: Results are correctly grouped with counts
         assert result["ok"] is True
         assert result["total_domains"] == 2, (
             f"Expected 2 domains, got {result['total_domains']}"
@@ -487,7 +499,6 @@ class TestAuthenticationQueueFlow:
             f"Expected 3 pending, got {result['total_pending']}"
         )
         
-        # Find protected.go.jp domain
         go_jp = next((d for d in result["domains"] if d["domain"] == "protected.go.jp"), None)
         assert go_jp is not None, "protected.go.jp should be in domains"
         assert go_jp["pending_count"] == 2
@@ -509,6 +520,7 @@ class TestAuthenticationQueueFlow:
         """
         from src.utils.notification import InterventionQueue
         
+        # Given: A pending authentication item in the queue
         queue = InterventionQueue()
         queue._db = e2e_database
         
@@ -528,6 +540,7 @@ class TestAuthenticationQueueFlow:
             "authenticated_at": datetime.now(timezone.utc).isoformat(),
         }
         
+        # When: Complete the authentication item
         result = await queue.complete(
             queue_id=queue_id,
             success=True,
@@ -535,6 +548,7 @@ class TestAuthenticationQueueFlow:
             task_id=task_id,
         )
         
+        # Then: Item is marked as completed
         assert result["ok"] is True, f"Complete failed: {result}"
         assert result["status"] == "completed"
         
@@ -551,14 +565,13 @@ class TestAuthenticationQueueFlow:
         """
         from src.utils.notification import InterventionQueue
         
+        # Given: Multiple tasks needing auth for the same domain
         queue = InterventionQueue()
         queue._db = e2e_database
         
-        # Create two tasks
         task_a = await e2e_database.create_task(query="E2E task A for domain auth")
         task_b = await e2e_database.create_task(query="E2E task B for domain auth")
         
-        # Both tasks need auth for same domain
         await queue.enqueue(
             task_id=task_a,
             url="https://protected.gov/doc1.pdf",
@@ -579,13 +592,14 @@ class TestAuthenticationQueueFlow:
             "authenticated_at": datetime.now(timezone.utc).isoformat(),
         }
         
-        # Complete by domain - should resolve both
+        # When: Complete authentication by domain
         result = await queue.complete_domain(
             domain="protected.gov",
             success=True,
             session_data=session_data,
         )
         
+        # Then: All items for that domain are resolved
         assert result["ok"] is True
         assert result["domain"] == "protected.gov"
         assert result["resolved_count"] == 2, (
@@ -594,7 +608,7 @@ class TestAuthenticationQueueFlow:
         assert set(result["affected_tasks"]) == {task_a, task_b}
         assert result["session_stored"] is True
         
-        # Verify no more pending for protected.gov
+        # Then: No more pending items for that domain
         pending = await queue.get_pending_by_domain()
         protected_domain = next(
             (d for d in pending["domains"] if d["domain"] == "protected.gov"), 
@@ -615,6 +629,7 @@ class TestAuthenticationQueueFlow:
         """
         from src.utils.notification import InterventionQueue
         
+        # Given: Multiple pending authentication items
         queue = InterventionQueue()
         queue._db = e2e_database
         
@@ -635,13 +650,13 @@ class TestAuthenticationQueueFlow:
             priority="low",
         )
         
-        # Skip specific item
+        # When: Skip a specific item by queue ID
         result = await queue.skip(queue_ids=[queue_id_1])
         
+        # Then: Only the specified item is skipped
         assert result["ok"] is True
         assert result["skipped"] == 1
         
-        # Verify only one item remains pending
         pending = await queue.get_pending(task_id=task_id)
         pending_ids = [p["id"] for p in pending]
         
@@ -661,13 +676,13 @@ class TestAuthenticationQueueFlow:
         """
         from src.utils.notification import InterventionQueue
         
+        # Given: Multiple tasks with items across different domains
         queue = InterventionQueue()
         queue._db = e2e_database
         
         task_a = await e2e_database.create_task(query="E2E skip domain task A")
         task_b = await e2e_database.create_task(query="E2E skip domain task B")
         
-        # Both tasks need same domain
         await queue.enqueue(
             task_id=task_a,
             url="https://skip-domain.com/doc1",
@@ -680,7 +695,6 @@ class TestAuthenticationQueueFlow:
             domain="skip-domain.com",
             auth_type="cloudflare",
         )
-        # Keep this one
         await queue.enqueue(
             task_id=task_a,
             url="https://keep.com/page",
@@ -688,14 +702,14 @@ class TestAuthenticationQueueFlow:
             auth_type="captcha",
         )
         
-        # Skip by domain
+        # When: Skip all items for a specific domain
         result = await queue.skip(domain="skip-domain.com")
         
+        # Then: All items for that domain are skipped, others remain
         assert result["ok"] is True
         assert result["skipped"] == 2
         assert set(result["affected_tasks"]) == {task_a, task_b}
         
-        # Verify keep.com is still pending
         pending = await queue.get_pending(task_id=task_a)
         assert len(pending) == 1
         assert pending[0]["domain"] == "keep.com"
@@ -713,10 +727,10 @@ class TestAuthenticationQueueFlow:
         """
         from src.utils.notification import InterventionQueue
         
+        # Given: A queue with items of different priorities
         queue = InterventionQueue()
         queue._db = e2e_database
         
-        # Create task first (required for foreign key constraint)
         task_id = await e2e_database.create_task(query="E2E pending count test")
         
         await queue.enqueue(task_id=task_id, url="https://h1.go.jp/", 
@@ -728,16 +742,16 @@ class TestAuthenticationQueueFlow:
         await queue.enqueue(task_id=task_id, url="https://l1.example.com/", 
                            domain="l1.example.com", auth_type="captcha", priority="low")
         
-        # Get pending count
+        # When: Get pending count summary
         counts = await queue.get_pending_count(task_id=task_id)
         
+        # Then: Counts are correctly categorized by priority
         assert counts["total"] == 4, f"Expected 4 total, got {counts['total']}"
         assert counts["high"] == 2, f"Expected 2 high priority, got {counts['high']}"
         assert counts["medium"] == 1, f"Expected 1 medium priority, got {counts['medium']}"
         assert counts["low"] == 1, f"Expected 1 low priority, got {counts['low']}"
         
-        # Verify threshold alerts would be triggered
-        # Per §3.6.1: ≥3 items triggers warning, ≥5 items OR high≥2 triggers critical
+        # Then: Threshold alerts would be triggered per §3.6.1
         assert counts["total"] >= 3, "Should trigger warning threshold"
         assert counts["high"] >= 2, "Should trigger critical due to high priority count"
         
@@ -755,26 +769,25 @@ class TestAuthenticationQueueFlow:
         from src.utils.notification import InterventionQueue
         from datetime import timedelta
         
+        # Given: A queue item that has already expired
         queue = InterventionQueue()
         queue._db = e2e_database
         
-        # Create task first (required for foreign key constraint)
         task_id = await e2e_database.create_task(query="E2E cleanup test")
         
-        # This item will be expired (expires in the past)
         await queue.enqueue(
             task_id=task_id,
             url="https://expired.example.com/",
             domain="expired.example.com",
             auth_type="captcha",
             priority="low",
-            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),  # Already expired
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         
-        # Run cleanup
+        # When: Run cleanup process
         cleaned_count = await queue.cleanup_expired()
         
-        # Verify cleanup ran (may or may not find items depending on timing)
+        # Then: Cleanup completes without error
         assert cleaned_count >= 0, "Cleanup should return non-negative count"
         
         print(f"\n[E2E] Cleaned up {cleaned_count} expired items")
@@ -807,13 +820,13 @@ class TestInterventionManagerFlow:
         """
         from src.utils.notification import InterventionManager, InterventionType
         
+        # Given: An intervention manager instance
         manager = InterventionManager()
         
-        # Note: This will timeout quickly since no actual user interaction
-        # We just verify the setup logic works
-        
-        # Check domain skip logic (should not skip initially)
+        # When: Check if a new domain should be skipped
         should_skip = await manager._should_skip_domain("new-domain.example.com")
+        
+        # Then: New domain should not be skipped (no prior failures)
         assert should_skip is False, "New domain should not be skipped"
         
         print(f"\n[E2E] Intervention manager initialized")
@@ -829,21 +842,27 @@ class TestInterventionManagerFlow:
         """
         from src.utils.notification import InterventionManager
         
+        # Given: An intervention manager and a test domain
         manager = InterventionManager()
-        
         test_domain = "failing-domain.example.com"
         
-        # Verify initial state
+        # When: Check initial failure count
         initial_failures = manager.get_domain_failures(test_domain)
+        
+        # Then: Initial failures should be 0
         assert initial_failures == 0, f"Initial failures should be 0, got {initial_failures}"
         
-        # Verify max_domain_failures property
+        # When: Check max_domain_failures property
         max_failures = manager.max_domain_failures
+        
+        # Then: Max failures should be 3 per §3.6.2
         assert max_failures == 3, f"Max failures should be 3, got {max_failures}"
         
-        # Test reset functionality
+        # When: Reset domain failures
         manager.reset_domain_failures(test_domain)
         after_reset = manager.get_domain_failures(test_domain)
+        
+        # Then: Failures should be reset to 0
         assert after_reset == 0, f"After reset should be 0, got {after_reset}"
         
         print(f"\n[E2E] Domain failure tracking:")
@@ -887,24 +906,25 @@ class TestCompleteResearchFlow:
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         from src.search import search_serp
         
-        # Step 1: Create research task
+        # Given: A research query to investigate
         query = "What are the main features of Python 3.12?"
         task_id = await e2e_database.create_task(query=query)
         
         assert task_id is not None, "Failed to create task"
         print(f"\n[E2E] Step 1: Created task {task_id}")
         
-        # Step 2: Get research context
+        # When: Get research context
         context = ResearchContext(task_id)
         context._db = e2e_database
         ctx_result = await context.get_context()
         
+        # Then: Context retrieval succeeds
         assert ctx_result["ok"] is True
         print(f"[E2E] Step 2: Got research context")
         print(f"[E2E]   - Entities: {len(ctx_result.get('extracted_entities', []))}")
         print(f"[E2E]   - Templates: {len(ctx_result.get('applicable_templates', []))}")
         
-        # Step 3: Initialize exploration state and register subqueries
+        # Given: Exploration state with registered subqueries
         state = ExplorationState(task_id)
         state._db = e2e_database
         
@@ -919,10 +939,10 @@ class TestCompleteResearchFlow:
         
         print(f"[E2E] Step 3: Registered {len(subqueries)} subqueries")
         
-        # Step 4: Execute first subquery
+        # When: Execute first subquery via search
         results = await search_serp(
             query=subqueries[0][1],
-            engines=["mojeek"],  # Use block-resistant engine
+            engines=["mojeek"],
             limit=3,
             use_cache=False,
         )
@@ -934,10 +954,9 @@ class TestCompleteResearchFlow:
         
         print(f"[E2E] Step 4: Executed search, got {len(results)} results")
         
-        # Step 5: Build evidence graph
+        # When: Build evidence graph from search results
         graph = EvidenceGraph(task_id=task_id)
         
-        # Add claims based on search results
         graph.add_node(
             NodeType.CLAIM,
             "claim_1",
@@ -945,7 +964,6 @@ class TestCompleteResearchFlow:
             confidence=0.85,
         )
         
-        # Add fragments from search results
         for i, result in enumerate(results[:2]):
             frag_id = f"frag_{i+1}"
             graph.add_node(
@@ -963,7 +981,7 @@ class TestCompleteResearchFlow:
         
         print(f"[E2E] Step 5: Built evidence graph")
         
-        # Step 6: Verify final state
+        # Then: Final state has expected structure
         final_status = await state.get_status()
         stats = graph.get_stats()
         claim_count = stats["node_counts"].get("claim", 0)
@@ -974,7 +992,6 @@ class TestCompleteResearchFlow:
         print(f"[E2E]   - Claims: {claim_count}")
         print(f"[E2E]   - Evidence for claim_1: {len(evidence)}")
         
-        # Assertions
         assert len(final_status["subqueries"]) == 3
         assert claim_count >= 1
         
@@ -1001,10 +1018,13 @@ class TestLLMIntegration:
         """
         import aiohttp
         
+        # Given: Ollama is available (check_ollama fixture)
         ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
         
+        # When: Query the Ollama API for available models
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{ollama_host}/api/tags") as resp:
+                # Then: API responds with status 200 and model list
                 assert resp.status == 200
                 data = await resp.json()
                 
@@ -1013,8 +1033,6 @@ class TestLLMIntegration:
                 
                 print(f"\n[E2E] Ollama available models: {model_names}")
                 
-                # Check for required models (optional)
-                # Note: qwen2.5:3b may not be installed
                 if not model_names:
                     pytest.skip("No Ollama models installed")
     
@@ -1025,10 +1043,9 @@ class TestLLMIntegration:
         
         Note: This test may be slow (LLM inference).
         """
-        # Import the LLM extraction module
         from src.filter.llm import llm_extract
         
-        # Simple test passage
+        # Given: A simple test passage for LLM extraction
         passages = [
             {
                 "id": "p1",
@@ -1038,11 +1055,13 @@ class TestLLMIntegration:
         ]
         
         try:
+            # When: Run LLM extraction on the passage
             result = await llm_extract(
                 passages=passages,
                 task="extract_facts",
             )
             
+            # Then: Extraction succeeds
             assert result["ok"] is True, f"LLM extraction failed: {result.get('error')}"
             
             print(f"\n[E2E] LLM extraction result: {result}")
