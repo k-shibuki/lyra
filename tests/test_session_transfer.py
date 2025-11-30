@@ -7,6 +7,22 @@ to HTTP client requests, including:
 - Same-domain restriction enforcement
 - Sec-Fetch-*/Referer header consistency
 - Session lifecycle management
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-CD-01 | CookieData creation | Equivalence – normal | Cookie with all fields | - |
+| TC-CD-02 | CookieData serialization | Equivalence – to_dict | Dictionary output | - |
+| TC-SD-01 | SessionData creation | Equivalence – normal | Session with cookies/headers | - |
+| TC-SD-02 | SessionData validation | Equivalence – validation | Domain verified | - |
+| TC-TR-01 | TransferResult success | Equivalence – success | ok=True with headers | - |
+| TC-TR-02 | TransferResult failure | Equivalence – failure | ok=False with error | - |
+| TC-STM-01 | Capture browser session | Equivalence – capture | SessionData created | - |
+| TC-STM-02 | Get transfer headers | Equivalence – headers | Headers with cookies | - |
+| TC-STM-03 | Same-domain restriction | Equivalence – restriction | Cross-domain blocked | - |
+| TC-STM-04 | Update session | Equivalence – update | Session updated | - |
+| TC-STM-05 | Invalidate session | Equivalence – invalidate | Session removed | - |
+| TC-CF-01 | get_session_transfer_manager | Equivalence – singleton | Returns manager | - |
 """
 
 import pytest

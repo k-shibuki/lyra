@@ -7,6 +7,24 @@ Covers:
 - Helper functions for SERP clicks, direct navigation, internal links
 - Edge cases (ports, subdomains, multi-part TLDs)
 - Sec-CH-UA-* Client Hints headers
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-SFS-01 | Same-origin request | Equivalence – site | site=same-origin | - |
+| TC-SFS-02 | Same-site request | Equivalence – site | site=same-site | - |
+| TC-SFS-03 | Cross-site request | Equivalence – site | site=cross-site | - |
+| TC-SFS-04 | No referrer | Boundary – none | site=none | - |
+| TC-SFM-01 | Navigate mode | Equivalence – mode | mode=navigate | - |
+| TC-SFM-02 | Cors mode | Equivalence – mode | mode=cors | - |
+| TC-SFD-01 | Document dest | Equivalence – dest | dest=document | - |
+| TC-SFD-02 | Script dest | Equivalence – dest | dest=script | - |
+| TC-SFH-01 | Generate for SERP click | Equivalence – SERP | Cross-site headers | - |
+| TC-SFH-02 | Generate for direct nav | Equivalence – direct | None site headers | - |
+| TC-SFH-03 | Generate for internal link | Equivalence – internal | Same-origin headers | - |
+| TC-RD-01 | Get registrable domain | Equivalence – domain | Base domain returned | - |
+| TC-RD-02 | Multi-part TLD | Equivalence – multi-TLD | Correct extraction | - |
+| TC-CH-01 | Generate Sec-CH-UA headers | Equivalence – UA | UA hints included | - |
 """
 
 import pytest

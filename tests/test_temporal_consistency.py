@@ -6,6 +6,25 @@ Tests the temporal consistency validation functionality including:
 - Claim vs page date consistency checking
 - Trust decay for stale claims
 - Temporal impossibility detection
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-CL-01 | ConsistencyLevel values | Equivalence – enum | All levels defined | - |
+| TC-DE-01 | Extract ISO date | Equivalence – ISO | Date extracted | - |
+| TC-DE-02 | Extract Japanese date | Equivalence – Japanese | Date extracted | - |
+| TC-DE-03 | Extract relative date | Equivalence – relative | Date calculated | - |
+| TC-DE-04 | No date in text | Boundary – none | Empty extraction | - |
+| TC-DE-05 | Multiple dates | Equivalence – multiple | All dates extracted | - |
+| TC-CC-01 | Consistent dates | Equivalence – consistent | level=CONSISTENT | - |
+| TC-CC-02 | Stale claim | Equivalence – stale | level=STALE | - |
+| TC-CC-03 | Impossible timeline | Equivalence – impossible | level=IMPOSSIBLE | - |
+| TC-CC-04 | Future claim | Boundary – future | level=SUSPICIOUS | - |
+| TC-TD-01 | Apply decay 30 days | Equivalence – 30d | Confidence reduced | - |
+| TC-TD-02 | Apply decay 365 days | Equivalence – 1y | Higher reduction | - |
+| TC-TD-03 | No decay for fresh | Boundary – fresh | Confidence unchanged | - |
+| TC-CF-01 | get_temporal_checker | Equivalence – singleton | Returns checker | - |
+| TC-CF-02 | check_claim_consistency | Equivalence – convenience | Returns result | - |
 """
 
 import pytest

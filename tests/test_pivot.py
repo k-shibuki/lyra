@@ -5,6 +5,21 @@ Tests entity expansion patterns per §3.1.1:
 - Organization → subsidiaries, officers, location, domain
 - Domain → subdomain, certificate SAN, organization
 - Person → aliases, handles, affiliations
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-PT-01 | PivotType values | Equivalence – enum | All types defined | - |
+| TC-ET-01 | Detect organization type | Equivalence – detection | type=ORGANIZATION | - |
+| TC-ET-02 | Detect domain type | Equivalence – detection | type=DOMAIN | - |
+| TC-ET-03 | Detect person type | Equivalence – detection | type=PERSON | - |
+| TC-PE-01 | Expand organization | Equivalence – org | Returns subsidiaries, officers | - |
+| TC-PE-02 | Expand domain | Equivalence – domain | Returns subdomains, SANs | - |
+| TC-PE-03 | Expand person | Equivalence – person | Returns aliases, affiliations | - |
+| TC-PE-04 | Expand unknown entity | Boundary – unknown | Empty suggestions | - |
+| TC-PS-01 | PivotSuggestion creation | Equivalence – suggestion | Suggestion with score | - |
+| TC-PS-02 | Suggestion serialization | Equivalence – to_dict | Dictionary output | - |
+| TC-CF-01 | get_pivot_expander | Equivalence – singleton | Returns expander | - |
 """
 
 import pytest

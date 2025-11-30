@@ -2,6 +2,26 @@
 Tests for human_behavior.py module (§16.11).
 
 Tests MouseTrajectory, HumanTyping, InertialScroll, and HumanBehaviorSimulator.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-MC-01 | MouseConfig defaults | Equivalence – defaults | Default values set | - |
+| TC-MT-01 | Generate trajectory | Equivalence – normal | Points generated | - |
+| TC-MT-02 | Trajectory curvature | Equivalence – bezier | Natural curve | - |
+| TC-MT-03 | Trajectory with seed | Equivalence – determinism | Reproducible | - |
+| TC-TC-01 | TypingConfig defaults | Equivalence – defaults | Default values set | - |
+| TC-HT-01 | Generate typing events | Equivalence – normal | Events generated | - |
+| TC-HT-02 | Typing with typos | Equivalence – errors | Includes corrections | - |
+| TC-HT-03 | Typing intervals | Equivalence – timing | Natural delays | - |
+| TC-SC-01 | ScrollConfig defaults | Equivalence – defaults | Default values set | - |
+| TC-IS-01 | Generate scroll steps | Equivalence – normal | Steps generated | - |
+| TC-IS-02 | Inertial deceleration | Equivalence – physics | Smooth slowdown | - |
+| TC-HBS-01 | Simulator initialization | Equivalence – init | All components ready | - |
+| TC-HBS-02 | Simulate mouse move | Equivalence – mouse | Trajectory executed | - |
+| TC-HBS-03 | Simulate typing | Equivalence – typing | Events executed | - |
+| TC-HBS-04 | Simulate scroll | Equivalence – scroll | Scroll executed | - |
+| TC-CF-01 | get_human_behavior_simulator | Equivalence – singleton | Returns simulator | - |
 """
 
 import asyncio

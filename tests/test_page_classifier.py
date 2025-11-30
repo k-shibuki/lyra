@@ -8,6 +8,23 @@ Tests page type classification for:
 - forum: Discussion boards, Q&A
 - login_wall: Pages requiring authentication
 - index: Category pages, search results
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-PT-01 | PageType values | Equivalence – enum | All types defined | - |
+| TC-PF-01 | Extract features from HTML | Equivalence – extraction | PageFeatures populated | - |
+| TC-PC-01 | Classify article page | Equivalence – article | type=article | - |
+| TC-PC-02 | Classify knowledge page | Equivalence – knowledge | type=knowledge | - |
+| TC-PC-03 | Classify notice page | Equivalence – notice | type=notice | - |
+| TC-PC-04 | Classify forum page | Equivalence – forum | type=forum | - |
+| TC-PC-05 | Classify login wall | Equivalence – login | type=login_wall | - |
+| TC-PC-06 | Classify index page | Equivalence – index | type=index | - |
+| TC-PC-07 | Classify empty page | Boundary – empty | Default type | - |
+| TC-CR-01 | ClassificationResult creation | Equivalence – result | Type with confidence | - |
+| TC-CR-02 | Result serialization | Equivalence – to_dict | Dictionary output | - |
+| TC-CF-01 | classify_page function | Equivalence – convenience | Returns result | - |
+| TC-CF-02 | get_classifier singleton | Equivalence – singleton | Returns classifier | - |
 """
 
 import pytest
