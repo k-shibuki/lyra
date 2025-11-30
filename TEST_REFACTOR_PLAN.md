@@ -71,7 +71,7 @@
 | test_pivot.py | 33 | 448 | - | 0 | ✓ | 0 | 3 |
 | test_profile_audit.py | 30 | 736 | - | 0 | ✓ | 0 | 3 |
 | test_quality_analyzer.py | 40 | 919 | - | 0 | ✓ | 0 | 3 |
-| test_rdap_whois.py | 22 | 420 | - | 0 | ✓ | 0 | 3 |
+| test_rdap_whois.py | 22 | 420 | ✓ | 22 | ✓ | 3 | Done |
 | test_replay.py | 20 | 453 | - | 0 | ✓ | 0 | 3 |
 | test_report.py | 32 | 295 | - | 0 | ✓ | 0 | 3 |
 | test_research.py | 29 | 863 | - | 0 | - | 0 | 4 |
@@ -201,7 +201,7 @@ with pytest.raises(ValueError, match="expected message"):
 | test_pivot.py | 33 | 観点表作成、33件のG/W/T追加 |
 | test_profile_audit.py | 30 | 観点表作成、30件のG/W/T追加 |
 | test_quality_analyzer.py | 40 | 観点表作成、40件のG/W/T追加 |
-| test_rdap_whois.py | 22 | 観点表作成、22件のG/W/T追加 |
+| ~~test_rdap_whois.py~~ | ~~22~~ | ~~観点表作成、22件のG/W/T追加~~ ✅ |
 | test_replay.py | 20 | 観点表作成、20件のG/W/T追加 |
 | test_report.py | 32 | 観点表作成、32件のG/W/T追加 |
 | test_search.py | 68 | 観点表作成、68件のG/W/T追加、pytestmark |
@@ -274,13 +274,47 @@ with pytest.raises(ValueError, match="expected message"):
 - [x] test_notification_provider.py (Level 3) ✅
 - [x] test_domain_policy.py (Level 3) ✅
 
-### Phase 3 待機中
+### Phase 3 完了 ✅
 
-（Phase 2 完了、Phase 3 開始可能）
+- [x] test_rdap_whois.py (Level 3) ✅
+- [x] test_ab_test.py (Level 3) ✅
+- [x] test_bfs.py (Level 3) ✅
+- [x] test_browser_archive.py (Level 3) ✅
+- [x] test_browser_provider.py (Level 3) ✅
+- [x] test_budget.py (Level 3) ✅
+- [x] test_chain_of_density.py (Level 3) ✅
+- [x] test_claim_decomposition.py (Level 3) ✅
+- [x] test_claim_timeline.py (Level 3) ✅
+- [x] test_crt_transparency.py (Level 3) ✅
+- [x] test_dns_policy.py (Level 3) ✅
+- [x] test_engine_config.py (Level 3) ✅
+- [x] test_entity_integration.py (Level 3) ✅
+- [x] test_entity_kb.py (Level 3) ✅
+- [x] test_http3_policy.py (Level 3) ✅
+- [x] test_human_behavior.py (Level 3) ✅
+- [x] test_ipv6_manager.py (Level 3) ✅
+- [x] test_llm_provider.py (Level 3) ✅
+- [x] test_page_classifier.py (Level 3) ✅
+- [x] test_pivot.py (Level 3) ✅
+- [x] test_profile_audit.py (Level 3) ✅
+- [x] test_quality_analyzer.py (Level 3) ✅
+- [x] test_replay.py (Level 3) ✅
+- [x] test_report.py (Level 3) ✅
+- [x] test_search.py (Level 3) ✅
+- [x] test_sec_fetch.py (Level 3) ✅
+- [x] test_session_transfer.py (Level 3) ✅
+- [x] test_site_search.py (Level 3) ✅
+- [x] test_stealth.py (Level 3) ✅
+- [x] test_temporal_consistency.py (Level 3) ✅
+- [x] test_ucb_allocator.py (Level 3) ✅
+- [x] test_undetected.py (Level 3) ✅
+- [x] test_utils.py (Level 3) ✅
+- [x] test_wayback.py (Level 3) ✅
+- [x] test_wayback_fallback.py (Level 3) ✅
 
 ### Phase 4 待機中
 
-（Phase 3 完了後に開始）
+（Phase 3 完了、Phase 4 開始可能）
 
 ---
 
