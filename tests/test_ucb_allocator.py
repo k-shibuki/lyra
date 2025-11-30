@@ -3,6 +3,22 @@ Tests for UCB1-based budget allocation.
 
 Tests the UCBAllocator class and its integration with ExplorationState.
 See requirements.md §3.1.1.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-SA-01 | SubqueryArm initial state | Equivalence – defaults | All values at 0 | - |
+| TC-SA-02 | SubqueryArm average_reward | Equivalence – calculation | Correct average | - |
+| TC-SA-03 | SubqueryArm with 0 pulls | Boundary – zero | average=0 | - |
+| TC-UA-01 | UCBAllocator initialization | Equivalence – init | Arms empty | - |
+| TC-UA-02 | Add subquery arm | Equivalence – add | Arm registered | - |
+| TC-UA-03 | Select arm initial | Boundary – unexplored | Unexplored first | - |
+| TC-UA-04 | Select arm UCB1 | Equivalence – UCB1 | Highest UCB selected | - |
+| TC-UA-05 | Update arm reward | Equivalence – update | Stats updated | - |
+| TC-UA-06 | Allocate budget | Equivalence – allocation | Budget distributed | - |
+| TC-UA-07 | Get best arm | Equivalence – best | Highest reward arm | - |
+| TC-UA-08 | Arm exploitation ratio | Equivalence – ratio | Correct calculation | - |
+| TC-UA-09 | Multiple arms selection | Equivalence – multi | Fair exploration | - |
 """
 
 import math

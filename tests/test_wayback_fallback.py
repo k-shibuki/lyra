@@ -2,6 +2,22 @@
 Tests for Wayback fallback functionality (§16.12).
 
 Tests WaybackFallback, calculate_freshness_penalty, and integration with fetch_url.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-CFP-01 | Fresh snapshot (< 30 days) | Equivalence – fresh | Low penalty | - |
+| TC-CFP-02 | Old snapshot (> 180 days) | Equivalence – old | High penalty | - |
+| TC-CFP-03 | Snapshot 90 days old | Equivalence – medium | Medium penalty | - |
+| TC-CFP-04 | Very old snapshot (5 years) | Boundary – ancient | Max penalty | - |
+| TC-FR-01 | FallbackResult success | Equivalence – success | ok=True with content | - |
+| TC-FR-02 | FallbackResult failure | Equivalence – failure | ok=False with error | - |
+| TC-WF-01 | Fallback to archived | Equivalence – fallback | Returns archived content | - |
+| TC-WF-02 | Fallback with freshest | Equivalence – freshest | Most recent snapshot | - |
+| TC-WF-03 | Fallback no archive | Boundary – none | Returns failure | - |
+| TC-WF-04 | Fallback with penalty | Equivalence – penalty | Confidence adjusted | - |
+| TC-WF-05 | Fallback disabled | Equivalence – disabled | No fallback attempt | - |
+| TC-CF-01 | get_wayback_fallback | Equivalence – singleton | Returns fallback | - |
 """
 
 import pytest

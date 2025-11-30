@@ -12,6 +12,22 @@ Tests verify §4.3 HTTP/3(QUIC) policy requirements:
 - Browser route naturally uses HTTP/3 when site provides it
 - HTTP client uses HTTP/2 by default
 - Auto-increase browser route ratio when HTTP/3 sites show behavioral differences
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-PV-01 | ProtocolVersion values | Equivalence – enum | All versions defined | - |
+| TC-DS-01 | HTTP3DomainStats creation | Equivalence – normal | Stats initialized | - |
+| TC-DS-02 | Record HTTP/3 success | Equivalence – mutation | Stats updated | - |
+| TC-DS-03 | Calculate success rate | Equivalence – calculation | Correct percentage | - |
+| TC-RR-01 | HTTP3RequestResult success | Equivalence – success | Result with data | - |
+| TC-RR-02 | HTTP3RequestResult failure | Equivalence – failure | Result with error | - |
+| TC-PD-01 | Policy decision for new domain | Equivalence – default | Default policy | - |
+| TC-PD-02 | Policy decision with history | Equivalence – learned | Adjusted policy | - |
+| TC-PM-01 | Get policy for domain | Equivalence – retrieval | Returns decision | - |
+| TC-PM-02 | Record result and update | Equivalence – learning | Stats updated | - |
+| TC-PM-03 | Browser ratio adjustment | Equivalence – auto-adjust | Ratio increased | - |
+| TC-CF-01 | get_http3_policy_manager | Equivalence – singleton | Returns manager | - |
 """
 
 import pytest

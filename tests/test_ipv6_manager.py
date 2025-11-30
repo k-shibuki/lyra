@@ -14,6 +14,23 @@ Per §7.1 test quality standards:
 - Specific expected values
 - Mock external dependencies
 - Proper test isolation
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-AR-01 | Resolve with IPv6 preference | Equivalence – preference | IPv6 first | - |
+| TC-AR-02 | Resolve with IPv4 fallback | Equivalence – fallback | Falls back to IPv4 | - |
+| TC-AR-03 | Resolve IPv6-only domain | Equivalence – v6 only | Returns IPv6 addresses | - |
+| TC-AR-04 | Resolve IPv4-only domain | Boundary – v4 only | Returns IPv4 addresses | - |
+| TC-HE-01 | Happy eyeballs race | Equivalence – racing | Fastest wins | - |
+| TC-HE-02 | Happy eyeballs timeout | Boundary – timeout | Fallback triggered | - |
+| TC-LR-01 | Learn IPv6 success | Equivalence – learning | Rate increases | - |
+| TC-LR-02 | Learn IPv6 failure | Equivalence – learning | Rate decreases | - |
+| TC-LR-03 | EMA calculation | Equivalence – EMA | Correct smoothing | - |
+| TC-AD-01 | Auto-disable below threshold | Equivalence – threshold | IPv6 disabled | - |
+| TC-AD-02 | Re-enable above threshold | Equivalence – recovery | IPv6 re-enabled | - |
+| TC-SM-01 | Switch metrics tracking | Equivalence – metrics | Switches counted | - |
+| TC-CF-01 | get_ipv6_manager | Equivalence – singleton | Returns manager | - |
 """
 
 import asyncio

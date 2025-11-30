@@ -6,6 +6,23 @@ Covers:
 - ContentAnalyzer: Text extraction and comparison
 - WaybackExplorer: Archive exploration
 - WaybackBudgetManager: Budget tracking
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-SS-01 | Snapshot creation | Equivalence – normal | Snapshot with data | - |
+| TC-SS-02 | Snapshot URL generation | Equivalence – URL | Archive URL formed | - |
+| TC-SS-03 | Parse CDX response | Equivalence – parsing | Snapshot from CDX | - |
+| TC-CA-01 | Extract text from HTML | Equivalence – extraction | Text content | - |
+| TC-CA-02 | Compare similar content | Equivalence – similar | Low diff score | - |
+| TC-CA-03 | Compare different content | Equivalence – different | High diff score | - |
+| TC-WE-01 | Explore timeline | Equivalence – explore | Timeline entries | - |
+| TC-WE-02 | Explore with budget | Equivalence – budget | Within budget | - |
+| TC-WE-03 | Explore empty archive | Boundary – empty | Empty timeline | - |
+| TC-WBM-01 | Budget allocation | Equivalence – allocation | Correct ratio | - |
+| TC-WBM-02 | Budget exhausted | Boundary – exhausted | Stops exploration | - |
+| TC-CF-01 | explore_wayback function | Equivalence – convenience | Returns result | - |
+| TC-CF-02 | get_archived_content | Equivalence – fetch | Returns content | - |
 """
 
 import pytest

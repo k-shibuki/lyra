@@ -2,6 +2,23 @@
 Tests for src/search/search_api.py
 
 Tests query processing, source classification, and query expansion.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-NQ-01 | Normalize basic query | Equivalence – simple | Lowercase string | - |
+| TC-NQ-02 | Normalize with spaces | Equivalence – whitespace | Trimmed and collapsed | - |
+| TC-CK-01 | Cache key deterministic | Equivalence – determinism | Same key for same input | - |
+| TC-CK-02 | Cache key unique | Equivalence – uniqueness | Different keys for different input | - |
+| TC-SC-01 | Classify primary source | Equivalence – primary | source_type=PRIMARY | - |
+| TC-SC-02 | Classify secondary source | Equivalence – secondary | source_type=SECONDARY | - |
+| TC-SC-03 | Classify tertiary source | Equivalence – tertiary | source_type=TERTIARY | - |
+| TC-QE-01 | Expand query basic | Equivalence – expansion | Expanded query list | - |
+| TC-QE-02 | Expand query with operators | Equivalence – operators | Operators applied | - |
+| TC-QE-03 | Expand empty query | Boundary – empty | Empty or original | - |
+| TC-SE-01 | Execute search | Equivalence – search | SearchResult returned | - |
+| TC-SE-02 | Execute with cache hit | Equivalence – caching | Cached result | - |
+| TC-SE-03 | Execute with error | Abnormal – error | Handles gracefully | - |
 """
 
 import json

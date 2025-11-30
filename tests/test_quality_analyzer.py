@@ -12,6 +12,25 @@ Tests content quality detection including:
 - Aggregator/curation site detection
 - Clickbait detection
 - Scraper site detection
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-QI-01 | QualityIssue values | Equivalence – enum | All issues defined | - |
+| TC-QF-01 | Extract quality features | Equivalence – extraction | Features populated | - |
+| TC-QA-01 | Detect thin content | Equivalence – thin | issue=THIN_CONTENT | - |
+| TC-QA-02 | Detect ad-heavy content | Equivalence – ads | issue=AD_HEAVY | - |
+| TC-QA-03 | Detect template-heavy | Equivalence – template | issue=TEMPLATE_HEAVY | - |
+| TC-QA-04 | Detect repetitive content | Equivalence – repetitive | issue=REPETITIVE | - |
+| TC-QA-05 | Detect keyword stuffing | Equivalence – stuffing | issue=KEYWORD_STUFFING | - |
+| TC-QA-06 | Detect AI-generated | Equivalence – AI | issue=AI_GENERATED | - |
+| TC-QA-07 | Detect SEO spam | Equivalence – SEO spam | issue=SEO_SPAM | - |
+| TC-QA-08 | Detect aggregator | Equivalence – aggregator | issue=AGGREGATOR | - |
+| TC-QA-09 | Detect clickbait | Equivalence – clickbait | issue=CLICKBAIT | - |
+| TC-QA-10 | Detect scraper site | Equivalence – scraper | issue=SCRAPER | - |
+| TC-QA-11 | High quality content | Equivalence – high quality | No issues | - |
+| TC-QR-01 | QualityResult creation | Equivalence – result | Score and issues | - |
+| TC-CF-01 | analyze_content_quality | Equivalence – convenience | Returns result | - |
 """
 
 import pytest

@@ -11,6 +11,24 @@ Follows §7.1 test quality standards:
 References:
 - §3.1.2: Infrastructure/Registry Direct Access - Entity KB normalization
 - §7.1: Test code quality standards
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-NN-01 | Normalize organization name | Equivalence – normalization | Normalized string | - |
+| TC-NN-02 | Normalize with unicode | Equivalence – unicode | Correct normalization | - |
+| TC-NN-03 | Normalize empty string | Boundary – empty | Empty result | - |
+| TC-ER-01 | EntityRecord creation | Equivalence – normal | Record with all fields | - |
+| TC-ER-02 | EntityRecord serialization | Equivalence – to_dict | Dictionary output | - |
+| TC-KB-01 | Add entity to KB | Equivalence – insert | Entity stored | - |
+| TC-KB-02 | Get entity by ID | Equivalence – retrieval | Returns entity | - |
+| TC-KB-03 | Get non-existent entity | Boundary – not found | Returns None | - |
+| TC-KB-04 | Find by identifier | Equivalence – search | Returns matching entities | - |
+| TC-KB-05 | Find by name fuzzy | Equivalence – fuzzy search | Returns similar entities | - |
+| TC-KB-06 | Merge duplicate entities | Equivalence – merge | Entities merged | - |
+| TC-KB-07 | Update entity | Equivalence – update | Entity updated | - |
+| TC-KB-08 | Link entities | Equivalence – linking | Relationship created | - |
+| TC-KB-09 | Get related entities | Equivalence – graph | Returns linked entities | - |
 """
 
 import pytest

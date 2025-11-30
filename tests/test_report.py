@@ -2,6 +2,21 @@
 Tests for report generation module.
 
 Tests deep link generation and citation formatting per §3.4 and §9.2.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-AS-01 | Simple English heading | Equivalence – simple | Lowercase slug | - |
+| TC-AS-02 | Heading with spaces | Equivalence – spaces | Hyphenated slug | - |
+| TC-AS-03 | Japanese heading | Equivalence – Japanese | Romaji slug | - |
+| TC-AS-04 | Mixed language heading | Equivalence – mixed | Combined slug | - |
+| TC-AS-05 | Special characters | Equivalence – special | Sanitized slug | - |
+| TC-AS-06 | Empty heading | Boundary – empty | Empty or default slug | - |
+| TC-DL-01 | Generate deep link | Equivalence – link | URL with anchor | - |
+| TC-DL-02 | Deep link with fragment | Equivalence – fragment | Fragment appended | - |
+| TC-C-01 | Citation creation | Equivalence – citation | Citation with fields | - |
+| TC-C-02 | Citation formatting | Equivalence – format | Formatted string | - |
+| TC-C-03 | Citation serialization | Equivalence – to_dict | Dictionary output | - |
 """
 
 import pytest

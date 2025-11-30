@@ -9,6 +9,25 @@ Follows §7.1 test quality standards:
 - Proper boundary testing (§7.1.2)
 - Realistic test data with Ollama API format (§7.1.3)
 - External dependencies fully mocked (§7.1.7)
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-CM-01 | ChatMessage creation | Equivalence – normal | Message with role/content | - |
+| TC-CM-02 | ChatMessage serialization | Equivalence – to_dict | Dictionary output | - |
+| TC-LO-01 | LLMOptions defaults | Equivalence – defaults | Default values set | - |
+| TC-LO-02 | LLMOptions custom | Equivalence – custom | Custom values used | - |
+| TC-ER-01 | EmbeddingResponse creation | Equivalence – normal | Response with embeddings | - |
+| TC-HS-01 | LLMHealthStatus healthy | Equivalence – healthy | available=True | - |
+| TC-HS-02 | LLMHealthStatus unhealthy | Equivalence – unhealthy | available=False | - |
+| TC-OP-01 | OllamaProvider generate | Equivalence – generate | Text response | - |
+| TC-OP-02 | OllamaProvider chat | Equivalence – chat | Chat response | - |
+| TC-OP-03 | OllamaProvider embed | Equivalence – embed | Embedding vector | - |
+| TC-OP-04 | OllamaProvider health | Equivalence – health | Health status | - |
+| TC-OP-05 | OllamaProvider error | Abnormal – error | Handles gracefully | - |
+| TC-PR-01 | Register provider | Equivalence – register | Provider registered | - |
+| TC-PR-02 | Get provider | Equivalence – retrieval | Returns provider | - |
+| TC-PR-03 | Fallback provider | Equivalence – fallback | Uses fallback | - |
 """
 
 import asyncio
