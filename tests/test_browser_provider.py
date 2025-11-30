@@ -12,6 +12,55 @@ Tests cover:
 - Registry functionality (register/unregister/fallback)
 - Data class serialization
 - Provider lifecycle management
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-CK-N-01 | Cookie with all fields | Equivalence – normal | Dict with all fields | Cookie serialize |
+| TC-CK-N-02 | Cookie with expires | Equivalence – normal | expires in dict | Expires field |
+| TC-CK-N-03 | Playwright format dict | Equivalence – normal | Cookie created | from_dict |
+| TC-CK-N-04 | Selenium format dict | Equivalence – normal | Cookie created | snake_case |
+| TC-BO-N-01 | Default options | Equivalence – normal | Sensible defaults | Defaults |
+| TC-BO-N-02 | Options to_dict | Equivalence – normal | All fields included | Serialize |
+| TC-PR-N-01 | Success result | Equivalence – normal | ok=True | PageResult |
+| TC-PR-N-02 | Failure result | Equivalence – normal | ok=False | PageResult |
+| TC-PR-N-03 | to_dict excludes content | Equivalence – normal | No content in dict | Serialize |
+| TC-HS-N-01 | Healthy status | Equivalence – normal | HEALTHY state | Health |
+| TC-HS-N-02 | Degraded status | Equivalence – normal | DEGRADED state | Health |
+| TC-HS-N-03 | Unhealthy status | Equivalence – normal | UNHEALTHY state | Health |
+| TC-HS-N-04 | Unavailable status | Equivalence – normal | UNHEALTHY state | Missing dep |
+| TC-PP-N-01 | Mock implements protocol | Equivalence – normal | Protocol check passes | Protocol |
+| TC-PP-N-02 | Navigate returns PageResult | Equivalence – normal | PageResult instance | Navigate |
+| TC-PP-N-03 | Navigate records calls | Equivalence – normal | Calls recorded | History |
+| TC-PP-N-04 | Challenge detection | Equivalence – normal | challenge_detected=True | Challenge |
+| TC-PP-A-01 | Closed provider navigate | Abnormal – closed | RuntimeError raised | Closed |
+| TC-PP-N-05 | Get health | Equivalence – normal | BrowserHealthStatus | Health |
+| TC-PP-N-06 | Set/get cookies | Equivalence – normal | Cookies stored | Cookies |
+| TC-PP-N-07 | Execute script | Equivalence – normal | Result returned | Script |
+| TC-RG-N-01 | Register provider | Equivalence – normal | Provider in list | Register |
+| TC-RG-N-02 | First is default | Equivalence – normal | First as default | Default |
+| TC-RG-N-03 | Explicit default | Equivalence – normal | Override default | set_default |
+| TC-RG-A-01 | Duplicate name | Abnormal – conflict | ValueError raised | Duplicate |
+| TC-RG-N-04 | Unregister provider | Equivalence – normal | Provider removed | Unregister |
+| TC-RG-N-05 | Unregister updates default | Equivalence – normal | Next becomes default | Default update |
+| TC-RG-N-06 | Set default | Equivalence – normal | Default changed | set_default |
+| TC-RG-A-02 | Unknown default | Abnormal – not found | ValueError raised | Unknown |
+| TC-RG-N-07 | Set fallback order | Equivalence – normal | Order stored | Fallback |
+| TC-RG-N-08 | Get all health | Equivalence – normal | Health for all | Health |
+| TC-RG-N-09 | Navigate with fallback success | Equivalence – normal | First success | Fallback |
+| TC-RG-N-10 | Fallback on failure | Equivalence – normal | Tries next | Fallback |
+| TC-RG-N-11 | Skip unhealthy | Equivalence – normal | Unhealthy skipped | Fallback |
+| TC-RG-N-12 | All fail | Equivalence – normal | Error result | Fallback |
+| TC-RG-A-03 | No providers | Abnormal – empty | RuntimeError raised | Empty |
+| TC-RG-N-13 | Custom order | Equivalence – normal | Order respected | Fallback |
+| TC-RG-N-14 | Close all | Equivalence – normal | All closed | Cleanup |
+| TC-GR-N-01 | Singleton registry | Equivalence – normal | Same instance | Singleton |
+| TC-GR-N-02 | Reset registry | Equivalence – normal | New instance | Reset |
+| TC-PW-N-01 | Playwright health open | Equivalence – normal | HEALTHY | Health |
+| TC-PW-N-02 | Playwright health closed | Equivalence – normal | UNHEALTHY | Health |
+| TC-UC-N-01 | Undetected no module | Equivalence – normal | unavailable | Health |
+| TC-UC-N-02 | Undetected navigate unavail | Equivalence – normal | Failure result | Navigate |
 """
 
 import pytest
@@ -141,7 +190,8 @@ class TestCookie:
     """Tests for Cookie data class."""
     
     def test_cookie_to_dict_basic(self):
-        """Cookie.to_dict() returns Playwright/Selenium compatible format."""
+        """Cookie.to_dict() returns Playwright/Selenium compatible format (TC-CK-N-01)."""
+        # Given: A Cookie with all fields set
         cookie = Cookie(
             name="session_id",
             value="abc123",
@@ -151,31 +201,37 @@ class TestCookie:
             secure=True,
         )
         
+        # When: Converting to dict
         result = cookie.to_dict()
         
+        # Then: All fields should be present with correct values
         assert result["name"] == "session_id"
         assert result["value"] == "abc123"
         assert result["domain"] == ".example.com"
         assert result["path"] == "/"
         assert result["httpOnly"] is True
         assert result["secure"] is True
-        assert result["sameSite"] == "Lax"  # Default
-        assert "expires" not in result  # None values excluded
+        assert result["sameSite"] == "Lax"
+        assert "expires" not in result
     
     def test_cookie_to_dict_with_expires(self):
-        """Cookie.to_dict() includes expires when set."""
+        """Cookie.to_dict() includes expires when set (TC-CK-N-02)."""
+        # Given: A Cookie with expires set
         cookie = Cookie(
             name="token",
             value="xyz",
             expires=1700000000.0,
         )
         
+        # When: Converting to dict
         result = cookie.to_dict()
         
+        # Then: expires should be included
         assert result["expires"] == 1700000000.0
     
     def test_cookie_from_dict_playwright_format(self):
-        """Cookie.from_dict() handles Playwright cookie format."""
+        """Cookie.from_dict() handles Playwright cookie format (TC-CK-N-03)."""
+        # Given: A dict in Playwright format (camelCase)
         data = {
             "name": "auth",
             "value": "token123",
@@ -187,8 +243,10 @@ class TestCookie:
             "expires": 1700000000.0,
         }
         
+        # When: Creating Cookie from dict
         cookie = Cookie.from_dict(data)
         
+        # Then: All fields should be parsed correctly
         assert cookie.name == "auth"
         assert cookie.value == "token123"
         assert cookie.domain == "example.com"
@@ -199,16 +257,19 @@ class TestCookie:
         assert cookie.expires == 1700000000.0
     
     def test_cookie_from_dict_selenium_format(self):
-        """Cookie.from_dict() handles Selenium cookie format (snake_case)."""
+        """Cookie.from_dict() handles Selenium cookie format (snake_case) (TC-CK-N-04)."""
+        # Given: A dict in Selenium format (snake_case)
         data = {
             "name": "sess",
             "value": "val",
-            "http_only": True,  # Selenium uses snake_case
+            "http_only": True,
             "same_site": "Lax",
         }
         
+        # When: Creating Cookie from dict
         cookie = Cookie.from_dict(data)
         
+        # Then: snake_case fields should be parsed correctly
         assert cookie.name == "sess"
         assert cookie.http_only is True
         assert cookie.same_site == "Lax"
@@ -218,9 +279,12 @@ class TestBrowserOptions:
     """Tests for BrowserOptions data class."""
     
     def test_default_options(self):
-        """BrowserOptions has sensible defaults."""
+        """BrowserOptions has sensible defaults (TC-BO-N-01)."""
+        # Given: No constructor arguments
+        # When: Creating BrowserOptions with defaults
         options = BrowserOptions()
         
+        # Then: Should have sensible default values
         assert options.mode == BrowserMode.HEADLESS
         assert options.timeout == 30.0
         assert options.viewport_width == 1920
@@ -232,15 +296,18 @@ class TestBrowserOptions:
         assert options.block_resources is True
     
     def test_options_to_dict(self):
-        """BrowserOptions.to_dict() includes all fields."""
+        """BrowserOptions.to_dict() includes all fields (TC-BO-N-02)."""
+        # Given: BrowserOptions with custom values
         options = BrowserOptions(
             mode=BrowserMode.HEADFUL,
             timeout=60.0,
             referer="https://example.com",
         )
         
+        # When: Converting to dict
         result = options.to_dict()
         
+        # Then: All fields should be included
         assert result["mode"] == "headful"
         assert result["timeout"] == 60.0
         assert result["referer"] == "https://example.com"
@@ -250,7 +317,9 @@ class TestPageResult:
     """Tests for PageResult data class."""
     
     def test_success_result(self):
-        """PageResult.success() creates correct success result."""
+        """PageResult.success() creates correct success result (TC-PR-N-01)."""
+        # Given: Success result parameters
+        # When: Creating success PageResult
         result = PageResult.success(
             url="https://example.com",
             content="<html>Test</html>",
@@ -260,6 +329,7 @@ class TestPageResult:
             elapsed_ms=150.5,
         )
         
+        # Then: All success fields should be set correctly
         assert result.ok is True
         assert result.url == "https://example.com"
         assert result.content == "<html>Test</html>"
@@ -271,7 +341,9 @@ class TestPageResult:
         assert result.challenge_detected is False
     
     def test_failure_result(self):
-        """PageResult.failure() creates correct failure result."""
+        """PageResult.failure() creates correct failure result (TC-PR-N-02)."""
+        # Given: Failure result parameters
+        # When: Creating failure PageResult
         result = PageResult.failure(
             url="https://example.com",
             error="connection_timeout",
@@ -281,6 +353,7 @@ class TestPageResult:
             challenge_type="cloudflare",
         )
         
+        # Then: All failure fields should be set correctly
         assert result.ok is False
         assert result.url == "https://example.com"
         assert result.error == "connection_timeout"
@@ -290,18 +363,20 @@ class TestPageResult:
         assert result.content is None
     
     def test_result_to_dict_excludes_content(self):
-        """PageResult.to_dict() excludes full content for serialization."""
+        """PageResult.to_dict() excludes full content for serialization (TC-PR-N-03)."""
+        # Given: A PageResult with content
         result = PageResult.success(
             url="https://example.com",
             content="<html>Long content...</html>",
             provider="test",
         )
         
+        # When: Converting to dict
         data = result.to_dict()
         
-        # Content should not be in dict (too large for serialization)
+        # Then: Content should be excluded (too large for serialization)
         assert "content" not in data
-        assert data["content_hash"] is None  # Not provided in this case
+        assert data["content_hash"] is None
         assert data["cookies_count"] == 0
 
 
@@ -309,9 +384,12 @@ class TestBrowserHealthStatus:
     """Tests for BrowserHealthStatus data class."""
     
     def test_healthy_status(self):
-        """BrowserHealthStatus.healthy() creates correct status."""
+        """BrowserHealthStatus.healthy() creates correct status (TC-HS-N-01)."""
+        # Given: Latency measurement
+        # When: Creating healthy status
         status = BrowserHealthStatus.healthy(latency_ms=50.0)
         
+        # Then: Should indicate healthy state
         assert status.state == BrowserHealthState.HEALTHY
         assert status.available is True
         assert status.success_rate == 1.0
@@ -319,27 +397,36 @@ class TestBrowserHealthStatus:
         assert status.last_check is not None
     
     def test_degraded_status(self):
-        """BrowserHealthStatus.degraded() creates correct status."""
+        """BrowserHealthStatus.degraded() creates correct status (TC-HS-N-02)."""
+        # Given: Success rate and message
+        # When: Creating degraded status
         status = BrowserHealthStatus.degraded(0.75, "High latency")
         
+        # Then: Should indicate degraded state
         assert status.state == BrowserHealthState.DEGRADED
         assert status.available is True
         assert status.success_rate == 0.75
         assert status.message == "High latency"
     
     def test_unhealthy_status(self):
-        """BrowserHealthStatus.unhealthy() creates correct status."""
+        """BrowserHealthStatus.unhealthy() creates correct status (TC-HS-N-03)."""
+        # Given: Error message
+        # When: Creating unhealthy status
         status = BrowserHealthStatus.unhealthy("Connection failed")
         
+        # Then: Should indicate unhealthy state
         assert status.state == BrowserHealthState.UNHEALTHY
         assert status.available is False
         assert status.success_rate == 0.0
         assert status.message == "Connection failed"
     
     def test_unavailable_status(self):
-        """BrowserHealthStatus.unavailable() for missing dependencies."""
+        """BrowserHealthStatus.unavailable() for missing dependencies (TC-HS-N-04)."""
+        # Given: Missing dependency message
+        # When: Creating unavailable status
         status = BrowserHealthStatus.unavailable("Playwright not installed")
         
+        # Then: Should indicate unhealthy/unavailable state
         assert status.state == BrowserHealthState.UNHEALTHY
         assert status.available is False
         assert status.message == "Playwright not installed"
