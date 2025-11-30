@@ -2,6 +2,27 @@
 Tests for Certificate Transparency client.
 
 Tests §3.1.2: crt.sh integration via HTML scraping.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-CI-01 | CertificateInfo serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-CI-02 | Current certificate validity | Equivalence – valid dates | is_valid=True | - |
+| TC-CI-03 | Expired certificate | Boundary – past not_after | is_valid=False | - |
+| TC-CI-04 | Future certificate | Boundary – future not_before | is_valid=False | - |
+| TC-CI-05 | Wildcard detection | Equivalence – pattern | is_wildcard=True for *.domain | - |
+| TC-CTP-01 | Parse HTML table | Equivalence – parsing | Certificates extracted | - |
+| TC-CTP-02 | Parse empty HTML | Boundary – no data | Empty result list | - |
+| TC-CTP-03 | Parse malformed HTML | Abnormal – bad format | Handles gracefully | - |
+| TC-CTC-01 | Search by domain | Equivalence – search | CertSearchResult with certs | - |
+| TC-CTC-02 | Search with cache hit | Equivalence – caching | Returns cached result | - |
+| TC-CTC-03 | Search without fetcher | Boundary – no fetcher | Returns None | - |
+| TC-CTC-04 | Search API error | Abnormal – fetch error | Returns None | - |
+| TC-CSR-01 | CertSearchResult serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-CTL-01 | CertTimeline creation | Equivalence – timeline | Certs grouped by issuer | - |
+| TC-CTL-02 | CertTimeline with single cert | Boundary – single | Valid timeline | - |
+| TC-CTL-03 | CertTimeline overlapping certs | Equivalence – overlap | Correct overlap detection | - |
+| TC-GF-01 | get_cert_transparency_client | Equivalence – factory | Returns client instance | - |
 """
 
 import pytest
@@ -26,6 +47,7 @@ class TestCertificateInfo:
     
     def test_to_dict(self):
         """Test serialization to dictionary."""
+        # Given: CertificateInfo with all fields
         cert = CertificateInfo(
             cert_id="123456",
             common_name="example.com",
@@ -36,8 +58,10 @@ class TestCertificateInfo:
             san_dns=["example.com", "www.example.com"],
         )
         
+        # When: Serializing to dict
         d = cert.to_dict()
         
+        # Then: Dictionary with all fields
         assert d["cert_id"] == "123456"
         assert d["common_name"] == "example.com"
         assert d["issuer_org"] == "Let's Encrypt"
@@ -46,6 +70,7 @@ class TestCertificateInfo:
     
     def test_is_valid_current(self):
         """Test validity check for current certificate."""
+        # Given: Certificate with current validity period
         now = datetime.now(timezone.utc)
         cert = CertificateInfo(
             cert_id="1",
@@ -55,10 +80,12 @@ class TestCertificateInfo:
             not_after=now + timedelta(days=30),
         )
         
+        # When/Then: is_valid=True
         assert cert.is_valid
     
     def test_is_valid_expired(self):
         """Test validity check for expired certificate."""
+        # Given: Certificate with past not_after
         now = datetime.now(timezone.utc)
         cert = CertificateInfo(
             cert_id="1",
@@ -68,10 +95,12 @@ class TestCertificateInfo:
             not_after=now - timedelta(days=30),
         )
         
+        # When/Then: is_valid=False
         assert not cert.is_valid
     
     def test_is_valid_not_yet_valid(self):
         """Test validity check for future certificate."""
+        # Given: Certificate with future not_before
         now = datetime.now(timezone.utc)
         cert = CertificateInfo(
             cert_id="1",
@@ -81,19 +110,21 @@ class TestCertificateInfo:
             not_after=now + timedelta(days=60),
         )
         
+        # When/Then: is_valid=False
         assert not cert.is_valid
     
     def test_is_wildcard(self):
         """Test wildcard certificate detection."""
-        # Wildcard
+        # Given: Wildcard certificate
         cert = CertificateInfo(
             cert_id="1",
             common_name="*.example.com",
             issuer_name="Test CA",
         )
+        # When/Then: is_wildcard=True
         assert cert.is_wildcard
         
-        # Non-wildcard
+        # Given: Non-wildcard certificate
         cert = CertificateInfo(
             cert_id="2",
             common_name="www.example.com",

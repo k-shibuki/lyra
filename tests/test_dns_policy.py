@@ -6,6 +6,35 @@ Tests cover:
 - DNS leak prevention when using Tor
 - DNS cache with TTL respect
 - Metrics collection
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-DCE-01 | Cache entry within TTL | Equivalence – not expired | is_expired()=False | - |
+| TC-DCE-02 | Cache entry past TTL | Boundary – expired | is_expired()=True | - |
+| TC-DRR-01 | Success with addresses | Equivalence – success | ok=True, addresses set | - |
+| TC-DRR-02 | Failure with error | Equivalence – failure | ok=False, error set | - |
+| TC-DRR-03 | Result serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-DM-01 | Initial metrics | Boundary – empty | All counters at 0 | - |
+| TC-DM-02 | Record resolution | Equivalence – mutation | Counters incremented | - |
+| TC-DM-03 | Record cache hit | Equivalence – mutation | Cache hits incremented | - |
+| TC-DM-04 | Record leak detection | Equivalence – mutation | Leaks recorded by type | - |
+| TC-DM-05 | Metrics serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-DPM-01 | Create manager | Equivalence – creation | Empty cache and metrics | - |
+| TC-DPM-02 | Get SOCKS URL with socks5h | Equivalence – routing | socks5h:// for remote DNS | - |
+| TC-DPM-03 | Get SOCKS URL with socks5 | Equivalence – routing | socks5:// for local DNS | - |
+| TC-DPM-04 | Resolve via direct | Equivalence – resolution | Direct DNS resolution | - |
+| TC-DPM-05 | Resolve via Tor | Equivalence – resolution | Tor-routed resolution | - |
+| TC-DPM-06 | Cache hit | Equivalence – caching | Returns cached entry | - |
+| TC-DPM-07 | Cache miss | Equivalence – caching | Performs fresh resolution | - |
+| TC-DPM-08 | Cache TTL clamping | Boundary – TTL limits | TTL clamped to min/max | - |
+| TC-DPM-09 | Leak detection | Equivalence – detection | Leaks recorded in metrics | - |
+| TC-DPM-10 | Clear cache | Equivalence – mutation | Cache emptied | - |
+| TC-DPM-11 | Get metrics | Equivalence – retrieval | Current metrics returned | - |
+| TC-CF-01 | get_dns_policy_manager | Equivalence – singleton | Returns manager instance | - |
+| TC-CF-02 | get_socks_proxy_for_request | Equivalence – convenience | Returns proxy URL | - |
+| TC-EC-01 | Resolve empty hostname | Boundary – empty | Returns error result | - |
+| TC-EC-02 | Resolve with network error | Abnormal – error | Handles gracefully | - |
 """
 
 import asyncio
@@ -68,6 +97,7 @@ class TestDNSCacheEntry:
 
     def test_cache_entry_not_expired_within_ttl(self):
         """Cache entry should not be expired within TTL."""
+        # Given: Cache entry resolved just now with 300s TTL
         entry = DNSCacheEntry(
             hostname="example.com",
             addresses=["93.184.216.34"],
@@ -75,17 +105,20 @@ class TestDNSCacheEntry:
             ttl=300,
             route=DNSRoute.DIRECT,
         )
+        # When/Then: is_expired()=False
         assert not entry.is_expired()
 
     def test_cache_entry_expired_after_ttl(self):
         """Cache entry should be expired after TTL."""
+        # Given: Cache entry resolved 400s ago with 300s TTL
         entry = DNSCacheEntry(
             hostname="example.com",
             addresses=["93.184.216.34"],
-            resolved_at=time.time() - 400,  # 400 seconds ago
-            ttl=300,  # 5 minute TTL
+            resolved_at=time.time() - 400,
+            ttl=300,
             route=DNSRoute.DIRECT,
         )
+        # When/Then: is_expired()=True
         assert entry.is_expired()
 
 
