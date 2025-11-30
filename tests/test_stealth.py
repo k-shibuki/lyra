@@ -2,6 +2,24 @@
 Tests for browser stealth utilities.
 
 Tests navigator.webdriver override and viewport jitter per §4.3.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-SJS-01 | STEALTH_JS content | Equivalence – content | Contains webdriver override | - |
+| TC-SJS-02 | STEALTH_JS markers | Equivalence – content | Removes automation markers | - |
+| TC-SJS-03 | CDP_STEALTH_JS content | Equivalence – content | Contains CDP commands | - |
+| TC-VJC-01 | ViewportJitterConfig defaults | Equivalence – defaults | Default values set | - |
+| TC-VJC-02 | ViewportJitterConfig custom | Equivalence – custom | Custom values used | - |
+| TC-VS-01 | ViewportState creation | Equivalence – normal | State with dimensions | - |
+| TC-VS-02 | ViewportState equality | Equivalence – comparison | Equal states match | - |
+| TC-VJ-01 | ViewportJitter jitter range | Equivalence – range | Width/height within range | - |
+| TC-VJ-02 | ViewportJitter seed consistency | Equivalence – determinism | Same seed same output | - |
+| TC-VJ-03 | ViewportJitter different seeds | Equivalence – variation | Different seeds different output | - |
+| TC-SA-01 | get_stealth_args | Equivalence – args | Returns Chrome args | - |
+| TC-VF-01 | verify_stealth success | Equivalence – verification | Returns True if stealthy | - |
+| TC-VF-02 | verify_stealth failure | Abnormal – detected | Returns False | - |
+| TC-GVJ-01 | get_viewport_jitter | Equivalence – factory | Returns jitter instance | - |
 """
 
 import time

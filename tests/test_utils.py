@@ -1,5 +1,23 @@
 """
 Tests for src/utils/config.py and src/utils/logging.py
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-DM-01 | Merge simple dicts | Equivalence – simple | Override wins | - |
+| TC-DM-02 | Merge nested dicts | Equivalence – nested | Deep merge applied | - |
+| TC-DM-03 | Override replaces lists | Equivalence – lists | List replaced, not merged | - |
+| TC-DM-04 | None values handled | Boundary – None | None passed through | - |
+| TC-LS-01 | Load default settings | Equivalence – defaults | Default config loaded | - |
+| TC-LS-02 | Load with environment override | Equivalence – env | ENV var overrides config | - |
+| TC-LS-03 | Load missing file | Boundary – missing | Defaults used | - |
+| TC-GS-01 | get_settings singleton | Equivalence – singleton | Same instance returned | - |
+| TC-GS-02 | get_settings after reload | Equivalence – reload | Fresh config loaded | - |
+| TC-LG-01 | Setup logging default | Equivalence – default | INFO level logging | - |
+| TC-LG-02 | Setup logging debug | Equivalence – debug | DEBUG level logging | - |
+| TC-LG-03 | Logger with component | Equivalence – component | Logger with name prefix | - |
+| TC-EC-01 | Invalid YAML file | Abnormal – parse error | Handles gracefully | - |
+| TC-EC-02 | Permission denied | Abnormal – permission | Handles gracefully | - |
 """
 
 import os

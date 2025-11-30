@@ -3,6 +3,26 @@ Tests for replay module.
 Tests DecisionLogger, ReplayEngine, and decision tracking.
 
 Related spec: §4.6 Replay/Reproduction Mode
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-DT-01 | DecisionType values | Equivalence – enum | All types defined | - |
+| TC-D-01 | Decision creation | Equivalence – normal | All fields stored | - |
+| TC-D-02 | Decision serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-D-03 | Decision deserialization | Equivalence – from_dict | Object correctly populated | - |
+| TC-DL-01 | Log decision | Equivalence – logging | Decision added to session | - |
+| TC-DL-02 | Start new session | Equivalence – session | New session created | - |
+| TC-DL-03 | End session | Equivalence – session | Session completed | - |
+| TC-DL-04 | Get current session | Equivalence – retrieval | Returns active session | - |
+| TC-RE-01 | Load session file | Equivalence – loading | Session loaded from file | - |
+| TC-RE-02 | Replay decision | Equivalence – replay | Decision replayed | - |
+| TC-RE-03 | Replay with verification | Equivalence – verification | Matches recorded outcome | - |
+| TC-RS-01 | ReplaySession creation | Equivalence – session | Session with decisions | - |
+| TC-RS-02 | ReplaySession serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-CF-01 | get_decision_logger | Equivalence – singleton | Returns logger instance | - |
+| TC-CF-02 | get_replay_engine | Equivalence – factory | Returns engine instance | - |
+| TC-CF-03 | cleanup_decision_logger | Equivalence – cleanup | Logger cleaned up | - |
 """
 
 import asyncio
