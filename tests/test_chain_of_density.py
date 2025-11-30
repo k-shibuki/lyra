@@ -5,6 +5,41 @@ Per §7.1: Test Code Quality Standards
 - Avoid prohibited patterns (conditional assertions, vague assertions, etc.)
 - Cover specific assertions and boundary conditions
 - Test with production settings
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-CI-01 | Complete fragment data | Equivalence – normal | CitationInfo with all fields populated | - |
+| TC-CI-02 | Fragment without heading | Equivalence – missing heading | deep_link is URL only, is_primary=False | - |
+| TC-CI-03 | Fragment with empty text | Boundary – empty content | excerpt is empty string | - |
+| TC-CI-04 | Primary source tags | Equivalence – source detection | is_primary=True for government/academic | - |
+| TC-CI-05 | Secondary source tags | Equivalence – source detection | is_primary=False for news/blog | - |
+| TC-CI-06 | Long text for excerpt | Boundary – truncation | Excerpt ≤203 chars with "..." | - |
+| TC-CI-07 | Text with sentence boundaries | Equivalence – sentence boundary | Preserves sentence boundary | - |
+| TC-CI-08 | CitationInfo serialization | Equivalence – serialization | to_dict contains all fields | - |
+| TC-DC-01 | DenseClaim with complete citation | Equivalence – validation | is_valid=True, missing=[] | - |
+| TC-DC-02 | DenseClaim without citations | Boundary – missing | is_valid=False, "citations" in missing | - |
+| TC-DC-03 | DenseClaim with incomplete citation | Abnormal – incomplete | is_valid=False, specific fields missing | - |
+| TC-DC-04 | DenseClaim serialization | Equivalence – serialization | to_dict contains all fields | - |
+| TC-CODC-01 | Build citation mapping | Equivalence – mapping | Claims mapped to fragments by URL | - |
+| TC-CODC-02 | Create dense claims | Equivalence – creation | DenseClaim objects with citations | - |
+| TC-CODC-03 | Validate claims | Equivalence – validation | Returns valid/invalid counts and issues | - |
+| TC-CODC-04 | Calculate primary ratio | Equivalence – calculation | Ratio between 0.0 and 1.0 | - |
+| TC-CODC-05 | Count words Japanese | Equivalence – word count | Reasonable count for Japanese text | - |
+| TC-CODC-06 | Count words English | Equivalence – word count | Accurate count (9 words) | - |
+| TC-CODC-07 | Count words mixed | Equivalence – word count | Reasonable count for mixed text | - |
+| TC-CODC-08 | Rule-based compress | Equivalence – compression | DenseSummary with text and score | - |
+| TC-CODC-09 | Extract entities | Equivalence – extraction | Extracts year patterns etc. | - |
+| TC-CODC-10 | Compress empty input | Boundary – empty | ok=False with error | - |
+| TC-CODC-11 | Full compression | Equivalence – end-to-end | ok=True with all sections | - |
+| TC-INT-01 | Convenience function | Integration – function | Complete result structure | - |
+| TC-INT-02 | Mandatory fields | Integration – enforcement | deep_link, discovered_at, excerpt populated | - |
+| TC-INT-03 | Validation reports | Integration – reporting | Reports missing fields correctly | - |
+| TC-EC-01 | Single claim | Boundary – single | Handles gracefully | - |
+| TC-EC-02 | Unmatched claims | Abnormal – no match | Processes with validation issues | - |
+| TC-EC-03 | Unicode content | Equivalence – Unicode | Preserves characters | - |
+| TC-EC-04 | Very long excerpt | Boundary – long text | Truncated properly | - |
+| TC-DS-01 | DenseSummary serialization | Equivalence – serialization | to_dict contains all fields | - |
 """
 
 import pytest
@@ -117,9 +152,11 @@ class TestCitationInfo:
         - discovered_at
         - excerpt
         """
+        # Given: Complete fragment with all fields
+        # When: Creating CitationInfo
         citation = CitationInfo.from_fragment(sample_fragment)
         
-        # Verify required fields are present (§3.3.1)
+        # Then: All fields are correctly populated
         assert citation.url == "https://example.gov.jp/report/2024"
         assert citation.deep_link == "https://example.gov.jp/report/2024#第1章-概要"
         assert citation.title == "政府報告書2024年版"
@@ -127,12 +164,11 @@ class TestCitationInfo:
         assert citation.discovered_at == "2024-01-15T10:30:00Z"
         assert citation.source_tag == "government"
         assert citation.is_primary is True
-        
-        # Verify excerpt is populated with expected content
         assert "経済成長率" in citation.excerpt, f"Expected '経済成長率' in excerpt: {citation.excerpt}"
     
     def test_from_fragment_without_heading(self):
         """Test creating CitationInfo when heading_context is None."""
+        # Given: Fragment without heading_context
         fragment = {
             "id": "frag_no_heading",
             "url": "https://example.com/page",
@@ -143,15 +179,17 @@ class TestCitationInfo:
             "source_tag": "news",
         }
         
+        # When: Creating CitationInfo
         citation = CitationInfo.from_fragment(fragment)
         
-        # Deep link should be URL without anchor
+        # Then: Deep link is URL only, is_primary is False
         assert citation.deep_link == "https://example.com/page"
         assert citation.heading_context is None
         assert citation.is_primary is False
     
     def test_from_fragment_with_empty_text(self):
         """Test creating CitationInfo with empty text content."""
+        # Given: Fragment with empty text_content
         fragment = {
             "id": "frag_empty",
             "url": "https://example.com/empty",
@@ -162,8 +200,10 @@ class TestCitationInfo:
             "source_tag": "blog",
         }
         
+        # When: Creating CitationInfo
         citation = CitationInfo.from_fragment(fragment)
         
+        # Then: Excerpt is empty
         assert citation.excerpt == ""
         assert citation.url == "https://example.com/empty"
     
@@ -173,9 +213,11 @@ class TestCitationInfo:
         Per §3.4: Primary sources include government, academic, official,
         standard, registry.
         """
+        # Given: Primary source tags
         primary_tags = ["government", "academic", "official", "standard", "registry"]
         secondary_tags = ["news", "blog", "forum", None]
         
+        # When/Then: Primary tags result in is_primary=True
         for tag in primary_tags:
             citation = CitationInfo(
                 url="https://example.com",
@@ -188,6 +230,7 @@ class TestCitationInfo:
             )
             assert citation.is_primary is True, f"Tag '{tag}' should be primary"
         
+        # When/Then: Secondary tags result in is_primary=False
         for tag in secondary_tags:
             citation = CitationInfo(
                 url="https://example.com",
@@ -202,28 +245,36 @@ class TestCitationInfo:
     
     def test_excerpt_truncation(self):
         """Test that excerpts are properly truncated."""
+        # Given: Text longer than max_length
         long_text = "A" * 500
         
+        # When: Extracting excerpt with max_length=200
         excerpt = CitationInfo._extract_excerpt(long_text, max_length=200)
         
-        # Excerpt should be truncated
+        # Then: Excerpt is truncated with ellipsis
         assert len(excerpt) <= 203  # 200 + "..."
         assert excerpt.endswith("...")
     
     def test_excerpt_sentence_boundary(self):
         """Test excerpt truncation at sentence boundary."""
+        # Given: Text with sentence boundaries
         text = "First sentence. Second sentence is longer. Third sentence."
         
+        # When: Extracting excerpt with max_length=50
         excerpt = CitationInfo._extract_excerpt(text, max_length=50)
         
-        # Should preserve sentence boundary
+        # Then: Preserves sentence boundary
         assert "First sentence." in excerpt
     
     def test_to_dict_serialization(self, sample_fragment):
         """Test that CitationInfo serializes correctly."""
+        # Given: CitationInfo from fragment
         citation = CitationInfo.from_fragment(sample_fragment)
+        
+        # When: Serializing to dict
         data = citation.to_dict()
         
+        # Then: All fields present
         assert "url" in data
         assert "deep_link" in data
         assert "title" in data
@@ -242,8 +293,8 @@ class TestDenseClaim:
     
     def test_validation_with_complete_citations(self, sample_fragment):
         """Test validation passes with complete citation info."""
+        # Given: DenseClaim with complete citation
         citation = CitationInfo.from_fragment(sample_fragment)
-        
         claim = DenseClaim(
             claim_id="claim_001",
             text="Test claim text",
@@ -251,8 +302,10 @@ class TestDenseClaim:
             citations=[citation],
         )
         
+        # When: Validating the claim
         is_valid, missing = claim.validate()
         
+        # Then: Validation passes
         assert is_valid is True
         assert missing == []
     
@@ -261,6 +314,7 @@ class TestDenseClaim:
         
         Per §3.3.1: All claims must have citations.
         """
+        # Given: DenseClaim without citations
         claim = DenseClaim(
             claim_id="claim_no_cit",
             text="Claim without citations",
@@ -268,13 +322,16 @@ class TestDenseClaim:
             citations=[],
         )
         
+        # When: Validating the claim
         is_valid, missing = claim.validate()
         
+        # Then: Validation fails with "citations" missing
         assert is_valid is False
         assert "citations" in missing
     
     def test_validation_fails_with_incomplete_citation(self):
         """Test validation fails when citation is incomplete."""
+        # Given: DenseClaim with incomplete citation
         incomplete_citation = CitationInfo(
             url="",  # Missing URL
             deep_link="",
@@ -283,7 +340,6 @@ class TestDenseClaim:
             excerpt="",  # Missing excerpt
             discovered_at="",  # Missing timestamp
         )
-        
         claim = DenseClaim(
             claim_id="claim_incomplete",
             text="Claim with incomplete citation",
@@ -291,8 +347,10 @@ class TestDenseClaim:
             citations=[incomplete_citation],
         )
         
+        # When: Validating the claim
         is_valid, missing = claim.validate()
         
+        # Then: Validation fails with specific fields missing
         assert is_valid is False
         assert "citation[0].url" in missing
         assert "citation[0].excerpt" in missing
@@ -300,8 +358,8 @@ class TestDenseClaim:
     
     def test_to_dict_includes_all_fields(self, sample_fragment):
         """Test that to_dict includes all required fields."""
+        # Given: DenseClaim with all fields
         citation = CitationInfo.from_fragment(sample_fragment)
-        
         claim = DenseClaim(
             claim_id="claim_001",
             text="Test claim",
@@ -312,8 +370,10 @@ class TestDenseClaim:
             refutation_status="not_found",
         )
         
+        # When: Serializing to dict
         data = claim.to_dict()
         
+        # Then: All fields present with correct values
         assert data["claim_id"] == "claim_001"
         assert data["text"] == "Test claim"
         assert data["confidence"] == 0.85
@@ -334,31 +394,32 @@ class TestChainOfDensityCompressor:
     
     def test_build_citation_mapping(self, sample_claims, sample_fragments):
         """Test building citation mapping from claims to fragments."""
+        # Given: Compressor and sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
         
+        # When: Building citation mapping
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
         
-        # claim_001 should have citations from frag_001 and frag_002
+        # Then: Claims mapped to fragments by URL
         assert "claim_001" in mapping
         citations_001 = mapping["claim_001"]
         assert len(citations_001) >= 1
-        
-        # Verify citation URLs
         urls = [c.url for c in citations_001]
         assert "https://example.gov.jp/report/2024" in urls
     
     def test_create_dense_claims(self, sample_claims, sample_fragments):
         """Test creating DenseClaim objects with citations."""
+        # Given: Compressor and citation mapping
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
+        
+        # When: Creating dense claims
         dense_claims = compressor._create_dense_claims(
             sample_claims, mapping, sample_fragments
         )
         
+        # Then: DenseClaim objects have citations
         assert len(dense_claims) == 2
-        
-        # First claim should have citations
         claim_001 = next(c for c in dense_claims if c.claim_id == "claim_001")
         assert len(claim_001.citations) >= 1
         assert claim_001.confidence == 0.85
@@ -366,15 +427,17 @@ class TestChainOfDensityCompressor:
     
     def test_validate_claims(self, sample_claims, sample_fragments):
         """Test validation of dense claims."""
+        # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
         dense_claims = compressor._create_dense_claims(
             sample_claims, mapping, sample_fragments
         )
         
+        # When: Validating claims
         validation = compressor._validate_claims(dense_claims)
         
+        # Then: Returns validation stats
         assert "valid_count" in validation
         assert "invalid_count" in validation
         assert "issues" in validation
@@ -382,118 +445,130 @@ class TestChainOfDensityCompressor:
     
     def test_calc_primary_ratio(self, sample_claims, sample_fragments):
         """Test calculation of primary source ratio."""
+        # Given: Dense claims with primary sources
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
         dense_claims = compressor._create_dense_claims(
             sample_claims, mapping, sample_fragments
         )
         
+        # When: Calculating primary ratio
         ratio = compressor._calc_primary_ratio(dense_claims)
         
-        # At least one claim should have primary source (government)
+        # Then: Ratio is valid and > 0 (government source)
         assert 0.0 <= ratio <= 1.0
-        assert ratio > 0  # claim_001 has government source
+        assert ratio > 0
     
     def test_count_words_japanese(self):
         """Test word counting for Japanese text."""
+        # Given: Japanese text
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
-        # Japanese text
         japanese = "日本の経済成長率は2024年に2.5%を記録した"
+        
+        # When: Counting words
         count_jp = compressor._count_words(japanese)
         
-        # Should count Japanese characters (approx 2 chars = 1 word)
+        # Then: Reasonable word count
         assert count_jp > 0
-        assert count_jp < len(japanese)  # Not counting each char as word
+        assert count_jp < len(japanese)
     
     def test_count_words_english(self):
         """Test word counting for English text."""
+        # Given: English text with 9 words
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
         english = "The economic growth rate was 2.5 percent in 2024"
+        
+        # When: Counting words
         count_en = compressor._count_words(english)
         
-        # Should count words
-        assert count_en == 9  # 9 words in the sentence
+        # Then: Accurate count
+        assert count_en == 9
     
     def test_count_words_mixed(self):
         """Test word counting for mixed Japanese/English text."""
+        # Given: Mixed text
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
         mixed = "GDP成長率は2.5%でした"
+        
+        # When: Counting words
         count = compressor._count_words(mixed)
         
+        # Then: Non-zero count
         assert count > 0
     
     def test_rule_based_compress(self, sample_claims, sample_fragments):
         """Test rule-based compression without LLM."""
+        # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
         dense_claims = compressor._create_dense_claims(
             sample_claims, mapping, sample_fragments
         )
         
+        # When: Compressing with rule-based method
         summaries = compressor._rule_based_compress(dense_claims)
         
+        # Then: Summary generated with valid metrics
         assert len(summaries) == 1
         summary = summaries[0]
-        
         assert summary.iteration == 0
-        # Text should have meaningful content (word_count check below ensures non-empty)
         assert summary.word_count > 0, f"Expected word_count > 0, got {summary.word_count}"
         assert len(summary.text) >= 10, f"Expected text >=10 chars, got: {summary.text}"
         assert summary.density_score >= 0
     
     def test_extract_all_entities(self, sample_claims, sample_fragments):
         """Test entity extraction from claims and fragments."""
+        # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
-        
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
         dense_claims = compressor._create_dense_claims(
             sample_claims, mapping, sample_fragments
         )
         
+        # When: Extracting entities
         entities = compressor._extract_all_entities(dense_claims, sample_fragments)
         
+        # Then: Extracts year patterns
         assert len(entities) >= 1, f"Expected at least 1 entity, got {len(entities)}"
-        # Should extract year patterns - verify year is present in any format
         has_year = any("2024" in str(e) for e in entities)
         assert has_year, f"Expected '2024' in entities: {entities}"
     
     @pytest.mark.asyncio
     async def test_compress_empty_input(self):
         """Test compression with empty input."""
+        # Given: Compressor with empty input
         compressor = ChainOfDensityCompressor(use_llm=False)
         
+        # When: Compressing empty claims/fragments
         result = await compressor.compress(
             claims=[],
             fragments=[],
             task_query="Test query",
         )
         
+        # Then: Returns error
         assert result["ok"] is False
         assert "error" in result
     
     @pytest.mark.asyncio
     async def test_compress_rule_based(self, sample_claims, sample_fragments):
         """Test full compression pipeline with rule-based method."""
+        # Given: Compressor with sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
         
+        # When: Compressing
         result = await compressor.compress(
             claims=sample_claims,
             fragments=sample_fragments,
             task_query="日本の経済成長率について",
         )
         
+        # Then: Complete result with all sections
         assert result["ok"] is True
         assert "dense_claims" in result
         assert "summaries" in result
         assert "validation" in result
         assert "statistics" in result
-        
-        # Verify statistics
         stats = result["statistics"]
         assert stats["total_claims"] == 2
         assert stats["primary_source_ratio"] > 0
@@ -511,6 +586,8 @@ class TestChainOfDensityIntegration:
         self, sample_claims, sample_fragments
     ):
         """Test the convenience function."""
+        # Given: Sample claims and fragments
+        # When: Using convenience function
         result = await compress_with_chain_of_density(
             claims=sample_claims,
             fragments=sample_fragments,
@@ -519,6 +596,7 @@ class TestChainOfDensityIntegration:
             use_llm=False,
         )
         
+        # Then: Complete result structure
         assert result["ok"] is True
         assert result["task_query"] == "日本の経済成長率について"
         assert len(result["dense_claims"]) == 2
@@ -529,6 +607,7 @@ class TestChainOfDensityIntegration:
         
         Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
         """
+        # Given: Claim with matching fragment
         claims = [
             {
                 "id": "claim_test",
@@ -537,7 +616,6 @@ class TestChainOfDensityIntegration:
                 "source_url": "https://example.com/source",
             }
         ]
-        
         fragments = [
             {
                 "id": "frag_test",
@@ -550,6 +628,7 @@ class TestChainOfDensityIntegration:
             }
         ]
         
+        # When: Compressing
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
@@ -557,13 +636,10 @@ class TestChainOfDensityIntegration:
             use_llm=False,
         )
         
+        # Then: Mandatory fields are populated
         assert result["ok"] is True
-        
-        # Check that dense claims have required citation fields
         dense_claim = result["dense_claims"][0]
         citation = dense_claim["citations"][0]
-        
-        # Mandatory fields per §3.3.1
         assert citation["deep_link"] != ""
         assert citation["discovered_at"] != ""
         assert citation["excerpt"] != ""
@@ -571,7 +647,7 @@ class TestChainOfDensityIntegration:
     @pytest.mark.asyncio
     async def test_validation_reports_missing_fields(self):
         """Test that validation properly reports missing fields."""
-        # Claim without matching fragment
+        # Given: Claim without matching fragment
         claims = [
             {
                 "id": "orphan_claim",
@@ -579,9 +655,9 @@ class TestChainOfDensityIntegration:
                 "confidence_score": 0.5,
             }
         ]
-        
         fragments = []  # No fragments
         
+        # When: Compressing
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
@@ -589,12 +665,9 @@ class TestChainOfDensityIntegration:
             use_llm=False,
         )
         
+        # Then: Validation reports issues
         assert result["ok"] is True
-        
-        # Validation should report issues
         validation = result["validation"]
-        # With no fragments, citations may be incomplete
-        # The exact behavior depends on implementation
         assert "valid_count" in validation
         assert "invalid_count" in validation
 
@@ -609,6 +682,7 @@ class TestChainOfDensityEdgeCases:
     @pytest.mark.asyncio
     async def test_single_claim(self):
         """Test compression with a single claim."""
+        # Given: Single claim and fragment
         claims = [
             {
                 "id": "single_claim",
@@ -617,7 +691,6 @@ class TestChainOfDensityEdgeCases:
                 "source_url": "https://example.com",
             }
         ]
-        
         fragments = [
             {
                 "id": "single_frag",
@@ -629,6 +702,7 @@ class TestChainOfDensityEdgeCases:
             }
         ]
         
+        # When: Compressing
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
@@ -636,12 +710,14 @@ class TestChainOfDensityEdgeCases:
             use_llm=False,
         )
         
+        # Then: Handles gracefully
         assert result["ok"] is True
         assert result["statistics"]["total_claims"] == 1
     
     @pytest.mark.asyncio
     async def test_claims_without_matching_fragments(self):
         """Test handling of claims that don't match any fragment."""
+        # Given: Claim with no matching fragment URL
         claims = [
             {
                 "id": "unmatched_claim",
@@ -649,7 +725,6 @@ class TestChainOfDensityEdgeCases:
                 "confidence_score": 0.7,
             }
         ]
-        
         fragments = [
             {
                 "id": "different_frag",
@@ -661,6 +736,7 @@ class TestChainOfDensityEdgeCases:
             }
         ]
         
+        # When: Compressing
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
@@ -668,12 +744,13 @@ class TestChainOfDensityEdgeCases:
             use_llm=False,
         )
         
-        # Should still succeed, but may have validation issues
+        # Then: Processes with potential validation issues
         assert result["ok"] is True
     
     @pytest.mark.asyncio
     async def test_unicode_content(self):
         """Test handling of various Unicode content."""
+        # Given: Unicode content in claims and fragments
         claims = [
             {
                 "id": "unicode_claim",
@@ -682,7 +759,6 @@ class TestChainOfDensityEdgeCases:
                 "source_url": "https://example.com/unicode",
             }
         ]
-        
         fragments = [
             {
                 "id": "unicode_frag",
@@ -695,6 +771,7 @@ class TestChainOfDensityEdgeCases:
             }
         ]
         
+        # When: Compressing
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
@@ -702,17 +779,16 @@ class TestChainOfDensityEdgeCases:
             use_llm=False,
         )
         
+        # Then: Unicode preserved
         assert result["ok"] is True
-        
-        # Verify Unicode is preserved
         dense_claim = result["dense_claims"][0]
         assert "日本語" in dense_claim["text"]
     
     @pytest.mark.asyncio
     async def test_very_long_excerpt(self):
         """Test handling of very long text content."""
+        # Given: Very long text (10000 chars)
         long_text = "A" * 10000
-        
         claims = [
             {
                 "id": "long_claim",
@@ -721,7 +797,6 @@ class TestChainOfDensityEdgeCases:
                 "source_url": "https://example.com/long",
             }
         ]
-        
         fragments = [
             {
                 "id": "long_frag",
@@ -733,6 +808,7 @@ class TestChainOfDensityEdgeCases:
             }
         ]
         
+        # When: Compressing
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
@@ -740,11 +816,10 @@ class TestChainOfDensityEdgeCases:
             use_llm=False,
         )
         
+        # Then: Excerpt is truncated
         assert result["ok"] is True
-        
-        # Excerpt should be truncated
         citation = result["dense_claims"][0]["citations"][0]
-        assert len(citation["excerpt"]) <= 203  # 200 + "..."
+        assert len(citation["excerpt"]) <= 203
 
 
 # ============================================================
@@ -756,6 +831,7 @@ class TestDenseSummary:
     
     def test_to_dict(self, sample_fragment):
         """Test DenseSummary serialization."""
+        # Given: DenseSummary with claims
         citation = CitationInfo.from_fragment(sample_fragment)
         claim = DenseClaim(
             claim_id="test",
@@ -763,7 +839,6 @@ class TestDenseSummary:
             confidence=0.8,
             citations=[citation],
         )
-        
         summary = DenseSummary(
             iteration=2,
             text="Summary text",
@@ -773,8 +848,10 @@ class TestDenseSummary:
             claims=[claim],
         )
         
+        # When: Serializing to dict
         data = summary.to_dict()
         
+        # Then: All fields present with correct values
         assert data["iteration"] == 2
         assert data["text"] == "Summary text"
         assert data["entity_count"] == 5
