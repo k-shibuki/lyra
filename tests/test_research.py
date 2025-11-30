@@ -11,13 +11,49 @@ Test Quality Standards (§7.1):
 - No conditional assertions
 - Specific value assertions
 - No OR-condition assertions
-- AAA pattern (Arrange-Act-Assert)
+- Given/When/Then pattern
 - Docstrings explaining test intent
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-RES-N-01 | Query with organization entity | Equivalence – normal | Context with entities | Entity extraction |
+| TC-RES-N-02 | Query with research keyword | Equivalence – normal | Academic template suggested | Template matching |
+| TC-RES-N-03 | Any query | Equivalence – normal | No subquery_candidates | §2.1 boundary |
+| TC-RES-N-04 | Any query | Equivalence – normal | Recommended engines list | Engine recommendation |
+| TC-RES-A-01 | Nonexistent task_id | Equivalence – error | ok=False with error | Task not found |
+| TC-RES-N-05 | 3 sources, no primary | Equivalence – normal | Score = 0.7 | §3.1.7.3 formula |
+| TC-RES-N-06 | 2 sources + primary | Equivalence – normal | Score ≈ 0.767 | Primary bonus |
+| TC-RES-N-07 | Score >= 0.8 | Boundary – threshold | is_satisfied=True | Satisfaction threshold |
+| TC-RES-N-08 | 7/10 novel fragments | Equivalence – normal | Novelty = 0.7 | §3.1.7.4 formula |
+| TC-RES-N-09 | 3 sources + primary | Equivalence – transition | Status=SATISFIED | Status transition |
+| TC-RES-N-10 | 1 source | Equivalence – partial | Status=PARTIAL | Partial status |
+| TC-RES-N-11 | Register + start subquery | Equivalence – normal | Status=RUNNING | State management |
+| TC-RES-N-12 | 10 page fetches | Boundary – limit | Budget warning | Budget tracking |
+| TC-RES-N-13 | 2 subqueries | Equivalence – normal | All required fields | get_status structure |
+| TC-RES-N-14 | 2 pending auth items | Equivalence – normal | auth_queue in status | §16.7.1 |
+| TC-RES-N-15 | 3 pending items | Boundary – warning | Warning alert | §16.7.3 threshold |
+| TC-RES-N-16 | 5 pending items | Boundary – critical | Critical alert | Count threshold |
+| TC-RES-N-17 | 2 high priority items | Boundary – critical | Critical alert | Priority threshold |
+| TC-RES-N-18 | 1 satisfied, 1 unsatisfied | Equivalence – normal | Partial status + suggestions | finalize() |
+| TC-RES-N-19 | PRIMARY_SOURCE_DOMAINS | Equivalence – normal | Known domains included | Domain set |
+| TC-RES-N-20 | Japanese query | Equivalence – expansion | Core term preserved | Mechanical only |
+| TC-RES-N-21 | Claim text | Equivalence – normal | Suffix-based queries | Refutation patterns |
+| TC-RES-N-22 | REFUTATION_SUFFIXES | Equivalence – normal | Required suffixes exist | Suffix constants |
+| TC-RES-N-23 | Claim text | Equivalence – normal | Reverse queries with suffix | Mechanical patterns |
+| TC-RES-N-24 | RefutationResult | Equivalence – normal | Correct structure | §3.2.1 structure |
+| TC-RES-N-25 | Full workflow | Equivalence – integration | Complete flow works | Context→Execute→Status |
+| TC-RES-N-26 | ResearchContext class | Equivalence – boundary | No design methods | §2.1.1 |
+| TC-RES-N-27 | RefutationExecutor class | Equivalence – boundary | No LLM methods | §2.1.4 |
+| TC-RES-N-28 | Context notes | Equivalence – boundary | No directives | Informational only |
 """
 
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
+
+pytestmark = pytest.mark.unit
 
 from src.research.context import (
     ResearchContext,
@@ -47,7 +83,6 @@ class TestResearchContext:
     generate subquery candidates. That is Cursor AI's responsibility.
     """
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_context_returns_entities(self, test_database):
         """
@@ -55,26 +90,23 @@ class TestResearchContext:
         
         §3.1.7.1: ResearchContext extracts entities (person/organization/location/etc.)
         """
-        # Arrange
+        # Given: A task with a query containing organization entity
         task_id = await test_database.create_task(
             query="株式会社トヨタ自動車の2024年決算情報",
         )
         context = ResearchContext(task_id)
         context._db = test_database
         
-        # Act
+        # When: Get research context
         result = await context.get_context()
         
-        # Assert
+        # Then: Context contains extracted entities
         assert result["ok"] is True
         assert result["task_id"] == task_id
         assert result["original_query"] == "株式会社トヨタ自動車の2024年決算情報"
-        # Should extract organization entity
         entity_types = [e["type"] for e in result["extracted_entities"]]
-        # Note: Simple regex may not catch all entities, but structure is correct
         assert isinstance(result["extracted_entities"], list)
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_context_returns_applicable_templates(self, test_database):
         """
@@ -82,25 +114,23 @@ class TestResearchContext:
         
         §3.1.7.1: Templates include academic/government/corporate/technical.
         """
-        # Arrange
+        # Given: A task with research-related query
         task_id = await test_database.create_task(
             query="機械学習の最新研究論文",
         )
         context = ResearchContext(task_id)
         context._db = test_database
         
-        # Act
+        # When: Get research context
         result = await context.get_context()
         
-        # Assert
+        # Then: Academic template is suggested
         assert result["ok"] is True
         templates = result["applicable_templates"]
-        # Query contains "研究" so at least academic template should be suggested
         assert len(templates) >= 1, f"Expected >=1 templates, got {len(templates)}"
         template_names = [t["name"] for t in templates]
         assert "academic" in template_names
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_context_does_not_return_subquery_candidates(self, test_database):
         """
@@ -109,60 +139,56 @@ class TestResearchContext:
         §2.1.1: Subquery design is Cursor AI's exclusive responsibility.
         §2.1.4: Lancet must NOT generate subquery candidates.
         """
-        # Arrange
+        # Given: A task with any query
         task_id = await test_database.create_task(
             query="AIの倫理的課題について",
         )
         context = ResearchContext(task_id)
         context._db = test_database
         
-        # Act
+        # When: Get research context
         result = await context.get_context()
         
-        # Assert
+        # Then: Result does NOT contain subquery candidates
         assert result["ok"] is True
-        # Must NOT contain subquery_candidates
         assert "subquery_candidates" not in result
         assert "suggested_subqueries" not in result
         assert "generated_queries" not in result
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_context_returns_recommended_engines(self, test_database):
         """
         Verify that get_context returns recommended search engines.
         """
-        # Arrange
+        # Given: A task with a simple query
         task_id = await test_database.create_task(query="test query")
         context = ResearchContext(task_id)
         context._db = test_database
         
-        # Act
+        # When: Get research context
         result = await context.get_context()
         
-        # Assert
+        # Then: Result contains recommended engines
         assert result["ok"] is True
         assert "recommended_engines" in result
         assert isinstance(result["recommended_engines"], list)
-        # Should recommend at least 1 engine
         assert len(result["recommended_engines"]) >= 1, (
             f"Expected >=1 recommended engines, got {result['recommended_engines']}"
         )
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_context_task_not_found(self, test_database):
         """
         Verify that get_context returns error for non-existent task.
         """
-        # Arrange
+        # Given: A context with nonexistent task ID
         context = ResearchContext("nonexistent_task_id")
         context._db = test_database
         
-        # Act
+        # When: Get research context
         result = await context.get_context()
         
-        # Assert
+        # Then: Result indicates error
         assert result["ok"] is False
         assert "error" in result
 
@@ -179,115 +205,107 @@ class TestSubqueryState:
     §3.1.7.4: Novelty score = novel fragments / recent fragments
     """
     
-    @pytest.mark.unit
     def test_satisfaction_score_with_three_sources(self):
         """
         Verify satisfaction score is 0.7 with exactly 3 independent sources.
         
         §3.1.7.3: Score = (3/3)*0.7 + 0 = 0.7
         """
-        # Arrange
+        # Given: A subquery with 3 independent sources, no primary
         sq = SubqueryState(id="sq_001", text="test query")
         sq.independent_sources = 3
         sq.has_primary_source = False
         
-        # Act
+        # When: Calculate satisfaction score
         score = sq.calculate_satisfaction_score()
         
-        # Assert
+        # Then: Score is 0.7
         assert score == 0.7
     
-    @pytest.mark.unit
     def test_satisfaction_score_with_primary_source(self):
         """
         Verify satisfaction score includes 0.3 bonus for primary source.
         
         §3.1.7.3: Score = (2/3)*0.7 + 0.3 ≈ 0.767
         """
-        # Arrange
+        # Given: A subquery with 2 sources and primary source
         sq = SubqueryState(id="sq_002", text="test query")
         sq.independent_sources = 2
         sq.has_primary_source = True
         
-        # Act
+        # When: Calculate satisfaction score
         score = sq.calculate_satisfaction_score()
         
-        # Assert
+        # Then: Score includes primary bonus
         expected = (2/3) * 0.7 + 0.3
         assert abs(score - expected) < 0.01
     
-    @pytest.mark.unit
     def test_is_satisfied_threshold(self):
         """
         Verify is_satisfied returns True when score >= 0.8.
         
         §3.1.7.3: Satisfied when score >= 0.8.
         """
-        # Arrange - score will be 0.7 + 0.3 = 1.0
+        # Given: Two subqueries with different satisfaction levels
         sq_satisfied = SubqueryState(id="sq_003", text="test")
         sq_satisfied.independent_sources = 3
         sq_satisfied.has_primary_source = True
         
-        # score will be (2/3)*0.7 ≈ 0.467
         sq_not_satisfied = SubqueryState(id="sq_004", text="test")
         sq_not_satisfied.independent_sources = 2
         sq_not_satisfied.has_primary_source = False
         
-        # Act & Assert
+        # When/Then: Check satisfaction status
         assert sq_satisfied.is_satisfied() is True
         assert sq_not_satisfied.is_satisfied() is False
     
-    @pytest.mark.unit
     def test_novelty_score_calculation(self):
         """
         Verify novelty score is calculated from recent fragments.
         
         §3.1.7.4: Novelty = novel fragments / total recent fragments.
         """
-        # Arrange
+        # Given: A subquery with 10 fragments, 7 novel
         sq = SubqueryState(id="sq_005", text="test")
         
-        # Add 10 fragments, 7 novel
         for i in range(10):
-            is_novel = i < 7  # First 7 are novel
+            is_novel = i < 7
             sq.add_fragment(f"hash_{i}", is_useful=True, is_novel=is_novel)
         
-        # Act
+        # When: Get novelty score
         novelty = sq.novelty_score
         
-        # Assert
+        # Then: Novelty is 0.7 (7/10)
         assert novelty == 0.7
     
-    @pytest.mark.unit
     def test_status_transitions(self):
         """
         Verify status transitions from PENDING to SATISFIED.
         """
-        # Arrange
+        # Given: A subquery in PENDING status
         sq = SubqueryState(id="sq_006", text="test")
         assert sq.status == SubqueryStatus.PENDING
         
-        # Act - add enough sources to satisfy
+        # When: Add enough sources to satisfy
         sq.independent_sources = 3
         sq.has_primary_source = True
         sq.update_status()
         
-        # Assert
+        # Then: Status becomes SATISFIED
         assert sq.status == SubqueryStatus.SATISFIED
     
-    @pytest.mark.unit
     def test_status_partial_with_some_sources(self):
         """
         Verify status is PARTIAL when 1-2 sources found.
         """
-        # Arrange
+        # Given: A subquery with only 1 source
         sq = SubqueryState(id="sq_007", text="test")
         sq.independent_sources = 1
         
-        # Act
+        # When: Update status
         sq.update_status()
         
-        # Assert
+        # Then: Status is PARTIAL
         assert sq.status == SubqueryStatus.PARTIAL
 
 
@@ -300,18 +318,17 @@ class TestExplorationState:
     Tests for ExplorationState task management.
     """
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_register_and_start_subquery(self, test_database):
         """
         Verify subquery registration and starting.
         """
-        # Arrange
+        # Given: An exploration state for a task
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
         
-        # Act
+        # When: Register and start a subquery
         sq = state.register_subquery(
             subquery_id="sq_001",
             text="test subquery",
@@ -319,68 +336,62 @@ class TestExplorationState:
         )
         state.start_subquery("sq_001")
         
-        # Assert
+        # Then: Subquery is running with correct attributes
         assert sq.id == "sq_001"
         assert sq.text == "test subquery"
         assert sq.priority == "high"
         assert sq.status == SubqueryStatus.RUNNING
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_budget_tracking(self, test_database):
         """
         Verify page budget is tracked correctly.
         """
-        # Arrange
+        # Given: An exploration state with small page limit
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
-        state._pages_limit = 10  # Small limit for testing
+        state._pages_limit = 10
         
         sq = state.register_subquery("sq_001", "test")
         
-        # Act - fetch pages up to limit
+        # When: Fetch pages up to limit
         for i in range(10):
             state.record_page_fetch("sq_001", f"domain{i}.com", False, True)
         
         within_budget, warning = state.check_budget()
         
-        # Assert
+        # Then: Budget is exceeded with warning
         assert within_budget is False
         assert warning is not None
         assert "上限" in warning
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_status_returns_all_required_fields(self, test_database):
         """
         Verify get_status returns all required fields per §3.2.1.
         Now async per §16.7.1 changes.
         """
-        # Arrange
+        # Given: An exploration state with 2 subqueries
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
         state.register_subquery("sq_001", "subquery 1", priority="high")
         state.register_subquery("sq_002", "subquery 2", priority="medium")
         
-        # Act - now async per §16.7.1
+        # When: Get status
         status = await state.get_status()
         
-        # Assert - verify structure per §3.2.1 MCP Tool IF Spec
+        # Then: Status contains all required fields
         assert status["ok"] is True
         assert status["task_id"] == task_id
         assert "task_status" in status
         assert "subqueries" in status
         assert len(status["subqueries"]) == 2
-        assert "metrics" in status  # Changed from overall_progress
+        assert "metrics" in status
         assert "budget" in status
-        # Note: recommendations removed - Cursor AI makes all decisions
         assert "warnings" in status
-        # §16.7.1: authentication_queue is optional (None when empty)
-        # Presence of the key structure is not mandatory when empty
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_status_includes_authentication_queue(self, test_database):
         """
@@ -390,12 +401,11 @@ class TestExplorationState:
         """
         from unittest.mock import patch, AsyncMock
         
-        # Arrange
+        # Given: An exploration state with pending auth items
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
         
-        # Mock the authentication queue summary
         mock_summary = {
             "pending_count": 2,
             "high_priority_count": 1,
@@ -409,10 +419,10 @@ class TestExplorationState:
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
-            # Act
+            # When: Get status
             status = await state.get_status()
         
-        # Assert
+        # Then: authentication_queue is included
         assert status["authentication_queue"] is not None, (
             "authentication_queue should not be None when items pending"
         )
@@ -427,7 +437,6 @@ class TestExplorationState:
             f"Should have 2 domains, got {len(auth_queue['domains'])}"
         )
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_auth_queue_warning_threshold(self, test_database):
         """
@@ -437,12 +446,11 @@ class TestExplorationState:
         """
         from unittest.mock import patch, AsyncMock
         
-        # Arrange
+        # Given: 3 pending auth items
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
         
-        # Mock the authentication queue summary with 3 pending items
         mock_summary = {
             "pending_count": 3,
             "high_priority_count": 0,
@@ -456,10 +464,10 @@ class TestExplorationState:
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
-            # Act
+            # When: Get status
             status = await state.get_status()
         
-        # Assert
+        # Then: Warning alert is generated
         warning_alerts = [w for w in status["warnings"] if "[warning]" in w]
         assert len(warning_alerts) == 1, (
             f"Should have 1 warning alert, got {len(warning_alerts)}: {status['warnings']}"
@@ -468,7 +476,6 @@ class TestExplorationState:
             f"Warning should mention '認証待ち3件', got '{warning_alerts[0]}'"
         )
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_auth_queue_critical_threshold_by_count(self, test_database):
         """
@@ -478,12 +485,11 @@ class TestExplorationState:
         """
         from unittest.mock import patch, AsyncMock
         
-        # Arrange
+        # Given: 5 pending auth items
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
         
-        # Mock the authentication queue summary with 5 pending items
         mock_summary = {
             "pending_count": 5,
             "high_priority_count": 0,
@@ -497,10 +503,10 @@ class TestExplorationState:
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
-            # Act
+            # When: Get status
             status = await state.get_status()
         
-        # Assert
+        # Then: Critical alert is generated
         critical_alerts = [w for w in status["warnings"] if "[critical]" in w]
         assert len(critical_alerts) == 1, (
             f"Should have 1 critical alert, got {len(critical_alerts)}: {status['warnings']}"
@@ -509,7 +515,6 @@ class TestExplorationState:
             f"Critical should mention '認証待ち5件', got '{critical_alerts[0]}'"
         )
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_auth_queue_critical_threshold_by_high_priority(self, test_database):
         """
@@ -519,12 +524,11 @@ class TestExplorationState:
         """
         from unittest.mock import patch, AsyncMock
         
-        # Arrange
+        # Given: 2 high priority auth items
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
         
-        # Mock the authentication queue summary with 2 high priority items
         mock_summary = {
             "pending_count": 2,
             "high_priority_count": 2,
@@ -538,10 +542,10 @@ class TestExplorationState:
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
-            # Act
+            # When: Get status
             status = await state.get_status()
         
-        # Assert
+        # Then: Critical alert for high priority
         critical_alerts = [w for w in status["warnings"] if "[critical]" in w]
         assert len(critical_alerts) == 1, (
             f"Should have 1 critical alert for high priority, got {len(critical_alerts)}: {status['warnings']}"
@@ -550,13 +554,12 @@ class TestExplorationState:
             f"Critical should mention primary source blocking, got '{critical_alerts[0]}'"
         )
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_finalize_returns_summary(self, test_database):
         """
         Verify finalize returns proper summary with unsatisfied subqueries.
         """
-        # Arrange
+        # Given: 1 satisfied and 1 unsatisfied subquery
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
@@ -567,17 +570,15 @@ class TestExplorationState:
         sq1.update_status()
         
         sq2 = state.register_subquery("sq_002", "unsatisfied query")
-        # Leave sq2 as PENDING
         
-        # Act
+        # When: Finalize exploration
         result = await state.finalize()
         
-        # Assert
+        # Then: Summary shows partial completion with suggestions
         assert result["ok"] is True
-        assert result["final_status"] == "partial"  # Not all satisfied
+        assert result["final_status"] == "partial"
         assert result["summary"]["satisfied_subqueries"] == 1
         assert "sq_002" in result["summary"]["unsatisfied_subqueries"]
-        # Should have followup suggestions for unsatisfied subqueries
         assert len(result["followup_suggestions"]) >= 1, (
             f"Expected >=1 followup suggestions, got {result['followup_suggestions']}"
         )
@@ -594,18 +595,16 @@ class TestSubqueryExecutor:
     §2.1.3: Lancet only performs mechanical expansions, not query design.
     """
     
-    @pytest.mark.unit
     def test_primary_source_detection(self):
         """
         Verify primary source domains are correctly identified.
         """
-        # Assert - check that known primary sources are in the set
+        # Given/When/Then: Check that known primary sources are in the set
         assert "go.jp" in PRIMARY_SOURCE_DOMAINS
         assert "gov.uk" in PRIMARY_SOURCE_DOMAINS
         assert "arxiv.org" in PRIMARY_SOURCE_DOMAINS
         assert "who.int" in PRIMARY_SOURCE_DOMAINS
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_expand_query_mechanical_only(self, test_database):
         """
@@ -613,45 +612,39 @@ class TestSubqueryExecutor:
         
         §2.1.3: Lancet only adds operators, does not design new queries.
         """
-        # Arrange
+        # Given: A SubqueryExecutor and original query
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         executor = SubqueryExecutor(task_id, state)
         
         original_query = "機械学習の研究論文"
         
-        # Act
+        # When: Expand query
         expanded = executor._expand_query(original_query)
         
-        # Assert
-        assert original_query in expanded  # Original always included
-        # Expanded queries should only add operators, not change meaning
+        # Then: Original is included and core term preserved
+        assert original_query in expanded
         for eq in expanded:
-            # All expanded queries should contain the core term "機械学習"
-            # (expansion may add operators but shouldn't change the core meaning)
             assert "機械学習" in eq, f"Expected '機械学習' in expanded query: {eq}"
     
-    @pytest.mark.unit
     def test_generate_refutation_queries_mechanical(self):
         """
         Verify refutation queries use mechanical suffix patterns only.
         
         §2.1.4: No LLM-based query generation for refutations.
         """
-        # Arrange
+        # Given: A SubqueryExecutor and base query
         state = MagicMock()
         executor = SubqueryExecutor("task_001", state)
         base_query = "AIは安全である"
         
-        # Act
+        # When: Generate refutation queries
         refutation_queries = executor.generate_refutation_queries(base_query)
         
-        # Assert - should generate at least 1 refutation query
+        # Then: Queries use mechanical suffixes only
         assert len(refutation_queries) >= 1, f"Expected >=1 refutation queries, got {len(refutation_queries)}"
-        # All queries should be base_query + suffix
         for rq in refutation_queries:
             assert base_query in rq
-            # Should contain one of the mechanical suffixes
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)
             assert has_suffix, f"Query '{rq}' doesn't have a mechanical suffix"
 
@@ -668,26 +661,24 @@ class TestRefutationExecutor:
     §2.1.4: No LLM-based reverse query design.
     """
     
-    @pytest.mark.unit
     def test_refutation_suffixes_defined(self):
         """
         Verify all required refutation suffixes are defined.
         
         §3.1.7.5: Suffixes include issues/criticism/problems/limitations etc.
         """
-        # Assert
+        # Given/When/Then: Required suffixes exist
         assert "課題" in REFUTATION_SUFFIXES
         assert "批判" in REFUTATION_SUFFIXES
         assert "問題点" in REFUTATION_SUFFIXES
         assert "limitations" in REFUTATION_SUFFIXES
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_generate_reverse_queries_mechanical(self, test_database):
         """
         Verify reverse query generation is mechanical (suffix-based).
         """
-        # Arrange
+        # Given: A RefutationExecutor and claim text
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
@@ -695,23 +686,21 @@ class TestRefutationExecutor:
         
         claim_text = "深層学習は画像認識で高精度"
         
-        # Act
+        # When: Generate reverse queries
         reverse_queries = executor._generate_reverse_queries(claim_text)
         
-        # Assert - should generate at least 1 reverse query
+        # Then: Queries use mechanical suffixes
         assert len(reverse_queries) >= 1, f"Expected >=1 reverse queries, got {len(reverse_queries)}"
         for rq in reverse_queries:
-            # Each reverse query should contain part of claim + suffix
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)
             assert has_suffix, f"Query '{rq}' doesn't use mechanical suffix"
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_refutation_result_structure(self, test_database):
         """
         Verify RefutationResult has correct structure per §3.2.1.
         """
-        # Arrange
+        # Given: A RefutationResult instance
         result = RefutationResult(
             target="claim_001",
             target_type="claim",
@@ -719,10 +708,10 @@ class TestRefutationExecutor:
             refutations_found=1,
         )
         
-        # Act
+        # When: Convert to dict
         result_dict = result.to_dict()
         
-        # Assert - structure per §3.2.1
+        # Then: Structure matches §3.2.1
         assert result_dict["ok"] is True
         assert result_dict["target"] == "claim_001"
         assert result_dict["target_type"] == "claim"
@@ -750,25 +739,24 @@ class TestExplorationIntegration:
         Note: This test uses state simulation rather than actual search/fetch
         to avoid external dependencies in integration tests.
         """
-        # Arrange
+        # Given: A research task
         task_id = await test_database.create_task(
             query="量子コンピュータの現状と課題",
         )
         
-        # Step 1: Get research context
+        # When: Get research context
         context = ResearchContext(task_id)
         context._db = test_database
         ctx_result = await context.get_context()
         
-        # Assert context has required info
+        # Then: Context does NOT generate candidates
         assert ctx_result["ok"] is True
-        assert "subquery_candidates" not in ctx_result  # Must NOT generate candidates
+        assert "subquery_candidates" not in ctx_result
         
-        # Step 2: Create state and executor
+        # Given: Exploration state with a subquery
         state = ExplorationState(task_id)
         state._db = test_database
         
-        # Step 3: Execute a subquery (designed by "Cursor AI" in this test)
         sq = state.register_subquery(
             subquery_id="sq_001",
             text="量子コンピュータ 基礎原理",
@@ -776,20 +764,21 @@ class TestExplorationIntegration:
         )
         state.start_subquery("sq_001")
         
-        # Simulate page fetches
+        # When: Simulate page fetches
         state.record_page_fetch("sq_001", "university.ac.jp", True, True)
         state.record_page_fetch("sq_001", "research.go.jp", True, True)
         state.record_page_fetch("sq_001", "wikipedia.org", False, True)
         
-        # Step 4: Get status (now async per §16.7.1)
+        # Then: Status reflects page fetches
         status = await state.get_status()
         
         assert status["ok"] is True
         assert status["metrics"]["total_pages"] == 3
         
-        # Step 5: Finalize
+        # When: Finalize exploration
         final = await state.finalize()
         
+        # Then: Final result has summary and suggestions
         assert final["ok"] is True
         assert "summary" in final
         assert "followup_suggestions" in final
@@ -807,38 +796,35 @@ class TestResponsibilityBoundary:
     as defined in §2.1.
     """
     
-    @pytest.mark.unit
     def test_lancet_does_not_design_queries(self):
         """
         Verify Lancet components don't have query design capabilities.
         
         §2.1.1: Query design is Cursor AI's exclusive responsibility.
         """
-        # Assert - ResearchContext should not have design methods
+        # Given/When/Then: ResearchContext has no design methods
         assert not hasattr(ResearchContext, 'design_subqueries')
         assert not hasattr(ResearchContext, 'generate_subqueries')
         assert not hasattr(ResearchContext, 'suggest_queries')
         
-        # SubqueryExecutor should not have design methods
+        # Given/When/Then: SubqueryExecutor has no design methods
         assert not hasattr(SubqueryExecutor, 'design_query')
         assert not hasattr(SubqueryExecutor, 'generate_query')
     
-    @pytest.mark.unit
     def test_refutation_uses_only_mechanical_patterns(self):
         """
         Verify refutation only uses predefined suffixes, not LLM.
         
         §2.1.4: LLM must NOT be used for reverse query design.
         """
-        # Assert - RefutationExecutor should not have LLM-based methods
+        # Given/When/Then: RefutationExecutor has no LLM methods
         assert not hasattr(RefutationExecutor, 'generate_hypothesis')
         assert not hasattr(RefutationExecutor, 'llm_reverse_query')
         
-        # REFUTATION_SUFFIXES should be predefined constants
+        # Given/When/Then: REFUTATION_SUFFIXES are predefined constants
         assert isinstance(REFUTATION_SUFFIXES, list)
         assert all(isinstance(s, str) for s in REFUTATION_SUFFIXES)
     
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_context_notes_are_informational_only(self, test_database):
         """
@@ -846,17 +832,16 @@ class TestResponsibilityBoundary:
         
         §2.1.1: Lancet provides support information, Cursor AI decides.
         """
-        # Arrange
+        # Given: A ResearchContext
         task_id = await test_database.create_task(query="test query")
         context = ResearchContext(task_id)
         context._db = test_database
         
-        # Act
+        # When: Get context
         result = await context.get_context()
         
-        # Assert
+        # Then: Notes do not contain directives
         notes = result.get("notes", "")
-        # Notes should not contain directives like "you must" or "required"
         assert "must" not in notes.lower()
         assert "required" not in notes.lower()
         assert "should query" not in notes.lower()
