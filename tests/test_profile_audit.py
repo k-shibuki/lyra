@@ -7,6 +7,27 @@ Tests cover:
 - Repair action determination
 - Baseline management
 - Audit logging
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-FP-01 | FingerprintData creation | Equivalence – normal | All fields stored | - |
+| TC-FP-02 | FingerprintData serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-FP-03 | FingerprintData deserialization | Equivalence – from_dict | Object correctly populated | - |
+| TC-FP-04 | Compare identical fingerprints | Boundary – same | No drift detected | - |
+| TC-FP-05 | Compare with UA drift | Equivalence – detection | UA drift detected | - |
+| TC-FP-06 | Compare with font drift | Equivalence – detection | Font drift detected | - |
+| TC-FP-07 | Compare with canvas drift | Equivalence – detection | Canvas drift detected | - |
+| TC-PA-01 | Audit healthy profile | Equivalence – healthy | AuditStatus.HEALTHY | - |
+| TC-PA-02 | Audit with minor drift | Equivalence – warning | AuditStatus.WARNING | - |
+| TC-PA-03 | Audit with major drift | Equivalence – critical | AuditStatus.CRITICAL | - |
+| TC-PA-04 | Determine repair actions | Equivalence – repairs | Correct actions returned | - |
+| TC-PA-05 | Execute repair | Equivalence – execution | Repair applied | - |
+| TC-BL-01 | Save baseline | Equivalence – persistence | Baseline saved to file | - |
+| TC-BL-02 | Load baseline | Equivalence – loading | Baseline loaded from file | - |
+| TC-BL-03 | Update baseline | Equivalence – mutation | Baseline updated | - |
+| TC-CF-01 | get_profile_auditor | Equivalence – singleton | Returns auditor instance | - |
+| TC-CF-02 | perform_health_check | Equivalence – convenience | Returns audit result | - |
 """
 
 import json

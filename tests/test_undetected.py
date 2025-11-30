@@ -3,6 +3,23 @@ Tests for undetected-chromedriver integration module.
 
 These tests use mocks since undetected-chromedriver may not be available
 in the test environment.
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-UFR-01 | UndetectedFetchResult success | Equivalence – success | ok=True, content set | - |
+| TC-UFR-02 | UndetectedFetchResult failure | Equivalence – failure | ok=False, error set | - |
+| TC-UFR-03 | UndetectedFetchResult serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-UCF-01 | Fetcher initialization | Equivalence – init | Fetcher created | - |
+| TC-UCF-02 | Fetch page success | Equivalence – fetch | Returns successful result | - |
+| TC-UCF-03 | Fetch page failure | Abnormal – error | Returns failure result | - |
+| TC-UCF-04 | Fetch with JS rendering | Equivalence – JS | JavaScript executed | - |
+| TC-UCF-05 | Fetch with wait_for | Equivalence – wait | Waits for selector | - |
+| TC-UCF-06 | Fetcher cleanup | Equivalence – cleanup | Resources released | - |
+| TC-UCF-07 | Context manager | Equivalence – context | Proper enter/exit | - |
+| TC-UCF-08 | Hash content | Equivalence – hashing | SHA256 computed | - |
+| TC-CF-01 | get_undetected_fetcher | Equivalence – singleton | Returns fetcher instance | - |
+| TC-CF-02 | close_undetected_fetcher | Equivalence – cleanup | Fetcher closed | - |
 """
 
 import asyncio

@@ -10,6 +10,20 @@ All external dependencies are mocked.
 References:
 - §3.1.2: Infrastructure/Registry Direct Access - Entity KB normalization
 - §7.1: Test code quality standards
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-EE-01 | Extract from WHOIS with registrant | Equivalence – normal | Organization entity extracted | - |
+| TC-EE-02 | Extract from WHOIS with tech contact | Equivalence – normal | Person entity extracted | - |
+| TC-EE-03 | Extract from WHOIS with nameservers | Equivalence – normal | Domain entities extracted | - |
+| TC-EE-04 | Extract from empty WHOIS | Boundary – empty | Empty result | - |
+| TC-EE-05 | Extract from CertSearchResult | Equivalence – normal | Issuer org entities extracted | - |
+| TC-EE-06 | Extract from cert with SAN | Equivalence – SAN | Domain entities extracted | - |
+| TC-REI-01 | Integrate domain data | Equivalence – integration | Entities added to KB | - |
+| TC-REI-02 | Integrate with mocked fetcher | Integration – mocked | Entities from all sources | - |
+| TC-REI-03 | Integrate with failed fetcher | Abnormal – error | Handles gracefully | - |
+| TC-EER-01 | EntityExtractionResult serialization | Equivalence – to_dict | Dictionary with all fields | - |
 """
 
 import pytest

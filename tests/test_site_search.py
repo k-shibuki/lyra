@@ -5,6 +5,27 @@ Covers:
 - SearchTemplate: Template configuration
 - DomainSearchStats: Statistics tracking
 - SiteSearchManager: Search execution and fallback
+
+## Test Perspectives Table
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|----------------------|---------------------------------------|-----------------|-------|
+| TC-ST-01 | SearchTemplate from basic dict | Equivalence – normal | Template created | - |
+| TC-ST-02 | SearchTemplate with defaults | Equivalence – defaults | Default values used | - |
+| TC-ST-03 | SearchTemplate serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-DSS-01 | DomainSearchStats creation | Equivalence – normal | Stats initialized | - |
+| TC-DSS-02 | Record success | Equivalence – mutation | Success count incremented | - |
+| TC-DSS-03 | Record failure | Equivalence – mutation | Failure count incremented | - |
+| TC-DSS-04 | Calculate success rate | Equivalence – calculation | Correct percentage | - |
+| TC-DSS-05 | Stats serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-SSM-01 | Execute search with template | Equivalence – execution | Results returned | - |
+| TC-SSM-02 | Execute search without template | Boundary – no template | Fallback to generic | - |
+| TC-SSM-03 | Execute search with failure | Abnormal – error | Handles gracefully | - |
+| TC-SSR-01 | SiteSearchResult creation | Equivalence – normal | Result with URLs | - |
+| TC-SSR-02 | SiteSearchResult serialization | Equivalence – to_dict | Dictionary with all fields | - |
+| TC-CF-01 | get_site_search_manager | Equivalence – singleton | Returns manager instance | - |
+| TC-CF-02 | site_search function | Equivalence – convenience | Returns search result | - |
+| TC-CF-03 | get_site_search_stats | Equivalence – convenience | Returns stats | - |
+| TC-CF-04 | list_allowlisted_domains | Equivalence – listing | Returns domain list | - |
 """
 
 import pytest
