@@ -3,6 +3,36 @@ Integration tests for Lancet.
 
 Per §7.1.7: Integration tests use mocked external dependencies and should complete in <2min total.
 These tests verify end-to-end workflows across multiple modules.
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-INT-N-01 | Valid HTML content | Equivalence – normal | Extraction succeeds with text key | Content extraction |
+| TC-INT-N-02 | Passage list for BM25 | Equivalence – normal | Scores array length matches input | BM25 ranking |
+| TC-INT-N-03 | Task with query | Equivalence – normal | Context with entities and templates | ResearchContext |
+| TC-INT-N-04 | Task with subquery | Equivalence – normal | Status tracks subquery progress | ExplorationState |
+| TC-INT-N-05 | 3 sources + primary | Equivalence – satisfaction | Score >= 0.8, is_satisfied=True | §3.1.7.3 |
+| TC-INT-N-06 | Claim + fragment | Equivalence – normal | Evidence retrieved with relationship | EvidenceGraph |
+| TC-INT-N-07 | A→B→C→A citations | Equivalence – cycle | Loop detected with length=3 | Citation loop |
+| TC-INT-N-08 | 3 primary + 1 secondary | Equivalence – ratio | Primary ratio=0.75, meets threshold | §7 requirement |
+| TC-INT-N-09 | A→B→A citations | Equivalence – round-trip | Round-trip detected, severity=high | §3.3.3 |
+| TC-INT-N-10 | Duplicate fragments | Equivalence – normal | Duplicates detected and removed | Deduplication |
+| TC-INT-N-11 | Similar texts | Equivalence – normal | Returns list of duplicates | Hybrid dedup |
+| TC-INT-N-12 | NLI model import | Equivalence – init | Model instantiated with 3 labels | NLI model |
+| TC-INT-N-13 | Label strings | Equivalence – mapping | Correct label mapping | NLI labels |
+| TC-INT-N-14 | Section title | Equivalence – normal | Valid slug generated | Anchor slug |
+| TC-INT-N-15 | ReportGenerator import | Equivalence – init | Callable class | Report generator |
+| TC-INT-N-16 | JobKind/Slot enums | Equivalence – init | Correct enum values | Scheduler enums |
+| TC-INT-N-17 | Budget with max_pages | Equivalence – normal | Remaining pages tracked | Budget tracking |
+| TC-INT-B-01 | Budget at limit | Boundary – max | can_fetch_page=False | Budget exceeded |
+| TC-INT-N-18 | Calibrator import | Equivalence – init | Instance created | Calibrator |
+| TC-INT-N-19 | EscalationDecider import | Equivalence – init | Instance created | Escalation decider |
+| TC-INT-N-20 | MetricsCollector import | Equivalence – init | Instance created | Metrics collector |
+| TC-INT-N-21 | PolicyEngine import | Equivalence – init | Instance created | Policy engine |
+| TC-INT-N-22 | InterventionManager import | Equivalence – init | Instance created | Intervention manager |
+| TC-INT-N-23 | InterventionType enum | Equivalence – init | Correct enum values | Intervention types |
+| TC-INT-N-24 | Full workflow simulation | Equivalence – integration | Task→Context→State→Graph works | Full pipeline |
 """
 
 import asyncio
@@ -13,6 +43,8 @@ import pytest
 import pytest_asyncio
 
 from src.storage.database import Database
+
+pytestmark = pytest.mark.integration
 
 
 # =============================================================================
@@ -62,7 +94,6 @@ def mock_html_content():
 # Search to Extract Pipeline Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestSearchToExtractPipeline:
     """Test the search → fetch → extract pipeline."""
     
@@ -71,10 +102,12 @@ class TestSearchToExtractPipeline:
         """Verify content extraction from HTML."""
         from src.extractor.content import extract_content
         
+        # Given: Valid HTML content
+        # When: Extract content from HTML
         result = await extract_content(html=mock_html_content, content_type="html")
         
+        # Then: Extraction succeeds with text key
         assert result["ok"] is True
-        # Should extract text content (returned as "text" key)
         assert "text" in result, f"Expected 'text' in result, got keys: {list(result.keys())}"
     
     @pytest.mark.asyncio
@@ -82,15 +115,17 @@ class TestSearchToExtractPipeline:
         """Verify BM25 ranking works."""
         from src.filter.ranking import BM25Ranker
         
+        # Given: A list of passages to rank
         ranker = BM25Ranker()
         texts = [p["text"] for p in sample_passages]
         
+        # When: Fit ranker and get scores for a query
         ranker.fit(texts)
         scores = ranker.get_scores("healthcare AI medical")
         
+        # Then: Scores array matches input length with positive healthcare scores
         assert len(scores) == len(texts)
-        # At least one healthcare-related passage should have a positive score
-        healthcare_scores = [scores[0], scores[2], scores[4]]  # indices with healthcare content
+        healthcare_scores = [scores[0], scores[2], scores[4]]
         assert any(s > 0 for s in healthcare_scores), (
             f"Expected positive score for healthcare passages, got: {healthcare_scores}"
         )
@@ -100,7 +135,6 @@ class TestSearchToExtractPipeline:
 # Exploration Control Engine Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestExplorationControlFlow:
     """Test the exploration control engine workflow per §2.1."""
     
@@ -109,6 +143,7 @@ class TestExplorationControlFlow:
         """Verify research context extracts entities from query."""
         from src.research.context import ResearchContext
         
+        # Given: A task with a query containing entities
         task_id = await integration_db.create_task(
             query="What are the environmental impacts of Toyota's EV production?",
         )
@@ -116,8 +151,10 @@ class TestExplorationControlFlow:
         context = ResearchContext(task_id)
         context._db = integration_db
         
+        # When: Get research context
         result = await context.get_context()
         
+        # Then: Context contains entities and templates
         assert result["ok"] is True
         assert result["original_query"] == "What are the environmental impacts of Toyota's EV production?"
         assert "extracted_entities" in result
@@ -128,25 +165,26 @@ class TestExplorationControlFlow:
         """Verify exploration state tracks subquery progress."""
         from src.research.state import ExplorationState, SubqueryStatus
         
+        # Given: A task and exploration state
         task_id = await integration_db.create_task(query="Research X")
         
         state = ExplorationState(task_id)
         state._db = integration_db
         
-        # Register a subquery
+        # When: Register and update a subquery
         state.register_subquery(
             subquery_id="sq_1",
             text="site:go.jp Topic X",
             priority="high",
         )
         
-        # Get subquery and update its status
         sq = state.get_subquery("sq_1")
         assert sq is not None
         sq.status = SubqueryStatus.RUNNING
         
         status = await state.get_status()
         
+        # Then: Status tracks the subquery
         assert "subqueries" in status
         assert len(status["subqueries"]) == 1
         assert status["subqueries"][0]["status"] == SubqueryStatus.RUNNING.value
@@ -156,20 +194,19 @@ class TestExplorationControlFlow:
         """Verify satisfaction score is calculated per §3.1.7.3."""
         from src.research.state import SubqueryState, SubqueryStatus
         
-        # Create a subquery state with good metrics
+        # Given: A subquery with 3 independent sources and a primary source
         sq = SubqueryState(
             id="sq_test",
             text="Topic X research",
             status=SubqueryStatus.RUNNING,
-            independent_sources=3,  # 3 independent sources
-            has_primary_source=True,  # Has primary source
+            independent_sources=3,
+            has_primary_source=True,
         )
         
-        # Calculate satisfaction
+        # When: Calculate satisfaction score
         score = sq.calculate_satisfaction_score()
         
-        # Per §3.1.7.3: score = min(1.0, (sources/3)*0.7 + (primary?0.3:0))
-        # With 3 sources and primary: 1.0 * 0.7 + 0.3 = 1.0
+        # Then: Score >= 0.8 and subquery is satisfied
         assert score >= 0.8, f"Expected score >= 0.8 with 3 sources + primary, got {score}"
         assert sq.is_satisfied() is True
 
@@ -178,7 +215,6 @@ class TestExplorationControlFlow:
 # Evidence Graph Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestEvidenceGraphIntegration:
     """Test evidence graph construction and analysis."""
     
@@ -189,9 +225,9 @@ class TestEvidenceGraphIntegration:
             EvidenceGraph, NodeType, RelationType
         )
         
+        # Given: An evidence graph with claim and fragment
         graph = EvidenceGraph(task_id="test_task_1")
         
-        # Add claim
         claim_id = graph.add_node(
             NodeType.CLAIM,
             "claim_1",
@@ -199,7 +235,6 @@ class TestEvidenceGraphIntegration:
             confidence=0.8,
         )
         
-        # Add supporting fragment
         frag_id = graph.add_node(
             NodeType.FRAGMENT,
             "frag_1",
@@ -207,7 +242,7 @@ class TestEvidenceGraphIntegration:
             url="https://example.com/study",
         )
         
-        # Add support relationship
+        # When: Add support relationship and retrieve evidence
         graph.add_edge(
             NodeType.FRAGMENT, "frag_1",
             NodeType.CLAIM, "claim_1",
@@ -217,8 +252,9 @@ class TestEvidenceGraphIntegration:
             nli_confidence=0.92,
         )
         
-        # Verify evidence retrieval
         evidence = graph.get_supporting_evidence("claim_1")
+        
+        # Then: Evidence is retrieved with correct relationship
         assert len(evidence) == 1
         assert evidence[0]["obj_id"] == "frag_1"
         assert evidence[0]["relation"] == "supports"
@@ -228,9 +264,9 @@ class TestEvidenceGraphIntegration:
         """Verify citation loop detection per §3.3.3."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         
+        # Given: Pages with citation loop A → B → C → A
         graph = EvidenceGraph(task_id="test_loop")
         
-        # Create citation loop: A → B → C → A
         graph.add_node(NodeType.PAGE, "page_a", domain="site-a.com")
         graph.add_node(NodeType.PAGE, "page_b", domain="site-b.com")
         graph.add_node(NodeType.PAGE, "page_c", domain="site-c.com")
@@ -239,9 +275,10 @@ class TestEvidenceGraphIntegration:
         graph.add_edge(NodeType.PAGE, "page_b", NodeType.PAGE, "page_c", RelationType.CITES)
         graph.add_edge(NodeType.PAGE, "page_c", NodeType.PAGE, "page_a", RelationType.CITES)
         
-        # Detect loops
+        # When: Detect citation loops
         loops = graph.detect_citation_loops()
         
+        # Then: Loop is detected with length 3
         assert len(loops) >= 1, "Should detect the citation loop"
         assert loops[0]["length"] == 3
     
@@ -250,14 +287,13 @@ class TestEvidenceGraphIntegration:
         """Verify primary source ratio calculation per §7 requirements."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         
+        # Given: 3 primary sources and 1 secondary source
         graph = EvidenceGraph(task_id="test_ratio")
         
-        # Add primary sources (no outgoing citations)
         graph.add_node(NodeType.PAGE, "primary_1", domain="go.jp")
         graph.add_node(NodeType.PAGE, "primary_2", domain="who.int")
         graph.add_node(NodeType.PAGE, "primary_3", domain="arxiv.org")
         
-        # Add secondary source (cites primary)
         graph.add_node(NodeType.PAGE, "secondary_1", domain="news.com")
         graph.add_edge(
             NodeType.PAGE, "secondary_1",
@@ -265,29 +301,33 @@ class TestEvidenceGraphIntegration:
             RelationType.CITES
         )
         
+        # When: Calculate primary source ratio
         ratio_info = graph.get_primary_source_ratio()
         
+        # Then: Ratio is 0.75 (3/4) and meets §7 threshold
         assert ratio_info["primary_count"] == 3
         assert ratio_info["secondary_count"] == 1
         assert ratio_info["primary_ratio"] == 0.75
-        assert ratio_info["meets_threshold"] is True  # §7 requires ≥60%
+        assert ratio_info["meets_threshold"] is True
     
     @pytest.mark.asyncio
     async def test_round_trip_detection(self, integration_db):
         """Verify round-trip citation detection per §3.3.3."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         
+        # Given: Pages with round-trip A → B → A
         graph = EvidenceGraph(task_id="test_roundtrip")
         
-        # Create round-trip: A → B → A
         graph.add_node(NodeType.PAGE, "site_a", domain="a.com")
         graph.add_node(NodeType.PAGE, "site_b", domain="b.com")
         
         graph.add_edge(NodeType.PAGE, "site_a", NodeType.PAGE, "site_b", RelationType.CITES)
         graph.add_edge(NodeType.PAGE, "site_b", NodeType.PAGE, "site_a", RelationType.CITES)
         
+        # When: Detect round-trips
         round_trips = graph.detect_round_trips()
         
+        # Then: Round-trip detected with high severity
         assert len(round_trips) == 1, "Should detect the round-trip"
         assert round_trips[0]["severity"] == "high"
 
@@ -296,7 +336,6 @@ class TestEvidenceGraphIntegration:
 # Deduplication Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestDeduplicationIntegration:
     """Test deduplication across the pipeline."""
     
@@ -305,17 +344,20 @@ class TestDeduplicationIntegration:
         """Verify duplicate fragment detection."""
         from src.filter.deduplication import deduplicate_fragments
         
+        # Given: Fragments with exact and near duplicates
         fragments = [
             {"id": "f1", "text": "Topic X has significant environmental implications for the region."},
-            {"id": "f2", "text": "Topic X has significant environmental implications for the region."},  # Exact dup
-            {"id": "f3", "text": "Environmental implications of Topic X are significant for the area."},  # Near dup
+            {"id": "f2", "text": "Topic X has significant environmental implications for the region."},
+            {"id": "f3", "text": "Environmental implications of Topic X are significant for the area."},
             {"id": "f4", "text": "Completely unrelated text about cooking recipes and ingredients."},
         ]
         
+        # When: Deduplicate fragments
         result = await deduplicate_fragments(fragments)
         
+        # Then: Duplicates are detected and removed
         assert result["original_count"] == 4
-        assert result["deduplicated_count"] <= 3  # At least the exact dup removed
+        assert result["deduplicated_count"] <= 3
         assert result["duplicate_ratio"] > 0
     
     @pytest.mark.asyncio
@@ -323,20 +365,20 @@ class TestDeduplicationIntegration:
         """Verify MinHash + SimHash hybrid deduplication."""
         from src.filter.deduplication import HybridDeduplicator
         
+        # Given: A hybrid deduplicator with similar texts added
         dedup = HybridDeduplicator(
             minhash_threshold=0.5,
             simhash_max_distance=5,
         )
         
-        # Add similar texts
         dedup.add("t1", "The quick brown fox jumps over the lazy dog in the garden.")
-        dedup.add("t2", "The quick brown fox jumps over the lazy dog in the yard.")  # Similar
-        dedup.add("t3", "Python is a programming language used for web development.")  # Different
+        dedup.add("t2", "The quick brown fox jumps over the lazy dog in the yard.")
+        dedup.add("t3", "Python is a programming language used for web development.")
         
-        # Find duplicates of t1
+        # When: Find duplicates of t1
         duplicates = dedup.find_duplicates("t1")
         
-        # Verify it runs without error
+        # Then: Returns a list of potential duplicates
         assert isinstance(duplicates, list)
 
 
@@ -344,7 +386,6 @@ class TestDeduplicationIntegration:
 # NLI Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestNLIIntegration:
     """Test NLI stance classification integration."""
     
@@ -353,7 +394,11 @@ class TestNLIIntegration:
         """Verify NLI model can be instantiated."""
         from src.filter.nli import NLIModel
         
+        # Given: NLI model class
+        # When: Instantiate model
         model = NLIModel()
+        
+        # Then: Model has expected labels
         assert model is not None
         assert model.LABELS == ["supports", "refutes", "neutral"]
     
@@ -362,8 +407,10 @@ class TestNLIIntegration:
         """Verify NLI label mapping works correctly."""
         from src.filter.nli import NLIModel
         
+        # Given: An NLI model instance
         model = NLIModel()
         
+        # When/Then: Label mapping returns correct values
         assert model._map_label("ENTAILMENT") == "supports"
         assert model._map_label("CONTRADICTION") == "refutes"
         assert model._map_label("NEUTRAL") == "neutral"
@@ -373,7 +420,6 @@ class TestNLIIntegration:
 # Report Generation Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestReportIntegration:
     """Test report generation integration."""
     
@@ -382,13 +428,18 @@ class TestReportIntegration:
         """Verify deep link anchor slug generation per §3.4."""
         from src.report.generator import generate_anchor_slug
         
-        # Test anchor slug generation
+        # Given: A section title
+        # When: Generate anchor slug
         slug = generate_anchor_slug("Section 3.1: Key Findings")
+        
+        # Then: Slug is correctly formatted
         assert slug == "section-31-key-findings"
         
-        # Test with Japanese - should preserve characters
+        # Given: Japanese title
+        # When: Generate anchor slug
         slug_ja = generate_anchor_slug("第1章 概要")
-        # Both Japanese terms should be in the slug
+        
+        # Then: Japanese characters are preserved
         assert "第1章" in slug_ja, f"Expected '第1章' in slug: {slug_ja}"
         assert "概要" in slug_ja, f"Expected '概要' in slug: {slug_ja}"
     
@@ -397,7 +448,8 @@ class TestReportIntegration:
         """Verify ReportGenerator can be imported and is callable."""
         from src.report.generator import ReportGenerator
         
-        # Should be a class (callable) with expected interface
+        # Given/When: Import ReportGenerator
+        # Then: It is a callable class
         assert callable(ReportGenerator), "ReportGenerator should be a callable class"
 
 
@@ -405,7 +457,6 @@ class TestReportIntegration:
 # Scheduler Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestSchedulerIntegration:
     """Test job scheduler integration."""
     
@@ -414,6 +465,8 @@ class TestSchedulerIntegration:
         """Verify job enums are defined correctly."""
         from src.scheduler.jobs import JobKind, Slot, JobState
         
+        # Given/When: Import enums
+        # Then: Enum values are correct
         assert JobKind.SERP == "serp"
         assert Slot.GPU == "gpu"
         assert Slot.BROWSER_HEADFUL == "browser_headful"
@@ -424,18 +477,20 @@ class TestSchedulerIntegration:
         """Verify budget manager tracks resource usage."""
         from src.scheduler.budget import TaskBudget
         
+        # Given: A budget with max_pages=120
         budget = TaskBudget(
             task_id="task_1",
             max_pages=120,
             max_time_seconds=1200,
         )
         
-        # Check initial state
+        # Then: Initial remaining pages is 120
         assert budget.remaining_pages == 120
         
-        # Use some budget
+        # When: Use 10 pages
         budget.pages_fetched = 10
         
+        # Then: Remaining is 110 and can still fetch
         assert budget.remaining_pages == 110
         assert budget.can_fetch_page() is True
     
@@ -444,6 +499,7 @@ class TestSchedulerIntegration:
         """Verify budget exceeded detection."""
         from src.scheduler.budget import TaskBudget
         
+        # Given: A budget at its limit
         budget = TaskBudget(
             task_id="task_2",
             max_pages=10,
@@ -451,6 +507,7 @@ class TestSchedulerIntegration:
         
         budget.pages_fetched = 10
         
+        # When/Then: Cannot fetch more pages
         assert budget.can_fetch_page() is False
 
 
@@ -458,7 +515,6 @@ class TestSchedulerIntegration:
 # Calibration Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestCalibrationIntegration:
     """Test calibration integration with LLM/NLI pipeline."""
     
@@ -470,8 +526,10 @@ class TestCalibrationIntegration:
             
             from src.utils.calibration import Calibrator
             
+            # Given/When: Instantiate Calibrator
             calibrator = Calibrator()
-            # Verify instance type (more specific than is not None)
+            
+            # Then: Instance is created
             assert isinstance(calibrator, Calibrator), f"Expected Calibrator instance, got {type(calibrator)}"
     
     @pytest.mark.asyncio
@@ -482,10 +540,13 @@ class TestCalibrationIntegration:
             
             from src.utils.calibration import Calibrator, EscalationDecider
             
+            # Given: A calibrator instance
             calibrator = Calibrator()
+            
+            # When: Instantiate EscalationDecider
             decider = EscalationDecider(calibrator=calibrator)
             
-            # Verify instance type
+            # Then: Instance is created
             assert isinstance(decider, EscalationDecider), f"Expected EscalationDecider, got {type(decider)}"
 
 
@@ -493,7 +554,6 @@ class TestCalibrationIntegration:
 # Metrics and Policy Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestMetricsPolicyIntegration:
     """Test metrics collection and policy adjustment integration."""
     
@@ -502,8 +562,10 @@ class TestMetricsPolicyIntegration:
         """Verify metrics collector can be initialized."""
         from src.utils.metrics import MetricsCollector
         
+        # Given/When: Instantiate MetricsCollector
         collector = MetricsCollector()
-        # Verify instance type
+        
+        # Then: Instance is created
         assert isinstance(collector, MetricsCollector), f"Expected MetricsCollector, got {type(collector)}"
     
     @pytest.mark.asyncio
@@ -511,8 +573,10 @@ class TestMetricsPolicyIntegration:
         """Verify policy engine can be initialized."""
         from src.utils.policy_engine import PolicyEngine
         
+        # Given/When: Instantiate PolicyEngine
         policy = PolicyEngine()
-        # Verify instance type
+        
+        # Then: Instance is created
         assert isinstance(policy, PolicyEngine), f"Expected PolicyEngine, got {type(policy)}"
 
 
@@ -520,7 +584,6 @@ class TestMetricsPolicyIntegration:
 # Notification Integration Tests
 # =============================================================================
 
-@pytest.mark.integration
 class TestNotificationIntegration:
     """Test notification system integration."""
     
@@ -529,8 +592,10 @@ class TestNotificationIntegration:
         """Verify intervention manager can be initialized."""
         from src.utils.notification import InterventionManager
         
+        # Given/When: Instantiate InterventionManager
         manager = InterventionManager()
-        # Verify instance type
+        
+        # Then: Instance is created
         assert isinstance(manager, InterventionManager), f"Expected InterventionManager, got {type(manager)}"
     
     @pytest.mark.asyncio
@@ -538,6 +603,8 @@ class TestNotificationIntegration:
         """Verify intervention types are defined correctly."""
         from src.utils.notification import InterventionType, InterventionStatus
         
+        # Given/When: Import enums
+        # Then: Enum values are correct
         assert InterventionType.CLOUDFLARE.value == "cloudflare"
         assert InterventionType.CAPTCHA.value == "captcha"
         assert InterventionStatus.PENDING.value == "pending"
@@ -548,7 +615,6 @@ class TestNotificationIntegration:
 # Full Pipeline Simulation Test
 # =============================================================================
 
-@pytest.mark.integration
 class TestFullPipelineSimulation:
     """Simulated end-to-end pipeline test with mocks."""
     
@@ -559,22 +625,23 @@ class TestFullPipelineSimulation:
         from src.research.state import ExplorationState, SubqueryState, SubqueryStatus
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         
-        # Step 1: Create task
+        # Given: A research query
         task_id = await integration_db.create_task(
             query="What are the health effects of microplastics?"
         )
         
-        # Step 2: Get research context
+        # When: Get research context
         context = ResearchContext(task_id)
         context._db = integration_db
         ctx_result = await context.get_context()
+        
+        # Then: Context retrieval succeeds
         assert ctx_result["ok"] is True
         
-        # Step 3: Initialize exploration state
+        # Given: Exploration state with subqueries
         state = ExplorationState(task_id)
         state._db = integration_db
         
-        # Step 4: Register subqueries (as if designed by Cursor AI)
         subqueries = [
             ("sq_1", "microplastics health effects site:who.int"),
             ("sq_2", "microplastics toxicology research"),
@@ -583,7 +650,7 @@ class TestFullPipelineSimulation:
         for sq_id, sq_text in subqueries:
             state.register_subquery(sq_id, sq_text, priority="medium")
         
-        # Step 5: Simulate execution - get subquery and update
+        # When: Simulate subquery execution
         sq = state.get_subquery("sq_1")
         assert sq is not None
         sq.status = SubqueryStatus.RUNNING
@@ -592,16 +659,15 @@ class TestFullPipelineSimulation:
         sq.calculate_satisfaction_score()
         sq.update_status()
         
-        # Step 6: Build evidence graph
+        # When: Build evidence graph
         graph = EvidenceGraph(task_id=task_id)
         graph.add_node(NodeType.CLAIM, "c1", text="Microplastics may affect human health")
         graph.add_node(NodeType.FRAGMENT, "f1", text="WHO report on microplastic health effects")
         graph.add_edge(NodeType.FRAGMENT, "f1", NodeType.CLAIM, "c1", RelationType.SUPPORTS, confidence=0.9)
         
-        # Step 7: Verify final state
+        # Then: Final state has 3 subqueries and evidence
         final_status = await state.get_status()
         assert len(final_status["subqueries"]) == 3
         
-        # Evidence should be present
         evidence = graph.get_supporting_evidence("c1")
         assert len(evidence) == 1
