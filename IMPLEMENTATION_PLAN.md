@@ -712,6 +712,17 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | IPアドレスパターン検出 | 同上 | ✅ |
 | 異常長出力切り捨て | 期待長の10倍超 | ✅ |
 
+#### K.3 テスト
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| ユニットテスト（48件） | `tests/test_llm_security.py` | ✅ |
+| E2E: ネットワーク分離検証 | Ollamaから外部通信不可を確認 | ⏳ |
+| E2E: LLM応答検証 | サニタイズ済みプロンプトでの正常動作 | ⏳ |
+| E2E: タグ分離効果検証 | インジェクション攻撃の影響確認 | ⏳ |
+
+**注**: E2EテストはGPU環境で実行が必要。`tests/scripts/verify_llm_security.py`として実装予定。
+
 ### K.1 モデル選択最適化 ⏳
 
 - [ ] `config/llm_models.yaml`: タスク別モデル設定

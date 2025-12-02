@@ -41,6 +41,7 @@ services:
       - ollama
     networks:
       - lancet-net
+      - lancet-llm-internal  # Internal network for Ollama communication
     restart: unless-stopped
 
   # ============================================================
@@ -61,6 +62,10 @@ services:
 
   # ============================================================
   # Ollama - Local LLM Runtime (GPU)
+  # SECURITY: Isolated to internal network only (§4.4.1 L1)
+  # - No host port exposure
+  # - No internet access (internal network only)
+  # - Accessible only from Lancet container
   # ============================================================
   ollama:
     image: docker.io/ollama/ollama:latest
@@ -68,10 +73,11 @@ services:
     volumes:
       # Persist models
       - ./models/ollama:/root/.ollama:rw
-    ports:
-      - "11434:11434"
+    # SECURITY: No ports exposed to host (§4.4.1 L1)
+    # ports:
+    #   - "11434:11434"  # REMOVED - no host access allowed
     networks:
-      - lancet-net
+      - lancet-llm-internal  # Internal only - no internet access
     restart: unless-stopped
     # GPU support via CDI (requires nvidia-container-toolkit)
     # To enable: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
@@ -94,8 +100,17 @@ services:
   #   restart: unless-stopped
 
 networks:
+  # External-capable network for Tor, browser, etc.
   lancet-net:
     driver: bridge
+
+  # SECURITY: Internal-only network for Ollama (§4.4.1 L1)
+  # - internal: true prevents any external/internet access
+  # - Ollama can only communicate with containers on this network
+  # - Prevents prompt injection attacks from exfiltrating data
+  lancet-llm-internal:
+    driver: bridge
+    internal: true
 
 # GPU support with Podman:
 # 1. Install nvidia-container-toolkit
