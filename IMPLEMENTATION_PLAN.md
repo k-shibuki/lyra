@@ -21,28 +21,31 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 
 ### A.2 MCPサーバー ✅
 
-| ツール | 機能 | 仕様参照 |
-|--------|------|----------|
-| `search_serp` | 検索実行 | §3.2.1 |
-| `fetch_url` | URL取得 | §3.2.1 |
-| `extract_content` | コンテンツ抽出 | §3.2.1 |
-| `rank_candidates` | パッセージランキング | §3.2.1 |
-| `llm_extract` | LLM抽出 | §3.2.1 |
-| `nli_judge` | NLI判定 | §3.2.1 |
-| `get_report_materials` | レポート素材提供 | §2.1 |
-| `get_evidence_graph` | エビデンスグラフ参照 | §3.2.1 |
+> **注意**: Phase Mでツールアーキテクチャを24個→10個に簡素化予定。以下は現行実装。
 
-**探索制御ツール（§2.1責任分界準拠）**:
-- `get_research_context`: 設計支援情報の提供（候補生成なし）
-- `execute_subquery`: サブクエリ実行
-- `get_exploration_status`: 探索状態（メトリクスのみ、推奨なし）
-- `execute_refutation`: 反証探索（機械パターン適用）
-- `finalize_exploration`: 探索終了
+**現行ツール（Phase Mでリファクタリング予定）**:
 
-**認証キューツール（§3.6.1）**:
-- `get_pending_authentications`, `get_pending_by_domain`
-- `start_authentication_session`, `complete_authentication`, `complete_domain_authentication`
-- `skip_authentication`, `skip_domain_authentication`
+| ツール | 機能 | 仕様参照 | Phase M後 |
+|--------|------|----------|-----------|
+| `search_serp` | 検索実行 | §3.2.1 | 内部化 |
+| `fetch_url` | URL取得 | §3.2.1 | 内部化 |
+| `extract_content` | コンテンツ抽出 | §3.2.1 | 内部化 |
+| `rank_candidates` | パッセージランキング | §3.2.1 | 内部化 |
+| `llm_extract` | LLM抽出 | §3.2.1 | 内部化 |
+| `nli_judge` | NLI判定 | §3.2.1 | 内部化 |
+| `get_report_materials` | レポート素材提供 | §2.1 | → `get_materials` |
+| `get_evidence_graph` | エビデンスグラフ参照 | §3.2.1 | → `get_materials` |
+| `execute_subquery` | クエリ実行 | §2.1 | → `search` |
+| `get_exploration_status` | 探索状態 | §2.1 | → `get_status` |
+| `finalize_exploration` | 探索終了 | §2.1 | → `stop_task` |
+
+**新MCPツール（10ツール、Phase M完了後）**:
+- `create_task`, `get_status`: タスク管理
+- `search`, `stop_task`: 調査実行
+- `get_materials`: 成果物
+- `calibrate`: 校正
+- `get_auth_queue`, `resolve_auth`: 認証キュー
+- `notify_user`, `wait_for_user`: 通知
 
 ### A.3 検索機能 ✅
 
@@ -745,12 +748,14 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 |------|------|:----:|
 | `_lancet_meta` 付与 | `src/mcp/response_meta.py` (新規) | ⏳ |
 | claim検証状態付与 | `source_trust_level`, `verification_status` | ⏳ |
-| `execute_subquery` 応答拡張 | `src/mcp/server.py` | ⏳ |
-| `get_exploration_status` 応答拡張 | `src/mcp/server.py` | ⏳ |
+| `search` 応答拡張 | `src/mcp/server.py` | ⏳ |
+| `get_status` 応答拡張 | `src/mcp/server.py` | ⏳ |
 
 **影響ファイル:**
 - `src/mcp/server.py`: 応答ハンドラーの戻り値に `_lancet_meta` を追加
 - 新規 `src/mcp/response_meta.py`: メタデータ生成ヘルパー
+
+> **注意**: Phase MでMCPツール名が変更されるため、`execute_subquery`→`search`, `get_exploration_status`→`get_status`として実装
 
 #### K.3-6 ソース検証フロー（L6）⏳
 
@@ -767,7 +772,7 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 **影響ファイル:**
 - 新規 `src/filter/source_verification.py`: 検証ロジック
 - `src/filter/evidence_graph.py`: 既存の `calculate_claim_confidence`, `find_contradictions` を利用
-- `src/mcp/server.py`: `_handle_execute_subquery`, `_handle_get_exploration_status` 拡張
+- `src/mcp/server.py`: `_handle_search`, `_handle_get_status` 拡張（Phase M後の新ツール名）
 - `src/research/state.py`: 検証状態の保持
 
 #### K.3-7 TrustLevel変更 ⏳
@@ -834,18 +839,22 @@ MCP応答がCursor AIに渡る前の最終サニタイズ。Cursor AI経由の�
 - 新規 `src/mcp/schemas/`: 各MCPツールの応答スキーマ（JSONSchema）
 - `src/mcp/server.py`: 全ハンドラの出口にサニタイズレイヤ追加
 
-**スキーマ例（execute_subquery）**:
+**スキーマ例（search）**:
 ```json
 {
   "type": "object",
   "properties": {
     "ok": {"type": "boolean"},
-    "subquery_id": {"type": "string"},
-    "status": {"enum": ["running", "satisfied", "partial", "exhausted"]},
+    "search_id": {"type": "string"},
+    "query": {"type": "string"},
+    "status": {"enum": ["satisfied", "partial", "exhausted"]},
     "pages_fetched": {"type": "integer"},
     "useful_fragments": {"type": "integer"},
     "harvest_rate": {"type": "number"},
-    "new_claims": {"type": "array"},
+    "claims_found": {"type": "array"},
+    "satisfaction_score": {"type": "number"},
+    "novelty_score": {"type": "number"},
+    "budget_remaining": {"type": "object"},
     "_lancet_meta": {"type": "object"}
   },
   "additionalProperties": false
@@ -945,6 +954,217 @@ except Exception as e:
 - [ ] MCPツール仕様書（§6成果物）
 - [ ] ジョブスケジューラ仕様書（§6成果物）
 - [ ] プロファイル健全性監査運用手順
+
+---
+
+## Phase M: MCPツールリファクタリング 🔄
+
+requirements.md §3.2.1の改訂に伴い、MCPツールを24個から10個に簡素化する。
+
+### M.1 設計方針
+
+**目的**:
+- Cursor AIの認知負荷低減（ツール選択の単純化）
+- 低レベル操作の隠蔽（Cursor AIはパイプラインの詳細を知る必要がない）
+- 責任分界の明確化（Cursor AI = 戦略、Lancet = 戦術）
+
+**変更概要**:
+
+| 旧ツール | 新ツール | 変更内容 |
+|---------|---------|---------|
+| `get_task_status` + `get_exploration_status` | `get_status` | 統合 |
+| `execute_subquery` | `search` | 名称変更・簡素化 |
+| `finalize_exploration` | `stop_task` | 名称変更・簡素化 |
+| `get_report_materials` + `get_evidence_graph` | `get_materials` | 統合 |
+| `get_research_context` | — | 廃止（Cursor AIが直接クエリ設計） |
+| `execute_refutation` | — | `search`の`refute`オプションに統合 |
+| `add_calibration_sample` + `get_calibration_stats` + `rollback_calibration` | `calibrate` | 統合 |
+| `get_pending_authentications` + `get_pending_by_domain` | `get_auth_queue` | 統合 |
+| `complete_authentication` + `skip_authentication` 等 | `resolve_auth` | 統合 |
+| `search_serp`, `fetch_url`, `extract_content`, `rank_candidates`, `llm_extract`, `nli_judge` | — | 内部化（MCP非公開） |
+| `decompose_question`, `schedule_job` | — | 廃止 |
+
+### M.2 新MCPツール一覧（10ツール）
+
+#### M.2-1 タスク管理（2ツール）
+
+| ツール | 機能 | 仕様参照 |
+|--------|------|---------|
+| `create_task` | タスク作成 | §3.2.1 |
+| `get_status` | タスク・探索状態の統合取得 | §3.2.1 |
+
+#### M.2-2 調査実行（2ツール）
+
+| ツール | 機能 | 仕様参照 |
+|--------|------|---------|
+| `search` | 検索パイプライン実行（反証モードオプション含む） | §3.2.1 |
+| `stop_task` | タスク終了 | §3.2.1 |
+
+#### M.2-3 成果物（1ツール）
+
+| ツール | 機能 | 仕様参照 |
+|--------|------|---------|
+| `get_materials` | レポート素材・エビデンスグラフ取得 | §3.2.1 |
+
+#### M.2-4 校正（1ツール）
+
+| ツール | 機能 | 仕様参照 |
+|--------|------|---------|
+| `calibrate` | サンプル追加/統計取得/ロールバック | §3.2.1 |
+
+#### M.2-5 認証キュー（2ツール）
+
+| ツール | 機能 | 仕様参照 |
+|--------|------|---------|
+| `get_auth_queue` | 認証待ちリスト取得 | §3.2.1 |
+| `resolve_auth` | 認証完了/スキップ報告 | §3.2.1 |
+
+#### M.2-6 通知（2ツール）
+
+| ツール | 機能 | 仕様参照 |
+|--------|------|---------|
+| `notify_user` | ユーザー通知 | §3.2.1 |
+| `wait_for_user` | ユーザー入力待機 | §3.2.1 |
+
+### M.3 実装タスク
+
+#### M.3-1 MCPサーバー改修 ⏳ 🔴優先
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| TOOLS定義の書き換え | `src/mcp/server.py` | ⏳ |
+| 旧ツール→新ツールのルーティング追加 | 移行期間中の後方互換 | ⏳ |
+| `_handle_get_status` 実装 | `get_task_status` + `get_exploration_status` 統合 | ⏳ |
+| `_handle_search` 実装 | `execute_subquery` + `execute_refutation` 統合 | ⏳ |
+| `_handle_stop_task` 実装 | `finalize_exploration` 置換 | ⏳ |
+| `_handle_get_materials` 実装 | `get_report_materials` + `get_evidence_graph` 統合 | ⏳ |
+| `_handle_calibrate` 実装 | 校正系3ツール統合 | ⏳ |
+| `_handle_get_auth_queue` 実装 | 認証待ち系2ツール統合 | ⏳ |
+| `_handle_resolve_auth` 実装 | 認証完了系4ツール統合 | ⏳ |
+
+**影響ファイル:**
+- `src/mcp/server.py`: ツール定義・ハンドラー全面改修
+- `src/mcp/schemas/`: 新スキーマ定義
+
+#### M.3-2 内部パイプライン整理 ⏳
+
+低レベル操作をMCPから隠蔽し、内部モジュールとして整理する。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| `SearchPipeline` クラス作成 | `src/research/pipeline.py` (新規) | ⏳ |
+| `search_serp` 内部化 | `src/search/` 直接呼び出しへ | ⏳ |
+| `fetch_url` 内部化 | `src/crawler/` 直接呼び出しへ | ⏳ |
+| `extract_content` 内部化 | `src/extract/` 直接呼び出しへ | ⏳ |
+| `rank_candidates` 内部化 | `src/filter/` 直接呼び出しへ | ⏳ |
+| `llm_extract` 内部化 | `src/filter/` 直接呼び出しへ | ⏳ |
+| `nli_judge` 内部化 | `src/filter/` 直接呼び出しへ | ⏳ |
+
+**新規ファイル:**
+- `src/research/pipeline.py`: 検索パイプラインオーケストレーター
+
+```python
+# src/research/pipeline.py 概要
+class SearchPipeline:
+    """Cursor AIからの`search`呼び出しを処理する統合パイプライン"""
+    
+    async def execute(
+        self, 
+        task_id: str, 
+        query: str, 
+        options: SearchOptions
+    ) -> SearchResult:
+        # 1. search_serp: 検索エンジンへのクエリ実行
+        serp_results = await self.search_provider.search(query, options.engines)
+        
+        # 2. fetch_url: URL取得（並列）
+        pages = await self.fetcher.fetch_many(serp_results.urls, options.max_pages)
+        
+        # 3. extract_content: テキスト抽出
+        contents = await self.extractor.extract_many(pages)
+        
+        # 4. rank_candidates: ランキング
+        ranked = await self.ranker.rank(query, contents)
+        
+        # 5. llm_extract: 事実/主張抽出
+        claims = await self.llm_extractor.extract(ranked[:options.top_k])
+        
+        # 6. nli_judge: 反証モードの場合のみ
+        if options.refute:
+            claims = await self.nli_judger.judge(claims)
+        
+        # 7. 状態更新
+        await self.state_manager.update(task_id, claims)
+        
+        return SearchResult(...)
+```
+
+#### M.3-3 「サブクエリ」用語の除去 ⏳
+
+コードベース全体から「subquery」「サブクエリ」の用語を除去し、「search」「クエリ」に統一する。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| `SubqueryExecutor` → `SearchPipeline` | `src/research/executor.py` 廃止 | ⏳ |
+| `SubqueryState` → `SearchState` | `src/research/state.py` | ⏳ |
+| `ExplorationState.subqueries` → `searches` | 同上 | ⏳ |
+| DBスキーマの `subquery` 列 → `search` | `src/storage/schema.sql` | ⏳ |
+| テストコードの用語統一 | `tests/` 全体 | ⏳ |
+
+**影響ファイル:**
+- `src/research/executor.py`: 削除（pipeline.pyに置換）
+- `src/research/state.py`: クラス名・フィールド名変更
+- `src/storage/schema.sql`: 列名変更（マイグレーション必要）
+- `tests/test_*.py`: 用語変更
+
+#### M.3-4 廃止ツールの削除 ⏳
+
+| 項目 | 理由 | 状態 |
+|------|------|:----:|
+| `get_research_context` | Cursor AIが直接クエリ設計するため不要 | ⏳ |
+| `decompose_question` | Cursor AIが担当するため不要 | ⏳ |
+| `schedule_job` | 内部スケジューラに隠蔽 | ⏳ |
+| `save_calibration_evaluation`, `get_calibration_evaluations`, `get_reliability_diagram_data` | `calibrate` に統合または削除 | ⏳ |
+
+### M.4 移行計画
+
+#### Phase 1: 後方互換レイヤー追加（1週間）
+- 新ツール実装
+- 旧ツール → 新ツールへのエイリアス設定
+- 旧ツール呼び出し時にDEPRECATION警告をログ出力
+
+#### Phase 2: 内部コード移行（2週間）
+- `SubqueryExecutor` → `SearchPipeline` 置換
+- 状態管理の用語統一
+- テストコード更新
+
+#### Phase 3: 旧ツール削除（1週間）
+- DEPRECATION期間終了後、旧ツール定義を削除
+- スキーマ定義から旧フィールドを削除
+
+### M.5 テスト
+
+| テスト種別 | 対象 | 状態 |
+|-----------|------|:----:|
+| ユニットテスト | 新ハンドラー各種 | ⏳ |
+| 統合テスト | パイプライン全体 | ⏳ |
+| 後方互換テスト | 旧ツール→新ツールエイリアス | ⏳ |
+| E2Eテスト | Cursor AI連携シナリオ | ⏳ |
+
+**テストファイル:**
+- `tests/test_mcp_new_tools.py` (新規)
+- `tests/test_search_pipeline.py` (新規)
+- `tests/test_mcp_compatibility.py` (新規)
+
+### M.6 Phase Kとの関連
+
+Phase K（ローカルLLM強化）の以下のタスクはPhase Mの新アーキテクチャに合わせて更新が必要：
+
+| Phase K タスク | 更新内容 |
+|---------------|---------|
+| K.3-5 MCP応答メタデータ（L5） | 新ツール（`search`, `get_status`等）に適用 |
+| K.3-9 MCP応答サニタイズ（L7） | 新スキーマに合わせてスキーマ定義更新 |
+| K.3-6 ソース検証フロー（L6） | `search`応答にverification_statusを含める |
 
 ---
 
