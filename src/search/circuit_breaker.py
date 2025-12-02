@@ -1,29 +1,46 @@
 """
 Circuit breaker implementation for search engines.
+
 Manages engine health state transitions and failure recovery.
+Uses the generic CircuitState from src.utils.circuit_breaker but implements
+engine-specific features:
+- Exponential backoff for cooldown (based on failure history)
+- EMA metrics (success_rate, latency, captcha_rate)
+- Database persistence with datetime-based cooldown
 """
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from typing import Any
 
 from src.storage.database import get_database
+from src.utils.circuit_breaker import CircuitState  # Use shared enum
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-
-class CircuitState(str, Enum):
-    """Circuit breaker states."""
-    CLOSED = "closed"      # Normal operation
-    HALF_OPEN = "half-open"  # Testing recovery
-    OPEN = "open"          # Blocking requests
+# Re-export for backwards compatibility
+__all__ = [
+    "CircuitState",
+    "EngineCircuitBreaker",
+    "CircuitBreakerManager",
+    "get_circuit_breaker_manager",
+    "check_engine_available",
+    "record_engine_result",
+    "get_available_engines",
+]
 
 
 class EngineCircuitBreaker:
     """Circuit breaker for a single search engine.
+    
+    Extends the generic circuit breaker pattern with search-engine-specific
+    features:
+    - Exponential backoff for cooldown (based on total failures in window)
+    - EMA metrics: success_rate_1h, latency_ema, captcha_rate
+    - Database persistence with datetime-based cooldown
+    - DomainPolicyManager integration for default configuration
     
     State transitions:
     - CLOSED: Normal operation. Failure count tracked.
@@ -35,8 +52,6 @@ class EngineCircuitBreaker:
     - OPEN -> HALF_OPEN: cooldown period elapsed
     - HALF_OPEN -> CLOSED: probe success
     - HALF_OPEN -> OPEN: probe failure
-    
-    Uses DomainPolicyManager for default cooldown configuration.
     """
     
     def __init__(
@@ -62,10 +77,23 @@ class EngineCircuitBreaker:
         
         # Get defaults from DomainPolicyManager if not provided
         policy_manager = get_domain_policy_manager()
-        self.failure_threshold = failure_threshold if failure_threshold is not None else policy_manager.get_circuit_breaker_failure_threshold()
-        self.cooldown_min = cooldown_min if cooldown_min is not None else policy_manager.get_circuit_breaker_cooldown_min()
-        self.cooldown_max = cooldown_max if cooldown_max is not None else policy_manager.get_circuit_breaker_cooldown_max()
+        self.failure_threshold = (
+            failure_threshold
+            if failure_threshold is not None
+            else policy_manager.get_circuit_breaker_failure_threshold()
+        )
+        self.cooldown_min = (
+            cooldown_min
+            if cooldown_min is not None
+            else policy_manager.get_circuit_breaker_cooldown_min()
+        )
+        self.cooldown_max = (
+            cooldown_max
+            if cooldown_max is not None
+            else policy_manager.get_circuit_breaker_cooldown_max()
+        )
         
+        # Core state (using shared CircuitState enum)
         self._state = CircuitState.CLOSED
         self._consecutive_failures = 0
         self._last_failure_at: datetime | None = None
@@ -73,7 +101,7 @@ class EngineCircuitBreaker:
         self._total_failures_in_window = 0
         self._probe_lock = asyncio.Lock()
         
-        # Metrics (EMA)
+        # Engine-specific EMA metrics
         self._success_rate_1h = 1.0
         self._latency_ema = 1000.0  # ms
         self._captcha_rate = 0.0
@@ -217,7 +245,7 @@ class EngineCircuitBreaker:
         """Get current metrics.
         
         Returns:
-            Metrics dictionary.
+            Metrics dictionary including engine-specific EMA metrics.
         """
         return {
             "engine": self.engine,
@@ -478,9 +506,3 @@ async def get_available_engines(
     """
     manager = await get_circuit_breaker_manager()
     return await manager.get_available_engines(requested)
-
-
-
-
-
-
