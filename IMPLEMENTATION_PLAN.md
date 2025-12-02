@@ -1330,11 +1330,11 @@ async def test_calibrate_add_sample(mock_calibrator):
 | `tests/test_search_pipeline.py` | `SearchPipeline`（内部パイプライン） | ⏳ |
 | `tests/scripts/verify_mcp_tools.py` | E2E検証 | 🔄 更新必要 |
 
-#### 削除対象テスト
+#### 削除対象テスト ✅
 
-後方互換テストは不要のため削除：
-- `tests/test_calibrate_rollback.py`: `TestDeprecatedRollbackCalibration` クラス
-- `tests/test_calibrate_rollback.py`: `test_deprecated_rollback_calibration_marked` テスト
+後方互換テストは不要のため削除済み：
+- ~~`tests/test_calibrate_rollback.py`: `TestDeprecatedRollbackCalibration` クラス~~ ✅
+- ~~`tests/test_calibrate_rollback.py`: `test_deprecated_rollback_calibration_marked` テスト~~ ✅
 
 ### M.6 Phase Kとの関連
 
