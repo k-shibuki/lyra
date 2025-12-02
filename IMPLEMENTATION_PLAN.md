@@ -7,6 +7,27 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 
 ---
 
+## Phase優先度
+
+### MVP必須（初期リリース）
+- Phase A-G: 基盤〜テスト基盤（完了済み）
+- Phase H: 検索エンジン多様化（完了済み）
+- Phase M: MCPツールリファクタリング
+- Phase K.3: プロンプトインジェクション対策（L1-L4, L7-L8）
+
+### Phase 2
+- Phase I: 保守性改善（残タスク）
+- Phase J: 外部データソース統合
+- Phase K.1-K.2: モデル選択最適化、プロンプト外部化
+- Phase L: ドキュメント
+
+### 将来の拡張
+- クエリA/Bテスト（§3.1.1から削除済み）
+- 変更検知/差分アラート
+- IPv6/HTTP3の高度な学習
+
+---
+
 ## Phase A: 基盤構築 ✅
 
 ### A.1 プロジェクト基盤 ✅
@@ -21,7 +42,7 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 
 ### A.2 MCPサーバー ✅
 
-> **注意**: Phase Mでツールアーキテクチャを**29個→10個**に簡素化予定。以下は現行実装。
+> **注意**: Phase Mでツールアーキテクチャを**29個→11個**に簡素化予定。以下は現行実装。
 
 **現行ツール（29個、Phase Mでリファクタリング予定）**:
 
@@ -32,15 +53,15 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 | タスク（2） | `create_task`, `get_task_status` | → `create_task`/`get_status` |
 | レポート（2） | `get_report_materials`, `get_evidence_graph` | 統合→`get_materials` |
 | 探索（5） | `get_research_context`, `execute_subquery`, `get_exploration_status`, `execute_refutation`, `finalize_exploration` | 統合/廃止→`search`/`get_status`/`stop_task` |
-| 校正（6） | `save_calibration_evaluation`, `get_calibration_evaluations`, `get_reliability_diagram_data`, `add_calibration_sample`, `get_calibration_stats`, `rollback_calibration` | 統合→`calibrate` |
+| 校正（6） | `save_calibration_evaluation`, `get_calibration_evaluations`, `get_reliability_diagram_data`, `add_calibration_sample`, `get_calibration_stats`, `rollback_calibration` | 統合→`calibrate`/`calibrate_rollback` |
 | 分析（2） | `decompose_question`, `compress_with_chain_of_density` | 廃止（Cursor AIが担当） |
 | その他（1） | `schedule_job` | 内部化 |
 
-**新MCPツール（10ツール、Phase M完了後）**:
+**新MCPツール（11ツール、Phase M完了後）**:
 - `create_task`, `get_status`: タスク管理
 - `search`, `stop_task`: 調査実行
 - `get_materials`: 成果物
-- `calibrate`: 校正（6 action対応）
+- `calibrate`, `calibrate_rollback`: 校正（日常操作5 action + 破壊的操作を分離）
 - `get_auth_queue`, `resolve_auth`: 認証キュー（ドメイン一括操作対応）
 - `notify_user`, `wait_for_user`: 通知
 
@@ -91,6 +112,11 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 | 排他制御 | gpu/browser_headful排他 | §3.2.2 |
 | 予算制御 | ページ数/時間上限 | §3.1 |
 
+**既定値（§3.2.2）**:
+- `network_client`: 同時実行=4、ドメイン同時実行=1
+- 優先度: serp(100) > prefetch(90) > extract(80) > embed(70) > rerank(60) > llm_fast(50) > llm_slow(40)
+- タイムアウト: 検索30秒、取得60秒、LLM抽出120秒
+
 ### A.8 通知/手動介入 ✅
 
 | 機能 | 実装 | 仕様参照 |
@@ -104,6 +130,9 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 - CDP許可: `Page.navigate`, `Page.bringToFront`
 - CDP禁止: `Runtime.evaluate`, `DOM.*`, `Input.*`, `Emulation.*`
 - 完了検知: ユーザー明示報告のみ（DOM監視禁止）
+
+**§2.1.5判断委譲の例外**:
+- Cursor AI無応答時（300秒既定）: パイプライン安全停止、状態保存、復帰待機
 
 ### A.9 レポート生成 ✅
 
@@ -123,6 +152,12 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 | メトリクス収集 | MetricsCollector, TaskMetrics | §4.6 |
 | ポリシー自動更新 | PolicyEngine (EMA、ヒステリシス) | §4.6 |
 | リプレイモード | DecisionLogger, ReplayEngine | §4.6 |
+
+**ポリシー自動更新の既定値（§4.6）**:
+- 周期補完: 60秒
+- EMA係数: 短期α=0.3、長期α=0.1
+- Tor利用上限: 20%
+- パラメータ反転防止: 5分未満は反転させない
 
 ### B.2 探索制御 ✅
 
@@ -284,8 +319,9 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
 | UCB1風予算再配分 | UCBAllocator | §3.1.1 |
-| クエリABテスト | ABTestExecutor | §3.1.1 |
 | ピボット探索 | PivotExpander | §3.1.1 |
+
+> **注意**: クエリA/Bテスト（ABTestExecutor）は§3.1.1から削除され、「将来の拡張」に移動した。
 
 ### E.2 インフラ/レジストリ連携 ✅
 
@@ -668,6 +704,36 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - Wikidata API
 - DBpedia SPARQL
 
+### J.4 特許API統合
+
+**対象（§3.1.3拡充）**:
+- USPTO PAIR API: 米国特許出願状況
+- USPTO PTAB API: 審判部決定
+- EPO OPS API: 欧州特許データ
+- J-PlatPat: HTMLスクレイピング（API非公開）
+- CNIPA: HTMLスクレイピング（中国特許）
+
+| API | 調査項目 | 状態 |
+|-----|----------|:----:|
+| USPTO PAIR | 認証、レート制限 | 未着手 |
+| USPTO PTAB | 同上 | 未着手 |
+| EPO OPS | OAuth2認証 | 未着手 |
+| J-PlatPat | セレクター設計 | 未着手 |
+| CNIPA | 言語対応、セレクター | 未着手 |
+
+### J.5 防衛・調達情報連携
+
+**対象（§3.1.3拡充）**:
+- 防衛省装備庁: 調達公告（HTMLスクレイピング）
+- 米DoD契約: SAM.gov（政府調達DB）
+- DTIC: Defense Technical Information Center
+
+| ソース | 方式 | 状態 |
+|--------|------|:----:|
+| 防衛省装備庁 | HTMLスクレイピング | 未着手 |
+| SAM.gov | API（無料） | 未着手 |
+| DTIC | HTMLスクレイピング | 未着手 |
+
 ---
 
 ## Phase K: ローカルLLM強化 🔄
@@ -956,7 +1022,7 @@ except Exception as e:
 
 ## Phase M: MCPツールリファクタリング 🔄
 
-requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から10個**に簡素化する。
+requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から11個**に簡素化する。
 
 ### M.1 設計方針
 
@@ -985,7 +1051,7 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から10個**�
 
 **変更概要**:
 
-| 旧ツール（29個） | 新ツール（10個） | 変更内容 |
+| 旧ツール（29個） | 新ツール（11個） | 変更内容 |
 |-----------------|-----------------|---------|
 | `get_task_status` + `get_exploration_status` | `get_status` | 統合 |
 | `execute_subquery` | `search` | 名称変更・簡素化 |
@@ -1001,7 +1067,7 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から10個**�
 | `schedule_job` | — | **内部化**（スケジューラ内部） |
 | `start_authentication_session` | — | **廃止**（§3.6.1安全運用方針に従いDOM操作不可） |
 
-### M.2 新MCPツール一覧（10ツール）
+### M.2 新MCPツール一覧（11ツール）
 
 #### M.2-1 タスク管理（2ツール）
 
@@ -1023,11 +1089,12 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から10個**�
 |--------|------|---------|
 | `get_materials` | レポート素材・エビデンスグラフ取得 | §3.2.1 |
 
-#### M.2-4 校正（1ツール）
+#### M.2-4 校正（2ツール）
 
 | ツール | 機能 | 仕様参照 |
 |--------|------|---------|
-| `calibrate` | 校正操作（action別: add_sample/get_stats/rollback/evaluate/get_evaluations/get_diagram_data） | §3.2.1, §4.6.1 |
+| `calibrate` | 校正操作（日常操作: add_sample/get_stats/evaluate/get_evaluations/get_diagram_data） | §3.2.1, §4.6.1 |
+| `calibrate_rollback` | 校正パラメータのロールバック（破壊的操作、明示的分離） | §3.2.1, §4.6.1 |
 
 #### M.2-5 認証キュー（2ツール）
 
@@ -1055,13 +1122,17 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から10個**�
 | `_handle_search` 実装 | `execute_subquery` + `execute_refutation` 統合 | ⏳ |
 | `_handle_stop_task` 実装 | `finalize_exploration` 置換 | ⏳ |
 | `_handle_get_materials` 実装 | `get_report_materials` + `get_evidence_graph` 統合 | ⏳ |
-| `_handle_calibrate` 実装 | 校正系6ツール統合（6 action対応） | ⏳ |
+| `_handle_calibrate` 実装 | 校正系5ツール統合（5 action対応） | ⏳ |
+| `_handle_calibrate_rollback` 実装 | ロールバック操作（破壊的、明示分離） | ⏳ |
 | `_handle_get_auth_queue` 実装 | 認証待ち系ツール統合（group_by対応） | ⏳ |
 | `_handle_resolve_auth` 実装 | 認証完了系ツール統合（target対応） | ⏳ |
+| エラーコード体系実装 | §3.2.1準拠の9コード（`src/mcp/errors.py`） | ⏳ |
+| Cursor AI無応答ハンドリング | §2.1.5準拠（300秒タイムアウト→状態保存→待機） | ⏳ |
 
 **影響ファイル:**
 - `src/mcp/server.py`: ツール定義・ハンドラー全面改修
 - `src/mcp/schemas/`: 新スキーマ定義
+- `src/mcp/errors.py`: エラーコード定義（新規）
 
 #### M.3-2 内部パイプライン整理 ⏳
 
