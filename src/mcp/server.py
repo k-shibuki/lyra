@@ -632,28 +632,6 @@ TOOLS = [
             "properties": {}
         }
     ),
-    Tool(
-        name="rollback_calibration",
-        description="[DEPRECATED: Use calibrate_rollback instead] Rollback calibration parameters to a previous version.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "source": {
-                    "type": "string",
-                    "description": "Source model identifier"
-                },
-                "to_version": {
-                    "type": "integer",
-                    "description": "Optional specific version to rollback to (defaults to previous)"
-                },
-                "reason": {
-                    "type": "string",
-                    "description": "Reason for rollback"
-                }
-            },
-            "required": ["source"]
-        }
-    ),
     # ============================================================
     # New MCP Tools (Phase M)
     # ============================================================
@@ -829,7 +807,6 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "get_reliability_diagram_data": _handle_get_reliability_diagram_data,
         "add_calibration_sample": _handle_add_calibration_sample,
         "get_calibration_stats": _handle_get_calibration_stats,
-        "rollback_calibration": _handle_rollback_calibration,
         # New MCP Tools (Phase M)
         "calibrate_rollback": _handle_calibrate_rollback,
         # Claim Decomposition (§3.3.1)
@@ -1379,29 +1356,6 @@ async def _handle_get_calibration_stats(args: dict[str, Any]) -> dict[str, Any]:
     from src.utils.calibration import get_calibration_stats
     
     return await get_calibration_stats()
-
-
-async def _handle_rollback_calibration(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle rollback_calibration tool call.
-    
-    [DEPRECATED] This tool is deprecated in favor of calibrate_rollback.
-    Routes to the new handler for backward compatibility.
-    """
-    logger.warning(
-        "Deprecated tool called",
-        tool="rollback_calibration",
-        recommendation="Use calibrate_rollback instead",
-    )
-    
-    # Route to new handler with parameter mapping
-    new_args = {
-        "source": args["source"],
-        "version": args.get("to_version"),
-        "reason": args.get("reason", "Manual rollback by Cursor AI"),
-    }
-    
-    return await _handle_calibrate_rollback(new_args)
 
 
 async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
