@@ -532,109 +532,27 @@ TOOLS = [
         }
     ),
     # ============================================================
-    # Calibration Evaluation Tools (§4.6.1)
+    # Calibration Tools (Phase M - §3.2.1, §4.6.1)
     # ============================================================
     Tool(
-        name="save_calibration_evaluation",
-        description="Execute calibration evaluation and save to database. Calculates Brier score, ECE, and reliability diagram data. Returns structured data (NOT a report).",
+        name="calibrate",
+        description="Unified calibration operations (daily operations). Actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data. For rollback (destructive), use calibrate_rollback.",
         inputSchema={
             "type": "object",
             "properties": {
-                "source": {
+                "action": {
                     "type": "string",
-                    "description": "Source model identifier (e.g., 'llm_extract', 'nli_judge')"
+                    "enum": ["add_sample", "get_stats", "evaluate", "get_evaluations", "get_diagram_data"],
+                    "description": "Action to perform"
                 },
-                "predictions": {
-                    "type": "array",
-                    "items": {"type": "number"},
-                    "description": "Predicted probabilities (0.0 to 1.0)"
-                },
-                "labels": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                    "description": "Ground truth labels (0 or 1)"
+                "data": {
+                    "type": "object",
+                    "description": "Action-specific data. add_sample: {source, prediction, actual, logit?}. evaluate: {source, predictions, labels}. get_evaluations: {source?, limit?, since?}. get_diagram_data: {source, evaluation_id?}. get_stats: no data required."
                 }
             },
-            "required": ["source", "predictions", "labels"]
+            "required": ["action"]
         }
     ),
-    Tool(
-        name="get_calibration_evaluations",
-        description="Get calibration evaluation history as structured data. Cursor AI interprets and reports on this data.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "source": {
-                    "type": "string",
-                    "description": "Optional source filter"
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum evaluations to return (default: 50)",
-                    "default": 50
-                },
-                "since": {
-                    "type": "string",
-                    "description": "Optional start datetime (ISO format)"
-                }
-            }
-        }
-    ),
-    Tool(
-        name="get_reliability_diagram_data",
-        description="Get bin data for reliability diagram (confidence vs accuracy). Returns structured data for Cursor AI to visualize or interpret.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "source": {
-                    "type": "string",
-                    "description": "Source model identifier"
-                },
-                "evaluation_id": {
-                    "type": "string",
-                    "description": "Optional specific evaluation ID (uses latest if not specified)"
-                }
-            },
-            "required": ["source"]
-        }
-    ),
-    Tool(
-        name="add_calibration_sample",
-        description="Add a calibration sample (prediction + ground truth). Used by Cursor AI to provide feedback for calibration improvement.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "source": {
-                    "type": "string",
-                    "description": "Source model identifier (e.g., 'llm_extract', 'nli_judge')"
-                },
-                "predicted_prob": {
-                    "type": "number",
-                    "description": "Predicted probability (0.0 to 1.0)"
-                },
-                "actual_label": {
-                    "type": "integer",
-                    "description": "Ground truth label (0 or 1)"
-                },
-                "logit": {
-                    "type": "number",
-                    "description": "Optional raw logit value"
-                }
-            },
-            "required": ["source", "predicted_prob", "actual_label"]
-        }
-    ),
-    Tool(
-        name="get_calibration_stats",
-        description="Get calibration statistics including current parameters, history, and degradation detection. Cursor AI uses this to decide on rollback.",
-        inputSchema={
-            "type": "object",
-            "properties": {}
-        }
-    ),
-    # ============================================================
-    # New MCP Tools (Phase M)
-    # ============================================================
     Tool(
         name="calibrate_rollback",
         description="Rollback calibration parameters to a previous version (destructive operation). Per §3.2.1: This is a separate tool from calibrate because rollback is destructive, irreversible, and should be called explicitly.",
@@ -815,13 +733,8 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "get_exploration_status": _handle_get_exploration_status,
         "execute_refutation": _handle_execute_refutation,
         "finalize_exploration": _handle_finalize_exploration,
-        # Calibration Evaluation (§4.6.1)
-        "save_calibration_evaluation": _handle_save_calibration_evaluation,
-        "get_calibration_evaluations": _handle_get_calibration_evaluations,
-        "get_reliability_diagram_data": _handle_get_reliability_diagram_data,
-        "add_calibration_sample": _handle_add_calibration_sample,
-        "get_calibration_stats": _handle_get_calibration_stats,
-        # New MCP Tools (Phase M)
+        # Calibration (Phase M - §3.2.1, §4.6.1)
+        "calibrate": _handle_calibrate,
         "calibrate_rollback": _handle_calibrate_rollback,
         "get_status": _handle_get_status,
         # Claim Decomposition (§3.3.1)
@@ -1283,94 +1196,40 @@ async def _handle_finalize_exploration(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Calibration Evaluation Handlers (§4.6.1)
+# Calibration Handlers (Phase M - §3.2.1, §4.6.1)
 # ============================================================
 
-async def _handle_save_calibration_evaluation(args: dict[str, Any]) -> dict[str, Any]:
+async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle save_calibration_evaluation tool call.
+    Handle calibrate tool call.
     
-    Implements §4.6.1: Lancet Worker - Evaluation calculation and DB persistence.
+    Implements §3.2.1: Unified calibration operations (daily operations).
+    This is a thin wrapper that delegates to the calibrate_action() unified API
+    in src/utils/calibration.py (Phase M unified architecture).
+    
+    Actions:
+        - add_sample: Add a calibration sample
+        - get_stats: Get calibration statistics
+        - evaluate: Execute batch evaluation and save to DB
+        - get_evaluations: Get evaluation history
+        - get_diagram_data: Get reliability diagram data
+    
+    For rollback (destructive operation), use calibrate_rollback tool.
     """
-    from src.utils.calibration import save_calibration_evaluation
+    from src.utils.calibration import calibrate_action
+    from src.mcp.errors import InvalidParamsError
     
-    source = args["source"]
-    predictions = args["predictions"]
-    labels = args["labels"]
+    action = args.get("action")
+    data = args.get("data", {})
     
-    return await save_calibration_evaluation(
-        source=source,
-        predictions=predictions,
-        labels=labels,
-    )
-
-
-async def _handle_get_calibration_evaluations(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle get_calibration_evaluations tool call.
+    if not action:
+        raise InvalidParamsError(
+            "action is required",
+            param_name="action",
+            expected="one of: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
+        )
     
-    Implements §4.6.1: Lancet Worker - Return structured data.
-    """
-    from src.utils.calibration import get_calibration_evaluations
-    
-    source = args.get("source")
-    limit = args.get("limit", 50)
-    since = args.get("since")
-    
-    return await get_calibration_evaluations(
-        source=source,
-        limit=limit,
-        since=since,
-    )
-
-
-async def _handle_get_reliability_diagram_data(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle get_reliability_diagram_data tool call.
-    
-    Implements §4.6.1: Lancet Worker - Return bin data for reliability curve.
-    """
-    from src.utils.calibration import get_reliability_diagram_data
-    
-    source = args["source"]
-    evaluation_id = args.get("evaluation_id")
-    
-    return await get_reliability_diagram_data(
-        source=source,
-        evaluation_id=evaluation_id,
-    )
-
-
-async def _handle_add_calibration_sample(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle add_calibration_sample tool call.
-    
-    Allows Cursor AI to provide feedback for calibration improvement.
-    """
-    from src.utils.calibration import add_calibration_sample
-    
-    source = args["source"]
-    predicted_prob = args["predicted_prob"]
-    actual_label = args["actual_label"]
-    logit = args.get("logit")
-    
-    return await add_calibration_sample(
-        source=source,
-        predicted_prob=predicted_prob,
-        actual_label=actual_label,
-        logit=logit,
-    )
-
-
-async def _handle_get_calibration_stats(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle get_calibration_stats tool call.
-    
-    Returns calibration statistics for Cursor AI to monitor and decide on rollback.
-    """
-    from src.utils.calibration import get_calibration_stats
-    
-    return await get_calibration_stats()
+    return await calibrate_action(action, data)
 
 
 async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:

@@ -1039,6 +1039,29 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**30個から11個**�
 - これらは`search`等の高レベルツールから自動的にトリガーされる
 - 仕様書に詳細なI/Oスキーマは定義しない（実装詳細として扱う）
 
+**統一アーキテクチャ方針**:
+
+MCPハンドラーは薄いラッパーとし、ロジックはドメインモジュールの統合API（action-based）に集約する。
+
+```
+MCPハンドラー (_handle_*)
+    ↓ 薄いラッパー（引数変換・エラーハンドリングのみ）
+ドメインモジュールの統合API (action-based)
+    ↓
+内部クラス・関数
+```
+
+| 新MCPツール | 統合APIの配置先 |
+|------------|----------------|
+| `calibrate` | `src/utils/calibration.py` → `calibrate_action()` |
+| `calibrate_rollback` | 同上（破壊的操作のため分離） |
+| `search` | `src/research/pipeline.py` → `search_action()` |
+| `stop_task` | 同上 → `stop_task_action()` |
+| `get_status` | `src/research/state.py` → `get_status_action()` |
+| `get_materials` | `src/research/materials.py` → `get_materials_action()` |
+| `get_auth_queue` / `resolve_auth` | `src/utils/notification.py` → `auth_queue_action()` |
+| `notify_user` / `wait_for_user` | 同上 → `notification_action()` |
+
 **現在の実装（30ツール）**:
 ```
 低レベル: search_serp, fetch_url, extract_content, rank_candidates, llm_extract, nli_judge (6)
@@ -1063,7 +1086,7 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**30個から11個**�
 | `execute_subquery` + `execute_refutation` | `search` | 統合（`refute`オプション） | ⏳ |
 | `finalize_exploration` | `stop_task` | 名称変更・簡素化 | ⏳ |
 | `get_report_materials` + `get_evidence_graph` | `get_materials` | 統合 | ⏳ |
-| 校正系6ツール | `calibrate` | **統合**（5 action） | ⏳ |
+| 校正系6ツール | `calibrate` | **統合**（5 action） | ✅ |
 | `rollback_calibration` | `calibrate_rollback` | 名称変更・分離 | ✅ |
 | 認証系4ツール | `get_auth_queue` + `resolve_auth` | **統合** | ⏳ |
 | `notify_user` | `notify_user` | イベントタイプ変更 | ⏳ |
@@ -1086,7 +1109,7 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**30個から11個**�
 | `search` | ✅ | ❌ | 未実装（統合必要） |
 | `stop_task` | ✅ | ❌ | 未実装（名称変更） |
 | `get_materials` | ✅ | ❌ | 未実装（統合必要） |
-| `calibrate` | ✅ | ❌ | 未実装（5 action統合） |
+| `calibrate` | ✅ | ✅ | なし |
 | `calibrate_rollback` | ✅ | ✅ | なし |
 | `get_auth_queue` | ✅ | ❌ | 未実装（統合必要） |
 | `resolve_auth` | ✅ | ❌ | 未実装（統合必要） |
@@ -1161,7 +1184,7 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**30個から11個**�
 | `_handle_search` 実装 | `execute_subquery` + `execute_refutation` 統合 | ⏳ |
 | `_handle_stop_task` 実装 | `finalize_exploration` 置換 | ⏳ |
 | `_handle_get_materials` 実装 | `get_report_materials` + `get_evidence_graph` 統合 | ⏳ |
-| `_handle_calibrate` 実装 | 校正系5ツール統合（5 action対応） | ⏳ |
+| `_handle_calibrate` 実装 | 校正系5ツール統合（5 action対応） | ✅ |
 | `_handle_calibrate_rollback` 実装 | ロールバック操作（破壊的、明示分離） | ✅ |
 | `_handle_get_auth_queue` 実装 | 認証待ち系ツール統合（group_by対応） | ⏳ |
 | `_handle_resolve_auth` 実装 | 認証完了系ツール統合（target対応） | ⏳ |
@@ -1323,7 +1346,7 @@ async def test_calibrate_add_sample(mock_calibrator):
 | `tests/test_mcp_errors.py` | エラーコード体系 | ✅ |
 | `tests/test_calibrate_rollback.py` | `calibrate_rollback` | ✅ |
 | `tests/test_mcp_get_status.py` | `get_status` | ✅ |
-| `tests/test_mcp_calibrate.py` | `calibrate`（5 action） | ⏳ |
+| `tests/test_mcp_calibrate.py` | `calibrate`（5 action） | ✅ |
 | `tests/test_mcp_task.py` | `create_task`, `stop_task` | ⏳ |
 | `tests/test_mcp_search.py` | `search`, `get_materials` | ⏳ |
 | `tests/test_mcp_auth.py` | `get_auth_queue`, `resolve_auth` | ⏳ |

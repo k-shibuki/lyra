@@ -2146,3 +2146,119 @@ async def get_reliability_diagram_data(
     
     return evaluator.get_reliability_diagram_data(source, evaluation_id)
 
+
+# =============================================================================
+# Unified Calibration API (Phase M)
+# =============================================================================
+
+async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Unified calibration API for MCP.
+    
+    This is the single entry point for all calibration operations (except rollback).
+    Implements Phase M unified architecture: MCPハンドラーは薄いラッパーとし、
+    ロジックはドメインモジュールの統合APIに集約する。
+    
+    Args:
+        action: One of "add_sample", "get_stats", "evaluate", "get_evaluations", "get_diagram_data"
+        data: Action-specific data (optional for get_stats)
+    
+    Returns:
+        Action result with ok: bool and action-specific fields
+    
+    Actions:
+        - add_sample: Add a calibration sample
+            data: {source: str, prediction: float, actual: int, logit?: float}
+        - get_stats: Get calibration statistics (no data required)
+        - evaluate: Execute batch evaluation and save to DB
+            data: {source: str, predictions: list[float], labels: list[int]}
+        - get_evaluations: Get evaluation history
+            data: {source?: str, limit?: int, since?: str}
+        - get_diagram_data: Get reliability diagram data
+            data: {source: str, evaluation_id?: str}
+    
+    Raises:
+        ValueError: If action is invalid or required data is missing
+    """
+    if data is None:
+        data = {}
+    
+    try:
+        if action == "add_sample":
+            # Validate required fields
+            source = data.get("source")
+            prediction = data.get("prediction")
+            actual = data.get("actual")
+            
+            if source is None:
+                return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
+            if prediction is None:
+                return {"ok": False, "error": "INVALID_PARAMS", "message": "prediction is required"}
+            if actual is None:
+                return {"ok": False, "error": "INVALID_PARAMS", "message": "actual is required"}
+            
+            result = await add_calibration_sample(
+                source=source,
+                predicted_prob=float(prediction),
+                actual_label=int(actual),
+                logit=data.get("logit"),
+            )
+            return {"ok": True, **result}
+        
+        elif action == "get_stats":
+            result = await get_calibration_stats()
+            return {"ok": True, **result}
+        
+        elif action == "evaluate":
+            # Validate required fields
+            source = data.get("source")
+            predictions = data.get("predictions")
+            labels = data.get("labels")
+            
+            if source is None:
+                return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
+            if predictions is None:
+                return {"ok": False, "error": "INVALID_PARAMS", "message": "predictions is required"}
+            if labels is None:
+                return {"ok": False, "error": "INVALID_PARAMS", "message": "labels is required"}
+            
+            result = await save_calibration_evaluation(
+                source=source,
+                predictions=[float(p) for p in predictions],
+                labels=[int(l) for l in labels],
+            )
+            return result  # Already has ok: True
+        
+        elif action == "get_evaluations":
+            result = await get_calibration_evaluations(
+                source=data.get("source"),
+                limit=data.get("limit", 50),
+                since=data.get("since"),
+            )
+            return result  # Already has ok: True
+        
+        elif action == "get_diagram_data":
+            source = data.get("source")
+            if source is None:
+                return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
+            
+            result = await get_reliability_diagram_data(
+                source=source,
+                evaluation_id=data.get("evaluation_id"),
+            )
+            return result  # Already has ok field
+        
+        else:
+            return {
+                "ok": False,
+                "error": "INVALID_PARAMS",
+                "message": f"Unknown action: {action}. Valid actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
+            }
+    
+    except Exception as e:
+        logger.error("calibrate_action failed", action=action, error=str(e))
+        return {
+            "ok": False,
+            "error": "INTERNAL_ERROR",
+            "message": str(e),
+        }
+
