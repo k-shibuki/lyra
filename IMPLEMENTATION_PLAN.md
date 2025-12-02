@@ -419,7 +419,7 @@ pytest -m e2e
 pytest -m ""
 ```
 
-**現在のテスト数**: 2201件（全パス）
+**現在のテスト数**: 2362件（全パス）
 
 ### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -1112,27 +1112,27 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から11個**�
 
 ### M.3 実装タスク
 
-#### M.3-1 MCPサーバー改修 ⏳ 🔴優先
+#### M.3-1 MCPサーバー改修 🔄 🔴優先
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| TOOLS定義の書き換え | `src/mcp/server.py` | ⏳ |
-| 旧ツール→新ツールのルーティング追加 | 移行期間中の後方互換 | ⏳ |
+| TOOLS定義の書き換え | `src/mcp/server.py` | 🔄 |
+| 旧ツール→新ツールのルーティング追加 | 移行期間中の後方互換 | ✅ |
 | `_handle_get_status` 実装 | `get_task_status` + `get_exploration_status` 統合 | ⏳ |
 | `_handle_search` 実装 | `execute_subquery` + `execute_refutation` 統合 | ⏳ |
 | `_handle_stop_task` 実装 | `finalize_exploration` 置換 | ⏳ |
 | `_handle_get_materials` 実装 | `get_report_materials` + `get_evidence_graph` 統合 | ⏳ |
 | `_handle_calibrate` 実装 | 校正系5ツール統合（5 action対応） | ⏳ |
-| `_handle_calibrate_rollback` 実装 | ロールバック操作（破壊的、明示分離） | ⏳ |
+| `_handle_calibrate_rollback` 実装 | ロールバック操作（破壊的、明示分離） | ✅ |
 | `_handle_get_auth_queue` 実装 | 認証待ち系ツール統合（group_by対応） | ⏳ |
 | `_handle_resolve_auth` 実装 | 認証完了系ツール統合（target対応） | ⏳ |
-| エラーコード体系実装 | §3.2.1準拠の9コード（`src/mcp/errors.py`） | ⏳ |
+| エラーコード体系実装 | §3.2.1準拠の9コード（`src/mcp/errors.py`） | ✅ |
 | Cursor AI無応答ハンドリング | §2.1.5準拠（300秒タイムアウト→状態保存→待機） | ⏳ |
 
 **影響ファイル:**
 - `src/mcp/server.py`: ツール定義・ハンドラー全面改修
 - `src/mcp/schemas/`: 新スキーマ定義
-- `src/mcp/errors.py`: エラーコード定義（新規）
+- `src/mcp/errors.py`: エラーコード定義 ✅
 
 #### M.3-2 内部パイプライン整理 ⏳
 
