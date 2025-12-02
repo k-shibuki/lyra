@@ -634,7 +634,7 @@ TOOLS = [
     ),
     Tool(
         name="rollback_calibration",
-        description="Rollback calibration parameters to a previous version. Called by Cursor AI when degradation is detected.",
+        description="[DEPRECATED: Use calibrate_rollback instead] Rollback calibration parameters to a previous version.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -649,6 +649,31 @@ TOOLS = [
                 "reason": {
                     "type": "string",
                     "description": "Reason for rollback"
+                }
+            },
+            "required": ["source"]
+        }
+    ),
+    # ============================================================
+    # New MCP Tools (Phase M)
+    # ============================================================
+    Tool(
+        name="calibrate_rollback",
+        description="Rollback calibration parameters to a previous version (destructive operation). Per §3.2.1: This is a separate tool from calibrate because rollback is destructive, irreversible, and should be called explicitly.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Source model identifier (required)"
+                },
+                "version": {
+                    "type": "integer",
+                    "description": "Target version to rollback to. If omitted, rolls back to the previous version."
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for rollback (for audit log)"
                 }
             },
             "required": ["source"]
@@ -728,19 +753,40 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     Returns:
         List of text content responses.
     """
+    from src.mcp.errors import MCPError, generate_error_id
+    
     logger.info("Tool called", tool=name, arguments=arguments)
     
     try:
         result = await _dispatch_tool(name, arguments)
         return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+    except MCPError as e:
+        # Structured MCP error with error code
+        logger.warning(
+            "Tool MCP error",
+            tool=name,
+            error_code=e.code.value,
+            error=e.message,
+        )
+        return [TextContent(type="text", text=json.dumps(e.to_dict(), ensure_ascii=False, indent=2))]
     except Exception as e:
-        logger.error("Tool error", tool=name, error=str(e), exc_info=True)
+        # Unexpected error - wrap in INTERNAL_ERROR
+        error_id = generate_error_id()
+        logger.error(
+            "Tool internal error",
+            tool=name,
+            error=str(e),
+            error_id=error_id,
+            exc_info=True,
+        )
         error_result = {
             "ok": False,
-            "error": str(e),
-            "error_type": type(e).__name__
+            "error_code": "INTERNAL_ERROR",
+            "error": "An unexpected internal error occurred",
+            "error_id": error_id,
+            "error_type": type(e).__name__,
         }
-        return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False))]
+        return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))]
 
 
 async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -784,6 +830,8 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "add_calibration_sample": _handle_add_calibration_sample,
         "get_calibration_stats": _handle_get_calibration_stats,
         "rollback_calibration": _handle_rollback_calibration,
+        # New MCP Tools (Phase M)
+        "calibrate_rollback": _handle_calibrate_rollback,
         # Claim Decomposition (§3.3.1)
         "decompose_question": _handle_decompose_question,
         # Chain-of-Density Compression (§3.3.1)
@@ -1337,19 +1385,99 @@ async def _handle_rollback_calibration(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle rollback_calibration tool call.
     
-    Cursor AI decides when to rollback based on degradation detection.
+    [DEPRECATED] This tool is deprecated in favor of calibrate_rollback.
+    Routes to the new handler for backward compatibility.
     """
-    from src.utils.calibration import rollback_calibration
+    logger.warning(
+        "Deprecated tool called",
+        tool="rollback_calibration",
+        recommendation="Use calibrate_rollback instead",
+    )
     
-    source = args["source"]
-    to_version = args.get("to_version")
+    # Route to new handler with parameter mapping
+    new_args = {
+        "source": args["source"],
+        "version": args.get("to_version"),
+        "reason": args.get("reason", "Manual rollback by Cursor AI"),
+    }
+    
+    return await _handle_calibrate_rollback(new_args)
+
+
+async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle calibrate_rollback tool call.
+    
+    Implements §3.2.1: Rollback calibration parameters (destructive operation).
+    This tool is explicitly separated from calibrate because:
+    1. Rollback is destructive and irreversible
+    2. Prevents accidental invocation
+    3. Enables audit trail for destructive operations
+    4. Supports future permission separation
+    """
+    from src.mcp.errors import (
+        MCPErrorCode,
+        CalibrationError,
+        InvalidParamsError,
+        generate_error_id,
+    )
+    from src.utils.calibration import get_calibrator
+    
+    source = args.get("source")
+    version = args.get("version")
     reason = args.get("reason", "Manual rollback by Cursor AI")
     
-    return await rollback_calibration(
+    # Validate required parameters
+    if not source:
+        raise InvalidParamsError(
+            "source is required",
+            param_name="source",
+            expected="non-empty string",
+        )
+    
+    calibrator = get_calibrator()
+    
+    # Get current version before rollback for audit
+    current_params = calibrator.get_params(source)
+    if current_params is None:
+        raise CalibrationError(
+            f"No calibration found for source: {source}",
+            source=source,
+            reason="no_calibration_exists",
+        )
+    
+    previous_version = current_params.version
+    
+    # Perform rollback
+    if version is not None:
+        rolled_back_params = calibrator.rollback_to_version(source, version, reason)
+    else:
+        rolled_back_params = calibrator.rollback(source, reason)
+    
+    if rolled_back_params is None:
+        raise CalibrationError(
+            f"Cannot rollback: no previous version available for source {source}",
+            source=source,
+            reason="no_previous_version",
+        )
+    
+    logger.info(
+        "Calibration rollback completed",
         source=source,
-        to_version=to_version,
+        from_version=previous_version,
+        to_version=rolled_back_params.version,
         reason=reason,
     )
+    
+    return {
+        "ok": True,
+        "source": source,
+        "rolled_back_to": rolled_back_params.version,
+        "previous_version": previous_version,
+        "reason": reason,
+        "brier_after": rolled_back_params.brier_after,
+        "method": rolled_back_params.method,
+    }
 
 
 # ============================================================
