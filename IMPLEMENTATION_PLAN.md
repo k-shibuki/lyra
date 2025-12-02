@@ -21,30 +21,27 @@ OSINTデスクトップリサーチを自律的に実行するローカルAIエ�
 
 ### A.2 MCPサーバー ✅
 
-> **注意**: Phase Mでツールアーキテクチャを24個→10個に簡素化予定。以下は現行実装。
+> **注意**: Phase Mでツールアーキテクチャを**29個→10個**に簡素化予定。以下は現行実装。
 
-**現行ツール（Phase Mでリファクタリング予定）**:
+**現行ツール（29個、Phase Mでリファクタリング予定）**:
 
-| ツール | 機能 | 仕様参照 | Phase M後 |
-|--------|------|----------|-----------|
-| `search_serp` | 検索実行 | §3.2.1 | 内部化 |
-| `fetch_url` | URL取得 | §3.2.1 | 内部化 |
-| `extract_content` | コンテンツ抽出 | §3.2.1 | 内部化 |
-| `rank_candidates` | パッセージランキング | §3.2.1 | 内部化 |
-| `llm_extract` | LLM抽出 | §3.2.1 | 内部化 |
-| `nli_judge` | NLI判定 | §3.2.1 | 内部化 |
-| `get_report_materials` | レポート素材提供 | §2.1 | → `get_materials` |
-| `get_evidence_graph` | エビデンスグラフ参照 | §3.2.1 | → `get_materials` |
-| `execute_subquery` | クエリ実行 | §2.1 | → `search` |
-| `get_exploration_status` | 探索状態 | §2.1 | → `get_status` |
-| `finalize_exploration` | 探索終了 | §2.1 | → `stop_task` |
+| カテゴリ | ツール | Phase M後 |
+|---------|--------|-----------|
+| 低レベル（6） | `search_serp`, `fetch_url`, `extract_content`, `rank_candidates`, `llm_extract`, `nli_judge` | 内部化 |
+| 認証（5） | `notify_user`, `get_pending_authentications`, `start_authentication_session`, `complete_authentication`, `skip_authentication` | 統合→`get_auth_queue`/`resolve_auth` |
+| タスク（2） | `create_task`, `get_task_status` | → `create_task`/`get_status` |
+| レポート（2） | `get_report_materials`, `get_evidence_graph` | 統合→`get_materials` |
+| 探索（5） | `get_research_context`, `execute_subquery`, `get_exploration_status`, `execute_refutation`, `finalize_exploration` | 統合/廃止→`search`/`get_status`/`stop_task` |
+| 校正（6） | `save_calibration_evaluation`, `get_calibration_evaluations`, `get_reliability_diagram_data`, `add_calibration_sample`, `get_calibration_stats`, `rollback_calibration` | 統合→`calibrate` |
+| 分析（2） | `decompose_question`, `compress_with_chain_of_density` | 廃止（Cursor AIが担当） |
+| その他（1） | `schedule_job` | 内部化 |
 
 **新MCPツール（10ツール、Phase M完了後）**:
 - `create_task`, `get_status`: タスク管理
 - `search`, `stop_task`: 調査実行
 - `get_materials`: 成果物
-- `calibrate`: 校正
-- `get_auth_queue`, `resolve_auth`: 認証キュー
+- `calibrate`: 校正（6 action対応）
+- `get_auth_queue`, `resolve_auth`: 認証キュー（ドメイン一括操作対応）
 - `notify_user`, `wait_for_user`: 通知
 
 ### A.3 検索機能 ✅
@@ -959,7 +956,7 @@ except Exception as e:
 
 ## Phase M: MCPツールリファクタリング 🔄
 
-requirements.md §3.2.1の改訂に伴い、MCPツールを24個から10個に簡素化する。
+requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から10個**に簡素化する。
 
 ### M.1 設計方針
 
@@ -967,22 +964,42 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを24個から10個に�
 - Cursor AIの認知負荷低減（ツール選択の単純化）
 - 低レベル操作の隠蔽（Cursor AIはパイプラインの詳細を知る必要がない）
 - 責任分界の明確化（Cursor AI = 戦略、Lancet = 戦術）
+- セキュリティ境界の明確化（公開APIを最小化）
+
+**「内部化」の定義**:
+- 内部化されたツールはMCPプロトコルからは呼び出せない
+- これらは`search`等の高レベルツールから自動的にトリガーされる
+- 仕様書に詳細なI/Oスキーマは定義しない（実装詳細として扱う）
+
+**現在の実装（29ツール）**:
+```
+低レベル: search_serp, fetch_url, extract_content, rank_candidates, llm_extract, nli_judge (6)
+認証: notify_user, get_pending_authentications, start_authentication_session, complete_authentication, skip_authentication (5)
+タスク: create_task, get_task_status (2)
+レポート: get_report_materials, get_evidence_graph (2)
+探索: get_research_context, execute_subquery, get_exploration_status, execute_refutation, finalize_exploration (5)
+校正: save_calibration_evaluation, get_calibration_evaluations, get_reliability_diagram_data, add_calibration_sample, get_calibration_stats, rollback_calibration (6)
+分析: decompose_question, compress_with_chain_of_density (2)
+その他: schedule_job (1)
+```
 
 **変更概要**:
 
-| 旧ツール | 新ツール | 変更内容 |
-|---------|---------|---------|
+| 旧ツール（29個） | 新ツール（10個） | 変更内容 |
+|-----------------|-----------------|---------|
 | `get_task_status` + `get_exploration_status` | `get_status` | 統合 |
 | `execute_subquery` | `search` | 名称変更・簡素化 |
 | `finalize_exploration` | `stop_task` | 名称変更・簡素化 |
 | `get_report_materials` + `get_evidence_graph` | `get_materials` | 統合 |
-| `get_research_context` | — | 廃止（Cursor AIが直接クエリ設計） |
+| `get_research_context` | — | **廃止**（Cursor AIが直接クエリ設計） |
 | `execute_refutation` | — | `search`の`refute`オプションに統合 |
-| `add_calibration_sample` + `get_calibration_stats` + `rollback_calibration` | `calibrate` | 統合 |
-| `get_pending_authentications` + `get_pending_by_domain` | `get_auth_queue` | 統合 |
-| `complete_authentication` + `skip_authentication` 等 | `resolve_auth` | 統合 |
-| `search_serp`, `fetch_url`, `extract_content`, `rank_candidates`, `llm_extract`, `nli_judge` | — | 内部化（MCP非公開） |
-| `decompose_question`, `schedule_job` | — | 廃止 |
+| 校正系6ツール | `calibrate` | **統合**（action別に分岐） |
+| 認証系4ツール | `get_auth_queue` + `resolve_auth` | **統合**（オプションで機能切替） |
+| 低レベル6ツール | — | **内部化**（`search`パイプライン内部） |
+| `decompose_question` | — | **廃止**（Cursor AIが担当） |
+| `compress_with_chain_of_density` | — | **廃止**（Cursor AIが担当） |
+| `schedule_job` | — | **内部化**（スケジューラ内部） |
+| `start_authentication_session` | — | **廃止**（§3.6.1安全運用方針に従いDOM操作不可） |
 
 ### M.2 新MCPツール一覧（10ツール）
 
@@ -1010,14 +1027,14 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを24個から10個に�
 
 | ツール | 機能 | 仕様参照 |
 |--------|------|---------|
-| `calibrate` | サンプル追加/統計取得/ロールバック | §3.2.1 |
+| `calibrate` | 校正操作（action別: add_sample/get_stats/rollback/evaluate/get_evaluations/get_diagram_data） | §3.2.1, §4.6.1 |
 
 #### M.2-5 認証キュー（2ツール）
 
 | ツール | 機能 | 仕様参照 |
 |--------|------|---------|
-| `get_auth_queue` | 認証待ちリスト取得 | §3.2.1 |
-| `resolve_auth` | 認証完了/スキップ報告 | §3.2.1 |
+| `get_auth_queue` | 認証待ちリスト取得（group_by: none/domain/type、priority_filter対応） | §3.2.1, §3.6.1 |
+| `resolve_auth` | 認証完了/スキップ報告（target: item/domain、ドメイン一括操作対応） | §3.2.1, §3.6.1 |
 
 #### M.2-6 通知（2ツール）
 
@@ -1038,9 +1055,9 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを24個から10個に�
 | `_handle_search` 実装 | `execute_subquery` + `execute_refutation` 統合 | ⏳ |
 | `_handle_stop_task` 実装 | `finalize_exploration` 置換 | ⏳ |
 | `_handle_get_materials` 実装 | `get_report_materials` + `get_evidence_graph` 統合 | ⏳ |
-| `_handle_calibrate` 実装 | 校正系3ツール統合 | ⏳ |
-| `_handle_get_auth_queue` 実装 | 認証待ち系2ツール統合 | ⏳ |
-| `_handle_resolve_auth` 実装 | 認証完了系4ツール統合 | ⏳ |
+| `_handle_calibrate` 実装 | 校正系6ツール統合（6 action対応） | ⏳ |
+| `_handle_get_auth_queue` 実装 | 認証待ち系ツール統合（group_by対応） | ⏳ |
+| `_handle_resolve_auth` 実装 | 認証完了系ツール統合（target対応） | ⏳ |
 
 **影響ファイル:**
 - `src/mcp/server.py`: ツール定義・ハンドラー全面改修
@@ -1123,8 +1140,12 @@ class SearchPipeline:
 |------|------|:----:|
 | `get_research_context` | Cursor AIが直接クエリ設計するため不要 | ⏳ |
 | `decompose_question` | Cursor AIが担当するため不要 | ⏳ |
+| `compress_with_chain_of_density` | Cursor AIが担当するため不要 | ⏳ |
 | `schedule_job` | 内部スケジューラに隠蔽 | ⏳ |
-| `save_calibration_evaluation`, `get_calibration_evaluations`, `get_reliability_diagram_data` | `calibrate` に統合または削除 | ⏳ |
+| `start_authentication_session` | §3.6.1安全運用方針（DOM操作禁止）により不要 | ⏳ |
+| 校正系6ツール | `calibrate`のactionに統合 | ⏳ |
+| 認証系4ツール | `get_auth_queue`/`resolve_auth`に統合 | ⏳ |
+| 低レベル6ツール | `search`パイプライン内部に隠蔽 | ⏳ |
 
 ### M.4 移行計画
 
