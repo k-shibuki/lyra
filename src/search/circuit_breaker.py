@@ -4,9 +4,12 @@ Circuit breaker implementation for search engines.
 Manages engine health state transitions and failure recovery.
 Uses the generic CircuitState from src.utils.circuit_breaker but implements
 engine-specific features:
-- Exponential backoff for cooldown (based on failure history)
+- Exponential backoff for cooldown (based on failure history, using shared backoff utilities)
 - EMA metrics (success_rate, latency, captcha_rate)
 - Database persistence with datetime-based cooldown
+
+Per §4.3.5: Search engines use "エスカレーションパス" not simple retry.
+The circuit breaker manages cooldown periods between escalation attempts.
 """
 
 import asyncio
@@ -14,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from src.storage.database import get_database
+from src.utils.backoff import calculate_cooldown_minutes
 from src.utils.circuit_breaker import CircuitState  # Use shared enum
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -128,15 +132,16 @@ class EngineCircuitBreaker:
     def _calculate_cooldown(self) -> timedelta:
         """Calculate cooldown duration based on failure history.
         
-        Uses exponential backoff capped at cooldown_max.
+        Uses shared exponential backoff calculation per §4.3.5.
+        Cooldown is capped at cooldown_max.
         """
-        # Base cooldown + exponential increase based on failures
-        backoff_factor = min(2 ** (self._total_failures_in_window // 3), 4)
-        cooldown_minutes = min(
-            self.cooldown_min * backoff_factor,
-            self.cooldown_max,
+        # Use shared backoff utility per §4.3.5
+        cooldown = calculate_cooldown_minutes(
+            self._total_failures_in_window,
+            base_minutes=self.cooldown_min,
+            max_minutes=self.cooldown_max,
         )
-        return timedelta(minutes=cooldown_minutes)
+        return timedelta(minutes=cooldown)
     
     def record_success(self, latency_ms: float | None = None) -> None:
         """Record successful request.
