@@ -25,21 +25,21 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
 
 ### 2.1. Cursor AI と Lancet の責任分界（探索制御）
 
-本システムでは「思考（何を調べるか）」と「作業（どう調べるか）」を明確に分離する。OSINT品質を最優先し、**クエリ/サブクエリの設計を含む探索の戦略的判断はすべてCursor AIが担う**。ローカルLLM（Qwen2.5-3B等）はCursor AIより推論力が劣るため、クエリ設計には関与しない。
+本システムでは「思考（何を調べるか）」と「作業（どう調べるか）」を明確に分離する。OSINT品質を最優先し、**検索クエリの設計を含む探索の戦略的判断はすべてCursor AIが担う**。ローカルLLM（Qwen2.5-3B等）はCursor AIより推論力が劣るため、クエリ設計には関与しない。
 
 #### 2.1.1. 責任マトリクス
 
 | 責任領域 | Cursor AI（思考） | Lancet MCP（作業） |
 |---------|------------------|-------------------|
-| **問いの分解** | サブクエリの設計・優先度決定 | 設計支援情報の提供（エンティティ抽出、テンプレート候補等） |
+| **問いの分解** | 検索クエリの設計・優先度決定 | —（設計には関与しない） |
 | **クエリ生成** | すべてのクエリの設計・指定 | 機械的展開のみ（同義語・ミラークエリ・演算子付与） |
 | **探索計画** | 計画の立案・決定 | 計画の実行・進捗報告 |
 | **探索制御** | 次のアクション判断 | 充足度・新規性メトリクスの計算と報告 |
-| **反証探索** | 逆クエリの設計・指定 | 機械パターンの適用（「課題」「批判」等の接尾辞付与） |
+| **反証探索** | 反証クエリの設計・指定 | 機械パターンの適用（「課題」「批判」等の接尾辞付与） |
 | **停止判断** | 探索の終了指示 | 停止条件充足の報告 |
 | **レポート構成** | 論理構成・執筆判断 | 素材（断片・引用）の提供 |
 
-**重要**: クエリ/サブクエリの「設計」は例外なくCursor AIが行う。Lancetが「候補を提案」することはない。
+**重要**: 検索クエリの「設計」は例外なくCursor AIが行う。Lancetが「候補を提案」することはない。
 
 #### 2.1.2. 対話フロー
 
@@ -47,40 +47,33 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
 
 ```
 1. Cursor AI → create_task(query)
-   └─ Lancet: タスク作成、初期状態返却
+   └─ Lancet: タスク作成、task_id返却
 
-2. Cursor AI → get_research_context(task_id)
-   └─ Lancet: 設計支援情報を返却
-     - 抽出されたエンティティ（人名/組織/地名等）
-     - 適用可能な垂直テンプレート（学術/政府/企業等）
-     - 類似過去クエリの成功率
-     - 推奨エンジン/ドメイン
+2. Cursor AI: リサーチクエスチョンを分析し、検索クエリを設計
+   （この判断はCursor AIのみが行う）
 
-3. Cursor AI: 情報を基にサブクエリを設計（この判断はCursor AIのみが行う）
+3. Cursor AI → search(task_id, query)
+   └─ Lancet: 検索→取得→抽出→評価パイプラインを自律実行
+   └─ Lancet: 結果サマリ（収穫率、発見主張、充足度）を返却
 
-4. Cursor AI → execute_subquery(task_id, subquery, priority)
-   └─ Lancet: 検索実行→取得→抽出→評価を自律実行
-   └─ Lancet: 結果サマリ（収穫率、新規断片数、充足度）を返却
-
-5. Cursor AI → get_exploration_status(task_id)
+4. Cursor AI → get_status(task_id)
    └─ Lancet: 現在の探索状態を返却（**推奨なし・メトリクスのみ**）
-     - 実行済みサブクエリの状態（充足/部分充足/未充足）
+     - 実行済みクエリの状態（充足/部分充足/未充足）
      - 新規性スコア推移
      - 残り予算（ページ数/時間）
-     - 発見された新エンティティ（次のクエリ設計の参考）
      - **注意**: 「次に何をすべきか」の推奨は返さない。Cursor AIがこのデータを基に判断する
 
-6. Cursor AI: 状況を評価し、次のサブクエリを設計・実行指示
-   （ステップ4-5を繰り返す）
+5. Cursor AI: 状況を評価し、次の検索クエリを設計・実行指示
+   （ステップ3-4を繰り返す）
 
-7. Cursor AI → execute_refutation(task_id, claim_ids)
-   └─ Lancet: Cursor AI指定の主張に対し機械パターンで反証検索
+6. Cursor AI → search(task_id, query, refute: true)
+   └─ Lancet: 反証モードで検索を実行
 
-8. Cursor AI → finalize_exploration(task_id)
-   └─ Lancet: 最終状態をDBに記録、未充足項目を明示
+7. Cursor AI → stop_task(task_id, "completed")
+   └─ Lancet: 最終状態をDBに記録
 
-9. Cursor AI → generate_report(task_id)
-   └─ Lancet: 素材を提供
+8. Cursor AI → get_materials(task_id)
+   └─ Lancet: 素材を提供（主張、断片、エビデンスグラフ）
    └─ Cursor AI: レポート構成・執筆
 ```
 
@@ -88,13 +81,13 @@ Google Deep ResearchにOSINTで勝つローカルAIエージェントを構築�
 
 Lancetは**Cursor AIの指示に基づいて**以下を自律的に実行する（指示なしに勝手に探索を進めない）：
 
-- **機械的展開のみ**: Cursor AI指定のサブクエリに対する同義語展開、言語横断ミラークエリ、演算子付与
+- **機械的展開のみ**: Cursor AI指定のクエリに対する同義語展開、言語横断ミラークエリ、演算子付与
 - **取得・抽出パイプライン**: 検索→プリフライト→取得→抽出→ランキング→NLI
 - **メトリクス計算**: 収穫率、新規性、充足度、重複率の計算
 - **異常ハンドリング**: CAPTCHA/ブロック検知、手動介入トリガー、クールダウン適用
 - **ポリシー自動調整**: エンジン重み、ドメインQPS、経路選択（§4.6に準拠）
 
-**Lancetが行わないこと**: サブクエリの設計、クエリ候補の提案、探索方針の決定
+**Lancetが行わないこと**: クエリの設計、クエリ候補の提案、探索方針の決定
 
 #### 2.1.4. ローカルLLMの役割
 
@@ -108,9 +101,9 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   - **構造化・コンテキスト付与**: 見出し階層の構築、断片への文脈情報（資料・見出し・段落位置）の付与
 
 - **禁止される用途**:
-  - **サブクエリの設計・候補生成**（Cursor AIの専権）
+  - **検索クエリの設計・候補生成**（Cursor AIの専権）
   - 探索の戦略的判断（次に何を調べるか）
-  - サブクエリの優先度決定
+  - クエリの優先度決定
   - 探索の停止判断
   - 反証クエリの設計（機械パターン適用のみ許可）
   - レポートの論理構成決定
@@ -138,12 +131,12 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   このサイクルを十分な情報が集まるまで、または規定の上限回数まで繰り返す。
  - 探索パラメータと停止条件:
   - 初期クエリ数: 10〜16件（GPU前提時）。CPUのみ環境は8〜12件。各クエリ上位5〜10件を取得
-  - 探索深度: 標準3（サブクエリ展開を含む）／高価値枝は最大4
-   - 充足度判定: 各サブクエリについて独立ソース3件以上、または一次資料1件＋二次資料1件以上
+  - 探索深度: 標準3（クエリ展開を含む）／高価値枝は最大4
+   - 充足度判定: 各クエリについて独立ソース3件以上、または一次資料1件＋二次資料1件以上
    - 情報新規性: 直近20件の閲覧で新規有用断片の出現率が10%未満となる状態が2サイクル継続
   - 予算上限: 総ページ数≤120/タスク、総時間≤60分/タスク（RTX 4060 Laptop想定）。CPUのみ環境は≤75分/タスク
   - LLM投入比率: LLM処理時間が総処理時間の≤30%となるよう制御（GPU時の目標値）
-   - 打ち切り時は未充足サブクエリを明示し、フォローアップ候補を出力
+   - 打ち切り時は未充足クエリを明示し、フォローアップ候補を出力
  - 探索ログと再現性: すべてのクエリ、評価スコア、決定根拠を構造化ログ（JSON/SQLite）に保存する。
 - 手動介入と制御:
   - 認証待ちキュー: 認証が必要なURLはキューに積み、ユーザーの都合でバッチ処理（§3.6.1参照）
@@ -166,7 +159,7 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   - エンジン正規化レイヤ: フレーズ/演算子/期間指定等の対応差を吸収するクエリ正規化を実装（エンジン別に最適化）
 - 探索木制御:
   - 初期は幅優先、情報新規性が高い枝は優先的に深掘り（best-first with novelty）
-  - サブクエリごとの収穫率（有用断片/取得件数）で予算を動的再配分（UCB1風）
+  - クエリごとの収穫率（有用断片/取得件数）で予算を動的再配分（UCB1風）
 - SERP→自然遷移の徹底:
   - 直行GETは例外扱い。原則 SERP→記事→詳細 でReferer/Origin/`sec-fetch-*`を整合
   - スニペット要約＋BM25/埋め込みでクリック優先度を推定し、低期待値リンクは省く
@@ -284,27 +277,24 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 
 本セクションは§2.1で定義した責任分界に基づき、探索サイクルの詳細を規定する。
 
-##### 3.1.7.1. サブクエリの設計（Cursor AI主導）
+##### 3.1.7.1. クエリの設計（Cursor AI主導）
 
-サブクエリの設計は**Cursor AIが全面的に行う**。LancetはローカルLLMでサブクエリを生成しない。
+検索クエリの設計は**Cursor AIが全面的に行う**。LancetはローカルLLMでクエリを生成しない。
 
-- **設計支援情報の提供**（Lancet）:
-  - `get_research_context` ツールで以下を返却:
-    - 抽出されたエンティティ（人名/組織/地名/製品名等）
-    - 適用可能な垂直テンプレート（学術/政府/企業/技術等）
-    - 類似過去クエリの成功率・収穫率
-    - 推奨エンジン/高成功率ドメイン
-  - これらは「参考情報」であり、サブクエリの設計判断には関与しない
+- **反復探索モデル**:
+  - Cursor AIは `search` ツールを**繰り返し呼び出す**ことで調査を深化させる
+  - 各 `search` 呼び出しごとに、結果を評価し次のクエリを設計する
+  - このループにより、発見に応じた柔軟な探索戦略が可能となる
 
 - **設計フロー**（Cursor AI）:
-  1. `get_research_context` で支援情報を取得
-  2. 問いを分析し、必要なサブクエリを**自ら設計**:
+  1. リサーチクエスチョンを分析
+  2. 最初のクエリを設計し、`search` を実行
+  3. 結果を評価し、次のクエリを設計:
      - 事実確認クエリ（what/when/where）
      - 背景・文脈クエリ（why/how）
-     - 反証クエリ（課題/批判/limitations）
+     - 反証クエリ（`refute: true` オプション使用）
      - エンティティ展開クエリ（関連組織/人物）
-  3. 各サブクエリに優先度を付与（high/medium/low）
-  4. `execute_subquery` で個別に実行指示
+  4. 収穫率・充足度を監視しながら反復
 
 - **設計時の考慮事項**（Cursor AIガイドライン）:
   - 一次資料にアクセスしやすいクエリを優先（site:go.jp, filetype:pdf等）
@@ -313,25 +303,22 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 
 ##### 3.1.7.2. 探索状態の管理
 
-- **サブクエリ状態**:
-  - `pending`: 生成済み・未実行
+- **検索（Search）状態**:
   - `running`: 実行中
   - `satisfied`: 充足（独立ソース≥3、または一次+二次≥2）
   - `partial`: 部分充足（独立ソース1〜2件）
   - `exhausted`: 予算消化または新規性低下で停止
-  - `skipped`: 手動スキップ
 
 - **タスク状態**:
-  - `created`: タスク作成済み（Cursor AIがサブクエリを設計中）
+  - `created`: タスク作成済み（Cursor AIがクエリを設計中）
   - `exploring`: 探索実行中
-  - `awaiting_decision`: Cursor AIの判断待ち（状態報告後）
-  - `finalizing`: 探索完了処理中
+  - `paused`: 一時停止（認証待ち、予算調整等）
   - `completed`: 完了
   - `failed`: エラーで中断
 
 ##### 3.1.7.3. 充足度判定
 
-各サブクエリの充足度は以下の基準で計算する：
+各検索結果の充足度は以下の基準で計算する：
 
 - **独立ソース数**: 異なるドメインかつ同一ナラティブクラスタに属さないソースの数
 - **一次資料有無**: 政府/学術/規格/公式発表からの直接証拠
@@ -342,19 +329,19 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 
 - **新規性スコア**: 直近k=20件の取得断片における新規有用断片の比率
 - **停止条件**:
-  - 新規性 < 10% が2サイクル（各サイクル=10件取得）継続で当該サブクエリを停止
-  - 全サブクエリが `satisfied` / `exhausted` / `skipped` で探索完了
+  - 新規性 < 10% が2サイクル（各サイクル=10件取得）継続で当該クエリの探索を停止
+  - 収穫率が十分に低下し、Cursor AIが終了を判断
   - 予算（ページ数/時間）枯渇で強制終了
 
-##### 3.1.7.5. 反証探索の強制
+##### 3.1.7.5. 反証探索
 
-- **トリガ**: Cursor AIが反証探索を指示（通常はサブクエリが `satisfied` になった後）
-- **逆クエリ設計**（Cursor AI）:
+- **トリガ**: Cursor AIが反証探索を指示（`search` の `refute: true` オプション）
+- **反証クエリ設計**（Cursor AI）:
   - 主張に対する反証クエリを設計（例: "X の課題", "X 批判", "X limitations"）
   - 対立仮説や否定形のクエリを設計
 - **機械パターン適用**（Lancet）:
   - Cursor AI指定のクエリに対し、定型接尾辞を機械的に付与（"課題/批判/問題点/limitations/反論/誤り"）
-  - **注意**: ローカルLLMによる逆クエリ設計は行わない
+  - **注意**: ローカルLLMによる反証クエリ設計は行わない
 - **反証探索の結果**:
   - 反証発見: エビデンスグラフに `refutes` エッジを追加
   - 反証ゼロ: 信頼度を5%減衰し、「反証未発見」を明記
@@ -374,228 +361,344 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
 
 #### 3.2.1. MCPツールIF仕様
 
-##### 基本ツール（Phase 1-10）
-- `search_serp(query, engines, limit, time_range)` → `[{title, url, snippet, date, engine, rank}]`
-- `fetch_url(url, context, policy)` → `{ok, status, headers, html_path|pdf_path, warc_path?, screenshot_path?, reason}`
-- `extract_content(input_path|html, type)` → `{text, title?, headings?, language?, tables?, meta}`
-- `rank_candidates(query, passages)` → `[{id, score_bm25, score_embed, score_rerank}]`
-- `llm_extract(passages, task)` → `{facts[], claims[], citations[]}`
-- `decompose_question(question, use_llm?, use_slow_model?)` → `{claims[], decomposition_method, success}`
-  - **用途**: §3.3.1「問い→主張分解」。リサーチクエスチョンを原子主張へ分解
-  - **注意**: `llm_extract`とは入力形式が異なる（passages[] vs question: string）ため独立ツール
-- `nli_judge(pairs)` → `[{pair_id, stance(supports|refutes|neutral), confidence}]`
-- `notify_user(event, payload)` → `{shown, deadline_at}`
-- `schedule_job(job)` → `{accepted, slot(gpu|browser_headful|network|cpu_nlp), priority, eta}`
-- `create_task(query, config?)` → `{task_id, status}`
-- `get_task_status(task_id)` → `{task, progress}`
-- `get_report_materials(task_id, include_evidence_graph)` → `{claims[], fragments[], evidence_graph?, summary}`
-  - **注意**: レポート「生成」ではなく素材「提供」。構成・執筆はCursor AIが担当（§2.1準拠）
+##### 設計思想
 
-##### 探索制御ツール（Phase 11）
+MCPツールは「Cursor AIが何を考え、何を指示すべきか」に焦点を当て設計する。
 
-- `get_research_context(task_id)` → サブクエリ設計の支援情報を提供（候補生成は行わない）
-  - 入力:
-    - `task_id`: 対象タスクID
-  - 出力:
-    ```json
-    {
-      "ok": true,
-      "task_id": "...",
-      "original_query": "元の問い",
-      "extracted_entities": [
-        {
-          "text": "エンティティ名",
-          "type": "person|organization|location|product|event",
-          "context": "抽出元の文脈"
-        }
-      ],
-      "applicable_templates": [
-        {
-          "name": "academic|government|corporate|technical",
-          "description": "テンプレートの説明",
-          "example_operators": ["site:go.jp", "filetype:pdf"]
-        }
-      ],
-      "similar_past_queries": [
-        {
-          "query": "過去の類似クエリ",
-          "harvest_rate": 0.45,
-          "success_engines": ["duckduckgo", "qwant"]
-        }
-      ],
-      "recommended_engines": ["duckduckgo", "qwant", "mojeek"],
-      "high_success_domains": ["go.jp", "who.int", "arxiv.org"],
-      "notes": "設計時の参考情報（Cursor AIへのヒント）"
-    }
-    ```
-  - **注意**: このツールはサブクエリ候補を生成しない。Cursor AIがこの情報を参考にサブクエリを設計する。
+1. **高レベルIF**: Cursor AIは検索・取得・抽出の詳細を知る必要がない。`search`を呼べばパイプライン全体が実行される
+2. **最小ツール数**: 認知負荷を下げるため、意味的に重複するツールは統合（10ツール体制）
+3. **明確な責任**: Cursor AI = 戦略（何を調べるか）、Lancet = 戦術（どう調べるか）
+4. **透明な状態**: `get_status`で全状態を一覧でき、Cursor AIが次の判断を下せる
 
-- `execute_subquery(task_id, subquery, priority?, budget?)` → サブクエリを実行
-  - 入力:
-    - `task_id`: タスクID
-    - `subquery`: サブクエリテキストまたはID
-    - `priority`: 実行優先度（オプション）
-    - `budget`: このサブクエリの予算制限（オプション、ページ数/時間）
-  - 出力:
-    ```json
-    {
-      "ok": true,
-      "subquery_id": "sq_001",
-      "status": "running|satisfied|partial|exhausted",
-      "pages_fetched": 15,
-      "useful_fragments": 8,
-      "harvest_rate": 0.53,
-      "independent_sources": 3,
-      "has_primary_source": true,
-      "satisfaction_score": 0.85,
-      "novelty_score": 0.42,
-      "new_claims": [...],
-      "budget_remaining": {"pages": 45, "time_seconds": 480}
-    }
-    ```
+##### 公開MCPツール（10ツール）
 
-- `get_exploration_status(task_id)` → 探索状態を取得（メトリクスのみ、推奨なし）
-  - 入力: `task_id`
-  - 出力:
-    ```json
-    {
-      "ok": true,
-      "task_id": "...",
-      "task_status": "exploring|awaiting_decision|...",
-      "subqueries": [
-        {
-          "id": "sq_001",
-          "text": "...",
-          "status": "satisfied|partial|exhausted|pending|skipped",
-          "satisfaction_score": 0.85,
-          "independent_sources": 3,
-          "refutation_status": "pending|found|not_found"
-        }
-      ],
-      "metrics": {
-        "satisfied_count": 3,
-        "partial_count": 2,
-        "pending_count": 1,
-        "exhausted_count": 0,
-        "total_pages": 78,
-        "total_fragments": 124,
-        "total_claims": 15,
-        "elapsed_seconds": 480
-      },
-      "budget": {
-        "pages_used": 78,
-        "pages_limit": 120,
-        "time_used_seconds": 480,
-        "time_limit_seconds": 1200
-      },
-      "ucb_scores": {
-        "enabled": true,
-        "arm_scores": {"sq_001": 1.23, "sq_002": 0.87},
-        "arm_budgets": {"sq_001": 15, "sq_002": 20}
-      },
-      "authentication_queue": {
-        "pending_count": 3,
-        "high_priority_count": 1,
-        "domains": ["protected.go.jp", "secure.example.com"],
-        "oldest_queued_at": "2024-01-15T10:00:00Z",
-        "blocking_exploration": false
-      },
-      "warnings": ["ドメインX がクールダウン中", "予算残り20%", "認証待ち3件（高優先度1件）"]
-    }
-    ```
-  - **注意**: `recommendations`フィールドは返さない。Cursor AIがこのデータを基に次のアクションを判断する。
-  - **認証待ち通知**: `authentication_queue`でCursor AIに認証待ち状況を報告。`pending_count≥3`または`high_priority_count≥1`で`warnings`にも追加。
+###### 1. タスク管理（2ツール）
 
-- `execute_refutation(task_id, claim_id?, subquery_id?)` → 反証探索を実行
-  - 入力:
-    - `task_id`: タスクID
-    - `claim_id`: 特定の主張に対する反証（オプション）
-    - `subquery_id`: 特定のサブクエリ全体に対する反証（オプション）
-  - 出力:
-    ```json
-    {
-      "ok": true,
-      "target": "claim_id or subquery_id",
-      "reverse_queries_executed": 3,
-      "refutations_found": 1,
-      "refutation_details": [
-        {
-          "claim_text": "...",
-          "refuting_fragment_id": "...",
-          "source_url": "...",
-          "nli_confidence": 0.82
-        }
-      ],
-      "confidence_adjustment": -0.05
-    }
-    ```
+**`create_task(query, config?)`** → タスク作成
 
-- `finalize_exploration(task_id)` → 探索を終了
-  - 入力: `task_id`
-  - 出力:
-    ```json
-    {
-      "ok": true,
-      "task_id": "...",
-      "final_status": "completed|partial",
-      "summary": {
-        "satisfied_subqueries": 4,
-        "partial_subqueries": 2,
-        "unsatisfied_subqueries": ["sq_006"],
-        "total_claims": 18,
-        "verified_claims": 12,
-        "refuted_claims": 2,
-        "unverified_claims": 4
-      },
-      "followup_suggestions": [
-        "sq_006 は追加調査が必要: 一次資料が見つかっていません"
-      ],
-      "evidence_graph_summary": {
-        "nodes": 45,
-        "edges": 78,
-        "primary_source_ratio": 0.65
+- 入力:
+  - `query`: リサーチクエスチョン（文字列）
+  - `config`: オプション設定
+    - `budget`: `{max_pages: 120, max_seconds: 1200}`
+    - `priority_domains`: 優先ドメインリスト
+    - `language`: 主要言語（"ja", "en"等）
+
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "task_id": "task_abc123",
+    "query": "元の問い",
+    "created_at": "2024-01-15T10:00:00Z",
+    "budget": {"max_pages": 120, "max_seconds": 1200}
+  }
+  ```
+
+**`get_status(task_id)`** → タスク・探索状態の統合取得
+
+- 入力: `task_id`
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "task_id": "task_abc123",
+    "status": "exploring|paused|completed|failed",
+    "query": "元の問い",
+    "searches": [
+      {
+        "id": "s_001",
+        "query": "検索クエリ",
+        "status": "satisfied|partial|exhausted|running",
+        "pages_fetched": 15,
+        "useful_fragments": 8,
+        "harvest_rate": 0.53,
+        "satisfaction_score": 0.85,
+        "has_primary_source": true
       }
+    ],
+    "metrics": {
+      "total_searches": 5,
+      "satisfied_count": 3,
+      "total_pages": 78,
+      "total_fragments": 124,
+      "total_claims": 15,
+      "elapsed_seconds": 480
+    },
+    "budget": {
+      "pages_used": 78,
+      "pages_limit": 120,
+      "time_used_seconds": 480,
+      "time_limit_seconds": 1200,
+      "remaining_percent": 35
+    },
+    "auth_queue": {
+      "pending_count": 2,
+      "domains": ["protected.go.jp"]
+    },
+    "warnings": ["予算残り35%", "認証待ち2件"]
+  }
+  ```
+
+###### 2. 調査実行（2ツール）
+
+**`search(task_id, query, options?)`** → 検索クエリの実行
+
+Cursor AIが設計したクエリを受け取り、検索→取得→抽出→評価パイプラインを一括実行する。
+
+- 入力:
+  - `task_id`: タスクID
+  - `query`: 検索クエリ（Cursor AIが設計）
+  - `options`:
+    - `engines`: 使用エンジン（省略時はLancetが選択）
+    - `max_pages`: このクエリの最大ページ数
+    - `seek_primary`: 一次資料を優先探索するか
+    - `refute`: trueなら反証モードで検索
+
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "search_id": "s_001",
+    "query": "入力されたクエリ",
+    "status": "satisfied|partial|exhausted",
+    "pages_fetched": 15,
+    "useful_fragments": 8,
+    "harvest_rate": 0.53,
+    "claims_found": [
+      {
+        "id": "c_001",
+        "text": "主張テキスト",
+        "confidence": 0.85,
+        "source_url": "https://...",
+        "is_primary_source": true
+      }
+    ],
+    "satisfaction_score": 0.85,
+    "novelty_score": 0.42,
+    "budget_remaining": {"pages": 45, "percent": 37}
+  }
+  ```
+
+- **注意**: 
+  - Cursor AIはこのツールを繰り返し呼び出し、反復的に調査を深める
+  - `refute: true`で反証探索を実行（§3.3.4 反駁探索に準拠）
+
+**`stop_task(task_id, reason?)`** → タスク終了
+
+- 入力:
+  - `task_id`: タスクID
+  - `reason`: 終了理由（"completed", "budget_exhausted", "user_cancelled"等）
+
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "task_id": "task_abc123",
+    "final_status": "completed|partial|cancelled",
+    "summary": {
+      "total_searches": 8,
+      "satisfied_searches": 5,
+      "total_claims": 18,
+      "primary_source_ratio": 0.65
+    }
+  }
+  ```
+
+###### 3. 成果物取得（1ツール）
+
+**`get_materials(task_id, options?)`** → レポート素材の取得
+
+- 入力:
+  - `task_id`: タスクID
+  - `options`:
+    - `include_graph`: エビデンスグラフを含めるか（default: false）
+    - `format`: "structured" | "narrative"（default: "structured"）
+
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "task_id": "task_abc123",
+    "query": "元の問い",
+    "claims": [
+      {
+        "id": "c_001",
+        "text": "主張テキスト",
+        "confidence": 0.92,
+        "evidence_count": 3,
+        "has_refutation": false,
+        "sources": [
+          {"url": "https://...", "title": "...", "is_primary": true}
+        ]
+      }
+    ],
+    "fragments": [
+      {
+        "id": "f_001",
+        "text": "引用可能なテキスト断片",
+        "source_url": "https://...",
+        "context": "見出し > サブ見出し"
+      }
+    ],
+    "evidence_graph": {
+      "nodes": [...],
+      "edges": [...]
+    },
+    "summary": {
+      "total_claims": 18,
+      "verified_claims": 12,
+      "refuted_claims": 2,
+      "primary_source_ratio": 0.65
+    }
+  }
+  ```
+
+- **注意**: レポート「生成」ではなく素材「提供」。構成・執筆はCursor AIが担当（§2.1準拠）
+
+###### 4. 校正（1ツール）
+
+**`calibrate(action, data?)`** → 校正操作の統合ツール
+
+- 入力:
+  - `action`: "add_sample" | "get_stats" | "rollback"
+  - `data`: アクションに応じたデータ
+    - `add_sample`: `{prediction, actual, context}`
+    - `rollback`: `{version}`
+
+- 出力（action別）:
+  - `add_sample`:
+    ```json
+    {"ok": true, "sample_id": "...", "pending_count": 15}
+    ```
+  - `get_stats`:
+    ```json
+    {
+      "ok": true,
+      "current_version": 3,
+      "brier_score": 0.12,
+      "ece": 0.08,
+      "sample_count": 150,
+      "degradation_detected": false
     }
     ```
+  - `rollback`:
+    ```json
+    {"ok": true, "rolled_back_to": 2}
+    ```
+
+###### 5. 認証キュー（2ツール）
+
+**`get_auth_queue(task_id?)`** → 認証待ちリストの取得
+
+- 入力: `task_id`（省略時は全タスク）
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "queue": [
+      {
+        "id": "auth_001",
+        "domain": "protected.go.jp",
+        "url": "https://protected.go.jp/page",
+        "type": "captcha|login|cloudflare",
+        "priority": "high|normal",
+        "queued_at": "2024-01-15T10:00:00Z",
+        "blocking_searches": ["s_001", "s_002"]
+      }
+    ],
+    "total_pending": 2
+  }
+  ```
+
+**`resolve_auth(auth_id, status)`** → 認証完了の報告
+
+- 入力:
+  - `auth_id`: 認証待ちID
+  - `status`: "resolved" | "skipped" | "failed"
+
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "auth_id": "auth_001",
+    "status": "resolved",
+    "unblocked_searches": ["s_001", "s_002"]
+  }
+  ```
+
+###### 6. 通知（2ツール）
+
+**`notify_user(event, payload)`** → ユーザーへの通知
+
+- 入力:
+  - `event`: "info" | "warning" | "auth_required" | "decision_required"
+  - `payload`: `{message, details?, timeout_seconds?}`
+
+- 出力:
+  ```json
+  {"ok": true, "notification_id": "n_001", "shown": true}
+  ```
+
+**`wait_for_user(prompt, options?)`** → ユーザー入力の待機
+
+- 入力:
+  - `prompt`: 表示するプロンプト
+  - `options`:
+    - `timeout_seconds`: タイムアウト（default: 300）
+    - `choices`: 選択肢リスト（省略時は自由入力）
+
+- 出力:
+  ```json
+  {
+    "ok": true,
+    "response": "ユーザーの回答",
+    "choice_index": 0,
+    "timed_out": false
+  }
+  ```
+
+##### 内部パイプライン（MCP非公開）
+
+以下の機能はLancet内部で実行され、MCPツールとしては公開しない：
+
+| 機能 | 説明 | 呼び出し元 |
+|------|------|-----------|
+| `search_serp` | 検索エンジンへのクエリ実行 | `search`内部 |
+| `fetch_url` | URL取得・WARC保存 | `search`内部 |
+| `extract_content` | HTML/PDFからテキスト抽出 | `search`内部 |
+| `rank_candidates` | BM25/埋め込み/リランク | `search`内部 |
+| `llm_extract` | ローカルLLMで事実/主張抽出 | `search`内部 |
+| `nli_judge` | スタンス推定 | `search`内部（反証時） |
+
+これらはCursor AIが直接呼び出す必要がない。`search`ツールが適切にオーケストレーションする。
 
 ##### 共通仕様
-- すべてJSON I/O、タイムアウト・再試行・因果ログ（呼出元ID）を必須付与
-- 探索制御ツールは`task_id`を必須とし、タスクスコープでの状態管理を行う
-- 長時間実行が予想される`execute_subquery`は進捗コールバックをサポート（オプション）
+
+- すべてJSON I/O
+- すべての応答に`ok: boolean`フィールドを含む
+- エラー時は`ok: false`と`error: {code, message}`を返却
+- タイムアウト・再試行・因果ログ（呼出元ID）を内部で自動付与
+- セキュリティ: §4.4.1のL7（MCP応答サニタイズ）を全レスポンスに適用
 
 ##### MCPツール一覧（責任分界準拠）
 
 | カテゴリ | ツール名 | Cursor AI（思考） | Lancet（作業） |
 |----------|----------|-------------------|----------------|
 | **タスク管理** | `create_task` | タスク作成の指示 | タスクID発行・DB登録 |
-| | `get_task_status` | 状態確認の指示 | 状態データ返却 |
-| **探索制御** | `get_research_context` | 設計支援情報の取得指示 | エンティティ/テンプレ/成功率の返却 |
-| | `execute_subquery` | **サブクエリの設計**・実行指示 | 検索→取得→抽出→評価の実行 |
-| | `get_exploration_status` | 状態確認・**次判断はCursor AI** | メトリクス/予算の報告（**推奨なし**） |
-| | `execute_refutation` | 反証対象の指定 | 機械パターン適用・反証検索 |
-| | `finalize_exploration` | 終了判断 | 最終状態のDB記録 |
-| **取得・抽出** | `search_serp` | クエリの指定 | 検索エンジン実行・SERP返却 |
-| | `fetch_url` | URL/ポリシーの指定 | HTTP/ブラウザ取得・WARC保存 |
-| | `extract_content` | 抽出指示 | HTML/PDFからテキスト抽出 |
-| **フィルタ・評価** | `rank_candidates` | クエリ/候補の指定 | BM25/埋め込み/リランク実行 |
-| | `llm_extract` | 抽出タスクの指定 | ローカルLLMで事実/主張抽出 |
-| | `decompose_question` | 分解対象questionの指定 | 原子主張への分解（§3.3.1） |
-| | `nli_judge` | 対象ペアの指定 | スタンス推定（supports/refutes/neutral） |
-| **レポート素材** | `get_report_materials` | 素材取得の指示 | 主張/断片/エビデンスグラフ返却 |
-| | `get_evidence_graph` | グラフ参照の指示 | ノード/エッジの構造化データ返却 |
-| **校正・評価** | `add_calibration_sample` | 正解フィードバックの送信 | サンプル蓄積・再校正トリガー |
-| | `get_calibration_stats` | 校正状態の確認 | パラメータ/デグレ検知の報告 |
-| | `rollback_calibration` | ロールバック判断・指示 | パラメータ復元の実行 |
-| | `save_calibration_evaluation` | 評価実行の指示 | Brier/ECE算出・DB保存 |
-| | `get_calibration_evaluations` | 評価履歴の取得指示 | 構造化データ返却 |
-| | `get_reliability_diagram_data` | ビンデータ取得指示 | 信頼度-精度曲線データ返却 |
-| **通知・ジョブ** | `notify_user` | 通知内容の指定 | トースト送信・待機 |
-| | `schedule_job` | ジョブの指定 | スロット管理・スケジューリング |
+| | `get_status` | 状態確認・**次判断** | 全状態データの統合返却 |
+| **調査実行** | `search` | **クエリの設計**・実行指示 | 検索→取得→抽出→評価パイプライン |
+| | `stop_task` | 終了判断 | 最終状態のDB記録 |
+| **成果物** | `get_materials` | 素材取得の指示 | 主張/断片/グラフの返却 |
+| **校正** | `calibrate` | フィードバック/状態確認/ロールバック判断 | サンプル蓄積/統計計算/バージョン管理 |
+| **認証キュー** | `get_auth_queue` | 認証待ち状況の確認 | キュー状態の返却 |
+| | `resolve_auth` | 認証完了の報告 | キュー更新・探索再開 |
+| **通知** | `notify_user` | 通知内容の指定 | 通知表示 |
+| | `wait_for_user` | 入力待機の指示 | ユーザー入力の取得 |
 
 **重要**: 
-- 「設計」「判断」「構成」はCursor AIの責任
-- Lancetは「実行」「計算」「データ返却」に専念
-- `get_report_materials`は素材提供のみ。レポート構成・執筆はCursor AIが行う
+- 「クエリ設計」「判断」「レポート構成」はCursor AIの責任
+- Lancetは「パイプライン実行」「計算」「データ返却」に専念
+- 低レベル操作（検索/取得/抽出）はCursor AIから隠蔽
 
 ##### ユースケース別フロー
 
@@ -607,68 +710,74 @@ Cursor AI                          Lancet MCP
    ├─ create_task(query) ─────────────►│ タスク作成
    │◄───────────── {task_id} ──────────┤
    │                                   │
-   ├─ get_research_context(task_id) ──►│ 設計支援情報取得
-   │◄─── {entities, templates, ...} ───┤
+   │  [Cursor AIがクエリを設計]         │
    │                                   │
-   │  [Cursor AIがサブクエリを設計]     │
+   ├─ search(task_id, query1) ────────►│ パイプライン実行
+   │◄─── {claims, harvest_rate, ...} ──┤
    │                                   │
-   ├─ execute_subquery(task_id, sq) ──►│ サブクエリ実行
-   │◄─── {harvest_rate, claims, ...} ──┤
+   ├─ get_status(task_id) ────────────►│ 状態確認
+   │◄─── {searches, budget, ...} ──────┤
    │                                   │
-   ├─ get_exploration_status(task_id)─►│ 状態確認
-   │◄─── {subqueries, budget, ...} ────┤
+   │  [Cursor AIが次クエリを設計]       │
    │                                   │
-   │  [充足/予算に応じて繰り返し]       │
+   ├─ search(task_id, query2) ────────►│ パイプライン実行
+   │◄─── {claims, harvest_rate, ...} ──┤
    │                                   │
-   ├─ execute_refutation(task_id, c)──►│ 反証探索
-   │◄─── {refutations_found, ...} ─────┤
+   │  [収穫率低下 → 反証モードへ]       │
    │                                   │
-   ├─ finalize_exploration(task_id) ──►│ 探索終了
-   │◄─── {summary, followup, ...} ─────┤
+   ├─ search(task_id, q3, refute:true)►│ 反証探索
+   │◄─── {refutations, ...} ───────────┤
    │                                   │
-   ├─ get_report_materials(task_id) ──►│ 素材取得
+   ├─ stop_task(task_id, "completed") ►│ タスク終了
+   │◄─── {summary} ────────────────────┤
+   │                                   │
+   ├─ get_materials(task_id) ─────────►│ 素材取得
    │◄─── {claims, fragments, graph} ───┤
    │                                   │
    │  [Cursor AIがレポート構成・執筆]   │
    │                                   │
 ```
 
-**UC-2: 校正フィードバックループ**
+**UC-2: 認証介入フロー**
+
+```
+Cursor AI                          Lancet MCP
+   │                                   │
+   ├─ search(task_id, query) ─────────►│ パイプライン実行
+   │◄─── {status: "partial", ...} ─────┤ （一部認証ブロック）
+   │                                   │
+   ├─ get_auth_queue(task_id) ────────►│ 認証待ち確認
+   │◄─── {queue: [{domain, type}]} ────┤
+   │                                   │
+   ├─ notify_user("auth_required", ...)►│ ユーザー通知
+   │◄─── {shown: true} ────────────────┤
+   │                                   │
+   │  [ユーザーが手動で認証解除]        │
+   │                                   │
+   ├─ resolve_auth(auth_id, "resolved")►│ 認証完了報告
+   │◄─── {unblocked_searches} ─────────┤
+   │                                   │
+   │  [探索再開]                        │
+   │                                   │
+```
+
+**UC-3: 校正ループ**
 
 ```
 Cursor AI                          Lancet MCP
    │                                   │
    │  [調査中にLLM予測を観測]           │
    │                                   │
-   ├─ add_calibration_sample(...) ────►│ サンプル蓄積
-   │◄─── {added, pending_count} ───────┤
+   ├─ calibrate("add_sample", {...}) ──►│ サンプル蓄積
+   │◄─── {pending_count: 15} ──────────┤
    │                                   │
-   │  [一定サンプル蓄積後]              │
+   ├─ calibrate("get_stats") ─────────►│ 校正状態確認
+   │◄─── {brier_score, degradation} ───┤
    │                                   │
-   ├─ get_calibration_stats() ────────►│ 校正状態確認
-   │◄─── {params, degradation_detected}┤
+   │  [デグレ検知 → ロールバック判断]   │
    │                                   │
-   │  [デグレ検知時、Cursor AIが判断]   │
-   │                                   │
-   ├─ rollback_calibration(source) ───►│ ロールバック実行
-   │◄─── {rolled_back_to_version} ─────┤
-   │                                   │
-```
-
-**UC-3: 手動介入フロー**
-
-```
-Cursor AI                          Lancet MCP
-   │                                   │
-   │  [CAPTCHA/Cloudflare検知]          │
-   │                                   │
-   │◄─── notify_user(captcha, ...) ────┤ 通知送信
-   │                                   │
-   │  [ユーザーが手動解除]              │
-   │                                   │
-   │◄─── {resolved: true} ─────────────┤ 解除通知
-   │                                   │
-   │  [探索再開]                        │
+   ├─ calibrate("rollback", {v: 2}) ──►│ ロールバック
+   │◄─── {rolled_back_to: 2} ──────────┤
    │                                   │
 ```
 
@@ -729,7 +838,7 @@ Cursor AI                          Lancet MCP
 - 新規性スコア:
   - 直近k断片におけるユニークn-gram率を算出。しきい値未満が2サイクル継続で当該枝を停止
 - 収穫逓減の検知:
-  - 断片/時間の収穫率が連続低下した枝は予算縮小、代替サブクエリへ予算移転
+  - 断片/時間の収穫率が連続低下した枝は予算縮小、代替クエリへ予算移転
 
 #### 3.3.3. OSINT固有の品質・欺瞞対策
 - 出典系統の明示:
@@ -786,8 +895,8 @@ Cursor AI                          Lancet MCP
 - **優先度管理**: 高優先度（一次資料）、中優先度（二次資料）、低優先度で分類
 - **並行処理**: 認証待ち中も認証不要ソースの探索を継続
 - **セッション再利用**: 認証済みセッション情報を保存し、同一ドメインの後続リクエストで再利用
-- **優先度決定**: Cursor AIがサブクエリ実行時に指定。デフォルトはソース種別から推定（一次資料=high）
-- **通知連携**: `get_exploration_status`に`authentication_queue`オブジェクトを含め、Cursor AIがユーザーに判断を仰ぐ契機を提供
+- **優先度決定**: Cursor AIが検索実行時に指定。デフォルトはソース種別から推定（一次資料=high）
+- **通知連携**: `get_status`に`auth_queue`オブジェクトを含め、Cursor AIがユーザーに判断を仰ぐ契機を提供
   - `pending_count`: 認証待ち総数
   - `high_priority_count`: 高優先度（一次資料）の件数
   - `domains`: 認証待ちドメイン一覧
@@ -834,7 +943,7 @@ Cursor AI                          Lancet MCP
 | **優先度設定** | - | ✅ 設計時に指定 | 適用・デフォルト推定 |
 | **タイムアウト処理** | - | - | ✅ 自動決定（§2.1.5） |
 
-**フロー**: 認証待ち発生 → Lancetがキューに積む → `get_exploration_status`で報告 → Cursor AIがユーザーに確認 → ユーザー判断 → Cursor AIがMCPツール呼び出し
+**フロー**: 認証待ち発生 → Lancetがキューに積む → `get_status`/`get_auth_queue`で報告 → Cursor AIがユーザーに確認 → ユーザー判断 → `resolve_auth`呼び出し
 
 #### 3.6.2. 即時介入（レガシーモード）【廃止】
 
@@ -1135,8 +1244,8 @@ Lancetでは「リトライ」を以下の2種類に明確に分離する。
 | 危険パターン検出（L2/L4） | → `BLOCKED` に降格, `rejected` |
 
 4. **Cursor AIへの伝達**
-   - `get_exploration_status` に `unverified_domains`, `verification_alerts` を追加
-   - `execute_subquery` 応答にclaimごとの検証状態を含める
+   - `get_status` に `unverified_domains`, `verification_alerts` を追加
+   - `search` 応答にclaimごとの検証状態を含める
    - Cursor AIは検証状態を基にユーザーへの報告・追加調査を判断
 
 **L7: MCP応答サニタイズ（Cursor AI経由流出防止）**
@@ -1425,7 +1534,7 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 - 回復力: 429/403発生後、3回以内の自動再取得成功率≥70%
 - CAPTCHA: 発生検知100%、自動→手動誘導に確実に移行できること
 - 情報品質: 主要主張の3独立ソース裏付け率≥90%、引用漏れ0件
-- 深度保証: サブクエリ充足率≥90%（未充足は明示とフォローアップ提示）
+- 深度保証: クエリ充足率≥90%（未充足は明示とフォローアップ提示）
 - コスト制約: 外部SaaS/有料プロキシ/有料APIを一切使用しないこと（依存チェックで検証）
 - 性能: RTX 4060 Laptop搭載機で1タスクあたり60分以内、CPUのみ環境は75分以内（いずれもWSL2 32GB想定）
  - LLM比率: LLM処理の総時間が全体の≤30%（GPU時目標）
@@ -1437,7 +1546,7 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
  - IPv6運用: IPv6提供サイト訪問時のv6経路成功率≥80%、v4↔v6自動切替の成功率≥80%
  - DNS: Tor経路時のDNSリーク検出0件、EDNS Client Subnet無効化を確認
 - 検索収穫・多様性:
-  - サブクエリごとの有用断片/取得件数≥0.25、独立ドメイン多様性（上位カテゴリ重複率）≤60%
+  - クエリごとの有用断片/取得件数≥0.25、独立ドメイン多様性（上位カテゴリ重複率）≤60%
 - 重複率:
   - 断片の重複クラスタ比率≤20%（MinHash/SimHashで算出）
 - 反証率:
