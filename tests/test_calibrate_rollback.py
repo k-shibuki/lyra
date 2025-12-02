@@ -230,87 +230,6 @@ class TestCalibrateRollbackHandler:
         assert result["method"] == "temperature"
 
 
-class TestDeprecatedRollbackCalibration:
-    """Tests for deprecated rollback_calibration tool."""
-
-    @pytest.fixture
-    def mock_calibrator(self) -> MagicMock:
-        """Create mock calibrator."""
-        calibrator = MagicMock()
-        
-        mock_params = MagicMock()
-        mock_params.version = 2
-        mock_params.brier_after = 0.15
-        mock_params.method = "temperature"
-        calibrator.get_params.return_value = mock_params
-        
-        rollback_params = MagicMock()
-        rollback_params.version = 1
-        rollback_params.brier_after = 0.12
-        rollback_params.method = "temperature"
-        calibrator.rollback.return_value = rollback_params
-        
-        return calibrator
-
-    @pytest.mark.asyncio
-    async def test_deprecated_tool_routes_to_new_handler(
-        self, mock_calibrator: MagicMock
-    ) -> None:
-        """
-        TC-D-01: Deprecated rollback_calibration call.
-        
-        // Given: Old tool name used
-        // When: Calling rollback_calibration
-        // Then: Routes to calibrate_rollback, logs warning
-        """
-        from src.mcp.server import _handle_rollback_calibration
-        
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            with patch("src.mcp.server.logger") as mock_logger:
-                result = await _handle_rollback_calibration({
-                    "source": "llm_extract",
-                    "to_version": None,
-                    "reason": "test reason",
-                })
-        
-        assert result["ok"] is True
-        assert result["source"] == "llm_extract"
-        
-        # Check deprecation warning was logged
-        mock_logger.warning.assert_called()
-        warning_call = mock_logger.warning.call_args
-        assert "Deprecated" in str(warning_call) or "deprecated" in str(warning_call).lower()
-
-    @pytest.mark.asyncio
-    async def test_deprecated_tool_maps_to_version_parameter(
-        self, mock_calibrator: MagicMock
-    ) -> None:
-        """
-        Test that to_version is mapped to version parameter.
-        
-        // Given: Old parameter name to_version
-        // When: Calling rollback_calibration
-        // Then: Maps to version parameter
-        """
-        from src.mcp.server import _handle_rollback_calibration
-        
-        rollback_params = MagicMock()
-        rollback_params.version = 1
-        rollback_params.brier_after = 0.10
-        rollback_params.method = "platt"
-        mock_calibrator.rollback_to_version.return_value = rollback_params
-        
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_rollback_calibration({
-                "source": "llm_extract",
-                "to_version": 1,
-            })
-        
-        assert result["ok"] is True
-        assert result["rolled_back_to"] == 1
-        mock_calibrator.rollback_to_version.assert_called_once()
-
-
 class TestCallToolErrorHandling:
     """Tests for call_tool error handling with MCPError."""
 
@@ -379,20 +298,3 @@ class TestToolDefinition:
         assert "version" in tool.inputSchema["properties"]
         assert "reason" in tool.inputSchema["properties"]
         assert tool.inputSchema["required"] == ["source"]
-
-    def test_deprecated_rollback_calibration_marked(self) -> None:
-        """
-        Test that rollback_calibration is marked as deprecated.
-        
-        // Given: TOOLS list
-        // When: Searching for rollback_calibration
-        // Then: Description contains DEPRECATED
-        """
-        from src.mcp.server import TOOLS
-        
-        tool = next((t for t in TOOLS if t.name == "rollback_calibration"), None)
-        
-        assert tool is not None
-        assert "DEPRECATED" in tool.description
-        assert "calibrate_rollback" in tool.description
-
