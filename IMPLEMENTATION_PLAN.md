@@ -1082,7 +1082,7 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**30個から11個**�
 | 新ツール | 仕様 | 実装 | ギャップ |
 |---------|:----:|:----:|---------|
 | `create_task` | ✅ | ✅ | なし（存続） |
-| `get_status` | ✅ | ❌ | 未実装（統合必要） |
+| `get_status` | ✅ | ✅ | なし（統合完了） |
 | `search` | ✅ | ❌ | 未実装（統合必要） |
 | `stop_task` | ✅ | ❌ | 未実装（名称変更） |
 | `get_materials` | ✅ | ❌ | 未実装（統合必要） |
@@ -1157,7 +1157,7 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**30個から11個**�
 |------|------|:----:|
 | 旧ツール定義の削除 | `src/mcp/server.py` から29個の旧ツールを削除 | ⏳ |
 | 新ツール定義の追加 | `src/mcp/server.py` に11個の新ツールを定義 | ⏳ |
-| `_handle_get_status` 実装 | `get_task_status` + `get_exploration_status` 統合 | ⏳ |
+| `_handle_get_status` 実装 | `get_task_status` + `get_exploration_status` 統合 | ✅ |
 | `_handle_search` 実装 | `execute_subquery` + `execute_refutation` 統合 | ⏳ |
 | `_handle_stop_task` 実装 | `finalize_exploration` 置換 | ⏳ |
 | `_handle_get_materials` 実装 | `get_report_materials` + `get_evidence_graph` 統合 | ⏳ |
@@ -1322,8 +1322,9 @@ async def test_calibrate_add_sample(mock_calibrator):
 |---------|-----------|:----:|
 | `tests/test_mcp_errors.py` | エラーコード体系 | ✅ |
 | `tests/test_calibrate_rollback.py` | `calibrate_rollback` | ✅ |
+| `tests/test_mcp_get_status.py` | `get_status` | ✅ |
 | `tests/test_mcp_calibrate.py` | `calibrate`（5 action） | ⏳ |
-| `tests/test_mcp_task.py` | `create_task`, `get_status`, `stop_task` | ⏳ |
+| `tests/test_mcp_task.py` | `create_task`, `stop_task` | ⏳ |
 | `tests/test_mcp_search.py` | `search`, `get_materials` | ⏳ |
 | `tests/test_mcp_auth.py` | `get_auth_queue`, `resolve_auth` | ⏳ |
 | `tests/test_mcp_notification.py` | `notify_user`, `wait_for_user` | ⏳ |
