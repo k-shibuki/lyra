@@ -1046,6 +1046,70 @@ Lancetでは「リトライ」を以下の2種類に明確に分離する。
 - 異常に長い出力（期待長の10倍超）は切り捨て
 - 注: L1により実害は発生しないが、攻撃試行の検知に使用
 
+**L5: MCP応答メタデータ**
+
+全MCP応答に検証状態を含めることで、Cursor AIが信頼度を判断可能にする。
+
+- 各claim/エンティティに付与する情報:
+  - `source_trust_level`: ドメインの信頼度（TrustLevel値）
+  - `verification_status`: `"pending"` | `"verified"` | `"rejected"`
+  - `verification_details`:
+    - `independent_sources`: 独立ソース数（EvidenceGraphから取得）
+    - `corroborating_claims`: 裏付けクレームID一覧
+    - `contradicting_claims`: 矛盾クレームID一覧
+
+- 応答トップレベルに `_lancet_meta` を付与:
+  - `unverified_domains`: 未検証ドメイン一覧
+  - `blocked_domains`: ブロック済みドメイン一覧
+  - `security_warnings`: L2/L4の検出結果（危険パターン、外部URL等）
+
+**L6: ソース検証フロー（Human in the Loop）**
+
+未検証ドメインからの結果を自動検証し、Cursor AIに判断材料を提供する。
+
+1. **新ドメインからの結果取得時**
+   - TrustLevel: `UNVERIFIED`
+   - `verification_status`: `"pending"`
+   - 結果は暫定採用（Cursor AIが判断材料として使用可能）
+
+2. **EvidenceGraph連携による自動検証**
+   - `calculate_claim_confidence()` で独立ソース数を確認
+   - `find_contradictions()` で矛盾を検出
+   - NLI判定（supports/refutes/neutral）
+
+3. **検証結果による自動昇格/降格**
+
+| 条件 | 結果 |
+|-----|------|
+| 裏付けあり（独立ソース≥2, 矛盾なし） | → `LOW` に昇格, `verified` |
+| 中立（独立ソース<2, 矛盾なし） | → `UNVERIFIED` 維持, `pending` |
+| 矛盾検出 | → `BLOCKED` に降格, `rejected` |
+| 危険パターン検出（L2/L4） | → `BLOCKED` に降格, `rejected` |
+
+4. **Cursor AIへの伝達**
+   - `get_exploration_status` に `unverified_domains`, `verification_alerts` を追加
+   - `execute_subquery` 応答にclaimごとの検証状態を含める
+   - Cursor AIは検証状態を基にユーザーへの報告・追加調査を判断
+
+##### TrustLevel再定義
+
+従来の `UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。
+
+| レベル | 説明 | 例 |
+|--------|------|-----|
+| `PRIMARY` | 公的機関・標準化団体 | iso.org, ietf.org |
+| `GOVERNMENT` | 政府機関 | go.jp, gov |
+| `ACADEMIC` | 学術機関 | arxiv.org, ac.jp, pubmed |
+| `TRUSTED` | 信頼メディア・ナレッジベース | wikipedia.org |
+| `LOW` | 検証済み低信頼 | 裏付けにより昇格したドメイン |
+| `UNVERIFIED` | 未検証（暫定採用、検証待ち） | 既知でない全ドメイン |
+| `BLOCKED` | 除外（矛盾検出/危険パターン） | 動的にブロックされたドメイン |
+
+**変更点**:
+- `UNKNOWN` → `UNVERIFIED` に改名（暫定採用であることを明示）
+- `SUSPICIOUS` → 廃止（`BLOCKED` が動的ブロック用途を担う）
+- 既知でないドメインはすべて `UNVERIFIED` として扱う
+
 ##### 残存リスクと緩和策
 
 | リスク | 深刻度 | 緩和策 |

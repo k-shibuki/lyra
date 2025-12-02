@@ -712,6 +712,80 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | IPアドレスパターン検出 | 同上 | ✅ |
 | 異常長出力切り捨て | 期待長の10倍超 | ✅ |
 
+#### K.3-5 MCP応答メタデータ（L5）⏳
+
+全MCP応答に検証状態を付与し、Cursor AIが信頼度を判断可能にする。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| `_lancet_meta` 付与 | `src/mcp/response_meta.py` (新規) | ⏳ |
+| claim検証状態付与 | `source_trust_level`, `verification_status` | ⏳ |
+| `execute_subquery` 応答拡張 | `src/mcp/server.py` | ⏳ |
+| `get_exploration_status` 応答拡張 | `src/mcp/server.py` | ⏳ |
+
+**影響ファイル:**
+- `src/mcp/server.py`: 応答ハンドラーの戻り値に `_lancet_meta` を追加
+- 新規 `src/mcp/response_meta.py`: メタデータ生成ヘルパー
+
+#### K.3-6 ソース検証フロー（L6）⏳
+
+EvidenceGraph連携による自動検証と昇格/降格ロジック。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| 検証ロジック | `src/filter/source_verification.py` (新規) | ⏳ |
+| EvidenceGraph連携 | `calculate_claim_confidence`, `find_contradictions` 利用 | ⏳ |
+| 自動昇格（→LOW） | 独立ソース≥2, 矛盾なし | ⏳ |
+| 自動降格（→BLOCKED） | 矛盾検出/危険パターン | ⏳ |
+| 検証状態永続化 | `src/research/state.py` 拡張 | ⏳ |
+
+**影響ファイル:**
+- 新規 `src/filter/source_verification.py`: 検証ロジック
+- `src/filter/evidence_graph.py`: 既存の `calculate_claim_confidence`, `find_contradictions` を利用
+- `src/mcp/server.py`: `_handle_execute_subquery`, `_handle_get_exploration_status` 拡張
+- `src/research/state.py`: 検証状態の保持
+
+#### K.3-7 TrustLevel変更 ⏳
+
+`UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| TrustLevel enum再定義 | `src/utils/domain_policy.py` | ⏳ |
+| 信頼度ウェイト更新 | `DEFAULT_TRUST_WEIGHTS` | ⏳ |
+| domains.yaml更新 | `config/domains.yaml` | ⏳ |
+
+**影響ファイル（11件）:**
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/utils/domain_policy.py` | TrustLevel enum再定義, DEFAULT_TRUST_WEIGHTS更新 |
+| `config/domains.yaml` | default trust_level を `"unverified"` に変更 |
+| `src/search/search_parsers.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/search/provider.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/search/browser_search_provider.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/filter/provider.py` | UNKNOWN/SUSPICIOUS参照 → UNVERIFIED/BLOCKED |
+| `src/crawler/browser_provider.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/crawler/sec_fetch.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/crawler/fetcher.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/crawler/bfs.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/crawler/http3_policy.py` | UNKNOWN参照 → UNVERIFIED |
+| `src/utils/notification_provider.py` | UNKNOWN/SUSPICIOUS参照 → UNVERIFIED/BLOCKED |
+
+#### K.3-8 BLOCKED通知（InterventionQueue連携）⏳
+
+ドメインがBLOCKEDになった際の通知機能。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| `auth_type="domain_blocked"` 追加 | `src/utils/notification.py` | ⏳ |
+| BLOCKED時の通知呼び出し | `src/filter/source_verification.py` | ⏳ |
+| Cursor AIへの応答 | `domain_blocked` 情報を含める | ⏳ |
+
+**影響ファイル:**
+- `src/utils/notification.py`: InterventionQueue拡張（新auth_type追加）
+- `src/filter/source_verification.py`: BLOCKED時の通知呼び出し
+
 #### K.3 テスト
 
 | 項目 | 実装 | 状態 |
