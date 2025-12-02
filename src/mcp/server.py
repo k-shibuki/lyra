@@ -657,6 +657,20 @@ TOOLS = [
             "required": ["source"]
         }
     ),
+    Tool(
+        name="get_status",
+        description="Get unified task and exploration status. Returns task info, search states, metrics, budget, and auth queue. Cursor AI uses this to decide next actions. Per §3.2.1: No recommendations - data only.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to get status for"
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
     # ============================================================
     # Claim Decomposition (§3.3.1)
     # ============================================================
@@ -809,6 +823,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "get_calibration_stats": _handle_get_calibration_stats,
         # New MCP Tools (Phase M)
         "calibrate_rollback": _handle_calibrate_rollback,
+        "get_status": _handle_get_status,
         # Claim Decomposition (§3.3.1)
         "decompose_question": _handle_decompose_question,
         # Chain-of-Density Compression (§3.3.1)
@@ -1432,6 +1447,133 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
         "brier_after": rolled_back_params.brier_after,
         "method": rolled_back_params.method,
     }
+
+
+async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_status tool call.
+    
+    Implements §3.2.1: Unified task and exploration status.
+    Merges get_task_status and get_exploration_status into a single endpoint.
+    
+    Returns:
+        - Task metadata (id, query, status)
+        - Search states (converted from subqueries)
+        - Metrics (counts, pages, fragments, claims)
+        - Budget information
+        - Authentication queue status
+        - Warnings (threshold alerts)
+    
+    Note: Returns data only, no recommendations. Cursor AI decides next actions.
+    """
+    from src.mcp.errors import TaskNotFoundError
+    
+    task_id = args.get("task_id")
+    
+    if not task_id:
+        from src.mcp.errors import InvalidParamsError
+        raise InvalidParamsError(
+            "task_id is required",
+            param_name="task_id",
+            expected="non-empty string",
+        )
+    
+    with LogContext(task_id=task_id):
+        # Get task info from DB
+        db = await get_database()
+        task = await db.fetch_one(
+            "SELECT id, query, status, created_at, updated_at FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        
+        if task is None:
+            raise TaskNotFoundError(task_id)
+        
+        # Map DB status to spec status
+        db_status = task["status"] if isinstance(task, dict) else task[2]
+        task_query = task["query"] if isinstance(task, dict) else task[1]
+        
+        # Get exploration state if exists
+        exploration_status = None
+        try:
+            state = await _get_exploration_state(task_id)
+            exploration_status = await state.get_status()
+        except Exception as e:
+            logger.debug(
+                "No exploration state available",
+                task_id=task_id,
+                error=str(e),
+            )
+        
+        # Build unified response per §3.2.1
+        if exploration_status:
+            # Convert subqueries to searches (field name mapping)
+            searches = []
+            for sq in exploration_status.get("subqueries", []):
+                searches.append({
+                    "id": sq.get("id"),
+                    "query": sq.get("query"),
+                    "status": sq.get("status"),
+                    "pages_fetched": sq.get("pages_fetched", 0),
+                    "useful_fragments": sq.get("useful_fragments", 0),
+                    "harvest_rate": sq.get("harvest_rate", 0.0),
+                    "satisfaction_score": sq.get("satisfaction_score", 0.0),
+                    "has_primary_source": sq.get("has_primary_source", False),
+                })
+            
+            # Map task_status to status field
+            status_map = {
+                "exploring": "exploring",
+                "paused": "paused", 
+                "completed": "completed",
+                "failed": "failed",
+                "pending": "exploring",  # pending tasks are effectively exploring
+            }
+            status = status_map.get(
+                exploration_status.get("task_status", db_status),
+                "exploring"
+            )
+            
+            metrics = exploration_status.get("metrics", {})
+            
+            return {
+                "ok": True,
+                "task_id": task_id,
+                "status": status,
+                "query": task_query,
+                "searches": searches,
+                "metrics": {
+                    "total_searches": len(searches),
+                    "satisfied_count": metrics.get("satisfied_count", 0),
+                    "total_pages": metrics.get("total_pages", 0),
+                    "total_fragments": metrics.get("total_fragments", 0),
+                    "total_claims": metrics.get("total_claims", 0),
+                    "elapsed_seconds": metrics.get("elapsed_seconds", 0),
+                },
+                "budget": exploration_status.get("budget", {}),
+                "auth_queue": exploration_status.get("authentication_queue"),
+                "warnings": exploration_status.get("warnings", []),
+            }
+        else:
+            # No exploration state - return minimal info
+            return {
+                "ok": True,
+                "task_id": task_id,
+                "status": db_status or "pending",
+                "query": task_query,
+                "searches": [],
+                "metrics": {
+                    "total_searches": 0,
+                    "satisfied_count": 0,
+                    "total_pages": 0,
+                    "total_fragments": 0,
+                    "total_claims": 0,
+                    "elapsed_seconds": 0,
+                },
+                "budget": {},
+                "auth_queue": None,
+                "warnings": [],
+            }
 
 
 # ============================================================
