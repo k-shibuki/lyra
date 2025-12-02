@@ -1022,7 +1022,9 @@ except Exception as e:
 
 ## Phase M: MCPツールリファクタリング 🔄
 
-requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から11個**に簡素化する。
+requirements.md §3.2.1の改訂に伴い、MCPツールを**30個から11個**に簡素化する。
+
+**移行方針**: 後方互換期間は設けず、完全移行とする。
 
 ### M.1 設計方針
 
@@ -1037,35 +1039,70 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から11個**�
 - これらは`search`等の高レベルツールから自動的にトリガーされる
 - 仕様書に詳細なI/Oスキーマは定義しない（実装詳細として扱う）
 
-**現在の実装（29ツール）**:
+**現在の実装（30ツール）**:
 ```
 低レベル: search_serp, fetch_url, extract_content, rank_candidates, llm_extract, nli_judge (6)
 認証: notify_user, get_pending_authentications, start_authentication_session, complete_authentication, skip_authentication (5)
 タスク: create_task, get_task_status (2)
 レポート: get_report_materials, get_evidence_graph (2)
 探索: get_research_context, execute_subquery, get_exploration_status, execute_refutation, finalize_exploration (5)
-校正: save_calibration_evaluation, get_calibration_evaluations, get_reliability_diagram_data, add_calibration_sample, get_calibration_stats, rollback_calibration (6)
+校正: save_calibration_evaluation, get_calibration_evaluations, get_reliability_diagram_data, add_calibration_sample, get_calibration_stats, rollback_calibration, calibrate_rollback (7)
 分析: decompose_question, compress_with_chain_of_density (2)
 その他: schedule_job (1)
 ```
 
+**実装済みの新ツール**:
+- `calibrate_rollback` ✅（`_handle_calibrate_rollback`実装済み、テスト済み）
+- `src/mcp/errors.py` ✅（エラーコード体系実装済み）
+
 **変更概要**:
 
-| 旧ツール（29個） | 新ツール（11個） | 変更内容 |
-|-----------------|-----------------|---------|
-| `get_task_status` + `get_exploration_status` | `get_status` | 統合 |
-| `execute_subquery` | `search` | 名称変更・簡素化 |
-| `finalize_exploration` | `stop_task` | 名称変更・簡素化 |
-| `get_report_materials` + `get_evidence_graph` | `get_materials` | 統合 |
-| `get_research_context` | — | **廃止**（Cursor AIが直接クエリ設計） |
-| `execute_refutation` | — | `search`の`refute`オプションに統合 |
-| 校正系6ツール | `calibrate` | **統合**（action別に分岐） |
-| 認証系4ツール | `get_auth_queue` + `resolve_auth` | **統合**（オプションで機能切替） |
-| 低レベル6ツール | — | **内部化**（`search`パイプライン内部） |
-| `decompose_question` | — | **廃止**（Cursor AIが担当） |
-| `compress_with_chain_of_density` | — | **廃止**（Cursor AIが担当） |
-| `schedule_job` | — | **内部化**（スケジューラ内部） |
-| `start_authentication_session` | — | **廃止**（§3.6.1安全運用方針に従いDOM操作不可） |
+| 旧ツール（30個） | 新ツール（11個） | 変更内容 | 実装状態 |
+|-----------------|-----------------|---------|:--------:|
+| `get_task_status` + `get_exploration_status` | `get_status` | 統合 | ⏳ |
+| `execute_subquery` + `execute_refutation` | `search` | 統合（`refute`オプション） | ⏳ |
+| `finalize_exploration` | `stop_task` | 名称変更・簡素化 | ⏳ |
+| `get_report_materials` + `get_evidence_graph` | `get_materials` | 統合 | ⏳ |
+| 校正系6ツール | `calibrate` | **統合**（5 action） | ⏳ |
+| `rollback_calibration` | `calibrate_rollback` | 名称変更・分離 | ✅ |
+| 認証系4ツール | `get_auth_queue` + `resolve_auth` | **統合** | ⏳ |
+| `notify_user` | `notify_user` | イベントタイプ変更 | ⏳ |
+| — | `wait_for_user` | **新規追加** | ⏳ |
+| `get_research_context` | — | **廃止** | ⏳ |
+| `decompose_question` | — | **廃止**（Cursor AI担当） | ⏳ |
+| `compress_with_chain_of_density` | — | **廃止**（Cursor AI担当） | ⏳ |
+| `schedule_job` | — | **内部化** | ⏳ |
+| `start_authentication_session` | — | **廃止**（§3.6.1） | ⏳ |
+| 低レベル6ツール | — | **内部化** | ⏳ |
+
+### M.1.1 現状のギャップ分析
+
+**§3.2.1仕様 vs 現在の実装**:
+
+| 新ツール | 仕様 | 実装 | ギャップ |
+|---------|:----:|:----:|---------|
+| `create_task` | ✅ | ✅ | なし（存続） |
+| `get_status` | ✅ | ✅ | なし（統合完了） |
+| `search` | ✅ | ❌ | 未実装（統合必要） |
+| `stop_task` | ✅ | ❌ | 未実装（名称変更） |
+| `get_materials` | ✅ | ❌ | 未実装（統合必要） |
+| `calibrate` | ✅ | ❌ | 未実装（5 action統合） |
+| `calibrate_rollback` | ✅ | ✅ | なし |
+| `get_auth_queue` | ✅ | ❌ | 未実装（統合必要） |
+| `resolve_auth` | ✅ | ❌ | 未実装（統合必要） |
+| `notify_user` | ✅ | 🔄 | イベントタイプ変更必要 |
+| `wait_for_user` | ✅ | ❌ | 未実装（新規） |
+
+**削除対象（現存するが仕様にないツール）**: 23個
+
+- 低レベル: `search_serp`, `fetch_url`, `extract_content`, `rank_candidates`, `llm_extract`, `nli_judge`
+- 認証旧: `get_pending_authentications`, `start_authentication_session`, `complete_authentication`, `skip_authentication`
+- タスク旧: `get_task_status`
+- レポート旧: `get_report_materials`, `get_evidence_graph`
+- 探索旧: `get_research_context`, `execute_subquery`, `get_exploration_status`, `execute_refutation`, `finalize_exploration`
+- 校正旧: `save_calibration_evaluation`, `get_calibration_evaluations`, `get_reliability_diagram_data`, `add_calibration_sample`, `get_calibration_stats`, `rollback_calibration`
+- 分析: `decompose_question`, `compress_with_chain_of_density`
+- その他: `schedule_job`
 
 ### M.2 新MCPツール一覧（11ツール）
 
@@ -1114,11 +1151,13 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から11個**�
 
 #### M.3-1 MCPサーバー改修 🔄 🔴優先
 
+**方針**: 後方互換は設けず、旧ツールから新ツールへ完全移行する。
+
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| TOOLS定義の書き換え | `src/mcp/server.py` | 🔄 |
-| 旧ツール→新ツールのルーティング追加 | 移行期間中の後方互換 | ✅ |
-| `_handle_get_status` 実装 | `get_task_status` + `get_exploration_status` 統合 | ⏳ |
+| 旧ツール定義の削除 | `src/mcp/server.py` から29個の旧ツールを削除 | ⏳ |
+| 新ツール定義の追加 | `src/mcp/server.py` に11個の新ツールを定義 | ⏳ |
+| `_handle_get_status` 実装 | `get_task_status` + `get_exploration_status` 統合 | ✅ |
 | `_handle_search` 実装 | `execute_subquery` + `execute_refutation` 統合 | ⏳ |
 | `_handle_stop_task` 実装 | `finalize_exploration` 置換 | ⏳ |
 | `_handle_get_materials` 実装 | `get_report_materials` + `get_evidence_graph` 統合 | ⏳ |
@@ -1126,6 +1165,8 @@ requirements.md §3.2.1の改訂に伴い、MCPツールを**29個から11個**�
 | `_handle_calibrate_rollback` 実装 | ロールバック操作（破壊的、明示分離） | ✅ |
 | `_handle_get_auth_queue` 実装 | 認証待ち系ツール統合（group_by対応） | ⏳ |
 | `_handle_resolve_auth` 実装 | 認証完了系ツール統合（target対応） | ⏳ |
+| `_handle_wait_for_user` 実装 | ユーザー入力待機（新規） | ⏳ |
+| `_handle_notify_user` 更新 | イベントタイプを§3.2.1に準拠 | ⏳ |
 | エラーコード体系実装 | §3.2.1準拠の9コード（`src/mcp/errors.py`） | ✅ |
 | Cursor AI無応答ハンドリング | §2.1.5準拠（300秒タイムアウト→状態保存→待機） | ⏳ |
 
@@ -1218,35 +1259,83 @@ class SearchPipeline:
 | 認証系4ツール | `get_auth_queue`/`resolve_auth`に統合 | ⏳ |
 | 低レベル6ツール | `search`パイプライン内部に隠蔽 | ⏳ |
 
-### M.4 移行計画
+### M.4 移行計画（完全移行・後方互換なし）
 
-#### Phase 1: 後方互換レイヤー追加（1週間）
-- 新ツール実装
-- 旧ツール → 新ツールへのエイリアス設定
-- 旧ツール呼び出し時にDEPRECATION警告をログ出力
+**方針**: 後方互換期間は設けず、一括で新ツール体系に移行する。
 
-#### Phase 2: 内部コード移行（2週間）
-- `SubqueryExecutor` → `SearchPipeline` 置換
-- 状態管理の用語統一
-- テストコード更新
+#### Step 1: 新ツール実装
+- 11個の新ツール定義とハンドラー実装
+- 内部パイプライン（`SearchPipeline`）の作成
+- 用語統一（subquery → search）
 
-#### Phase 3: 旧ツール削除（1週間）
-- DEPRECATION期間終了後、旧ツール定義を削除
-- スキーマ定義から旧フィールドを削除
+#### Step 2: 旧ツール削除
+- 29個の旧ツール定義を`src/mcp/server.py`から削除
+- 旧ハンドラーコードを削除（内部モジュールとして再利用可能な部分は残す）
+- 後方互換テスト（`TestDeprecatedRollbackCalibration`等）を削除
 
-### M.5 テスト
+#### Step 3: テスト整備
+- 新ツールのユニットテスト作成
+- 旧ツール参照のテストコードを更新
+- E2Eスクリプトの更新
 
-| テスト種別 | 対象 | 状態 |
-|-----------|------|:----:|
-| ユニットテスト | 新ハンドラー各種 | ⏳ |
-| 統合テスト | パイプライン全体 | ⏳ |
-| 後方互換テスト | 旧ツール→新ツールエイリアス | ⏳ |
-| E2Eテスト | Cursor AI連携シナリオ | ⏳ |
+### M.5 テスト方針
 
-**テストファイル:**
-- `tests/test_mcp_new_tools.py` (新規)
-- `tests/test_search_pipeline.py` (新規)
-- `tests/test_mcp_compatibility.py` (新規)
+**原則**: MCPツールのテストはユニットテスト（モック使用）として実装する。E2Eテストは`tests/scripts/`に配置し手動実行。
+
+#### テスト分類
+
+| テスト種別 | マーカー | 対象 | 実行 | 状態 |
+|-----------|---------|------|------|:----:|
+| ユニットテスト | `@pytest.mark.unit` | 各ハンドラー関数（`_handle_*`） | CI | ⏳ |
+| 統合テスト | `@pytest.mark.integration` | 複数ハンドラー連携・パイプライン | CI | ⏳ |
+| E2Eスクリプト | — | 実環境でのMCPツール動作 | 手動 | ⏳ |
+
+#### テスト実装パターン
+
+ハンドラー関数を直接呼び出し、依存（DB、外部サービス）はモックで注入する：
+
+```python
+@pytest.mark.asyncio
+async def test_calibrate_add_sample(mock_calibrator):
+    """
+    TC-N-01: calibrate with action="add_sample"
+    
+    // Given: Valid sample data
+    // When: Calling calibrate with action="add_sample"
+    // Then: Sample is added and pending_count returned
+    """
+    from src.mcp.server import _handle_calibrate
+    
+    with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        result = await _handle_calibrate({
+            "action": "add_sample",
+            "data": {"source": "llm_extract", "prediction": 0.8, "actual": 1}
+        })
+    
+    assert result["ok"] is True
+    assert "sample_id" in result
+```
+
+#### テストファイル
+
+| ファイル | 対象ツール | 状態 |
+|---------|-----------|:----:|
+| `tests/test_mcp_errors.py` | エラーコード体系 | ✅ |
+| `tests/test_calibrate_rollback.py` | `calibrate_rollback` | ✅ |
+| `tests/test_mcp_get_status.py` | `get_status` | ✅ |
+| `tests/test_mcp_calibrate.py` | `calibrate`（5 action） | ⏳ |
+| `tests/test_mcp_task.py` | `create_task`, `stop_task` | ⏳ |
+| `tests/test_mcp_search.py` | `search`, `get_materials` | ⏳ |
+| `tests/test_mcp_auth.py` | `get_auth_queue`, `resolve_auth` | ⏳ |
+| `tests/test_mcp_notification.py` | `notify_user`, `wait_for_user` | ⏳ |
+| `tests/test_search_pipeline.py` | `SearchPipeline`（内部パイプライン） | ⏳ |
+| `tests/scripts/verify_mcp_tools.py` | E2E検証 | 🔄 更新必要 |
+
+#### 削除対象テスト ✅
+
+後方互換テストは不要のため削除済み：
+- ~~`tests/test_calibrate_rollback.py`: `TestDeprecatedRollbackCalibration` クラス~~ ✅
+- ~~`tests/test_calibrate_rollback.py`: `test_deprecated_rollback_calibration_marked` テスト~~ ✅
 
 ### M.6 Phase Kとの関連
 
