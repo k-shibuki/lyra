@@ -383,7 +383,7 @@ pytest -m e2e
 pytest -m ""
 ```
 
-**現在のテスト数**: 2169件（全パス）
+**現在のテスト数**: 2201件（全パス）
 
 ### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -571,9 +571,24 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 | 項目 | 状態 |
 |------|:----:|
-| 汎用サーキットブレーカ | 未実装 |
+| 汎用サーキットブレーカ | ✅ |
 | 汎用リトライ/バックオフ | 未実装 |
 | 汎用キャッシュレイヤ | 未実装 |
+
+#### I.3.1 汎用サーキットブレーカ ✅
+
+**実装内容**:
+- `src/utils/circuit_breaker.py`: 依存ゼロの軽量コア
+  - `CircuitBreaker`: 同期版、スレッドセーフ（threading.Lock）
+  - `CircuitState`: 共有enum（CLOSED/OPEN/HALF_OPEN）
+  - `AsyncCircuitBreaker`: 非同期ラッパー（コンテキストマネージャ対応）
+  - `CircuitBreakerError`: 例外クラス
+- `src/search/circuit_breaker.py`: 共有enumを使用、検索固有機能は維持
+  - EMAメトリクス（success_rate_1h, latency_ema, captcha_rate）
+  - DB永続化（datetime基準cooldown）
+  - 指数バックオフ（failure historyベース）
+
+**テスト**: `tests/test_utils_circuit_breaker.py`（32件）
 
 ### I.4 パーサー自己修復（AI駆動）
 
