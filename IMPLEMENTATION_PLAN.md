@@ -676,6 +676,19 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 収集コンテンツに含まれる悪意あるプロンプトインジェクションからローカルLLMを防御する多層防御を実装する。
 
+**防御層サマリ**:
+
+| 層 | 目的 | 状態 |
+|----|------|:----:|
+| L1: ネットワーク分離 | LLMから外部への直接送信を遮断 | ✅ |
+| L2: 入力サニタイズ | 危険パターンの除去 | ✅ |
+| L3: タグ分離 | システム/ユーザープロンプトの分離 | ✅ |
+| L4: 出力検証 | URL/IP/プロンプト断片の検出 | 🔄 |
+| L5: MCP応答メタデータ | 信頼度情報の付与 | ⏳ |
+| L6: ソース検証フロー | 自動昇格/降格 | ⏳ |
+| **L7: MCP応答サニタイズ** | Cursor AI経由流出防止 | ⏳ |
+| **L8: ログセキュリティ** | ログ/DB/エラーからの漏洩防止 | ⏳ |
+
 #### K.3-1 ネットワーク分離（L1）✅
 
 | 項目 | 実装 | 状態 |
@@ -704,13 +717,25 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 危険単語検出・警告 | ログ出力 | ✅ |
 | 入力長制限 | 4000文字 | ✅ |
 
-#### K.3-4 出力検証（L4）✅
+#### K.3-4 出力検証（L4）🔄
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
 | 外部URLパターン検出 | `validate_llm_output()` | ✅ |
 | IPアドレスパターン検出 | 同上 | ✅ |
 | 異常長出力切り捨て | 期待長の10倍超 | ✅ |
+| **システムプロンプト断片検出** | `detect_prompt_leakage()` | ⏳ |
+| **断片マスク処理** | `mask_prompt_fragments()` | ⏳ |
+
+**追加実装（§4.4.1 L4強化）**:
+- n-gram一致検出（連続20文字以上）
+- タグ名パターン検出（`LANCET-`プレフィックス）
+- 検出時のマスク処理（`[REDACTED]`置換）
+- 検出イベントの監査ログ出力
+
+**影響ファイル:**
+- `src/filter/llm_security.py`: `detect_prompt_leakage()`, `mask_prompt_fragments()` 追加
+- `src/filter/llm.py`: 出力処理に断片検出を組み込み
 
 #### K.3-5 MCP応答メタデータ（L5）⏳
 
@@ -786,14 +811,116 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 - `src/utils/notification.py`: InterventionQueue拡張（新auth_type追加）
 - `src/filter/source_verification.py`: BLOCKED時の通知呼び出し
 
+#### K.3-9 MCP応答サニタイズ（L7）⏳ 🔴優先
+
+MCP応答がCursor AIに渡る前の最終サニタイズ。Cursor AI経由のシステムプロンプト流出を防止する。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| 応答スキーマ定義 | `src/mcp/schemas/` (JSONSchema) | ⏳ |
+| スキーマ検証 | `ResponseSanitizer.validate_schema()` | ⏳ |
+| 予期しないフィールド除去 | `ResponseSanitizer.strip_unknown_fields()` | ⏳ |
+| LLMフィールドのL4通過強制 | `ResponseSanitizer.sanitize_llm_fields()` | ⏳ |
+| エラー応答サニタイズ | `ResponseSanitizer.sanitize_error()` | ⏳ |
+| MCPハンドラへの統合 | `src/mcp/server.py` 各ハンドラの出口 | ⏳ |
+
+**設計方針**:
+- allowlist方式: 定義済みフィールドのみ通過、未定義は除去
+- LLM生成フィールド（`extracted_facts`, `claims`, `summary`等）は必ず`validate_llm_output()`を通過
+- エラー応答は汎用化し、詳細は`error_id`でログ参照
+
+**影響ファイル:**
+- 新規 `src/mcp/response_sanitizer.py`: サニタイズロジック
+- 新規 `src/mcp/schemas/`: 各MCPツールの応答スキーマ（JSONSchema）
+- `src/mcp/server.py`: 全ハンドラの出口にサニタイズレイヤ追加
+
+**スキーマ例（execute_subquery）**:
+```json
+{
+  "type": "object",
+  "properties": {
+    "ok": {"type": "boolean"},
+    "subquery_id": {"type": "string"},
+    "status": {"enum": ["running", "satisfied", "partial", "exhausted"]},
+    "pages_fetched": {"type": "integer"},
+    "useful_fragments": {"type": "integer"},
+    "harvest_rate": {"type": "number"},
+    "new_claims": {"type": "array"},
+    "_lancet_meta": {"type": "object"}
+  },
+  "additionalProperties": false
+}
+```
+
+#### K.3-10 ログセキュリティポリシー（L8）⏳ 🔴優先
+
+ログ・DB・エラーメッセージからの情報漏洩防止。
+
+| 項目 | 実装 | 状態 |
+|------|------|:----:|
+| LLM入出力ログのサマリ化 | `SecureLogger.log_llm_io()` | ⏳ |
+| 例外サニタイズ | `SecureLogger.sanitize_exception()` | ⏳ |
+| DBへのプロンプト非保存 | `src/storage/` 各モジュール確認 | ⏳ |
+| 監査ログ（検出イベント） | `AuditLogger.log_security_event()` | ⏳ |
+| structlog統合 | カスタムプロセッサ | ⏳ |
+
+**ログ出力フォーマット**:
+```python
+# Before (禁止)
+logger.debug("LLM input", prompt=full_prompt_text)
+
+# After (許可)
+logger.debug("LLM input", 
+    prompt_hash="abc123...",
+    prompt_length=1500,
+    prompt_preview="..."  # 先頭100文字のみ
+)
+```
+
+**例外サニタイズ例**:
+```python
+try:
+    result = llm.extract(prompt)
+except Exception as e:
+    # 内部ログ（詳細あり）
+    internal_logger.error("LLM extraction failed", 
+        error_id="err_abc123",
+        exception=str(e),
+        traceback=traceback.format_exc()
+    )
+    # MCP応答（詳細なし）
+    return {"ok": False, "error": "Internal processing error", "error_id": "err_abc123"}
+```
+
+**影響ファイル:**
+- 新規 `src/utils/secure_logging.py`: `SecureLogger`, `AuditLogger`
+- `src/filter/llm.py`: ログ出力をSecureLogger経由に変更
+- `src/mcp/server.py`: 例外ハンドリングにサニタイズ適用
+- `src/storage/`: プロンプト保存箇所の確認・修正
+
 #### K.3 テスト
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| ユニットテスト（48件） | `tests/test_llm_security.py` | ✅ |
+| ユニットテスト（L2/L3/L4基本） | `tests/test_llm_security.py` | ✅ |
+| ユニットテスト（L4強化: 断片検出） | `tests/test_llm_security.py` 追加 | ⏳ |
+| ユニットテスト（L7: MCP応答サニタイズ） | `tests/test_response_sanitizer.py` | ⏳ |
+| ユニットテスト（L8: ログセキュリティ） | `tests/test_secure_logging.py` | ⏳ |
 | E2E: ネットワーク分離検証 | Ollamaから外部通信不可を確認 | ⏳ |
 | E2E: LLM応答検証 | サニタイズ済みプロンプトでの正常動作 | ⏳ |
 | E2E: タグ分離効果検証 | インジェクション攻撃の影響確認 | ⏳ |
+| E2E: MCP応答流出検証 | プロンプト断片がMCP応答に含まれないことを確認 | ⏳ |
+
+**L7テスト観点**:
+- スキーマ検証: 不正フィールドが除去されること
+- LLMフィールド: プロンプト断片が検出・マスクされること
+- エラー応答: スタックトレース・内部パスが含まれないこと
+- 正常応答: 必要なフィールドが欠落しないこと
+
+**L8テスト観点**:
+- ログ出力: プロンプト本文が記録されないこと
+- 例外処理: サニタイズ後のメッセージが安全であること
+- 監査ログ: セキュリティイベントが記録されること
 
 **注**: E2EテストはGPU環境で実行が必要。`tests/scripts/verify_llm_security.py`として実装予定。
 
