@@ -572,7 +572,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 項目 | 状態 |
 |------|:----:|
 | 汎用サーキットブレーカ | ✅ |
-| 汎用リトライ/バックオフ | 未実装 |
+| 汎用リトライ/バックオフ | ✅ |
 | 汎用キャッシュレイヤ | 未実装 |
 
 #### I.3.1 汎用サーキットブレーカ ✅
@@ -589,6 +589,28 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
   - 指数バックオフ（failure historyベース）
 
 **テスト**: `tests/test_utils_circuit_breaker.py`（32件）
+
+#### I.3.2 汎用リトライ/バックオフ ✅
+
+**実装内容**:
+- `src/utils/backoff.py`: 指数バックオフ計算ユーティリティ
+  - `BackoffConfig`: 設定（base_delay, max_delay, exponential_base, jitter_factor）
+  - `calculate_backoff()`: リトライ遅延計算（§4.3.5準拠）
+  - `calculate_cooldown_minutes()`: クールダウン計算（§4.3, §3.1.4準拠）
+  - `calculate_total_delay()`: 総遅延時間計算（タイムアウト見積もり用）
+- `src/utils/api_retry.py`: 公式API専用リトライ（§3.1.3, §4.3.5準拠）
+  - `APIRetryPolicy`: ポリシー設定（retryable_exceptions, retryable_status_codes）
+  - `retry_api_call()`: 非同期リトライ関数
+  - `@with_api_retry`: デコレータ
+  - 事前設定ポリシー: `JAPAN_GOV_API_POLICY`, `ACADEMIC_API_POLICY`, `ENTITY_API_POLICY`
+- `src/search/circuit_breaker.py`: 共通ユーティリティを使用するよう更新
+  - `_calculate_cooldown()` → `calculate_cooldown_minutes()` を使用
+
+**仕様書更新**: `requirements.md` §4.3.5「リトライ戦略の分類」を追加
+- エスカレーションパス（検索/取得向け）: 同一経路での単純リトライ禁止
+- ネットワーク/APIリトライ（トランジェントエラー向け）: 公式APIのみ適用可
+
+**テスト**: `tests/test_utils_backoff.py`（26件）、`tests/test_utils_api_retry.py`（28件）
 
 ### I.4 パーサー自己修復（AI駆動）
 
