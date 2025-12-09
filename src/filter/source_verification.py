@@ -187,13 +187,20 @@ class SourceVerifier:
         ]
         
         # Build verification details
+        # Extract contradicting claim IDs, filtering out None values
+        contradicting_claim_ids = []
+        for c in claim_contradictions:
+            claim1_id = c.get("claim1_id")
+            claim2_id = c.get("claim2_id")
+            # Get the "other" claim ID (not the current claim)
+            other_id = claim2_id if claim1_id == claim_id else claim1_id
+            if other_id is not None:
+                contradicting_claim_ids.append(other_id)
+        
         details = VerificationDetails(
             independent_sources=confidence_info.get("independent_sources", 0),
             corroborating_claims=[],  # Would need additional EvidenceGraph query
-            contradicting_claims=[
-                c.get("claim2_id") if c.get("claim1_id") == claim_id else c.get("claim1_id")
-                for c in claim_contradictions
-            ],
+            contradicting_claims=contradicting_claim_ids,
             nli_scores={
                 "supporting": confidence_info.get("supporting_count", 0),
                 "refuting": confidence_info.get("refuting_count", 0),

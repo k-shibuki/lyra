@@ -1,10 +1,12 @@
 """
 Exploration state management for Lancet.
 
-Manages task and subquery states, calculates satisfaction and novelty scores.
+Manages task and search states, calculates satisfaction and novelty scores.
 Reports state to Cursor AI for decision making.
 
 See requirements.md §3.1.7.2, §3.1.7.3, §3.1.7.4.
+
+Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
 
 import json
@@ -24,8 +26,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class SubqueryStatus(Enum):
-    """Status of a subquery execution."""
+class SearchStatus(Enum):
+    """Status of a search execution."""
     
     PENDING = "pending"      # Created but not executed
     RUNNING = "running"      # Currently executing
@@ -35,10 +37,14 @@ class SubqueryStatus(Enum):
     SKIPPED = "skipped"      # Manually skipped by Cursor AI
 
 
+# Backward compatibility alias (deprecated, will be removed)
+SubqueryStatus = SearchStatus
+
+
 class TaskStatus(Enum):
     """Status of a research task."""
     
-    CREATED = "created"              # Task created, Cursor AI designing subqueries
+    CREATED = "created"              # Task created, Cursor AI designing searches
     EXPLORING = "exploring"          # Exploration in progress
     AWAITING_DECISION = "awaiting_decision"  # Waiting for Cursor AI decision
     FINALIZING = "finalizing"        # Wrapping up exploration
@@ -47,12 +53,12 @@ class TaskStatus(Enum):
 
 
 @dataclass
-class SubqueryState:
-    """State of a single subquery."""
+class SearchState:
+    """State of a single search query."""
     
     id: str
     text: str
-    status: SubqueryStatus = SubqueryStatus.PENDING
+    status: SearchStatus = SearchStatus.PENDING
     priority: str = "medium"  # high, medium, low
     
     # Source tracking
@@ -92,20 +98,20 @@ class SubqueryState:
         return self.satisfaction_score
     
     def is_satisfied(self) -> bool:
-        """Check if subquery is satisfied (score >= 0.8)."""
+        """Check if search is satisfied (score >= 0.8)."""
         return self.calculate_satisfaction_score() >= 0.8
     
-    def update_status(self) -> SubqueryStatus:
+    def update_status(self) -> SearchStatus:
         """Update status based on current metrics."""
-        if self.status == SubqueryStatus.SKIPPED:
+        if self.status == SearchStatus.SKIPPED:
             return self.status
         
         if self.is_satisfied():
-            self.status = SubqueryStatus.SATISFIED
+            self.status = SearchStatus.SATISFIED
         elif self.independent_sources > 0:
-            self.status = SubqueryStatus.PARTIAL
+            self.status = SearchStatus.PARTIAL
         elif self.novelty_score < 0.1 and self.pages_fetched > 10:
-            self.status = SubqueryStatus.EXHAUSTED
+            self.status = SearchStatus.EXHAUSTED
         
         return self.status
     
@@ -143,15 +149,19 @@ class SubqueryState:
         }
 
 
+# Backward compatibility alias (deprecated, will be removed)
+SubqueryState = SearchState
+
+
 class ExplorationState:
     """
     Manages exploration state for a research task.
     
-    Tracks subquery execution, calculates metrics, and provides
+    Tracks search execution, calculates metrics, and provides
     status reports to Cursor AI for decision making.
     
     Integrates UCB1-based dynamic budget allocation (§3.1.1):
-    - High-yield subqueries receive more budget
+    - High-yield searches receive more budget
     - Budget is reallocated based on harvest rates
     """
     
@@ -171,7 +181,7 @@ class ExplorationState:
         self.task_id = task_id
         self._db = None
         self._task_status = TaskStatus.CREATED
-        self._subqueries: dict[str, SubqueryState] = {}
+        self._searches: dict[str, SearchState] = {}
         
         # Budget tracking
         self._pages_limit = 120
@@ -203,7 +213,7 @@ class ExplorationState:
         self._ucb_allocator = UCBAllocator(
             total_budget=self._pages_limit,
             exploration_constant=self._ucb_exploration_constant,
-            min_budget_per_subquery=5,
+            min_budget_per_search=5,
             max_budget_ratio=0.4,
             reallocation_interval=10,
         )
@@ -234,7 +244,7 @@ class ExplorationState:
             except ValueError:
                 self._task_status = TaskStatus.CREATED
         
-        # Load existing subqueries
+        # Load existing searches
         queries = await self._db.fetch_all(
             """
             SELECT id, query_text, query_type, depth, harvest_rate
@@ -245,12 +255,12 @@ class ExplorationState:
         )
         
         for q in queries:
-            sq = SubqueryState(
+            search = SearchState(
                 id=q["id"],
                 text=q.get("query_text", ""),
                 harvest_rate=q.get("harvest_rate", 0.0),
             )
-            self._subqueries[sq.id] = sq
+            self._searches[search.id] = search
     
     async def save_state(self) -> None:
         """Save current state to database."""
@@ -261,6 +271,54 @@ class ExplorationState:
             (self._task_status.value, self.task_id),
         )
     
+    def register_search(
+        self,
+        search_id: str,
+        text: str,
+        priority: str = "medium",
+        budget_pages: int | None = None,
+        budget_time_seconds: int | None = None,
+    ) -> SearchState:
+        """
+        Register a new search for execution.
+        
+        Args:
+            search_id: Unique identifier for the search.
+            text: The search query text (designed by Cursor AI).
+            priority: Execution priority (high/medium/low).
+            budget_pages: Optional page budget for this search.
+            budget_time_seconds: Optional time budget for this search.
+            
+        Returns:
+            The created SearchState.
+        """
+        search = SearchState(
+            id=search_id,
+            text=text,
+            priority=priority,
+            budget_pages=budget_pages,
+            budget_time_seconds=budget_time_seconds,
+        )
+        self._searches[search_id] = search
+        
+        # Register with UCB allocator (§3.1.1)
+        if self._ucb_allocator:
+            self._ucb_allocator.register_search(
+                search_id=search_id,
+                priority=priority,
+                initial_budget=budget_pages,
+            )
+        
+        logger.info(
+            "Registered search",
+            task_id=self.task_id,
+            search_id=search_id,
+            priority=priority,
+        )
+        
+        return search
+    
+    # Backward compatibility alias (deprecated, will be removed)
     def register_subquery(
         self,
         subquery_id: str,
@@ -268,118 +326,98 @@ class ExplorationState:
         priority: str = "medium",
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
-    ) -> SubqueryState:
-        """
-        Register a new subquery for execution.
-        
-        Args:
-            subquery_id: Unique identifier for the subquery.
-            text: The subquery text (designed by Cursor AI).
-            priority: Execution priority (high/medium/low).
-            budget_pages: Optional page budget for this subquery.
-            budget_time_seconds: Optional time budget for this subquery.
-            
-        Returns:
-            The created SubqueryState.
-        """
-        sq = SubqueryState(
-            id=subquery_id,
+    ) -> SearchState:
+        """Deprecated: Use register_search instead."""
+        return self.register_search(
+            search_id=subquery_id,
             text=text,
             priority=priority,
             budget_pages=budget_pages,
             budget_time_seconds=budget_time_seconds,
         )
-        self._subqueries[subquery_id] = sq
-        
-        # Register with UCB allocator (§3.1.1)
-        if self._ucb_allocator:
-            self._ucb_allocator.register_subquery(
-                subquery_id=subquery_id,
-                priority=priority,
-                initial_budget=budget_pages,
-            )
-        
-        logger.info(
-            "Registered subquery",
-            task_id=self.task_id,
-            subquery_id=subquery_id,
-            priority=priority,
-        )
-        
-        return sq
     
-    def start_subquery(self, subquery_id: str) -> SubqueryState | None:
-        """Mark a subquery as running."""
-        sq = self._subqueries.get(subquery_id)
-        if sq:
-            sq.status = SubqueryStatus.RUNNING
-            sq.time_started = time.time()
+    def start_search(self, search_id: str) -> SearchState | None:
+        """Mark a search as running."""
+        search = self._searches.get(search_id)
+        if search:
+            search.status = SearchStatus.RUNNING
+            search.time_started = time.time()
             self._task_status = TaskStatus.EXPLORING
             
             if self._time_started is None:
                 self._time_started = time.time()
         
-        return sq
+        return search
     
-    def get_subquery(self, subquery_id: str) -> SubqueryState | None:
-        """Get a subquery by ID."""
-        return self._subqueries.get(subquery_id)
+    # Backward compatibility alias (deprecated, will be removed)
+    def start_subquery(self, subquery_id: str) -> SearchState | None:
+        """Deprecated: Use start_search instead."""
+        return self.start_search(subquery_id)
+    
+    def get_search(self, search_id: str) -> SearchState | None:
+        """Get a search by ID."""
+        return self._searches.get(search_id)
+    
+    # Backward compatibility alias (deprecated, will be removed)
+    def get_subquery(self, subquery_id: str) -> SearchState | None:
+        """Deprecated: Use get_search instead."""
+        return self.get_search(subquery_id)
     
     def record_page_fetch(
         self,
-        subquery_id: str,
+        search_id: str,
         domain: str,
         is_primary_source: bool,
         is_independent: bool,
     ) -> None:
         """
-        Record a page fetch for a subquery.
+        Record a page fetch for a search.
         
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
             domain: Domain of the fetched page.
             is_primary_source: Whether this is a primary source (gov/academic/official).
             is_independent: Whether this is an independent source (new domain/cluster).
         """
-        sq = self._subqueries.get(subquery_id)
-        if not sq:
+        search = self._searches.get(search_id)
+        if not search:
             return
         
-        sq.pages_fetched += 1
+        search.pages_fetched += 1
         self._pages_used += 1
         
         if is_independent:
-            sq.independent_sources += 1
-            if domain not in sq.source_domains:
-                sq.source_domains.append(domain)
+            search.independent_sources += 1
+            if domain not in search.source_domains:
+                search.source_domains.append(domain)
         
         if is_primary_source:
-            sq.has_primary_source = True
+            search.has_primary_source = True
         
-        sq.update_status()
+        search.update_status()
     
     def record_fragment(
         self,
-        subquery_id: str,
+        search_id: str,
         fragment_hash: str,
         is_useful: bool,
         is_novel: bool,
     ) -> None:
         """Record a fragment extraction."""
-        sq = self._subqueries.get(subquery_id)
-        if sq:
-            sq.add_fragment(fragment_hash, is_useful, is_novel)
+        search = self._searches.get(search_id)
+        if search:
+            search.add_fragment(fragment_hash, is_useful, is_novel)
             self._total_fragments += 1
             
             # Record observation in UCB allocator (§3.1.1)
             if self._ucb_allocator:
-                self._ucb_allocator.record_observation(subquery_id, is_useful)
+                self._ucb_allocator.record_observation(search_id, is_useful)
     
-    def record_claim(self, subquery_id: str, is_verified: bool = False, is_refuted: bool = False) -> None:
+    def record_claim(self, search_id: str, is_verified: bool = False, is_refuted: bool = False) -> None:
         """Record a claim extraction.
         
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
             is_verified: Whether the claim is verified (supported by evidence).
             is_refuted: Whether the claim is refuted by counter-evidence.
         """
@@ -429,50 +467,55 @@ class ExplorationState:
         
         return True, None
     
-    def get_dynamic_budget(self, subquery_id: str) -> int:
+    def get_dynamic_budget(self, search_id: str) -> int:
         """
-        Get dynamic budget for a subquery using UCB1 allocation (§3.1.1).
+        Get dynamic budget for a search using UCB1 allocation (§3.1.1).
         
         If UCB allocation is enabled, returns budget based on harvest rates.
-        Otherwise, returns the static budget from SubqueryState.
+        Otherwise, returns the static budget from SearchState.
         
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
             
         Returns:
-            Available budget (pages) for the subquery.
+            Available budget (pages) for the search.
         """
-        sq = self._subqueries.get(subquery_id)
-        if not sq:
+        search = self._searches.get(search_id)
+        if not search:
             return 0
         
         if self._ucb_allocator:
-            return self._ucb_allocator.reallocate_and_get_budget(subquery_id)
+            return self._ucb_allocator.reallocate_and_get_budget(search_id)
         
         # Fallback to static budget
-        if sq.budget_pages is not None:
-            return max(0, sq.budget_pages - sq.pages_fetched)
+        if search.budget_pages is not None:
+            return max(0, search.budget_pages - search.pages_fetched)
         
-        # Default budget per subquery
+        # Default budget per search
         return 15
     
-    def get_ucb_recommended_subquery(self) -> str | None:
+    def get_ucb_recommended_search(self) -> str | None:
         """
-        Get the subquery recommended by UCB1 for next execution.
+        Get the search recommended by UCB1 for next execution.
         
         Returns:
-            Subquery ID with highest UCB score, or None.
+            Search ID with highest UCB score, or None.
         """
         if not self._ucb_allocator:
             return None
-        return self._ucb_allocator.get_recommended_subquery()
+        return self._ucb_allocator.get_recommended_search()
+    
+    # Backward compatibility alias (deprecated, will be removed)
+    def get_ucb_recommended_subquery(self) -> str | None:
+        """Deprecated: Use get_ucb_recommended_search instead."""
+        return self.get_ucb_recommended_search()
     
     def get_ucb_scores(self) -> dict[str, float]:
         """
-        Get UCB1 scores for all subqueries.
+        Get UCB1 scores for all searches.
         
         Returns:
-            Dictionary mapping subquery_id to UCB1 score.
+            Dictionary mapping search_id to UCB1 score.
         """
         if not self._ucb_allocator:
             return {}
@@ -485,29 +528,29 @@ class ExplorationState:
         Useful after significant changes in harvest rates.
         
         Returns:
-            New budget allocations per subquery.
+            New budget allocations per search.
         """
         if not self._ucb_allocator:
             return {}
         return self._ucb_allocator.reallocate_budget()
     
-    def check_novelty_stop_condition(self, subquery_id: str) -> bool:
+    def check_novelty_stop_condition(self, search_id: str) -> bool:
         """
         Check if novelty stop condition is met (§3.1.7.4).
         
         Stop if novelty < 10% for 2 consecutive cycles.
         """
-        sq = self._subqueries.get(subquery_id)
-        if not sq:
+        search = self._searches.get(search_id)
+        if not search:
             return False
         
         # Need at least 2 cycles (20 fragments)
-        if sq.pages_fetched < 20:
+        if search.pages_fetched < 20:
             return False
         
         # Check last 2 cycles
-        if sq.novelty_score < 0.1:
-            self._novelty_history.append(sq.novelty_score)
+        if search.novelty_score < 0.1:
+            self._novelty_history.append(search.novelty_score)
             if len(self._novelty_history) >= 2:
                 if all(n < 0.1 for n in self._novelty_history[-2:]):
                     return True
@@ -539,11 +582,11 @@ class ExplorationState:
         if self._time_started:
             elapsed_seconds = int(time.time() - self._time_started)
         
-        # Count subquery statuses
-        satisfied = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.SATISFIED)
-        partial = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.PARTIAL)
-        pending = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.PENDING)
-        exhausted_count = sum(1 for sq in self._subqueries.values() if sq.status == SubqueryStatus.EXHAUSTED)
+        # Count search statuses
+        satisfied = sum(1 for s in self._searches.values() if s.status == SearchStatus.SATISFIED)
+        partial = sum(1 for s in self._searches.values() if s.status == SearchStatus.PARTIAL)
+        pending = sum(1 for s in self._searches.values() if s.status == SearchStatus.PENDING)
+        exhausted_count = sum(1 for s in self._searches.values() if s.status == SearchStatus.EXHAUSTED)
         
         # Generate warnings (factual alerts, not recommendations)
         warnings = []
@@ -552,7 +595,7 @@ class ExplorationState:
             warnings.append(budget_warning)
         
         if exhausted_count > 0:
-            warnings.append(f"{exhausted_count}件のサブクエリが収穫逓減で停止")
+            warnings.append(f"{exhausted_count}件の検索が収穫逓減で停止")
         
         # Get authentication queue summary (§16.7.1)
         authentication_queue = await self._get_authentication_queue_summary()
@@ -581,7 +624,7 @@ class ExplorationState:
             "ok": True,
             "task_id": self.task_id,
             "task_status": self._task_status.value,
-            "subqueries": [sq.to_dict() for sq in self._subqueries.values()],
+            "searches": [s.to_dict() for s in self._searches.values()],
             "metrics": {
                 "satisfied_count": satisfied,
                 "partial_count": partial,
@@ -713,33 +756,33 @@ class ExplorationState:
         """
         self._task_status = TaskStatus.COMPLETED
         
-        satisfied_sqs = [sq for sq in self._subqueries.values() if sq.status == SubqueryStatus.SATISFIED]
-        partial_sqs = [sq for sq in self._subqueries.values() if sq.status == SubqueryStatus.PARTIAL]
-        unsatisfied_sqs = [
-            sq for sq in self._subqueries.values()
-            if sq.status in (SubqueryStatus.PENDING, SubqueryStatus.EXHAUSTED)
+        satisfied_searches = [s for s in self._searches.values() if s.status == SearchStatus.SATISFIED]
+        partial_searches = [s for s in self._searches.values() if s.status == SearchStatus.PARTIAL]
+        unsatisfied_searches = [
+            s for s in self._searches.values()
+            if s.status in (SearchStatus.PENDING, SearchStatus.EXHAUSTED)
         ]
         
         followup_suggestions = []
-        for sq in unsatisfied_sqs:
-            if sq.status == SubqueryStatus.EXHAUSTED:
-                followup_suggestions.append(f"{sq.id}: 収穫逓減で停止。別のクエリ戦略が必要")
-            elif sq.status == SubqueryStatus.PENDING:
-                followup_suggestions.append(f"{sq.id}: 未実行")
+        for s in unsatisfied_searches:
+            if s.status == SearchStatus.EXHAUSTED:
+                followup_suggestions.append(f"{s.id}: 収穫逓減で停止。別のクエリ戦略が必要")
+            elif s.status == SearchStatus.PENDING:
+                followup_suggestions.append(f"{s.id}: 未実行")
         
-        for sq in partial_sqs:
-            if not sq.has_primary_source:
-                followup_suggestions.append(f"{sq.id}: 一次資料が見つかっていません")
+        for s in partial_searches:
+            if not s.has_primary_source:
+                followup_suggestions.append(f"{s.id}: 一次資料が見つかっていません")
         
         # Determine final status
-        final_status = "completed" if not unsatisfied_sqs else "partial"
+        final_status = "completed" if not unsatisfied_searches else "partial"
         
-        # Calculate refuted claims from subqueries with found refutations
-        refuted_from_subqueries = sum(
-            1 for sq in self._subqueries.values()
-            if sq.refutation_status == "found"
+        # Calculate refuted claims from searches with found refutations
+        refuted_from_searches = sum(
+            1 for s in self._searches.values()
+            if s.refutation_status == "found"
         )
-        total_refuted = max(self._refuted_claims, refuted_from_subqueries)
+        total_refuted = max(self._refuted_claims, refuted_from_searches)
         
         # Calculate unverified claims
         unverified_claims = max(0, self._total_claims - self._verified_claims - total_refuted)
@@ -752,9 +795,9 @@ class ExplorationState:
             "task_id": self.task_id,
             "final_status": final_status,
             "summary": {
-                "satisfied_subqueries": len(satisfied_sqs),
-                "partial_subqueries": len(partial_sqs),
-                "unsatisfied_subqueries": [sq.id for sq in unsatisfied_sqs],
+                "satisfied_searches": len(satisfied_searches),
+                "partial_searches": len(partial_searches),
+                "unsatisfied_searches": [s.id for s in unsatisfied_searches],
                 "total_claims": self._total_claims,
                 "verified_claims": self._verified_claims,
                 "refuted_claims": total_refuted,
@@ -764,7 +807,7 @@ class ExplorationState:
             "evidence_graph_summary": {
                 "nodes": evidence_graph_stats.get("total_nodes", self._total_fragments + self._total_claims),
                 "edges": evidence_graph_stats.get("total_edges", 0),
-                "primary_source_ratio": sum(1 for sq in self._subqueries.values() if sq.has_primary_source) / max(1, len(self._subqueries)),
+                "primary_source_ratio": sum(1 for s in self._searches.values() if s.has_primary_source) / max(1, len(self._searches)),
             },
         }
 

@@ -386,8 +386,8 @@ class TestExplorationState:
         assert status["ok"] is True
         assert status["task_id"] == task_id
         assert "task_status" in status
-        assert "subqueries" in status
-        assert len(status["subqueries"]) == 2
+        assert "searches" in status
+        assert len(status["searches"]) == 2
         assert "metrics" in status
         assert "budget" in status
         assert "warnings" in status
@@ -577,8 +577,8 @@ class TestExplorationState:
         # Then: Summary shows partial completion with suggestions
         assert result["ok"] is True
         assert result["final_status"] == "partial"
-        assert result["summary"]["satisfied_subqueries"] == 1
-        assert "sq_002" in result["summary"]["unsatisfied_subqueries"]
+        assert result["summary"]["satisfied_searches"] == 1
+        assert "sq_002" in result["summary"]["unsatisfied_searches"]
         assert len(result["followup_suggestions"]) >= 1, (
             f"Expected >=1 followup suggestions, got {result['followup_suggestions']}"
         )
@@ -947,8 +947,8 @@ class TestStopTaskAction:
         state = ExplorationState(task_id)
         state._db = test_database
         
-        # Register a subquery for total_searches count
-        state.register_subquery("sq_001", "test query")
+        # Register a search for total_searches count
+        state.register_search("sq_001", "test query")
         
         # Patch finalize to return complete result
         async def mock_finalize():
@@ -956,7 +956,7 @@ class TestStopTaskAction:
                 "ok": True,
                 "final_status": "completed",
                 "summary": {
-                    "satisfied_subqueries": 5,
+                    "satisfied_searches": 5,
                     "total_claims": 10,
                 },
                 "evidence_graph_summary": {
@@ -972,7 +972,7 @@ class TestStopTaskAction:
         # Then: Should use values from finalize_result
         assert result["ok"] is True
         assert result["final_status"] == "completed"
-        assert result["summary"]["total_searches"] == 1  # One registered subquery
+        assert result["summary"]["total_searches"] == 1  # One registered search
         assert result["summary"]["satisfied_searches"] == 5
         assert result["summary"]["total_claims"] == 10
         assert result["summary"]["primary_source_ratio"] == 0.75

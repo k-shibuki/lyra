@@ -22,6 +22,23 @@
 | TC-N-01 | Valid input A       | Equivalence – normal                 | Processing succeeds | - |
 | TC-A-01 | NULL                | Boundary – NULL                      | Validation error | - |
 
+## テスト実行方法
+
+**scripts/test.sh を使用（推奨）**:
+
+```bash
+# 1. テスト開始（特定ファイルを指定）
+./scripts/test.sh run "tests/test_xxx.py"
+
+# 2. 完了確認（5秒以上更新がなければDONE）
+./scripts/test.sh check
+
+# 3. 結果取得
+./scripts/test.sh get
+```
+
+**注意**: test.shは非同期実行。`run`後に`check`→`get`で結果を取得する。
+
 ## 完了条件
 - [ ] テスト観点表が作成済み
 - [ ] テストコードが完成
