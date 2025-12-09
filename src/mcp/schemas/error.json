@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:error",
+  "title": "MCP Error Response",
+  "description": "Common error response schema for all MCP tools",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "const": false
+    },
+    "error_code": {
+      "type": "string",
+      "description": "Error code per §3.2.1"
+    },
+    "error": {
+      "type": "string",
+      "description": "Human-readable error message (sanitized)"
+    },
+    "error_id": {
+      "type": "string",
+      "description": "Error ID for log reference"
+    },
+    "error_type": {
+      "type": "string",
+      "description": "Exception type name"
+    }
+  },
+  "required": ["ok", "error_code", "error"],
+  "additionalProperties": false
+}
+

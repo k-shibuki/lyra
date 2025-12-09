@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:search",
+  "title": "search Response",
+  "description": "Response schema for search tool (§3.2.1: search pipeline execution)",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "search_id": {
+      "type": "string",
+      "description": "Search execution ID"
+    },
+    "query": {
+      "type": "string",
+      "description": "Executed query"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["satisfied", "partial", "exhausted", "error"]
+    },
+    "pages_fetched": {
+      "type": "integer"
+    },
+    "useful_fragments": {
+      "type": "integer"
+    },
+    "harvest_rate": {
+      "type": "number",
+      "description": "Useful fragments / pages fetched"
+    },
+    "claims_found": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": "string"},
+          "confidence": {"type": "number"},
+          "source_count": {"type": "integer"}
+        },
+        "additionalProperties": false
+      },
+      "description": "LLM-extracted claims (L4 sanitized)"
+    },
+    "satisfaction_score": {
+      "type": "number"
+    },
+    "novelty_score": {
+      "type": "number"
+    },
+    "budget_remaining": {
+      "type": "object",
+      "properties": {
+        "pages": {"type": "integer"},
+        "seconds": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "refutation_mode": {
+      "type": "boolean"
+    },
+    "engines_used": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": ["ok", "search_id", "query", "status"],
+  "additionalProperties": false
+}
+

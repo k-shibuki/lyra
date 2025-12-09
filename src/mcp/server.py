@@ -358,14 +358,23 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         
     Returns:
         List of text content responses.
+        
+    Note:
+        All responses pass through L7 sanitization (§4.4.1)
+        before being returned to Cursor AI.
     """
     from src.mcp.errors import MCPError, generate_error_id
+    from src.mcp.response_sanitizer import sanitize_response, sanitize_error
     
     logger.info("Tool called", tool=name, arguments=arguments)
     
     try:
         result = await _dispatch_tool(name, arguments)
-        return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+        
+        # L7: Sanitize response before returning to Cursor AI
+        sanitized_result = sanitize_response(result, name)
+        
+        return [TextContent(type="text", text=json.dumps(sanitized_result, ensure_ascii=False, indent=2))]
     except MCPError as e:
         # Structured MCP error with error code
         logger.warning(
@@ -374,9 +383,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             error_code=e.code.value,
             error=e.message,
         )
-        return [TextContent(type="text", text=json.dumps(e.to_dict(), ensure_ascii=False, indent=2))]
+        # L7: Error responses also go through sanitization
+        error_dict = e.to_dict()
+        sanitized_error = sanitize_response(error_dict, "error")
+        return [TextContent(type="text", text=json.dumps(sanitized_error, ensure_ascii=False, indent=2))]
     except Exception as e:
-        # Unexpected error - wrap in INTERNAL_ERROR
+        # Unexpected error - wrap in INTERNAL_ERROR with L7 sanitization
         error_id = generate_error_id()
         logger.error(
             "Tool internal error",
@@ -385,13 +397,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             error_id=error_id,
             exc_info=True,
         )
-        error_result = {
-            "ok": False,
-            "error_code": "INTERNAL_ERROR",
-            "error": "An unexpected internal error occurred",
-            "error_id": error_id,
-            "error_type": type(e).__name__,
-        }
+        # L7: Use sanitize_error for unexpected exceptions
+        error_result = sanitize_error(e, error_id)
         return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))]
 
 

@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:get_auth_queue",
+  "title": "get_auth_queue Response",
+  "description": "Response schema for get_auth_queue tool (§3.2.1, §3.6.1)",
+  "oneOf": [
+    {
+      "title": "Ungrouped Response",
+      "type": "object",
+      "properties": {
+        "ok": {"type": "boolean"},
+        "group_by": {"type": "string", "const": "none"},
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "queue_id": {"type": "string"},
+              "url": {"type": "string"},
+              "domain": {"type": "string"},
+              "auth_type": {"type": "string"},
+              "priority": {"type": "string"},
+              "created_at": {"type": "string"},
+              "task_id": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "total_count": {"type": "integer"}
+      },
+      "required": ["ok", "group_by", "items", "total_count"],
+      "additionalProperties": false
+    },
+    {
+      "title": "Grouped Response",
+      "type": "object",
+      "properties": {
+        "ok": {"type": "boolean"},
+        "group_by": {"type": "string", "enum": ["domain", "type"]},
+        "groups": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {"type": "object"}
+          }
+        },
+        "total_count": {"type": "integer"}
+      },
+      "required": ["ok", "group_by", "groups", "total_count"],
+      "additionalProperties": false
+    }
+  ]
+}
+
