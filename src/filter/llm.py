@@ -368,6 +368,29 @@ TRANSLATE_PROMPT = """以下のテキストを{target_lang}に翻訳してくだ
 
 翻訳:"""
 
+# Instruction-only templates for leakage detection (§4.4.1 L4)
+# These exclude user-provided text to avoid false positive leakage detection
+EXTRACT_FACTS_INSTRUCTION = """あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
+抽出した事実をJSON配列形式で出力してください。各事実は以下の形式で:
+{{"fact": "事実の内容", "confidence": 0.0-1.0の信頼度}}
+事実のみを出力し、意見や推測は含めないでください。"""
+
+EXTRACT_CLAIMS_INSTRUCTION = """あなたは情報分析の専門家です。以下のテキストから主張を抽出してください。
+抽出した主張をJSON配列形式で出力してください。各主張は以下の形式で:
+{{"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}}"""
+
+SUMMARIZE_INSTRUCTION = """以下のテキストを要約してください。重要なポイントを簡潔にまとめてください。"""
+
+TRANSLATE_INSTRUCTION = """以下のテキストを翻訳してください。"""
+
+# Mapping from task to instruction template for leakage detection
+TASK_INSTRUCTIONS: dict[str, str] = {
+    "extract_facts": EXTRACT_FACTS_INSTRUCTION,
+    "extract_claims": EXTRACT_CLAIMS_INSTRUCTION,
+    "summarize": SUMMARIZE_INSTRUCTION,
+    "translate": TRANSLATE_INSTRUCTION,
+}
+
 
 # ============================================================================
 # High-level Extraction Functions
@@ -454,9 +477,10 @@ async def llm_extract(
                 response_text = response.text
                 
                 # Validate LLM output per §4.4.1 L4
+                # Use instruction-only template to avoid false positives from user text
                 validation_result = validate_llm_output(
                     response_text,
-                    system_prompt=prompt,
+                    system_prompt=TASK_INSTRUCTIONS.get(task),
                     mask_leakage=True,
                 )
                 if validation_result.leakage_detected:
@@ -535,9 +559,10 @@ async def llm_extract(
                 response_text = await client.generate(prompt, model=model)
                 
                 # Validate LLM output per §4.4.1 L4
+                # Use instruction-only template to avoid false positives from user text
                 validation_result = validate_llm_output(
                     response_text,
-                    system_prompt=prompt,
+                    system_prompt=TASK_INSTRUCTIONS.get(task),
                     mask_leakage=True,
                 )
                 if validation_result.leakage_detected:
