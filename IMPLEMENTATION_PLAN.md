@@ -420,7 +420,7 @@ pytest -m e2e
 pytest -m ""
 ```
 
-**現在のテスト数**: 2432件（全パス）
+**現在のテスト数**: 2516件（全パス）
 
 ### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -753,7 +753,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | L4: 出力検証 | URL/IP/プロンプト断片の検出 | 🔄 |
 | L5: MCP応答メタデータ | 信頼度情報の付与 | ⏳ |
 | L6: ソース検証フロー | 自動昇格/降格 | ⏳ |
-| **L7: MCP応答サニタイズ** | Cursor AI経由流出防止 | ⏳ |
+| **L7: MCP応答サニタイズ** | Cursor AI経由流出防止 | ✅ |
 | **L8: ログセキュリティ** | ログ/DB/エラーからの漏洩防止 | ⏳ |
 
 #### K.3-1 ネットワーク分離（L1）✅
@@ -885,18 +885,18 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 - `src/utils/notification.py`: InterventionQueue拡張（新auth_type追加）
 - `src/filter/source_verification.py`: BLOCKED時の通知呼び出し
 
-#### K.3-9 MCP応答サニタイズ（L7）⏳ 🔴優先
+#### K.3-9 MCP応答サニタイズ（L7）✅
 
 MCP応答がCursor AIに渡る前の最終サニタイズ。Cursor AI経由のシステムプロンプト流出を防止する。
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| 応答スキーマ定義 | `src/mcp/schemas/` (JSONSchema) | ⏳ |
-| スキーマ検証 | `ResponseSanitizer.validate_schema()` | ⏳ |
-| 予期しないフィールド除去 | `ResponseSanitizer.strip_unknown_fields()` | ⏳ |
-| LLMフィールドのL4通過強制 | `ResponseSanitizer.sanitize_llm_fields()` | ⏳ |
-| エラー応答サニタイズ | `ResponseSanitizer.sanitize_error()` | ⏳ |
-| MCPハンドラへの統合 | `src/mcp/server.py` 各ハンドラの出口 | ⏳ |
+| 応答スキーマ定義 | `src/mcp/schemas/` (JSONSchema) | ✅ |
+| スキーマ検証 | `ResponseSanitizer.validate_schema()` | ✅ |
+| 予期しないフィールド除去 | `ResponseSanitizer.strip_unknown_fields()` | ✅ |
+| LLMフィールドのL4通過強制 | `ResponseSanitizer.sanitize_llm_fields()` | ✅ |
+| エラー応答サニタイズ | `ResponseSanitizer.sanitize_error()` | ✅ |
+| MCPハンドラへの統合 | `src/mcp/server.py` 各ハンドラの出口 | ✅ |
 
 **設計方針**:
 - allowlist方式: 定義済みフィールドのみ通過、未定義は除去
@@ -982,7 +982,7 @@ except Exception as e:
 |------|------|:----:|
 | ユニットテスト（L2/L3/L4基本） | `tests/test_llm_security.py` | ✅ |
 | ユニットテスト（L4強化: 断片検出） | `tests/test_llm_security.py` 追加 | ✅ |
-| ユニットテスト（L7: MCP応答サニタイズ） | `tests/test_response_sanitizer.py` | ⏳ |
+| ユニットテスト（L7: MCP応答サニタイズ） | `tests/test_response_sanitizer.py` | ✅ (29件) |
 | ユニットテスト（L8: ログセキュリティ） | `tests/test_secure_logging.py` | ⏳ |
 | E2E: ネットワーク分離検証 | Ollamaから外部通信不可を確認 | ⏳ |
 | E2E: LLM応答検証 | サニタイズ済みプロンプトでの正常動作 | ⏳ |

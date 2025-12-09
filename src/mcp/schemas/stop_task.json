@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:stop_task",
+  "title": "stop_task Response",
+  "description": "Response schema for stop_task tool",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "final_status": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_searches": {"type": "integer"},
+        "total_pages": {"type": "integer"},
+        "total_fragments": {"type": "integer"},
+        "total_claims": {"type": "integer"},
+        "elapsed_seconds": {"type": "number"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["ok", "task_id", "final_status"],
+  "additionalProperties": false
+}
+

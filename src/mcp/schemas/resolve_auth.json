@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:resolve_auth",
+  "title": "resolve_auth Response",
+  "description": "Response schema for resolve_auth tool",
+  "oneOf": [
+    {
+      "title": "Item Resolution",
+      "type": "object",
+      "properties": {
+        "ok": {"type": "boolean"},
+        "target": {"type": "string", "const": "item"},
+        "queue_id": {"type": "string"},
+        "action": {"type": "string", "enum": ["complete", "skip"]},
+        "success": {"type": ["boolean", "null"]}
+      },
+      "required": ["ok", "target", "queue_id", "action"],
+      "additionalProperties": false
+    },
+    {
+      "title": "Domain Resolution",
+      "type": "object",
+      "properties": {
+        "ok": {"type": "boolean"},
+        "target": {"type": "string", "const": "domain"},
+        "domain": {"type": "string"},
+        "action": {"type": "string", "enum": ["complete", "skip"]},
+        "resolved_count": {"type": "integer"}
+      },
+      "required": ["ok", "target", "domain", "action", "resolved_count"],
+      "additionalProperties": false
+    }
+  ]
+}
+

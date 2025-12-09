@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:get_status",
+  "title": "get_status Response",
+  "description": "Response schema for get_status tool (§3.2.1: unified task/exploration status)",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["exploring", "paused", "completed", "failed"]
+    },
+    "query": {
+      "type": "string"
+    },
+    "searches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "query": {"type": "string"},
+          "status": {"type": "string"},
+          "pages_fetched": {"type": "integer"},
+          "useful_fragments": {"type": "integer"},
+          "harvest_rate": {"type": "number"},
+          "satisfaction_score": {"type": "number"},
+          "has_primary_source": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "total_searches": {"type": "integer"},
+        "satisfied_count": {"type": "integer"},
+        "total_pages": {"type": "integer"},
+        "total_fragments": {"type": "integer"},
+        "total_claims": {"type": "integer"},
+        "elapsed_seconds": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "pages_used": {"type": "integer"},
+        "pages_limit": {"type": "integer"},
+        "time_used_seconds": {"type": "number"},
+        "time_limit_seconds": {"type": "integer"},
+        "remaining_percent": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "auth_queue": {
+      "type": ["object", "null"],
+      "description": "Authentication queue info (may be null)"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": ["ok", "task_id", "status", "query", "searches", "metrics", "budget", "warnings"],
+  "additionalProperties": false
+}
+

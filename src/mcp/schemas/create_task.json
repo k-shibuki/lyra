@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:create_task",
+  "title": "create_task Response",
+  "description": "Response schema for create_task tool",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "Generated task ID"
+    },
+    "query": {
+      "type": "string",
+      "description": "Research query"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Task creation timestamp"
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "max_pages": {"type": "integer"},
+        "max_seconds": {"type": "integer"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["ok", "task_id", "query", "created_at", "budget"],
+  "additionalProperties": false
+}
+

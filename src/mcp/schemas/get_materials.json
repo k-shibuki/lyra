@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lancet:mcp:get_materials",
+  "title": "get_materials Response",
+  "description": "Response schema for get_materials tool (§3.2.1: report materials)",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": "string"},
+          "confidence": {"type": "number"},
+          "support_count": {"type": "integer"},
+          "refute_count": {"type": "integer"},
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {"type": "string"},
+                "title": {"type": "string"},
+                "domain": {"type": "string"},
+                "trust_level": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "LLM-extracted claims (L4 sanitized)"
+    },
+    "fragments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": "string"},
+          "source_url": {"type": "string"},
+          "source_title": {"type": "string"},
+          "relevance_score": {"type": "number"}
+        },
+        "additionalProperties": false
+      },
+      "description": "Extracted text fragments (L4 sanitized)"
+    },
+    "evidence_graph": {
+      "type": ["object", "null"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {"type": "object"}
+        },
+        "edges": {
+          "type": "array",
+          "items": {"type": "object"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "format": {
+      "type": "string",
+      "enum": ["structured", "narrative"]
+    }
+  },
+  "required": ["ok", "task_id"],
+  "additionalProperties": false
+}
+
