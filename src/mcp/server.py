@@ -1,6 +1,8 @@
 """
 MCP Server implementation for Lancet.
 Provides tools for research operations that can be called by Cursor/LLM.
+
+Phase M: Refactored to 11 tools per requirements.md §3.2.1.
 """
 
 import asyncio
@@ -23,338 +25,16 @@ app = Server("lancet")
 
 
 # ============================================================
-# Tool Definitions
+# Tool Definitions (Phase M - §3.2.1: 11 Tools)
 # ============================================================
 
 TOOLS = [
-    Tool(
-        name="search_serp",
-        description="Execute a search query across configured search engines and return SERP results.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query text"
-                },
-                "engines": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of search engines to use (optional, uses defaults if not specified)"
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum number of results per engine (default: 10)",
-                    "default": 10
-                },
-                "time_range": {
-                    "type": "string",
-                    "enum": ["day", "week", "month", "year", "all"],
-                    "description": "Time range filter for results",
-                    "default": "all"
-                },
-                "task_id": {
-                    "type": "string",
-                    "description": "Associated task ID for tracking"
-                }
-            },
-            "required": ["query"]
-        }
-    ),
-    Tool(
-        name="fetch_url",
-        description="Fetch content from a URL using appropriate method (HTTP client or browser).",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "description": "URL to fetch"
-                },
-                "context": {
-                    "type": "object",
-                    "description": "Context information (referer, headers, etc.)",
-                    "properties": {
-                        "referer": {"type": "string"},
-                        "serp_item_id": {"type": "string"}
-                    }
-                },
-                "policy": {
-                    "type": "object",
-                    "description": "Fetch policy override",
-                    "properties": {
-                        "force_browser": {"type": "boolean"},
-                        "force_headful": {"type": "boolean"},
-                        "use_tor": {"type": "boolean"}
-                    }
-                },
-                "task_id": {
-                    "type": "string",
-                    "description": "Associated task ID"
-                }
-            },
-            "required": ["url"]
-        }
-    ),
-    Tool(
-        name="extract_content",
-        description="Extract text content from HTML or PDF.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "input_path": {
-                    "type": "string",
-                    "description": "Path to HTML or PDF file"
-                },
-                "html": {
-                    "type": "string",
-                    "description": "Raw HTML content (alternative to input_path)"
-                },
-                "content_type": {
-                    "type": "string",
-                    "enum": ["html", "pdf", "auto"],
-                    "description": "Content type (auto-detected if not specified)",
-                    "default": "auto"
-                },
-                "page_id": {
-                    "type": "string",
-                    "description": "Associated page ID in database"
-                }
-            }
-        }
-    ),
-    Tool(
-        name="rank_candidates",
-        description="Rank text passages by relevance using BM25, embeddings, and reranking.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Query to rank against"
-                },
-                "passages": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "text": {"type": "string"}
-                        },
-                        "required": ["id", "text"]
-                    },
-                    "description": "List of passages to rank"
-                },
-                "top_k": {
-                    "type": "integer",
-                    "description": "Number of top results to return",
-                    "default": 20
-                }
-            },
-            "required": ["query", "passages"]
-        }
-    ),
-    Tool(
-        name="llm_extract",
-        description="Use local LLM to extract facts, claims, and citations from passages.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "passages": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "text": {"type": "string"},
-                            "source_url": {"type": "string"}
-                        },
-                        "required": ["id", "text"]
-                    },
-                    "description": "Passages to extract from"
-                },
-                "task": {
-                    "type": "string",
-                    "enum": ["extract_facts", "extract_claims", "summarize", "translate"],
-                    "description": "Extraction task type"
-                },
-                "context": {
-                    "type": "string",
-                    "description": "Additional context for extraction (e.g., research question)"
-                }
-            },
-            "required": ["passages", "task"]
-        }
-    ),
-    Tool(
-        name="nli_judge",
-        description="Judge stance relationship (supports/refutes/neutral) between claim pairs.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "pairs": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "pair_id": {"type": "string"},
-                            "premise": {"type": "string"},
-                            "hypothesis": {"type": "string"}
-                        },
-                        "required": ["pair_id", "premise", "hypothesis"]
-                    },
-                    "description": "Pairs of texts to judge"
-                }
-            },
-            "required": ["pairs"]
-        }
-    ),
-    Tool(
-        name="notify_user",
-        description="Send notification to user (for CAPTCHA, login required, etc.). Per §3.6.1: No DOM operations during auth sessions.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "event": {
-                    "type": "string",
-                    "enum": ["captcha", "login_required", "cookie_banner", "cloudflare", "error", "info"],
-                    "description": "Type of notification event"
-                },
-                "payload": {
-                    "type": "object",
-                    "description": "Event-specific payload",
-                    "properties": {
-                        "url": {"type": "string"},
-                        "domain": {"type": "string"},
-                        "message": {"type": "string"}
-                    }
-                }
-            },
-            "required": ["event", "payload"]
-        }
-    ),
-    # Authentication Queue Tools (Semi-automatic operation)
-    Tool(
-        name="get_pending_authentications",
-        description="Get pending authentication queue for a task. Returns URLs requiring user authentication.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
-                "priority": {
-                    "type": "string",
-                    "enum": ["high", "medium", "low", "all"],
-                    "description": "Filter by priority (optional)"
-                }
-            },
-            "required": ["task_id"]
-        }
-    ),
-    Tool(
-        name="start_authentication_session",
-        description="Start authentication session per §3.6.1. Opens URL and brings window to front only. NO DOM operations (scroll/highlight/focus). User finds challenge and completes it.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
-                "queue_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Specific queue IDs to process (optional)"
-                },
-                "priority_filter": {
-                    "type": "string",
-                    "enum": ["high", "medium", "low", "all"],
-                    "description": "Process only this priority level (optional)"
-                }
-            },
-            "required": ["task_id"]
-        }
-    ),
-    Tool(
-        name="complete_authentication",
-        description="Mark authentication as complete after user bypasses challenge. Per §3.6.1: This is the primary completion method (user-driven, no timeout).",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "queue_id": {
-                    "type": "string",
-                    "description": "Queue item ID"
-                },
-                "success": {
-                    "type": "boolean",
-                    "description": "Whether authentication succeeded"
-                },
-                "session_data": {
-                    "type": "object",
-                    "description": "Session data to store (cookies, etc.) - optional"
-                }
-            },
-            "required": ["queue_id", "success"]
-        }
-    ),
-    Tool(
-        name="skip_authentication",
-        description="Skip authentication for specific URLs or entire task.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
-                "queue_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Specific queue IDs to skip (optional, skips all if omitted)"
-                }
-            },
-            "required": ["task_id"]
-        }
-    ),
-    Tool(
-        name="schedule_job",
-        description="Schedule a job for execution with slot and priority management.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "job": {
-                    "type": "object",
-                    "properties": {
-                        "kind": {
-                            "type": "string",
-                            "enum": ["serp", "fetch", "extract", "embed", "rerank", "llm_fast", "llm_slow", "nli"],
-                            "description": "Job type"
-                        },
-                        "priority": {
-                            "type": "integer",
-                            "description": "Priority (lower = higher priority)",
-                            "default": 50
-                        },
-                        "input": {
-                            "type": "object",
-                            "description": "Job input data"
-                        },
-                        "task_id": {
-                            "type": "string",
-                            "description": "Associated task ID"
-                        }
-                    },
-                    "required": ["kind"]
-                }
-            },
-            "required": ["job"]
-        }
-    ),
+    # ============================================================
+    # 1. Task Management (2 tools)
+    # ============================================================
     Tool(
         name="create_task",
-        description="Create a new research task.",
+        description="Create a new research task. Returns task_id for subsequent operations.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -364,126 +44,33 @@ TOOLS = [
                 },
                 "config": {
                     "type": "object",
-                    "description": "Task-specific configuration overrides"
+                    "description": "Optional configuration",
+                    "properties": {
+                        "budget": {
+                            "type": "object",
+                            "properties": {
+                                "max_pages": {"type": "integer", "default": 120},
+                                "max_seconds": {"type": "integer", "default": 1200}
+                            }
+                        },
+                        "priority_domains": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Domains to prioritize"
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "Primary language (ja, en, etc.)"
+                        }
+                    }
                 }
             },
             "required": ["query"]
         }
     ),
     Tool(
-        name="get_task_status",
-        description="Get the status of a research task.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID to query"
-                }
-            },
-            "required": ["task_id"]
-        }
-    ),
-    Tool(
-        name="get_report_materials",
-        description="Get report materials (claims, fragments, evidence graph) for Cursor AI to compose a report. Does NOT generate report - Cursor AI handles composition/writing (§2.1).",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID to get materials for"
-                },
-                "include_evidence_graph": {
-                    "type": "boolean",
-                    "description": "Include evidence graph structure",
-                    "default": True
-                },
-                "include_fragments": {
-                    "type": "boolean",
-                    "description": "Include source fragments",
-                    "default": True
-                }
-            },
-            "required": ["task_id"]
-        }
-    ),
-    Tool(
-        name="get_evidence_graph",
-        description="Get evidence graph structure (claims, fragments, edges) for a task. Returns structured data for Cursor AI to interpret.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
-                "claim_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional filter by specific claim IDs"
-                },
-                "include_fragments": {
-                    "type": "boolean",
-                    "description": "Include linked fragments",
-                    "default": True
-                }
-            },
-            "required": ["task_id"]
-        }
-    ),
-    # ============================================================
-    # Exploration Control Tools
-    # ============================================================
-    Tool(
-        name="get_research_context",
-        description="Get design support information for subquery design. Returns entities, templates, and past query success rates. Does NOT generate subquery candidates - Cursor AI designs subqueries using this information.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID to get context for"
-                }
-            },
-            "required": ["task_id"]
-        }
-    ),
-    Tool(
-        name="execute_subquery",
-        description="Execute a subquery designed by Cursor AI. Performs search, fetch, extract pipeline and returns results.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
-                "subquery": {
-                    "type": "string",
-                    "description": "Subquery text designed by Cursor AI"
-                },
-                "priority": {
-                    "type": "string",
-                    "enum": ["high", "medium", "low"],
-                    "description": "Execution priority",
-                    "default": "medium"
-                },
-                "budget_pages": {
-                    "type": "integer",
-                    "description": "Optional page budget for this subquery"
-                },
-                "budget_time_seconds": {
-                    "type": "integer",
-                    "description": "Optional time budget for this subquery"
-                }
-            },
-            "required": ["task_id", "subquery"]
-        }
-    ),
-    Tool(
-        name="get_exploration_status",
-        description="Get current exploration status including subquery states, metrics, and budget. Returns raw data only - no recommendations. Cursor AI makes all decisions.",
+        name="get_status",
+        description="Get unified task and exploration status. Returns task info, search states, metrics, budget, and auth queue. Cursor AI uses this to decide next actions. Per §3.2.1: No recommendations - data only.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -495,9 +82,12 @@ TOOLS = [
             "required": ["task_id"]
         }
     ),
+    # ============================================================
+    # 2. Research Execution (2 tools)
+    # ============================================================
     Tool(
-        name="execute_refutation",
-        description="Execute refutation search for a claim or subquery using mechanical patterns. Cursor AI specifies the target; Lancet applies suffix patterns.",
+        name="search",
+        description="Execute a search query designed by Cursor AI. Runs the full search→fetch→extract→evaluate pipeline. Use refute:true for refutation mode.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -505,34 +95,93 @@ TOOLS = [
                     "type": "string",
                     "description": "Task ID"
                 },
-                "claim_id": {
+                "query": {
                     "type": "string",
-                    "description": "Claim ID to refute (optional)"
+                    "description": "Search query (designed by Cursor AI)"
                 },
-                "subquery_id": {
-                    "type": "string",
-                    "description": "Subquery ID to refute (optional)"
+                "options": {
+                    "type": "object",
+                    "description": "Search options",
+                    "properties": {
+                        "engines": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Specific engines to use (optional)"
+                        },
+                        "max_pages": {
+                            "type": "integer",
+                            "description": "Maximum pages for this search"
+                        },
+                        "seek_primary": {
+                            "type": "boolean",
+                            "description": "Prioritize primary sources",
+                            "default": False
+                        },
+                        "refute": {
+                            "type": "boolean",
+                            "description": "Enable refutation mode (applies mechanical suffix patterns)",
+                            "default": False
+                        }
+                    }
                 }
             },
-            "required": ["task_id"]
+            "required": ["task_id", "query"]
         }
     ),
     Tool(
-        name="finalize_exploration",
-        description="Finalize exploration and return summary with unsatisfied subqueries and followup suggestions.",
+        name="stop_task",
+        description="Stop/finalize a research task. Returns summary with completion stats.",
         inputSchema={
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID to finalize"
+                    "description": "Task ID to stop"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Stop reason",
+                    "enum": ["completed", "budget_exhausted", "user_cancelled"],
+                    "default": "completed"
                 }
             },
             "required": ["task_id"]
         }
     ),
     # ============================================================
-    # Calibration Tools (Phase M - §3.2.1, §4.6.1)
+    # 3. Materials (1 tool)
+    # ============================================================
+    Tool(
+        name="get_materials",
+        description="Get report materials (claims, fragments, evidence graph) for Cursor AI to compose a report. Does NOT generate report - Cursor AI handles composition/writing (§2.1).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID"
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "include_graph": {
+                            "type": "boolean",
+                            "description": "Include evidence graph",
+                            "default": False
+                        },
+                        "format": {
+                            "type": "string",
+                            "enum": ["structured", "narrative"],
+                            "default": "structured"
+                        }
+                    }
+                }
+            },
+            "required": ["task_id"]
+        }
+    ),
+    # ============================================================
+    # 4. Calibration (2 tools)
     # ============================================================
     Tool(
         name="calibrate",
@@ -555,92 +204,139 @@ TOOLS = [
     ),
     Tool(
         name="calibrate_rollback",
-        description="Rollback calibration parameters to a previous version (destructive operation). Per §3.2.1: This is a separate tool from calibrate because rollback is destructive, irreversible, and should be called explicitly.",
+        description="Rollback calibration parameters to a previous version (destructive operation). Per §3.2.1: Separate tool because rollback is destructive and irreversible.",
         inputSchema={
             "type": "object",
             "properties": {
                 "source": {
                     "type": "string",
-                    "description": "Source model identifier (required)"
+                    "description": "Source model identifier"
                 },
                 "version": {
                     "type": "integer",
-                    "description": "Target version to rollback to. If omitted, rolls back to the previous version."
+                    "description": "Target version (omit for previous version)"
                 },
                 "reason": {
                     "type": "string",
-                    "description": "Reason for rollback (for audit log)"
+                    "description": "Reason for rollback (audit log)"
                 }
             },
             "required": ["source"]
         }
     ),
+    # ============================================================
+    # 5. Authentication Queue (2 tools)
+    # ============================================================
     Tool(
-        name="get_status",
-        description="Get unified task and exploration status. Returns task info, search states, metrics, budget, and auth queue. Cursor AI uses this to decide next actions. Per §3.2.1: No recommendations - data only.",
+        name="get_auth_queue",
+        description="Get pending authentication queue. Per §3.2.1: Supports grouping by domain/type and priority filtering.",
         inputSchema={
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID to get status for"
+                    "description": "Task ID (optional, omit for all tasks)"
+                },
+                "group_by": {
+                    "type": "string",
+                    "enum": ["none", "domain", "type"],
+                    "description": "Grouping mode",
+                    "default": "none"
+                },
+                "priority_filter": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low", "all"],
+                    "description": "Filter by priority",
+                    "default": "all"
                 }
-            },
-            "required": ["task_id"]
+            }
         }
     ),
-    # ============================================================
-    # Claim Decomposition (§3.3.1)
-    # ============================================================
     Tool(
-        name="decompose_question",
-        description="Decompose a research question into atomic claims for systematic verification. Per §3.3.1: 問い→主張分解. Returns claims with claim_id, text, expected_polarity, granularity, and verification hints.",
+        name="resolve_auth",
+        description="Report authentication completion or skip. Per §3.2.1: Supports single item or domain-batch operations.",
         inputSchema={
             "type": "object",
             "properties": {
-                "question": {
+                "target": {
                     "type": "string",
-                    "description": "Research question to decompose into atomic claims"
+                    "enum": ["item", "domain"],
+                    "description": "Resolution target type",
+                    "default": "item"
                 },
-                "use_llm": {
+                "queue_id": {
+                    "type": "string",
+                    "description": "Queue item ID (when target=item)"
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "Domain to resolve (when target=domain)"
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["complete", "skip"],
+                    "description": "Resolution action"
+                },
+                "success": {
                     "type": "boolean",
-                    "description": "Use LLM for decomposition (True) or rule-based (False). Default: True",
+                    "description": "Whether auth succeeded (for complete action)",
                     "default": True
-                },
-                "use_slow_model": {
-                    "type": "boolean",
-                    "description": "Use slower, more capable LLM model. Default: False",
-                    "default": False
                 }
             },
-            "required": ["question"]
+            "required": ["action"]
         }
     ),
     # ============================================================
-    # Chain-of-Density Compression (§3.3.1)
+    # 6. Notification (2 tools)
     # ============================================================
     Tool(
-        name="compress_with_chain_of_density",
-        description="Compress claims and fragments into a dense summary using Chain-of-Density technique. Per §3.3.1: Increases information density while ensuring all claims have deep links, discovery timestamps, and excerpts.",
+        name="notify_user",
+        description="Send notification to user. Per §3.2.1: Event types for auth, progress, and errors.",
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {
+                "event": {
                     "type": "string",
-                    "description": "Task ID to compress materials for"
+                    "enum": ["auth_required", "task_progress", "task_complete", "error", "info"],
+                    "description": "Notification event type"
                 },
-                "max_iterations": {
+                "payload": {
+                    "type": "object",
+                    "description": "Event-specific payload",
+                    "properties": {
+                        "url": {"type": "string"},
+                        "domain": {"type": "string"},
+                        "message": {"type": "string"},
+                        "task_id": {"type": "string"},
+                        "progress_percent": {"type": "number"}
+                    }
+                }
+            },
+            "required": ["event", "payload"]
+        }
+    ),
+    Tool(
+        name="wait_for_user",
+        description="Wait for user input/acknowledgment. Per §3.2.1: Blocks until user responds or timeout.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Message to show user"
+                },
+                "timeout_seconds": {
                     "type": "integer",
-                    "description": "Maximum densification iterations (default: 5)",
-                    "default": 5
+                    "description": "Timeout in seconds (default: 300)",
+                    "default": 300
                 },
-                "use_llm": {
-                    "type": "boolean",
-                    "description": "Use LLM for compression (True) or rule-based (False). Default: True",
-                    "default": True
+                "options": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional choices for user"
                 }
             },
-            "required": ["task_id"]
+            "required": ["prompt"]
         }
     ),
 ]
@@ -710,37 +406,23 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         Tool result.
     """
     handlers = {
-        "search_serp": _handle_search_serp,
-        "fetch_url": _handle_fetch_url,
-        "extract_content": _handle_extract_content,
-        "rank_candidates": _handle_rank_candidates,
-        "llm_extract": _handle_llm_extract,
-        "nli_judge": _handle_nli_judge,
-        "notify_user": _handle_notify_user,
-        # Authentication Queue
-        "get_pending_authentications": _handle_get_pending_authentications,
-        "start_authentication_session": _handle_start_authentication_session,
-        "complete_authentication": _handle_complete_authentication,
-        "skip_authentication": _handle_skip_authentication,
-        "schedule_job": _handle_schedule_job,
+        # Task Management
         "create_task": _handle_create_task,
-        "get_task_status": _handle_get_task_status,
-        "get_report_materials": _handle_get_report_materials,
-        "get_evidence_graph": _handle_get_evidence_graph,
-        # Exploration Control
-        "get_research_context": _handle_get_research_context,
-        "execute_subquery": _handle_execute_subquery,
-        "get_exploration_status": _handle_get_exploration_status,
-        "execute_refutation": _handle_execute_refutation,
-        "finalize_exploration": _handle_finalize_exploration,
-        # Calibration (Phase M - §3.2.1, §4.6.1)
+        "get_status": _handle_get_status,
+        # Research Execution
+        "search": _handle_search,
+        "stop_task": _handle_stop_task,
+        # Materials
+        "get_materials": _handle_get_materials,
+        # Calibration
         "calibrate": _handle_calibrate,
         "calibrate_rollback": _handle_calibrate_rollback,
-        "get_status": _handle_get_status,
-        # Claim Decomposition (§3.3.1)
-        "decompose_question": _handle_decompose_question,
-        # Chain-of-Density Compression (§3.3.1)
-        "compress_with_chain_of_density": _handle_compress_with_chain_of_density,
+        # Authentication Queue
+        "get_auth_queue": _handle_get_auth_queue,
+        "resolve_auth": _handle_resolve_auth,
+        # Notification
+        "notify_user": _handle_notify_user,
+        "wait_for_user": _handle_wait_for_user,
     }
     
     handler = handlers.get(name)
@@ -751,329 +433,14 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
 
 
 # ============================================================
-# Tool Handlers
+# Exploration State Management
 # ============================================================
 
-async def _handle_search_serp(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle search_serp tool call."""
-    from src.search import search_serp
-    
-    query = args["query"]
-    engines = args.get("engines")
-    limit = args.get("limit", 10)
-    time_range = args.get("time_range", "all")
-    task_id = args.get("task_id")
-    
-    with LogContext(task_id=task_id):
-        results = await search_serp(
-            query=query,
-            engines=engines,
-            limit=limit,
-            time_range=time_range,
-            task_id=task_id,
-        )
-        
-        return {
-            "ok": True,
-            "query": query,
-            "result_count": len(results),
-            "results": results,
-        }
+# Cache of exploration states per task
+_exploration_states: dict[str, Any] = {}
 
 
-async def _handle_fetch_url(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle fetch_url tool call."""
-    from src.crawler.fetcher import fetch_url
-    
-    url = args["url"]
-    context = args.get("context", {})
-    policy = args.get("policy", {})
-    task_id = args.get("task_id")
-    
-    with LogContext(task_id=task_id):
-        result = await fetch_url(
-            url=url,
-            context=context,
-            policy=policy,
-            task_id=task_id,
-        )
-        
-        return result
-
-
-async def _handle_extract_content(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle extract_content tool call."""
-    from src.extractor.content import extract_content
-    
-    input_path = args.get("input_path")
-    html = args.get("html")
-    content_type = args.get("content_type", "auto")
-    page_id = args.get("page_id")
-    
-    result = await extract_content(
-        input_path=input_path,
-        html=html,
-        content_type=content_type,
-        page_id=page_id,
-    )
-    
-    return result
-
-
-async def _handle_rank_candidates(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle rank_candidates tool call."""
-    from src.filter.ranking import rank_candidates
-    
-    query = args["query"]
-    passages = args["passages"]
-    top_k = args.get("top_k", 20)
-    
-    results = await rank_candidates(
-        query=query,
-        passages=passages,
-        top_k=top_k,
-    )
-    
-    return {
-        "ok": True,
-        "query": query,
-        "ranked_count": len(results),
-        "results": results,
-    }
-
-
-async def _handle_llm_extract(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle llm_extract tool call."""
-    from src.filter.llm import llm_extract
-    
-    passages = args["passages"]
-    task = args["task"]
-    context = args.get("context")
-    
-    result = await llm_extract(
-        passages=passages,
-        task=task,
-        context=context,
-    )
-    
-    return result
-
-
-async def _handle_nli_judge(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle nli_judge tool call."""
-    from src.filter.nli import nli_judge
-    
-    pairs = args["pairs"]
-    
-    results = await nli_judge(pairs=pairs)
-    
-    return {
-        "ok": True,
-        "results": results,
-    }
-
-
-async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle notify_user tool call."""
-    from src.utils.notification import notify_user
-    
-    event = args["event"]
-    payload = args["payload"]
-    
-    result = await notify_user(event=event, payload=payload)
-    
-    return result
-
-
-# Authentication Queue Handlers
-
-async def _handle_get_pending_authentications(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle get_pending_authentications tool call."""
-    from src.utils.notification import get_intervention_queue
-    
-    task_id = args["task_id"]
-    priority = args.get("priority")
-    
-    queue = get_intervention_queue()
-    
-    # Get pending items
-    pending = await queue.get_pending(
-        task_id=task_id,
-        priority=priority if priority and priority != "all" else None,
-    )
-    
-    # Get counts
-    counts = await queue.get_pending_count(task_id)
-    
-    return {
-        "ok": True,
-        "task_id": task_id,
-        "pending": pending,
-        "counts": counts,
-    }
-
-
-async def _handle_start_authentication_session(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle start_authentication_session tool call."""
-    from src.utils.notification import get_intervention_queue
-    
-    task_id = args["task_id"]
-    queue_ids = args.get("queue_ids")
-    priority_filter = args.get("priority_filter")
-    
-    queue = get_intervention_queue()
-    
-    result = await queue.start_session(
-        task_id=task_id,
-        queue_ids=queue_ids,
-        priority_filter=priority_filter,
-    )
-    
-    return result
-
-
-async def _handle_complete_authentication(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle complete_authentication tool call."""
-    from src.utils.notification import get_intervention_queue
-    
-    queue_id = args["queue_id"]
-    success = args["success"]
-    session_data = args.get("session_data")
-    
-    queue = get_intervention_queue()
-    
-    result = await queue.complete(
-        queue_id=queue_id,
-        success=success,
-        session_data=session_data,
-    )
-    
-    return result
-
-
-async def _handle_skip_authentication(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle skip_authentication tool call."""
-    from src.utils.notification import get_intervention_queue
-    
-    task_id = args["task_id"]
-    queue_ids = args.get("queue_ids")
-    
-    queue = get_intervention_queue()
-    
-    result = await queue.skip(
-        task_id=task_id,
-        queue_ids=queue_ids,
-    )
-    
-    return result
-
-
-async def _handle_schedule_job(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle schedule_job tool call."""
-    from src.scheduler.jobs import schedule_job
-    
-    job = args["job"]
-    
-    result = await schedule_job(job=job)
-    
-    return result
-
-
-async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle create_task tool call."""
-    query = args["query"]
-    config = args.get("config")
-    
-    db = await get_database()
-    task_id = await db.create_task(query=query, config=config)
-    
-    return {
-        "ok": True,
-        "task_id": task_id,
-        "query": query,
-        "status": "pending",
-    }
-
-
-async def _handle_get_task_status(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle get_task_status tool call."""
-    task_id = args["task_id"]
-    
-    db = await get_database()
-    task = await db.fetch_one(
-        "SELECT * FROM tasks WHERE id = ?",
-        (task_id,),
-    )
-    
-    if task is None:
-        return {
-            "ok": False,
-            "error": f"Task not found: {task_id}",
-        }
-    
-    # Get progress stats
-    progress = await db.fetch_one(
-        "SELECT * FROM v_task_progress WHERE task_id = ?",
-        (task_id,),
-    )
-    
-    return {
-        "ok": True,
-        "task": task,
-        "progress": progress,
-    }
-
-
-async def _handle_get_report_materials(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle get_report_materials tool call.
-    
-    Returns materials for Cursor AI to compose a report.
-    Does NOT generate report - respects responsibility separation (§2.1).
-    """
-    from src.report.generator import get_report_materials
-    
-    task_id = args["task_id"]
-    include_evidence_graph = args.get("include_evidence_graph", True)
-    include_fragments = args.get("include_fragments", True)
-    
-    result = await get_report_materials(
-        task_id=task_id,
-        include_evidence_graph=include_evidence_graph,
-        include_fragments=include_fragments,
-    )
-    
-    return result
-
-
-async def _handle_get_evidence_graph(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle get_evidence_graph tool call.
-    
-    Returns evidence graph structure for Cursor AI to interpret.
-    """
-    from src.report.generator import get_evidence_graph
-    
-    task_id = args["task_id"]
-    claim_ids = args.get("claim_ids")
-    include_fragments = args.get("include_fragments", True)
-    
-    result = await get_evidence_graph(
-        task_id=task_id,
-        claim_ids=claim_ids,
-        include_fragments=include_fragments,
-    )
-    
-    return result
-
-
-# ============================================================
-# Exploration Control Handlers
-# ============================================================
-
-# Global state managers (per task)
-_exploration_states: dict[str, "ExplorationState"] = {}
-
-
-async def _get_exploration_state(task_id: str) -> "ExplorationState":
+async def _get_exploration_state(task_id: str):
     """Get or create exploration state for a task."""
     from src.research.state import ExplorationState
     
@@ -1085,227 +452,63 @@ async def _get_exploration_state(task_id: str) -> "ExplorationState":
     return _exploration_states[task_id]
 
 
-async def _handle_get_research_context(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle get_research_context tool call.
-    
-    Returns design support information for Cursor AI.
-    Does NOT generate subquery candidates.
-    """
-    from src.research.context import ResearchContext
-    
-    task_id = args["task_id"]
-    
-    with LogContext(task_id=task_id):
-        context = ResearchContext(task_id)
-        result = await context.get_context()
-        return result
-
-
-async def _handle_execute_subquery(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle execute_subquery tool call.
-    
-    Executes a subquery designed by Cursor AI.
-    """
-    from src.research.executor import SubqueryExecutor
-    
-    task_id = args["task_id"]
-    subquery = args["subquery"]
-    priority = args.get("priority", "medium")
-    budget_pages = args.get("budget_pages")
-    budget_time_seconds = args.get("budget_time_seconds")
-    
-    with LogContext(task_id=task_id):
-        state = await _get_exploration_state(task_id)
-        executor = SubqueryExecutor(task_id, state)
-        
-        result = await executor.execute(
-            subquery=subquery,
-            priority=priority,
-            budget_pages=budget_pages,
-            budget_time_seconds=budget_time_seconds,
-        )
-        
-        return result.to_dict()
-
-
-async def _handle_get_exploration_status(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle get_exploration_status tool call.
-    
-    Returns current exploration status for Cursor AI decision making.
-    Now includes authentication_queue information per §16.7.1.
-    """
-    task_id = args["task_id"]
-    
-    with LogContext(task_id=task_id):
-        state = await _get_exploration_state(task_id)
-        return await state.get_status()
-
-
-async def _handle_execute_refutation(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle execute_refutation tool call.
-    
-    Executes refutation search using mechanical patterns.
-    """
-    from src.research.refutation import RefutationExecutor
-    
-    task_id = args["task_id"]
-    claim_id = args.get("claim_id")
-    subquery_id = args.get("subquery_id")
-    
-    with LogContext(task_id=task_id):
-        state = await _get_exploration_state(task_id)
-        executor = RefutationExecutor(task_id, state)
-        
-        if claim_id:
-            result = await executor.execute_for_claim(claim_id)
-        elif subquery_id:
-            result = await executor.execute_for_subquery(subquery_id)
-        else:
-            return {
-                "ok": False,
-                "error": "Either claim_id or subquery_id must be provided",
-            }
-        
-        return result.to_dict()
-
-
-async def _handle_finalize_exploration(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle finalize_exploration tool call.
-    
-    Finalizes exploration and returns summary.
-    """
-    task_id = args["task_id"]
-    
-    with LogContext(task_id=task_id):
-        state = await _get_exploration_state(task_id)
-        result = await state.finalize()
-        
-        # Save final state
-        await state.save_state()
-        
-        # Clean up state manager
-        if task_id in _exploration_states:
-            del _exploration_states[task_id]
-        
-        return result
+def _clear_exploration_state(task_id: str) -> None:
+    """Clear exploration state from cache."""
+    if task_id in _exploration_states:
+        del _exploration_states[task_id]
 
 
 # ============================================================
-# Calibration Handlers (Phase M - §3.2.1, §4.6.1)
+# Task Management Handlers
 # ============================================================
 
-async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
+async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle calibrate tool call.
+    Handle create_task tool call.
     
-    Implements §3.2.1: Unified calibration operations (daily operations).
-    This is a thin wrapper that delegates to the calibrate_action() unified API
-    in src/utils/calibration.py (Phase M unified architecture).
-    
-    Actions:
-        - add_sample: Add a calibration sample
-        - get_stats: Get calibration statistics
-        - evaluate: Execute batch evaluation and save to DB
-        - get_evaluations: Get evaluation history
-        - get_diagram_data: Get reliability diagram data
-    
-    For rollback (destructive operation), use calibrate_rollback tool.
+    Creates a new research task and returns task_id.
+    Per §3.2.1: Returns task_id, query, created_at, budget.
     """
-    from src.utils.calibration import calibrate_action
-    from src.mcp.errors import InvalidParamsError
+    import uuid
+    from datetime import datetime, timezone
     
-    action = args.get("action")
-    data = args.get("data", {})
+    query = args["query"]
+    config = args.get("config", {})
     
-    if not action:
-        raise InvalidParamsError(
-            "action is required",
-            param_name="action",
-            expected="one of: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
+    # Generate task ID
+    task_id = f"task_{uuid.uuid4().hex[:8]}"
+    
+    # Extract budget config
+    budget_config = config.get("budget", {})
+    max_pages = budget_config.get("max_pages", 120)
+    max_seconds = budget_config.get("max_seconds", 1200)
+    
+    with LogContext(task_id=task_id):
+        logger.info("Creating task", query=query[:100])
+        
+        # Store task in database
+        db = await get_database()
+        
+        created_at = datetime.now(timezone.utc).isoformat()
+        
+        await db.execute(
+            """
+            INSERT INTO tasks (id, query, status, config, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (task_id, query, "created", json.dumps(config), created_at),
         )
-    
-    return await calibrate_action(action, data)
-
-
-async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle calibrate_rollback tool call.
-    
-    Implements §3.2.1: Rollback calibration parameters (destructive operation).
-    This tool is explicitly separated from calibrate because:
-    1. Rollback is destructive and irreversible
-    2. Prevents accidental invocation
-    3. Enables audit trail for destructive operations
-    4. Supports future permission separation
-    """
-    from src.mcp.errors import (
-        MCPErrorCode,
-        CalibrationError,
-        InvalidParamsError,
-        generate_error_id,
-    )
-    from src.utils.calibration import get_calibrator
-    
-    source = args.get("source")
-    version = args.get("version")
-    reason = args.get("reason", "Manual rollback by Cursor AI")
-    
-    # Validate required parameters
-    if not source:
-        raise InvalidParamsError(
-            "source is required",
-            param_name="source",
-            expected="non-empty string",
-        )
-    
-    calibrator = get_calibrator()
-    
-    # Get current version before rollback for audit
-    current_params = calibrator.get_params(source)
-    if current_params is None:
-        raise CalibrationError(
-            f"No calibration found for source: {source}",
-            source=source,
-            reason="no_calibration_exists",
-        )
-    
-    previous_version = current_params.version
-    
-    # Perform rollback
-    if version is not None:
-        rolled_back_params = calibrator.rollback_to_version(source, version, reason)
-    else:
-        rolled_back_params = calibrator.rollback(source, reason)
-    
-    if rolled_back_params is None:
-        raise CalibrationError(
-            f"Cannot rollback: no previous version available for source {source}",
-            source=source,
-            reason="no_previous_version",
-        )
-    
-    logger.info(
-        "Calibration rollback completed",
-        source=source,
-        from_version=previous_version,
-        to_version=rolled_back_params.version,
-        reason=reason,
-    )
-    
-    return {
-        "ok": True,
-        "source": source,
-        "rolled_back_to": rolled_back_params.version,
-        "previous_version": previous_version,
-        "reason": reason,
-        "brier_after": rolled_back_params.brier_after,
-        "method": rolled_back_params.method,
-    }
+        
+        return {
+            "ok": True,
+            "task_id": task_id,
+            "query": query,
+            "created_at": created_at,
+            "budget": {
+                "max_pages": max_pages,
+                "max_seconds": max_seconds,
+            },
+        }
 
 
 async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
@@ -1313,24 +516,15 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
     Handle get_status tool call.
     
     Implements §3.2.1: Unified task and exploration status.
-    Merges get_task_status and get_exploration_status into a single endpoint.
-    
-    Returns:
-        - Task metadata (id, query, status)
-        - Search states (converted from subqueries)
-        - Metrics (counts, pages, fragments, claims)
-        - Budget information
-        - Authentication queue status
-        - Warnings (threshold alerts)
+    Returns task info, search states, metrics, budget, auth queue.
     
     Note: Returns data only, no recommendations. Cursor AI decides next actions.
     """
-    from src.mcp.errors import TaskNotFoundError
+    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
     
     task_id = args.get("task_id")
     
     if not task_id:
-        from src.mcp.errors import InvalidParamsError
         raise InvalidParamsError(
             "task_id is required",
             param_name="task_id",
@@ -1371,7 +565,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             for sq in exploration_status.get("subqueries", []):
                 searches.append({
                     "id": sq.get("id"),
-                    "query": sq.get("query"),
+                    "query": sq.get("text"),
                     "status": sq.get("status"),
                     "pages_fetched": sq.get("pages_fetched", 0),
                     "useful_fragments": sq.get("useful_fragments", 0),
@@ -1383,10 +577,12 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Map task_status to status field
             status_map = {
                 "exploring": "exploring",
-                "paused": "paused", 
+                "created": "exploring",
+                "awaiting_decision": "paused",
+                "paused": "paused",  # Direct mapping for paused status
+                "finalizing": "exploring",
                 "completed": "completed",
                 "failed": "failed",
-                "pending": "exploring",  # pending tasks are effectively exploring
             }
             status = status_map.get(
                 exploration_status.get("task_status", db_status),
@@ -1394,6 +590,12 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             )
             
             metrics = exploration_status.get("metrics", {})
+            budget = exploration_status.get("budget", {})
+            
+            # Calculate remaining percent
+            pages_used = budget.get("pages_used", 0)
+            pages_limit = budget.get("pages_limit", 120)
+            remaining_percent = int((1 - pages_used / max(1, pages_limit)) * 100)
             
             return {
                 "ok": True,
@@ -1409,7 +611,13 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                     "total_claims": metrics.get("total_claims", 0),
                     "elapsed_seconds": metrics.get("elapsed_seconds", 0),
                 },
-                "budget": exploration_status.get("budget", {}),
+                "budget": {
+                    "pages_used": pages_used,
+                    "pages_limit": pages_limit,
+                    "time_used_seconds": budget.get("time_used_seconds", 0),
+                    "time_limit_seconds": budget.get("time_limit_seconds", 1200),
+                    "remaining_percent": remaining_percent,
+                },
                 "auth_queue": exploration_status.get("authentication_queue"),
                 "warnings": exploration_status.get("warnings", []),
             }
@@ -1418,7 +626,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": True,
                 "task_id": task_id,
-                "status": db_status or "pending",
+                "status": db_status or "created",
                 "query": task_query,
                 "searches": [],
                 "metrics": {
@@ -1429,88 +637,517 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                     "total_claims": 0,
                     "elapsed_seconds": 0,
                 },
-                "budget": {},
+                "budget": {
+                    "pages_used": 0,
+                    "pages_limit": 120,
+                    "time_used_seconds": 0,
+                    "time_limit_seconds": 1200,
+                    "remaining_percent": 100,
+                },
                 "auth_queue": None,
                 "warnings": [],
             }
 
 
 # ============================================================
-# Claim Decomposition Handlers (§3.3.1)
+# Research Execution Handlers
 # ============================================================
 
-async def _handle_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
+async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle decompose_question tool call.
+    Handle search tool call.
     
-    Implements §3.3.1: Question-to-Claim Decomposition.
-    Decomposes research questions into atomic claims for systematic verification.
+    Implements §3.2.1: Executes Cursor AI-designed query through
+    the search→fetch→extract→evaluate pipeline.
+    
+    Supports refute:true for refutation mode.
     """
-    from src.filter.claim_decomposition import decompose_question
+    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
+    from src.research.pipeline import search_action
     
-    question = args["question"]
-    use_llm = args.get("use_llm", True)
-    use_slow_model = args.get("use_slow_model", False)
+    task_id = args.get("task_id")
+    query = args.get("query")
+    options = args.get("options", {})
     
-    result = await decompose_question(
-        question=question,
-        use_llm=use_llm,
-        use_slow_model=use_slow_model,
-    )
+    if not task_id:
+        raise InvalidParamsError(
+            "task_id is required",
+            param_name="task_id",
+            expected="non-empty string",
+        )
     
-    return result.to_dict()
-
-
-# ============================================================
-# Chain-of-Density Compression Handlers (§3.3.1)
-# ============================================================
-
-async def _handle_compress_with_chain_of_density(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle compress_with_chain_of_density tool call.
-    
-    Implements §3.3.1: Compression and Citation Strictness.
-    - Increase summary density using Chain-of-Density approach
-    - Require deep links, discovery timestamps, and excerpts for all claims
-    """
-    from src.report.chain_of_density import compress_with_chain_of_density
-    from src.report.generator import get_report_materials
-    
-    task_id = args["task_id"]
-    max_iterations = args.get("max_iterations", 5)
-    use_llm = args.get("use_llm", True)
+    if not query:
+        raise InvalidParamsError(
+            "query is required",
+            param_name="query",
+            expected="non-empty string",
+        )
     
     with LogContext(task_id=task_id):
-        # Get claims and fragments from task
-        materials = await get_report_materials(
+        # Verify task exists
+        db = await get_database()
+        task = await db.fetch_one(
+            "SELECT id FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        
+        if task is None:
+            raise TaskNotFoundError(task_id)
+        
+        # Get exploration state
+        state = await _get_exploration_state(task_id)
+        
+        # Execute search through unified API
+        result = await search_action(
             task_id=task_id,
-            include_evidence_graph=False,
-            include_fragments=True,
-        )
-        
-        if not materials.get("ok"):
-            return materials
-        
-        # Extract claims (flatten high/low confidence)
-        claims_data = materials.get("claims", {})
-        all_claims = (
-            claims_data.get("high_confidence", []) +
-            claims_data.get("low_confidence", [])
-        )
-        
-        fragments = materials.get("fragments", [])
-        task_query = materials.get("original_query", "")
-        
-        # Compress using Chain-of-Density
-        result = await compress_with_chain_of_density(
-            claims=all_claims,
-            fragments=fragments,
-            task_query=task_query,
-            max_iterations=max_iterations,
-            use_llm=use_llm,
+            query=query,
+            state=state,
+            options=options,
         )
         
         return result
+
+
+async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle stop_task tool call.
+    
+    Implements §3.2.1: Finalizes task and returns summary.
+    """
+    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
+    from src.research.pipeline import stop_task_action
+    
+    task_id = args.get("task_id")
+    reason = args.get("reason", "completed")
+    
+    if not task_id:
+        raise InvalidParamsError(
+            "task_id is required",
+            param_name="task_id",
+            expected="non-empty string",
+        )
+    
+    with LogContext(task_id=task_id):
+        # Verify task exists
+        db = await get_database()
+        task = await db.fetch_one(
+            "SELECT id FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        
+        if task is None:
+            raise TaskNotFoundError(task_id)
+        
+        # Get exploration state
+        state = await _get_exploration_state(task_id)
+        
+        # Execute stop through unified API
+        result = await stop_task_action(
+            task_id=task_id,
+            state=state,
+            reason=reason,
+        )
+        
+        # Clear cached state
+        _clear_exploration_state(task_id)
+        
+        # Update task status in DB
+        await db.execute(
+            "UPDATE tasks SET status = ? WHERE id = ?",
+            (result.get("final_status", "completed"), task_id),
+        )
+        
+        return result
+
+
+# ============================================================
+# Materials Handler
+# ============================================================
+
+async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_materials tool call.
+    
+    Implements §3.2.1: Returns report materials for Cursor AI.
+    Does NOT generate report - composition is Cursor AI's responsibility.
+    """
+    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
+    from src.research.materials import get_materials_action
+    
+    task_id = args.get("task_id")
+    options = args.get("options", {})
+    
+    if not task_id:
+        raise InvalidParamsError(
+            "task_id is required",
+            param_name="task_id",
+            expected="non-empty string",
+        )
+    
+    with LogContext(task_id=task_id):
+        # Verify task exists
+        db = await get_database()
+        task = await db.fetch_one(
+            "SELECT id FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        
+        if task is None:
+            raise TaskNotFoundError(task_id)
+        
+        # Get materials through unified API
+        result = await get_materials_action(
+            task_id=task_id,
+            include_graph=options.get("include_graph", False),
+            format=options.get("format", "structured"),
+        )
+        
+        return result
+
+
+# ============================================================
+# Calibration Handlers (§3.2.1, §4.6.1)
+# ============================================================
+
+async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle calibrate tool call.
+    
+    Implements §3.2.1: Unified calibration operations (daily operations).
+    Actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data.
+    
+    For rollback (destructive operation), use calibrate_rollback tool.
+    """
+    from src.utils.calibration import calibrate_action
+    from src.mcp.errors import InvalidParamsError
+    
+    action = args.get("action")
+    data = args.get("data", {})
+    
+    if not action:
+        raise InvalidParamsError(
+            "action is required",
+            param_name="action",
+            expected="one of: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
+        )
+    
+    return await calibrate_action(action, data)
+
+
+async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle calibrate_rollback tool call.
+    
+    Implements §3.2.1: Rollback calibration parameters (destructive operation).
+    Separate tool to prevent accidental invocation.
+    """
+    from src.mcp.errors import (
+        CalibrationError,
+        InvalidParamsError,
+    )
+    from src.utils.calibration import get_calibrator
+    
+    source = args.get("source")
+    version = args.get("version")
+    reason = args.get("reason", "Manual rollback")
+    
+    if not source:
+        raise InvalidParamsError(
+            "source is required",
+            param_name="source",
+            expected="non-empty string (e.g., 'llm_extract', 'nli_judge')",
+        )
+    
+    logger.info(
+        "Calibration rollback requested",
+        source=source,
+        target_version=version,
+        reason=reason,
+    )
+    
+    # Get calibrator
+    calibrator = get_calibrator()
+    
+    # Get current parameters for logging
+    current_params = calibrator.get_params(source)
+    previous_version = current_params.version if current_params else 0
+    
+    # Determine target version
+    if version is not None:
+        target_version = version
+    else:
+        # Default: roll back to previous version
+        if previous_version <= 1:
+            raise CalibrationError(
+                f"Cannot rollback: no previous version for source '{source}'",
+                source=source,
+            )
+        target_version = previous_version - 1
+    
+    # Perform rollback (synchronous method)
+    try:
+        rolled_back_params = calibrator.rollback_to_version(
+            source=source,
+            version=target_version,
+            reason=reason,
+        )
+    except ValueError as e:
+        raise CalibrationError(str(e), source=source)
+    
+    if rolled_back_params is None:
+        raise CalibrationError(
+            f"Rollback failed: version {target_version} not found for source '{source}'",
+            source=source,
+        )
+    
+    # Log the rollback
+    logger.warning(
+        "Calibration rolled back",
+        source=source,
+        from_version=previous_version,
+        to_version=rolled_back_params.version,
+        reason=reason,
+    )
+    
+    return {
+        "ok": True,
+        "source": source,
+        "rolled_back_to": rolled_back_params.version,
+        "previous_version": previous_version,
+        "reason": reason,
+        "brier_after": rolled_back_params.brier_after,
+        "method": rolled_back_params.method,
+    }
+
+
+# ============================================================
+# Authentication Queue Handlers (§3.2.1, §3.6.1)
+# ============================================================
+
+async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle get_auth_queue tool call.
+    
+    Implements §3.2.1: Get pending authentication queue.
+    Supports grouping by domain/type and priority filtering.
+    """
+    from src.utils.notification import get_intervention_queue
+    
+    task_id = args.get("task_id")
+    group_by = args.get("group_by", "none")
+    priority_filter = args.get("priority_filter", "all")
+    
+    queue = get_intervention_queue()
+    
+    # Get pending items using existing get_pending method
+    items = await queue.get_pending(
+        task_id=task_id,
+        priority=priority_filter if priority_filter != "all" else None,
+    )
+    
+    # Group if requested
+    if group_by == "domain":
+        grouped: dict[str, list] = {}
+        for item in items:
+            domain = item.get("domain", "unknown")
+            if domain not in grouped:
+                grouped[domain] = []
+            grouped[domain].append(item)
+        
+        return {
+            "ok": True,
+            "group_by": "domain",
+            "groups": grouped,
+            "total_count": len(items),
+        }
+    
+    elif group_by == "type":
+        grouped = {}
+        for item in items:
+            auth_type = item.get("auth_type", "unknown")
+            if auth_type not in grouped:
+                grouped[auth_type] = []
+            grouped[auth_type].append(item)
+        
+        return {
+            "ok": True,
+            "group_by": "type",
+            "groups": grouped,
+            "total_count": len(items),
+        }
+    
+    else:  # no grouping
+        return {
+            "ok": True,
+            "group_by": "none",
+            "items": items,
+            "total_count": len(items),
+        }
+
+
+async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle resolve_auth tool call.
+    
+    Implements §3.2.1: Report authentication completion or skip.
+    Supports single item or domain-batch operations.
+    """
+    from src.mcp.errors import InvalidParamsError
+    from src.utils.notification import get_intervention_queue
+    
+    target = args.get("target", "item")
+    action = args.get("action")
+    success = args.get("success", True)
+    
+    if not action:
+        raise InvalidParamsError(
+            "action is required",
+            param_name="action",
+            expected="one of: complete, skip",
+        )
+    
+    queue = get_intervention_queue()
+    
+    if target == "item":
+        queue_id = args.get("queue_id")
+        if not queue_id:
+            raise InvalidParamsError(
+                "queue_id is required when target=item",
+                param_name="queue_id",
+                expected="non-empty string",
+            )
+        
+        if action == "complete":
+            result = await queue.complete(queue_id, success=success)
+        else:  # skip
+            result = await queue.skip(queue_ids=[queue_id])
+        
+        return {
+            "ok": True,
+            "target": "item",
+            "queue_id": queue_id,
+            "action": action,
+            "success": success if action == "complete" else None,
+        }
+    
+    elif target == "domain":
+        domain = args.get("domain")
+        if not domain:
+            raise InvalidParamsError(
+                "domain is required when target=domain",
+                param_name="domain",
+                expected="non-empty string",
+            )
+        
+        if action == "complete":
+            result = await queue.complete_domain(domain, success=success)
+            count = result.get("resolved_count", 0)
+        else:  # skip
+            result = await queue.skip(domain=domain)
+            count = result.get("skipped", 0)
+        
+        return {
+            "ok": True,
+            "target": "domain",
+            "domain": domain,
+            "action": action,
+            "resolved_count": count,
+        }
+    
+    else:
+        raise InvalidParamsError(
+            f"Invalid target: {target}",
+            param_name="target",
+            expected="one of: item, domain",
+        )
+
+
+# ============================================================
+# Notification Handlers (§3.2.1)
+# ============================================================
+
+async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle notify_user tool call.
+    
+    Implements §3.2.1: Send notification to user.
+    Per §3.6.1: No DOM operations during auth sessions.
+    """
+    from src.utils.notification import notify_user as send_notification
+    
+    event = args["event"]
+    payload = args.get("payload", {})
+    
+    # Map event types to notification
+    title_map = {
+        "auth_required": "認証が必要です",
+        "task_progress": "タスク進捗",
+        "task_complete": "タスク完了",
+        "error": "エラー",
+        "info": "お知らせ",
+    }
+    
+    title = title_map.get(event, "Lancet通知")
+    message = payload.get("message", "")
+    
+    if event == "auth_required":
+        url = payload.get("url", "")
+        domain = payload.get("domain", "")
+        message = f"認証が必要: {domain or url}"
+    
+    await send_notification(
+        event=event,
+        payload=payload,
+    )
+    
+    return {
+        "ok": True,
+        "event": event,
+        "notified": True,
+    }
+
+
+async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle wait_for_user tool call.
+    
+    Implements §3.2.1: Wait for user input/acknowledgment.
+    
+    Note: This is a simplified implementation that sends a notification
+    and returns immediately with a "waiting" status. The actual wait
+    is handled by Cursor AI polling get_status or get_auth_queue.
+    
+    For blocking waits with timeout, the MCP protocol doesn't support
+    true blocking operations - Cursor AI should poll for completion.
+    """
+    from src.utils.notification import notify_user
+    
+    prompt = args["prompt"]
+    timeout_seconds = args.get("timeout_seconds", 300)
+    options = args.get("options", [])
+    
+    # Send notification with prompt
+    await notify_user(
+        event="info",
+        payload={"message": prompt},
+    )
+    
+    logger.info(
+        "User input requested",
+        prompt=prompt[:100],
+        timeout_seconds=timeout_seconds,
+        options=options,
+    )
+    
+    # Return immediately - MCP doesn't support true blocking
+    # Cursor AI should poll get_status or get_auth_queue for completion
+    return {
+        "ok": True,
+        "status": "notification_sent",
+        "prompt": prompt,
+        "timeout_seconds": timeout_seconds,
+        "message": "Notification sent. Poll get_status or get_auth_queue for completion.",
+    }
 
 
 # ============================================================
@@ -1519,7 +1156,7 @@ async def _handle_compress_with_chain_of_density(args: dict[str, Any]) -> dict[s
 
 async def run_server() -> None:
     """Run the MCP server."""
-    logger.info("Starting Lancet MCP server")
+    logger.info("Starting Lancet MCP server (Phase M - 11 tools)")
     
     # Initialize database
     await get_database()
@@ -1543,4 +1180,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

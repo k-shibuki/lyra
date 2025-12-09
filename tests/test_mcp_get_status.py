@@ -92,7 +92,7 @@ class TestGetStatusWithExplorationState:
             "subqueries": [
                 {
                     "id": "sq_001",
-                    "query": "Search query 1",
+                    "text": "Search query 1",  # Changed from "query" to "text" per state.py
                     "status": "satisfied",
                     "pages_fetched": 15,
                     "useful_fragments": 8,
@@ -102,7 +102,7 @@ class TestGetStatusWithExplorationState:
                 },
                 {
                     "id": "sq_002",
-                    "query": "Search query 2",
+                    "text": "Search query 2",  # Changed from "query" to "text" per state.py
                     "status": "partial",
                     "pages_fetched": 10,
                     "useful_fragments": 3,
@@ -310,12 +310,15 @@ class TestGetStatusWithoutExplorationState:
         
         assert result["ok"] is True
         assert result["task_id"] == "task_xyz789"
-        assert result["status"] == "pending"
+        assert result["status"] == "pending"  # DB status is returned when no exploration state
         assert result["query"] == "Another research question"
         assert result["searches"] == []
         assert result["metrics"]["total_searches"] == 0
         assert result["metrics"]["total_pages"] == 0
-        assert result["budget"] == {}
+        # Budget is now always populated with defaults
+        assert result["budget"]["pages_used"] == 0
+        assert result["budget"]["pages_limit"] == 120
+        assert result["budget"]["remaining_percent"] == 100
         assert result["auth_queue"] is None
         assert result["warnings"] == []
 

@@ -22,19 +22,18 @@ class TestCalibrateRollbackHandler:
         """Create mock calibrator with default behavior."""
         calibrator = MagicMock()
         
-        # Default: has calibration params
-        mock_params = MagicMock()
-        mock_params.version = 3
-        mock_params.brier_after = 0.15
-        mock_params.method = "temperature"
-        calibrator.get_params.return_value = mock_params
+        # Default: has current params at version 3
+        current_params = MagicMock()
+        current_params.version = 3
+        current_params.brier_after = 0.15
+        current_params.method = "temperature"
+        calibrator.get_params.return_value = current_params
         
-        # Default: rollback succeeds
+        # Default: rollback_to_version succeeds
         rollback_params = MagicMock()
         rollback_params.version = 2
         rollback_params.brier_after = 0.12
         rollback_params.method = "temperature"
-        calibrator.rollback.return_value = rollback_params
         calibrator.rollback_to_version.return_value = rollback_params
         
         return calibrator
@@ -59,7 +58,13 @@ class TestCalibrateRollbackHandler:
         assert result["source"] == "llm_extract"
         assert result["rolled_back_to"] == 2
         assert result["previous_version"] == 3
-        mock_calibrator.rollback.assert_called_once_with("llm_extract", "Manual rollback by Cursor AI")
+        
+        # Verify rollback_to_version was called with calculated target version
+        mock_calibrator.rollback_to_version.assert_called_once_with(
+            source="llm_extract",
+            version=2,  # previous_version - 1
+            reason="Manual rollback",
+        )
 
     @pytest.mark.asyncio
     async def test_rollback_to_specific_version(self, mock_calibrator: MagicMock) -> None:
@@ -72,6 +77,7 @@ class TestCalibrateRollbackHandler:
         """
         from src.mcp.server import _handle_calibrate_rollback
         
+        # Override rollback result for version 1
         rollback_params = MagicMock()
         rollback_params.version = 1
         rollback_params.brier_after = 0.10
@@ -86,8 +92,12 @@ class TestCalibrateRollbackHandler:
         
         assert result["ok"] is True
         assert result["rolled_back_to"] == 1
+        assert result["method"] == "platt"
+        
         mock_calibrator.rollback_to_version.assert_called_once_with(
-            "llm_extract", 1, "Manual rollback by Cursor AI"
+            source="llm_extract",
+            version=1,
+            reason="Manual rollback",
         )
 
     @pytest.mark.asyncio
@@ -109,8 +119,11 @@ class TestCalibrateRollbackHandler:
         
         assert result["ok"] is True
         assert result["reason"] == "Brier score degradation detected"
-        mock_calibrator.rollback.assert_called_once_with(
-            "nli_judge", "Brier score degradation detected"
+        
+        mock_calibrator.rollback_to_version.assert_called_once_with(
+            source="nli_judge",
+            version=2,  # previous_version (3) - 1
+            reason="Brier score degradation detected",
         )
 
     @pytest.mark.asyncio
@@ -149,14 +162,15 @@ class TestCalibrateRollbackHandler:
     @pytest.mark.asyncio
     async def test_source_with_no_calibration(self, mock_calibrator: MagicMock) -> None:
         """
-        TC-A-03: Source with no calibration.
+        TC-A-03: Source with no calibration history.
         
-        // Given: Source never calibrated
+        // Given: Source never calibrated (get_params returns None)
         // When: Calling calibrate_rollback
         // Then: CalibrationError raised
         """
         from src.mcp.server import _handle_calibrate_rollback
         
+        # No calibration history
         mock_calibrator.get_params.return_value = None
         
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
@@ -164,20 +178,23 @@ class TestCalibrateRollbackHandler:
                 await _handle_calibrate_rollback({"source": "unknown_source"})
         
         assert exc_info.value.code.value == "CALIBRATION_ERROR"
-        assert "unknown_source" in exc_info.value.message
+        assert "no previous version" in exc_info.value.message
 
     @pytest.mark.asyncio
     async def test_source_with_only_one_version(self, mock_calibrator: MagicMock) -> None:
         """
         TC-A-04: Source with only one version.
         
-        // Given: Source with single calibration version
-        // When: Calling calibrate_rollback
+        // Given: Source with single calibration version (version=1)
+        // When: Calling calibrate_rollback without version
         // Then: CalibrationError raised (no previous)
         """
         from src.mcp.server import _handle_calibrate_rollback
         
-        mock_calibrator.rollback.return_value = None
+        # Only version 1 exists
+        current_params = MagicMock()
+        current_params.version = 1
+        mock_calibrator.get_params.return_value = current_params
         
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
@@ -197,7 +214,8 @@ class TestCalibrateRollbackHandler:
         """
         from src.mcp.server import _handle_calibrate_rollback
         
-        mock_calibrator.rollback_to_version.return_value = None
+        # rollback_to_version raises ValueError for invalid version
+        mock_calibrator.rollback_to_version.side_effect = ValueError("Version 999 not found")
         
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
@@ -207,6 +225,29 @@ class TestCalibrateRollbackHandler:
                 })
         
         assert exc_info.value.code.value == "CALIBRATION_ERROR"
+
+    @pytest.mark.asyncio
+    async def test_rollback_returns_none(self, mock_calibrator: MagicMock) -> None:
+        """
+        TC-A-06: Rollback returns None.
+        
+        // Given: rollback_to_version returns None
+        // When: Calling calibrate_rollback
+        // Then: CalibrationError raised
+        """
+        from src.mcp.server import _handle_calibrate_rollback
+        
+        mock_calibrator.rollback_to_version.return_value = None
+        
+        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+            with pytest.raises(CalibrationError) as exc_info:
+                await _handle_calibrate_rollback({
+                    "source": "llm_extract",
+                    "version": 1,
+                })
+        
+        assert exc_info.value.code.value == "CALIBRATION_ERROR"
+        assert "not found" in exc_info.value.message
 
     @pytest.mark.asyncio
     async def test_response_includes_brier_and_method(self, mock_calibrator: MagicMock) -> None:
