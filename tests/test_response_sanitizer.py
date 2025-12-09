@@ -784,4 +784,72 @@ class TestSecurityCases:
         
         # Unknown nested field should be removed
         assert "internal_data" not in result.sanitized_response["searches"][0]
+    
+    def test_nested_query_field_sanitized(self, sanitizer_with_prompt):
+        """
+        TC-S-01: Nested query fields in searches array are sanitized.
+        
+        // Given: A response with query fields containing prompt fragments
+        // When: Sanitizing the response
+        // Then: Query fields are processed through L4 validation
+        
+        This test verifies the fix for the regression where LLM_NESTED_PATHS
+        processing was removed, causing searches[*].query to skip sanitization.
+        """
+        response = {
+            "ok": True,
+            "task_id": "task_abc",
+            "status": "exploring",
+            "query": "main query",
+            "searches": [
+                {
+                    "id": "s1",
+                    # Query containing part of system prompt (should trigger detection)
+                    "query": "This is a secret system prompt for testing",
+                    "status": "satisfied",
+                    "pages_fetched": 5,
+                    "useful_fragments": 3,
+                    "harvest_rate": 0.6,
+                    "satisfaction_score": 0.8,
+                    "has_primary_source": True,
+                },
+            ],
+            "metrics": {
+                "total_searches": 1,
+                "satisfied_count": 1,
+                "total_pages": 5,
+                "total_fragments": 3,
+                "total_claims": 2,
+                "elapsed_seconds": 30,
+            },
+            "budget": {
+                "pages_used": 5,
+                "pages_limit": 120,
+                "time_used_seconds": 30,
+                "time_limit_seconds": 1200,
+                "remaining_percent": 96,
+            },
+            "auth_queue": None,
+            "warnings": [],
+        }
+        
+        result = sanitizer_with_prompt.sanitize_response(response, "get_status")
+        
+        # Query field should be processed (counted in llm_fields_processed)
+        # Note: The main "query" and nested "query" should both be processed
+        assert result.stats.llm_fields_processed >= 2
+    
+    def test_query_field_in_llm_content_fields(self):
+        """
+        TC-S-02: Verify query is in LLM_CONTENT_FIELDS.
+        
+        // Given: The LLM_CONTENT_FIELDS constant
+        // When: Checking for "query"
+        // Then: "query" should be present for defensive sanitization
+        """
+        from src.mcp.response_sanitizer import LLM_CONTENT_FIELDS
+        
+        assert "query" in LLM_CONTENT_FIELDS, (
+            "query field must be in LLM_CONTENT_FIELDS for defensive sanitization"
+        )
 
