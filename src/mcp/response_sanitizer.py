@@ -29,12 +29,14 @@ logger = get_logger(__name__)
 # ============================================================================
 
 # Fields that contain LLM-generated content and require L4 sanitization
+# Also includes user-provided fields that should be defensively sanitized
 LLM_CONTENT_FIELDS = frozenset([
     "text",           # Claim/fragment text
     "summary",        # Any summary field
     "message",        # Messages that might contain LLM content
     "description",    # Descriptions
     "extracted_text", # Extracted content
+    "query",          # User-provided search queries (defensive sanitization)
 ])
 
 # Fields in nested objects that contain LLM content
@@ -538,4 +540,3 @@ def sanitize_error(
     """
     sanitizer = get_sanitizer()
     return sanitizer.sanitize_error(error, error_id)
-

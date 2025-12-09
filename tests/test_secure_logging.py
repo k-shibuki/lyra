@@ -500,11 +500,12 @@ class TestL7BugFix:
         
         result = sanitizer.sanitize_response(response, "search")
         
-        # Each text field in claims_found should be processed exactly once:
+        # Each LLM content field should be processed exactly once:
+        # - "query" at top level = 1
         # - "text" in claims_found[0] = 1
         # - "text" in claims_found[1] = 1
-        # Total = 2 (not 4 which would indicate double counting from before the fix)
-        assert result.stats.llm_fields_processed == 2
+        # Total = 3 (not 6 which would indicate double counting from before the fix)
+        assert result.stats.llm_fields_processed == 3
     
     def test_stats_count_correctly(self):
         """
