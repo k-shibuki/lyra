@@ -119,6 +119,8 @@ class SourceVerifier:
         """Initialize the source verifier."""
         self._domain_states: dict[str, DomainVerificationState] = {}
         self._blocked_domains: set[str] = set()
+        # K.3-8: Pending blocked notifications (processed via send_pending_notifications)
+        self._pending_blocked_notifications: list[tuple[str, str, str | None]] = []  # (domain, reason, task_id)
     
     def verify_claim(
         self,
@@ -159,11 +161,15 @@ class SourceVerifier:
             self._blocked_domains.add(domain)
             self._update_domain_state(domain, claim_id, VerificationStatus.REJECTED)
             
+            reason = "Dangerous pattern detected (L2/L4)"
             logger.warning(
                 "Domain blocked due to dangerous pattern",
                 domain=domain,
                 claim_id=claim_id,
             )
+            
+            # K.3-8: Queue notification for blocked domain
+            self._queue_blocked_notification(domain, reason, task_id=None)
             
             return VerificationResult(
                 claim_id=claim_id,
@@ -173,7 +179,7 @@ class SourceVerifier:
                 verification_status=VerificationStatus.REJECTED,
                 promotion_result=PromotionResult.DEMOTED,
                 details=VerificationDetails(),
-                reason="Dangerous pattern detected (L2/L4)",
+                reason=reason,
             )
         
         # Get confidence from EvidenceGraph
@@ -217,6 +223,14 @@ class SourceVerifier:
             )
         )
         
+        # K.3-8: If demoted to BLOCKED via contradictions, queue notification
+        if (
+            promotion_result == PromotionResult.DEMOTED
+            and new_trust_level == TrustLevel.BLOCKED
+        ):
+            self._blocked_domains.add(domain)
+            self._queue_blocked_notification(domain, reason, task_id=None)
+        
         # Update domain state
         self._update_domain_state(domain, claim_id, verification_status)
         
@@ -243,6 +257,9 @@ class SourceVerifier:
                     domain=domain,
                     rejection_rate=domain_state.rejection_rate,
                 )
+                
+                # K.3-8: Queue notification for blocked domain
+                self._queue_blocked_notification(domain, reason, task_id=None)
         
         return VerificationResult(
             claim_id=claim_id,
@@ -386,6 +403,83 @@ class SourceVerifier:
             List of blocked domain names.
         """
         return list(self._blocked_domains)
+    
+    def _queue_blocked_notification(
+        self,
+        domain: str,
+        reason: str,
+        task_id: str | None = None,
+    ) -> None:
+        """Queue a blocked domain notification (K.3-8).
+        
+        Notifications are queued and sent asynchronously via send_pending_notifications().
+        
+        Args:
+            domain: Domain that was blocked.
+            reason: Reason for blocking.
+            task_id: Associated task ID (optional).
+        """
+        # Avoid duplicate notifications for the same domain
+        existing_domains = {d for d, _, _ in self._pending_blocked_notifications}
+        if domain not in existing_domains:
+            self._pending_blocked_notifications.append((domain, reason, task_id))
+            logger.debug(
+                "Blocked domain notification queued",
+                domain=domain,
+                reason=reason,
+                task_id=task_id,
+            )
+    
+    async def send_pending_notifications(self, task_id: str | None = None) -> list[dict]:
+        """Send pending blocked domain notifications (K.3-8).
+        
+        Call this method after batch verification to send notifications.
+        The notifications inform Cursor AI that domains have been blocked.
+        
+        Args:
+            task_id: Override task_id for all notifications (optional).
+            
+        Returns:
+            List of notification results.
+        """
+        from src.utils.notification import notify_domain_blocked
+        
+        if not self._pending_blocked_notifications:
+            return []
+        
+        results = []
+        notifications_to_send = self._pending_blocked_notifications.copy()
+        self._pending_blocked_notifications.clear()
+        
+        for domain, reason, queued_task_id in notifications_to_send:
+            try:
+                result = await notify_domain_blocked(
+                    domain=domain,
+                    reason=reason,
+                    task_id=task_id or queued_task_id,
+                )
+                results.append(result)
+            except Exception as e:
+                logger.error(
+                    "Failed to send blocked domain notification",
+                    domain=domain,
+                    error=str(e),
+                )
+                results.append({
+                    "error": str(e),
+                    "domain": domain,
+                    "reason": reason,
+                })
+        
+        return results
+    
+    def get_pending_notification_count(self) -> int:
+        """Get count of pending blocked notifications.
+        
+        Returns:
+            Number of pending notifications.
+        """
+        return len(self._pending_blocked_notifications)
     
     def build_response_meta(
         self,
