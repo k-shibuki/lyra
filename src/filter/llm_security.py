@@ -109,6 +109,15 @@ DEFAULT_MAX_INPUT_LENGTH = 4000
 # Default max output length multiplier
 DEFAULT_MAX_OUTPUT_MULTIPLIER = 10
 
+# Minimum n-gram length for leakage detection (§4.4.1 L4)
+DEFAULT_LEAKAGE_NGRAM_LENGTH = 20
+
+# Tag pattern for leakage detection (matches LANCET-xxx anywhere)
+_LEAKAGE_TAG_PATTERN = re.compile(
+    r"LANCET[\s_-]*[A-Za-z0-9_-]{4,}",
+    re.IGNORECASE
+)
+
 
 # ============================================================================
 # Data Classes
@@ -133,6 +142,21 @@ class SanitizationResult:
 
 
 @dataclass
+class LeakageDetectionResult:
+    """Result of prompt leakage detection (§4.4.1 L4 enhancement)."""
+    
+    has_leakage: bool
+    leaked_fragments: list[str] = field(default_factory=list)
+    leaked_tag_patterns: list[str] = field(default_factory=list)
+    fragment_positions: list[tuple[int, int]] = field(default_factory=list)
+    
+    @property
+    def total_leaks(self) -> int:
+        """Total number of leaked items detected."""
+        return len(self.leaked_fragments) + len(self.leaked_tag_patterns)
+
+
+@dataclass
 class OutputValidationResult:
     """Result of output validation."""
     
@@ -141,11 +165,18 @@ class OutputValidationResult:
     was_truncated: bool = False
     urls_found: list[str] = field(default_factory=list)
     ips_found: list[str] = field(default_factory=list)
+    leakage_detected: bool = False
+    leakage_result: LeakageDetectionResult | None = None
+    was_masked: bool = False
     
     @property
     def had_suspicious_content(self) -> bool:
         """Check if suspicious content was found."""
-        return len(self.urls_found) > 0 or len(self.ips_found) > 0
+        return (
+            len(self.urls_found) > 0 
+            or len(self.ips_found) > 0 
+            or self.leakage_detected
+        )
 
 
 @dataclass
@@ -324,10 +355,181 @@ def remove_tag_patterns(text: str) -> str:
 # Output Validation (L4)
 # ============================================================================
 
+
+def detect_prompt_leakage(
+    output: str,
+    system_prompt: str | None,
+    ngram_length: int = DEFAULT_LEAKAGE_NGRAM_LENGTH,
+) -> LeakageDetectionResult:
+    """
+    Detect system prompt fragments in LLM output.
+    
+    Per §4.4.1 L4 enhancement:
+    - n-gram match detection (20+ consecutive characters)
+    - Tag name pattern detection (LANCET- prefix)
+    
+    Args:
+        output: LLM output text to check.
+        system_prompt: System prompt to check against (can be None).
+        ngram_length: Minimum length for n-gram match (default: 20).
+        
+    Returns:
+        LeakageDetectionResult with detected fragments.
+    """
+    leaked_fragments: list[str] = []
+    leaked_tag_patterns: list[str] = []
+    fragment_positions: list[tuple[int, int]] = []
+    
+    # Skip if no system prompt provided
+    if not system_prompt or not output:
+        return LeakageDetectionResult(
+            has_leakage=False,
+            leaked_fragments=[],
+            leaked_tag_patterns=[],
+            fragment_positions=[],
+        )
+    
+    # Normalize both for comparison (case-insensitive)
+    output_lower = output.lower()
+    prompt_lower = system_prompt.lower()
+    
+    # 1. Detect LANCET- tag patterns in output
+    tag_matches = _LEAKAGE_TAG_PATTERN.findall(output)
+    if tag_matches:
+        leaked_tag_patterns = list(set(tag_matches))
+        logger.warning(
+            "Prompt leakage detected: LANCET tag pattern in output",
+            pattern_count=len(leaked_tag_patterns),
+            # Don't log actual patterns to prevent log injection
+        )
+    
+    # 2. Detect n-gram matches (sliding window)
+    # Find all substrings of length >= ngram_length that appear in both
+    if len(prompt_lower) >= ngram_length and len(output_lower) >= ngram_length:
+        # Use a set of n-grams from the system prompt
+        prompt_ngrams: set[str] = set()
+        for i in range(len(prompt_lower) - ngram_length + 1):
+            ngram = prompt_lower[i:i + ngram_length]
+            # Skip n-grams that are just whitespace or common patterns
+            if ngram.strip() and not ngram.isspace():
+                prompt_ngrams.add(ngram)
+        
+        # Check each position in output for matches
+        found_positions: set[tuple[int, int]] = set()
+        for i in range(len(output_lower) - ngram_length + 1):
+            ngram = output_lower[i:i + ngram_length]
+            if ngram in prompt_ngrams:
+                # Extend the match to find the longest matching substring
+                start = i
+                end = i + ngram_length
+                
+                # Extend forward while still matching
+                while (
+                    end < len(output_lower) 
+                    and end - start < len(prompt_lower)
+                    and output_lower[start:end + 1] in prompt_lower
+                ):
+                    end += 1
+                
+                # Check if this overlaps with an existing match
+                is_overlap = False
+                for existing_start, existing_end in found_positions:
+                    if start < existing_end and end > existing_start:
+                        is_overlap = True
+                        break
+                
+                if not is_overlap:
+                    found_positions.add((start, end))
+                    # Store the original case fragment
+                    fragment = output[start:end]
+                    leaked_fragments.append(fragment)
+        
+        fragment_positions = sorted(found_positions)
+        
+        if leaked_fragments:
+            logger.warning(
+                "Prompt leakage detected: n-gram match in output",
+                fragment_count=len(leaked_fragments),
+                total_leaked_chars=sum(len(f) for f in leaked_fragments),
+                # Don't log actual fragments to prevent log injection
+            )
+    
+    has_leakage = len(leaked_fragments) > 0 or len(leaked_tag_patterns) > 0
+    
+    return LeakageDetectionResult(
+        has_leakage=has_leakage,
+        leaked_fragments=leaked_fragments,
+        leaked_tag_patterns=leaked_tag_patterns,
+        fragment_positions=fragment_positions,
+    )
+
+
+def mask_prompt_fragments(
+    text: str,
+    leakage_result: LeakageDetectionResult,
+    mask_text: str = "[REDACTED]",
+) -> str:
+    """
+    Mask detected prompt fragments in text.
+    
+    Per §4.4.1 L4: Replace detected fragments with [REDACTED].
+    
+    Args:
+        text: Text containing potential leakage.
+        leakage_result: Result from detect_prompt_leakage().
+        mask_text: Replacement text (default: "[REDACTED]").
+        
+    Returns:
+        Text with leaked fragments masked.
+    """
+    if not leakage_result.has_leakage:
+        return text
+    
+    result = text
+    
+    # Mask tag patterns first (case-insensitive replacement)
+    for pattern in leakage_result.leaked_tag_patterns:
+        # Use regex for case-insensitive replacement
+        pattern_regex = re.compile(re.escape(pattern), re.IGNORECASE)
+        result = pattern_regex.sub(mask_text, result)
+    
+    # Mask n-gram fragments (process in reverse order to maintain positions)
+    # We need to recalculate positions after tag masking
+    if leakage_result.leaked_fragments:
+        # Re-detect positions in the (possibly modified) text
+        for fragment in leakage_result.leaked_fragments:
+            # Case-insensitive search
+            lower_result = result.lower()
+            lower_fragment = fragment.lower()
+            
+            start = 0
+            while True:
+                pos = lower_result.find(lower_fragment, start)
+                if pos == -1:
+                    break
+                # Replace at this position
+                result = result[:pos] + mask_text + result[pos + len(fragment):]
+                # Update lower_result for next iteration
+                lower_result = result.lower()
+                # Move start past the mask
+                start = pos + len(mask_text)
+    
+    if result != text:
+        logger.info(
+            "Prompt fragments masked in LLM output",
+            original_length=len(text),
+            masked_length=len(result),
+        )
+    
+    return result
+
+
 def validate_llm_output(
     text: str,
     expected_max_length: int | None = None,
     warn_on_suspicious: bool = True,
+    system_prompt: str | None = None,
+    mask_leakage: bool = True,
 ) -> OutputValidationResult:
     """
     Validate LLM output for suspicious content.
@@ -336,6 +538,8 @@ def validate_llm_output(
     - Detect URLs (http://, https://, ftp://)
     - Detect IP addresses (IPv4/IPv6)
     - Truncate abnormally long output
+    - Detect system prompt fragments (L4 enhancement)
+    - Mask leaked fragments with [REDACTED]
     
     Note: L1 (network isolation) prevents actual data exfiltration,
     but this validation detects attack attempts for logging/monitoring.
@@ -344,14 +548,19 @@ def validate_llm_output(
         text: LLM output text.
         expected_max_length: Expected maximum length (output > 10x this is truncated).
         warn_on_suspicious: Whether to log warnings for suspicious content.
+        system_prompt: System prompt for leakage detection (optional).
+        mask_leakage: Whether to mask detected leakage (default: True).
         
     Returns:
         OutputValidationResult with validated text and metadata.
     """
     original_length = len(text)
-    urls_found = []
-    ips_found = []
+    urls_found: list[str] = []
+    ips_found: list[str] = []
     was_truncated = False
+    leakage_detected = False
+    leakage_result: LeakageDetectionResult | None = None
+    was_masked = False
     
     # Detect URLs
     urls = _URL_PATTERN.findall(text)
@@ -375,6 +584,16 @@ def validate_llm_output(
                 ip_count=len(ips_found),
             )
     
+    # Detect system prompt leakage (L4 enhancement)
+    if system_prompt:
+        leakage_result = detect_prompt_leakage(text, system_prompt)
+        leakage_detected = leakage_result.has_leakage
+        
+        # Mask leaked fragments if detected
+        if leakage_detected and mask_leakage:
+            text = mask_prompt_fragments(text, leakage_result)
+            was_masked = True
+    
     # Truncate abnormally long output
     if expected_max_length is not None:
         max_allowed = expected_max_length * DEFAULT_MAX_OUTPUT_MULTIPLIER
@@ -394,6 +613,9 @@ def validate_llm_output(
         was_truncated=was_truncated,
         urls_found=urls_found,
         ips_found=ips_found,
+        leakage_detected=leakage_detected,
+        leakage_result=leakage_result,
+        was_masked=was_masked,
     )
 
 
@@ -482,6 +704,7 @@ class LLMSecurityContext:
         self._validation_count = 0
         self._dangerous_pattern_count = 0
         self._suspicious_output_count = 0
+        self._leakage_count = 0
     
     async def __aenter__(self) -> "LLMSecurityContext":
         """Enter context and generate session tag."""
@@ -501,6 +724,7 @@ class LLMSecurityContext:
             validation_count=self._validation_count,
             dangerous_pattern_count=self._dangerous_pattern_count,
             suspicious_output_count=self._suspicious_output_count,
+            leakage_count=self._leakage_count,
         )
     
     def __enter__(self) -> "LLMSecurityContext":
@@ -521,6 +745,7 @@ class LLMSecurityContext:
             validation_count=self._validation_count,
             dangerous_pattern_count=self._dangerous_pattern_count,
             suspicious_output_count=self._suspicious_output_count,
+            leakage_count=self._leakage_count,
         )
     
     @property
@@ -560,6 +785,8 @@ class LLMSecurityContext:
         self,
         text: str,
         expected_max_length: int | None = None,
+        system_prompt: str | None = None,
+        mask_leakage: bool = True,
     ) -> OutputValidationResult:
         """
         Validate LLM output.
@@ -567,14 +794,23 @@ class LLMSecurityContext:
         Args:
             text: LLM output text.
             expected_max_length: Expected maximum length.
+            system_prompt: System prompt for leakage detection (optional).
+            mask_leakage: Whether to mask detected leakage (default: True).
             
         Returns:
             OutputValidationResult.
         """
-        result = validate_llm_output(text, expected_max_length=expected_max_length)
+        result = validate_llm_output(
+            text,
+            expected_max_length=expected_max_length,
+            system_prompt=system_prompt,
+            mask_leakage=mask_leakage,
+        )
         self._validation_count += 1
         if result.had_suspicious_content:
             self._suspicious_output_count += 1
+        if result.leakage_detected:
+            self._leakage_count += 1
         return result
     
     def build_prompt(
