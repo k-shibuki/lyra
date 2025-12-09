@@ -3,6 +3,7 @@ LLM-based extraction for Lancet.
 Uses local Ollama models for fact/claim extraction and summarization.
 
 Per §4.2: LLM processes are destroyed after task completion to prevent memory leaks.
+Per §4.4.1 L4: LLM output is validated for prompt leakage and suspicious content.
 
 This module provides high-level LLM extraction functions that use the LLMProvider
 abstraction layer. The provider can be configured or switched at runtime.
@@ -12,6 +13,7 @@ import json
 import re
 from typing import Any
 
+from src.filter.llm_security import validate_llm_output
 from src.filter.ollama_provider import OllamaProvider, create_ollama_provider
 from src.filter.provider import (
     ChatMessage,
@@ -451,6 +453,20 @@ async def llm_extract(
                 
                 response_text = response.text
                 
+                # Validate LLM output per §4.4.1 L4
+                validation_result = validate_llm_output(
+                    response_text,
+                    system_prompt=prompt,
+                    mask_leakage=True,
+                )
+                if validation_result.leakage_detected:
+                    logger.warning(
+                        "Prompt leakage detected in LLM extraction",
+                        passage_id=passage_id,
+                        task=task,
+                    )
+                response_text = validation_result.validated_text
+                
                 # Parse response based on task
                 if task in ("extract_facts", "extract_claims"):
                     try:
@@ -517,6 +533,20 @@ async def llm_extract(
             
             try:
                 response_text = await client.generate(prompt, model=model)
+                
+                # Validate LLM output per §4.4.1 L4
+                validation_result = validate_llm_output(
+                    response_text,
+                    system_prompt=prompt,
+                    mask_leakage=True,
+                )
+                if validation_result.leakage_detected:
+                    logger.warning(
+                        "Prompt leakage detected in LLM extraction (legacy)",
+                        passage_id=passage_id,
+                        task=task,
+                    )
+                response_text = validation_result.validated_text
                 
                 if task in ("extract_facts", "extract_claims"):
                     try:
