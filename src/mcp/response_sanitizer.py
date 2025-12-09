@@ -356,6 +356,8 @@ class ResponseSanitizer:
         Sanitize fields containing LLM-generated content.
         
         Applies L4 validation (prompt leakage detection, URL detection).
+        Uses recursive processing to handle all nested structures uniformly,
+        avoiding duplicate processing of top-level and nested fields.
         
         Args:
             obj: Object with potential LLM content.
@@ -364,33 +366,11 @@ class ResponseSanitizer:
             Tuple of (sanitized object, stats dict).
         """
         stats = {"processed": 0, "sanitized": 0, "leakage_count": 0}
-        result = obj.copy()
         
-        # Process direct fields
-        for key, value in result.items():
-            if key in LLM_CONTENT_FIELDS and isinstance(value, str):
-                sanitized_value, had_issues = self._validate_llm_content(value)
-                result[key] = sanitized_value
-                stats["processed"] += 1
-                if had_issues:
-                    stats["sanitized"] += 1
-        
-        # Process nested paths
-        for path in LLM_NESTED_PATHS:
-            container_key, field_key = path
-            if container_key in result and isinstance(result[container_key], list):
-                for item in result[container_key]:
-                    if isinstance(item, dict) and field_key in item:
-                        value = item[field_key]
-                        if isinstance(value, str):
-                            sanitized_value, had_issues = self._validate_llm_content(value)
-                            item[field_key] = sanitized_value
-                            stats["processed"] += 1
-                            if had_issues:
-                                stats["sanitized"] += 1
-        
-        # Recursively process nested dicts and arrays
-        result = self._recursive_llm_sanitize(result, stats)
+        # Use single recursive pass to process all LLM content fields
+        # This avoids duplicate processing that occurred when direct fields
+        # and nested paths were processed separately before recursion
+        result = self._recursive_llm_sanitize(obj, stats)
         
         return result, stats
     
