@@ -727,6 +727,70 @@ class TestDetectPromptLeakage:
         # Then: Multiple fragments detected
         assert result.has_leakage
         assert len(result.leaked_fragments) >= 2
+    
+    def test_json_structure_leakage_with_single_braces(self):
+        """TC-N-06: JSON structure patterns with single braces are detected.
+        
+        Regression test: Instruction templates must use single braces (not double)
+        so that JSON structures like '{"fact":' can be matched in LLM output.
+        Double braces '{{' would NOT match single braces '{' in n-gram detection.
+        """
+        # Given: System prompt with JSON template (single braces - correct)
+        system_prompt = '''Extract facts as JSON:
+{"fact": "事実の内容", "confidence": 0.0-1.0}'''
+        # LLM output containing the JSON pattern
+        output = '''Here is the result:
+{"fact": "事実の内容", "confidence": 0.9}'''
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: JSON pattern is detected as leakage
+        assert result.has_leakage, "JSON structure should be detected as leakage"
+        assert len(result.leaked_fragments) > 0
+    
+    def test_json_structure_leakage_detection_realistic(self):
+        """TC-N-07: Realistic JSON template leakage from TASK_INSTRUCTIONS.
+        
+        Verifies that the actual instruction templates (used for leakage detection
+        in llm_extract) can detect JSON patterns in LLM output.
+        """
+        # Given: Import actual instruction template
+        from src.filter.llm import EXTRACT_FACTS_INSTRUCTION
+        
+        # LLM might accidentally echo part of the instruction including JSON format
+        output = '''I understand. You want me to extract facts.
+抽出した事実をJSON配列形式で出力してください。各事実は以下の形式で:
+{"fact": "Python is popular", "confidence": 0.85}'''
+        
+        # When: Check for leakage using actual instruction template
+        result = detect_prompt_leakage(output, EXTRACT_FACTS_INSTRUCTION)
+        
+        # Then: Instruction fragment is detected
+        # The Japanese text "抽出した事実をJSON配列形式で出力してください" is 24 chars
+        assert result.has_leakage, (
+            "Instruction fragments should be detected. "
+            "Check if EXTRACT_FACTS_INSTRUCTION uses single braces."
+        )
+    
+    def test_single_braces_do_match_json_opening(self):
+        """TC-A-05: Single braces in template correctly match JSON output.
+        
+        Complementary test to TC-A-04: with single braces, detection works.
+        """
+        # Given: Template with SINGLE braces (correct)
+        template_with_single_braces = '{"key": "value"}'  # 16 chars
+        
+        # LLM output with single braces
+        output = 'Output: {"key": "value"}'
+        
+        # When: Check for leakage with custom n-gram
+        result = detect_prompt_leakage(output, template_with_single_braces, ngram_length=10)
+        
+        # Then: The JSON pattern IS detected
+        assert result.has_leakage, (
+            "Single braces in template should match single braces in output."
+        )
 
 
 class TestMaskPromptFragments:
