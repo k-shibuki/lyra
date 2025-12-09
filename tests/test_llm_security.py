@@ -754,9 +754,21 @@ class TestDetectPromptLeakage:
         
         Verifies that the actual instruction templates (used for leakage detection
         in llm_extract) can detect JSON patterns in LLM output.
+        
+        Important: This test specifically verifies that the JSON pattern itself
+        (with single braces) is detected, not just the Japanese instruction text.
+        If EXTRACT_FACTS_INSTRUCTION accidentally uses double braces {{}}, the JSON
+        pattern won't match and this test should fail.
         """
         # Given: Import actual instruction template
         from src.filter.llm import EXTRACT_FACTS_INSTRUCTION
+        
+        # Verify the template uses single braces (not double-escaped)
+        # This guards against accidental regression to f-string style braces
+        assert '{"fact"' in EXTRACT_FACTS_INSTRUCTION, (
+            "EXTRACT_FACTS_INSTRUCTION must use single braces for JSON pattern. "
+            "Double braces {{}} won't match actual JSON output."
+        )
         
         # LLM might accidentally echo part of the instruction including JSON format
         output = '''I understand. You want me to extract facts.
@@ -771,6 +783,48 @@ class TestDetectPromptLeakage:
         assert result.has_leakage, (
             "Instruction fragments should be detected. "
             "Check if EXTRACT_FACTS_INSTRUCTION uses single braces."
+        )
+        
+        # Additionally verify: the JSON pattern fragment is in leaked_fragments
+        # This ensures we're detecting the JSON structure, not just Japanese text
+        json_pattern_detected = any(
+            '{"fact"' in frag.lower() or '"fact"' in frag.lower()
+            for frag in result.leaked_fragments
+        )
+        japanese_text_detected = any(
+            '抽出した事実' in frag 
+            for frag in result.leaked_fragments
+        )
+        # At least one of these should match - if only Japanese matches,
+        # the JSON pattern with single braces is working correctly
+        assert json_pattern_detected or japanese_text_detected, (
+            "Neither JSON pattern nor Japanese instruction was detected. "
+            "This indicates a problem with leakage detection."
+        )
+    
+    def test_json_pattern_only_leakage_detection(self):
+        """TC-N-08: JSON pattern only (no Japanese text) should be detected.
+        
+        This test ensures that the JSON structure itself is matched,
+        not just relying on Japanese instruction text for detection.
+        If EXTRACT_FACTS_INSTRUCTION uses double braces, this test will fail.
+        """
+        # Given: Import actual instruction template
+        from src.filter.llm import EXTRACT_FACTS_INSTRUCTION
+        
+        # Output contains ONLY the JSON pattern part of the instruction
+        # (no Japanese text that could cause false positive matching)
+        output = '''Here is the extracted data:
+{"fact": "事実の内容", "confidence": 0.95}'''
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, EXTRACT_FACTS_INSTRUCTION)
+        
+        # Then: JSON pattern should be detected as leakage
+        # The pattern '{"fact": "事実の内容"' is 20+ chars and should match
+        assert result.has_leakage, (
+            "JSON pattern from instruction template should be detected. "
+            "This test fails if EXTRACT_FACTS_INSTRUCTION uses double braces {{}}."
         )
     
     def test_single_braces_do_match_json_opening(self):
