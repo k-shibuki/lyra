@@ -9,7 +9,7 @@ default_policy:
   tor_allowed: true
   cooldown_minutes: 60
   max_retries: 3
-  trust_level: "unknown"  # primary, government, academic, trusted, unknown, suspicious
+  trust_level: "unverified"  # primary, government, academic, trusted, low, unverified, blocked
 
 # === Search Engine Settings ===
 search_engine_policy:

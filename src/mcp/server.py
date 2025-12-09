@@ -16,6 +16,7 @@ from mcp.types import Tool, TextContent
 
 from src.utils.logging import get_logger, ensure_logging_configured, LogContext
 from src.storage.database import get_database, close_database
+from src.mcp.response_meta import create_minimal_meta, attach_meta
 
 ensure_logging_configured()
 logger = get_logger(__name__)
@@ -506,7 +507,7 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
             (task_id, query, "created", json.dumps(config), created_at),
         )
         
-        return {
+        response = {
             "ok": True,
             "task_id": task_id,
             "query": query,
@@ -516,6 +517,7 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
                 "max_seconds": max_seconds,
             },
         }
+        return attach_meta(response, create_minimal_meta())
 
 
 async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
@@ -604,7 +606,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             pages_limit = budget.get("pages_limit", 120)
             remaining_percent = int((1 - pages_used / max(1, pages_limit)) * 100)
             
-            return {
+            response = {
                 "ok": True,
                 "task_id": task_id,
                 "status": status,
@@ -628,9 +630,10 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "auth_queue": exploration_status.get("authentication_queue"),
                 "warnings": exploration_status.get("warnings", []),
             }
+            return attach_meta(response, create_minimal_meta())
         else:
             # No exploration state - return minimal info
-            return {
+            response = {
                 "ok": True,
                 "task_id": task_id,
                 "status": db_status or "created",
@@ -654,6 +657,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "auth_queue": None,
                 "warnings": [],
             }
+            return attach_meta(response, create_minimal_meta())
 
 
 # ============================================================

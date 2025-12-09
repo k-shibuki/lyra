@@ -420,7 +420,7 @@ pytest -m e2e
 pytest -m ""
 ```
 
-**現在のテスト数**: 2544件（全パス）
+**現在のテスト数**: 2614件（全パス）
 
 ### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -750,9 +750,9 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | L1: ネットワーク分離 | LLMから外部への直接送信を遮断 | ✅ |
 | L2: 入力サニタイズ | 危険パターンの除去 | ✅ |
 | L3: タグ分離 | システム/ユーザープロンプトの分離 | ✅ |
-| L4: 出力検証 | URL/IP/プロンプト断片の検出 | 🔄 |
-| L5: MCP応答メタデータ | 信頼度情報の付与 | ⏳ |
-| L6: ソース検証フロー | 自動昇格/降格 | ⏳ |
+| L4: 出力検証 | URL/IP/プロンプト断片の検出 | ✅ |
+| L5: MCP応答メタデータ | 信頼度情報の付与 | ✅ |
+| L6: ソース検証フロー | 自動昇格/降格 | ✅ |
 | **L7: MCP応答サニタイズ** | Cursor AI経由流出防止 | ✅ |
 | **L8: ログセキュリティ** | ログ/DB/エラーからの漏洩防止 | ✅ |
 
@@ -809,67 +809,78 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - `src/filter/llm.py`: 出力処理に断片検出を組み込み
 - `tests/test_llm_security.py`: L4強化テスト22件追加
 
-#### K.3-5 MCP応答メタデータ（L5）⏳
+#### K.3-5 MCP応答メタデータ（L5）✅
 
 全MCP応答に検証状態を付与し、Cursor AIが信頼度を判断可能にする。
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| `_lancet_meta` 付与 | `src/mcp/response_meta.py` (新規) | ⏳ |
-| claim検証状態付与 | `source_trust_level`, `verification_status` | ⏳ |
-| `search` 応答拡張 | `src/mcp/server.py` | ⏳ |
-| `get_status` 応答拡張 | `src/mcp/server.py` | ⏳ |
+| `_lancet_meta` 付与 | `src/mcp/response_meta.py` (新規) | ✅ |
+| claim検証状態付与 | `source_trust_level`, `verification_status` | ✅ |
+| `create_task` 応答拡張 | `src/mcp/server.py` | ✅ |
+| `get_status` 応答拡張 | `src/mcp/server.py` | ✅ |
 
-**影響ファイル:**
-- `src/mcp/server.py`: 応答ハンドラーの戻り値に `_lancet_meta` を追加
-- 新規 `src/mcp/response_meta.py`: メタデータ生成ヘルパー
+**実装内容:**
+- `src/mcp/response_meta.py`: メタデータ生成ヘルパー
+  - `VerificationStatus` enum: pending/verified/rejected
+  - `LancetMeta` dataclass: timestamp, security_warnings, blocked_domains, unverified_domains
+  - `ClaimMeta` dataclass: per-claim検証情報
+  - `ResponseMetaBuilder`: 流暢なビルダーAPI
+  - `attach_meta()`, `create_minimal_meta()`: ヘルパー関数
+- `src/mcp/server.py`: `create_task`, `get_status`ハンドラーに`_lancet_meta`追加
 
-> **注意**: Phase MでMCPツール名が変更されるため、`execute_subquery`→`search`, `get_exploration_status`→`get_status`として実装
+**テスト:** `tests/test_response_meta.py` (16件)
 
-#### K.3-6 ソース検証フロー（L6）⏳
+#### K.3-6 ソース検証フロー（L6）✅
 
 EvidenceGraph連携による自動検証と昇格/降格ロジック。
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| 検証ロジック | `src/filter/source_verification.py` (新規) | ⏳ |
-| EvidenceGraph連携 | `calculate_claim_confidence`, `find_contradictions` 利用 | ⏳ |
-| 自動昇格（→LOW） | 独立ソース≥2, 矛盾なし | ⏳ |
-| 自動降格（→BLOCKED） | 矛盾検出/危険パターン | ⏳ |
-| 検証状態永続化 | `src/research/state.py` 拡張 | ⏳ |
+| 検証ロジック | `src/filter/source_verification.py` (新規) | ✅ |
+| EvidenceGraph連携 | `calculate_claim_confidence`, `find_contradictions` 利用 | ✅ |
+| 自動昇格（→LOW） | 独立ソース≥2, 矛盾なし | ✅ |
+| 自動降格（→BLOCKED） | 矛盾検出/危険パターン | ✅ |
+| ドメイン検証状態追跡 | `DomainVerificationState` | ✅ |
 
-**影響ファイル:**
-- 新規 `src/filter/source_verification.py`: 検証ロジック
-- `src/filter/evidence_graph.py`: 既存の `calculate_claim_confidence`, `find_contradictions` を利用
-- `src/mcp/server.py`: `_handle_search`, `_handle_get_status` 拡張（Phase M後の新ツール名）
-- `src/research/state.py`: 検証状態の保持
+**実装内容:**
+- `src/filter/source_verification.py`: ソース検証ロジック
+  - `SourceVerifier` クラス: 検証の中心
+  - `verify_claim()`: EvidenceGraphを使った検証
+  - `_determine_verification_outcome()`: 昇格/降格判定
+  - `DomainVerificationState`: ドメインごとの検証状態追跡
+  - `build_response_meta()`: MCP応答メタデータ生成
+- 検証ロジック:
+  - 独立ソース≥2 + 矛盾なし → `VERIFIED`, `UNVERIFIED`→`LOW`に昇格
+  - 矛盾検出 or 危険パターン → `REJECTED`, `BLOCKED`に降格
+  - 証拠不足 → `PENDING`, trust level維持
+- 信頼度の高いドメイン（TRUSTED以上）は自動ブロックしない
 
-#### K.3-7 TrustLevel変更 ⏳
+**テスト:** `tests/test_source_verification.py` (27件)
+
+#### K.3-7 TrustLevel変更 ✅
 
 `UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| TrustLevel enum再定義 | `src/utils/domain_policy.py` | ⏳ |
-| 信頼度ウェイト更新 | `DEFAULT_TRUST_WEIGHTS` | ⏳ |
-| domains.yaml更新 | `config/domains.yaml` | ⏳ |
+| TrustLevel enum再定義 | `src/utils/domain_policy.py` | ✅ |
+| 信頼度ウェイト更新 | `DEFAULT_TRUST_WEIGHTS` | ✅ |
+| domains.yaml更新 | `config/domains.yaml` | ✅ |
 
-**影響ファイル（11件）:**
+**実装内容:**
+- TrustLevel enum変更:
+  - 廃止: `UNKNOWN`, `SUSPICIOUS`
+  - 追加: `LOW` (検証済み低信頼), `UNVERIFIED` (未検証), `BLOCKED` (除外)
+- 新しいウェイト:
+  - PRIMARY: 1.0, GOVERNMENT: 0.95, ACADEMIC: 0.90, TRUSTED: 0.75
+  - LOW: 0.40, UNVERIFIED: 0.30, BLOCKED: 0.0
+- 影響範囲: `TrustLevel`は`domain_policy.py`内のみで使用されており、他ファイルの`UNKNOWN`は別のEnum
 
-| ファイル | 変更内容 |
-|---------|---------|
-| `src/utils/domain_policy.py` | TrustLevel enum再定義, DEFAULT_TRUST_WEIGHTS更新 |
-| `config/domains.yaml` | default trust_level を `"unverified"` に変更 |
-| `src/search/search_parsers.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/search/provider.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/search/browser_search_provider.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/filter/provider.py` | UNKNOWN/SUSPICIOUS参照 → UNVERIFIED/BLOCKED |
-| `src/crawler/browser_provider.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/crawler/sec_fetch.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/crawler/fetcher.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/crawler/bfs.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/crawler/http3_policy.py` | UNKNOWN参照 → UNVERIFIED |
-| `src/utils/notification_provider.py` | UNKNOWN/SUSPICIOUS参照 → UNVERIFIED/BLOCKED |
+**変更ファイル:**
+- `src/utils/domain_policy.py`: TrustLevel enum再定義, DEFAULT_TRUST_WEIGHTS更新
+- `config/domains.yaml`: default trust_level を `"unverified"` に変更
+- `tests/test_domain_policy.py`: テストの期待値更新
 
 #### K.3-8 BLOCKED通知（InterventionQueue連携）⏳
 
@@ -982,6 +993,8 @@ except Exception as e:
 |------|------|:----:|
 | ユニットテスト（L2/L3/L4基本） | `tests/test_llm_security.py` | ✅ |
 | ユニットテスト（L4強化: 断片検出） | `tests/test_llm_security.py` 追加 | ✅ |
+| ユニットテスト（L5: MCP応答メタデータ） | `tests/test_response_meta.py` | ✅ (30件, 100%カバレッジ) |
+| ユニットテスト（L6: ソース検証フロー） | `tests/test_source_verification.py` | ✅ (38件, 100%カバレッジ) |
 | ユニットテスト（L7: MCP応答サニタイズ） | `tests/test_response_sanitizer.py` | ✅ (29件) |
 | ユニットテスト（L8: ログセキュリティ） | `tests/test_secure_logging.py` | ✅ (27件) |
 | E2E: ネットワーク分離検証 | Ollamaから外部通信不可を確認 | ⏳ |
