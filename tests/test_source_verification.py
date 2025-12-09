@@ -1326,3 +1326,255 @@ class TestContradictingClaimsExtraction:
         
         # Should be empty and not contain None
         assert None not in result.details.contradicting_claims
+
+
+# =============================================================================
+# K.3-8: Blocked Domain Notification Tests
+# =============================================================================
+
+class TestBlockedDomainNotification:
+    """Tests for K.3-8 blocked domain notification queueing.
+    
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-BN-N-01 | Dangerous pattern blocks domain | Equiv – normal | Notification queued | - |
+    | TC-BN-N-02 | High rejection rate blocks | Equiv – normal | Notification queued | - |
+    | TC-BN-N-03 | Contradiction blocks UNVERIFIED | Equiv – normal | Notification queued | - |
+    | TC-BN-N-04 | send_pending_notifications | Equiv – normal | All sent, cleared | - |
+    | TC-BN-B-01 | Empty queue | Boundary – empty | Empty list | - |
+    | TC-BN-N-05 | Duplicate domain prevention | Equiv – dedup | Single notification | - |
+    | TC-BN-A-01 | Notification failure | Error – external | Error in result | - |
+    | TC-BN-N-06 | get_pending_notification_count | Equiv – normal | Correct count | - |
+    """
+    
+    def test_dangerous_pattern_queues_notification(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-BN-N-01: Dangerous pattern detection queues blocked notification.
+        
+        // Given: Claim with dangerous pattern
+        // When: Verifying claim
+        // Then: Notification queued for blocked domain
+        """
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            verifier.verify_claim(
+                claim_id="dangerous_claim",
+                domain="dangerous-pattern.com",
+                evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
+            )
+        
+        # Then: Notification should be queued
+        assert verifier.get_pending_notification_count() == 1
+        pending = verifier._pending_blocked_notifications
+        assert len(pending) == 1
+        domain, reason, task_id = pending[0]
+        assert domain == "dangerous-pattern.com"
+        assert "Dangerous pattern" in reason
+    
+    def test_high_rejection_rate_queues_notification(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-BN-N-02: High rejection rate blocks domain and queues notification.
+        
+        // Given: Domain with rejection rate > 30%
+        // When: Another rejection occurs
+        // Then: Domain blocked, notification queued
+        """
+        # Set up rejection-heavy confidence info
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.1,
+            "supporting_count": 0,
+            "refuting_count": 2,
+            "neutral_count": 0,
+            "verdict": "rejected",
+            "independent_sources": 0,
+        }
+        mock_evidence_graph.find_contradictions.return_value = []
+        
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            # Verify multiple claims from same domain to build up rejection rate
+            for i in range(5):
+                verifier.verify_claim(
+                    claim_id=f"reject_claim_{i}",
+                    domain="high-reject-rate.com",
+                    evidence_graph=mock_evidence_graph,
+                )
+        
+        # Then: Domain should be blocked (rejection rate > 30%)
+        assert verifier.is_domain_blocked("high-reject-rate.com")
+        
+        # And notification should be queued (at least one for the block)
+        assert verifier.get_pending_notification_count() >= 1
+    
+    def test_contradiction_blocks_unverified_domain_and_queues(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-BN-N-03: Contradiction detection on UNVERIFIED domain queues notification.
+        
+        // Given: UNVERIFIED domain with contradictions
+        // When: Verifying claim
+        // Then: Domain blocked, notification queued
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.5,
+            "supporting_count": 1,
+            "refuting_count": 1,  # Contradiction
+            "neutral_count": 0,
+            "verdict": "contradicted",
+            "independent_sources": 1,
+        }
+        mock_evidence_graph.find_contradictions.return_value = []
+        
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="contradicted_claim",
+                domain="contradicted-site.com",
+                evidence_graph=mock_evidence_graph,
+            )
+        
+        # Then: Should be blocked
+        assert result.new_trust_level == TrustLevel.BLOCKED
+        assert result.promotion_result == PromotionResult.DEMOTED
+        
+        # And notification queued
+        assert verifier.get_pending_notification_count() == 1
+    
+    @pytest.mark.asyncio
+    async def test_send_pending_notifications_sends_all(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-BN-N-04: send_pending_notifications sends all queued and clears.
+        
+        // Given: Multiple blocked domains queued
+        // When: Calling send_pending_notifications
+        // Then: All sent, queue cleared
+        """
+        from unittest.mock import AsyncMock
+        
+        # Queue some notifications manually
+        verifier._queue_blocked_notification("domain1.com", "Reason 1", "task_1")
+        verifier._queue_blocked_notification("domain2.com", "Reason 2", "task_2")
+        
+        assert verifier.get_pending_notification_count() == 2
+        
+        # Mock notify_domain_blocked (patching at the import location in notification module)
+        mock_notify = AsyncMock(return_value={"shown": True, "queue_id": "iq_test"})
+        
+        with patch(
+            "src.utils.notification.notify_domain_blocked",
+            mock_notify,
+        ):
+            results = await verifier.send_pending_notifications()
+        
+        # Then: All sent
+        assert len(results) == 2
+        assert mock_notify.call_count == 2
+        
+        # And queue cleared
+        assert verifier.get_pending_notification_count() == 0
+    
+    @pytest.mark.asyncio
+    async def test_send_pending_notifications_empty_queue(self, verifier):
+        """
+        TC-BN-B-01: send_pending_notifications with empty queue.
+        
+        // Given: No pending notifications
+        // When: Calling send_pending_notifications
+        // Then: Returns empty list
+        """
+        results = await verifier.send_pending_notifications()
+        assert results == []
+    
+    def test_duplicate_domain_not_queued_twice(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-BN-N-05: Same domain blocked twice does not queue duplicate notifications.
+        
+        // Given: Domain already queued
+        // When: Blocking same domain again
+        // Then: Only one notification in queue
+        """
+        verifier._queue_blocked_notification("dup.com", "First block", None)
+        verifier._queue_blocked_notification("dup.com", "Second block", None)
+        
+        # Then: Only one notification
+        assert verifier.get_pending_notification_count() == 1
+    
+    @pytest.mark.asyncio
+    async def test_send_pending_notifications_with_failure(
+        self, verifier
+    ):
+        """
+        TC-BN-A-01: send_pending_notifications handles notification failure.
+        
+        // Given: Notification that will fail
+        // When: Calling send_pending_notifications
+        // Then: Error included in result, continues with others
+        """
+        from unittest.mock import AsyncMock
+        
+        verifier._queue_blocked_notification("fail.com", "Will fail", None)
+        verifier._queue_blocked_notification("success.com", "Will succeed", None)
+        
+        # Mock notify_domain_blocked to fail for first, succeed for second
+        call_count = [0]
+        async def mock_notify(domain, reason, task_id=None):
+            call_count[0] += 1
+            if domain == "fail.com":
+                raise RuntimeError("Notification service unavailable")
+            return {"shown": True, "queue_id": "iq_success"}
+        
+        with patch(
+            "src.utils.notification.notify_domain_blocked",
+            side_effect=mock_notify,
+        ):
+            results = await verifier.send_pending_notifications()
+        
+        # Then: Both processed
+        assert len(results) == 2
+        
+        # First has error
+        assert "error" in results[0]
+        assert "fail.com" in results[0]["domain"]
+        
+        # Second succeeded
+        assert results[1]["queue_id"] == "iq_success"
+        
+        # Queue still cleared
+        assert verifier.get_pending_notification_count() == 0
+    
+    def test_get_pending_notification_count(self, verifier):
+        """
+        TC-BN-N-06: get_pending_notification_count returns correct count.
+        
+        // Given: Various states of queue
+        // When: Checking count
+        // Then: Correct count returned
+        """
+        # Empty
+        assert verifier.get_pending_notification_count() == 0
+        
+        # Add one
+        verifier._queue_blocked_notification("a.com", "R", None)
+        assert verifier.get_pending_notification_count() == 1
+        
+        # Add more
+        verifier._queue_blocked_notification("b.com", "R", None)
+        verifier._queue_blocked_notification("c.com", "R", None)
+        assert verifier.get_pending_notification_count() == 3

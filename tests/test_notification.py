@@ -1049,3 +1049,186 @@ class TestInterventionIntegration:
                 assert "note" in status, (
                     "Status should include note about user completion"
                 )
+
+
+# =============================================================================
+# K.3-8: Domain Blocked Notification Tests
+# =============================================================================
+
+class TestDomainBlockedNotification:
+    """Tests for domain_blocked notification (K.3-8).
+    
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-DB-N-01 | InterventionType.DOMAIN_BLOCKED | Equiv – normal | Enum value defined | - |
+    | TC-DB-N-02 | notify_user domain_blocked | Equiv – normal | Queue + toast | - |
+    | TC-DB-N-03 | notify_domain_blocked helper | Equiv – normal | Correct result | - |
+    | TC-DB-A-01 | Missing domain | Boundary – empty | Uses "unknown" | - |
+    | TC-DB-A-02 | Missing reason | Boundary – empty | Uses default | - |
+    """
+    
+    def test_intervention_type_includes_domain_blocked(self):
+        """
+        TC-DB-N-01: InterventionType should include DOMAIN_BLOCKED.
+        
+        // Given: InterventionType enum
+        // When: Checking values
+        // Then: DOMAIN_BLOCKED should be defined with value "domain_blocked"
+        """
+        assert hasattr(InterventionType, "DOMAIN_BLOCKED")
+        assert InterventionType.DOMAIN_BLOCKED.value == "domain_blocked"
+    
+    @pytest.mark.asyncio
+    async def test_notify_user_domain_blocked_queues_and_notifies(
+        self, mock_settings, mock_db
+    ):
+        """
+        TC-DB-N-02: notify_user with domain_blocked should queue and send toast.
+        
+        // Given: domain_blocked event with valid payload
+        // When: Calling notify_user
+        // Then: Item queued, toast sent, queue_id returned
+        """
+        from src.utils.notification import notify_user, get_intervention_queue
+        
+        with patch("src.utils.notification.get_settings", return_value=mock_settings):
+            with patch("src.utils.notification.get_database", return_value=mock_db):
+                # Mock the queue
+                mock_queue = AsyncMock()
+                mock_queue.enqueue = AsyncMock(return_value="iq_test123")
+                
+                # Mock the manager
+                mock_manager = MagicMock()
+                mock_manager.send_toast = AsyncMock(return_value=True)
+                
+                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                        # When
+                        result = await notify_user(
+                            event="domain_blocked",
+                            payload={
+                                "domain": "bad-site.com",
+                                "reason": "High rejection rate (75%)",
+                                "task_id": "task_123",
+                                "url": "https://bad-site.com/page",
+                            },
+                        )
+                        
+                        # Then: Queue was called
+                        mock_queue.enqueue.assert_called_once()
+                        call_kwargs = mock_queue.enqueue.call_args[1]
+                        assert call_kwargs["domain"] == "bad-site.com"
+                        assert call_kwargs["auth_type"] == "domain_blocked"
+                        assert call_kwargs["priority"] == "low"
+                        
+                        # Then: Toast was sent
+                        mock_manager.send_toast.assert_called_once()
+                        
+                        # Then: Result has expected fields
+                        assert result["shown"] is True
+                        assert result["event"] == "domain_blocked"
+                        assert result["domain"] == "bad-site.com"
+                        assert result["reason"] == "High rejection rate (75%)"
+                        assert result["queue_id"] == "iq_test123"
+    
+    @pytest.mark.asyncio
+    async def test_notify_domain_blocked_convenience_function(
+        self, mock_settings, mock_db
+    ):
+        """
+        TC-DB-N-03: notify_domain_blocked helper should work correctly.
+        
+        // Given: Domain and reason
+        // When: Calling notify_domain_blocked
+        // Then: Correct result returned
+        """
+        from src.utils.notification import notify_domain_blocked
+        
+        with patch("src.utils.notification.get_settings", return_value=mock_settings):
+            with patch("src.utils.notification.get_database", return_value=mock_db):
+                mock_queue = AsyncMock()
+                mock_queue.enqueue = AsyncMock(return_value="iq_conv123")
+                
+                mock_manager = MagicMock()
+                mock_manager.send_toast = AsyncMock(return_value=True)
+                
+                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                        # When
+                        result = await notify_domain_blocked(
+                            domain="blocked.example.com",
+                            reason="Dangerous pattern detected",
+                            task_id="task_456",
+                        )
+                        
+                        # Then
+                        assert result["domain"] == "blocked.example.com"
+                        assert result["reason"] == "Dangerous pattern detected"
+                        assert result["queue_id"] == "iq_conv123"
+    
+    @pytest.mark.asyncio
+    async def test_notify_user_domain_blocked_missing_domain(
+        self, mock_settings, mock_db
+    ):
+        """
+        TC-DB-A-01: notify_user domain_blocked with missing domain uses "unknown".
+        
+        // Given: domain_blocked event without domain
+        // When: Calling notify_user
+        // Then: Uses "unknown" as domain
+        """
+        from src.utils.notification import notify_user
+        
+        with patch("src.utils.notification.get_settings", return_value=mock_settings):
+            with patch("src.utils.notification.get_database", return_value=mock_db):
+                mock_queue = AsyncMock()
+                mock_queue.enqueue = AsyncMock(return_value="iq_unknown")
+                
+                mock_manager = MagicMock()
+                mock_manager.send_toast = AsyncMock(return_value=True)
+                
+                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                        # When: No domain provided
+                        result = await notify_user(
+                            event="domain_blocked",
+                            payload={"reason": "Test reason"},
+                        )
+                        
+                        # Then: Uses "unknown" as domain
+                        call_kwargs = mock_queue.enqueue.call_args[1]
+                        assert call_kwargs["domain"] == "unknown"
+                        assert result["domain"] == "unknown"
+    
+    @pytest.mark.asyncio
+    async def test_notify_user_domain_blocked_missing_reason(
+        self, mock_settings, mock_db
+    ):
+        """
+        TC-DB-A-02: notify_user domain_blocked with missing reason uses default.
+        
+        // Given: domain_blocked event without reason
+        // When: Calling notify_user
+        // Then: Uses default reason "Verification failure"
+        """
+        from src.utils.notification import notify_user
+        
+        with patch("src.utils.notification.get_settings", return_value=mock_settings):
+            with patch("src.utils.notification.get_database", return_value=mock_db):
+                mock_queue = AsyncMock()
+                mock_queue.enqueue = AsyncMock(return_value="iq_noreason")
+                
+                mock_manager = MagicMock()
+                mock_manager.send_toast = AsyncMock(return_value=True)
+                
+                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                        # When: No reason provided
+                        result = await notify_user(
+                            event="domain_blocked",
+                            payload={"domain": "test.com"},
+                        )
+                        
+                        # Then: Uses default reason
+                        assert result["reason"] == "Verification failure"

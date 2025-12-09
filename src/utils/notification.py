@@ -57,6 +57,8 @@ class InterventionType(Enum):
     CLOUDFLARE = "cloudflare"
     TURNSTILE = "turnstile"
     JS_CHALLENGE = "js_challenge"
+    # K.3-8: Domain blocked notification (informational, no user action needed)
+    DOMAIN_BLOCKED = "domain_blocked"
 
 
 class InterventionResult:
@@ -658,13 +660,15 @@ async def notify_user(
     """Send notification to user per §3.6.1 safe operation policy.
     
     Args:
-        event: Event type (captcha, login_required, cookie_banner, cloudflare, etc.).
+        event: Event type (captcha, login_required, cookie_banner, cloudflare,
+               domain_blocked, etc.).
         payload: Event payload with keys:
             - url: Target URL
             - domain: Domain name
             - message: Custom message (optional)
             - task_id: Associated task ID (optional)
             - page: Playwright page object for window front-bring (optional)
+            - reason: Reason for domain_blocked events (optional)
         
         Note: element_selector and on_success_callback are no longer supported
         per §3.6.1 (no DOM operations during authentication sessions).
@@ -687,6 +691,41 @@ async def notify_user(
             page=payload.get("page"),
         )
         return result.to_dict()
+    elif event == "domain_blocked":
+        # K.3-8: Domain blocked notification - informational, queued for tracking
+        domain = payload.get("domain", "unknown")
+        reason = payload.get("reason", "Verification failure")
+        task_id = payload.get("task_id")
+        
+        # Queue to intervention queue for tracking (no user action needed)
+        queue = get_intervention_queue()
+        queue_id = await queue.enqueue(
+            task_id=task_id or "",
+            url=payload.get("url", f"https://{domain}/"),
+            domain=domain,
+            auth_type="domain_blocked",
+            priority="low",  # Informational, low priority
+        )
+        
+        # Send toast notification
+        message = payload.get("message") or f"Domain {domain} blocked: {reason}"
+        sent = await manager.send_toast("Lancet: DOMAIN BLOCKED", message)
+        
+        logger.warning(
+            "Domain blocked notification sent",
+            domain=domain,
+            reason=reason,
+            task_id=task_id,
+            queue_id=queue_id,
+        )
+        
+        return {
+            "shown": sent,
+            "event": event,
+            "domain": domain,
+            "reason": reason,
+            "queue_id": queue_id,
+        }
     else:
         # Simple notification (no intervention flow)
         title = f"Lancet: {event.upper()}"
@@ -698,6 +737,37 @@ async def notify_user(
             "shown": sent,
             "event": event,
         }
+
+
+async def notify_domain_blocked(
+    domain: str,
+    reason: str,
+    task_id: str | None = None,
+    url: str | None = None,
+) -> dict[str, Any]:
+    """Convenience function to notify that a domain has been blocked.
+    
+    K.3-8: Called when SourceVerifier demotes a domain to BLOCKED.
+    This informs Cursor AI that the domain will be excluded from future results.
+    
+    Args:
+        domain: Domain name that was blocked.
+        reason: Reason for blocking (e.g., "High rejection rate (75%)").
+        task_id: Associated task ID (optional).
+        url: URL that triggered the block (optional).
+        
+    Returns:
+        Notification result dict with queue_id.
+    """
+    return await notify_user(
+        event="domain_blocked",
+        payload={
+            "domain": domain,
+            "reason": reason,
+            "task_id": task_id,
+            "url": url or f"https://{domain}/",
+        },
+    )
 
 
 async def check_intervention_status(intervention_id: str) -> dict[str, Any]:
