@@ -370,14 +370,16 @@ TRANSLATE_PROMPT = """以下のテキストを{target_lang}に翻訳してくだ
 
 # Instruction-only templates for leakage detection (§4.4.1 L4)
 # These exclude user-provided text to avoid false positive leakage detection
+# Note: Use single braces here (not double) since these are NOT f-string templates.
+# These templates are used for n-gram matching against LLM output.
 EXTRACT_FACTS_INSTRUCTION = """あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
 抽出した事実をJSON配列形式で出力してください。各事実は以下の形式で:
-{{"fact": "事実の内容", "confidence": 0.0-1.0の信頼度}}
+{"fact": "事実の内容", "confidence": 0.0-1.0の信頼度}
 事実のみを出力し、意見や推測は含めないでください。"""
 
 EXTRACT_CLAIMS_INSTRUCTION = """あなたは情報分析の専門家です。以下のテキストから主張を抽出してください。
 抽出した主張をJSON配列形式で出力してください。各主張は以下の形式で:
-{{"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}}"""
+{"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}"""
 
 SUMMARIZE_INSTRUCTION = """以下のテキストを要約してください。重要なポイントを簡潔にまとめてください。"""
 
