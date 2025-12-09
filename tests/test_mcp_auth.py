@@ -1,6 +1,28 @@
 """Tests for get_auth_queue and resolve_auth MCP tools.
 
 Tests authentication queue management per §3.2.1 and §3.6.1.
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-N-01 | group_by=none | Equivalence – normal | Flat list of items | No grouping |
+| TC-N-02 | group_by=domain | Equivalence – normal | Items grouped by domain | Domain grouping |
+| TC-N-03 | group_by=type | Equivalence – normal | Items grouped by auth_type | Type grouping |
+| TC-N-04 | task_id filter | Equivalence – normal | get_pending called with task_id | Task filtering |
+| TC-N-05 | priority_filter | Equivalence – normal | get_pending called with priority | Priority filtering |
+| TC-N-06 | action=complete, target=item | Equivalence – normal | Single item completed | Single completion |
+| TC-N-07 | action=skip, target=item | Equivalence – normal | Single item skipped | Single skip |
+| TC-N-08 | action=complete, target=domain | Equivalence – normal | All domain items completed | Domain completion |
+| TC-N-09 | action=skip, target=domain | Equivalence – normal | All domain items skipped | Domain skip |
+| TC-A-01 | Missing action | Equivalence – error | InvalidParamsError | Required param |
+| TC-A-02 | target=item, missing queue_id | Equivalence – error | InvalidParamsError | Conditional required |
+| TC-A-03 | target=domain, missing domain | Equivalence – error | InvalidParamsError | Conditional required |
+| TC-A-04 | target=invalid | Equivalence – error | InvalidParamsError | Invalid enum |
+| TC-A-05 | action=invalid | Equivalence – error | InvalidParamsError | Invalid enum |
+| TC-B-01 | Empty queue (0 items) | Boundary – empty | total_count=0, items=[] | Zero items |
+| TC-B-02 | Single item in queue | Boundary – min | total_count=1 | Minimal case |
+| TC-B-03 | group_by with 0 items | Boundary – empty groups | groups={} empty dict | Empty grouping |
 """
 
 from typing import Any
@@ -194,6 +216,91 @@ class TestGetAuthQueueExecution:
         assert result["total_count"] == 1
 
 
+class TestGetAuthQueueBoundaryValues:
+    """Tests for get_auth_queue boundary values."""
+
+    @pytest.mark.asyncio
+    async def test_empty_queue(self) -> None:
+        """
+        TC-B-01: Empty queue (0 items).
+        
+        // Given: No pending items in queue
+        // When: Calling get_auth_queue
+        // Then: Returns total_count=0 and empty items list
+        """
+        from src.mcp.server import _handle_get_auth_queue
+        
+        mock_queue = AsyncMock()
+        mock_queue.get_pending.return_value = []
+        
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ):
+            result = await _handle_get_auth_queue({})
+        
+        assert result["ok"] is True
+        assert result["total_count"] == 0
+        assert result["items"] == []
+
+    @pytest.mark.asyncio
+    async def test_single_item_queue(self) -> None:
+        """
+        TC-B-02: Single item in queue.
+        
+        // Given: Exactly 1 pending item
+        // When: Calling get_auth_queue
+        // Then: Returns total_count=1
+        """
+        from src.mcp.server import _handle_get_auth_queue
+        
+        mock_queue = AsyncMock()
+        mock_queue.get_pending.return_value = [{
+            "id": "q_001",
+            "task_id": "task_abc",
+            "url": "https://example.com",
+            "domain": "example.com",
+            "auth_type": "captcha",
+            "priority": "high",
+        }]
+        
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ):
+            result = await _handle_get_auth_queue({})
+        
+        assert result["ok"] is True
+        assert result["total_count"] == 1
+        assert len(result["items"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_group_by_domain(self) -> None:
+        """
+        TC-B-03: group_by with 0 items returns empty groups.
+        
+        // Given: Empty queue
+        // When: Calling get_auth_queue with group_by=domain
+        // Then: Returns groups as empty dict
+        """
+        from src.mcp.server import _handle_get_auth_queue
+        
+        mock_queue = AsyncMock()
+        mock_queue.get_pending.return_value = []
+        
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ):
+            result = await _handle_get_auth_queue({
+                "group_by": "domain",
+            })
+        
+        assert result["ok"] is True
+        assert result["total_count"] == 0
+        assert result["groups"] == {}
+
+
 class TestResolveAuthValidation:
     """Tests for resolve_auth parameter validation."""
 
@@ -273,6 +380,27 @@ class TestResolveAuthValidation:
             })
         
         assert "target" in str(exc_info.value.details.get("param_name"))
+
+    @pytest.mark.asyncio
+    async def test_invalid_action_raises_error(self) -> None:
+        """
+        TC-A-05: Invalid action value.
+        
+        // Given: action=invalid_action
+        // When: Calling resolve_auth
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_resolve_auth({
+                "target": "item",
+                "queue_id": "q_001",
+                "action": "invalid_action",
+            })
+        
+        assert "action" in str(exc_info.value.details.get("param_name"))
 
 
 class TestResolveAuthExecution:
