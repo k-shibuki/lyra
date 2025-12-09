@@ -846,3 +846,134 @@ class TestResponsibilityBoundary:
         assert "required" not in notes.lower()
         assert "should query" not in notes.lower()
 
+
+# =============================================================================
+# Pipeline Tests (§3.2.1)
+# =============================================================================
+
+class TestStopTaskAction:
+    """
+    Tests for stop_task_action defensive access patterns.
+    
+    Bug fix verification: stop_task_action should use safe .get() access
+    for all nested dictionary keys to handle potential missing keys gracefully.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_stop_task_handles_missing_summary(self, test_database):
+        """
+        TC-PIPE-A-01: stop_task_action handles missing summary key.
+        
+        // Given: finalize_result with missing summary key
+        // When: Calling stop_task_action
+        // Then: Returns with default values, no KeyError
+        """
+        from src.research.pipeline import stop_task_action
+        from src.research.state import ExplorationState
+        
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        
+        # Patch finalize to return incomplete result
+        async def mock_finalize():
+            return {
+                "ok": True,
+                "final_status": "completed",
+                # Missing "summary" and "evidence_graph_summary"
+            }
+        
+        state.finalize = mock_finalize
+        
+        # When: Call stop_task_action
+        result = await stop_task_action(task_id, state, "completed")
+        
+        # Then: Should succeed with default values
+        assert result["ok"] is True
+        assert result["summary"]["satisfied_searches"] == 0
+        assert result["summary"]["total_claims"] == 0
+        assert result["summary"]["primary_source_ratio"] == 0.0
+    
+    @pytest.mark.asyncio
+    async def test_stop_task_handles_empty_nested_dicts(self, test_database):
+        """
+        TC-PIPE-A-02: stop_task_action handles empty nested dicts.
+        
+        // Given: finalize_result with empty summary and evidence_graph_summary
+        // When: Calling stop_task_action
+        // Then: Returns with default values
+        """
+        from src.research.pipeline import stop_task_action
+        from src.research.state import ExplorationState
+        
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        
+        # Patch finalize to return empty nested dicts
+        async def mock_finalize():
+            return {
+                "ok": True,
+                "final_status": "partial",
+                "summary": {},  # Empty summary
+                "evidence_graph_summary": {},  # Empty graph summary
+            }
+        
+        state.finalize = mock_finalize
+        
+        # When: Call stop_task_action
+        result = await stop_task_action(task_id, state, "budget_exhausted")
+        
+        # Then: Should succeed with default values
+        assert result["ok"] is True
+        assert result["final_status"] == "partial"
+        assert result["summary"]["satisfied_searches"] == 0
+        assert result["summary"]["total_claims"] == 0
+        assert result["summary"]["primary_source_ratio"] == 0.0
+    
+    @pytest.mark.asyncio
+    async def test_stop_task_normal_finalize(self, test_database):
+        """
+        TC-PIPE-N-01: stop_task_action works with complete finalize_result.
+        
+        // Given: finalize_result with all expected keys
+        // When: Calling stop_task_action
+        // Then: Returns values from finalize_result
+        """
+        from src.research.pipeline import stop_task_action
+        from src.research.state import ExplorationState
+        
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        
+        # Register a subquery for total_searches count
+        state.register_subquery("sq_001", "test query")
+        
+        # Patch finalize to return complete result
+        async def mock_finalize():
+            return {
+                "ok": True,
+                "final_status": "completed",
+                "summary": {
+                    "satisfied_subqueries": 5,
+                    "total_claims": 10,
+                },
+                "evidence_graph_summary": {
+                    "primary_source_ratio": 0.75,
+                },
+            }
+        
+        state.finalize = mock_finalize
+        
+        # When: Call stop_task_action
+        result = await stop_task_action(task_id, state, "completed")
+        
+        # Then: Should use values from finalize_result
+        assert result["ok"] is True
+        assert result["final_status"] == "completed"
+        assert result["summary"]["total_searches"] == 1  # One registered subquery
+        assert result["summary"]["satisfied_searches"] == 5
+        assert result["summary"]["total_claims"] == 10
+        assert result["summary"]["primary_source_ratio"] == 0.75
+

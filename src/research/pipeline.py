@@ -500,15 +500,18 @@ async def stop_task_action(
         await state.save_state()
         
         # Map to §3.2.1 schema
+        # Use safe .get() access to handle potential missing keys
+        summary = finalize_result.get("summary", {})
+        evidence_graph_summary = finalize_result.get("evidence_graph_summary", {})
+        
         return {
             "ok": True,
             "task_id": task_id,
             "final_status": finalize_result.get("final_status", reason),
             "summary": {
                 "total_searches": len(state._subqueries),
-                "satisfied_searches": finalize_result["summary"]["satisfied_subqueries"],
-                "total_claims": finalize_result["summary"]["total_claims"],
-                "primary_source_ratio": finalize_result["evidence_graph_summary"]["primary_source_ratio"],
+                "satisfied_searches": summary.get("satisfied_subqueries", 0),
+                "total_claims": summary.get("total_claims", 0),
+                "primary_source_ratio": evidence_graph_summary.get("primary_source_ratio", 0.0),
             },
         }
-
