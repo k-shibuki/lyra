@@ -25,8 +25,15 @@ from src.filter.provider import (
 )
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.secure_logging import (
+    get_secure_logger,
+    get_audit_logger,
+    SecurityEventType,
+)
 
 logger = get_logger(__name__)
+secure_logger = get_secure_logger(__name__)
+audit_logger = get_audit_logger()
 
 
 # ============================================================================
@@ -486,10 +493,10 @@ async def llm_extract(
                     mask_leakage=True,
                 )
                 if validation_result.leakage_detected:
-                    logger.warning(
-                        "Prompt leakage detected in LLM extraction",
-                        passage_id=passage_id,
-                        task=task,
+                    # L8: Use audit logger for security events
+                    audit_logger.log_prompt_leakage(
+                        source="llm_extract",
+                        fragment_count=validation_result.leakage_result.total_leaks if validation_result.leakage_result else 1,
                     )
                 response_text = validation_result.validated_text
                 
@@ -517,15 +524,14 @@ async def llm_extract(
                     })
                     
             except Exception as e:
-                logger.error(
-                    "LLM extraction error",
-                    passage_id=passage_id,
-                    task=task,
-                    error=str(e),
+                # L8: Use secure logger for exception handling
+                sanitized = secure_logger.log_exception(
+                    e,
+                    context={"passage_id": passage_id, "task": task},
                 )
                 results.append({
                     "id": passage_id,
-                    "error": str(e),
+                    "error": sanitized.sanitized_message,
                 })
     else:
         # Legacy path using OllamaClient
@@ -568,10 +574,10 @@ async def llm_extract(
                     mask_leakage=True,
                 )
                 if validation_result.leakage_detected:
-                    logger.warning(
-                        "Prompt leakage detected in LLM extraction (legacy)",
-                        passage_id=passage_id,
-                        task=task,
+                    # L8: Use audit logger for security events (legacy path)
+                    audit_logger.log_prompt_leakage(
+                        source="llm_extract_legacy",
+                        fragment_count=validation_result.leakage_result.total_leaks if validation_result.leakage_result else 1,
                     )
                 response_text = validation_result.validated_text
                 
@@ -598,15 +604,14 @@ async def llm_extract(
                     })
                     
             except Exception as e:
-                logger.error(
-                    "LLM extraction error",
-                    passage_id=passage_id,
-                    task=task,
-                    error=str(e),
+                # L8: Use secure logger for exception handling
+                sanitized = secure_logger.log_exception(
+                    e,
+                    context={"passage_id": passage_id, "task": task},
                 )
                 results.append({
                     "id": passage_id,
-                    "error": str(e),
+                    "error": sanitized.sanitized_message,
                 })
     
     # Aggregate results
