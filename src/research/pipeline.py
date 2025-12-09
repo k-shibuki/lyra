@@ -13,8 +13,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.research.state import ExplorationState, SubqueryStatus
-from src.research.executor import SubqueryExecutor, PRIMARY_SOURCE_DOMAINS, REFUTATION_SUFFIXES
+from src.research.state import ExplorationState, SearchStatus
+from src.research.executor import SearchExecutor, PRIMARY_SOURCE_DOMAINS, REFUTATION_SUFFIXES
 from src.storage.database import get_database
 from src.utils.logging import get_logger, LogContext
 
@@ -195,31 +195,31 @@ class SearchPipeline:
         result: SearchResult,
     ) -> SearchResult:
         """Execute normal search mode."""
-        # Use SubqueryExecutor for the core pipeline logic
-        executor = SubqueryExecutor(self.task_id, self.state)
+        # Use SearchExecutor for the core pipeline logic
+        executor = SearchExecutor(self.task_id, self.state)
         
         # Convert options to executor parameters
         budget_pages = options.max_pages
         
         # Execute through executor
-        sq_result = await executor.execute(
-            subquery=query,
+        exec_result = await executor.execute(
+            query=query,
             priority="high" if options.seek_primary else "medium",
             budget_pages=budget_pages,
         )
         
         # Map executor result to SearchResult
-        result.status = sq_result.status
-        result.pages_fetched = sq_result.pages_fetched
-        result.useful_fragments = sq_result.useful_fragments
-        result.harvest_rate = sq_result.harvest_rate
-        result.satisfaction_score = sq_result.satisfaction_score
-        result.novelty_score = sq_result.novelty_score
-        result.auth_blocked_urls = sq_result.auth_blocked_urls
-        result.auth_queued_count = sq_result.auth_queued_count
+        result.status = exec_result.status
+        result.pages_fetched = exec_result.pages_fetched
+        result.useful_fragments = exec_result.useful_fragments
+        result.harvest_rate = exec_result.harvest_rate
+        result.satisfaction_score = exec_result.satisfaction_score
+        result.novelty_score = exec_result.novelty_score
+        result.auth_blocked_urls = exec_result.auth_blocked_urls
+        result.auth_queued_count = exec_result.auth_queued_count
         
         # Convert claims to §3.2.1 format
-        for claim in sq_result.new_claims:
+        for claim in exec_result.new_claims:
             result.claims_found.append({
                 "id": f"c_{uuid.uuid4().hex[:8]}",
                 "text": claim.get("claim", claim.get("snippet", ""))[:200],
@@ -228,8 +228,8 @@ class SearchPipeline:
                 "is_primary_source": self._is_primary_source(claim.get("source_url", "")),
             })
         
-        if sq_result.errors:
-            result.errors.extend(sq_result.errors)
+        if exec_result.errors:
+            result.errors.extend(exec_result.errors)
         
         return result
     
@@ -509,8 +509,8 @@ async def stop_task_action(
             "task_id": task_id,
             "final_status": finalize_result.get("final_status", reason),
             "summary": {
-                "total_searches": len(state._subqueries),
-                "satisfied_searches": summary.get("satisfied_subqueries", 0),
+                "total_searches": len(state._searches),
+                "satisfied_searches": summary.get("satisfied_searches", 0),
                 "total_claims": summary.get("total_claims", 0),
                 "primary_source_ratio": evidence_graph_summary.get("primary_source_ratio", 0.0),
             },

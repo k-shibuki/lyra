@@ -1143,3 +1143,186 @@ class TestDomainBlockedList:
         
         assert result is True
 
+
+class TestContradictingClaimsExtraction:
+    """Tests for contradicting_claims extraction to prevent None values."""
+    
+    def test_contradicting_claims_filters_out_none_values(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-A-20: contradicting_claims should not contain None values.
+        
+        // Given: Contradiction with only claim2_id (claim1_id missing)
+        // When: Verifying claim
+        // Then: contradicting_claims does not contain None
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.5,
+            "supporting_count": 0,
+            "refuting_count": 1,
+            "neutral_count": 0,
+            "verdict": "refuted",
+            "independent_sources": 1,
+        }
+        # Malformed contradiction: missing claim1_id
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim2_id": "claim_001"}  # claim1_id is missing
+        ]
+        
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_001",
+                domain="example.com",
+                evidence_graph=mock_evidence_graph,
+            )
+        
+        # Should not contain None
+        assert None not in result.details.contradicting_claims
+    
+    def test_contradicting_claims_with_missing_claim2_id(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-A-21: Handle contradiction with missing claim2_id.
+        
+        // Given: Contradiction with only claim1_id (claim2_id missing)
+        // When: Verifying claim that matches claim1_id
+        // Then: contradicting_claims does not contain None
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.5,
+            "supporting_count": 0,
+            "refuting_count": 1,
+            "neutral_count": 0,
+            "verdict": "refuted",
+            "independent_sources": 1,
+        }
+        # Malformed contradiction: missing claim2_id
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim1_id": "claim_001"}  # claim2_id is missing
+        ]
+        
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_001",
+                domain="example.com",
+                evidence_graph=mock_evidence_graph,
+            )
+        
+        # Should not contain None
+        assert None not in result.details.contradicting_claims
+        # Should be empty since there's no "other" claim ID to add
+        assert result.details.contradicting_claims == []
+    
+    def test_contradicting_claims_extracts_correct_other_claim(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-N-22: Extract correct "other" claim ID from contradiction.
+        
+        // Given: Valid contradiction with both claim IDs
+        // When: Verifying claim that is claim1_id
+        // Then: contradicting_claims contains claim2_id
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.5,
+            "supporting_count": 0,
+            "refuting_count": 1,
+            "neutral_count": 0,
+            "verdict": "refuted",
+            "independent_sources": 1,
+        }
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim1_id": "claim_001", "claim2_id": "claim_002"}
+        ]
+        
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_001",
+                domain="example.com",
+                evidence_graph=mock_evidence_graph,
+            )
+        
+        # Should contain claim_002 (the other claim)
+        assert "claim_002" in result.details.contradicting_claims
+        assert "claim_001" not in result.details.contradicting_claims
+    
+    def test_contradicting_claims_when_claim_is_claim2(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-N-23: Extract correct claim when current claim is claim2_id.
+        
+        // Given: Contradiction where current claim is claim2_id
+        // When: Verifying
+        // Then: contradicting_claims contains claim1_id
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.5,
+            "supporting_count": 0,
+            "refuting_count": 1,
+            "neutral_count": 0,
+            "verdict": "refuted",
+            "independent_sources": 1,
+        }
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim1_id": "claim_001", "claim2_id": "claim_002"}
+        ]
+        
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_002",  # This claim is claim2_id
+                domain="example.com",
+                evidence_graph=mock_evidence_graph,
+            )
+        
+        # Should contain claim_001 (the other claim)
+        assert "claim_001" in result.details.contradicting_claims
+        assert "claim_002" not in result.details.contradicting_claims
+    
+    def test_contradicting_claims_empty_contradiction_dict(
+        self, verifier, mock_evidence_graph
+    ):
+        """
+        TC-A-24: Handle empty contradiction dict.
+        
+        // Given: Empty contradiction dict in list
+        // When: Verifying claim
+        // Then: contradicting_claims is empty, no exception
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.5,
+            "supporting_count": 0,
+            "refuting_count": 0,
+            "neutral_count": 0,
+            "verdict": "unverified",
+            "independent_sources": 1,
+        }
+        # Empty dict that somehow passed the filter (edge case)
+        mock_evidence_graph.find_contradictions.return_value = [{}]
+        
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_001",
+                domain="example.com",
+                evidence_graph=mock_evidence_graph,
+            )
+        
+        # Should be empty and not contain None
+        assert None not in result.details.contradicting_claims

@@ -1,10 +1,12 @@
 """
-Subquery execution engine for Lancet.
+Search execution engine for Lancet.
 
-Executes Cursor AI-designed subqueries through the search/fetch/extract pipeline.
+Executes Cursor AI-designed search queries through the search/fetch/extract pipeline.
 Handles mechanical expansions (synonyms, mirror queries, operators) only.
 
 See requirements.md §2.1.3 and §3.1.7.
+
+Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
 
 import hashlib
@@ -12,7 +14,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.research.state import ExplorationState, SubqueryStatus
+from src.research.state import ExplorationState, SearchStatus
 from src.storage.database import get_database
 from src.utils.logging import get_logger, LogContext
 from src.utils.config import get_settings
@@ -48,13 +50,13 @@ REFUTATION_SUFFIXES = [
 
 
 @dataclass
-class SubqueryResult:
-    """Result of subquery execution.
+class SearchResult:
+    """Result of search execution.
     
     Per §16.7.4: Includes authentication queue information.
     """
     
-    subquery_id: str
+    search_id: str
     status: str
     pages_fetched: int = 0
     useful_fragments: int = 0
@@ -74,7 +76,7 @@ class SubqueryResult:
         """Convert to dictionary."""
         result = {
             "ok": len(self.errors) == 0,
-            "subquery_id": self.subquery_id,
+            "search_id": self.search_id,
             "status": self.status,
             "pages_fetched": self.pages_fetched,
             "useful_fragments": self.useful_fragments,
@@ -94,9 +96,13 @@ class SubqueryResult:
         return result
 
 
-class SubqueryExecutor:
+# Backward compatibility alias (deprecated, will be removed)
+SubqueryResult = SearchResult
+
+
+class SearchExecutor:
     """
-    Executes subqueries designed by Cursor AI.
+    Executes search queries designed by Cursor AI.
     
     Responsibilities (§2.1.3):
     - Mechanical expansion of queries (synonyms, mirror queries, operators)
@@ -104,7 +110,7 @@ class SubqueryExecutor:
     - Metrics calculation (harvest rate, novelty, satisfaction)
     
     Does NOT:
-    - Design subqueries (Cursor AI's responsibility)
+    - Design search queries (Cursor AI's responsibility)
     - Make strategic decisions about what to search next
     """
     
@@ -128,46 +134,52 @@ class SubqueryExecutor:
     
     async def execute(
         self,
-        subquery: str,
+        query: str,
         priority: str = "medium",
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
-    ) -> SubqueryResult:
+        # Backward compatibility (deprecated)
+        subquery: str | None = None,
+    ) -> SearchResult:
         """
-        Execute a subquery designed by Cursor AI.
+        Execute a search query designed by Cursor AI.
         
         Args:
-            subquery: The subquery text (designed by Cursor AI).
+            query: The search query text (designed by Cursor AI).
             priority: Execution priority (high/medium/low).
-            budget_pages: Optional page budget for this subquery.
-            budget_time_seconds: Optional time budget for this subquery.
+            budget_pages: Optional page budget for this search.
+            budget_time_seconds: Optional time budget for this search.
             
         Returns:
-            SubqueryResult with execution results.
+            SearchResult with execution results.
         """
+        # Backward compatibility: accept subquery param
+        if subquery is not None:
+            query = subquery
+            
         await self._ensure_db()
         
-        # Generate subquery ID
-        subquery_id = f"sq_{uuid.uuid4().hex[:8]}"
+        # Generate search ID
+        search_id = f"s_{uuid.uuid4().hex[:8]}"
         
-        with LogContext(task_id=self.task_id, subquery_id=subquery_id):
-            logger.info("Executing subquery", subquery=subquery[:100], priority=priority)
+        with LogContext(task_id=self.task_id, search_id=search_id):
+            logger.info("Executing search", query=query[:100], priority=priority)
             
-            # Register and start subquery
-            sq_state = self.state.register_subquery(
-                subquery_id=subquery_id,
-                text=subquery,
+            # Register and start search
+            search_state = self.state.register_search(
+                search_id=search_id,
+                text=query,
                 priority=priority,
                 budget_pages=budget_pages,
                 budget_time_seconds=budget_time_seconds,
             )
-            self.state.start_subquery(subquery_id)
+            self.state.start_search(search_id)
             
-            result = SubqueryResult(subquery_id=subquery_id, status="running")
+            result = SearchResult(search_id=search_id, status="running")
             
             try:
                 # Step 1: Expand query mechanically
-                expanded_queries = self._expand_query(subquery)
+                expanded_queries = self._expand_query(query)
                 
                 # Step 2: Execute search for each expanded query
                 all_serp_items = []
@@ -192,12 +204,12 @@ class SubqueryExecutor:
                 
                 # Step 3: Fetch and extract from top results
                 # Use dynamic budget from UCB allocator if available (§3.1.1)
-                dynamic_budget = self.state.get_dynamic_budget(subquery_id)
+                dynamic_budget = self.state.get_dynamic_budget(search_id)
                 budget = budget_pages or dynamic_budget or 15
                 
                 logger.debug(
-                    "Using budget for subquery",
-                    subquery_id=subquery_id,
+                    "Using budget for search",
+                    search_id=search_id,
                     budget=budget,
                     dynamic_budget=dynamic_budget,
                 )
@@ -210,24 +222,24 @@ class SubqueryExecutor:
                         break
                     
                     # Check novelty stop condition
-                    if self.state.check_novelty_stop_condition(subquery_id):
-                        logger.info("Novelty stop condition met", subquery_id=subquery_id)
+                    if self.state.check_novelty_stop_condition(search_id):
+                        logger.info("Novelty stop condition met", search_id=search_id)
                         break
                     
-                    await self._fetch_and_extract(subquery_id, item, result)
+                    await self._fetch_and_extract(search_id, item, result)
                 
                 # Update result from state
-                sq_state = self.state.get_subquery(subquery_id)
-                if sq_state:
-                    sq_state.update_status()
-                    result.status = sq_state.status.value
-                    result.pages_fetched = sq_state.pages_fetched
-                    result.useful_fragments = sq_state.useful_fragments
-                    result.harvest_rate = sq_state.harvest_rate
-                    result.independent_sources = sq_state.independent_sources
-                    result.has_primary_source = sq_state.has_primary_source
-                    result.satisfaction_score = sq_state.satisfaction_score
-                    result.novelty_score = sq_state.novelty_score
+                search_state = self.state.get_search(search_id)
+                if search_state:
+                    search_state.update_status()
+                    result.status = search_state.status.value
+                    result.pages_fetched = search_state.pages_fetched
+                    result.useful_fragments = search_state.useful_fragments
+                    result.harvest_rate = search_state.harvest_rate
+                    result.independent_sources = search_state.independent_sources
+                    result.has_primary_source = search_state.has_primary_source
+                    result.satisfaction_score = search_state.satisfaction_score
+                    result.novelty_score = search_state.novelty_score
                 
                 # Calculate remaining budget
                 overall_status = await self.state.get_status()
@@ -237,7 +249,7 @@ class SubqueryExecutor:
                 }
                 
             except Exception as e:
-                logger.error("Subquery execution failed", error=str(e), exc_info=True)
+                logger.error("Search execution failed", error=str(e), exc_info=True)
                 result.status = "failed"
                 result.errors.append(str(e))
             
@@ -290,9 +302,9 @@ class SubqueryExecutor:
     
     async def _fetch_and_extract(
         self,
-        subquery_id: str,
+        search_id: str,
         serp_item: dict[str, Any],
-        result: SubqueryResult,
+        result: SearchResult,
     ) -> None:
         """Fetch URL and extract content.
         
@@ -359,7 +371,7 @@ class SubqueryExecutor:
             
             # Record page fetch
             self.state.record_page_fetch(
-                subquery_id=subquery_id,
+                search_id=search_id,
                 domain=domain_short,
                 is_primary_source=is_primary,
                 is_independent=is_independent,
@@ -386,7 +398,7 @@ class SubqueryExecutor:
                     is_useful = len(extract_result.get("text", "")) > 200
                     
                     self.state.record_fragment(
-                        subquery_id=subquery_id,
+                        search_id=search_id,
                         fragment_hash=content_hash,
                         is_useful=is_useful,
                         is_novel=is_novel,
@@ -403,12 +415,12 @@ class SubqueryExecutor:
                         )
                         
                         for claim in extracted_claims:
-                            self.state.record_claim(subquery_id)
+                            self.state.record_claim(search_id)
                             result.new_claims.append(claim)
                         
                         # If no claims extracted by LLM, record at least one potential claim
                         if not extracted_claims:
-                            self.state.record_claim(subquery_id)
+                            self.state.record_claim(search_id)
                             result.new_claims.append({
                                 "source_url": url,
                                 "title": serp_item.get("title", ""),
@@ -506,4 +518,8 @@ class SubqueryExecutor:
             refutation_queries.append(f"{base_query} {suffix}")
         
         return refutation_queries
+
+
+# Backward compatibility alias (deprecated, will be removed)
+SubqueryExecutor = SearchExecutor
 
