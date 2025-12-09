@@ -1,12 +1,14 @@
 """
-UCB1-based budget allocation for subquery exploration.
+UCB1-based budget allocation for search exploration.
 
 Implements UCB1 (Upper Confidence Bound) algorithm for dynamic budget reallocation
-based on subquery harvest rates. High-yield subqueries receive more budget.
+based on search harvest rates. High-yield searches receive more budget.
 
 See requirements.md §3.1.1:
-- Dynamic budget reallocation based on harvest rate (useful fragments / fetched pages) per subquery (UCB1-style)
+- Dynamic budget reallocation based on harvest rate (useful fragments / fetched pages) per search (UCB1-style)
 - Exploration tree control optimization
+
+Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
 
 import math
@@ -19,14 +21,14 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class SubqueryArm:
+class SearchArm:
     """
-    Represents a subquery as a bandit arm.
+    Represents a search as a bandit arm.
     
     Tracks exploration history and calculates UCB1 scores.
     """
     
-    subquery_id: str
+    search_id: str
     
     # Counters
     pulls: int = 0  # Number of pages fetched
@@ -38,7 +40,7 @@ class SubqueryArm:
     
     # Performance tracking
     last_harvest_rate: float = 0.0
-    priority_boost: float = 1.0  # Multiplier for high priority subqueries
+    priority_boost: float = 1.0  # Multiplier for high priority searches
     
     @property
     def average_reward(self) -> float:
@@ -61,13 +63,13 @@ class SubqueryArm:
         self.last_harvest_rate = self.average_reward
     
     def remaining_budget(self) -> int:
-        """Get remaining budget for this subquery."""
+        """Get remaining budget for this search."""
         return max(0, self.allocated_budget - self.consumed_budget)
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
-            "subquery_id": self.subquery_id,
+            "search_id": self.search_id,
             "pulls": self.pulls,
             "average_reward": self.average_reward,
             "allocated_budget": self.allocated_budget,
@@ -77,12 +79,16 @@ class SubqueryArm:
         }
 
 
+# Backward compatibility alias (deprecated, will be removed)
+SubqueryArm = SearchArm
+
+
 class UCBAllocator:
     """
-    UCB1-based dynamic budget allocator for subqueries.
+    UCB1-based dynamic budget allocator for searches.
     
-    Implements the UCB1 algorithm to balance exploration (trying new subqueries)
-    and exploitation (focusing on high-yield subqueries).
+    Implements the UCB1 algorithm to balance exploration (trying new searches)
+    and exploitation (focusing on high-yield searches).
     
     UCB1 formula:
         score = average_reward + C * sqrt(ln(total_pulls) / pulls)
@@ -90,37 +96,39 @@ class UCBAllocator:
     Where:
         - average_reward = useful_fragments / pages_fetched
         - C = exploration constant (default: sqrt(2) ≈ 1.41)
-        - total_pulls = total pages fetched across all subqueries
-        - pulls = pages fetched for this specific subquery
+        - total_pulls = total pages fetched across all searches
+        - pulls = pages fetched for this specific search
     
     Budget is allocated proportionally to UCB1 scores, with constraints:
-        - Minimum budget per subquery (prevents starvation)
-        - Maximum budget per subquery (prevents monopolization)
-        - Priority boost for high-priority subqueries
+        - Minimum budget per search (prevents starvation)
+        - Maximum budget per search (prevents monopolization)
+        - Priority boost for high-priority searches
     
     Example usage:
         allocator = UCBAllocator(total_budget=120)
-        allocator.register_subquery("sq_001", priority="high")
-        allocator.register_subquery("sq_002", priority="medium")
+        allocator.register_search("s_001", priority="high")
+        allocator.register_search("s_002", priority="medium")
         
         # Get initial allocation
-        budget = allocator.get_budget("sq_001")
+        budget = allocator.get_budget("s_001")
         
         # Record observations
-        allocator.record_observation("sq_001", is_useful=True)
-        allocator.record_observation("sq_001", is_useful=False)
+        allocator.record_observation("s_001", is_useful=True)
+        allocator.record_observation("s_001", is_useful=False)
         
         # Get reallocated budget
-        new_budget = allocator.reallocate_and_get_budget("sq_001")
+        new_budget = allocator.reallocate_and_get_budget("s_001")
     """
     
     def __init__(
         self,
         total_budget: int = 120,
         exploration_constant: float | None = None,
-        min_budget_per_subquery: int = 5,
+        min_budget_per_search: int = 5,
         max_budget_ratio: float = 0.4,
         reallocation_interval: int = 10,
+        # Backward compatibility (deprecated)
+        min_budget_per_subquery: int | None = None,
     ):
         """
         Initialize the UCB allocator.
@@ -128,17 +136,18 @@ class UCBAllocator:
         Args:
             total_budget: Total page budget for the task (§3.1: ≤120/task).
             exploration_constant: UCB1 exploration constant C. Default: sqrt(2).
-            min_budget_per_subquery: Minimum pages per subquery to prevent starvation.
-            max_budget_ratio: Maximum ratio of total budget a single subquery can get.
+            min_budget_per_search: Minimum pages per search to prevent starvation.
+            max_budget_ratio: Maximum ratio of total budget a single search can get.
             reallocation_interval: Pages between budget reallocations.
         """
         self.total_budget = total_budget
         self.exploration_constant = exploration_constant if exploration_constant is not None else math.sqrt(2)
-        self.min_budget_per_subquery = min_budget_per_subquery
+        # Support deprecated parameter
+        self.min_budget_per_search = min_budget_per_subquery if min_budget_per_subquery is not None else min_budget_per_search
         self.max_budget_ratio = max_budget_ratio
         self.reallocation_interval = reallocation_interval
         
-        self._arms: dict[str, SubqueryArm] = {}
+        self._arms: dict[str, SearchArm] = {}
         self._total_pulls: int = 0
         self._pulls_since_reallocation: int = 0
         self._allocated_budget: int = 0
@@ -147,40 +156,46 @@ class UCBAllocator:
             "UCB allocator initialized",
             total_budget=total_budget,
             exploration_constant=self.exploration_constant,
-            min_budget=min_budget_per_subquery,
+            min_budget=self.min_budget_per_search,
             max_ratio=max_budget_ratio,
         )
     
-    def register_subquery(
+    # Backward compatibility property (deprecated, will be removed)
+    @property
+    def min_budget_per_subquery(self) -> int:
+        """Deprecated: Use min_budget_per_search instead."""
+        return self.min_budget_per_search
+    
+    def register_search(
         self,
-        subquery_id: str,
+        search_id: str,
         priority: str = "medium",
         initial_budget: int | None = None,
-    ) -> SubqueryArm:
+    ) -> SearchArm:
         """
-        Register a new subquery arm.
+        Register a new search arm.
         
         Args:
-            subquery_id: Unique identifier for the subquery.
+            search_id: Unique identifier for the search.
             priority: Priority level (high/medium/low).
             initial_budget: Optional initial budget allocation.
             
         Returns:
-            The created SubqueryArm.
+            The created SearchArm.
         """
-        if subquery_id in self._arms:
-            logger.debug("Subquery already registered", subquery_id=subquery_id)
-            return self._arms[subquery_id]
+        if search_id in self._arms:
+            logger.debug("Search already registered", search_id=search_id)
+            return self._arms[search_id]
         
         # Priority boost: high=1.5, medium=1.0, low=0.7
         priority_boosts = {"high": 1.5, "medium": 1.0, "low": 0.7}
         boost = priority_boosts.get(priority, 1.0)
         
-        arm = SubqueryArm(
-            subquery_id=subquery_id,
+        arm = SearchArm(
+            search_id=search_id,
             priority_boost=boost,
         )
-        self._arms[subquery_id] = arm
+        self._arms[search_id] = arm
         
         # Allocate initial budget if specified, otherwise defer to reallocation
         if initial_budget is not None:
@@ -188,50 +203,64 @@ class UCBAllocator:
             self._allocated_budget += arm.allocated_budget
         
         logger.debug(
-            "Registered subquery arm",
-            subquery_id=subquery_id,
+            "Registered search arm",
+            search_id=search_id,
             priority=priority,
             boost=boost,
         )
         
         return arm
     
-    def record_observation(
+    # Backward compatibility alias (deprecated, will be removed)
+    def register_subquery(
         self,
         subquery_id: str,
+        priority: str = "medium",
+        initial_budget: int | None = None,
+    ) -> SearchArm:
+        """Deprecated: Use register_search instead."""
+        return self.register_search(
+            search_id=subquery_id,
+            priority=priority,
+            initial_budget=initial_budget,
+        )
+    
+    def record_observation(
+        self,
+        search_id: str,
         is_useful: bool,
     ) -> None:
         """
-        Record an observation for a subquery.
+        Record an observation for a search.
         
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
             is_useful: Whether the fetch yielded useful fragments.
         """
-        arm = self._arms.get(subquery_id)
+        arm = self._arms.get(search_id)
         if not arm:
-            logger.warning("Unknown subquery", subquery_id=subquery_id)
+            logger.warning("Unknown search", search_id=search_id)
             return
         
         arm.record_observation(is_useful)
         self._total_pulls += 1
         self._pulls_since_reallocation += 1
     
-    def calculate_ucb_score(self, subquery_id: str) -> float:
+    def calculate_ucb_score(self, search_id: str) -> float:
         """
-        Calculate UCB1 score for a subquery.
+        Calculate UCB1 score for a search.
         
         UCB1 = average_reward + C * sqrt(ln(total_pulls) / pulls) * priority_boost
         
         For unplayed arms, returns infinity to encourage exploration.
         
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
             
         Returns:
             UCB1 score.
         """
-        arm = self._arms.get(subquery_id)
+        arm = self._arms.get(search_id)
         if not arm:
             return 0.0
         
@@ -255,34 +284,34 @@ class UCBAllocator:
     
     def get_all_ucb_scores(self) -> dict[str, float]:
         """
-        Get UCB1 scores for all subqueries.
+        Get UCB1 scores for all searches.
         
         Returns:
-            Dictionary mapping subquery_id to UCB1 score.
+            Dictionary mapping search_id to UCB1 score.
         """
         return {
-            subquery_id: self.calculate_ucb_score(subquery_id)
-            for subquery_id in self._arms
+            search_id: self.calculate_ucb_score(search_id)
+            for search_id in self._arms
         }
     
     def _get_max_budget(self) -> int:
-        """Get maximum budget per subquery."""
+        """Get maximum budget per search."""
         return int(self.total_budget * self.max_budget_ratio)
     
-    def get_budget(self, subquery_id: str) -> int:
+    def get_budget(self, search_id: str) -> int:
         """
-        Get current allocated budget for a subquery.
+        Get current allocated budget for a search.
         
         For unplayed arms (pulls=0) with no allocated budget, returns
-        min_budget_per_subquery to enable initial exploration.
+        min_budget_per_search to enable initial exploration.
         
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
             
         Returns:
             Currently allocated budget (pages).
         """
-        arm = self._arms.get(subquery_id)
+        arm = self._arms.get(search_id)
         if not arm:
             return 0
         
@@ -290,7 +319,7 @@ class UCBAllocator:
         
         # Unplayed arms need initial budget for exploration
         if arm.pulls == 0 and remaining == 0:
-            return self.min_budget_per_subquery
+            return self.min_budget_per_search
         
         return remaining
     
@@ -299,12 +328,12 @@ class UCBAllocator:
         Reallocate budget based on UCB1 scores.
         
         Budget is allocated proportionally to UCB1 scores, subject to:
-        - Minimum budget per subquery
-        - Maximum budget per subquery
+        - Minimum budget per search
+        - Maximum budget per search
         - Remaining total budget
         
         Returns:
-            Dictionary mapping subquery_id to new allocated budget.
+            Dictionary mapping search_id to new allocated budget.
         """
         if not self._arms:
             return {}
@@ -317,7 +346,7 @@ class UCBAllocator:
             logger.debug("No remaining budget to allocate")
             return {sid: arm.remaining_budget() for sid, arm in self._arms.items()}
         
-        # Get UCB scores for active subqueries (not exhausted)
+        # Get UCB scores for active searches (not exhausted)
         active_arms = [
             (sid, arm, self.calculate_ucb_score(sid))
             for sid, arm in self._arms.items()
@@ -337,7 +366,7 @@ class UCBAllocator:
         if inf_arms:
             budget_for_inf = min(
                 remaining_budget,
-                len(inf_arms) * self.min_budget_per_subquery
+                len(inf_arms) * self.min_budget_per_search
             )
             per_arm = budget_for_inf // len(inf_arms)
             
@@ -360,7 +389,7 @@ class UCBAllocator:
                     # Apply min/max constraints
                     max_additional = self._get_max_budget() - arm.consumed_budget
                     new_alloc = max(
-                        self.min_budget_per_subquery,
+                        self.min_budget_per_search,
                         min(raw_alloc, max_additional)
                     )
                     
@@ -399,7 +428,7 @@ class UCBAllocator:
         
         Reallocation is triggered:
         - Every `reallocation_interval` pulls
-        - When a played subquery exhausts its budget (not unplayed arms)
+        - When a played search exhausts its budget (not unplayed arms)
         
         Returns:
             True if reallocation is recommended.
@@ -407,7 +436,7 @@ class UCBAllocator:
         if self._pulls_since_reallocation >= self.reallocation_interval:
             return True
         
-        # Check if any played subquery has exhausted its budget
+        # Check if any played search has exhausted its budget
         # Note: Unplayed arms (consumed_budget=0) with no allocation are NOT considered exhausted
         for arm in self._arms.values():
             if (arm.consumed_budget > 0 and 
@@ -417,38 +446,38 @@ class UCBAllocator:
         
         return False
     
-    def reallocate_and_get_budget(self, subquery_id: str) -> int:
+    def reallocate_and_get_budget(self, search_id: str) -> int:
         """
-        Optionally reallocate and return budget for a subquery.
+        Optionally reallocate and return budget for a search.
         
         Performs reallocation if `should_reallocate()` returns True.
         
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
             
         Returns:
-            Available budget for the subquery.
+            Available budget for the search.
         """
         if self.should_reallocate():
             self.reallocate_budget()
         
-        return self.get_budget(subquery_id)
+        return self.get_budget(search_id)
     
-    def get_recommended_subquery(self) -> str | None:
+    def get_recommended_search(self) -> str | None:
         """
-        Get the subquery with highest UCB score.
+        Get the search with highest UCB score.
         
-        Useful for deciding which subquery to execute next.
+        Useful for deciding which search to execute next.
         
         Returns:
-            Subquery ID with highest UCB score, or None if no subqueries.
+            Search ID with highest UCB score, or None if no searches.
         """
         if not self._arms:
             return None
         
         scores = self.get_all_ucb_scores()
         
-        # Filter to subqueries with remaining budget
+        # Filter to searches with remaining budget
         available = [
             (sid, score)
             for sid, score in scores.items()
@@ -460,6 +489,11 @@ class UCBAllocator:
             return None
         
         return max(available, key=lambda x: x[1])[0]
+    
+    # Backward compatibility alias (deprecated, will be removed)
+    def get_recommended_subquery(self) -> str | None:
+        """Deprecated: Use get_recommended_search instead."""
+        return self.get_recommended_search()
     
     def get_status(self) -> dict[str, Any]:
         """
@@ -483,7 +517,7 @@ class UCBAllocator:
                 }
                 for sid, arm in self._arms.items()
             },
-            "recommended_next": self.get_recommended_subquery(),
+            "recommended_next": self.get_recommended_search(),
         }
     
     def to_dict(self) -> dict[str, Any]:
@@ -491,7 +525,7 @@ class UCBAllocator:
         return {
             "total_budget": self.total_budget,
             "exploration_constant": self.exploration_constant,
-            "min_budget_per_subquery": self.min_budget_per_subquery,
+            "min_budget_per_search": self.min_budget_per_search,
             "max_budget_ratio": self.max_budget_ratio,
             "reallocation_interval": self.reallocation_interval,
             "total_pulls": self._total_pulls,
@@ -502,10 +536,13 @@ class UCBAllocator:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "UCBAllocator":
         """Restore from dictionary."""
+        # Support both old and new key names
+        min_budget = data.get("min_budget_per_search") or data.get("min_budget_per_subquery", 5)
+        
         allocator = cls(
             total_budget=data.get("total_budget", 120),
             exploration_constant=data.get("exploration_constant"),
-            min_budget_per_subquery=data.get("min_budget_per_subquery", 5),
+            min_budget_per_search=min_budget,
             max_budget_ratio=data.get("max_budget_ratio", 0.4),
             reallocation_interval=data.get("reallocation_interval", 10),
         )
@@ -514,8 +551,10 @@ class UCBAllocator:
         allocator._pulls_since_reallocation = data.get("pulls_since_reallocation", 0)
         
         for sid, arm_data in data.get("arms", {}).items():
-            arm = SubqueryArm(
-                subquery_id=sid,
+            # Support both old and new key names
+            search_id = arm_data.get("search_id") or arm_data.get("subquery_id") or sid
+            arm = SearchArm(
+                search_id=search_id,
                 pulls=arm_data.get("pulls", 0),
                 total_reward=arm_data.get("pulls", 0) * arm_data.get("average_reward", 0),
                 allocated_budget=arm_data.get("allocated_budget", 0),

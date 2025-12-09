@@ -163,7 +163,7 @@ class TestExplorationControlFlow:
     @pytest.mark.asyncio
     async def test_exploration_state_tracking(self, integration_db):
         """Verify exploration state tracks subquery progress."""
-        from src.research.state import ExplorationState, SubqueryStatus
+        from src.research.state import ExplorationState, SearchStatus
         
         # Given: A task and exploration state
         task_id = await integration_db.create_task(query="Research X")
@@ -180,25 +180,25 @@ class TestExplorationControlFlow:
         
         sq = state.get_subquery("sq_1")
         assert sq is not None
-        sq.status = SubqueryStatus.RUNNING
+        sq.status = SearchStatus.RUNNING
         
         status = await state.get_status()
         
-        # Then: Status tracks the subquery
-        assert "subqueries" in status
-        assert len(status["subqueries"]) == 1
-        assert status["subqueries"][0]["status"] == SubqueryStatus.RUNNING.value
+        # Then: Status tracks the search
+        assert "searches" in status
+        assert len(status["searches"]) == 1
+        assert status["searches"][0]["status"] == SearchStatus.RUNNING.value
     
     @pytest.mark.asyncio
     async def test_subquery_satisfaction_score(self, integration_db):
         """Verify satisfaction score is calculated per §3.1.7.3."""
-        from src.research.state import SubqueryState, SubqueryStatus
+        from src.research.state import SearchState, SearchStatus
         
         # Given: A subquery with 3 independent sources and a primary source
-        sq = SubqueryState(
+        sq = SearchState(
             id="sq_test",
             text="Topic X research",
-            status=SubqueryStatus.RUNNING,
+            status=SearchStatus.RUNNING,
             independent_sources=3,
             has_primary_source=True,
         )
@@ -622,7 +622,7 @@ class TestFullPipelineSimulation:
     async def test_research_workflow_simulation(self, integration_db):
         """Simulate a complete research workflow with mocked externals."""
         from src.research.context import ResearchContext
-        from src.research.state import ExplorationState, SubqueryState, SubqueryStatus
+        from src.research.state import ExplorationState, SearchState, SearchStatus
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         
         # Given: A research query
@@ -653,7 +653,7 @@ class TestFullPipelineSimulation:
         # When: Simulate subquery execution
         sq = state.get_subquery("sq_1")
         assert sq is not None
-        sq.status = SubqueryStatus.RUNNING
+        sq.status = SearchStatus.RUNNING
         sq.independent_sources = 3
         sq.has_primary_source = True
         sq.calculate_satisfaction_score()
@@ -667,7 +667,7 @@ class TestFullPipelineSimulation:
         
         # Then: Final state has 3 subqueries and evidence
         final_status = await state.get_status()
-        assert len(final_status["subqueries"]) == 3
+        assert len(final_status["searches"]) == 3
         
         evidence = graph.get_supporting_evidence("c1")
         assert len(evidence) == 1

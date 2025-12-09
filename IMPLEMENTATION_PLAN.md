@@ -994,7 +994,7 @@ except Exception as e:
 | ユニットテスト（L2/L3/L4基本） | `tests/test_llm_security.py` | ✅ |
 | ユニットテスト（L4強化: 断片検出） | `tests/test_llm_security.py` 追加 | ✅ |
 | ユニットテスト（L5: MCP応答メタデータ） | `tests/test_response_meta.py` | ✅ (30件, 100%カバレッジ) |
-| ユニットテスト（L6: ソース検証フロー） | `tests/test_source_verification.py` | ✅ (38件, 100%カバレッジ) |
+| ユニットテスト（L6: ソース検証フロー） | `tests/test_source_verification.py` | ✅ (43件, 100%カバレッジ) |
 | ユニットテスト（L7: MCP応答サニタイズ） | `tests/test_response_sanitizer.py` | ✅ (29件) |
 | ユニットテスト（L8: ログセキュリティ） | `tests/test_secure_logging.py` | ✅ (27件) |
 | E2E: ネットワーク分離検証 | Ollamaから外部通信不可を確認 | ⏳ |
@@ -1271,23 +1271,36 @@ class SearchPipeline:
         return SearchResult(...)
 ```
 
-#### M.3-3 「サブクエリ」用語の除去 ⏳
+#### M.3-3 「サブクエリ」用語の除去 ✅
 
-コードベース全体から「subquery」「サブクエリ」の用語を除去し、「search」「クエリ」に統一する。
+コードベース全体から「subquery」「サブクエリ」の用語を除去し、「search」「クエリ」に統一。
+後方互換エイリアス（`SubqueryExecutor = SearchExecutor`等）を提供。
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| `SubqueryExecutor` → `SearchPipeline` | `src/research/executor.py` 廃止 | ⏳ |
-| `SubqueryState` → `SearchState` | `src/research/state.py` | ⏳ |
-| `ExplorationState.subqueries` → `searches` | 同上 | ⏳ |
-| DBスキーマの `subquery` 列 → `search` | `src/storage/schema.sql` | ⏳ |
-| テストコードの用語統一 | `tests/` 全体 | ⏳ |
+| `SubqueryExecutor` → `SearchExecutor` | `src/research/executor.py` | ✅ |
+| `SubqueryResult` → `SearchResult` | 同上 | ✅ |
+| `SubqueryArm` → `SearchArm` | `src/research/ucb_allocator.py` | ✅ |
+| `SubqueryState` → `SearchState` | `src/research/state.py` | ✅ |
+| `SubqueryStatus` → `SearchStatus` | 同上 | ✅ |
+| `ExplorationState._subqueries` → `_searches` | 同上 | ✅ |
+| `register_subquery` → `register_search` 等 | メソッド名変更（エイリアス提供） | ✅ |
+| `get_status` 応答: `subqueries` → `searches` | API応答フィールド名変更 | ✅ |
+| `finalize` 応答: `satisfied_subqueries` → `satisfied_searches` 等 | 同上 | ✅ |
+| テストコードの用語統一 | `tests/test_research.py`, `tests/test_ucb_allocator.py`, `tests/test_integration.py` | ✅ |
 
 **影響ファイル:**
-- `src/research/executor.py`: 削除（pipeline.pyに置換）
-- `src/research/state.py`: クラス名・フィールド名変更
-- `src/storage/schema.sql`: 列名変更（マイグレーション必要）
-- `tests/test_*.py`: 用語変更
+- `src/research/executor.py`: クラス名・フィールド名変更（後方互換エイリアス提供）
+- `src/research/ucb_allocator.py`: 同上
+- `src/research/state.py`: 同上
+- `src/research/pipeline.py`: 新API使用に更新
+- `src/research/__init__.py`: エクスポート更新
+- `tests/test_research.py`: 新API・フィールド名に更新
+- `tests/test_ucb_allocator.py`: 同上
+- `tests/test_integration.py`: 同上
+
+**DBスキーマの列名変更（未実施・将来対応）:**
+- `src/storage/schema.sql`の`subquery`列→`search`は、既存データへの影響を考慮し、将来のマイグレーションで対応予定
 
 #### M.3-4 廃止ツールの削除 ⏳
 
@@ -1306,7 +1319,7 @@ class SearchPipeline:
 
 **方針**: 後方互換期間は設けず、一括で新ツール体系に移行する。
 
-#### Step 1: 新ツール実装
+#### Step 1: 新ツール実装 ✅
 - 11個の新ツール定義とハンドラー実装
 - 内部パイプライン（`SearchPipeline`）の作成
 - 用語統一（subquery → search）
