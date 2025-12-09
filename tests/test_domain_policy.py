@@ -156,7 +156,7 @@ default_policy:
   tor_allowed: true
   cooldown_minutes: 60
   max_retries: 3
-  trust_level: "unknown"
+  trust_level: "unverified"
 
 search_engine_policy:
   default_qps: 0.25
@@ -203,7 +203,7 @@ allowlist:
 
 graylist:
   - domain_pattern: "*.medium.com"
-    trust_level: "unknown"
+    trust_level: "unverified"
     qps: 0.1
   - domain_pattern: "*.twitter.com"
     skip: true
@@ -284,7 +284,7 @@ class TestDefaultPolicySchema:
         assert schema.tor_allowed is True
         assert schema.cooldown_minutes == 60
         assert schema.max_retries == 3
-        assert schema.trust_level == TrustLevel.UNKNOWN
+        assert schema.trust_level == TrustLevel.UNVERIFIED
     
     def test_custom_values(self):
         """Verify schema accepts valid custom values."""
@@ -486,7 +486,7 @@ class TestDomainPolicy:
     def test_trust_weight_unknown(self):
         """Verify UNKNOWN trust level has weight 0.30."""
         # Arrange & Act
-        policy = DomainPolicy(domain="unknown.example", trust_level=TrustLevel.UNKNOWN)
+        policy = DomainPolicy(domain="unknown.example", trust_level=TrustLevel.UNVERIFIED)
         
         # Then
         assert policy.trust_weight == 0.30
@@ -658,7 +658,7 @@ class TestDomainPolicyManagerLookup:
         
         # Then
         assert policy.qps == 0.2
-        assert policy.trust_level == TrustLevel.UNKNOWN
+        assert policy.trust_level == TrustLevel.UNVERIFIED
         assert policy.source == "default"
     
     def test_get_policy_normalized_domain(self, policy_manager: DomainPolicyManager):
@@ -692,7 +692,7 @@ class TestDomainPolicyManagerConvenienceMethods:
         # Then
         assert policy_manager.get_trust_level("arxiv.org") == TrustLevel.ACADEMIC
         assert policy_manager.get_trust_level("example.go.jp") == TrustLevel.GOVERNMENT
-        assert policy_manager.get_trust_level("unknown.com") == TrustLevel.UNKNOWN
+        assert policy_manager.get_trust_level("unknown.com") == TrustLevel.UNVERIFIED
     
     def test_get_trust_weight(self, policy_manager: DomainPolicyManager):
         """Verify get_trust_weight returns correct weight."""
@@ -873,7 +873,7 @@ default_policy:
   qps: 0.2
 allowlist:
   - domain: "example.com"
-    trust_level: "unknown"
+    trust_level: "unverified"
 """
         config_path.write_text(initial_config, encoding="utf-8")
         
@@ -885,7 +885,7 @@ allowlist:
         
         # Verify initial state
         policy = manager.get_policy("example.com")
-        assert policy.trust_level == TrustLevel.UNKNOWN
+        assert policy.trust_level == TrustLevel.UNVERIFIED
         
         # When - modify config
         time.sleep(0.2)  # Ensure mtime changes

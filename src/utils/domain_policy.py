@@ -43,13 +43,24 @@ logger = get_logger(__name__)
 # =============================================================================
 
 class TrustLevel(str, Enum):
-    """Trust level for domain classification (§3.3 Trust Scoring)."""
-    PRIMARY = "primary"        # Primary sources (government/academic/standard/official)
-    GOVERNMENT = "government"  # Government agencies
-    ACADEMIC = "academic"      # Academic institutions
-    TRUSTED = "trusted"        # Trusted media
-    UNKNOWN = "unknown"        # Unclassified
-    SUSPICIOUS = "suspicious"  # Suspicious
+    """Trust level for domain classification (§3.3 Trust Scoring, §4.4.1 L6).
+    
+    Levels (high to low trust):
+    - PRIMARY: Public institutions, standards bodies (iso.org, ietf.org)
+    - GOVERNMENT: Government agencies (go.jp, gov)
+    - ACADEMIC: Academic institutions (arxiv.org, ac.jp, pubmed)
+    - TRUSTED: Trusted media, knowledge bases (wikipedia.org)
+    - LOW: Verified low-trust (promoted from UNVERIFIED via L6 verification)
+    - UNVERIFIED: Unknown domains (provisional use, pending verification)
+    - BLOCKED: Excluded (contradiction detected, dangerous patterns)
+    """
+    PRIMARY = "primary"
+    GOVERNMENT = "government"
+    ACADEMIC = "academic"
+    TRUSTED = "trusted"
+    LOW = "low"                # Verified low-trust (promoted via L6)
+    UNVERIFIED = "unverified"  # Unknown, pending verification
+    BLOCKED = "blocked"        # Excluded (dynamic block)
 
 
 class SkipReason(str, Enum):
@@ -62,14 +73,15 @@ class SkipReason(str, Enum):
     PERSISTENT_CAPTCHA = "persistent_captcha"
 
 
-# Default trust level weights (§3.3 Trust Scoring)
+# Default trust level weights (§3.3 Trust Scoring, §4.4.1 L6)
 DEFAULT_TRUST_WEIGHTS: dict[TrustLevel, float] = {
     TrustLevel.PRIMARY: 1.0,
     TrustLevel.GOVERNMENT: 0.95,
     TrustLevel.ACADEMIC: 0.90,
     TrustLevel.TRUSTED: 0.75,
-    TrustLevel.UNKNOWN: 0.30,
-    TrustLevel.SUSPICIOUS: 0.10,
+    TrustLevel.LOW: 0.40,       # Verified but low trust
+    TrustLevel.UNVERIFIED: 0.30,  # Provisional use
+    TrustLevel.BLOCKED: 0.0,   # Excluded from scoring
 }
 
 
@@ -86,14 +98,14 @@ class DefaultPolicySchema(BaseModel):
     tor_allowed: bool = Field(default=True, description="Whether Tor routing is allowed")
     cooldown_minutes: int = Field(default=60, ge=1, le=1440, description="Cooldown after failure (min)")
     max_retries: int = Field(default=3, ge=0, le=10, description="Max retry attempts")
-    trust_level: TrustLevel = Field(default=TrustLevel.UNKNOWN, description="Trust level")
+    trust_level: TrustLevel = Field(default=TrustLevel.UNVERIFIED, description="Trust level")
 
 
 class AllowlistEntrySchema(BaseModel):
     """Schema for allowlist domain entries."""
     
     domain: str = Field(..., description="Domain name (exact or suffix match)")
-    trust_level: TrustLevel = Field(default=TrustLevel.UNKNOWN)
+    trust_level: TrustLevel = Field(default=TrustLevel.UNVERIFIED)
     internal_search: bool = Field(default=False, description="Has usable internal search UI")
     qps: float | None = Field(default=None, ge=0.01, le=2.0)
     headful_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -282,7 +294,7 @@ class DomainPolicy:
     tor_allowed: bool = True
     cooldown_minutes: int = 60
     max_retries: int = 3
-    trust_level: TrustLevel = TrustLevel.UNKNOWN
+    trust_level: TrustLevel = TrustLevel.UNVERIFIED
     internal_search: bool = False
     skip: bool = False
     skip_reason: str | None = None
