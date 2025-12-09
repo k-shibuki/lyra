@@ -4,21 +4,25 @@ Tests for LLM security module.
 Tests prompt injection defense mechanisms per §4.4.1:
 - L2: Input sanitization
 - L3: Session-based random tag generation
-- L4: Output validation
+- L4: Output validation (including L4 enhancement: prompt leakage detection)
 """
 
 import pytest
 
 from src.filter.llm_security import (
+    DEFAULT_LEAKAGE_NGRAM_LENGTH,
     DEFAULT_MAX_INPUT_LENGTH,
     DEFAULT_MAX_OUTPUT_MULTIPLIER,
+    LeakageDetectionResult,
     LLMSecurityContext,
     OutputValidationResult,
     SanitizationResult,
     SystemTag,
     build_secure_prompt,
+    detect_prompt_leakage,
     generate_session_tag,
     get_tag_id,
+    mask_prompt_fragments,
     remove_tag_patterns,
     sanitize_llm_input,
     validate_llm_output,
@@ -564,4 +568,369 @@ class TestDangerousPatterns:
         # Then: Pattern is detected
         assert result.had_warnings, f"Failed to detect: {pattern}"
         assert len(result.dangerous_patterns_found) > 0
+
+
+# ============================================================================
+# L4 Enhancement: Prompt Leakage Detection Tests
+# ============================================================================
+
+
+class TestDetectPromptLeakage:
+    """Tests for detect_prompt_leakage() - §4.4.1 L4 enhancement."""
+    
+    def test_clean_output_no_leakage(self):
+        """TC-N-01: Clean output without prompt fragments."""
+        # Given: Output without any prompt fragments
+        system_prompt = "Extract facts from the following text and return as JSON."
+        output = '{"fact": "Python is a programming language", "confidence": 0.9}'
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: No leakage detected
+        assert not result.has_leakage
+        assert len(result.leaked_fragments) == 0
+        assert len(result.leaked_tag_patterns) == 0
+    
+    def test_detects_tag_pattern_leakage(self):
+        """TC-N-02: Detect LANCET- tag pattern in output."""
+        # Given: Output containing LANCET tag pattern
+        system_prompt = "<LANCET-abc123def456>System instructions</LANCET-abc123def456>"
+        output = "Here is the tag: LANCET-abc123def456"
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: Tag pattern detected
+        assert result.has_leakage
+        assert len(result.leaked_tag_patterns) > 0
+    
+    def test_detects_ngram_leakage(self):
+        """TC-N-03: Detect n-gram match (20+ chars) in output."""
+        # Given: Output containing system prompt fragment
+        fragment = "Extract all facts from the text"  # 31 chars
+        system_prompt = f"Task: {fragment}. Return as JSON."
+        output = f"I will {fragment} now."
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: Fragment detected
+        assert result.has_leakage
+        assert len(result.leaked_fragments) > 0
+    
+    def test_empty_system_prompt(self):
+        """TC-A-01: Empty or None system prompt skips detection."""
+        # Given: No system prompt
+        output = "Some output with LANCET-pattern"
+        
+        # When: Check for leakage with None
+        result_none = detect_prompt_leakage(output, None)
+        
+        # When: Check for leakage with empty string
+        result_empty = detect_prompt_leakage(output, "")
+        
+        # Then: No detection performed
+        assert not result_none.has_leakage
+        assert not result_empty.has_leakage
+    
+    def test_empty_output(self):
+        """TC-A-02: Empty output returns no leakage."""
+        # Given: Empty output
+        system_prompt = "Some system prompt"
+        output = ""
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: No leakage
+        assert not result.has_leakage
+    
+    def test_boundary_19_chars_no_match(self):
+        """TC-B-01: 19 character match (below threshold) is not detected."""
+        # Given: 19 character matching fragment (unique context to avoid overlap)
+        fragment = "abcdefghijklmnopqrs"  # 19 chars
+        system_prompt = f"XYZ{fragment}XYZ"  # Use unique delimiters
+        output = f"QQQ{fragment}QQQ"  # Different context
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt, ngram_length=20)
+        
+        # Then: No n-gram match (below threshold)
+        assert len(result.leaked_fragments) == 0
+    
+    def test_boundary_20_chars_match(self):
+        """TC-B-02: 20 character match (at threshold) is detected."""
+        # Given: 20 character matching fragment
+        fragment = "12345678901234567890"  # 20 chars
+        system_prompt = f"Instructions: {fragment}. End."
+        output = f"Output: {fragment}."
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt, ngram_length=20)
+        
+        # Then: Match detected
+        assert result.has_leakage
+        assert len(result.leaked_fragments) > 0
+    
+    def test_boundary_21_chars_match(self):
+        """TC-B-03: 21 character match (above threshold) is detected."""
+        # Given: 21 character matching fragment
+        fragment = "123456789012345678901"  # 21 chars
+        system_prompt = f"Instructions: {fragment}. End."
+        output = f"Output: {fragment}."
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt, ngram_length=20)
+        
+        # Then: Match detected
+        assert result.has_leakage
+        assert len(result.leaked_fragments) > 0
+    
+    def test_case_insensitive_detection(self):
+        """TC-A-03: Detection is case-insensitive."""
+        # Given: Different case in output
+        system_prompt = "Extract IMPORTANT information"
+        output = "I will extract important information"
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: Match detected (case-insensitive)
+        assert result.has_leakage
+        assert len(result.leaked_fragments) > 0
+    
+    def test_lancet_prefix_partial_match(self):
+        """TC-B-05: LANCET- prefix with partial suffix is detected."""
+        # Given: Output with LANCET- prefix and some suffix
+        system_prompt = "System prompt"
+        output = "The tag was LANCET-abcd"
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: Pattern detected
+        assert result.has_leakage
+        assert len(result.leaked_tag_patterns) > 0
+    
+    def test_multiple_leakages(self):
+        """TC-N-05: Multiple leakage points are all detected."""
+        # Given: Output with multiple leakage points
+        fragment1 = "Extract all the facts"
+        fragment2 = "Return results as JSON"
+        system_prompt = f"Task: {fragment1}. Then {fragment2}."
+        output = f"I will {fragment1} and {fragment2}."
+        
+        # When: Check for leakage
+        result = detect_prompt_leakage(output, system_prompt)
+        
+        # Then: Multiple fragments detected
+        assert result.has_leakage
+        assert len(result.leaked_fragments) >= 2
+
+
+class TestMaskPromptFragments:
+    """Tests for mask_prompt_fragments() - §4.4.1 L4 enhancement."""
+    
+    def test_no_leakage_returns_original(self):
+        """No leakage - text returned unchanged."""
+        # Given: No leakage result
+        text = "Clean output text"
+        leakage_result = LeakageDetectionResult(
+            has_leakage=False,
+            leaked_fragments=[],
+            leaked_tag_patterns=[],
+            fragment_positions=[],
+        )
+        
+        # When: Mask
+        result = mask_prompt_fragments(text, leakage_result)
+        
+        # Then: Text unchanged
+        assert result == text
+    
+    def test_masks_tag_patterns(self):
+        """TC-N-04: Tag patterns are replaced with [REDACTED]."""
+        # Given: Text with tag pattern
+        text = "The tag is LANCET-abc123def456 here"
+        leakage_result = LeakageDetectionResult(
+            has_leakage=True,
+            leaked_fragments=[],
+            leaked_tag_patterns=["LANCET-abc123def456"],
+            fragment_positions=[],
+        )
+        
+        # When: Mask
+        result = mask_prompt_fragments(text, leakage_result)
+        
+        # Then: Pattern is masked
+        assert "[REDACTED]" in result
+        assert "LANCET-abc123def456" not in result
+    
+    def test_masks_ngram_fragments(self):
+        """TC-N-04: N-gram fragments are replaced with [REDACTED]."""
+        # Given: Text with leaked fragment
+        fragment = "Extract all the important facts"
+        text = f"I will {fragment} now."
+        leakage_result = LeakageDetectionResult(
+            has_leakage=True,
+            leaked_fragments=[fragment],
+            leaked_tag_patterns=[],
+            fragment_positions=[(8, 8 + len(fragment))],
+        )
+        
+        # When: Mask
+        result = mask_prompt_fragments(text, leakage_result)
+        
+        # Then: Fragment is masked
+        assert "[REDACTED]" in result
+        assert fragment not in result
+    
+    def test_masks_multiple_occurrences(self):
+        """Multiple occurrences of same fragment are all masked."""
+        # Given: Text with repeated fragment
+        fragment = "secret instruction text"
+        text = f"First {fragment} and again {fragment}."
+        leakage_result = LeakageDetectionResult(
+            has_leakage=True,
+            leaked_fragments=[fragment],
+            leaked_tag_patterns=[],
+            fragment_positions=[],
+        )
+        
+        # When: Mask
+        result = mask_prompt_fragments(text, leakage_result)
+        
+        # Then: Both occurrences masked
+        assert result.count("[REDACTED]") == 2
+        assert fragment not in result
+    
+    def test_case_insensitive_masking(self):
+        """Masking is case-insensitive."""
+        # Given: Fragment with different case in text
+        fragment = "Important Instructions"
+        text = "These are important instructions for you."
+        leakage_result = LeakageDetectionResult(
+            has_leakage=True,
+            leaked_fragments=[fragment],
+            leaked_tag_patterns=[],
+            fragment_positions=[],
+        )
+        
+        # When: Mask
+        result = mask_prompt_fragments(text, leakage_result)
+        
+        # Then: Fragment is masked (case-insensitive)
+        assert "[REDACTED]" in result
+
+
+class TestValidateLLMOutputWithLeakage:
+    """Tests for validate_llm_output() with leakage detection."""
+    
+    def test_detects_and_masks_leakage(self):
+        """Leakage is detected and masked when system_prompt provided."""
+        # Given: Output containing prompt fragment
+        fragment = "Extract facts from text"
+        system_prompt = f"Task: {fragment}. Return JSON."
+        output = f"I will {fragment} now."
+        
+        # When: Validate
+        result = validate_llm_output(
+            output,
+            system_prompt=system_prompt,
+            mask_leakage=True,
+        )
+        
+        # Then: Leakage detected and masked
+        assert result.leakage_detected
+        assert result.was_masked
+        assert fragment not in result.validated_text
+        assert "[REDACTED]" in result.validated_text
+    
+    def test_no_mask_when_disabled(self):
+        """Leakage detected but not masked when mask_leakage=False."""
+        # Given: Output with leakage
+        fragment = "Extract facts from text"
+        system_prompt = f"Task: {fragment}. Return JSON."
+        output = f"I will {fragment} now."
+        
+        # When: Validate with masking disabled
+        result = validate_llm_output(
+            output,
+            system_prompt=system_prompt,
+            mask_leakage=False,
+        )
+        
+        # Then: Leakage detected but not masked
+        assert result.leakage_detected
+        assert not result.was_masked
+        assert fragment in result.validated_text
+    
+    def test_no_leakage_detection_without_prompt(self):
+        """No leakage detection when system_prompt not provided."""
+        # Given: Output that might contain patterns
+        output = "Some output LANCET-pattern"
+        
+        # When: Validate without system_prompt
+        result = validate_llm_output(output)
+        
+        # Then: No leakage detection performed
+        assert not result.leakage_detected
+        assert result.leakage_result is None
+    
+    def test_had_suspicious_content_includes_leakage(self):
+        """had_suspicious_content property includes leakage detection."""
+        # Given: Output with only leakage (no URLs/IPs)
+        system_prompt = "<LANCET-abc123>instructions</LANCET-abc123>"
+        output = "The tag is LANCET-abc123"
+        
+        # When: Validate
+        result = validate_llm_output(output, system_prompt=system_prompt)
+        
+        # Then: had_suspicious_content is True due to leakage
+        assert result.had_suspicious_content
+        assert result.leakage_detected
+        assert len(result.urls_found) == 0
+        assert len(result.ips_found) == 0
+
+
+class TestLLMSecurityContextWithLeakage:
+    """Tests for LLMSecurityContext with leakage detection."""
+    
+    def test_validate_output_with_system_prompt(self):
+        """Context validate_output accepts system_prompt parameter."""
+        # Given: Context
+        with LLMSecurityContext() as ctx:
+            system_prompt = "Extract facts from text please"
+            output = "I will Extract facts from text now"
+            
+            # When: Validate with system_prompt
+            result = ctx.validate_output(
+                output,
+                system_prompt=system_prompt,
+            )
+            
+            # Then: Leakage detection performed
+            assert result.leakage_detected
+            assert ctx._leakage_count == 1
+    
+    def test_context_tracks_leakage_count(self):
+        """Context tracks leakage detection count."""
+        # Given: Context
+        with LLMSecurityContext() as ctx:
+            prompt = "Extract important information from"
+            
+            # When: Multiple validations with leakage
+            ctx.validate_output(
+                "Will Extract important information from now",
+                system_prompt=prompt,
+            )
+            ctx.validate_output(
+                "Extract important information from please",
+                system_prompt=prompt,
+            )
+            ctx.validate_output("Clean output", system_prompt=prompt)
+            
+            # Then: Correct leakage count
+            assert ctx._leakage_count == 2
 
