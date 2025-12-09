@@ -1,6 +1,27 @@
 """Tests for search and stop_task MCP tools.
 
 Tests the search pipeline and task stopping per §3.2.1.
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-A-01 | Missing task_id | Equivalence – error | InvalidParamsError with param_name=task_id | Required param |
+| TC-A-02 | Missing query | Equivalence – error | InvalidParamsError with param_name=query | Required param |
+| TC-A-03 | Non-existent task_id | Equivalence – error | TaskNotFoundError with task_id | DB lookup failure |
+| TC-A-04 | Missing task_id for stop_task | Equivalence – error | InvalidParamsError | Required param |
+| TC-A-05 | Non-existent task for stop_task | Equivalence – error | TaskNotFoundError | DB lookup failure |
+| TC-A-06 | Empty query string | Boundary – empty | InvalidParamsError | Empty string validation |
+| TC-A-07 | Whitespace-only query | Boundary – whitespace | InvalidParamsError | Whitespace validation |
+| TC-N-01 | Valid task + query | Equivalence – normal | Search executes, returns result | Normal search |
+| TC-N-02 | Valid task + query + refute=true | Equivalence – normal | Refutation search executes | Refutation mode |
+| TC-N-03 | Search with custom options | Equivalence – normal | Options passed to action | Custom options |
+| TC-N-04 | stop_task without reason | Equivalence – normal | Default reason="completed" | Default value |
+| TC-N-05 | stop_task with custom reason | Equivalence – normal | Custom reason passed | Custom value |
+| TC-N-06 | stop_task returns summary | Equivalence – normal | Summary with stats | Return structure |
+| TC-B-01 | max_pages=0 | Boundary – min | Accepts 0 (immediate return) | Zero boundary |
+| TC-B-02 | max_pages=1 | Boundary – min+1 | Accepts 1 page | Minimal fetch |
+| TC-B-03 | Very long query (4000 chars) | Boundary – max | Accepts long query | §4.4.1 input limit |
 """
 
 from typing import Any
@@ -69,6 +90,174 @@ class TestSearchValidation:
                 })
         
         assert exc_info.value.details.get("task_id") == "nonexistent_task"
+
+    @pytest.mark.asyncio
+    async def test_empty_query_raises_error(self) -> None:
+        """
+        TC-A-06: Empty query string.
+        
+        // Given: Empty string as query
+        // When: Calling search
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_search({
+                "task_id": "task_123",
+                "query": "",
+            })
+        
+        assert exc_info.value.details.get("param_name") == "query"
+
+    @pytest.mark.asyncio
+    async def test_whitespace_query_raises_error(self) -> None:
+        """
+        TC-A-07: Whitespace-only query.
+        
+        // Given: Whitespace-only string as query
+        // When: Calling search
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_search({
+                "task_id": "task_123",
+                "query": "   \t\n  ",
+            })
+        
+        assert exc_info.value.details.get("param_name") == "query"
+
+
+class TestSearchBoundaryValues:
+    """Tests for search boundary values."""
+
+    @pytest.fixture
+    def mock_task(self) -> dict[str, Any]:
+        """Create mock task data."""
+        return {"id": "task_abc123"}
+
+    @pytest.fixture
+    def mock_search_result(self) -> dict[str, Any]:
+        """Create mock search result."""
+        return {
+            "ok": True,
+            "search_id": "s_001",
+            "query": "test",
+            "status": "partial",
+            "pages_fetched": 0,
+            "useful_fragments": 0,
+            "harvest_rate": 0.0,
+            "claims_found": [],
+            "satisfaction_score": 0.0,
+            "novelty_score": 0.0,
+            "budget_remaining": {"pages": 100, "percent": 100},
+        }
+
+    @pytest.mark.asyncio
+    async def test_max_pages_zero(
+        self, mock_task: dict[str, Any], mock_search_result: dict[str, Any]
+    ) -> None:
+        """
+        TC-B-01: max_pages=0 boundary.
+        
+        // Given: max_pages=0
+        // When: Calling search
+        // Then: Accepts and passes 0 to action (immediate return)
+        """
+        from src.mcp.server import _handle_search
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        captured_options = {}
+        
+        async def capture_action(task_id, query, state, options):
+            captured_options.update(options or {})
+            return mock_search_result
+        
+        with patch("src.mcp.server.get_database", return_value=mock_db):
+            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                with patch("src.research.pipeline.search_action", side_effect=capture_action):
+                    result = await _handle_search({
+                        "task_id": "task_abc123",
+                        "query": "test",
+                        "options": {"max_pages": 0},
+                    })
+        
+        assert result["ok"] is True
+        assert captured_options.get("max_pages") == 0
+
+    @pytest.mark.asyncio
+    async def test_max_pages_one(
+        self, mock_task: dict[str, Any], mock_search_result: dict[str, Any]
+    ) -> None:
+        """
+        TC-B-02: max_pages=1 boundary (minimum practical value).
+        
+        // Given: max_pages=1
+        // When: Calling search
+        // Then: Accepts minimal page count
+        """
+        from src.mcp.server import _handle_search
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        captured_options = {}
+        
+        async def capture_action(task_id, query, state, options):
+            captured_options.update(options or {})
+            return mock_search_result
+        
+        with patch("src.mcp.server.get_database", return_value=mock_db):
+            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                with patch("src.research.pipeline.search_action", side_effect=capture_action):
+                    result = await _handle_search({
+                        "task_id": "task_abc123",
+                        "query": "test",
+                        "options": {"max_pages": 1},
+                    })
+        
+        assert result["ok"] is True
+        assert captured_options.get("max_pages") == 1
+
+    @pytest.mark.asyncio
+    async def test_long_query_at_limit(
+        self, mock_task: dict[str, Any], mock_search_result: dict[str, Any]
+    ) -> None:
+        """
+        TC-B-03: Very long query at input limit (4000 chars per §4.4.1).
+        
+        // Given: Query of 4000 characters
+        // When: Calling search
+        // Then: Accepts the query
+        """
+        from src.mcp.server import _handle_search
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        long_query = "a" * 4000  # Max input length per §4.4.1
+        
+        with patch("src.mcp.server.get_database", return_value=mock_db):
+            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                with patch(
+                    "src.research.pipeline.search_action",
+                    return_value=mock_search_result,
+                ):
+                    result = await _handle_search({
+                        "task_id": "task_abc123",
+                        "query": long_query,
+                    })
+        
+        assert result["ok"] is True
 
 
 class TestSearchExecution:

@@ -1,6 +1,27 @@
 """Tests for notify_user and wait_for_user MCP tools.
 
 Tests notification functionality per §3.2.1.
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-N-01 | event=auth_required | Equivalence – normal | Notification sent | Auth event |
+| TC-N-02 | event=task_progress | Equivalence – normal | Notification sent | Progress event |
+| TC-N-03 | event=task_complete | Equivalence – normal | Notification sent | Complete event |
+| TC-N-04 | event=error | Equivalence – normal | Notification sent | Error event |
+| TC-N-05 | event=info | Equivalence – normal | Notification sent | Info event |
+| TC-N-06 | wait_for_user prompt | Equivalence – normal | Notification sent | Wait trigger |
+| TC-N-07 | wait_for_user with timeout | Equivalence – normal | Custom timeout in response | Custom timeout |
+| TC-N-08 | wait_for_user default timeout | Equivalence – normal | Default 300s timeout | Default value |
+| TC-A-01 | Missing event | Equivalence – error | InvalidParamsError | Required param |
+| TC-A-02 | Invalid event type | Equivalence – error | InvalidParamsError | Invalid enum |
+| TC-A-03 | Missing payload | Equivalence – error | InvalidParamsError | Required param |
+| TC-A-04 | Missing prompt for wait | Equivalence – error | InvalidParamsError | Required param |
+| TC-B-01 | timeout_seconds=0 | Boundary – zero | Accepts 0 (immediate) | Zero timeout |
+| TC-B-02 | timeout_seconds=1 | Boundary – min | Accepts 1 second | Minimal timeout |
+| TC-B-03 | Empty prompt | Boundary – empty | InvalidParamsError | Empty string |
+| TC-B-04 | Empty payload dict | Boundary – empty | Accepts empty payload | Minimal payload |
 """
 
 from typing import Any
@@ -151,6 +172,180 @@ class TestNotifyUserExecution:
         assert result["ok"] is True
         assert result["event"] == "info"
         mock_send.assert_called_once()
+
+
+class TestNotifyUserValidation:
+    """Tests for notify_user parameter validation."""
+
+    @pytest.mark.asyncio
+    async def test_missing_event_raises_error(self) -> None:
+        """
+        TC-A-01: Missing event parameter.
+        
+        // Given: No event provided
+        // When: Calling notify_user
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_notify_user
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_notify_user({
+                "payload": {"message": "test"},
+            })
+        
+        assert exc_info.value.details.get("param_name") == "event"
+
+    @pytest.mark.asyncio
+    async def test_invalid_event_type_raises_error(self) -> None:
+        """
+        TC-A-02: Invalid event type.
+        
+        // Given: event=invalid_event
+        // When: Calling notify_user
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_notify_user
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_notify_user({
+                "event": "invalid_event",
+                "payload": {"message": "test"},
+            })
+        
+        assert "event" in str(exc_info.value.details.get("param_name"))
+
+    @pytest.mark.asyncio
+    async def test_missing_payload_raises_error(self) -> None:
+        """
+        TC-A-03: Missing payload parameter.
+        
+        // Given: No payload provided
+        // When: Calling notify_user
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_notify_user
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_notify_user({
+                "event": "info",
+            })
+        
+        assert exc_info.value.details.get("param_name") == "payload"
+
+    @pytest.mark.asyncio
+    async def test_empty_payload_accepted(self) -> None:
+        """
+        TC-B-04: Empty payload dict is accepted.
+        
+        // Given: payload={}
+        // When: Calling notify_user
+        // Then: Accepts empty payload
+        """
+        from src.mcp.server import _handle_notify_user
+        
+        with patch(
+            "src.utils.notification.notify_user",
+            new_callable=AsyncMock,
+        ):
+            result = await _handle_notify_user({
+                "event": "info",
+                "payload": {},
+            })
+        
+        assert result["ok"] is True
+
+
+class TestWaitForUserValidation:
+    """Tests for wait_for_user parameter validation."""
+
+    @pytest.mark.asyncio
+    async def test_missing_prompt_raises_error(self) -> None:
+        """
+        TC-A-04: Missing prompt parameter.
+        
+        // Given: No prompt provided
+        // When: Calling wait_for_user
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_wait_for_user
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_wait_for_user({})
+        
+        assert exc_info.value.details.get("param_name") == "prompt"
+
+    @pytest.mark.asyncio
+    async def test_empty_prompt_raises_error(self) -> None:
+        """
+        TC-B-03: Empty prompt string.
+        
+        // Given: prompt=""
+        // When: Calling wait_for_user
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.server import _handle_wait_for_user
+        from src.mcp.errors import InvalidParamsError
+        
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_wait_for_user({
+                "prompt": "",
+            })
+        
+        assert exc_info.value.details.get("param_name") == "prompt"
+
+
+class TestWaitForUserBoundaryValues:
+    """Tests for wait_for_user boundary values."""
+
+    @pytest.mark.asyncio
+    async def test_timeout_zero(self) -> None:
+        """
+        TC-B-01: timeout_seconds=0 (immediate).
+        
+        // Given: timeout_seconds=0
+        // When: Calling wait_for_user
+        // Then: Accepts 0 timeout
+        """
+        from src.mcp.server import _handle_wait_for_user
+        
+        with patch(
+            "src.utils.notification.notify_user",
+            new_callable=AsyncMock,
+        ):
+            result = await _handle_wait_for_user({
+                "prompt": "Test prompt",
+                "timeout_seconds": 0,
+            })
+        
+        assert result["ok"] is True
+        assert result["timeout_seconds"] == 0
+
+    @pytest.mark.asyncio
+    async def test_timeout_one_second(self) -> None:
+        """
+        TC-B-02: timeout_seconds=1 (minimal).
+        
+        // Given: timeout_seconds=1
+        // When: Calling wait_for_user
+        // Then: Accepts 1 second timeout
+        """
+        from src.mcp.server import _handle_wait_for_user
+        
+        with patch(
+            "src.utils.notification.notify_user",
+            new_callable=AsyncMock,
+        ):
+            result = await _handle_wait_for_user({
+                "prompt": "Test prompt",
+                "timeout_seconds": 1,
+            })
+        
+        assert result["ok"] is True
+        assert result["timeout_seconds"] == 1
 
 
 class TestWaitForUserExecution:

@@ -676,7 +676,7 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
             expected="non-empty string",
         )
     
-    if not query:
+    if not query or not query.strip():
         raise InvalidParamsError(
             "query is required",
             param_name="query",
@@ -1006,6 +1006,22 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             expected="one of: complete, skip",
         )
     
+    valid_actions = {"complete", "skip"}
+    if action not in valid_actions:
+        raise InvalidParamsError(
+            f"Invalid action: {action}",
+            param_name="action",
+            expected="one of: complete, skip",
+        )
+    
+    valid_targets = {"item", "domain"}
+    if target not in valid_targets:
+        raise InvalidParamsError(
+            f"Invalid target: {target}",
+            param_name="target",
+            expected="one of: item, domain",
+        )
+    
     queue = get_intervention_queue()
     
     if target == "item":
@@ -1073,10 +1089,38 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
     Implements §3.2.1: Send notification to user.
     Per §3.6.1: No DOM operations during auth sessions.
     """
+    from src.mcp.errors import InvalidParamsError
     from src.utils.notification import notify_user as send_notification
     
-    event = args["event"]
-    payload = args.get("payload", {})
+    event = args.get("event")
+    payload = args.get("payload")
+    
+    # Validate required params
+    if not event:
+        raise InvalidParamsError(
+            "event is required",
+            param_name="event",
+            expected="one of: auth_required, task_progress, task_complete, error, info",
+        )
+    
+    valid_events = {"auth_required", "task_progress", "task_complete", "error", "info"}
+    if event not in valid_events:
+        raise InvalidParamsError(
+            f"Invalid event type: {event}",
+            param_name="event",
+            expected="one of: auth_required, task_progress, task_complete, error, info",
+        )
+    
+    if payload is None:
+        raise InvalidParamsError(
+            "payload is required",
+            param_name="payload",
+            expected="object",
+        )
+    
+    # Allow empty payload dict (TC-B-04)
+    if not isinstance(payload, dict):
+        payload = {}
     
     # Map event types to notification
     title_map = {
@@ -1120,11 +1164,20 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
     For blocking waits with timeout, the MCP protocol doesn't support
     true blocking operations - Cursor AI should poll for completion.
     """
+    from src.mcp.errors import InvalidParamsError
     from src.utils.notification import notify_user
     
-    prompt = args["prompt"]
+    prompt = args.get("prompt")
     timeout_seconds = args.get("timeout_seconds", 300)
     options = args.get("options", [])
+    
+    # Validate required params
+    if not prompt or not prompt.strip():
+        raise InvalidParamsError(
+            "prompt is required",
+            param_name="prompt",
+            expected="non-empty string",
+        )
     
     # Send notification with prompt
     await notify_user(
