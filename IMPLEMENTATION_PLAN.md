@@ -882,15 +882,24 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 - `config/domains.yaml`: default trust_level を `"unverified"` に変更
 - `tests/test_domain_policy.py`: テストの期待値更新
 
-#### K.3-8 BLOCKED通知（InterventionQueue連携）⏳
+#### K.3-8 BLOCKED通知（InterventionQueue連携）✅
 
 ドメインがBLOCKEDになった際の通知機能。
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| `auth_type="domain_blocked"` 追加 | `src/utils/notification.py` | ⏳ |
-| BLOCKED時の通知呼び出し | `src/filter/source_verification.py` | ⏳ |
-| Cursor AIへの応答 | `domain_blocked` 情報を含める | ⏳ |
+| `auth_type="domain_blocked"` 追加 | `src/utils/notification.py` | ✅ |
+| BLOCKED時の通知呼び出し | `src/filter/source_verification.py` | ✅ |
+| Cursor AIへの応答 | `domain_blocked` 情報を含める | ✅ |
+
+**実装内容:**
+- `InterventionType.DOMAIN_BLOCKED` enum追加
+- `notify_user(event="domain_blocked")` でInterventionQueue.enqueue呼び出し
+- `notify_domain_blocked()` 便利関数追加
+- `SourceVerifier._queue_blocked_notification()` でキューイング
+- `SourceVerifier.send_pending_notifications()` で非同期送信
+- 重複防止（同一ドメインは1回のみ通知）
+- テスト13件追加（notification: 5件, source_verification: 8件）
 
 **影響ファイル:**
 - `src/utils/notification.py`: InterventionQueue拡張（新auth_type追加）
