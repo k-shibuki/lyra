@@ -4,14 +4,16 @@ Tests for UCB1-based budget allocation.
 Tests the UCBAllocator class and its integration with ExplorationState.
 See requirements.md §3.1.1.
 
+Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
+
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|----------------------|---------------------------------------|-----------------|-------|
-| TC-SA-01 | SubqueryArm initial state | Equivalence – defaults | All values at 0 | - |
-| TC-SA-02 | SubqueryArm average_reward | Equivalence – calculation | Correct average | - |
-| TC-SA-03 | SubqueryArm with 0 pulls | Boundary – zero | average=0 | - |
+| TC-SA-01 | SearchArm initial state | Equivalence – defaults | All values at 0 | - |
+| TC-SA-02 | SearchArm average_reward | Equivalence – calculation | Correct average | - |
+| TC-SA-03 | SearchArm with 0 pulls | Boundary – zero | average=0 | - |
 | TC-UA-01 | UCBAllocator initialization | Equivalence – init | Arms empty | - |
-| TC-UA-02 | Add subquery arm | Equivalence – add | Arm registered | - |
+| TC-UA-02 | Add search arm | Equivalence – add | Arm registered | - |
 | TC-UA-03 | Select arm initial | Boundary – unexplored | Unexplored first | - |
 | TC-UA-04 | Select arm UCB1 | Equivalence – UCB1 | Highest UCB selected | - |
 | TC-UA-05 | Update arm reward | Equivalence – update | Stats updated | - |
@@ -27,17 +29,17 @@ import pytest
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
 
-from src.research.ucb_allocator import UCBAllocator, SubqueryArm
+from src.research.ucb_allocator import UCBAllocator, SearchArm
 
 
-class TestSubqueryArm:
-    """Tests for SubqueryArm dataclass."""
+class TestSearchArm:
+    """Tests for SearchArm dataclass."""
     
     def test_initial_state(self):
         """Test arm initialization with default values."""
-        arm = SubqueryArm(subquery_id="sq_001")
+        arm = SearchArm(search_id="s_001")
         
-        assert arm.subquery_id == "sq_001"
+        assert arm.search_id == "s_001"
         assert arm.pulls == 0
         assert arm.total_reward == 0.0
         assert arm.allocated_budget == 0
@@ -46,7 +48,7 @@ class TestSubqueryArm:
     
     def test_record_observation_useful(self):
         """Test recording useful observations."""
-        arm = SubqueryArm(subquery_id="sq_001")
+        arm = SearchArm(search_id="s_001")
         
         arm.record_observation(is_useful=True)
         
@@ -57,7 +59,7 @@ class TestSubqueryArm:
     
     def test_record_observation_not_useful(self):
         """Test recording non-useful observations."""
-        arm = SubqueryArm(subquery_id="sq_001")
+        arm = SearchArm(search_id="s_001")
         
         arm.record_observation(is_useful=False)
         
@@ -67,7 +69,7 @@ class TestSubqueryArm:
     
     def test_average_reward_calculation(self):
         """Test average reward with mixed observations."""
-        arm = SubqueryArm(subquery_id="sq_001")
+        arm = SearchArm(search_id="s_001")
         
         # 3 useful, 2 not useful
         for _ in range(3):
@@ -81,7 +83,7 @@ class TestSubqueryArm:
     
     def test_remaining_budget(self):
         """Test remaining budget calculation."""
-        arm = SubqueryArm(subquery_id="sq_001", allocated_budget=10)
+        arm = SearchArm(search_id="s_001", allocated_budget=10)
         
         assert arm.remaining_budget() == 10
         
@@ -92,7 +94,7 @@ class TestSubqueryArm:
     
     def test_remaining_budget_exhausted(self):
         """Test remaining budget when exhausted."""
-        arm = SubqueryArm(subquery_id="sq_001", allocated_budget=2)
+        arm = SearchArm(search_id="s_001", allocated_budget=2)
         
         arm.record_observation(is_useful=True)
         arm.record_observation(is_useful=True)
@@ -102,12 +104,12 @@ class TestSubqueryArm:
     
     def test_to_dict(self):
         """Test serialization to dictionary."""
-        arm = SubqueryArm(subquery_id="sq_001", allocated_budget=10, priority_boost=1.5)
+        arm = SearchArm(search_id="s_001", allocated_budget=10, priority_boost=1.5)
         arm.record_observation(is_useful=True)
         
         result = arm.to_dict()
         
-        assert result["subquery_id"] == "sq_001"
+        assert result["search_id"] == "s_001"
         assert result["pulls"] == 1
         assert result["average_reward"] == 1.0
         assert result["allocated_budget"] == 10
@@ -124,13 +126,13 @@ class TestUCBAllocator:
         allocator = UCBAllocator(
             total_budget=100,
             exploration_constant=1.5,
-            min_budget_per_subquery=3,
+            min_budget_per_search=3,
             max_budget_ratio=0.5,
         )
         
         assert allocator.total_budget == 100
         assert allocator.exploration_constant == 1.5
-        assert allocator.min_budget_per_subquery == 3
+        assert allocator.min_budget_per_search == 3
         assert allocator.max_budget_ratio == 0.5
     
     def test_default_exploration_constant(self):
@@ -139,47 +141,47 @@ class TestUCBAllocator:
         
         assert allocator.exploration_constant == pytest.approx(math.sqrt(2))
     
-    def test_register_subquery(self):
-        """Test registering a new subquery."""
+    def test_register_search(self):
+        """Test registering a new search."""
         allocator = UCBAllocator(total_budget=100)
         
-        arm = allocator.register_subquery("sq_001", priority="high")
+        arm = allocator.register_search("s_001", priority="high")
         
-        assert arm.subquery_id == "sq_001"
+        assert arm.search_id == "s_001"
         assert arm.priority_boost == 1.5  # High priority boost
     
-    def test_register_subquery_priority_boosts(self):
+    def test_register_search_priority_boosts(self):
         """Test priority boosts for different priority levels."""
         allocator = UCBAllocator(total_budget=100)
         
-        high_arm = allocator.register_subquery("sq_high", priority="high")
-        medium_arm = allocator.register_subquery("sq_medium", priority="medium")
-        low_arm = allocator.register_subquery("sq_low", priority="low")
+        high_arm = allocator.register_search("sq_high", priority="high")
+        medium_arm = allocator.register_search("sq_medium", priority="medium")
+        low_arm = allocator.register_search("sq_low", priority="low")
         
         assert high_arm.priority_boost == 1.5
         assert medium_arm.priority_boost == 1.0
         assert low_arm.priority_boost == 0.7
     
-    def test_register_subquery_with_initial_budget(self):
-        """Test registering subquery with initial budget."""
+    def test_register_search_with_initial_budget(self):
+        """Test registering search with initial budget."""
         allocator = UCBAllocator(total_budget=100, max_budget_ratio=0.4)
         
-        arm = allocator.register_subquery("sq_001", initial_budget=30)
+        arm = allocator.register_search("sq_001", initial_budget=30)
         
         assert arm.allocated_budget == 30
     
-    def test_register_subquery_budget_capped(self):
+    def test_register_search_budget_capped(self):
         """Test initial budget is capped at max_budget_ratio."""
         allocator = UCBAllocator(total_budget=100, max_budget_ratio=0.4)
         
-        arm = allocator.register_subquery("sq_001", initial_budget=60)
+        arm = allocator.register_search("sq_001", initial_budget=60)
         
         assert arm.allocated_budget == 40  # Capped at 40% of 100
     
     def test_record_observation(self):
         """Test recording observations updates allocator state."""
         allocator = UCBAllocator(total_budget=100)
-        allocator.register_subquery("sq_001")
+        allocator.register_search("sq_001")
         
         allocator.record_observation("sq_001", is_useful=True)
         
@@ -191,7 +193,7 @@ class TestUCBAllocator:
     def test_ucb_score_unplayed_arm(self):
         """Test UCB score for unplayed arm is infinity."""
         allocator = UCBAllocator(total_budget=100)
-        allocator.register_subquery("sq_001")
+        allocator.register_search("sq_001")
         
         score = allocator.calculate_ucb_score("sq_001")
         
@@ -200,7 +202,7 @@ class TestUCBAllocator:
     def test_ucb_score_played_arm(self):
         """Test UCB score for played arm."""
         allocator = UCBAllocator(total_budget=100, exploration_constant=1.0)
-        allocator.register_subquery("sq_001")
+        allocator.register_search("sq_001")
         
         # Record 10 observations, 6 useful (60% harvest rate)
         for i in range(10):
@@ -220,8 +222,8 @@ class TestUCBAllocator:
         """Test UCB score is multiplied by priority boost."""
         allocator = UCBAllocator(total_budget=100, exploration_constant=0)  # No exploration
         
-        high_arm = allocator.register_subquery("sq_high", priority="high")
-        low_arm = allocator.register_subquery("sq_low", priority="low")
+        high_arm = allocator.register_search("sq_high", priority="high")
+        low_arm = allocator.register_search("sq_low", priority="low")
         
         # Same harvest rate for both
         for _ in range(5):
@@ -237,9 +239,9 @@ class TestUCBAllocator:
     def test_get_all_ucb_scores(self):
         """Test getting UCB scores for all subqueries."""
         allocator = UCBAllocator(total_budget=100)
-        allocator.register_subquery("sq_001")
-        allocator.register_subquery("sq_002")
-        allocator.register_subquery("sq_003")
+        allocator.register_search("sq_001")
+        allocator.register_search("sq_002")
+        allocator.register_search("sq_003")
         
         scores = allocator.get_all_ucb_scores()
         
@@ -252,10 +254,10 @@ class TestUCBAllocator:
         """Test budget reallocation with unplayed arms."""
         allocator = UCBAllocator(
             total_budget=100,
-            min_budget_per_subquery=5,
+            min_budget_per_search=5,
         )
-        allocator.register_subquery("sq_001")
-        allocator.register_subquery("sq_002")
+        allocator.register_search("sq_001")
+        allocator.register_search("sq_002")
         
         allocations = allocator.reallocate_budget()
         
@@ -269,8 +271,8 @@ class TestUCBAllocator:
             total_budget=100,
             exploration_constant=0,  # Disable exploration for deterministic test
         )
-        allocator.register_subquery("sq_high", priority="medium")
-        allocator.register_subquery("sq_low", priority="medium")
+        allocator.register_search("sq_high", priority="medium")
+        allocator.register_search("sq_low", priority="medium")
         
         # sq_high: 80% harvest rate
         for i in range(10):
@@ -291,7 +293,7 @@ class TestUCBAllocator:
             total_budget=100,
             max_budget_ratio=0.3,
         )
-        allocator.register_subquery("sq_001")
+        allocator.register_search("sq_001")
         
         # Even with perfect harvest rate, max is 30% of total
         for _ in range(10):
@@ -306,7 +308,7 @@ class TestUCBAllocator:
     def test_should_reallocate_interval(self):
         """Test should_reallocate triggers after interval."""
         allocator = UCBAllocator(total_budget=100, reallocation_interval=5)
-        allocator.register_subquery("sq_001")
+        allocator.register_search("sq_001")
         
         # Initially should not trigger (unplayed arm is not "exhausted")
         assert not allocator.should_reallocate()
@@ -320,7 +322,7 @@ class TestUCBAllocator:
     def test_should_reallocate_exhausted_budget(self):
         """Test should_reallocate triggers when budget exhausted."""
         allocator = UCBAllocator(total_budget=100, reallocation_interval=100)
-        arm = allocator.register_subquery("sq_001", initial_budget=3)
+        arm = allocator.register_search("sq_001", initial_budget=3)
         
         for _ in range(3):
             allocator.record_observation("sq_001", is_useful=True)
@@ -331,7 +333,7 @@ class TestUCBAllocator:
     def test_reallocate_and_get_budget(self):
         """Test reallocate_and_get_budget triggers reallocation when needed."""
         allocator = UCBAllocator(total_budget=100, reallocation_interval=5)
-        allocator.register_subquery("sq_001", initial_budget=5)
+        allocator.register_search("sq_001", initial_budget=5)
         
         # Use all initial budget
         for _ in range(5):
@@ -342,37 +344,37 @@ class TestUCBAllocator:
         
         assert new_budget > 0  # Got new budget
     
-    def test_get_recommended_subquery(self):
-        """Test getting recommended subquery based on UCB score."""
+    def test_get_recommended_search(self):
+        """Test getting recommended search based on UCB score."""
         allocator = UCBAllocator(total_budget=100)
-        allocator.register_subquery("sq_001")
-        allocator.register_subquery("sq_002")
+        allocator.register_search("sq_001")
+        allocator.register_search("sq_002")
         
         # sq_002 unplayed should have infinity score
         # Both unplayed, so either could be recommended
-        recommended = allocator.get_recommended_subquery()
+        recommended = allocator.get_recommended_search()
         
         assert recommended in ("sq_001", "sq_002")
     
-    def test_get_recommended_subquery_with_budget(self):
-        """Test recommended subquery considers remaining budget."""
+    def test_get_recommended_search_with_budget(self):
+        """Test recommended search considers remaining budget."""
         allocator = UCBAllocator(total_budget=20, max_budget_ratio=0.5)
-        allocator.register_subquery("sq_001", initial_budget=10)
-        allocator.register_subquery("sq_002", initial_budget=10)
+        allocator.register_search("sq_001", initial_budget=10)
+        allocator.register_search("sq_002", initial_budget=10)
         
         # Exhaust sq_001's budget
         for _ in range(10):
             allocator.record_observation("sq_001", is_useful=True)
         
         # sq_001 has no remaining budget, so sq_002 should be recommended
-        recommended = allocator.get_recommended_subquery()
+        recommended = allocator.get_recommended_search()
         
         assert recommended == "sq_002"
     
     def test_get_status(self):
         """Test getting allocator status."""
         allocator = UCBAllocator(total_budget=100)
-        allocator.register_subquery("sq_001")
+        allocator.register_search("sq_001")
         allocator.record_observation("sq_001", is_useful=True)
         
         status = allocator.get_status()
@@ -389,9 +391,9 @@ class TestUCBAllocator:
         allocator = UCBAllocator(
             total_budget=100,
             exploration_constant=1.5,
-            min_budget_per_subquery=3,
+            min_budget_per_search=3,
         )
-        allocator.register_subquery("sq_001", priority="high")
+        allocator.register_search("sq_001", priority="high")
         allocator.record_observation("sq_001", is_useful=True)
         
         data = allocator.to_dict()
@@ -399,7 +401,7 @@ class TestUCBAllocator:
         
         assert restored.total_budget == 100
         assert restored.exploration_constant == 1.5
-        assert restored.min_budget_per_subquery == 3
+        assert restored.min_budget_per_search == 3
         assert restored._total_pulls == 1
         assert "sq_001" in restored._arms
 
@@ -432,12 +434,12 @@ class TestUCBAllocatorIntegration:
         assert state._ucb_allocator is None
     
     @pytest.mark.asyncio
-    async def test_register_subquery_updates_ucb(self):
-        """Test registering subquery also registers with UCB allocator."""
+    async def test_register_search_updates_ucb(self):
+        """Test registering search also registers with UCB allocator."""
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
-        state.register_subquery("sq_001", "test query", priority="high")
+        state.register_search("sq_001", "test query", priority="high")
         
         assert "sq_001" in state._ucb_allocator._arms
         assert state._ucb_allocator._arms["sq_001"].priority_boost == 1.5
@@ -448,7 +450,7 @@ class TestUCBAllocatorIntegration:
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
-        state.register_subquery("sq_001", "test query")
+        state.register_search("sq_001", "test query")
         
         state.record_fragment("sq_001", "hash123", is_useful=True, is_novel=True)
         
@@ -462,7 +464,7 @@ class TestUCBAllocatorIntegration:
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
-        state.register_subquery("sq_001", "test query")
+        state.register_search("sq_001", "test query")
         
         budget = state.get_dynamic_budget("sq_001")
         
@@ -474,22 +476,22 @@ class TestUCBAllocatorIntegration:
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=False)
-        state.register_subquery("sq_001", "test query", budget_pages=20)
+        state.register_search("sq_001", "test query", budget_pages=20)
         
         budget = state.get_dynamic_budget("sq_001")
         
         assert budget == 20
     
     @pytest.mark.asyncio
-    async def test_get_ucb_recommended_subquery(self):
-        """Test getting UCB recommended subquery."""
+    async def test_get_ucb_recommended_search(self):
+        """Test getting UCB recommended search."""
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
-        state.register_subquery("sq_001", "query 1")
-        state.register_subquery("sq_002", "query 2")
+        state.register_search("sq_001", "query 1")
+        state.register_search("sq_002", "query 2")
         
-        recommended = state.get_ucb_recommended_subquery()
+        recommended = state.get_ucb_recommended_search()
         
         assert recommended in ("sq_001", "sq_002")
     
@@ -499,8 +501,8 @@ class TestUCBAllocatorIntegration:
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
-        state.register_subquery("sq_001", "query 1")
-        state.register_subquery("sq_002", "query 2")
+        state.register_search("sq_001", "query 1")
+        state.register_search("sq_002", "query 2")
         
         scores = state.get_ucb_scores()
         
@@ -513,7 +515,7 @@ class TestUCBAllocatorIntegration:
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
-        state.register_subquery("sq_001", "query 1")
+        state.register_search("sq_001", "query 1")
         
         status = await state.get_status()
         
@@ -529,8 +531,8 @@ class TestUCBAllocatorIntegration:
         from src.research.state import ExplorationState
         
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
-        state.register_subquery("sq_001", "query 1")
-        state.register_subquery("sq_002", "query 2")
+        state.register_search("sq_001", "query 1")
+        state.register_search("sq_002", "query 2")
         
         # Record some observations
         for _ in range(5):
@@ -549,12 +551,12 @@ class TestUCBAllocatorEdgeCases:
         """Test operations on empty allocator."""
         allocator = UCBAllocator(total_budget=100)
         
-        assert allocator.get_recommended_subquery() is None
+        assert allocator.get_recommended_search() is None
         assert allocator.get_all_ucb_scores() == {}
         assert allocator.reallocate_budget() == {}
     
-    def test_record_unknown_subquery(self):
-        """Test recording observation for unknown subquery."""
+    def test_record_unknown_search(self):
+        """Test recording observation for unknown search."""
         allocator = UCBAllocator(total_budget=100)
         
         # Should not raise, just log warning
@@ -562,16 +564,16 @@ class TestUCBAllocatorEdgeCases:
         
         assert allocator._total_pulls == 0
     
-    def test_get_budget_unknown_subquery(self):
-        """Test getting budget for unknown subquery."""
+    def test_get_budget_unknown_search(self):
+        """Test getting budget for unknown search."""
         allocator = UCBAllocator(total_budget=100)
         
         budget = allocator.get_budget("unknown")
         
         assert budget == 0
     
-    def test_ucb_score_unknown_subquery(self):
-        """Test UCB score for unknown subquery."""
+    def test_ucb_score_unknown_search(self):
+        """Test UCB score for unknown search."""
         allocator = UCBAllocator(total_budget=100)
         
         score = allocator.calculate_ucb_score("unknown")
@@ -579,11 +581,11 @@ class TestUCBAllocatorEdgeCases:
         assert score == 0.0
     
     def test_duplicate_registration(self):
-        """Test registering same subquery twice returns existing arm."""
+        """Test registering same search twice returns existing arm."""
         allocator = UCBAllocator(total_budget=100)
         
-        arm1 = allocator.register_subquery("sq_001", priority="high")
-        arm2 = allocator.register_subquery("sq_001", priority="low")  # Different priority
+        arm1 = allocator.register_search("sq_001", priority="high")
+        arm2 = allocator.register_search("sq_001", priority="low")  # Different priority
         
         assert arm1 is arm2
         assert arm1.priority_boost == 1.5  # Original priority preserved
@@ -591,7 +593,7 @@ class TestUCBAllocatorEdgeCases:
     def test_budget_exhausted(self):
         """Test behavior when total budget is exhausted."""
         allocator = UCBAllocator(total_budget=10)
-        allocator.register_subquery("sq_001", initial_budget=10)
+        allocator.register_search("sq_001", initial_budget=10)
         
         for _ in range(10):
             allocator.record_observation("sq_001", is_useful=True)
@@ -604,7 +606,7 @@ class TestUCBAllocatorEdgeCases:
     def test_zero_total_pulls_ucb(self):
         """Test UCB calculation with zero total pulls."""
         allocator = UCBAllocator(total_budget=100)
-        arm = allocator.register_subquery("sq_001")
+        arm = allocator.register_search("sq_001")
         arm.pulls = 1  # Manually set to simulate edge case
         arm.total_reward = 0.5
         

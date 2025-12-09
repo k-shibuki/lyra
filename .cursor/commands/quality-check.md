@@ -12,12 +12,27 @@
 4. セキュリティ上の問題がないか（認証/認可、データ保持等）
 
 ## 実行方法
-```bash
-# Lintエラー確認
-podman exec lancet ruff check src/ tests/
 
-# 型チェック（必要に応じて）
+**Lintエラー確認**:
+```bash
+podman exec lancet ruff check src/ tests/
+```
+
+**型チェック（必要に応じて）**:
+```bash
 podman exec lancet mypy src/
+```
+
+**テスト実行（scripts/test.sh推奨）**:
+```bash
+# 1. テスト開始
+./scripts/test.sh run tests/
+
+# 2. 完了確認（DONEになるまで繰り返す）
+./scripts/test.sh check
+
+# 3. 結果取得
+./scripts/test.sh get
 ```
 
 ## 完了条件
