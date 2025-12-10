@@ -1347,16 +1347,17 @@ Phase G.2 参照。
    & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 "--user-data-dir=C:\Users\<USERNAME>\AppData\Local\Google\Chrome\User Data" --profile-directory=Profile-Research
    ```
 
-4. **ポートフォワーディング設定**（初回のみ、管理者PowerShell）
-   ```powershell
-   netsh interface portproxy add v4tov4 listenaddress=<WSL2_GATEWAY_IP> listenport=9222 connectaddress=127.0.0.1 connectport=9222
-   New-NetFirewallRule -DisplayName "Chrome Debug WSL2" -Direction Inbound -LocalPort 9222 -Protocol TCP -Action Allow
+4. **WSL2 mirrored networkingを有効化**（初回のみ）
+   - `%USERPROFILE%\.wslconfig`に以下を追加:
+   ```ini
+   [wsl2]
+   networkingMode=mirrored
    ```
+   - WSLを再起動: `wsl.exe --shutdown`
 
 5. **環境変数設定**（`.env`ファイル）
-   ```bash
-   echo "LANCET_BROWSER__CHROME_HOST=<WSL2_GATEWAY_IP>" >> .env
-   ```
+   - デフォルトの`localhost`でOK（CHROME_HOST設定は不要）
+   - 必要に応じて`.env.example`からコピー
 
 6. **テスト実行**
    ```bash

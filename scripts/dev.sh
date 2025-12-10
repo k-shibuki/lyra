@@ -30,7 +30,7 @@ case "${1:-help}" in
         if [ ! -f "$PROJECT_DIR/.env" ]; then
             echo "Error: .env file not found"
             echo "Copy from template: cp .env.example .env"
-            echo "Then edit LANCET_BROWSER__CHROME_HOST with your WSL2 gateway IP"
+            echo "Note: CHROME_HOST defaults to localhost (works with WSL2 mirrored networking)"
             exit 1
         fi
         
