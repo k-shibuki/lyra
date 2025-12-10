@@ -86,15 +86,11 @@ Covers:
 | TC-ME-N-03 | get_diagram_data | Equivalence – normal | Bins returned | - |
 """
 
-import pytest
-
-# All tests in this module are unit tests (no external dependencies)
-pytestmark = pytest.mark.unit
 import math
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-import tempfile
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, AsyncMock, patch
+
+import pytest
 
 from src.utils.calibration import (
     CalibrationSample,
@@ -123,6 +119,9 @@ from src.utils.calibration import (
     get_calibration_evaluations,
     get_reliability_diagram_data,
 )
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 
 
 # =============================================================================
@@ -363,8 +362,8 @@ class TestCalibrator:
     def test_fit_temperature(self, calibrator):
         """Should fit temperature scaling."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         params = calibrator.fit(samples, "test", method="temperature")
@@ -376,8 +375,8 @@ class TestCalibrator:
     def test_fit_platt(self, calibrator):
         """Should fit Platt scaling."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         params = calibrator.fit(samples, "test", method="platt")
@@ -388,8 +387,8 @@ class TestCalibrator:
     def test_calibrate_returns_valid_prob(self, calibrator):
         """Calibrated probability should be valid."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         calibrator.fit(samples, "test")
         
@@ -406,8 +405,8 @@ class TestCalibrator:
     def test_evaluate_returns_metrics(self, calibrator):
         """Should return evaluation metrics."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         result = calibrator.evaluate(samples, "test")
@@ -432,8 +431,8 @@ class TestCalibrator:
         """Should trigger recalibration when enough samples pending."""
         # Initially calibrated
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         calibrator.fit(samples, "test")
         
@@ -509,8 +508,8 @@ class TestEscalationDecider:
         """
         # Fit calibration that lowers confidence
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         decider._calibrator.fit(samples, "test", method="temperature")
         
@@ -933,8 +932,8 @@ class TestCalibratorRollback:
     def test_fit_stores_history(self, calibrator):
         """fit should add params to history."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         calibrator.fit(samples, "test")
@@ -946,12 +945,12 @@ class TestCalibratorRollback:
     def test_manual_rollback(self, calibrator):
         """rollback should restore previous params."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         calibrator.fit(samples, "test")
-        first_temp = calibrator.get_params("test").temperature
+        _first_temp = calibrator.get_params("test").temperature  # noqa: F841
         
         # Fit again (may have different params)
         calibrator.fit(samples, "test")
@@ -965,8 +964,8 @@ class TestCalibratorRollback:
     def test_rollback_to_version(self, calibrator):
         """rollback_to_version should go to specific version."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         # Create multiple versions
@@ -982,8 +981,8 @@ class TestCalibratorRollback:
     def test_get_rollback_log(self, calibrator):
         """get_rollback_log should return events."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         calibrator.fit(samples, "test")
@@ -996,8 +995,8 @@ class TestCalibratorRollback:
     def test_get_history_stats(self, calibrator):
         """get_history_stats should return statistics."""
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source="test")
-            for p, l in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
+            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
+            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         
         calibrator.fit(samples, "test")
@@ -1191,10 +1190,13 @@ class TestCalibrationEvaluator:
     
     @pytest.fixture
     def mock_db(self):
-        """Create mock database."""
+        """Create mock database with async methods."""
         db = MagicMock()
-        db.execute = MagicMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
-        db.commit = MagicMock()
+        # Create async mock for execute that returns a cursor with async fetchall/fetchone
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_cursor.fetchone = AsyncMock(return_value=None)
+        db.execute = AsyncMock(return_value=mock_cursor)
         return db
     
     @pytest.fixture
@@ -1206,12 +1208,13 @@ class TestCalibrationEvaluator:
                 mock_get_db.return_value = mock_db
                 return CalibrationEvaluator(db=mock_db)
     
-    def test_save_evaluation(self, evaluator, mock_db):
+    @pytest.mark.asyncio
+    async def test_save_evaluation(self, evaluator, mock_db):
         """save_evaluation should calculate metrics and save to DB."""
         predictions = [0.1, 0.4, 0.6, 0.9, 0.2, 0.8, 0.3, 0.7, 0.5, 0.95]
         labels = [0, 0, 1, 1, 0, 1, 0, 1, 0, 1]
         
-        evaluation = evaluator.save_evaluation("test_source", predictions, labels)
+        evaluation = await evaluator.save_evaluation("test_source", predictions, labels)
         
         assert evaluation.source == "test_source"
         assert evaluation.samples_evaluated == 10
@@ -1219,15 +1222,15 @@ class TestCalibrationEvaluator:
         # Should have at least 1 calibration bin
         assert len(evaluation.bins) >= 1, f"Expected >=1 bins, got {len(evaluation.bins)}"
         mock_db.execute.assert_called()
-        mock_db.commit.assert_called()
     
-    def test_save_evaluation_stores_correct_brier(self, evaluator, mock_db):
+    @pytest.mark.asyncio
+    async def test_save_evaluation_stores_correct_brier(self, evaluator, mock_db):
         """save_evaluation should calculate correct Brier score."""
         # Perfect predictions
         predictions = [0.0, 0.0, 1.0, 1.0]
         labels = [0, 0, 1, 1]
         
-        evaluation = evaluator.save_evaluation("test", predictions, labels)
+        evaluation = await evaluator.save_evaluation("test", predictions, labels)
         
         assert evaluation.brier_score == 0.0
     
@@ -1239,28 +1242,37 @@ class TestCalibrationEvaluator:
         assert id1 != id2
         assert id1.startswith("eval_")
     
-    def test_get_evaluations_empty(self, evaluator, mock_db):
+    @pytest.mark.asyncio
+    async def test_get_evaluations_empty(self, evaluator, mock_db):
         """get_evaluations should return empty list when no data."""
-        mock_db.execute.return_value.fetchall.return_value = []
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
         
-        evaluations = evaluator.get_evaluations(source="test")
+        evaluations = await evaluator.get_evaluations(source="test")
         
         assert evaluations == []
     
-    def test_get_reliability_diagram_data_no_evaluation(self, evaluator, mock_db):
+    @pytest.mark.asyncio
+    async def test_get_reliability_diagram_data_no_evaluation(self, evaluator, mock_db):
         """get_reliability_diagram_data should return error when no evaluation."""
-        mock_db.execute.return_value.fetchall.return_value = []
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
         
-        result = evaluator.get_reliability_diagram_data("nonexistent")
+        result = await evaluator.get_reliability_diagram_data("nonexistent")
         
         assert result["ok"] is False
         assert result["reason"] == "no_evaluation_found"
     
-    def test_count_evaluations(self, evaluator, mock_db):
+    @pytest.mark.asyncio
+    async def test_count_evaluations(self, evaluator, mock_db):
         """count_evaluations should return count."""
-        mock_db.execute.return_value.fetchone.return_value = (5,)
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone = AsyncMock(return_value=(5,))
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
         
-        count = evaluator.count_evaluations("test")
+        count = await evaluator.count_evaluations("test")
         
         assert count == 5
 
@@ -1277,7 +1289,7 @@ class TestMCPCalibrationEvaluationTools:
         """save_calibration_evaluation should save and return result."""
         with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
             mock_evaluator = MagicMock()
-            mock_evaluator.save_evaluation.return_value = CalibrationEvaluation(
+            mock_evaluator.save_evaluation = AsyncMock(return_value=CalibrationEvaluation(
                 id="eval_test",
                 source="test",
                 brier_score=0.15,
@@ -1288,7 +1300,7 @@ class TestMCPCalibrationEvaluationTools:
                 bins=[],
                 calibration_version=1,
                 evaluated_at=datetime.now(timezone.utc),
-            )
+            ))
             mock_get.return_value = mock_evaluator
             
             result = await save_calibration_evaluation(
@@ -1306,7 +1318,7 @@ class TestMCPCalibrationEvaluationTools:
         """get_calibration_evaluations should return evaluation history."""
         with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
             mock_evaluator = MagicMock()
-            mock_evaluator.get_evaluations.return_value = [
+            mock_evaluator.get_evaluations = AsyncMock(return_value=[
                 CalibrationEvaluation(
                     id="eval_1",
                     source="test",
@@ -1319,8 +1331,8 @@ class TestMCPCalibrationEvaluationTools:
                     calibration_version=1,
                     evaluated_at=datetime.now(timezone.utc),
                 ),
-            ]
-            mock_evaluator.count_evaluations.return_value = 1
+            ])
+            mock_evaluator.count_evaluations = AsyncMock(return_value=1)
             mock_get.return_value = mock_evaluator
             
             result = await get_calibration_evaluations(source="test", limit=10)
@@ -1334,14 +1346,14 @@ class TestMCPCalibrationEvaluationTools:
         """get_reliability_diagram_data should return bin data."""
         with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
             mock_evaluator = MagicMock()
-            mock_evaluator.get_reliability_diagram_data.return_value = {
+            mock_evaluator.get_reliability_diagram_data = AsyncMock(return_value={
                 "ok": True,
                 "source": "test",
                 "evaluation_id": "eval_1",
                 "n_bins": 10,
                 "bins": [{"bin_lower": 0.0, "bin_upper": 0.1, "count": 5}],
                 "overall_ece": 0.08,
-            }
+            })
             mock_get.return_value = mock_evaluator
             
             result = await get_reliability_diagram_data(source="test")

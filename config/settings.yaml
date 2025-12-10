@@ -128,12 +128,13 @@ http3:
 
 # === Browser Settings ===
 browser:
-  # Chrome remote debugging
-  # WSL2 + Podman: Use IP address with socat port forward
+  # Chrome remote debugging (default: localhost:9222 for native Linux)
+  # For WSL2 + Podman: Override via environment variables:
+  #   LANCET_BROWSER__CHROME_HOST=10.255.255.254
+  #   LANCET_BROWSER__CHROME_PORT=19222
   # Run: socat TCP-LISTEN:19222,fork,reuseaddr TCP:localhost:9222 &
-  # Native Linux: Use localhost:9222
-  chrome_host: "10.255.255.254"
-  chrome_port: 19222
+  chrome_host: "localhost"
+  chrome_port: 9222
   
   # Profile
   profile_name: "Profile-Research"
