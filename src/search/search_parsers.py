@@ -27,6 +27,11 @@ from src.search.parser_config import (
     get_parser_config_manager,
     save_debug_html,
 )
+from src.search.parser_diagnostics import (
+    FailedSelector,
+    ParserDiagnosticReport,
+    create_diagnostic_report,
+)
 from src.search.provider import SearchResult, SourceTag
 from src.utils.logging import get_logger
 
@@ -73,6 +78,7 @@ class ParseResult:
     captcha_type: str | None = None
     selector_errors: list[str] = field(default_factory=list)
     html_saved_path: str | None = None
+    diagnostic_report: ParserDiagnosticReport | None = None
     
     @classmethod
     def success(cls, results: list[ParsedResult]) -> "ParseResult":
@@ -85,6 +91,7 @@ class ParseResult:
         error: str,
         selector_errors: list[str] | None = None,
         html_saved_path: str | None = None,
+        diagnostic_report: ParserDiagnosticReport | None = None,
     ) -> "ParseResult":
         """Create failed parse result."""
         return cls(
@@ -92,6 +99,7 @@ class ParseResult:
             error=error,
             selector_errors=selector_errors or [],
             html_saved_path=html_saved_path,
+            diagnostic_report=diagnostic_report,
         )
     
     @classmethod
@@ -236,6 +244,30 @@ class BaseSearchParser(ABC):
         
         return len(errors) == 0, errors
     
+    def _collect_failed_selectors(self, soup: BeautifulSoup) -> list[FailedSelector]:
+        """
+        Collect detailed information about failed selectors.
+        
+        Args:
+            soup: BeautifulSoup object.
+            
+        Returns:
+            List of FailedSelector objects.
+        """
+        failed = []
+        
+        for selector_config in self.config.get_required_selectors():
+            elements = self.find_elements(soup, selector_config.name)
+            if not elements:
+                failed.append(FailedSelector(
+                    name=selector_config.name,
+                    selector=selector_config.selector,
+                    required=selector_config.required,
+                    diagnostic_message=selector_config.diagnostic_message,
+                ))
+        
+        return failed
+    
     def detect_captcha(self, html: str) -> tuple[bool, str | None]:
         """
         Check if HTML contains CAPTCHA/challenge.
@@ -309,10 +341,36 @@ class BaseSearchParser(ABC):
                 error="; ".join(errors),
             )
             
+            # Create diagnostic report for AI-assisted repair
+            failed_selectors = self._collect_failed_selectors(soup)
+            diagnostic_report = create_diagnostic_report(
+                engine=self.engine_name,
+                query=query,
+                html=html,
+                failed_selectors=failed_selectors,
+                html_path=saved_path,
+            )
+            
+            # Log with structured diagnostic information
+            logger.error(
+                "Parser failure - AI repair suggested",
+                engine=self.engine_name,
+                query=query[:50] if query else "",
+                failed_selectors=[s.name for s in failed_selectors],
+                candidate_count=len(diagnostic_report.candidate_elements),
+                html_path=str(saved_path) if saved_path else None,
+                top_candidate=(
+                    diagnostic_report.candidate_elements[0].selector
+                    if diagnostic_report.candidate_elements else None
+                ),
+                has_suggestions=len(diagnostic_report.suggested_fixes) > 0,
+            )
+            
             return ParseResult.failure(
                 error=f"Required selectors not found: {len(errors)} errors",
                 selector_errors=errors,
                 html_saved_path=str(saved_path) if saved_path else None,
+                diagnostic_report=diagnostic_report,
             )
         
         # Extract results (engine-specific implementation)
@@ -347,9 +405,28 @@ class BaseSearchParser(ABC):
                 error=str(e),
             )
             
+            # Create diagnostic report for extraction failures too
+            diagnostic_report = create_diagnostic_report(
+                engine=self.engine_name,
+                query=query,
+                html=html,
+                failed_selectors=[],  # No specific selector failed
+                html_path=saved_path,
+            )
+            
+            logger.error(
+                "Parser failure - AI repair suggested",
+                engine=self.engine_name,
+                query=query[:50] if query else "",
+                extraction_error=str(e),
+                candidate_count=len(diagnostic_report.candidate_elements),
+                html_path=str(saved_path) if saved_path else None,
+            )
+            
             return ParseResult.failure(
                 error=f"Extraction failed: {e}",
                 html_saved_path=str(saved_path) if saved_path else None,
+                diagnostic_report=diagnostic_report,
             )
     
     @abstractmethod

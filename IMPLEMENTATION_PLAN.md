@@ -7,17 +7,17 @@
 
 ---
 
-## 実装完成度サマリ（2025-12-09 更新）
+## 実装完成度サマリ（2025-12-10 更新）
 
 | Phase | 内容 | ユニットテスト | E2E検証 | 状態 |
 |-------|------|:-------------:|:-------:|:----:|
 | A-H | 基盤〜検索エンジン多様化 | ✅ | ✅ | 完了 |
-| I | 保守性改善 | ✅ | - | I.4残 |
+| I | 保守性改善 | ✅ | - | 完了 |
 | K.3 | セキュリティ（L1-L8） | ✅ | ⏳ | 実装完了、E2E未検証 |
 | M | MCPリファクタリング | ✅ | ⏳ | 実装完了、E2E未検証 |
 | **N** | **E2Eケーススタディ** | - | ⏳ | **次タスク** |
 
-**現在のテスト数**: 2641件（全パス）
+**現在のテスト数**: 2688件（全パス）
 
 ---
 
@@ -25,12 +25,12 @@
 
 ### MVP必須（初期リリース）
 - Phase A-H: 基盤〜検索エンジン多様化 ✅
+- Phase I: 保守性改善 ✅
 - Phase K.3: プロンプトインジェクション対策 ✅
 - Phase M: MCPツールリファクタリング ✅
 - **Phase N: E2Eケーススタディ（論文投稿向け）⏳**
 
 ### Phase 2（論文投稿後）
-- Phase I.4: パーサー自己修復（AI駆動）
 - Phase J: 外部データソース統合
 - Phase K.1-K.2: モデル選択最適化、プロンプト外部化
 - Phase L: ドキュメント
@@ -423,7 +423,7 @@ podman exec lancet pytest tests/ --tb=no -q
 podman exec lancet pytest tests/test_robots.py -v
 ```
 
-**現在のテスト数**: 2641件（全パス）
+**現在のテスト数**: 2688件（全パス）
 
 ### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -652,7 +652,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 **テスト**: `tests/test_utils_backoff.py`（26件）、`tests/test_utils_api_retry.py`（28件）
 
-### I.4 パーサー自己修復（AI駆動）
+### I.4 パーサー自己修復（AI駆動）✅
 
 **目的**: 検索エンジンのHTML変更に対してAIが自動修復
 
@@ -663,8 +663,23 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 **タスク**:
 - [x] 失敗時ログ + HTML保存（既存）
-- [ ] AIフレンドリーな失敗ログ強化
-- [ ] 修正ワークフロー設計（Cursorカスタムコマンド or 会話ベース）
+- [x] AIフレンドリーな失敗ログ強化
+- [x] 修正ワークフロー設計（Cursorカスタムコマンド）
+
+**実装内容**:
+
+| ファイル | 内容 |
+|---------|------|
+| `src/search/parser_diagnostics.py` | 診断レポート生成（HTMLAnalyzer, YAML fix生成） |
+| `src/search/search_parsers.py` | 診断レポート統合（parse()失敗時に自動生成） |
+| `.cursor/commands/parser-repair.md` | Cursorカスタムコマンド（/parser-repair） |
+| `tests/test_parser_diagnostics.py` | ユニットテスト（30件） |
+
+**機能**:
+- `ParserDiagnosticReport`: 失敗セレクター、候補要素、YAML修正案を含む構造化レポート
+- `HTMLAnalyzer`: HTML構造分析、結果コンテナ/タイトル/スニペット/URL候補検出
+- `generate_yaml_fix()`: 修正案をYAML形式で生成
+- `/parser-repair`コマンド: 最新の失敗HTMLを分析し修正ワークフローを実行
 
 ---
 
