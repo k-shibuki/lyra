@@ -187,17 +187,18 @@ class ClaimDecomposer:
     async def decompose(
         self,
         question: str,
-        use_slow_model: bool = False,
     ) -> DecompositionResult:
         """
         Decompose a research question into atomic claims.
         
         Args:
             question: The research question to decompose.
-            use_slow_model: Whether to use the slower, more capable model.
             
         Returns:
             DecompositionResult containing atomic claims.
+        
+        Note:
+            Per §K.1: Single 3B model is used for all LLM tasks.
         """
         if not question.strip():
             return DecompositionResult(
@@ -210,7 +211,7 @@ class ClaimDecomposer:
         
         try:
             if self.use_llm:
-                return await self._decompose_with_llm(question, use_slow_model)
+                return await self._decompose_with_llm(question)
             else:
                 return self._decompose_with_rules(question)
         except Exception as e:
@@ -230,15 +231,14 @@ class ClaimDecomposer:
     async def _decompose_with_llm(
         self,
         question: str,
-        use_slow_model: bool,
     ) -> DecompositionResult:
-        """Decompose using LLM."""
+        """Decompose using LLM.
+        
+        Note:
+            Per §K.1: Single 3B model is used for all LLM tasks.
+        """
         client = _get_client()
-        model = (
-            self._settings.llm.slow_model
-            if use_slow_model
-            else self._settings.llm.fast_model
-        )
+        model = self._settings.llm.model
         
         prompt = DECOMPOSE_PROMPT.format(question=question)
         
@@ -557,7 +557,6 @@ class ClaimDecomposer:
 async def decompose_question(
     question: str,
     use_llm: bool = True,
-    use_slow_model: bool = False,
 ) -> DecompositionResult:
     """
     Convenience function to decompose a research question.
@@ -565,13 +564,15 @@ async def decompose_question(
     Args:
         question: The research question to decompose.
         use_llm: Whether to use LLM (True) or rule-based (False).
-        use_slow_model: Whether to use the slower, more capable LLM model.
         
     Returns:
         DecompositionResult containing atomic claims.
+    
+    Note:
+        Per §K.1: Single 3B model is used for all LLM tasks.
     """
     decomposer = ClaimDecomposer(use_llm=use_llm)
-    return await decomposer.decompose(question, use_slow_model=use_slow_model)
+    return await decomposer.decompose(question)
 
 
 

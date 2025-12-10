@@ -410,7 +410,6 @@ async def llm_extract(
     passages: list[dict[str, Any]],
     task: str,
     context: str | None = None,
-    use_slow_model: bool = False,
     use_provider: bool = True,
 ) -> dict[str, Any]:
     """
@@ -420,11 +419,13 @@ async def llm_extract(
         passages: List of passage dicts with 'id' and 'text'.
         task: Task type (extract_facts, extract_claims, summarize, translate).
         context: Additional context (e.g., research question).
-        use_slow_model: Whether to use the larger model.
         use_provider: Whether to use the new provider API (default: True).
         
     Returns:
         Extraction result.
+    
+    Note:
+        Per §K.1: Single 3B model is used for all LLM tasks.
     """
     settings = get_settings()
     
@@ -441,10 +442,10 @@ async def llm_extract(
         if default_provider is None:
             raise RuntimeError("No LLM provider available")
         
-        # Determine model
+        # Use single model (per §K.1)
         model = None
-        if hasattr(default_provider, 'slow_model') and hasattr(default_provider, 'fast_model'):
-            model = default_provider.slow_model if use_slow_model else default_provider.fast_model
+        if hasattr(default_provider, 'model'):
+            model = default_provider.model
         
         results = []
         
@@ -536,7 +537,7 @@ async def llm_extract(
     else:
         # Legacy path using OllamaClient
         client = _get_client()
-        model = settings.llm.slow_model if use_slow_model else settings.llm.fast_model
+        model = settings.llm.model
         
         results = []
         
@@ -653,36 +654,6 @@ async def llm_extract(
             "task": task,
             "results": results,
         }
-
-
-async def should_promote_to_slow_model(
-    passage: dict[str, Any],
-    scores: dict[str, float],
-) -> bool:
-    """
-    Determine if passage should be processed with slow model.
-    
-    Args:
-        passage: Passage dict.
-        scores: Ranking scores (bm25, embed, rerank).
-        
-    Returns:
-        True if slow model should be used.
-    """
-    settings = get_settings()
-    threshold = settings.llm.promote_to_slow_threshold
-    
-    # Use slow model if rerank score is below threshold
-    rerank_score = scores.get("score_rerank", 1.0)
-    
-    # Normalize rerank score to 0-1 range (assuming sigmoid output)
-    normalized = 1 / (1 + pow(2.718, -rerank_score))
-    
-    # Promote if score is in ambiguous range
-    if 0.3 < normalized < threshold:
-        return True
-    
-    return False
 
 
 # ============================================================================

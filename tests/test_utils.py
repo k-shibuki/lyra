@@ -245,10 +245,10 @@ class TestApplyEnvOverrides:
         
         config = {}
         
-        with patch.dict(os.environ, {"LANCET_LLM__FAST_MODEL": "llama3:8b"}):
+        with patch.dict(os.environ, {"LANCET_LLM__MODEL": "llama3:8b"}):
             result = _apply_env_overrides(config)
         
-        assert result["llm"]["fast_model"] == "llama3:8b"
+        assert result["llm"]["model"] == "llama3:8b"
 
     def test_apply_env_overrides_ignores_non_lancet(self):
         """Test that non-LANCET_ env vars are ignored."""

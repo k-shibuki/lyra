@@ -43,6 +43,7 @@ class OllamaProvider(BaseLLMProvider):
     - Model unloading for VRAM management
     
     Per §4.2: Supports task-scoped lifecycle management with model unloading.
+    Per §K.1: Uses single 3B model for all LLM tasks.
     
     Example:
         provider = OllamaProvider()
@@ -59,15 +60,13 @@ class OllamaProvider(BaseLLMProvider):
         await provider.close()
     """
     
-    DEFAULT_FAST_MODEL = "qwen2.5:3b"
-    DEFAULT_SLOW_MODEL = "qwen2.5:7b"
+    DEFAULT_MODEL = "qwen2.5:3b"  # Single model per §K.1
     DEFAULT_EMBED_MODEL = "nomic-embed-text"
     
     def __init__(
         self,
         host: str | None = None,
-        fast_model: str | None = None,
-        slow_model: str | None = None,
+        model: str | None = None,
         embed_model: str | None = None,
         timeout: float = 120.0,
     ):
@@ -76,8 +75,7 @@ class OllamaProvider(BaseLLMProvider):
         
         Args:
             host: Ollama API host URL (default: from settings).
-            fast_model: Fast model for quick tasks (default: from settings).
-            slow_model: Slow model for complex tasks (default: from settings).
+            model: Model name for all tasks (default: from settings).
             embed_model: Model for embeddings (default: nomic-embed-text).
             timeout: Default request timeout in seconds.
         """
@@ -85,8 +83,7 @@ class OllamaProvider(BaseLLMProvider):
         
         settings = get_settings()
         self._host = host or settings.llm.ollama_host
-        self._fast_model = fast_model or settings.llm.fast_model or self.DEFAULT_FAST_MODEL
-        self._slow_model = slow_model or settings.llm.slow_model or self.DEFAULT_SLOW_MODEL
+        self._model = model or settings.llm.model or self.DEFAULT_MODEL
         self._embed_model = embed_model or self.DEFAULT_EMBED_MODEL
         self._timeout = timeout
         self._default_temperature = settings.llm.temperature
@@ -107,11 +104,11 @@ class OllamaProvider(BaseLLMProvider):
             )
         return self._session
     
-    def _get_model(self, options: LLMOptions | None, use_slow: bool = False) -> str:
+    def _get_model(self, options: LLMOptions | None) -> str:
         """Get model to use based on options."""
         if options and options.model:
             return options.model
-        return self._slow_model if use_slow else self._fast_model
+        return self._model
     
     def _get_temperature(self, options: LLMOptions | None) -> float:
         """Get temperature from options or default."""
@@ -631,14 +628,9 @@ class OllamaProvider(BaseLLMProvider):
     
     # Convenience properties
     @property
-    def fast_model(self) -> str:
-        """Get fast model name."""
-        return self._fast_model
-    
-    @property
-    def slow_model(self) -> str:
-        """Get slow model name."""
-        return self._slow_model
+    def model(self) -> str:
+        """Get model name."""
+        return self._model
     
     @property
     def host(self) -> str:
@@ -649,23 +641,20 @@ class OllamaProvider(BaseLLMProvider):
 # Factory function for convenience
 def create_ollama_provider(
     host: str | None = None,
-    fast_model: str | None = None,
-    slow_model: str | None = None,
+    model: str | None = None,
 ) -> OllamaProvider:
     """
     Create an Ollama provider instance.
     
     Args:
         host: Ollama API host URL.
-        fast_model: Fast model for quick tasks.
-        slow_model: Slow model for complex tasks.
+        model: Model name for all tasks.
         
     Returns:
         Configured OllamaProvider instance.
     """
     return OllamaProvider(
         host=host,
-        fast_model=fast_model,
-        slow_model=slow_model,
+        model=model,
     )
 

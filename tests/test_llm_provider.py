@@ -85,8 +85,7 @@ def ollama_provider():
     """Create an OllamaProvider for testing."""
     return OllamaProvider(
         host="http://localhost:11434",
-        fast_model="test-fast:3b",
-        slow_model="test-slow:7b",
+        model="test-model:3b",
     )
 
 
@@ -465,27 +464,23 @@ class TestOllamaProviderInit:
         """OllamaProvider should use settings defaults."""
         with patch('src.filter.ollama_provider.get_settings') as mock_settings:
             mock_settings.return_value.llm.ollama_host = "http://test:11434"
-            mock_settings.return_value.llm.fast_model = "custom-fast"
-            mock_settings.return_value.llm.slow_model = "custom-slow"
+            mock_settings.return_value.llm.model = "custom-model"
             mock_settings.return_value.llm.temperature = 0.5
             
             provider = OllamaProvider()
             
             assert provider.host == "http://test:11434"
-            assert provider.fast_model == "custom-fast"
-            assert provider.slow_model == "custom-slow"
+            assert provider.model == "custom-model"
     
     def test_explicit_configuration(self):
         """OllamaProvider should accept explicit configuration."""
         provider = OllamaProvider(
             host="http://custom:11434",
-            fast_model="my-fast:3b",
-            slow_model="my-slow:7b",
+            model="my-model:3b",
         )
         
         assert provider.host == "http://custom:11434"
-        assert provider.fast_model == "my-fast:3b"
-        assert provider.slow_model == "my-slow:7b"
+        assert provider.model == "my-model:3b"
     
     def test_provider_name(self):
         """OllamaProvider should have name 'ollama'."""
@@ -521,7 +516,7 @@ class TestOllamaProviderGenerate:
         
         assert response.ok is True, f"Expected ok=True, got ok={response.ok}, error={response.error}"
         assert response.text == "Generated text here", f"Expected 'Generated text here', got '{response.text}'"
-        assert response.model == "test-fast:3b", f"Expected 'test-fast:3b', got '{response.model}'"
+        assert response.model == "test-model:3b", f"Expected 'test-model:3b', got '{response.model}'"
         assert response.provider == "ollama", f"Expected 'ollama', got '{response.provider}'"
         assert response.usage["prompt_tokens"] == 10, f"Expected 10 prompt tokens, got {response.usage.get('prompt_tokens')}"
         assert response.usage["completion_tokens"] == 20, f"Expected 20 completion tokens, got {response.usage.get('completion_tokens')}"
@@ -599,7 +594,7 @@ class TestOllamaProviderGenerate:
         with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
             await ollama_provider.generate("Test")
         
-        assert ollama_provider._current_model == "test-fast:3b"
+        assert ollama_provider._current_model == "test-model:3b"
 
 
 class TestOllamaProviderChat:
@@ -1121,8 +1116,7 @@ class TestLLMModuleIntegration:
         # Mock the provider
         mock_provider = AsyncMock()
         mock_provider.name = "mock"
-        mock_provider.fast_model = "test-fast"
-        mock_provider.slow_model = "test-slow"
+        mock_provider.model = "test-model"  # Single model per §K.1
         mock_provider.generate = AsyncMock(return_value=LLMResponse.success(
             text='[{"fact": "Test fact", "confidence": 0.9}]',
             model="test",

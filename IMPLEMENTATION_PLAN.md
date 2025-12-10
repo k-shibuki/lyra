@@ -779,17 +779,30 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 ### Phase K: ローカルLLM強化 🔄
 
-#### K.1 モデル選択最適化 ⏳
+#### K.1 3B単一モデル化 ✅
 
-- [ ] `config/llm_models.yaml`: タスク別モデル設定
-- [ ] OllamaProvider拡張: `select_model(task)`
+**目的**: ローカルLLMを3B/7Bの2モデル体制から3B単一モデルに変更し、コードを簡素化する。VRAM制約（8GB）を考慮し、3Bモデルを選択。
+
+**変更内容**:
+- [x] 仕様書・実装計画書修正: requirements.mdとIMPLEMENTATION_PLAN.mdを更新
+- [x] 設定ファイル修正: `config/settings.yaml`と`src/utils/config.py`を更新
+- [x] LLMプロバイダー修正: `src/filter/ollama_provider.py`を更新
+- [x] LLM抽出ロジック修正: `src/filter/llm.py`から`use_slow_model`と`should_promote_to_slow_model()`を削除
+- [x] 主張分解修正: `src/filter/claim_decomposition.py`から`use_slow_model`を削除
+- [x] ジョブスケジューラ修正: `src/scheduler/jobs.py`で`LLM_FAST`/`LLM_SLOW`を`LLM`に統合
+- [x] Calibrator関連削除: `src/utils/calibration.py`から`EscalationDecider`を削除
+- [x] 呼び出し側修正: `src/research/executor.py`等で`use_slow_model`を削除
+- [x] テスト修正: `tests/`配下の`fast_model`/`slow_model`関連テストを修正
+
+**VRAM使用量（推定）**:
+- 3B（約2.5GB）+ 埋め込み（約1GB）+ リランカー（約1GB）+ NLI（約0.5GB）= 約5GB（余裕あり）
 
 #### K.2 プロンプトテンプレート外部化 ⏳
 
 - [ ] `config/prompts/`: Jinja2テンプレート
 - [ ] PromptManager実装
 
-#### K.3 プロンプトインジェクション対策（§4.4.1）
+#### K.3 プロンプトインジェクション対策 ✅
 
 収集コンテンツに含まれる悪意あるプロンプトインジェクションからローカルLLMを防御する多層防御を実装する。
 
@@ -1073,6 +1086,29 @@ except Exception as e:
 - 監査ログ: セキュリティイベントが記録されること
 
 **注**: E2EテストはGPU環境で実行が必要。`tests/scripts/verify_llm_security.py`として実装予定。
+
+#### K.4 MLモデルのネットワーク分離 ⏳
+
+**目的**: 埋め込み・リランカー・NLIモデルをネットワーク分離し、セキュリティを強化する。
+
+**背景**:
+K.1の調査で以下が判明:
+- 埋め込み（bge-m3）、リランカー（bge-reranker-v2-m3）、NLI（DeBERTa）はLancetコンテナ内で実行
+- これらはHuggingFaceから初回ダウンロード後、外部アクセス不要
+- Ollamaと同様にネットワーク分離すべき
+
+**実装方針**:
+- 埋め込み・リランカー・NLIを「MLコンテナ」に集約
+- `lancet-ml-internal`ネットワーク（`internal: true`）で分離
+- Lancetコンテナからのみアクセス可能に
+
+**タスク**:
+- [ ] MLコンテナ用Dockerfile作成
+- [ ] `podman-compose.yml`にMLコンテナ追加
+- [ ] `lancet-ml-internal`ネットワーク追加（`internal: true`）
+- [ ] 埋め込み・リランカー・NLIのAPI化（FastAPI等）
+- [ ] LancetコンテナからMLコンテナへの通信実装
+- [ ] 仕様書にMLモデルのセキュリティ方針を追記
 
 ---
 

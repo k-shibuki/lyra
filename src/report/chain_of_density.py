@@ -604,7 +604,7 @@ class ChainOfDensityCompressor:
         
         response = await client.generate(
             prompt=prompt,
-            model=self._settings.llm.fast_model,
+            model=self._settings.llm.model,
             temperature=0.3,
             max_tokens=1000,
         )
@@ -646,7 +646,7 @@ class ChainOfDensityCompressor:
         
         response = await client.generate(
             prompt=prompt,
-            model=self._settings.llm.fast_model,
+            model=self._settings.llm.model,
             temperature=0.3,
             max_tokens=1000,
         )

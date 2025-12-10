@@ -332,8 +332,8 @@ class SecurityE2EVerifier:
             provider = OllamaProvider(host=ollama_host)
             
             try:
-                # Use fast model for testing (provider uses default model)
-                model = provider._fast_model
+                # Use single model for testing (per §K.1)
+                model = provider._model
                 
                 print(f"    Calling LLM ({model})...")
                 from src.filter.provider import LLMOptions

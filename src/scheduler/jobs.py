@@ -24,14 +24,17 @@ logger = get_logger(__name__)
 
 
 class JobKind(str, Enum):
-    """Job types with priority order."""
+    """Job types with priority order.
+    
+    Note:
+        Per §K.1: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
+    """
     SERP = "serp"
     FETCH = "fetch"
     EXTRACT = "extract"
     EMBED = "embed"
     RERANK = "rerank"
-    LLM_FAST = "llm_fast"
-    LLM_SLOW = "llm_slow"
+    LLM = "llm"  # Single LLM job type (per §K.1)
     NLI = "nli"
 
 
@@ -60,8 +63,7 @@ KIND_TO_SLOT = {
     JobKind.EXTRACT: Slot.CPU_NLP,
     JobKind.EMBED: Slot.GPU,
     JobKind.RERANK: Slot.GPU,
-    JobKind.LLM_FAST: Slot.GPU,
-    JobKind.LLM_SLOW: Slot.GPU,
+    JobKind.LLM: Slot.GPU,  # Single LLM slot (per §K.1)
     JobKind.NLI: Slot.CPU_NLP,
 }
 
@@ -72,8 +74,7 @@ KIND_PRIORITY = {
     JobKind.EXTRACT: 30,
     JobKind.EMBED: 40,
     JobKind.RERANK: 50,
-    JobKind.LLM_FAST: 60,
-    JobKind.LLM_SLOW: 70,
+    JobKind.LLM: 60,  # Single LLM priority (per §K.1)
     JobKind.NLI: 35,
 }
 
@@ -275,9 +276,9 @@ class JobScheduler:
                 return False, BudgetExceededReason.PAGE_LIMIT.value
         
         # For LLM jobs, check ratio limit
-        if kind in (JobKind.LLM_FAST, JobKind.LLM_SLOW):
-            # Estimate LLM time (fast=5s, slow=15s)
-            estimated_time = 5.0 if kind == JobKind.LLM_FAST else 15.0
+        if kind == JobKind.LLM:
+            # Estimate LLM time (single 3B model ~5s per §K.1)
+            estimated_time = 5.0
             can_run = await self._budget_manager.can_run_llm(task_id, estimated_time)
             if not can_run:
                 return False, BudgetExceededReason.LLM_RATIO.value
@@ -356,7 +357,7 @@ class JobScheduler:
             )
         
         # Record LLM time
-        if kind in (JobKind.LLM_FAST, JobKind.LLM_SLOW):
+        if kind == JobKind.LLM:
             await self._budget_manager.check_and_update(
                 task_id,
                 llm_time_seconds=job_duration,
@@ -511,10 +512,9 @@ class JobScheduler:
             from src.filter.ranking import rank_candidates
             return {"results": await rank_candidates(**input_data)}
         
-        elif kind in (JobKind.LLM_FAST, JobKind.LLM_SLOW):
+        elif kind == JobKind.LLM:
             from src.filter.llm import llm_extract
-            use_slow = kind == JobKind.LLM_SLOW
-            return await llm_extract(**input_data, use_slow_model=use_slow)
+            return await llm_extract(**input_data)
         
         elif kind == JobKind.NLI:
             from src.filter.nli import nli_judge
