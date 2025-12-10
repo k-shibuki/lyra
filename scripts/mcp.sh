@@ -25,6 +25,13 @@ if ! podman ps --format "{{.Names}}" 2>/dev/null | grep -q "^lancet$"; then
         fi
         sleep 1
     done
+    
+    # Verify container started successfully
+    if ! podman ps --format "{{.Names}}" 2>/dev/null | grep -q "^lancet$"; then
+        echo "Error: Container failed to start within 30s" >&2
+        echo "Check logs: ./scripts/dev.sh logs" >&2
+        exit 1
+    fi
 fi
 
 # Start MCP server with stdin/stdout passthrough

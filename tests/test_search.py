@@ -353,6 +353,205 @@ class TestExpandQuery:
 
 
 # ============================================================================
+# Mirror Query Generation Tests (§3.1.1)
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestGenerateMirrorQuery:
+    """Tests for generate_mirror_query function.
+    
+    Implements cross-language (JA↔EN) mirror query auto-generation (§3.1.1).
+    LLM calls are mocked to avoid external dependencies.
+    """
+
+    @pytest.mark.asyncio
+    async def test_valid_query_with_llm_success(self):
+        """MQ-N-01: Test successful translation with LLM."""
+        from unittest.mock import AsyncMock, patch, MagicMock
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
+        
+        # Given: A valid Japanese query and mocked LLM returning translation
+        query = "テストクエリ"
+        _mirror_query_cache.clear()
+        
+        mock_client = MagicMock()
+        mock_client.generate = AsyncMock(return_value="test query")
+        
+        # When: generate_mirror_query is called
+        with patch("src.filter.llm._get_client", return_value=mock_client):
+            result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns translated query
+        assert result == "test query"
+
+    @pytest.mark.asyncio
+    async def test_same_language_returns_original(self):
+        """MQ-N-02: Test same language returns original query without LLM call."""
+        from src.search.search_api import generate_mirror_query
+        
+        # Given: A query with same source and target language
+        query = "テストクエリ"
+        
+        # When: generate_mirror_query is called with same languages
+        result = await generate_mirror_query(query, "ja", "ja")
+        
+        # Then: Returns original query without modification
+        assert result == query
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_returns_cached_value(self):
+        """MQ-N-03: Test cache hit returns cached value."""
+        from unittest.mock import AsyncMock, patch, MagicMock
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
+        
+        # Given: A query already in cache
+        query = "キャッシュテスト"
+        cache_key = f"mirror:ja:en:{query}"
+        _mirror_query_cache.clear()
+        _mirror_query_cache[cache_key] = "cached translation"
+        
+        mock_client = MagicMock()
+        mock_client.generate = AsyncMock(return_value="new translation")
+        
+        # When: generate_mirror_query is called
+        with patch("src.filter.llm._get_client", return_value=mock_client):
+            result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns cached value, LLM not called
+        assert result == "cached translation"
+        mock_client.generate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_double_quote_removal(self):
+        """MQ-N-04: Test double quote removal from LLM response."""
+        from unittest.mock import AsyncMock, patch, MagicMock
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
+        
+        # Given: LLM returns response wrapped in double quotes
+        query = "クォートテスト"
+        _mirror_query_cache.clear()
+        
+        mock_client = MagicMock()
+        mock_client.generate = AsyncMock(return_value='"quoted response"')
+        
+        # When: generate_mirror_query is called
+        with patch("src.filter.llm._get_client", return_value=mock_client):
+            result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns response without quotes
+        assert result == "quoted response"
+
+    @pytest.mark.asyncio
+    async def test_single_quote_removal(self):
+        """MQ-N-05: Test single quote removal from LLM response."""
+        from unittest.mock import AsyncMock, patch, MagicMock
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
+        
+        # Given: LLM returns response wrapped in single quotes
+        query = "シングルクォート"
+        _mirror_query_cache.clear()
+        
+        mock_client = MagicMock()
+        mock_client.generate = AsyncMock(return_value="'single quoted'")
+        
+        # When: generate_mirror_query is called
+        with patch("src.filter.llm._get_client", return_value=mock_client):
+            result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns response without quotes
+        assert result == "single quoted"
+
+    @pytest.mark.asyncio
+    async def test_empty_string_returns_none(self):
+        """MQ-A-01: Test empty string returns None."""
+        from src.search.search_api import generate_mirror_query
+        
+        # Given: An empty query string
+        query = ""
+        
+        # When: generate_mirror_query is called
+        result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns None (early return)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_returns_none(self):
+        """MQ-A-02: Test whitespace-only string returns None."""
+        from src.search.search_api import generate_mirror_query
+        
+        # Given: A query with only whitespace
+        query = "   "
+        
+        # When: generate_mirror_query is called
+        result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns None (strip makes it empty)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_llm_exception_returns_none(self):
+        """MQ-A-03: Test LLM exception returns None."""
+        from unittest.mock import AsyncMock, patch, MagicMock
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
+        
+        # Given: LLM raises an exception
+        query = "例外テスト"
+        _mirror_query_cache.clear()
+        
+        mock_client = MagicMock()
+        mock_client.generate = AsyncMock(side_effect=Exception("LLM error"))
+        
+        # When: generate_mirror_query is called
+        with patch("src.filter.llm._get_client", return_value=mock_client):
+            result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns None (exception handled)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_llm_empty_response_returns_none(self):
+        """MQ-A-04: Test LLM returning empty string returns None."""
+        from unittest.mock import AsyncMock, patch, MagicMock
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
+        
+        # Given: LLM returns empty string
+        query = "空レスポンス"
+        _mirror_query_cache.clear()
+        
+        mock_client = MagicMock()
+        mock_client.generate = AsyncMock(return_value="")
+        
+        # When: generate_mirror_query is called
+        with patch("src.filter.llm._get_client", return_value=mock_client):
+            result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns None (validation failed)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_llm_same_as_original_returns_none(self):
+        """MQ-A-05: Test LLM returning same query as original returns None."""
+        from unittest.mock import AsyncMock, patch, MagicMock
+        from src.search.search_api import generate_mirror_query, _mirror_query_cache
+        
+        # Given: LLM returns the same query (translation failed)
+        query = "同一クエリ"
+        _mirror_query_cache.clear()
+        
+        mock_client = MagicMock()
+        mock_client.generate = AsyncMock(return_value="同一クエリ")
+        
+        # When: generate_mirror_query is called
+        with patch("src.filter.llm._get_client", return_value=mock_client):
+            result = await generate_mirror_query(query, "ja", "en")
+        
+        # Then: Returns None (translation considered failed)
+        assert result is None
+
+
+# ============================================================================
 # Query Operator Processing Tests (§3.1.1, §3.1.4)
 # ============================================================================
 
