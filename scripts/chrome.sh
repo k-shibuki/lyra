@@ -19,6 +19,9 @@ CHROME_PORT="${2:-9222}"
 WSL_VMCREATOR_ID="{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}"
 
 # Run PowerShell without environment variable leakage
+# Note: Errors should be handled within PowerShell commands using try-catch
+# This function suppresses stderr to prevent environment variable leakage
+# If PowerShell command fails, it should return an error marker (e.g., "ERROR") in the output
 run_ps() {
     env -i PATH="$PATH" powershell.exe -NoProfile -NonInteractive -Command "$1" 2>/dev/null
 }
@@ -27,13 +30,21 @@ run_ps() {
 check_hyperv_firewall() {
     local result
     result=$(run_ps "
+        \$ErrorActionPreference = 'Stop'
         try {
             \$vmCreator = Get-NetFirewallHyperVVMCreator -ErrorAction Stop | Where-Object { \$_.FriendlyName -eq 'WSL' }
             if (\$vmCreator) { 'ENABLED' } else { 'DISABLED' }
         } catch {
             'NOT_AVAILABLE'
         }
-    " | tr -d '\r\n')
+    " 2>/dev/null | tr -d '\r\n')
+    
+    # If result is empty or ERROR, return NOT_AVAILABLE
+    if [ -z "$result" ] || [ "$result" = "ERROR" ]; then
+        echo "NOT_AVAILABLE"
+        return 1
+    fi
+    
     echo "$result"
 }
 
@@ -42,6 +53,7 @@ check_hyperv_cdp_rule() {
     local port="$1"
     local result
     result=$(run_ps "
+        \$ErrorActionPreference = 'Stop'
         try {
             \$rule = Get-NetFirewallHyperVRule -VMCreatorId '$WSL_VMCREATOR_ID' -ErrorAction Stop | 
                 Where-Object { \$_.Direction -eq 'Inbound' -and \$_.LocalPorts -eq '$port' -and \$_.Action -eq 'Allow' -and \$_.Enabled }
@@ -49,7 +61,14 @@ check_hyperv_cdp_rule() {
         } catch {
             'ERROR'
         }
-    " | tr -d '\r\n')
+    " 2>/dev/null | tr -d '\r\n')
+    
+    # If result is empty, return ERROR
+    if [ -z "$result" ]; then
+        echo "ERROR"
+        return 1
+    fi
+    
     echo "$result"
 }
 
@@ -57,29 +76,47 @@ check_hyperv_cdp_rule() {
 check_mirrored_mode() {
     local result
     result=$(run_ps "
-        \$wslconfig = \"\$env:USERPROFILE\\.wslconfig\"
-        if (Test-Path \$wslconfig) {
-            \$content = Get-Content \$wslconfig -Raw
-            if (\$content -match 'networkingMode\s*=\s*mirrored') {
-                'ENABLED'
+        \$ErrorActionPreference = 'Stop'
+        try {
+            \$wslconfig = \"\$env:USERPROFILE\\.wslconfig\"
+            if (Test-Path \$wslconfig) {
+                \$content = Get-Content \$wslconfig -Raw -ErrorAction Stop
+                if (\$content -match 'networkingMode\s*=\s*mirrored') {
+                    'ENABLED'
+                } else {
+                    'DISABLED'
+                }
             } else {
-                'DISABLED'
+                'NO_CONFIG'
             }
-        } else {
-            'NO_CONFIG'
+        } catch {
+            'ERROR'
         }
-    " | tr -d '\r\n')
+    " 2>/dev/null | tr -d '\r\n')
+    
+    # If result is empty, return ERROR
+    if [ -z "$result" ]; then
+        echo "ERROR"
+        return 1
+    fi
+    
     echo "$result"
 }
 
 # Get current .wslconfig content
 get_wslconfig_content() {
     run_ps "
-        \$wslconfig = \"\$env:USERPROFILE\\.wslconfig\"
-        if (Test-Path \$wslconfig) {
-            Get-Content \$wslconfig -Raw
+        \$ErrorActionPreference = 'Stop'
+        try {
+            \$wslconfig = \"\$env:USERPROFILE\\.wslconfig\"
+            if (Test-Path \$wslconfig) {
+                Get-Content \$wslconfig -Raw -ErrorAction Stop
+            }
+        } catch {
+            # Return empty string on error
+            ''
         }
-    " | tr -d '\r'
+    " 2>/dev/null | tr -d '\r'
 }
 
 # Detect environment
@@ -290,45 +327,99 @@ run_diagnose() {
     echo "[1/8] Chrome process on Windows..."
     local chrome_running
     chrome_running=$(run_ps "
-        \$proc = Get-Process -Name chrome -ErrorAction SilentlyContinue
-        if (\$proc) { 'RUNNING' } else { 'NOT_RUNNING' }
-    " | tr -d '\r\n')
-    echo "  Chrome process: $chrome_running"
+        \$ErrorActionPreference = 'Stop'
+        try {
+            \$proc = Get-Process -Name chrome -ErrorAction SilentlyContinue
+            if (\$proc) { 'RUNNING' } else { 'NOT_RUNNING' }
+        } catch {
+            'ERROR'
+        }
+    " 2>/dev/null | tr -d '\r\n')
+    
+    if [ -z "$chrome_running" ] || [ "$chrome_running" = "ERROR" ]; then
+        echo "  Chrome process: ERROR (unable to check)"
+        chrome_running="ERROR"
+    else
+        echo "  Chrome process: $chrome_running"
+    fi
     
     # Check 2: Is port listening on Windows localhost?
     echo ""
     echo "[2/8] Port $port listening on Windows..."
     local port_listening
     port_listening=$(run_ps "
-        \$conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-        if (\$conn) { 'LISTENING' } else { 'NOT_LISTENING' }
-    " | tr -d '\r\n')
-    echo "  Port status: $port_listening"
+        \$ErrorActionPreference = 'Stop'
+        try {
+            \$conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+            if (\$conn) { 'LISTENING' } else { 'NOT_LISTENING' }
+        } catch {
+            'ERROR'
+        }
+    " 2>/dev/null | tr -d '\r\n')
+    
+    if [ -z "$port_listening" ] || [ "$port_listening" = "ERROR" ]; then
+        echo "  Port status: ERROR (unable to check)"
+        port_listening="ERROR"
+    else
+        echo "  Port status: $port_listening"
+    fi
     
     # Check 3: Can we reach localhost:port from Windows?
     echo ""
     echo "[3/8] CDP endpoint on Windows localhost..."
     local win_cdp
     win_cdp=$(run_ps "
+        \$ErrorActionPreference = 'Stop'
         try {
-            \$null = Invoke-WebRequest -Uri 'http://127.0.0.1:$port/json/version' -TimeoutSec 2 -UseBasicParsing
+            \$null = Invoke-WebRequest -Uri 'http://127.0.0.1:$port/json/version' -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
             'REACHABLE'
         } catch {
             'NOT_REACHABLE'
         }
-    " | tr -d '\r\n')
-    echo "  Windows localhost: $win_cdp"
+    " 2>/dev/null | tr -d '\r\n')
+    
+    if [ -z "$win_cdp" ] || [ "$win_cdp" = "ERROR" ]; then
+        echo "  Windows localhost: ERROR (unable to check)"
+        win_cdp="ERROR"
+    else
+        echo "  Windows localhost: $win_cdp"
+    fi
     
     # Check 4: Port proxy configuration
     echo ""
     echo "[4/8] Port proxy configuration..."
     local proxy_config
-    proxy_config=$(run_ps "netsh interface portproxy show v4tov4 | Select-String '$port'" | tr -d '\r')
-    if [ -n "$proxy_config" ]; then
+    proxy_config=$(run_ps "
+        \$ErrorActionPreference = 'Stop'
+        try {
+            netsh interface portproxy show v4tov4 | Select-String '$port' -ErrorAction SilentlyContinue
+        } catch {
+            # Return empty on error
+            ''
+        }
+    " 2>/dev/null | tr -d '\r')
+    
+    if [ -z "$proxy_config" ]; then
+        # Check if this was an error or just not configured
+        local check_result
+        check_result=$(run_ps "
+            \$ErrorActionPreference = 'Stop'
+            try {
+                netsh interface portproxy show v4tov4 -ErrorAction Stop | Out-Null
+                'OK'
+            } catch {
+                'ERROR'
+            }
+        " 2>/dev/null | tr -d '\r\n')
+        
+        if [ "$check_result" = "ERROR" ]; then
+            echo "  Port proxy: ERROR (unable to check)"
+        else
+            echo "  Port proxy: NOT_CONFIGURED"
+        fi
+    else
         echo "  Port proxy: CONFIGURED"
         echo "  $proxy_config"
-    else
-        echo "  Port proxy: NOT_CONFIGURED"
     fi
     
     # Check 5: Hyper-V firewall status (WSL2 2.x feature)
@@ -356,11 +447,22 @@ run_diagnose() {
     echo "[7/8] Windows Defender firewall rule..."
     local win_fw_rule
     win_fw_rule=$(run_ps "
-        \$rule = Get-NetFirewallRule -DisplayName '*Chrome*WSL*' -ErrorAction SilentlyContinue | 
-            Where-Object { \$_.Enabled -eq 'True' -and \$_.Direction -eq 'Inbound' }
-        if (\$rule) { 'EXISTS' } else { 'NOT_FOUND' }
-    " | tr -d '\r\n')
-    echo "  Firewall rule: $win_fw_rule"
+        \$ErrorActionPreference = 'Stop'
+        try {
+            \$rule = Get-NetFirewallRule -DisplayName '*Chrome*WSL*' -ErrorAction SilentlyContinue | 
+                Where-Object { \$_.Enabled -eq 'True' -and \$_.Direction -eq 'Inbound' }
+            if (\$rule) { 'EXISTS' } else { 'NOT_FOUND' }
+        } catch {
+            'ERROR'
+        }
+    " 2>/dev/null | tr -d '\r\n')
+    
+    if [ -z "$win_fw_rule" ] || [ "$win_fw_rule" = "ERROR" ]; then
+        echo "  Firewall rule: ERROR (unable to check)"
+        win_fw_rule="ERROR"
+    else
+        echo "  Firewall rule: $win_fw_rule"
+    fi
     
     # Check 8: Can WSL reach Chrome?
     echo ""
