@@ -21,9 +21,43 @@ from typing import Any
 
 from bs4 import BeautifulSoup, Tag
 
+from src.search.parser_config import get_parser_config_manager
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _sanitize_for_yaml_comment(text: str, max_length: int = 50) -> str:
+    """
+    Sanitize text for use in YAML comments.
+    
+    Removes/replaces characters that could break YAML comment syntax:
+    - '#' characters (would start new comment)
+    - Newlines (would break comment line)
+    - Control characters
+    
+    Args:
+        text: Text to sanitize.
+        max_length: Maximum length of output.
+        
+    Returns:
+        Sanitized text safe for YAML comments.
+    """
+    # Replace # with → to preserve meaning
+    sanitized = text.replace("#", "→")
+    # Replace newlines with spaces
+    sanitized = sanitized.replace("\n", " ").replace("\r", "")
+    # Remove other control characters
+    sanitized = "".join(c for c in sanitized if c.isprintable() or c == " ")
+    # Truncate
+    if len(sanitized) > max_length:
+        return sanitized[:max_length] + "..."
+    return sanitized
 
 
 # =============================================================================
@@ -498,9 +532,13 @@ def generate_yaml_fix(
     # Escape special characters in selector
     escaped_selector = candidate.selector.replace('"', '\\"')
     
+    # Sanitize text fields for YAML comments (avoid # and newlines breaking syntax)
+    sanitized_reason = _sanitize_for_yaml_comment(candidate.reason, 80)
+    sanitized_sample = _sanitize_for_yaml_comment(candidate.sample_text, 50)
+    
     yaml_fix = f"""# Fix for {engine} {selector_name}
-# Candidate: {candidate.reason}
-# Sample text: {candidate.sample_text[:50]}...
+# Candidate: {sanitized_reason}
+# Sample text: {sanitized_sample}
 # Occurrences: {candidate.occurrence_count}
 
 {engine}:
@@ -649,7 +687,9 @@ def get_latest_debug_html(engine: str | None = None) -> Path | None:
     Returns:
         Path to latest debug HTML or None.
     """
-    debug_dir = Path("debug/search_html")
+    # Use configured debug directory from ParserSettings
+    manager = get_parser_config_manager()
+    debug_dir = manager.settings.debug_html_dir
     
     if not debug_dir.exists():
         return None
