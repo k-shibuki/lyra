@@ -74,18 +74,32 @@ case "${1:-help}" in
             ENV_OPTS="-e LANCET_TOR__SOCKS_HOST=tor -e LANCET_TOR__SOCKS_PORT=9050 -e LANCET_LLM__OLLAMA_HOST=http://ollama:11434"
         fi
         
-        podman run -it --rm \
+        # Remove existing container if exists
+        podman rm -f lancet-dev 2>/dev/null || true
+        
+        # Create container with primary network
+        # Note: Podman doesn't support multiple --network flags in a single run command,
+        # so we create the container first, connect to additional networks, then start it
+        podman create -it \
             -v "$PROJECT_DIR/src:/app/src:rw" \
             -v "$PROJECT_DIR/config:/app/config:ro" \
             -v "$PROJECT_DIR/data:/app/data:rw" \
             -v "$PROJECT_DIR/logs:/app/logs:rw" \
             -v "$PROJECT_DIR/tests:/app/tests:rw" \
             --network lancet_lancet-net \
-            --network lancet_lancet-llm-internal \
             $ENV_OPTS \
             --name lancet-dev \
             lancet-dev:latest \
             /bin/bash
+        
+        # Connect to secondary network for LLM services
+        podman network connect lancet_lancet-llm-internal lancet-dev
+        
+        # Start container interactively and attach
+        podman start -ai lancet-dev
+        
+        # Cleanup after exit (replaces --rm behavior)
+        podman rm -f lancet-dev 2>/dev/null || true
         ;;
     
     logs)
@@ -122,7 +136,11 @@ case "${1:-help}" in
     
     clean)
         echo "Cleaning up containers and images..."
-        $COMPOSE down --rmi local --volumes
+        $COMPOSE down --volumes
+        # Remove project images manually (podman-compose doesn't support --rmi)
+        podman images --filter "reference=lancet*" -q | xargs -r podman rmi -f 2>/dev/null || true
+        podman images --filter "dangling=true" -q | xargs -r podman rmi -f 2>/dev/null || true
+        echo "Cleanup complete."
         ;;
     
     *)
