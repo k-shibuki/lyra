@@ -628,7 +628,7 @@ class TestHTTP3PolicyManagerDBIntegration:
         mock_db.execute = AsyncMock()
         
         # Mock get_database at the storage.database module level
-        with patch("src.storage.database.get_database", return_value=mock_db):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
             manager = HTTP3PolicyManager()
             
             # Record a request - this will try to save to DB

@@ -82,7 +82,7 @@ class TestSearchValidation:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = None
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with pytest.raises(TaskNotFoundError) as exc_info:
                 await _handle_search({
                     "task_id": "nonexistent_task",
@@ -180,7 +180,7 @@ class TestSearchBoundaryValues:
             captured_options.update(options or {})
             return mock_search_result
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch("src.research.pipeline.search_action", side_effect=capture_action):
                     result = await _handle_search({
@@ -215,7 +215,7 @@ class TestSearchBoundaryValues:
             captured_options.update(options or {})
             return mock_search_result
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch("src.research.pipeline.search_action", side_effect=capture_action):
                     result = await _handle_search({
@@ -246,7 +246,7 @@ class TestSearchBoundaryValues:
         
         long_query = "a" * 4000  # Max input length per §4.4.1
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch(
                     "src.research.pipeline.search_action",
@@ -311,7 +311,7 @@ class TestSearchExecution:
         
         mock_state = AsyncMock()
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch(
                     "src.research.pipeline.search_action",
@@ -361,7 +361,7 @@ class TestSearchExecution:
             "refutations_found": 2,
         }
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch(
                     "src.research.pipeline.search_action",
@@ -410,7 +410,7 @@ class TestSearchExecution:
                 "budget_remaining": {"pages": 50, "percent": 42},
             }
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch(
                     "src.research.pipeline.search_action",
@@ -464,7 +464,7 @@ class TestStopTaskValidation:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = None
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with pytest.raises(TaskNotFoundError):
                 await _handle_stop_task({"task_id": "nonexistent"})
 
@@ -518,7 +518,7 @@ class TestStopTaskExecution:
             captured_reason = reason
             return mock_stop_result
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch(
                     "src.research.pipeline.stop_task_action",
@@ -555,7 +555,7 @@ class TestStopTaskExecution:
             captured_reason = reason
             return mock_stop_result
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch(
                     "src.research.pipeline.stop_task_action",
@@ -587,7 +587,7 @@ class TestStopTaskExecution:
         
         mock_state = AsyncMock()
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 with patch(
                     "src.research.pipeline.stop_task_action",
