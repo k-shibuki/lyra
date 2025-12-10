@@ -15,7 +15,7 @@ References:
 import json
 import math
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -206,8 +206,6 @@ class PlattScaling:
         # Initialize parameters
         A = 0.0
         B = 0.0
-        
-        n = len(logits)
         
         for _ in range(max_iter):
             # Forward pass
@@ -1453,8 +1451,8 @@ async def evaluate_calibration(
     calibrator = get_calibrator()
     
     samples = [
-        CalibrationSample(predicted_prob=p, actual_label=l, source=source)
-        for p, l in zip(predictions, labels)
+        CalibrationSample(predicted_prob=p, actual_label=label, source=source)
+        for p, label in zip(predictions, labels)
     ]
     
     result = calibrator.evaluate(samples, source)
@@ -1482,8 +1480,8 @@ async def fit_calibration(
     calibrator = get_calibrator()
     
     samples = [
-        CalibrationSample(predicted_prob=p, actual_label=l, source=source)
-        for p, l in zip(predictions, labels)
+        CalibrationSample(predicted_prob=p, actual_label=label, source=source)
+        for p, label in zip(predictions, labels)
     ]
     
     params = calibrator.fit(samples, source, method)
@@ -1751,7 +1749,7 @@ class CalibrationEvaluator:
         import uuid
         return f"eval_{uuid.uuid4().hex[:12]}"
     
-    def save_evaluation(
+    async def save_evaluation(
         self,
         source: str,
         predictions: list[float],
@@ -1769,8 +1767,8 @@ class CalibrationEvaluator:
         """
         # Create samples
         samples = [
-            CalibrationSample(predicted_prob=p, actual_label=l, source=source)
-            for p, l in zip(predictions, labels)
+            CalibrationSample(predicted_prob=p, actual_label=label, source=source)
+            for p, label in zip(predictions, labels)
         ]
         
         # Calculate metrics
@@ -1812,7 +1810,7 @@ class CalibrationEvaluator:
         )
         
         # Save to database
-        self._save_to_db(evaluation)
+        await self._save_to_db(evaluation)
         
         logger.info(
             "Calibration evaluation saved",
@@ -1824,15 +1822,15 @@ class CalibrationEvaluator:
         
         return evaluation
     
-    def _save_to_db(self, evaluation: CalibrationEvaluation) -> None:
+    async def _save_to_db(self, evaluation: CalibrationEvaluation) -> None:
         """Save evaluation to database.
         
         Args:
             evaluation: Evaluation to save.
         """
-        db = self._get_db()
+        db = await self._get_db()
         
-        db.execute(
+        await db.execute(
             """
             INSERT INTO calibration_evaluations (
                 id, source, brier_score, brier_score_calibrated,
@@ -1855,7 +1853,6 @@ class CalibrationEvaluator:
                 evaluation.created_at.isoformat(),
             ),
         )
-        db.commit()
     
     async def get_evaluations(
         self,
@@ -1889,8 +1886,8 @@ class CalibrationEvaluator:
         query += " ORDER BY evaluated_at DESC LIMIT ?"
         params.append(limit)
         
-        cursor = db.execute(query, params)
-        rows = cursor.fetchall()
+        cursor = await db.execute(query, params)
+        rows = await cursor.fetchall()
         
         evaluations = []
         for row in rows:
@@ -1910,7 +1907,7 @@ class CalibrationEvaluator:
         evaluations = await self.get_evaluations(source=source, limit=1)
         return evaluations[0] if evaluations else None
     
-    def get_evaluation_by_id(self, evaluation_id: str) -> CalibrationEvaluation | None:
+    async def get_evaluation_by_id(self, evaluation_id: str) -> CalibrationEvaluation | None:
         """Get evaluation by ID.
         
         Args:
@@ -1919,13 +1916,13 @@ class CalibrationEvaluator:
         Returns:
             CalibrationEvaluation or None.
         """
-        db = self._get_db()
+        db = await self._get_db()
         
-        cursor = db.execute(
+        cursor = await db.execute(
             "SELECT * FROM calibration_evaluations WHERE id = ?",
             (evaluation_id,),
         )
-        row = cursor.fetchone()
+        row = await cursor.fetchone()
         
         if row is None:
             return None
@@ -1995,7 +1992,7 @@ class CalibrationEvaluator:
             Structured data for reliability diagram.
         """
         if evaluation_id:
-            evaluation = self.get_evaluation_by_id(evaluation_id)
+            evaluation = await self.get_evaluation_by_id(evaluation_id)
         else:
             evaluation = await self.get_latest_evaluation(source)
         
@@ -2030,14 +2027,15 @@ class CalibrationEvaluator:
         db = await self._get_db()
         
         if source is not None:
-            cursor = db.execute(
+            cursor = await db.execute(
                 "SELECT COUNT(*) FROM calibration_evaluations WHERE source = ?",
                 (source,),
             )
         else:
-            cursor = db.execute("SELECT COUNT(*) FROM calibration_evaluations")
+            cursor = await db.execute("SELECT COUNT(*) FROM calibration_evaluations")
         
-        return cursor.fetchone()[0]
+        row = await cursor.fetchone()
+        return row[0]
 
 
 # =============================================================================
@@ -2078,7 +2076,7 @@ async def save_calibration_evaluation(
     """
     evaluator = get_calibration_evaluator()
     
-    evaluation = evaluator.save_evaluation(source, predictions, labels)
+    evaluation = await evaluator.save_evaluation(source, predictions, labels)
     
     return {
         "ok": True,
@@ -2224,7 +2222,7 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
             result = await save_calibration_evaluation(
                 source=source,
                 predictions=[float(p) for p in predictions],
-                labels=[int(l) for l in labels],
+                labels=[int(lbl) for lbl in labels],
             )
             return result  # Already has ok: True
         
