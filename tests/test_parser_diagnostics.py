@@ -7,6 +7,7 @@ Validates:
 - HTML analysis and candidate element detection
 - YAML fix suggestion generation
 - Debug HTML file handling
+- Helper function escaping and sanitization
 
 Test Perspectives Table:
 | Case ID   | Input / Precondition                     | Perspective              | Expected Result                        | Notes |
@@ -20,6 +21,31 @@ Test Perspectives Table:
 | TC-B-01   | HTML with data-testid attributes         | Equivalence - specific   | data-testid candidates detected        |       |
 | TC-B-02   | HTML with list structure (ul/li)         | Equivalence - specific   | List-based candidates detected         |       |
 | TC-B-03   | HTML with class patterns (result, etc.)  | Equivalence - specific   | Pattern-matched candidates detected    |       |
+| TC-H-01   | Empty string for CSS attr value          | Boundary - empty         | Returns empty quoted string ''         |       |
+| TC-H-02   | Single quotes in CSS attr value          | Equivalence - special    | Escapes with double quotes             |       |
+| TC-H-03   | Double quotes in CSS attr value          | Equivalence - special    | Escapes with single quotes             |       |
+| TC-H-04   | Both quotes in CSS attr value            | Equivalence - edge       | Properly escaped                       |       |
+| TC-H-05   | Backslash in CSS attr value              | Equivalence - special    | Backslash escaped                      |       |
+| TC-H-06   | Normal CSS attr value                    | Equivalence - normal     | Wrapped in single quotes               |       |
+| TC-H-07   | Empty string for CSS ID                  | Boundary - empty         | Returns empty string                   |       |
+| TC-H-08   | Hash in CSS ID                           | Equivalence - special    | Hash escaped with backslash            |       |
+| TC-H-09   | Space in CSS ID                          | Equivalence - special    | Space escaped with backslash           |       |
+| TC-H-10   | Dot in CSS ID                            | Equivalence - special    | Dot escaped with backslash             |       |
+| TC-H-11   | Multiple special chars in CSS ID         | Equivalence - edge       | All chars escaped                      |       |
+| TC-H-12   | Normal CSS ID                            | Equivalence - normal     | Unchanged                              |       |
+| TC-H-13   | Empty string for YAML comment            | Boundary - empty         | Returns empty string                   |       |
+| TC-H-14   | Hash in YAML comment                     | Equivalence - special    | Hash replaced with arrow               |       |
+| TC-H-15   | Newline in YAML comment                  | Equivalence - special    | Newline replaced with space            |       |
+| TC-H-16   | Text exceeding max_length                | Boundary - max           | Truncated with ellipsis                |       |
+| TC-H-17   | Control characters in YAML comment       | Equivalence - special    | Control chars removed                  |       |
+| TC-H-18   | Normal text for YAML comment             | Equivalence - normal     | Unchanged                              |       |
+| TC-H-19   | Valid selector for _safe_select          | Equivalence - normal     | Returns element list                   |       |
+| TC-H-20   | Invalid selector for _safe_select        | Equivalence - abnormal   | Returns empty list, no exception       |       |
+| TC-H-21   | Non-existent selector for _safe_select   | Equivalence - normal     | Returns empty list                     |       |
+| TC-E-01   | Exception in create_diagnostic_report    | Equivalence - abnormal   | Returns minimal report with error      |       |
+| TC-B-04   | engine=None for get_latest_debug_html    | Boundary - NULL          | Returns all HTML files                 |       |
+| TC-B-05   | engine="" for get_latest_debug_html      | Boundary - empty         | Treated as no filter (all files)       |       |
+| TC-B-06   | Valid engine for get_latest_debug_html   | Equivalence - normal     | Returns filtered files                 |       |
 """
 
 import pytest
@@ -41,6 +67,9 @@ from src.search.parser_diagnostics import (
     create_diagnostic_report,
     get_latest_debug_html,
     analyze_debug_html,
+    _escape_css_attribute_value,
+    _escape_css_id,
+    _sanitize_for_yaml_comment,
 )
 
 
@@ -770,4 +799,400 @@ class TestDiagnosticsIntegration:
         log_dict = report.to_log_dict()
         assert log_dict["engine"] == "ecosia"
         assert log_dict["has_suggestions"] is True
+
+
+# ============================================================================
+# Helper Function Tests - _escape_css_attribute_value
+# ============================================================================
+
+
+class TestEscapeCssAttributeValue:
+    """Tests for _escape_css_attribute_value helper function."""
+    
+    # Given: Empty string
+    # When: Escaping for CSS attribute
+    # Then: Returns empty quoted string
+    def test_empty_string(self):
+        """Test empty string returns empty quotes."""
+        result = _escape_css_attribute_value("")
+        assert result == "''"
+    
+    # Given: String with single quotes only
+    # When: Escaping for CSS attribute
+    # Then: Uses double quotes and escapes single quotes
+    def test_single_quotes(self):
+        """Test string with single quotes uses double quotes."""
+        result = _escape_css_attribute_value("it's")
+        assert result.startswith('"')
+        assert result.endswith('"')
+    
+    # Given: String with double quotes only
+    # When: Escaping for CSS attribute
+    # Then: Uses single quotes
+    def test_double_quotes(self):
+        """Test string with double quotes uses single quotes."""
+        result = _escape_css_attribute_value('say "hello"')
+        assert result.startswith("'")
+        assert result.endswith("'")
+    
+    # Given: String with both single and double quotes
+    # When: Escaping for CSS attribute
+    # Then: Properly escaped with single quotes
+    def test_both_quotes(self):
+        """Test string with both quotes is properly escaped."""
+        result = _escape_css_attribute_value("it's \"great\"")
+        # Should use single quotes and escape the single quote
+        assert "\\'" in result or '\\"' in result
+    
+    # Given: String with backslash
+    # When: Escaping for CSS attribute
+    # Then: Backslash is escaped
+    def test_backslash(self):
+        """Test backslash is escaped."""
+        result = _escape_css_attribute_value("path\\to")
+        assert "\\\\" in result
+    
+    # Given: Normal string without special characters
+    # When: Escaping for CSS attribute
+    # Then: Wrapped in single quotes
+    def test_normal_string(self):
+        """Test normal string is wrapped in single quotes."""
+        result = _escape_css_attribute_value("result-item")
+        assert result == "'result-item'"
+
+
+# ============================================================================
+# Helper Function Tests - _escape_css_id
+# ============================================================================
+
+
+class TestEscapeCssId:
+    """Tests for _escape_css_id helper function."""
+    
+    # Given: Empty string
+    # When: Escaping for CSS ID selector
+    # Then: Returns empty string
+    def test_empty_string(self):
+        """Test empty string returns empty string."""
+        result = _escape_css_id("")
+        assert result == ""
+    
+    # Given: ID containing hash character
+    # When: Escaping for CSS ID selector
+    # Then: Hash is escaped with backslash
+    def test_hash_character(self):
+        """Test hash character is escaped."""
+        result = _escape_css_id("id#123")
+        assert "\\#" in result
+    
+    # Given: ID containing space
+    # When: Escaping for CSS ID selector
+    # Then: Space is escaped with backslash
+    def test_space_character(self):
+        """Test space character is escaped."""
+        result = _escape_css_id("my id")
+        assert "\\ " in result
+    
+    # Given: ID containing dot
+    # When: Escaping for CSS ID selector
+    # Then: Dot is escaped with backslash
+    def test_dot_character(self):
+        """Test dot character is escaped."""
+        result = _escape_css_id("id.class")
+        assert "\\." in result
+    
+    # Given: ID containing multiple special characters
+    # When: Escaping for CSS ID selector
+    # Then: All special characters are escaped
+    def test_multiple_special_chars(self):
+        """Test multiple special characters are all escaped."""
+        result = _escape_css_id("id#123.test")
+        assert "\\#" in result
+        assert "\\." in result
+    
+    # Given: Normal ID without special characters
+    # When: Escaping for CSS ID selector
+    # Then: ID is unchanged
+    def test_normal_id(self):
+        """Test normal ID is unchanged."""
+        result = _escape_css_id("result-item")
+        assert result == "result-item"
+
+
+# ============================================================================
+# Helper Function Tests - _sanitize_for_yaml_comment
+# ============================================================================
+
+
+class TestSanitizeForYamlComment:
+    """Tests for _sanitize_for_yaml_comment helper function."""
+    
+    # Given: Empty string
+    # When: Sanitizing for YAML comment
+    # Then: Returns empty string
+    def test_empty_string(self):
+        """Test empty string returns empty string."""
+        result = _sanitize_for_yaml_comment("")
+        assert result == ""
+    
+    # Given: String containing hash character
+    # When: Sanitizing for YAML comment
+    # Then: Hash is replaced with arrow
+    def test_hash_character(self):
+        """Test hash character is replaced with arrow."""
+        result = _sanitize_for_yaml_comment("Price #50")
+        assert "#" not in result
+        assert "→" in result
+    
+    # Given: String containing newline
+    # When: Sanitizing for YAML comment
+    # Then: Newline is replaced with space
+    def test_newline_character(self):
+        """Test newline is replaced with space."""
+        result = _sanitize_for_yaml_comment("line1\nline2")
+        assert "\n" not in result
+        assert " " in result
+    
+    # Given: String exceeding max_length
+    # When: Sanitizing for YAML comment
+    # Then: Text is truncated with ellipsis
+    def test_max_length_exceeded(self):
+        """Test text exceeding max_length is truncated."""
+        long_text = "A" * 100
+        result = _sanitize_for_yaml_comment(long_text, max_length=50)
+        assert len(result) == 53  # 50 + "..."
+        assert result.endswith("...")
+    
+    # Given: String containing control characters
+    # When: Sanitizing for YAML comment
+    # Then: Control characters are removed
+    def test_control_characters(self):
+        """Test control characters are removed."""
+        result = _sanitize_for_yaml_comment("test\x00\x01\x02text")
+        assert "\x00" not in result
+        assert "\x01" not in result
+        assert "\x02" not in result
+        assert "testtext" in result
+    
+    # Given: Normal string without special characters
+    # When: Sanitizing for YAML comment
+    # Then: String is unchanged
+    def test_normal_string(self):
+        """Test normal string is unchanged."""
+        result = _sanitize_for_yaml_comment("Normal text here")
+        assert result == "Normal text here"
+
+
+# ============================================================================
+# Helper Function Tests - _safe_select (via HTMLAnalyzer)
+# ============================================================================
+
+
+class TestSafeSelect:
+    """Tests for _safe_select method in HTMLAnalyzer."""
+    
+    # Given: Valid CSS selector on HTML with matching elements
+    # When: Calling _safe_select
+    # Then: Returns list of matching elements
+    def test_valid_selector(self, sample_html_with_results):
+        """Test valid selector returns matching elements."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        result = analyzer._safe_select("div.result-item")
+        
+        assert len(result) > 0
+    
+    # Given: CSS selector that matches no elements
+    # When: Calling _safe_select
+    # Then: Returns empty list
+    def test_nonexistent_selector(self, sample_html_with_results):
+        """Test non-existent selector returns empty list."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        result = analyzer._safe_select(".nonexistent-class-12345")
+        
+        assert result == []
+    
+    # Given: Invalid/malformed CSS selector
+    # When: Calling _safe_select
+    # Then: Returns empty list without raising exception
+    def test_invalid_selector(self, sample_html_with_results):
+        """Test invalid selector returns empty list without exception."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        # This should not raise an exception
+        result = analyzer._safe_select("[invalid='")
+        
+        assert result == []
+
+
+# ============================================================================
+# Exception Handling Tests
+# ============================================================================
+
+
+class TestExceptionHandling:
+    """Tests for exception handling in diagnostic functions."""
+    
+    # Given: HTML that causes an internal exception during analysis
+    # When: Creating diagnostic report
+    # Then: Minimal report is returned with error info
+    def test_create_report_handles_exception(self):
+        """Test create_diagnostic_report handles exceptions gracefully."""
+        # Create a mock that raises an exception
+        with patch.object(HTMLAnalyzer, 'find_result_containers', side_effect=Exception("Test error")):
+            report = create_diagnostic_report(
+                engine="test",
+                query="test query",
+                html="<html><body>test</body></html>",
+                failed_selectors=[],
+                html_path=None,
+            )
+            
+            # Should return a report (not raise exception)
+            assert report is not None
+            assert report.engine == "test"
+            # Should have error info in html_summary
+            assert "error" in report.html_summary
+
+
+# ============================================================================
+# Boundary Value Tests - get_latest_debug_html
+# ============================================================================
+
+
+class TestGetLatestDebugHtmlBoundary:
+    """Boundary value tests for get_latest_debug_html function."""
+    
+    # Given: engine=None
+    # When: Getting latest debug HTML
+    # Then: Returns any HTML file (no filter)
+    def test_engine_none(self, tmp_path):
+        """Test engine=None returns all HTML files."""
+        debug_dir = tmp_path / "debug" / "search_html"
+        debug_dir.mkdir(parents=True)
+        
+        # Create test files
+        (debug_dir / "duckduckgo_123.html").write_text("<html></html>")
+        
+        with patch("src.search.parser_diagnostics.get_parser_config_manager") as mock_manager:
+            mock_settings = MagicMock()
+            mock_settings.debug_html_dir = debug_dir
+            mock_manager.return_value.settings = mock_settings
+            
+            result = get_latest_debug_html(engine=None)
+            
+            assert result is not None
+    
+    # Given: engine="" (empty string)
+    # When: Getting latest debug HTML
+    # Then: Treated as no filter (same as None)
+    def test_engine_empty_string(self, tmp_path):
+        """Test engine='' is treated as no filter."""
+        debug_dir = tmp_path / "debug" / "search_html"
+        debug_dir.mkdir(parents=True)
+        
+        # Create test files
+        (debug_dir / "duckduckgo_123.html").write_text("<html></html>")
+        
+        with patch("src.search.parser_diagnostics.get_parser_config_manager") as mock_manager:
+            mock_settings = MagicMock()
+            mock_settings.debug_html_dir = debug_dir
+            mock_manager.return_value.settings = mock_settings
+            
+            result = get_latest_debug_html(engine="")
+            
+            # Should return file (empty string treated as no filter)
+            assert result is not None
+    
+    # Given: Valid engine name
+    # When: Getting latest debug HTML
+    # Then: Returns only matching engine files
+    def test_engine_filter(self, tmp_path):
+        """Test engine filter returns only matching files."""
+        debug_dir = tmp_path / "debug" / "search_html"
+        debug_dir.mkdir(parents=True)
+        
+        # Create test files
+        (debug_dir / "duckduckgo_123.html").write_text("<html></html>")
+        (debug_dir / "google_456.html").write_text("<html></html>")
+        
+        with patch("src.search.parser_diagnostics.get_parser_config_manager") as mock_manager:
+            mock_settings = MagicMock()
+            mock_settings.debug_html_dir = debug_dir
+            mock_manager.return_value.settings = mock_settings
+            
+            result = get_latest_debug_html(engine="duckduckgo")
+            
+            assert result is not None
+            assert "duckduckgo" in result.name
+
+
+# ============================================================================
+# Boundary Value Tests - container_selector
+# ============================================================================
+
+
+class TestContainerSelectorBoundary:
+    """Boundary value tests for container_selector parameter."""
+    
+    # Given: container_selector=None
+    # When: Finding title elements
+    # Then: Searches entire document
+    def test_container_selector_none(self, sample_html_with_results):
+        """Test container_selector=None searches entire document."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        result = analyzer.find_title_elements(container_selector=None)
+        
+        # Should return results from entire document
+        assert len(result) > 0
+    
+    # Given: container_selector="" (empty string)
+    # When: Finding title elements
+    # Then: Treated as None (searches entire document)
+    def test_container_selector_empty_string(self, sample_html_with_results):
+        """Test container_selector='' is treated as None."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        result = analyzer.find_title_elements(container_selector="")
+        
+        # Should return results (empty string treated as no container)
+        assert len(result) > 0
+    
+    # Given: Valid container_selector
+    # When: Finding title elements
+    # Then: Searches within container only
+    def test_container_selector_valid(self, sample_html_with_results):
+        """Test valid container_selector searches within container."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        result = analyzer.find_title_elements(container_selector="#results")
+        
+        # Should return results from within container
+        assert len(result) > 0
+    
+    # Given: container_selector="" for find_snippet_elements
+    # When: Finding snippet elements
+    # Then: Treated as None (searches entire document)
+    def test_snippet_container_empty_string(self, sample_html_with_results):
+        """Test find_snippet_elements with empty container_selector."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        result = analyzer.find_snippet_elements(container_selector="")
+        
+        # Should return results
+        assert len(result) > 0
+    
+    # Given: container_selector="" for find_url_elements
+    # When: Finding URL elements
+    # Then: Treated as None (searches entire document)
+    def test_url_container_empty_string(self, sample_html_with_results):
+        """Test find_url_elements with empty container_selector."""
+        analyzer = HTMLAnalyzer(sample_html_with_results)
+        
+        result = analyzer.find_url_elements(container_selector="")
+        
+        # Should return results
+        assert len(result) > 0
 

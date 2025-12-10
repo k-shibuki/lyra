@@ -442,7 +442,8 @@ class HTMLAnalyzer:
         
         # Search context
         context = self.soup
-        if container_selector:
+        # Use explicit None check and handle empty strings defensively
+        if container_selector is not None and container_selector:
             containers = self._safe_select(container_selector)
             if containers:
                 context = containers[0]
@@ -496,7 +497,8 @@ class HTMLAnalyzer:
         candidates = []
         
         context = self.soup
-        if container_selector:
+        # Use explicit None check and handle empty strings defensively
+        if container_selector is not None and container_selector:
             containers = self._safe_select(container_selector)
             if containers:
                 context = containers[0]
@@ -550,7 +552,8 @@ class HTMLAnalyzer:
         candidates = []
         
         context = self.soup
-        if container_selector:
+        # Use explicit None check and handle empty strings defensively
+        if container_selector is not None and container_selector:
             containers = self._safe_select(container_selector)
             if containers:
                 context = containers[0]
@@ -805,7 +808,12 @@ def get_latest_debug_html(engine: str | None = None) -> Path | None:
     if not debug_dir.exists():
         return None
     
-    pattern = f"{engine}_*.html" if engine else "*.html"
+    # Use explicit None check and handle empty strings defensively
+    if engine is not None and engine:
+        pattern = f"{engine}_*.html"
+    else:
+        pattern = "*.html"
+    
     html_files = list(debug_dir.glob(pattern))
     
     if not html_files:
