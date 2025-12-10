@@ -46,6 +46,12 @@ Test Perspectives Table:
 | TC-B-04   | engine=None for get_latest_debug_html    | Boundary - NULL          | Returns all HTML files                 |       |
 | TC-B-05   | engine="" for get_latest_debug_html      | Boundary - empty         | Treated as no filter (all files)       |       |
 | TC-B-06   | Valid engine for get_latest_debug_html   | Equivalence - normal     | Returns filtered files                 |       |
+| TC-Y-01   | Selector with backslash (CSS ID escape)  | Equivalence - normal     | Backslash escaped for YAML             |       |
+| TC-Y-02   | Selector with backslash (CSS class)      | Equivalence - normal     | Backslash escaped for YAML             |       |
+| TC-Y-03   | Selector with backslash and quotes       | Equivalence - normal     | Both escaped correctly                 |       |
+| TC-Y-04   | Empty selector string                    | Boundary - empty         | Empty quoted string in YAML            |       |
+| TC-Y-05   | Single backslash only                    | Boundary - minimal       | Escaped to double backslash            |       |
+| TC-Y-06   | Multiple consecutive backslashes         | Boundary - multiple      | Each backslash escaped                 |       |
 """
 
 import pytest
@@ -555,6 +561,125 @@ class TestYAMLFixGeneration:
         
         # Quotes should be escaped
         assert '\\"' in fix or "data-testid" in fix
+    
+    # Given: A candidate with backslash in selector (from CSS ID escape)
+    # When: Generating YAML fix
+    # Then: Backslash should be escaped for YAML double-quoted string
+    def test_generate_yaml_fix_escapes_backslash_in_id(self):
+        """Test generate_yaml_fix escapes backslashes from CSS ID selectors."""
+        # Selector like #result\.item (dot escaped for CSS)
+        candidate = CandidateElement(
+            tag="div",
+            selector="#result\\.item",
+            sample_text="Test",
+            occurrence_count=3,
+            confidence=0.9,
+            reason="ID selector with escaped dot",
+        )
+        
+        fix = generate_yaml_fix("results_container", candidate, "duckduckgo")
+        
+        # In YAML double-quoted string, backslash must be escaped as \\
+        # So #result\.item should become "#result\\.item" in YAML
+        assert 'selector: "#result\\\\.item"' in fix
+    
+    # Given: A candidate with backslash in class selector
+    # When: Generating YAML fix
+    # Then: Backslash should be escaped for YAML double-quoted string
+    def test_generate_yaml_fix_escapes_backslash_in_class(self):
+        """Test generate_yaml_fix escapes backslashes from CSS class selectors."""
+        # Selector like .class\.name (dot escaped for CSS)
+        candidate = CandidateElement(
+            tag="div",
+            selector="div.class\\.name",
+            sample_text="Test",
+            occurrence_count=5,
+            confidence=0.8,
+            reason="Class selector with escaped dot",
+        )
+        
+        fix = generate_yaml_fix("results_container", candidate, "google")
+        
+        # Backslash must be escaped for YAML
+        assert 'selector: "div.class\\\\.name"' in fix
+    
+    # Given: A candidate with both backslash and quotes in selector
+    # When: Generating YAML fix
+    # Then: Both backslash and quotes should be properly escaped
+    def test_generate_yaml_fix_escapes_backslash_and_quotes(self):
+        """Test generate_yaml_fix escapes both backslashes and quotes."""
+        # Selector with both escaped special chars and attribute with quotes
+        candidate = CandidateElement(
+            tag="div",
+            selector='div.result\\.item[data-testid="value"]',
+            sample_text="Test",
+            occurrence_count=2,
+            confidence=0.7,
+            reason="Complex selector",
+        )
+        
+        fix = generate_yaml_fix("results_container", candidate, "bing")
+        
+        # Backslash should be escaped as \\, and quotes should be escaped as \"
+        assert '\\\\.item' in fix  # Backslash escaped
+        assert '\\"value\\"' in fix  # Quotes escaped
+    
+    # Given: A candidate with empty selector string
+    # When: Generating YAML fix
+    # Then: Empty string should be preserved in output
+    def test_generate_yaml_fix_empty_selector(self):
+        """Test generate_yaml_fix handles empty selector (boundary case)."""
+        candidate = CandidateElement(
+            tag="div",
+            selector="",
+            sample_text="Test",
+            occurrence_count=1,
+            confidence=0.5,
+            reason="Empty selector",
+        )
+        
+        fix = generate_yaml_fix("results_container", candidate, "test")
+        
+        # Empty selector should result in empty quoted string
+        assert 'selector: ""' in fix
+    
+    # Given: A candidate with only backslash in selector
+    # When: Generating YAML fix
+    # Then: Single backslash should be escaped to double backslash
+    def test_generate_yaml_fix_single_backslash_only(self):
+        """Test generate_yaml_fix handles single backslash (boundary case)."""
+        candidate = CandidateElement(
+            tag="div",
+            selector="\\",
+            sample_text="Test",
+            occurrence_count=1,
+            confidence=0.5,
+            reason="Single backslash",
+        )
+        
+        fix = generate_yaml_fix("results_container", candidate, "test")
+        
+        # Single backslash should become double backslash in YAML
+        assert 'selector: "\\\\"' in fix
+    
+    # Given: A candidate with multiple consecutive backslashes
+    # When: Generating YAML fix
+    # Then: Each backslash should be escaped
+    def test_generate_yaml_fix_multiple_consecutive_backslashes(self):
+        """Test generate_yaml_fix handles multiple consecutive backslashes."""
+        candidate = CandidateElement(
+            tag="div",
+            selector="a\\\\b",  # Two backslashes in Python string
+            sample_text="Test",
+            occurrence_count=1,
+            confidence=0.5,
+            reason="Multiple backslashes",
+        )
+        
+        fix = generate_yaml_fix("results_container", candidate, "test")
+        
+        # Two backslashes should become four in YAML
+        assert 'selector: "a\\\\\\\\b"' in fix
     
     # Given: Multiple failed selectors with candidates
     # When: Generating multiple YAML fixes

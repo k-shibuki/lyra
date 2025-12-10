@@ -622,8 +622,9 @@ def generate_yaml_fix(
     Returns:
         YAML fragment string.
     """
-    # Escape special characters in selector
-    escaped_selector = candidate.selector.replace('"', '\\"')
+    # Escape special characters in selector for YAML double-quoted string
+    # Must escape backslashes first, then quotes
+    escaped_selector = candidate.selector.replace('\\', '\\\\').replace('"', '\\"')
     
     # Sanitize text fields for YAML comments (avoid # and newlines breaking syntax)
     sanitized_reason = _sanitize_for_yaml_comment(candidate.reason, 80)
