@@ -650,10 +650,15 @@ class TestDebugHTMLHandling:
     # Given: Non-existent debug directory
     # When: Getting latest debug HTML
     # Then: None should be returned
-    def test_get_latest_debug_html_no_dir(self):
+    def test_get_latest_debug_html_no_dir(self, tmp_path):
         """Test get_latest_debug_html when directory doesn't exist."""
-        with patch("src.search.parser_diagnostics.Path") as mock_path:
-            mock_path.return_value.exists.return_value = False
+        # Use a non-existent directory
+        fake_debug_dir = tmp_path / "nonexistent" / "search_html"
+        
+        with patch("src.search.parser_diagnostics.get_parser_config_manager") as mock_manager:
+            mock_settings = MagicMock()
+            mock_settings.debug_html_dir = fake_debug_dir
+            mock_manager.return_value.settings = mock_settings
             
             result = get_latest_debug_html()
             
@@ -667,16 +672,11 @@ class TestDebugHTMLHandling:
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
         
-        # Create a mock Path that returns our empty directory
-        original_path = Path
-        
-        def mock_path_init(path_str):
-            if path_str == "debug/search_html":
-                return debug_dir
-            return original_path(path_str)
-        
-        with patch("src.search.parser_diagnostics.Path", side_effect=mock_path_init):
-            # The real debug_dir exists but is empty
+        with patch("src.search.parser_diagnostics.get_parser_config_manager") as mock_manager:
+            mock_settings = MagicMock()
+            mock_settings.debug_html_dir = debug_dir
+            mock_manager.return_value.settings = mock_settings
+            
             result = get_latest_debug_html()
             
             # Should return None for empty directory
