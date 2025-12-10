@@ -501,7 +501,7 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
         
         await db.execute(
             """
-            INSERT INTO tasks (id, query, status, config, created_at)
+            INSERT INTO tasks (id, query, status, config_json, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
             (task_id, query, "created", json.dumps(config), created_at),
@@ -544,7 +544,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
         # Get task info from DB
         db = await get_database()
         task = await db.fetch_one(
-            "SELECT id, query, status, created_at, updated_at FROM tasks WHERE id = ?",
+            "SELECT id, query, status, created_at FROM tasks WHERE id = ?",
             (task_id,),
         )
         
