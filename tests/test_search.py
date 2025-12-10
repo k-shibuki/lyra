@@ -352,20 +352,6 @@ class TestExpandQuery:
         assert len(results) <= 3
 
 
-class TestGenerateMirrorQuery:
-    """Tests for mirror query generation (placeholder implementation)."""
-
-    @pytest.mark.asyncio
-    async def test_generate_mirror_query_returns_none(self):
-        """Test generate_mirror_query returns None (not implemented)."""
-        from src.search.search_api import generate_mirror_query
-        
-        result = await generate_mirror_query("テストクエリ", "ja", "en")
-        
-        # Currently returns None as not implemented
-        assert result is None
-
-
 # ============================================================================
 # Query Operator Processing Tests (§3.1.1, §3.1.4)
 # ============================================================================
