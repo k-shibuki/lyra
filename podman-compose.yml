@@ -10,7 +10,7 @@ services:
   lancet:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: lancet
     env_file:
       - .env
