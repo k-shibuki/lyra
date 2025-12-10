@@ -15,6 +15,10 @@ services:
     container_name: lancet
     env_file:
       - .env
+    # Allow container to access WSL2 host via host.containers.internal
+    # Required for Chrome CDP connection
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
     volumes:
       # Mount source code for development (rw for editing)
       - ./src:/app/src:rw

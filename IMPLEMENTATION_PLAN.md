@@ -1200,28 +1200,73 @@ podman exec lancet python tests/scripts/verify_environment.py
 podman exec lancet python tests/scripts/verify_duckduckgo_search.py
 ```
 
-### N.4 MCPツール疎通確認（N.2-2）⏳
+### N.4 MCPツール疎通確認（N.2-2）✅
 
 **目的**: 11個の新MCPツールが実環境で正しく動作することを確認
 
 | ツール | 確認内容 | 状態 |
 |--------|---------|:----:|
-| `create_task` | タスクがDBに作成される | ⏳ |
-| `get_status` | タスク状態が正しく返る | ⏳ |
-| `search` | 検索パイプラインが完走する | ⏳ |
-| `stop_task` | タスクが終了し統計が返る | ⏳ |
-| `get_materials` | エビデンスグラフが構築される | ⏳ |
-| `calibrate` | 校正サンプルが登録される | ⏳ |
-| `get_auth_queue` | 認証待ちが取得できる | ⏳ |
-| `resolve_auth` | 認証完了が記録される | ⏳ |
-| `notify_user` | トースト通知が表示される | ⏳ |
-| `wait_for_user` | ユーザー入力待機が動作する | ⏳ |
+| `create_task` | タスクがDBに作成される | ✅ |
+| `get_status` | タスク状態が正しく返る | ✅ |
+| `search` | 検索パイプラインが完走する | ✅ |
+| `stop_task` | タスクが終了し統計が返る | ✅ |
+| `get_materials` | エビデンスグラフが構築される | ✅ |
+| `calibrate` | 校正サンプルが登録される | ✅ |
+| `get_auth_queue` | 認証待ちが取得できる | ✅ |
+| `resolve_auth` | 認証完了が記録される | ✅ |
+| `notify_user` | トースト通知が表示される | ✅ |
+| `wait_for_user` | ユーザー入力待機が動作する | ✅ |
+
+**WSL2 + Podman環境でのChrome CDP接続**:
+
+WSL2 + Podman環境では、コンテナからWindows側Chromeにアクセスするために**socatポートフォワード**が必要です。
+
+1. **socatのインストール**（WSL2側）:
+   ```bash
+   sudo apt-get install socat
+   ```
+
+2. **自動起動**（推奨）:
+   `chrome.sh start`を実行すると、socatポートフォワードが自動的に起動します:
+   ```bash
+   ./scripts/chrome.sh start
+   # socatが自動起動（ポート19222 -> 9222）
+   ```
+
+3. **手動起動**（必要な場合）:
+   ```bash
+   socat TCP-LISTEN:19222,fork,reuseaddr TCP:localhost:9222 &
+   ```
+
+4. **環境変数設定**（`.env`ファイル）:
+   ```bash
+   # WSL2 + Podman環境では19222を使用
+   LANCET_BROWSER__CHROME_PORT=19222
+   ```
+
+5. **設定ファイル**（`config/settings.yaml`）:
+   ```yaml
+   browser:
+     chrome_host: "10.255.255.254"  # Podman host-gateway IP
+     chrome_port: 19222              # socatポートフォワード経由
+   ```
 
 **手順**:
 ```bash
-# MCPツール疎通確認スクリプト
+# 1. Chrome起動（socatも自動起動）
+./scripts/chrome.sh start
+
+# 2. MCPツール疎通確認スクリプト（フル検証）
 podman exec lancet python tests/scripts/verify_mcp_integration.py
+
+# 3. 基本モード（Chrome CDP不要）
+podman exec lancet python tests/scripts/verify_mcp_integration.py --basic
 ```
+
+**検証結果（2025-12-10）**:
+- 全11ツール: ✅ PASS（フル検証）
+- Chrome CDP接続: ✅ PASS（socat経由）
+- `calibrate`警告: ✅ 解消（async化完了）
 
 ### N.5 セキュリティE2E（N.2-3）⏳
 
@@ -1356,8 +1401,11 @@ Phase G.2 参照。
    - WSLを再起動: `wsl.exe --shutdown`
 
 5. **環境変数設定**（`.env`ファイル）
-   - デフォルトの`localhost`でOK（CHROME_HOST設定は不要）
-   - 必要に応じて`.env.example`からコピー
+   - WSL2 + Podman環境では以下を設定:
+     ```bash
+     LANCET_BROWSER__CHROME_PORT=19222
+     ```
+   - ネイティブLinux環境では`localhost:9222`がデフォルト（設定不要）
 
 6. **テスト実行**
    ```bash
@@ -1369,6 +1417,9 @@ Phase G.2 参照。
 - Ollama (Podmanコンテナで起動、GPUパススルー)
 - Chrome (Windows側で起動、リモートデバッグ)
 - nvidia-container-toolkit (GPU使用時に必要)
+- **socat** (WSL2 + Podman環境で必須): `sudo apt-get install socat`
+  - 用途: PodmanコンテナからWindows側Chromeへのポートフォワード（19222 -> 9222）
+  - 自動化: `chrome.sh start`で自動起動
 
 ---
 
