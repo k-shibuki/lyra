@@ -61,8 +61,8 @@ case "${1:-help}" in
     
     shell)
         echo "Entering development shell..."
-        # Build dev image if not exists
-        podman build -t lancet-dev:latest -f Dockerfile .
+        # Build dev image (base stage only, no GPU packages)
+        podman build -t lancet-dev:latest -f Dockerfile --target base .
         
         # Load environment from .env if exists, otherwise use defaults
         ENV_OPTS=""
@@ -73,6 +73,17 @@ case "${1:-help}" in
             # Fallback defaults for container networking
             ENV_OPTS="-e LANCET_TOR__SOCKS_HOST=tor -e LANCET_TOR__SOCKS_PORT=9050 -e LANCET_LLM__OLLAMA_HOST=http://ollama:11434"
         fi
+        
+        # Derive network names from project directory name (podman-compose prefix)
+        PROJECT_NAME="$(basename "$PROJECT_DIR")"
+        NET_PRIMARY="${PROJECT_NAME}_lancet-net"
+        NET_LLM="${PROJECT_NAME}_lancet-llm-internal"
+        
+        # Cleanup function to ensure container is removed on exit/error
+        cleanup_dev_container() {
+            podman rm -f lancet-dev 2>/dev/null || true
+        }
+        trap cleanup_dev_container EXIT
         
         # Remove existing container if exists
         podman rm -f lancet-dev 2>/dev/null || true
@@ -86,20 +97,17 @@ case "${1:-help}" in
             -v "$PROJECT_DIR/data:/app/data:rw" \
             -v "$PROJECT_DIR/logs:/app/logs:rw" \
             -v "$PROJECT_DIR/tests:/app/tests:rw" \
-            --network lancet_lancet-net \
+            --network "$NET_PRIMARY" \
             $ENV_OPTS \
             --name lancet-dev \
             lancet-dev:latest \
             /bin/bash
         
         # Connect to secondary network for LLM services
-        podman network connect lancet_lancet-llm-internal lancet-dev
+        podman network connect "$NET_LLM" lancet-dev
         
         # Start container interactively and attach
         podman start -ai lancet-dev
-        
-        # Cleanup after exit (replaces --rm behavior)
-        podman rm -f lancet-dev 2>/dev/null || true
         ;;
     
     logs)

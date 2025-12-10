@@ -11,6 +11,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: base  # Use base stage (no GPU packages) for development
     container_name: lancet
     env_file:
       - .env
@@ -111,4 +112,3 @@ networks:
 # 2. Generate CDI: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 # 3. Start: podman-compose up -d
 # 4. Verify: podman exec lancet-ollama nvidia-smi
-
