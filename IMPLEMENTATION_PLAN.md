@@ -1,50 +1,80 @@
 # 実装計画: Local Autonomous Deep Research Agent (Lancet)
 
-## 概要
+## 1. ドキュメントの位置づけ
 
-信頼性が高いデスクトップリサーチを自律的に実行するローカルAIエージェント。
-**Podmanコンテナ環境**で稼働し、MCPを通じてCursorと連携する。
+本ドキュメントは、Lancetプロジェクトの**実装計画書**である。
+
+| ドキュメント | 役割 | 参照 |
+|-------------|------|------|
+| `requirements.md` | 仕様書（要件定義） | §1-8で機能・非機能要件を定義 |
+| `PUBLICATION_PLAN.md` | 論文執筆準備メモ | SoftwareX投稿、ケーススタディ設計 |
+| **`IMPLEMENTATION_PLAN.md`**（本文書） | **実装計画書** | Phase別の実装状況・知見を管理 |
+
+**システム概要**: 信頼性が高いデスクトップリサーチを自律的に実行するローカルAIエージェント。**Podmanコンテナ環境**で稼働し、MCPを通じてCursorと連携する。
 
 ---
 
-## 実装完成度サマリ（2025-12-10 更新）
+## 2. 実装完成度サマリ（2025-12-10 更新）
 
-| Phase | 内容 | ユニットテスト | E2E検証 | 状態 |
-|-------|------|:-------------:|:-------:|:----:|
-| A-H | 基盤〜検索エンジン多様化 | ✅ | ✅ | 完了 |
-| I | 保守性改善 | ✅ | - | 完了 |
-| K.3 | セキュリティ（L1-L8） | ✅ | ✅ | 完了 |
-| M | MCPリファクタリング | ✅ | ✅ | 完了 |
-| **N** | **E2Eケーススタディ** | - | ⏳ | **進行中（N.2-3完了）** |
+| Phase | 内容 | ユニットテスト | E2E検証 | 状態 | セクション |
+|-------|------|:-------------:|:-------:|:----:|:----------:|
+| A-H | 基盤〜検索エンジン多様化 | ✅ | ✅ | 完了 | §4 |
+| I | 保守性改善 | ✅ | - | 完了 | §5 |
+| K.3 | セキュリティ（L1-L8） | ✅ | ✅ | 完了 | §5 |
+| M | MCPリファクタリング | ✅ | ✅ | 完了 | §6 |
+| **N** | **E2Eケーススタディ** | - | ⏳ | **進行中（N.2-3完了）** | §6 |
 
 **現在のテスト数**: 2688件（全パス）
 
 ---
 
-## Phase優先度
+## 3. Phase構成とロードマップ
 
-### MVP必須（初期リリース）
+### 3.1 Phase一覧
+
+| カテゴリ | Phase | 内容 | 状態 | セクション |
+|---------|-------|------|:----:|:----------:|
+| **コア実装** | A | 基盤構築 | ✅ | §4 |
+| | B | 品質強化 | ✅ | §4 |
+| | C | 検索経路再設計 | ✅ | §4 |
+| | D | 抗堅性・ステルス性強化 | ✅ | §4 |
+| | E | OSINT品質強化 | ✅ | §4 |
+| | F | 追加機能 | ✅ | §4 |
+| | G | テスト基盤 | ✅ | §4 |
+| | H | 検索エンジン多様化 | ✅ | §4 |
+| **保守・拡張** | I | 保守性改善 | ✅ | §5 |
+| | J | 外部データソース統合 | ⏳ | §5 |
+| | K | ローカルLLM強化 | 🔄 | §5 |
+| **検証・リファクタ** | L | ドキュメント | ⏳ | §6 |
+| | M | MCPツールリファクタリング | ✅ | §6 |
+| | N | E2Eケーススタディ | ⏳ | §6 |
+
+### 3.2 優先度
+
+#### MVP必須（初期リリース）
 - Phase A-H: 基盤〜検索エンジン多様化 ✅
 - Phase I: 保守性改善 ✅
 - Phase K.3: プロンプトインジェクション対策 ✅
 - Phase M: MCPツールリファクタリング ✅
 - **Phase N: E2Eケーススタディ（論文投稿向け）⏳**
 
-### Phase 2（論文投稿後）
+#### Phase 2（論文投稿後）
 - Phase J: 外部データソース統合
 - Phase K.1-K.2: モデル選択最適化、プロンプト外部化
 - Phase L: ドキュメント
 
-### 将来の拡張
+#### 将来の拡張
 - クエリA/Bテスト（§3.1.1から削除済み）
 - 変更検知/差分アラート
 - IPv6/HTTP3の高度な学習
 
 ---
 
-## Phase A: 基盤構築 ✅
+## 4. コア実装 (Phase A-H)
 
-### A.1 プロジェクト基盤 ✅
+### Phase A: 基盤構築 ✅
+
+#### A.1 プロジェクト基盤 ✅
 
 | 項目 | 成果物 | 仕様参照 |
 |------|--------|----------|
@@ -54,7 +84,7 @@
 | データベース | SQLiteスキーマ (`src/storage/schema.sql`)、FTS5全文検索 | §5.1.2 |
 | ロギング | 構造化ログ (structlog)、因果トレース (cause_id) | §4.6 |
 
-### A.2 MCPサーバー ✅
+#### A.2 MCPサーバー ✅
 
 **MCPツール（11ツール）**: Phase Mで30個→11個に簡素化完了
 
@@ -69,7 +99,7 @@
 
 詳細は Phase M 参照。
 
-### A.3 検索機能 ✅
+#### A.3 検索機能 ✅
 
 **当初設計（SearXNG経由）→ 廃止**: 詳細は「Phase C.1 検索経路の再設計」参照
 
@@ -78,7 +108,7 @@
 - 対応エンジン: DuckDuckGo, Mojeek, Qwant, Brave, Google, Ecosia, Startpage
 - CAPTCHA検知→認証キュー連携
 
-### A.4 クローリング/取得 ✅
+#### A.4 クローリング/取得 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -88,7 +118,7 @@
 | Torプロキシ | Stem連携、Circuit更新 | §4.3 |
 | アーカイブ保存 | WARC (warcio)、スクリーンショット | §4.3.2 |
 
-### A.5 コンテンツ抽出 ✅
+#### A.5 コンテンツ抽出 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -97,7 +127,7 @@
 | OCR | PaddleOCR + Tesseract | §5.1.1 |
 | 重複検出 | MinHash + SimHash | §3.3.1 |
 
-### A.6 フィルタリング/評価 ✅
+#### A.6 フィルタリング/評価 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -108,7 +138,7 @@
 | NLI判定 | tiny-DeBERTa | §3.3.1 |
 | エビデンスグラフ | NetworkX + SQLite | §3.3.1 |
 
-### A.7 スケジューラ ✅
+#### A.7 スケジューラ ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -121,7 +151,7 @@
 - 優先度: serp(100) > prefetch(90) > extract(80) > embed(70) > rerank(60) > llm_fast(50) > llm_slow(40)
 - タイムアウト: 検索30秒、取得60秒、LLM抽出120秒
 
-### A.8 通知/手動介入 ✅
+#### A.8 通知/手動介入 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -138,7 +168,7 @@
 **§2.1.5判断委譲の例外**:
 - Cursor AI無応答時（300秒既定）: パイプライン安全停止、状態保存、復帰待機
 
-### A.9 レポート生成 ✅
+#### A.9 レポート生成 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -147,9 +177,9 @@
 
 ---
 
-## Phase B: 品質強化 ✅
+### Phase B: 品質強化 ✅
 
-### B.1 メトリクス/自動適応 ✅
+#### B.1 メトリクス/自動適応 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -163,7 +193,7 @@
 - Tor利用上限: 20%
 - パラメータ反転防止: 5分未満は反転させない
 
-### B.2 探索制御 ✅
+#### B.2 探索制御 ✅
 
 **§2.1責任分界**: クエリ設計はCursor AI、Lancetは実行のみ
 
@@ -174,7 +204,7 @@
 | 充足度判定 | ExplorationState | §3.1.7.3 |
 | 反証探索 | RefutationExecutor (機械パターンのみ) | §3.1.7.5 |
 
-### B.3 クローリング拡張 ✅
+#### B.3 クローリング拡張 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -183,7 +213,7 @@
 | サイト内検索 | SiteSearchManager | §3.1.5 |
 | Wayback差分 | WaybackExplorer | §3.1.6 |
 
-### B.4 信頼度キャリブレーション ✅
+#### B.4 信頼度キャリブレーション ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -193,9 +223,9 @@
 
 ---
 
-## Phase C: 検索経路再設計 ✅
+### Phase C: 検索経路再設計 ✅
 
-### C.1 SearXNG廃止の背景
+#### C.1 SearXNG廃止の背景
 
 **問題**: SearXNGはサーバーサイドで動作するため、以下の技術的欠陥があった：
 
@@ -206,7 +236,7 @@
 
 **根本原因**: SearXNGは「便利」だったが、抗堅性（§4.3）を犠牲にする設計だった。
 
-### C.2 新アーキテクチャ（BrowserSearchProvider）
+#### C.2 新アーキテクチャ（BrowserSearchProvider）
 
 ```
 ┌──────────────┐    ┌──────────────┐
@@ -226,7 +256,7 @@
 - `BaseSearchParser` + エンジン別パーサー: DuckDuckGo, Mojeek, Google, Brave, Qwant, Ecosia, Startpage
 - `config/search_parsers.yaml`: セレクター外部化、AI修正用診断メッセージ
 
-### C.3 requirements.md修正内容
+#### C.3 requirements.md修正内容
 
 **§3.2 エージェント実行機能**:
 ```
@@ -258,9 +288,9 @@
 
 ---
 
-## Phase D: 抗堅性・ステルス性強化 ✅
+### Phase D: 抗堅性・ステルス性強化 ✅
 
-### D.1 ネットワーク/IP層 ✅
+#### D.1 ネットワーク/IP層 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -268,14 +298,14 @@
 | DNS方針 | DNSPolicyManager (socks5h://でリーク防止) | §4.3 |
 | HTTP/3方針 | HTTP3PolicyManager | §4.3 |
 
-### D.2 トランスポート/TLS層 ✅
+#### D.2 トランスポート/TLS層 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
 | sec-fetch-*ヘッダー | SecFetchHeaders | §4.3 |
 | sec-ch-ua*ヘッダー | SecCHUAHeaders | §4.3 |
 
-### D.3 ブラウザ/JS層 ✅
+#### D.3 ブラウザ/JS層 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -283,7 +313,7 @@
 | undetected-chromedriverフォールバック | UndetectedChromeFetcher | §4.3 |
 | viewportジッター | ViewportJitter | §4.3 |
 
-### D.4 プロファイル健全性監査 ✅
+#### D.4 プロファイル健全性監査 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -291,21 +321,21 @@
 | 自動修復 | attempt_repair (Chrome再起動等) | §4.3.1 |
 | 監査ログ | JSONL形式 | §4.3.1 |
 
-### D.5 セッション移送 ✅
+#### D.5 セッション移送 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
 | Cookie/ETag移送 | SessionTransferManager | §3.1.2 |
 | 同一ドメイン制約 | capture_from_browser | §3.1.2 |
 
-### D.6 ブラウザ経路アーカイブ ✅
+#### D.6 ブラウザ経路アーカイブ ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
 | CDXJ風メタデータ | CDXJGenerator | §4.3.2 |
 | 簡易HAR生成 | HARGenerator | §4.3.2 |
 
-### D.7 ヒューマンライク操作 ✅
+#### D.7 ヒューマンライク操作 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -316,9 +346,9 @@
 
 ---
 
-## Phase E: OSINT品質強化 ✅
+### Phase E: OSINT品質強化 ✅
 
-### E.1 検索戦略 ✅
+#### E.1 検索戦略 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -327,7 +357,7 @@
 
 > **注意**: クエリA/Bテスト（ABTestExecutor）は§3.1.1から削除され、「将来の拡張」に移動した。
 
-### E.2 インフラ/レジストリ連携 ✅
+#### E.2 インフラ/レジストリ連携 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -335,7 +365,7 @@
 | 証明書透明性 | CertTransparencyClient (crt.sh) | §3.1.2 |
 | エンティティKB | EntityKB, NameNormalizer | §3.1.2 |
 
-### E.3 コンテンツ品質 ✅
+#### E.3 コンテンツ品質 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -344,7 +374,7 @@
 | AI生成検出 | 23パターン + 文長均一性 | §3.3.3 |
 | 時系列整合 | TemporalConsistencyChecker | §3.3.3 |
 
-### E.4 主張分析 ✅
+#### E.4 主張分析 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -353,9 +383,9 @@
 
 ---
 
-## Phase F: 追加機能 ✅
+### Phase F: 追加機能 ✅
 
-### F.1 校正ロールバック ✅
+#### F.1 校正ロールバック ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -363,21 +393,21 @@
 | ロールバック | Calibrator.rollback() | §4.6.1 |
 | 評価永続化 | calibration_evaluations テーブル | §4.6.1 |
 
-### F.2 プロセスライフサイクル ✅
+#### F.2 プロセスライフサイクル ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
 | ブラウザ破棄 | ProcessLifecycleManager | §4.2 |
 | LLM解放 | OllamaClient.unload_model() | §4.2 |
 
-### F.3 半自動運用UX ✅
+#### F.3 半自動運用UX ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
 | 認証待ち情報統合 | get_exploration_status に authentication_queue 追加 | §3.6.1 |
 | 閾値アラート | warnings配列への追加 (≥3件で警告) | §3.6.1 |
 
-### F.4 タイムライン機能 ✅
+#### F.4 タイムライン機能 ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -385,7 +415,7 @@
 | Wayback連携 | integrate_wayback_result() | §3.1.6 |
 | カバレッジ算出 | get_timeline_coverage() | §7 |
 
-### F.5 Waybackフォールバック ✅
+#### F.5 Waybackフォールバック ✅
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -395,9 +425,9 @@
 
 ---
 
-## Phase G: テスト基盤 ✅
+### Phase G: テスト基盤 ✅
 
-### G.1 テスト分類
+#### G.1 テスト分類
 
 | 分類 | マーカー | 外部依存 | 実行環境 |
 |------|----------|----------|----------|
@@ -410,7 +440,7 @@
 - `@rate_limited`: レート制限厳しい（DuckDuckGo, Google等）
 - `@manual`: 人手介入必須（CAPTCHA解決等）
 
-### G.2 テスト実行
+#### G.2 テスト実行
 
 ```bash
 # 全テスト実行（devコンテナ内で実行）
@@ -425,7 +455,7 @@ podman exec lancet pytest tests/test_robots.py -v
 
 **現在のテスト数**: 2688件（全パス）
 
-### G.3 E2Eスクリプト（tests/scripts/）
+#### G.3 E2Eスクリプト（tests/scripts/）
 
 | スクリプト | 検証内容 | 仕様 | 状態 |
 |-----------|----------|------|:----:|
@@ -445,9 +475,9 @@ podman exec lancet pytest tests/test_robots.py -v
 
 ---
 
-## Phase H: 検索エンジン多様化 ✅
+### Phase H: 検索エンジン多様化 ✅
 
-### H.1 実装状況マトリクス
+#### H.1 実装状況マトリクス
 
 | エンジン | 仕様書§3.2 | engines.yaml | パーサー | E2Eスクリプト | E2E検証 | 状態 |
 |----------|:----------:|:------------:|:--------:|:-------------:|:-------:|------|
@@ -459,9 +489,9 @@ podman exec lancet pytest tests/test_robots.py -v
 | Startpage | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
 | Bing | - | ✅ | ✅ | ✅ | ✅ 4/4 | **完了** |
 
-### H.2 E2E検証で判明した知見
+#### H.2 E2E検証で判明した知見
 
-#### H.2.1 MetaGer削除
+##### H.2.1 MetaGer削除
 
 **問題**: ログインゲートが存在し、全セレクターが失敗
 **症状**: 検索結果ページにアクセスしても認証画面にリダイレクト
@@ -476,7 +506,7 @@ podman exec lancet pytest tests/test_robots.py -v
 - `tests/fixtures/search_html/metager_results.html`
 - `tests/scripts/verify_metager_search.py`
 
-#### H.2.2 セレクター保守の教訓
+##### H.2.2 セレクター保守の教訓
 
 **問題**: Ecosia/Startpageのセレクターが実際のHTMLと不一致
 **原因**: 検索エンジンはHTMLを予告なく変更する
@@ -501,7 +531,7 @@ url: "a.result-title, a.result-link"
 snippet: ".description"
 ```
 
-#### H.2.3 E2E検証で判明した追加問題
+##### H.2.3 E2E検証で判明した追加問題
 
 **Qwant地域制限**:
 - 症状: 「Unfortunately we are not yet available in your country」
@@ -537,7 +567,7 @@ snippet: ".description"
 - 根本原因: BingのリダイレクトURL（`u=a1aHR0cHM6...`）がbase64エンコードされているが、デコード処理が欠落
 - 修正内容: `src/search/search_parsers.py`の`_clean_bing_url`にbase64デコード追加
 
-#### H.2.4 E2Eスクリプトの共通修正
+##### H.2.4 E2Eスクリプトの共通修正
 
 **問題1**: `SearchResponse`に`captcha_detected`属性がない
 **修正**: `result.error`文字列から"CAPTCHA detected"を検索するヘルパー関数を追加
@@ -556,41 +586,33 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 **問題3**: `FetchResult.content`属性がない
 **修正**: `result.html_path or result.content_hash`で判定
 
-### H.3 残作業
+##### H.2.5 E2Eスクリプト作成の完了
 
-#### 優先度高（仕様書§3.2準拠）
-- [x] **Bingパーサー実装** ✅
-  - `config/search_parsers.yaml`にbing定義追加
-  - `src/search/search_parsers.py`にBingParser追加
-  - `src/search/parser_config.py`にbingフィールド追加
-  - `tests/test_search_parsers.py`にBingテスト追加
-
-#### 優先度中（E2Eカバレッジ向上）
+**優先度中（E2Eカバレッジ向上）**:
 - [x] `verify_mojeek_search.py`作成 ✅
-- [x] ~~`verify_qwant_search.py`作成~~ → Qwant削除（地域制限）
+- [x] ~~`verify_qwant_search.py`作成~~ → Qwant削除（地域制限、H.2.3参照）
 - [x] `verify_brave_search.py`作成 ✅
 
-#### 優先度低（高リスクエンジン）
+**優先度低（高リスクエンジン）**:
 - [x] `verify_google_search.py`作成 ✅（CAPTCHA高頻度）
 - [x] `verify_bing_search.py`作成 ✅
 
-#### 技術的課題
-- [x] **CDPフォールバック問題の修正** ✅
-  - ヘッドレスフォールバック削除（仕様§4.3.3準拠）
-  - CDP接続失敗時は明確なエラー + `chrome.sh`案内
-  - `SearchResponse.connection_mode`フィールド追加
+**注**: Bingパーサー実装はH.1のマトリクスに反映済み。CDPフォールバック問題の修正はH.2.3に既に記載。
 
-#### 確認事項
-- [x] **MCPサーバ経由での動作確認** ✅
-  - `tests/scripts/verify_mcp_tools.py`作成（MCPツールハンドラ検証）
+##### H.2.6 MCPサーバ経由での動作確認
+
+- [x] **MCPツールハンドラ検証** ✅
+  - `tests/scripts/verify_mcp_tools.py`作成
   - `search_serp`ツール経由での検索が正常動作することを確認
   - バグ修正: `search_parsers._classify_source`が文字列を返していた問題を修正（SourceTag Enumに変換）
 
 ---
 
-## Phase I: 保守性改善 🔄
+## 5. 保守・拡張 (Phase I-K)
 
-### I.1 プロバイダ抽象化 ✅
+### Phase I: 保守性改善 ✅
+
+#### I.1 プロバイダ抽象化 ✅
 
 | プロバイダ | 実装 | 状態 |
 |-----------|------|:----:|
@@ -599,7 +621,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | BrowserProvider | PlaywrightProvider, UndetectedChromeProvider | ✅ |
 | NotificationProvider | LinuxNotifyProvider, WindowsToastProvider, WSLBridgeProvider | ✅ |
 
-### I.2 設定・ポリシーの外部化 ✅
+#### I.2 設定・ポリシーの外部化 ✅
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
@@ -607,7 +629,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 検索エンジン設定 | SearchEngineConfigManager + config/engines.yaml | ✅ |
 | ステルス設定 | - | 未実装 |
 
-### I.3 汎用コンポーネント
+#### I.3 汎用コンポーネント
 
 | 項目 | 状態 |
 |------|:----:|
@@ -615,7 +637,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 汎用リトライ/バックオフ | ✅ |
 | 汎用キャッシュレイヤ | 未実装 |
 
-#### I.3.1 汎用サーキットブレーカ ✅
+##### I.3.1 汎用サーキットブレーカ ✅
 
 **実装内容**:
 - `src/utils/circuit_breaker.py`: 依存ゼロの軽量コア
@@ -630,7 +652,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 **テスト**: `tests/test_utils_circuit_breaker.py`（32件）
 
-#### I.3.2 汎用リトライ/バックオフ ✅
+##### I.3.2 汎用リトライ/バックオフ ✅
 
 **実装内容**:
 - `src/utils/backoff.py`: 指数バックオフ計算ユーティリティ
@@ -652,7 +674,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 **テスト**: `tests/test_utils_backoff.py`（26件）、`tests/test_utils_api_retry.py`（28件）
 
-### I.4 パーサー自己修復（AI駆動）✅
+#### I.4 パーサー自己修復（AI駆動）✅
 
 **目的**: 検索エンジンのHTML変更に対してAIが自動修復
 
@@ -683,9 +705,9 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 ---
 
-## Phase J: 外部データソース統合 ⏳
+### Phase J: 外部データソース統合 ⏳
 
-### J.0 API仕様調査（優先）
+#### J.0 API仕様調査（優先）
 
 | API | 調査項目 | 状態 |
 |-----|----------|:----:|
@@ -700,7 +722,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | Unpaywall | 同上 | 未着手 |
 | Wikidata | 同上 | 未着手 |
 
-### J.1 日本政府API統合
+#### J.1 日本政府API統合
 
 **対象（§3.1.3）**:
 - e-Stat API: 統計データ
@@ -709,7 +731,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - gBizINFO API: 法人基本情報
 - EDINET API: 有価証券報告書
 
-### J.2 学術API統合
+#### J.2 学術API統合
 
 **対象（§3.1.3、§5.1.1）**:
 - OpenAlex API: 論文メタデータ/引用グラフ
@@ -717,13 +739,13 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - Crossref API: DOI/引用情報
 - Unpaywall API: OA版論文リンク
 
-### J.3 エンティティ解決強化
+#### J.3 エンティティ解決強化
 
 **対象（§3.1.3）**:
 - Wikidata API
 - DBpedia SPARQL
 
-### J.4 特許API統合
+#### J.4 特許API統合
 
 **対象（§3.1.3拡充）**:
 - USPTO PAIR API: 米国特許出願状況
@@ -740,7 +762,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | J-PlatPat | セレクター設計 | 未着手 |
 | CNIPA | 言語対応、セレクター | 未着手 |
 
-### J.5 防衛・調達情報連携
+#### J.5 防衛・調達情報連携
 
 **対象（§3.1.3拡充）**:
 - 防衛省装備庁: 調達公告（HTMLスクレイピング）
@@ -755,9 +777,19 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 ---
 
-## Phase K: ローカルLLM強化 🔄
+### Phase K: ローカルLLM強化 🔄
 
-### K.3 プロンプトインジェクション対策（§4.4.1）🔴優先
+#### K.1 モデル選択最適化 ⏳
+
+- [ ] `config/llm_models.yaml`: タスク別モデル設定
+- [ ] OllamaProvider拡張: `select_model(task)`
+
+#### K.2 プロンプトテンプレート外部化 ⏳
+
+- [ ] `config/prompts/`: Jinja2テンプレート
+- [ ] PromptManager実装
+
+#### K.3 プロンプトインジェクション対策（§4.4.1）
 
 収集コンテンツに含まれる悪意あるプロンプトインジェクションからローカルLLMを防御する多層防御を実装する。
 
@@ -774,7 +806,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | **L7: MCP応答サニタイズ** | Cursor AI経由流出防止 | ✅ |
 | **L8: ログセキュリティ** | ログ/DB/エラーからの漏洩防止 | ✅ |
 
-#### K.3-1 ネットワーク分離（L1）✅
+##### K.3.1 ネットワーク分離（L1）✅
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
@@ -782,7 +814,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 外部ネットワークアクセス遮断 | `internal: true` 設定 | ✅ |
 | ホストポート公開禁止 | `ports`セクション削除 | ✅ |
 
-#### K.3-2 システムインストラクション分離（L3）✅
+##### K.3.2 システムインストラクション分離（L3）✅
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
@@ -790,7 +822,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | タグのログ非出力 | ハッシュ先頭8文字のみDEBUG出力 | ✅ |
 | プロンプトテンプレート改修 | `src/filter/llm.py` | ✅ |
 
-#### K.3-3 入力サニタイズ（L2）✅
+##### K.3.3 入力サニタイズ（L2）✅
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
@@ -802,7 +834,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 危険単語検出・警告 | ログ出力 | ✅ |
 | 入力長制限 | 4000文字 | ✅ |
 
-#### K.3-4 出力検証（L4）✅
+##### K.3.4 出力検証（L4）✅
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
@@ -827,7 +859,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - `src/filter/llm.py`: 出力処理に断片検出を組み込み
 - `tests/test_llm_security.py`: L4強化テスト22件追加
 
-#### K.3-5 MCP応答メタデータ（L5）✅
+##### K.3.5 MCP応答メタデータ（L5）✅
 
 全MCP応答に検証状態を付与し、Cursor AIが信頼度を判断可能にする。
 
@@ -849,7 +881,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 **テスト:** `tests/test_response_meta.py` (16件)
 
-#### K.3-6 ソース検証フロー（L6）✅
+##### K.3.6 ソース検証フロー（L6）✅
 
 EvidenceGraph連携による自動検証と昇格/降格ロジック。
 
@@ -876,7 +908,7 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 
 **テスト:** `tests/test_source_verification.py` (27件)
 
-#### K.3-7 TrustLevel変更 ✅
+##### K.3.7 TrustLevel変更 ✅
 
 `UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。
 
@@ -900,7 +932,7 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 - `config/domains.yaml`: default trust_level を `"unverified"` に変更
 - `tests/test_domain_policy.py`: テストの期待値更新
 
-#### K.3-8 BLOCKED通知（InterventionQueue連携）✅
+##### K.3.8 BLOCKED通知（InterventionQueue連携）✅
 
 ドメインがBLOCKEDになった際の通知機能。
 
@@ -923,7 +955,7 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 - `src/utils/notification.py`: InterventionQueue拡張（新auth_type追加）
 - `src/filter/source_verification.py`: BLOCKED時の通知呼び出し
 
-#### K.3-9 MCP応答サニタイズ（L7）✅
+##### K.3.9 MCP応答サニタイズ（L7）✅
 
 MCP応答がCursor AIに渡る前の最終サニタイズ。Cursor AI経由のシステムプロンプト流出を防止する。
 
@@ -968,7 +1000,7 @@ MCP応答がCursor AIに渡る前の最終サニタイズ。Cursor AI経由の�
 }
 ```
 
-#### K.3-10 ログセキュリティポリシー（L8）✅
+##### K.3.10 ログセキュリティポリシー（L8）✅
 
 ログ・DB・エラーメッセージからの情報漏洩防止。
 
@@ -1014,7 +1046,7 @@ except Exception as e:
 - `src/mcp/server.py`: 例外ハンドリングにサニタイズ適用
 - `src/storage/`: プロンプト保存箇所の確認・修正
 
-#### K.3 テスト
+##### K.3.11 テスト
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
@@ -1042,21 +1074,15 @@ except Exception as e:
 
 **注**: E2EテストはGPU環境で実行が必要。`tests/scripts/verify_llm_security.py`として実装予定。
 
-### K.1 モデル選択最適化 ⏳
-
-- [ ] `config/llm_models.yaml`: タスク別モデル設定
-- [ ] OllamaProvider拡張: `select_model(task)`
-
-### K.2 プロンプトテンプレート外部化 ⏳
-
-- [ ] `config/prompts/`: Jinja2テンプレート
-- [ ] PromptManager実装
-
 ---
 
-## Phase L: ドキュメント ⏳
+## 6. 検証・文書・リファクタリング (Phase L, M, N)
 
-### L.1 未作成ドキュメント
+> **注**: Phase M (MCPリファクタリング) は保守性改善の一環だが、Phase N (E2Eケーススタディ) の前提条件となるため、本セクションに配置。
+
+### Phase L: ドキュメント ⏳
+
+#### L.1 未作成ドキュメント
 
 - [ ] README.md（プロジェクト概要、セットアップ手順）
 - [ ] 手動介入運用手順書（§6成果物）
@@ -1066,11 +1092,11 @@ except Exception as e:
 
 ---
 
-## Phase M: MCPツールリファクタリング ✅
+### Phase M: MCPツールリファクタリング ✅
 
 MCPツールを**30個から11個**に簡素化。実装完了、E2E検証は Phase N で実施。
 
-### M.1 設計方針
+#### M.1 設計方針
 
 **目的**:
 - Cursor AIの認知負荷低減（ツール選択の単純化）
@@ -1090,7 +1116,7 @@ MCPハンドラー (_handle_*)
 内部クラス・関数
 ```
 
-### M.2 新MCPツール一覧（11ツール）✅
+#### M.2 新MCPツール一覧（11ツール）✅
 
 | カテゴリ | ツール | 機能 | 実装 | テスト |
 |---------|--------|------|:----:|:------:|
@@ -1106,7 +1132,7 @@ MCPハンドラー (_handle_*)
 | 通知 | `notify_user` | ユーザー通知 | ✅ | ✅ (21件) |
 | 通知 | `wait_for_user` | ユーザー入力待機 | ✅ | ✅ |
 
-### M.3 実装状況 ✅
+#### M.3 実装状況 ✅
 
 | 項目 | 状態 |
 |------|:----:|
@@ -1117,7 +1143,7 @@ MCPハンドラー (_handle_*)
 | エラーコード体系（`src/mcp/errors.py`） | ✅ |
 | 旧ツール定義の削除（29個 → 0個） | ✅ |
 
-### M.4 内部パイプライン ✅
+#### M.4 内部パイプライン ✅
 
 低レベル操作はMCPから隠蔽され、`search`ツールから自動的に呼び出される。
 
@@ -1132,7 +1158,7 @@ MCPハンドラー (_handle_*)
 7. 状態更新
 ```
 
-### M.5 テスト状況 ✅
+#### M.5 テスト状況 ✅
 
 | ファイル | 対象 | 件数 |
 |---------|------|:----:|
@@ -1146,7 +1172,7 @@ MCPハンドラー (_handle_*)
 
 **E2E検証**: Phase N で実施予定
 
-### M.6 残作業
+#### M.6 残作業
 
 | 項目 | 状態 | 備考 |
 |------|:----:|------|
@@ -1155,11 +1181,11 @@ MCPハンドラー (_handle_*)
 
 ---
 
-## Phase N: E2Eケーススタディ（論文投稿向け）⏳🔴優先
+### Phase N: E2Eケーススタディ（論文投稿向け）⏳🔴優先
 
 論文投稿に必要な「動くソフトウェア」の実証。**E2E環境確認 → MCPツール疎通確認 → ケーススタディ実施** の順で進める。
 
-### N.1 目的
+#### N.1 目的
 
 | 観点 | 目的 |
 |------|------|
@@ -1167,7 +1193,7 @@ MCPハンドラー (_handle_*)
 | ケーススタディ | 論文に記載する具体的な使用例の作成 |
 | OSS価値の実証 | 透明性・監査可能性・再現性の確保 |
 
-### N.2 タスク一覧（優先順）
+#### N.2 タスク一覧（優先順）
 
 | ID | 項目 | 内容 | 状態 |
 |----|------|------|:----:|
@@ -1178,7 +1204,7 @@ MCPハンドラー (_handle_*)
 | N.2-5 | CS-1実施・記録 | 実際の検索・収集・可視化 | ⏳ |
 | N.2-6 | 論文向け図表作成 | エビデンスグラフ、フロー図 | ⏳ |
 
-### N.3 E2E実行環境確認（N.2-1）✅
+#### N.3 E2E実行環境確認（N.2-1）✅
 
 **目的**: 実環境で各コンポーネントが正しく動作することを確認
 
@@ -1215,7 +1241,7 @@ podman exec lancet python tests/scripts/verify_environment.py
 podman exec lancet python tests/scripts/verify_duckduckgo_search.py
 ```
 
-### N.4 MCPツール疎通確認（N.2-2）✅
+#### N.4 MCPツール疎通確認（N.2-2）✅
 
 **目的**: 11個の新MCPツールが実環境で正しく動作することを確認
 
@@ -1283,7 +1309,7 @@ podman exec lancet python tests/scripts/verify_mcp_integration.py --basic
 - Chrome CDP接続: ✅ PASS（socat経由）
 - `calibrate`警告: ✅ 解消（async化完了）
 
-### N.5 セキュリティE2E（N.2-3）✅
+#### N.5 セキュリティE2E（N.2-3）✅
 
 Phase K.3 の防御層が統合環境で正しく動作することを確認。
 
@@ -1311,7 +1337,7 @@ Phase K.3 の防御層が統合環境で正しく動作することを確認。
 podman exec lancet python tests/scripts/verify_llm_security.py
 ```
 
-### N.6 ケーススタディ（CS-1）
+#### N.6 ケーススタディ（CS-1）
 
 **シナリオ**: リラグルチド（Liraglutide）の安全性情報収集
 
@@ -1342,7 +1368,7 @@ podman exec lancet python tests/scripts/verify_llm_security.py
    - スクリーンショット、ログ、図表作成
 ```
 
-### N.7 成功基準
+#### N.7 成功基準
 
 | 基準 | 閾値 | 測定方法 |
 |------|------|---------|
@@ -1351,7 +1377,7 @@ podman exec lancet python tests/scripts/verify_llm_security.py
 | 検索エンジン多様化 | ≥3エンジンから結果取得 | 検索ログ |
 | エラーなし完了 | 未処理例外ゼロ | ログ確認 |
 
-### N.8 記録項目
+#### N.8 記録項目
 
 | 項目 | 形式 | 用途 |
 |------|------|------|
@@ -1361,7 +1387,7 @@ podman exec lancet python tests/scripts/verify_llm_security.py
 | 実行時間・リソース | メトリクス | 性能評価 |
 | WARC/PDF | アーカイブ | 監査可能性の実証 |
 
-### N.9 OSS価値の実証ポイント
+#### N.9 OSS価値の実証ポイント
 
 論文で強調すべき「OSS + ローカル完結」の価値:
 
@@ -1379,9 +1405,9 @@ podman exec lancet python tests/scripts/verify_llm_security.py
 
 ---
 
-## 開発環境
+## 7. 開発環境
 
-### 起動方法
+### 7.1 起動方法
 
 ```bash
 # 全サービス起動
@@ -1397,7 +1423,7 @@ podman exec lancet python tests/scripts/verify_llm_security.py
 ./scripts/dev.sh down
 ```
 
-### コンテナ構成
+### 7.2 コンテナ構成
 
 - `lancet` - メイン開発コンテナ
 - `lancet-tor` - Torプロキシ
@@ -1405,11 +1431,11 @@ podman exec lancet python tests/scripts/verify_llm_security.py
 
 **注意**: SearXNGは廃止済み（Phase C参照）
 
-### テスト実行
+### 7.3 テスト実行
 
 Phase G.2 参照。
 
-### E2E検証環境セットアップ（WSL2→Windows Chrome）
+### 7.4 E2E検証環境セットアップ（WSL2→Windows Chrome）
 
 1. **専用Chromeプロファイル作成**（Googleアカウント未ログイン推奨）
 
@@ -1443,7 +1469,7 @@ Phase G.2 参照。
    podman exec lancet python tests/scripts/verify_duckduckgo_search.py
    ```
 
-### 外部依存
+### 7.5 外部依存
 
 - Ollama (Podmanコンテナで起動、GPUパススルー)
 - Chrome (Windows側で起動、リモートデバッグ)
@@ -1454,17 +1480,15 @@ Phase G.2 参照。
 
 ---
 
-## 注意事項
+## 8. 注意事項
 
-### 技術的制約
+### 8.1 技術的制約
 
 - VRAM≤8GB維持（RTX 4060 Laptop）
 - WSL2メモリ32GB内で動作
 - 商用API/有料サービス使用禁止
 
-### リスク軽減
+### 8.2 リスク軽減
 
 - Cloudflare/Turnstile: 手動誘導UX＋クールダウン/スキップ自動化
 - VRAM圧迫: マイクロバッチ/候補上限自動調整
-
----
