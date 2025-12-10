@@ -6,15 +6,25 @@
 #   ./scripts/mcp.sh
 #
 # Prerequisites:
-#   - Podman containers running: ./scripts/dev.sh up
 #   - Chrome with CDP: ./scripts/chrome.sh start (before using search tools)
+#   - Containers are auto-started if not running
 
 set -e
 
-# Ensure containers are running
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Auto-start containers if not running
 if ! podman ps --format "{{.Names}}" 2>/dev/null | grep -q "^lancet$"; then
-    echo "Error: lancet container not running. Start with: ./scripts/dev.sh up" >&2
-    exit 1
+    echo "Container not running. Starting..." >&2
+    "$SCRIPT_DIR/dev.sh" up >&2
+    # Wait for container to be ready
+    for i in {1..30}; do
+        if podman ps --format "{{.Names}}" 2>/dev/null | grep -q "^lancet$"; then
+            echo "Container ready." >&2
+            break
+        fi
+        sleep 1
+    done
 fi
 
 # Start MCP server with stdin/stdout passthrough
