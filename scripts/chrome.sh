@@ -35,7 +35,7 @@ check_hyperv_firewall() {
             \$vmCreator = Get-NetFirewallHyperVVMCreator -ErrorAction Stop | Where-Object { \$_.FriendlyName -eq 'WSL' }
             if (\$vmCreator) { 'ENABLED' } else { 'DISABLED' }
         } catch {
-            'NOT_AVAILABLE'
+            'ERROR'
         }
     " 2>/dev/null | tr -d '\r\n')
     
@@ -489,7 +489,28 @@ run_diagnose() {
     # Summary and recommendations
     echo ""
     echo "=== Summary ==="
-    if [ "$chrome_running" = "NOT_RUNNING" ]; then
+    
+    # Check for diagnostic errors first
+    local has_errors="no"
+    if [ "$chrome_running" = "ERROR" ] || [ "$port_listening" = "ERROR" ] || [ "$win_cdp" = "ERROR" ] || [ "$win_fw_rule" = "ERROR" ]; then
+        has_errors="yes"
+    fi
+    
+    if [ "$has_errors" = "yes" ]; then
+        echo "✗ Diagnostic checks failed (PowerShell errors encountered)."
+        echo ""
+        echo "Some diagnostic checks could not be completed due to errors."
+        echo "This may indicate:"
+        echo "  - Insufficient permissions to run PowerShell commands"
+        echo "  - PowerShell execution errors"
+        echo "  - System configuration issues"
+        echo ""
+        echo "Please check the error messages above and ensure:"
+        echo "  - You have necessary permissions"
+        echo "  - PowerShell is functioning correctly"
+        echo "  - WSL2 is properly configured"
+        return 1
+    elif [ "$chrome_running" = "NOT_RUNNING" ]; then
         echo "✗ Chrome is not running."
         echo "  → Start with: ./scripts/chrome.sh start"
     elif [ "$port_listening" = "NOT_LISTENING" ]; then
