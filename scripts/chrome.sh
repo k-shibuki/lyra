@@ -15,61 +15,12 @@ set -e
 ACTION="${1:-check}"
 CHROME_PORT="${2:-9222}"
 
-# WSL2 Hyper-V Firewall VMCreatorId (constant for WSL)
-WSL_VMCREATOR_ID="{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}"
-
 # Run PowerShell without environment variable leakage
 # Note: Errors should be handled within PowerShell commands using try-catch
 # This function suppresses stderr to prevent environment variable leakage
 # If PowerShell command fails, it should return an error marker (e.g., "ERROR") in the output
 run_ps() {
     env -i PATH="$PATH" powershell.exe -NoProfile -NonInteractive -Command "$1" 2>/dev/null
-}
-
-# Check if WSL2 uses Hyper-V firewall (WSL 2.x feature)
-check_hyperv_firewall() {
-    local result
-    result=$(run_ps "
-        \$ErrorActionPreference = 'Stop'
-        try {
-            \$vmCreator = Get-NetFirewallHyperVVMCreator -ErrorAction Stop | Where-Object { \$_.FriendlyName -eq 'WSL' }
-            if (\$vmCreator) { 'ENABLED' } else { 'DISABLED' }
-        } catch {
-            'ERROR'
-        }
-    " 2>/dev/null | tr -d '\r\n')
-    
-    # If result is empty or ERROR, return NOT_AVAILABLE
-    if [ -z "$result" ] || [ "$result" = "ERROR" ]; then
-        echo "NOT_AVAILABLE"
-        return 1
-    fi
-    
-    echo "$result"
-}
-
-# Check if Hyper-V firewall rule exists for CDP port
-check_hyperv_cdp_rule() {
-    local port="$1"
-    local result
-    result=$(run_ps "
-        \$ErrorActionPreference = 'Stop'
-        try {
-            \$rule = Get-NetFirewallHyperVRule -VMCreatorId '$WSL_VMCREATOR_ID' -ErrorAction Stop | 
-                Where-Object { \$_.Direction -eq 'Inbound' -and \$_.LocalPorts -eq '$port' -and \$_.Action -eq 'Allow' -and \$_.Enabled }
-            if (\$rule) { 'EXISTS' } else { 'NOT_FOUND' }
-        } catch {
-            'ERROR'
-        }
-    " 2>/dev/null | tr -d '\r\n')
-    
-    # If result is empty or ERROR, return ERROR
-    if [ -z "$result" ] || [ "$result" = "ERROR" ]; then
-        echo "ERROR"
-        return 1
-    fi
-    
-    echo "$result"
 }
 
 # Check if WSL2 mirrored networking mode is enabled
@@ -349,7 +300,7 @@ run_diagnose() {
     echo ""
     
     # Check 1: Is Chrome process running on Windows?
-    echo "[1/8] Chrome process on Windows..."
+    echo "[1/5] Chrome process on Windows..."
     local chrome_running
     chrome_running=$(run_ps "
         \$ErrorActionPreference = 'Stop'
@@ -370,7 +321,7 @@ run_diagnose() {
     
     # Check 2: Is port listening on Windows localhost?
     echo ""
-    echo "[2/8] Port $port listening on Windows..."
+    echo "[2/5] Port $port listening on Windows..."
     local port_listening
     port_listening=$(run_ps "
         \$ErrorActionPreference = 'Stop'
@@ -391,7 +342,7 @@ run_diagnose() {
     
     # Check 3: Can we reach localhost:port from Windows?
     echo ""
-    echo "[3/8] CDP endpoint on Windows localhost..."
+    echo "[3/5] CDP endpoint on Windows localhost..."
     local win_cdp
     win_cdp=$(run_ps "
         \$ErrorActionPreference = 'Stop'
@@ -414,109 +365,24 @@ run_diagnose() {
         echo "  Windows localhost: $win_cdp"
     fi
     
-    # Check 4: Port proxy configuration
+    # Check 4: Mirrored networking mode
     echo ""
-    echo "[4/8] Port proxy configuration..."
-    local proxy_config
-    proxy_config=$(run_ps "
-        \$ErrorActionPreference = 'Stop'
-        try {
-            netsh interface portproxy show v4tov4 | Select-String '$port' -ErrorAction SilentlyContinue
-        } catch {
-            # Return empty on error
-            ''
-        }
-    " 2>/dev/null | tr -d '\r')
-    
-    local proxy_status="NOT_CONFIGURED"
-    if [ -z "$proxy_config" ]; then
-        # Check if this was an error or just not configured
-        local check_result
-        check_result=$(run_ps "
-            \$ErrorActionPreference = 'Stop'
-            try {
-                netsh interface portproxy show v4tov4 -ErrorAction Stop | Out-Null
-                'OK'
-            } catch {
-                'ERROR'
-            }
-        " 2>/dev/null | tr -d '\r\n')
-        
-        if [ -z "$check_result" ] || [ "$check_result" = "ERROR" ]; then
-            echo "  Port proxy: ERROR (unable to check)"
-            proxy_status="ERROR"
-        else
-            echo "  Port proxy: NOT_CONFIGURED"
-            proxy_status="NOT_CONFIGURED"
-        fi
-    else
-        echo "  Port proxy: CONFIGURED"
-        echo "  $proxy_config"
-        proxy_status="CONFIGURED"
-    fi
-    
-    # Check 5: Hyper-V firewall status (WSL2 2.x feature)
-    echo ""
-    echo "[5/8] Hyper-V firewall (WSL2 2.x)..."
-    local hv_status
-    hv_status=$(check_hyperv_firewall)
-    echo "  Hyper-V firewall: $hv_status"
-    
-    local hv_rule_status="N/A"
-    if [ "$hv_status" = "ENABLED" ]; then
-        hv_rule_status=$(check_hyperv_cdp_rule "$port")
-        echo "  CDP rule: $hv_rule_status"
-    fi
-    
-    # Check 6: Mirrored networking mode
-    echo ""
-    echo "[6/8] Mirrored networking mode..."
+    echo "[4/5] Mirrored networking mode..."
     local mirrored_status
     mirrored_status=$(check_mirrored_mode)
     echo "  Status: $mirrored_status"
     
-    # Check 7: Standard Windows firewall rule
+    # Check 5: Can WSL reach Chrome?
     echo ""
-    echo "[7/8] Windows Defender firewall rule..."
-    local win_fw_rule
-    win_fw_rule=$(run_ps "
-        \$ErrorActionPreference = 'Stop'
-        try {
-            \$rule = Get-NetFirewallRule -DisplayName '*Chrome*WSL*' -ErrorAction SilentlyContinue | 
-                Where-Object { \$_.Enabled -eq 'True' -and \$_.Direction -eq 'Inbound' }
-            if (\$rule) { 'EXISTS' } else { 'NOT_FOUND' }
-        } catch {
-            'ERROR'
-        }
-    " 2>/dev/null | tr -d '\r\n')
-    
-    if [ -z "$win_fw_rule" ] || [ "$win_fw_rule" = "ERROR" ]; then
-        echo "  Firewall rule: ERROR (unable to check)"
-        win_fw_rule="ERROR"
-    else
-        echo "  Firewall rule: $win_fw_rule"
-    fi
-    
-    # Check 8: Can WSL reach Chrome?
-    echo ""
-    echo "[8/8] WSL → Chrome connectivity..."
+    echo "[5/5] WSL → Chrome connectivity..."
     local localhost_ok="no"
-    local gateway_ok="no"
     
-    # Try localhost first (works with mirrored mode)
+    # With mirrored mode, localhost should work directly
     if curl -s --connect-timeout 2 "http://localhost:$port/json/version" > /dev/null 2>&1; then
         echo "  localhost: OK"
         localhost_ok="yes"
     else
         echo "  localhost: FAILED"
-    fi
-    
-    # Try gateway (works with port proxy)
-    if curl -s --connect-timeout 2 "http://$wsl_gateway:$port/json/version" > /dev/null 2>&1; then
-        echo "  Gateway ($wsl_gateway): OK"
-        gateway_ok="yes"
-    else
-        echo "  Gateway ($wsl_gateway): FAILED"
     fi
     
     # Summary and recommendations
@@ -525,23 +391,14 @@ run_diagnose() {
     
     # Check for diagnostic errors first
     local has_errors="no"
-    if [ "$chrome_running" = "ERROR" ] || [ "$port_listening" = "ERROR" ] || [ "$win_cdp" = "ERROR" ] || \
-       [ "$win_fw_rule" = "ERROR" ] || [ "$mirrored_status" = "ERROR" ] || \
-       [ "$hv_status" = "NOT_AVAILABLE" ] || [ "$hv_rule_status" = "ERROR" ] || [ "$proxy_status" = "ERROR" ]; then
+    if [ "$chrome_running" = "ERROR" ] || [ "$port_listening" = "ERROR" ] || [ "$win_cdp" = "ERROR" ] || [ "$mirrored_status" = "ERROR" ]; then
         has_errors="yes"
     fi
     
     if [ "$has_errors" = "yes" ]; then
         echo "✗ Diagnostic checks failed (PowerShell errors encountered)."
         echo ""
-        echo "Some diagnostic checks could not be completed due to errors."
-        echo "This may indicate:"
-        echo "  - Insufficient permissions to run PowerShell commands"
-        echo "  - PowerShell execution errors"
-        echo "  - System configuration issues"
-        echo ""
         echo "Please check the error messages above and ensure:"
-        echo "  - You have necessary permissions"
         echo "  - PowerShell is functioning correctly"
         echo "  - WSL2 is properly configured"
         return 1
@@ -555,43 +412,21 @@ run_diagnose() {
     elif [ "$win_cdp" = "NOT_REACHABLE" ]; then
         echo "✗ Port is listening but CDP not responding."
         echo "  → Chrome may have crashed. Restart it."
-    elif [ "$localhost_ok" = "yes" ] || [ "$gateway_ok" = "yes" ]; then
+    elif [ "$localhost_ok" = "yes" ]; then
         echo "✓ All checks passed! CDP is accessible."
-        if [ "$localhost_ok" = "yes" ]; then
-            echo "  Connect via: localhost:$port"
-        else
-            echo "  Connect via: $wsl_gateway:$port"
-        fi
+        echo "  Connect via: localhost:$port"
     else
         echo "✗ WSL cannot reach Chrome on Windows."
         echo ""
         
-        if [ "$hv_status" = "ENABLED" ] && [ "$mirrored_status" != "ENABLED" ]; then
-            echo "ROOT CAUSE: WSL2 2.x Hyper-V firewall blocks port proxy."
-            echo ""
-            echo "RECOMMENDED: Enable mirrored networking mode"
-            echo "  - Allows localhost to work directly"
-            echo "  - No port proxy needed"
-            echo "  - All firewalls remain active"
+        if [ "$mirrored_status" != "ENABLED" ]; then
+            echo "SOLUTION: Enable mirrored networking mode"
+            echo "  → Run: ./scripts/chrome.sh fix"
         else
-            # Legacy issues
-            local issues=""
-            if [ "$proxy_status" = "NOT_CONFIGURED" ] && [ "$mirrored_status" != "ENABLED" ]; then
-                issues+="  - Port proxy not configured\n"
-            fi
-            if [ "$win_fw_rule" = "NOT_FOUND" ]; then
-                issues+="  - Windows Defender firewall rule missing\n"
-            fi
-            
-            if [ -n "$issues" ]; then
-                echo "Issues detected:"
-                echo -e "$issues"
-            fi
+            echo "Mirrored mode is enabled but connection failed."
+            echo "  → Try: wsl.exe --shutdown"
+            echo "  → Then reopen your WSL terminal"
         fi
-        
-        echo ""
-        echo "→ Run: ./scripts/chrome.sh fix"
-        echo "  This will show how to fix the issue."
     fi
 }
 
@@ -608,18 +443,14 @@ run_fix() {
     echo ""
     
     # Check current status
-    echo "[1/3] Checking current configuration..."
-    
-    local hv_status
-    hv_status=$(check_hyperv_firewall)
-    echo "  Hyper-V firewall: $hv_status"
+    echo "[1/2] Checking mirrored networking mode..."
     
     local mirrored_status
     mirrored_status=$(check_mirrored_mode)
-    echo "  Mirrored networking: $mirrored_status"
+    echo "  Status: $mirrored_status"
     
-    # Check for errors in status checks
-    if [ "$mirrored_status" = "ERROR" ] || [ "$hv_status" = "ERROR" ]; then
+    # Check for errors in status check
+    if [ "$mirrored_status" = "ERROR" ]; then
         echo ""
         echo "✗ Unable to check configuration (PowerShell errors)."
         echo "  → Check PowerShell permissions and system configuration"
@@ -629,7 +460,7 @@ run_fix() {
     # If mirrored mode is enabled, just verify it works
     if [ "$mirrored_status" = "ENABLED" ]; then
         echo ""
-        echo "[2/3] Mirrored mode is enabled. Testing connection..."
+        echo "[2/2] Mirrored mode is enabled. Testing connection..."
         if curl -s --connect-timeout 2 "http://localhost:$port/json/version" > /dev/null 2>&1; then
             echo "  ✓ Connection OK via localhost"
             echo ""
@@ -646,19 +477,12 @@ run_fix() {
     fi
     
     echo ""
-    echo "[2/3] Analyzing the issue..."
+    echo "[2/2] Mirrored mode not enabled. Here's how to fix it:"
     echo ""
-    
-    echo "  Mirrored networking mode is required for WSL2 2.x."
-    echo ""
-    echo "  RECOMMENDED SOLUTION: Enable mirrored networking mode"
+    echo "  Benefits of mirrored networking mode:"
     echo "  - WSL and Windows share the same network stack"
     echo "  - localhost works directly (no port proxy needed)"
     echo "  - Chrome stays bound to 127.0.0.1 (secure)"
-    echo "  - All firewalls remain active"
-    
-    echo ""
-    echo "[3/3] Generating fix..."
     echo ""
     
     # Get current .wslconfig content
