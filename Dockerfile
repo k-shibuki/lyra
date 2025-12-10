@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # curl/wget for downloads
     curl \
     wget \
+    # Editor for development
+    vim \
     gnupg \
     # For Playwright
     libnss3 \
@@ -67,8 +69,9 @@ WORKDIR /app
 # Copy requirements first for caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (including dev tools)
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir ipython pytest-watch
 
 # Install Playwright browsers
 RUN playwright install chromium --with-deps
@@ -96,7 +99,5 @@ RUN pip install --no-cache-dir \
     torch --index-url https://download.pytorch.org/whl/cu121 || \
     pip install --no-cache-dir torch
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "from src.utils.config import get_settings; print('OK')" || exit 1
+# Note: HEALTHCHECK removed - not supported by Podman OCI format
 

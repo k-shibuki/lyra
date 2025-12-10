@@ -62,7 +62,7 @@ case "${1:-help}" in
     shell)
         echo "Entering development shell..."
         # Build dev image if not exists
-        podman build -t lancet-dev:latest -f Dockerfile.dev .
+        podman build -t lancet-dev:latest -f Dockerfile .
         
         # Load environment from .env if exists, otherwise use defaults
         ENV_OPTS=""
@@ -81,6 +81,7 @@ case "${1:-help}" in
             -v "$PROJECT_DIR/logs:/app/logs:rw" \
             -v "$PROJECT_DIR/tests:/app/tests:rw" \
             --network lancet_lancet-net \
+            --network lancet_lancet-llm-internal \
             $ENV_OPTS \
             --name lancet-dev \
             lancet-dev:latest \
