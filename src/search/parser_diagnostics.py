@@ -60,6 +60,69 @@ def _sanitize_for_yaml_comment(text: str, max_length: int = 50) -> str:
     return sanitized
 
 
+def _escape_css_attribute_value(value: str) -> str:
+    """
+    Escape a value for use in CSS attribute selector.
+    
+    CSS attribute selector rules:
+    - If value contains single quotes, use double quotes and escape double quotes
+    - If value contains double quotes, use single quotes and escape single quotes
+    - If value contains both, escape appropriately and use double quotes
+    
+    Args:
+        value: Attribute value to escape.
+        
+    Returns:
+        Escaped value safe for CSS attribute selector (with quotes).
+    """
+    if not value:
+        return "''"
+    
+    # If contains single quotes but not double quotes, use double quotes
+    if "'" in value and '"' not in value:
+        escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+        return f'"{escaped}"'
+    
+    # If contains double quotes but not single quotes, use single quotes
+    if '"' in value and "'" not in value:
+        escaped = value.replace('\\', '\\\\').replace("'", "\\'")
+        return f"'{escaped}'"
+    
+    # If contains both or neither, prefer single quotes and escape single quotes
+    escaped = value.replace('\\', '\\\\').replace("'", "\\'")
+    return f"'{escaped}'"
+
+
+def _escape_css_id(id_value: str) -> str:
+    """
+    Escape an ID value for use in CSS ID selector (#id).
+    
+    CSS ID selector rules:
+    - Special characters need to be escaped with backslash
+    - Common special chars: space, ., #, :, [, ], (, ), etc.
+    
+    Args:
+        id_value: ID value to escape.
+        
+    Returns:
+        Escaped ID safe for CSS ID selector.
+    """
+    if not id_value:
+        return ""
+    
+    # Escape special characters according to CSS spec
+    # See: https://www.w3.org/TR/CSS21/syndata.html#value-def-identifier
+    special_chars = r' !"#$%&\'()*+,./:;<=>?@[\\]^`{|}~'
+    escaped = ""
+    for char in id_value:
+        if char in special_chars:
+            escaped += f"\\{char}"
+        else:
+            escaped += char
+    
+    return escaped
+
+
 # =============================================================================
 # Data Classes
 # =============================================================================
@@ -234,13 +297,36 @@ class HTMLAnalyzer:
         text_lower = text.lower()
         return any(re.search(p, text_lower) for p in patterns)
     
+    def _safe_select(self, selector: str, context: BeautifulSoup | Tag | None = None) -> list[Tag]:
+        """
+        Safely execute select() with exception handling.
+        
+        Args:
+            selector: CSS selector string.
+            context: Element to search within (defaults to self.soup).
+            
+        Returns:
+            List of matching elements, or empty list on error.
+        """
+        target = context if context is not None else self.soup
+        try:
+            return target.select(selector)
+        except Exception as e:
+            logger.debug(
+                "CSS selector failed",
+                selector=selector,
+                error=str(e),
+            )
+            return []
+    
     def _build_selector(self, elem: Tag) -> str:
         """Build a CSS selector for an element."""
         selectors = []
         
         # Prefer ID (unique, so early return is fine)
         if elem.get("id"):
-            return f"#{elem['id']}"
+            escaped_id = _escape_css_id(elem["id"])
+            return f"#{escaped_id}"
         
         # Use tag name
         selectors.append(elem.name)
@@ -255,12 +341,15 @@ class HTMLAnalyzer:
                 key=lambda c: (class_counts.get(c, 999), -len(c)),
             )
             if sorted_classes:
-                selectors.append(f".{sorted_classes[0]}")
+                # Escape dots in class names (rare but possible)
+                class_name = sorted_classes[0].replace(".", "\\.")
+                selectors.append(f".{class_name}")
         
         # Add data-testid if present (combine with tag+class for specificity)
         test_id = elem.get("data-testid")
         if test_id:
-            selectors.append(f"[data-testid='{test_id}']")
+            escaped_testid = _escape_css_attribute_value(test_id)
+            selectors.append(f"[data-testid={escaped_testid}]")
         
         return "".join(selectors)
     
@@ -286,7 +375,7 @@ class HTMLAnalyzer:
                 selector = self._build_selector(elem)
                 
                 # Count similar elements
-                similar = self.soup.select(selector)
+                similar = self._safe_select(selector)
                 count = len(similar)
                 
                 # Higher confidence if multiple occurrences (search results repeat)
@@ -305,8 +394,9 @@ class HTMLAnalyzer:
         for elem in self.soup.find_all(attrs={"data-testid": True}):
             test_id = elem["data-testid"]
             if self._matches_patterns(test_id, self.RESULT_CONTAINER_PATTERNS):
-                selector = f"[data-testid='{test_id}']"
-                similar = self.soup.select(selector)
+                escaped_testid = _escape_css_attribute_value(test_id)
+                selector = f"[data-testid={escaped_testid}]"
+                similar = self._safe_select(selector)
                 
                 candidates.append(CandidateElement(
                     tag=elem.name,
@@ -353,7 +443,7 @@ class HTMLAnalyzer:
         # Search context
         context = self.soup
         if container_selector:
-            containers = self.soup.select(container_selector)
+            containers = self._safe_select(container_selector)
             if containers:
                 context = containers[0]
         
@@ -386,7 +476,7 @@ class HTMLAnalyzer:
                     tag=elem.name,
                     selector=selector,
                     sample_text=self._get_sample_text(elem),
-                    occurrence_count=len(context.select(selector)),
+                    occurrence_count=len(self._safe_select(selector, context)),
                     confidence=0.7,
                     reason=f"Class matches title pattern: {class_str}",
                 ))
@@ -407,7 +497,7 @@ class HTMLAnalyzer:
         
         context = self.soup
         if container_selector:
-            containers = self.soup.select(container_selector)
+            containers = self._safe_select(container_selector)
             if containers:
                 context = containers[0]
         
@@ -421,7 +511,7 @@ class HTMLAnalyzer:
                     tag="p",
                     selector=selector,
                     sample_text=text[:100],
-                    occurrence_count=len(context.select(selector)),
+                    occurrence_count=len(self._safe_select(selector, context)),
                     confidence=0.6,
                     reason="Paragraph with snippet-length text",
                 ))
@@ -440,7 +530,7 @@ class HTMLAnalyzer:
                         tag=elem.name,
                         selector=selector,
                         sample_text=text,
-                        occurrence_count=len(context.select(selector)),
+                        occurrence_count=len(self._safe_select(selector, context)),
                         confidence=0.75,
                         reason=f"Class matches snippet pattern: {class_str}",
                     ))
@@ -461,7 +551,7 @@ class HTMLAnalyzer:
         
         context = self.soup
         if container_selector:
-            containers = self.soup.select(container_selector)
+            containers = self._safe_select(container_selector)
             if containers:
                 context = containers[0]
         
@@ -475,7 +565,7 @@ class HTMLAnalyzer:
                     tag="a",
                     selector=selector,
                     sample_text=href[:100],
-                    occurrence_count=len(context.select(selector)),
+                    occurrence_count=len(self._safe_select(selector, context)),
                     confidence=0.7,
                     reason="Link with external URL",
                 ))
@@ -492,7 +582,7 @@ class HTMLAnalyzer:
                     tag=elem.name,
                     selector=selector,
                     sample_text=self._get_sample_text(elem),
-                    occurrence_count=len(context.select(selector)),
+                    occurrence_count=len(self._safe_select(selector, context)),
                     confidence=0.65,
                     reason=f"Class matches URL pattern: {class_str}",
                 ))
@@ -618,63 +708,84 @@ def create_diagnostic_report(
         
     Returns:
         ParserDiagnosticReport with analysis and suggestions.
+        Returns a minimal report with error info if analysis fails.
     """
-    analyzer = HTMLAnalyzer(html)
+    try:
+        analyzer = HTMLAnalyzer(html)
+        
+        # Get HTML summary
+        html_summary = analyzer.get_html_summary()
+        
+        # Find candidate elements for each type
+        container_candidates = analyzer.find_result_containers()
+        
+        # Use top container for searching within
+        top_container = container_candidates[0].selector if container_candidates else None
+        
+        title_candidates = analyzer.find_title_elements(top_container)
+        snippet_candidates = analyzer.find_snippet_elements(top_container)
+        url_candidates = analyzer.find_url_elements(top_container)
+        
+        # Collect all candidates
+        all_candidates = (
+            container_candidates[:3] +
+            title_candidates[:2] +
+            url_candidates[:2] +
+            snippet_candidates[:2]
+        )
+        
+        # Generate YAML fixes
+        candidates_by_type = {
+            "container": container_candidates,
+            "title": title_candidates,
+            "url": url_candidates,
+            "snippet": snippet_candidates,
+        }
+        
+        suggested_fixes = generate_multiple_yaml_fixes(
+            failed_selectors,
+            candidates_by_type,
+            engine,
+        )
+        
+        report = ParserDiagnosticReport(
+            engine=engine,
+            query=query,
+            failed_selectors=failed_selectors,
+            candidate_elements=all_candidates,
+            suggested_fixes=suggested_fixes,
+            html_path=html_path,
+            html_summary=html_summary,
+        )
+        
+        logger.info(
+            "Parser diagnostic report created",
+            engine=engine,
+            failed_count=len(failed_selectors),
+            candidate_count=len(all_candidates),
+            suggestion_count=len(suggested_fixes),
+        )
+        
+        return report
     
-    # Get HTML summary
-    html_summary = analyzer.get_html_summary()
-    
-    # Find candidate elements for each type
-    container_candidates = analyzer.find_result_containers()
-    
-    # Use top container for searching within
-    top_container = container_candidates[0].selector if container_candidates else None
-    
-    title_candidates = analyzer.find_title_elements(top_container)
-    snippet_candidates = analyzer.find_snippet_elements(top_container)
-    url_candidates = analyzer.find_url_elements(top_container)
-    
-    # Collect all candidates
-    all_candidates = (
-        container_candidates[:3] +
-        title_candidates[:2] +
-        url_candidates[:2] +
-        snippet_candidates[:2]
-    )
-    
-    # Generate YAML fixes
-    candidates_by_type = {
-        "container": container_candidates,
-        "title": title_candidates,
-        "url": url_candidates,
-        "snippet": snippet_candidates,
-    }
-    
-    suggested_fixes = generate_multiple_yaml_fixes(
-        failed_selectors,
-        candidates_by_type,
-        engine,
-    )
-    
-    report = ParserDiagnosticReport(
-        engine=engine,
-        query=query,
-        failed_selectors=failed_selectors,
-        candidate_elements=all_candidates,
-        suggested_fixes=suggested_fixes,
-        html_path=html_path,
-        html_summary=html_summary,
-    )
-    
-    logger.info(
-        "Parser diagnostic report created",
-        engine=engine,
-        failed_count=len(failed_selectors),
-        candidate_count=len(all_candidates),
-        suggestion_count=len(suggested_fixes),
-    )
-    
-    return report
+    except Exception as e:
+        # Log the error and return a minimal report
+        logger.error(
+            "Failed to create diagnostic report",
+            engine=engine,
+            error=str(e),
+        )
+        
+        # Return minimal report with error info
+        return ParserDiagnosticReport(
+            engine=engine,
+            query=query,
+            failed_selectors=failed_selectors,
+            candidate_elements=[],
+            suggested_fixes=[],
+            html_path=html_path,
+            html_summary={"error": str(e)},
+        )
 
 
 def get_latest_debug_html(engine: str | None = None) -> Path | None:
