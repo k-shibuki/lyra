@@ -87,13 +87,14 @@ start_chrome_wsl() {
     local lancet_data_dir='$env:LOCALAPPDATA\LancetChrome'
     
     # Start Chrome with separate profile via PowerShell
+    # Note: Bind to 127.0.0.1 only for security. WSL2 access requires port proxy.
     powershell.exe -Command "
         \$dataDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LancetChrome'
         if (-not (Test-Path \$dataDir)) { New-Item -ItemType Directory -Path \$dataDir -Force | Out-Null }
         
         Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList @(
             '--remote-debugging-port=$port',
-            '--remote-debugging-address=0.0.0.0',
+            '--remote-debugging-address=127.0.0.1',
             \"--user-data-dir=\$dataDir\",
             '--no-first-run',
             '--no-default-browser-check',
@@ -240,16 +241,22 @@ run_setup() {
     local wsl_gateway
     wsl_gateway=$(get_windows_host)
     
-    echo "=== Lancet Chrome Setup ==="
+    echo "=== Lancet Chrome Setup (WSL2) ==="
+    echo ""
+    echo "SECURITY NOTE:"
+    echo "  Chrome binds to 127.0.0.1 only (not exposed to LAN)."
+    echo "  Port proxy forwards WSL2 traffic to localhost."
     echo ""
     echo "This setup requires Administrator privileges."
     echo "Run the following in an Admin PowerShell:"
     echo ""
-    echo "# Port proxy (allows WSL to connect to Windows Chrome)"
+    echo "# 1. Port proxy (REQUIRED for WSL2 access)"
     echo "netsh interface portproxy add v4tov4 listenaddress=$wsl_gateway listenport=$port connectaddress=127.0.0.1 connectport=$port"
     echo ""
-    echo "# Firewall rule"
-    echo "New-NetFirewallRule -DisplayName 'Chrome Debug WSL' -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow"
+    echo "# 2. Firewall rule (allows WSL2 subnet only)"
+    echo "New-NetFirewallRule -DisplayName 'Chrome Debug WSL' -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -RemoteAddress 172.16.0.0/12"
+    echo ""
+    echo "WARNING: Do NOT use -RemoteAddress Any. This limits access to WSL2 subnet."
     echo ""
     echo "After running these commands, use: ./scripts/chrome.sh start"
 }

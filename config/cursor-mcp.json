@@ -8,8 +8,7 @@
         "lancet",
         "python",
         "-m",
-        "src.main",
-        "mcp"
+        "src.mcp.server"
       ]
     }
   }

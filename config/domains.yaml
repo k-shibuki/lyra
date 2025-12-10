@@ -139,7 +139,7 @@ graylist:
     
   # Tech blogs (variable quality)
   - domain_pattern: "*.medium.com"
-    trust_level: "unknown"
+    trust_level: "unverified"
     qps: 0.1
     
   # Social media (skip by default)
