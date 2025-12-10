@@ -26,6 +26,14 @@ COMPOSE="podman-compose"
 
 case "${1:-help}" in
     up)
+        # Check for .env file (required for container networking)
+        if [ ! -f "$PROJECT_DIR/.env" ]; then
+            echo "Error: .env file not found"
+            echo "Copy from template: cp .env.example .env"
+            echo "Then edit LANCET_BROWSER__CHROME_HOST with your WSL2 gateway IP"
+            exit 1
+        fi
+        
         echo "Starting Lancet development environment..."
         $COMPOSE up -d
         echo ""
@@ -56,10 +64,14 @@ case "${1:-help}" in
         # Build dev image if not exists
         podman build -t lancet-dev:latest -f Dockerfile.dev .
         
-        # Load environment from .env if exists
+        # Load environment from .env if exists, otherwise use defaults
         ENV_OPTS=""
         if [ -f "$PROJECT_DIR/.env" ]; then
             ENV_OPTS="--env-file $PROJECT_DIR/.env"
+        else
+            echo "Warning: .env not found, using default environment variables"
+            # Fallback defaults for container networking
+            ENV_OPTS="-e LANCET_TOR__SOCKS_HOST=tor -e LANCET_TOR__SOCKS_PORT=9050 -e LANCET_LLM__OLLAMA_HOST=http://ollama:11434"
         fi
         
         podman run -it --rm \
