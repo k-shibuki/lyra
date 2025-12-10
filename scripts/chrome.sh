@@ -428,6 +428,7 @@ run_diagnose() {
         }
     " 2>/dev/null | tr -d '\r')
     
+    local proxy_status="NOT_CONFIGURED"
     if [ -z "$proxy_config" ]; then
         # Check if this was an error or just not configured
         local check_result
@@ -441,14 +442,17 @@ run_diagnose() {
             }
         " 2>/dev/null | tr -d '\r\n')
         
-        if [ "$check_result" = "ERROR" ]; then
+        if [ -z "$check_result" ] || [ "$check_result" = "ERROR" ]; then
             echo "  Port proxy: ERROR (unable to check)"
+            proxy_status="ERROR"
         else
             echo "  Port proxy: NOT_CONFIGURED"
+            proxy_status="NOT_CONFIGURED"
         fi
     else
         echo "  Port proxy: CONFIGURED"
         echo "  $proxy_config"
+        proxy_status="CONFIGURED"
     fi
     
     # Check 5: Hyper-V firewall status (WSL2 2.x feature)
@@ -521,7 +525,9 @@ run_diagnose() {
     
     # Check for diagnostic errors first
     local has_errors="no"
-    if [ "$chrome_running" = "ERROR" ] || [ "$port_listening" = "ERROR" ] || [ "$win_cdp" = "ERROR" ] || [ "$win_fw_rule" = "ERROR" ]; then
+    if [ "$chrome_running" = "ERROR" ] || [ "$port_listening" = "ERROR" ] || [ "$win_cdp" = "ERROR" ] || \
+       [ "$win_fw_rule" = "ERROR" ] || [ "$mirrored_status" = "ERROR" ] || \
+       [ "$hv_status" = "NOT_AVAILABLE" ] || [ "$hv_rule_status" = "ERROR" ] || [ "$proxy_status" = "ERROR" ]; then
         has_errors="yes"
     fi
     
@@ -570,7 +576,7 @@ run_diagnose() {
         else
             # Legacy issues
             local issues=""
-            if [ -z "$proxy_config" ] && [ "$mirrored_status" != "ENABLED" ]; then
+            if [ "$proxy_status" = "NOT_CONFIGURED" ] && [ "$mirrored_status" != "ENABLED" ]; then
                 issues+="  - Port proxy not configured\n"
             fi
             if [ "$win_fw_rule" = "NOT_FOUND" ]; then
