@@ -204,7 +204,7 @@ class HTMLAnalyzer:
         """Build a CSS selector for an element."""
         selectors = []
         
-        # Prefer ID
+        # Prefer ID (unique, so early return is fine)
         if elem.get("id"):
             return f"#{elem['id']}"
         
@@ -223,10 +223,10 @@ class HTMLAnalyzer:
             if sorted_classes:
                 selectors.append(f".{sorted_classes[0]}")
         
-        # Add data-testid if present
+        # Add data-testid if present (combine with tag+class for specificity)
         test_id = elem.get("data-testid")
         if test_id:
-            return f"[data-testid='{test_id}']"
+            selectors.append(f"[data-testid='{test_id}']")
         
         return "".join(selectors)
     
