@@ -167,7 +167,7 @@ class EnvironmentVerifier:
                         critical=False,  # Allow other checks to continue
                     )
                 
-                if not provider._cdp_connected or not provider._browser:
+                if not provider._browser or not provider._browser.is_connected():
                     return VerificationResult(
                         name="Chrome CDP Connection",
                         spec_ref="§3.2",
