@@ -1740,11 +1740,11 @@ class CalibrationEvaluator:
         self._db = db
         self._calibrator = get_calibrator()
     
-    def _get_db(self) -> Any:
+    async def _get_db(self) -> Any:
         """Get database connection."""
         if self._db is not None:
             return self._db
-        return get_database()
+        return await get_database()
     
     def _generate_id(self) -> str:
         """Generate unique evaluation ID."""
@@ -1857,7 +1857,7 @@ class CalibrationEvaluator:
         )
         db.commit()
     
-    def get_evaluations(
+    async def get_evaluations(
         self,
         source: str | None = None,
         limit: int = 50,
@@ -1873,7 +1873,7 @@ class CalibrationEvaluator:
         Returns:
             List of CalibrationEvaluations (most recent first).
         """
-        db = self._get_db()
+        db = await self._get_db()
         
         query = "SELECT * FROM calibration_evaluations WHERE 1=1"
         params: list[Any] = []
@@ -1898,7 +1898,7 @@ class CalibrationEvaluator:
         
         return evaluations
     
-    def get_latest_evaluation(self, source: str) -> CalibrationEvaluation | None:
+    async def get_latest_evaluation(self, source: str) -> CalibrationEvaluation | None:
         """Get most recent evaluation for a source.
         
         Args:
@@ -1907,7 +1907,7 @@ class CalibrationEvaluator:
         Returns:
             Latest CalibrationEvaluation or None.
         """
-        evaluations = self.get_evaluations(source=source, limit=1)
+        evaluations = await self.get_evaluations(source=source, limit=1)
         return evaluations[0] if evaluations else None
     
     def get_evaluation_by_id(self, evaluation_id: str) -> CalibrationEvaluation | None:
@@ -1980,7 +1980,7 @@ class CalibrationEvaluator:
             created_at=created_at,
         )
     
-    def get_reliability_diagram_data(
+    async def get_reliability_diagram_data(
         self,
         source: str,
         evaluation_id: str | None = None,
@@ -1997,7 +1997,7 @@ class CalibrationEvaluator:
         if evaluation_id:
             evaluation = self.get_evaluation_by_id(evaluation_id)
         else:
-            evaluation = self.get_latest_evaluation(source)
+            evaluation = await self.get_latest_evaluation(source)
         
         if evaluation is None:
             return {
@@ -2018,7 +2018,7 @@ class CalibrationEvaluator:
             "evaluated_at": evaluation.evaluated_at.isoformat(),
         }
     
-    def count_evaluations(self, source: str | None = None) -> int:
+    async def count_evaluations(self, source: str | None = None) -> int:
         """Count evaluations.
         
         Args:
@@ -2027,7 +2027,7 @@ class CalibrationEvaluator:
         Returns:
             Count of evaluations.
         """
-        db = self._get_db()
+        db = await self._get_db()
         
         if source is not None:
             cursor = db.execute(
@@ -2109,13 +2109,13 @@ async def get_calibration_evaluations(
     if since is not None:
         since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
     
-    evaluations = evaluator.get_evaluations(
+    evaluations = await evaluator.get_evaluations(
         source=source,
         limit=limit,
         since=since_dt,
     )
     
-    total_count = evaluator.count_evaluations(source)
+    total_count = await evaluator.count_evaluations(source)
     
     return {
         "ok": True,
@@ -2144,7 +2144,7 @@ async def get_reliability_diagram_data(
     """
     evaluator = get_calibration_evaluator()
     
-    return evaluator.get_reliability_diagram_data(source, evaluation_id)
+    return await evaluator.get_reliability_diagram_data(source, evaluation_id)
 
 
 # =============================================================================
