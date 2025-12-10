@@ -283,7 +283,7 @@ class TestABTestExecutor:
     async def test_run_ab_test_basic(self, mock_db, mock_search):
         """Test basic A/B test execution (TC-ABE-N-02)."""
         # Given: Mock database and search function
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.search.search_serp", mock_search):
                 executor = ABTestExecutor()
                 
@@ -312,7 +312,7 @@ class TestABTestExecutor:
                 return [{"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(5)]
             return [{"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(8)]
         
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.search.search_serp", _search):
                 executor = ABTestExecutor()
                 
@@ -331,7 +331,7 @@ class TestABTestExecutor:
     async def test_run_ab_test_saves_session(self, mock_db, mock_search):
         """Test that session is saved to database (TC-ABE-N-04)."""
         # Given: Mock database and search
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.search.search_serp", mock_search):
                 executor = ABTestExecutor()
                 
@@ -430,7 +430,7 @@ class TestHighYieldQueryCache:
     async def test_get_improved_query_no_patterns(self, mock_db):
         """Test getting improved query when no patterns exist (TC-HYC-B-02)."""
         # Given: Empty cache
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             cache = HighYieldQueryCache()
             
             # When: Getting improved query
@@ -453,7 +453,7 @@ class TestHighYieldQueryCache:
             }
         ]
         
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             cache = HighYieldQueryCache()
             
             # When: Getting improved query
@@ -474,7 +474,7 @@ class TestHighYieldQueryCache:
             "total_samples": 0,
         }
         
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             cache = HighYieldQueryCache()
             
             # When: Getting stats
@@ -577,7 +577,7 @@ class TestABTestIntegration:
                     return results_by_query[key]
             return results_by_query["default"]
         
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.search.search_serp", _search):
                 from src.search.ab_test import run_query_ab_test
                 
@@ -599,7 +599,7 @@ class TestABTestIntegration:
         async def _search(*args, **kwargs):
             return [{"title": "Test", "url": "http://test.com", "snippet": "..."}]
         
-        with patch("src.search.ab_test.get_database", return_value=mock_db):
+        with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.search.search_serp", _search):
                 from src.search.ab_test import run_query_ab_test
                 

@@ -531,7 +531,7 @@ class TestClaimTimelineManager:
     async def test_get_timeline_creates_new_for_nonexistent_claim(self, manager, mock_db):
         """Verify get_timeline creates new timeline for non-existent claim."""
         # Given:
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
             
             # When:
@@ -557,7 +557,7 @@ class TestClaimTimelineManager:
             ],
         }
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(return_value={
                 "timeline_json": json.dumps(existing_timeline)
             })
@@ -574,7 +574,7 @@ class TestClaimTimelineManager:
     async def test_get_timeline_uses_cache(self, manager, mock_db):
         """Verify get_timeline uses cache for repeated requests."""
         # Given:
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
             
             # First call
@@ -597,7 +597,7 @@ class TestClaimTimelineManager:
         timeline = ClaimTimeline(claim_id="claim_save")
         timeline.add_event(TimelineEventType.FIRST_APPEARED, source_url="url")
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             # When:
             result = await manager.save_timeline(timeline)
             
@@ -612,7 +612,7 @@ class TestClaimTimelineManager:
     async def test_add_first_appeared_creates_event(self, manager, mock_db):
         """Verify add_first_appeared creates first_appeared event."""
         # Given:
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
             
             # When:
@@ -640,7 +640,7 @@ class TestClaimTimelineManager:
             }],
         }
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(return_value={
                 "timeline_json": json.dumps(existing)
             })
@@ -659,7 +659,7 @@ class TestClaimTimelineManager:
     async def test_add_confirmation_creates_event(self, manager, mock_db):
         """Verify add_confirmation creates confirmation event."""
         # Given:
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
             
             # When:
@@ -678,7 +678,7 @@ class TestClaimTimelineManager:
     async def test_add_retraction_creates_event_and_adjusts_confidence(self, manager, mock_db):
         """Verify add_retraction creates event and updates confidence."""
         # Given:
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(side_effect=[
                 {"timeline_json": None},  # First call for get_timeline
                 {"confidence_score": 0.9},  # Second call for confidence adjustment
@@ -716,7 +716,7 @@ class TestClaimTimelineManager:
             ],
         }
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
             
             # When:
@@ -748,7 +748,7 @@ class TestClaimTimelineManager:
             {"id": "c3", "timeline_json": None},
         ]
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             mock_db.fetch_all = AsyncMock(return_value=claims)
             
             # When:
@@ -796,7 +796,7 @@ class TestConvenienceFunctions:
         mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
         mock_db.update = AsyncMock()
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             # When:
             event = await record_first_appeared(
                 claim_id="test_claim",
@@ -815,7 +815,7 @@ class TestConvenienceFunctions:
         mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
         mock_db.update = AsyncMock()
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             # When:
             event = await record_confirmation(
                 claim_id="test_claim",
@@ -837,7 +837,7 @@ class TestConvenienceFunctions:
         ])
         mock_db.update = AsyncMock()
         
-        with patch("src.filter.claim_timeline.get_database", return_value=mock_db):
+        with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
             # When:
             event = await record_retraction(
                 claim_id="test_claim",

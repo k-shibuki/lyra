@@ -254,10 +254,9 @@ class TestReplayEngine:
         engine = ReplayEngine()
         
         # Mock database (patching at source since lazy import)
-        with patch("src.storage.database.get_database") as mock_db:
-            mock_db.return_value = AsyncMock()
-            mock_db.return_value.fetch_all = AsyncMock(return_value=[])
-            
+        mock_db_instance = AsyncMock()
+        mock_db_instance.fetch_all = AsyncMock(return_value=[])
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db_instance)):
             session = await engine.create_replay_session("original-task-1")
             
             assert session.original_task_id == "original-task-1"

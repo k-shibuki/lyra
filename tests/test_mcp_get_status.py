@@ -61,7 +61,7 @@ class TestGetStatusValidation:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = None
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with pytest.raises(TaskNotFoundError) as exc_info:
                 await _handle_get_status({"task_id": "nonexistent_task"})
         
@@ -150,7 +150,7 @@ class TestGetStatusWithExplorationState:
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
         
@@ -182,7 +182,7 @@ class TestGetStatusWithExplorationState:
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
         
@@ -231,7 +231,7 @@ class TestGetStatusWithExplorationState:
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
         
@@ -264,7 +264,7 @@ class TestGetStatusWithExplorationState:
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
         
@@ -301,7 +301,7 @@ class TestGetStatusWithoutExplorationState:
         mock_db.fetch_one.return_value = mock_task
         
         # Simulate no exploration state
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
                 "src.mcp.server._get_exploration_state",
                 side_effect=KeyError("No state"),
@@ -380,7 +380,7 @@ class TestGetStatusStatusMapping:
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration
         
-        with patch("src.mcp.server.get_database", return_value=mock_db):
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_test"})
         

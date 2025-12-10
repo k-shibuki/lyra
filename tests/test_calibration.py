@@ -1204,8 +1204,7 @@ class TestCalibrationEvaluator:
         """Create evaluator with mock database."""
         with patch("src.utils.calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
-            with patch("src.utils.calibration.get_database") as mock_get_db:
-                mock_get_db.return_value = mock_db
+            with patch("src.utils.calibration.get_database", new=AsyncMock(return_value=mock_db)):
                 return CalibrationEvaluator(db=mock_db)
     
     @pytest.mark.asyncio
