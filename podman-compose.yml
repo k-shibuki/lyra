@@ -24,14 +24,8 @@ services:
       - ./logs:/app/logs:rw
       - ./models:/app/models:rw
     environment:
+      # Fixed values only - all other settings in .env
       - LANCET_ENV=development
-      - LANCET_LOG_LEVEL=INFO
-      - OLLAMA_HOST=http://ollama:11434
-      - TOR_SOCKS_HOST=tor
-      - TOR_SOCKS_PORT=9050
-      - TOR_CONTROL_PORT=9051
-      # Chrome connection is configured via .env file:
-      # LANCET_BROWSER__CHROME_HOST=<WSL2_GATEWAY_IP>
     # Keep container running for exec access
     command: ["tail", "-f", "/dev/null"]
     stdin_open: true

@@ -56,6 +56,12 @@ case "${1:-help}" in
         # Build dev image if not exists
         podman build -t lancet-dev:latest -f Dockerfile.dev .
         
+        # Load environment from .env if exists
+        ENV_OPTS=""
+        if [ -f "$PROJECT_DIR/.env" ]; then
+            ENV_OPTS="--env-file $PROJECT_DIR/.env"
+        fi
+        
         podman run -it --rm \
             -v "$PROJECT_DIR/src:/app/src:rw" \
             -v "$PROJECT_DIR/config:/app/config:ro" \
@@ -63,7 +69,7 @@ case "${1:-help}" in
             -v "$PROJECT_DIR/logs:/app/logs:rw" \
             -v "$PROJECT_DIR/tests:/app/tests:rw" \
             --network lancet_lancet-net \
-            -e TOR_SOCKS_HOST=lancet-tor \
+            $ENV_OPTS \
             --name lancet-dev \
             lancet-dev:latest \
             /bin/bash
@@ -85,7 +91,7 @@ case "${1:-help}" in
     
     mcp)
         echo "Starting MCP server..."
-        $COMPOSE exec lancet python -m src.main mcp
+        $COMPOSE exec lancet python -m src.mcp.server
         ;;
     
     research)

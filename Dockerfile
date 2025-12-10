@@ -83,7 +83,7 @@ RUN mkdir -p data/cache data/warc data/screenshots data/reports logs models
 ENV PYTHONPATH=/app
 
 # Default command
-CMD ["python", "-m", "src.main", "mcp"]
+CMD ["python", "-m", "src.mcp.server"]
 
 # ---
 # GPU-enabled variant (for systems with NVIDIA GPU)
