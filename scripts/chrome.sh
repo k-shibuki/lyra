@@ -63,8 +63,8 @@ check_hyperv_cdp_rule() {
         }
     " 2>/dev/null | tr -d '\r\n')
     
-    # If result is empty, return ERROR
-    if [ -z "$result" ]; then
+    # If result is empty or ERROR, return ERROR
+    if [ -z "$result" ] || [ "$result" = "ERROR" ]; then
         echo "ERROR"
         return 1
     fi
@@ -94,8 +94,8 @@ check_mirrored_mode() {
         }
     " 2>/dev/null | tr -d '\r\n')
     
-    # If result is empty, return ERROR
-    if [ -z "$result" ]; then
+    # If result is empty or ERROR, return ERROR
+    if [ -z "$result" ] || [ "$result" = "ERROR" ]; then
         echo "ERROR"
         return 1
     fi
@@ -193,20 +193,35 @@ start_chrome_wsl() {
     
     # Start Chrome with separate profile via PowerShell
     # Note: Bind to 127.0.0.1 only for security. WSL2 mirrored mode allows direct localhost access.
-    run_ps "
-        \$dataDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LancetChrome'
-        if (-not (Test-Path \$dataDir)) { New-Item -ItemType Directory -Path \$dataDir -Force | Out-Null }
-        
-        Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList @(
-            '--remote-debugging-port=$port',
-            '--remote-debugging-address=127.0.0.1',
-            \"--user-data-dir=\$dataDir\",
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--disable-background-networking',
-            '--disable-sync'
-        )
-    "
+    local start_result
+    start_result=$(run_ps "
+        \$ErrorActionPreference = 'Stop'
+        try {
+            \$dataDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LancetChrome'
+            if (-not (Test-Path \$dataDir)) { New-Item -ItemType Directory -Path \$dataDir -Force | Out-Null }
+            
+            \$proc = Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList @(
+                '--remote-debugging-port=$port',
+                '--remote-debugging-address=127.0.0.1',
+                \"--user-data-dir=\$dataDir\",
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-background-networking',
+                '--disable-sync'
+            ) -PassThru -ErrorAction Stop
+            'SUCCESS'
+        } catch {
+            'ERROR'
+        }
+    " 2>/dev/null | tr -d '\r\n')
+    
+    if [ -z "$start_result" ] || [ "$start_result" = "ERROR" ]; then
+        echo "ERROR"
+        echo "Failed to start Chrome via PowerShell"
+        echo "  → Check if Chrome is installed"
+        echo "  → Check PowerShell permissions"
+        return 1
+    fi
     
     # Wait and try to connect
     echo "Waiting for Chrome..."
@@ -280,15 +295,25 @@ stop_chrome() {
     
     if [ "$ENV_TYPE" = "wsl" ]; then
         # Find process listening on debug port and kill it
-        run_ps "
-            \$conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-            if (\$conn) {
-                Stop-Process -Id \$conn.OwningProcess -Force -ErrorAction SilentlyContinue
-                'Stopped process on port $port'
-            } else {
-                'No process found on port $port'
+        local stop_result
+        stop_result=$(run_ps "
+            \$ErrorActionPreference = 'Stop'
+            try {
+                \$conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+                if (\$conn) {
+                    Stop-Process -Id \$conn.OwningProcess -Force -ErrorAction SilentlyContinue
+                    'Stopped process on port $port'
+                } else {
+                    'No process found on port $port'
+                }
+            } catch {
+                'ERROR'
             }
-        " || true
+        " 2>/dev/null | tr -d '\r\n')
+        
+        if [ -n "$stop_result" ] && [ "$stop_result" != "ERROR" ]; then
+            echo "$stop_result"
+        fi
         echo "DONE"
     else
         # Find process by port on Linux
@@ -373,8 +398,12 @@ run_diagnose() {
         try {
             \$null = Invoke-WebRequest -Uri 'http://127.0.0.1:$port/json/version' -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
             'REACHABLE'
-        } catch {
+        } catch [System.Net.WebException] {
+            # Network/HTTP errors - endpoint not reachable
             'NOT_REACHABLE'
+        } catch {
+            # PowerShell command errors or other exceptions
+            'ERROR'
         }
     " 2>/dev/null | tr -d '\r\n')
     
@@ -582,6 +611,14 @@ run_fix() {
     local mirrored_status
     mirrored_status=$(check_mirrored_mode)
     echo "  Mirrored networking: $mirrored_status"
+    
+    # Check for errors in status checks
+    if [ "$mirrored_status" = "ERROR" ] || [ "$hv_status" = "ERROR" ]; then
+        echo ""
+        echo "✗ Unable to check configuration (PowerShell errors)."
+        echo "  → Check PowerShell permissions and system configuration"
+        return 1
+    fi
     
     # If mirrored mode is enabled, just verify it works
     if [ "$mirrored_status" = "ENABLED" ]; then
