@@ -105,11 +105,9 @@ from src.utils.calibration import (
     brier_score,
     expected_calibration_error,
     Calibrator,
-    EscalationDecider,
     calibrate_confidence,
     evaluate_calibration,
     fit_calibration,
-    check_escalation,
     add_calibration_sample,
     rollback_calibration,
     get_calibration_history,
@@ -470,66 +468,6 @@ class TestCalibrator:
 
 
 # =============================================================================
-# EscalationDecider Tests
-# =============================================================================
-
-class TestEscalationDecider:
-    """Tests for EscalationDecider class."""
-    
-    @pytest.fixture
-    def decider(self, tmp_path):
-        """Create decider with temp calibrator."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
-            mock_root.return_value = tmp_path
-            calibrator = Calibrator()
-            return EscalationDecider(calibrator)
-    
-    def test_escalate_low_confidence(self, decider):
-        """Should escalate when confidence below threshold."""
-        should_escalate, calibrated = decider.should_escalate(
-            0.5, "test", threshold=0.7
-        )
-        
-        assert should_escalate is True
-    
-    def test_no_escalate_high_confidence(self, decider):
-        """Should not escalate when confidence above threshold."""
-        should_escalate, calibrated = decider.should_escalate(
-            0.9, "test", threshold=0.7
-        )
-        
-        assert should_escalate is False
-    
-    def test_uses_calibrated_confidence(self, decider):
-        """Should use calibrated confidence for decision.
-        
-        Fitting on overconfident data should produce calibration that
-        adjusts high confidence values.
-        """
-        # Fit calibration that lowers confidence
-        samples = [
-            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
-            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
-        ]
-        decider._calibrator.fit(samples, "test", method="temperature")
-        
-        # Original 0.9 should be calibrated
-        should_escalate, calibrated = decider.should_escalate(
-            0.9, "test", threshold=0.7
-        )
-        
-        # Calibrated value should be returned (valid probability in [0, 1])
-        assert 0.0 <= calibrated <= 1.0, f"Calibrated confidence should be valid probability, got {calibrated}"
-        # The calibration params should have been applied
-        params = decider._calibrator.get_params("test")
-        assert params is not None, "Expected calibration params to be set"
-        # If temperature != 1.0, calibration was applied
-        if params.temperature != 1.0:
-            # Just verify we got a valid result - actual value depends on fitting
-            assert isinstance(should_escalate, bool), "should_escalate should be bool"
-
-
-# =============================================================================
 # MCP Tool Function Tests
 # =============================================================================
 
@@ -594,19 +532,6 @@ class TestMCPToolFunctions:
             
             assert result["method"] == "temperature"
             assert result["temperature"] == 1.3
-    
-    @pytest.mark.asyncio
-    async def test_check_escalation(self):
-        """check_escalation should return decision."""
-        with patch("src.utils.calibration.get_escalation_decider") as mock_get:
-            mock_decider = MagicMock()
-            mock_decider.should_escalate.return_value = (True, 0.55)
-            mock_get.return_value = mock_decider
-            
-            result = await check_escalation(0.6, "test")
-            
-            assert result["should_escalate"] is True
-            assert result["calibrated_confidence"] == 0.55
     
     @pytest.mark.asyncio
     async def test_add_calibration_sample(self):

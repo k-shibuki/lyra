@@ -933,8 +933,6 @@ Cursor AI                          Lancet MCP
    - 第1段: ルール／キーワードとBM25で粗フィルタ
     - 第2段: 埋め込み類似度と軽量リランカー（`bge-m3`＋`bge-reranker-v2-m3` ONNX/int8）で再順位付け
    - 第3段: LLMで要点抽出・主張の仮説／反証ラベル付け
- - 二段LLMゲーティング:
-   - 抽出用LLMは既定3B（高速）で実行し、曖昧/難例のみ7Bへ昇格（GPUオフロード, q5_k_m/q6_k）。昇格判断はBM25/埋め込み/リランクのスコアしきい値で制御
  - GPU最適化:
    - 埋め込み`bge-m3`とリランカー`bge-reranker-v2-m3`はONNX Runtime CUDA/FP16（CPUフォールバックあり）。候補上限は100→最大150まで拡張（タスク予算内で自動調整）
  - NLI昇格:
@@ -1004,8 +1002,6 @@ Cursor AI                          Lancet MCP
   - 小規模検証セットでPlatt/温度スケーリングを算出し、`llm_extract`/`nli_judge`の信頼度へ適用
   - サンプル蓄積ベースで再校正（新規サンプルが閾値に達したら自動再計算）し、Brierスコアの改善を監視
   - `add_calibration_sample`で予測結果と正解ラベルをフィードバックし、使用するほど精度が向上
-- 昇格連動:
-  - 3B→7Bの昇格判定は校正済み確率で実施（偽陽性/偽陰性のコストに基づくスレッショルド）
 
 ### 3.4. レポート生成機能
 - 統合と執筆: 収集された断片的な情報を統合し、論理的なレポートとして構成・執筆する（Cursor/Composer機能の活用）。
@@ -1523,7 +1519,7 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 - Orchestrator: Cursor (LLM: Composer 1)
 - Interface: MCP (Model Context Protocol) Server
 - Agent Runtime: Python 3.12+ (running inside WSL2)
-- Local LLM Runtime: Ollama（CUDA有効）。既定: Qwen2.5-3B/Llama-3.2-3B Instruct q4（高速）→難例のみQwen2.5-7B/Llama-3.1-8B Instruct q5_k_m/q6_kへGPU昇格
+- Local LLM Runtime: Ollama（CUDA有効）。Qwen2.5-3B Instruct q4（GPU）
 - Embeddings: `bge-m3`（多言語・長文安定, ONNX Runtime CUDA/FP16, CPUフォールバックあり）
 - Rerank: `bge-reranker-v2-m3`（ONNX Runtime CUDA/FP16, 候補は上位100→最大150まで拡張可, CPUフォールバックあり）
 - HTTP Client: curl_cffi（Chrome impersonate）

@@ -1319,69 +1319,10 @@ class Calibrator:
 
 
 # =============================================================================
-# Model Escalation Decision
-# =============================================================================
-
-class EscalationDecider:
-    """Decides whether to escalate from fast to slow model.
-    
-    Uses calibrated probabilities to make escalation decisions
-    based on cost-sensitive thresholds (§3.3.4).
-    """
-    
-    DEFAULT_THRESHOLD = 0.7  # Escalate if confidence < threshold
-    
-    def __init__(self, calibrator: Calibrator):
-        self._calibrator = calibrator
-        self._settings = get_settings()
-    
-    def should_escalate(
-        self,
-        confidence: float,
-        source: str,
-        logit: float | None = None,
-        threshold: float | None = None,
-    ) -> tuple[bool, float]:
-        """Decide if model escalation is needed.
-        
-        Args:
-            confidence: Model's confidence/probability.
-            source: Source model identifier.
-            logit: Raw logit if available.
-            threshold: Custom threshold (default from settings).
-            
-        Returns:
-            Tuple of (should_escalate, calibrated_confidence).
-        """
-        threshold = threshold or self._settings.quality.min_confidence_score
-        
-        # Get calibrated confidence
-        calibrated = self._calibrator.calibrate(confidence, source, logit)
-        
-        # Escalate if calibrated confidence below threshold
-        should_escalate = calibrated < threshold
-        
-        return should_escalate, calibrated
-    
-    def get_escalation_stats(self) -> dict[str, Any]:
-        """Get escalation statistics.
-        
-        Returns:
-            Statistics about escalation decisions.
-        """
-        # TODO: Track and return actual escalation stats
-        return {
-            "sources": self._calibrator.get_all_sources(),
-            "threshold": self._settings.quality.min_confidence_score,
-        }
-
-
-# =============================================================================
 # Global Instance
 # =============================================================================
 
 _calibrator: Calibrator | None = None
-_escalation_decider: EscalationDecider | None = None
 
 
 def get_calibrator() -> Calibrator:
@@ -1390,14 +1331,6 @@ def get_calibrator() -> Calibrator:
     if _calibrator is None:
         _calibrator = Calibrator()
     return _calibrator
-
-
-def get_escalation_decider() -> EscalationDecider:
-    """Get or create global EscalationDecider instance."""
-    global _escalation_decider
-    if _escalation_decider is None:
-        _escalation_decider = EscalationDecider(get_calibrator())
-    return _escalation_decider
 
 
 # =============================================================================
@@ -1487,32 +1420,6 @@ async def fit_calibration(
     params = calibrator.fit(samples, source, method)
     
     return params.to_dict()
-
-
-async def check_escalation(
-    confidence: float,
-    source: str,
-    logit: float | None = None,
-) -> dict[str, Any]:
-    """Check if model escalation is needed (for MCP tool use).
-    
-    Args:
-        confidence: Model confidence.
-        source: Source model.
-        logit: Raw logit.
-        
-    Returns:
-        Escalation decision.
-    """
-    decider = get_escalation_decider()
-    should_escalate, calibrated = decider.should_escalate(confidence, source, logit)
-    
-    return {
-        "should_escalate": should_escalate,
-        "original_confidence": confidence,
-        "calibrated_confidence": calibrated,
-        "source": source,
-    }
 
 
 async def add_calibration_sample(

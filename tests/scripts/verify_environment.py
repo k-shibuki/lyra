@@ -258,26 +258,22 @@ class EnvironmentVerifier:
                 models = await provider.list_models()
                 model_names = [m.name for m in models]
                 
-                # Check for required models
-                fast_model = settings.llm.fast_model
-                slow_model = settings.llm.slow_model
+                # Check for required model (per §K.1: single 3B model)
+                model = settings.llm.model
                 
-                has_fast = any(fast_model in m for m in model_names)
-                has_slow = any(slow_model in m for m in model_names)
+                has_model = any(model in m for m in model_names)
                 
                 details = {
                     "host": ollama_host,
                     "available_models": model_names[:5],  # First 5
                     "total_models": len(model_names),
-                    "fast_model_available": has_fast,
-                    "slow_model_available": has_slow,
+                    "model_available": has_model,
                     "latency_ms": health.latency_ms,
                 }
                 
                 print(f"    ✓ Ollama reachable at {ollama_host}")
                 print(f"    ✓ Available models: {len(model_names)}")
-                print(f"    {'✓' if has_fast else '!'} Fast model ({fast_model}): {'available' if has_fast else 'not found'}")
-                print(f"    {'✓' if has_slow else '!'} Slow model ({slow_model}): {'available' if has_slow else 'not found'}")
+                print(f"    {'✓' if has_model else '!'} Model ({model}): {'available' if has_model else 'not found'}")
                 
                 # Pass if Ollama is reachable (models can be pulled later)
                 passed = health.state != LLMHealthState.UNHEALTHY

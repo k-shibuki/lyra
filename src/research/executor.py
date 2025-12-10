@@ -473,7 +473,6 @@ class SearchExecutor:
                 passages=[passage],
                 task="extract_claims",
                 context=self.state.original_query,
-                use_slow_model=False,  # Use fast model to control time ratio
             )
             
             if result.get("ok") and result.get("claims"):

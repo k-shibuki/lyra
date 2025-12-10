@@ -168,16 +168,9 @@ browser:
 llm:
   ollama_host: "http://localhost:11434"
   
-  # Fast model (default)
-  fast_model: "qwen2.5:3b"
-  fast_model_context: 4096
-  
-  # Slow model (for complex tasks)
-  slow_model: "qwen2.5:7b"
-  slow_model_context: 8192
-  
-  # Promotion threshold
-  promote_to_slow_threshold: 0.7
+  # Single 3B model for all LLM tasks (per §K.1: 3B single model)
+  model: "qwen2.5:3b"
+  model_context: 4096
   
   # Temperature
   temperature: 0.3

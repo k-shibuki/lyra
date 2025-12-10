@@ -531,23 +531,6 @@ class TestCalibrationIntegration:
             
             # Then: Instance is created
             assert isinstance(calibrator, Calibrator), f"Expected Calibrator instance, got {type(calibrator)}"
-    
-    @pytest.mark.asyncio
-    async def test_escalation_decider_initialization(self, tmp_path):
-        """Verify escalation decider can be initialized."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
-            mock_root.return_value = tmp_path
-            
-            from src.utils.calibration import Calibrator, EscalationDecider
-            
-            # Given: A calibrator instance
-            calibrator = Calibrator()
-            
-            # When: Instantiate EscalationDecider
-            decider = EscalationDecider(calibrator=calibrator)
-            
-            # Then: Instance is created
-            assert isinstance(decider, EscalationDecider), f"Expected EscalationDecider, got {type(decider)}"
 
 
 # =============================================================================

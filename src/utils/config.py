@@ -112,13 +112,14 @@ class BrowserConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    """LLM configuration."""
+    """LLM configuration.
+    
+    Per §K.1: Single 3B model for all LLM tasks.
+    VRAM budget (8GB) accommodates 3B (~2.5GB) + embedding (~1GB) + reranker (~1GB) + NLI (~0.5GB).
+    """
     ollama_host: str = "http://localhost:11434"
-    fast_model: str = "qwen2.5:3b"
-    fast_model_context: int = 4096
-    slow_model: str = "qwen2.5:7b"
-    slow_model_context: int = 8192
-    promote_to_slow_threshold: float = 0.7
+    model: str = "qwen2.5:3b"  # Single model for all tasks
+    model_context: int = 4096
     temperature: float = 0.3
     gpu_layers: int = -1
     unload_on_task_complete: bool = True  # Per §4.2: Release model context after task

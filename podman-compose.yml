@@ -61,7 +61,7 @@ services:
 
   # ============================================================
   # Ollama - Local LLM Runtime (GPU)
-  # SECURITY: Isolated to internal network only (§4.4.1 L1)
+  # SECURITY: Isolated to internal network only
   # - No host port exposure
   # - No internet access (internal network only)
   # - Accessible only from Lancet container
@@ -72,7 +72,7 @@ services:
     volumes:
       # Persist models
       - ./models/ollama:/root/.ollama:rw
-    # SECURITY: No ports exposed to host (§4.4.1 L1)
+    # SECURITY: No ports exposed to host
     # ports:
     #   - "11434:11434"  # REMOVED - no host access allowed
     networks:
@@ -103,7 +103,7 @@ networks:
   lancet-net:
     driver: bridge
 
-  # SECURITY: Internal-only network for Ollama (§4.4.1 L1)
+  # SECURITY: Internal-only network for Ollama
   # - internal: true prevents any external/internet access
   # - Ollama can only communicate with containers on this network
   # - Prevents prompt injection attacks from exfiltrating data

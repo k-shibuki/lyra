@@ -1124,7 +1124,7 @@ Translation:"""
         
         response = await client.generate(
             prompt=prompt,
-            model=settings.llm.fast_model,
+            model=settings.llm.model,
             temperature=0.1,  # Low temperature for consistent translation
             max_tokens=100,  # Search queries are short
         )
