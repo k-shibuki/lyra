@@ -163,7 +163,7 @@ start_chrome_wsl() {
         Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList @(
             '--remote-debugging-port=$port',
             '--remote-debugging-address=127.0.0.1',
-            \"\`\"--user-data-dir=\$dataDir\`\"\",
+            \"--user-data-dir=\$dataDir\",
             '--no-first-run',
             '--no-default-browser-check',
             '--disable-background-networking',
@@ -278,6 +278,7 @@ run_diagnose() {
     if [ "$ENV_TYPE" != "wsl" ]; then
         echo "Diagnostics are designed for WSL2 environment."
         echo ""
+        return 0
     fi
     
     local wsl_gateway
