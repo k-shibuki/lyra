@@ -1154,6 +1154,9 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
     Per §3.6.1: Capture session data after authentication completion
     so subsequent requests can reuse the authenticated session.
     
+    This function connects to the existing Chrome browser via CDP and
+    retrieves cookies from all existing contexts, filtering for the target domain.
+    
     Args:
         domain: Domain to capture cookies for.
         
@@ -1163,49 +1166,88 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
     from datetime import datetime, timezone
     
     try:
-        # Try to get cookies from existing browser context
-        from src.search.browser_search_provider import BrowserSearchProvider
+        # Connect to existing Chrome browser via CDP
+        from playwright.async_api import async_playwright
+        from src.utils.config import get_settings
         
-        provider = BrowserSearchProvider()
-        # Check if browser is already connected (don't force connection)
-        if provider._browser is None or provider._context is None:
-            logger.debug(
-                "Browser not connected, skipping cookie capture",
+        settings = get_settings()
+        chrome_host = getattr(settings.browser, "chrome_host", "localhost")
+        chrome_port = getattr(settings.browser, "chrome_port", 9222)
+        cdp_url = f"http://{chrome_host}:{chrome_port}"
+        
+        playwright = await async_playwright().start()
+        
+        try:
+            # Connect to existing Chrome instance
+            browser = await playwright.chromium.connect_over_cdp(cdp_url)
+            
+            # Get all existing contexts (these contain cookies from user's browser session)
+            existing_contexts = browser.contexts
+            
+            if not existing_contexts:
+                logger.debug(
+                    "No browser contexts found, skipping cookie capture",
+                    domain=domain,
+                )
+                await playwright.stop()
+                return None
+            
+            # Collect cookies from all contexts
+            all_cookies = []
+            for context in existing_contexts:
+                try:
+                    context_cookies = await context.cookies()
+                    all_cookies.extend(context_cookies)
+                except Exception as e:
+                    logger.debug(
+                        "Failed to get cookies from context",
+                        error=str(e),
+                    )
+                    continue
+            
+            # Filter cookies that match the domain
+            domain_cookies = []
+            for cookie in all_cookies:
+                cookie_domain = cookie.get("domain", "")
+                # Match domain and subdomains (e.g., .example.com matches www.example.com)
+                # Also handle cases where cookie domain starts with dot
+                cookie_domain_normalized = cookie_domain.lstrip(".")
+                domain_normalized = domain.lstrip(".")
+                
+                if (
+                    cookie_domain_normalized == domain_normalized
+                    or cookie_domain_normalized.endswith(f".{domain_normalized}")
+                    or domain_normalized.endswith(f".{cookie_domain_normalized}")
+                ):
+                    domain_cookies.append(dict(cookie))
+            
+            await playwright.stop()
+            
+            if not domain_cookies:
+                logger.debug(
+                    "No cookies found for domain",
+                    domain=domain,
+                )
+                return None
+            
+            session_data = {
+                "cookies": domain_cookies,
+                "captured_at": datetime.now(timezone.utc).isoformat(),
+                "domain": domain,
+            }
+            
+            logger.info(
+                "Captured authentication session cookies",
                 domain=domain,
+                cookie_count=len(domain_cookies),
+                contexts_checked=len(existing_contexts),
             )
-            return None
-        
-        # Get cookies for the domain
-        cookies = await provider._context.cookies()
-        
-        # Filter cookies that match the domain
-        domain_cookies = []
-        for cookie in cookies:
-            cookie_domain = cookie.get("domain", "")
-            # Match domain and subdomains (e.g., .example.com matches www.example.com)
-            if cookie_domain.endswith(domain) or domain.endswith(cookie_domain.lstrip(".")):
-                domain_cookies.append(dict(cookie))
-        
-        if not domain_cookies:
-            logger.debug(
-                "No cookies found for domain",
-                domain=domain,
-            )
-            return None
-        
-        session_data = {
-            "cookies": domain_cookies,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
-            "domain": domain,
-        }
-        
-        logger.info(
-            "Captured authentication session cookies",
-            domain=domain,
-            cookie_count=len(domain_cookies),
-        )
-        
-        return session_data
+            
+            return session_data
+            
+        except Exception as e:
+            await playwright.stop()
+            raise
         
     except Exception as e:
         logger.warning(
