@@ -35,9 +35,6 @@ env/
 *.swo
 *~
 
-# Cursor (keep mcp.json template in config/)
-.cursor/mcp.json
-
 # Data directories (persist locally, don't commit)
 data/
 logs/

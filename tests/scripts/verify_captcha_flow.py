@@ -22,7 +22,7 @@ Acceptance criteria (§7):
 - Auth breakthrough: ≥80% success rate for auth session processed items
 
 Usage:
-    podman exec lancet python tests/scripts/verify_captcha_flow.py
+    python tests/scripts/verify_captcha_flow.py
 
 Exit codes:
     0: All verifications passed

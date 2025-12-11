@@ -18,7 +18,7 @@ Prerequisites:
 - Chrome CDP NOT required
 
 Usage:
-    podman exec lancet python tests/scripts/verify_llm_security.py
+    python tests/scripts/verify_llm_security.py
 
 Exit codes:
     0: All verifications passed

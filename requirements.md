@@ -525,12 +525,12 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
   - Chrome CDP接続が必要（§3.2: Windows側Chromeをリモートデバッグモードで起動済み）
   - 未接続時はLancetが自動起動を試行する（下記「Chrome自動起動」参照）
 
-- **Chrome自動起動**:
+- **Chrome自動起動**（§5.3 ハイブリッド構成）:
   - CDP未接続を検知した場合、Lancetは `./scripts/chrome.sh start` を自動実行
   - 起動後、最大15秒間CDP接続を待機（0.5秒間隔でポーリング）
   - 自動起動が成功すれば検索パイプラインを続行
   - 自動起動に失敗した場合のみ `CHROME_NOT_READY` エラーを返す
-  - WSL2環境では `chrome.sh` がsocatポートフォワードも自動管理
+  - MCPサーバーはWSL上で直接実行されるため、localhost:9222でChromeに直接接続（socat不要）
 
 - **CDP未接続時のエラー応答**（自動起動失敗時）:
   ```json
@@ -540,7 +540,7 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
     "error": "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh start",
     "details": {
       "auto_start_attempted": true,
-      "hint": "WSL2 + Podman: Verify Chrome is installed, socat is running, and WSL2 mirrored networking is enabled"
+      "hint": "Verify Chrome is installed and WSL2 mirrored networking is enabled"
     }
   }
   ```
@@ -1628,6 +1628,72 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 - Torサービス（apt）および（任意）PrivoxyをWSL2内で稼働
 - Chromium/Chromeはローカルにインストールし、既存プロファイルを再利用（UA/言語/タイムゾーン整合）
 - Windows側Chromeを`--remote-debugging-port=9222`で起動し、Playwrightの`connect_over_cdp`でWSL2から接続（実プロファイル/persistent context運用、無料・安定）
+
+### 5.3. ハイブリッド構成（WSL + Container）
+
+MCPサーバーをWSL上で直接実行し、コンテナ内のOllama/ML Serverにプロキシ経由でアクセスするアーキテクチャ。
+
+#### 5.3.1. アーキテクチャ概要
+
+```
+WSL Host (Windows 11)                    Podman Containers
+┌─────────────────────────────────────┐  ┌─────────────────────────────────┐
+│                                     │  │ lancet (Proxy Server :8080)     │
+│  Cursor IDE                         │  │   ├─ /ollama/* → ollama:11434   │
+│      │ stdio                        │  │   └─ /ml/*    → lancet-ml:8100  │
+│      ▼                              │  │                                 │
+│  MCP Server (.venv)                 │  │ ollama (LLM :11434)             │
+│      │ HTTP                         │  │   └─ internal network only      │
+│      ▼                              │  │                                 │
+│  localhost:8080 ──────────────────────→│ lancet-ml (ML Server :8100)     │
+│                                     │  │   └─ internal network only      │
+│  Chrome CDP (localhost:9222)        │  │                                 │
+│      ↑                              │  │ tor (SOCKS :9050)               │
+│      │                              │  └─────────────────────────────────┘
+│  Windows Chrome (--remote-debugging-port=9222)
+└─────────────────────────────────────┘
+```
+
+#### 5.3.2. 設計動機
+
+| 問題（旧構成） | 解決（ハイブリッド構成） |
+|---------------|------------------------|
+| コンテナ→Windows Chromeの複雑な接続 | WSL→Windows直接接続（localhost:9222） |
+| socatポートフォワード必須 | 不要（WSLから直接接続） |
+| host-gateway設定必須 | 不要 |
+| Chrome自動起動が困難（コンテナから） | 容易（WSLから直接`chrome.sh`実行） |
+| mirrored networking依存 | 推奨だが必須ではない |
+
+#### 5.3.3. 実行アーキテクチャ
+
+Lancetは**常にWSLハイブリッド構成**で実行される：
+
+| コンポーネント | 実行場所 | 接続方法 |
+|---------------|---------|---------|
+| MCPサーバー | WSL（venv） | Cursor IDEとstdio通信 |
+| Chrome CDP | Windows | localhost:9222（直接接続） |
+| Ollama/ML Server | Podmanコンテナ | プロキシ経由（localhost:8080） |
+
+#### 5.3.4. プロキシサーバー
+
+コンテナ内で動作するFastAPIプロキシ（`localhost:8080`で公開）：
+
+- `/health` - ヘルスチェック
+- `/ollama/*` - Ollamaへのプロキシ
+- `/ml/*` - ML Serverへのプロキシ
+
+#### 5.3.5. 依存関係
+
+**WSL側（venv）**:
+- Python 3.12+
+- `requirements-mcp.txt`: 軽量依存（MCP関連、Playwright、httpx）
+- Playwright Chromium（`playwright install chromium`）
+
+**コンテナ側**:
+- `lancet`: プロキシサーバー（FastAPI）
+- `ollama`: ローカルLLM
+- `lancet-ml`: 埋め込み/リランカー/NLI
+- `tor`: Torプロキシ
 
 ## 6. 成果物定義
 - インテリジェンス・レポート (Markdown形式)

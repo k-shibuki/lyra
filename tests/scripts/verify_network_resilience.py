@@ -22,7 +22,7 @@ Acceptance criteria (§7):
 - 304: ≥70% utilization rate on revisits
 
 Usage:
-    podman exec lancet python tests/scripts/verify_network_resilience.py
+    python tests/scripts/verify_network_resilience.py
 
 Exit codes:
     0: All verifications passed

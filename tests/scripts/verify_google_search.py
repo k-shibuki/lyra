@@ -26,7 +26,7 @@ Acceptance criteria (§7):
 - Scraping success rate ≥95% (when not blocked)
 
 Usage:
-    podman exec lancet python tests/scripts/verify_google_search.py
+    python tests/scripts/verify_google_search.py
 
 Exit codes:
     0: All verifications passed

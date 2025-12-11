@@ -1,14 +1,9 @@
 {
   "mcpServers": {
     "lancet": {
-      "command": "podman",
+      "command": "bash",
       "args": [
-        "exec",
-        "-i",
-        "lancet",
-        "python",
-        "-m",
-        "src.mcp.server"
+        "./scripts/mcp.sh"
       ]
     }
   }

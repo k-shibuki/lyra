@@ -18,7 +18,7 @@ Acceptance criteria (§7):
 - Auto-repair: ≥90% success rate when deviation detected
 
 Usage:
-    podman exec lancet python tests/scripts/verify_profile_health.py
+    python tests/scripts/verify_profile_health.py
 
 Exit codes:
     0: All verifications passed

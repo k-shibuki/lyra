@@ -74,7 +74,7 @@ class OllamaProvider(BaseLLMProvider):
         Initialize Ollama provider.
         
         Args:
-            host: Ollama API host URL (default: from settings).
+            host: Ollama API host URL (default: from settings, respects execution_mode).
             model: Model name for all tasks (default: from settings).
             embed_model: Model for embeddings (default: nomic-embed-text).
             timeout: Default request timeout in seconds.
@@ -82,7 +82,15 @@ class OllamaProvider(BaseLLMProvider):
         super().__init__("ollama")
         
         settings = get_settings()
-        self._host = host or settings.llm.ollama_host
+        
+        # Determine host: always use proxy URL in hybrid mode
+        if host:
+            self._host = host
+        else:
+            # Hybrid mode: use proxy URL
+            self._host = f"{settings.general.proxy_url}/ollama"
+            logger.debug("Using proxy for Ollama", proxy_url=self._host)
+        
         self._model = model or settings.llm.model or self.DEFAULT_MODEL
         self._embed_model = embed_model or self.DEFAULT_EMBED_MODEL
         self._timeout = timeout

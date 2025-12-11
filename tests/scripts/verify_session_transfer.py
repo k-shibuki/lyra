@@ -20,7 +20,7 @@ Acceptance criteria (§7):
 - Referer consistency rate ≥90%
 
 Usage:
-    podman exec lancet python tests/scripts/verify_session_transfer.py
+    python tests/scripts/verify_session_transfer.py
 
 Exit codes:
     0: All verifications passed

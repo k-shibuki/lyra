@@ -222,6 +222,10 @@ class GeneralConfig(BaseModel):
     log_level: str = "INFO"
     data_dir: str = "data"
     logs_dir: str = "logs"
+    
+    # Proxy URL for hybrid mode (lancet container proxy server)
+    # MCP server always runs on WSL host, LLM/ML via proxy
+    proxy_url: str = "http://localhost:8080"
 
 
 class Settings(BaseModel):

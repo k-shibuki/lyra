@@ -3,15 +3,14 @@ Tests for MCP error code definitions.
 
 Implements test perspectives for src/mcp/errors.py per test-strategy.mdc.
 
-## Test Perspectives Table (ChromeNotReadyError - N.5)
+## Test Perspectives Table (ChromeNotReadyError - Phase O.3 Simplified)
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
 | TC-N-14 | Default constructor | Equivalence - normal | CHROME_NOT_READY code, startup instructions | Default msg |
-| TC-N-15 | is_podman=True | Equivalence - normal | Includes socat hint in details | Podman env |
 | TC-N-16 | Custom message | Equivalence - normal | Uses custom message | Override |
-| TC-N-17 | Podman with spec check | Equivalence - normal | Format matches requirements.md | Spec compliance |
-| TC-B-01 | is_podman=False (default) | Boundary - default | No details field | Omit default |
+| TC-N-17 | Format check | Equivalence - normal | Format matches requirements.md §3.2.1 | Spec compliance |
+| TC-B-02 | message="" (empty) | Boundary - empty | Empty string accepted | Edge case |
 """
 
 import pytest
@@ -413,24 +412,7 @@ class TestChromeNotReadyError:
         assert result["error_code"] == "CHROME_NOT_READY"
         assert "Chrome CDP is not connected" in result["error"]
         assert "./scripts/chrome.sh start" in result["error"]
-        assert "details" not in result  # No details when not in podman
-
-    def test_with_podman_hint(self) -> None:
-        """
-        TC-N-15: ChromeNotReadyError in Podman environment.
-        
-        // Given: is_podman=True
-        // When: Creating ChromeNotReadyError
-        // Then: Error includes socat hint in details
-        """
-        error = ChromeNotReadyError(is_podman=True)
-        result = error.to_dict()
-        
-        assert result["error_code"] == "CHROME_NOT_READY"
-        assert "details" in result
-        assert "hint" in result["details"]
-        assert "socat" in result["details"]["hint"]
-        assert "WSL2" in result["details"]["hint"]
+        assert "details" not in result  # No details in simplified error
 
     def test_custom_message(self) -> None:
         """
@@ -451,33 +433,33 @@ class TestChromeNotReadyError:
         """
         TC-N-17: Error response format matches §3.2.1 spec.
         
-        // Given: ChromeNotReadyError in podman
+        // Given: ChromeNotReadyError
         // When: Converting to dict
         // Then: Format matches requirements.md §3.2.1 CHROME_NOT_READY spec
         """
-        error = ChromeNotReadyError(is_podman=True)
+        error = ChromeNotReadyError()
         result = error.to_dict()
         
         # Required fields per §3.2.1
         assert result["ok"] is False
         assert result["error_code"] == "CHROME_NOT_READY"
         assert isinstance(result["error"], str)
-        
-        # Hint format per N.5.2 design
-        assert result["details"]["hint"].startswith("WSL2 + Podman")
+        # No details in simplified hybrid architecture
+        assert "details" not in result
 
-    def test_is_podman_default_false(self) -> None:
+    def test_empty_message(self) -> None:
         """
-        TC-B-01: is_podman defaults to False (no details).
+        TC-B-02: ChromeNotReadyError with empty message.
         
-        // Given: is_podman not specified (default False)
+        // Given: Empty string message
         // When: Creating ChromeNotReadyError
-        // Then: No details field in output
+        // Then: Error accepts empty message (edge case)
         """
-        error = ChromeNotReadyError()
+        error = ChromeNotReadyError(message="")
         result = error.to_dict()
         
         assert result["error_code"] == "CHROME_NOT_READY"
+        assert result["error"] == ""
         assert "details" not in result
 
 

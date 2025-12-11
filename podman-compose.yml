@@ -7,6 +7,9 @@ services:
   # ============================================================
   # Lancet Development Container
   # ============================================================
+  # In hybrid mode, this container runs a proxy server that bridges
+  # the WSL-based MCP server to the internal network (Ollama/ML).
+  # ============================================================
   lancet:
     build:
       context: .
@@ -15,10 +18,6 @@ services:
     container_name: lancet
     env_file:
       - .env
-    # Allow container to access WSL2 host via host.containers.internal
-    # Required for Chrome CDP connection
-    extra_hosts:
-      - "host.containers.internal:host-gateway"
     volumes:
       # Mount source code for development (rw for editing)
       - ./src:/app/src:rw
@@ -31,9 +30,15 @@ services:
     environment:
       # Fixed values only - all other settings in .env
       - LANCET_ENV=development
-      # ML Server URL (internal network)
-    # Keep container running for exec access
-    command: ["tail", "-f", "/dev/null"]
+      # Proxy server targets (internal network hostnames)
+      - OLLAMA_TARGET_URL=http://ollama:11434
+      - ML_TARGET_URL=http://lancet-ml:8100
+    # Proxy port for WSL MCP server access (localhost only for security)
+    ports:
+      - "127.0.0.1:8080:8080"
+    # Run proxy server (enables hybrid WSL/container mode)
+    # For development shell access, use: podman exec -it lancet bash
+    command: ["python", "-m", "src.proxy.server"]
     stdin_open: true
     tty: true
     depends_on:

@@ -43,9 +43,6 @@ fi
 # CONSTANTS
 # =============================================================================
 
-# PID file for socat process tracking
-SOCAT_PID_FILE="/tmp/lancet-socat.pid"
-
 # Connection attempt settings
 CURL_TIMEOUT=1
 # Total timeout for Chrome startup connection (seconds)
@@ -230,85 +227,6 @@ try_connect_with_backoff() {
 }
 
 # =============================================================================
-# SOCAT PORT FORWARDING (WSL2 only)
-# Part of NETWORKING UTILITIES
-# =============================================================================
-
-# Function: check_socat
-# Description: Check if socat port forwarding process is running
-# Returns:
-#   0: socat is running, outputs PID
-#   1: socat is not running
-check_socat() {
-    if [ -f "$SOCAT_PID_FILE" ]; then
-        local pid
-        pid=$(cat "$SOCAT_PID_FILE" 2>/dev/null || echo "")
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            echo "$pid"
-            return 0
-        else
-            rm -f "$SOCAT_PID_FILE"
-            return 1
-        fi
-    fi
-    return 1
-}
-
-# Function: start_socat
-# Description: Start socat port forward (WSL2 -> Windows Chrome)
-#             Forwards SOCAT_PORT to the base Chrome port (9222)
-# Returns:
-#   0: socat started successfully
-#   1: Failed to start socat
-start_socat() {
-    local base_chrome_port=9222
-    
-    if check_socat > /dev/null; then
-        echo "socat already running"
-        return 0
-    fi
-    
-    if ! command -v socat > /dev/null 2>&1; then
-        log_warn "socat not found. Install with: sudo apt-get install socat"
-        return 1
-    fi
-    
-    socat TCP-LISTEN:"$SOCAT_PORT",fork,reuseaddr TCP:localhost:"$base_chrome_port" > /dev/null 2>&1 &
-    local socat_pid=$!
-    echo "$socat_pid" > "$SOCAT_PID_FILE"
-    
-    # Wait a moment for socat to start
-    sleep 0.5
-    
-    if kill -0 "$socat_pid" 2>/dev/null; then
-        echo "socat started (PID: $socat_pid, port: $SOCAT_PORT -> $base_chrome_port)"
-        return 0
-    else
-        rm -f "$SOCAT_PID_FILE"
-        log_error "Failed to start socat"
-        log_error "Check if port $SOCAT_PORT is available: netstat -tuln | grep $SOCAT_PORT || ss -tuln | grep $SOCAT_PORT"
-        log_error "Check socat installation: socat -V"
-        return 1
-    fi
-}
-
-# Function: stop_socat
-# Description: Stop socat port forwarding process
-# Returns:
-#   0: Success (or socat was not running)
-stop_socat() {
-    if [ -f "$SOCAT_PID_FILE" ]; then
-        local pid
-        pid=$(cat "$SOCAT_PID_FILE" 2>/dev/null || echo "")
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null || true
-            echo "Stopped socat (PID: $pid)"
-        fi
-        rm -f "$SOCAT_PID_FILE"
-    fi
-}
-
-# =============================================================================
 # STATUS AND INFO
 # Part of CHROME MANAGEMENT
 # =============================================================================
@@ -323,17 +241,6 @@ stop_socat() {
 get_status() {
     local port="$1"
     local host
-    
-    # Check socat status (WSL2 only)
-    if [ "$ENV_TYPE" = "wsl" ]; then
-        if check_socat > /dev/null; then
-            local socat_pid
-            socat_pid=$(check_socat)
-            echo "socat: RUNNING (PID: $socat_pid, port: $SOCAT_PORT -> 9222)"
-        else
-            echo "socat: NOT_RUNNING"
-        fi
-    fi
     
     if host=$(try_connect "$port"); then
         local info
@@ -367,21 +274,6 @@ start_chrome_wsl() {
     echo "STARTING"
     echo "Environment: WSL"
     echo "Port: $port"
-    
-    # Start socat port forward for Podman containers (if not already running)
-    # Only needed when using the base Chrome port
-    if [ "$port" = "9222" ]; then
-        echo "Checking socat port forward..."
-        if ! check_socat > /dev/null; then
-            if start_socat; then
-                echo "  ✓ socat port forward started ($SOCAT_PORT -> 9222)"
-            else
-                echo "  ! socat port forward failed (containers may not be able to connect)"
-            fi
-        else
-            echo "  ✓ socat already running"
-        fi
-    fi
     
     # Start Chrome with separate profile via PowerShell
     # Note: Bind to 127.0.0.1 only for security. WSL2 mirrored mode allows direct localhost access.
@@ -495,11 +387,6 @@ start_chrome_linux() {
 stop_chrome() {
     local port="${1:-$CHROME_PORT}"
     echo "STOPPING"
-    
-    # Stop socat port forward (WSL2 only)
-    if [ "$ENV_TYPE" = "wsl" ] && [ "$port" = "9222" ]; then
-        stop_socat
-    fi
     
     if [ "$ENV_TYPE" = "wsl" ]; then
         # Find process listening on debug port and kill it

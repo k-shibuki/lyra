@@ -762,12 +762,8 @@ class BrowserFetcher:
                     self._headful_browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
                     logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
                 except Exception as e:
-                    import os
-                    hint = ""
-                    if os.path.exists("/.dockerenv") or os.environ.get("container") == "podman":
-                        hint = " (WSL2+Podman: ensure socat is running via ./scripts/chrome.sh start)"
                     logger.warning(
-                        f"CDP connection failed, launching local headful browser{hint}",
+                        "CDP connection failed, launching local headful browser",
                         error=str(e),
                     )
                     self._headful_browser = await self._playwright.chromium.launch(headless=False)
