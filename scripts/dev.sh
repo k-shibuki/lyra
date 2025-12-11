@@ -5,7 +5,7 @@
 #
 # Usage: ./scripts/dev.sh [command]
 
-set -e
+set -euo pipefail
 
 # =============================================================================
 # INITIALIZATION
@@ -15,6 +15,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
+
+# Enable debug mode if DEBUG=1
+enable_debug_mode
+
+# Set up error handler
+trap 'cleanup_on_error ${LINENO}' ERR
 
 # Change to project directory
 cd "$PROJECT_DIR"
@@ -28,7 +34,12 @@ COMPOSE="podman-compose"
 # HELPER FUNCTIONS
 # =============================================================================
 
-# Start development shell with multi-network support
+# Function: start_dev_shell
+# Description: Start development shell with multi-network support
+#             Creates a container with access to both primary and internal networks
+# Returns:
+#   0: Success (container started and attached)
+#   1: Failure (container creation or start failed)
 start_dev_shell() {
     log_info "Entering development shell..."
     
@@ -83,7 +94,13 @@ start_dev_shell() {
     podman start -ai lancet-dev
 }
 
-# Show logs with optional follow mode
+# Function: show_logs
+# Description: Show container logs with optional follow mode
+# Arguments:
+#   $1: Follow flag ("-f" for follow mode) or service name
+#   $2: Service name (optional, if $1 is "-f")
+# Returns:
+#   0: Success
 show_logs() {
     local follow_flag="$1"
     local service="$2"
@@ -96,13 +113,27 @@ show_logs() {
     fi
 }
 
-# Clean up containers and images
+# Function: cleanup_environment
+# Description: Clean up containers and images
+#             Removes all Lancet containers, volumes, and images
+# Returns:
+#   0: Success
 cleanup_environment() {
     log_info "Cleaning up containers and images..."
     $COMPOSE down --volumes
     # Remove project images manually (podman-compose doesn't support --rmi)
-    podman images --filter "reference=lancet*" -q | xargs -r podman rmi -f 2>/dev/null || true
-    podman images --filter "dangling=true" -q | xargs -r podman rmi -f 2>/dev/null || true
+    # Use xargs -r to skip if input is empty (safe with set -u)
+    local image_ids
+    image_ids=$(podman images --filter "reference=lancet*" -q 2>/dev/null || true)
+    if [ -n "${image_ids:-}" ]; then
+        echo "$image_ids" | xargs -r podman rmi -f 2>/dev/null || true
+    fi
+    
+    local dangling_ids
+    dangling_ids=$(podman images --filter "dangling=true" -q 2>/dev/null || true)
+    if [ -n "${dangling_ids:-}" ]; then
+        echo "$dangling_ids" | xargs -r podman rmi -f 2>/dev/null || true
+    fi
     log_info "Cleanup complete."
 }
 

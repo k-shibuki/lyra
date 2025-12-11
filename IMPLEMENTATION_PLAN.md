@@ -1431,9 +1431,11 @@ Phase K.3 の防御層が統合環境で正しく動作することを確認。
 podman exec lancet python tests/scripts/verify_llm_security.py
 ```
 
-#### N.5 Chrome CDP接続エラーハンドリング改善
+#### N.5 Chrome CDP接続エラーハンドリング改善 ✅
 
 **問題**: MCP `search` ツール実行時にChrome CDPが未接続の場合、`status: "running"` が返され、Cursor AIに失敗の原因が伝わらない。
+
+**解決**: Chrome自動起動機能を実装。CDP未接続時は `./scripts/chrome.sh start` を自動実行し、UXを改善。
 
 ##### N.5.1 問題分析
 
@@ -1470,11 +1472,11 @@ _handle_search() (server.py)
 
 | ID | 項目 | 状態 |
 |----|------|:----:|
-| N.10.2-1 | MCPエラーコード `CHROME_NOT_READY` 追加 | ⏳ |
-| N.10.2-2 | `search` ハンドラにCDP事前チェック追加 | ⏳ |
-| N.10.2-3 | エラーメッセージに起動コマンド案内 | ⏳ |
-| N.10.2-4 | requirements.md §3.2.1 に仕様追記 | ⏳ |
-| N.10.2-5 | E2Eテスト（CDP未接続時のエラー確認） | ⏳ |
+| N.5.2-1 | MCPエラーコード `CHROME_NOT_READY` 追加 | ✅ |
+| N.5.2-2 | `search` ハンドラにCDP事前チェック追加 | ✅ |
+| N.5.2-3 | Chrome自動起動機能の実装 | ✅ |
+| N.5.2-4 | requirements.md §3.2.1 に仕様追記 | ✅ |
+| N.5.2-5 | E2Eテスト（CDP未接続→自動起動→検索成功の確認） | ✅ |
 
 **設計詳細**:
 
@@ -1482,38 +1484,72 @@ _handle_search() (server.py)
    ```python
    CHROME_NOT_READY = "CHROME_NOT_READY"
    """Chrome CDP is not connected.
-   Action: Start Chrome with ./scripts/chrome.sh start"""
+   Auto-start was attempted but failed."""
    
    class ChromeNotReadyError(MCPError):
-       """Raised when Chrome CDP connection is not available."""
+       """Raised when Chrome CDP connection is not available after auto-start attempt."""
    ```
 
-2. **CDP事前チェック** (`src/mcp/server.py`):
-   - `_handle_search()` の冒頭でCDP接続状態を確認
-   - 未接続の場合は `ChromeNotReadyError` を即座に発生
-   - WSL2 + Podman環境では `socat` の起動案内も含める
+2. **Chrome自動起動機能** (`src/mcp/server.py`):
+   - `_ensure_chrome_ready()` ヘルパー関数を追加
+   - 起動フロー:
+     1. CDP接続チェック（`http://localhost:{port}/json/version`）
+     2. 未接続の場合、`subprocess.run()` で `./scripts/chrome.sh start` を実行
+     3. 最大15秒間、0.5秒間隔でCDP接続をポーリング
+     4. 接続成功 → `True` を返却（検索続行）
+     5. 接続失敗 → `ChromeNotReadyError` を発生
 
-3. **エラーメッセージ**:
+   ```python
+   async def _ensure_chrome_ready(self, port: int = 9222, timeout: float = 15.0) -> bool:
+       """Ensure Chrome CDP is ready, auto-starting if needed."""
+       # 1. Check if already connected
+       if await self._check_cdp_connection(port):
+           return True
+       
+       # 2. Auto-start Chrome
+       script_path = Path(__file__).parent.parent.parent / "scripts" / "chrome.sh"
+       result = subprocess.run([str(script_path), "start"], capture_output=True, text=True)
+       
+       # 3. Wait for CDP connection
+       start_time = time.monotonic()
+       while time.monotonic() - start_time < timeout:
+           if await self._check_cdp_connection(port):
+               return True
+           await asyncio.sleep(0.5)
+       
+       # 4. Failed
+       raise ChromeNotReadyError("Auto-start failed")
+   ```
+
+3. **CDP事前チェック統合** (`_handle_search()`):
+   - 検索パイプライン開始前に `await self._ensure_chrome_ready()` を呼び出し
+   - 自動起動の結果をログに記録
+
+4. **エラーメッセージ**（自動起動失敗時）:
    ```json
    {
      "ok": false,
      "error_code": "CHROME_NOT_READY",
-     "error": "Chrome CDP is not connected. Start Chrome with: ./scripts/chrome.sh start",
+     "error": "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh diagnose",
      "details": {
-       "hint": "WSL2 + Podman: socat port forward is required (auto-started by chrome.sh)"
+       "auto_start_attempted": true,
+       "hint": "Verify Chrome is installed and WSL2 mirrored networking is enabled"
      }
    }
    ```
 
-4. **requirements.md更新** (§3.2.1):
-   - `search` ツールの前提条件として Chrome CDP 接続を明記
-   - 未接続時のエラーコード `CHROME_NOT_READY` を定義
+5. **requirements.md更新** (§3.2.1): ✅ 完了
+   - `search` ツールの前提条件にChrome自動起動を明記
+   - 自動起動のフロー・タイムアウト・エラー応答を定義
 
-##### N.5.3 実装方針の注意点
+##### N.5.3 実装方針
 
-- **自動起動は行わない**: Lancet側からのChrome起動は仕様外だが、AIエージェントに適切なスクリプトをエラーメッセージとしてサジェストする
-- **エラーは即座に報告**: パイプラインを進めてから失敗を報告するのではなく、事前チェックで即座に報告
-- **既存フロー保持**: `BrowserSearchProvider` 内部のエラーハンドリングは変更せず、MCPハンドラ層で対処
+- **自動起動を行う**: CDP未接続時、Lancetは `./scripts/chrome.sh start` を自動実行してChromeを起動する
+  - UX最優先: Lancetを使う以上Chrome CDP接続は必須であり、ユーザーに毎回手動起動を求めるのはUX上許容できない
+  - WSL2環境では `chrome.sh` がsocatポートフォワードも自動管理するため、追加設定不要
+- **エラーは自動起動失敗時のみ**: 自動起動を試行し、成功すれば検索を続行。失敗した場合のみ `CHROME_NOT_READY` エラーを報告
+- **事前チェック**: パイプライン開始前に `_ensure_chrome_ready()` で接続確認・自動起動を行い、検索途中での失敗を防止
+- **既存フロー保持**: `BrowserSearchProvider` 内部のエラーハンドリングは変更せず、MCPハンドラ層で自動起動を対処
 
 #### N.6 ケーススタディ（CS-1）
 

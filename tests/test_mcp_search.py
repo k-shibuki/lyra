@@ -21,14 +21,17 @@ Tests the search pipeline and task stopping per §3.2.1.
 | TC-N-06 | stop_task returns summary | Equivalence – normal | Summary with stats | Return structure |
 | TC-B-01 | max_pages=0 | Boundary – min | Accepts 0 (immediate return) | Zero boundary |
 | TC-B-02 | max_pages=1 | Boundary – min+1 | Accepts 1 page | Minimal fetch |
-| TC-A-08 | CDP not available | Equivalence - error | ChromeNotReadyError | N.5 pre-check |
-| TC-A-09 | CDP not available (Podman) | Equivalence - error | ChromeNotReadyError with socat hint | N.5 Podman |
-| TC-N-07 | CDP available | Equivalence - normal | Search proceeds normally | N.5 pre-check |
 | TC-CDP-01 | CDP responds 200 | Equivalence - normal | _check_chrome_cdp_ready True | Success |
 | TC-CDP-02 | CDP connection error | Equivalence - error | _check_chrome_cdp_ready False | Failure |
-| TC-CDP-03 | .dockerenv exists | Boundary - podman | _is_podman_environment True | Docker |
-| TC-CDP-04 | container=podman env | Boundary - podman | _is_podman_environment True | Env var |
-| TC-CDP-05 | Native environment | Boundary - native | _is_podman_environment False | No container |
+| TC-CDP-03 | CDP returns non-200 | Boundary - HTTP status | _check_chrome_cdp_ready False | Non-success |
+| TC-AUTO-01 | CDP already ready | Equivalence - normal | No auto-start, return True | Fast path |
+| TC-AUTO-02 | CDP not ready, auto-start succeeds | Equivalence - normal | Auto-start then search | Happy path |
+| TC-AUTO-03 | CDP not ready, timeout | Equivalence - error | ChromeNotReadyError | Timeout |
+| TC-AUTO-04 | chrome.sh not found | Boundary - missing script | _auto_start_chrome False | Edge case |
+| TC-AUTO-05 | chrome.sh timeout | Boundary - script timeout | _auto_start_chrome False | 30s limit |
+| TC-SEARCH-01 | Search with CDP ready | Equivalence - normal | Search proceeds | Integration |
+| TC-SEARCH-02 | Search with auto-start success | Equivalence - normal | Auto-start then search | Integration |
+| TC-SEARCH-03 | Search with auto-start failure | Equivalence - error | ChromeNotReadyError | Integration |
 | TC-B-03 | Very long query (4000 chars) | Boundary – max | Accepts long query | §4.4.1 input limit |
 """
 
@@ -90,7 +93,7 @@ class TestSearchValidation:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = None
         
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with pytest.raises(TaskNotFoundError) as exc_info:
                     await _handle_search({
@@ -189,7 +192,7 @@ class TestSearchBoundaryValues:
             captured_options.update(options or {})
             return mock_search_result
         
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch("src.research.pipeline.search_action", side_effect=capture_action):
@@ -225,7 +228,7 @@ class TestSearchBoundaryValues:
             captured_options.update(options or {})
             return mock_search_result
         
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch("src.research.pipeline.search_action", side_effect=capture_action):
@@ -257,7 +260,7 @@ class TestSearchBoundaryValues:
         
         long_query = "a" * 4000  # Max input length per §4.4.1
         
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch(
@@ -323,7 +326,7 @@ class TestSearchExecution:
         
         mock_state = AsyncMock()
         
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch(
@@ -374,7 +377,7 @@ class TestSearchExecution:
             "refutations_found": 2,
         }
         
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch(
@@ -424,7 +427,7 @@ class TestSearchExecution:
                 "budget_remaining": {"pages": 50, "percent": 42},
             }
         
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch(
@@ -657,111 +660,12 @@ class TestSearchToolDefinition:
 
 
 class TestChromeCDPCheck:
-    """Tests for Chrome CDP pre-check (N.5 implementation)."""
-
-    @pytest.mark.asyncio
-    async def test_cdp_not_available_raises_error(self) -> None:
-        """
-        TC-A-08: CDP not available raises ChromeNotReadyError.
-        
-        // Given: Chrome CDP endpoint is not accessible
-        // When: Calling _handle_search
-        // Then: Raises ChromeNotReadyError before reaching pipeline
-        """
-        from src.mcp.server import _handle_search
-        from src.mcp.errors import ChromeNotReadyError
-        
-        # Mock CDP check to return False (not available)
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=False):
-            with patch("src.mcp.server._is_podman_environment", return_value=False):
-                with pytest.raises(ChromeNotReadyError) as exc_info:
-                    await _handle_search({
-                        "task_id": "task_123",
-                        "query": "test query",
-                    })
-        
-        error_dict = exc_info.value.to_dict()
-        assert error_dict["error_code"] == "CHROME_NOT_READY"
-        assert "./scripts/chrome.sh start" in error_dict["error"]
-
-    @pytest.mark.asyncio
-    async def test_cdp_not_available_in_podman_includes_hint(self) -> None:
-        """
-        TC-A-09: CDP not available in Podman includes socat hint.
-        
-        // Given: CDP not available AND running in Podman environment
-        // When: Calling _handle_search
-        // Then: Raises ChromeNotReadyError with Podman/socat hint
-        """
-        from src.mcp.server import _handle_search
-        from src.mcp.errors import ChromeNotReadyError
-        
-        # Mock CDP check to return False and Podman check to return True
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=False):
-            with patch("src.mcp.server._is_podman_environment", return_value=True):
-                with pytest.raises(ChromeNotReadyError) as exc_info:
-                    await _handle_search({
-                        "task_id": "task_123",
-                        "query": "test query",
-                    })
-        
-        error_dict = exc_info.value.to_dict()
-        assert error_dict["error_code"] == "CHROME_NOT_READY"
-        assert "details" in error_dict
-        assert "hint" in error_dict["details"]
-        assert "socat" in error_dict["details"]["hint"]
-        assert "WSL2" in error_dict["details"]["hint"]
-
-    @pytest.mark.asyncio
-    async def test_cdp_available_proceeds_to_search(self) -> None:
-        """
-        TC-N-07: CDP available allows search to proceed.
-        
-        // Given: Chrome CDP endpoint is accessible
-        // When: Calling _handle_search with valid params
-        // Then: Search proceeds (no ChromeNotReadyError)
-        """
-        from src.mcp.server import _handle_search
-        
-        mock_task = {"id": "task_abc123"}
-        mock_search_result = {
-            "ok": True,
-            "search_id": "s_001",
-            "query": "test",
-            "status": "partial",
-            "pages_fetched": 0,
-            "useful_fragments": 0,
-            "harvest_rate": 0.0,
-            "claims_found": [],
-            "satisfaction_score": 0.0,
-            "novelty_score": 0.0,
-            "budget_remaining": {"pages": 100, "percent": 100},
-        }
-        
-        mock_db = AsyncMock()
-        mock_db.fetch_one.return_value = mock_task
-        mock_state = AsyncMock()
-        
-        # Mock CDP check to return True (available)
-        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
-            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
-                    with patch(
-                        "src.research.pipeline.search_action",
-                        return_value=mock_search_result,
-                    ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test query",
-                        })
-        
-        assert result["ok"] is True
-        assert result["search_id"] == "s_001"
+    """Tests for Chrome CDP check function."""
 
     @pytest.mark.asyncio
     async def test_check_chrome_cdp_ready_success(self) -> None:
         """
-        Test _check_chrome_cdp_ready returns True when CDP responds.
+        TC-CDP-01: CDP responds 200.
         
         // Given: CDP endpoint responds with 200
         // When: Calling _check_chrome_cdp_ready
@@ -791,7 +695,7 @@ class TestChromeCDPCheck:
     @pytest.mark.asyncio
     async def test_check_chrome_cdp_ready_failure(self) -> None:
         """
-        Test _check_chrome_cdp_ready returns False on connection error.
+        TC-CDP-02: CDP connection error.
         
         // Given: CDP endpoint is not accessible
         // When: Calling _check_chrome_cdp_ready
@@ -814,54 +718,310 @@ class TestChromeCDPCheck:
         
         assert result is False
 
-    def test_is_podman_environment_with_dockerenv(self) -> None:
+    @pytest.mark.asyncio
+    async def test_check_chrome_cdp_ready_non_200_status(self) -> None:
         """
-        Test _is_podman_environment detects .dockerenv.
+        TC-CDP-03: CDP returns non-200 status code.
         
-        // Given: /.dockerenv exists
-        // When: Calling _is_podman_environment
-        // Then: Returns True
-        """
-        from src.mcp.server import _is_podman_environment
-        import os
-        
-        with patch("os.path.exists", return_value=True):
-            with patch.dict(os.environ, {}, clear=True):
-                result = _is_podman_environment()
-        
-        assert result is True
-
-    def test_is_podman_environment_with_container_env(self) -> None:
-        """
-        Test _is_podman_environment detects container env var.
-        
-        // Given: container=podman env var set
-        // When: Calling _is_podman_environment
-        // Then: Returns True
-        """
-        from src.mcp.server import _is_podman_environment
-        import os
-        
-        with patch("os.path.exists", return_value=False):
-            with patch.dict(os.environ, {"container": "podman"}):
-                result = _is_podman_environment()
-        
-        assert result is True
-
-    def test_is_podman_environment_native(self) -> None:
-        """
-        Test _is_podman_environment returns False in native env.
-        
-        // Given: No .dockerenv and no container env var
-        // When: Calling _is_podman_environment
+        // Given: CDP endpoint responds with non-200 status (e.g., 500)
+        // When: Calling _check_chrome_cdp_ready
         // Then: Returns False
         """
-        from src.mcp.server import _is_podman_environment
-        import os
+        from src.mcp.server import _check_chrome_cdp_ready
+        from unittest.mock import MagicMock
         
-        with patch("os.path.exists", return_value=False):
-            with patch.dict(os.environ, {}, clear=True):
-                result = _is_podman_environment()
+        # Create a mock response with non-200 status
+        mock_response = MagicMock()
+        mock_response.status = 500
+        
+        # Create mock session with proper async context manager support
+        mock_session = MagicMock()
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
+        
+        mock_session_cm = MagicMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+        
+        with patch("aiohttp.ClientSession", return_value=mock_session_cm):
+            result = await _check_chrome_cdp_ready()
         
         assert result is False
+
+
+class TestChromeAutoStart:
+    """Tests for Chrome auto-start functionality (N.5.3)."""
+
+    @pytest.mark.asyncio
+    async def test_auto_start_chrome_success(self) -> None:
+        """
+        TC-AUTO-04 (partial): chrome.sh executes successfully.
+        
+        // Given: chrome.sh exists and executes successfully
+        // When: Calling _auto_start_chrome
+        // Then: Returns True
+        """
+        from src.mcp.server import _auto_start_chrome
+        import subprocess
+        
+        mock_result = subprocess.CompletedProcess(
+            args=["chrome.sh", "start"],
+            returncode=0,
+            stdout="READY\nHost: localhost:9222",
+            stderr="",
+        )
+        
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("subprocess.run", return_value=mock_result):
+                result = await _auto_start_chrome()
+        
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_auto_start_chrome_script_not_found(self) -> None:
+        """
+        TC-AUTO-04: chrome.sh not found.
+        
+        // Given: chrome.sh does not exist
+        // When: Calling _auto_start_chrome
+        // Then: Returns False
+        """
+        from src.mcp.server import _auto_start_chrome
+        
+        with patch("pathlib.Path.exists", return_value=False):
+            result = await _auto_start_chrome()
+        
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_auto_start_chrome_script_fails(self) -> None:
+        """
+        TC-AUTO-04 (variant): chrome.sh fails.
+        
+        // Given: chrome.sh exists but returns non-zero exit code
+        // When: Calling _auto_start_chrome
+        // Then: Returns False
+        """
+        from src.mcp.server import _auto_start_chrome
+        import subprocess
+        
+        mock_result = subprocess.CompletedProcess(
+            args=["chrome.sh", "start"],
+            returncode=1,
+            stdout="",
+            stderr="ERROR: Chrome failed to start",
+        )
+        
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("subprocess.run", return_value=mock_result):
+                result = await _auto_start_chrome()
+        
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_auto_start_chrome_timeout(self) -> None:
+        """
+        TC-AUTO-05: chrome.sh timeout.
+        
+        // Given: chrome.sh runs longer than 30 seconds
+        // When: Calling _auto_start_chrome
+        // Then: Returns False (timeout handled)
+        """
+        from src.mcp.server import _auto_start_chrome
+        import subprocess
+        
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("chrome.sh", 30)):
+                result = await _auto_start_chrome()
+        
+        assert result is False
+
+
+class TestEnsureChromeReady:
+    """Tests for _ensure_chrome_ready (auto-start integration)."""
+
+    @pytest.mark.asyncio
+    async def test_ensure_chrome_ready_already_connected(self) -> None:
+        """
+        TC-AUTO-01: CDP already ready.
+        
+        // Given: CDP is already connected
+        // When: Calling _ensure_chrome_ready
+        // Then: Returns True immediately without auto-start
+        """
+        from src.mcp.server import _ensure_chrome_ready
+        
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)) as mock_check:
+            with patch("src.mcp.server._auto_start_chrome") as mock_auto_start:
+                result = await _ensure_chrome_ready()
+        
+        assert result is True
+        mock_check.assert_called_once()
+        mock_auto_start.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ensure_chrome_ready_auto_start_success(self) -> None:
+        """
+        TC-AUTO-02: CDP not ready, auto-start succeeds.
+        
+        // Given: CDP not connected initially, but connects after auto-start
+        // When: Calling _ensure_chrome_ready
+        // Then: Auto-starts Chrome and returns True
+        """
+        from src.mcp.server import _ensure_chrome_ready
+        
+        call_count = 0
+        
+        async def cdp_check_side_effect():
+            nonlocal call_count
+            call_count += 1
+            # First call: not ready, subsequent calls: ready
+            return call_count > 1
+        
+        with patch("src.mcp.server._check_chrome_cdp_ready", side_effect=cdp_check_side_effect):
+            with patch("src.mcp.server._auto_start_chrome", new=AsyncMock(return_value=True)):
+                result = await _ensure_chrome_ready(timeout=2.0, poll_interval=0.1)
+        
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_ensure_chrome_ready_timeout(self) -> None:
+        """
+        TC-AUTO-03: CDP not ready, timeout.
+        
+        // Given: CDP never connects (auto-start fails or Chrome doesn't respond)
+        // When: Calling _ensure_chrome_ready with short timeout
+        // Then: Raises ChromeNotReadyError after timeout
+        """
+        from src.mcp.server import _ensure_chrome_ready
+        from src.mcp.errors import ChromeNotReadyError
+        
+        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=False)):
+            with patch("src.mcp.server._auto_start_chrome", new=AsyncMock(return_value=False)):
+                with pytest.raises(ChromeNotReadyError) as exc_info:
+                    await _ensure_chrome_ready(timeout=0.5, poll_interval=0.1)
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "CHROME_NOT_READY"
+        assert error_dict["details"]["auto_start_attempted"] is True
+        assert "diagnose" in error_dict["error"]
+
+
+class TestSearchWithAutoStart:
+    """Integration tests for search with Chrome auto-start."""
+
+    @pytest.fixture
+    def mock_task(self) -> dict[str, Any]:
+        """Create mock task data."""
+        return {"id": "task_abc123"}
+
+    @pytest.fixture
+    def mock_search_result(self) -> dict[str, Any]:
+        """Create mock search result."""
+        return {
+            "ok": True,
+            "search_id": "s_001",
+            "query": "test",
+            "status": "partial",
+            "pages_fetched": 0,
+            "useful_fragments": 0,
+            "harvest_rate": 0.0,
+            "claims_found": [],
+            "satisfaction_score": 0.0,
+            "novelty_score": 0.0,
+            "budget_remaining": {"pages": 100, "percent": 100},
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_with_cdp_ready(
+        self, mock_task: dict[str, Any], mock_search_result: dict[str, Any]
+    ) -> None:
+        """
+        TC-SEARCH-01: Search with CDP ready.
+        
+        // Given: Chrome CDP is already connected
+        // When: Calling _handle_search
+        // Then: Search proceeds without auto-start
+        """
+        from src.mcp.server import _handle_search
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        with patch("src.mcp.server._ensure_chrome_ready", new=AsyncMock(return_value=True)):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=mock_search_result,
+                    ):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test query",
+                        })
+        
+        assert result["ok"] is True
+        assert result["search_id"] == "s_001"
+
+    @pytest.mark.asyncio
+    async def test_search_with_auto_start_success(
+        self, mock_task: dict[str, Any], mock_search_result: dict[str, Any]
+    ) -> None:
+        """
+        TC-SEARCH-02: Search with auto-start success.
+        
+        // Given: Chrome CDP not connected, but auto-start succeeds
+        // When: Calling _handle_search
+        // Then: Auto-starts Chrome then proceeds with search
+        """
+        from src.mcp.server import _handle_search
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        ensure_called = False
+        
+        async def mock_ensure():
+            nonlocal ensure_called
+            ensure_called = True
+            return True
+        
+        with patch("src.mcp.server._ensure_chrome_ready", side_effect=mock_ensure):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=mock_search_result,
+                    ):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test query",
+                        })
+        
+        assert ensure_called is True
+        assert result["ok"] is True
+
+    @pytest.mark.asyncio
+    async def test_search_with_auto_start_failure(self) -> None:
+        """
+        TC-SEARCH-03: Search with auto-start failure.
+        
+        // Given: Chrome CDP not connected and auto-start fails
+        // When: Calling _handle_search
+        // Then: Raises ChromeNotReadyError
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import ChromeNotReadyError
+        
+        with patch("src.mcp.server._ensure_chrome_ready", side_effect=ChromeNotReadyError()):
+            with pytest.raises(ChromeNotReadyError) as exc_info:
+                await _handle_search({
+                    "task_id": "task_123",
+                    "query": "test query",
+                })
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "CHROME_NOT_READY"
 

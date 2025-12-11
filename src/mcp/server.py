@@ -691,10 +691,105 @@ async def _check_chrome_cdp_ready() -> bool:
         return False
 
 
-def _is_podman_environment() -> bool:
-    """Check if running in Podman/Docker container."""
-    import os
-    return os.path.exists("/.dockerenv") or os.environ.get("container") == "podman"
+async def _auto_start_chrome() -> bool:
+    """
+    Auto-start Chrome using chrome.sh script.
+    
+    Executes ./scripts/chrome.sh start and returns success status.
+    Per N.5.3: UX-first approach - Lancet auto-starts Chrome when needed.
+    
+    Returns:
+        True if chrome.sh start succeeded, False otherwise.
+    """
+    import subprocess
+    from pathlib import Path
+    
+    # Find chrome.sh script relative to this file
+    # src/mcp/server.py -> scripts/chrome.sh
+    script_path = Path(__file__).parent.parent.parent / "scripts" / "chrome.sh"
+    
+    if not script_path.exists():
+        logger.warning("chrome.sh not found", path=str(script_path))
+        return False
+    
+    try:
+        logger.info("Auto-starting Chrome", script=str(script_path))
+        result = subprocess.run(
+            [str(script_path), "start"],
+            capture_output=True,
+            text=True,
+            timeout=30,  # 30 second timeout for script execution
+        )
+        
+        if result.returncode == 0:
+            logger.info("Chrome auto-start script completed", stdout=result.stdout[:200] if result.stdout else "")
+            return True
+        else:
+            logger.warning(
+                "Chrome auto-start script failed",
+                returncode=result.returncode,
+                stderr=result.stderr[:200] if result.stderr else "",
+            )
+            return False
+    except subprocess.TimeoutExpired:
+        logger.error("Chrome auto-start timed out")
+        return False
+    except Exception as e:
+        logger.error("Chrome auto-start error", error=str(e))
+        return False
+
+
+async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5) -> bool:
+    """
+    Ensure Chrome CDP is ready, auto-starting if needed.
+    
+    Per N.5.3 and requirements.md §3.2.1:
+    1. Check if CDP is already connected
+    2. If not, auto-start Chrome using chrome.sh
+    3. Wait up to timeout seconds for CDP connection
+    4. Return True if connected, raise ChromeNotReadyError if failed
+    
+    Args:
+        timeout: Maximum seconds to wait for CDP connection after auto-start.
+        poll_interval: Seconds between CDP connection checks.
+        
+    Returns:
+        True if Chrome CDP is ready.
+        
+    Raises:
+        ChromeNotReadyError: If Chrome could not be started or connected.
+    """
+    import time
+    from src.mcp.errors import ChromeNotReadyError
+    
+    # 1. Check if already connected
+    if await _check_chrome_cdp_ready():
+        logger.debug("Chrome CDP already ready")
+        return True
+    
+    # 2. Auto-start Chrome
+    logger.info("Chrome CDP not ready, attempting auto-start")
+    auto_start_success = await _auto_start_chrome()
+    
+    if not auto_start_success:
+        logger.warning("Chrome auto-start script failed")
+        # Continue to wait anyway - script might have partially succeeded
+    
+    # 3. Wait for CDP connection with polling
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < timeout:
+        if await _check_chrome_cdp_ready():
+            elapsed = time.monotonic() - start_time
+            logger.info("Chrome CDP ready after auto-start", elapsed_seconds=round(elapsed, 1))
+            return True
+        await asyncio.sleep(poll_interval)
+    
+    # 4. Failed - raise error
+    logger.error("Chrome CDP not ready after auto-start", timeout=timeout)
+    raise ChromeNotReadyError(
+        "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh diagnose",
+        auto_start_attempted=True,
+    )
 
 
 async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
@@ -706,10 +801,12 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
     
     Supports refute:true for refutation mode.
     
+    Per N.5.3: Auto-starts Chrome if not connected.
+    
     Raises:
-        ChromeNotReadyError: If Chrome CDP is not connected.
+        ChromeNotReadyError: If Chrome CDP is not connected after auto-start attempt.
     """
-    from src.mcp.errors import TaskNotFoundError, InvalidParamsError, ChromeNotReadyError
+    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
     from src.research.pipeline import search_action
     
     task_id = args.get("task_id")
@@ -730,11 +827,9 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
             expected="non-empty string",
         )
     
-    # Pre-check: Verify Chrome CDP is available before proceeding
-    # Per N.5: Report infrastructure failures immediately rather than returning "running"
-    cdp_ready = await _check_chrome_cdp_ready()
-    if not cdp_ready:
-        raise ChromeNotReadyError(is_podman=_is_podman_environment())
+    # Pre-check: Ensure Chrome CDP is available, auto-starting if needed
+    # Per N.5.3: UX-first - auto-start Chrome rather than returning error immediately
+    await _ensure_chrome_ready()
     
     with LogContext(task_id=task_id):
         # Verify task exists

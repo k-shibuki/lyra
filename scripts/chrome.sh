@@ -12,7 +12,7 @@
 #   ./scripts/chrome.sh diagnose     # Troubleshoot connection issues
 #   ./scripts/chrome.sh fix          # Auto-fix WSL2 mirrored networking issues
 
-set -e
+set -euo pipefail
 
 # =============================================================================
 # INITIALIZATION
@@ -22,6 +22,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
+
+# Enable debug mode if DEBUG=1
+enable_debug_mode
+
+# Set up error handler
+trap 'cleanup_on_error ${LINENO}' ERR
 
 # Command line arguments (override .env defaults)
 ACTION="${1:-check}"
@@ -49,15 +55,26 @@ STARTUP_WAIT_INTERVAL=0.5
 # POWERSHELL UTILITIES (WSL only)
 # =============================================================================
 
-# Run PowerShell without environment variable leakage
-# Note: Errors should be handled within PowerShell commands using try-catch
-# This function suppresses stderr to prevent environment variable leakage
-# If PowerShell command fails, it should return an error marker (e.g., "ERROR") in the output
+# Function: run_ps
+# Description: Run PowerShell command without environment variable leakage
+# Arguments:
+#   $1: PowerShell command to execute
+# Returns:
+#   Outputs PowerShell command result (stdout only)
+# Note: Errors should be handled within PowerShell commands using try-catch.
+#       This function suppresses stderr to prevent environment variable leakage.
+#       If PowerShell command fails, it should return an error marker (e.g., "ERROR") in the output.
 run_ps() {
     env -i PATH="$PATH" powershell.exe -NoProfile -NonInteractive -Command "$1" 2>/dev/null
 }
 
-# Check if WSL2 mirrored networking mode is enabled
+# Function: check_mirrored_mode
+# Description: Check if WSL2 mirrored networking mode is enabled
+# Returns:
+#   "ENABLED" if mirrored mode is enabled
+#   "DISABLED" if mirrored mode is disabled
+#   "NO_CONFIG" if .wslconfig file doesn't exist
+#   "ERROR" if check failed
 check_mirrored_mode() {
     local result
     result=$(run_ps "
@@ -80,15 +97,20 @@ check_mirrored_mode() {
     " 2>/dev/null | tr -d '\r\n')
     
     # If result is empty or ERROR, return ERROR
-    if [ -z "$result" ] || [ "$result" = "ERROR" ]; then
+    # Use ${result:-} to handle empty string safely with set -u
+    local result_value="${result:-}"
+    if [ -z "$result_value" ] || [ "$result_value" = "ERROR" ]; then
         echo "ERROR"
         return 1
     fi
     
-    echo "$result"
+    echo "$result_value"
 }
 
-# Get current .wslconfig content
+# Function: get_wslconfig_content
+# Description: Get current .wslconfig file content from Windows
+# Returns:
+#   Content of .wslconfig file, or empty string on error
 get_wslconfig_content() {
     run_ps "
         \$ErrorActionPreference = 'Stop'
@@ -108,40 +130,26 @@ get_wslconfig_content() {
 # ENVIRONMENT DETECTION
 # =============================================================================
 
-# Detect environment (chrome.sh-specific, uses ENV_TYPE global)
-chrome_detect_env() {
-    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
-        echo "windows"
-    elif grep -qi microsoft /proc/version 2>/dev/null; then
-        echo "wsl"
-    else
-        echo "linux"
-    fi
-}
-
-ENV_TYPE=$(chrome_detect_env)
-
-# Get Windows host IP for WSL2
-chrome_get_windows_host() {
-    if [ "$ENV_TYPE" = "wsl" ]; then
-        ip route | grep default | awk '{print $3}'
-    else
-        echo "localhost"
-    fi
-}
+# Use common environment detection function
+ENV_TYPE=$(detect_env)
 
 # =============================================================================
-# CONNECTION UTILITIES
+# NETWORKING UTILITIES
 # =============================================================================
 
-# Try multiple endpoints to connect to Chrome CDP
-# Returns: hostname that works, or failure
+# Function: try_connect
+# Description: Try multiple endpoints to connect to Chrome CDP
+# Arguments:
+#   $1: Port number to connect to
+# Returns:
+#   0: Success, outputs hostname that works
+#   1: Failed to connect to any endpoint
 try_connect() {
     local port="$1"
     local endpoints=("localhost" "127.0.0.1")
     
     if [ "$ENV_TYPE" = "wsl" ]; then
-        endpoints+=("$(chrome_get_windows_host)")
+        endpoints+=("$(get_windows_host)")
     fi
     
     for host in "${endpoints[@]}"; do
@@ -153,12 +161,53 @@ try_connect() {
     return 1
 }
 
+# Function: try_connect_with_backoff
+# Description: Try to connect to Chrome CDP with exponential backoff
+# Arguments:
+#   $1: Port number to connect to
+#   $2: Maximum attempts (default: 5)
+#   $3: Base delay in seconds (default: 0.5)
+# Returns:
+#   0: Success, outputs hostname that works
+#   1: Failed to connect after all attempts
+try_connect_with_backoff() {
+    local port="$1"
+    local max_attempts="${2:-5}"
+    local base_delay="${3:-0.5}"
+    local endpoints=("localhost" "127.0.0.1")
+    
+    if [ "$ENV_TYPE" = "wsl" ]; then
+        endpoints+=("$(get_windows_host)")
+    fi
+    
+    local delay=$base_delay
+    for ((attempt=1; attempt<=max_attempts; attempt++)); do
+        for host in "${endpoints[@]}"; do
+            if curl -s --connect-timeout "$CURL_TIMEOUT" "http://$host:$port/json/version" > /dev/null 2>&1; then
+                echo "$host"
+                return 0
+            fi
+        done
+        # Wait before next attempt (except on last attempt)
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            sleep "$delay"
+            # Exponential backoff: double the delay each time
+            delay=$(awk "BEGIN {print $delay * 2}")
+        fi
+    done
+    return 1
+}
+
 # =============================================================================
 # SOCAT PORT FORWARDING (WSL2 only)
+# Part of NETWORKING UTILITIES
 # =============================================================================
 
-# Check if socat is running
-# Returns: PID if running, failure otherwise
+# Function: check_socat
+# Description: Check if socat port forwarding process is running
+# Returns:
+#   0: socat is running, outputs PID
+#   1: socat is not running
 check_socat() {
     if [ -f "$SOCAT_PID_FILE" ]; then
         local pid
@@ -174,8 +223,12 @@ check_socat() {
     return 1
 }
 
-# Start socat port forward (WSL2 -> Windows Chrome)
-# Forwards SOCAT_PORT to the base Chrome port (9222)
+# Function: start_socat
+# Description: Start socat port forward (WSL2 -> Windows Chrome)
+#             Forwards SOCAT_PORT to the base Chrome port (9222)
+# Returns:
+#   0: socat started successfully
+#   1: Failed to start socat
 start_socat() {
     local base_chrome_port=9222
     
@@ -202,11 +255,16 @@ start_socat() {
     else
         rm -f "$SOCAT_PID_FILE"
         log_error "Failed to start socat"
+        log_error "Check if port $SOCAT_PORT is available: netstat -tuln | grep $SOCAT_PORT || ss -tuln | grep $SOCAT_PORT"
+        log_error "Check socat installation: socat -V"
         return 1
     fi
 }
 
-# Stop socat port forward
+# Function: stop_socat
+# Description: Stop socat port forwarding process
+# Returns:
+#   0: Success (or socat was not running)
 stop_socat() {
     if [ -f "$SOCAT_PID_FILE" ]; then
         local pid
@@ -221,9 +279,16 @@ stop_socat() {
 
 # =============================================================================
 # STATUS AND INFO
+# Part of CHROME MANAGEMENT
 # =============================================================================
 
-# Get Chrome debug info
+# Function: get_status
+# Description: Get Chrome debug port status and connection information
+# Arguments:
+#   $1: Port number to check
+# Returns:
+#   0: Chrome is ready, outputs connection info
+#   1: Chrome is not ready
 get_status() {
     local port="$1"
     local host
@@ -258,7 +323,13 @@ get_status() {
 # CHROME MANAGEMENT
 # =============================================================================
 
-# Start Chrome (WSL -> Windows)
+# Function: start_chrome_wsl
+# Description: Start Chrome with remote debugging on Windows (from WSL)
+# Arguments:
+#   $1: Port number for remote debugging
+# Returns:
+#   0: Chrome started and ready
+#   1: Failed to start Chrome or connect
 start_chrome_wsl() {
     local port="$1"
     
@@ -305,26 +376,27 @@ start_chrome_wsl() {
         }
     " 2>/dev/null | tr -d '\r\n')
     
-    if [ -z "$start_result" ] || [ "$start_result" = "ERROR" ]; then
+    local start_result_value="${start_result:-}"
+    if [ -z "$start_result_value" ] || [ "$start_result_value" = "ERROR" ]; then
         echo "ERROR"
         echo "Failed to start Chrome via PowerShell"
-        echo "  -> Check if Chrome is installed"
+        echo "  -> Check if Chrome is installed at: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
         echo "  -> Check PowerShell permissions"
+        echo "  -> Try running PowerShell manually to verify it works"
+        log_error "PowerShell command failed or returned ERROR"
         return 1
     fi
     
-    # Wait and try to connect
+    # Wait and try to connect with exponential backoff
     echo "Waiting for Chrome..."
     local host=""
-    for ((i=1; i<=STARTUP_WAIT_ITERATIONS; i++)); do
-        sleep "$STARTUP_WAIT_INTERVAL"
-        if host=$(try_connect "$port"); then
-            echo "READY"
-            echo "Host: $host:$port"
-            echo "Connect: chromium.connect_over_cdp('http://$host:$port')"
-            return 0
-        fi
-    done
+    host=$(try_connect_with_backoff "$port" "$STARTUP_WAIT_ITERATIONS" "$STARTUP_WAIT_INTERVAL")
+    if [ -n "${host:-}" ]; then
+        echo "READY"
+        echo "Host: $host:$port"
+        echo "Connect: chromium.connect_over_cdp('http://$host:$port')"
+        return 0
+    fi
     
     echo "TIMEOUT"
     echo "Chrome started but could not connect from WSL"
@@ -334,7 +406,13 @@ start_chrome_wsl() {
     return 1
 }
 
-# Start Chrome (Linux native)
+# Function: start_chrome_linux
+# Description: Start Chrome with remote debugging on Linux native
+# Arguments:
+#   $1: Port number for remote debugging
+# Returns:
+#   0: Chrome started and ready
+#   1: Failed to start Chrome or connect
 start_chrome_linux() {
     local port="$1"
     
@@ -365,20 +443,24 @@ start_chrome_linux() {
         > /dev/null 2>&1 &
     
     echo "Waiting for Chrome..."
-    for ((i=1; i<=20; i++)); do
-        sleep "$STARTUP_WAIT_INTERVAL"
-        if try_connect "$port" > /dev/null; then
-            echo "READY"
-            echo "Connect: chromium.connect_over_cdp('http://localhost:$port')"
-            return 0
-        fi
-    done
+    local host=""
+    host=$(try_connect_with_backoff "$port" 20 "$STARTUP_WAIT_INTERVAL")
+    if [ -n "${host:-}" ]; then
+        echo "READY"
+        echo "Connect: chromium.connect_over_cdp('http://${host}:$port')"
+        return 0
+    fi
     
     echo "TIMEOUT"
     return 1
 }
 
-# Stop Lancet Chrome instance
+# Function: stop_chrome
+# Description: Stop Lancet Chrome instance
+# Arguments:
+#   $1: Port number (optional, defaults to CHROME_PORT)
+# Returns:
+#   0: Success
 stop_chrome() {
     local port="${1:-$CHROME_PORT}"
     echo "STOPPING"
@@ -426,7 +508,13 @@ stop_chrome() {
 # DIAGNOSTICS
 # =============================================================================
 
-# Diagnose connection issues (WSL2)
+# Function: run_diagnose
+# Description: Diagnose Chrome CDP connection issues (WSL2)
+# Arguments:
+#   $1: Port number to diagnose
+# Returns:
+#   0: Diagnostics completed successfully
+#   1: Diagnostic errors encountered
 run_diagnose() {
     local port="$1"
     
@@ -443,7 +531,7 @@ run_diagnose() {
     fi
     
     local wsl_gateway
-    wsl_gateway=$(chrome_get_windows_host)
+    wsl_gateway=$(get_windows_host)
     echo "WSL2 Gateway IP: $wsl_gateway"
     echo ""
     
@@ -582,7 +670,13 @@ run_diagnose() {
 # AUTO-FIX
 # =============================================================================
 
-# Auto-fix WSL2 connectivity issues using mirrored networking mode
+# Function: run_fix
+# Description: Auto-fix WSL2 connectivity issues using mirrored networking mode
+# Arguments:
+#   $1: Port number (optional, for testing connection)
+# Returns:
+#   0: Fix instructions provided or no fix needed
+#   1: Unable to check configuration or fix failed
 run_fix() {
     local port="$1"
     
