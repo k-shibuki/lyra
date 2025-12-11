@@ -1754,6 +1754,225 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 
 **最重要**: `config/cursor-mcp.json`の変更（Cursor IDEがMCPサーバーを起動する設定）
 
+#### O.6 認証維持要件の調査結果（別タスク）
+
+**調査日**: 2025-12-11  
+**調査目的**: Phase O.3完了後、仕様書§3.6.1「認証待ちキュー」および§4.3.3「実プロファイル活用」の要件が満たされているか検証
+
+##### O.6.1 問題概要
+
+Phase O.3の変更自体は認証維持に直接影響しないが、**既存実装に以下の問題が存在**することが判明：
+
+| 問題 | 影響 | 仕様違反箇所 |
+|------|------|-------------|
+| **問題1**: `new_context()`による新規context作成 | 既存プロファイルのCookieが引き継がれない | §3.2, §4.3.3 |
+| **問題2**: `resolve_auth`でCookie取得・保存が未実装 | 認証完了後もセッションが再利用されない | §3.6.1 |
+
+##### O.6.2 詳細調査結果
+
+###### 問題1: `new_context()`による新規context作成
+
+**影響箇所**:
+- `src/search/browser_search_provider.py:206` - `BrowserSearchProvider._ensure_browser()`
+- `src/crawler/playwright_provider.py:165` - `PlaywrightProvider._get_browser_and_context()`
+- `src/crawler/fetcher.py:780` - `BrowserFetcher._ensure_browser()`
+
+**現状の実装**:
+```python
+# すべての箇所で同様のパターン
+self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+self._context = await self._browser.new_context(...)  # 常に新規作成
+```
+
+**問題点**:
+1. `connect_over_cdp()`で接続した後、`browser.contexts`を確認せずに`new_context()`を呼び出している
+2. 既存のChromeプロファイルのcontext（ユーザーが手動で認証したCookieを含む）が無視される
+3. 新しいcontextはプロファイルのCookieを共有するが、**既存のタブ/ウィンドウのCookieとは別セッション**になる可能性がある
+
+**仕様書の要件**:
+- §3.2: "Windows側Chromeの実プロファイルをpersistent contextで利用"
+- §4.3.3: "実プロファイル活用: Windows側Chromeのユーザープロファイルを用い、フォント/Canvas/Audio等の指紋を一貫化"
+- §3.6.1: "セッション共有: 認証済みCookie/セッションは同一ドメインの後続リクエストで自動再利用"
+
+**Playwrightの動作**:
+- `connect_over_cdp()`で接続した場合、`browser.contexts`には既存のcontextが含まれる可能性がある
+- Chromeが`--remote-debugging-port`で起動された場合、デフォルトでは既存のcontextが存在しない場合もある
+- `new_context()`で作成したcontextは、そのプロファイルのCookieを共有するが、**既存のタブ/ウィンドウのCookieとは別セッション**になる可能性がある
+
+###### 問題2: `resolve_auth`でCookie取得・保存が未実装
+
+**影響箇所**:
+- `src/mcp/server.py:1200, 1222` - `_handle_resolve_auth()`
+
+**現状の実装**:
+```python
+# mcp/server.py:1200
+if action == "complete":
+    result = await queue.complete(queue_id, success=success)  # session_dataなし
+
+# mcp/server.py:1222
+if action == "complete":
+    result = await queue.complete_domain(domain, success=success)  # session_dataなし
+```
+
+**問題点**:
+1. `resolve_auth`が呼ばれた時点で、ブラウザからCookieを取得していない
+2. `complete()`/`complete_domain()`は`session_data`パラメータを受け取るが、呼び出し側で`None`を渡している
+3. 認証完了後もセッション情報が保存されず、次回同じドメインにアクセスする際に再度認証が必要になる
+
+**既存の実装**:
+- `src/utils/notification.py:1223` - `complete()`は`session_data`を受け取る
+- `src/utils/notification.py:1278` - `complete_domain()`も`session_data`を受け取る
+- `src/utils/notification.py:1488` - `get_session_for_domain()`でセッション取得は実装済み
+- `src/crawler/session_transfer.py:371` - `capture_from_browser()`でCookie取得は実装済み
+
+**仕様書の要件**:
+- §3.6.1: "セッション共有: 認証済みCookie/セッションは同一ドメインの後続リクエストで自動再利用"
+- §3.6.1: "ドメインベース認証管理: 同一ドメインの認証は1回の突破で複数タスク/URLに適用される"
+
+**認証待ちキューのフロー**:
+1. 認証待ち発生 → `InterventionQueue.enqueue()`でキューに積む
+2. `start_session()`でURLを返す（ブラウザを開く処理はない）
+3. ユーザーが手動でブラウザを開いて認証
+4. `resolve_auth`で完了報告 → **Cookie取得・保存が未実装**
+
+##### O.6.3 修正提案
+
+###### 修正1: 既存contextの再利用
+
+**方針**: `connect_over_cdp()`で接続した後、既存のcontextがあれば優先的に使用する
+
+**実装箇所**:
+- `src/search/browser_search_provider.py:206`
+- `src/crawler/playwright_provider.py:165`
+- `src/crawler/fetcher.py:780`
+
+**修正案**:
+```python
+# 修正前
+self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+self._context = await self._browser.new_context(...)
+
+# 修正後
+self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+
+# 既存のcontextを確認
+existing_contexts = self._browser.contexts
+if existing_contexts:
+    # 既存のcontextを使用（プロファイルのCookieが維持される）
+    self._context = existing_contexts[0]
+    logger.info("Reusing existing browser context", context_count=len(existing_contexts))
+else:
+    # 既存のcontextがない場合のみ新規作成
+    self._context = await self._browser.new_context(...)
+    logger.info("Created new browser context")
+```
+
+**注意点**:
+- Chromeが`--remote-debugging-port`で起動された場合、デフォルトでは既存のcontextが存在しない場合もある
+- 既存のcontextを使用する場合、viewport設定などが異なる可能性がある
+- 複数のcontextが存在する場合、どれを使用するか決定する必要がある（最初のcontextを使用するか、URLに基づいて選択するか）
+
+###### 修正2: `resolve_auth`でCookie取得・保存
+
+**方針**: 認証完了時にブラウザからCookieを取得し、セッション転送マネージャーに保存する
+
+**実装箇所**:
+- `src/mcp/server.py:1151` - `_handle_resolve_auth()`
+
+**修正案**:
+```python
+# 修正前
+if action == "complete":
+    result = await queue.complete(queue_id, success=success)
+
+# 修正後
+if action == "complete":
+    # 認証完了時、ブラウザからCookieを取得
+    session_data = await _capture_auth_session(queue_id, domain)
+    result = await queue.complete(queue_id, success=success, session_data=session_data)
+```
+
+**新規関数**:
+```python
+async def _capture_auth_session(queue_id: str, domain: str) -> dict | None:
+    """Capture session data from browser after authentication.
+    
+    Args:
+        queue_id: Queue item ID.
+        domain: Domain name.
+        
+    Returns:
+        Session data dict or None.
+    """
+    from src.utils.notification import get_intervention_queue
+    from src.crawler.session_transfer import get_session_transfer_manager
+    
+    queue = get_intervention_queue()
+    item = await queue.get_item(queue_id)
+    if not item:
+        return None
+    
+    url = item.get("url")
+    if not url:
+        return None
+    
+    # ブラウザからCookieを取得
+    # 注意: 認証待ちURLを開いたcontextを特定する必要がある
+    # 現状、start_session()でブラウザを開いていないため、実装が必要
+    
+    # 暫定案: 既存のcontextからCookieを取得
+    from src.search.browser_search_provider import BrowserSearchProvider
+    provider = BrowserSearchProvider()
+    await provider._ensure_browser()
+    
+    if provider._context:
+        cookies = await provider._context.cookies([url])
+        session_data = {
+            "cookies": [dict(c) for c in cookies],
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+        }
+        return session_data
+    
+    return None
+```
+
+**注意点**:
+- 認証待ちURLを開いたcontextを特定する必要がある
+- 現状、`start_session()`でブラウザを開いていないため、認証待ちURLを開く処理を追加する必要がある可能性がある
+- または、ユーザーが手動で開いたブラウザタブからCookieを取得する方法を検討する必要がある
+
+##### O.6.4 影響範囲
+
+**Phase O.3の変更による影響**: なし（既存の問題）
+
+**修正による影響**:
+- `BrowserSearchProvider`, `PlaywrightProvider`, `BrowserFetcher`のcontext管理ロジック変更
+- `resolve_auth`の実装変更
+- 認証待ちキューのフロー変更（ブラウザを開く処理の追加が必要な可能性）
+
+##### O.6.5 優先度
+
+**優先度**: 🔴 高（仕様違反）
+
+**理由**:
+- §3.6.1「セッション共有」は認証待ちキューの核心機能
+- 認証完了後もセッションが再利用されないと、ユーザー介入回数が増加し、運用効率が低下する
+- §4.3.3「実プロファイル活用」はステルス性の根幹
+
+**実装時期**: Phase O完了後、別タスクとして実装
+
+##### O.6.6 関連ファイル
+
+| ファイル | 役割 | 修正内容 |
+|---------|------|---------|
+| `src/search/browser_search_provider.py` | ブラウザ検索プロバイダー | context再利用ロジック追加 |
+| `src/crawler/playwright_provider.py` | Playwrightプロバイダー | context再利用ロジック追加 |
+| `src/crawler/fetcher.py` | ブラウザフェッチャー | context再利用ロジック追加 |
+| `src/mcp/server.py` | MCPサーバー | `resolve_auth`でCookie取得・保存 |
+| `src/utils/notification.py` | 認証待ちキュー | ブラウザを開く処理の追加（検討） |
+| `src/crawler/session_transfer.py` | セッション転送マネージャー | 既存実装を活用 |
+
 #### O.5 影響範囲
 
 **削除される機能**:
