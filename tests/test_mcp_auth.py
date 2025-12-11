@@ -413,11 +413,16 @@ class TestResolveAuthExecution:
         
         // Given: Valid queue_id
         // When: Calling resolve_auth with action=complete, target=item
-        // Then: Completes the item
+        // Then: Completes the item with session_data capture attempt
         """
         from src.mcp.server import _handle_resolve_auth
         
         mock_queue = AsyncMock()
+        mock_queue.get_item.return_value = {
+            "id": "q_001",
+            "domain": "example.com",
+            "url": "https://example.com/page",
+        }
         mock_queue.complete.return_value = {
             "ok": True,
             "queue_id": "q_001",
@@ -427,7 +432,11 @@ class TestResolveAuthExecution:
         with patch(
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
-        ):
+        ), patch(
+            "src.mcp.server._capture_auth_session_cookies",
+            new_callable=AsyncMock,
+            return_value=None,
+        ) as mock_capture:
             result = await _handle_resolve_auth({
                 "target": "item",
                 "queue_id": "q_001",
@@ -439,7 +448,12 @@ class TestResolveAuthExecution:
         assert result["target"] == "item"
         assert result["queue_id"] == "q_001"
         assert result["action"] == "complete"
-        mock_queue.complete.assert_called_once_with("q_001", success=True)
+        # Verify get_item was called to get domain for cookie capture
+        mock_queue.get_item.assert_called_once_with("q_001")
+        # Verify cookie capture was attempted
+        mock_capture.assert_called_once_with("example.com")
+        # Verify complete was called with session_data
+        mock_queue.complete.assert_called_once_with("q_001", success=True, session_data=None)
 
     @pytest.mark.asyncio
     async def test_skip_single_item(self) -> None:
@@ -476,7 +490,7 @@ class TestResolveAuthExecution:
         
         // Given: Valid domain
         // When: Calling resolve_auth with action=complete, target=domain
-        // Then: Completes all items for that domain
+        // Then: Completes all items for that domain with cookie capture
         """
         from src.mcp.server import _handle_resolve_auth
         
@@ -491,6 +505,10 @@ class TestResolveAuthExecution:
         with patch(
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
+        ), patch(
+            "src.mcp.server._capture_auth_session_cookies",
+            new_callable=AsyncMock,
+            return_value=None,
         ):
             result = await _handle_resolve_auth({
                 "target": "domain",
@@ -504,7 +522,7 @@ class TestResolveAuthExecution:
         assert result["domain"] == "example.com"
         assert result["resolved_count"] == 3
         mock_queue.complete_domain.assert_called_once_with(
-            "example.com", success=True
+            "example.com", success=True, session_data=None
         )
 
     @pytest.mark.asyncio
@@ -539,6 +557,250 @@ class TestResolveAuthExecution:
         assert result["target"] == "domain"
         assert result["resolved_count"] == 2
         mock_queue.skip.assert_called_once_with(domain="example.com")
+
+
+class TestCaptureAuthSessionCookies:
+    """Tests for _capture_auth_session_cookies function (O.6 compliance).
+    
+    Per §3.6.1: Capture session data after authentication for reuse.
+    """
+
+    @pytest.mark.asyncio
+    async def test_capture_returns_cookies_when_browser_connected(self) -> None:
+        """
+        TC-CC-N-01: Cookie capture when browser connected with cookies.
+        
+        // Given: Browser connected with cookies for domain
+        // When: Calling _capture_auth_session_cookies
+        // Then: Returns session_data with cookies
+        """
+        from src.mcp.server import _capture_auth_session_cookies
+        
+        mock_context = AsyncMock()
+        mock_context.cookies.return_value = [
+            {"name": "session", "value": "abc123", "domain": "example.com"},
+            {"name": "auth", "value": "xyz789", "domain": ".example.com"},
+            {"name": "other", "value": "other", "domain": "other.com"},  # Different domain
+        ]
+        
+        mock_provider = AsyncMock()
+        mock_provider._browser = AsyncMock()
+        mock_provider._context = mock_context
+        
+        with patch(
+            "src.search.browser_search_provider.BrowserSearchProvider",
+            return_value=mock_provider,
+        ):
+            result = await _capture_auth_session_cookies("example.com")
+        
+        assert result is not None, "Should return session data"
+        assert "cookies" in result, "Should have cookies field"
+        assert len(result["cookies"]) == 2, "Should have 2 matching cookies"
+        assert "captured_at" in result, "Should have captured_at timestamp"
+        assert result["domain"] == "example.com", "Should have domain"
+
+    @pytest.mark.asyncio
+    async def test_capture_returns_none_when_browser_not_connected(self) -> None:
+        """
+        TC-CC-B-01: Cookie capture when browser not connected.
+        
+        // Given: Browser not connected (None)
+        // When: Calling _capture_auth_session_cookies
+        // Then: Returns None
+        """
+        from src.mcp.server import _capture_auth_session_cookies
+        
+        mock_provider = AsyncMock()
+        mock_provider._browser = None
+        mock_provider._context = None
+        
+        with patch(
+            "src.search.browser_search_provider.BrowserSearchProvider",
+            return_value=mock_provider,
+        ):
+            result = await _capture_auth_session_cookies("example.com")
+        
+        assert result is None, "Should return None when browser not connected"
+
+    @pytest.mark.asyncio
+    async def test_capture_returns_none_when_no_matching_cookies(self) -> None:
+        """
+        TC-CC-B-02: Cookie capture when no matching cookies.
+        
+        // Given: Browser connected but no cookies for domain
+        // When: Calling _capture_auth_session_cookies
+        // Then: Returns None
+        """
+        from src.mcp.server import _capture_auth_session_cookies
+        
+        mock_context = AsyncMock()
+        mock_context.cookies.return_value = [
+            {"name": "session", "value": "abc123", "domain": "other.com"},
+        ]
+        
+        mock_provider = AsyncMock()
+        mock_provider._browser = AsyncMock()
+        mock_provider._context = mock_context
+        
+        with patch(
+            "src.search.browser_search_provider.BrowserSearchProvider",
+            return_value=mock_provider,
+        ):
+            result = await _capture_auth_session_cookies("example.com")
+        
+        assert result is None, "Should return None when no matching cookies"
+
+    @pytest.mark.asyncio
+    async def test_capture_handles_exception_gracefully(self) -> None:
+        """
+        TC-CC-A-01: Cookie capture handles exceptions.
+        
+        // Given: Exception during cookie capture
+        // When: Calling _capture_auth_session_cookies
+        // Then: Returns None (no exception raised)
+        """
+        from src.mcp.server import _capture_auth_session_cookies
+        
+        mock_context = AsyncMock()
+        mock_context.cookies.side_effect = Exception("Browser disconnected")
+        
+        mock_provider = AsyncMock()
+        mock_provider._browser = AsyncMock()
+        mock_provider._context = mock_context
+        
+        with patch(
+            "src.search.browser_search_provider.BrowserSearchProvider",
+            return_value=mock_provider,
+        ):
+            result = await _capture_auth_session_cookies("example.com")
+        
+        assert result is None, "Should return None on exception"
+
+
+class TestResolveAuthCookieCapture:
+    """Tests for resolve_auth cookie capture integration (O.6 compliance)."""
+
+    @pytest.mark.asyncio
+    async def test_complete_item_captures_cookies(self) -> None:
+        """
+        TC-RA-N-01: resolve_auth complete captures cookies.
+        
+        // Given: Browser connected with cookies
+        // When: Calling resolve_auth action=complete with success=True
+        // Then: Cookies captured and passed to complete()
+        """
+        from src.mcp.server import _handle_resolve_auth
+        
+        session_data = {
+            "cookies": [{"name": "auth", "value": "test"}],
+            "captured_at": "2025-12-11T00:00:00Z",
+            "domain": "example.com",
+        }
+        
+        mock_queue = AsyncMock()
+        mock_queue.get_item.return_value = {
+            "id": "q_001",
+            "domain": "example.com",
+        }
+        mock_queue.complete.return_value = {"ok": True, "status": "completed"}
+        
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ), patch(
+            "src.mcp.server._capture_auth_session_cookies",
+            new_callable=AsyncMock,
+            return_value=session_data,
+        ):
+            await _handle_resolve_auth({
+                "target": "item",
+                "queue_id": "q_001",
+                "action": "complete",
+                "success": True,
+            })
+        
+        # Verify complete was called with session_data
+        mock_queue.complete.assert_called_once_with(
+            "q_001", success=True, session_data=session_data
+        )
+
+    @pytest.mark.asyncio
+    async def test_complete_failure_skips_cookie_capture(self) -> None:
+        """
+        TC-RA-N-02: resolve_auth with success=False skips cookie capture.
+        
+        // Given: Auth failed
+        // When: Calling resolve_auth action=complete with success=False
+        // Then: Cookie capture not attempted
+        """
+        from src.mcp.server import _handle_resolve_auth
+        
+        mock_queue = AsyncMock()
+        mock_queue.get_item.return_value = {
+            "id": "q_001",
+            "domain": "example.com",
+        }
+        mock_queue.complete.return_value = {"ok": True, "status": "skipped"}
+        
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ), patch(
+            "src.mcp.server._capture_auth_session_cookies",
+            new_callable=AsyncMock,
+        ) as mock_capture:
+            await _handle_resolve_auth({
+                "target": "item",
+                "queue_id": "q_001",
+                "action": "complete",
+                "success": False,
+            })
+        
+        # Verify cookie capture was NOT called (success=False)
+        mock_capture.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_complete_domain_captures_cookies(self) -> None:
+        """
+        TC-RA-N-03: resolve_auth domain complete captures cookies.
+        
+        // Given: Domain auth complete
+        // When: Calling resolve_auth target=domain action=complete
+        // Then: Cookies captured and passed to complete_domain()
+        """
+        from src.mcp.server import _handle_resolve_auth
+        
+        session_data = {
+            "cookies": [{"name": "cf_clearance", "value": "xyz"}],
+            "captured_at": "2025-12-11T00:00:00Z",
+            "domain": "example.com",
+        }
+        
+        mock_queue = AsyncMock()
+        mock_queue.complete_domain.return_value = {
+            "ok": True,
+            "resolved_count": 3,
+        }
+        
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ), patch(
+            "src.mcp.server._capture_auth_session_cookies",
+            new_callable=AsyncMock,
+            return_value=session_data,
+        ):
+            await _handle_resolve_auth({
+                "target": "domain",
+                "domain": "example.com",
+                "action": "complete",
+                "success": True,
+            })
+        
+        # Verify complete_domain was called with session_data
+        mock_queue.complete_domain.assert_called_once_with(
+            "example.com", success=True, session_data=session_data
+        )
 
 
 class TestAuthToolDefinitions:

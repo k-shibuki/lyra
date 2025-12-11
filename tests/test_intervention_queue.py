@@ -1371,6 +1371,72 @@ class TestGetAuthenticationQueueSummary:
 
 
 # =============================================================================
+# Get Item Tests (O.6 Auth Compliance)
+# =============================================================================
+
+@pytest.mark.unit
+class TestGetItem:
+    """Tests for get_item functionality added for O.6 auth compliance.
+    
+    Per §3.6.1: Get specific queue item by ID for cookie capture.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_get_item_returns_item(self, queue_with_db, sample_task_id):
+        """TC-GI-N-01: Get item returns correct item data."""
+        # Given
+        url = "https://example.com/protected"
+        domain = "example.com"
+        queue_id = await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url=url,
+            domain=domain,
+            auth_type="cloudflare",
+            priority="high",
+        )
+        
+        # When
+        item = await queue_with_db.get_item(queue_id)
+        
+        # Then
+        assert item is not None, "get_item should return item"
+        assert item["id"] == queue_id, f"Item ID should be '{queue_id}', got '{item['id']}'"
+        assert item["url"] == url, f"URL should be '{url}', got '{item['url']}'"
+        assert item["domain"] == domain, f"Domain should be '{domain}', got '{item['domain']}'"
+        assert item["auth_type"] == "cloudflare", "auth_type should be 'cloudflare'"
+        assert item["priority"] == "high", "priority should be 'high'"
+    
+    @pytest.mark.asyncio
+    async def test_get_item_nonexistent_returns_none(self, queue_with_db):
+        """TC-GI-B-01: Get item with nonexistent ID returns None."""
+        # When
+        item = await queue_with_db.get_item("nonexistent_id")
+        
+        # Then
+        assert item is None, "get_item should return None for nonexistent ID"
+    
+    @pytest.mark.asyncio
+    async def test_get_item_includes_session_data(self, queue_with_db, sample_task_id):
+        """Test get_item returns session_data if set."""
+        # Given: Create and complete an item with session data
+        queue_id = await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url="https://example.com/page",
+            domain="example.com",
+            auth_type="cloudflare",
+        )
+        session_data = {"cookies": [{"name": "test", "value": "abc"}]}
+        await queue_with_db.complete(queue_id, success=True, session_data=session_data)
+        
+        # When
+        item = await queue_with_db.get_item(queue_id)
+        
+        # Then
+        assert item is not None, "get_item should return completed item"
+        assert "session_data" in item, "Item should have session_data field"
+
+
+# =============================================================================
 # Global Queue Instance Tests
 # =============================================================================
 
