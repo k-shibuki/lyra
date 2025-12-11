@@ -167,6 +167,7 @@ try_connect() {
 #   $1: Port number to connect to
 #   $2: Maximum attempts (default: 5)
 #   $3: Base delay in seconds (default: 0.5)
+#   $4: Maximum delay cap in seconds (default: 5.0)
 # Returns:
 #   0: Success, outputs hostname that works
 #   1: Failed to connect after all attempts
@@ -174,6 +175,7 @@ try_connect_with_backoff() {
     local port="$1"
     local max_attempts="${2:-5}"
     local base_delay="${3:-0.5}"
+    local max_delay="${4:-5.0}"  # Maximum delay cap (default: 5 seconds)
     local endpoints=("localhost" "127.0.0.1")
     
     if [ "$ENV_TYPE" = "wsl" ]; then
@@ -191,8 +193,8 @@ try_connect_with_backoff() {
         # Wait before next attempt (except on last attempt)
         if [ "$attempt" -lt "$max_attempts" ]; then
             sleep "$delay"
-            # Exponential backoff: double the delay each time
-            delay=$(awk "BEGIN {print $delay * 2}")
+            # Exponential backoff: double the delay each time, capped at max_delay
+            delay=$(awk "BEGIN {print ($delay * 2) < $max_delay ? ($delay * 2) : $max_delay}")
         fi
     done
     return 1

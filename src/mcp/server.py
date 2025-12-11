@@ -698,10 +698,12 @@ async def _auto_start_chrome() -> bool:
     Executes ./scripts/chrome.sh start and returns success status.
     Per N.5.3: UX-first approach - Lancet auto-starts Chrome when needed.
     
+    Uses asyncio.create_subprocess_exec() for non-blocking execution.
+    
     Returns:
         True if chrome.sh start succeeded, False otherwise.
     """
-    import subprocess
+    import asyncio
     from pathlib import Path
     
     # Find chrome.sh script relative to this file
@@ -714,26 +716,38 @@ async def _auto_start_chrome() -> bool:
     
     try:
         logger.info("Auto-starting Chrome", script=str(script_path))
-        result = subprocess.run(
-            [str(script_path), "start"],
-            capture_output=True,
-            text=True,
-            timeout=30,  # 30 second timeout for script execution
+        process = await asyncio.create_subprocess_exec(
+            str(script_path),
+            "start",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         
-        if result.returncode == 0:
-            logger.info("Chrome auto-start script completed", stdout=result.stdout[:200] if result.stdout else "")
+        # Wait for process completion with timeout
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=30.0,  # 30 second timeout for script execution
+            )
+        except asyncio.TimeoutError:
+            logger.error("Chrome auto-start timed out")
+            process.kill()
+            await process.wait()
+            return False
+        
+        stdout_text = stdout.decode() if stdout else ""
+        stderr_text = stderr.decode() if stderr else ""
+        
+        if process.returncode == 0:
+            logger.info("Chrome auto-start script completed", stdout=stdout_text[:200] if stdout_text else "")
             return True
         else:
             logger.warning(
                 "Chrome auto-start script failed",
-                returncode=result.returncode,
-                stderr=result.stderr[:200] if result.stderr else "",
+                returncode=process.returncode,
+                stderr=stderr_text[:200] if stderr_text else "",
             )
             return False
-    except subprocess.TimeoutExpired:
-        logger.error("Chrome auto-start timed out")
-        return False
     except Exception as e:
         logger.error("Chrome auto-start error", error=str(e))
         return False

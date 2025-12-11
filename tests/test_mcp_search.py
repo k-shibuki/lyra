@@ -762,17 +762,18 @@ class TestChromeAutoStart:
         // Then: Returns True
         """
         from src.mcp.server import _auto_start_chrome
-        import subprocess
+        from unittest.mock import AsyncMock, MagicMock
         
-        mock_result = subprocess.CompletedProcess(
-            args=["chrome.sh", "start"],
-            returncode=0,
-            stdout="READY\nHost: localhost:9222",
-            stderr="",
-        )
+        # Mock subprocess that returns success
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.communicate = AsyncMock(return_value=(
+            b"READY\nHost: localhost:9222",
+            b"",
+        ))
         
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("subprocess.run", return_value=mock_result):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
                 result = await _auto_start_chrome()
         
         assert result is True
@@ -803,17 +804,18 @@ class TestChromeAutoStart:
         // Then: Returns False
         """
         from src.mcp.server import _auto_start_chrome
-        import subprocess
+        from unittest.mock import AsyncMock, MagicMock
         
-        mock_result = subprocess.CompletedProcess(
-            args=["chrome.sh", "start"],
-            returncode=1,
-            stdout="",
-            stderr="ERROR: Chrome failed to start",
-        )
+        # Mock subprocess that returns failure
+        mock_process = MagicMock()
+        mock_process.returncode = 1
+        mock_process.communicate = AsyncMock(return_value=(
+            b"",
+            b"ERROR: Chrome failed to start",
+        ))
         
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("subprocess.run", return_value=mock_result):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
                 result = await _auto_start_chrome()
         
         assert result is False
@@ -828,10 +830,15 @@ class TestChromeAutoStart:
         // Then: Returns False (timeout handled)
         """
         from src.mcp.server import _auto_start_chrome
-        import subprocess
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+        
+        # Mock subprocess that times out
+        mock_process = MagicMock()
+        mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
         
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("chrome.sh", 30)):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
                 result = await _auto_start_chrome()
         
         assert result is False
