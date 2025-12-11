@@ -1,6 +1,9 @@
 """
 NLI (Natural Language Inference) for Lancet.
 Determines stance relationships between claims.
+
+When ml.use_remote=True, NLI inference is performed via HTTP calls
+to the lancet-ml container on internal network.
 """
 
 from typing import Any
@@ -197,6 +200,68 @@ async def nli_judge(
     Returns:
         List of result dicts with 'pair_id', 'stance', 'confidence'.
     """
+    settings = get_settings()
+    
+    # Use remote ML server if configured
+    if settings.ml.use_remote:
+        return await _nli_judge_remote(pairs)
+    
+    return await _nli_judge_local(pairs)
+
+
+async def _nli_judge_remote(
+    pairs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Judge via ML server."""
+    from src.ml_client import get_ml_client
+    
+    if not pairs:
+        return []
+    
+    client = get_ml_client()
+    
+    # First pass with fast model
+    results = await client.nli(pairs, use_slow=False)
+    
+    # Check which pairs need slow model
+    low_confidence_pairs = []
+    low_confidence_indices = []
+    
+    for idx, (pair, result) in enumerate(zip(pairs, results)):
+        if result.get("confidence", 0) < 0.7:
+            low_confidence_pairs.append(pair)
+            low_confidence_indices.append(idx)
+    
+    # Second pass with slow model for low confidence pairs
+    if low_confidence_pairs:
+        slow_results = await client.nli(low_confidence_pairs, use_slow=True)
+        for idx, result in zip(low_confidence_indices, slow_results):
+            result["used_slow_model"] = True
+            results[idx] = result
+    
+    # Map result format
+    final_results = []
+    for idx, result in enumerate(results):
+        final_results.append({
+            "pair_id": result.get("pair_id", pairs[idx].get("pair_id", "unknown")),
+            "stance": result.get("label", "neutral"),
+            "confidence": result.get("confidence", 0.0),
+            "used_slow_model": result.get("used_slow_model", False),
+        })
+    
+    logger.info(
+        "NLI judgment completed (remote)",
+        pair_count=len(pairs),
+        slow_model_used=sum(1 for r in final_results if r.get("used_slow_model")),
+    )
+    
+    return final_results
+
+
+async def _nli_judge_local(
+    pairs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Judge using local model."""
     model = _get_model()
     
     results = []
@@ -223,7 +288,7 @@ async def nli_judge(
         })
     
     logger.info(
-        "NLI judgment completed",
+        "NLI judgment completed (local)",
         pair_count=len(pairs),
         slow_model_used=sum(1 for r in results if r.get("used_slow_model")),
     )

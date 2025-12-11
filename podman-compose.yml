@@ -31,6 +31,7 @@ services:
     environment:
       # Fixed values only - all other settings in .env
       - LANCET_ENV=development
+      # ML Server URL (internal network)
     # Keep container running for exec access
     command: ["tail", "-f", "/dev/null"]
     stdin_open: true
@@ -38,9 +39,10 @@ services:
     depends_on:
       - tor
       - ollama
+      - lancet-ml
     networks:
       - lancet-net
-      - lancet-llm-internal  # Internal network for Ollama communication
+      - lancet-internal  # Internal network for inference (Ollama/ML)
     restart: unless-stopped
 
   # ============================================================
@@ -76,7 +78,7 @@ services:
     # ports:
     #   - "11434:11434"  # REMOVED - no host access allowed
     networks:
-      - lancet-llm-internal  # Internal only - no internet access
+      - lancet-internal  # Internal only - no internet access
     restart: unless-stopped
     # GPU support via CDI (requires nvidia-container-toolkit)
     # To enable: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
@@ -85,6 +87,42 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - OLLAMA_HOST=0.0.0.0
+
+  # ============================================================
+  # Lancet ML Server - Embedding/Reranking/NLI (GPU)
+  # SECURITY: Isolated to internal network only
+  # - No host port exposure
+  # - No internet access (internal network only)
+  # - Accessible only from Lancet container
+  # ============================================================
+  lancet-ml:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml
+      target: gpu  # Use GPU variant
+      args:
+        # Model names from .env (downloaded at build time)
+        - LANCET_ML__EMBEDDING_MODEL=${LANCET_ML__EMBEDDING_MODEL:-BAAI/bge-m3}
+        - LANCET_ML__RERANKER_MODEL=${LANCET_ML__RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+        - LANCET_ML__NLI_FAST_MODEL=${LANCET_ML__NLI_FAST_MODEL:-cross-encoder/nli-deberta-v3-xsmall}
+        - LANCET_ML__NLI_SLOW_MODEL=${LANCET_ML__NLI_SLOW_MODEL:-cross-encoder/nli-deberta-v3-small}
+    container_name: lancet-ml
+    env_file:
+      - .env
+    volumes:
+      # Mount ML server code for development
+      - ./src/ml_server:/app/src/ml_server:rw
+    # SECURITY: No ports exposed to host
+    # ports:
+    #   - "8100:8100"  # REMOVED - no host access allowed
+    networks:
+      - lancet-internal  # Internal only - no internet access
+    restart: unless-stopped
+    # GPU support via CDI (shared with Ollama)
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
 
   # ============================================================
   # Redis - Cache (Optional)
@@ -103,11 +141,12 @@ networks:
   lancet-net:
     driver: bridge
 
-  # SECURITY: Internal-only network for Ollama
+  # SECURITY: Internal-only network for inference (Ollama + ML)
   # - internal: true prevents any external/internet access
-  # - Ollama can only communicate with containers on this network
+  # - Ollama and ML containers can only communicate with Lancet on this network
   # - Prevents prompt injection attacks from exfiltrating data
-  lancet-llm-internal:
+  # - GPU is shared between Ollama and ML via CDI (排他制御はスケジューラ)
+  lancet-internal:
     driver: bridge
     internal: true
 

@@ -1,173 +1,247 @@
 #!/bin/bash
 # Lancet Development Environment (Podman)
+#
+# Manages the Podman-based development environment for Lancet.
+#
 # Usage: ./scripts/dev.sh [command]
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+# =============================================================================
+# INITIALIZATION
+# =============================================================================
 
+# Source common functions and load .env
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
+
+# Change to project directory
 cd "$PROJECT_DIR"
 
-# Podman only
-if ! command -v podman &> /dev/null; then
-    echo "Error: podman not found"
-    echo "Install with: sudo apt install podman"
-    exit 1
-fi
-
-if ! command -v podman-compose &> /dev/null; then
-    echo "Error: podman-compose not found"
-    echo "Install with: sudo apt install podman-compose"
-    exit 1
-fi
+# Verify required commands
+require_podman_compose || exit 1
 
 COMPOSE="podman-compose"
 
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+# Start development shell with multi-network support
+start_dev_shell() {
+    log_info "Entering development shell..."
+    
+    # Build dev image (base stage only, no GPU packages)
+    podman build -t lancet-dev:latest -f Dockerfile --target base .
+    
+    # Load environment from .env if exists, otherwise use defaults
+    local env_opts=""
+    if [ -f "${PROJECT_DIR}/.env" ]; then
+        env_opts="--env-file ${PROJECT_DIR}/.env"
+    else
+        log_warn ".env not found, using default environment variables"
+        # Fallback defaults for container networking
+        env_opts="-e LANCET_TOR__SOCKS_HOST=tor -e LANCET_TOR__SOCKS_PORT=9050 -e LANCET_LLM__OLLAMA_HOST=http://ollama:11434"
+    fi
+    
+    # Derive network names from project directory name (podman-compose prefix)
+    local project_name
+    project_name="$(basename "$PROJECT_DIR")"
+    local net_primary="${project_name}_lancet-net"
+    local net_llm="${project_name}_lancet-llm-internal"
+    
+    # Cleanup function to ensure container is removed on exit/error
+    cleanup_dev_container() {
+        podman rm -f lancet-dev 2>/dev/null || true
+    }
+    trap cleanup_dev_container EXIT
+    
+    # Remove existing container if exists
+    podman rm -f lancet-dev 2>/dev/null || true
+    
+    # Create container with primary network
+    # Note: Podman doesn't support multiple --network flags in a single run command,
+    # so we create the container first, connect to additional networks, then start it
+    # shellcheck disable=SC2086
+    podman create -it \
+        -v "${PROJECT_DIR}/src:/app/src:rw" \
+        -v "${PROJECT_DIR}/config:/app/config:ro" \
+        -v "${PROJECT_DIR}/data:/app/data:rw" \
+        -v "${PROJECT_DIR}/logs:/app/logs:rw" \
+        -v "${PROJECT_DIR}/tests:/app/tests:rw" \
+        --network "$net_primary" \
+        $env_opts \
+        --name lancet-dev \
+        lancet-dev:latest \
+        /bin/bash
+    
+    # Connect to secondary network for LLM services
+    podman network connect "$net_llm" lancet-dev
+    
+    # Start container interactively and attach
+    podman start -ai lancet-dev
+}
+
+# Show logs with optional follow mode
+show_logs() {
+    local follow_flag="$1"
+    local service="$2"
+    
+    if [ "$follow_flag" = "-f" ]; then
+        $COMPOSE logs -f "${service:-}"
+    else
+        # AI-friendly: no -f by default, use --tail
+        $COMPOSE logs --tail=50 "${follow_flag:-}"
+    fi
+}
+
+# Clean up containers and images
+cleanup_environment() {
+    log_info "Cleaning up containers and images..."
+    $COMPOSE down --volumes
+    # Remove project images manually (podman-compose doesn't support --rmi)
+    podman images --filter "reference=lancet*" -q | xargs -r podman rmi -f 2>/dev/null || true
+    podman images --filter "dangling=true" -q | xargs -r podman rmi -f 2>/dev/null || true
+    log_info "Cleanup complete."
+}
+
+# =============================================================================
+# COMMAND HANDLERS
+# =============================================================================
+
+cmd_up() {
+    # Check for .env file (required for container networking)
+    if [ ! -f "${PROJECT_DIR}/.env" ]; then
+        log_error ".env file not found"
+        echo "Copy from template: cp .env.example .env"
+        echo "Note: CHROME_HOST defaults to localhost (works with WSL2 mirrored networking)"
+        exit 1
+    fi
+    
+    log_info "Starting Lancet development environment..."
+    $COMPOSE up -d
+    echo ""
+    echo "Services started:"
+    echo "  - Tor SOCKS: localhost:9050"
+    echo "  - Lancet: Running in container"
+    echo ""
+    echo "To enter the development shell: ./scripts/dev.sh shell"
+}
+
+cmd_down() {
+    log_info "Stopping Lancet development environment..."
+    $COMPOSE down
+}
+
+cmd_build() {
+    log_info "Building containers..."
+    $COMPOSE build
+}
+
+cmd_rebuild() {
+    log_info "Rebuilding containers from scratch..."
+    $COMPOSE build --no-cache
+}
+
+cmd_test() {
+    log_info "Running tests..."
+    $COMPOSE exec "$CONTAINER_NAME" pytest tests/ -v
+}
+
+cmd_mcp() {
+    log_info "Starting MCP server..."
+    $COMPOSE exec "$CONTAINER_NAME" python -m src.mcp.server
+}
+
+cmd_research() {
+    local query="$1"
+    if [ -z "$query" ]; then
+        echo "Usage: ./scripts/dev.sh research \"Your query\""
+        exit 1
+    fi
+    log_info "Running research: $query"
+    $COMPOSE exec "$CONTAINER_NAME" python -m src.main research --query "$query"
+}
+
+cmd_status() {
+    $COMPOSE ps
+}
+
+show_help() {
+    echo "Lancet Development Environment (Podman)"
+    echo ""
+    echo "Usage: ./scripts/dev.sh [command]"
+    echo ""
+    echo "Commands:"
+    echo "  up        Start all services"
+    echo "  down      Stop all services"
+    echo "  build     Build containers"
+    echo "  rebuild   Rebuild containers (no cache)"
+    echo "  shell     Enter development shell"
+    echo "  logs      Show logs (logs [service] or logs -f [service])"
+    echo "  test      Run tests"
+    echo "  mcp       Start MCP server"
+    echo "  research  Run research query"
+    echo "  status    Show container status"
+    echo "  clean     Remove containers and images"
+    echo ""
+}
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
 case "${1:-help}" in
     up)
-        # Check for .env file (required for container networking)
-        if [ ! -f "$PROJECT_DIR/.env" ]; then
-            echo "Error: .env file not found"
-            echo "Copy from template: cp .env.example .env"
-            echo "Note: CHROME_HOST defaults to localhost (works with WSL2 mirrored networking)"
-            exit 1
-        fi
-        
-        echo "Starting Lancet development environment..."
-        $COMPOSE up -d
-        echo ""
-        echo "Services started:"
-        echo "  - Tor SOCKS: localhost:9050"
-        echo "  - Lancet: Running in container"
-        echo ""
-        echo "To enter the development shell: ./scripts/dev.sh shell"
+        cmd_up
         ;;
     
     down)
-        echo "Stopping Lancet development environment..."
-        $COMPOSE down
+        cmd_down
         ;;
     
     build)
-        echo "Building containers..."
-        $COMPOSE build
+        cmd_build
         ;;
     
     rebuild)
-        echo "Rebuilding containers from scratch..."
-        $COMPOSE build --no-cache
+        cmd_rebuild
         ;;
     
     shell)
-        echo "Entering development shell..."
-        # Build dev image (base stage only, no GPU packages)
-        podman build -t lancet-dev:latest -f Dockerfile --target base .
-        
-        # Load environment from .env if exists, otherwise use defaults
-        ENV_OPTS=""
-        if [ -f "$PROJECT_DIR/.env" ]; then
-            ENV_OPTS="--env-file $PROJECT_DIR/.env"
-        else
-            echo "Warning: .env not found, using default environment variables"
-            # Fallback defaults for container networking
-            ENV_OPTS="-e LANCET_TOR__SOCKS_HOST=tor -e LANCET_TOR__SOCKS_PORT=9050 -e LANCET_LLM__OLLAMA_HOST=http://ollama:11434"
-        fi
-        
-        # Derive network names from project directory name (podman-compose prefix)
-        PROJECT_NAME="$(basename "$PROJECT_DIR")"
-        NET_PRIMARY="${PROJECT_NAME}_lancet-net"
-        NET_LLM="${PROJECT_NAME}_lancet-llm-internal"
-        
-        # Cleanup function to ensure container is removed on exit/error
-        cleanup_dev_container() {
-            podman rm -f lancet-dev 2>/dev/null || true
-        }
-        trap cleanup_dev_container EXIT
-        
-        # Remove existing container if exists
-        podman rm -f lancet-dev 2>/dev/null || true
-        
-        # Create container with primary network
-        # Note: Podman doesn't support multiple --network flags in a single run command,
-        # so we create the container first, connect to additional networks, then start it
-        podman create -it \
-            -v "$PROJECT_DIR/src:/app/src:rw" \
-            -v "$PROJECT_DIR/config:/app/config:ro" \
-            -v "$PROJECT_DIR/data:/app/data:rw" \
-            -v "$PROJECT_DIR/logs:/app/logs:rw" \
-            -v "$PROJECT_DIR/tests:/app/tests:rw" \
-            --network "$NET_PRIMARY" \
-            $ENV_OPTS \
-            --name lancet-dev \
-            lancet-dev:latest \
-            /bin/bash
-        
-        # Connect to secondary network for LLM services
-        podman network connect "$NET_LLM" lancet-dev
-        
-        # Start container interactively and attach
-        podman start -ai lancet-dev
+        start_dev_shell
         ;;
     
     logs)
-        # AI-friendly: no -f by default, use --tail
-        if [ "$2" = "-f" ]; then
-            $COMPOSE logs -f "${3:-}"
-        else
-            $COMPOSE logs --tail=50 "${2:-}"
-        fi
+        show_logs "$2" "$3"
         ;;
     
     test)
-        echo "Running tests..."
-        $COMPOSE exec lancet pytest tests/ -v
+        cmd_test
         ;;
     
     mcp)
-        echo "Starting MCP server..."
-        $COMPOSE exec lancet python -m src.mcp.server
+        cmd_mcp
         ;;
     
     research)
-        if [ -z "$2" ]; then
-            echo "Usage: ./scripts/dev.sh research \"Your query\""
-            exit 1
-        fi
-        echo "Running research: $2"
-        $COMPOSE exec lancet python -m src.main research --query "$2"
+        cmd_research "$2"
         ;;
     
     status)
-        $COMPOSE ps
+        cmd_status
         ;;
     
     clean)
-        echo "Cleaning up containers and images..."
-        $COMPOSE down --volumes
-        # Remove project images manually (podman-compose doesn't support --rmi)
-        podman images --filter "reference=lancet*" -q | xargs -r podman rmi -f 2>/dev/null || true
-        podman images --filter "dangling=true" -q | xargs -r podman rmi -f 2>/dev/null || true
-        echo "Cleanup complete."
+        cleanup_environment
+        ;;
+    
+    help|--help|-h)
+        show_help
         ;;
     
     *)
-        echo "Lancet Development Environment (Podman)"
-        echo ""
-        echo "Usage: ./scripts/dev.sh [command]"
-        echo ""
-        echo "Commands:"
-        echo "  up        Start all services"
-        echo "  down      Stop all services"
-        echo "  build     Build containers"
-        echo "  rebuild   Rebuild containers (no cache)"
-        echo "  shell     Enter development shell"
-        echo "  logs      Show logs (logs [service] or logs -f [service])"
-        echo "  test      Run tests"
-        echo "  mcp       Start MCP server"
-        echo "  research  Run research query"
-        echo "  status    Show container status"
-        echo "  clean     Remove containers and images"
-        echo ""
+        show_help
         ;;
 esac

@@ -1099,16 +1099,34 @@ K.1の調査で以下が判明:
 
 **実装方針**:
 - 埋め込み・リランカー・NLIを「MLコンテナ」に集約
-- `lancet-ml-internal`ネットワーク（`internal: true`）で分離
+- Ollamaと同じ`lancet-internal`ネットワーク（`internal: true`）に配置
 - Lancetコンテナからのみアクセス可能に
+- モデルはビルド時にダウンロードしてイメージに含める
 
 **タスク**:
-- [ ] MLコンテナ用Dockerfile作成
-- [ ] `podman-compose.yml`にMLコンテナ追加
-- [ ] `lancet-ml-internal`ネットワーク追加（`internal: true`）
-- [ ] 埋め込み・リランカー・NLIのAPI化（FastAPI等）
-- [ ] LancetコンテナからMLコンテナへの通信実装
-- [ ] 仕様書にMLモデルのセキュリティ方針を追記
+- [x] 仕様書にMLモデルのセキュリティ方針を追記（requirements.md L1セクション）
+- [x] MLコンテナ用Dockerfile作成（`Dockerfile.ml`）
+- [x] `podman-compose.yml`にMLコンテナ追加（`lancet-ml`サービス）
+- [x] `lancet-internal`ネットワーク追加（`internal: true`、Ollamaと共用）
+- [x] 埋め込み・リランカー・NLIのAPI化（`src/ml_server/` FastAPI）
+- [x] LancetコンテナからMLコンテナへの通信実装（`src/ml_client.py`）
+- [x] 既存の`ranking.py`/`nli.py`をリモート呼び出しに対応
+- [x] `.env`にML設定追加、`config.py`に`MLServerConfig`追加
+
+**実装済みファイル**:
+- `Dockerfile.ml` - MLサーバーコンテナ（ビルド時にモデルダウンロード）
+- `requirements-ml.txt` - ML依存関係
+- `scripts/download_models.py` - モデルダウンロードスクリプト
+- `src/ml_server/` - FastAPIサーバー（embed/rerank/nli エンドポイント）
+- `src/ml_client.py` - HTTPクライアント
+
+**残課題（次回対応）**:
+- [ ] オフラインモードでのモデルロード問題の解決
+  - 現象: `HF_HUB_OFFLINE=1`と`local_files_only=True`を設定しても、sentence-transformersがHuggingFace APIにアクセスを試みる
+  - 原因調査: sentence-transformersの内部実装を確認し、オフラインモードの正しい設定方法を特定する必要あり
+  - 代替案: モデルをローカルパスから直接ロードする方式への変更を検討
+- [ ] テストコード作成
+- [ ] E2E動作確認
 
 ---
 
