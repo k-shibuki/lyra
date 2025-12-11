@@ -4,24 +4,25 @@ Provides embedding, reranking, and NLI inference endpoints.
 SECURITY: Runs on internal-only network (lancet-internal).
 """
 
-import structlog
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI, HTTPException
 
+from src.ml_server.embedding import get_embedding_service
+from src.ml_server.nli import get_nli_service
+from src.ml_server.reranker import get_reranker_service
 from src.ml_server.schemas import (
-    HealthResponse,
     EmbedRequest,
     EmbedResponse,
-    RerankRequest,
-    RerankResponse,
-    RerankResult,
+    HealthResponse,
     NLIRequest,
     NLIResponse,
     NLIResult,
+    RerankRequest,
+    RerankResponse,
+    RerankResult,
 )
-from src.ml_server.embedding import get_embedding_service
-from src.ml_server.reranker import get_reranker_service
-from src.ml_server.nli import get_nli_service
 
 logger = structlog.get_logger(__name__)
 
@@ -185,4 +186,4 @@ async def warmup() -> dict:
 
     except Exception as e:
         logger.error("Warmup error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

@@ -3,7 +3,10 @@ Embedding model service.
 """
 
 import os
+
 import structlog
+
+from src.ml_server.model_paths import get_embedding_path, is_using_local_paths
 
 logger = structlog.get_logger(__name__)
 
@@ -13,9 +16,6 @@ class EmbeddingService:
 
     def __init__(self):
         self._model = None
-        self._model_name = os.environ.get(
-            "LANCET_ML__EMBEDDING_MODEL", "BAAI/bge-m3"
-        )
         self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
 
     @property
@@ -30,13 +30,22 @@ class EmbeddingService:
 
         try:
             from sentence_transformers import SentenceTransformer
-            import os
 
-            # Use local_files_only when HF_HUB_OFFLINE is set
-            local_only = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
-            
+            model_path = get_embedding_path()
+            use_local = is_using_local_paths()
+
+            logger.info(
+                "Loading embedding model",
+                model_path=model_path,
+                use_local=use_local,
+            )
+
+            # When using local paths, always use local_files_only=True
+            # When using model names (dev mode), check HF_HUB_OFFLINE
+            local_only = use_local or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+
             self._model = SentenceTransformer(
-                self._model_name,
+                model_path,
                 local_files_only=local_only,
             )
 
@@ -45,23 +54,22 @@ class EmbeddingService:
                 try:
                     self._model = self._model.to("cuda")
                     logger.info(
-                        "Embedding model loaded on GPU", model=self._model_name
+                        "Embedding model loaded on GPU",
+                        model_path=model_path,
                     )
                 except Exception:
                     logger.warning(
                         "GPU not available, using CPU for embeddings",
-                        model=self._model_name,
+                        model_path=model_path,
                     )
             else:
-                logger.info("Embedding model loaded on CPU", model=self._model_name)
+                logger.info("Embedding model loaded on CPU", model_path=model_path)
 
         except Exception as e:
             logger.error("Failed to load embedding model", error=str(e))
             raise
 
-    async def encode(
-        self, texts: list[str], batch_size: int = 8
-    ) -> list[list[float]]:
+    async def encode(self, texts: list[str], batch_size: int = 8) -> list[list[float]]:
         """Encode texts to embeddings.
 
         Args:
@@ -71,10 +79,10 @@ class EmbeddingService:
         Returns:
             List of embedding vectors.
         """
-        await self.load()
-
         if not texts:
             return []
+
+        await self.load()
 
         embeddings = self._model.encode(
             texts,

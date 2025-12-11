@@ -3,7 +3,10 @@ Reranker model service.
 """
 
 import os
+
 import structlog
+
+from src.ml_server.model_paths import get_reranker_path, is_using_local_paths
 
 logger = structlog.get_logger(__name__)
 
@@ -13,9 +16,6 @@ class RerankerService:
 
     def __init__(self):
         self._model = None
-        self._model_name = os.environ.get(
-            "LANCET_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"
-        )
         self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
 
     @property
@@ -30,29 +30,43 @@ class RerankerService:
 
         try:
             from sentence_transformers import CrossEncoder
-            import os
 
+            model_path = get_reranker_path()
+            use_local = is_using_local_paths()
             device = "cuda" if self._use_gpu else "cpu"
-            # Use local_files_only when HF_HUB_OFFLINE is set
-            local_only = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+
+            logger.info(
+                "Loading reranker model",
+                model_path=model_path,
+                use_local=use_local,
+                device=device,
+            )
+
+            # When using local paths, always use local_files_only
+            # CrossEncoder doesn't have local_files_only param directly,
+            # but uses it internally via transformers (respects HF_HUB_OFFLINE env var)
 
             try:
+                # CrossEncoder uses AutoModelForSequenceClassification internally
+                # which respects the HF_HUB_OFFLINE env var
                 self._model = CrossEncoder(
-                    self._model_name,
+                    model_path,
                     device=device,
-                    local_files_only=local_only,
                 )
                 logger.info(
                     "Reranker model loaded",
-                    model=self._model_name,
+                    model_path=model_path,
                     device=device,
                 )
-            except Exception:
-                self._model = CrossEncoder(self._model_name, device="cpu")
-                logger.warning(
-                    "Reranker loaded on CPU (GPU failed)",
-                    model=self._model_name,
-                )
+            except Exception as e:
+                if "cuda" in str(e).lower() or "gpu" in str(e).lower():
+                    self._model = CrossEncoder(model_path, device="cpu")
+                    logger.warning(
+                        "Reranker loaded on CPU (GPU failed)",
+                        model_path=model_path,
+                    )
+                else:
+                    raise
 
         except Exception as e:
             logger.error("Failed to load reranker model", error=str(e))
@@ -74,10 +88,10 @@ class RerankerService:
         Returns:
             List of (index, score) tuples sorted by score descending.
         """
-        await self.load()
-
         if not documents:
             return []
+
+        await self.load()
 
         # Prepare pairs
         pairs = [(query, doc) for doc in documents]

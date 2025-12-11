@@ -130,28 +130,33 @@ class TestEmbeddingRanker:
         """Test that encode caches embedding results."""
         from src.filter.ranking import EmbeddingRanker
         import numpy as np
+        from unittest.mock import patch
         
         ranker = EmbeddingRanker()
         
         # Mock the model
         mock_model = MagicMock()
         mock_model.encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+        mock_model.to = MagicMock(return_value=mock_model)
         ranker._model = mock_model
         
-        texts = ["text one", "text two"]
-        
-        # First call
-        await ranker.encode(texts)
-        
-        # Both should be cached now
-        assert ranker._get_cache_key("text one") in ranker._cache
-        assert ranker._get_cache_key("text two") in ranker._cache
+        # Ensure local mode (not remote)
+        with patch.object(ranker._settings.ml, "use_remote", False):
+            texts = ["text one", "text two"]
+            
+            # First call
+            await ranker.encode(texts)
+            
+            # Both should be cached now
+            assert ranker._get_cache_key("text one") in ranker._cache
+            assert ranker._get_cache_key("text two") in ranker._cache
 
     @pytest.mark.asyncio
     async def test_encode_uses_cache(self):
         """Test that encode uses cached results."""
         from src.filter.ranking import EmbeddingRanker
         import numpy as np
+        from unittest.mock import patch
         
         ranker = EmbeddingRanker()
         
@@ -160,19 +165,22 @@ class TestEmbeddingRanker:
         
         mock_model = MagicMock()
         mock_model.encode.return_value = np.array([[0.7, 0.8, 0.9]])
+        mock_model.to = MagicMock(return_value=mock_model)
         ranker._model = mock_model
         
-        results = await ranker.encode(["cached text", "new text"])
-        
-        # First result from cache, second from model
-        assert results[0] == [0.1, 0.2, 0.3]
-        # Model only called for "new text"
-        mock_model.encode.assert_called_once_with(
-            ["new text"],
-            batch_size=8,
-            show_progress_bar=False,
-            normalize_embeddings=True,
-        )
+        # Ensure local mode (not remote)
+        with patch.object(ranker._settings.ml, "use_remote", False):
+            results = await ranker.encode(["cached text", "new text"])
+            
+            # First result from cache, second from model
+            assert results[0] == [0.1, 0.2, 0.3]
+            # Model only called for "new text"
+            mock_model.encode.assert_called_once_with(
+                ["new text"],
+                batch_size=8,
+                show_progress_bar=False,
+                normalize_embeddings=True,
+            )
 
     @pytest.mark.asyncio
     async def test_get_scores_returns_similarities(self):
@@ -212,6 +220,7 @@ class TestReranker:
         """Test rerank returns results sorted by score."""
         from src.filter.ranking import Reranker
         import numpy as np
+        from unittest.mock import patch
         
         reranker = Reranker()
         
@@ -220,26 +229,29 @@ class TestReranker:
         mock_model.predict.return_value = np.array([0.5, 0.9, 0.3])
         reranker._model = mock_model
         
-        results = await reranker.rerank(
-            "test query",
-            ["doc1", "doc2", "doc3"],
-            top_k=3,
-        )
-        
-        # Should be sorted by score descending
-        assert results[0][0] == 1  # doc2 (score 0.9)
-        assert results[1][0] == 0  # doc1 (score 0.5)
-        assert results[2][0] == 2  # doc3 (score 0.3)
-        
-        assert results[0][1] == pytest.approx(0.9)
-        assert results[1][1] == pytest.approx(0.5)
-        assert results[2][1] == pytest.approx(0.3)
+        # Ensure local mode (not remote)
+        with patch.object(reranker._settings.ml, "use_remote", False):
+            results = await reranker.rerank(
+                "test query",
+                ["doc1", "doc2", "doc3"],
+                top_k=3,
+            )
+            
+            # Should be sorted by score descending
+            assert results[0][0] == 1  # doc2 (score 0.9)
+            assert results[1][0] == 0  # doc1 (score 0.5)
+            assert results[2][0] == 2  # doc3 (score 0.3)
+            
+            assert results[0][1] == pytest.approx(0.9)
+            assert results[1][1] == pytest.approx(0.5)
+            assert results[2][1] == pytest.approx(0.3)
 
     @pytest.mark.asyncio
     async def test_rerank_respects_top_k(self):
         """Test rerank respects top_k parameter."""
         from src.filter.ranking import Reranker
         import numpy as np
+        from unittest.mock import patch
         
         reranker = Reranker()
         
@@ -247,16 +259,18 @@ class TestReranker:
         mock_model.predict.return_value = np.array([0.5, 0.9, 0.3, 0.7, 0.1])
         reranker._model = mock_model
         
-        results = await reranker.rerank(
-            "query",
-            ["d1", "d2", "d3", "d4", "d5"],
-            top_k=2,
-        )
-        
-        assert len(results) == 2
-        # Top 2 by score
-        assert results[0][0] == 1  # d2 (0.9)
-        assert results[1][0] == 3  # d4 (0.7)
+        # Ensure local mode (not remote)
+        with patch.object(reranker._settings.ml, "use_remote", False):
+            results = await reranker.rerank(
+                "query",
+                ["d1", "d2", "d3", "d4", "d5"],
+                top_k=2,
+            )
+            
+            assert len(results) == 2
+            # Top 2 by score
+            assert results[0][0] == 1  # d2 (0.9)
+            assert results[1][0] == 3  # d4 (0.7)
 
 
 class TestRankCandidates:

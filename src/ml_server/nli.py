@@ -3,7 +3,14 @@ NLI (Natural Language Inference) model service.
 """
 
 import os
+
 import structlog
+
+from src.ml_server.model_paths import (
+    get_nli_fast_path,
+    get_nli_slow_path,
+    is_using_local_paths,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -16,12 +23,6 @@ class NLIService:
     def __init__(self):
         self._fast_model = None
         self._slow_model = None
-        self._fast_model_name = os.environ.get(
-            "LANCET_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall"
-        )
-        self._slow_model_name = os.environ.get(
-            "LANCET_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small"
-        )
         self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
 
     @property
@@ -42,17 +43,29 @@ class NLIService:
         try:
             from transformers import pipeline
             from transformers.utils import logging as hf_logging
-            
+
             # Suppress HuggingFace warnings in offline mode
             hf_logging.set_verbosity_error()
 
+            model_path = get_nli_fast_path()
+            use_local = is_using_local_paths()
+
+            logger.info(
+                "Loading fast NLI model",
+                model_path=model_path,
+                use_local=use_local,
+            )
+
+            # When using local paths, always use local_files_only=True
+            local_only = use_local or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+
             self._fast_model = pipeline(
                 "text-classification",
-                model=self._fast_model_name,
+                model=model_path,
                 device=-1,  # CPU
-                local_files_only=os.environ.get("HF_HUB_OFFLINE", "0") == "1",
+                local_files_only=local_only,
             )
-            logger.info("Fast NLI model loaded", model=self._fast_model_name)
+            logger.info("Fast NLI model loaded", model_path=model_path)
 
         except Exception as e:
             logger.error("Failed to load fast NLI model", error=str(e))
@@ -64,22 +77,34 @@ class NLIService:
             return
 
         try:
-            from transformers import pipeline
             import torch
+            from transformers import pipeline
 
+            model_path = get_nli_slow_path()
+            use_local = is_using_local_paths()
             device = 0 if torch.cuda.is_available() and self._use_gpu else -1
+
+            logger.info(
+                "Loading slow NLI model",
+                model_path=model_path,
+                use_local=use_local,
+                device="GPU" if device == 0 else "CPU",
+            )
+
+            # When using local paths, always use local_files_only=True
+            local_only = use_local or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
 
             self._slow_model = pipeline(
                 "text-classification",
-                model=self._slow_model_name,
+                model=model_path,
                 device=device,
-                local_files_only=os.environ.get("HF_HUB_OFFLINE", "0") == "1",
+                local_files_only=local_only,
             )
 
             device_name = "GPU" if device == 0 else "CPU"
             logger.info(
                 "Slow NLI model loaded",
-                model=self._slow_model_name,
+                model_path=model_path,
                 device=device_name,
             )
 
