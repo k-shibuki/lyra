@@ -2,6 +2,16 @@
 Tests for MCP error code definitions.
 
 Implements test perspectives for src/mcp/errors.py per test-strategy.mdc.
+
+## Test Perspectives Table (ChromeNotReadyError - N.5)
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-N-14 | Default constructor | Equivalence - normal | CHROME_NOT_READY code, startup instructions | Default msg |
+| TC-N-15 | is_podman=True | Equivalence - normal | Includes socat hint in details | Podman env |
+| TC-N-16 | Custom message | Equivalence - normal | Uses custom message | Override |
+| TC-N-17 | Podman with spec check | Equivalence - normal | Format matches requirements.md | Spec compliance |
+| TC-B-01 | is_podman=False (default) | Boundary - default | No details field | Omit default |
 """
 
 import pytest
@@ -18,6 +28,7 @@ from src.mcp.errors import (
     CalibrationError,
     TimeoutError,
     InternalError,
+    ChromeNotReadyError,
     generate_error_id,
     create_error_response,
 )
@@ -28,11 +39,11 @@ class TestMCPErrorCode:
 
     def test_all_error_codes_defined(self) -> None:
         """
-        Test that all 9 error codes from §3.2.1 are defined.
+        Test that all 10 error codes from §3.2.1 are defined.
         
         // Given: MCPErrorCode enum
         // When: Checking all expected codes
-        // Then: All 9 codes exist with correct values
+        // Then: All 10 codes exist with correct values
         """
         expected_codes = [
             ("INVALID_PARAMS", "INVALID_PARAMS"),
@@ -40,6 +51,7 @@ class TestMCPErrorCode:
             ("BUDGET_EXHAUSTED", "BUDGET_EXHAUSTED"),
             ("AUTH_REQUIRED", "AUTH_REQUIRED"),
             ("ALL_ENGINES_BLOCKED", "ALL_ENGINES_BLOCKED"),
+            ("CHROME_NOT_READY", "CHROME_NOT_READY"),
             ("PIPELINE_ERROR", "PIPELINE_ERROR"),
             ("CALIBRATION_ERROR", "CALIBRATION_ERROR"),
             ("TIMEOUT", "TIMEOUT"),
@@ -52,13 +64,13 @@ class TestMCPErrorCode:
 
     def test_error_code_count(self) -> None:
         """
-        Test that exactly 9 error codes are defined.
+        Test that exactly 10 error codes are defined.
         
         // Given: MCPErrorCode enum
         // When: Counting all codes
-        // Then: Count equals 9
+        // Then: Count equals 10
         """
-        assert len(MCPErrorCode) == 9
+        assert len(MCPErrorCode) == 10
 
 
 class TestMCPError:
@@ -382,6 +394,91 @@ class TestInternalError:
         result = error.to_dict()
         
         assert result["error"] == "An unexpected internal error occurred"
+
+
+class TestChromeNotReadyError:
+    """Tests for ChromeNotReadyError (N.5 implementation)."""
+
+    def test_default_message(self) -> None:
+        """
+        TC-N-14: ChromeNotReadyError with default message.
+        
+        // Given: No parameters
+        // When: Creating ChromeNotReadyError
+        // Then: Error has CHROME_NOT_READY code with startup instructions
+        """
+        error = ChromeNotReadyError()
+        result = error.to_dict()
+        
+        assert result["error_code"] == "CHROME_NOT_READY"
+        assert "Chrome CDP is not connected" in result["error"]
+        assert "./scripts/chrome.sh start" in result["error"]
+        assert "details" not in result  # No details when not in podman
+
+    def test_with_podman_hint(self) -> None:
+        """
+        TC-N-15: ChromeNotReadyError in Podman environment.
+        
+        // Given: is_podman=True
+        // When: Creating ChromeNotReadyError
+        // Then: Error includes socat hint in details
+        """
+        error = ChromeNotReadyError(is_podman=True)
+        result = error.to_dict()
+        
+        assert result["error_code"] == "CHROME_NOT_READY"
+        assert "details" in result
+        assert "hint" in result["details"]
+        assert "socat" in result["details"]["hint"]
+        assert "WSL2" in result["details"]["hint"]
+
+    def test_custom_message(self) -> None:
+        """
+        TC-N-16: ChromeNotReadyError with custom message.
+        
+        // Given: Custom message
+        // When: Creating ChromeNotReadyError
+        // Then: Uses custom message
+        """
+        custom_msg = "Custom CDP error message"
+        error = ChromeNotReadyError(message=custom_msg)
+        result = error.to_dict()
+        
+        assert result["error_code"] == "CHROME_NOT_READY"
+        assert result["error"] == custom_msg
+
+    def test_error_response_format_matches_spec(self) -> None:
+        """
+        TC-N-17: Error response format matches §3.2.1 spec.
+        
+        // Given: ChromeNotReadyError in podman
+        // When: Converting to dict
+        // Then: Format matches requirements.md §3.2.1 CHROME_NOT_READY spec
+        """
+        error = ChromeNotReadyError(is_podman=True)
+        result = error.to_dict()
+        
+        # Required fields per §3.2.1
+        assert result["ok"] is False
+        assert result["error_code"] == "CHROME_NOT_READY"
+        assert isinstance(result["error"], str)
+        
+        # Hint format per N.5.2 design
+        assert result["details"]["hint"].startswith("WSL2 + Podman")
+
+    def test_is_podman_default_false(self) -> None:
+        """
+        TC-B-01: is_podman defaults to False (no details).
+        
+        // Given: is_podman not specified (default False)
+        // When: Creating ChromeNotReadyError
+        // Then: No details field in output
+        """
+        error = ChromeNotReadyError()
+        result = error.to_dict()
+        
+        assert result["error_code"] == "CHROME_NOT_READY"
+        assert "details" not in result
 
 
 class TestGenerateErrorId:

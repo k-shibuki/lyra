@@ -21,6 +21,14 @@ Tests the search pipeline and task stopping per §3.2.1.
 | TC-N-06 | stop_task returns summary | Equivalence – normal | Summary with stats | Return structure |
 | TC-B-01 | max_pages=0 | Boundary – min | Accepts 0 (immediate return) | Zero boundary |
 | TC-B-02 | max_pages=1 | Boundary – min+1 | Accepts 1 page | Minimal fetch |
+| TC-A-08 | CDP not available | Equivalence - error | ChromeNotReadyError | N.5 pre-check |
+| TC-A-09 | CDP not available (Podman) | Equivalence - error | ChromeNotReadyError with socat hint | N.5 Podman |
+| TC-N-07 | CDP available | Equivalence - normal | Search proceeds normally | N.5 pre-check |
+| TC-CDP-01 | CDP responds 200 | Equivalence - normal | _check_chrome_cdp_ready True | Success |
+| TC-CDP-02 | CDP connection error | Equivalence - error | _check_chrome_cdp_ready False | Failure |
+| TC-CDP-03 | .dockerenv exists | Boundary - podman | _is_podman_environment True | Docker |
+| TC-CDP-04 | container=podman env | Boundary - podman | _is_podman_environment True | Env var |
+| TC-CDP-05 | Native environment | Boundary - native | _is_podman_environment False | No container |
 | TC-B-03 | Very long query (4000 chars) | Boundary – max | Accepts long query | §4.4.1 input limit |
 """
 
@@ -82,12 +90,13 @@ class TestSearchValidation:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = None
         
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with pytest.raises(TaskNotFoundError) as exc_info:
-                await _handle_search({
-                    "task_id": "nonexistent_task",
-                    "query": "test query",
-                })
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with pytest.raises(TaskNotFoundError) as exc_info:
+                    await _handle_search({
+                        "task_id": "nonexistent_task",
+                        "query": "test query",
+                    })
         
         assert exc_info.value.details.get("task_id") == "nonexistent_task"
 
@@ -180,14 +189,15 @@ class TestSearchBoundaryValues:
             captured_options.update(options or {})
             return mock_search_result
         
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
-                with patch("src.research.pipeline.search_action", side_effect=capture_action):
-                    result = await _handle_search({
-                        "task_id": "task_abc123",
-                        "query": "test",
-                        "options": {"max_pages": 0},
-                    })
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch("src.research.pipeline.search_action", side_effect=capture_action):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test",
+                            "options": {"max_pages": 0},
+                        })
         
         assert result["ok"] is True
         assert captured_options.get("max_pages") == 0
@@ -215,14 +225,15 @@ class TestSearchBoundaryValues:
             captured_options.update(options or {})
             return mock_search_result
         
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
-                with patch("src.research.pipeline.search_action", side_effect=capture_action):
-                    result = await _handle_search({
-                        "task_id": "task_abc123",
-                        "query": "test",
-                        "options": {"max_pages": 1},
-                    })
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch("src.research.pipeline.search_action", side_effect=capture_action):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test",
+                            "options": {"max_pages": 1},
+                        })
         
         assert result["ok"] is True
         assert captured_options.get("max_pages") == 1
@@ -246,16 +257,17 @@ class TestSearchBoundaryValues:
         
         long_query = "a" * 4000  # Max input length per §4.4.1
         
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
-                with patch(
-                    "src.research.pipeline.search_action",
-                    return_value=mock_search_result,
-                ):
-                    result = await _handle_search({
-                        "task_id": "task_abc123",
-                        "query": long_query,
-                    })
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=mock_search_result,
+                    ):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": long_query,
+                        })
         
         assert result["ok"] is True
 
@@ -311,16 +323,17 @@ class TestSearchExecution:
         
         mock_state = AsyncMock()
         
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
-                with patch(
-                    "src.research.pipeline.search_action",
-                    return_value=mock_search_result,
-                ):
-                    result = await _handle_search({
-                        "task_id": "task_abc123",
-                        "query": "test search query",
-                    })
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=mock_search_result,
+                    ):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test search query",
+                        })
         
         assert result["ok"] is True
         assert result["search_id"] == "s_001"
@@ -361,17 +374,18 @@ class TestSearchExecution:
             "refutations_found": 2,
         }
         
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
-                with patch(
-                    "src.research.pipeline.search_action",
-                    return_value=refutation_result,
-                ):
-                    result = await _handle_search({
-                        "task_id": "task_abc123",
-                        "query": "test claim",
-                        "options": {"refute": True},
-                    })
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=refutation_result,
+                    ):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test claim",
+                            "options": {"refute": True},
+                        })
         
         assert result["ok"] is True
         assert result.get("refutations_found") == 2
@@ -410,20 +424,21 @@ class TestSearchExecution:
                 "budget_remaining": {"pages": 50, "percent": 42},
             }
         
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
-                with patch(
-                    "src.research.pipeline.search_action",
-                    side_effect=capture_search_action,
-                ):
-                    await _handle_search({
-                        "task_id": "task_abc123",
-                        "query": "test query",
-                        "options": {
-                            "max_pages": 20,
-                            "seek_primary": True,
-                        },
-                    })
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        side_effect=capture_search_action,
+                    ):
+                        await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test query",
+                            "options": {
+                                "max_pages": 20,
+                                "seek_primary": True,
+                            },
+                        })
         
         assert captured_options.get("max_pages") == 20
         assert captured_options.get("seek_primary") is True
@@ -639,4 +654,214 @@ class TestSearchToolDefinition:
         assert "task_id" in tool.inputSchema["properties"]
         assert "reason" in tool.inputSchema["properties"]
         assert tool.inputSchema["required"] == ["task_id"]
+
+
+class TestChromeCDPCheck:
+    """Tests for Chrome CDP pre-check (N.5 implementation)."""
+
+    @pytest.mark.asyncio
+    async def test_cdp_not_available_raises_error(self) -> None:
+        """
+        TC-A-08: CDP not available raises ChromeNotReadyError.
+        
+        // Given: Chrome CDP endpoint is not accessible
+        // When: Calling _handle_search
+        // Then: Raises ChromeNotReadyError before reaching pipeline
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import ChromeNotReadyError
+        
+        # Mock CDP check to return False (not available)
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=False):
+            with patch("src.mcp.server._is_podman_environment", return_value=False):
+                with pytest.raises(ChromeNotReadyError) as exc_info:
+                    await _handle_search({
+                        "task_id": "task_123",
+                        "query": "test query",
+                    })
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "CHROME_NOT_READY"
+        assert "./scripts/chrome.sh start" in error_dict["error"]
+
+    @pytest.mark.asyncio
+    async def test_cdp_not_available_in_podman_includes_hint(self) -> None:
+        """
+        TC-A-09: CDP not available in Podman includes socat hint.
+        
+        // Given: CDP not available AND running in Podman environment
+        // When: Calling _handle_search
+        // Then: Raises ChromeNotReadyError with Podman/socat hint
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import ChromeNotReadyError
+        
+        # Mock CDP check to return False and Podman check to return True
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=False):
+            with patch("src.mcp.server._is_podman_environment", return_value=True):
+                with pytest.raises(ChromeNotReadyError) as exc_info:
+                    await _handle_search({
+                        "task_id": "task_123",
+                        "query": "test query",
+                    })
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "CHROME_NOT_READY"
+        assert "details" in error_dict
+        assert "hint" in error_dict["details"]
+        assert "socat" in error_dict["details"]["hint"]
+        assert "WSL2" in error_dict["details"]["hint"]
+
+    @pytest.mark.asyncio
+    async def test_cdp_available_proceeds_to_search(self) -> None:
+        """
+        TC-N-07: CDP available allows search to proceed.
+        
+        // Given: Chrome CDP endpoint is accessible
+        // When: Calling _handle_search with valid params
+        // Then: Search proceeds (no ChromeNotReadyError)
+        """
+        from src.mcp.server import _handle_search
+        
+        mock_task = {"id": "task_abc123"}
+        mock_search_result = {
+            "ok": True,
+            "search_id": "s_001",
+            "query": "test",
+            "status": "partial",
+            "pages_fetched": 0,
+            "useful_fragments": 0,
+            "harvest_rate": 0.0,
+            "claims_found": [],
+            "satisfaction_score": 0.0,
+            "novelty_score": 0.0,
+            "budget_remaining": {"pages": 100, "percent": 100},
+        }
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        # Mock CDP check to return True (available)
+        with patch("src.mcp.server._check_chrome_cdp_ready", return_value=True):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=mock_search_result,
+                    ):
+                        result = await _handle_search({
+                            "task_id": "task_abc123",
+                            "query": "test query",
+                        })
+        
+        assert result["ok"] is True
+        assert result["search_id"] == "s_001"
+
+    @pytest.mark.asyncio
+    async def test_check_chrome_cdp_ready_success(self) -> None:
+        """
+        Test _check_chrome_cdp_ready returns True when CDP responds.
+        
+        // Given: CDP endpoint responds with 200
+        // When: Calling _check_chrome_cdp_ready
+        // Then: Returns True
+        """
+        from src.mcp.server import _check_chrome_cdp_ready
+        from unittest.mock import MagicMock
+        
+        # Create a mock response that works with async context manager
+        mock_response = MagicMock()
+        mock_response.status = 200
+        
+        # Create mock session with proper async context manager support
+        mock_session = MagicMock()
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
+        
+        mock_session_cm = MagicMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+        
+        with patch("aiohttp.ClientSession", return_value=mock_session_cm):
+            result = await _check_chrome_cdp_ready()
+        
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_check_chrome_cdp_ready_failure(self) -> None:
+        """
+        Test _check_chrome_cdp_ready returns False on connection error.
+        
+        // Given: CDP endpoint is not accessible
+        // When: Calling _check_chrome_cdp_ready
+        // Then: Returns False
+        """
+        from src.mcp.server import _check_chrome_cdp_ready
+        from unittest.mock import MagicMock
+        import aiohttp
+        
+        # Create mock session that raises error on get
+        mock_session = MagicMock()
+        mock_session.get.side_effect = aiohttp.ClientError("Connection refused")
+        
+        mock_session_cm = MagicMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+        
+        with patch("aiohttp.ClientSession", return_value=mock_session_cm):
+            result = await _check_chrome_cdp_ready()
+        
+        assert result is False
+
+    def test_is_podman_environment_with_dockerenv(self) -> None:
+        """
+        Test _is_podman_environment detects .dockerenv.
+        
+        // Given: /.dockerenv exists
+        // When: Calling _is_podman_environment
+        // Then: Returns True
+        """
+        from src.mcp.server import _is_podman_environment
+        import os
+        
+        with patch("os.path.exists", return_value=True):
+            with patch.dict(os.environ, {}, clear=True):
+                result = _is_podman_environment()
+        
+        assert result is True
+
+    def test_is_podman_environment_with_container_env(self) -> None:
+        """
+        Test _is_podman_environment detects container env var.
+        
+        // Given: container=podman env var set
+        // When: Calling _is_podman_environment
+        // Then: Returns True
+        """
+        from src.mcp.server import _is_podman_environment
+        import os
+        
+        with patch("os.path.exists", return_value=False):
+            with patch.dict(os.environ, {"container": "podman"}):
+                result = _is_podman_environment()
+        
+        assert result is True
+
+    def test_is_podman_environment_native(self) -> None:
+        """
+        Test _is_podman_environment returns False in native env.
+        
+        // Given: No .dockerenv and no container env var
+        // When: Calling _is_podman_environment
+        // Then: Returns False
+        """
+        from src.mcp.server import _is_podman_environment
+        import os
+        
+        with patch("os.path.exists", return_value=False):
+            with patch.dict(os.environ, {}, clear=True):
+                result = _is_podman_environment()
+        
+        assert result is False
 

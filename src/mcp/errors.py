@@ -62,6 +62,11 @@ class MCPErrorCode(str, Enum):
     """Operation timed out.
     Action: Retry with smaller scope or longer timeout."""
 
+    # Infrastructure errors
+    CHROME_NOT_READY = "CHROME_NOT_READY"
+    """Chrome CDP is not connected.
+    Action: Start Chrome with ./scripts/chrome.sh start"""
+
     # Internal errors
     INTERNAL_ERROR = "INTERNAL_ERROR"
     """Unexpected internal error.
@@ -305,6 +310,33 @@ class InternalError(MCPError):
             MCPErrorCode.INTERNAL_ERROR,
             message,
             error_id=error_id,
+        )
+
+
+class ChromeNotReadyError(MCPError):
+    """Raised when Chrome CDP connection is not available.
+    
+    This error indicates that Chrome is not running with remote debugging enabled,
+    which is required for browser-based search operations.
+    """
+
+    def __init__(
+        self,
+        message: str = "Chrome CDP is not connected. Start Chrome with: ./scripts/chrome.sh start",
+        *,
+        is_podman: bool = False,
+    ):
+        details: dict[str, str] = {}
+        if is_podman:
+            details["hint"] = (
+                "WSL2 + Podman: socat port forward is required "
+                "(auto-started by chrome.sh)"
+            )
+        
+        super().__init__(
+            MCPErrorCode.CHROME_NOT_READY,
+            message,
+            details=details if details else None,
         )
 
 
