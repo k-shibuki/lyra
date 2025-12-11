@@ -49,7 +49,7 @@ start_dev_shell() {
     local project_name
     project_name="$(basename "$PROJECT_DIR")"
     local net_primary="${project_name}_lancet-net"
-    local net_llm="${project_name}_lancet-llm-internal"
+    local net_internal="${project_name}_lancet-internal"
     
     # Cleanup function to ensure container is removed on exit/error
     cleanup_dev_container() {
@@ -76,8 +76,8 @@ start_dev_shell() {
         lancet-dev:latest \
         /bin/bash
     
-    # Connect to secondary network for LLM services
-    podman network connect "$net_llm" lancet-dev
+    # Connect to internal network for inference services (Ollama/ML)
+    podman network connect "$net_internal" lancet-dev
     
     # Start container interactively and attach
     podman start -ai lancet-dev
