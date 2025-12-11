@@ -1087,7 +1087,7 @@ except Exception as e:
 
 **注**: E2EテストはGPU環境で実行が必要。`tests/scripts/verify_llm_security.py`として実装予定。
 
-#### K.4 MLモデルのネットワーク分離 ⏳
+#### K.4 MLモデルのネットワーク分離 ✅
 
 **目的**: 埋め込み・リランカー・NLIモデルをネットワーク分離し、セキュリティを強化する。
 
