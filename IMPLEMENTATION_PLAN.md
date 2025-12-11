@@ -1134,6 +1134,41 @@ K.1の調査で以下が判明:
   - オフラインモードでモデルロード成功
   - 埋め込みAPI動作確認済み
 
+**知見・トラブルシューティング**:
+
+1. **オフラインモードでのモデルロード問題**
+   - **問題**: `HF_HUB_OFFLINE=1`と`local_files_only=True`を設定しても、`sentence-transformers`や`transformers`がHuggingFace APIにアクセスを試みる
+   - **原因**: モデル名（例: `BAAI/bge-m3`）を直接指定すると、ライブラリが内部でメタデータ取得のためAPIアクセスを試みる
+   - **解決策**: 
+     - `huggingface_hub.snapshot_download()`でモデルをダウンロードし、ローカルパスを取得
+     - ローカルパスを`model_paths.json`に保存し、実行時にこのパスを直接使用
+     - パスを直接指定することで、ライブラリがAPIアクセスを試みない
+   - **実装**: `download_models.py`でオフラインモード時は`try_to_load_from_cache()`で既存キャッシュからパスを取得
+
+2. **テストコード設計の知見**
+   - **モックパッチのパス指定**: `src.ml_server.embedding.SentenceTransformer`ではなく、`sentence_transformers.SentenceTransformer`をパッチする必要がある（ライブラリのインポート元を直接パッチ）
+   - **GPU関連のモック**: `SentenceTransformer`の`to("cuda")`呼び出しに対応するため、`mock_model.to = MagicMock(return_value=mock_model)`を設定
+   - **FastAPIテストの分離**: メインコンテナにはFastAPIがインストールされていないため、FastAPI TestClientを使うテストは`@pytest.mark.skip`でスキップし、E2EテストはMLコンテナで実行
+
+3. **既存テストの修正**
+   - **問題**: `EmbeddingRanker`と`Reranker`のテストがリモートモード（`ml.use_remote=True`）を考慮していない
+   - **解決策**: `use_remote=False`をモックしてローカルモードを強制し、ローカルモデルを使うテストとして実行
+   - **影響**: 既存のテストロジックは維持しつつ、リモート/ローカルモードの切り替えに対応
+
+4. **パフォーマンス最適化**
+   - **空リスト時のモデルロード回避**: `encode()`や`rerank()`で空リストが渡された場合、早期リターンしてモデルロードをスキップ（`await self.load()`の前に`if not texts: return []`を配置）
+   - **効果**: 不要なモデルロードを回避し、レスポンス時間を短縮
+
+5. **Dockerビルド時の注意点**
+   - `model_paths.json`の存在確認をDockerfileに追加（`RUN test -f /app/models/model_paths.json || exit 1`）
+   - `/app/models`ディレクトリを事前に作成（`RUN mkdir -p /app/models`）
+   - オフラインモードでのビルド時は、事前にモデルをキャッシュしておく必要がある
+
+6. **回帰テストの結果**
+   - 全2728テストが成功（4テストスキップ、23テスト除外）
+   - 既存機能への影響なし
+   - MLサーバーのテストは26件成功、4件スキップ（FastAPI TestClient関連）
+
 ---
 
 ## 6. 検証・文書・リファクタリング (Phase L, M, N)
