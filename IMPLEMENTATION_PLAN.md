@@ -1298,18 +1298,7 @@ MCPハンドラー (_handle_*)
 | ケーススタディ | 論文に記載する具体的な使用例の作成 |
 | OSS価値の実証 | 透明性・監査可能性・再現性の確保 |
 
-#### N.2 タスク一覧（優先順）
-
-| ID | 項目 | 内容 | 状態 |
-|----|------|------|:----:|
-| **N.2-1** | **E2E実行環境確認** | Chrome CDP、Ollama、コンテナ間通信 | ✅ |
-| **N.2-2** | **MCPツール疎通確認** | `create_task` → `search` → `get_materials` | ✅ |
-| **N.2-3** | **セキュリティE2E** | L1-L8の統合動作確認 | ✅ |
-| N.2-4 | CS-1シナリオ設計 | リラグルチド安全性情報 | ⏳ |
-| N.2-5 | CS-1実施・記録 | 実際の検索・収集・可視化 | ⏳ |
-| N.2-6 | 論文向け図表作成 | エビデンスグラフ、フロー図 | ⏳ |
-
-#### N.3 E2E実行環境確認（N.2-1）✅
+#### N.2 E2E実行環境確認 ✅
 
 **目的**: 実環境で各コンポーネントが正しく動作することを確認
 
@@ -1346,7 +1335,7 @@ podman exec lancet python tests/scripts/verify_environment.py
 podman exec lancet python tests/scripts/verify_duckduckgo_search.py
 ```
 
-#### N.4 MCPツール疎通確認（N.2-2）✅
+#### N.3 MCPツール疎通確認 ✅
 
 **目的**: 11個の新MCPツールが実環境で正しく動作することを確認
 
@@ -1414,7 +1403,7 @@ podman exec lancet python tests/scripts/verify_mcp_integration.py --basic
 - Chrome CDP接続: ✅ PASS（socat経由）
 - `calibrate`警告: ✅ 解消（async化完了）
 
-#### N.5 セキュリティE2E（N.2-3）✅
+#### N.4 セキュリティE2E ✅
 
 Phase K.3 の防御層が統合環境で正しく動作することを確認。
 
@@ -1441,6 +1430,90 @@ Phase K.3 の防御層が統合環境で正しく動作することを確認。
 ```bash
 podman exec lancet python tests/scripts/verify_llm_security.py
 ```
+
+#### N.5 Chrome CDP接続エラーハンドリング改善
+
+**問題**: MCP `search` ツール実行時にChrome CDPが未接続の場合、`status: "running"` が返され、Cursor AIに失敗の原因が伝わらない。
+
+##### N.5.1 問題分析
+
+**データフロー**:
+```
+_handle_search() (server.py)
+  → search_action() (pipeline.py)
+  → SearchPipeline.execute()
+  → _execute_normal_search()
+  → SearchExecutor.execute() (executor.py)
+  → _execute_search()
+  → search_serp() (search_api.py)
+  → _search_with_provider()
+  → BrowserSearchProvider.search() ← CDPエラー発生点
+```
+
+**問題点**:
+| 箇所 | 問題 |
+|------|------|
+| `BrowserSearchProvider.search()` | `CDPConnectionError` を `SearchResponse(error=...)` に変換 |
+| `_search_with_provider()` | エラー時に警告ログ→空リスト返却、エラー情報は伝播せず |
+| `SearchExecutor.execute()` | 初期値 `status="running"` のまま、SERP結果0件でも更新されない場合あり |
+| `_handle_search()` | `search_action()` の結果をそのまま返却、CDP未接続でも `"running"` が返る |
+
+**根本原因**:
+- Chrome CDP未接続は**致命的なインフラ障害**だが、パイプラインはこれを「検索結果0件」と同等に扱う
+- Cursor AIには「何が問題か」「どう対処すべきか」が伝わらない
+
+##### N.5.2 解決策設計
+
+**方針**: CDP未接続は**検索パイプラインの前提条件未充足**として、明確なエラーコードで即座に報告する。
+
+**タスク一覧**:
+
+| ID | 項目 | 状態 |
+|----|------|:----:|
+| N.10.2-1 | MCPエラーコード `CHROME_NOT_READY` 追加 | ⏳ |
+| N.10.2-2 | `search` ハンドラにCDP事前チェック追加 | ⏳ |
+| N.10.2-3 | エラーメッセージに起動コマンド案内 | ⏳ |
+| N.10.2-4 | requirements.md §3.2.1 に仕様追記 | ⏳ |
+| N.10.2-5 | E2Eテスト（CDP未接続時のエラー確認） | ⏳ |
+
+**設計詳細**:
+
+1. **MCPエラーコード追加** (`src/mcp/errors.py`):
+   ```python
+   CHROME_NOT_READY = "CHROME_NOT_READY"
+   """Chrome CDP is not connected.
+   Action: Start Chrome with ./scripts/chrome.sh start"""
+   
+   class ChromeNotReadyError(MCPError):
+       """Raised when Chrome CDP connection is not available."""
+   ```
+
+2. **CDP事前チェック** (`src/mcp/server.py`):
+   - `_handle_search()` の冒頭でCDP接続状態を確認
+   - 未接続の場合は `ChromeNotReadyError` を即座に発生
+   - WSL2 + Podman環境では `socat` の起動案内も含める
+
+3. **エラーメッセージ**:
+   ```json
+   {
+     "ok": false,
+     "error_code": "CHROME_NOT_READY",
+     "error": "Chrome CDP is not connected. Start Chrome with: ./scripts/chrome.sh start",
+     "details": {
+       "hint": "WSL2 + Podman: socat port forward is required (auto-started by chrome.sh)"
+     }
+   }
+   ```
+
+4. **requirements.md更新** (§3.2.1):
+   - `search` ツールの前提条件として Chrome CDP 接続を明記
+   - 未接続時のエラーコード `CHROME_NOT_READY` を定義
+
+##### N.5.3 実装方針の注意点
+
+- **自動起動は行わない**: Lancet側からのChrome起動は仕様外（ユーザーのブラウザ環境に介入しない）
+- **エラーは即座に報告**: パイプラインを進めてから失敗を報告するのではなく、事前チェックで即座に報告
+- **既存フロー保持**: `BrowserSearchProvider` 内部のエラーハンドリングは変更せず、MCPハンドラ層で対処
 
 #### N.6 ケーススタディ（CS-1）
 

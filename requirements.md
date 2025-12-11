@@ -521,6 +521,22 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
   - Cursor AIはこのツールを繰り返し呼び出し、反復的に調査を深める
   - `refute: true`で反証探索を実行（§3.3.4 反駁探索に準拠）
 
+- **前提条件**: 
+  - Chrome CDP接続が必要（§3.2: Windows側Chromeをリモートデバッグモードで起動済み）
+  - 未接続時は即座に`CHROME_NOT_READY`エラーを返す（パイプラインは開始しない）
+
+- **CDP未接続時のエラー応答**:
+  ```json
+  {
+    "ok": false,
+    "error_code": "CHROME_NOT_READY",
+    "error": "Chrome CDP is not connected. Start Chrome with: ./scripts/chrome.sh start",
+    "details": {
+      "hint": "WSL2 + Podman: socat port forward is required (auto-started by chrome.sh)"
+    }
+  }
+  ```
+
 **`stop_task(task_id, reason?)`** → タスク終了
 
 - 入力:
@@ -803,6 +819,7 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
 | `BUDGET_EXHAUSTED` | 予算（ページ/時間）枯渇 | `stop_task`で終了、または予算追加 |
 | `AUTH_REQUIRED` | 認証待ちでブロック中 | `get_auth_queue`で確認、ユーザーに通知 |
 | `ALL_ENGINES_BLOCKED` | 全検索エンジンがクールダウン中 | 待機後に再試行、または終了判断 |
+| `CHROME_NOT_READY` | Chrome CDP未接続 | `./scripts/chrome.sh start`でChrome起動を案内 |
 | `PIPELINE_ERROR` | 内部パイプライン処理エラー | `error_id`でログ参照、再試行 |
 | `CALIBRATION_ERROR` | 校正処理エラー | 詳細を確認し、必要に応じてロールバック |
 | `TIMEOUT` | 処理タイムアウト | 再試行、または範囲を絞って再実行 |
