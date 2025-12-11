@@ -1,58 +1,124 @@
 #!/bin/bash
-# テスト実行スクリプト（Cursor AI対応）
+# Lancet Test Runner (Cursor AI-friendly)
 #
-# 使用方法:
-#   ./scripts/test.sh run [target]  # テスト実行
-#   ./scripts/test.sh check         # 完了確認
-#   ./scripts/test.sh get           # 結果取得
-#   ./scripts/test.sh kill          # 強制終了
+# Runs tests in a background process and provides polling-based result checking.
+# This design prevents terminal blocking when running from AI assistants.
+#
+# Usage:
+#   ./scripts/test.sh run [target]  # Start test execution
+#   ./scripts/test.sh check         # Check completion status
+#   ./scripts/test.sh get           # Get test results
+#   ./scripts/test.sh kill          # Force stop pytest
 
 set -e
 
+# =============================================================================
+# INITIALIZATION
+# =============================================================================
+
+# Source common functions and load .env
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
 ACTION="${1:-run}"
 TARGET="${2:-tests/}"
-RESULT_FILE="/app/test_result.txt"
+
+# =============================================================================
+# COMMAND HANDLERS
+# =============================================================================
+
+cmd_run() {
+    local target="$1"
+    
+    echo "=== Cleanup ==="
+    podman exec "$CONTAINER_NAME" pkill -9 -f "pytest" 2>/dev/null || true
+    sleep 1
+    
+    echo "=== Running: $target ==="
+    # Run pytest in detached mode (independent process in container)
+    podman exec "$CONTAINER_NAME" rm -f "$TEST_RESULT_FILE"
+    podman exec -d "$CONTAINER_NAME" sh -c "PYTHONUNBUFFERED=1 pytest $target -m 'not e2e' --tb=short -q > $TEST_RESULT_FILE 2>&1"
+    echo "Started. Run: ./scripts/test.sh check"
+}
+
+cmd_check() {
+    # Determine completion by file modification time
+    # If no updates for COMPLETION_THRESHOLD seconds, test is done
+    local mtime
+    local now
+    local age
+    local last_line
+    
+    mtime=$(podman exec "$CONTAINER_NAME" stat -c %Y "$TEST_RESULT_FILE" 2>/dev/null || echo 0)
+    now=$(podman exec "$CONTAINER_NAME" date +%s)
+    age=$((now - mtime))
+    last_line=$(podman exec "$CONTAINER_NAME" tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
+    
+    if [ "$age" -gt "$COMPLETION_THRESHOLD" ]; then
+        echo "DONE (${age}s ago)"
+        podman exec "$CONTAINER_NAME" tail -5 "$TEST_RESULT_FILE" 2>/dev/null
+    else
+        echo "RUNNING | $last_line"
+    fi
+}
+
+cmd_get() {
+    echo "=== Result ==="
+    podman exec "$CONTAINER_NAME" tail -20 "$TEST_RESULT_FILE" 2>/dev/null || echo "No result"
+}
+
+cmd_kill() {
+    echo "Killing..."
+    podman exec "$CONTAINER_NAME" pkill -9 -f "pytest" 2>/dev/null || true
+    echo "Done"
+}
+
+show_help() {
+    echo "Lancet Test Runner (AI-friendly)"
+    echo ""
+    echo "Usage: $0 {run|check|get|kill} [target]"
+    echo ""
+    echo "Commands:"
+    echo "  run [target]  Start test execution (default: tests/)"
+    echo "  check         Check if tests are done (DONE/RUNNING)"
+    echo "  get           Get test results (last 20 lines)"
+    echo "  kill          Force stop pytest process"
+    echo ""
+    echo "Pattern: Start with 'run', poll with 'check', get results with 'get'"
+}
+
+# =============================================================================
+# MAIN
+# =============================================================================
 
 case "$ACTION" in
     run)
-        echo "=== Cleanup ==="
-        podman exec lancet pkill -9 -f "pytest" 2>/dev/null || true
-        sleep 1
-        
-        echo "=== Running: $TARGET ==="
-        # podman exec -d でデタッチ実行（コンテナ内で独立プロセス）
-        podman exec lancet rm -f "$RESULT_FILE"
-        podman exec -d lancet sh -c "PYTHONUNBUFFERED=1 pytest $TARGET -m 'not e2e' --tb=short -q > $RESULT_FILE 2>&1"
-        echo "Started. Run: ./scripts/test.sh check"
+        cmd_run "$TARGET"
         ;;
     
     check)
-        # ファイル更新時刻で判定（5秒以上更新がなければ完了）
-        MTIME=$(podman exec lancet stat -c %Y "$RESULT_FILE" 2>/dev/null || echo 0)
-        NOW=$(podman exec lancet date +%s)
-        AGE=$((NOW - MTIME))
-        LAST=$(podman exec lancet tail -1 "$RESULT_FILE" 2>/dev/null || echo "waiting...")
-        
-        if [ "$AGE" -gt 5 ]; then
-            echo "DONE (${AGE}s ago)"
-            podman exec lancet tail -5 "$RESULT_FILE" 2>/dev/null
-        else
-            echo "RUNNING | $LAST"
-        fi
+        cmd_check
         ;;
     
     get)
-        echo "=== Result ==="
-        podman exec lancet tail -20 "$RESULT_FILE" 2>/dev/null || echo "No result"
+        cmd_get
         ;;
     
     kill)
-        echo "Killing..."
-        podman exec lancet pkill -9 -f "pytest" 2>/dev/null || true
-        echo "Done"
+        cmd_kill
+        ;;
+    
+    help|--help|-h)
+        show_help
         ;;
     
     *)
         echo "Usage: $0 {run|check|get|kill} [target]"
+        exit 1
         ;;
 esac

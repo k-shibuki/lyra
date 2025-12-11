@@ -1280,10 +1280,39 @@ Lancetでは「リトライ」を以下の2種類に明確に分離する。
 ##### 多層防御（Defense in Depth）
 
 **L1: ネットワーク分離（必須・最優先）**
-- OllamaコンテナをLancetコンテナ間の内部専用ネットワークに限定
-- 外部ネットワーク（インターネット）へのアクセスを完全遮断
-- ホストへのポート公開も禁止（開発時含む）
-- 効果: 情報漏洩を物理的に不可能にする
+
+推論コンテナ（Ollama、MLモデル）を内部専用ネットワークに限定し、外部アクセスを遮断する。
+
+- **対象コンテナ**:
+  - `lancet-ollama`: LLM推論（Qwen2.5-3B等）
+  - `lancet-ml`: MLモデル推論（埋め込み・リランカー・NLI）
+- **ネットワーク構成**:
+  - `lancet-internal`: 推論系コンテナ用内部ネットワーク（`internal: true`）
+  - Ollama と lancet-ml を同一ネットワークに配置（GPU 共有）
+  - Lancetコンテナのみがアクセス可能、外部ネットワーク接続なし
+- **ホストポート**: 公開禁止（開発時含む）
+- **効果**: 情報漏洩を物理的に不可能にする
+
+```
+lancet-net (外部可)                  lancet-internal (internal: true)
+┌──────────┐                         ┌──────────┐  ┌──────────┐
+│  Lancet  │────HTTP API─────────────│lancet-ml │  │  Ollama  │
+│Container │                         │(Embed/   │  │(Qwen等)  │
+│          │                         │ Rerank/  │  │          │
+│          │────HTTP API─────────────│ NLI)     │  │          │
+└──────────┘                         └──────────┘  └──────────┘
+     │                                    │GPU│        │GPU│
+     │                                    └───┴────────┴───┘
+     │                                       CDI共有（排他制御はスケジューラ）
+     ▼
+ lancet-net → Tor → Internet
+```
+
+- **MLモデル一覧**（`lancet-ml`コンテナ）:
+  - 埋め込み: `BAAI/bge-m3`（semantic search用）
+  - リランカー: `BAAI/bge-reranker-v2-m3`（精密順位付け用）
+  - NLI: `cross-encoder/nli-deberta-v3-xsmall/small`（スタンス判定用）
+- **GPU共有**: CDI経由で両コンテナがGPUにアクセス。VRAM競合防止はスケジューラ（§3.2.2 `gpu`スロット同時実行=1）で排他制御
 
 **L2: 入力サニタイズ**
 - 前処理:

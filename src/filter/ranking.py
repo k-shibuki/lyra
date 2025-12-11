@@ -1,6 +1,9 @@
 """
 Passage ranking for Lancet.
 Multi-stage ranking: BM25 → Embeddings → Reranker.
+
+When ml.use_remote=True, embedding and reranking are performed
+via HTTP calls to the lancet-ml container on internal network.
 """
 
 import hashlib
@@ -91,7 +94,10 @@ class BM25Ranker:
 
 
 class EmbeddingRanker:
-    """Embedding-based semantic similarity ranker."""
+    """Embedding-based semantic similarity ranker.
+    
+    Supports both local and remote (ML server) execution based on ml.use_remote setting.
+    """
     
     def __init__(self):
         self._model = None
@@ -99,7 +105,10 @@ class EmbeddingRanker:
         self._cache = {}
     
     async def _ensure_model(self) -> None:
-        """Ensure embedding model is loaded."""
+        """Ensure embedding model is loaded (local mode only)."""
+        if self._settings.ml.use_remote:
+            return  # No local model needed
+        
         if self._model is not None:
             return
         
@@ -138,6 +147,26 @@ class EmbeddingRanker:
         Returns:
             List of embedding vectors.
         """
+        if not texts:
+            return []
+        
+        # Use remote ML server if configured
+        if self._settings.ml.use_remote:
+            return await self._encode_remote(texts)
+        
+        return await self._encode_local(texts)
+    
+    async def _encode_remote(self, texts: list[str]) -> list[list[float]]:
+        """Encode texts via ML server."""
+        from src.ml_client import get_ml_client
+        
+        client = get_ml_client()
+        batch_size = self._settings.embedding.batch_size
+        
+        return await client.embed(texts, batch_size=batch_size)
+    
+    async def _encode_local(self, texts: list[str]) -> list[list[float]]:
+        """Encode texts using local model."""
         await self._ensure_model()
         
         # Check cache
@@ -202,14 +231,20 @@ class EmbeddingRanker:
 
 
 class Reranker:
-    """Cross-encoder reranker for final ranking."""
+    """Cross-encoder reranker for final ranking.
+    
+    Supports both local and remote (ML server) execution based on ml.use_remote setting.
+    """
     
     def __init__(self):
         self._model = None
         self._settings = get_settings()
     
     async def _ensure_model(self) -> None:
-        """Ensure reranker model is loaded."""
+        """Ensure reranker model is loaded (local mode only)."""
+        if self._settings.ml.use_remote:
+            return  # No local model needed
+        
         if self._model is not None:
             return
         
@@ -247,10 +282,32 @@ class Reranker:
         Returns:
             List of (index, score) tuples sorted by score descending.
         """
-        await self._ensure_model()
+        if not documents:
+            return []
         
         if top_k is None:
             top_k = self._settings.reranker.top_k
+        
+        # Use remote ML server if configured
+        if self._settings.ml.use_remote:
+            return await self._rerank_remote(query, documents, top_k)
+        
+        return await self._rerank_local(query, documents, top_k)
+    
+    async def _rerank_remote(
+        self, query: str, documents: list[str], top_k: int
+    ) -> list[tuple[int, float]]:
+        """Rerank via ML server."""
+        from src.ml_client import get_ml_client
+        
+        client = get_ml_client()
+        return await client.rerank(query, documents, top_k)
+    
+    async def _rerank_local(
+        self, query: str, documents: list[str], top_k: int
+    ) -> list[tuple[int, float]]:
+        """Rerank using local model."""
+        await self._ensure_model()
         
         # Prepare pairs
         pairs = [(query, doc) for doc in documents]
@@ -262,7 +319,7 @@ class Reranker:
         indexed_scores = list(enumerate(scores))
         indexed_scores.sort(key=lambda x: x[1], reverse=True)
         
-        return indexed_scores[:top_k]
+        return [(idx, float(score)) for idx, score in indexed_scores[:top_k]]
 
 
 # Global ranker instances

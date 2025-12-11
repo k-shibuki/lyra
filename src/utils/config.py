@@ -150,6 +150,20 @@ class NLIConfig(BaseModel):
     use_gpu_for_slow: bool = True
 
 
+class MLServerConfig(BaseModel):
+    """ML Server configuration.
+    
+    ML models (embedding, reranker, NLI) run in a separate container
+    on the internal network (lancet-internal) for security isolation.
+    """
+    server_url: str = "http://lancet-ml:8100"
+    timeout: int = 120  # seconds
+    use_remote: bool = True  # When True, use ML server; when False, use local models
+    # Retry settings
+    max_retries: int = 3
+    retry_delay: float = 1.0
+
+
 class StorageConfig(BaseModel):
     """Storage configuration."""
     database_path: str = "data/lancet.db"
@@ -219,6 +233,7 @@ class Settings(BaseModel):
     tor: TorConfig = Field(default_factory=TorConfig)
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    ml: MLServerConfig = Field(default_factory=MLServerConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     reranker: RerankerConfig = Field(default_factory=RerankerConfig)
     nli: NLIConfig = Field(default_factory=NLIConfig)

@@ -30,13 +30,15 @@
 
 ## chrome.sh（Chrome管理）
 ```bash
-./scripts/chrome.sh check [port]  # 接続可能か確認（デフォルト）
-./scripts/chrome.sh start [port]  # Chrome起動（独立プロファイル）
-./scripts/chrome.sh stop [port]   # Chrome停止
-./scripts/chrome.sh setup [port]  # 初回セットアップ手順表示（WSL用）
+./scripts/chrome.sh check [port]     # 接続可能か確認（デフォルト）
+./scripts/chrome.sh start [port]     # Chrome起動（独立プロファイル）
+./scripts/chrome.sh stop [port]      # Chrome停止
+./scripts/chrome.sh diagnose [port]  # 接続問題の診断（WSL用）
+./scripts/chrome.sh fix [port]       # WSL2ネットワーク設定の自動修正
 ```
 
-デフォルトポート: 9222。専用プロファイル`LancetChrome`で起動し、既存セッションに影響なし。
+デフォルトポート: `.env`の`LANCET_BROWSER__CHROME_PORT`で設定（デフォルト: 9222）。
+専用プロファイル`LancetChrome`で起動し、既存セッションに影響なし。
 
 ## mcp.sh（MCP Server）
 ```bash
@@ -45,3 +47,13 @@
 
 コンテナ未起動時は自動で `dev.sh up` を実行。検索ツール使用時はChrome接続が必要で、未接続ならエラーメッセージで `chrome.sh start` を案内。
 
+## common.sh（共通ユーティリティ）
+```bash
+source scripts/common.sh  # 直接実行しない - 他スクリプトからsource
+```
+
+提供機能:
+- `.env`からの環境変数読み込み
+- ログ関数（`log_info`, `log_warn`, `log_error`）
+- コンテナユーティリティ（`check_container_running`, `wait_for_container`）
+- 共通定数（`CHROME_PORT`, `SOCAT_PORT`, `CONTAINER_NAME`等）
