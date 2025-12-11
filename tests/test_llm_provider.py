@@ -20,6 +20,9 @@ Follows §7.1 test quality standards:
 | TC-ER-01 | EmbeddingResponse creation | Equivalence – normal | Response with embeddings | - |
 | TC-HS-01 | LLMHealthStatus healthy | Equivalence – healthy | available=True | - |
 | TC-HS-02 | LLMHealthStatus unhealthy | Equivalence – unhealthy | available=False | - |
+| TC-OI-01 | Default config (no args) | Equivalence – normal | Uses proxy URL | Hybrid mode |
+| TC-OI-02 | Explicit host/model | Equivalence – override | Uses explicit values | Bypass proxy |
+| TC-OI-03 | Provider name | Equivalence – normal | name == "ollama" | Identity |
 | TC-OP-01 | OllamaProvider generate | Equivalence – generate | Text response | - |
 | TC-OP-02 | OllamaProvider chat | Equivalence – chat | Chat response | - |
 | TC-OP-03 | OllamaProvider embed | Equivalence – embed | Embedding vector | - |
@@ -458,22 +461,35 @@ class TestBaseLLMProvider:
 
 
 class TestOllamaProviderInit:
-    """Tests for OllamaProvider initialization."""
+    """Tests for OllamaProvider initialization (Phase O.3 hybrid mode)."""
     
     def test_default_configuration(self):
-        """OllamaProvider should use settings defaults."""
+        """
+        TC-OI-01: OllamaProvider uses proxy URL in hybrid mode.
+        
+        // Given: Settings with proxy_url configured
+        // When: Creating OllamaProvider without explicit host
+        // Then: Host is set to proxy_url/ollama
+        """
         with patch('src.filter.ollama_provider.get_settings') as mock_settings:
-            mock_settings.return_value.llm.ollama_host = "http://test:11434"
+            mock_settings.return_value.general.proxy_url = "http://localhost:8080"
             mock_settings.return_value.llm.model = "custom-model"
             mock_settings.return_value.llm.temperature = 0.5
             
             provider = OllamaProvider()
             
-            assert provider.host == "http://test:11434"
+            # In hybrid mode, Ollama is accessed via proxy
+            assert provider.host == "http://localhost:8080/ollama"
             assert provider.model == "custom-model"
     
     def test_explicit_configuration(self):
-        """OllamaProvider should accept explicit configuration."""
+        """
+        TC-OI-02: OllamaProvider accepts explicit host/model configuration.
+        
+        // Given: Explicit host and model arguments
+        // When: Creating OllamaProvider with explicit args
+        // Then: Explicit values override proxy URL
+        """
         provider = OllamaProvider(
             host="http://custom:11434",
             model="my-model:3b",
@@ -483,7 +499,13 @@ class TestOllamaProviderInit:
         assert provider.model == "my-model:3b"
     
     def test_provider_name(self):
-        """OllamaProvider should have name 'ollama'."""
+        """
+        TC-OI-03: OllamaProvider has correct provider name.
+        
+        // Given: OllamaProvider instance
+        // When: Accessing name property
+        // Then: Returns "ollama"
+        """
         provider = OllamaProvider()
         assert provider.name == "ollama"
 

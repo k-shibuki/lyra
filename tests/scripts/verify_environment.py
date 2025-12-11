@@ -5,20 +5,24 @@ E2E Environment Verification Script
 Verification target: N.2-1 - E2E実行環境確認
 
 Verification items:
-1. Podman container status (lancet, lancet-tor, lancet-ollama)
-2. Chrome CDP connection (Windows Chrome -> WSL2/Podman)
-3. Ollama LLM availability and model check
-4. Container network connectivity (lancet -> ollama)
+1. Container proxy status (lancet proxy, ollama, lancet-ml)
+2. Chrome CDP connection (Windows Chrome -> WSL2)
+3. Ollama LLM availability and model check (via proxy)
+4. Proxy connectivity (WSL -> container proxy -> ollama/ml)
 5. Search engine connectivity (DuckDuckGo)
 6. Notification system (Windows Toast / Linux notify-send)
 
 Prerequisites:
 - Podman containers running: ./scripts/dev.sh up
-- Chrome running with remote debugging: ./scripts/chrome.sh start
+- Chrome running with remote debugging: ./scripts/chrome.sh start (auto-started by MCP)
 - See: IMPLEMENTATION_PLAN.md "E2E Environment Setup"
 
+Architecture:
+- WSL: MCP server, Playwright, this script
+- Containers: Proxy server, Ollama, ML server (internal network)
+
 Usage:
-    podman exec lancet python tests/scripts/verify_environment.py
+    python tests/scripts/verify_environment.py
 
 Exit codes:
     0: All verifications passed

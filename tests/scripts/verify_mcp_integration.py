@@ -22,10 +22,10 @@ Prerequisites:
 
 Usage:
     # Full verification (requires Chrome CDP)
-    podman exec lancet python tests/scripts/verify_mcp_integration.py
+    python tests/scripts/verify_mcp_integration.py
 
     # Basic verification (no Chrome required)
-    podman exec lancet python tests/scripts/verify_mcp_integration.py --basic
+    python tests/scripts/verify_mcp_integration.py --basic
 
 Exit codes:
     0: All verifications passed

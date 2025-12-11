@@ -77,9 +77,6 @@ load_env 2>/dev/null || true
 # LANCET_BROWSER__CHROME_PORT from .env overrides default
 export CHROME_PORT="${LANCET_BROWSER__CHROME_PORT:-9222}"
 
-# Socat port for WSL2 -> Windows Chrome forwarding
-export SOCAT_PORT="${LANCET_SCRIPT__SOCAT_PORT:-19222}"
-
 # Container settings
 export CONTAINER_NAME="${LANCET_SCRIPT__CONTAINER_NAME:-lancet}"
 

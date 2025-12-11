@@ -85,8 +85,8 @@ RUN mkdir -p data/cache data/warc data/screenshots data/reports logs models
 # Set Python path
 ENV PYTHONPATH=/app
 
-# Default command
-CMD ["python", "-m", "src.mcp.server"]
+# Default command: run proxy server for hybrid mode
+CMD ["python", "-m", "src.proxy.server"]
 
 # ---
 # GPU-enabled variant (for systems with NVIDIA GPU)

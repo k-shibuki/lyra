@@ -15,7 +15,7 @@ Prerequisites:
 - Development container running
 
 Usage:
-    podman exec lancet python tests/scripts/verify_mcp_tools.py
+    python tests/scripts/verify_mcp_tools.py
 
 Exit codes:
     0: All verifications passed

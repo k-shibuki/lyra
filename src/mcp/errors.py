@@ -325,20 +325,11 @@ class ChromeNotReadyError(MCPError):
         message: str = "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh start",
         *,
         auto_start_attempted: bool = True,
-        is_podman: bool = False,
     ):
-        # Only include details if is_podman=True (per test expectations)
-        details: dict[str, Any] | None = None
-        if is_podman:
-            details = {
-                "auto_start_attempted": auto_start_attempted,
-                "hint": "WSL2 + Podman: Verify Chrome is installed, socat is running, and WSL2 mirrored networking is enabled",
-            }
-        
         super().__init__(
             MCPErrorCode.CHROME_NOT_READY,
             message,
-            details=details,
+            details=None,
         )
 
 

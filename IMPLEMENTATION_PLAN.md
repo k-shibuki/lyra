@@ -14,7 +14,7 @@
 
 ---
 
-## 2. 実装完成度サマリ（2025-12-10 更新）
+## 2. 実装完成度サマリ（2025-12-11 更新）
 
 | Phase | 内容 | ユニットテスト | E2E検証 | 状態 | セクション |
 |-------|------|:-------------:|:-------:|:----:|:----------:|
@@ -22,7 +22,8 @@
 | I | 保守性改善 | ✅ | - | 完了 | §5 |
 | K.3 | セキュリティ（L1-L8） | ✅ | ✅ | 完了 | §5 |
 | M | MCPリファクタリング | ✅ | ✅ | 完了 | §6 |
-| **N** | **E2Eケーススタディ** | - | ⏳ | **進行中（N.2-3完了）** | §6 |
+| N | E2Eケーススタディ | - | ⏳ | 進行中（N.2-5完了） | §6 |
+| **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.3）** | §6 |
 
 **現在のテスト数**: 2688件（全パス）
 
@@ -48,6 +49,7 @@
 | **検証・リファクタ** | L | ドキュメント | ⏳ | §6 |
 | | M | MCPツールリファクタリング | ✅ | §6 |
 | | N | E2Eケーススタディ | ⏳ | §6 |
+| | **O** | **ハイブリッド構成リファクタ** | ✅ | §6 |
 
 ### 3.2 優先度
 
@@ -1352,56 +1354,35 @@ podman exec lancet python tests/scripts/verify_duckduckgo_search.py
 | `notify_user` | トースト通知が表示される | ✅ |
 | `wait_for_user` | ユーザー入力待機が動作する | ✅ |
 
-**WSL2 + Podman環境でのChrome CDP接続**:
+**ハイブリッド構成でのChrome CDP接続**:
 
-WSL2 + Podman環境では、コンテナからWindows側Chromeにアクセスするために**socatポートフォワード**が必要です。
+ハイブリッド構成（Phase O）では、MCPサーバーがWSL上で直接実行されるため、Chrome接続が簡素化されます。
 
-1. **socatのインストール**（WSL2側）:
-   ```bash
-   sudo apt-get install socat
-   ```
-
-2. **自動起動**（推奨）:
-   `chrome.sh start`を実行すると、socatポートフォワードが自動的に起動します:
+1. **Chrome起動**:
    ```bash
    ./scripts/chrome.sh start
-   # socatが自動起動（ポート19222 -> 9222）
+   # WSL→Windows Chromeに直接接続（localhost:9222）
    ```
 
-3. **手動起動**（必要な場合）:
+2. **MCPサーバー起動**（Cursorが自動実行）:
    ```bash
-   socat TCP-LISTEN:19222,fork,reuseaddr TCP:localhost:9222 &
+   ./scripts/mcp.sh
    ```
 
-4. **環境変数設定**（`.env`ファイル）:
+3. **テスト実行**:
    ```bash
-   # WSL2 + Podman環境では19222を使用
-   LANCET_BROWSER__CHROME_PORT=19222
+   # venvから直接実行（推奨）
+   source .venv/bin/activate
+   python tests/scripts/verify_mcp_integration.py
+
+   # 基本モード（Chrome CDP不要）
+   python tests/scripts/verify_mcp_integration.py --basic
    ```
 
-5. **設定ファイル**（`config/settings.yaml`）:
-   ```yaml
-   browser:
-     chrome_host: "10.255.255.254"  # Podman host-gateway IP
-     chrome_port: 19222              # socatポートフォワード経由
-   ```
-
-**手順**:
-```bash
-# 1. Chrome起動（socatも自動起動）
-./scripts/chrome.sh start
-
-# 2. MCPツール疎通確認スクリプト（フル検証）
-podman exec lancet python tests/scripts/verify_mcp_integration.py
-
-# 3. 基本モード（Chrome CDP不要）
-podman exec lancet python tests/scripts/verify_mcp_integration.py --basic
-```
-
-**検証結果（2025-12-10）**:
+**検証結果（2025-12-11）**:
 - 全11ツール: ✅ PASS（フル検証）
-- Chrome CDP接続: ✅ PASS（socat経由）
-- `calibrate`警告: ✅ 解消（async化完了）
+- Chrome CDP接続: ✅ PASS（WSL直接接続）
+- プロキシ接続: ✅ PASS（localhost:8080経由）
 
 #### N.4 セキュリティE2E ✅
 
@@ -1546,7 +1527,7 @@ _handle_search() (server.py)
 
 - **自動起動を行う**: CDP未接続時、Lancetは `./scripts/chrome.sh start` を自動実行してChromeを起動する
   - UX最優先: Lancetを使う以上Chrome CDP接続は必須であり、ユーザーに毎回手動起動を求めるのはUX上許容できない
-  - WSL2環境では `chrome.sh` がsocatポートフォワードも自動管理するため、追加設定不要
+  - ハイブリッド構成（Phase O）により、WSL→Windows Chromeへの直接接続が可能
 - **エラーは自動起動失敗時のみ**: 自動起動を試行し、成功すれば検索を続行。失敗した場合のみ `CHROME_NOT_READY` エラーを報告
 - **事前チェック**: パイプライン開始前に `_ensure_chrome_ready()` で接続確認・自動起動を行い、検索途中での失敗を防止
 - **既存フロー保持**: `BrowserSearchProvider` 内部のエラーハンドリングは変更せず、MCPハンドラ層で自動起動を対処
@@ -1619,6 +1600,180 @@ _handle_search() (server.py)
 
 ---
 
+### Phase O: ハイブリッド構成リファクタリング ✅
+
+MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素化する。
+
+#### O.1 設計動機
+
+**旧構成の問題点**:
+- コンテナ→Windows Chromeへの接続が複雑（socat、host-gateway必須）
+- Chrome自動起動がコンテナからは困難
+- WSL2 mirrored networkingへの強い依存
+- execution_mode分岐によるコード複雑化
+
+**新構成（ハイブリッド）の利点**:
+- WSL→Windows Chromeが直接接続（localhost:9222）
+- socatポートフォワード不要
+- Chrome自動起動が容易（`chrome.sh start`を直接実行）
+- コンテナはOllama/ML Serverのみ（ネットワーク分離維持）
+- execution_mode分岐不要（常にWSLモード）
+
+#### O.2 実装完了項目 ✅
+
+| 項目 | ファイル | 状態 |
+|------|---------|:----:|
+| プロキシサーバー | `src/proxy/server.py` | ✅ |
+| MCP起動スクリプト | `scripts/mcp.sh` | ✅ |
+| 軽量依存関係 | `requirements-mcp.txt` | ✅ |
+| 設定拡張 | `src/utils/config.py`, `.env` | ✅ |
+| OllamaProviderプロキシ対応 | `src/filter/ollama_provider.py` | ✅ |
+| MLClientプロキシ対応 | `src/ml_client.py` | ✅ |
+| podman-compose更新 | `podman-compose.yml` | ✅ |
+| E2E動作確認 | プロキシ経由接続確認 | ✅ |
+
+#### O.3 リファクタリング計画（完全削除・簡素化）⏳
+
+ハイブリッド構成により不要になった複雑なネットワーク設定と実行モード分岐を**すべて削除**する。
+
+##### O.3.1 socat関連コード完全削除
+
+| ファイル | 変更内容 | 行数 | 優先度 |
+|---------|---------|:----:|:------:|
+| `scripts/chrome.sh` | `start_socat`, `stop_socat`, `check_socat`関数削除（L232-309） | ~78行 | 高 |
+| `scripts/chrome.sh` | `get_status`内のsocatチェック削除（L327-336） | ~10行 | 高 |
+| `scripts/chrome.sh` | `start_chrome_wsl`内のsocat起動削除（L371-384） | ~14行 | 高 |
+| `scripts/chrome.sh` | `stop_chrome`内のsocat停止削除（L499-502） | ~4行 | 高 |
+| `scripts/chrome.sh` | `SOCAT_PID_FILE`定数削除（L47） | 1行 | 高 |
+| `scripts/common.sh` | `SOCAT_PORT`定数削除（L81） | 1行 | 高 |
+| `src/mcp/errors.py` | `ChromeNotReadyError`の`is_podman`パラメータとsocatヒント削除（L328-336） | ~9行 | 高 |
+| `src/mcp/server.py` | `is_podman`検出コード削除（L806-811） | ~6行 | 高 |
+| `src/search/browser_search_provider.py` | socatヒント削除（L201-208） | ~8行 | 中 |
+| `src/crawler/playwright_provider.py` | socatヒント削除（L157-160） | ~4行 | 中 |
+| `src/crawler/fetcher.py` | socatヒント削除（L765-768） | ~4行 | 中 |
+| `tests/test_mcp_errors.py` | `test_podman_environment`テスト削除（L420-433） | ~14行 | 中 |
+
+**合計削除行数**: ~152行
+
+##### O.3.2 host-gateway関連完全削除
+
+| ファイル | 変更内容 | 行数 | 優先度 |
+|---------|---------|:----:|:------:|
+| `podman-compose.yml` | `extra_hosts`設定削除（L23-24） | 2行 | 高 |
+| `config/settings.yaml` | `10.255.255.254`コメント削除（L133-135） | 3行 | 低 |
+
+**合計削除行数**: ~5行
+
+##### O.3.3 execution_mode分岐完全削除
+
+| ファイル | 変更内容 | 行数 | 優先度 |
+|---------|---------|:----:|:------:|
+| `src/utils/config.py` | `execution_mode`フィールド削除、常にプロキシ経由に固定（L226-232） | ~7行 | 高 |
+| `src/filter/ollama_provider.py` | execution_mode分岐削除、常にプロキシURL使用（L89-95） | ~7行 | 高 |
+| `src/ml_client.py` | execution_mode分岐削除、常にプロキシURL使用（L31-37） | ~7行 | 高 |
+| `.env` | `LANCET_EXECUTION_MODE`設定削除（L7-9） | 3行 | 高 |
+| `.env` | コンテナモード用コメント削除（L24-28） | 5行 | 中 |
+| `scripts/mcp.sh` | `LANCET_EXECUTION_MODE`設定削除（L130） | 1行 | 高 |
+| `tests/test_ml_server_e2e.py` | execution_mode関連テスト確認・修正 | - | 中 |
+
+**合計削除行数**: ~30行
+
+##### O.3.4 コンテナ検出コード削除
+
+| ファイル | 変更内容 | 行数 | 優先度 |
+|---------|---------|:----:|:------:|
+| `src/mcp/server.py` | `/.dockerenv`検出コード削除（L806） | 1行 | 高 |
+| `src/search/browser_search_provider.py` | コンテナ検出コード削除（L201-203） | ~3行 | 中 |
+| `src/crawler/playwright_provider.py` | コンテナ検出コード削除（L157-159） | ~3行 | 中 |
+| `src/crawler/fetcher.py` | コンテナ検出コード削除（L765-767） | ~3行 | 中 |
+
+**合計削除行数**: ~10行
+
+##### O.3.5 ポート設定簡素化
+
+| ファイル | 変更内容 | 行数 | 優先度 |
+|---------|---------|:----:|:------:|
+| `.env` | `CHROME_PORT`コメント簡素化（9222固定、L19-21） | 3行 | 低 |
+| `config/settings.yaml` | ポートオーバーライドコメント削除（L132-135） | 4行 | 低 |
+| `.env.example` | socatポート設定削除（L13, L47-48） | 3行 | 中 |
+| `.env.example` | セクション名「CONTAINER NETWORKING (Required for Podman)」を「CONTAINER NETWORKING (Internal services)」に変更（L16） | 1行 | 低 |
+
+**合計削除行数**: ~10行
+
+##### O.3.6 スクリプト更新
+
+| ファイル | 変更内容 | 行数 | 優先度 |
+|---------|---------|:----:|:------:|
+| `config/cursor-mcp.json` | `podman exec`経由をWSL経由（`./scripts/mcp.sh`）に変更 | 全体 | **最高** |
+| `Dockerfile` | CMDを`src.proxy.server`に変更（L89） | 1行 | 高 |
+| `scripts/dev.sh` | コンテナネットワーキング関連コメント削除（L145） | 1行 | 中 |
+| `scripts/dev.sh` | フォールバック設定のコメント更新（L55-56） | 2行 | 低 |
+| `scripts/test.sh` | WSL直接実行オプション追加（コンテナ実行は削除） | - | 高 |
+| `scripts/mcp.sh` | `LANCET_EXECUTION_MODE`設定削除（L130） | 1行 | 高 |
+| `tests/scripts/verify_environment.py` | コンテナ検出コード削除または更新（L101-114） | ~14行 | 中 |
+| `tests/scripts/*.py` | Usageコメントの`podman exec`をWSL venv経由に変更 | ~16ファイル | 中 |
+
+**合計削除行数**: ~20行 + 16ファイルのコメント更新
+
+**変更内容**:
+- **`cursor-mcp.json`**: `podman exec` → `bash` + `./scripts/mcp.sh`（最重要）
+- `Dockerfile`: CMDを`src.mcp.server`から`src.proxy.server`に変更
+- `dev.sh`: 「container networking」コメントを「proxy server」に変更
+- `test.sh`: `podman exec`経由のテスト実行を削除し、WSL venv経由に統一
+- `mcp.sh`: `LANCET_EXECUTION_MODE`設定削除（常にWSLモード）
+- `verify_environment.py`: コンテナ検出は残すが、WSL実行時の説明を追加
+- E2Eテストスクリプト: Usageコメントの`podman exec lancet python`を`python`（WSL venv経由）に変更
+
+##### O.3.7 ドキュメント更新
+
+| ファイル | 変更内容 | 優先度 |
+|---------|---------|:------:|
+| `requirements.md` | execution_mode説明削除、常にWSLモードに統一 | 高 |
+| `IMPLEMENTATION_PLAN.md` | 旧構成関連説明削除 | 中 |
+| `README.md`（未作成） | セットアップ手順からsocat/host-gateway削除 | 中 |
+| `.env.example` | コメント更新（WSLハイブリッド構成の説明） | 中 |
+
+#### O.4 実装タスクリスト
+
+**Phase O.2（基盤実装）**: ✅ 完了
+- [x] プロキシサーバー実装
+- [x] MCP起動スクリプト
+- [x] 設定拡張
+- [x] OllamaProvider/MLClientプロキシ対応
+
+**Phase O.3（リファクタリング）**: ✅ 完了
+- [x] O.3.1: socat関連コード完全削除（~152行）
+- [x] O.3.2: host-gateway関連完全削除（~5行）
+- [x] O.3.3: execution_mode分岐完全削除（~30行）
+- [x] O.3.4: コンテナ検出コード削除（~10行）
+- [x] O.3.5: ポート設定簡素化（~10行）
+- [x] O.3.6: スクリプト更新（~20行 + 16ファイル）
+- [x] O.3.7: ドキュメント更新
+
+**合計削除行数**: ~227行 + 16ファイルのコメント更新
+
+**最重要**: `config/cursor-mcp.json`の変更（Cursor IDEがMCPサーバーを起動する設定）
+
+#### O.5 影響範囲
+
+**削除される機能**:
+- コンテナ内MCP実行モード（`LANCET_EXECUTION_MODE=container`）
+- socatポートフォワード機能
+- host-gateway経由のChrome接続
+- コンテナ検出による条件分岐
+
+**残る機能**:
+- WSL上でのMCPサーバー実行（唯一の実行モード）
+- プロキシ経由のOllama/ML Server接続
+- WSL→Windows Chrome直接接続（localhost:9222）
+
+**移行手順**:
+1. `.env`から`LANCET_EXECUTION_MODE`を削除
+2. venvを作成し、`requirements-mcp.txt`をインストール
+3. `./scripts/mcp.sh`でMCPサーバー起動（Cursorが自動実行）
+
+---
+
 ## 7. 開発環境
 
 ### 7.1 起動方法
@@ -1637,33 +1792,41 @@ _handle_search() (server.py)
 ./scripts/dev.sh down
 ```
 
-### 7.2 コンテナ構成
+### 7.2 コンテナ構成（ハイブリッド構成）
 
-- `lancet` - メイン開発コンテナ
-- `lancet-tor` - Torプロキシ
+**WSL側（venv）**:
+- MCPサーバー（Cursor IDEとstdioで通信）
+- Playwright（Chrome CDP接続）
+
+**コンテナ側**:
+- `lancet` - プロキシサーバー（Ollama/ML Serverへのアクセス）
+- `lancet-ml` - 埋め込み/リランカー/NLI
 - `lancet-ollama` - ローカルLLM (GPU対応)
+- `lancet-tor` - Torプロキシ
 
 **注意**: SearXNGは廃止済み（Phase C参照）
 
 ### 7.3 テスト実行
 
-Phase G.2 参照。
+**WSL側（venv使用・推奨）**:
+```bash
+cd /home/statuser/lancet
+source .venv/bin/activate
+pytest tests/ -m 'not e2e' --tb=short -q
+```
 
-### 7.4 E2E検証環境セットアップ（WSL2→Windows Chrome）
+**コンテナ側（従来方式）**:
+```bash
+podman exec lancet pytest tests/ -m 'not e2e' --tb=short -q
+```
 
-1. **専用Chromeプロファイル作成**（Googleアカウント未ログイン推奨）
+Phase G.2 も参照。
 
-2. **すべてのChromeを完全終了**
-   ```powershell
-   Stop-Process -Name chrome -Force -ErrorAction SilentlyContinue
-   ```
+### 7.4 E2E検証環境セットアップ（ハイブリッド構成）
 
-3. **Chromeをリモートデバッグモードで起動**
-   ```powershell
-   & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 "--user-data-dir=C:\Users\<USERNAME>\AppData\Local\Google\Chrome\User Data" --profile-directory=Profile-Research
-   ```
+#### 7.4.1 初回セットアップ
 
-4. **WSL2 mirrored networkingを有効化**（初回のみ）
+1. **WSL2 mirrored networkingを有効化**
    - `%USERPROFILE%\.wslconfig`に以下を追加:
    ```ini
    [wsl2]
@@ -1671,26 +1834,48 @@ Phase G.2 参照。
    ```
    - WSLを再起動: `wsl.exe --shutdown`
 
-5. **環境変数設定**（`.env`ファイル）
-   - WSL2 + Podman環境では以下を設定:
-     ```bash
-     LANCET_BROWSER__CHROME_PORT=19222
-     ```
-   - ネイティブLinux環境では`localhost:9222`がデフォルト（設定不要）
-
-6. **テスト実行**
+2. **venv作成**
    ```bash
-   podman exec lancet python tests/scripts/verify_duckduckgo_search.py
+   cd /home/statuser/lancet
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements-mcp.txt
+   playwright install chromium
    ```
+
+3. **専用Chromeプロファイル作成**（Googleアカウント未ログイン推奨）
+
+#### 7.4.2 起動手順
+
+```bash
+# 1. コンテナ起動（Ollama/ML Server/プロキシ）
+./scripts/dev.sh up
+
+# 2. Chrome起動（自動またはMCPから自動起動）
+./scripts/chrome.sh start
+
+# 3. MCPサーバー起動（Cursorが自動実行）
+# または手動: ./scripts/mcp.sh
+```
+
+#### 7.4.3 テスト実行
+
+```bash
+# venvからテスト（推奨）
+source .venv/bin/activate
+python tests/scripts/verify_duckduckgo_search.py
+
+# プロキシ接続確認
+curl http://localhost:8080/health
+```
 
 ### 7.5 外部依存
 
 - Ollama (Podmanコンテナで起動、GPUパススルー)
 - Chrome (Windows側で起動、リモートデバッグ)
 - nvidia-container-toolkit (GPU使用時に必要)
-- **socat** (WSL2 + Podman環境で必須): `sudo apt-get install socat`
-  - 用途: PodmanコンテナからWindows側Chromeへのポートフォワード（19222 -> 9222）
-  - 自動化: `chrome.sh start`で自動起動
+
+**ハイブリッド構成ではsocat不要**: MCPサーバーがWSL上で直接実行されるため、localhost:9222でChromeに接続
 
 ---
 

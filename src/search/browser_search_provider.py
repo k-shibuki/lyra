@@ -197,19 +197,9 @@ class BrowserSearchProvider(BaseSearchProvider):
                     await self._playwright.stop()
                     self._playwright = None
                     
-                    # Check if running in Podman container (WSL2 + Podman)
-                    import os
-                    hint = ""
-                    if os.path.exists("/.dockerenv") or os.environ.get("container") == "podman":
-                        hint = (
-                            " WSL2 + Podman environment detected. "
-                            "Ensure socat port forward is running: "
-                            "./scripts/chrome.sh start (automatically starts socat)"
-                        )
-                    
                     raise CDPConnectionError(
                         f"CDP connection failed: {e}. "
-                        f"Start Chrome with: ./scripts/chrome.sh start{hint}"
+                        f"Start Chrome with: ./scripts/chrome.sh start"
                     ) from e
                 
                 # Create context with realistic settings

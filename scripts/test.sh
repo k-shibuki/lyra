@@ -1,8 +1,8 @@
 #!/bin/bash
 # Lancet Test Runner (Cursor AI-friendly)
 #
-# Runs tests in a background process and provides polling-based result checking.
-# This design prevents terminal blocking when running from AI assistants.
+# Runs tests directly in WSL venv (hybrid architecture).
+# This design provides fast test execution without container overhead.
 #
 # Usage:
 #   ./scripts/test.sh run [target]  # Start test execution
@@ -18,6 +18,7 @@ set -euo pipefail
 
 # Source common functions and load .env
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
 
@@ -34,6 +35,21 @@ trap 'cleanup_on_error ${LINENO}' ERR
 ACTION="${1:-run}"
 TARGET="${2:-tests/}"
 
+VENV_DIR="${PROJECT_ROOT}/.venv"
+TEST_RESULT_FILE="${PROJECT_ROOT}/.test_result.txt"
+TEST_PID_FILE="${PROJECT_ROOT}/.test_pid"
+
+# =============================================================================
+# VENV MANAGEMENT
+# =============================================================================
+
+ensure_venv() {
+    if [[ ! -f "${VENV_DIR}/bin/activate" ]]; then
+        log_error "venv not found. Run: ./scripts/mcp.sh (or create manually)"
+        exit 1
+    fi
+}
+
 # =============================================================================
 # COMMAND HANDLERS
 # =============================================================================
@@ -47,14 +63,25 @@ TARGET="${2:-tests/}"
 cmd_run() {
     local target="$1"
     
+    ensure_venv
+    
     echo "=== Cleanup ==="
-    podman exec "$CONTAINER_NAME" pkill -9 -f "pytest" 2>/dev/null || true
+    pkill -9 -f "pytest" 2>/dev/null || true
     sleep 1
     
     echo "=== Running: $target ==="
-    # Run pytest in detached mode (independent process in container)
-    podman exec "$CONTAINER_NAME" rm -f "$TEST_RESULT_FILE"
-    podman exec -d "$CONTAINER_NAME" sh -c "PYTHONUNBUFFERED=1 pytest $target -m 'not e2e' --tb=short -q > $TEST_RESULT_FILE 2>&1"
+    rm -f "$TEST_RESULT_FILE" "$TEST_PID_FILE"
+    
+    # Activate venv and run pytest in background
+    (
+        # shellcheck source=/dev/null
+        source "${VENV_DIR}/bin/activate"
+        cd "${PROJECT_ROOT}"
+        export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+        PYTHONUNBUFFERED=1 pytest "$target" -m 'not e2e' --tb=short -q > "$TEST_RESULT_FILE" 2>&1 &
+        echo $! > "$TEST_PID_FILE"
+    )
+    
     echo "Started. Run: ./scripts/test.sh check"
 }
 
@@ -63,22 +90,12 @@ cmd_run() {
 #             If no updates for COMPLETION_THRESHOLD seconds, test is done
 # Returns:
 #   0: Tests completed or still running
-#   1: Container not running or result file not found
+#   1: Result file not found
 cmd_check() {
-    # Determine completion by file modification time
-    # If no updates for COMPLETION_THRESHOLD seconds, test is done
-    
-    # Check if container is running
-    if ! check_container_running "$CONTAINER_NAME"; then
-        echo "NOT_STARTED"
-        log_error "Container $CONTAINER_NAME is not running"
-        return 1
-    fi
-    
     # Check if result file exists
-    if ! podman exec "$CONTAINER_NAME" test -f "$TEST_RESULT_FILE" 2>/dev/null; then
+    if [[ ! -f "$TEST_RESULT_FILE" ]]; then
         echo "NOT_STARTED"
-        log_error "Test result file not found: $TEST_RESULT_FILE"
+        log_error "Test result file not found"
         return 1
     fi
     
@@ -87,14 +104,14 @@ cmd_check() {
     local age
     local last_line
     
-    mtime=$(podman exec "$CONTAINER_NAME" stat -c %Y "$TEST_RESULT_FILE" 2>/dev/null || echo 0)
-    now=$(podman exec "$CONTAINER_NAME" date +%s 2>/dev/null || echo 0)
+    mtime=$(stat -c %Y "$TEST_RESULT_FILE" 2>/dev/null || echo 0)
+    now=$(date +%s)
     age=$((now - mtime))
-    last_line=$(podman exec "$CONTAINER_NAME" tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
+    last_line=$(tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
     
     if [ "$age" -gt "$COMPLETION_THRESHOLD" ]; then
         echo "DONE (${age}s ago)"
-        podman exec "$CONTAINER_NAME" tail -5 "$TEST_RESULT_FILE" 2>/dev/null || echo "No output"
+        tail -5 "$TEST_RESULT_FILE" 2>/dev/null || echo "No output"
     else
         echo "RUNNING | $last_line"
     fi
@@ -104,25 +121,18 @@ cmd_check() {
 # Description: Get test results (last 20 lines)
 # Returns:
 #   0: Success, outputs test results
-#   1: Container not running or result file not found
+#   1: Result file not found
 cmd_get() {
     echo "=== Result ==="
     
-    # Check if container is running
-    if ! check_container_running "$CONTAINER_NAME"; then
-        log_error "Container $CONTAINER_NAME is not running"
-        echo "No result - container not running"
-        return 1
-    fi
-    
     # Check if result file exists
-    if ! podman exec "$CONTAINER_NAME" test -f "$TEST_RESULT_FILE" 2>/dev/null; then
-        log_error "Test result file not found: $TEST_RESULT_FILE"
+    if [[ ! -f "$TEST_RESULT_FILE" ]]; then
+        log_error "Test result file not found"
         echo "No result - file not found"
         return 1
     fi
     
-    podman exec "$CONTAINER_NAME" tail -20 "$TEST_RESULT_FILE" 2>/dev/null || {
+    tail -20 "$TEST_RESULT_FILE" 2>/dev/null || {
         log_error "Failed to read test result file"
         echo "No result - read error"
         return 1
@@ -130,12 +140,20 @@ cmd_get() {
 }
 
 # Function: cmd_kill
-# Description: Force stop pytest process in container
+# Description: Force stop pytest process
 # Returns:
 #   0: Success
 cmd_kill() {
     echo "Killing..."
-    podman exec "$CONTAINER_NAME" pkill -9 -f "pytest" 2>/dev/null || true
+    pkill -9 -f "pytest" 2>/dev/null || true
+    if [[ -f "$TEST_PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$TEST_PID_FILE" 2>/dev/null || echo "")
+        if [[ -n "$pid" ]]; then
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+        rm -f "$TEST_PID_FILE"
+    fi
     echo "Done"
 }
 
@@ -151,6 +169,8 @@ show_help() {
     echo "  kill          Force stop pytest process"
     echo ""
     echo "Pattern: Start with 'run', poll with 'check', get results with 'get'"
+    echo ""
+    echo "Note: Tests run in WSL venv (.venv), not in container."
 }
 
 # =============================================================================

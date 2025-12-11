@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lancet": {
+      "command": "/home/statuser/lancet/scripts/mcp.sh",
+      "args": []
+    }
+  }
+}

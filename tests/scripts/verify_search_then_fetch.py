@@ -20,7 +20,7 @@ Acceptance criteria (§7):
 - Scraping success rate ≥95%
 
 Usage:
-    podman exec lancet python tests/scripts/verify_search_then_fetch.py
+    python tests/scripts/verify_search_then_fetch.py
 
 Exit codes:
     0: All verifications passed
