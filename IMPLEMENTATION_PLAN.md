@@ -1120,13 +1120,19 @@ K.1の調査で以下が判明:
 - `src/ml_server/` - FastAPIサーバー（embed/rerank/nli エンドポイント）
 - `src/ml_client.py` - HTTPクライアント
 
-**残課題（次回対応）**:
-- [ ] オフラインモードでのモデルロード問題の解決
-  - 現象: `HF_HUB_OFFLINE=1`と`local_files_only=True`を設定しても、sentence-transformersがHuggingFace APIにアクセスを試みる
-  - 原因調査: sentence-transformersの内部実装を確認し、オフラインモードの正しい設定方法を特定する必要あり
-  - 代替案: モデルをローカルパスから直接ロードする方式への変更を検討
-- [ ] テストコード作成
-- [ ] E2E動作確認
+**実装完了**:
+- [x] オフラインモードでのモデルロード問題の解決
+  - 解決方法: `huggingface_hub.snapshot_download()`でモデルのローカルパスを取得し、`model_paths.json`に保存
+  - `src/ml_server/model_paths.py`でパス管理モジュールを実装
+  - 各サービス（embedding/reranker/nli）をローカルパス指定に変更
+  - `download_models.py`を修正し、オフラインモードでも既存モデルからパスを取得可能に
+- [x] テストコード作成
+  - `tests/test_ml_server.py`: 27件のユニットテスト（model_paths, embedding, reranker, nli）
+  - `tests/test_ml_server_e2e.py`: E2Eテスト（API統合テスト）
+- [x] E2E動作確認
+  - コンテナ内で動作確認済み
+  - オフラインモードでモデルロード成功
+  - 埋め込みAPI動作確認済み
 
 ---
 

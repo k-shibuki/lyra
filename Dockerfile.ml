@@ -7,6 +7,9 @@
 # - Security (container doesn't need internet access at runtime)
 # - Fast startup (models already present)
 #
+# Model paths are saved to /app/models/model_paths.json for
+# true offline loading (no HuggingFace API calls at runtime).
+#
 # To update models: edit .env and run ./scripts/dev.sh rebuild
 
 FROM python:3.12-slim-bookworm AS base
@@ -23,6 +26,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     HF_HOME=/app/models/huggingface \
+    LANCET_ML__MODEL_PATHS_FILE=/app/models/model_paths.json \
     LANCET_ML__EMBEDDING_MODEL=${LANCET_ML__EMBEDDING_MODEL} \
     LANCET_ML__RERANKER_MODEL=${LANCET_ML__RERANKER_MODEL} \
     LANCET_ML__NLI_FAST_MODEL=${LANCET_ML__NLI_FAST_MODEL} \
@@ -41,6 +45,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create app directory
 WORKDIR /app
 
+# Create models directory
+RUN mkdir -p /app/models
+
 # Copy requirements for ML server
 COPY requirements-ml.txt .
 
@@ -49,13 +56,17 @@ RUN pip install --no-cache-dir -r requirements-ml.txt
 
 # Download models at build time
 # This ensures models are available without internet access at runtime
+# Model paths are saved to /app/models/model_paths.json
 COPY scripts/download_models.py /app/scripts/
-RUN python /app/scripts/download_models.py
+RUN python /app/scripts/download_models.py && \
+    test -f /app/models/model_paths.json || (echo "ERROR: model_paths.json not created" && exit 1) && \
+    echo "Model paths file created successfully"
 
 # Copy ML server code
 COPY src/ml_server /app/src/ml_server
 
 # Enable offline mode for runtime (models already downloaded)
+# Using local paths from model_paths.json, no HF API calls needed
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1 \
     PYTHONPATH=/app
