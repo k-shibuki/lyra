@@ -55,24 +55,25 @@ class TestMLServerE2E:
         """
         Given: ML Server container is running with embedding model loaded
         When: embed() is called with texts
-        Then: Returns embedding vectors
+        Then: Returns embedding vectors as list[list[float]]
         """
         # When
         texts = ["This is a test sentence.", "Another test sentence."]
         result = await ml_client.embed(texts)
 
-        # Then
+        # Then - result is list[list[float]]
         assert result is not None
-        assert "embeddings" in result
-        assert len(result["embeddings"]) == 2
-        assert len(result["embeddings"][0]) > 0  # Non-empty embedding vector
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert len(result[0]) > 0  # Non-empty embedding vector
+        assert all(isinstance(v, float) for v in result[0])
 
     @pytest.mark.asyncio
     async def test_rerank_e2e(self, ml_client):
         """
         Given: ML Server container is running with reranker model loaded
         When: rerank() is called with query and documents
-        Then: Returns ranked results
+        Then: Returns ranked results as list[tuple[int, float]]
         """
         # When
         query = "machine learning"
@@ -83,12 +84,16 @@ class TestMLServerE2E:
         ]
         result = await ml_client.rerank(query, documents, top_k=2)
 
-        # Then
+        # Then - result is list[tuple[int, float]] (index, score)
         assert result is not None
-        assert "results" in result
-        assert len(result["results"]) == 2
+        assert isinstance(result, list)
+        assert len(result) == 2
+        # Each result is (index, score) tuple
+        for idx, score in result:
+            assert isinstance(idx, int)
+            assert isinstance(score, float)
         # Results should be sorted by score descending
-        scores = [r["score"] for r in result["results"]]
+        scores = [score for idx, score in result]
         assert scores[0] >= scores[1]
 
     @pytest.mark.asyncio
@@ -96,7 +101,7 @@ class TestMLServerE2E:
         """
         Given: ML Server container is running with NLI model loaded
         When: nli() is called with premise-hypothesis pairs
-        Then: Returns NLI predictions
+        Then: Returns NLI predictions as list[dict]
         """
         # When
         pairs = [
@@ -113,11 +118,11 @@ class TestMLServerE2E:
         ]
         result = await ml_client.nli(pairs, use_slow=False)
 
-        # Then
+        # Then - result is list[dict] with pair_id, label, confidence
         assert result is not None
-        assert "results" in result
-        assert len(result["results"]) == 2
-        for r in result["results"]:
+        assert isinstance(result, list)
+        assert len(result) == 2
+        for r in result:
             assert "pair_id" in r
             assert "label" in r
             assert r["label"] in ["supports", "refutes", "neutral"]
