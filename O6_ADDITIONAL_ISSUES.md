@@ -466,14 +466,612 @@ async def _rate_limit(self, engine: str | None = None) -> None:
 
 ---
 
+## 問題10: Tor日次利用上限のチェックが未実装
+
+### 影響範囲
+
+**影響箇所**:
+- `src/crawler/fetcher.py:1729` - `fetch_url()`でのTor使用判定
+- `src/utils/policy_engine.py:496` - `PolicyEngine._adjust_domain_policy()`
+
+### 現状の実装
+
+```python
+# src/crawler/fetcher.py:1729-1742
+# Handle 403/429 - try Tor circuit renewal
+if not result.ok and result.status in (403, 429) and not use_tor:
+    logger.info("HTTP error, trying with Tor", url=url[:80], status=result.status)
+    
+    tor_controller = await get_tor_controller()
+    if await tor_controller.renew_circuit(domain):
+        result = await _http_fetcher.fetch(
+            url,
+            referer=context.get("referer"),
+            use_tor=True,  # 日次上限チェックなし
+            ...
+        )
+```
+
+### 問題点
+
+1. **日次利用上限のチェックなし**: Torを使用する前に、日次の利用上限（`max_usage_ratio: 0.20`）をチェックしていない
+2. **利用状況の追跡なし**: Tor使用回数や割合を追跡するメトリクスがない
+3. **グローバル上限の適用なし**: ドメイン別の`tor_usage_ratio`はあるが、グローバルな日次上限のチェックがない
+
+### 仕様書の要件
+
+- §4.3: "ドメイン単位のTor粘着（15分）と日次のTor利用上限（割合/回数）を適用"
+- §7: "Tor利用率: 全取得に占めるTor経路の割合≤20%（日次上限とドメイン別上限を両方満たすこと）"
+
+### 修正提案
+
+**方針**: Torを使用する前に、日次の利用上限をチェックし、上限を超えている場合はTorを使用しない
+
+**実装箇所**:
+- `src/crawler/fetcher.py:1729` - `fetch_url()`でのTor使用判定
+- `src/utils/metrics.py` - Tor使用メトリクスの追跡
+
+**修正案**:
+```python
+# Tor使用前のチェック
+async def _can_use_tor(domain: str | None = None) -> bool:
+    """Check if Tor can be used based on daily limits.
+    
+    Per §4.3: Check both global daily limit and domain-specific limit.
+    
+    Args:
+        domain: Optional domain for domain-specific check.
+        
+    Returns:
+        True if Tor can be used.
+    """
+    from src.utils.metrics import get_metrics_collector
+    from src.utils.config import get_settings
+    
+    settings = get_settings()
+    max_usage_ratio = settings.tor.max_usage_ratio  # 0.20
+    
+    collector = get_metrics_collector()
+    
+    # Get today's Tor usage metrics
+    today_metrics = collector.get_today_metrics()
+    total_requests = today_metrics.get("total_requests", 0)
+    tor_requests = today_metrics.get("tor_requests", 0)
+    
+    if total_requests == 0:
+        return True  # No requests yet today
+    
+    # Check global daily limit
+    current_ratio = tor_requests / total_requests
+    if current_ratio >= max_usage_ratio:
+        logger.debug(
+            "Tor daily limit reached",
+            current_ratio=current_ratio,
+            max_ratio=max_usage_ratio,
+        )
+        return False
+    
+    # Check domain-specific limit if domain provided
+    if domain:
+        domain_metrics = collector.get_domain_metrics(domain)
+        domain_total = domain_metrics.get("total_requests", 0)
+        domain_tor = domain_metrics.get("tor_requests", 0)
+        
+        if domain_total > 0:
+            domain_ratio = domain_tor / domain_total
+            domain_policy = await get_domain_policy(domain)
+            domain_max_ratio = domain_policy.tor_usage_ratio
+            
+            if domain_ratio >= domain_max_ratio:
+                logger.debug(
+                    "Tor domain limit reached",
+                    domain=domain,
+                    current_ratio=domain_ratio,
+                    max_ratio=domain_max_ratio,
+                )
+                return False
+    
+    return True
+
+# fetch_url()での使用
+if not result.ok and result.status in (403, 429) and not use_tor:
+    if await _can_use_tor(domain):
+        # Tor使用可能
+        tor_controller = await get_tor_controller()
+        if await tor_controller.renew_circuit(domain):
+            result = await _http_fetcher.fetch(..., use_tor=True)
+            # Tor使用を記録
+            collector.record_tor_usage(domain)
+    else:
+        logger.info("Tor daily limit reached, skipping Tor escalation")
+```
+
+**注意点**:
+- Tor使用メトリクスの追跡を`MetricsCollector`に追加
+- 日次リセットの処理（日付変更時にカウンターをリセット）
+- ドメイン別とグローバルの両方の上限をチェック
+
+---
+
+## 問題11: 時間帯・日次の予算上限が未実装
+
+### 影響範囲
+
+**影響箇所**:
+- `src/scheduler/budget.py` - `TaskBudget`クラス
+- `src/crawler/fetcher.py` - `fetch_url()`での予算チェック
+
+### 現状の実装
+
+```python
+# src/scheduler/budget.py:30-149
+@dataclass
+class TaskBudget:
+    """Budget tracker for a single task."""
+    task_id: str
+    pages_fetched: int = 0
+    max_pages: int = 120
+    # 時間帯・日次の予算上限がない
+```
+
+### 問題点
+
+1. **時間帯別予算上限がない**: 仕様では「時間帯・日次の予算上限を設定」とあるが、実装されていない
+2. **日次予算上限がない**: ドメイン別の日次予算上限が実装されていない
+3. **夜間/休日の保守的運用がない**: 「期間・時間帯のスロット化（夜間/休日は保守的）」が実装されていない
+
+### 仕様書の要件
+
+- §4.3: "ドメイン同時実行数=1、リクエスト間隔U(1.5,5.5)s、時間帯・日次の予算上限を設定"
+- §4.3: "期間・時間帯のスロット化（夜間/休日は保守的）とジッターを導入"
+
+### 修正提案
+
+**方針**: 時間帯別・日次の予算上限を実装し、夜間/休日は保守的な運用を行う
+
+**実装箇所**:
+- `src/scheduler/budget.py` - `TaskBudget`クラス
+- `src/utils/domain_policy.py` - `DomainPolicy`クラス
+
+**修正案**:
+```python
+@dataclass
+class TimeSlotBudget:
+    """Time slot-based budget limits."""
+    hour_start: int  # 0-23
+    hour_end: int  # 0-23
+    max_pages_per_hour: int
+    max_requests_per_hour: int
+    conservative_mode: bool = False  # 夜間/休日はTrue
+
+@dataclass
+class DomainDailyBudget:
+    """Daily budget limits per domain."""
+    domain: str
+    max_pages_per_day: int
+    max_requests_per_day: int
+    pages_used_today: int = 0
+    requests_used_today: int = 0
+    last_reset_date: str = ""  # YYYY-MM-DD
+
+async def check_time_slot_budget(domain: str) -> bool:
+    """Check if domain can make requests in current time slot.
+    
+    Per §4.3: Time slot-based budget limits with conservative mode.
+    
+    Args:
+        domain: Domain name.
+        
+    Returns:
+        True if request can be made.
+    """
+    from datetime import datetime
+    
+    now = datetime.now()
+    hour = now.hour
+    is_weekend = now.weekday() >= 5
+    
+    # Get time slot budget for domain
+    slot_budget = get_time_slot_budget(domain, hour, is_weekend)
+    
+    # Check hourly limits
+    hourly_requests = get_hourly_request_count(domain, hour)
+    if hourly_requests >= slot_budget.max_requests_per_hour:
+        return False
+    
+    # Conservative mode: reduce limits
+    if slot_budget.conservative_mode:
+        # Further reduce limits (e.g., 50% of normal)
+        if hourly_requests >= slot_budget.max_requests_per_hour * 0.5:
+            return False
+    
+    return True
+
+async def check_daily_budget(domain: str) -> bool:
+    """Check if domain can make requests within daily budget.
+    
+    Per §4.3: Daily budget limits per domain.
+    
+    Args:
+        domain: Domain name.
+        
+    Returns:
+        True if request can be made.
+    """
+    from datetime import datetime, date
+    
+    today = date.today().isoformat()
+    daily_budget = get_domain_daily_budget(domain)
+    
+    # Reset if new day
+    if daily_budget.last_reset_date != today:
+        daily_budget.pages_used_today = 0
+        daily_budget.requests_used_today = 0
+        daily_budget.last_reset_date = today
+    
+    # Check daily limits
+    if daily_budget.pages_used_today >= daily_budget.max_pages_per_day:
+        return False
+    if daily_budget.requests_used_today >= daily_budget.max_requests_per_day:
+        return False
+    
+    return True
+```
+
+**注意点**:
+- 時間帯別予算の設定を`config/domains.yaml`に追加
+- 日次予算のリセット処理（日付変更時）
+- 保守的モードの判定（夜間/休日）
+
+---
+
 ## 実装時期
 
 Phase O.6完了後、別タスクとして実装推奨。
 
+## 問題12: セッション転送が実装されているが適用されていない
+
+### 影響範囲
+
+**影響箇所**:
+- `src/crawler/fetcher.py:1070` - `BrowserFetcher.fetch()`でのセッションキャプチャ
+- `src/crawler/fetcher.py:1702` - `HTTPFetcher.fetch()`でのセッション転送ヘッダー適用
+- `src/crawler/fetcher.py:1605` - `fetch_url()`での初回ブラウザ→HTTPクライアント移行
+
+### 現状の実装
+
+```python
+# src/crawler/fetcher.py:1070-1120
+async def fetch(self, url: str, ...):
+    # ... ブラウザで取得 ...
+    
+    # セッションキャプチャの処理がない
+    # capture_browser_session()が呼ばれていない
+    
+    return FetchResult(...)
+
+# src/crawler/fetcher.py:1702-1708
+async def fetch(self, url: str, ...):
+    # HTTPクライアントで取得
+    # セッション転送ヘッダーの適用がない
+    # get_transfer_headers()が呼ばれていない
+    
+    result = await _http_fetcher.fetch(url, ...)
+```
+
+### 問題点
+
+1. **ブラウザセッションのキャプチャなし**: `BrowserFetcher.fetch()`で成功した取得後に、`capture_browser_session()`が呼ばれていない
+2. **HTTPクライアントでのセッション転送ヘッダー適用なし**: `HTTPFetcher.fetch()`で、`get_transfer_headers()`を使用してセッション転送ヘッダーを適用していない
+3. **初回ブラウザ→HTTPクライアント移行の未実装**: 仕様では「初回はブラウザ経由、2回目以降はHTTPクライアントで304再訪」とあるが、このロジックが実装されていない
+
+### 仕様書の要件
+
+- §3.1.2: "初回取得の指紋整合: 静的ページであっても初回アクセスは原則ブラウザ経由（ヘッドレス）で実施し、Cookie/ETag/LocalStorage/指紋を自然に確立"
+- §3.1.2: "2回目以降はHTTPクライアント（`curl_cffi`）でETag/If-None-Match・Last-Modified/If-Modified-Sinceを活用し軽量再訪"
+- §3.1.2: "セッション移送ユーティリティ: 初回ブラウザで確立したCookie/ETag/UA/Accept-LanguageをHTTPクライアントへ安全に移送（同一ドメイン限定）"
+
+### 修正提案
+
+**方針**: ブラウザ取得後にセッションをキャプチャし、HTTPクライアント取得時にセッション転送ヘッダーを適用する
+
+**実装箇所**:
+- `src/crawler/fetcher.py:1070` - `BrowserFetcher.fetch()`でのセッションキャプチャ
+- `src/crawler/fetcher.py:1702` - `HTTPFetcher.fetch()`でのセッション転送ヘッダー適用
+- `src/crawler/fetcher.py:1605` - `fetch_url()`での初回ブラウザ→HTTPクライアント移行ロジック
+
+**修正案**:
+```python
+# BrowserFetcher.fetch()でのセッションキャプチャ
+async def fetch(self, url: str, ...):
+    # ... 既存の取得処理 ...
+    
+    if result.ok:
+        # セッションをキャプチャ
+        from src.crawler.session_transfer import capture_browser_session
+        
+        response_headers = {}
+        if response:
+            response_headers = dict(response.headers)
+        
+        session_id = await capture_browser_session(
+            context,
+            url,
+            response_headers,
+        )
+        
+        if session_id:
+            logger.debug(
+                "Captured browser session",
+                url=url[:80],
+                session_id=session_id,
+            )
+    
+    return result
+
+# HTTPFetcher.fetch()でのセッション転送ヘッダー適用
+async def fetch(self, url: str, ...):
+    # セッション転送ヘッダーを取得
+    from src.crawler.session_transfer import get_transfer_headers
+    
+    transfer_result = get_transfer_headers(url, include_conditional=True)
+    
+    if transfer_result.ok:
+        # セッション転送ヘッダーを適用
+        if headers is None:
+            headers = {}
+        headers.update(transfer_result.headers)
+        
+        logger.debug(
+            "Applied session transfer headers",
+            url=url[:80],
+            session_id=transfer_result.session_id,
+        )
+    
+    # ... 既存のHTTPリクエスト処理 ...
+```
+
+**注意点**:
+- 初回取得はブラウザ経由、2回目以降はHTTPクライアント経由の判定ロジックが必要
+- セッション転送は同一ドメイン限定（既に実装済み）
+- ETag/Last-Modifiedの条件付きリクエストを優先
+
+---
+
+## 問題13: ラストマイルスロットの判定ロジックが未実装
+
+### 影響範囲
+
+**影響箇所**:
+- `src/search/browser_search_provider.py:280` - `BrowserSearchProvider.search()`
+- `src/research/state.py` - `ExplorationState`での回収率計算
+
+### 現状の実装
+
+```python
+# src/search/browser_search_provider.py:280-283
+# Determine engine to use
+engine = self._default_engine
+if options.engines:
+    engine = options.engines[0]  # 単純に最初のエンジンを使用
+# ラストマイルスロットの判定がない
+```
+
+### 問題点
+
+1. **回収率の計算はあるが、ラストマイル判定がない**: `ExplorationState`で`harvest_rate`は計算されているが、回収率の最後の10%を判定するロジックがない
+2. **ラストマイルエンジンの使用ロジックがない**: `is_lastmile`プロパティはあるが、実際にラストマイルエンジンを使用する判定がない
+3. **厳格なQPS・回数・時間帯制御がない**: ラストマイルエンジンを使用する際の厳格な制御が実装されていない
+
+### 仕様書の要件
+
+- §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠としてGoogle/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
+
+### 修正提案
+
+**方針**: 回収率が最後の10%に達した場合にのみ、ラストマイルエンジンを使用する
+
+**実装箇所**:
+- `src/search/browser_search_provider.py:280` - `BrowserSearchProvider.search()`
+- `src/research/state.py` - `ExplorationState`での回収率計算
+
+**修正案**:
+```python
+async def search(self, query: str, options: SearchOptions | None = None) -> SearchResponse:
+    # ... 既存の処理 ...
+    
+    # 回収率を計算
+    from src.research.state import get_exploration_state
+    state = get_exploration_state(task_id)
+    
+    # 全体の回収率を計算
+    total_harvest_rate = state.calculate_overall_harvest_rate()
+    
+    # ラストマイルスロットの判定（回収率の最後の10%）
+    # 例: 回収率が0.9以上の場合、ラストマイルエンジンを使用
+    use_lastmile = total_harvest_rate >= 0.9
+    
+    # エンジン選択
+    if use_lastmile:
+        # ラストマイルエンジンを使用（厳格な制御）
+        from src.search.engine_config import get_engine_config_manager
+        config_manager = get_engine_config_manager()
+        
+        lastmile_engines = config_manager.get_lastmile_engines()
+        if lastmile_engines:
+            # 厳格なQPS・回数・時間帯制御を適用
+            engine = self._select_lastmile_engine(lastmile_engines)
+            if engine:
+                # ラストマイルエンジンを使用
+                logger.info(
+                    "Using lastmile engine",
+                    engine=engine,
+                    harvest_rate=total_harvest_rate,
+                )
+    else:
+        # 通常のエンジン選択ロジック
+        engine = self._select_normal_engine(options)
+    
+    # ... 検索実行 ...
+```
+
+**注意点**:
+- 回収率の計算方法を明確化（全体の回収率 vs クエリ別の回収率）
+- ラストマイルエンジンの使用回数・時間帯制御の実装
+- 厳格なQPS制御（例: Google=0.05, Brave=0.1）
+
+---
+
+## 問題14: プロファイル健全性監査の自動実行が未実装
+
+### 影響範囲
+
+**影響箇所**:
+- `src/crawler/fetcher.py:719` - `BrowserFetcher._ensure_browser()`でのブラウザセッション初期化
+- `src/search/browser_search_provider.py:168` - `BrowserSearchProvider._ensure_browser()`でのブラウザセッション初期化
+- `src/mcp/server.py:810` - `_handle_search()`でのタスク開始時
+
+### 現状の実装
+
+```python
+# src/crawler/fetcher.py:719-852
+async def _ensure_browser(self, headful: bool = False, task_id: str | None = None):
+    # ブラウザセッション初期化
+    browser, context = await self._get_browser_and_context(headful)
+    
+    # プロファイル健全性監査の呼び出しがない
+    # perform_health_check()が呼ばれていない
+```
+
+### 問題点
+
+1. **タスク開始時の監査なし**: `_handle_search()`や`create_task()`でタスク開始時に`perform_health_check()`が呼ばれていない
+2. **ブラウザセッション初期化時の監査なし**: `_ensure_browser()`でブラウザセッション初期化時に`perform_health_check()`が呼ばれていない
+3. **定期検査の未実装**: UAメジャーバージョンの追従とフォントセットの一貫性の定期検査が実装されていない
+
+### 仕様書の要件
+
+- §4.3.1: "高頻度チェック: タスク開始時およびブラウザセッション初期化時にUA/メジャーバージョン、フォントセット、言語/タイムゾーン、Canvas/Audio指紋の差分検知を実行"
+- §4.3: "UAメジャーバージョンの追従とフォントセットの一貫性を定期検査（差分検知時は自動修正）"
+
+### 修正提案
+
+**方針**: タスク開始時とブラウザセッション初期化時にプロファイル健全性監査を自動実行する
+
+**実装箇所**:
+- `src/crawler/fetcher.py:719` - `BrowserFetcher._ensure_browser()`
+- `src/search/browser_search_provider.py:168` - `BrowserSearchProvider._ensure_browser()`
+- `src/mcp/server.py:810` - `_handle_search()`でのタスク開始時
+
+**修正案**:
+```python
+# BrowserFetcher._ensure_browser()での監査追加
+async def _ensure_browser(self, headful: bool = False, task_id: str | None = None):
+    browser, context = await self._get_browser_and_context(headful)
+    
+    # プロファイル健全性監査を実行
+    from src.crawler.profile_audit import perform_health_check
+    
+    page = await context.new_page()
+    try:
+        await page.goto("about:blank")  # 最小限のページで監査実行
+        audit_result = await perform_health_check(page, force=False, auto_repair=True)
+        
+        if audit_result.status == AuditStatus.DRIFT:
+            logger.warning(
+                "Profile drift detected and repaired",
+                drifts=[d.attribute for d in audit_result.drifts],
+            )
+    finally:
+        await page.close()
+    
+    return browser, context
+```
+
+**注意点**:
+- 監査は最小限のページ（`about:blank`）で実行してパフォーマンス影響を最小化
+- 自動修復が有効な場合、修復後に再監査を実行
+- 監査ログを構造化記録
+
+---
+
+## 問題15: ヒューマンライク操作の完全な適用が未実装
+
+### 影響範囲
+
+**影響箇所**:
+- `src/crawler/fetcher.py:1124` - `BrowserFetcher.fetch()`でのヒューマンライク操作
+- `src/search/browser_search_provider.py` - `BrowserSearchProvider.search()`でのヒューマンライク操作
+
+### 現状の実装
+
+```python
+# src/crawler/fetcher.py:1124-1126
+# Simulate human reading behavior
+if simulate_human:
+    await self._human_behavior.simulate_reading(page, len(content_bytes))
+# マウス軌跡、タイピングリズム、スクロール慣性の適用がない
+```
+
+### 問題点
+
+1. **マウス軌跡の適用なし**: `HumanBehaviorSimulator.move_mouse()`や`move_to_element()`が実際に呼ばれていない
+2. **タイピングリズムの適用なし**: `HumanBehaviorSimulator.type_text()`が実際に呼ばれていない
+3. **スクロール慣性の適用が不完全**: `simulate_reading()`は呼ばれているが、`InertialScroll`の完全な機能が適用されていない可能性がある
+
+### 仕様書の要件
+
+- §4.3.4: "マウス軌跡自然化: Bezier曲線による自然な軌跡生成、微細なジッター付与"
+- §4.3.4: "タイピングリズム: ガウス分布ベースの遅延、句読点後の長い間、稀なタイポ模倣"
+- §4.3.4: "スクロール慣性: 慣性付きスクロール、easing関数による自然な減速"
+- §4.3: "ヒューマンライク操作: ランダム化された視線移動/ホイール慣性/待機時間分布を適用（CDPで制御）"
+
+### 修正提案
+
+**方針**: ページナビゲーション時にマウス軌跡、タイピングリズム、スクロール慣性を完全に適用する
+
+**実装箇所**:
+- `src/crawler/fetcher.py:1124` - `BrowserFetcher.fetch()`
+- `src/search/browser_search_provider.py` - `BrowserSearchProvider.search()`
+
+**修正案**:
+```python
+# BrowserFetcher.fetch()でのヒューマンライク操作の完全適用
+if simulate_human:
+    # スクロール慣性を適用
+    await self._human_behavior.simulate_reading(page, len(content_bytes))
+    
+    # マウス軌跡を適用（ページ内の主要要素に移動）
+    try:
+        # ページ内の主要リンクや要素にマウスを移動
+        links = await page.query_selector_all("a, button, input")
+        if links:
+            target_link = random.choice(links[:5])  # 最初の5つから選択
+            await self._human_behavior.move_to_element(page, target_link)
+    except Exception as e:
+        logger.debug("Mouse movement skipped", error=str(e))
+    
+    # タイピングリズムは検索フォームや入力欄がある場合に適用
+    # （現在のfetch()では通常は不要）
+```
+
+**注意点**:
+- マウス軌跡はページ内の主要要素（リンク、ボタン）に適用
+- タイピングリズムは検索フォームや入力欄がある場合にのみ適用
+- スクロール慣性は`simulate_reading()`で既に適用されているが、完全性を確認
+
+---
+
 **優先順位**:
 1. 問題3（セッション再利用）
 2. 問題5（start_sessionでブラウザを開く）
-3. 問題8（エンジン選択ロジック）
-4. 問題9（エンジン別QPS制限）
-5. 問題4, 6, 7（要確認事項の確認）
+3. 問題12（セッション転送の適用）
+4. 問題14（プロファイル健全性監査の自動実行）
+5. 問題15（ヒューマンライク操作の完全な適用）
+6. 問題8（エンジン選択ロジック）
+7. 問題13（ラストマイルスロット判定）
+8. 問題9（エンジン別QPS制限）
+9. 問題10（Tor日次利用上限）
+10. 問題11（時間帯・日次予算上限）
+11. 問題4, 6, 7（要確認事項の確認）
 

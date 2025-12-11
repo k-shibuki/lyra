@@ -576,6 +576,7 @@ class TestCaptureAuthSessionCookies:
         """
         from src.mcp.server import _capture_auth_session_cookies
         
+        # Mock context with cookies
         mock_context = AsyncMock()
         mock_context.cookies.return_value = [
             {"name": "session", "value": "abc123", "domain": "example.com"},
@@ -583,15 +584,24 @@ class TestCaptureAuthSessionCookies:
             {"name": "other", "value": "other", "domain": "other.com"},  # Different domain
         ]
         
-        mock_provider = AsyncMock()
-        mock_provider._browser = AsyncMock()
-        mock_provider._context = mock_context
+        # Mock browser with contexts
+        mock_browser = AsyncMock()
+        mock_browser.contexts = [mock_context]
         
-        with patch(
-            "src.search.browser_search_provider.BrowserSearchProvider",
-            return_value=mock_provider,
-        ):
-            result = await _capture_auth_session_cookies("example.com")
+        # Mock playwright chain: async_playwright() -> start() -> chromium -> connect_over_cdp()
+        mock_playwright_instance = AsyncMock()
+        mock_playwright_instance.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright_instance.stop = AsyncMock()
+        
+        mock_playwright = AsyncMock()
+        mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
+        
+        with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
+            with patch("src.mcp.server.get_settings") as mock_settings:
+                mock_settings.return_value.browser.chrome_host = "localhost"
+                mock_settings.return_value.browser.chrome_port = 9222
+                
+                result = await _capture_auth_session_cookies("example.com")
         
         assert result is not None, "Should return session data"
         assert "cookies" in result, "Should have cookies field"
@@ -604,21 +614,30 @@ class TestCaptureAuthSessionCookies:
         """
         TC-CC-B-01: Cookie capture when browser not connected.
         
-        // Given: Browser not connected (None)
+        // Given: Browser not connected (no contexts)
         // When: Calling _capture_auth_session_cookies
         // Then: Returns None
         """
         from src.mcp.server import _capture_auth_session_cookies
         
-        mock_provider = AsyncMock()
-        mock_provider._browser = None
-        mock_provider._context = None
+        # Mock browser with no contexts
+        mock_browser = AsyncMock()
+        mock_browser.contexts = []
         
-        with patch(
-            "src.search.browser_search_provider.BrowserSearchProvider",
-            return_value=mock_provider,
-        ):
-            result = await _capture_auth_session_cookies("example.com")
+        # Mock playwright chain
+        mock_playwright_instance = AsyncMock()
+        mock_playwright_instance.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright_instance.stop = AsyncMock()
+        
+        mock_playwright = AsyncMock()
+        mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
+        
+        with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
+            with patch("src.mcp.server.get_settings") as mock_settings:
+                mock_settings.return_value.browser.chrome_host = "localhost"
+                mock_settings.return_value.browser.chrome_port = 9222
+                
+                result = await _capture_auth_session_cookies("example.com")
         
         assert result is None, "Should return None when browser not connected"
 
@@ -633,20 +652,30 @@ class TestCaptureAuthSessionCookies:
         """
         from src.mcp.server import _capture_auth_session_cookies
         
+        # Mock context with cookies for different domain
         mock_context = AsyncMock()
         mock_context.cookies.return_value = [
             {"name": "session", "value": "abc123", "domain": "other.com"},
         ]
         
-        mock_provider = AsyncMock()
-        mock_provider._browser = AsyncMock()
-        mock_provider._context = mock_context
+        # Mock browser with contexts
+        mock_browser = AsyncMock()
+        mock_browser.contexts = [mock_context]
         
-        with patch(
-            "src.search.browser_search_provider.BrowserSearchProvider",
-            return_value=mock_provider,
-        ):
-            result = await _capture_auth_session_cookies("example.com")
+        # Mock playwright chain
+        mock_playwright_instance = AsyncMock()
+        mock_playwright_instance.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright_instance.stop = AsyncMock()
+        
+        mock_playwright = AsyncMock()
+        mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
+        
+        with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
+            with patch("src.mcp.server.get_settings") as mock_settings:
+                mock_settings.return_value.browser.chrome_host = "localhost"
+                mock_settings.return_value.browser.chrome_port = 9222
+                
+                result = await _capture_auth_session_cookies("example.com")
         
         assert result is None, "Should return None when no matching cookies"
 
@@ -661,18 +690,28 @@ class TestCaptureAuthSessionCookies:
         """
         from src.mcp.server import _capture_auth_session_cookies
         
+        # Mock context that raises exception
         mock_context = AsyncMock()
         mock_context.cookies.side_effect = Exception("Browser disconnected")
         
-        mock_provider = AsyncMock()
-        mock_provider._browser = AsyncMock()
-        mock_provider._context = mock_context
+        # Mock browser with contexts
+        mock_browser = AsyncMock()
+        mock_browser.contexts = [mock_context]
         
-        with patch(
-            "src.search.browser_search_provider.BrowserSearchProvider",
-            return_value=mock_provider,
-        ):
-            result = await _capture_auth_session_cookies("example.com")
+        # Mock playwright chain
+        mock_playwright_instance = AsyncMock()
+        mock_playwright_instance.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright_instance.stop = AsyncMock()
+        
+        mock_playwright = AsyncMock()
+        mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
+        
+        with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
+            with patch("src.mcp.server.get_settings") as mock_settings:
+                mock_settings.return_value.browser.chrome_host = "localhost"
+                mock_settings.return_value.browser.chrome_port = 9222
+                
+                result = await _capture_auth_session_cookies("example.com")
         
         assert result is None, "Should return None on exception"
 
