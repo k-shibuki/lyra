@@ -103,6 +103,9 @@ def mock_browser(mock_context):
     browser = AsyncMock()
     browser.new_context = AsyncMock(return_value=mock_context)
     browser.close = AsyncMock()
+    # contexts is empty list by default - new context will be created
+    # Per O.6: When contexts is empty, new_context() is called
+    browser.contexts = []
     return browser
 
 

@@ -162,14 +162,25 @@ class PlaywrightProvider(BaseBrowserProvider):
                         headless=False
                     )
                 
-                self._headful_context = await self._headful_browser.new_context(
-                    viewport={
-                        "width": browser_settings.viewport_width,
-                        "height": browser_settings.viewport_height,
-                    },
-                    locale="ja-JP",
-                    timezone_id="Asia/Tokyo",
-                )
+                # Reuse existing context if available (preserves profile cookies per §3.6.1)
+                # This only applies when connected via CDP to real Chrome
+                existing_contexts = self._headful_browser.contexts
+                if existing_contexts:
+                    self._headful_context = existing_contexts[0]
+                    logger.info(
+                        "Reusing existing browser context for cookie preservation",
+                        context_count=len(existing_contexts),
+                    )
+                else:
+                    self._headful_context = await self._headful_browser.new_context(
+                        viewport={
+                            "width": browser_settings.viewport_width,
+                            "height": browser_settings.viewport_height,
+                        },
+                        locale="ja-JP",
+                        timezone_id="Asia/Tokyo",
+                    )
+                    logger.info("Created new browser context")
             
             return self._headful_browser, self._headful_context
         else:

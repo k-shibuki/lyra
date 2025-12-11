@@ -1148,11 +1148,80 @@ async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+async def _capture_auth_session_cookies(domain: str) -> dict | None:
+    """Capture cookies from browser for authentication session storage.
+    
+    Per §3.6.1: Capture session data after authentication completion
+    so subsequent requests can reuse the authenticated session.
+    
+    Args:
+        domain: Domain to capture cookies for.
+        
+    Returns:
+        Session data dict with cookies, or None if capture failed.
+    """
+    from datetime import datetime, timezone
+    
+    try:
+        # Try to get cookies from existing browser context
+        from src.search.browser_search_provider import BrowserSearchProvider
+        
+        provider = BrowserSearchProvider()
+        # Check if browser is already connected (don't force connection)
+        if provider._browser is None or provider._context is None:
+            logger.debug(
+                "Browser not connected, skipping cookie capture",
+                domain=domain,
+            )
+            return None
+        
+        # Get cookies for the domain
+        cookies = await provider._context.cookies()
+        
+        # Filter cookies that match the domain
+        domain_cookies = []
+        for cookie in cookies:
+            cookie_domain = cookie.get("domain", "")
+            # Match domain and subdomains (e.g., .example.com matches www.example.com)
+            if cookie_domain.endswith(domain) or domain.endswith(cookie_domain.lstrip(".")):
+                domain_cookies.append(dict(cookie))
+        
+        if not domain_cookies:
+            logger.debug(
+                "No cookies found for domain",
+                domain=domain,
+            )
+            return None
+        
+        session_data = {
+            "cookies": domain_cookies,
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "domain": domain,
+        }
+        
+        logger.info(
+            "Captured authentication session cookies",
+            domain=domain,
+            cookie_count=len(domain_cookies),
+        )
+        
+        return session_data
+        
+    except Exception as e:
+        logger.warning(
+            "Failed to capture authentication session cookies",
+            domain=domain,
+            error=str(e),
+        )
+        return None
+
+
 async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle resolve_auth tool call.
     
     Implements §3.2.1: Report authentication completion or skip.
+    Per §3.6.1: Captures session cookies on completion for reuse.
     Supports single item or domain-batch operations.
     """
     from src.mcp.errors import InvalidParamsError
@@ -1197,7 +1266,15 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             )
         
         if action == "complete":
-            result = await queue.complete(queue_id, success=success)
+            # Get domain from queue item for cookie capture
+            item = await queue.get_item(queue_id)
+            session_data = None
+            if item and success:
+                domain = item.get("domain")
+                if domain:
+                    session_data = await _capture_auth_session_cookies(domain)
+            
+            result = await queue.complete(queue_id, success=success, session_data=session_data)
         else:  # skip
             result = await queue.skip(queue_ids=[queue_id])
         
@@ -1219,7 +1296,12 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             )
         
         if action == "complete":
-            result = await queue.complete_domain(domain, success=success)
+            # Capture cookies for the domain
+            session_data = None
+            if success:
+                session_data = await _capture_auth_session_cookies(domain)
+            
+            result = await queue.complete_domain(domain, success=success, session_data=session_data)
             count = result.get("resolved_count", 0)
         else:  # skip
             result = await queue.skip(domain=domain)

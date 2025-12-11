@@ -202,13 +202,23 @@ class BrowserSearchProvider(BaseSearchProvider):
                         f"Start Chrome with: ./scripts/chrome.sh start"
                     ) from e
                 
-                # Create context with realistic settings
-                self._context = await self._browser.new_context(
-                    viewport={"width": 1920, "height": 1080},
-                    locale="ja-JP",
-                    timezone_id="Asia/Tokyo",
-                    user_agent=self._get_user_agent(),
-                )
+                # Reuse existing context if available (preserves profile cookies per §3.6.1)
+                existing_contexts = self._browser.contexts
+                if existing_contexts:
+                    self._context = existing_contexts[0]
+                    logger.info(
+                        "Reusing existing browser context for cookie preservation",
+                        context_count=len(existing_contexts),
+                    )
+                else:
+                    # Create new context only if no existing context
+                    self._context = await self._browser.new_context(
+                        viewport={"width": 1920, "height": 1080},
+                        locale="ja-JP",
+                        timezone_id="Asia/Tokyo",
+                        user_agent=self._get_user_agent(),
+                    )
+                    logger.info("Created new browser context")
                 
                 # Block unnecessary resources
                 await self._context.route(

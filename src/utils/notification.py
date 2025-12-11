@@ -883,6 +883,32 @@ class InterventionQueue:
         
         return queue_id
     
+    async def get_item(self, queue_id: str) -> dict[str, Any] | None:
+        """Get a specific queue item by ID.
+        
+        Args:
+            queue_id: Queue item ID.
+            
+        Returns:
+            Queue item dict or None if not found.
+        """
+        await self._ensure_db()
+        
+        row = await self._db.fetch_one(
+            """
+            SELECT id, task_id, url, domain, auth_type, priority, status,
+                   queued_at, expires_at, session_data
+            FROM intervention_queue
+            WHERE id = ?
+            """,
+            (queue_id,),
+        )
+        
+        if not row:
+            return None
+        
+        return dict(row)
+    
     async def get_pending(
         self,
         task_id: str | None = None,
