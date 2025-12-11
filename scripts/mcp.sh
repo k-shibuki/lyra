@@ -10,7 +10,7 @@
 #   - Chrome with CDP: ./scripts/chrome.sh start (before using search tools)
 #   - Containers are auto-started if not running
 
-set -e
+set -euo pipefail
 
 # =============================================================================
 # INITIALIZATION
@@ -20,6 +20,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
+
+# Enable debug mode if DEBUG=1
+enable_debug_mode
+
+# Set up error handler
+trap 'cleanup_on_error ${LINENO}' ERR
 
 # =============================================================================
 # MAIN

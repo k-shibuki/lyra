@@ -64,8 +64,8 @@ class MCPErrorCode(str, Enum):
 
     # Infrastructure errors
     CHROME_NOT_READY = "CHROME_NOT_READY"
-    """Chrome CDP is not connected.
-    Action: Start Chrome with ./scripts/chrome.sh start"""
+    """Chrome CDP is not connected (auto-start failed).
+    Action: Check ./scripts/chrome.sh diagnose"""
 
     # Internal errors
     INTERNAL_ERROR = "INTERNAL_ERROR"
@@ -314,29 +314,27 @@ class InternalError(MCPError):
 
 
 class ChromeNotReadyError(MCPError):
-    """Raised when Chrome CDP connection is not available.
+    """Raised when Chrome CDP connection is not available after auto-start attempt.
     
-    This error indicates that Chrome is not running with remote debugging enabled,
-    which is required for browser-based search operations.
+    This error indicates that Chrome auto-start was attempted but failed.
+    Chrome with remote debugging is required for browser-based search operations.
     """
 
     def __init__(
         self,
-        message: str = "Chrome CDP is not connected. Start Chrome with: ./scripts/chrome.sh start",
+        message: str = "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh diagnose",
         *,
-        is_podman: bool = False,
+        auto_start_attempted: bool = True,
     ):
-        details: dict[str, str] = {}
-        if is_podman:
-            details["hint"] = (
-                "WSL2 + Podman: socat port forward is required "
-                "(auto-started by chrome.sh)"
-            )
+        details: dict[str, Any] = {
+            "auto_start_attempted": auto_start_attempted,
+            "hint": "Verify Chrome is installed and WSL2 mirrored networking is enabled",
+        }
         
         super().__init__(
             MCPErrorCode.CHROME_NOT_READY,
             message,
-            details=details if details else None,
+            details=details,
         )
 
 

@@ -10,7 +10,7 @@
 #   ./scripts/test.sh get           # Get test results
 #   ./scripts/test.sh kill          # Force stop pytest
 
-set -e
+set -euo pipefail
 
 # =============================================================================
 # INITIALIZATION
@@ -20,6 +20,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
+
+# Enable debug mode if DEBUG=1
+enable_debug_mode
+
+# Set up error handler
+trap 'cleanup_on_error ${LINENO}' ERR
 
 # =============================================================================
 # CONFIGURATION
@@ -32,6 +38,12 @@ TARGET="${2:-tests/}"
 # COMMAND HANDLERS
 # =============================================================================
 
+# Function: cmd_run
+# Description: Start test execution in background
+# Arguments:
+#   $1: Test target (default: tests/)
+# Returns:
+#   0: Test execution started
 cmd_run() {
     local target="$1"
     
@@ -46,32 +58,81 @@ cmd_run() {
     echo "Started. Run: ./scripts/test.sh check"
 }
 
+# Function: cmd_check
+# Description: Check if tests are completed by checking file modification time
+#             If no updates for COMPLETION_THRESHOLD seconds, test is done
+# Returns:
+#   0: Tests completed or still running
+#   1: Container not running or result file not found
 cmd_check() {
     # Determine completion by file modification time
     # If no updates for COMPLETION_THRESHOLD seconds, test is done
+    
+    # Check if container is running
+    if ! check_container_running "$CONTAINER_NAME"; then
+        echo "NOT_STARTED"
+        log_error "Container $CONTAINER_NAME is not running"
+        return 1
+    fi
+    
+    # Check if result file exists
+    if ! podman exec "$CONTAINER_NAME" test -f "$TEST_RESULT_FILE" 2>/dev/null; then
+        echo "NOT_STARTED"
+        log_error "Test result file not found: $TEST_RESULT_FILE"
+        return 1
+    fi
+    
     local mtime
     local now
     local age
     local last_line
     
     mtime=$(podman exec "$CONTAINER_NAME" stat -c %Y "$TEST_RESULT_FILE" 2>/dev/null || echo 0)
-    now=$(podman exec "$CONTAINER_NAME" date +%s)
+    now=$(podman exec "$CONTAINER_NAME" date +%s 2>/dev/null || echo 0)
     age=$((now - mtime))
     last_line=$(podman exec "$CONTAINER_NAME" tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
     
     if [ "$age" -gt "$COMPLETION_THRESHOLD" ]; then
         echo "DONE (${age}s ago)"
-        podman exec "$CONTAINER_NAME" tail -5 "$TEST_RESULT_FILE" 2>/dev/null
+        podman exec "$CONTAINER_NAME" tail -5 "$TEST_RESULT_FILE" 2>/dev/null || echo "No output"
     else
         echo "RUNNING | $last_line"
     fi
 }
 
+# Function: cmd_get
+# Description: Get test results (last 20 lines)
+# Returns:
+#   0: Success, outputs test results
+#   1: Container not running or result file not found
 cmd_get() {
     echo "=== Result ==="
-    podman exec "$CONTAINER_NAME" tail -20 "$TEST_RESULT_FILE" 2>/dev/null || echo "No result"
+    
+    # Check if container is running
+    if ! check_container_running "$CONTAINER_NAME"; then
+        log_error "Container $CONTAINER_NAME is not running"
+        echo "No result - container not running"
+        return 1
+    fi
+    
+    # Check if result file exists
+    if ! podman exec "$CONTAINER_NAME" test -f "$TEST_RESULT_FILE" 2>/dev/null; then
+        log_error "Test result file not found: $TEST_RESULT_FILE"
+        echo "No result - file not found"
+        return 1
+    fi
+    
+    podman exec "$CONTAINER_NAME" tail -20 "$TEST_RESULT_FILE" 2>/dev/null || {
+        log_error "Failed to read test result file"
+        echo "No result - read error"
+        return 1
+    }
 }
 
+# Function: cmd_kill
+# Description: Force stop pytest process in container
+# Returns:
+#   0: Success
 cmd_kill() {
     echo "Killing..."
     podman exec "$CONTAINER_NAME" pkill -9 -f "pytest" 2>/dev/null || true
