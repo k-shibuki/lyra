@@ -32,14 +32,15 @@ class TestModelPaths:
         Then: Returns the parsed model paths dictionary
         """
         # Given
+        # Use paths within /app/models for validation
         model_paths_data = {
-            "embedding": "/app/models/embedding",
+            "embedding": "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test",
             "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/reranker",
+            "reranker": "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/nli_fast",
+            "nli_fast": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test",
             "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/nli_slow",
+            "nli_slow": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
             "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
@@ -53,10 +54,10 @@ class TestModelPaths:
 
         # Then
         assert result is not None
-        assert result["embedding"] == "/app/models/embedding"
-        assert result["reranker"] == "/app/models/reranker"
-        assert result["nli_fast"] == "/app/models/nli_fast"
-        assert result["nli_slow"] == "/app/models/nli_slow"
+        assert result["embedding"] == "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test"
+        assert result["reranker"] == "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test"
+        assert result["nli_fast"] == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test"
+        assert result["nli_slow"] == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test"
 
     def test_get_model_paths_file_not_found(self, tmp_path: Path):
         """
@@ -101,12 +102,20 @@ class TestModelPaths:
         """
         Given: model_paths.json exists with embedding path
         When: get_embedding_path() is called
-        Then: Returns the local embedding path
+        Then: Returns the local embedding path (validated)
         """
         # Given
+        # Use a path within /app/models for validation
+        # All required keys must be present for validation to succeed
         model_paths_data = {
-            "embedding": "/local/embedding/model",
+            "embedding": "/app/models/embedding/model",
             "embedding_name": "BAAI/bge-m3",
+            "reranker": "/app/models/reranker/model",
+            "reranker_name": "BAAI/bge-reranker-v2-m3",
+            "nli_fast": "/app/models/nli_fast/model",
+            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
+            "nli_slow": "/app/models/nli_slow/model",
+            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
@@ -118,7 +127,7 @@ class TestModelPaths:
             result = get_embedding_path()
 
         # Then
-        assert result == "/local/embedding/model"
+        assert result == "/app/models/embedding/model"
 
     def test_get_embedding_path_fallback_to_env(self, tmp_path: Path):
         """
@@ -148,10 +157,21 @@ class TestModelPaths:
         """
         Given: model_paths.json exists with reranker path
         When: get_reranker_path() is called
-        Then: Returns the local reranker path
+        Then: Returns the local reranker path (validated)
         """
         # Given
-        model_paths_data = {"reranker": "/local/reranker/model"}
+        # Use a path within /app/models for validation
+        # All required keys must be present for validation to succeed
+        model_paths_data = {
+            "embedding": "/app/models/embedding/model",
+            "embedding_name": "BAAI/bge-m3",
+            "reranker": "/app/models/reranker/model",
+            "reranker_name": "BAAI/bge-reranker-v2-m3",
+            "nli_fast": "/app/models/nli_fast/model",
+            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
+            "nli_slow": "/app/models/nli_slow/model",
+            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+        }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
 
@@ -162,16 +182,27 @@ class TestModelPaths:
             result = get_reranker_path()
 
         # Then
-        assert result == "/local/reranker/model"
+        assert result == "/app/models/reranker/model"
 
     def test_get_nli_fast_path_with_local_paths(self, tmp_path: Path):
         """
         Given: model_paths.json exists with NLI fast path
         When: get_nli_fast_path() is called
-        Then: Returns the local NLI fast path
+        Then: Returns the local NLI fast path (validated)
         """
         # Given
-        model_paths_data = {"nli_fast": "/local/nli_fast/model"}
+        # Use a path within /app/models for validation
+        # All required keys must be present for validation to succeed
+        model_paths_data = {
+            "embedding": "/app/models/embedding/model",
+            "embedding_name": "BAAI/bge-m3",
+            "reranker": "/app/models/reranker/model",
+            "reranker_name": "BAAI/bge-reranker-v2-m3",
+            "nli_fast": "/app/models/nli_fast/model",
+            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
+            "nli_slow": "/app/models/nli_slow/model",
+            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+        }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
 
@@ -182,16 +213,27 @@ class TestModelPaths:
             result = get_nli_fast_path()
 
         # Then
-        assert result == "/local/nli_fast/model"
+        assert result == "/app/models/nli_fast/model"
 
     def test_get_nli_slow_path_with_local_paths(self, tmp_path: Path):
         """
         Given: model_paths.json exists with NLI slow path
         When: get_nli_slow_path() is called
-        Then: Returns the local NLI slow path
+        Then: Returns the local NLI slow path (validated)
         """
         # Given
-        model_paths_data = {"nli_slow": "/local/nli_slow/model"}
+        # Use a path within /app/models for validation
+        # All required keys must be present for validation to succeed
+        model_paths_data = {
+            "embedding": "/app/models/embedding/model",
+            "embedding_name": "BAAI/bge-m3",
+            "reranker": "/app/models/reranker/model",
+            "reranker_name": "BAAI/bge-reranker-v2-m3",
+            "nli_fast": "/app/models/nli_fast/model",
+            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
+            "nli_slow": "/app/models/nli_slow/model",
+            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+        }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
 
@@ -202,17 +244,28 @@ class TestModelPaths:
             result = get_nli_slow_path()
 
         # Then
-        assert result == "/local/nli_slow/model"
+        assert result == "/app/models/nli_slow/model"
 
     def test_is_using_local_paths_true(self, tmp_path: Path):
         """
-        Given: model_paths.json exists
+        Given: model_paths.json exists with valid paths
         When: is_using_local_paths() is called
         Then: Returns True
         """
         # Given
+        # Use paths within /app/models for validation
+        model_paths_data = {
+            "embedding": "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test",
+            "embedding_name": "BAAI/bge-m3",
+            "reranker": "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test",
+            "reranker_name": "BAAI/bge-reranker-v2-m3",
+            "nli_fast": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test",
+            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
+            "nli_slow": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
+            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+        }
         json_file = tmp_path / "model_paths.json"
-        json_file.write_text(json.dumps({"embedding": "/path"}))
+        json_file.write_text(json.dumps(model_paths_data))
 
         # When
         with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
@@ -240,6 +293,64 @@ class TestModelPaths:
 
         # Then
         assert result is False
+
+    def test_path_traversal_rejected(self, tmp_path: Path):
+        """
+        Given: model_paths.json contains path traversal (../)
+        When: get_model_paths() is called
+        Then: Returns None (path validation fails)
+        """
+        # Given
+        model_paths_data = {
+            "embedding": "/app/models/../../etc/passwd",
+            "embedding_name": "BAAI/bge-m3",
+            "reranker": "/app/models/reranker/model",
+            "reranker_name": "BAAI/bge-reranker-v2-m3",
+            "nli_fast": "/app/models/nli_fast/model",
+            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
+            "nli_slow": "/app/models/nli_slow/model",
+            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+        }
+        json_file = tmp_path / "model_paths.json"
+        json_file.write_text(json.dumps(model_paths_data))
+
+        # When
+        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+            from src.ml_server.model_paths import get_model_paths
+
+            result = get_model_paths()
+
+        # Then
+        assert result is None
+
+    def test_path_outside_allowed_directory_rejected(self, tmp_path: Path):
+        """
+        Given: model_paths.json contains path outside /app/models
+        When: get_model_paths() is called
+        Then: Returns None (path validation fails)
+        """
+        # Given
+        model_paths_data = {
+            "embedding": "/etc/passwd",
+            "embedding_name": "BAAI/bge-m3",
+            "reranker": "/app/models/reranker/model",
+            "reranker_name": "BAAI/bge-reranker-v2-m3",
+            "nli_fast": "/app/models/nli_fast/model",
+            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
+            "nli_slow": "/app/models/nli_slow/model",
+            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+        }
+        json_file = tmp_path / "model_paths.json"
+        json_file.write_text(json.dumps(model_paths_data))
+
+        # When
+        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+            from src.ml_server.model_paths import get_model_paths
+
+            result = get_model_paths()
+
+        # Then
+        assert result is None
 
 
 # =============================================================================

@@ -15,6 +15,9 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+# Base directory for models (security boundary)
+MODELS_BASE_DIR = Path("/app/models")
+
 
 class ModelPaths(TypedDict):
     """Type definition for model paths."""
@@ -34,6 +37,47 @@ DEFAULT_MODEL_PATHS_FILE = "/app/models/model_paths.json"
 
 # Cached model paths
 _model_paths: ModelPaths | None = None
+
+
+def _validate_and_sanitize_path(path: str, path_name: str) -> str:
+    """Validate and sanitize a model path.
+
+    Args:
+        path: Path string to validate
+        path_name: Name of the path (for error messages)
+
+    Returns:
+        Normalized absolute path
+
+    Raises:
+        ValueError: If path is invalid or outside allowed directory
+    """
+    try:
+        # Convert to Path and resolve to absolute path
+        path_obj = Path(path).resolve()
+
+        # Check if path is within MODELS_BASE_DIR
+        try:
+            path_obj.relative_to(MODELS_BASE_DIR.resolve())
+        except ValueError:
+            raise ValueError(
+                f"Path {path_name} is outside allowed directory: {path}"
+            )
+
+        # Check for path traversal attempts (should be caught by relative_to, but double-check)
+        if ".." in str(path_obj):
+            raise ValueError(f"Path traversal detected in {path_name}: {path}")
+
+        return str(path_obj)
+
+    except Exception as e:
+        logger.error(
+            "Path validation failed",
+            path=path,
+            path_name=path_name,
+            error=str(e),
+        )
+        raise
 
 
 def get_model_paths() -> ModelPaths | None:
@@ -60,11 +104,38 @@ def get_model_paths() -> ModelPaths | None:
 
     try:
         with open(model_paths_file) as f:
-            _model_paths = json.load(f)
+            raw_paths = json.load(f)
 
-        logger.info("Model paths loaded", file=model_paths_file)
+        # Validate and sanitize all paths
+        validated_paths: ModelPaths = {
+            "embedding": _validate_and_sanitize_path(
+                raw_paths["embedding"], "embedding"
+            ),
+            "embedding_name": raw_paths["embedding_name"],
+            "reranker": _validate_and_sanitize_path(
+                raw_paths["reranker"], "reranker"
+            ),
+            "reranker_name": raw_paths["reranker_name"],
+            "nli_fast": _validate_and_sanitize_path(
+                raw_paths["nli_fast"], "nli_fast"
+            ),
+            "nli_fast_name": raw_paths["nli_fast_name"],
+            "nli_slow": _validate_and_sanitize_path(
+                raw_paths["nli_slow"], "nli_slow"
+            ),
+            "nli_slow_name": raw_paths["nli_slow_name"],
+        }
+
+        _model_paths = validated_paths
+        logger.info("Model paths loaded and validated", file=model_paths_file)
         return _model_paths
 
+    except KeyError as e:
+        logger.error("Missing required key in model paths", error=str(e))
+        return None
+    except ValueError as e:
+        logger.error("Path validation failed", error=str(e))
+        return None
     except Exception as e:
         logger.error("Failed to load model paths", error=str(e))
         return None
@@ -86,10 +157,11 @@ def get_reranker_path() -> str:
     """Get reranker model path or name.
 
     Returns:
-        Local path if available, otherwise model name from env
+        Local path if available (validated), otherwise model name from env
     """
     paths = get_model_paths()
     if paths and "reranker" in paths:
+        # Path is already validated in get_model_paths()
         return paths["reranker"]
     return os.environ.get("LANCET_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 
@@ -98,10 +170,11 @@ def get_nli_fast_path() -> str:
     """Get NLI fast model path or name.
 
     Returns:
-        Local path if available, otherwise model name from env
+        Local path if available (validated), otherwise model name from env
     """
     paths = get_model_paths()
     if paths and "nli_fast" in paths:
+        # Path is already validated in get_model_paths()
         return paths["nli_fast"]
     return os.environ.get(
         "LANCET_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall"
@@ -112,10 +185,11 @@ def get_nli_slow_path() -> str:
     """Get NLI slow model path or name.
 
     Returns:
-        Local path if available, otherwise model name from env
+        Local path if available (validated), otherwise model name from env
     """
     paths = get_model_paths()
     if paths and "nli_slow" in paths:
+        # Path is already validated in get_model_paths()
         return paths["nli_slow"]
     return os.environ.get(
         "LANCET_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small"
