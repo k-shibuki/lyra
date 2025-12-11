@@ -664,6 +664,39 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 # Research Execution Handlers
 # ============================================================
 
+async def _check_chrome_cdp_ready() -> bool:
+    """
+    Check if Chrome CDP is available.
+    
+    Performs a lightweight HTTP check to the CDP endpoint without
+    initializing full Playwright.
+    
+    Returns:
+        True if CDP is available, False otherwise.
+    """
+    import aiohttp
+    from src.utils.config import get_settings
+    
+    settings = get_settings()
+    chrome_host = settings.browser.chrome_host
+    chrome_port = settings.browser.chrome_port
+    cdp_url = f"http://{chrome_host}:{chrome_port}/json/version"
+    
+    try:
+        timeout = aiohttp.ClientTimeout(total=3)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(cdp_url) as response:
+                return response.status == 200
+    except Exception:
+        return False
+
+
+def _is_podman_environment() -> bool:
+    """Check if running in Podman/Docker container."""
+    import os
+    return os.path.exists("/.dockerenv") or os.environ.get("container") == "podman"
+
+
 async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle search tool call.
@@ -672,8 +705,11 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
     the search→fetch→extract→evaluate pipeline.
     
     Supports refute:true for refutation mode.
+    
+    Raises:
+        ChromeNotReadyError: If Chrome CDP is not connected.
     """
-    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
+    from src.mcp.errors import TaskNotFoundError, InvalidParamsError, ChromeNotReadyError
     from src.research.pipeline import search_action
     
     task_id = args.get("task_id")
@@ -693,6 +729,12 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
             param_name="query",
             expected="non-empty string",
         )
+    
+    # Pre-check: Verify Chrome CDP is available before proceeding
+    # Per N.5: Report infrastructure failures immediately rather than returning "running"
+    cdp_ready = await _check_chrome_cdp_ready()
+    if not cdp_ready:
+        raise ChromeNotReadyError(is_podman=_is_podman_environment())
     
     with LogContext(task_id=task_id):
         # Verify task exists
