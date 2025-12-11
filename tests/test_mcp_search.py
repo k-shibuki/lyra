@@ -773,7 +773,7 @@ class TestChromeAutoStart:
         ))
         
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+            with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)):
                 result = await _auto_start_chrome()
         
         assert result is True
@@ -815,7 +815,7 @@ class TestChromeAutoStart:
         ))
         
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+            with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)):
                 result = await _auto_start_chrome()
         
         assert result is False
@@ -836,9 +836,10 @@ class TestChromeAutoStart:
         # Mock subprocess that times out
         mock_process = MagicMock()
         mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_process.wait = AsyncMock()  # process.wait() is awaited in timeout handler
         
         with patch("pathlib.Path.exists", return_value=True):
-            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+            with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)):
                 result = await _auto_start_chrome()
         
         assert result is False
