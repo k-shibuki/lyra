@@ -390,7 +390,7 @@ start_chrome_wsl() {
     # Wait and try to connect with exponential backoff
     echo "Waiting for Chrome..."
     local host=""
-    host=$(try_connect_with_backoff "$port" "$STARTUP_WAIT_ITERATIONS" "$STARTUP_WAIT_INTERVAL")
+    host=$(try_connect_with_backoff "$port" "$STARTUP_WAIT_ITERATIONS" "$STARTUP_WAIT_INTERVAL" || true)
     if [ -n "${host:-}" ]; then
         echo "READY"
         echo "Host: $host:$port"
@@ -444,7 +444,7 @@ start_chrome_linux() {
     
     echo "Waiting for Chrome..."
     local host=""
-    host=$(try_connect_with_backoff "$port" 20 "$STARTUP_WAIT_INTERVAL")
+    host=$(try_connect_with_backoff "$port" 20 "$STARTUP_WAIT_INTERVAL" || true)
     if [ -n "${host:-}" ]; then
         echo "READY"
         echo "Connect: chromium.connect_over_cdp('http://${host}:$port')"

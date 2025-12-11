@@ -786,9 +786,15 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
     
     # 4. Failed - raise error
     logger.error("Chrome CDP not ready after auto-start", timeout=timeout)
+    
+    # Detect Podman environment for appropriate error message
+    import os
+    is_podman = os.path.exists("/.dockerenv") or os.environ.get("container") == "podman"
+    
     raise ChromeNotReadyError(
-        "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh diagnose",
+        "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh start",
         auto_start_attempted=True,
+        is_podman=is_podman,
     )
 
 

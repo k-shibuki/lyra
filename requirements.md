@@ -537,10 +537,10 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
   {
     "ok": false,
     "error_code": "CHROME_NOT_READY",
-    "error": "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh diagnose",
+    "error": "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh start",
     "details": {
       "auto_start_attempted": true,
-      "hint": "Verify Chrome is installed and WSL2 mirrored networking is enabled"
+      "hint": "WSL2 + Podman: Verify Chrome is installed, socat is running, and WSL2 mirrored networking is enabled"
     }
   }
   ```
