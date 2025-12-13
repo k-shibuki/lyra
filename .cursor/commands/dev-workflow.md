@@ -45,6 +45,12 @@ Lancet開発の統合ワークフロー。単機能コマンドを順次実行�
 - リファクタ関連: @.cursor/rules/refactoring.mdc
 - git commit: @.cursor/rules/commit-message-format.mdc
 
+## デバッグ・診断コマンド
+- **モジュール間連動の問題がある場合**: `/integration-design` - データフロー図・型定義・デバッグスクリプト作成
+  - 複数モジュールにまたがる機能実装時
+  - モジュール間の連動に問題がある場合（O6_ADDITIONAL_ISSUES.md参照）
+  - リファクタリングでインターフェース変更時
+
 ## リファレンス
 - スクリプト使い方: `/scripts-help`
 - 実装計画: @IMPLEMENTATION_PLAN.md

@@ -1969,32 +1969,27 @@ async def _capture_auth_session(queue_id: str, domain: str) -> dict | None:
 
 **実装時期**: Phase O完了後、別タスクとして実装
 
-##### O.6.6 追加仕様違反調査結果
+##### O.6.6 追加仕様違反調査結果 ✅ 完了
 
 **調査日**: 2025-12-11  
+**実装完了日**: 2025-12-11  
 **調査目的**: O.6実装完了後、同様のパターンで他の仕様違反がないか確認
 
-###### 問題3: 認証待ちキューで保存されたセッションが後続リクエストで再利用されていない
+**実装完了項目**:
+- [x] 問題3: 認証待ちキューで保存されたセッションが後続リクエストで再利用されていない ✅
+- [x] 問題5: `start_session()`でブラウザを開く処理が未実装 ✅
+- [x] 問題12: セッション転送が実装されているが適用されていない ✅
 
-**影響箇所**:
-- `src/crawler/fetcher.py:933` - `BrowserFetcher.fetch()`
-- `src/search/browser_search_provider.py` - `BrowserSearchProvider.search()`（要確認）
+**実装詳細**:
+- **問題3**: `BrowserFetcher.fetch()`で`InterventionQueue.get_session_for_domain()`を呼び出し、Cookieを`context.add_cookies()`で適用（`src/crawler/fetcher.py:1086-1137`）
+- **問題5**: `InterventionQueue.start_session()`で`BrowserFetcher._ensure_browser(headful=True)`を呼び出し、ブラウザでURLを開く処理を実装。Chrome自動起動機能も実装（`src/utils/notification.py:1165-1200`, `src/crawler/fetcher.py:738-960`）
+- **問題12**: `fetch_url()`で初回はブラウザ経由、2回目以降はHTTPクライアント経由（304キャッシュ）を実装（`src/crawler/fetcher.py:1896-1955`）
 
-**現状の実装**:
-- `fetch()`の開始時に、`InterventionQueue.get_session_for_domain()`で既存セッションをチェックしていない
-- 認証待ちキューで保存されたCookieを、ブラウザのcontextに設定する処理がない
-- 認証済みのドメインでも、毎回認証待ちが発生する可能性がある
-
-**仕様書の要件違反**:
-- §3.6.1: "セッション共有: 認証済みCookie/セッションは同一ドメインの後続リクエストで自動再利用"
-- §3.6.1: "ドメインベース認証管理: 同一ドメインの認証は1回の突破で複数タスク/URLに適用される"
-
-**修正提案**:
-- `fetch()`の開始時に、認証待ちキューから既存セッションを取得
-- セッションがあれば、Cookieをブラウザcontextに設定してからナビゲート
-- これにより、認証済みドメインでは再認証が不要になる
-
-**優先度**: 🔴 高（仕様違反）
+**検証スクリプト**:
+- `tests/scripts/debug_auth_session_reuse_flow.py` - 問題3の検証
+- `tests/scripts/debug_start_session_browser_flow.py` - 問題5の検証
+- `tests/scripts/debug_chrome_auto_start.py` - Chrome自動起動機能の検証
+- `tests/scripts/debug_session_transfer_flow.py` - 問題12の検証
 
 **詳細**: `O6_ADDITIONAL_ISSUES.md`を参照
 

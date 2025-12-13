@@ -6,7 +6,11 @@ O.6の実装完了後、同様のパターンで他の仕様違反がないか�
 
 ---
 
-## 問題3: 認証待ちキューで保存されたセッションが後続リクエストで再利用されていない
+## 問題3: 認証待ちキューで保存されたセッションが後続リクエストで再利用されていない ✅ 実装完了
+
+**実装完了日**: 2025-12-11  
+**実装ファイル**: `src/crawler/fetcher.py:1086-1137`  
+**検証スクリプト**: `tests/scripts/debug_auth_session_reuse_flow.py`
 
 ### 影響範囲
 
@@ -116,7 +120,11 @@ async def fetch(self, url: str, ...):
 
 ---
 
-## 問題5: start_session()でブラウザを開く処理が未実装
+## 問題5: start_session()でブラウザを開く処理が未実装 ✅ 実装完了
+
+**実装完了日**: 2025-12-11  
+**実装ファイル**: `src/utils/notification.py:1165-1200`, `src/crawler/fetcher.py:738-960` (Chrome自動起動)  
+**検証スクリプト**: `tests/scripts/debug_start_session_browser_flow.py`, `tests/scripts/debug_chrome_auto_start.py`
 
 ### 影響範囲
 
@@ -729,7 +737,11 @@ async def check_daily_budget(domain: str) -> bool:
 
 Phase O.6完了後、別タスクとして実装推奨。
 
-## 問題12: セッション転送が実装されているが適用されていない
+## 問題12: セッション転送が実装されているが適用されていない ✅ 実装完了
+
+**実装完了日**: 2025-12-11  
+**実装ファイル**: `src/crawler/fetcher.py:1896-1955` (fetch_url), `src/crawler/fetcher.py:1200-1250` (BrowserFetcher), `src/crawler/fetcher.py:509-710` (HTTPFetcher)  
+**検証スクリプト**: `tests/scripts/debug_session_transfer_flow.py`
 
 ### 影響範囲
 
@@ -1063,9 +1075,9 @@ if simulate_human:
 ---
 
 **優先順位**:
-1. 問題3（セッション再利用）
-2. 問題5（start_sessionでブラウザを開く）
-3. 問題12（セッション転送の適用）
+1. ~~問題3（セッション再利用）~~ ✅ 完了
+2. ~~問題5（start_sessionでブラウザを開く）~~ ✅ 完了
+3. ~~問題12（セッション転送の適用）~~ ✅ 完了
 4. 問題14（プロファイル健全性監査の自動実行）
 5. 問題15（ヒューマンライク操作の完全な適用）
 6. 問題8（エンジン選択ロジック）
