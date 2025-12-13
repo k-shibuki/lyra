@@ -11,7 +11,7 @@ Verification items:
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured
-- See: IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
 
 Acceptance criteria (§7):
 - Health check: ≥99% auto-execution success rate at task start

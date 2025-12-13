@@ -116,6 +116,48 @@ async def main():
         traceback.print_exc()
         return 1
     
+    # Step 4: Test URL-specific cached values take precedence over session headers
+    print(f"\n[Step 4] HTTPFetcher.fetch({test_url}) with cached_etag (URL-specific)")
+    print("  Testing: URL-specific ETag should not be overwritten by session headers")
+    try:
+        # Get ETag from first fetch if available
+        cached_etag = None
+        cached_last_modified = None
+        if http_result.ok and hasattr(http_result, 'etag') and http_result.etag:
+            cached_etag = http_result.etag
+            print(f"  → Using cached ETag from first fetch: {cached_etag}")
+        if http_result.ok and hasattr(http_result, 'last_modified') and http_result.last_modified:
+            cached_last_modified = http_result.last_modified
+            print(f"  → Using cached Last-Modified from first fetch: {cached_last_modified}")
+        
+        # Fetch with URL-specific cached values
+        # Session transfer headers should NOT include conditional headers
+        # when cached_etag/cached_last_modified are provided
+        http_result2 = await http_fetcher.fetch(
+            test_url,
+            cached_etag=cached_etag,
+            cached_last_modified=cached_last_modified,
+        )
+        
+        assert hasattr(http_result2, 'ok'), "FetchResult should have 'ok' attribute"
+        print(f"  ✓ HTTPFetcher returned: ok={http_result2.ok}")
+        
+        if http_result2.ok:
+            status2 = getattr(http_result2, 'status_code', 'N/A')
+            print(f"  ✓ HTTP fetch successful: status={status2}")
+            if status2 == 304:
+                print(f"  ✓ 304 Not Modified - URL-specific ETag worked correctly!")
+            else:
+                print(f"  → Status {status2} (may be 200 if content changed)")
+        else:
+            print(f"  ⚠ HTTP fetch failed: {getattr(http_result2, 'reason', 'unknown')}")
+            
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+    
     print("\n" + "=" * 70)
     print("✓ All steps passed!")
     print("=" * 70)

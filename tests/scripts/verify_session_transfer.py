@@ -13,7 +13,7 @@ Verification items:
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
-- See: IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
 
 Acceptance criteria (§7):
 - 304 utilization rate ≥70%

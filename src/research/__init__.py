@@ -5,8 +5,8 @@ This module implements the exploration control engine where:
 - Cursor AI designs all search queries (strategic decisions)
 - Lancet provides design support information and executes queries (operational work)
 
-See requirements.md §2.1 for the responsibility matrix.
-See requirements.md §3.1.1 for UCB1-based budget allocation and pivot exploration.
+See docs/requirements.md §2.1 for the responsibility matrix.
+See docs/requirements.md §3.1.1 for UCB1-based budget allocation and pivot exploration.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """

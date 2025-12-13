@@ -4,7 +4,7 @@ UCB1-based budget allocation for search exploration.
 Implements UCB1 (Upper Confidence Bound) algorithm for dynamic budget reallocation
 based on search harvest rates. High-yield searches receive more budget.
 
-See requirements.md §3.1.1:
+See docs/requirements.md §3.1.1:
 - Dynamic budget reallocation based on harvest rate (useful fragments / fetched pages) per search (UCB1-style)
 - Exploration tree control optimization
 

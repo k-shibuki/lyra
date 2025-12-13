@@ -18,7 +18,7 @@ Prerequisites:
 - Podman containers running: ./scripts/dev.sh up
 - Chrome running with remote debugging: ./scripts/chrome.sh start (for search tests)
 - Database initialized
-- See: IMPLEMENTATION_PLAN.md Phase N
+- See: docs/IMPLEMENTATION_PLAN.md Phase N
 
 Usage:
     # Full verification (requires Chrome CDP)

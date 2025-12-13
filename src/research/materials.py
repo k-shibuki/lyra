@@ -4,7 +4,7 @@ Report materials collection for Lancet.
 Provides unified API for collecting report materials including claims,
 fragments, and evidence graph.
 
-See requirements.md §3.2.1.
+See docs/requirements.md §3.2.1.
 """
 
 from typing import Any

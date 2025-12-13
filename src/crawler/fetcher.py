@@ -561,15 +561,20 @@ class HTTPFetcher:
                 req_headers["Referer"] = referer
             
             # Add conditional request headers for 304 support
+            # URL-specific cached values take precedence over session-level values
+            # to ensure correct ETag/Last-Modified for each URL
             if cached_etag:
                 req_headers["If-None-Match"] = cached_etag
             if cached_last_modified:
                 req_headers["If-Modified-Since"] = cached_last_modified
             
             # Apply session transfer headers
+            # Exclude conditional headers if URL-specific values are already set
+            # to prevent session-level ETag/Last-Modified from overwriting URL-specific values
             try:
                 from src.crawler.session_transfer import get_transfer_headers
-                transfer_result = get_transfer_headers(url, include_conditional=True)
+                include_conditional = not (cached_etag or cached_last_modified)
+                transfer_result = get_transfer_headers(url, include_conditional=include_conditional)
                 
                 if transfer_result.ok and transfer_result.headers:
                     req_headers.update(transfer_result.headers)
@@ -795,7 +800,7 @@ class BrowserFetcher:
                 except Exception as e:
                     logger.info("CDP connection failed, attempting auto-start", error=str(e))
                 
-                # Auto-start Chrome per requirements.md §3.2.1 (if CDP connection failed)
+                # Auto-start Chrome per docs/requirements.md §3.2.1 (if CDP connection failed)
                 if not cdp_connected:
                     logger.debug("Calling _auto_start_chrome()")
                     auto_start_success = await self._auto_start_chrome()
@@ -916,7 +921,7 @@ class BrowserFetcher:
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
         
-        Per requirements.md §3.2.1: CDP未接続を検知した場合、Lancetは
+        Per docs/requirements.md §3.2.1: CDP未接続を検知した場合、Lancetは
         ./scripts/chrome.sh start を自動実行する。
         
         Returns:

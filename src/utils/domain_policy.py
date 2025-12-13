@@ -7,7 +7,7 @@ This module provides:
 - Schema validation for policy definitions
 - Runtime caching with efficient lookups
 
-Per §17.2.1 of IMPLEMENTATION_PLAN.md:
+Per §17.2.1 of docs/IMPLEMENTATION_PLAN.md:
 - Complete externalization of domain policies to config/domains.yaml
 - Hot-reload support without restart
 - Enhanced schema validation

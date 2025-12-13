@@ -73,7 +73,7 @@ setup_venv() {
 wait_for_proxy() {
     local max_attempts=30
     local attempt=0
-    local proxy_url="${LANCET_PROXY_URL:-http://localhost:8080}"
+    local proxy_url="${LANCET_GENERAL__PROXY_URL:-http://localhost:8080}"
     
     echo "Waiting for proxy server at ${proxy_url}..." >&2
     
@@ -127,7 +127,7 @@ export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 export LANCET_DATA_DIR="${LANCET_DATA_DIR:-${PROJECT_ROOT}/data}"
 
 # Proxy URL for hybrid mode
-export LANCET_PROXY_URL="${LANCET_PROXY_URL:-http://localhost:8080}"
+export LANCET_GENERAL__PROXY_URL="${LANCET_GENERAL__PROXY_URL:-http://localhost:8080}"
 
 # Chrome settings (localhost for WSL direct connection)
 export LANCET_BROWSER__CHROME_HOST="${LANCET_BROWSER__CHROME_HOST:-localhost}"
