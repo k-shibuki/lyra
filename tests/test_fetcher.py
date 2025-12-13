@@ -877,3 +877,237 @@ class TestDatabaseFetchCache:
             f"Content path should be replaced: expected {new_path}, got {cached['content_path']}"
         )
 
+
+@pytest.mark.unit
+class TestHTTPFetcherConditionalHeaders:
+    """Tests for HTTPFetcher conditional request headers handling.
+    
+    Per fix: URL-specific cached_etag/cached_last_modified should take precedence
+    over session-level conditional headers to prevent incorrect ETag usage.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_url_specific_etag_takes_precedence(self, mock_settings):
+        """Test that URL-specific cached_etag is not overwritten by session headers.
+        
+        TC-CH-01: When cached_etag is provided, session transfer headers should
+        not include If-None-Match to prevent overwriting URL-specific value.
+        """
+        from unittest.mock import patch, AsyncMock, MagicMock
+        from src.crawler.fetcher import HTTPFetcher
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            # Mock curl_cffi requests
+            mock_response = MagicMock()
+            mock_response.status_code = 304
+            mock_response.headers = {}
+            mock_response.content = b""
+            mock_response.text = ""
+            
+            mock_get = AsyncMock(return_value=mock_response)
+            
+            with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
+                # Mock session transfer to return conditional headers only when include_conditional=True
+                def mock_get_transfer_side_effect(url, include_conditional=True):
+                    mock_transfer_result = MagicMock()
+                    mock_transfer_result.ok = True
+                    mock_transfer_result.session_id = "session_123"
+                    if include_conditional:
+                        mock_transfer_result.headers = {
+                            "Cookie": "session=abc123",
+                            "If-None-Match": '"session-etag"',  # Session-level ETag
+                            "If-Modified-Since": "Wed, 01 Jan 2024",
+                        }
+                    else:
+                        # When include_conditional=False, don't include conditional headers
+                        mock_transfer_result.headers = {
+                            "Cookie": "session=abc123",
+                        }
+                    return mock_transfer_result
+                
+                mock_get_transfer.side_effect = mock_get_transfer_side_effect
+                
+                with patch("curl_cffi.requests.get", mock_get):
+                    fetcher = HTTPFetcher()
+                    
+                    # Fetch with URL-specific ETag
+                    url_specific_etag = '"url-specific-etag"'
+                    result = await fetcher.fetch(
+                        "https://example.com/page",
+                        cached_etag=url_specific_etag,
+                    )
+                    
+                    # Verify get_transfer_headers was called with include_conditional=False
+                    # when cached_etag is provided
+                    mock_get_transfer.assert_called_once()
+                    call_args = mock_get_transfer.call_args
+                    assert call_args[0][0] == "https://example.com/page"
+                    assert call_args[1]["include_conditional"] is False, (
+                        "include_conditional should be False when cached_etag is provided"
+                    )
+                    
+                    # Verify the actual request used URL-specific ETag
+                    # (check mock_get call arguments)
+                    assert mock_get.called
+                    call_kwargs = mock_get.call_args[1]
+                    request_headers = call_kwargs.get("headers", {})
+                    assert request_headers.get("If-None-Match") == url_specific_etag, (
+                        f"Request should use URL-specific ETag '{url_specific_etag}', "
+                        f"got '{request_headers.get('If-None-Match')}'"
+                    )
+    
+    @pytest.mark.asyncio
+    async def test_url_specific_last_modified_takes_precedence(self, mock_settings):
+        """Test that URL-specific cached_last_modified is not overwritten.
+        
+        TC-CH-02: When cached_last_modified is provided, session transfer headers
+        should not include If-Modified-Since.
+        """
+        from unittest.mock import patch, AsyncMock, MagicMock
+        from src.crawler.fetcher import HTTPFetcher
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            mock_response = MagicMock()
+            mock_response.status_code = 304
+            mock_response.headers = {}
+            mock_response.content = b""
+            mock_response.text = ""
+            
+            mock_get = AsyncMock(return_value=mock_response)
+            
+            with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
+                def mock_get_transfer_side_effect(url, include_conditional=True):
+                    mock_transfer_result = MagicMock()
+                    mock_transfer_result.ok = True
+                    mock_transfer_result.session_id = "session_123"
+                    if include_conditional:
+                        mock_transfer_result.headers = {
+                            "Cookie": "session=abc123",
+                            "If-Modified-Since": "Wed, 01 Jan 2024",  # Session-level
+                        }
+                    else:
+                        mock_transfer_result.headers = {
+                            "Cookie": "session=abc123",
+                        }
+                    return mock_transfer_result
+                
+                mock_get_transfer.side_effect = mock_get_transfer_side_effect
+                
+                with patch("curl_cffi.requests.get", mock_get):
+                    fetcher = HTTPFetcher()
+                    
+                    url_specific_lm = "Thu, 15 Jan 2024 12:00:00 GMT"
+                    result = await fetcher.fetch(
+                        "https://example.com/page",
+                        cached_last_modified=url_specific_lm,
+                    )
+                    
+                    # Verify include_conditional=False when cached_last_modified is provided
+                    call_args = mock_get_transfer.call_args
+                    assert call_args[1]["include_conditional"] is False, (
+                        "include_conditional should be False when cached_last_modified is provided"
+                    )
+                    
+                    # Verify request uses URL-specific Last-Modified
+                    call_kwargs = mock_get.call_args[1]
+                    request_headers = call_kwargs.get("headers", {})
+                    assert request_headers.get("If-Modified-Since") == url_specific_lm, (
+                        f"Request should use URL-specific Last-Modified '{url_specific_lm}', "
+                        f"got '{request_headers.get('If-Modified-Since')}'"
+                    )
+    
+    @pytest.mark.asyncio
+    async def test_both_cached_values_exclude_session_conditionals(self, mock_settings):
+        """Test that both cached_etag and cached_last_modified exclude session conditionals.
+        
+        TC-CH-03: When both are provided, session should not include either conditional header.
+        """
+        from unittest.mock import patch, AsyncMock, MagicMock
+        from src.crawler.fetcher import HTTPFetcher
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            mock_response = MagicMock()
+            mock_response.status_code = 304
+            mock_response.headers = {}
+            mock_response.content = b""
+            mock_response.text = ""
+            
+            mock_get = AsyncMock(return_value=mock_response)
+            
+            with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
+                def mock_get_transfer_side_effect(url, include_conditional=True):
+                    mock_transfer_result = MagicMock()
+                    mock_transfer_result.ok = True
+                    mock_transfer_result.session_id = "session_123"
+                    if include_conditional:
+                        mock_transfer_result.headers = {
+                            "Cookie": "session=abc123",
+                            "If-None-Match": '"session-etag"',
+                            "If-Modified-Since": "Wed, 01 Jan 2024",
+                        }
+                    else:
+                        mock_transfer_result.headers = {
+                            "Cookie": "session=abc123",
+                        }
+                    return mock_transfer_result
+                
+                mock_get_transfer.side_effect = mock_get_transfer_side_effect
+                
+                with patch("curl_cffi.requests.get", mock_get):
+                    fetcher = HTTPFetcher()
+                    
+                    result = await fetcher.fetch(
+                        "https://example.com/page",
+                        cached_etag='"url-etag"',
+                        cached_last_modified="Thu, 15 Jan 2024",
+                    )
+                    
+                    # Verify include_conditional=False
+                    call_args = mock_get_transfer.call_args
+                    assert call_args[1]["include_conditional"] is False, (
+                        "include_conditional should be False when both cached values are provided"
+                    )
+    
+    @pytest.mark.asyncio
+    async def test_no_cached_values_includes_session_conditionals(self, mock_settings):
+        """Test that session conditional headers are included when no cached values provided.
+        
+        TC-CH-04: When cached_etag and cached_last_modified are None, session should
+        include conditional headers (backward compatibility).
+        """
+        from unittest.mock import patch, AsyncMock, MagicMock
+        from src.crawler.fetcher import HTTPFetcher
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.headers = {}
+            mock_response.content = b"<html>content</html>"
+            mock_response.text = "<html>content</html>"
+            
+            mock_get = AsyncMock(return_value=mock_response)
+            
+            with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
+                mock_transfer_result = MagicMock()
+                mock_transfer_result.ok = True
+                mock_transfer_result.headers = {
+                    "Cookie": "session=abc123",
+                    "If-None-Match": '"session-etag"',
+                }
+                mock_transfer_result.session_id = "session_123"
+                mock_get_transfer.return_value = mock_transfer_result
+                
+                with patch("curl_cffi.requests.get", mock_get):
+                    fetcher = HTTPFetcher()
+                    
+                    result = await fetcher.fetch(
+                        "https://example.com/page",
+                        # No cached_etag or cached_last_modified
+                    )
+                    
+                    # Verify include_conditional=True (default)
+                    call_args = mock_get_transfer.call_args
+                    assert call_args[1]["include_conditional"] is True, (
+                        "include_conditional should be True when no cached values are provided"
+                    )
+

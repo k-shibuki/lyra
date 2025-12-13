@@ -15,7 +15,7 @@ git merge --no-edit <branch-name>
 **注意**: gitコマンドは必ず非対話型オプションを使用すること（`--no-edit`, `--no-pager` など）。対話待ちになるとタイムアウトする。
 
 ## 実装計画書の更新
-@IMPLEMENTATION_PLAN.md の該当タスクのステータスを更新:
+@docs/IMPLEMENTATION_PLAN.md の該当タスクのステータスを更新:
 - `[ ]` → `[x]` に変更
 - 完了日を記載（必要に応じて）
 

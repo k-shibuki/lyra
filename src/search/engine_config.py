@@ -9,7 +9,7 @@ This module provides:
 - Schema validation for engine definitions
 - Runtime caching with efficient lookups
 
-Per §17.2.2 of IMPLEMENTATION_PLAN.md:
+Per §17.2.2 of docs/IMPLEMENTATION_PLAN.md:
 - Dynamic management of search engine settings
 - Engine addition/deletion via YAML only (no code changes)
 - External operator normalization rules

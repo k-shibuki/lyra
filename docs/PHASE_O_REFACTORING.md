@@ -160,9 +160,9 @@
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `requirements.md` | §5.3.3「実行モード」→「実行アーキテクチャ」に変更、execution_mode説明削除 |
-| `IMPLEMENTATION_PLAN.md` | Phase O.5「移行影響」セクション削除、後方互換性説明削除 |
-| `IMPLEMENTATION_PLAN.md` §7 | socat関連説明削除 |
+| `docs/requirements.md` | §5.3.3「実行モード」→「実行アーキテクチャ」に変更、execution_mode説明削除 |
+| `docs/IMPLEMENTATION_PLAN.md` | Phase O.5「移行影響」セクション削除、後方互換性説明削除 |
+| `docs/IMPLEMENTATION_PLAN.md` §7 | socat関連説明削除 |
 | `.env.example` | コメント更新（WSLハイブリッド構成の説明） |
 
 ---

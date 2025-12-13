@@ -34,7 +34,7 @@ logger = get_logger(__name__)
 
 
 # ============================================================================
-# Query Operator Processing (§3.1.1, §3.1.4 in requirements.md)
+# Query Operator Processing (§3.1.1, §3.1.4 in docs/requirements.md)
 # ============================================================================
 
 

@@ -15,7 +15,7 @@ Verification items:
 Prerequisites:
 - Podman containers running: ./scripts/dev.sh up
 - Chrome running with remote debugging: ./scripts/chrome.sh start (auto-started by MCP)
-- See: IMPLEMENTATION_PLAN.md "E2E Environment Setup"
+- See: docs/IMPLEMENTATION_PLAN.md "E2E Environment Setup"
 
 Architecture:
 - WSL: MCP server, Playwright, this script

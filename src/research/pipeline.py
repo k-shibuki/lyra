@@ -4,7 +4,7 @@ Search pipeline for Lancet.
 Unified pipeline that combines search execution with optional refutation mode.
 Replaces execute_subquery and execute_refutation MCPtools with a single `search` interface.
 
-See requirements.md §2.1, §3.2.1.
+See docs/requirements.md §2.1, §3.2.1.
 """
 
 import hashlib

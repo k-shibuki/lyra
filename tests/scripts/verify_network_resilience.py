@@ -12,7 +12,7 @@ Verification items:
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured
-- See: IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
 
 Acceptance criteria (§7):
 - Recovery: ≥70% success within 3 retries after 429/403
