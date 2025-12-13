@@ -1,0 +1,101 @@
+"""
+Pydantic schemas for module间データ受け渡し.
+
+モジュール間のデータ受け渡しを型安全にするためのPydanticモデル定義。
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional, Any
+
+
+class AuthSessionData(BaseModel):
+    """認証待ちキューで保存されたセッションデータ（問題3用）.
+    
+    認証完了後に保存され、後続リクエストで再利用される。
+    """
+    domain: str = Field(..., description="ドメイン名（小文字）")
+    cookies: list[dict[str, Any]] = Field(default_factory=list, description="Cookie情報のリスト")
+    completed_at: str = Field(..., description="認証完了時刻（ISO形式）")
+    task_id: Optional[str] = Field(None, description="タスクID（タスクスコープセッションの場合）")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "domain": "example.com",
+                "cookies": [
+                    {
+                        "name": "session_id",
+                        "value": "abc123",
+                        "domain": ".example.com",
+                        "path": "/",
+                        "expires": 1735689600.0,
+                        "httpOnly": True,
+                        "secure": True,
+                        "sameSite": "Lax",
+                    }
+                ],
+                "completed_at": "2025-12-11T10:00:00Z",
+                "task_id": "task_123",
+            }
+        }
+
+
+class StartSessionRequest(BaseModel):
+    """start_session()のリクエスト（問題5用）."""
+    task_id: str = Field(..., description="タスクID")
+    queue_ids: Optional[list[str]] = Field(None, description="特定のキューIDリスト（オプション）")
+    priority_filter: Optional[str] = Field(None, description="優先度フィルタ（'high', 'medium', 'low'）")
+
+
+class QueueItem(BaseModel):
+    """認証待ちキューアイテム."""
+    id: str = Field(..., description="キューID")
+    url: str = Field(..., description="認証待ちURL")
+    domain: str = Field(..., description="ドメイン名")
+    auth_type: str = Field(..., description="認証タイプ（'captcha', 'login', etc.）")
+    priority: str = Field(..., description="優先度（'high', 'medium', 'low'）")
+
+
+class StartSessionResponse(BaseModel):
+    """start_session()のレスポンス（問題5用）."""
+    ok: bool = Field(..., description="成功フラグ")
+    session_started: bool = Field(..., description="セッション開始フラグ")
+    count: int = Field(..., description="処理アイテム数")
+    items: list[QueueItem] = Field(default_factory=list, description="処理アイテムリスト")
+    message: Optional[str] = Field(None, description="メッセージ（エラー時など）")
+
+
+class SessionTransferRequest(BaseModel):
+    """セッション転送リクエスト（問題12用）."""
+    url: str = Field(..., description="ターゲットURL")
+    session_id: Optional[str] = Field(None, description="セッションID（指定しない場合はドメインから検索）")
+    include_conditional: bool = Field(default=True, description="ETag/Last-Modifiedヘッダーを含めるか")
+
+
+class TransferResult(BaseModel):
+    """セッション転送結果（問題12用）.
+    
+    既存のTransferResult（dataclass）と互換性を保つため、
+    必要に応じて既存コードを移行する。
+    """
+    ok: bool = Field(..., description="転送成功フラグ")
+    session_id: Optional[str] = Field(None, description="セッションID（利用可能な場合）")
+    headers: dict[str, str] = Field(default_factory=dict, description="転送ヘッダー")
+    reason: Optional[str] = Field(None, description="エラー理由（失敗時）")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "ok": True,
+                "session_id": "session_abc123",
+                "headers": {
+                    "Cookie": "session_id=abc123; csrf_token=xyz",
+                    "If-None-Match": '"abc123"',
+                    "If-Modified-Since": "Wed, 11 Dec 2024 10:00:00 GMT",
+                    "User-Agent": "Mozilla/5.0 ...",
+                    "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                },
+                "reason": None,
+            }
+        }
+

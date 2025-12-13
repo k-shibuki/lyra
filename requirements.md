@@ -1628,6 +1628,73 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 - Torサービス（apt）および（任意）PrivoxyをWSL2内で稼働
 - Chromium/Chromeはローカルにインストールし、既存プロファイルを再利用（UA/言語/タイムゾーン整合）
 - Windows側Chromeを`--remote-debugging-port=9222`で起動し、Playwrightの`connect_over_cdp`でWSL2から接続（実プロファイル/persistent context運用、無料・安定）
+- **システムライブラリ**: Playwrightのブラウザ実行に必要なシステムライブラリをインストール（下記参照）
+
+#### システムライブラリ依存関係（Ubuntu/Debian）
+
+Playwrightのブラウザ実行に必要なシステムライブラリ。WSL2 Ubuntu環境で以下のコマンドを実行してインストールする：
+
+```bash
+# Ubuntu 24.04 (Noble) 向けのパッケージリスト
+# 注意: Ubuntu 24.04では一部パッケージが削除または名前変更されています
+sudo apt-get update && sudo apt-get install -y \
+    libasound2t64 \
+    libatk1.0-0t64 \
+    libatk-bridge2.0-0t64 \
+    libc6 \
+    libcairo2 \
+    libcups2t64 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgcc1 \
+    libgdk-pixbuf2.0-0 \
+    libglib2.0-0t64 \
+    libgtk-3-0t64 \
+    libnspr4 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libstdc++6 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    ca-certificates \
+    fonts-liberation \
+    libayatana-appindicator3-1 \
+    libnss3 \
+    lsb-release \
+    xdg-utils \
+    wget \
+    libgbm1 \
+    libdrm2 \
+    libxkbcommon0 \
+    libatspi2.0-0t64
+```
+
+**注意**: 
+- Ubuntu 24.04では以下のパッケージが削除または名前変更されています：
+  - `gconf-service`, `libgconf-2-4` → 削除（古いGNOME設定システム、Playwrightでは不要）
+  - `libasound2` → `libasound2t64`（64-bit time_t対応版）
+  - `libatk1.0-0` → `libatk1.0-0t64`
+  - `libatk-bridge2.0-0` → `libatk-bridge2.0-0t64`
+  - `libcups2` → `libcups2t64`
+  - `libglib2.0-0` → `libglib2.0-0t64`
+  - `libgtk-3-0` → `libgtk-3-0t64`
+  - `libatspi2.0-0` → `libatspi2.0-0t64`
+  - `libappindicator1` → `libayatana-appindicator3-1`（Ayatana版に置き換え）
+- `libnspr4`はPlaywrightのChromium headless shell起動に必須
+- 不足しているライブラリがある場合、`ldd <browser-binary> | grep not`で確認可能
+- Playwrightの`playwright install --with-deps`コマンドはUbuntu 24.04で一部パッケージが見つからない場合があるため、手動インストールを推奨
 
 ### 5.3. ハイブリッド構成（WSL + Container）
 

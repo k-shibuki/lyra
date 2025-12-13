@@ -197,7 +197,7 @@ class HumanBehavior:
 class TorController:
     """Controls Tor circuits via Stem library.
     
-    Provides circuit renewal and exit node management per §4.3.
+    Provides circuit renewal and exit node management.
     """
     
     def __init__(self):
@@ -283,7 +283,7 @@ class TorController:
     async def get_exit_ip(self) -> str | None:
         """Get current Tor exit node IP.
         
-        Uses socks5h:// to ensure DNS is resolved through Tor (§4.3).
+        Uses socks5h:// to ensure DNS is resolved through Tor.
         
         Returns:
             Exit IP address or None.
@@ -337,9 +337,8 @@ async def get_tor_controller() -> TorController:
 class FetchResult:
     """Result of a fetch operation.
     
-    Per §16.7.4: Includes detailed authentication information.
-    Per §4.3: Includes IPv6 connection information.
-    Per §16.12: Includes archive/Wayback fallback information.
+    Includes detailed authentication information, IPv6 connection information,
+    and archive/Wayback fallback information.
     """
     
     def __init__(
@@ -362,13 +361,13 @@ class FetchResult:
         # Authentication queue (semi-automatic operation)
         auth_queued: bool = False,
         queue_id: str | None = None,
-        # §16.7.4: Detailed authentication information
+        # Detailed authentication information
         auth_type: str | None = None,  # cloudflare/captcha/turnstile/hcaptcha/login
         estimated_effort: str | None = None,  # low/medium/high
-        # §4.3: IPv6 connection information
+        # IPv6 connection information
         ip_family: str | None = None,  # ipv4/ipv6/unknown
         ip_switched: bool = False,  # True if we switched from primary family
-        # §16.12: Wayback/archive fallback information
+        # Wayback/archive fallback information
         is_archived: bool = False,  # True if content came from Wayback
         archive_date: datetime | None = None,  # Date of the archive snapshot
         archive_url: str | None = None,  # Original Wayback Machine URL
@@ -420,17 +419,17 @@ class FetchResult:
             "auth_queued": self.auth_queued,
             "queue_id": self.queue_id,
         }
-        # §16.7.4: Include auth details only when relevant
+        # Include auth details only when relevant
         if self.auth_type:
             result["auth_type"] = self.auth_type
         if self.estimated_effort:
             result["estimated_effort"] = self.estimated_effort
-        # §4.3: Include IPv6 details
+        # Include IPv6 details
         if self.ip_family:
             result["ip_family"] = self.ip_family
         if self.ip_switched:
             result["ip_switched"] = self.ip_switched
-        # §16.12: Include archive details when content is from archive
+        # Include archive details when content is from archive
         if self.is_archived:
             result["is_archived"] = self.is_archived
             result["archive_date"] = self.archive_date.isoformat() if self.archive_date else None
@@ -519,7 +518,7 @@ class HTTPFetcher:
     ) -> FetchResult:
         """Fetch URL using HTTP client with conditional request support.
         
-        Implements §4.3 sec-fetch-* header requirements:
+        Implements sec-fetch-* header requirements:
         - Sec-Fetch-Site: Relationship between initiator and target
         - Sec-Fetch-Mode: Request mode (navigate for document fetch)
         - Sec-Fetch-Dest: Request destination (document for pages)
@@ -548,7 +547,7 @@ class HTTPFetcher:
                 "Accept-Encoding": "gzip, deflate, br",
             }
             
-            # Generate Sec-Fetch-* headers per §4.3
+            # Generate Sec-Fetch-* headers
             nav_context = NavigationContext(
                 target_url=url,
                 referer_url=referer,
@@ -567,12 +566,32 @@ class HTTPFetcher:
             if cached_last_modified:
                 req_headers["If-Modified-Since"] = cached_last_modified
             
+            # Apply session transfer headers
+            try:
+                from src.crawler.session_transfer import get_transfer_headers
+                transfer_result = get_transfer_headers(url, include_conditional=True)
+                
+                if transfer_result.ok and transfer_result.headers:
+                    req_headers.update(transfer_result.headers)
+                    logger.debug(
+                        "Applied session transfer headers",
+                        url=url[:80],
+                        session_id=transfer_result.session_id,
+                        header_count=len(transfer_result.headers),
+                    )
+            except Exception as e:
+                logger.debug(
+                    "Session transfer header application failed (non-critical)",
+                    url=url[:80],
+                    error=str(e),
+                )
+            
             if headers:
                 req_headers.update(headers)
             
             # Configure proxy if using Tor
             # Use DNS policy manager to ensure DNS is resolved through Tor (socks5h://)
-            # when using Tor route, preventing DNS leaks (§4.3)
+            # when using Tor route, preventing DNS leaks
             dns_manager = get_dns_policy_manager()
             proxies = dns_manager.get_proxy_dict(use_tor)
             
@@ -634,7 +653,7 @@ class HTTPFetcher:
                 request_headers=req_headers,
             )
             
-            # Record HTTP client request for HTTP/3 policy tracking (§4.3)
+            # Record HTTP client request for HTTP/3 policy tracking
             # HTTP client uses HTTP/2 by default, not HTTP/3
             domain = urlparse(url).netloc.lower()
             http3_manager = get_http3_policy_manager()
@@ -701,7 +720,7 @@ class BrowserFetcher:
     - Human-like behavior simulation (scrolling, mouse movement)
     - CDP connection to Windows Chrome for fingerprint consistency
     - Resource blocking (ads, trackers, large media)
-    - Lifecycle management for task-scoped cleanup (§4.2)
+    - Lifecycle management for task-scoped cleanup
     """
     
     def __init__(self):
@@ -723,7 +742,7 @@ class BrowserFetcher:
     ) -> tuple:
         """Ensure browser connection is established.
         
-        Per §4.2, browser instances are tracked for lifecycle management
+        Browser instances are tracked for lifecycle management
         and can be cleaned up after task completion.
         
         Args:
@@ -756,17 +775,60 @@ class BrowserFetcher:
         if headful:
             # Headful mode - for challenge bypass
             if self._headful_browser is None:
+                # Try CDP connection first (Windows Chrome)
+                cdp_url = f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
+                cdp_connected = False
+                
+                logger.debug("Attempting CDP connection", url=cdp_url)
                 try:
-                    # Try CDP connection first (Windows Chrome)
-                    cdp_url = f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
-                    self._headful_browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
-                    logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
-                except Exception as e:
-                    logger.warning(
-                        "CDP connection failed, launching local headful browser",
-                        error=str(e),
+                    # Add timeout to prevent hanging
+                    self._headful_browser = await asyncio.wait_for(
+                        self._playwright.chromium.connect_over_cdp(cdp_url),
+                        timeout=5.0  # 5 second timeout for CDP connection
                     )
-                    self._headful_browser = await self._playwright.chromium.launch(headless=False)
+                    logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
+                    cdp_connected = True
+                except asyncio.TimeoutError:
+                    logger.info("CDP connection timed out, attempting auto-start", url=cdp_url)
+                    e = Exception("CDP connection timeout")
+                    # Fall through to auto-start logic
+                except Exception as e:
+                    logger.info("CDP connection failed, attempting auto-start", error=str(e))
+                
+                # Auto-start Chrome per requirements.md §3.2.1 (if CDP connection failed)
+                if not cdp_connected:
+                    logger.debug("Calling _auto_start_chrome()")
+                    auto_start_success = await self._auto_start_chrome()
+                    logger.debug("_auto_start_chrome() returned", success=auto_start_success)
+                    
+                    if auto_start_success:
+                        # Wait for CDP connection with polling (max 15 seconds, 0.5s interval)
+                        start_time = time.monotonic()
+                        timeout = 15.0
+                        poll_interval = 0.5
+                        
+                        logger.debug("Waiting for CDP connection after auto-start", timeout=timeout, poll_interval=poll_interval)
+                        while time.monotonic() - start_time < timeout:
+                            try:
+                                self._headful_browser = await asyncio.wait_for(
+                                    self._playwright.chromium.connect_over_cdp(cdp_url),
+                                    timeout=2.0  # 2 second timeout per attempt
+                                )
+                                elapsed = time.monotonic() - start_time
+                                logger.info("Connected to Chrome via CDP after auto-start", url=cdp_url, elapsed_seconds=round(elapsed, 1))
+                                cdp_connected = True
+                                break
+                            except Exception as poll_error:
+                                elapsed = time.monotonic() - start_time
+                                logger.debug("CDP connection attempt failed, retrying", elapsed=round(elapsed, 1), error=str(poll_error))
+                                await asyncio.sleep(poll_interval)
+                    
+                    if not cdp_connected:
+                        logger.warning(
+                            "CDP connection failed after auto-start, launching local headful browser",
+                            error=str(e),
+                        )
+                        self._headful_browser = await self._playwright.chromium.launch(headless=False)
                 
                 # Register browser for lifecycle management
                 if task_id:
@@ -777,7 +839,7 @@ class BrowserFetcher:
                         task_id,
                     )
                 
-                # Reuse existing context if available (preserves profile cookies per §3.6.1)
+                # Reuse existing context if available (preserves profile cookies)
                 # This only applies when connected via CDP to real Chrome
                 existing_contexts = self._headful_browser.contexts
                 if existing_contexts:
@@ -851,6 +913,64 @@ class BrowserFetcher:
             
             return self._headless_browser, self._headless_context
     
+    async def _auto_start_chrome(self) -> bool:
+        """Auto-start Chrome using chrome.sh script.
+        
+        Per requirements.md §3.2.1: CDP未接続を検知した場合、Lancetは
+        ./scripts/chrome.sh start を自動実行する。
+        
+        Returns:
+            True if chrome.sh start succeeded, False otherwise.
+        """
+        import asyncio
+        from pathlib import Path
+        
+        # Find chrome.sh script relative to project root
+        # src/crawler/fetcher.py -> scripts/chrome.sh
+        script_path = Path(__file__).parent.parent.parent / "scripts" / "chrome.sh"
+        
+        if not script_path.exists():
+            logger.warning("chrome.sh not found", path=str(script_path))
+            return False
+        
+        try:
+            logger.info("Auto-starting Chrome", script=str(script_path))
+            process = await asyncio.create_subprocess_exec(
+                str(script_path),
+                "start",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            
+            # Wait for process completion with timeout
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=30.0,  # 30 second timeout for script execution
+                )
+            except asyncio.TimeoutError:
+                logger.error("Chrome auto-start timed out")
+                process.kill()
+                await process.wait()
+                return False
+            
+            stdout_text = stdout.decode() if stdout else ""
+            stderr_text = stderr.decode() if stderr else ""
+            
+            if process.returncode == 0:
+                logger.info("Chrome auto-start script completed", stdout=stdout_text[:200] if stdout_text else "")
+                return True
+            else:
+                logger.warning(
+                    "Chrome auto-start script failed",
+                    returncode=process.returncode,
+                    stderr=stderr_text[:200] if stderr_text else "",
+                )
+                return False
+        except Exception as e:
+            logger.error("Chrome auto-start error", error=str(e))
+            return False
+    
     async def _setup_blocking(self, context) -> None:
         """Setup resource blocking rules.
         
@@ -897,7 +1017,7 @@ class BrowserFetcher:
         """Determine if headful mode should be used for domain.
         
         Based on domain policy's headful_ratio, past failure history,
-        and HTTP/3 policy (§4.3).
+        and HTTP/3 policy.
         
         Args:
             domain: Domain name.
@@ -923,7 +1043,7 @@ class BrowserFetcher:
             if captcha_rate > 0.3:
                 base_ratio = min(1.0, base_ratio * 2)
         
-        # Apply HTTP/3 policy adjustment (§4.3)
+        # Apply HTTP/3 policy adjustment
         # HTTP/3 sites may perform better with browser route
         http3_manager = get_http3_policy_manager()
         adjusted_ratio = await http3_manager.get_adjusted_browser_ratio(domain, base_ratio)
@@ -963,11 +1083,58 @@ class BrowserFetcher:
         
         domain = urlparse(url).netloc.lower()
         
+        # Check for existing authenticated session for reuse
+        # Domain-based authentication: one authentication applies to multiple tasks/URLs for the same domain
+        existing_session = None
+        from src.utils.notification import get_intervention_queue
+        queue = get_intervention_queue()
+        # task_id is optional (domain-based lookup)
+        existing_session = await queue.get_session_for_domain(domain, task_id=task_id)
+        
         # Determine headful mode
         if headful is None:
             headful = await self._should_use_headful(domain)
         
         browser, context = await self._ensure_browser(headful=headful, task_id=task_id)
+        
+        # Apply stored authentication cookies if available
+        if existing_session and existing_session.get("cookies"):
+            cookies = existing_session["cookies"]
+            try:
+                # Convert to Playwright cookie format
+                playwright_cookies = []
+                for c in cookies:
+                    cookie_dict = {
+                        "name": c.get("name", ""),
+                        "value": c.get("value", ""),
+                        "domain": c.get("domain", domain),
+                        "path": c.get("path", "/"),
+                        "httpOnly": c.get("httpOnly", False),
+                        "secure": c.get("secure", True),
+                        "sameSite": c.get("sameSite", "Lax"),
+                    }
+                    # Add expires if present
+                    expires = c.get("expires")
+                    if expires:
+                        cookie_dict["expires"] = expires
+                    
+                    playwright_cookies.append(cookie_dict)
+                
+                if playwright_cookies:
+                    await context.add_cookies(playwright_cookies)
+                    logger.info(
+                        "Applied stored authentication cookies",
+                        domain=domain,
+                        cookie_count=len(playwright_cookies),
+                        task_id=task_id,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Failed to apply stored cookies",
+                    domain=domain,
+                    error=str(e),
+                    task_id=task_id,
+                )
         
         page = None
         try:
@@ -1015,7 +1182,7 @@ class BrowserFetcher:
                 
                 # If in headless mode, suggest headful escalation
                 if not headful:
-                    # Detect challenge type for detailed response (§16.7.4)
+                    # Detect challenge type for detailed response
                     challenge_type = _detect_challenge_type(content)
                     return FetchResult(
                         ok=False,
@@ -1146,7 +1313,7 @@ class BrowserFetcher:
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
             resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
             
-            # Detect HTTP/3 protocol usage (§4.3)
+            # Detect HTTP/3 protocol usage
             protocol = await detect_protocol_from_playwright_response(response)
             
             # Record HTTP/3 usage for policy tracking
@@ -1170,6 +1337,27 @@ class BrowserFetcher:
                 has_last_modified=bool(resp_last_modified),
                 protocol=protocol.value,
             )
+            
+            # Capture browser session for transfer to HTTP client
+            try:
+                from src.crawler.session_transfer import capture_browser_session
+                session_id = await capture_browser_session(
+                    context,
+                    url,
+                    resp_headers,
+                )
+                if session_id:
+                    logger.debug(
+                        "Captured browser session",
+                        url=url[:80],
+                        session_id=session_id,
+                    )
+            except Exception as e:
+                logger.debug(
+                    "Session capture failed (non-critical)",
+                    url=url[:80],
+                    error=str(e),
+                )
             
             return FetchResult(
                 ok=True,
@@ -1218,7 +1406,7 @@ class BrowserFetcher:
         task_id: str | None,
         challenge_type: str,
     ):
-        """Request manual intervention for challenge bypass per §3.6.1.
+        """Request manual intervention for challenge bypass.
         
         Safe Operation Policy:
         - Sends toast notification
@@ -1254,7 +1442,7 @@ class BrowserFetcher:
                 InterventionType.CLOUDFLARE,
             )
             
-            # Request intervention per §3.6.1 safe operation policy
+            # Request intervention per safe operation policy
             # No element_selector or on_success_callback (DOM operations forbidden)
             result = await intervention_manager.request_intervention(
                 intervention_type=intervention_type,
@@ -1387,14 +1575,14 @@ def _detect_challenge_type(content: str) -> str:
     return "cloudflare"  # Default
 
 
-# NOTE: _get_challenge_element_selector has been removed per §3.6.1
+# NOTE: _get_challenge_element_selector has been removed per safe operation policy
 # (Safe Operation Policy - no DOM operations during authentication sessions)
 
 
 def _estimate_auth_effort(challenge_type: str) -> str:
     """Estimate the effort required to complete authentication.
     
-    Per §16.7.4: Provides estimated_effort for auth challenges.
+    Provides estimated_effort for auth challenges.
     
     Args:
         challenge_type: Type of challenge detected.
@@ -1675,6 +1863,7 @@ async def fetch_url(
         cached_last_modified = None
         cached_content_path = None
         cached_content_hash = None
+        has_previous_browser_fetch = False
         
         if not skip_cache and not force_browser:
             cache_entry = await db.get_fetch_cache(url)
@@ -1683,12 +1872,16 @@ async def fetch_url(
                 cached_last_modified = cache_entry.get("last_modified")
                 cached_content_path = cache_entry.get("content_path")
                 cached_content_hash = cache_entry.get("content_hash")
+                # Subsequent visits use HTTP client with 304 cache
+                # If cache entry exists with ETag/Last-Modified, use HTTP client
+                has_previous_browser_fetch = bool(cached_etag or cached_last_modified)
                 
                 logger.debug(
                     "Found cache entry for conditional request",
                     url=url[:80],
                     has_etag=bool(cached_etag),
                     has_last_modified=bool(cached_last_modified),
+                    has_previous_browser_fetch=has_previous_browser_fetch,
                 )
         
         result = None
@@ -1696,9 +1889,11 @@ async def fetch_url(
         escalation_path = []  # Track escalation for logging
         
         # =====================================================================
-        # Stage 1: HTTP Client (with optional Tor)
+        # First visit uses browser, subsequent visits use HTTP client with 304 cache
         # =====================================================================
-        if not force_browser:
+        # Stage 1: HTTP Client (with optional Tor) - only for subsequent visits
+        # =====================================================================
+        if not force_browser and has_previous_browser_fetch:
             result = await _http_fetcher.fetch(
                 url,
                 referer=context.get("referer"),
@@ -1745,6 +1940,19 @@ async def fetch_url(
             if not result.ok and result.reason == "challenge_detected":
                 logger.info("Challenge detected, escalating to browser", url=url[:80])
                 force_browser = True
+        
+        # =====================================================================
+        # First visit uses browser route (when cache is not available)
+        # =====================================================================
+        # Stage 1b: Browser (first visit) - first access uses browser by default
+        # =====================================================================
+        if not force_browser and not has_previous_browser_fetch and (not result or not result.ok):
+            # First access uses browser route (headless) even for static pages
+            logger.debug(
+                "First visit detected, using browser route",
+                url=url[:80],
+            )
+            force_browser = True
         
         # =====================================================================
         # Stage 2: Browser via Provider (if use_provider=True)
@@ -1839,7 +2047,7 @@ async def fetch_url(
                 await _update_domain_headful_ratio(db, domain, increase=True)
         
         # =====================================================================
-        # Stage 4: Undetected ChromeDriver (for Cloudflare advanced/Turnstile, §4.3)
+        # Stage 4: Undetected ChromeDriver (for Cloudflare advanced/Turnstile)
         # =====================================================================
         use_undetected = policy.get("use_undetected", False)
         
@@ -1922,7 +2130,7 @@ async def fetch_url(
                 )
         
         # =====================================================================
-        # Stage 5: Wayback Fallback (for persistent 403/CAPTCHA, §16.12)
+        # Stage 5: Wayback Fallback (for persistent 403/CAPTCHA)
         # =====================================================================
         use_wayback_fallback = policy.get("use_wayback_fallback", True)
         
@@ -2013,7 +2221,7 @@ async def fetch_url(
             is_http_error=result.status and result.status >= 400,
         )
         
-        # Update IPv6 metrics (§4.3)
+        # Update IPv6 metrics
         # Track connection result for IPv6 learning
         ipv6_manager = get_ipv6_manager()
         ip_family_used = AddressFamily.IPV4  # Default assumption
@@ -2099,7 +2307,7 @@ async def fetch_url(
             "ip_switched": result.ip_switched,
         }
         
-        # Add archive details if content is from Wayback (§16.12)
+        # Add archive details if content is from Wayback
         if result.is_archived:
             event_details["is_archived"] = True
             event_details["archive_date"] = result.archive_date.isoformat() if result.archive_date else None
@@ -2161,7 +2369,7 @@ async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -
 async def _update_domain_wayback_success(db, domain: str, success: bool) -> None:
     """Update domain's Wayback fallback success rate.
     
-    Per §16.12: Track Wayback fallback success to inform future fallback decisions.
+    Track Wayback fallback success to inform future fallback decisions.
     
     Args:
         db: Database instance.

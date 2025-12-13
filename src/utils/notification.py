@@ -2,14 +2,14 @@
 User notification system for Lancet.
 Handles toast notifications and authentication queue management.
 
-Features per §3.6.1 (Safe Operation Policy):
+Features (Safe Operation Policy):
 - Toast notifications (Windows/Linux/WSL)
 - Window bring-to-front via OS API only (no DOM operations)
 - Authentication queue for batch processing
 - User-driven completion (no timeout, no polling)
 - Intervention tracking and domain cooldown
 
-CDP Safety (§3.6.1):
+CDP Safety:
 - Allowed: Page.navigate, Network.enable (passive), Page.bringToFront
 - Forbidden: Runtime.evaluate, DOM.*, Input.*, Emulation.*
 
@@ -97,7 +97,7 @@ class InterventionResult:
 
 
 class InterventionManager:
-    """Manages manual intervention flows with safe operation policy per §3.6.1.
+    """Manages manual intervention flows with safe operation policy.
     
     Safe Operation Policy:
     - Window bring-to-front via OS API only (no DOM operations)
@@ -121,12 +121,12 @@ class InterventionManager:
     @property
     def max_domain_failures(self) -> int:
         """Get max consecutive failures before skipping domain today."""
-        return 3  # Per §3.1: 3回失敗で当該ドメインを当日スキップ
+        return 3  # Max consecutive failures before skipping domain today
     
     @property
     def cooldown_minutes(self) -> int:
         """Get minimum cooldown period in minutes after timeout."""
-        return 60  # Per §3.5: クールダウン（最小60分）
+        return 60  # Minimum cooldown period in minutes after timeout
     
     async def request_intervention(
         self,
@@ -138,7 +138,7 @@ class InterventionManager:
         task_id: str | None = None,
         page: Any | None = None,
     ) -> InterventionResult:
-        """Request manual intervention with safe operation policy per §3.6.1.
+        """Request manual intervention with safe operation policy.
         
         Safe Operation Policy:
         1. Sends toast notification to user
@@ -206,7 +206,7 @@ class InterventionManager:
             }
             self._pending_interventions[intervention_id] = intervention_state
             
-            # Build notification message (no timeout info per §3.6.1)
+            # Build notification message (no timeout info)
             if message is None:
                 message = self._build_intervention_message(intervention_type, url, domain)
             
@@ -225,7 +225,7 @@ class InterventionManager:
             )
             
             # Step 2: Bring browser window to front via OS API only
-            # Per §3.6.1: No DOM operations (scroll, highlight, focus)
+            # No DOM operations (scroll, highlight, focus)
             if page is not None:
                 await self._bring_tab_to_front(page)
             
@@ -272,7 +272,7 @@ class InterventionManager:
         return messages.get(intervention_type, f"手動操作が必要です\nサイト: {domain}")
     
     async def _bring_tab_to_front(self, page) -> bool:
-        """Bring browser window to front using safe methods per §3.6.1.
+        """Bring browser window to front using safe methods.
         
         Safe Operation Policy:
         - Uses CDP Page.bringToFront (allowed)
@@ -289,7 +289,7 @@ class InterventionManager:
             # Get browser context
             context = page.context
             
-            # Use CDP Page.bringToFront (allowed per §3.6.1)
+            # Use CDP Page.bringToFront (allowed)
             cdp_session = await context.new_cdp_session(page)
             await cdp_session.send("Page.bringToFront")
             await cdp_session.detach()
@@ -364,7 +364,7 @@ class InterventionManager:
                 logger.debug("PowerShell window activation failed", error=str(e))
     
     # NOTE: _highlight_element, _wait_for_intervention, _has_challenge_indicators
-    # have been removed per §3.6.1 (Safe Operation Policy).
+    # have been removed per Safe Operation Policy.
     # DOM operations and polling are forbidden during authentication sessions.
     
     async def _handle_intervention_result(
@@ -546,7 +546,7 @@ class InterventionManager:
     ) -> dict[str, Any]:
         """Check status of a pending intervention.
         
-        Per §3.6.1: No timeout enforcement. User completes via complete_authentication.
+        No timeout enforcement. User completes via complete_authentication.
         
         Args:
             intervention_id: Intervention ID.
@@ -561,7 +561,7 @@ class InterventionManager:
         
         elapsed = (datetime.now(timezone.utc) - intervention["started_at"]).total_seconds()
         
-        # No timeout enforcement per §3.6.1
+        # No timeout enforcement
         return {
             "status": "pending",
             "intervention_id": intervention_id,
@@ -657,7 +657,7 @@ async def notify_user(
     event: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    """Send notification to user per §3.6.1 safe operation policy.
+    """Send notification to user per safe operation policy.
     
     Args:
         event: Event type (captcha, login_required, cookie_banner, cloudflare,
@@ -671,7 +671,7 @@ async def notify_user(
             - reason: Reason for domain_blocked events (optional)
         
         Note: element_selector and on_success_callback are no longer supported
-        per §3.6.1 (no DOM operations during authentication sessions).
+        (no DOM operations during authentication sessions).
         
     Returns:
         Notification/intervention result.
@@ -681,7 +681,7 @@ async def notify_user(
     intervention_types = {"captcha", "login_required", "cookie_banner", "cloudflare", "turnstile", "js_challenge"}
     
     if event in intervention_types:
-        # These require intervention flow (safe mode per §3.6.1)
+        # These require intervention flow (safe mode)
         result = await manager.request_intervention(
             intervention_type=event,
             url=payload.get("url", ""),
@@ -813,7 +813,7 @@ def get_intervention_manager() -> InterventionManager:
 # ============================================================
 
 class InterventionQueue:
-    """Manages authentication queue for batch processing per §3.6.1.
+    """Manages authentication queue for batch processing.
     
     Safe Operation Policy:
     - Authentication challenges are queued instead of blocking
@@ -991,7 +991,7 @@ class InterventionQueue:
     async def get_authentication_queue_summary(self, task_id: str) -> dict[str, Any]:
         """Get comprehensive summary of authentication queue for exploration status.
         
-        Per §16.7.1: Provides authentication queue information for get_exploration_status.
+        Provides authentication queue information for get_exploration_status.
         
         Args:
             task_id: Task ID.
@@ -1080,7 +1080,7 @@ class InterventionQueue:
         queue_ids: list[str] | None = None,
         priority_filter: str | None = None,
     ) -> dict[str, Any]:
-        """Start authentication session per §3.6.1 safe operation policy.
+        """Start authentication session per safe operation policy.
         
         This method only marks items as in_progress and returns URLs.
         Browser window opening and front-bringing should be done separately
@@ -1161,6 +1161,50 @@ class InterventionQueue:
             task_id=task_id,
             count=len(items),
         )
+        
+        # Open browser and navigate to first URL
+        # Use BrowserFetcher for consistency with authentication session handling
+        if items:
+            try:
+                logger.debug("Opening browser for authentication URL", item_count=len(items))
+                from src.crawler.fetcher import BrowserFetcher
+                browser_fetcher = BrowserFetcher()
+                logger.debug("Calling BrowserFetcher._ensure_browser(headful=True)")
+                browser, context = await browser_fetcher._ensure_browser(headful=True, task_id=task_id)
+                logger.debug("BrowserFetcher._ensure_browser() returned", has_browser=browser is not None, has_context=context is not None)
+                
+                if context:
+                    # Open first URL in browser
+                    logger.debug("Creating new page")
+                    page = await context.new_page()
+                    first_url = items[0]["url"]
+                    logger.debug("Navigating to URL", url=first_url[:80])
+                    
+                    await page.goto(first_url, wait_until="domcontentloaded", timeout=10000)
+                    logger.debug("Page navigation completed")
+                    
+                    # Bring window to front (safe operation)
+                    manager = get_intervention_manager()
+                    await manager._bring_tab_to_front(page)
+                    
+                    logger.info(
+                        "Opened authentication URL in browser",
+                        url=first_url[:80],
+                        total_count=len(items),
+                        task_id=task_id,
+                    )
+                else:
+                    logger.warning(
+                        "Browser context not available, returning URLs only",
+                        task_id=task_id,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Failed to open browser, returning URLs only",
+                    error=str(e),
+                    task_id=task_id,
+                )
+                # Continue with URL-only response (user can open manually)
         
         return {
             "ok": True,
