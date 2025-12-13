@@ -93,3 +93,8 @@ htmlcov/
 # Don't ignore compose files, but ignore runtime data
 
 .cursorignore
+
+# Debug logs (runtime instrumentation output)
+.cursor/debug.log
+debug.log
+*.debug.log
