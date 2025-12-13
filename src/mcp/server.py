@@ -1206,19 +1206,18 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
                     continue
             
             # Filter cookies that match the domain
+            # Per HTTP cookie spec: cookies set for subdomain should not be sent to parent domain
+            # Only parent domain cookies can be sent to subdomains
+            from src.crawler.session_transfer import CookieData
+            
             domain_cookies = []
             for cookie in all_cookies:
-                cookie_domain = cookie.get("domain", "")
-                # Match domain and subdomains (e.g., .example.com matches www.example.com)
-                # Also handle cases where cookie domain starts with dot
-                cookie_domain_normalized = cookie_domain.lstrip(".")
-                domain_normalized = domain.lstrip(".")
-                
-                if (
-                    cookie_domain_normalized == domain_normalized
-                    or cookie_domain_normalized.endswith(f".{domain_normalized}")
-                    or domain_normalized.endswith(f".{cookie_domain_normalized}")
-                ):
+                cookie_data = CookieData.from_playwright_cookie(cookie)
+                # Use CookieData.matches_domain() which correctly implements HTTP cookie domain matching
+                # - Exact match: cookie.domain == target_domain
+                # - Parent -> subdomain: cookie.domain="example.com" matches "sub.example.com"
+                # - Subdomain -> parent: NOT allowed (correctly rejected)
+                if cookie_data.matches_domain(domain):
                     domain_cookies.append(dict(cookie))
             
             await playwright.stop()
