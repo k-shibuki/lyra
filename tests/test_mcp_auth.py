@@ -597,7 +597,7 @@ class TestCaptureAuthSessionCookies:
         mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
         
         with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
-            with patch("src.mcp.server.get_settings") as mock_settings:
+            with patch("src.utils.config.get_settings") as mock_settings:
                 mock_settings.return_value.browser.chrome_host = "localhost"
                 mock_settings.return_value.browser.chrome_port = 9222
                 
@@ -633,7 +633,7 @@ class TestCaptureAuthSessionCookies:
         mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
         
         with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
-            with patch("src.mcp.server.get_settings") as mock_settings:
+            with patch("src.utils.config.get_settings") as mock_settings:
                 mock_settings.return_value.browser.chrome_host = "localhost"
                 mock_settings.return_value.browser.chrome_port = 9222
                 
@@ -671,7 +671,7 @@ class TestCaptureAuthSessionCookies:
         mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
         
         with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
-            with patch("src.mcp.server.get_settings") as mock_settings:
+            with patch("src.utils.config.get_settings") as mock_settings:
                 mock_settings.return_value.browser.chrome_host = "localhost"
                 mock_settings.return_value.browser.chrome_port = 9222
                 
@@ -679,6 +679,102 @@ class TestCaptureAuthSessionCookies:
         
         assert result is None, "Should return None when no matching cookies"
 
+    @pytest.mark.asyncio
+    async def test_capture_excludes_subdomain_cookies_for_parent_domain(self) -> None:
+        """
+        TC-CC-B-03: Cookie capture excludes subdomain cookies for parent domain.
+        
+        Per HTTP cookie spec: cookies set for subdomain should not be sent to parent domain.
+        Only parent domain cookies can be sent to subdomains.
+        
+        // Given: Browser connected with cookies for subdomain (sub.example.com)
+        // When: Calling _capture_auth_session_cookies with parent domain (example.com)
+        // Then: Subdomain cookies are NOT included in result
+        """
+        from src.mcp.server import _capture_auth_session_cookies
+        
+        # Mock context with cookies for subdomain
+        mock_context = AsyncMock()
+        mock_context.cookies.return_value = [
+            {"name": "subdomain_session", "value": "sub123", "domain": "sub.example.com"},
+            {"name": "parent_session", "value": "parent123", "domain": "example.com"},
+        ]
+        
+        # Mock browser with contexts
+        mock_browser = AsyncMock()
+        mock_browser.contexts = [mock_context]
+        
+        # Mock playwright chain
+        mock_playwright_instance = AsyncMock()
+        mock_playwright_instance.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright_instance.stop = AsyncMock()
+        
+        mock_playwright = AsyncMock()
+        mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
+        
+        with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
+            with patch("src.utils.config.get_settings") as mock_settings:
+                mock_settings.return_value.browser.chrome_host = "localhost"
+                mock_settings.return_value.browser.chrome_port = 9222
+                
+                # Capture for parent domain
+                result = await _capture_auth_session_cookies("example.com")
+        
+        assert result is not None, "Should return session data"
+        assert "cookies" in result, "Should have cookies field"
+        # Only parent domain cookie should be included, subdomain cookie should be excluded
+        assert len(result["cookies"]) == 1, "Should have 1 matching cookie (parent domain only)"
+        assert result["cookies"][0]["name"] == "parent_session", "Should include parent domain cookie"
+        assert result["cookies"][0]["domain"] == "example.com", "Cookie domain should be example.com"
+    
+    @pytest.mark.asyncio
+    async def test_capture_includes_parent_cookies_for_subdomain(self) -> None:
+        """
+        TC-CC-N-02: Cookie capture includes parent domain cookies for subdomain.
+        
+        Per HTTP cookie spec: cookies set for parent domain can be sent to subdomains.
+        
+        // Given: Browser connected with cookies for parent domain (example.com)
+        // When: Calling _capture_auth_session_cookies with subdomain (sub.example.com)
+        // Then: Parent domain cookies ARE included in result
+        """
+        from src.mcp.server import _capture_auth_session_cookies
+        
+        # Mock context with cookies for parent domain
+        mock_context = AsyncMock()
+        mock_context.cookies.return_value = [
+            {"name": "parent_session", "value": "parent123", "domain": "example.com"},
+            {"name": "parent_auth", "value": "parent456", "domain": ".example.com"},
+        ]
+        
+        # Mock browser with contexts
+        mock_browser = AsyncMock()
+        mock_browser.contexts = [mock_context]
+        
+        # Mock playwright chain
+        mock_playwright_instance = AsyncMock()
+        mock_playwright_instance.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright_instance.stop = AsyncMock()
+        
+        mock_playwright = AsyncMock()
+        mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
+        
+        with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
+            with patch("src.utils.config.get_settings") as mock_settings:
+                mock_settings.return_value.browser.chrome_host = "localhost"
+                mock_settings.return_value.browser.chrome_port = 9222
+                
+                # Capture for subdomain
+                result = await _capture_auth_session_cookies("sub.example.com")
+        
+        assert result is not None, "Should return session data"
+        assert "cookies" in result, "Should have cookies field"
+        # Parent domain cookies should be included for subdomain
+        assert len(result["cookies"]) == 2, "Should have 2 matching cookies (parent domain cookies)"
+        cookie_names = {c["name"] for c in result["cookies"]}
+        assert "parent_session" in cookie_names, "Should include parent_session cookie"
+        assert "parent_auth" in cookie_names, "Should include parent_auth cookie"
+    
     @pytest.mark.asyncio
     async def test_capture_handles_exception_gracefully(self) -> None:
         """
@@ -707,7 +803,7 @@ class TestCaptureAuthSessionCookies:
         mock_playwright.start = AsyncMock(return_value=mock_playwright_instance)
         
         with patch("playwright.async_api.async_playwright", return_value=mock_playwright):
-            with patch("src.mcp.server.get_settings") as mock_settings:
+            with patch("src.utils.config.get_settings") as mock_settings:
                 mock_settings.return_value.browser.chrome_host = "localhost"
                 mock_settings.return_value.browser.chrome_port = 9222
                 
