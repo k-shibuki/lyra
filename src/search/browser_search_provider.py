@@ -226,6 +226,11 @@ class BrowserSearchProvider(BaseSearchProvider):
                     lambda route: route.abort(),
                 )
                 
+                # Perform profile health audit on browser session initialization
+                # Only audit when new context is created (not when reusing existing context)
+                if not existing_contexts:
+                    await self._perform_health_audit()
+                
             except CDPConnectionError:
                 raise
             except Exception as e:
@@ -239,6 +244,52 @@ class BrowserSearchProvider(BaseSearchProvider):
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/120.0.0.0 Safari/537.36"
         )
+    
+    async def _perform_health_audit(self) -> None:
+        """Perform profile health audit on browser session initialization.
+        
+        Per high-frequency check requirement: Execute audit at browser session
+        initialization to detect drift in UA, fonts, language, timezone, canvas, audio.
+        """
+        try:
+            from src.crawler.profile_audit import perform_health_check, AuditStatus
+            
+            # Create temporary page for audit (minimal impact on performance)
+            page = await self._context.new_page()
+            try:
+                await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
+                
+                # Perform health check with auto-repair enabled
+                audit_result = await perform_health_check(
+                    page,
+                    force=False,
+                    auto_repair=True,
+                )
+                
+                if audit_result.status == AuditStatus.DRIFT:
+                    logger.warning(
+                        "Profile drift detected and repaired",
+                        drifts=[d.attribute for d in audit_result.drifts],
+                        repair_status=audit_result.repair_status.value,
+                    )
+                elif audit_result.status == AuditStatus.FAIL:
+                    logger.warning(
+                        "Profile health audit failed",
+                        error=audit_result.error,
+                    )
+                else:
+                    logger.debug(
+                        "Profile health check passed",
+                        status=audit_result.status.value,
+                    )
+            finally:
+                await page.close()
+        except Exception as e:
+            # Non-blocking: Log error but continue with normal flow
+            logger.warning(
+                "Profile health audit error (non-blocking)",
+                error=str(e),
+            )
     
     async def _get_page(self) -> Any:
         """Get or create a browser page."""

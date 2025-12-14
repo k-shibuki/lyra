@@ -873,6 +873,9 @@ class BrowserFetcher:
                         self._headful_context,
                         task_id,
                     )
+                
+                # Perform profile health audit on browser session initialization
+                await self._perform_health_audit(self._headful_context, task_id)
             
             return self._headful_browser, self._headful_context
         else:
@@ -915,8 +918,69 @@ class BrowserFetcher:
                         self._headless_context,
                         task_id,
                     )
+                
+                # Perform profile health audit on browser session initialization
+                await self._perform_health_audit(self._headless_context, task_id)
             
             return self._headless_browser, self._headless_context
+    
+    async def _perform_health_audit(
+        self,
+        context,
+        task_id: str | None = None,
+    ) -> None:
+        """Perform profile health audit on browser session initialization.
+        
+        Per high-frequency check requirement: Execute audit at browser session
+        initialization to detect drift in UA, fonts, language, timezone, canvas, audio.
+        
+        Args:
+            context: Browser context to audit.
+            task_id: Associated task ID for logging.
+        """
+        try:
+            from src.crawler.profile_audit import perform_health_check, AuditStatus
+            
+            # Create temporary page for audit (minimal impact on performance)
+            page = await context.new_page()
+            try:
+                await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
+                
+                # Perform health check with auto-repair enabled
+                audit_result = await perform_health_check(
+                    page,
+                    force=False,
+                    auto_repair=True,
+                )
+                
+                if audit_result.status == AuditStatus.DRIFT:
+                    logger.warning(
+                        "Profile drift detected and repaired",
+                        task_id=task_id,
+                        drifts=[d.attribute for d in audit_result.drifts],
+                        repair_status=audit_result.repair_status.value,
+                    )
+                elif audit_result.status == AuditStatus.FAIL:
+                    logger.warning(
+                        "Profile health audit failed",
+                        task_id=task_id,
+                        error=audit_result.error,
+                    )
+                else:
+                    logger.debug(
+                        "Profile health check passed",
+                        task_id=task_id,
+                        status=audit_result.status.value,
+                    )
+            finally:
+                await page.close()
+        except Exception as e:
+            # Non-blocking: Log error but continue with normal flow
+            logger.warning(
+                "Profile health audit error (non-blocking)",
+                task_id=task_id,
+                error=str(e),
+            )
     
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
