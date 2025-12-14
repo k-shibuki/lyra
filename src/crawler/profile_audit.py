@@ -14,11 +14,12 @@ import asyncio
 import hashlib
 import json
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from src.utils.logging import get_logger
 from src.utils.config import get_settings, get_project_root
@@ -27,7 +28,7 @@ logger = get_logger(__name__)
 
 
 # =============================================================================
-# Enums and Data Classes
+# Enums and Pydantic Models
 # =============================================================================
 
 class AuditStatus(str, Enum):
@@ -54,141 +55,114 @@ class RepairStatus(str, Enum):
     PENDING = "pending"
 
 
-@dataclass
-class FingerprintData:
+class FingerprintData(BaseModel):
     """Browser fingerprint data for comparison.
     
-    Attributes:
-        user_agent: Full UA string.
-        ua_major_version: Major browser version (e.g., "120").
-        fonts: Set of detected font names.
-        language: Browser language setting.
-        timezone: Timezone ID.
-        canvas_hash: Canvas fingerprint hash.
-        audio_hash: Audio fingerprint hash.
-        screen_resolution: Screen resolution string.
-        color_depth: Color depth.
-        platform: Platform string.
-        plugins_count: Number of plugins.
-        timestamp: When the fingerprint was captured.
+    Per high-frequency check requirement: Captures UA, fonts, language,
+    timezone, canvas, audio fingerprint for drift detection.
     """
-    user_agent: str = ""
-    ua_major_version: str = ""
-    fonts: set[str] = field(default_factory=set)
-    language: str = ""
-    timezone: str = ""
-    canvas_hash: str = ""
-    audio_hash: str = ""
-    screen_resolution: str = ""
-    color_depth: int = 0
-    platform: str = ""
-    plugins_count: int = 0
-    timestamp: float = 0.0
+    user_agent: str = Field(default="", description="Full UA string")
+    ua_major_version: str = Field(default="", description="Major browser version (e.g., '120')")
+    fonts: set[str] = Field(default_factory=set, description="Set of detected font names")
+    language: str = Field(default="", description="Browser language setting")
+    timezone: str = Field(default="", description="Timezone ID")
+    canvas_hash: str = Field(default="", description="Canvas fingerprint hash")
+    audio_hash: str = Field(default="", description="Audio fingerprint hash")
+    screen_resolution: str = Field(default="", description="Screen resolution string (e.g., '1920x1080')")
+    color_depth: int = Field(default=0, ge=0, description="Color depth")
+    platform: str = Field(default="", description="Platform string")
+    plugins_count: int = Field(default=0, ge=0, description="Number of plugins")
+    timestamp: float = Field(default=0.0, ge=0.0, description="When the fingerprint was captured (Unix timestamp)")
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return {
-            "user_agent": self.user_agent,
-            "ua_major_version": self.ua_major_version,
-            "fonts": sorted(self.fonts),
-            "language": self.language,
-            "timezone": self.timezone,
-            "canvas_hash": self.canvas_hash,
-            "audio_hash": self.audio_hash,
-            "screen_resolution": self.screen_resolution,
-            "color_depth": self.color_depth,
-            "platform": self.platform,
-            "plugins_count": self.plugins_count,
-            "timestamp": self.timestamp,
-        }
+        data = self.model_dump()
+        # Ensure fonts are sorted for consistent serialization
+        if "fonts" in data:
+            data["fonts"] = sorted(data["fonts"])
+        return data
     
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "FingerprintData":
         """Create from dictionary."""
-        return cls(
-            user_agent=data.get("user_agent", ""),
-            ua_major_version=data.get("ua_major_version", ""),
-            fonts=set(data.get("fonts", [])),
-            language=data.get("language", ""),
-            timezone=data.get("timezone", ""),
-            canvas_hash=data.get("canvas_hash", ""),
-            audio_hash=data.get("audio_hash", ""),
-            screen_resolution=data.get("screen_resolution", ""),
-            color_depth=data.get("color_depth", 0),
-            platform=data.get("platform", ""),
-            plugins_count=data.get("plugins_count", 0),
-            timestamp=data.get("timestamp", 0.0),
-        )
+        # Convert fonts list to set if needed
+        if "fonts" in data and isinstance(data["fonts"], list):
+            data["fonts"] = set(data["fonts"])
+        return cls.model_validate(data)
 
 
-@dataclass
-class DriftInfo:
+class DriftInfo(BaseModel):
     """Information about detected drift in a specific attribute.
     
-    Attributes:
-        attribute: Attribute name that drifted.
-        baseline_value: Original/baseline value.
-        current_value: Current detected value.
-        severity: Severity level (low/medium/high).
-        repair_action: Recommended repair action.
+    Per drift detection: Identifies which attribute drifted and provides
+    baseline vs current value comparison.
     """
-    attribute: str
-    baseline_value: Any
-    current_value: Any
-    severity: str = "medium"
-    repair_action: RepairAction = RepairAction.RESTART_BROWSER
+    attribute: str = Field(..., description="Attribute name that drifted")
+    baseline_value: Any = Field(..., description="Original/baseline value")
+    current_value: Any = Field(..., description="Current detected value")
+    severity: str = Field(default="medium", description="Severity level (low/medium/high)")
+    repair_action: RepairAction = Field(
+        default=RepairAction.RESTART_BROWSER,
+        description="Recommended repair action",
+    )
 
 
-@dataclass
-class AuditResult:
+class AuditResult(BaseModel):
     """Result of a profile health audit.
     
-    Attributes:
-        status: Overall audit status.
-        baseline: Baseline fingerprint.
-        current: Current fingerprint.
-        drifts: List of detected drifts.
-        repair_actions: List of repair actions taken.
-        repair_status: Status of repair operations.
-        error: Error message if audit failed.
-        duration_ms: Audit duration in milliseconds.
-        retry_count: Number of retries attempted.
-        timestamp: When the audit was performed.
+    Per high-frequency check requirement: Returns audit status, detected drifts,
+    and repair actions for browser session initialization.
     """
-    status: AuditStatus
-    baseline: FingerprintData | None = None
-    current: FingerprintData | None = None
-    drifts: list[DriftInfo] = field(default_factory=list)
-    repair_actions: list[RepairAction] = field(default_factory=list)
-    repair_status: RepairStatus = RepairStatus.PENDING
-    error: str | None = None
-    duration_ms: float = 0.0
-    retry_count: int = 0
-    timestamp: float = 0.0
+    status: AuditStatus = Field(..., description="Overall audit status")
+    baseline: FingerprintData | None = Field(
+        None,
+        description="Baseline fingerprint (if available)",
+    )
+    current: FingerprintData | None = Field(
+        None,
+        description="Current fingerprint (if available)",
+    )
+    drifts: list[DriftInfo] = Field(
+        default_factory=list,
+        description="List of detected drifts",
+    )
+    repair_actions: list[RepairAction] = Field(
+        default_factory=list,
+        description="List of repair actions taken",
+    )
+    repair_status: RepairStatus = Field(
+        default=RepairStatus.PENDING,
+        description="Status of repair operations",
+    )
+    error: str | None = Field(None, description="Error message if audit failed")
+    duration_ms: float = Field(default=0.0, ge=0.0, description="Audit duration in milliseconds")
+    retry_count: int = Field(default=0, ge=0, description="Number of retries attempted")
+    timestamp: float = Field(default=0.0, ge=0.0, description="When the audit was performed (Unix timestamp)")
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging."""
-        return {
-            "status": self.status.value,
-            "baseline": self.baseline.to_dict() if self.baseline else None,
-            "current": self.current.to_dict() if self.current else None,
-            "drifts": [
-                {
-                    "attribute": d.attribute,
-                    "baseline_value": str(d.baseline_value)[:100],
-                    "current_value": str(d.current_value)[:100],
-                    "severity": d.severity,
-                    "repair_action": d.repair_action.value,
-                }
-                for d in self.drifts
-            ],
-            "repair_actions": [a.value for a in self.repair_actions],
-            "repair_status": self.repair_status.value,
-            "error": self.error,
-            "duration_ms": self.duration_ms,
-            "retry_count": self.retry_count,
-            "timestamp": self.timestamp,
-        }
+        data = self.model_dump(mode="json")
+        # Convert enums to values for logging
+        data["status"] = self.status.value
+        data["repair_status"] = self.repair_status.value
+        data["repair_actions"] = [a.value for a in self.repair_actions]
+        # Convert fonts sets to lists for JSON serialization
+        if "baseline" in data and data["baseline"] and "fonts" in data["baseline"]:
+            if isinstance(data["baseline"]["fonts"], set):
+                data["baseline"]["fonts"] = sorted(data["baseline"]["fonts"])
+        if "current" in data and data["current"] and "fonts" in data["current"]:
+            if isinstance(data["current"]["fonts"], set):
+                data["current"]["fonts"] = sorted(data["current"]["fonts"])
+        # Truncate long values in drifts
+        if "drifts" in data:
+            for drift in data["drifts"]:
+                if "baseline_value" in drift:
+                    drift["baseline_value"] = str(drift["baseline_value"])[:100]
+                if "current_value" in drift:
+                    drift["current_value"] = str(drift["current_value"])[:100]
+                if "repair_action" in drift:
+                    drift["repair_action"] = drift["repair_action"].value if isinstance(drift["repair_action"], RepairAction) else drift["repair_action"]
+        return data
 
 
 # =============================================================================

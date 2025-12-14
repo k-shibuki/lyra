@@ -934,14 +934,18 @@ async def search(self, query: str, options: SearchOptions | None = None) -> Sear
 
 ---
 
-## 問題14: プロファイル健全性監査の自動実行が未実装
+## 問題14: プロファイル健全性監査の自動実行が未実装 ✅ 実装完了
+
+**実装完了日**: 2025-12-11  
+**実装ファイル**: `src/crawler/fetcher.py:927-975`, `src/crawler/fetcher.py:877, 923`, `src/search/browser_search_provider.py:248-290`, `src/search/browser_search_provider.py:231`  
+**検証スクリプト**: `tests/scripts/debug_profile_health_audit_flow.py`
 
 ### 影響範囲
 
 **影響箇所**:
-- `src/crawler/fetcher.py:719` - `BrowserFetcher._ensure_browser()`でのブラウザセッション初期化
+- `src/crawler/fetcher.py:743` - `BrowserFetcher._ensure_browser()`でのブラウザセッション初期化
 - `src/search/browser_search_provider.py:168` - `BrowserSearchProvider._ensure_browser()`でのブラウザセッション初期化
-- `src/mcp/server.py:810` - `_handle_search()`でのタスク開始時
+- `src/mcp/server.py:810` - `_handle_search()`でのタスク開始時（実装不要: ブラウザセッション初期化時に自動実行されるため）
 
 ### 現状の実装
 
@@ -975,35 +979,18 @@ async def _ensure_browser(self, headful: bool = False, task_id: str | None = Non
 - `src/search/browser_search_provider.py:168` - `BrowserSearchProvider._ensure_browser()`
 - `src/mcp/server.py:810` - `_handle_search()`でのタスク開始時
 
-**修正案**:
-```python
-# BrowserFetcher._ensure_browser()での監査追加
-async def _ensure_browser(self, headful: bool = False, task_id: str | None = None):
-    browser, context = await self._get_browser_and_context(headful)
-    
-    # プロファイル健全性監査を実行
-    from src.crawler.profile_audit import perform_health_check
-    
-    page = await context.new_page()
-    try:
-        await page.goto("about:blank")  # 最小限のページで監査実行
-        audit_result = await perform_health_check(page, force=False, auto_repair=True)
-        
-        if audit_result.status == AuditStatus.DRIFT:
-            logger.warning(
-                "Profile drift detected and repaired",
-                drifts=[d.attribute for d in audit_result.drifts],
-            )
-    finally:
-        await page.close()
-    
-    return browser, context
-```
+**実装内容**:
+- `BrowserFetcher._perform_health_audit()`メソッドを追加（`src/crawler/fetcher.py:927-975`）
+- `BrowserFetcher._ensure_browser()`内で、context作成後に`_perform_health_audit()`を呼び出し（headful/headless両方）
+- `BrowserSearchProvider._perform_health_audit()`メソッドを追加（`src/search/browser_search_provider.py:248-290`）
+- `BrowserSearchProvider._ensure_browser()`内で、新しいcontext作成時に`_perform_health_audit()`を呼び出し
 
-**注意点**:
+**実装の特徴**:
 - 監査は最小限のページ（`about:blank`）で実行してパフォーマンス影響を最小化
 - 自動修復が有効な場合、修復後に再監査を実行
 - 監査ログを構造化記録
+- 監査失敗時も非ブロッキングで通常フローを継続
+- `BrowserSearchProvider`では、既存のcontextを再利用する場合は監査をスキップ（新しいcontext作成時のみ実行）
 
 ---
 
@@ -1078,7 +1065,7 @@ if simulate_human:
 1. ~~問題3（セッション再利用）~~ ✅ 完了
 2. ~~問題5（start_sessionでブラウザを開く）~~ ✅ 完了
 3. ~~問題12（セッション転送の適用）~~ ✅ 完了
-4. 問題14（プロファイル健全性監査の自動実行）
+4. ~~問題14（プロファイル健全性監査の自動実行）~~ ✅ 完了
 5. 問題15（ヒューマンライク操作の完全な適用）
 6. 問題8（エンジン選択ロジック）
 7. 問題13（ラストマイルスロット判定）
