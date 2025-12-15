@@ -47,6 +47,14 @@ Test Quality Standards (§7.1):
 | TC-RES-N-26 | ResearchContext class | Equivalence – boundary | No design methods | §2.1.1 |
 | TC-RES-N-27 | RefutationExecutor class | Equivalence – boundary | No LLM methods | §2.1.4 |
 | TC-RES-N-28 | Context notes | Equivalence – boundary | No directives | Informational only |
+| TC-SS-B-01 | independent_sources=0 | Boundary – zero sources | Score = 0.0 | §3.1.7.3 |
+| TC-SS-B-02 | independent_sources>=10 | Boundary – max sources | Score capped at 0.7 | §3.1.7.3 |
+| TC-SS-A-01 | Invalid priority value | Abnormal – validation | ValidationError | Pydantic migration |
+| TC-SS-A-02 | Negative pages_fetched | Abnormal – validation | ValidationError | Pydantic migration |
+| TC-SS-A-03 | Invalid refutation_status | Abnormal – validation | ValidationError | Pydantic migration |
+| TC-SS-B-03 | novelty_score=0.0 | Boundary – zero novelty | Valid state | §3.1.7.4 |
+| TC-SS-B-04 | novelty_score=1.0 | Boundary – max novelty | Valid state | §3.1.7.4 |
+| TC-ES-B-01 | pages_limit=0 | Boundary – zero limit | Immediate budget exceeded | - |
 """
 
 import pytest
@@ -63,8 +71,10 @@ from src.research.context import (
 )
 from src.research.state import (
     ExplorationState,
+    SearchState,
     SubqueryState,
     SubqueryStatus,
+    SearchStatus,
     TaskStatus,
 )
 from src.research.executor import SubqueryExecutor, SubqueryResult, PRIMARY_SOURCE_DOMAINS
@@ -307,6 +317,276 @@ class TestSubqueryState:
         
         # Then: Status is PARTIAL
         assert sq.status == SubqueryStatus.PARTIAL
+
+
+# =============================================================================
+# SearchState Pydantic Validation Tests
+# =============================================================================
+
+
+class TestSearchStatePydanticValidation:
+    """
+    Tests for SearchState Pydantic validation after migration.
+    
+    Per test-strategy.mdc: Validation tests ensure type safety
+    and proper error messages for invalid inputs.
+    """
+    
+    def test_valid_creation_with_required_fields_only(self):
+        """TC-SS-N-01: Create SearchState with only required fields.
+        
+        // Given: Only id and text provided
+        // When: Creating SearchState
+        // Then: All optional fields use defaults
+        """
+        # Given: Only required fields
+        # When: Creating SearchState
+        sq = SubqueryState(id="sq_001", text="test query")
+        
+        # Then: Instance created with defaults
+        assert sq.id == "sq_001"
+        assert sq.text == "test query"
+        assert sq.status == SubqueryStatus.PENDING
+        assert sq.priority == "medium"
+        assert sq.independent_sources == 0
+        assert sq.pages_fetched == 0
+        assert sq.novelty_score == 1.0
+        assert sq.satisfaction_score == 0.0
+    
+    def test_invalid_priority_raises_validation_error(self):
+        """TC-SS-A-01: Invalid priority value raises ValidationError.
+        
+        // Given: Invalid priority value 'critical'
+        // When: Creating SearchState
+        // Then: ValidationError with message about allowed values
+        """
+        from pydantic import ValidationError
+        
+        # Given: Invalid priority value
+        # When/Then: ValidationError raised
+        with pytest.raises(ValidationError) as exc_info:
+            SubqueryState(id="sq_001", text="test", priority="critical")
+        
+        # Then: Error message mentions 'priority'
+        error_str = str(exc_info.value)
+        assert "priority" in error_str.lower()
+    
+    def test_negative_pages_fetched_raises_validation_error(self):
+        """TC-SS-A-02: Negative pages_fetched raises ValidationError.
+        
+        // Given: Negative pages_fetched value
+        // When: Creating SearchState
+        // Then: ValidationError with message about constraint
+        """
+        from pydantic import ValidationError
+        
+        # Given: Negative pages_fetched
+        # When/Then: ValidationError raised
+        with pytest.raises(ValidationError) as exc_info:
+            SubqueryState(id="sq_001", text="test", pages_fetched=-1)
+        
+        # Then: Error message mentions constraint
+        error_str = str(exc_info.value)
+        assert "pages_fetched" in error_str.lower() or "greater than" in error_str.lower()
+    
+    def test_invalid_refutation_status_raises_validation_error(self):
+        """TC-SS-A-03: Invalid refutation_status raises ValidationError.
+        
+        // Given: Invalid refutation_status value
+        // When: Creating SearchState
+        // Then: ValidationError with message about allowed values
+        """
+        from pydantic import ValidationError
+        
+        # Given: Invalid refutation_status
+        # When/Then: ValidationError raised
+        with pytest.raises(ValidationError) as exc_info:
+            SubqueryState(id="sq_001", text="test", refutation_status="invalid")
+        
+        # Then: Error message mentions 'refutation_status'
+        error_str = str(exc_info.value)
+        assert "refutation_status" in error_str.lower()
+    
+    def test_negative_independent_sources_raises_validation_error(self):
+        """TC-SS-A-04: Negative independent_sources raises ValidationError.
+        
+        // Given: Negative independent_sources value
+        // When: Creating SearchState
+        // Then: ValidationError raised
+        """
+        from pydantic import ValidationError
+        
+        # Given: Negative independent_sources
+        # When/Then: ValidationError raised
+        with pytest.raises(ValidationError):
+            SubqueryState(id="sq_001", text="test", independent_sources=-1)
+    
+    def test_harvest_rate_out_of_range_raises_validation_error(self):
+        """TC-SS-A-05: harvest_rate > 1.0 raises ValidationError.
+        
+        // Given: harvest_rate = 1.5 (out of range)
+        // When: Creating SearchState
+        // Then: ValidationError raised
+        """
+        from pydantic import ValidationError
+        
+        # Given: harvest_rate out of range
+        # When/Then: ValidationError raised
+        with pytest.raises(ValidationError):
+            SubqueryState(id="sq_001", text="test", harvest_rate=1.5)
+
+
+# =============================================================================
+# SearchState Boundary Value Tests
+# =============================================================================
+
+
+class TestSearchStateBoundaryValues:
+    """
+    Boundary value tests for SearchState.
+    
+    Per test-strategy.mdc: Tests for 0, min, max, ±1, empty, NULL.
+    """
+    
+    def test_satisfaction_score_with_zero_sources(self):
+        """TC-SS-B-01: Score is 0.0 with zero independent sources.
+        
+        // Given: independent_sources = 0, no primary source
+        // When: Calculate satisfaction score
+        // Then: Score = 0.0
+        """
+        # Given: Zero sources
+        sq = SubqueryState(id="sq_001", text="test")
+        sq.independent_sources = 0
+        sq.has_primary_source = False
+        
+        # When: Calculate score
+        score = sq.calculate_satisfaction_score()
+        
+        # Then: Score is 0.0
+        assert score == 0.0
+    
+    def test_satisfaction_score_capped_with_many_sources(self):
+        """TC-SS-B-02: Score is capped at 1.0 with many sources.
+        
+        // Given: independent_sources = 10, primary source
+        // When: Calculate satisfaction score
+        // Then: Score = 1.0 (capped)
+        """
+        # Given: Many sources
+        sq = SubqueryState(id="sq_001", text="test")
+        sq.independent_sources = 10
+        sq.has_primary_source = True
+        
+        # When: Calculate score
+        score = sq.calculate_satisfaction_score()
+        
+        # Then: Score is capped at 1.0
+        assert score == 1.0
+    
+    def test_novelty_score_zero_boundary(self):
+        """TC-SS-B-03: novelty_score = 0.0 is valid.
+        
+        // Given: novelty_score = 0.0
+        // When: Creating SearchState
+        // Then: Valid state with novelty_score = 0.0
+        """
+        # Given: Zero novelty
+        sq = SubqueryState(id="sq_001", text="test", novelty_score=0.0)
+        
+        # Then: Valid state
+        assert sq.novelty_score == 0.0
+    
+    def test_novelty_score_max_boundary(self):
+        """TC-SS-B-04: novelty_score = 1.0 is valid.
+        
+        // Given: novelty_score = 1.0
+        // When: Creating SearchState
+        // Then: Valid state with novelty_score = 1.0
+        """
+        # Given: Max novelty
+        sq = SubqueryState(id="sq_001", text="test", novelty_score=1.0)
+        
+        # Then: Valid state
+        assert sq.novelty_score == 1.0
+    
+    def test_satisfaction_threshold_exactly_0_8(self):
+        """TC-SS-B-05: Exact threshold 0.8 satisfies condition.
+        
+        // Given: Exact score of 0.8 (3 sources + no primary = 0.7, so need adjustment)
+        // When: Check is_satisfied()
+        // Then: Returns True
+        """
+        # Given: 3 sources + primary = (3/3)*0.7 + 0.3 = 1.0 >= 0.8
+        sq = SubqueryState(id="sq_001", text="test")
+        sq.independent_sources = 3
+        sq.has_primary_source = True
+        
+        # When: Check satisfaction
+        is_satisfied = sq.is_satisfied()
+        
+        # Then: Satisfied
+        assert is_satisfied is True
+        assert sq.satisfaction_score == 1.0
+    
+    def test_satisfaction_threshold_just_below_0_8(self):
+        """TC-SS-B-06: Score just below 0.8 does not satisfy.
+        
+        // Given: Score of 0.7 (3 sources, no primary)
+        // When: Check is_satisfied()
+        // Then: Returns False
+        """
+        # Given: 3 sources, no primary = (3/3)*0.7 + 0 = 0.7 < 0.8
+        sq = SubqueryState(id="sq_001", text="test")
+        sq.independent_sources = 3
+        sq.has_primary_source = False
+        
+        # When: Check satisfaction
+        is_satisfied = sq.is_satisfied()
+        
+        # Then: Not satisfied
+        assert is_satisfied is False
+        assert sq.satisfaction_score == 0.7
+    
+    def test_empty_source_domains_list(self):
+        """TC-SS-B-07: Empty source_domains list is valid.
+        
+        // Given: Default source_domains (empty list)
+        // When: Creating SearchState
+        // Then: source_domains is empty list
+        """
+        # Given: Default creation
+        sq = SubqueryState(id="sq_001", text="test")
+        
+        # Then: Empty list
+        assert sq.source_domains == []
+        assert isinstance(sq.source_domains, list)
+    
+    def test_budget_pages_none_is_valid(self):
+        """TC-SS-B-08: budget_pages = None is valid.
+        
+        // Given: budget_pages not specified
+        // When: Creating SearchState
+        // Then: budget_pages is None
+        """
+        # Given: Default creation
+        sq = SubqueryState(id="sq_001", text="test")
+        
+        # Then: None is valid
+        assert sq.budget_pages is None
+    
+    def test_budget_pages_zero_is_valid(self):
+        """TC-SS-B-09: budget_pages = 0 is valid (boundary).
+        
+        // Given: budget_pages = 0
+        // When: Creating SearchState
+        // Then: Valid state with budget_pages = 0
+        """
+        # Given: Zero budget
+        sq = SubqueryState(id="sq_001", text="test", budget_pages=0)
+        
+        # Then: Valid
+        assert sq.budget_pages == 0
 
 
 # =============================================================================
@@ -582,6 +862,105 @@ class TestExplorationState:
         assert len(result["followup_suggestions"]) >= 1, (
             f"Expected >=1 followup suggestions, got {result['followup_suggestions']}"
         )
+
+
+# =============================================================================
+# ExplorationState Boundary Tests
+# =============================================================================
+
+
+class TestExplorationStateBoundaryValues:
+    """
+    Boundary value tests for ExplorationState.
+    
+    Per test-strategy.mdc: Tests for 0, min, max, ±1 for budget limits.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_zero_pages_limit_immediately_exceeded(self, test_database):
+        """TC-ES-B-01: Zero pages_limit is immediately exceeded.
+        
+        // Given: pages_limit = 0
+        // When: Check budget
+        // Then: Budget exceeded immediately
+        """
+        # Given: ExplorationState with zero page limit
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        state._pages_limit = 0
+        
+        # When: Check budget
+        within_budget, warning = state.check_budget()
+        
+        # Then: Budget exceeded
+        assert within_budget is False
+        assert warning is not None
+    
+    @pytest.mark.asyncio
+    async def test_pages_limit_exactly_at_boundary(self, test_database):
+        """TC-ES-B-02: Exactly at pages_limit triggers exceeded.
+        
+        // Given: pages_limit = 5, pages_used = 5
+        // When: Check budget
+        // Then: Budget exceeded
+        """
+        # Given: ExplorationState at exact limit
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        state._pages_limit = 5
+        state._pages_used = 5
+        
+        # When: Check budget
+        within_budget, warning = state.check_budget()
+        
+        # Then: Budget exceeded
+        assert within_budget is False
+    
+    @pytest.mark.asyncio
+    async def test_pages_limit_one_below_boundary(self, test_database):
+        """TC-ES-B-03: One below pages_limit is within budget.
+        
+        // Given: pages_limit = 5, pages_used = 4
+        // When: Check budget
+        // Then: Within budget
+        """
+        # Given: ExplorationState one below limit
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        state._pages_limit = 5
+        state._pages_used = 4
+        
+        # When: Check budget
+        within_budget, _ = state.check_budget()
+        
+        # Then: Within budget
+        assert within_budget is True
+    
+    @pytest.mark.asyncio
+    async def test_budget_warning_at_80_percent(self, test_database):
+        """TC-ES-B-04: Warning at 80% budget usage.
+        
+        // Given: pages_limit = 100, pages_used = 81 (81% usage)
+        // When: Check budget
+        // Then: Within budget with warning
+        """
+        # Given: ExplorationState at 81% usage
+        task_id = await test_database.create_task(query="test")
+        state = ExplorationState(task_id)
+        state._db = test_database
+        state._pages_limit = 100
+        state._pages_used = 81
+        
+        # When: Check budget
+        within_budget, warning = state.check_budget()
+        
+        # Then: Within budget but with warning
+        assert within_budget is True
+        assert warning is not None
+        assert "残り" in warning
 
 
 # =============================================================================

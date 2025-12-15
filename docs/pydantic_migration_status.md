@@ -89,11 +89,12 @@
 - **推奨**: モジュール間のデータ受け渡しに使用される`provider.py`のモデルを優先的に移行
 
 #### `src/research/`
-- **状態**: 🔴 すべてdataclass
-- **ファイル**: 7ファイル
-  - `state.py`: `SearchState`, `TaskState`, `ExplorationState`
+- **状態**: 🟡 部分移行済み
+- **Pydantic**: `state.py` (`SearchState`) ✅
+- **dataclass**: 6ファイルで使用
+  - `state.py`: `ExplorationState`（ステートフルクラス、内部実装用のため移行不要）
   - `context.py`, `refutation.py`, `pipeline.py`, `ucb_allocator.py`, `executor.py`, `pivot.py`
-- **推奨**: `state.py`の`SearchState`, `TaskState`, `ExplorationState`を優先的に移行（モジュール間のデータ受け渡し）
+- **更新（2025-12-15）**: `SearchState`をPydantic BaseModelに移行完了
 
 #### `src/storage/`
 - **状態**: 🔴 すべてdataclass
@@ -136,8 +137,9 @@
    - `SearchResult`, `SearchResponse`, `SearchOptions`, `HealthStatus` → Pydantic BaseModel
    - SearchProvider → ResearchPipeline間のデータ受け渡し
 
-3. **`src/research/state.py`**
-   - `SearchState`, `TaskState`, `ExplorationState`
+3. ~~**`src/research/state.py`**~~ ✅ **部分完了（2025-12-15）**
+   - `SearchState` → Pydantic BaseModel（完了）
+   - `ExplorationState` - ステートフルクラスのため移行不要
    - ResearchPipeline → MCP Server間のデータ受け渡し
 
 4. **`src/filter/provider.py`**
@@ -168,7 +170,7 @@
 | `crawler` | 2ファイル | 17ファイル | 11% |
 | `search` | 3ファイル | 5ファイル | 38% |
 | `filter` | 0ファイル | 7ファイル | 0% |
-| `research` | 0ファイル | 7ファイル | 0% |
+| `research` | 1ファイル | 6ファイル | 14% |
 | `utils` | 3ファイル | 10ファイル | 23% |
 | `storage` | 0ファイル | 1ファイル | 0% |
 | `scheduler` | 0ファイル | 1ファイル | 0% |
@@ -176,11 +178,12 @@
 | `mcp` | 0ファイル | 2ファイル | 0% |
 | `ml_server` | 2ファイル | 0ファイル | 100% |
 | `report` | 0ファイル | 1ファイル | 0% |
-| **合計** | **10ファイル** | **53ファイル** | **16%** |
+| **合計** | **11ファイル** | **52ファイル** | **17%** |
 
 **最近の移行（2025-12-15）**:
 - `src/crawler/session_transfer.py` ✅
 - `src/search/provider.py` ✅
+- `src/research/state.py` (`SearchState`) ✅
 
 ---
 
@@ -364,8 +367,8 @@ class SearchResult:  # dataclass - 同じ名前で混在は避ける
 1. **高優先度モジュールの移行**
    - ~~`session_transfer.py`の移行~~ ✅ 完了（2025-12-15）
    - ~~`provider.py`（search）の移行~~ ✅ 完了（2025-12-15）
+   - ~~`state.py`（SearchState）の移行~~ ✅ 完了（2025-12-15）
    - `provider.py`（filter）の移行
-   - `state.py`の移行
 
 2. **移行後の検証**
    - ✅ デバッグスクリプトの実行（`tests/scripts/debug_pydantic_migration.py`）
