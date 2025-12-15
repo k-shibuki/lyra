@@ -716,3 +716,209 @@ class TestSearchOptionsIntegration:
         
         await provider.close()
 
+
+@pytest.mark.unit
+class TestBrowserSearchProviderHumanBehavior:
+    """Tests for human-like behavior integration in BrowserSearchProvider.search() (§4.3.4)."""
+    
+    @pytest.mark.asyncio
+    async def test_search_applies_human_behavior(self, mock_playwright, mock_parse_result):
+        """Test BrowserSearchProvider.search() applies human behavior to results page.
+        
+        Given: Search executed, results page has links
+        When: search() is called
+        Then: simulate_reading() and move_mouse_to_element() are called
+        """
+        provider = BrowserSearchProvider()
+        
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body><a href='https://example.com'>Result</a></body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[
+            MagicMock(evaluate=AsyncMock(return_value="a"))
+        ])
+        mock_page.is_closed = MagicMock(return_value=False)
+        
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.cookies = AsyncMock(return_value=[])
+        mock_context.route = AsyncMock()
+        
+        mock_playwright.chromium.connect_over_cdp = AsyncMock(return_value=mock_context)
+        
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+            
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(return_value="https://duckduckgo.com/?q=test")
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
+                
+                with patch.object(provider, "_ensure_browser", AsyncMock()) as mock_ensure:
+                    with patch.object(provider, "_save_session", AsyncMock()) as mock_save:
+                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                                # Set page directly to avoid _ensure_browser complexity
+                                provider._page = mock_page
+                                provider._context = mock_context
+                                
+                                response = await provider.search("test query")
+                                
+                                # Verify human behavior was applied
+                                mock_simulate.assert_called_once()
+                                mock_mouse.assert_called_once()
+                                assert response.ok is True
+        
+        await provider.close()
+    
+    @pytest.mark.asyncio
+    async def test_search_with_no_links(self, mock_playwright, mock_parse_result):
+        """Test BrowserSearchProvider.search() handles pages with no result links.
+        
+        Given: Search executed, results page has no links
+        When: search() is called
+        Then: simulate_reading() is called but move_mouse_to_element() is skipped
+        """
+        provider = BrowserSearchProvider()
+        
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>No links</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])  # No links
+        mock_page.is_closed = MagicMock(return_value=False)
+        
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.cookies = AsyncMock(return_value=[])
+        mock_context.route = AsyncMock()
+        
+        mock_playwright.chromium.connect_over_cdp = AsyncMock(return_value=mock_context)
+        
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+            
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(return_value="https://duckduckgo.com/?q=test")
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
+                
+                with patch.object(provider, "_ensure_browser", AsyncMock()) as mock_ensure:
+                    with patch.object(provider, "_save_session", AsyncMock()) as mock_save:
+                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                                # Set page directly to avoid _ensure_browser complexity
+                                provider._page = mock_page
+                                provider._context = mock_context
+                                
+                                response = await provider.search("test query")
+                                
+                                # Verify simulate_reading was called but mouse movement was skipped
+                                mock_simulate.assert_called_once()
+                                mock_mouse.assert_not_called()
+                                assert response.ok is True
+        
+        await provider.close()
+    
+    @pytest.mark.asyncio
+    async def test_search_with_link_search_exception(self, mock_playwright, mock_parse_result):
+        """Test BrowserSearchProvider.search() handles exceptions during link search gracefully.
+        
+        Given: Search executed, query_selector_all raises exception
+        When: search() is called
+        Then: Exception is caught, logged, and normal flow continues
+        """
+        provider = BrowserSearchProvider()
+        
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Content</body></html>")
+        mock_page.query_selector_all = AsyncMock(side_effect=Exception("Search failed"))
+        mock_page.is_closed = MagicMock(return_value=False)
+        
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.cookies = AsyncMock(return_value=[])
+        mock_context.route = AsyncMock()
+        
+        mock_playwright.chromium.connect_over_cdp = AsyncMock(return_value=mock_context)
+        
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+            
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(return_value="https://duckduckgo.com/?q=test")
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
+                
+                with patch.object(provider, "_ensure_browser", AsyncMock()) as mock_ensure:
+                    with patch.object(provider, "_save_session", AsyncMock()) as mock_save:
+                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                                # Set page directly to avoid _ensure_browser complexity
+                                provider._page = mock_page
+                                provider._context = mock_context
+                                
+                                response = await provider.search("test query")
+                                
+                                # Verify simulate_reading was called but mouse movement failed gracefully
+                                mock_simulate.assert_called_once()
+                                mock_mouse.assert_not_called()  # Exception prevented call
+                                assert response.ok is True  # Normal flow continues
+        
+        await provider.close()
+    
+    @pytest.mark.asyncio
+    async def test_search_with_simulate_reading_exception(self, mock_playwright, mock_parse_result):
+        """Test BrowserSearchProvider.search() handles exceptions during simulate_reading gracefully.
+        
+        Given: Search executed, simulate_reading raises exception
+        When: search() is called
+        Then: Exception is caught, logged, and normal flow continues
+        """
+        provider = BrowserSearchProvider()
+        
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Content</body></html>")
+        mock_page.is_closed = MagicMock(return_value=False)
+        
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.cookies = AsyncMock(return_value=[])
+        mock_context.route = AsyncMock()
+        
+        mock_playwright.chromium.connect_over_cdp = AsyncMock(return_value=mock_context)
+        
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+            
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(return_value="https://duckduckgo.com/?q=test")
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
+                
+                with patch.object(provider, "_ensure_browser", AsyncMock()) as mock_ensure:
+                    with patch.object(provider, "_save_session", AsyncMock()) as mock_save:
+                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock(side_effect=Exception("Reading failed"))) as mock_simulate:
+                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                                # Set page directly to avoid _ensure_browser complexity
+                                provider._page = mock_page
+                                provider._context = mock_context
+                                
+                                response = await provider.search("test query")
+                                
+                                # Verify simulate_reading was called but exception was handled gracefully
+                                mock_simulate.assert_called_once()
+                                mock_mouse.assert_not_called()  # Exception prevented mouse movement
+                                assert response.ok is True  # Normal flow continues
+        
+        await provider.close()
+

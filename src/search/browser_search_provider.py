@@ -19,6 +19,7 @@ References:
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -40,6 +41,7 @@ from src.search.search_parsers import (
 )
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.crawler.fetcher import HumanBehavior
 
 logger = get_logger(__name__)
 
@@ -164,6 +166,9 @@ class BrowserSearchProvider(BaseSearchProvider):
         self._captcha_count = 0
         self._total_latency = 0.0
         self._last_error: str | None = None
+        
+        # Human behavior simulation
+        self._human_behavior = HumanBehavior()
     
     async def _ensure_browser(self) -> None:
         """
@@ -383,6 +388,36 @@ class BrowserSearchProvider(BaseSearchProvider):
             
             # Get HTML content
             html = await page.content()
+            
+            # Apply human-like behavior to search results page
+            try:
+                # Apply inertial scrolling (reading simulation)
+                await self._human_behavior.simulate_reading(page, len(html.encode("utf-8")))
+                
+                # Apply mouse trajectory to search result links
+                try:
+                    # Find search result links
+                    result_links = await page.query_selector_all("a[href*='http'], a[href*='https']")
+                    if result_links:
+                        # Select random link from first 5 results
+                        target_link = random.choice(result_links[:5])
+                        # Get link selector
+                        link_selector = await target_link.evaluate("""
+                            (el) => {
+                                if (el.id) return `#${el.id}`;
+                                if (el.className) {
+                                    const classes = el.className.split(' ').filter(c => c).join('.');
+                                    if (classes) return `a.${classes}`;
+                                }
+                                return 'a';
+                            }
+                        """)
+                        if link_selector:
+                            await self._human_behavior.move_mouse_to_element(page, link_selector)
+                except Exception as e:
+                    logger.debug("Mouse movement skipped in search", error=str(e))
+            except Exception as e:
+                logger.debug("Human behavior simulation skipped", error=str(e))
             
             # Parse results
             parse_result = parser.parse(html, query)

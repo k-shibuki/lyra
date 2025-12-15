@@ -994,13 +994,17 @@ async def _ensure_browser(self, headful: bool = False, task_id: str | None = Non
 
 ---
 
-## 問題15: ヒューマンライク操作の完全な適用が未実装
+## 問題15: ヒューマンライク操作の完全な適用が未実装 ✅ 実装完了
+
+**実装完了日**: 2025-12-11  
+**実装ファイル**: `src/crawler/fetcher.py:1360-1382`, `src/search/browser_search_provider.py:385-410`  
+**検証スクリプト**: `tests/scripts/debug_human_behavior_flow.py`
 
 ### 影響範囲
 
 **影響箇所**:
-- `src/crawler/fetcher.py:1124` - `BrowserFetcher.fetch()`でのヒューマンライク操作
-- `src/search/browser_search_provider.py` - `BrowserSearchProvider.search()`でのヒューマンライク操作
+- `src/crawler/fetcher.py:1360` - `BrowserFetcher.fetch()`でのヒューマンライク操作
+- `src/search/browser_search_provider.py:385` - `BrowserSearchProvider.search()`でのヒューマンライク操作
 
 ### 現状の実装
 
@@ -1066,7 +1070,7 @@ if simulate_human:
 2. ~~問題5（start_sessionでブラウザを開く）~~ ✅ 完了
 3. ~~問題12（セッション転送の適用）~~ ✅ 完了
 4. ~~問題14（プロファイル健全性監査の自動実行）~~ ✅ 完了
-5. 問題15（ヒューマンライク操作の完全な適用）
+5. ~~問題15（ヒューマンライク操作の完全な適用）~~ ✅ 完了
 6. 問題8（エンジン選択ロジック）
 7. 問題13（ラストマイルスロット判定）
 8. 問題9（エンジン別QPS制限）
