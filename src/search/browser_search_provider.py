@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote_plus
 
+from src.search.circuit_breaker import check_engine_available, record_engine_result
+from src.search.engine_config import get_engine_config_manager
 from src.search.parser_config import get_parser_config_manager
 from src.search.provider import (
     BaseSearchProvider,
@@ -313,6 +315,62 @@ class BrowserSearchProvider(BaseSearchProvider):
                 await asyncio.sleep(self._min_interval - elapsed)
             self._last_search_time = time.time()
     
+    def _detect_category(self, query: str) -> str:
+        """Detect query category based on keywords.
+        
+        Simple keyword-based category detection. Categories:
+        - academic: research papers, academic sources
+        - news: current events, news articles
+        - government: government sources, official documents
+        - technical: technical documentation, code, APIs
+        - general: default category
+        
+        Args:
+            query: Search query text.
+            
+        Returns:
+            Category name: "general", "academic", "news", "government", or "technical".
+        """
+        query_lower = query.lower()
+        
+        # Academic keywords
+        academic_keywords = [
+            "論文", "research", "study", "studies", "arxiv", "pubmed",
+            "scholar", "academic", "journal", "publication", "paper",
+            "dissertation", "thesis", "peer-reviewed", "peer reviewed",
+        ]
+        if any(keyword in query_lower for keyword in academic_keywords):
+            return "academic"
+        
+        # News keywords
+        news_keywords = [
+            "ニュース", "news", "最新", "today", "recent", "breaking",
+            "headline", "article", "report", "報道", "速報",
+        ]
+        if any(keyword in query_lower for keyword in news_keywords):
+            return "news"
+        
+        # Government keywords
+        government_keywords = [
+            "政府", "government", "官公庁", ".gov", "official", "ministry",
+            "department", "agency", "regulation", "law", "legal",
+            "policy", "legislation", "法令", "条例",
+        ]
+        if any(keyword in query_lower for keyword in government_keywords):
+            return "government"
+        
+        # Technical keywords
+        technical_keywords = [
+            "技術", "technical", "api", "code", "github", "documentation",
+            "tutorial", "guide", "reference", "implementation", "algorithm",
+            "programming", "software", "開発", "実装",
+        ]
+        if any(keyword in query_lower for keyword in technical_keywords):
+            return "technical"
+        
+        # Default to general
+        return "general"
+    
     async def search(
         self,
         query: str,
@@ -333,12 +391,69 @@ class BrowserSearchProvider(BaseSearchProvider):
         if options is None:
             options = SearchOptions()
         
-        # Determine engine to use
-        engine = self._default_engine
-        if options.engines:
-            engine = options.engines[0]
-        
         start_time = time.time()
+        
+        # Category detection
+        category = self._detect_category(query)
+        
+        # Engine selection with weighted selection and circuit breaker
+        config_manager = get_engine_config_manager()
+        
+        if options.engines:
+            # Use specified engines
+            candidate_engines = options.engines
+        else:
+            # Get engines for category
+            candidate_engines_configs = config_manager.get_engines_for_category(category)
+            if not candidate_engines_configs:
+                # Fall back to default engines if no engines for category
+                candidate_engines_configs = config_manager.get_available_engines()
+            candidate_engines = [cfg.name for cfg in candidate_engines_configs]
+        
+        # Filter by circuit breaker and availability
+        available_engines: list[tuple[str, float]] = []
+        for engine_name in candidate_engines:
+            try:
+                if await check_engine_available(engine_name):
+                    engine_config = config_manager.get_engine(engine_name)
+                    if engine_config and engine_config.is_available:
+                        available_engines.append((engine_name, engine_config.weight))
+            except Exception as e:
+                # Log error but continue with next engine
+                logger.warning(
+                    "Failed to check engine availability",
+                    engine=engine_name,
+                    error=str(e),
+                )
+                continue
+        
+        # Check if any engines are available
+        if not available_engines:
+            logger.warning(
+                "No available engines",
+                category=category,
+                candidate_engines=candidate_engines,
+            )
+            return SearchResponse(
+                results=[],
+                query=query,
+                provider=self.name,
+                error="No available engines",
+                elapsed_ms=(time.time() - start_time) * 1000,
+                connection_mode="cdp" if self._cdp_connected else None,
+            )
+        
+        # Weighted selection (sort by weight descending)
+        available_engines.sort(key=lambda x: x[1], reverse=True)
+        engine = available_engines[0][0]
+        
+        logger.debug(
+            "Engine selected",
+            engine=engine,
+            category=category,
+            weight=available_engines[0][1],
+            available_count=len(available_engines),
+        )
         
         try:
             await self._rate_limit()
@@ -429,6 +544,21 @@ class BrowserSearchProvider(BaseSearchProvider):
                 self._captcha_count += 1
                 self._record_session_captcha(engine)
                 
+                # Record engine health (CAPTCHA)
+                try:
+                    await record_engine_result(
+                        engine=engine,
+                        success=False,
+                        latency_ms=elapsed_ms,
+                        is_captcha=True,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to record engine result",
+                        engine=engine,
+                        error=str(e),
+                    )
+                
                 # Trigger intervention queue
                 intervention_result = await self._request_intervention(
                     url=search_url,
@@ -469,6 +599,21 @@ class BrowserSearchProvider(BaseSearchProvider):
                     error=error_msg,
                 )
                 
+                # Record engine health (failure)
+                try:
+                    await record_engine_result(
+                        engine=engine,
+                        success=False,
+                        latency_ms=elapsed_ms,
+                        is_captcha=parse_result.is_captcha,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to record engine result",
+                        engine=engine,
+                        error=str(e),
+                    )
+                
                 return SearchResponse(
                     results=[],
                     query=query,
@@ -497,6 +642,20 @@ class BrowserSearchProvider(BaseSearchProvider):
                 result_count=len(results),
                 elapsed_ms=round(elapsed_ms, 1),
             )
+            
+            # Record engine health (success)
+            try:
+                await record_engine_result(
+                    engine=engine,
+                    success=True,
+                    latency_ms=elapsed_ms,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to record engine result",
+                    engine=engine,
+                    error=str(e),
+                )
             
             return SearchResponse(
                 results=results,

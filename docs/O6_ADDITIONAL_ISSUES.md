@@ -399,6 +399,167 @@ async def search(self, query: str, options: SearchOptions | None = None) -> Sear
 - 重み付け選択は簡易版（重みの高い順）で実装し、後で学習機能を追加
 - ラストマイル・スロットは回収率の判定が必要（別途実装）
 
+**実装状況（2025-12-15）**:
+- ✅ カテゴリ判定（`_detect_category()`）: 実装完了
+- ✅ カテゴリ別エンジン選択（`get_engines_for_category()`）: 実装完了
+- ✅ サーキットブレーカによるフィルタリング（`check_engine_available()`）: 実装完了
+- ✅ 重み付け選択（静的設定）: 実装完了
+- ✅ エンジンヘルス記録（`record_engine_result()`）: 実装完了
+- ❌ 動的重み学習（過去の精度/失敗率/ブロック率による重み調整）: 未実装（下記「動的重み学習の実装計画」を参照）
+- ❌ ラストマイル・スロット: 未実装（問題13で実装予定）
+
+### 動的重み学習の実装計画
+
+**目的**: 過去の精度/失敗率/ブロック率を基にエンジンの重みを動的に調整する
+
+**仕様書の要件**:
+- §3.1.1: "カテゴリ（ニュース/学術/政府/技術）で層別化し、過去の精度/失敗率/ブロック率で重みを学習"
+- §3.1.4: "ヘルスの永続化: SQLiteの`engine_health`テーブルにEMA（1h/24h）を保持し、重み・QPS・探索枠を自動調整"
+- §4.6: "ポリシー自動更新（高頻度クローズドループ制御）: イベント駆動: 各リクエスト/クエリ完了時に即時フィードバック（成功/失敗/ブロック種別/レイテンシをEMAに反映）"
+
+**実装方針**:
+- `PolicyEngine`（§4.6で実装済み）を拡張してエンジン重みの動的調整を実装
+- `engine_health`テーブルのEMAメトリクス（`success_rate_1h`, `success_rate_24h`, `captcha_rate`, `median_latency`）を基に重みを計算
+- カテゴリ別・エンジン別の重みを個別に管理
+
+**実装箇所**:
+- `src/utils/policy_engine.py` - `PolicyEngine`にエンジン重み調整メソッドを追加
+- `src/search/engine_config.py` - `SearchEngineConfigManager`に動的重み取得メソッドを追加
+- `src/search/browser_search_provider.py` - 動的重みを使用するように修正
+
+**修正案**:
+
+```python
+# src/utils/policy_engine.py（拡張）
+class PolicyEngine:
+    # ... 既存のコード ...
+    
+    def calculate_dynamic_weight(
+        self,
+        engine: str,
+        category: str,
+        success_rate_1h: float,
+        success_rate_24h: float,
+        captcha_rate: float,
+        median_latency_ms: float,
+        base_weight: float,
+    ) -> float:
+        """Calculate dynamic weight based on engine health metrics.
+        
+        Args:
+            engine: Engine name
+            category: Query category
+            success_rate_1h: 1-hour EMA success rate
+            success_rate_24h: 24-hour EMA success rate
+            captcha_rate: CAPTCHA rate
+            median_latency_ms: Median latency in milliseconds
+            base_weight: Base weight from config
+            
+        Returns:
+            Adjusted weight (0.0 to 1.0)
+        """
+        # 重み調整係数の計算
+        # 1. 成功率による調整（短期と長期の加重平均）
+        success_factor = (0.6 * success_rate_1h + 0.4 * success_rate_24h)
+        
+        # 2. CAPTCHA率によるペナルティ
+        captcha_penalty = 1.0 - (captcha_rate * 0.5)  # CAPTCHA率が高いほど重みを下げる
+        
+        # 3. レイテンシによる調整（低レイテンシほど高重み）
+        latency_factor = 1.0 / (1.0 + median_latency_ms / 1000.0)  # 1秒を基準
+        
+        # 4. 合成
+        adjusted_weight = base_weight * success_factor * captcha_penalty * latency_factor
+        
+        # 5. 範囲制限（0.1から1.0の範囲）
+        adjusted_weight = max(0.1, min(1.0, adjusted_weight))
+        
+        return adjusted_weight
+    
+    def update_engine_weight(
+        self,
+        engine: str,
+        category: str,
+        health_metrics: dict[str, float],
+    ) -> float:
+        """Update engine weight based on health metrics.
+        
+        Args:
+            engine: Engine name
+            category: Query category
+            health_metrics: Dictionary with success_rate_1h, success_rate_24h, etc.
+            
+        Returns:
+            Updated weight
+        """
+        from src.search.engine_config import get_engine_config_manager
+        
+        config_manager = get_engine_config_manager()
+        engine_config = config_manager.get_engine(engine)
+        
+        if not engine_config:
+            return 1.0  # デフォルト重み
+        
+        base_weight = engine_config.weight
+        
+        # 動的重みを計算
+        dynamic_weight = self.calculate_dynamic_weight(
+            engine=engine,
+            category=category,
+            success_rate_1h=health_metrics.get("success_rate_1h", 1.0),
+            success_rate_24h=health_metrics.get("success_rate_24h", 1.0),
+            captcha_rate=health_metrics.get("captcha_rate", 0.0),
+            median_latency_ms=health_metrics.get("median_latency_ms", 1000.0),
+            base_weight=base_weight,
+        )
+        
+        # カテゴリ別重みを保存（DBまたはメモリキャッシュ）
+        # TODO: カテゴリ別重みの永続化
+        
+        return dynamic_weight
+```
+
+**使用例**:
+
+```python
+# src/search/browser_search_provider.py
+from src.utils.policy_engine import get_policy_engine
+from src.storage.database import get_database
+
+policy_engine = get_policy_engine()
+db = get_database()
+
+# エンジン選択時に動的重みを取得
+for engine_name in candidate_engines:
+    if await check_engine_available(engine_name):
+        engine_config = config_manager.get_engine(engine_name)
+        
+        # エンジンヘルスメトリクスを取得
+        health_metrics = await db.get_engine_health_metrics(engine_name)
+        
+        # 動的重みを計算
+        dynamic_weight = policy_engine.update_engine_weight(
+            engine=engine_name,
+            category=category,
+            health_metrics=health_metrics,
+        )
+        
+        available_engines.append((engine_name, dynamic_weight))
+```
+
+**実装ステップ**:
+1. `PolicyEngine`に`calculate_dynamic_weight()`と`update_engine_weight()`メソッドを追加
+2. `engine_health`テーブルからEMAメトリクスを取得する処理を実装
+3. カテゴリ別重みの永続化（DBまたはメモリキャッシュ）を実装
+4. `BrowserSearchProvider.search()`で動的重みを使用するように修正
+5. 重み更新の周期補完（60秒周期、§4.6準拠）を実装
+6. 重みのヒステリシス（5分未満は反転させない、§4.6準拠）を実装
+
+**注意点**:
+- 重みの更新は§4.6「ポリシー自動更新」の周期補完（60秒）に合わせる
+- 重みの反転防止（ヒステリシス）を実装し、振動を防止
+- カテゴリ別の重みを個別に管理（カテゴリごとに異なる重みを適用）
+
 ---
 
 ## 問題9: BrowserSearchProviderでエンジン別QPS制限が未実装
@@ -932,6 +1093,8 @@ async def search(self, query: str, options: SearchOptions | None = None) -> Sear
 - ラストマイルエンジンの使用回数・時間帯制御の実装
 - 厳格なQPS制御（例: Google=0.05, Brave=0.1）
 
+**関連Issue**: 問題8（エンジン選択ロジック）で基本的なエンジン選択は実装済み。本問題では回収率判定とラストマイルエンジンの使用ロジックを追加する。
+
 ---
 
 ## 問題14: プロファイル健全性監査の自動実行が未実装 ✅ 実装完了
@@ -995,6 +1158,166 @@ async def _ensure_browser(self, headful: bool = False, task_id: str | None = Non
 ---
 
 ## 問題15: ヒューマンライク操作の完全な適用が未実装 ✅ 実装完了
+
+---
+
+## 問題16: エンジン正規化レイヤが未実装
+
+### 影響範囲
+
+**影響箇所**:
+- `src/search/browser_search_provider.py` - `BrowserSearchProvider.search()`でのクエリ正規化
+- `src/search/search_api.py` - `search_serp()`でのクエリ正規化
+- 新規モジュール: `src/search/query_normalizer.py`（新規作成）
+
+### 現状の実装
+
+```python
+# src/search/browser_search_provider.py
+# クエリをそのまま使用（エンジン別の正規化なし）
+search_url = parser.build_search_url(query)
+```
+
+```yaml
+# config/engines.yaml
+operator_mapping:
+  site:
+    default: "site:{domain}"
+    google: "site:{domain}"
+    bing: "site:{domain}"
+    # ... 定義はあるが使用されていない
+```
+
+### 問題点
+
+1. **エンジン別の演算子対応差が吸収されていない**: 各エンジンで演算子（`site:`, `filetype:`, `intitle:`等）の構文が異なるが、統一的な正規化処理がない
+2. **期間指定の対応差が吸収されていない**: `after:`や`before:`などの期間指定がエンジンによって異なるが、正規化処理がない
+3. **フレーズ検索の対応差が吸収されていない**: 引用符（`"..."`）の扱いがエンジンによって異なるが、正規化処理がない
+4. **設定ファイルの`operator_mapping`が未使用**: `config/engines.yaml`に定義されているが、実際のコードで使用されていない
+
+### 仕様書の要件
+
+- §3.1.1: "エンジン正規化レイヤ: フレーズ/演算子/期間指定等の対応差を吸収するクエリ正規化を実装（エンジン別に最適化）"
+- §3.1.4: "エンジン正規化: クエリ正規化: 演算子・期間指定・引用・`site:` のエンジン差を吸収するマッピングテーブルを適用"
+
+### 修正提案
+
+**方針**: エンジン別のクエリ正規化モジュールを実装し、`config/engines.yaml`の`operator_mapping`を活用する
+
+**実装箇所**:
+- 新規: `src/search/query_normalizer.py` - クエリ正規化モジュール
+- `src/search/browser_search_provider.py` - `search()`メソッドで正規化を適用
+- `src/search/search_api.py` - `search_serp()`で正規化を適用
+
+**修正案**:
+
+```python
+# src/search/query_normalizer.py（新規作成）
+from typing import Optional
+from src.search.engine_config import get_engine_config_manager
+
+class QueryNormalizer:
+    """Normalize search queries for different engines."""
+    
+    def __init__(self):
+        self.config_manager = get_engine_config_manager()
+    
+    def normalize(self, query: str, engine: str) -> str:
+        """Normalize query for specific engine.
+        
+        Args:
+            query: Original query string
+            engine: Target engine name
+            
+        Returns:
+            Normalized query string
+        """
+        config = self.config_manager.get_config()
+        mapping = config.operator_mapping
+        
+        # 演算子の正規化
+        normalized = query
+        
+        # site:演算子の正規化
+        if "site:" in normalized:
+            site_pattern = r'site:(\S+)'
+            matches = re.findall(site_pattern, normalized)
+            for domain in matches:
+                engine_syntax = mapping.get("site", {}).get(engine, mapping.get("site", {}).get("default", f"site:{domain}"))
+                normalized = normalized.replace(f"site:{domain}", engine_syntax.format(domain=domain))
+        
+        # filetype:演算子の正規化
+        if "filetype:" in normalized:
+            filetype_pattern = r'filetype:(\S+)'
+            matches = re.findall(filetype_pattern, normalized)
+            for filetype in matches:
+                engine_syntax = mapping.get("filetype", {}).get(engine, mapping.get("filetype", {}).get("default", f"filetype:{filetype}"))
+                normalized = normalized.replace(f"filetype:{filetype}", engine_syntax.format(type=filetype))
+        
+        # intitle:演算子の正規化（対応エンジンのみ）
+        if "intitle:" in normalized:
+            intitle_pattern = r'intitle:(\S+)'
+            matches = re.findall(intitle_pattern, normalized)
+            for text in matches:
+                if engine in mapping.get("intitle", {}):
+                    engine_syntax = mapping.get("intitle", {}).get(engine)
+                    normalized = normalized.replace(f"intitle:{text}", engine_syntax.format(text=text))
+                else:
+                    # 対応していないエンジンでは削除または警告
+                    logger.warning(f"Engine {engine} does not support intitle: operator")
+                    normalized = normalized.replace(f"intitle:{text}", text)
+        
+        # 期間指定の正規化（after:, before:）
+        if "after:" in normalized:
+            after_pattern = r'after:(\S+)'
+            matches = re.findall(after_pattern, normalized)
+            for date in matches:
+                if engine in mapping.get("date_after", {}):
+                    engine_syntax = mapping.get("date_after", {}).get(engine)
+                    if engine_syntax:
+                        normalized = normalized.replace(f"after:{date}", engine_syntax.format(date=date))
+                else:
+                    # 対応していないエンジンでは削除または警告
+                    logger.warning(f"Engine {engine} does not support after: operator")
+                    normalized = normalized.replace(f"after:{date}", "")
+        
+        # 引用符の正規化（フレーズ検索）
+        if '"' in normalized:
+            # エンジンによって引用符の扱いが異なる場合の正規化
+            # 現状はそのまま使用（エンジンが対応していると仮定）
+            pass
+        
+        return normalized
+```
+
+**使用例**:
+
+```python
+# src/search/browser_search_provider.py
+from src.search.query_normalizer import QueryNormalizer
+
+normalizer = QueryNormalizer()
+
+# エンジン選択後、クエリを正規化
+normalized_query = normalizer.normalize(query, engine)
+search_url = parser.build_search_url(normalized_query)
+```
+
+**注意点**:
+- `config/engines.yaml`の`operator_mapping`を活用
+- エンジンが対応していない演算子は削除または警告ログを出力
+- 正規化失敗率が閾値超過の場合はエンジンを自動降格（§3.1.4準拠）
+- 非互換検知: 正規化失敗率が閾値超過で当該エンジンを自動降格（重み低下）しログを残す
+
+**実装ステップ**:
+1. `src/search/query_normalizer.py`を作成
+2. `config/engines.yaml`の`operator_mapping`を読み込む処理を実装
+3. 各演算子の正規化ロジックを実装
+4. `BrowserSearchProvider.search()`で正規化を適用
+5. `search_api.search_serp()`で正規化を適用
+6. 正規化失敗率の監視とエンジン降格ロジックを実装
+
+---
 
 **実装完了日**: 2025-12-11  
 **実装ファイル**: `src/crawler/fetcher.py:1360-1382`, `src/search/browser_search_provider.py:385-410`  
@@ -1071,10 +1394,11 @@ if simulate_human:
 3. ~~問題12（セッション転送の適用）~~ ✅ 完了
 4. ~~問題14（プロファイル健全性監査の自動実行）~~ ✅ 完了
 5. ~~問題15（ヒューマンライク操作の完全な適用）~~ ✅ 完了
-6. 問題8（エンジン選択ロジック）
+6. 問題8（エンジン選択ロジック）- 基本機能は実装済み、動的重み学習は未実装
 7. 問題13（ラストマイルスロット判定）
 8. 問題9（エンジン別QPS制限）
-9. 問題10（Tor日次利用上限）
-10. 問題11（時間帯・日次予算上限）
-11. 問題4, 6, 7（要確認事項の確認）
+9. 問題16（エンジン正規化レイヤ）
+10. 問題10（Tor日次利用上限）
+11. 問題11（時間帯・日次予算上限）
+12. 問題4, 6, 7（要確認事項の確認）
 

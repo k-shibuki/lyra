@@ -52,7 +52,7 @@ start_dev_shell() {
         env_opts="--env-file ${PROJECT_DIR}/.env"
     else
         log_warn ".env not found, using default environment variables"
-        # Fallback defaults for container networking
+        # Fallback defaults for proxy server (internal services)
         env_opts="-e LANCET_TOR__SOCKS_HOST=tor -e LANCET_TOR__SOCKS_PORT=9050 -e LANCET_LLM__OLLAMA_HOST=http://ollama:11434"
     fi
     
@@ -142,7 +142,7 @@ cleanup_environment() {
 # =============================================================================
 
 cmd_up() {
-    # Check for .env file (required for container networking)
+    # Check for .env file (required for proxy server configuration)
     if [ ! -f "${PROJECT_DIR}/.env" ]; then
         log_error ".env file not found"
         echo "Copy from template: cp .env.example .env"

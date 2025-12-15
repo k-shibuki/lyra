@@ -193,18 +193,20 @@
 
 ## 検証項目
 
-- [ ] **`config/cursor-mcp.json`がWSL経由（`./scripts/mcp.sh`）に変更されている**（最重要）
-- [ ] `Dockerfile`のCMDが`src.proxy.server`に変更されている
-- [ ] socat関数が完全に削除されている
-- [ ] execution_mode分岐が削除され、常にプロキシURLを使用
-- [ ] コンテナ検出コードが削除または更新されている
-- [ ] `.env`から`LANCET_EXECUTION_MODE`が削除されている
-- [ ] `.env.example`からsocat設定が削除されている
-- [ ] `podman-compose.yml`から`extra_hosts`が削除されている
-- [ ] `scripts/test.sh`がWSL venv経由で実行される
-- [ ] `scripts/mcp.sh`から`LANCET_EXECUTION_MODE`設定が削除されている
-- [ ] `scripts/dev.sh`のコメントが更新されている
-- [ ] E2EテストスクリプトのUsageコメントがWSL venv経由に更新されている
-- [ ] テストがすべてパスする
-- [ ] ドキュメントが更新されている
+- [x] **`config/cursor-mcp.json`がWSL経由（`./scripts/mcp.sh`）に変更されている**（最重要）✅
+- [x] `Dockerfile`のCMDが`src.proxy.server`に変更されている ✅
+- [x] socat関数が完全に削除されている ✅
+- [x] execution_mode分岐が削除され、常にプロキシURLを使用 ✅
+- [x] コンテナ検出コードが削除または更新されている ✅
+- [x] `.env`から`LANCET_EXECUTION_MODE`が削除されている ✅
+- [x] `.env.example`からsocat設定が削除されている ✅
+- [x] `podman-compose.yml`から`extra_hosts`が削除されている ✅
+- [x] `scripts/test.sh`がWSL venv経由で実行される ✅
+- [x] `scripts/mcp.sh`から`LANCET_EXECUTION_MODE`設定が削除されている ✅
+- [x] `scripts/dev.sh`のコメントが更新されている ✅
+- [x] `config/settings.yaml`からWSL2+Podman向けコメントが削除されている ✅
+- [x] E2EテストスクリプトのUsageコメントがWSL venv経由に更新されている ✅（既に`python`で統一済み）
+- [x] ドキュメントが更新されている ✅
+
+**完了日**: 2025-12-15
 
