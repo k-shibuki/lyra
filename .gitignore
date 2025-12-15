@@ -103,3 +103,6 @@ debug.log
 
 # Debug HTML files (parser diagnostics)
 debug/search_html/
+
+# Private documentation (not for public repository)
+docs/private/
