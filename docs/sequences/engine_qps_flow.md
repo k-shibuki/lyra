@@ -61,7 +61,9 @@ sequenceDiagram
 
 ---
 
-## デバッグ後のシーケンス図（実装予定版）
+## デバッグ後のシーケンス図（実装完了版）
+
+**実装状況**: ✅ 実装完了
 
 ```mermaid
 sequenceDiagram
