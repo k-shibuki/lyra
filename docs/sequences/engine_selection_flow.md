@@ -161,3 +161,9 @@ sequenceDiagram
   - `test_engine_health_recording()`: エンジンヘルス記録テスト
   - `test_no_available_engines()`: エラーハンドリングテスト
 - ✅ `tests/scripts/debug_engine_selection_flow.py`で動作確認（依存関係インストール後に実行予定）
+
+---
+
+## 関連ドキュメント
+
+- **動的重み学習**: `docs/sequences/dynamic_weight_flow.md` - PolicyEngineとengine_healthテーブルを連動させた動的重み調整の詳細

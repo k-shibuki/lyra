@@ -2834,3 +2834,358 @@ class TestQueryNormalization:
         
         await provider.close()
 
+
+# =============================================================================
+# Dynamic Weight Tests
+# =============================================================================
+
+
+class TestDynamicWeightUsage:
+    """Tests for dynamic weight usage in BrowserSearchProvider.
+    
+    Per §3.1.1, §3.1.4, §4.6: Dynamic weight adjustment based on
+    past accuracy/failure/block rates.
+    
+    ## Test Perspectives Table
+    
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-DWU-N-01 | Search with available engines | Equivalence - normal | Uses dynamic weight | Normal flow |
+    | TC-DWU-N-02 | Policy engine returns weight | Equivalence - normal | Weight is used for selection | Verify call |
+    | TC-DWU-A-01 | Policy engine fails | Abnormal - error | Falls back gracefully | Error handling |
+    """
+    
+    @pytest.mark.asyncio
+    async def test_search_calls_policy_engine_for_dynamic_weight(self):
+        """TC-DWU-N-01: Search uses PolicyEngine for dynamic weights.
+        
+        Given: BrowserSearchProvider with available engines
+        When: search() is called
+        Then: PolicyEngine.get_dynamic_engine_weight() is called for each engine
+        """
+        provider = BrowserSearchProvider()
+        
+        with patch(
+            "playwright.async_api.async_playwright"
+        ) as mock_async_pw:
+            mock_pw = MagicMock()
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_pw)
+            mock_browser = MagicMock()
+            mock_pw.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+            mock_browser.contexts = []
+            
+            mock_context = MagicMock()
+            mock_browser.new_context = AsyncMock(return_value=mock_context)
+            mock_context.route = AsyncMock()
+            mock_context.cookies = AsyncMock(return_value=[])
+            
+            with patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ), patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager, patch(
+                "src.search.browser_search_provider.get_policy_engine"
+            ) as mock_get_policy_engine:
+                # Setup engine config mock
+                mock_config_manager = MagicMock()
+                mock_engine_config = MagicMock()
+                mock_engine_config.name = "duckduckgo"
+                mock_engine_config.weight = 0.7
+                mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                mock_config_manager.get_engine.return_value = mock_engine_config
+                mock_get_config_manager.return_value = mock_config_manager
+                
+                # Setup policy engine mock
+                mock_policy_engine = AsyncMock()
+                mock_policy_engine.get_dynamic_engine_weight = AsyncMock(return_value=0.65)
+                mock_get_policy_engine.return_value = mock_policy_engine
+                
+                with patch(
+                    "src.search.browser_search_provider.get_parser"
+                ) as mock_get_parser:
+                    mock_parser = MagicMock()
+                    mock_parser.build_search_url = MagicMock(
+                        return_value="https://duckduckgo.com/?q=test"
+                    )
+                    mock_parse_result = ParseResult(
+                        ok=True,
+                        is_captcha=False,
+                        results=[ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )],
+                    )
+                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                    mock_get_parser.return_value = mock_parser
+                    
+                    with patch(
+                        "src.search.browser_search_provider.record_engine_result",
+                        AsyncMock(),
+                    ), patch(
+                        "src.search.browser_search_provider.transform_query_for_engine",
+                        return_value="test query",
+                    ):
+                        mock_page = AsyncMock()
+                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+                        mock_page.wait_for_load_state = AsyncMock()
+                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+                        mock_page.query_selector_all = AsyncMock(return_value=[])
+                        mock_page.is_closed = MagicMock(return_value=False)
+                        
+                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
+                            with patch.object(provider, "_save_session", AsyncMock()):
+                                with patch.object(provider, "_rate_limit", AsyncMock()):
+                                    with patch.object(provider, "_human_behavior"):
+                                        provider._human_behavior.simulate_reading = AsyncMock()
+                                        provider._human_behavior.move_mouse_to_element = AsyncMock()
+                                        
+                                        # When: search() is called
+                                        response = await provider.search("test query")
+                                        
+                                        # Then: get_dynamic_engine_weight was called
+                                        mock_policy_engine.get_dynamic_engine_weight.assert_called()
+                                        
+                                        # Verify engine and category were passed
+                                        call_args = mock_policy_engine.get_dynamic_engine_weight.call_args
+                                        assert call_args[0][0] == "duckduckgo"  # engine
+                                        
+                                        assert response.ok is True
+        
+        await provider.close()
+    
+    @pytest.mark.asyncio
+    async def test_search_uses_dynamic_weight_for_engine_selection(self):
+        """TC-DWU-N-02: Search uses dynamic weight for engine selection.
+        
+        Given: Multiple engines with different dynamic weights
+        When: search() is called
+        Then: Engine with highest dynamic weight is selected
+        """
+        provider = BrowserSearchProvider()
+        
+        with patch(
+            "playwright.async_api.async_playwright"
+        ) as mock_async_pw:
+            mock_pw = MagicMock()
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_pw)
+            mock_browser = MagicMock()
+            mock_pw.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+            mock_browser.contexts = []
+            
+            mock_context = MagicMock()
+            mock_browser.new_context = AsyncMock(return_value=mock_context)
+            mock_context.route = AsyncMock()
+            mock_context.cookies = AsyncMock(return_value=[])
+            
+            with patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ), patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager, patch(
+                "src.search.browser_search_provider.get_policy_engine"
+            ) as mock_get_policy_engine:
+                # Setup multiple engine configs
+                mock_config_manager = MagicMock()
+                
+                mock_engine1 = MagicMock()
+                mock_engine1.name = "duckduckgo"
+                mock_engine1.weight = 0.7
+                mock_engine1.is_available = True
+                mock_engine1.min_interval = 5.0
+                
+                mock_engine2 = MagicMock()
+                mock_engine2.name = "mojeek"
+                mock_engine2.weight = 0.85
+                mock_engine2.is_available = True
+                mock_engine2.min_interval = 4.0
+                
+                mock_config_manager.get_engines_for_category.return_value = [
+                    mock_engine1, mock_engine2
+                ]
+                
+                def get_engine_side_effect(name):
+                    if name == "duckduckgo":
+                        return mock_engine1
+                    elif name == "mojeek":
+                        return mock_engine2
+                    return None
+                
+                mock_config_manager.get_engine.side_effect = get_engine_side_effect
+                mock_get_config_manager.return_value = mock_config_manager
+                
+                # Setup policy engine to return different dynamic weights
+                mock_policy_engine = AsyncMock()
+                
+                # duckduckgo has higher dynamic weight (0.8) than mojeek (0.6)
+                # even though mojeek has higher base weight
+                async def get_dynamic_weight_side_effect(engine, category):
+                    if engine == "duckduckgo":
+                        return 0.8  # Higher due to better health metrics
+                    elif engine == "mojeek":
+                        return 0.6  # Lower due to worse health metrics
+                    return 1.0
+                
+                mock_policy_engine.get_dynamic_engine_weight = AsyncMock(
+                    side_effect=get_dynamic_weight_side_effect
+                )
+                mock_get_policy_engine.return_value = mock_policy_engine
+                
+                with patch(
+                    "src.search.browser_search_provider.get_parser"
+                ) as mock_get_parser:
+                    mock_parser = MagicMock()
+                    mock_parser.build_search_url = MagicMock(
+                        return_value="https://duckduckgo.com/?q=test"
+                    )
+                    mock_parse_result = ParseResult(
+                        ok=True,
+                        is_captcha=False,
+                        results=[ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )],
+                    )
+                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                    mock_get_parser.return_value = mock_parser
+                    
+                    with patch(
+                        "src.search.browser_search_provider.record_engine_result",
+                        AsyncMock(),
+                    ), patch(
+                        "src.search.browser_search_provider.transform_query_for_engine",
+                        return_value="test query",
+                    ):
+                        mock_page = AsyncMock()
+                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+                        mock_page.wait_for_load_state = AsyncMock()
+                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+                        mock_page.query_selector_all = AsyncMock(return_value=[])
+                        mock_page.is_closed = MagicMock(return_value=False)
+                        
+                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
+                            with patch.object(provider, "_save_session", AsyncMock()):
+                                with patch.object(provider, "_rate_limit", AsyncMock()):
+                                    with patch.object(provider, "_human_behavior"):
+                                        provider._human_behavior.simulate_reading = AsyncMock()
+                                        provider._human_behavior.move_mouse_to_element = AsyncMock()
+                                        
+                                        # When: search() is called
+                                        response = await provider.search("test query")
+                                        
+                                        # Then: duckduckgo should be selected (higher dynamic weight)
+                                        # Verify by checking which parser was requested
+                                        mock_get_parser.assert_called_with("duckduckgo")
+                                        
+                                        assert response.ok is True
+        
+        await provider.close()
+    
+    @pytest.mark.asyncio
+    async def test_search_falls_back_on_policy_engine_error(self):
+        """TC-DWU-A-01: Search falls back gracefully on PolicyEngine error.
+        
+        Given: PolicyEngine.get_dynamic_engine_weight() raises exception
+        When: search() is called
+        Then: Search continues (doesn't crash), using fallback behavior
+        """
+        provider = BrowserSearchProvider()
+        
+        with patch(
+            "playwright.async_api.async_playwright"
+        ) as mock_async_pw:
+            mock_pw = MagicMock()
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_pw)
+            mock_browser = MagicMock()
+            mock_pw.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+            mock_browser.contexts = []
+            
+            mock_context = MagicMock()
+            mock_browser.new_context = AsyncMock(return_value=mock_context)
+            mock_context.route = AsyncMock()
+            mock_context.cookies = AsyncMock(return_value=[])
+            
+            with patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ), patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager, patch(
+                "src.search.browser_search_provider.get_policy_engine"
+            ) as mock_get_policy_engine:
+                # Setup engine config mock
+                mock_config_manager = MagicMock()
+                mock_engine_config = MagicMock()
+                mock_engine_config.name = "duckduckgo"
+                mock_engine_config.weight = 0.7
+                mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                mock_config_manager.get_engine.return_value = mock_engine_config
+                mock_get_config_manager.return_value = mock_config_manager
+                
+                # Setup policy engine to raise exception
+                mock_policy_engine = AsyncMock()
+                mock_policy_engine.get_dynamic_engine_weight = AsyncMock(
+                    side_effect=Exception("Database connection error")
+                )
+                mock_get_policy_engine.return_value = mock_policy_engine
+                
+                with patch(
+                    "src.search.browser_search_provider.get_parser"
+                ) as mock_get_parser:
+                    mock_parser = MagicMock()
+                    mock_parser.build_search_url = MagicMock(
+                        return_value="https://duckduckgo.com/?q=test"
+                    )
+                    mock_parse_result = ParseResult(
+                        ok=True,
+                        is_captcha=False,
+                        results=[ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )],
+                    )
+                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                    mock_get_parser.return_value = mock_parser
+                    
+                    with patch(
+                        "src.search.browser_search_provider.record_engine_result",
+                        AsyncMock(),
+                    ), patch(
+                        "src.search.browser_search_provider.transform_query_for_engine",
+                        return_value="test query",
+                    ):
+                        mock_page = AsyncMock()
+                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+                        mock_page.wait_for_load_state = AsyncMock()
+                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+                        mock_page.query_selector_all = AsyncMock(return_value=[])
+                        mock_page.is_closed = MagicMock(return_value=False)
+                        
+                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
+                            with patch.object(provider, "_save_session", AsyncMock()):
+                                with patch.object(provider, "_rate_limit", AsyncMock()):
+                                    with patch.object(provider, "_human_behavior"):
+                                        provider._human_behavior.simulate_reading = AsyncMock()
+                                        provider._human_behavior.move_mouse_to_element = AsyncMock()
+                                        
+                                        # When: search() is called (PolicyEngine will throw)
+                                        # Then: No available engines due to error
+                                        response = await provider.search("test query")
+                                        
+                                        # Response should indicate no engines available
+                                        # (the error during weight calculation removes the engine)
+                                        assert response.error is not None or response.ok is False
+        
+        await provider.close()
+
