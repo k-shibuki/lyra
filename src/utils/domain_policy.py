@@ -99,6 +99,9 @@ class DefaultPolicySchema(BaseModel):
     cooldown_minutes: int = Field(default=60, ge=1, le=1440, description="Cooldown after failure (min)")
     max_retries: int = Field(default=3, ge=0, le=10, description="Max retry attempts")
     trust_level: TrustLevel = Field(default=TrustLevel.UNVERIFIED, description="Trust level")
+    # Daily budget limits (§4.3 - IP block prevention)
+    max_requests_per_day: int = Field(default=200, ge=0, description="Max requests per day (0=unlimited)")
+    max_pages_per_day: int = Field(default=100, ge=0, description="Max pages per day (0=unlimited)")
 
 
 class AllowlistEntrySchema(BaseModel):
@@ -113,6 +116,9 @@ class AllowlistEntrySchema(BaseModel):
     concurrent: int | None = Field(default=None, ge=1, le=10)
     cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
     max_retries: int | None = Field(default=None, ge=0, le=10)
+    # Daily budget limits (§4.3 - IP block prevention)
+    max_requests_per_day: int | None = Field(default=None, ge=0, description="Max requests per day (0=unlimited)")
+    max_pages_per_day: int | None = Field(default=None, ge=0, description="Max pages per day (0=unlimited)")
     
     @field_validator("domain")
     @classmethod
@@ -301,6 +307,10 @@ class DomainPolicy:
     headful_required: bool = False
     tor_blocked: bool = False
     
+    # Daily budget limits (§4.3 - IP block prevention)
+    max_requests_per_day: int = 200
+    max_pages_per_day: int = 100
+    
     # Learning state (populated from DB)
     block_score: float = 0.0
     captcha_rate: float = 0.0
@@ -346,6 +356,8 @@ class DomainPolicy:
             "skip_reason": self.skip_reason,
             "headful_required": self.headful_required,
             "tor_blocked": self.tor_blocked,
+            "max_requests_per_day": self.max_requests_per_day,
+            "max_pages_per_day": self.max_pages_per_day,
             "block_score": self.block_score,
             "captcha_rate": self.captcha_rate,
             "success_rate_1h": self.success_rate_1h,
@@ -639,6 +651,8 @@ class DomainPolicyManager:
             cooldown_minutes=default.cooldown_minutes,
             max_retries=default.max_retries,
             trust_level=default.trust_level,
+            max_requests_per_day=default.max_requests_per_day,
+            max_pages_per_day=default.max_pages_per_day,
             source="default",
         )
         
@@ -678,7 +692,12 @@ class DomainPolicyManager:
                     policy.cooldown_minutes = entry.cooldown_minutes
                 if entry.max_retries is not None:
                     policy.max_retries = entry.max_retries
-                
+                # Daily budget limits (§4.3 - IP block prevention)
+                if entry.max_requests_per_day is not None:
+                    policy.max_requests_per_day = entry.max_requests_per_day
+                if entry.max_pages_per_day is not None:
+                    policy.max_pages_per_day = entry.max_pages_per_day
+
                 policy.trust_level = entry.trust_level
                 policy.internal_search = entry.internal_search
                 policy.source = "allowlist"

@@ -693,135 +693,49 @@ if not result.ok and result.status in (403, 429) and not use_tor:
 
 ---
 
-## 問題11: 時間帯・日次の予算上限が未実装
+## 問題11: 時間帯・日次の予算上限が未実装 ✅ 実装完了
 
-### 影響範囲
+**実装完了日**: 2025-12-15  
+**実装ファイル**: 
+- `src/utils/schemas.py`: `DomainDailyBudget`, `DomainBudgetCheckResult` Pydanticモデル追加
+- `src/scheduler/domain_budget.py`: `DomainDailyBudgetManager` クラス新規作成
+- `src/utils/domain_policy.py`: `max_requests_per_day`, `max_pages_per_day` フィールド追加
+- `config/domains.yaml`: 日次予算設定追加
+- `src/crawler/fetcher.py`: `fetch_url()` に日次予算チェック統合
 
-**影響箇所**:
-- `src/scheduler/budget.py` - `TaskBudget`クラス
-- `src/crawler/fetcher.py` - `fetch_url()`での予算チェック
+**検証スクリプト**: `tests/scripts/debug_domain_daily_budget_flow.py`  
+**シーケンス図**: `docs/sequences/domain_daily_budget_flow.md`
 
-### 現状の実装
+### 実装内容
 
-```python
-# src/scheduler/budget.py:30-149
-@dataclass
-class TaskBudget:
-    """Budget tracker for a single task."""
-    task_id: str
-    pages_fetched: int = 0
-    max_pages: int = 120
-    # 時間帯・日次の予算上限がない
+#### ドメイン別日次予算上限（IPアドレスブロック防止）
+
+| 設定 | デフォルト | 説明 |
+|-----|----------|-----|
+| `max_requests_per_day` | 200 | ドメインごとの日次リクエスト上限 |
+| `max_pages_per_day` | 100 | ドメインごとの日次ページ上限 |
+
+#### 主要機能
+
+1. **日次予算チェック**: `fetch_url()` でリクエスト前に予算チェック
+2. **自動日付リセット**: 日付変更時にカウンターを自動リセット
+3. **ドメイン別設定**: `config/domains.yaml` でドメイン別の上限オーバーライド可能
+4. **フェイルオープン**: 予算チェックエラー時はリクエストを許可
+
+#### 仕様書の要件との対応
+
+- §4.3: "時間帯・日次の予算上限を設定" → **日次予算を実装**
+- §4.3: "期間・時間帯のスロット化（夜間/休日は保守的）" → **スコープ外**（ユーザー指示: 夜間/休日の概念は不要、IPブロック防止が目的）
+
+### テスト実行
+
+```bash
+# ユニットテスト
+pytest tests/test_domain_budget.py -v
+
+# デバッグスクリプト
+python tests/scripts/debug_domain_daily_budget_flow.py
 ```
-
-### 問題点
-
-1. **時間帯別予算上限がない**: 仕様では「時間帯・日次の予算上限を設定」とあるが、実装されていない
-2. **日次予算上限がない**: ドメイン別の日次予算上限が実装されていない
-3. **夜間/休日の保守的運用がない**: 「期間・時間帯のスロット化（夜間/休日は保守的）」が実装されていない
-
-### 仕様書の要件
-
-- §4.3: "ドメイン同時実行数=1、リクエスト間隔U(1.5,5.5)s、時間帯・日次の予算上限を設定"
-- §4.3: "期間・時間帯のスロット化（夜間/休日は保守的）とジッターを導入"
-
-### 修正提案
-
-**方針**: 時間帯別・日次の予算上限を実装し、夜間/休日は保守的な運用を行う
-
-**実装箇所**:
-- `src/scheduler/budget.py` - `TaskBudget`クラス
-- `src/utils/domain_policy.py` - `DomainPolicy`クラス
-
-**修正案**:
-```python
-@dataclass
-class TimeSlotBudget:
-    """Time slot-based budget limits."""
-    hour_start: int  # 0-23
-    hour_end: int  # 0-23
-    max_pages_per_hour: int
-    max_requests_per_hour: int
-    conservative_mode: bool = False  # 夜間/休日はTrue
-
-@dataclass
-class DomainDailyBudget:
-    """Daily budget limits per domain."""
-    domain: str
-    max_pages_per_day: int
-    max_requests_per_day: int
-    pages_used_today: int = 0
-    requests_used_today: int = 0
-    last_reset_date: str = ""  # YYYY-MM-DD
-
-async def check_time_slot_budget(domain: str) -> bool:
-    """Check if domain can make requests in current time slot.
-    
-    Per §4.3: Time slot-based budget limits with conservative mode.
-    
-    Args:
-        domain: Domain name.
-        
-    Returns:
-        True if request can be made.
-    """
-    from datetime import datetime
-    
-    now = datetime.now()
-    hour = now.hour
-    is_weekend = now.weekday() >= 5
-    
-    # Get time slot budget for domain
-    slot_budget = get_time_slot_budget(domain, hour, is_weekend)
-    
-    # Check hourly limits
-    hourly_requests = get_hourly_request_count(domain, hour)
-    if hourly_requests >= slot_budget.max_requests_per_hour:
-        return False
-    
-    # Conservative mode: reduce limits
-    if slot_budget.conservative_mode:
-        # Further reduce limits (e.g., 50% of normal)
-        if hourly_requests >= slot_budget.max_requests_per_hour * 0.5:
-            return False
-    
-    return True
-
-async def check_daily_budget(domain: str) -> bool:
-    """Check if domain can make requests within daily budget.
-    
-    Per §4.3: Daily budget limits per domain.
-    
-    Args:
-        domain: Domain name.
-        
-    Returns:
-        True if request can be made.
-    """
-    from datetime import datetime, date
-    
-    today = date.today().isoformat()
-    daily_budget = get_domain_daily_budget(domain)
-    
-    # Reset if new day
-    if daily_budget.last_reset_date != today:
-        daily_budget.pages_used_today = 0
-        daily_budget.requests_used_today = 0
-        daily_budget.last_reset_date = today
-    
-    # Check daily limits
-    if daily_budget.pages_used_today >= daily_budget.max_pages_per_day:
-        return False
-    if daily_budget.requests_used_today >= daily_budget.max_requests_per_day:
-        return False
-    
-    return True
-```
-
-**注意点**:
-- 時間帯別予算の設定を`config/domains.yaml`に追加
-- 日次予算のリセット処理（日付変更時）
-- 保守的モードの判定（夜間/休日）
 
 ---
 
@@ -1319,6 +1233,6 @@ if simulate_human:
 8. ~~問題9（エンジン別QPS制限）~~ ✅ 完了
 9. ~~問題16（エンジン正規化レイヤ）~~ ✅ 実装済み（`transform_query_for_engine`）
 10. ~~問題10（Tor日次利用上限）~~ ✅ 完了（2025-12-15）
-11. 問題11（時間帯・日次予算上限）
+11. ~~問題11（ドメイン別日次予算上限）~~ ✅ 完了（2025-12-15）
 12. ~~問題4, 6, 7（要確認事項の確認）~~ ✅ 確認完了（2025-12-15）
 

@@ -157,6 +157,8 @@ default_policy:
   cooldown_minutes: 60
   max_retries: 3
   trust_level: "unverified"
+  max_requests_per_day: 200
+  max_pages_per_day: 100
 
 search_engine_policy:
   default_qps: 0.25
@@ -197,6 +199,8 @@ allowlist:
     trust_level: "trusted"
     qps: 0.5
     headful_ratio: 0
+    max_requests_per_day: 500
+    max_pages_per_day: 250
   - domain: "example-primary.com"
     trust_level: "primary"
     qps: 0.1
@@ -276,7 +280,7 @@ class TestDefaultPolicySchema:
         """Verify default policy has expected default values."""
         # Arrange & Act
         schema = DefaultPolicySchema()
-        
+
         # Then
         assert schema.qps == 0.2
         assert schema.concurrent == 1
@@ -285,6 +289,9 @@ class TestDefaultPolicySchema:
         assert schema.cooldown_minutes == 60
         assert schema.max_retries == 3
         assert schema.trust_level == TrustLevel.UNVERIFIED
+        # Daily budget limits (§4.3 - Problem 11)
+        assert schema.max_requests_per_day == 200
+        assert schema.max_pages_per_day == 100
     
     def test_custom_values(self):
         """Verify schema accepts valid custom values."""
@@ -297,8 +304,10 @@ class TestDefaultPolicySchema:
             cooldown_minutes=120,
             max_retries=5,
             trust_level=TrustLevel.GOVERNMENT,
+            max_requests_per_day=500,
+            max_pages_per_day=250,
         )
-        
+
         # Then
         assert schema.qps == 0.5
         assert schema.concurrent == 3
@@ -307,6 +316,9 @@ class TestDefaultPolicySchema:
         assert schema.cooldown_minutes == 120
         assert schema.max_retries == 5
         assert schema.trust_level == TrustLevel.GOVERNMENT
+        # Daily budget limits (§4.3 - Problem 11)
+        assert schema.max_requests_per_day == 500
+        assert schema.max_pages_per_day == 250
     
     def test_qps_validation_range(self):
         """Verify QPS validation rejects out-of-range values."""
@@ -365,6 +377,28 @@ class TestAllowlistEntrySchema:
         """Verify single-character domain is rejected."""
         with pytest.raises(ValueError):
             AllowlistEntrySchema(domain="x")
+
+    def test_daily_budget_fields(self):
+        """Verify daily budget fields are accepted (§4.3 - Problem 11)."""
+        # Arrange & Act
+        entry = AllowlistEntrySchema(
+            domain="example.com",
+            max_requests_per_day=500,
+            max_pages_per_day=250,
+        )
+
+        # Then
+        assert entry.max_requests_per_day == 500
+        assert entry.max_pages_per_day == 250
+
+    def test_daily_budget_defaults_none(self):
+        """Verify daily budget fields default to None (use global default)."""
+        # Arrange & Act
+        entry = AllowlistEntrySchema(domain="example.com")
+
+        # Then
+        assert entry.max_requests_per_day is None
+        assert entry.max_pages_per_day is None
 
 
 class TestGraylistEntrySchema:
@@ -533,10 +567,10 @@ class TestDomainPolicy:
             qps=0.2,
             trust_level=TrustLevel.GOVERNMENT,
         )
-        
+
         # When
         result = policy.to_dict()
-        
+
         # Then
         assert result["domain"] == "example.com"
         assert result["qps"] == 0.2
@@ -544,6 +578,31 @@ class TestDomainPolicy:
         assert "trust_weight" in result
         assert "min_request_interval" in result
         assert "is_in_cooldown" in result
+        # Daily budget limits (§4.3 - Problem 11)
+        assert "max_requests_per_day" in result
+        assert "max_pages_per_day" in result
+
+    def test_daily_budget_defaults(self):
+        """Verify DomainPolicy has correct daily budget defaults (§4.3 - Problem 11)."""
+        # Given & When
+        policy = DomainPolicy(domain="example.com")
+
+        # Then
+        assert policy.max_requests_per_day == 200
+        assert policy.max_pages_per_day == 100
+
+    def test_daily_budget_custom_values(self):
+        """Verify DomainPolicy accepts custom daily budget values (§4.3 - Problem 11)."""
+        # Given & When
+        policy = DomainPolicy(
+            domain="example.com",
+            max_requests_per_day=500,
+            max_pages_per_day=250,
+        )
+
+        # Then
+        assert policy.max_requests_per_day == 500
+        assert policy.max_pages_per_day == 250
 
 
 # =============================================================================
@@ -667,11 +726,31 @@ class TestDomainPolicyManagerLookup:
         policy1 = policy_manager.get_policy("WWW.ARXIV.ORG")
         policy2 = policy_manager.get_policy("www.arxiv.org")
         policy3 = policy_manager.get_policy("arxiv.org")
-        
+
         # Then - all should match the allowlist entry
         assert policy1.trust_level == TrustLevel.ACADEMIC
         assert policy2.trust_level == TrustLevel.ACADEMIC
         assert policy3.trust_level == TrustLevel.ACADEMIC
+
+    def test_get_policy_daily_budget_from_allowlist(self, policy_manager: DomainPolicyManager):
+        """Verify daily budget limits from allowlist are applied (§4.3 - Problem 11)."""
+        # When - wikipedia.org has custom limits in config/domains.yaml
+        policy = policy_manager.get_policy("wikipedia.org")
+
+        # Then - should have custom limits from allowlist
+        assert policy.max_requests_per_day == 500
+        assert policy.max_pages_per_day == 250
+        assert policy.source == "allowlist"
+
+    def test_get_policy_daily_budget_default(self, policy_manager: DomainPolicyManager):
+        """Verify unknown domain gets default daily budget limits (§4.3 - Problem 11)."""
+        # When
+        policy = policy_manager.get_policy("unknown-domain.example")
+
+        # Then - should have default limits
+        assert policy.max_requests_per_day == 200
+        assert policy.max_pages_per_day == 100
+        assert policy.source == "default"
 
 
 class TestDomainPolicyManagerConvenienceMethods:
