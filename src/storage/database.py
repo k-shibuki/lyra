@@ -517,6 +517,54 @@ class Database:
             (datetime.now(timezone.utc).isoformat(),),
         )
     
+    async def get_engine_health_metrics(self, engine: str) -> dict[str, Any] | None:
+        """Get engine health metrics for dynamic weight calculation.
+        
+        Per §3.1.4: Retrieve EMA metrics from engine_health table for
+        calculating dynamic engine weights.
+        
+        Args:
+            engine: Engine name (case-insensitive).
+            
+        Returns:
+            Dictionary with keys:
+            - success_rate_1h: 1-hour EMA success rate
+            - success_rate_24h: 24-hour EMA success rate
+            - captcha_rate: CAPTCHA encounter rate
+            - median_latency_ms: Median latency in milliseconds
+            - http_error_rate: HTTP error rate
+            - updated_at: Last update timestamp (used as last_used_at)
+            Returns None if engine not found.
+        """
+        result = await self.fetch_one(
+            """
+            SELECT 
+                engine,
+                success_rate_1h,
+                success_rate_24h,
+                captcha_rate,
+                median_latency_ms,
+                http_error_rate,
+                updated_at
+            FROM engine_health 
+            WHERE engine = ?
+            """,
+            (engine.lower(),),
+        )
+        
+        if result is None:
+            return None
+        
+        return {
+            "engine": result["engine"],
+            "success_rate_1h": result.get("success_rate_1h", 1.0) or 1.0,
+            "success_rate_24h": result.get("success_rate_24h", 1.0) or 1.0,
+            "captcha_rate": result.get("captcha_rate", 0.0) or 0.0,
+            "median_latency_ms": result.get("median_latency_ms", 1000.0) or 1000.0,
+            "http_error_rate": result.get("http_error_rate", 0.0) or 0.0,
+            "updated_at": result.get("updated_at"),
+        }
+    
     # ============================================================
     # Fetch Cache Operations (304 support)
     # ============================================================

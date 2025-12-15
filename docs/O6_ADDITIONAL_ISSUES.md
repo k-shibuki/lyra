@@ -405,10 +405,10 @@ async def search(self, query: str, options: SearchOptions | None = None) -> Sear
 - ✅ サーキットブレーカによるフィルタリング（`check_engine_available()`）: 実装完了
 - ✅ 重み付け選択（静的設定）: 実装完了
 - ✅ エンジンヘルス記録（`record_engine_result()`）: 実装完了
-- ❌ 動的重み学習（過去の精度/失敗率/ブロック率による重み調整）: 未実装（下記「動的重み学習の実装計画」を参照）
+- ✅ 動的重み学習（過去の精度/失敗率/ブロック率による重み調整）: **実装完了**
 - ❌ ラストマイル・スロット: 未実装（問題13で実装予定）
 
-### 動的重み学習の実装計画
+### 動的重み学習の実装（完了）
 
 **目的**: 過去の精度/失敗率/ブロック率を基にエンジンの重みを動的に調整する
 
@@ -417,148 +417,53 @@ async def search(self, query: str, options: SearchOptions | None = None) -> Sear
 - §3.1.4: "ヘルスの永続化: SQLiteの`engine_health`テーブルにEMA（1h/24h）を保持し、重み・QPS・探索枠を自動調整"
 - §4.6: "ポリシー自動更新（高頻度クローズドループ制御）: イベント駆動: 各リクエスト/クエリ完了時に即時フィードバック（成功/失敗/ブロック種別/レイテンシをEMAに反映）"
 
-**実装方針**:
-- `PolicyEngine`（§4.6で実装済み）を拡張してエンジン重みの動的調整を実装
-- `engine_health`テーブルのEMAメトリクス（`success_rate_1h`, `success_rate_24h`, `captcha_rate`, `median_latency`）を基に重みを計算
-- カテゴリ別・エンジン別の重みを個別に管理
+**実装完了（2025-12-15）**:
 
-**実装箇所**:
-- `src/utils/policy_engine.py` - `PolicyEngine`にエンジン重み調整メソッドを追加
-- `src/search/engine_config.py` - `SearchEngineConfigManager`に動的重み取得メソッドを追加
-- `src/search/browser_search_provider.py` - 動的重みを使用するように修正
+| ファイル | 変更内容 |
+|---------|----------|
+| `src/utils/schemas.py` | `EngineHealthMetrics`, `DynamicWeightResult` Pydanticモデル追加 |
+| `src/storage/database.py` | `get_engine_health_metrics()` メソッド追加 |
+| `src/utils/policy_engine.py` | `calculate_dynamic_weight()`, `get_dynamic_engine_weight()` メソッド追加 |
+| `src/search/browser_search_provider.py` | `search()`で動的重みを使用するよう修正 |
+| `docs/sequences/dynamic_weight_flow.md` | シーケンス図作成 |
+| `tests/test_policy_engine.py` | `TestDynamicWeightCalculation` クラス追加（11テスト） |
+| `tests/test_browser_search_provider.py` | `TestDynamicWeightUsage` クラス追加（3テスト） |
+| `tests/scripts/debug_dynamic_weight_flow.py` | デバッグスクリプト作成 |
 
-**修正案**:
-
-```python
-# src/utils/policy_engine.py（拡張）
-class PolicyEngine:
-    # ... 既存のコード ...
-    
-    def calculate_dynamic_weight(
-        self,
-        engine: str,
-        category: str,
-        success_rate_1h: float,
-        success_rate_24h: float,
-        captcha_rate: float,
-        median_latency_ms: float,
-        base_weight: float,
-    ) -> float:
-        """Calculate dynamic weight based on engine health metrics.
-        
-        Args:
-            engine: Engine name
-            category: Query category
-            success_rate_1h: 1-hour EMA success rate
-            success_rate_24h: 24-hour EMA success rate
-            captcha_rate: CAPTCHA rate
-            median_latency_ms: Median latency in milliseconds
-            base_weight: Base weight from config
-            
-        Returns:
-            Adjusted weight (0.0 to 1.0)
-        """
-        # 重み調整係数の計算
-        # 1. 成功率による調整（短期と長期の加重平均）
-        success_factor = (0.6 * success_rate_1h + 0.4 * success_rate_24h)
-        
-        # 2. CAPTCHA率によるペナルティ
-        captcha_penalty = 1.0 - (captcha_rate * 0.5)  # CAPTCHA率が高いほど重みを下げる
-        
-        # 3. レイテンシによる調整（低レイテンシほど高重み）
-        latency_factor = 1.0 / (1.0 + median_latency_ms / 1000.0)  # 1秒を基準
-        
-        # 4. 合成
-        adjusted_weight = base_weight * success_factor * captcha_penalty * latency_factor
-        
-        # 5. 範囲制限（0.1から1.0の範囲）
-        adjusted_weight = max(0.1, min(1.0, adjusted_weight))
-        
-        return adjusted_weight
-    
-    def update_engine_weight(
-        self,
-        engine: str,
-        category: str,
-        health_metrics: dict[str, float],
-    ) -> float:
-        """Update engine weight based on health metrics.
-        
-        Args:
-            engine: Engine name
-            category: Query category
-            health_metrics: Dictionary with success_rate_1h, success_rate_24h, etc.
-            
-        Returns:
-            Updated weight
-        """
-        from src.search.engine_config import get_engine_config_manager
-        
-        config_manager = get_engine_config_manager()
-        engine_config = config_manager.get_engine(engine)
-        
-        if not engine_config:
-            return 1.0  # デフォルト重み
-        
-        base_weight = engine_config.weight
-        
-        # 動的重みを計算
-        dynamic_weight = self.calculate_dynamic_weight(
-            engine=engine,
-            category=category,
-            success_rate_1h=health_metrics.get("success_rate_1h", 1.0),
-            success_rate_24h=health_metrics.get("success_rate_24h", 1.0),
-            captcha_rate=health_metrics.get("captcha_rate", 0.0),
-            median_latency_ms=health_metrics.get("median_latency_ms", 1000.0),
-            base_weight=base_weight,
-        )
-        
-        # カテゴリ別重みを保存（DBまたはメモリキャッシュ）
-        # TODO: カテゴリ別重みの永続化
-        
-        return dynamic_weight
+**重み計算式**:
+```
+success_factor = 0.6 * success_rate_1h + 0.4 * success_rate_24h
+captcha_penalty = 1.0 - (captcha_rate * 0.5)
+latency_factor = 1.0 / (1.0 + median_latency_ms / 1000.0)
+raw_weight = base_weight * success_factor * captcha_penalty * latency_factor
 ```
 
-**使用例**:
-
-```python
-# src/search/browser_search_provider.py
-from src.utils.policy_engine import get_policy_engine
-from src.storage.database import get_database
-
-policy_engine = get_policy_engine()
-db = get_database()
-
-# エンジン選択時に動的重みを取得
-for engine_name in candidate_engines:
-    if await check_engine_available(engine_name):
-        engine_config = config_manager.get_engine(engine_name)
-        
-        # エンジンヘルスメトリクスを取得
-        health_metrics = await db.get_engine_health_metrics(engine_name)
-        
-        # 動的重みを計算
-        dynamic_weight = policy_engine.update_engine_weight(
-            engine=engine_name,
-            category=category,
-            health_metrics=health_metrics,
-        )
-        
-        available_engines.append((engine_name, dynamic_weight))
+**時間減衰（48時間でデフォルト回帰）**:
+```
+confidence = max(0.1, 1.0 - (hours_since_use / 48))
+final_weight = confidence * raw_weight + (1 - confidence) * base_weight
 ```
 
-**実装ステップ**:
-1. `PolicyEngine`に`calculate_dynamic_weight()`と`update_engine_weight()`メソッドを追加
-2. `engine_health`テーブルからEMAメトリクスを取得する処理を実装
-3. カテゴリ別重みの永続化（DBまたはメモリキャッシュ）を実装
-4. `BrowserSearchProvider.search()`で動的重みを使用するように修正
-5. 重み更新の周期補完（60秒周期、§4.6準拠）を実装
-6. 重みのヒステリシス（5分未満は反転させない、§4.6準拠）を実装
+| 経過時間 | メトリクス反映 | デフォルト反映 |
+|----------|---------------|---------------|
+| 0-6時間 | 87-100% | 0-13% |
+| 12時間 | 75% | 25% |
+| 24時間 | 50% | 50% |
+| 48時間以上 | 10% | 90% |
 
-**注意点**:
-- 重みの更新は§4.6「ポリシー自動更新」の周期補完（60秒）に合わせる
-- 重みの反転防止（ヒステリシス）を実装し、振動を防止
-- カテゴリ別の重みを個別に管理（カテゴリごとに異なる重みを適用）
+**テスト実行**:
+```bash
+# ユニットテスト
+pytest tests/test_policy_engine.py::TestDynamicWeightCalculation -v
+
+# 統合テスト
+pytest tests/test_browser_search_provider.py::TestDynamicWeightUsage -v
+
+# デバッグスクリプト
+python tests/scripts/debug_dynamic_weight_flow.py
+```
+
+詳細な実装については `docs/sequences/dynamic_weight_flow.md` を参照。
 
 ---
 
@@ -1399,9 +1304,9 @@ if simulate_human:
 3. ~~問題12（セッション転送の適用）~~ ✅ 完了
 4. ~~問題14（プロファイル健全性監査の自動実行）~~ ✅ 完了
 5. ~~問題15（ヒューマンライク操作の完全な適用）~~ ✅ 完了
-6. 問題8（エンジン選択ロジック）- 基本機能は実装済み、動的重み学習は未実装
+6. ~~問題8（エンジン選択ロジック + 動的重み学習）~~ ✅ 完了
 7. 問題13（ラストマイルスロット判定）
-8. 問題9（エンジン別QPS制限）
+8. ~~問題9（エンジン別QPS制限）~~ ✅ 完了
 9. 問題16（エンジン正規化レイヤ）
 10. 問題10（Tor日次利用上限）
 11. 問題11（時間帯・日次予算上限）

@@ -44,6 +44,7 @@ from src.search.search_parsers import (
 from src.search.search_api import transform_query_for_engine
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.policy_engine import get_policy_engine
 from src.crawler.fetcher import HumanBehavior
 
 logger = get_logger(__name__)
@@ -436,13 +437,20 @@ class BrowserSearchProvider(BaseSearchProvider):
             candidate_engines = [cfg.name for cfg in candidate_engines_configs]
         
         # Filter by circuit breaker and availability
+        # Use dynamic weights from PolicyEngine (per §3.1.1, §3.1.4, §4.6)
         available_engines: list[tuple[str, float]] = []
+        policy_engine = await get_policy_engine()
+        
         for engine_name in candidate_engines:
             try:
                 if await check_engine_available(engine_name):
                     engine_config = config_manager.get_engine(engine_name)
                     if engine_config and engine_config.is_available:
-                        available_engines.append((engine_name, engine_config.weight))
+                        # Get dynamic weight with time decay
+                        dynamic_weight = await policy_engine.get_dynamic_engine_weight(
+                            engine_name, category
+                        )
+                        available_engines.append((engine_name, dynamic_weight))
             except Exception as e:
                 # Log error but continue with next engine
                 logger.warning(

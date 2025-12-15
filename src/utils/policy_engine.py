@@ -782,6 +782,167 @@ class PolicyEngine:
             }
             for u in history[-limit:]
         ]
+    
+    # =========================================================
+    # Dynamic Weight Calculation
+    # =========================================================
+    
+    def calculate_dynamic_weight(
+        self,
+        base_weight: float,
+        success_rate_1h: float,
+        success_rate_24h: float,
+        captcha_rate: float,
+        median_latency_ms: float,
+        last_used_at: datetime | None,
+    ) -> tuple[float, float]:
+        """Calculate dynamic weight based on engine health metrics.
+        
+        Per §3.1.1, §3.1.4, §4.6: Calculates engine weight adjustment based on
+        past accuracy, failure rate, and block rate. Uses time decay to
+        handle stale metrics from infrequently used engines.
+        
+        Args:
+            base_weight: Base weight from config/engines.yaml (0.0-2.0).
+            success_rate_1h: 1-hour EMA success rate (0.0-1.0).
+            success_rate_24h: 24-hour EMA success rate (0.0-1.0).
+            captcha_rate: CAPTCHA encounter rate (0.0-1.0).
+            median_latency_ms: Median latency in milliseconds.
+            last_used_at: Last usage timestamp for time decay calculation.
+            
+        Returns:
+            Tuple of (dynamic_weight, confidence):
+            - dynamic_weight: Adjusted weight (0.1-1.0)
+            - confidence: Metrics confidence based on time decay (0.1-1.0)
+        """
+        # 1. Calculate metrics confidence (time decay)
+        # Per plan: 48 hours for 90% decay to default
+        if last_used_at:
+            hours_since_use = (
+                datetime.now(timezone.utc) - last_used_at
+            ).total_seconds() / 3600
+            confidence = max(0.1, 1.0 - (hours_since_use / 48))
+        else:
+            confidence = 0.1  # Never used = almost default
+        
+        # 2. Calculate raw dynamic weight from metrics
+        # Success factor: weighted average of short and long term
+        success_factor = 0.6 * success_rate_1h + 0.4 * success_rate_24h
+        
+        # CAPTCHA penalty: high CAPTCHA rate reduces weight
+        captcha_penalty = 1.0 - (captcha_rate * 0.5)
+        
+        # Latency factor: high latency reduces weight (1s baseline)
+        latency_factor = 1.0 / (1.0 + median_latency_ms / 1000.0)
+        
+        # Raw weight from metrics
+        raw_weight = base_weight * success_factor * captcha_penalty * latency_factor
+        
+        # 3. Apply time decay: blend raw weight with base weight
+        # based on confidence
+        final_weight = confidence * raw_weight + (1 - confidence) * base_weight
+        
+        # 4. Clamp to valid range
+        final_weight = max(0.1, min(1.0, final_weight))
+        
+        return final_weight, confidence
+    
+    async def get_dynamic_engine_weight(
+        self,
+        engine: str,
+        category: str | None = None,
+    ) -> float:
+        """Get dynamic weight for an engine.
+        
+        Per §3.1.1, §3.1.4: Retrieves engine health metrics from database
+        and calculates dynamic weight with time decay.
+        
+        Args:
+            engine: Engine name (case-insensitive).
+            category: Optional query category for future category-specific
+                     weight adjustments.
+            
+        Returns:
+            Dynamic weight (0.1-1.0). Returns base weight from config
+            if engine not found in database or on error.
+        """
+        # Get base weight from engine config
+        try:
+            from src.search.engine_config import get_engine_config_manager
+            
+            config_manager = get_engine_config_manager()
+            engine_config = config_manager.get_engine(engine)
+            
+            if engine_config is None:
+                logger.debug(
+                    "Engine not found in config, using default weight",
+                    engine=engine,
+                )
+                return 1.0
+            
+            base_weight = engine_config.weight
+        except Exception as e:
+            logger.warning(
+                "Failed to get engine config, using default weight",
+                engine=engine,
+                error=str(e),
+            )
+            return 1.0
+        
+        # Get health metrics from database
+        try:
+            from src.storage.database import get_database
+            
+            db = await get_database()
+            metrics = await db.get_engine_health_metrics(engine)
+            
+            if metrics is None:
+                logger.debug(
+                    "No health metrics for engine, using base weight",
+                    engine=engine,
+                    base_weight=base_weight,
+                )
+                return base_weight
+            
+            # Parse last_used_at from updated_at
+            last_used_at = None
+            if metrics.get("updated_at"):
+                try:
+                    updated_at_str = metrics["updated_at"]
+                    last_used_at = datetime.fromisoformat(updated_at_str)
+                    if last_used_at.tzinfo is None:
+                        last_used_at = last_used_at.replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    last_used_at = None
+            
+            # Calculate dynamic weight
+            dynamic_weight, confidence = self.calculate_dynamic_weight(
+                base_weight=base_weight,
+                success_rate_1h=metrics.get("success_rate_1h", 1.0),
+                success_rate_24h=metrics.get("success_rate_24h", 1.0),
+                captcha_rate=metrics.get("captcha_rate", 0.0),
+                median_latency_ms=metrics.get("median_latency_ms", 1000.0),
+                last_used_at=last_used_at,
+            )
+            
+            logger.debug(
+                "Dynamic weight calculated",
+                engine=engine,
+                base_weight=base_weight,
+                dynamic_weight=round(dynamic_weight, 3),
+                confidence=round(confidence, 3),
+                category=category,
+            )
+            
+            return dynamic_weight
+            
+        except Exception as e:
+            logger.warning(
+                "Failed to calculate dynamic weight, using base weight",
+                engine=engine,
+                error=str(e),
+            )
+            return base_weight
 
 
 # Global policy engine instance

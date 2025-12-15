@@ -4,6 +4,7 @@ Pydantic schemas for module间データ受け渡し.
 モジュール間のデータ受け渡しを型安全にするためのPydanticモデル定義。
 """
 
+from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional, Any
 
@@ -96,6 +97,106 @@ class TransferResult(BaseModel):
                     "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
                 },
                 "reason": None,
+            }
+        }
+
+
+# =============================================================================
+# Dynamic Weight Learning
+# =============================================================================
+
+
+class EngineHealthMetrics(BaseModel):
+    """Engine health metrics for dynamic weight calculation.
+    
+    Per §3.1.4: EMA metrics from engine_health table used for weight adjustment.
+    Includes time decay support for stale metrics.
+    """
+    engine: str = Field(..., description="Engine name")
+    success_rate_1h: float = Field(
+        default=1.0, ge=0.0, le=1.0,
+        description="1-hour EMA success rate"
+    )
+    success_rate_24h: float = Field(
+        default=1.0, ge=0.0, le=1.0,
+        description="24-hour EMA success rate"
+    )
+    captcha_rate: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description="CAPTCHA encounter rate"
+    )
+    median_latency_ms: float = Field(
+        default=1000.0, ge=0.0,
+        description="Median latency in milliseconds"
+    )
+    http_error_rate: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description="HTTP error rate (403/429)"
+    )
+    last_used_at: Optional[datetime] = Field(
+        None,
+        description="Last usage timestamp for time decay calculation"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "engine": "duckduckgo",
+                "success_rate_1h": 0.95,
+                "success_rate_24h": 0.90,
+                "captcha_rate": 0.05,
+                "median_latency_ms": 800.0,
+                "http_error_rate": 0.02,
+                "last_used_at": "2025-12-15T10:00:00Z",
+            }
+        }
+
+
+class DynamicWeightResult(BaseModel):
+    """Result of dynamic weight calculation.
+    
+    Per §3.1.1, §4.6: Dynamic weight adjusted based on engine health
+    with time decay for stale metrics.
+    """
+    engine: str = Field(..., description="Engine name")
+    base_weight: float = Field(
+        ..., ge=0.0, le=2.0,
+        description="Base weight from config/engines.yaml"
+    )
+    dynamic_weight: float = Field(
+        ..., ge=0.1, le=1.0,
+        description="Adjusted weight after health-based calculation"
+    )
+    confidence: float = Field(
+        default=1.0, ge=0.0, le=1.0,
+        description="Metrics confidence (decays with time since last use)"
+    )
+    category: Optional[str] = Field(
+        None,
+        description="Query category (general, academic, news, government, technical)"
+    )
+    metrics_used: Optional[EngineHealthMetrics] = Field(
+        None,
+        description="Health metrics used for calculation"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "engine": "duckduckgo",
+                "base_weight": 0.7,
+                "dynamic_weight": 0.65,
+                "confidence": 0.85,
+                "category": "general",
+                "metrics_used": {
+                    "engine": "duckduckgo",
+                    "success_rate_1h": 0.95,
+                    "success_rate_24h": 0.90,
+                    "captcha_rate": 0.05,
+                    "median_latency_ms": 800.0,
+                    "http_error_rate": 0.02,
+                    "last_used_at": "2025-12-15T10:00:00Z",
+                },
             }
         }
 

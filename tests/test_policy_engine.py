@@ -403,3 +403,357 @@ async def test_get_policy_engine_singleton():
     # Cleanup
     pe._engine = None
 
+
+# =============================================================================
+# Dynamic Weight Calculation Tests
+# =============================================================================
+
+
+class TestDynamicWeightCalculation:
+    """Tests for dynamic weight calculation.
+    
+    Per §3.1.1, §3.1.4, §4.6: Dynamic weight adjustment based on
+    past accuracy/failure/block rates with time decay.
+    
+    ## Test Perspectives Table
+    
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-DW-N-01 | Ideal metrics, recent use | Equivalence - normal | weight ≈ base_weight | Ideal state |
+    | TC-DW-N-02 | Degraded metrics, recent use | Equivalence - degraded | weight < base_weight | Degraded state |
+    | TC-DW-B-01 | success_rate=0.0, recent use | Boundary - minimum | weight = 0.1 (min) | Min clamp |
+    | TC-DW-B-02 | All optimal, recent use | Boundary - maximum | weight ≤ 1.0 (max) | Max clamp |
+    | TC-DW-B-03 | captcha_rate=1.0, recent use | Boundary - high CAPTCHA | weight reduced | CAPTCHA penalty |
+    | TC-DW-B-04 | median_latency=10000ms, recent | Boundary - high latency | weight reduced | Latency penalty |
+    | TC-DW-B-05 | last_used=24h ago, bad metrics | Boundary - time decay | weight closer to base | 50% decay |
+    | TC-DW-B-06 | last_used=48h ago, bad metrics | Boundary - full decay | weight ≈ base_weight | 90% decay |
+    | TC-DW-B-07 | last_used=None (never used) | Boundary - never used | weight ≈ base_weight | Max decay |
+    | TC-DW-A-01 | Engine not in DB | Abnormal - missing | returns base_weight | Fallback |
+    """
+    
+    def test_ideal_metrics_recent_use(self):
+        """TC-DW-N-01: Ideal metrics with recent use.
+        
+        Given: Ideal metrics (success=1.0, captcha=0, low latency) and recent use
+        When: Calculating dynamic weight
+        Then: Weight should be calculated correctly with high confidence
+        
+        Expected calculation:
+        - success_factor = 0.6 * 1.0 + 0.4 * 1.0 = 1.0
+        - captcha_penalty = 1.0 - 0.0 = 1.0
+        - latency_factor = 1.0 / (1.0 + 500/1000) = 0.667
+        - raw_weight = 0.7 * 1.0 * 1.0 * 0.667 ≈ 0.47
+        - With high confidence (~0.98), final weight ≈ 0.47
+        """
+        engine = PolicyEngine()
+        recent_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        
+        weight, confidence = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=1.0,
+            success_rate_24h=1.0,
+            captcha_rate=0.0,
+            median_latency_ms=500.0,
+            last_used_at=recent_time,
+        )
+        
+        # Weight should be in valid range and close to base
+        assert 0.1 <= weight <= 1.0, f"Weight {weight} not in valid range"
+        assert confidence > 0.9, f"Confidence {confidence} should be high for recent use"
+        # With ideal metrics and latency factor, weight should be in reasonable range
+        # (lower latency factor due to 500ms latency gives ~0.47)
+        assert weight >= 0.4, f"Weight {weight} should be >= 0.4 with ideal metrics"
+    
+    def test_degraded_metrics_recent_use(self):
+        """TC-DW-N-02: Degraded metrics with recent use.
+        
+        Given: Degraded metrics (low success, high captcha, high latency) and recent use
+        When: Calculating dynamic weight
+        Then: Weight should be reduced below base_weight
+        """
+        engine = PolicyEngine()
+        recent_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        
+        # First calculate with ideal metrics
+        ideal_weight, _ = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=1.0,
+            success_rate_24h=1.0,
+            captcha_rate=0.0,
+            median_latency_ms=500.0,
+            last_used_at=recent_time,
+        )
+        
+        # Then calculate with degraded metrics
+        degraded_weight, confidence = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=0.5,
+            success_rate_24h=0.6,
+            captcha_rate=0.3,
+            median_latency_ms=2000.0,
+            last_used_at=recent_time,
+        )
+        
+        assert degraded_weight < ideal_weight, \
+            f"Degraded weight {degraded_weight} should be < ideal weight {ideal_weight}"
+        assert 0.1 <= degraded_weight <= 1.0, \
+            f"Degraded weight {degraded_weight} not in valid range"
+    
+    def test_minimum_weight_clamp(self):
+        """TC-DW-B-01: Minimum weight clamping.
+        
+        Given: Worst possible metrics (success=0, high captcha, high latency)
+        When: Calculating dynamic weight
+        Then: Weight should be clamped to minimum (0.1)
+        """
+        engine = PolicyEngine()
+        recent_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        
+        weight, _ = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=0.0,
+            success_rate_24h=0.0,
+            captcha_rate=1.0,
+            median_latency_ms=10000.0,
+            last_used_at=recent_time,
+        )
+        
+        assert weight >= 0.1, f"Weight {weight} should be >= 0.1 (minimum)"
+    
+    def test_maximum_weight_clamp(self):
+        """TC-DW-B-02: Maximum weight clamping.
+        
+        Given: High base weight and optimal metrics
+        When: Calculating dynamic weight
+        Then: Weight should be clamped to maximum (1.0)
+        """
+        engine = PolicyEngine()
+        recent_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        
+        weight, _ = engine.calculate_dynamic_weight(
+            base_weight=2.0,  # High base weight
+            success_rate_1h=1.0,
+            success_rate_24h=1.0,
+            captcha_rate=0.0,
+            median_latency_ms=100.0,
+            last_used_at=recent_time,
+        )
+        
+        assert weight <= 1.0, f"Weight {weight} should be <= 1.0 (maximum)"
+    
+    def test_high_captcha_rate_penalty(self):
+        """TC-DW-B-03: High CAPTCHA rate penalty.
+        
+        Given: High CAPTCHA rate (1.0) with otherwise good metrics
+        When: Calculating dynamic weight
+        Then: Weight should be significantly reduced
+        """
+        engine = PolicyEngine()
+        recent_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        
+        # Calculate with no CAPTCHA
+        no_captcha_weight, _ = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=1.0,
+            success_rate_24h=1.0,
+            captcha_rate=0.0,
+            median_latency_ms=500.0,
+            last_used_at=recent_time,
+        )
+        
+        # Calculate with high CAPTCHA
+        high_captcha_weight, _ = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=1.0,
+            success_rate_24h=1.0,
+            captcha_rate=1.0,
+            median_latency_ms=500.0,
+            last_used_at=recent_time,
+        )
+        
+        assert high_captcha_weight < no_captcha_weight, \
+            f"High CAPTCHA weight {high_captcha_weight} should be < no CAPTCHA weight {no_captcha_weight}"
+    
+    def test_high_latency_penalty(self):
+        """TC-DW-B-04: High latency penalty.
+        
+        Given: High latency (10000ms) with otherwise good metrics
+        When: Calculating dynamic weight
+        Then: Weight should be reduced
+        """
+        engine = PolicyEngine()
+        recent_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        
+        # Calculate with low latency
+        low_latency_weight, _ = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=1.0,
+            success_rate_24h=1.0,
+            captcha_rate=0.0,
+            median_latency_ms=500.0,
+            last_used_at=recent_time,
+        )
+        
+        # Calculate with high latency
+        high_latency_weight, _ = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            success_rate_1h=1.0,
+            success_rate_24h=1.0,
+            captcha_rate=0.0,
+            median_latency_ms=10000.0,
+            last_used_at=recent_time,
+        )
+        
+        assert high_latency_weight < low_latency_weight, \
+            f"High latency weight {high_latency_weight} should be < low latency weight {low_latency_weight}"
+    
+    def test_time_decay_24h(self):
+        """TC-DW-B-05: Time decay at 24 hours.
+        
+        Given: Bad metrics and last used 24 hours ago
+        When: Calculating dynamic weight
+        Then: Weight should be closer to base_weight due to 50% decay
+        """
+        engine = PolicyEngine()
+        
+        bad_metrics = {
+            "success_rate_1h": 0.3,
+            "success_rate_24h": 0.4,
+            "captcha_rate": 0.5,
+            "median_latency_ms": 3000.0,
+        }
+        
+        # Recent use (1h ago)
+        recent_weight, recent_conf = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            last_used_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            **bad_metrics,
+        )
+        
+        # 24h ago
+        old_weight, old_conf = engine.calculate_dynamic_weight(
+            base_weight=0.7,
+            last_used_at=datetime.now(timezone.utc) - timedelta(hours=24),
+            **bad_metrics,
+        )
+        
+        # Old weight should be closer to base_weight (0.7)
+        assert old_weight > recent_weight, \
+            f"24h old weight {old_weight} should be > recent weight {recent_weight}"
+        # Confidence should be around 0.5 for 24h
+        assert 0.4 <= old_conf <= 0.6, \
+            f"Confidence {old_conf} should be ~0.5 for 24h old metrics"
+    
+    def test_time_decay_48h(self):
+        """TC-DW-B-06: Time decay at 48 hours.
+        
+        Given: Bad metrics and last used 48 hours ago
+        When: Calculating dynamic weight
+        Then: Weight should be approximately base_weight (90% decay)
+        """
+        engine = PolicyEngine()
+        base_weight = 0.7
+        
+        bad_metrics = {
+            "success_rate_1h": 0.3,
+            "success_rate_24h": 0.4,
+            "captcha_rate": 0.5,
+            "median_latency_ms": 3000.0,
+        }
+        
+        # 48h ago
+        weight, confidence = engine.calculate_dynamic_weight(
+            base_weight=base_weight,
+            last_used_at=datetime.now(timezone.utc) - timedelta(hours=48),
+            **bad_metrics,
+        )
+        
+        # Confidence should be very low (0.1 minimum)
+        assert confidence <= 0.15, \
+            f"Confidence {confidence} should be <= 0.15 for 48h old metrics"
+        # Weight should be close to base_weight
+        assert abs(weight - base_weight) < 0.2, \
+            f"Weight {weight} should be close to base_weight {base_weight}"
+    
+    def test_time_decay_never_used(self):
+        """TC-DW-B-07: Never used engine.
+        
+        Given: Bad metrics but last_used_at is None (never used)
+        When: Calculating dynamic weight
+        Then: Weight should be approximately base_weight
+        """
+        engine = PolicyEngine()
+        base_weight = 0.7
+        
+        weight, confidence = engine.calculate_dynamic_weight(
+            base_weight=base_weight,
+            success_rate_1h=0.3,
+            success_rate_24h=0.4,
+            captcha_rate=0.5,
+            median_latency_ms=3000.0,
+            last_used_at=None,
+        )
+        
+        # Confidence should be at minimum (0.1)
+        assert confidence == 0.1, \
+            f"Confidence {confidence} should be 0.1 for never-used engine"
+        # Weight should be close to base_weight
+        assert abs(weight - base_weight) < 0.15, \
+            f"Weight {weight} should be close to base_weight {base_weight}"
+    
+    @pytest.mark.asyncio
+    async def test_get_dynamic_weight_fallback(self):
+        """TC-DW-A-01: Fallback for non-existent engine.
+        
+        Given: Non-existent engine name
+        When: Getting dynamic weight
+        Then: Should return default weight (1.0)
+        """
+        engine = PolicyEngine()
+        
+        weight = await engine.get_dynamic_engine_weight(
+            "nonexistent_engine_xyz",
+            category="general",
+        )
+        
+        # Should return default weight for unknown engine
+        assert weight == 1.0, \
+            f"Non-existent engine should return default weight 1.0, got {weight}"
+    
+    def test_confidence_calculation(self):
+        """Test confidence calculation based on time since last use.
+        
+        Given: Various time intervals since last use
+        When: Calculating confidence
+        Then: Confidence should decay appropriately
+        """
+        engine = PolicyEngine()
+        base_weight = 0.7
+        good_metrics = {
+            "success_rate_1h": 1.0,
+            "success_rate_24h": 1.0,
+            "captcha_rate": 0.0,
+            "median_latency_ms": 500.0,
+        }
+        
+        test_cases = [
+            (timedelta(hours=0), 1.0),     # Just used
+            (timedelta(hours=6), 0.875),   # 6h ago
+            (timedelta(hours=12), 0.75),   # 12h ago
+            (timedelta(hours=24), 0.5),    # 24h ago
+            (timedelta(hours=48), 0.1),    # 48h ago (minimum)
+            (timedelta(hours=72), 0.1),    # 72h ago (stays at minimum)
+        ]
+        
+        for time_delta, expected_conf in test_cases:
+            last_used = datetime.now(timezone.utc) - time_delta
+            _, confidence = engine.calculate_dynamic_weight(
+                base_weight=base_weight,
+                last_used_at=last_used,
+                **good_metrics,
+            )
+            
+            # Allow some tolerance
+            assert abs(confidence - expected_conf) < 0.05, \
+                f"Confidence for {time_delta} should be ~{expected_conf}, got {confidence}"
+
