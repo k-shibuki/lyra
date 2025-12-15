@@ -1902,6 +1902,24 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 
 **最重要**: `config/cursor-mcp.json`の変更（Cursor IDEがMCPサーバーを起動する設定）
 
+#### O.5 影響範囲
+
+**削除される機能**:
+- コンテナ内MCP実行モード（`LANCET_EXECUTION_MODE=container`）
+- socatポートフォワード機能
+- host-gateway経由のChrome接続
+- コンテナ検出による条件分岐
+
+**残る機能**:
+- WSL上でのMCPサーバー実行（唯一の実行モード）
+- プロキシ経由のOllama/ML Server接続
+- WSL→Windows Chrome直接接続（localhost:9222）
+
+**移行手順**:
+1. `.env`から`LANCET_EXECUTION_MODE`を削除
+2. venvを作成し、`requirements-mcp.txt`をインストール
+3. `./scripts/mcp.sh`でMCPサーバー起動（Cursorが自動実行）
+
 #### O.6 認証維持要件の調査結果（別タスク）✅ 完了
 
 **調査日**: 2025-12-11  
@@ -2151,24 +2169,6 @@ async def _capture_auth_session(queue_id: str, domain: str) -> dict | None:
 | `src/mcp/server.py` | MCPサーバー | `resolve_auth`でCookie取得・保存 |
 | `src/utils/notification.py` | 認証待ちキュー | ブラウザを開く処理の追加（検討） |
 | `src/crawler/session_transfer.py` | セッション転送マネージャー | 既存実装を活用 |
-
-#### O.5 影響範囲
-
-**削除される機能**:
-- コンテナ内MCP実行モード（`LANCET_EXECUTION_MODE=container`）
-- socatポートフォワード機能
-- host-gateway経由のChrome接続
-- コンテナ検出による条件分岐
-
-**残る機能**:
-- WSL上でのMCPサーバー実行（唯一の実行モード）
-- プロキシ経由のOllama/ML Server接続
-- WSL→Windows Chrome直接接続（localhost:9222）
-
-**移行手順**:
-1. `.env`から`LANCET_EXECUTION_MODE`を削除
-2. venvを作成し、`requirements-mcp.txt`をインストール
-3. `./scripts/mcp.sh`でMCPサーバー起動（Cursorが自動実行）
 
 ---
 
