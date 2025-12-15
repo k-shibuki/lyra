@@ -162,7 +162,7 @@ class LastmileCheckResult(BaseModel):
     """
     should_use_lastmile: bool = Field(..., description="Whether to use lastmile engine")
     reason: str = Field(..., description="Reason for decision")
-    harvest_rate: float = Field(ge=0.0, le=1.0, description="Current harvest rate")
+    harvest_rate: float = Field(ge=0.0, description="Useful fragments per page (can exceed 1.0)")
     threshold: float = Field(
         default=0.9, ge=0.0, le=1.0,
         description="Threshold for lastmile activation"

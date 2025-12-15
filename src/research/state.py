@@ -107,8 +107,8 @@ class SearchState(BaseModel):
         description="Number of useful fragments extracted"
     )
     harvest_rate: float = Field(
-        default=0.0, ge=0.0, le=1.0,
-        description="Ratio of useful fragments to pages"
+        default=0.0, ge=0.0,
+        description="Useful fragments per page (can exceed 1.0 if multiple fragments per page)"
     )
     novelty_score: float = Field(
         default=1.0, ge=0.0, le=1.0,

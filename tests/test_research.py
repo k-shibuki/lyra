@@ -421,19 +421,36 @@ class TestSearchStatePydanticValidation:
         with pytest.raises(ValidationError):
             SubqueryState(id="sq_001", text="test", independent_sources=-1)
     
-    def test_harvest_rate_out_of_range_raises_validation_error(self):
-        """TC-SS-A-05: harvest_rate > 1.0 raises ValidationError.
-        
-        // Given: harvest_rate = 1.5 (out of range)
+    def test_harvest_rate_negative_raises_validation_error(self):
+        """TC-SS-A-05: Negative harvest_rate raises ValidationError.
+
+        // Given: harvest_rate = -0.5 (negative)
         // When: Creating SearchState
         // Then: ValidationError raised
+
+        Note: harvest_rate can exceed 1.0 when multiple fragments are
+        extracted from a single page.
         """
         from pydantic import ValidationError
-        
-        # Given: harvest_rate out of range
+
+        # Given: harvest_rate negative
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SubqueryState(id="sq_001", text="test", harvest_rate=1.5)
+            SubqueryState(id="sq_001", text="test", harvest_rate=-0.5)
+
+    def test_harvest_rate_above_one_is_valid(self):
+        """TC-SS-N-06: harvest_rate > 1.0 is valid.
+
+        // Given: harvest_rate = 2.5 (multiple fragments per page)
+        // When: Creating SearchState
+        // Then: Valid state created
+        """
+        # Given: harvest_rate > 1.0
+        # When: Creating SearchState
+        state = SubqueryState(id="sq_001", text="test", harvest_rate=2.5)
+
+        # Then: Valid state with harvest_rate > 1.0
+        assert state.harvest_rate == 2.5
 
 
 # =============================================================================
