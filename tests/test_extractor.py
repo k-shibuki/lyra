@@ -18,6 +18,38 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Check optional dependencies for conditional test skipping
+try:
+    import fitz  # noqa: F401
+    HAS_FITZ = True
+except ImportError:
+    HAS_FITZ = False
+
+try:
+    from PIL import Image  # noqa: F401
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+# Skip messages with guidance for ML container-based testing
+_SKIP_MSG_FITZ = (
+    "Requires PyMuPDF (fitz). "
+    "PDF extraction runs in ML container. "
+    "Run tests in container: podman exec lancet pytest tests/test_extractor.py, "
+    "or install: pip install PyMuPDF"
+)
+
+_SKIP_MSG_PIL = (
+    "Requires Pillow (PIL). "
+    "OCR functionality runs in ML container. "
+    "Run tests in container: podman exec lancet pytest tests/test_extractor.py, "
+    "or install: pip install Pillow"
+)
+
+# Decorators for skipping tests based on optional dependencies
+requires_fitz = pytest.mark.skipif(not HAS_FITZ, reason=_SKIP_MSG_FITZ)
+requires_pil = pytest.mark.skipif(not HAS_PIL, reason=_SKIP_MSG_PIL)
+
 
 class TestExtractContent:
     """Tests for extract_content function."""
@@ -189,6 +221,7 @@ class TestOCRAvailability:
         assert isinstance(result, bool)
 
 
+@requires_fitz
 class TestPDFExtraction:
     """Tests for PDF extraction with OCR support."""
 
@@ -285,6 +318,7 @@ class TestPDFExtraction:
         mock_ocr.assert_called_once()
 
 
+@requires_pil
 class TestOCREngines:
     """Tests for individual OCR engines."""
 
@@ -396,6 +430,7 @@ class TestOCRImage:
         assert result["ok"] is False
         assert "must be provided" in result["error"]
 
+    @requires_pil
     @pytest.mark.asyncio
     async def test_ocr_image_from_data(self):
         """Test OCR from image data."""
@@ -419,6 +454,7 @@ class TestOCRImage:
         assert result["text"] == "Extracted text from image"
         assert result["engine"] == "paddleocr"
 
+    @requires_pil
     @pytest.mark.asyncio
     async def test_ocr_image_falls_back_to_tesseract(self):
         """Test OCR falls back to Tesseract when PaddleOCR fails."""
@@ -443,6 +479,7 @@ class TestOCRImage:
         assert result["text"] == "Tesseract fallback text"
         assert result["engine"] == "tesseract"
 
+    @requires_pil
     @pytest.mark.asyncio
     async def test_ocr_image_no_engine_available(self):
         """Test OCR when no engine is available."""

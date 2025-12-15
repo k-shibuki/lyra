@@ -2000,11 +2000,6 @@ async def fetch_url(
         # Check domain cooldown
         domain = urlparse(url).netloc.lower()
         
-        # Record request for Tor daily limit tracking (Problem 10)
-        from src.utils.metrics import get_metrics_collector
-        collector = get_metrics_collector()
-        collector.record_request(domain)
-        
         if await db.is_domain_cooled_down(domain):
             logger.info("Domain in cooldown", domain=domain, url=url[:80])
             return FetchResult(
@@ -2012,6 +2007,12 @@ async def fetch_url(
                 url=url,
                 reason="domain_cooldown",
             ).to_dict()
+        
+        # Record request for Tor daily limit tracking (Problem 10)
+        # Must be after cooldown check to only count actual fetches
+        from src.utils.metrics import get_metrics_collector
+        collector = get_metrics_collector()
+        collector.record_request(domain)
         
         # Determine fetch method
         force_browser = policy.get("force_browser", False)
