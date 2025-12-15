@@ -977,3 +977,115 @@ class TestStopTaskAction:
         assert result["summary"]["total_claims"] == 10
         assert result["summary"]["primary_source_ratio"] == 0.75
 
+
+# ============================================================================
+# get_overall_harvest_rate Tests (§3.1.1 Lastmile Slot)
+# ============================================================================
+
+
+class TestGetOverallHarvestRate:
+    """
+    Tests for ExplorationState.get_overall_harvest_rate method.
+    
+    Per §3.1.1: Used to determine if lastmile engines should be used
+    when harvest rate >= 0.9.
+    
+    ## Test Perspectives Table
+    
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-HR-B-01 | No searches | Boundary - empty | Returns 0.0 | - |
+    | TC-HR-B-02 | Searches with no pages | Boundary - zero pages | Returns 0.0 | - |
+    | TC-HR-N-01 | Single search | Equivalence - normal | Correct rate | - |
+    | TC-HR-N-02 | Multiple searches | Equivalence - normal | Aggregated rate | - |
+    | TC-HR-B-03 | High rate (>=0.9) | Boundary - lastmile trigger | Returns rate >= 0.9 | - |
+    """
+    
+    def test_get_overall_harvest_rate_no_searches(self):
+        """TC-HR-B-01: Test returns 0.0 when no searches registered."""
+        # Given: An ExplorationState with no searches
+        from src.research.state import ExplorationState
+        
+        state = ExplorationState("test_task", enable_ucb_allocation=False)
+        
+        # When: Getting overall harvest rate
+        rate = state.get_overall_harvest_rate()
+        
+        # Then: Returns 0.0
+        assert rate == 0.0
+    
+    def test_get_overall_harvest_rate_zero_pages(self):
+        """TC-HR-B-02: Test returns 0.0 when searches have no pages fetched."""
+        # Given: An ExplorationState with searches but no pages fetched
+        from src.research.state import ExplorationState
+        
+        state = ExplorationState("test_task", enable_ucb_allocation=False)
+        search = state.register_search("search_1", "test query")
+        # pages_fetched is 0 by default
+        
+        # When: Getting overall harvest rate
+        rate = state.get_overall_harvest_rate()
+        
+        # Then: Returns 0.0 (no division by zero)
+        assert rate == 0.0
+    
+    def test_get_overall_harvest_rate_single_search(self):
+        """TC-HR-N-01: Test calculates correct rate for single search."""
+        # Given: An ExplorationState with one search
+        from src.research.state import ExplorationState
+        
+        state = ExplorationState("test_task", enable_ucb_allocation=False)
+        search = state.register_search("search_1", "test query")
+        search.pages_fetched = 10
+        search.useful_fragments = 8
+        
+        # When: Getting overall harvest rate
+        rate = state.get_overall_harvest_rate()
+        
+        # Then: Returns correct rate (8/10 = 0.8)
+        assert rate == 0.8
+    
+    def test_get_overall_harvest_rate_multiple_searches(self):
+        """TC-HR-N-02: Test aggregates rate across multiple searches."""
+        # Given: An ExplorationState with multiple searches
+        from src.research.state import ExplorationState
+        
+        state = ExplorationState("test_task", enable_ucb_allocation=False)
+        
+        search1 = state.register_search("search_1", "query 1")
+        search1.pages_fetched = 10
+        search1.useful_fragments = 8
+        
+        search2 = state.register_search("search_2", "query 2")
+        search2.pages_fetched = 20
+        search2.useful_fragments = 10
+        
+        # When: Getting overall harvest rate
+        rate = state.get_overall_harvest_rate()
+        
+        # Then: Returns aggregated rate (8+10)/(10+20) = 18/30 = 0.6
+        expected = 18 / 30
+        assert abs(rate - expected) < 0.001
+    
+    def test_get_overall_harvest_rate_high_rate(self):
+        """TC-HR-B-03: Test returns rate >= 0.9 for high harvest."""
+        # Given: An ExplorationState with high harvest rate
+        from src.research.state import ExplorationState
+        
+        state = ExplorationState("test_task", enable_ucb_allocation=False)
+        
+        search1 = state.register_search("search_1", "query 1")
+        search1.pages_fetched = 10
+        search1.useful_fragments = 9
+        
+        search2 = state.register_search("search_2", "query 2")
+        search2.pages_fetched = 10
+        search2.useful_fragments = 10
+        
+        # When: Getting overall harvest rate
+        rate = state.get_overall_harvest_rate()
+        
+        # Then: Returns rate >= 0.9 (9+10)/(10+10) = 19/20 = 0.95
+        expected = 19 / 20
+        assert abs(rate - expected) < 0.001
+        assert rate >= 0.9  # Triggers lastmile per §3.1.1
