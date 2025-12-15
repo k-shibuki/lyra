@@ -155,6 +155,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         # Rate limiting
         self._rate_limiter = asyncio.Semaphore(1)
         self._last_search_time = 0.0
+        self._last_search_times: dict[str, float] = {}  # Per-engine tracking
         
         # Session management
         self._sessions: dict[str, BrowserSearchSession] = {}
@@ -307,12 +308,35 @@ class BrowserSearchProvider(BaseSearchProvider):
         
         return self._page
     
-    async def _rate_limit(self) -> None:
-        """Apply rate limiting between searches."""
+    async def _rate_limit(self, engine: str | None = None) -> None:
+        """Apply rate limiting between searches (per-engine QPS).
+        
+        Per spec §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
+        Per spec §4.3: "Engine QPS≤0.25, concurrency=1"
+        
+        Args:
+            engine: Engine name for per-engine rate limiting.
+                   If None, uses default interval for backward compatibility.
+        """
+        # Get engine-specific interval from config
+        min_interval = self._min_interval  # Default fallback
+        
+        if engine:
+            engine_config = get_engine_config_manager().get_engine(engine)
+            if engine_config:
+                min_interval = engine_config.min_interval
+        
         async with self._rate_limiter:
-            elapsed = time.time() - self._last_search_time
-            if elapsed < self._min_interval:
-                await asyncio.sleep(self._min_interval - elapsed)
+            # Track per-engine last search time
+            engine_key = engine or "default"
+            last_time = self._last_search_times.get(engine_key, 0.0)
+            
+            elapsed = time.time() - last_time
+            if elapsed < min_interval:
+                await asyncio.sleep(min_interval - elapsed)
+            
+            self._last_search_times[engine_key] = time.time()
+            # Also update shared time for backward compatibility
             self._last_search_time = time.time()
     
     def _detect_category(self, query: str) -> str:
@@ -456,7 +480,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         )
         
         try:
-            await self._rate_limit()
+            await self._rate_limit(engine)
             
             # Get parser for engine
             parser = get_parser(engine)

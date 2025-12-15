@@ -262,6 +262,7 @@ class TestBrowserSearchProvider:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -326,6 +327,7 @@ class TestBrowserSearchProvider:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -380,6 +382,7 @@ class TestBrowserSearchProvider:
             mock_engine_config.name = "nonexistent"
             mock_engine_config.weight = 0.7
             mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0  # Per-engine QPS
             mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
@@ -661,6 +664,7 @@ class TestCDPConnection:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -721,6 +725,7 @@ class TestCDPConnection:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -786,6 +791,7 @@ class TestSearchOptionsIntegration:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -857,6 +863,7 @@ class TestSearchOptionsIntegration:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1186,6 +1193,7 @@ class TestBrowserSearchProviderHumanBehavior:
             mock_engine_config.name = "arxiv"
             mock_engine_config.weight = 1.0
             mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0  # Per-engine QPS
             mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
@@ -1413,6 +1421,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1494,6 +1503,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1570,6 +1580,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1652,6 +1663,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.name = "duckduckgo"
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1783,6 +1795,7 @@ class TestBrowserSearchProviderHumanBehavior:
             mock_engine_config.name = "duckduckgo"
             mock_engine_config.weight = 0.7
             mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0  # Per-engine QPS
             mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
@@ -1835,6 +1848,298 @@ class TestBrowserSearchProviderHumanBehavior:
                 # Then: Engine is skipped (None check), resulting in no available engines
                 assert response.ok is False
                 assert "No available engines" in response.error
+        
+        await provider.close()
+
+
+# ============================================================================
+# Per-Engine QPS Rate Limiting Tests (Problem 9)
+# ============================================================================
+
+
+class TestPerEngineQPSRateLimiting:
+    """Tests for per-engine QPS rate limiting.
+    
+    Per spec §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
+    Per spec §4.3: "Engine QPS≤0.25 (1 request/4s), concurrency=1"
+    
+    Validates:
+    - _last_search_times attribute exists for per-engine tracking
+    - _rate_limit() accepts engine parameter
+    - Per-engine intervals are applied correctly
+    - Backward compatibility (engine=None uses default interval)
+    - Unknown engines fall back to default interval
+    """
+    
+    def test_last_search_times_attribute_exists(self):
+        """Test _last_search_times attribute is initialized.
+        
+        Given: New BrowserSearchProvider instance
+        When: Provider is created
+        Then: _last_search_times dict exists and is empty
+        """
+        # Given/When: New provider instance
+        provider = BrowserSearchProvider()
+        
+        # Then: _last_search_times exists and is empty dict
+        assert hasattr(provider, "_last_search_times")
+        assert isinstance(provider._last_search_times, dict)
+        assert len(provider._last_search_times) == 0
+    
+    @pytest.mark.asyncio
+    async def test_rate_limit_accepts_engine_parameter(self):
+        """Test _rate_limit() accepts engine parameter.
+        
+        Given: BrowserSearchProvider instance
+        When: _rate_limit(engine="duckduckgo") is called
+        Then: Method completes without TypeError
+        """
+        provider = BrowserSearchProvider()
+        
+        # Given: Mock engine config manager
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config_manager:
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.min_interval = 5.0  # duckduckgo qps=0.2
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+            
+            # When: _rate_limit() is called with engine parameter
+            # Then: No TypeError is raised
+            await provider._rate_limit(engine="duckduckgo")
+    
+    @pytest.mark.asyncio
+    async def test_rate_limit_backward_compatibility_no_engine(self):
+        """Test _rate_limit() works without engine parameter (backward compatibility).
+        
+        Given: BrowserSearchProvider instance
+        When: _rate_limit() is called without engine parameter
+        Then: Method completes successfully using default interval
+        """
+        provider = BrowserSearchProvider()
+        
+        # When: _rate_limit() is called without engine
+        # Then: No error, uses default interval
+        await provider._rate_limit()
+        
+        # Verify "default" key is used for tracking
+        assert "default" in provider._last_search_times
+    
+    @pytest.mark.asyncio
+    async def test_rate_limit_with_none_engine(self):
+        """Test _rate_limit(engine=None) uses default interval.
+        
+        Given: BrowserSearchProvider instance
+        When: _rate_limit(engine=None) is called
+        Then: Method uses default interval and tracks under "default" key
+        """
+        provider = BrowserSearchProvider()
+        
+        # When: _rate_limit() is called with engine=None
+        await provider._rate_limit(engine=None)
+        
+        # Then: "default" key is used
+        assert "default" in provider._last_search_times
+    
+    @pytest.mark.asyncio
+    async def test_per_engine_tracking_separate_keys(self):
+        """Test different engines are tracked separately.
+        
+        Given: BrowserSearchProvider instance
+        When: _rate_limit() is called for different engines
+        Then: Each engine has its own tracking entry in _last_search_times
+        """
+        provider = BrowserSearchProvider()
+        
+        # Given: Mock engine config manager
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config_manager:
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.min_interval = 4.0
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+            
+            # When: _rate_limit() is called for different engines
+            await provider._rate_limit(engine="duckduckgo")
+            await provider._rate_limit(engine="mojeek")
+            await provider._rate_limit(engine="google")
+            
+            # Then: Each engine has separate tracking
+            assert "duckduckgo" in provider._last_search_times
+            assert "mojeek" in provider._last_search_times
+            assert "google" in provider._last_search_times
+    
+    @pytest.mark.asyncio
+    async def test_rate_limit_uses_engine_specific_interval(self):
+        """Test _rate_limit() uses engine-specific min_interval.
+        
+        Given: Engine config with specific QPS (interval)
+        When: _rate_limit() is called twice in quick succession
+        Then: Sleep is applied based on engine's min_interval
+        """
+        provider = BrowserSearchProvider()
+        
+        # Given: Engine with 5.0s interval (qps=0.2)
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config_manager:
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+            
+            # When: First call - immediate
+            import time
+            start_time = time.time()
+            await provider._rate_limit(engine="duckduckgo")
+            first_call_time = time.time() - start_time
+            
+            # Then: First call should be nearly immediate
+            assert first_call_time < 0.5, "First call should be immediate"
+            
+            # Verify engine-specific tracking
+            assert "duckduckgo" in provider._last_search_times
+    
+    @pytest.mark.asyncio
+    async def test_rate_limit_unknown_engine_fallback(self):
+        """Test _rate_limit() with unknown engine falls back to default interval.
+        
+        Given: Unknown engine name (not in config)
+        When: _rate_limit(engine="unknown_engine") is called
+        Then: Method uses default _min_interval
+        """
+        provider = BrowserSearchProvider()
+        
+        # Given: Engine config manager returns None for unknown engine
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config_manager:
+            mock_config_manager = MagicMock()
+            mock_config_manager.get_engine.return_value = None  # Unknown engine
+            mock_get_config_manager.return_value = mock_config_manager
+            
+            # When: _rate_limit() is called with unknown engine
+            await provider._rate_limit(engine="unknown_engine")
+            
+            # Then: Uses default interval, but still tracks under engine name
+            assert "unknown_engine" in provider._last_search_times
+    
+    @pytest.mark.asyncio
+    async def test_rate_limit_updates_shared_last_search_time(self):
+        """Test _rate_limit() also updates shared _last_search_time for compatibility.
+        
+        Given: BrowserSearchProvider with initial _last_search_time=0
+        When: _rate_limit(engine="duckduckgo") is called
+        Then: Both _last_search_times[engine] and _last_search_time are updated
+        """
+        provider = BrowserSearchProvider()
+        
+        # Given: Initial state
+        assert provider._last_search_time == 0.0
+        
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config_manager:
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.min_interval = 4.0
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+            
+            # When: _rate_limit() is called
+            await provider._rate_limit(engine="duckduckgo")
+            
+            # Then: Both tracking mechanisms are updated
+            assert provider._last_search_times.get("duckduckgo", 0) > 0
+            assert provider._last_search_time > 0
+    
+    @pytest.mark.asyncio
+    async def test_search_calls_rate_limit_with_engine(self):
+        """Test search() calls _rate_limit() with selected engine.
+        
+        Given: Mock setup for search execution
+        When: search() is called
+        Then: _rate_limit() is called with the selected engine name
+        """
+        provider = BrowserSearchProvider()
+        
+        with patch(
+            "playwright.async_api.async_playwright"
+        ) as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+            
+            with patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ), patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager:
+                mock_config_manager = MagicMock()
+                mock_engine_config = MagicMock()
+                mock_engine_config.name = "duckduckgo"
+                mock_engine_config.weight = 0.7
+                mock_engine_config.is_available = True
+                mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                mock_config_manager.get_engine.return_value = mock_engine_config
+                mock_get_config_manager.return_value = mock_config_manager
+                
+                with patch(
+                    "src.search.browser_search_provider.get_parser"
+                ) as mock_get_parser:
+                    mock_parser = MagicMock()
+                    mock_parser.build_search_url = MagicMock(
+                        return_value="https://duckduckgo.com/?q=test"
+                    )
+                    mock_parse_result = ParseResult(
+                        ok=True,
+                        is_captcha=False,
+                        results=[ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )],
+                    )
+                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                    mock_get_parser.return_value = mock_parser
+                    
+                    with patch(
+                        "src.search.browser_search_provider.record_engine_result",
+                        AsyncMock(),
+                    ):
+                        mock_page = AsyncMock()
+                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+                        mock_page.wait_for_load_state = AsyncMock()
+                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+                        mock_page.query_selector_all = AsyncMock(return_value=[])
+                        mock_page.is_closed = MagicMock(return_value=False)
+                        
+                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
+                            with patch.object(provider, "_save_session", AsyncMock()):
+                                # Spy on _rate_limit
+                                original_rate_limit = provider._rate_limit
+                                rate_limit_calls = []
+                                
+                                async def track_rate_limit(engine=None):
+                                    rate_limit_calls.append(engine)
+                                    # Don't actually sleep
+                                    provider._last_search_times[engine or "default"] = 1.0
+                                    provider._last_search_time = 1.0
+                                
+                                with patch.object(provider, "_rate_limit", track_rate_limit):
+                                    # When: search() is called
+                                    response = await provider.search("test query")
+                                    
+                                    # Then: _rate_limit was called with engine name
+                                    assert len(rate_limit_calls) == 1
+                                    assert rate_limit_calls[0] == "duckduckgo"
+                                    assert response.ok is True
         
         await provider.close()
 

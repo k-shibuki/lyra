@@ -562,7 +562,12 @@ for engine_name in candidate_engines:
 
 ---
 
-## 問題9: BrowserSearchProviderでエンジン別QPS制限が未実装
+## 問題9: BrowserSearchProviderでエンジン別QPS制限が未実装 ✅ 実装完了
+
+**実装完了日**: 2025-12-15  
+**実装ファイル**: `src/search/browser_search_provider.py:155-158` (_last_search_times追加), `src/search/browser_search_provider.py:311-339` (_rate_limit拡張), `src/search/browser_search_provider.py:484` (search呼び出し修正)  
+**検証スクリプト**: `tests/scripts/debug_engine_qps_flow.py`  
+**シーケンス図**: `docs/sequences/engine_qps_flow.md`
 
 ### 影響範囲
 
