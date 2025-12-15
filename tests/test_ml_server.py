@@ -1,6 +1,37 @@
 """
 Tests for ML Server components.
-Tests model path management and service classes with mocks.
+
+=============================================================================
+ML Testing Strategy
+=============================================================================
+
+This project uses a hybrid architecture where ML inference runs in an isolated
+container (lancet-ml) for security. Tests are split into two categories:
+
+1. UNIT TESTS (this file - test_ml_server.py)
+   - Test model path management, service classes, label mapping, etc.
+   - Tests requiring ML libs (sentence_transformers/transformers) are SKIPPED
+     in the main environment since those libs are only installed in the ML container.
+   - These skipped tests are for development/debugging purposes when ML libs
+     are locally available. For production validation, use E2E tests.
+
+2. E2E TESTS (test_ml_server_e2e.py) - RECOMMENDED
+   - Test actual HTTP communication with the ML server container
+   - Run from WSL environment, communicate via proxy (localhost:8080)
+   - This is the PRIMARY way to validate ML server functionality
+
+How to run:
+    # E2E tests (recommended - validates actual ML server behavior)
+    pytest tests/test_ml_server_e2e.py -v -m e2e
+
+    # Unit tests (skips ML-dependent tests in main environment)
+    pytest tests/test_ml_server.py -v
+
+    # To run ML-dependent unit tests, install ML libs locally (not recommended):
+    pip install sentence-transformers transformers torch
+    pytest tests/test_ml_server.py -v
+
+=============================================================================
 """
 
 import json
@@ -9,6 +40,57 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+# =============================================================================
+# ML Dependency Check
+# =============================================================================
+
+# Check if ML dependencies are available
+_HAS_SENTENCE_TRANSFORMERS = False
+_HAS_TRANSFORMERS = False
+
+try:
+    import sentence_transformers  # noqa: F401
+    _HAS_SENTENCE_TRANSFORMERS = True
+except ImportError:
+    pass
+
+try:
+    import transformers  # noqa: F401
+    _HAS_TRANSFORMERS = True
+except ImportError:
+    pass
+
+
+# Skip messages for tests requiring ML dependencies
+_SKIP_MSG_SENTENCE_TRANSFORMERS = (
+    "Requires sentence_transformers. "
+    "Use E2E tests (test_ml_server_e2e.py) for ML validation, "
+    "or install: pip install sentence-transformers"
+)
+
+_SKIP_MSG_TRANSFORMERS = (
+    "Requires transformers. "
+    "Use E2E tests (test_ml_server_e2e.py) for ML validation, "
+    "or install: pip install transformers torch"
+)
+
+_SKIP_MSG_ML_CONTAINER = (
+    "Requires ML container environment (FastAPI). "
+    "Use E2E tests (test_ml_server_e2e.py) instead."
+)
+
+# Decorators for skipping tests based on ML dependencies
+requires_sentence_transformers = pytest.mark.skipif(
+    not _HAS_SENTENCE_TRANSFORMERS,
+    reason=_SKIP_MSG_SENTENCE_TRANSFORMERS,
+)
+
+requires_transformers = pytest.mark.skipif(
+    not _HAS_TRANSFORMERS,
+    reason=_SKIP_MSG_TRANSFORMERS,
+)
 
 # =============================================================================
 # model_paths.py Tests
@@ -394,6 +476,7 @@ class TestEmbeddingService:
         assert result == []
         assert service.is_loaded is False
 
+    @requires_sentence_transformers
     @pytest.mark.asyncio
     async def test_encode_with_mock_model(self):
         """
@@ -436,6 +519,7 @@ class TestEmbeddingService:
         mock_st.assert_called_once()
         mock_model.encode.assert_called_once()
 
+    @requires_sentence_transformers
     @pytest.mark.asyncio
     async def test_encode_model_load_failure(self):
         """
@@ -507,6 +591,7 @@ class TestRerankerService:
         assert result == []
         assert service.is_loaded is False
 
+    @requires_sentence_transformers
     @pytest.mark.asyncio
     async def test_rerank_with_mock_model(self):
         """
@@ -545,6 +630,7 @@ class TestRerankerService:
         assert result[1][0] == 0  # doc1 has second highest score
         assert result[1][1] == pytest.approx(0.5)
 
+    @requires_sentence_transformers
     @pytest.mark.asyncio
     async def test_rerank_model_load_failure(self):
         """
@@ -646,6 +732,7 @@ class TestNLIService:
         assert service._map_label("neutral") == "neutral"
         assert service._map_label("unknown") == "neutral"
 
+    @requires_transformers
     @pytest.mark.asyncio
     async def test_predict_with_mock_model(self):
         """
@@ -678,6 +765,7 @@ class TestNLIService:
         assert result["confidence"] == pytest.approx(0.95)
         assert result["raw_label"] == "ENTAILMENT"
 
+    @requires_transformers
     @pytest.mark.asyncio
     async def test_predict_batch_with_mock_model(self):
         """
@@ -716,6 +804,7 @@ class TestNLIService:
         assert result[1]["label"] == "refutes"
         assert result[2]["label"] == "neutral"
 
+    @requires_transformers
     @pytest.mark.asyncio
     async def test_predict_use_slow_model(self):
         """
@@ -752,6 +841,7 @@ class TestNLIService:
         call_kwargs = mock_pl.call_args[1]
         assert call_kwargs["model"] == "/mock/slow/path"
 
+    @requires_transformers
     @pytest.mark.asyncio
     async def test_predict_model_load_failure(self):
         """
@@ -790,12 +880,13 @@ class TestNLIService:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="FastAPI TestClient requires ML container environment")
+@pytest.mark.skip(reason=_SKIP_MSG_ML_CONTAINER)
 class TestMLServerAPI:
     """Integration tests for ML Server API endpoints.
-    
-    These tests are skipped in main container as FastAPI is not installed.
-    Run E2E tests in ML container instead.
+
+    These tests are skipped because they require FastAPI TestClient which
+    is only available inside the ML container. For production validation,
+    use E2E tests (test_ml_server_e2e.py) which test via HTTP.
     """
 
     @pytest.fixture

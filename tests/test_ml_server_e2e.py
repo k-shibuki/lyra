@@ -1,13 +1,33 @@
 """
 E2E tests for ML Server.
-Tests actual HTTP communication with the ML server container.
 
-These tests require:
-- ML server container running (lancet-ml)
-- Models downloaded and available
-- Internal network connectivity
+=============================================================================
+RECOMMENDED: Primary way to validate ML Server functionality
+=============================================================================
 
-Run with: ./scripts/dev.sh test tests/test_ml_server_e2e.py
+These tests verify the ML server by making actual HTTP requests through
+the proxy server (localhost:8080). This is the production-like validation
+method that tests:
+
+- Embedding generation (bge-m3)
+- Reranking (bge-reranker-v2-m3)
+- NLI inference (nli-deberta-v3-xsmall/small)
+- Offline mode operation (no HuggingFace API calls)
+
+Prerequisites:
+    1. Start containers: podman-compose up -d
+    2. Wait for ML server to be ready (models loaded)
+
+Run:
+    pytest tests/test_ml_server_e2e.py -v -m e2e
+
+Architecture:
+    WSL (pytest) --> localhost:8080 (proxy) --> lancet-ml:8100 (ML Server)
+
+See also:
+    - test_ml_server.py: Unit tests (some skipped without ML libs)
+    - docs/requirements.md §5.3: Hybrid architecture
+=============================================================================
 """
 
 import pytest
@@ -24,16 +44,14 @@ class TestMLServerE2E:
     """E2E tests for ML Server API."""
 
     @pytest.fixture
-    def ml_client(self):
-        """Create ML client."""
+    async def ml_client(self):
+        """Create ML client (async fixture for proper cleanup)."""
         from src.ml_client import MLClient
 
         client = MLClient()
         yield client
-        # Cleanup
-        import asyncio
-
-        asyncio.run(client.close())
+        # Cleanup using the existing event loop (pytest-asyncio manages it)
+        await client.close()
 
     @pytest.mark.asyncio
     async def test_health_check(self, ml_client):
