@@ -2032,6 +2032,123 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 | `tests/scripts/debug_other_tools_flow.py` | calibrate等 |
 | `tests/scripts/debug_e2e_mcp_flow.py` | E2E統合テスト |
 
+#### O.8 実MCP統合検証 🚧 進行中
+
+**目的**: O.6/O.7のコード修正が実際のMCP運用で正しく動作することを検証
+
+**検証日**: 2025-12-15（部分検証）
+
+##### 背景
+
+O.6/O.7では以下を修正:
+- 認証セッション再利用、レート制御、経路最適化（O.6）
+- searchパイプラインDB永続化、get_status/get_materialsスキーマ整合（O.7）
+
+しかし、これらは**デバッグスクリプト（モックデータ使用）**での検証であり、**実際のMCPサーバー+Cursor AI連携**での検証は未実施。
+
+##### 検証タスク
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|----------|
+| 1 | MCPサーバー起動確認 | `./scripts/dev.sh`でMCPサーバーが正常起動するか | ✅ 確認済 |
+| 2 | create_task実呼び出し | Cursor AIから`create_task`を呼び出し、タスクがDBに作成されるか | ✅ 動作確認 |
+| 3 | search実呼び出し | 実際のネットワークアクセス→コンテンツ抽出→claims永続化が動作するか | ⚠️ 部分動作 |
+| 4 | get_status実呼び出し | searches配列、metrics、budgetが正しく返るか | 🔜 未検証 |
+| 5 | get_materials実呼び出し | claims/fragments/evidence_graphがDBから取得できるか | 🔜 未検証 |
+| 6 | 認証フロー確認 | 認証要求サイトへのアクセス→認証待ち→セッション再利用が動作するか | ⚠️ 部分動作 |
+| 7 | エラーハンドリング | 各種エラー（Chrome未起動、タスク不存在等）が適切にハンドリングされるか | 🔜 未検証 |
+
+##### 2025-12-15 検証結果
+
+###### 発見した問題と修正
+
+| 問題 | 原因 | 対処 |
+|------|------|------|
+| searchでarxivエンジンが選択されエラー | `SearchExecutor`にenginesオプションが渡されていなかった | `executor.py`, `pipeline.py`を修正してenginesを伝搬 |
+| パーサー未対応エンジン | wikipedia, arxiv等のパーサーが未実装 | duckduckgo等パーサー対応エンジンを明示指定で回避 |
+
+###### 動作確認できた項目
+
+1. **Chrome CDP接続**: ✅ `./scripts/chrome.sh start`で正常起動、CDP接続成功
+2. **DuckDuckGo検索**: ✅ 10件の検索結果を取得
+3. **コンテンツフェッチ**: ✅ 複数サイト（Britannica, countryaah, worldatlas等）からフェッチ成功
+4. **Waybackフォールバック**: ✅ Wikipedia（hcaptcha）でWayback Machineフォールバック成功
+5. **認証待ちキュー**: ✅ hcaptcha検出→キューに追加動作確認
+6. **DB永続化**: ✅ claims: 12件, fragments: 2件, edges: 12件がDBに保存
+
+###### 残存する問題
+
+| 問題 | 詳細 | 優先度 |
+|------|------|--------|
+| フェッチ処理タイムアウト | 検索後のフェッチ処理でタイムアウトが発生する場合がある | 高 |
+| wayback_success_countカラム不存在 | Waybackフォールバック後のDB更新でエラー | 中 |
+| fragments数が少ない | 5ページフェッチで2fragmentsのみ（期待値より少ない） | 低 |
+| パーサー未対応エンジン | wikipedia, wikidata, arxiv, marginalia等のパーサーが未実装 | 中 |
+
+###### DB状態（検証時点）
+
+```
+tasks: 24
+claims: 12
+fragments: 2
+edges: 12
+
+Recent claims:
+- "Paris is the capital of France..."
+- "Where in the World is Paris found?..."
+```
+
+##### 検証手順
+
+```bash
+# 1. 開発環境起動
+./scripts/dev.sh up
+
+# 2. Chrome CDP起動
+./scripts/chrome.sh start
+
+# 3. MCPサーバー起動確認
+# Cursor IDE側で .cursor/mcp.json が正しく設定されていることを確認
+
+# 4. Cursor AIからMCPツールを呼び出し
+# - create_task → search → get_status → get_materials → stop_task
+
+# 5. DB確認
+python -c "import sqlite3; c=sqlite3.connect('data/lancet.db'); print(c.execute('SELECT COUNT(*) FROM claims').fetchone())"
+```
+
+##### 成功基準
+
+1. **create_task**: ✅ タスクIDが返り、`tasks`テーブルに行が作成される
+2. **search**: 
+   - ✅ `claims_found`配列に1件以上のclaim
+   - ✅ `claims`テーブルに永続化されている
+   - ⚠️ `fragments`テーブルへの永続化が少ない
+3. **get_status**: 🔜 `searches`配列が空でない、`metrics.total_claims >= 1`
+4. **get_materials**: 🔜 `claims`/`fragments`配列が空でない、`evidence_graph.nodes`が存在
+5. **認証フロー**: ⚠️ 認証待ちキューに追加は動作、セッション再利用は未検証
+
+##### 次のステップ
+
+1. フェッチタイムアウト問題の調査・修正
+2. wayback_success_countカラムの追加（スキーマ更新）
+3. get_status/get_materialsの実呼び出し検証
+4. パーサー未対応エンジンの対応（wikipedia等）
+
+##### 関連ドキュメント
+
+- O.6詳細: `docs/O6_ADDITIONAL_ISSUES.md`
+- O.7詳細: `docs/O7_MCP_TOOL_CONFORMANCE.md`
+- MCP設定: `.cursor/mcp.json`
+- 起動スクリプト: `scripts/dev.sh`
+
+##### 修正ファイル（O.8）
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/research/executor.py` | enginesパラメータ追加、search_serpへの伝搬 |
+| `src/research/pipeline.py` | SearchExecutor.execute()にenginesを渡すよう修正 |
+
 ---
 
 ## 7. 開発環境

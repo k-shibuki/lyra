@@ -138,6 +138,7 @@ class SearchExecutor:
         priority: str = "medium",
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
+        engines: list[str] | None = None,
         # Backward compatibility (deprecated)
         subquery: str | None = None,
     ) -> SearchResult:
@@ -156,6 +157,9 @@ class SearchExecutor:
         # Backward compatibility: accept subquery param
         if subquery is not None:
             query = subquery
+        
+        # Store engines for use in _execute_search
+        self._engines = engines
             
         await self._ensure_db()
         
@@ -290,10 +294,12 @@ class SearchExecutor:
         from src.search import search_serp
         
         try:
+            # Pass engines if specified (O.8 fix)
             results = await search_serp(
                 query=query,
                 limit=10,
                 task_id=self.task_id,
+                engines=getattr(self, '_engines', None),
             )
             return results
         except Exception as e:

@@ -197,15 +197,16 @@ class SearchPipeline:
         """Execute normal search mode."""
         # Use SearchExecutor for the core pipeline logic
         executor = SearchExecutor(self.task_id, self.state)
-        
+
         # Convert options to executor parameters
         budget_pages = options.max_pages
-        
-        # Execute through executor
+
+        # Execute through executor (O.8 fix: pass engines option)
         exec_result = await executor.execute(
             query=query,
             priority="high" if options.seek_primary else "medium",
             budget_pages=budget_pages,
+            engines=options.engines,
         )
         
         # Map executor result to SearchResult
