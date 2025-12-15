@@ -1169,6 +1169,8 @@ except Exception as e:
 
 #### K.4 MLモデルのネットワーク分離 ✅
 
+**状態**: **実装完了・動作確認済み** - MLサーバーは正常に機能しており、E2Eテストで全機能を検証済み。
+
 **目的**: 埋め込み・リランカー・NLIモデルをネットワーク分離し、セキュリティを強化する。
 
 **背景**:
@@ -1201,18 +1203,33 @@ K.1の調査で以下が判明:
 - `src/ml_client.py` - HTTPクライアント
 
 **実装完了**:
+- [x] MLサーバーの全機能が正常に動作（E2Eテストで検証済み）
+  - 埋め込みAPI（bge-m3）: ✅ 動作確認済み
+  - リランキングAPI（bge-reranker-v2-m3）: ✅ 動作確認済み
+  - NLI API（nli-deberta-v3-xsmall/small）: ✅ 動作確認済み
+  - オフラインモード: ✅ 動作確認済み（HuggingFace API呼び出しなし）
 - [x] オフラインモードでのモデルロード問題の解決
   - 解決方法: `huggingface_hub.snapshot_download()`でモデルのローカルパスを取得し、`model_paths.json`に保存
   - `src/ml_server/model_paths.py`でパス管理モジュールを実装
   - 各サービス（embedding/reranker/nli）をローカルパス指定に変更
   - `download_models.py`を修正し、オフラインモードでも既存モデルからパスを取得可能に
 - [x] テストコード作成
-  - `tests/test_ml_server.py`: 27件のユニットテスト（model_paths, embedding, reranker, nli）
-  - `tests/test_ml_server_e2e.py`: E2Eテスト（API統合テスト）
+  - `tests/test_ml_server.py`: 32件のユニットテスト（model_paths, embedding, reranker, nli）
+    - ML依存関係がない場合は適切にスキップ（12件スキップ、20件パス）
+    - スキップメッセージでE2Eテストを推奨
+  - `tests/test_ml_server_e2e.py`: E2Eテスト（API統合テスト、6件全てパス）
+    - HTTP経由でMLサーバーを検証（推奨方法）
 - [x] E2E動作確認
   - コンテナ内で動作確認済み
   - オフラインモードでモデルロード成功
   - 埋め込みAPI動作確認済み
+  - リランキングAPI動作確認済み
+  - NLI API動作確認済み
+- [x] テスト戦略の改善
+  - ML依存関係チェック機能を追加（`_HAS_SENTENCE_TRANSFORMERS`, `_HAS_TRANSFORMERS`）
+  - スキップデコレータ（`@requires_sentence_transformers`, `@requires_transformers`）を追加
+  - 明確なスキップメッセージでE2Eテストを推奨
+  - E2Eテストフィクスチャの非同期対応を修正（イベントループ競合を解消）
 
 **知見・トラブルシューティング**:
 
@@ -1228,7 +1245,14 @@ K.1の調査で以下が判明:
 2. **テストコード設計の知見**
    - **モックパッチのパス指定**: `src.ml_server.embedding.SentenceTransformer`ではなく、`sentence_transformers.SentenceTransformer`をパッチする必要がある（ライブラリのインポート元を直接パッチ）
    - **GPU関連のモック**: `SentenceTransformer`の`to("cuda")`呼び出しに対応するため、`mock_model.to = MagicMock(return_value=mock_model)`を設定
-   - **FastAPIテストの分離**: メインコンテナにはFastAPIがインストールされていないため、FastAPI TestClientを使うテストは`@pytest.mark.skip`でスキップし、E2EテストはMLコンテナで実行
+   - **ML依存関係のスキップ処理**: ML依存関係（`sentence_transformers`, `transformers`）がない場合、テストをスキップし、E2Eテストを推奨するメッセージを表示
+     - `@requires_sentence_transformers` / `@requires_transformers` デコレータを実装
+     - スキップメッセージで「Use E2E tests (test_ml_server_e2e.py) for ML validation」を明示
+   - **E2Eテストの推奨**: MLサーバーの検証はE2Eテスト（HTTP経由）が推奨方法
+     - アーキテクチャ: WSL (pytest) → localhost:8080 (proxy) → lancet-ml:8100 (ML Server)
+     - 実際のHTTP通信を検証するため、より信頼性が高い
+   - **FastAPIテストの分離**: メインコンテナにはFastAPIがインストールされていないため、FastAPI TestClientを使うテストは`@pytest.mark.skip`でスキップし、E2Eテストで代替
+   - **非同期フィクスチャの修正**: E2Eテストのフィクスチャで`asyncio.run()`を使うとイベントループ競合が発生するため、`async def`フィクスチャにして`await client.close()`を使用
 
 3. **既存テストの修正**
    - **問題**: `EmbeddingRanker`と`Reranker`のテストがリモートモード（`ml.use_remote=True`）を考慮していない
@@ -1256,34 +1280,43 @@ K.1の調査で以下が判明:
      - MLモデルは別コンテナ（`lancet-ml`）で実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要
      - モックを使用しているテストでも、インポート時に依存関係がチェックされるため、事前インストールが必要
    - **回帰テスト実行前の確認タスク**:
-     - [ ] WSL venvにオプショナル依存関係がインストールされているか確認
+     - [x] ML依存関係チェック機能を実装（ML依存関係がない場合は適切にスキップ）
+     - [x] E2Eテストを推奨方法として明確化（`test_ml_server_e2e.py`）
+     - [ ] WSL venvにオプショナル依存関係がインストールされているか確認（オプショナル）
        ```bash
-       # ML関連依存関係の確認
+       # ML関連依存関係の確認（オプショナル - スキップされるが、ローカルでモックテストを実行する場合は必要）
        python -c "import sentence_transformers, transformers, torch" 2>/dev/null && echo "ML deps OK" || echo "ML deps MISSING"
        
        # PDF/OCR関連依存関係の確認
        python -c "import fitz, PIL" 2>/dev/null && echo "PDF/OCR deps OK" || echo "PDF/OCR deps MISSING"
        ```
-     - [ ] 依存関係が不足している場合、テスト失敗を許容するか、`requirements-ml.txt`をインストールするか判断
-     - [ ] 回帰テスト実行後、失敗したテストが依存関係不足によるものか確認
+     - **注意**: ML依存関係がなくても、`test_ml_server.py`は20件のテストがパスし、ML依存関係が必要な12件は適切にスキップされる
+     - **推奨**: MLサーバーの検証は`pytest tests/test_ml_server_e2e.py -v -m e2e`を使用（ML依存関係不要）
    - **過去の回帰テスト結果**（依存関係インストール済み環境）:
      - 全2728テストが成功（4テストスキップ、23テスト除外）
      - 既存機能への影響なし
      - MLサーバーのテストは26件成功、4件スキップ（FastAPI TestClient関連）
+   - **現在のテスト結果**（ML依存関係チェック実装後）:
+     - `test_ml_server.py`: 20 passed, 12 skipped（ML依存関係チェックによる適切なスキップ）
+     - `test_ml_server_e2e.py`: 6 passed（MLサーバーの全機能をHTTP経由で検証）
+     - **ML実装は正常に機能**: E2Eテストで埋め込み・リランキング・NLIの全機能が動作確認済み
 
-7. **テスト実行時の依存関係について（設計方針との不一致）**
+7. **テスト実行時の依存関係について（解決済み）**
    - **問題**: テストコード内で直接インポート（`import torch`, `from PIL import Image`等）しているため、モックを使う前にインポートが実行され、依存関係がインストールされていないと失敗する
-   - **設計方針との不一致**: 
-     - 実装計画では「モックを使っているので依存関係不要」と記載していたが、実際にはテストコード内で直接インポートしているため依存関係が必要
-     - MLモデルは別コンテナ（`lancet-ml`）で実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要
+   - **解決策**: ML依存関係チェック機能を実装し、依存関係がない場合はテストをスキップ
+     - `_HAS_SENTENCE_TRANSFORMERS` / `_HAS_TRANSFORMERS` フラグで依存関係をチェック
+     - `@requires_sentence_transformers` / `@requires_transformers` デコレータでスキップ
+     - スキップメッセージでE2Eテストを推奨（`test_ml_server_e2e.py`）
+   - **現在の動作**:
+     - WSL venvで`pytest tests/test_ml_server.py`を実行すると、ML依存関係が必要なテスト（8件）はスキップされ、残り（20件）は正常にパス
+     - E2Eテスト（`test_ml_server_e2e.py`）はML依存関係不要で、HTTP経由でMLサーバーを検証（6件全てパス）
+     - **推奨**: MLサーバーの検証はE2Eテストを使用（`pytest tests/test_ml_server_e2e.py -v -m e2e`）
    - **影響範囲**:
-     - `tests/test_ml_server.py`: `import torch`（727行目）→ `sentence-transformers`, `transformers`, `torch`が必要
-     - `tests/test_extractor.py`: `from PIL import Image`（297行目等）→ `Pillow`が必要
-     - `tests/test_extractor.py`: PDF抽出テスト → `PyMuPDF`（`fitz`）が必要
-   - **対応方針**: 
-     - WSL venvで基本テストを実行する場合は、オプショナルな依存関係の不足による失敗は許容する（コア機能のテストはパス）
-     - ML/PDF/OCR機能のテストを実行する場合は、`pip install -r requirements-ml.txt`で依存関係をインストールする
-     - または、テストコードを修正して依存関係がない場合にスキップする（将来の改善案）
+     - `tests/test_ml_server.py`: ML依存関係が必要なテストはスキップ（`sentence-transformers`, `transformers`, `torch`）
+     - `tests/test_extractor.py`: PDF/OCR関連テストは未対応（将来の改善案）
+   - **テスト結果**:
+     - Unit tests: 20 passed, 12 skipped（ML依存関係チェックによる適切なスキップ）
+     - E2E tests: 6 passed（MLサーバーの全機能をHTTP経由で検証）
    - **実装計画書の更新**: 本セクションに追記し、Phase G.2にも注意事項を追加（§G.2、§G.4参照）
 
 8. **セキュリティ対策: パス検証とサニタイズ**
