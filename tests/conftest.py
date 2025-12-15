@@ -134,14 +134,6 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.unit)
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test files."""
@@ -444,9 +436,14 @@ def cleanup_aiohttp_sessions(request):
         except ImportError:
             pass
     
-    # Run cleanup - use asyncio.run() to avoid deprecation warning
+    # Run cleanup with proper event loop management
     try:
-        asyncio.run(_cleanup())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(_cleanup())
+        finally:
+            loop.close()
     except RuntimeError:
         # Event loop already running (shouldn't happen in session teardown)
         pass

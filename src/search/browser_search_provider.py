@@ -41,6 +41,7 @@ from src.search.search_parsers import (
     get_parser,
     get_available_parsers,
 )
+from src.search.search_api import transform_query_for_engine
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.crawler.fetcher import HumanBehavior
@@ -494,16 +495,28 @@ class BrowserSearchProvider(BaseSearchProvider):
                     connection_mode="cdp" if self._cdp_connected else None,
                 )
             
+            # Normalize query operators for the selected engine (§3.1.4)
+            normalized_query = transform_query_for_engine(query, engine)
+            
+            # Log if query was transformed
+            if normalized_query != query:
+                logger.debug(
+                    "Query operators normalized",
+                    original=query[:50] if query else "",
+                    normalized=normalized_query[:50] if normalized_query else "",
+                    engine=engine,
+                )
+            
             # Build search URL
             search_url = parser.build_search_url(
-                query=query,
+                query=normalized_query,
                 time_range=options.time_range,
             )
             
             logger.debug(
                 "Browser search",
                 engine=engine,
-                query=query[:50],
+                query=normalized_query[:50] if normalized_query else "",
                 url=search_url[:100],
             )
             

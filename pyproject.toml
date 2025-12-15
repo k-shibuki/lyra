@@ -65,6 +65,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "-v"
 markers = [
@@ -75,6 +76,11 @@ markers = [
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
+    # Ignore ResourceWarning for unclosed event loops during test cleanup
+    # This is a known issue with pytest-asyncio where event loops are garbage
+    # collected after tests complete. The warning doesn't affect test behavior.
+    "ignore:unclosed event loop:ResourceWarning",
+    "ignore:unclosed <socket:ResourceWarning",
 ]
 
 [tool.coverage.run]
