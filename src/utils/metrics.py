@@ -6,12 +6,13 @@ Implements comprehensive metrics as defined in requirements §4.6.
 import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 from enum import Enum
 from typing import Any
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.schemas import TorUsageMetrics, DomainTorMetrics
 
 logger = get_logger(__name__)
 
@@ -280,6 +281,12 @@ class MetricsCollector:
         self._domain_metrics: dict[str, dict[str, MetricValue]] = {}
         self._engine_metrics: dict[str, dict[str, MetricValue]] = {}
         self._lock = asyncio.Lock()
+        
+        # Tor daily usage tracking (Problem 10)
+        self._tor_daily_total_requests: int = 0
+        self._tor_daily_tor_requests: int = 0
+        self._tor_daily_date: str = date.today().isoformat()
+        self._tor_domain_metrics: dict[str, dict[str, int]] = {}
         
         # Initialize global metrics
         for metric_type in MetricType:
@@ -557,6 +564,110 @@ class MetricsCollector:
         )
         if latency_ms is not None:
             await self._update_engine_metric(engine, "latency_ms", latency_ms)
+    
+    # =========================================================
+    # Tor Daily Usage Tracking (Problem 10)
+    # =========================================================
+    
+    def _check_tor_date_reset(self) -> None:
+        """Check if day changed and reset Tor counters if needed.
+        
+        Per §7: Daily metrics should reset at midnight.
+        """
+        today = date.today().isoformat()
+        if self._tor_daily_date != today:
+            logger.info(
+                "Tor daily counters reset",
+                previous_date=self._tor_daily_date,
+                new_date=today,
+                previous_total=self._tor_daily_total_requests,
+                previous_tor=self._tor_daily_tor_requests,
+            )
+            self._tor_daily_total_requests = 0
+            self._tor_daily_tor_requests = 0
+            self._tor_daily_date = today
+            self._tor_domain_metrics.clear()
+    
+    def get_today_tor_metrics(self) -> TorUsageMetrics:
+        """Get today's global Tor usage metrics.
+        
+        Per §4.3 and §7: Used to check global daily limit (20%).
+        
+        Returns:
+            TorUsageMetrics with today's counts.
+        """
+        self._check_tor_date_reset()
+        
+        return TorUsageMetrics(
+            total_requests=self._tor_daily_total_requests,
+            tor_requests=self._tor_daily_tor_requests,
+            date=self._tor_daily_date,
+        )
+    
+    def get_domain_tor_metrics(self, domain: str) -> DomainTorMetrics:
+        """Get today's Tor usage metrics for a specific domain.
+        
+        Per §4.3: Used to check domain-specific Tor limits.
+        
+        Args:
+            domain: Domain name (will be lowercased).
+            
+        Returns:
+            DomainTorMetrics with domain's counts.
+        """
+        self._check_tor_date_reset()
+        
+        domain_lower = domain.lower()
+        domain_data = self._tor_domain_metrics.get(domain_lower, {})
+        
+        return DomainTorMetrics(
+            domain=domain_lower,
+            total_requests=domain_data.get("total", 0),
+            tor_requests=domain_data.get("tor", 0),
+            date=self._tor_daily_date,
+        )
+    
+    def record_request(self, domain: str | None = None) -> None:
+        """Record a request (for Tor usage ratio calculation).
+        
+        Call this for ALL requests to maintain accurate ratio.
+        
+        Args:
+            domain: Optional domain name for domain-specific tracking.
+        """
+        self._check_tor_date_reset()
+        
+        self._tor_daily_total_requests += 1
+        
+        if domain:
+            domain_lower = domain.lower()
+            if domain_lower not in self._tor_domain_metrics:
+                self._tor_domain_metrics[domain_lower] = {"total": 0, "tor": 0}
+            self._tor_domain_metrics[domain_lower]["total"] += 1
+    
+    def record_tor_usage(self, domain: str | None = None) -> None:
+        """Record a Tor-routed request.
+        
+        Per §4.3 and §7: Track Tor usage for daily limit enforcement.
+        
+        Args:
+            domain: Optional domain name for domain-specific tracking.
+        """
+        self._check_tor_date_reset()
+        
+        self._tor_daily_tor_requests += 1
+        
+        if domain:
+            domain_lower = domain.lower()
+            if domain_lower not in self._tor_domain_metrics:
+                self._tor_domain_metrics[domain_lower] = {"total": 0, "tor": 0}
+            self._tor_domain_metrics[domain_lower]["tor"] += 1
+        
+        logger.debug(
+            "Tor usage recorded",
+            domain=domain,
+            daily_ratio=self._tor_daily_tor_requests / max(1, self._tor_daily_total_requests),
+        )
     
     # =========================================================
     # Domain and engine metric helpers

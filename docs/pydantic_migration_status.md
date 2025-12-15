@@ -31,8 +31,9 @@
 
 #### `src/utils/schemas.py`
 - **状態**: ✅ 完全移行済み
-- **モデル**: `AuthSessionData`, `StartSessionRequest` (BaseModel)
+- **モデル**: `AuthSessionData`, `StartSessionRequest`, `TorUsageMetrics`, `DomainTorMetrics` (BaseModel)
 - **理由**: モジュール間のデータ受け渡し
+- **更新（2025-12-15）**: Tor日次上限実装に伴い`TorUsageMetrics`, `DomainTorMetrics`追加
 
 #### `src/search/engine_config.py`
 - **状態**: ✅ 部分移行済み
@@ -54,20 +55,20 @@
 ### 🟡 部分移行済み
 
 #### `src/crawler/`
-- **Pydantic**: `profile_audit.py`のみ
-- **dataclass**: 18ファイルで使用
-  - `session_transfer.py`: `CookieData`, `SessionData`, `TransferResult`
+- **Pydantic**: `profile_audit.py`, `session_transfer.py` ✅
+- **dataclass**: 17ファイルで使用
+  - ~~`session_transfer.py`: `CookieData`, `SessionData`, `TransferResult`~~ ✅ **移行完了（2025-12-15）**
   - `browser_provider.py`: 複数のdataclass
   - `wayback.py`, `human_behavior.py`, `sec_fetch.py`, `stealth.py`, `undetected.py`, `dns_policy.py`, `browser_archive.py`, `bfs.py`, `crt_transparency.py`, `rdap_whois.py`, `robots.py`, `site_search.py`, `ipv6_manager.py`, `http3_policy.py`, `entity_integration.py`
-- **推奨**: モジュール間のデータ受け渡しに使用される`session_transfer.py`を優先的に移行
+- **状態**: `session_transfer.py`の移行完了
 
 #### `src/search/`
-- **Pydantic**: `engine_config.py`, `parser_config.py`
-- **dataclass**: 6ファイルで使用
-  - `provider.py`: `SearchResult`, `SearchResponse`
+- **Pydantic**: `engine_config.py`, `parser_config.py`, `provider.py` ✅
+- **dataclass**: 5ファイルで使用
+  - ~~`provider.py`: `SearchResult`, `SearchResponse`, `SearchOptions`, `HealthStatus`~~ ✅ **移行完了（2025-12-15）**
   - `search_api.py`: 複数のdataclass
   - `parser_diagnostics.py`, `search_parsers.py`, `ab_test.py`, `browser_search_provider.py`
-- **推奨**: `provider.py`の`SearchResult`, `SearchResponse`を優先的に移行（モジュール間のデータ受け渡し）
+- **状態**: `provider.py`の移行完了
 
 #### `src/utils/`
 - **Pydantic**: `config.py`, `domain_policy.py`, `schemas.py`
@@ -127,12 +128,12 @@
 
 ### 🔴 高優先度（モジュール間のデータ受け渡し）
 
-1. **`src/crawler/session_transfer.py`**
-   - `CookieData`, `SessionData`, `TransferResult`
+1. ~~**`src/crawler/session_transfer.py`**~~ ✅ **完了（2025-12-15）**
+   - `CookieData`, `SessionData`, `TransferResult` → Pydantic BaseModel
    - BrowserFetcher ↔ HTTPFetcher間のデータ受け渡し
 
-2. **`src/search/provider.py`**
-   - `SearchResult`, `SearchResponse`
+2. ~~**`src/search/provider.py`**~~ ✅ **完了（2025-12-15）**
+   - `SearchResult`, `SearchResponse`, `SearchOptions`, `HealthStatus` → Pydantic BaseModel
    - SearchProvider → ResearchPipeline間のデータ受け渡し
 
 3. **`src/research/state.py`**
@@ -160,12 +161,12 @@
 
 ---
 
-## 移行統計
+## 移行統計（2025-12-15 更新）
 
 | モジュール | Pydantic | dataclass | 移行率 |
 |----------|----------|-----------|--------|
-| `crawler` | 1ファイル | 18ファイル | 5% |
-| `search` | 2ファイル | 6ファイル | 25% |
+| `crawler` | 2ファイル | 17ファイル | 11% |
+| `search` | 3ファイル | 5ファイル | 38% |
 | `filter` | 0ファイル | 7ファイル | 0% |
 | `research` | 0ファイル | 7ファイル | 0% |
 | `utils` | 3ファイル | 10ファイル | 23% |
@@ -175,7 +176,11 @@
 | `mcp` | 0ファイル | 2ファイル | 0% |
 | `ml_server` | 2ファイル | 0ファイル | 100% |
 | `report` | 0ファイル | 1ファイル | 0% |
-| **合計** | **8ファイル** | **55ファイル** | **13%** |
+| **合計** | **10ファイル** | **53ファイル** | **16%** |
+
+**最近の移行（2025-12-15）**:
+- `src/crawler/session_transfer.py` ✅
+- `src/search/provider.py` ✅
 
 ---
 
@@ -299,13 +304,13 @@ class SearchResult:  # dataclass - 同じ名前で混在は避ける
 
 #### ⚠️ 改善の余地がある使い分け
 
-1. **`src/crawler/session_transfer.py`**: dataclass → Pydantic推奨
-   - `CookieData`, `SessionData`, `TransferResult`はモジュール間で使用
-   - バリデーションが必要（ドメインマッチング、有効期限チェック）
+1. ~~**`src/crawler/session_transfer.py`**: dataclass → Pydantic推奨~~ ✅ **移行完了（2025-12-15）**
+   - `CookieData`, `SessionData`, `TransferResult` → Pydantic BaseModel
+   - バリデーションとField記述を追加
 
-2. **`src/search/provider.py`**: dataclass → Pydantic推奨
-   - `SearchResult`, `SearchResponse`はモジュール間で使用
-   - 型安全性が重要
+2. ~~**`src/search/provider.py`**: dataclass → Pydantic推奨~~ ✅ **移行完了（2025-12-15）**
+   - `SearchResult`, `SearchResponse`, `SearchOptions`, `HealthStatus` → Pydantic BaseModel
+   - Field記述とバリデーション（`ge=0`等）を追加
 
 3. **`src/research/state.py`**: dataclass → Pydantic推奨
    - `SearchState`, `TaskState`, `ExplorationState`はモジュール間で使用
@@ -357,16 +362,17 @@ class SearchResult:  # dataclass - 同じ名前で混在は避ける
 ## 次のステップ
 
 1. **高優先度モジュールの移行**
-   - `session_transfer.py`の移行
-   - `provider.py`（search, filter）の移行
+   - ~~`session_transfer.py`の移行~~ ✅ 完了（2025-12-15）
+   - ~~`provider.py`（search）の移行~~ ✅ 完了（2025-12-15）
+   - `provider.py`（filter）の移行
    - `state.py`の移行
 
 2. **移行後の検証**
-   - デバッグスクリプトの実行
+   - ✅ デバッグスクリプトの実行（`tests/scripts/debug_pydantic_migration.py`）
    - 型チェック（mypy）の確認
-   - テストの実行
+   - ✅ テストの実行（2886件パス）
 
 3. **ドキュメント更新**
-   - シーケンス図の更新
+   - ✅ シーケンス図の更新（`docs/sequences/tor_daily_limit_flow.md`追加）
    - APIドキュメントの更新
 

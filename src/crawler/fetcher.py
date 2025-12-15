@@ -334,6 +334,77 @@ async def get_tor_controller() -> TorController:
     return _tor_controller
 
 
+async def _can_use_tor(domain: str | None = None) -> bool:
+    """Check if Tor can be used based on daily limits.
+    
+    Per §4.3 and §7: Check both global daily limit (20%) and domain-specific limit.
+    
+    Args:
+        domain: Optional domain for domain-specific check.
+        
+    Returns:
+        True if Tor can be used, False if limit reached.
+    """
+    try:
+        from src.utils.metrics import get_metrics_collector
+        from src.utils.config import get_settings
+        
+        settings = get_settings()
+        max_ratio = settings.tor.max_usage_ratio  # 0.20
+        
+        collector = get_metrics_collector()
+        metrics = collector.get_today_tor_metrics()
+        
+        # Check global daily limit
+        if metrics.usage_ratio >= max_ratio:
+            logger.debug(
+                "Tor daily limit reached",
+                current_ratio=metrics.usage_ratio,
+                max_ratio=max_ratio,
+                total_requests=metrics.total_requests,
+                tor_requests=metrics.tor_requests,
+            )
+            return False
+        
+        # Check domain-specific Tor policy
+        if domain:
+            from src.utils.domain_policy import get_domain_policy
+            
+            domain_policy = get_domain_policy(domain)  # Sync function
+            
+            # Check if Tor is blocked for this domain
+            if not domain_policy.tor_allowed or domain_policy.tor_blocked:
+                logger.debug(
+                    "Tor blocked for domain",
+                    domain=domain,
+                    tor_allowed=domain_policy.tor_allowed,
+                    tor_blocked=domain_policy.tor_blocked,
+                )
+                return False
+            
+            # Check domain-specific usage ratio (use global max as fallback)
+            domain_metrics = collector.get_domain_tor_metrics(domain)
+            # Use the global max_ratio as domain limit
+            if domain_metrics.usage_ratio >= max_ratio:
+                logger.debug(
+                    "Tor domain usage limit reached",
+                    domain=domain,
+                    current_ratio=domain_metrics.usage_ratio,
+                    max_ratio=max_ratio,
+                )
+                return False
+        
+        return True
+        
+    except Exception as e:
+        # Fail-open: if we can't check limits, allow Tor usage
+        logger.warning(
+            "Failed to check Tor limits, allowing usage",
+            error=str(e),
+        )
+        return True
+
+
 class FetchResult:
     """Result of a fetch operation.
     
@@ -1928,6 +1999,12 @@ async def fetch_url(
     with CausalTrace() as trace:
         # Check domain cooldown
         domain = urlparse(url).netloc.lower()
+        
+        # Record request for Tor daily limit tracking (Problem 10)
+        from src.utils.metrics import get_metrics_collector
+        collector = get_metrics_collector()
+        collector.record_request(domain)
+        
         if await db.is_domain_cooled_down(domain):
             logger.info("Domain in cooldown", domain=domain, url=url[:80])
             return FetchResult(
@@ -2013,21 +2090,34 @@ async def fetch_url(
                     last_modified=result.last_modified,
                 )
             
-            # Handle 403/429 - try Tor circuit renewal
+            # Handle 403/429 - try Tor circuit renewal (with daily limit check)
             if not result.ok and result.status in (403, 429) and not use_tor:
-                logger.info("HTTP error, trying with Tor", url=url[:80], status=result.status)
-                
-                tor_controller = await get_tor_controller()
-                if await tor_controller.renew_circuit(domain):
-                    result = await _http_fetcher.fetch(
-                        url,
-                        referer=context.get("referer"),
-                        use_tor=True,
-                        cached_etag=cached_etag,
-                        cached_last_modified=cached_last_modified,
+                # Check Tor daily limit before escalating (Problem 10)
+                if await _can_use_tor(domain):
+                    logger.info("HTTP error, trying with Tor", url=url[:80], status=result.status)
+                    
+                    tor_controller = await get_tor_controller()
+                    if await tor_controller.renew_circuit(domain):
+                        result = await _http_fetcher.fetch(
+                            url,
+                            referer=context.get("referer"),
+                            use_tor=True,
+                            cached_etag=cached_etag,
+                            cached_last_modified=cached_last_modified,
+                        )
+                        escalation_path.append("http_client(tor=True)")
+                        retry_count += 1
+                        
+                        # Record Tor usage for daily limit tracking
+                        from src.utils.metrics import get_metrics_collector
+                        collector = get_metrics_collector()
+                        collector.record_tor_usage(domain)
+                else:
+                    logger.info(
+                        "Tor daily limit reached, skipping Tor escalation",
+                        url=url[:80],
+                        status=result.status,
                     )
-                    escalation_path.append("http_client(tor=True)")
-                    retry_count += 1
             
             # If challenge detected or still failing, escalate to browser
             if not result.ok and result.reason == "challenge_detected":

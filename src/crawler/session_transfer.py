@@ -12,12 +12,12 @@ reducing exposure and load while maintaining session integrity.
 """
 
 import hashlib
-import json
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
 from urllib.parse import urlparse
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.utils.logging import get_logger
 from src.crawler.sec_fetch import (
@@ -32,23 +32,26 @@ logger = get_logger(__name__)
 
 
 # =============================================================================
-# Data Classes
+# Pydantic Models
 # =============================================================================
 
-@dataclass
-class CookieData:
+
+class CookieData(BaseModel):
     """Cookie data structure for transfer.
     
     Represents a single cookie with its attributes.
     """
-    name: str
-    value: str
-    domain: str
-    path: str = "/"
-    secure: bool = True
-    http_only: bool = False
-    same_site: str = "Lax"
-    expires: Optional[float] = None  # Unix timestamp
+    
+    model_config = ConfigDict(frozen=False)
+    
+    name: str = Field(..., description="Cookie name")
+    value: str = Field(..., description="Cookie value")
+    domain: str = Field(..., description="Cookie domain")
+    path: str = Field(default="/", description="Cookie path")
+    secure: bool = Field(default=True, description="Secure flag")
+    http_only: bool = Field(default=False, description="HttpOnly flag")
+    same_site: str = Field(default="Lax", description="SameSite attribute")
+    expires: Optional[float] = Field(default=None, description="Expiration as Unix timestamp")
     
     def is_expired(self) -> bool:
         """Check if cookie has expired.
@@ -129,22 +132,24 @@ class CookieData:
         )
 
 
-@dataclass
-class SessionData:
+class SessionData(BaseModel):
     """Session data for transfer between browser and HTTP client.
     
     Contains all necessary session context for maintaining a consistent
     browsing session across different fetch methods.
     """
-    domain: str  # Registrable domain for this session
-    cookies: list[CookieData] = field(default_factory=list)
-    etag: Optional[str] = None
-    last_modified: Optional[str] = None
-    user_agent: Optional[str] = None
-    accept_language: str = "ja,en-US;q=0.9,en;q=0.8"
-    last_url: Optional[str] = None  # For Referer header
-    created_at: float = field(default_factory=time.time)
-    last_used_at: float = field(default_factory=time.time)
+    
+    model_config = ConfigDict(frozen=False)
+    
+    domain: str = Field(..., description="Registrable domain for this session")
+    cookies: list[CookieData] = Field(default_factory=list, description="List of cookies")
+    etag: Optional[str] = Field(default=None, description="ETag header value")
+    last_modified: Optional[str] = Field(default=None, description="Last-Modified header value")
+    user_agent: Optional[str] = Field(default=None, description="User-Agent string")
+    accept_language: str = Field(default="ja,en-US;q=0.9,en;q=0.8", description="Accept-Language header")
+    last_url: Optional[str] = Field(default=None, description="Last visited URL for Referer header")
+    created_at: float = Field(default_factory=time.time, description="Session creation timestamp")
+    last_used_at: float = Field(default_factory=time.time, description="Last usage timestamp")
     
     def is_valid_for_url(self, url: str) -> bool:
         """Check if session is valid for the target URL.
@@ -278,16 +283,18 @@ class SessionData:
         )
 
 
-@dataclass
-class TransferResult:
+class TransferResult(BaseModel):
     """Result of session transfer operation.
     
     Contains the generated headers and validation status.
     """
-    ok: bool
-    headers: dict[str, str] = field(default_factory=dict)
-    reason: Optional[str] = None
-    session_id: Optional[str] = None
+    
+    model_config = ConfigDict(frozen=False)
+    
+    ok: bool = Field(..., description="Whether transfer succeeded")
+    headers: dict[str, str] = Field(default_factory=dict, description="Generated HTTP headers")
+    reason: Optional[str] = Field(default=None, description="Failure reason if ok=False")
+    session_id: Optional[str] = Field(default=None, description="Session identifier")
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.

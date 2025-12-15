@@ -545,7 +545,16 @@ async def _rate_limit(self, engine: str | None = None) -> None:
 
 ---
 
-## 問題10: Tor日次利用上限のチェックが未実装
+## 問題10: Tor日次利用上限のチェックが未実装 ✅ 実装完了
+
+**実装完了日**: 2025-12-15  
+**実装ファイル**: 
+- `src/utils/schemas.py`: `TorUsageMetrics`, `DomainTorMetrics` Pydanticモデル追加
+- `src/utils/metrics.py`: `get_today_tor_metrics()`, `get_domain_tor_metrics()`, `record_request()`, `record_tor_usage()` メソッド追加
+- `src/crawler/fetcher.py`: `_can_use_tor()` ヘルパー関数追加、`fetch_url()` に日次上限チェック統合
+
+**検証スクリプト**: `tests/scripts/debug_tor_daily_limit_flow.py`  
+**シーケンス図**: `docs/sequences/tor_daily_limit_flow.md`
 
 ### 影響範囲
 
@@ -1297,7 +1306,7 @@ if simulate_human:
 7. ~~問題13（ラストマイルスロット判定）~~ ✅ 完了
 8. ~~問題9（エンジン別QPS制限）~~ ✅ 完了
 9. ~~問題16（エンジン正規化レイヤ）~~ ✅ 実装済み（`transform_query_for_engine`）
-10. 問題10（Tor日次利用上限）
+10. ~~問題10（Tor日次利用上限）~~ ✅ 完了（2025-12-15）
 11. 問題11（時間帯・日次予算上限）
 12. 問題4, 6, 7（要確認事項の確認）
 
