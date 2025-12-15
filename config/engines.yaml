@@ -3,12 +3,13 @@
 
 # === Engine Selection Policy ===
 # Default engines to enable for general searches
+# IMPORTANT: Only include engines with implemented parsers
+# Implemented: duckduckgo, mojeek, google, brave, ecosia, startpage, bing
+# NOT implemented: wikipedia, wikidata, marginalia, arxiv, pubmed, qwant
 default_engines:
-  - wikipedia
-  - wikidata
-  - mojeek
-  - marginalia
-  - duckduckgo
+  - mojeek       # Block-resistant, independent index
+  - duckduckgo   # General purpose, good availability
+  - brave        # Independent index, good for technical queries
 
 # Last-mile engines (strict limits, used when other engines fail)
 lastmile_engines:
@@ -157,33 +158,41 @@ operator_mapping:
     google: "after:{date}"
     
 # === Category-Engine Mapping ===
+# NOTE: Only reference engines with implemented parsers
+# Unimplemented engines are commented out for future use
 category_engines:
   general:
-    - wikipedia
+    # - wikipedia    # Parser not implemented
     - mojeek
-    - marginalia
-    - qwant
+    # - marginalia   # Parser not implemented
+    # - qwant        # Removed: region restriction
     - duckduckgo
     - ecosia
     - startpage
     
   academic:
-    - arxiv
-    - pubmed
-    - wikipedia
+    # All academic engines have no parser implemented yet
+    # - arxiv        # Parser not implemented
+    # - pubmed       # Parser not implemented
+    # - wikipedia    # Parser not implemented
+    - mojeek         # Fallback to general search
+    - duckduckgo
     
   news:
-    - qwant
+    # - qwant        # Removed: region restriction
     - duckduckgo
     
   government:
-    - wikipedia
+    # - wikipedia    # Parser not implemented
     - mojeek
+    - duckduckgo
     
   technical:
-    - marginalia
-    - arxiv
-    - wikipedia
+    # - marginalia   # Parser not implemented
+    # - arxiv        # Parser not implemented
+    # - wikipedia    # Parser not implemented
+    - mojeek         # Fallback to general search
+    - duckduckgo
 
 # === Direct Source Priorities ===
 # For academic/public sources, prefer direct access over search

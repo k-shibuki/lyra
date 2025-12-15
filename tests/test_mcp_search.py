@@ -1035,3 +1035,526 @@ class TestSearchWithAutoStart:
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "CHROME_NOT_READY"
 
+
+class TestSearchErrorHandling:
+    """Tests for search error code handling.
+    
+    ## Test Perspectives Table (Error Handling)
+    
+    | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+    |---------|---------------------|---------------------------------------|-----------------|-------|
+    | TC-ERR-01 | Search returns PARSER_NOT_AVAILABLE | Equivalence - error | ParserNotAvailableError raised | Engine has no parser |
+    | TC-ERR-02 | Search returns SERP_SEARCH_FAILED | Equivalence - error | SerpSearchFailedError raised | SERP search fails |
+    | TC-ERR-03 | Search returns ALL_FETCHES_FAILED | Equivalence - error | AllFetchesFailedError raised | All fetches timeout |
+    | TC-ERR-04 | Search returns unknown error code | Boundary - unknown | PipelineError raised | Fallback error |
+    | TC-ERR-05 | ParserNotAvailable details | Equivalence - detail | Contains engine and available_engines | Error details |
+    | TC-ERR-06 | AllFetchesFailed details | Equivalence - detail | Contains total_urls and auth_blocked | Error details |
+    """
+    
+    @pytest.fixture
+    def mock_task(self) -> dict[str, Any]:
+        """Mock task database record."""
+        return {"id": "task_err_test", "status": "running"}
+    
+    @pytest.mark.asyncio
+    async def test_parser_not_available_error(self, mock_task: dict[str, Any]) -> None:
+        """
+        TC-ERR-01: Search returns PARSER_NOT_AVAILABLE error code.
+        
+        // Given: Search pipeline returns result with error_code=PARSER_NOT_AVAILABLE
+        // When: _handle_search processes the result
+        // Then: Raises ParserNotAvailableError with proper details
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import ParserNotAvailableError
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        error_result = {
+            "ok": False,
+            "search_id": "s_err001",
+            "status": "failed",
+            "error_code": "PARSER_NOT_AVAILABLE",
+            "error_details": {
+                "engine": "wikipedia",
+                "available_engines": ["duckduckgo", "mojeek", "brave"],
+            },
+        }
+        
+        with patch("src.mcp.server._ensure_chrome_ready", new=AsyncMock(return_value=True)):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=error_result,
+                    ):
+                        with pytest.raises(ParserNotAvailableError) as exc_info:
+                            await _handle_search({
+                                "task_id": "task_err_test",
+                                "query": "test query",
+                            })
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "PARSER_NOT_AVAILABLE"
+        assert error_dict["details"]["engine"] == "wikipedia"
+        assert "duckduckgo" in error_dict["details"]["available_engines"]
+
+    @pytest.mark.asyncio
+    async def test_serp_search_failed_error(self, mock_task: dict[str, Any]) -> None:
+        """
+        TC-ERR-02: Search returns SERP_SEARCH_FAILED error code.
+        
+        // Given: Search pipeline returns result with error_code=SERP_SEARCH_FAILED
+        // When: _handle_search processes the result
+        // Then: Raises SerpSearchFailedError
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import SerpSearchFailedError
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        error_result = {
+            "ok": False,
+            "search_id": "s_err002",
+            "status": "failed",
+            "error_code": "SERP_SEARCH_FAILED",
+            "error_details": {
+                "query": "test query",
+                "provider_error": "Network timeout",
+            },
+        }
+        
+        with patch("src.mcp.server._ensure_chrome_ready", new=AsyncMock(return_value=True)):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=error_result,
+                    ):
+                        with pytest.raises(SerpSearchFailedError) as exc_info:
+                            await _handle_search({
+                                "task_id": "task_err_test",
+                                "query": "test query",
+                            })
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "SERP_SEARCH_FAILED"
+
+    @pytest.mark.asyncio
+    async def test_all_fetches_failed_error(self, mock_task: dict[str, Any]) -> None:
+        """
+        TC-ERR-03: Search returns ALL_FETCHES_FAILED error code.
+        
+        // Given: Search pipeline returns result with error_code=ALL_FETCHES_FAILED
+        // When: _handle_search processes the result
+        // Then: Raises AllFetchesFailedError with proper details
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import AllFetchesFailedError
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        error_result = {
+            "ok": False,
+            "search_id": "s_err003",
+            "status": "failed",
+            "error_code": "ALL_FETCHES_FAILED",
+            "error_details": {
+                "total_urls": 5,
+                "auth_blocked_count": 2,
+            },
+        }
+        
+        with patch("src.mcp.server._ensure_chrome_ready", new=AsyncMock(return_value=True)):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=error_result,
+                    ):
+                        with pytest.raises(AllFetchesFailedError) as exc_info:
+                            await _handle_search({
+                                "task_id": "task_err_test",
+                                "query": "test query",
+                            })
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "ALL_FETCHES_FAILED"
+        assert error_dict["details"]["total_urls"] == 5
+        assert error_dict["details"]["auth_blocked_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_unknown_error_code_fallback(self, mock_task: dict[str, Any]) -> None:
+        """
+        TC-ERR-04: Search returns unknown error code.
+        
+        // Given: Search pipeline returns result with unknown error_code
+        // When: _handle_search processes the result
+        // Then: Raises PipelineError as fallback
+        """
+        from src.mcp.server import _handle_search
+        from src.mcp.errors import PipelineError
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        error_result = {
+            "ok": False,
+            "search_id": "s_err004",
+            "status": "failed",
+            "error_code": "UNKNOWN_ERROR",
+            "error_details": {},
+        }
+        
+        with patch("src.mcp.server._ensure_chrome_ready", new=AsyncMock(return_value=True)):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=error_result,
+                    ):
+                        with pytest.raises(PipelineError) as exc_info:
+                            await _handle_search({
+                                "task_id": "task_err_test",
+                                "query": "test query",
+                            })
+        
+        error_dict = exc_info.value.to_dict()
+        assert error_dict["error_code"] == "PIPELINE_ERROR"
+        assert "UNKNOWN_ERROR" in error_dict["error"]
+
+    @pytest.mark.asyncio
+    async def test_successful_search_no_error(self, mock_task: dict[str, Any]) -> None:
+        """
+        TC-ERR-05: Successful search returns no error.
+        
+        // Given: Search pipeline returns successful result (no error_code)
+        // When: _handle_search processes the result
+        // Then: Returns result without raising exception
+        """
+        from src.mcp.server import _handle_search
+        
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+        mock_state = AsyncMock()
+        
+        success_result = {
+            "ok": True,
+            "search_id": "s_success",
+            "status": "satisfied",
+            "pages_fetched": 5,
+            "claims_found": [{"id": "c_001", "text": "Test claim"}],
+        }
+        
+        with patch("src.mcp.server._ensure_chrome_ready", new=AsyncMock(return_value=True)):
+            with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+                with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
+                    with patch(
+                        "src.research.pipeline.search_action",
+                        return_value=success_result,
+                    ):
+                        result = await _handle_search({
+                            "task_id": "task_err_test",
+                            "query": "test query",
+                        })
+        
+        assert result["ok"] is True
+        assert result["search_id"] == "s_success"
+        assert "error_code" not in result
+
+
+class TestSearchResultErrorCodes:
+    """Tests for SearchResult error code propagation.
+    
+    ## Test Perspectives Table (Result Error Codes)
+    
+    | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+    |---------|---------------------|---------------------------------------|-----------------|-------|
+    | TC-RES-01 | SearchResult with error_code | Equivalence - normal | to_dict includes error_code | Propagation |
+    | TC-RES-02 | SearchResult without error_code | Equivalence - normal | to_dict has ok=True | No error |
+    | TC-RES-03 | SearchResult with errors list only | Boundary - legacy | ok=False but no error_code | Backward compat |
+    """
+    
+    def test_executor_search_result_with_error_code(self) -> None:
+        """
+        TC-RES-01: SearchResult with error_code set.
+        
+        // Given: SearchResult has error_code and error_details
+        // When: to_dict() is called
+        // Then: Dictionary includes error_code and error_details, ok=False
+        """
+        from src.research.executor import SearchResult
+        
+        result = SearchResult(
+            search_id="s_test",
+            status="failed",
+            error_code="PARSER_NOT_AVAILABLE",
+            error_details={"engine": "wikipedia"},
+        )
+        
+        result_dict = result.to_dict()
+        
+        assert result_dict["ok"] is False
+        assert result_dict["error_code"] == "PARSER_NOT_AVAILABLE"
+        assert result_dict["error_details"]["engine"] == "wikipedia"
+
+    def test_executor_search_result_without_error(self) -> None:
+        """
+        TC-RES-02: SearchResult without error_code.
+        
+        // Given: SearchResult has no error_code and no errors
+        // When: to_dict() is called
+        // Then: Dictionary has ok=True, no error_code
+        """
+        from src.research.executor import SearchResult
+        
+        result = SearchResult(
+            search_id="s_test",
+            status="satisfied",
+            pages_fetched=5,
+        )
+        
+        result_dict = result.to_dict()
+        
+        assert result_dict["ok"] is True
+        assert "error_code" not in result_dict
+        assert "error_details" not in result_dict
+
+    def test_executor_search_result_with_errors_list_only(self) -> None:
+        """
+        TC-RES-03: SearchResult with errors list but no error_code.
+        
+        // Given: SearchResult has errors list but no error_code
+        // When: to_dict() is called
+        // Then: Dictionary has ok=False, errors present, no error_code
+        """
+        from src.research.executor import SearchResult
+        
+        result = SearchResult(
+            search_id="s_test",
+            status="partial",
+            errors=["Some error occurred"],
+        )
+        
+        result_dict = result.to_dict()
+        
+        assert result_dict["ok"] is False
+        assert "Some error occurred" in result_dict["errors"]
+        assert "error_code" not in result_dict
+
+    def test_pipeline_search_result_with_error_code(self) -> None:
+        """
+        TC-RES-04: Pipeline SearchResult with error_code set.
+        
+        // Given: Pipeline SearchResult has error_code and error_details
+        // When: to_dict() is called
+        // Then: Dictionary includes error_code and error_details
+        """
+        from src.research.pipeline import SearchResult
+        
+        result = SearchResult(
+            search_id="s_pipe_test",
+            query="test query",
+            status="failed",
+            error_code="ALL_FETCHES_FAILED",
+            error_details={"total_urls": 3},
+        )
+        
+        result_dict = result.to_dict()
+        
+        assert result_dict["ok"] is False
+        assert result_dict["error_code"] == "ALL_FETCHES_FAILED"
+        assert result_dict["error_details"]["total_urls"] == 3
+
+
+class TestSearchApiExceptions:
+    """Tests for search_api.py exception raising.
+    
+    ## Test Perspectives Table (Search API Exceptions)
+    
+    | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+    |---------|---------------------|---------------------------------------|-----------------|-------|
+    | TC-API-01 | Provider returns parser error | Equivalence - error | ParserNotAvailableSearchError | Exception type |
+    | TC-API-02 | Provider returns generic error | Equivalence - error | SerpSearchError | Exception type |
+    | TC-API-03 | SearchError has correct attributes | Equivalence - detail | error_type, engine, details | Attributes |
+    """
+    
+    def test_parser_not_available_search_error(self) -> None:
+        """
+        TC-API-01: ParserNotAvailableSearchError attributes.
+        
+        // Given: Creating ParserNotAvailableSearchError
+        // When: Accessing attributes
+        // Then: Has correct error_type, engine, and available_engines
+        """
+        from src.search.search_api import ParserNotAvailableSearchError
+        
+        error = ParserNotAvailableSearchError(
+            engine="wikipedia",
+            available_engines=["duckduckgo", "mojeek"],
+        )
+        
+        assert error.error_type == "parser_not_available"
+        assert error.engine == "wikipedia"
+        assert error.available_engines == ["duckduckgo", "mojeek"]
+        assert "wikipedia" in str(error)
+
+    def test_serp_search_error_attributes(self) -> None:
+        """
+        TC-API-02: SerpSearchError attributes.
+        
+        // Given: Creating SerpSearchError
+        // When: Accessing attributes
+        // Then: Has correct error_type, query, and provider_error
+        """
+        from src.search.search_api import SerpSearchError
+        
+        error = SerpSearchError(
+            message="Search failed",
+            query="test query",
+            provider_error="Connection timeout",
+        )
+        
+        assert error.error_type == "serp_search_failed"
+        assert error.query == "test query"
+        assert error.provider_error == "Connection timeout"
+
+    def test_base_search_error(self) -> None:
+        """
+        TC-API-03: Base SearchError attributes.
+        
+        // Given: Creating base SearchError
+        // When: Accessing attributes
+        // Then: Has correct message, error_type, and details
+        """
+        from src.search.search_api import SearchError
+        
+        error = SearchError(
+            message="Test error",
+            error_type="test_error",
+            query="some query",
+            engine="test_engine",
+            details={"key": "value"},
+        )
+        
+        assert error.message == "Test error"
+        assert error.error_type == "test_error"
+        assert error.query == "some query"
+        assert error.engine == "test_engine"
+        assert error.details["key"] == "value"
+
+
+class TestMCPErrorClasses:
+    """Tests for new MCP error classes.
+    
+    ## Test Perspectives Table (MCP Error Classes)
+    
+    | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+    |---------|---------------------|---------------------------------------|-----------------|-------|
+    | TC-MCP-01 | ParserNotAvailableError | Equivalence - normal | Correct code and details | Error class |
+    | TC-MCP-02 | SerpSearchFailedError | Equivalence - normal | Correct code and details | Error class |
+    | TC-MCP-03 | AllFetchesFailedError | Equivalence - normal | Correct code and details | Error class |
+    | TC-MCP-04 | Error codes in enum | Boundary - enum | All new codes defined | Enum completeness |
+    """
+    
+    def test_parser_not_available_error(self) -> None:
+        """
+        TC-MCP-01: ParserNotAvailableError structure.
+        
+        // Given: Creating ParserNotAvailableError
+        // When: Converting to dict
+        // Then: Has correct error_code, message, and details
+        """
+        from src.mcp.errors import ParserNotAvailableError
+        
+        error = ParserNotAvailableError(
+            engine="arxiv",
+            available_engines=["duckduckgo", "brave"],
+        )
+        
+        error_dict = error.to_dict()
+        
+        assert error_dict["ok"] is False
+        assert error_dict["error_code"] == "PARSER_NOT_AVAILABLE"
+        assert "arxiv" in error_dict["error"]
+        assert error_dict["details"]["engine"] == "arxiv"
+        assert "duckduckgo" in error_dict["details"]["available_engines"]
+
+    def test_serp_search_failed_error(self) -> None:
+        """
+        TC-MCP-02: SerpSearchFailedError structure.
+        
+        // Given: Creating SerpSearchFailedError
+        // When: Converting to dict
+        // Then: Has correct error_code, message, and details
+        """
+        from src.mcp.errors import SerpSearchFailedError
+        
+        error = SerpSearchFailedError(
+            message="SERP search failed: timeout",
+            query="test query",
+            attempted_engines=["duckduckgo", "mojeek"],
+            error_details="Connection timeout",
+        )
+        
+        error_dict = error.to_dict()
+        
+        assert error_dict["ok"] is False
+        assert error_dict["error_code"] == "SERP_SEARCH_FAILED"
+        assert "timeout" in error_dict["error"]
+        assert error_dict["details"]["query"] == "test query"
+        assert "duckduckgo" in error_dict["details"]["attempted_engines"]
+
+    def test_all_fetches_failed_error(self) -> None:
+        """
+        TC-MCP-03: AllFetchesFailedError structure.
+        
+        // Given: Creating AllFetchesFailedError
+        // When: Converting to dict
+        // Then: Has correct error_code, message, and details
+        """
+        from src.mcp.errors import AllFetchesFailedError
+        
+        error = AllFetchesFailedError(
+            total_urls=10,
+            timeout_count=5,
+            auth_blocked_count=3,
+            error_count=2,
+        )
+        
+        error_dict = error.to_dict()
+        
+        assert error_dict["ok"] is False
+        assert error_dict["error_code"] == "ALL_FETCHES_FAILED"
+        assert "10" in error_dict["error"]
+        assert error_dict["details"]["total_urls"] == 10
+        assert error_dict["details"]["timeout_count"] == 5
+        assert error_dict["details"]["auth_blocked_count"] == 3
+
+    def test_error_codes_defined_in_enum(self) -> None:
+        """
+        TC-MCP-04: All new error codes defined in MCPErrorCode enum.
+        
+        // Given: MCPErrorCode enum
+        // When: Checking for new error codes
+        // Then: All new codes are defined
+        """
+        from src.mcp.errors import MCPErrorCode
+        
+        # Verify new error codes exist
+        assert hasattr(MCPErrorCode, "PARSER_NOT_AVAILABLE")
+        assert hasattr(MCPErrorCode, "SERP_SEARCH_FAILED")
+        assert hasattr(MCPErrorCode, "ALL_FETCHES_FAILED")
+        
+        # Verify values
+        assert MCPErrorCode.PARSER_NOT_AVAILABLE.value == "PARSER_NOT_AVAILABLE"
+        assert MCPErrorCode.SERP_SEARCH_FAILED.value == "SERP_SEARCH_FAILED"
+        assert MCPErrorCode.ALL_FETCHES_FAILED.value == "ALL_FETCHES_FAILED"
+

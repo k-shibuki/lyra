@@ -67,6 +67,19 @@ class MCPErrorCode(str, Enum):
     """Chrome CDP is not connected (auto-start failed).
     Action: Check ./scripts/chrome.sh diagnose"""
 
+    # Search-specific errors
+    PARSER_NOT_AVAILABLE = "PARSER_NOT_AVAILABLE"
+    """No parser available for the selected search engine.
+    Action: Use a different engine (specify engines option) or use default engines."""
+
+    SERP_SEARCH_FAILED = "SERP_SEARCH_FAILED"
+    """SERP search failed for all attempted engines.
+    Action: Try a different query or wait and retry."""
+
+    ALL_FETCHES_FAILED = "ALL_FETCHES_FAILED"
+    """All URL fetches failed (timeout, blocked, or errors).
+    Action: Try a different query or check network connectivity."""
+
     # Internal errors
     INTERNAL_ERROR = "INTERNAL_ERROR"
     """Unexpected internal error.
@@ -330,6 +343,90 @@ class ChromeNotReadyError(MCPError):
             MCPErrorCode.CHROME_NOT_READY,
             message,
             details=None,
+        )
+
+
+class ParserNotAvailableError(MCPError):
+    """Raised when no parser is available for the selected search engine.
+    
+    This indicates the engine was selected but has no parser implementation.
+    Cursor AI should retry with a different engine or use default engines.
+    """
+
+    def __init__(
+        self,
+        engine: str,
+        *,
+        available_engines: list[str] | None = None,
+    ):
+        details: dict[str, Any] = {"engine": engine}
+        if available_engines:
+            details["available_engines"] = available_engines
+
+        super().__init__(
+            MCPErrorCode.PARSER_NOT_AVAILABLE,
+            f"No parser available for engine: {engine}",
+            details=details,
+        )
+
+
+class SerpSearchFailedError(MCPError):
+    """Raised when SERP search fails for all attempted engines.
+    
+    This indicates the search phase itself failed, not the fetch phase.
+    Common causes: all engines blocked, network issues, or query issues.
+    """
+
+    def __init__(
+        self,
+        message: str = "SERP search failed",
+        *,
+        query: str | None = None,
+        attempted_engines: list[str] | None = None,
+        error_details: str | None = None,
+    ):
+        details: dict[str, Any] = {}
+        if query:
+            details["query"] = query[:100]  # Truncate for safety
+        if attempted_engines:
+            details["attempted_engines"] = attempted_engines
+        if error_details:
+            details["error_details"] = error_details
+
+        super().__init__(
+            MCPErrorCode.SERP_SEARCH_FAILED,
+            message,
+            details=details if details else None,
+        )
+
+
+class AllFetchesFailedError(MCPError):
+    """Raised when all URL fetches fail during search.
+    
+    This indicates SERP search succeeded but all subsequent fetches failed.
+    Common causes: timeouts, authentication required, or server errors.
+    """
+
+    def __init__(
+        self,
+        *,
+        total_urls: int = 0,
+        timeout_count: int = 0,
+        auth_blocked_count: int = 0,
+        error_count: int = 0,
+    ):
+        details: dict[str, Any] = {"total_urls": total_urls}
+        if timeout_count > 0:
+            details["timeout_count"] = timeout_count
+        if auth_blocked_count > 0:
+            details["auth_blocked_count"] = auth_blocked_count
+        if error_count > 0:
+            details["error_count"] = error_count
+
+        super().__init__(
+            MCPErrorCode.ALL_FETCHES_FAILED,
+            f"All {total_urls} URL fetches failed",
+            details=details,
         )
 
 

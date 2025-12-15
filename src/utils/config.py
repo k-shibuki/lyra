@@ -48,6 +48,7 @@ class CrawlerConfig(BaseModel):
     network_concurrent: int = 4
     request_timeout: int = 30
     page_load_timeout: int = 45
+    max_fetch_time: int = 90  # Cumulative timeout for entire fetch operation (all stages)
     max_retries: int = 3
     backoff_base: float = 2.0
     backoff_max: int = 120

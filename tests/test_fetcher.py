@@ -1328,3 +1328,168 @@ class TestBrowserFetcherHumanBehavior:
         
         await fetcher.close()
 
+
+@pytest.mark.unit
+class TestFetchUrlCumulativeTimeout:
+    """Tests for fetch_url cumulative timeout (O.8 fix).
+    
+    ## Test Perspectives Table
+    
+    | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+    |---------|---------------------|---------------------------------------|-----------------|-------|
+    | TC-TO-01 | Fast fetch (< max_fetch_time) | Equivalence – normal | Fetch succeeds | - |
+    | TC-TO-02 | Slow fetch (> max_fetch_time) | Equivalence – timeout | cumulative_timeout returned | - |
+    | TC-TO-03 | max_fetch_time=0 | Boundary – zero | Immediate timeout | Edge case |
+    | TC-TO-04 | Policy override of max_fetch_time | Equivalence – override | Uses policy value | - |
+    | TC-TO-05 | Multi-stage escalation exceeds timeout | Equivalence – escalation | Aborts mid-escalation | - |
+    """
+    
+    @pytest.mark.asyncio
+    async def test_fetch_completes_within_timeout(self, mock_settings):
+        """
+        TC-TO-01: Fast fetch completes successfully.
+        
+        // Given: fetch_url_impl completes quickly
+        // When: Calling fetch_url
+        // Then: Returns successful result
+        """
+        from unittest.mock import AsyncMock, patch
+        
+        mock_settings.crawler.max_fetch_time = 30
+        
+        mock_result = {
+            "ok": True,
+            "url": "https://example.com/page",
+            "status": 200,
+            "method": "http_client",
+        }
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            with patch("src.crawler.fetcher._fetch_url_impl", new=AsyncMock(return_value=mock_result)):
+                from src.crawler.fetcher import fetch_url
+                
+                result = await fetch_url("https://example.com/page")
+                
+                assert result["ok"] is True
+                assert result["status"] == 200
+    
+    @pytest.mark.asyncio
+    async def test_fetch_times_out_returns_cumulative_timeout(self, mock_settings):
+        """
+        TC-TO-02: Slow fetch exceeds timeout.
+        
+        // Given: fetch_url_impl takes longer than max_fetch_time
+        // When: Calling fetch_url
+        // Then: Returns cumulative_timeout result
+        """
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        
+        mock_settings.crawler.max_fetch_time = 1  # 1 second timeout
+        
+        async def slow_fetch(*args, **kwargs):
+            await asyncio.sleep(5)  # Much longer than timeout
+            return {"ok": True, "url": args[0]}
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            with patch("src.crawler.fetcher._fetch_url_impl", new=slow_fetch):
+                from src.crawler.fetcher import fetch_url
+                
+                result = await fetch_url("https://slow.example.com/page")
+                
+                assert result["ok"] is False
+                assert result["reason"] == "cumulative_timeout"
+                assert result["method"] == "timeout"
+    
+    @pytest.mark.asyncio
+    async def test_fetch_zero_timeout_immediate_failure(self, mock_settings):
+        """
+        TC-TO-03: Zero timeout boundary.
+        
+        // Given: max_fetch_time=0
+        // When: Calling fetch_url
+        // Then: Returns timeout immediately (or nearly)
+        """
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        
+        mock_settings.crawler.max_fetch_time = 0  # Immediate timeout
+        
+        async def any_fetch(*args, **kwargs):
+            await asyncio.sleep(0.1)  # Even a small delay
+            return {"ok": True, "url": args[0]}
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            with patch("src.crawler.fetcher._fetch_url_impl", new=any_fetch):
+                from src.crawler.fetcher import fetch_url
+                
+                result = await fetch_url("https://example.com/page")
+                
+                # Zero timeout should cause immediate timeout
+                assert result["ok"] is False
+                assert result["reason"] == "cumulative_timeout"
+    
+    @pytest.mark.asyncio
+    async def test_policy_override_max_fetch_time(self, mock_settings):
+        """
+        TC-TO-04: Policy overrides default max_fetch_time.
+        
+        // Given: Policy specifies max_fetch_time=2
+        // When: Calling fetch_url with slow implementation
+        // Then: Uses policy timeout value
+        """
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        
+        mock_settings.crawler.max_fetch_time = 30  # Default is high
+        
+        async def medium_fetch(*args, **kwargs):
+            await asyncio.sleep(3)  # 3 seconds
+            return {"ok": True, "url": args[0]}
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            with patch("src.crawler.fetcher._fetch_url_impl", new=medium_fetch):
+                from src.crawler.fetcher import fetch_url
+                
+                # Policy overrides with shorter timeout
+                result = await fetch_url(
+                    "https://example.com/page",
+                    policy={"max_fetch_time": 1},  # 1 second policy override
+                )
+                
+                assert result["ok"] is False
+                assert result["reason"] == "cumulative_timeout"
+    
+    @pytest.mark.asyncio
+    async def test_cumulative_timeout_aborts_escalation(self, mock_settings):
+        """
+        TC-TO-05: Timeout aborts multi-stage escalation.
+        
+        // Given: Fetch impl simulates slow multi-stage escalation
+        // When: Calling fetch_url with short timeout
+        // Then: Escalation is aborted mid-way
+        """
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        
+        mock_settings.crawler.max_fetch_time = 2  # Short timeout
+        
+        escalation_stages = []
+        
+        async def multi_stage_fetch(*args, **kwargs):
+            for stage in ["http", "browser_headless", "browser_headful"]:
+                escalation_stages.append(stage)
+                await asyncio.sleep(1)  # Each stage takes 1 second
+            return {"ok": True, "url": args[0]}
+        
+        with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
+            with patch("src.crawler.fetcher._fetch_url_impl", new=multi_stage_fetch):
+                from src.crawler.fetcher import fetch_url
+                
+                result = await fetch_url("https://example.com/page")
+                
+                assert result["ok"] is False
+                assert result["reason"] == "cumulative_timeout"
+                # Escalation should have been interrupted
+                assert len(escalation_stages) < 3  # Not all stages completed
+

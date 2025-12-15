@@ -631,10 +631,13 @@ class BrowserSearchProvider(BaseSearchProvider):
                 # Use specified engines
                 candidate_engines = options.engines
             else:
-                # Get engines for category
+                # Use default_engines from config as primary source
+                # This ensures only engines with parsers are selected
+                candidate_engines = config_manager.get_default_engines()
+                if not candidate_engines:
+                    # Fall back to category engines if no defaults configured
                 candidate_engines_configs = config_manager.get_engines_for_category(category)
                 if not candidate_engines_configs:
-                    # Fall back to default engines if no engines for category
                     candidate_engines_configs = config_manager.get_available_engines()
                 candidate_engines = [cfg.name for cfg in candidate_engines_configs]
             

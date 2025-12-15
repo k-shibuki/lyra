@@ -34,6 +34,67 @@ logger = get_logger(__name__)
 
 
 # ============================================================================
+# Search Errors (for propagation to MCP layer)
+# ============================================================================
+
+
+class SearchError(Exception):
+    """Base exception for search operations.
+    
+    Carries error details for proper MCP error response generation.
+    """
+    
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_type: str = "search_failed",
+        query: str | None = None,
+        engine: str | None = None,
+        details: dict[str, Any] | None = None,
+    ):
+        super().__init__(message)
+        self.message = message
+        self.error_type = error_type
+        self.query = query
+        self.engine = engine
+        self.details = details or {}
+
+
+class ParserNotAvailableSearchError(SearchError):
+    """Raised when no parser is available for the selected engine."""
+    
+    def __init__(self, engine: str, available_engines: list[str] | None = None):
+        super().__init__(
+            f"No parser available for engine: {engine}",
+            error_type="parser_not_available",
+            engine=engine,
+            details={"available_engines": available_engines} if available_engines else {},
+        )
+        self.available_engines = available_engines
+
+
+class SerpSearchError(SearchError):
+    """Raised when SERP search fails."""
+    
+    def __init__(
+        self,
+        message: str,
+        query: str | None = None,
+        engine: str | None = None,
+        provider_error: str | None = None,
+    ):
+        super().__init__(
+            message,
+            error_type="serp_search_failed",
+            query=query,
+            engine=engine,
+            details={"provider_error": provider_error} if provider_error else {},
+        )
+        self.provider_error = provider_error
+
+
+# ============================================================================
 # Query Operator Processing (§3.1.1, §3.1.4 in docs/requirements.md)
 # ============================================================================
 
@@ -544,13 +605,30 @@ async def _search_with_provider(
     response = await registry.search_with_fallback(query, options)
     
     if not response.ok:
+        error_msg = response.error or "Unknown search error"
         logger.warning(
             "Search failed",
             query=query[:50],
             provider=response.provider,
-            error=response.error,
+            error=error_msg,
         )
-        return []
+        
+        # Determine specific error type and raise appropriate exception
+        if "No parser available" in error_msg:
+            # Extract engine name from error message
+            engine_match = error_msg.split("engine:")[-1].strip() if "engine:" in error_msg else None
+            from src.search.search_parsers import get_available_parsers
+            raise ParserNotAvailableSearchError(
+                engine=engine_match or "unknown",
+                available_engines=get_available_parsers(),
+            )
+        else:
+            # Generic SERP search failure
+            raise SerpSearchError(
+                message=f"SERP search failed: {error_msg}",
+                query=query[:100] if query else None,
+                provider_error=error_msg,
+            )
     
     # Convert to dict format for backward compatibility
     return [r.to_dict() for r in response.results]
@@ -613,6 +691,10 @@ async def search_serp(
         
     Returns:
         List of normalized SERP result dicts.
+        
+    Raises:
+        ParserNotAvailableSearchError: When selected engine has no parser.
+        SerpSearchError: When SERP search fails for other reasons.
     """
     db = await get_database()
     

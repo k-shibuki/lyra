@@ -1970,9 +1970,13 @@ async def fetch_url(
     2. Browser headless (for JS-rendered pages)
     3. Browser headful (for challenge bypass)
     4. Tor circuit renewal on 403/429
+    5. Wayback fallback (for persistent blocks)
     
     Supports conditional requests (If-None-Match/If-Modified-Since) for
     efficient re-validation and 304 Not Modified responses.
+    
+    Cumulative timeout (max_fetch_time) ensures the entire fetch operation
+    completes within a reasonable time, preventing exploration stalls.
     
     Args:
         url: URL to fetch.
@@ -1986,15 +1990,52 @@ async def fetch_url(
             - allow_intervention: Allow manual intervention on challenge (default: True).
             - use_provider: Use BrowserProviderRegistry for browser fetching (default: False).
             - provider_name: Specific provider to use (e.g., "playwright", "undetected_chrome").
+            - max_fetch_time: Override cumulative timeout (default: from config).
         task_id: Associated task ID.
         
     Returns:
         Fetch result dictionary with additional 'from_cache' field.
     """
-    global _http_fetcher, _browser_fetcher
-    
     context = context or {}
     policy = policy or {}
+    settings = get_settings()
+    
+    # Get cumulative timeout from policy or config
+    max_fetch_time = policy.get("max_fetch_time", settings.crawler.max_fetch_time)
+    
+    try:
+        # Wrap entire fetch operation with cumulative timeout
+        return await asyncio.wait_for(
+            _fetch_url_impl(url, context, policy, task_id),
+            timeout=float(max_fetch_time),
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Fetch cumulative timeout exceeded",
+            url=url[:80],
+            max_fetch_time=max_fetch_time,
+        )
+        # Return timeout result
+        return FetchResult(
+            ok=False,
+            url=url,
+            reason="cumulative_timeout",
+            method="timeout",
+        ).to_dict()
+
+
+async def _fetch_url_impl(
+    url: str,
+    context: dict[str, Any],
+    policy: dict[str, Any],
+    task_id: str | None,
+) -> dict[str, Any]:
+    """Internal implementation of fetch_url with multi-stage escalation.
+    
+    This function contains the actual fetch logic. It is wrapped by fetch_url
+    with a cumulative timeout to prevent indefinite blocking.
+    """
+    global _http_fetcher, _browser_fetcher
     
     db = await get_database()
     settings = get_settings()

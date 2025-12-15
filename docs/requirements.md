@@ -280,6 +280,15 @@ Lancet内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**
   - EPO OPS API: 欧州特許データ（書誌・引用・法的状態）
   - Google Patents (BigQuery): 特許全文検索（公開データセット）
   - **注意**: これらは公式APIであり、検索エンジンのようなbot検知問題はない
+- 学術API統合戦略:
+  - 優先順位: Semantic Scholar（引用グラフ最充実）> OpenAlex（大規模・オープン）> Crossref（DOI解決）> arXiv（プレプリント）
+  - Semantic Scholar: 引用グラフ取得の主API。"influential citations"フラグで重要引用を識別
+  - OpenAlex: メタデータ補完、大規模検索（2億件以上）。抄録は逆インデックス形式から復元
+  - Crossref: DOI解決、メタデータ正規化。polite poolでレート優遇
+  - arXiv: CS/物理/数学のプレプリント検索。Atom XML形式
+  - Unpaywall: OA版リンク解決。ペイウォール回避用
+  - 引用グラフ取得: 深度≤2を既定（直接引用＋引用の引用）。深度≥3は信頼度減衰
+  - 重複排除: DOIベースで論文を一意識別。DOIなしはタイトル+年+著者でマッチング
 
 #### 3.1.4. 検索エンジン健全性・正規化レイヤ
 - ヘルスチェック/サーキットブレーカ:
@@ -988,7 +997,12 @@ Cursor AI                          Lancet MCP
 - 圧縮と引用の厳格化:
   - Chain-of-Density風に要約密度を上げつつ、全主張に深いリンク・発見日時・抜粋を必須付与
 - エビデンスグラフ拡張:
-  - ノード: 主張/断片/ソース、エッジ: supports/refutes/cites。NetworkXで構築しSQLiteへ永続化
+  - ノード: 主張/断片/ソース/論文（PAPER）、エッジ: supports/refutes/cites/academic_cites。NetworkXで構築しSQLiteへ永続化
+  - 学術引用グラフ統合（§3.1.3 学術API連携）:
+    - `PAPER`ノード: 学術論文（DOI、著者、発行年、被引用数等のメタデータ付き）
+    - `academic_cites`エッジ: 正式な学術引用関係（通常のcitesより信頼度が高い）
+    - Semantic Scholar APIの"influential citations"フラグを活用し、重要な引用を識別
+    - 引用チェーン深度≤3を推奨（孫引き以上は信頼度を減衰）
 
 #### 3.3.2. 新規性と停止条件
 - 新規性スコア:
@@ -1808,6 +1822,11 @@ Lancetは**常にWSLハイブリッド構成**で実行される：
   - 原子主張ごとの支持ソース≥2（うち独立ドメイン≥2）、反証がある場合は双方提示
 - エビデンスグラフ完全性:
   - 本文に採用した全主張がsupports/refutes/citesのエッジを少なくとも1本以上持つ
+- 学術的支持の品質基準:
+  - 学術的主張（論文・研究に関する主張）に対し、査読済み論文からの支持≥1件
+  - 支持論文の総被引用数≥10（影響力の指標、新しい論文は除外可）
+  - 引用チェーン深度≤3（孫引き以上は信頼度を10%減衰）
+  - influential citation（Semantic Scholar）を含む場合、信頼度を10%加点
 - 再現性:
   - 訪問ページのうちWARC保存成功率≥95%、動的ページはスクリーンショット保存率≥95%
  - OSINT品質:
