@@ -23,9 +23,9 @@
 | K.3 | セキュリティ（L1-L8） | ✅ | ✅ | 完了 | §5 |
 | M | MCPリファクタリング | ✅ | ✅ | 完了 | §6 |
 | N | E2Eケーススタディ | - | ⏳ | 進行中（N.2-5完了） | §6 |
-| **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.3）** | §6 |
+| **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.8）** | §6 |
 
-**現在のテスト数**: 2886件（全パス）
+**現在のテスト数**: 2942件（全パス、マイグレーションテスト20件追加）
 
 ---
 
@@ -2032,11 +2032,11 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 | `tests/scripts/debug_other_tools_flow.py` | calibrate等 |
 | `tests/scripts/debug_e2e_mcp_flow.py` | E2E統合テスト |
 
-#### O.8 実MCP統合検証 🚧 進行中
+#### O.8 実MCP統合検証 ✅ 完了
 
 **目的**: O.6/O.7のコード修正が実際のMCP運用で正しく動作することを検証
 
-**検証日**: 2025-12-15（部分検証）
+**検証日**: 2025-12-15
 
 ##### 背景
 
@@ -2078,12 +2078,16 @@ O.6/O.7では以下を修正:
 
 ###### 残存する問題
 
-| 問題 | 詳細 | 優先度 |
-|------|------|--------|
-| フェッチ処理タイムアウト | 検索後のフェッチ処理でタイムアウトが発生する場合がある | 高 |
-| wayback_success_countカラム不存在 | Waybackフォールバック後のDB更新でエラー | 中 |
-| fragments数が少ない | 5ページフェッチで2fragmentsのみ（期待値より少ない） | 低 |
-| パーサー未対応エンジン | wikipedia, wikidata, arxiv, marginalia等のパーサーが未実装 | 中 |
+| 問題 | 詳細 | 優先度 | 状態 |
+|------|------|--------|:----:|
+| フェッチ処理タイムアウト | 検索後のフェッチ処理でタイムアウトが発生する場合がある | 中 | ⏳ |
+| wayback_success_countカラム不存在 | Waybackフォールバック後のDB更新でエラー | 中 | ✅ 解決 |
+| fragments数が少ない | 5ページフェッチで2fragmentsのみ（期待値より少ない） | 中 | ✅ 解決 |
+| パーサー未対応エンジン | wikipedia, wikidata, arxiv, marginalia等のパーサーが未実装 | 低 | ⏳ |
+
+**2025-12-15 追加対処**:
+- **wayback_success_count**: マイグレーションシステム実装（`scripts/migrate.py`）、`001_add_wayback_columns.sql`適用
+- **fragments数が少ない**: 原因はFOREIGN KEY制約（page_id不存在）。`fetcher.py`を修正してpage_idをFetchResultに含めるよう対応
 
 ###### DB状態（検証時点）
 
@@ -2128,10 +2132,46 @@ python -c "import sqlite3; c=sqlite3.connect('data/lancet.db'); print(c.execute(
 4. **get_materials**: 🔜 `claims`/`fragments`配列が空でない、`evidence_graph.nodes`が存在
 5. **認証フロー**: ⚠️ 認証待ちキューに追加は動作、セッション再利用は未検証
 
+##### 追加対処（2025-12-15完了）
+
+###### マイグレーションシステム導入
+
+DBスキーマのバージョン管理のため、マイグレーションシステムを導入:
+
+| ファイル | 用途 |
+|---------|------|
+| `scripts/migrate.py` | マイグレーションランナーCLI |
+| `migrations/` | マイグレーションファイル格納ディレクトリ |
+| `migrations/001_add_wayback_columns.sql` | wayback_success/failure_count追加 |
+| `src/storage/schema.sql` | schema_migrations表追加、waybackカラム追加 |
+| `src/storage/database.py` | `run_migrations()`メソッド追加 |
+| `tests/test_migrations.py` | マイグレーションテスト（20件） |
+
+マイグレーション使用方法:
+```bash
+python scripts/migrate.py up       # 適用
+python scripts/migrate.py status   # 確認
+python scripts/migrate.py create NAME  # 新規作成
+```
+
+###### fragment永続化修正
+
+原因: フェッチ時に`page_id`がFetchResultに含まれていなかったため、FOREIGN KEY制約で`fragments`テーブルへのINSERTが失敗していた。
+
+対処:
+- `src/crawler/fetcher.py`: `FetchResult`に`page_id`属性を追加
+- DB挿入後に`result.page_id = page_id`を設定
+
+##### テスト結果
+
+```
+2922 passed, 21 skipped (test_migrations.py 20件を含む)
+```
+
 ##### 次のステップ
 
-1. フェッチタイムアウト問題の調査・修正
-2. wayback_success_countカラムの追加（スキーマ更新）
+1. フェッチタイムアウト問題の調査・修正（優先度：中）
+2. パーサー未対応エンジンの実装（優先度：低）
 3. get_status/get_materialsの実呼び出し検証
 4. パーサー未対応エンジンの対応（wikipedia等）
 

@@ -469,6 +469,8 @@ class FetchResult:
         self.archive_date = archive_date
         self.archive_url = archive_url
         self.freshness_penalty = freshness_penalty
+        # Page ID for database reference (set after page record created)
+        self.page_id: str | None = None
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -489,6 +491,7 @@ class FetchResult:
             "last_modified": self.last_modified,
             "auth_queued": self.auth_queued,
             "queue_id": self.queue_id,
+            "page_id": self.page_id,
         }
         # Include auth details only when relevant
         if self.auth_type:
@@ -2465,8 +2468,8 @@ async def fetch_url(
         
         # Store page record and update cache if successful
         if result.ok:
-            # Update pages table
-            await db.insert("pages", {
+            # Update pages table and capture page_id for fragment linking
+            page_id = await db.insert("pages", {
                 "url": url,
                 "final_url": url,  # TODO: Track redirects
                 "domain": domain,
@@ -2481,6 +2484,7 @@ async def fetch_url(
                 "headers_json": json.dumps(result.headers) if result.headers else None,
                 "cause_id": trace.id,
             }, or_replace=True)
+            result.page_id = page_id
             
             # Update fetch cache for future conditional requests
             # Only cache if we have ETag or Last-Modified

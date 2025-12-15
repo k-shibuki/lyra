@@ -79,6 +79,73 @@ class Database:
             await self._connection.executescript(schema_sql)
         
         logger.info("Database schema initialized")
+        
+        # Apply any pending migrations
+        await self.run_migrations()
+    
+    async def run_migrations(self) -> None:
+        """Run pending database migrations.
+        
+        Looks for .sql files in the migrations/ directory and applies
+        any that haven't been recorded in schema_migrations table.
+        """
+        import re
+        
+        # Get project root (storage -> src -> project_root)
+        migrations_dir = Path(__file__).parent.parent.parent / "migrations"
+        
+        if not migrations_dir.exists():
+            logger.debug("No migrations directory found")
+            return
+        
+        # Get applied migrations
+        cursor = await self.execute(
+            "SELECT version FROM schema_migrations ORDER BY version"
+        )
+        applied = {row["version"] for row in await cursor.fetchall()}
+        
+        # Find pending migrations
+        pattern = re.compile(r"^(\d{3})_(.+)\.sql$")
+        pending = []
+        
+        for sql_file in sorted(migrations_dir.glob("*.sql")):
+            match = pattern.match(sql_file.name)
+            if match:
+                version = int(match.group(1))
+                name = match.group(2)
+                if version not in applied:
+                    pending.append((version, name, sql_file))
+        
+        if not pending:
+            return
+        
+        logger.info(f"Applying {len(pending)} pending migration(s)")
+        
+        for version, name, path in pending:
+            sql_content = path.read_text(encoding="utf-8")
+            statements = [s.strip() for s in sql_content.split(";") if s.strip()]
+            
+            for statement in statements:
+                # Skip comments-only statements
+                if statement.startswith("--") and "\n" not in statement:
+                    continue
+                
+                try:
+                    await self.execute(statement)
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    # Handle "column already exists" gracefully for idempotency
+                    if "duplicate column" in error_msg or "already exists" in error_msg:
+                        logger.debug(f"Column already exists, skipping: {statement[:50]}...")
+                    else:
+                        raise
+            
+            # Record migration as applied
+            await self.execute(
+                "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+                (version, name),
+            )
+            logger.info(f"Applied migration [{version:03d}] {name}")
     
     async def execute(
         self,

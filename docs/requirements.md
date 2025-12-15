@@ -1612,12 +1612,20 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
   - `fetch_cache`（キー: 正規化URL＋ETag|Last-Modified, 304優先）
   - `embed_cache`/`rerank_cache`（キー: テキストハッシュ＋モデルID, TTL=7d）
 - データベース（SQLite）主要テーブル:
-  - `queries`, `serp_items`, `pages`, `fragments`, `claims`, `edges`, `domains`, `engine_health`, `jobs`
+  - `schema_migrations`, `queries`, `serp_items`, `pages`, `fragments`, `claims`, `edges`, `domains`, `engine_health`, `jobs`
   - **`fragments`テーブルのコンテキスト情報**:
     - `heading_context`: 直近の見出し（単一文字列）
     - `heading_hierarchy`: 見出し階層（JSON配列: `[{"level":1,"text":"..."}, ...]`）
     - `element_index`: 見出し配下での要素順序
     - `fragment_type`: 要素種別（paragraph/heading/list/table/quote/figure/code）
+  - **`domains`テーブルのWayback追跡情報**:
+    - `wayback_success_count`: Wayback Machine経由の取得成功回数
+    - `wayback_failure_count`: Wayback Machine経由の取得失敗回数
+- スキーママイグレーション:
+  - バージョン管理された`migrations/`ディレクトリにSQLファイルを配置
+  - `schema_migrations`テーブルで適用済みバージョンを追跡
+  - DB初期化時に未適用のマイグレーションを自動実行
+  - 使用方法: `python scripts/migrate.py up|status|create NAME`
 - キュー（jobs）:
   - フィールド例: `id, kind, priority, slot, state, budget, created_at, started_at, finished_at, cause_id`
   - スロット/排他・予算・因果トレースを強制

@@ -471,3 +471,32 @@ SearchExecutor.execute()
 | `src/filter/llm.py` | LLM抽出 |
 | `src/utils/calibration.py` | 校正機能 |
 | `src/storage/schema.sql` | DBスキーマ |
+| `src/storage/database.py` | DB接続・マイグレーション |
+| `scripts/migrate.py` | マイグレーションランナー |
+| `migrations/` | マイグレーションファイル |
+
+---
+
+## 後続フェーズ: O.8 実MCP統合検証
+
+O.7で発見・修正した問題の実環境での検証、およびDBスキーマの改善を実施。
+
+### 追加対応（2025-12-15）
+
+| 問題 | 対処 | ファイル |
+|------|------|----------|
+| wayback_success_countカラム不存在 | マイグレーションシステム導入 + 001_add_wayback_columns.sql | `scripts/migrate.py`, `migrations/001_*.sql` |
+| fragments永続化が失敗 | FetchResultにpage_id追加（FK制約対応） | `src/crawler/fetcher.py` |
+| get_statusのsearchesキー不一致 | `subqueries` → `searches` キー修正 | `tests/test_mcp_get_status.py` |
+
+### マイグレーションシステム
+
+スキーマ変更をバージョン管理するため、軽量マイグレーションシステムを導入:
+
+```bash
+python scripts/migrate.py up       # 全pending migrations適用
+python scripts/migrate.py status   # 適用状況確認
+python scripts/migrate.py create NAME  # 新規マイグレーション作成
+```
+
+詳細は `docs/IMPLEMENTATION_PLAN.md` の「O.8 実MCP統合検証」セクションを参照。

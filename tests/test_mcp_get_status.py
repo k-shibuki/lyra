@@ -89,7 +89,7 @@ class TestGetStatusWithExplorationState:
             "ok": True,
             "task_id": "task_abc123",
             "task_status": "exploring",
-            "subqueries": [
+            "searches": [
                 {
                     "id": "sq_001",
                     "text": "Search query 1",  # Changed from "query" to "text" per state.py
