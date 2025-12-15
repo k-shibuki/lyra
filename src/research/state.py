@@ -270,6 +270,9 @@ class ExplorationState:
         self._task_status = TaskStatus.CREATED
         self._searches: dict[str, SearchState] = {}
         
+        # Original query for context (used by llm_extract)
+        self.original_query: str = ""
+        
         # Budget tracking
         self._pages_limit = 120
         self._time_limit_seconds = 3600  # 60 minutes
@@ -330,6 +333,9 @@ class ExplorationState:
                 self._task_status = TaskStatus(status_str)
             except ValueError:
                 self._task_status = TaskStatus.CREATED
+            
+            # Load original query for context (used by llm_extract)
+            self.original_query = task.get("query", "")
         
         # Load existing searches
         queries = await self._db.fetch_all(

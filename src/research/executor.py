@@ -404,6 +404,19 @@ class SearchExecutor:
                         is_novel=is_novel,
                     )
                     
+                    # Persist fragment to DB for get_materials() (O.7 fix)
+                    fragment_id = f"f_{uuid.uuid4().hex[:8]}"
+                    page_id = fetch_result.get("page_id", f"p_{uuid.uuid4().hex[:8]}")
+                    await self._persist_fragment(
+                        fragment_id=fragment_id,
+                        page_id=page_id,
+                        text=extract_result.get("text", "")[:2000],
+                        source_url=url,
+                        title=serp_item.get("title", ""),
+                        heading_context=extract_result.get("title", ""),
+                        is_primary=is_primary,
+                    )
+                    
                     # Extract claims using llm_extract for primary sources (§2.1.4, §3.3)
                     # LLM extraction is only applied to primary sources to control LLM time ratio
                     if is_useful:
@@ -417,15 +430,36 @@ class SearchExecutor:
                         for claim in extracted_claims:
                             self.state.record_claim(search_id)
                             result.new_claims.append(claim)
+                            
+                            # Persist claim to DB for get_materials() (O.7 fix)
+                            claim_id = f"c_{uuid.uuid4().hex[:8]}"
+                            await self._persist_claim(
+                                claim_id=claim_id,
+                                claim_text=claim.get("claim", ""),
+                                confidence=claim.get("confidence", 0.5),
+                                source_url=url,
+                                source_fragment_id=fragment_id,
+                            )
                         
                         # If no claims extracted by LLM, record at least one potential claim
                         if not extracted_claims:
                             self.state.record_claim(search_id)
+                            snippet = extract_result.get("text", "")[:200]
                             result.new_claims.append({
                                 "source_url": url,
                                 "title": serp_item.get("title", ""),
-                                "snippet": extract_result.get("text", "")[:200],
+                                "snippet": snippet,
                             })
+                            
+                            # Persist snippet as claim for get_materials() (O.7 fix)
+                            claim_id = f"c_{uuid.uuid4().hex[:8]}"
+                            await self._persist_claim(
+                                claim_id=claim_id,
+                                claim_text=snippet,
+                                confidence=0.3,  # Low confidence for non-LLM extracted
+                                source_url=url,
+                                source_fragment_id=fragment_id,
+                            )
         
         except Exception as e:
             logger.debug("Fetch/extract failed", url=url[:50], error=str(e))
@@ -497,6 +531,133 @@ class SearchExecutor:
             )
         
         return []
+    
+    async def _persist_fragment(
+        self,
+        fragment_id: str,
+        page_id: str,
+        text: str,
+        source_url: str,
+        title: str,
+        heading_context: str,
+        is_primary: bool,
+    ) -> None:
+        """
+        Persist fragment to database for get_materials() retrieval.
+        
+        O.7 fix: fragments were only tracked in memory, causing get_materials()
+        to return empty results.
+        
+        Args:
+            fragment_id: Unique fragment identifier.
+            page_id: Associated page identifier.
+            text: Fragment text content.
+            source_url: Source URL.
+            title: Page title.
+            heading_context: Heading context for fragment.
+            is_primary: Whether from primary source.
+        """
+        import json
+        
+        try:
+            db = await get_database()
+            
+            # Hash text for deduplication
+            text_hash = hashlib.sha256(text[:500].encode()).hexdigest()[:16]
+            
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO fragments 
+                (id, page_id, fragment_type, text_content, heading_context, text_hash, 
+                 is_relevant, relevance_reason, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    fragment_id,
+                    page_id,
+                    "paragraph",
+                    text,
+                    heading_context or title,
+                    text_hash,
+                    1,  # is_relevant
+                    f"primary_source={is_primary}; url={source_url[:100]}",  # Store metadata in relevance_reason
+                ),
+            )
+        except Exception as e:
+            logger.debug(
+                "Failed to persist fragment",
+                fragment_id=fragment_id,
+                error=str(e),
+            )
+    
+    async def _persist_claim(
+        self,
+        claim_id: str,
+        claim_text: str,
+        confidence: float,
+        source_url: str,
+        source_fragment_id: str,
+    ) -> None:
+        """
+        Persist claim to database for get_materials() retrieval.
+        
+        O.7 fix: claims were only tracked in memory, causing get_materials()
+        to return empty results.
+        
+        Args:
+            claim_id: Unique claim identifier.
+            claim_text: The claim text.
+            confidence: Confidence score (0-1).
+            source_url: Source URL.
+            source_fragment_id: Associated fragment ID.
+        """
+        import json
+        
+        try:
+            db = await get_database()
+            
+            # Insert claim (using schema-valid columns)
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO claims 
+                (id, task_id, claim_text, claim_type, confidence_score, 
+                 source_fragment_ids, verification_notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    claim_id,
+                    self.task_id,
+                    claim_text[:500],  # Truncate to reasonable length
+                    "fact",
+                    confidence,
+                    json.dumps([source_fragment_id]),  # JSON array
+                    f"source_url={source_url[:200]}",  # Store URL in notes
+                ),
+            )
+            
+            # Insert edge linking fragment to claim
+            edge_id = f"e_{uuid.uuid4().hex[:8]}"
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO edges
+                (id, source_type, source_id, target_type, target_id, relation, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    edge_id,
+                    "fragment",
+                    source_fragment_id,
+                    "claim",
+                    claim_id,
+                    "supports",
+                ),
+            )
+        except Exception as e:
+            logger.debug(
+                "Failed to persist claim",
+                claim_id=claim_id,
+                error=str(e),
+            )
     
     def generate_refutation_queries(self, base_query: str) -> list[str]:
         """
