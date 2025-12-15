@@ -152,6 +152,33 @@ class EngineHealthMetrics(BaseModel):
         }
 
 
+class LastmileCheckResult(BaseModel):
+    """Result of lastmile slot check.
+    
+    Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
+    Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
+    
+    Used to determine if lastmile engines should be used based on harvest rate.
+    """
+    should_use_lastmile: bool = Field(..., description="Whether to use lastmile engine")
+    reason: str = Field(..., description="Reason for decision")
+    harvest_rate: float = Field(ge=0.0, le=1.0, description="Current harvest rate")
+    threshold: float = Field(
+        default=0.9, ge=0.0, le=1.0,
+        description="Threshold for lastmile activation"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "should_use_lastmile": True,
+                "reason": "Harvest rate 0.95 >= threshold 0.9",
+                "harvest_rate": 0.95,
+                "threshold": 0.9,
+            }
+        }
+
+
 class DynamicWeightResult(BaseModel):
     """Result of dynamic weight calculation.
     

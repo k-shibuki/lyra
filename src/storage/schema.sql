@@ -251,6 +251,19 @@ CREATE TABLE IF NOT EXISTS engine_health (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Lastmile Usage: Daily usage tracking for lastmile engines
+-- Per §3.1.1: Track usage to enforce daily limits
+CREATE TABLE IF NOT EXISTS lastmile_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    engine TEXT NOT NULL,
+    date TEXT NOT NULL,  -- YYYY-MM-DD
+    usage_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(engine, date)
+);
+CREATE INDEX IF NOT EXISTS idx_lastmile_usage_engine_date ON lastmile_usage(engine, date);
+
 -- ============================================================
 -- Job Scheduler
 -- ============================================================

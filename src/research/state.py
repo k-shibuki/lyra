@@ -534,6 +534,27 @@ class ExplorationState:
             return {}
         return self._ucb_allocator.reallocate_budget()
     
+    def get_overall_harvest_rate(self) -> float:
+        """
+        Calculate overall harvest rate across all searches.
+        
+        Per §3.1.1: Used for lastmile slot determination.
+        Lastmile engines are activated when harvest rate >= 0.9.
+        
+        Returns:
+            Overall harvest rate (0.0-1.0).
+        """
+        if not self._searches:
+            return 0.0
+        
+        total_useful = sum(s.useful_fragments for s in self._searches.values())
+        total_pages = sum(s.pages_fetched for s in self._searches.values())
+        
+        if total_pages == 0:
+            return 0.0
+        
+        return total_useful / total_pages
+    
     def check_novelty_stop_condition(self, search_id: str) -> bool:
         """
         Check if novelty stop condition is met (§3.1.7.4).

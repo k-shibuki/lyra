@@ -45,6 +45,7 @@ from src.search.search_api import transform_query_for_engine
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.utils.policy_engine import get_policy_engine
+from src.utils.schemas import LastmileCheckResult
 from src.crawler.fetcher import HumanBehavior
 
 logger = get_logger(__name__)
@@ -397,10 +398,187 @@ class BrowserSearchProvider(BaseSearchProvider):
         # Default to general
         return "general"
     
+    # =========================================================================
+    # Lastmile Slot Selection (§3.1.1)
+    # =========================================================================
+    
+    def _should_use_lastmile(
+        self,
+        harvest_rate: float,
+        threshold: float = 0.9,
+    ) -> LastmileCheckResult:
+        """
+        Check if lastmile engine should be used based on harvest rate.
+        
+        Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
+        Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
+        
+        Args:
+            harvest_rate: Current harvest rate (0.0-1.0).
+            threshold: Threshold for lastmile activation (default 0.9).
+            
+        Returns:
+            LastmileCheckResult with decision and reason.
+        """
+        if harvest_rate >= threshold:
+            return LastmileCheckResult(
+                should_use_lastmile=True,
+                reason=f"Harvest rate {harvest_rate:.2f} >= threshold {threshold}",
+                harvest_rate=harvest_rate,
+                threshold=threshold,
+            )
+        return LastmileCheckResult(
+            should_use_lastmile=False,
+            reason=f"Harvest rate {harvest_rate:.2f} < threshold {threshold}",
+            harvest_rate=harvest_rate,
+            threshold=threshold,
+        )
+    
+    async def _select_lastmile_engine(self) -> str | None:
+        """
+        Select a lastmile engine with strict QPS/daily limit checks.
+        
+        Per §3.1.1: Lastmile engines (Google/Brave/Bing) have strict limits:
+        - Daily limits (google: 10, brave: 50, bing: 10)
+        - Stricter QPS (google: 0.05, brave: 0.1, bing: 0.05)
+        
+        Returns:
+            Engine name if available, None if all engines exhausted.
+        """
+        config_manager = get_engine_config_manager()
+        lastmile_engines = config_manager.get_lastmile_engines()
+        
+        if not lastmile_engines:
+            logger.debug("No lastmile engines configured")
+            return None
+        
+        # Check each lastmile engine for availability
+        for engine_name in lastmile_engines:
+            try:
+                # Check circuit breaker
+                if not await check_engine_available(engine_name):
+                    logger.debug(
+                        "Lastmile engine unavailable (circuit breaker)",
+                        engine=engine_name,
+                    )
+                    continue
+                
+                # Get engine config
+                engine_config = config_manager.get_engine(engine_name)
+                if not engine_config or not engine_config.is_available:
+                    logger.debug(
+                        "Lastmile engine not available",
+                        engine=engine_name,
+                    )
+                    continue
+                
+                # Check daily limit
+                if engine_config.daily_limit:
+                    daily_usage = await self._get_daily_usage(engine_name)
+                    if daily_usage >= engine_config.daily_limit:
+                        logger.debug(
+                            "Lastmile engine daily limit reached",
+                            engine=engine_name,
+                            daily_usage=daily_usage,
+                            daily_limit=engine_config.daily_limit,
+                        )
+                        continue
+                
+                # Engine is available
+                logger.info(
+                    "Selected lastmile engine",
+                    engine=engine_name,
+                    daily_limit=engine_config.daily_limit,
+                    qps=engine_config.qps,
+                )
+                return engine_name
+                
+            except Exception as e:
+                logger.warning(
+                    "Error checking lastmile engine",
+                    engine=engine_name,
+                    error=str(e),
+                )
+                continue
+        
+        logger.warning("No lastmile engines available")
+        return None
+    
+    async def _get_daily_usage(self, engine: str) -> int:
+        """
+        Get today's usage count for an engine.
+        
+        Args:
+            engine: Engine name.
+            
+        Returns:
+            Number of searches today.
+        """
+        try:
+            from datetime import date
+            from src.storage.database import get_database
+            
+            db = await get_database()
+            today = date.today().isoformat()
+            
+            result = await db.fetch_one(
+                """
+                SELECT usage_count FROM lastmile_usage
+                WHERE engine = ? AND date = ?
+                """,
+                (engine, today),
+            )
+            
+            return result["usage_count"] if result else 0
+        except Exception as e:
+            logger.debug(
+                "Failed to get daily usage",
+                engine=engine,
+                error=str(e),
+            )
+            return 0
+    
+    async def _record_lastmile_usage(self, engine: str) -> None:
+        """
+        Record usage of a lastmile engine.
+        
+        Args:
+            engine: Engine name.
+        """
+        try:
+            from datetime import date
+            from src.storage.database import get_database
+            
+            db = await get_database()
+            today = date.today().isoformat()
+            
+            await db.execute(
+                """
+                INSERT INTO lastmile_usage (engine, date, usage_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(engine, date) DO UPDATE SET
+                    usage_count = usage_count + 1
+                """,
+                (engine, today),
+            )
+            
+            logger.debug(
+                "Recorded lastmile usage",
+                engine=engine,
+                date=today,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to record lastmile usage",
+                engine=engine,
+                error=str(e),
+            )
+    
     async def search(
         self,
         query: str,
         options: SearchOptions | None = None,
+        harvest_rate: float | None = None,
     ) -> SearchResponse:
         """
         Execute a search using browser.
@@ -408,6 +586,8 @@ class BrowserSearchProvider(BaseSearchProvider):
         Args:
             query: Search query text.
             options: Search options.
+            harvest_rate: Current harvest rate (0.0-1.0) for lastmile decision.
+                         If provided and >= 0.9, lastmile engines may be used.
             
         Returns:
             SearchResponse with results or error.
@@ -422,71 +602,93 @@ class BrowserSearchProvider(BaseSearchProvider):
         # Category detection
         category = self._detect_category(query)
         
+        # Check if lastmile engines should be used (§3.1.1)
+        use_lastmile = False
+        lastmile_engine: str | None = None
+        
+        if harvest_rate is not None:
+            lastmile_check = self._should_use_lastmile(harvest_rate)
+            if lastmile_check.should_use_lastmile:
+                lastmile_engine = await self._select_lastmile_engine()
+                if lastmile_engine:
+                    use_lastmile = True
+                    logger.info(
+                        "Using lastmile engine",
+                        engine=lastmile_engine,
+                        harvest_rate=harvest_rate,
+                        reason=lastmile_check.reason,
+                    )
+        
         # Engine selection with weighted selection and circuit breaker
         config_manager = get_engine_config_manager()
         
-        if options.engines:
-            # Use specified engines
-            candidate_engines = options.engines
+        # If lastmile engine selected, use it directly
+        if use_lastmile and lastmile_engine:
+            engine = lastmile_engine
+            # Skip normal engine selection
         else:
-            # Get engines for category
-            candidate_engines_configs = config_manager.get_engines_for_category(category)
-            if not candidate_engines_configs:
-                # Fall back to default engines if no engines for category
-                candidate_engines_configs = config_manager.get_available_engines()
-            candidate_engines = [cfg.name for cfg in candidate_engines_configs]
-        
-        # Filter by circuit breaker and availability
-        # Use dynamic weights from PolicyEngine (per §3.1.1, §3.1.4, §4.6)
-        available_engines: list[tuple[str, float]] = []
-        policy_engine = await get_policy_engine()
-        
-        for engine_name in candidate_engines:
-            try:
-                if await check_engine_available(engine_name):
-                    engine_config = config_manager.get_engine(engine_name)
-                    if engine_config and engine_config.is_available:
-                        # Get dynamic weight with time decay
-                        dynamic_weight = await policy_engine.get_dynamic_engine_weight(
-                            engine_name, category
-                        )
-                        available_engines.append((engine_name, dynamic_weight))
-            except Exception as e:
-                # Log error but continue with next engine
+            if options.engines:
+                # Use specified engines
+                candidate_engines = options.engines
+            else:
+                # Get engines for category
+                candidate_engines_configs = config_manager.get_engines_for_category(category)
+                if not candidate_engines_configs:
+                    # Fall back to default engines if no engines for category
+                    candidate_engines_configs = config_manager.get_available_engines()
+                candidate_engines = [cfg.name for cfg in candidate_engines_configs]
+            
+            # Filter by circuit breaker and availability
+            # Use dynamic weights from PolicyEngine (per §3.1.1, §3.1.4, §4.6)
+            available_engines: list[tuple[str, float]] = []
+            policy_engine = await get_policy_engine()
+            
+            for engine_name in candidate_engines:
+                try:
+                    if await check_engine_available(engine_name):
+                        engine_config = config_manager.get_engine(engine_name)
+                        if engine_config and engine_config.is_available:
+                            # Get dynamic weight with time decay
+                            dynamic_weight = await policy_engine.get_dynamic_engine_weight(
+                                engine_name, category
+                            )
+                            available_engines.append((engine_name, dynamic_weight))
+                except Exception as e:
+                    # Log error but continue with next engine
+                    logger.warning(
+                        "Failed to check engine availability",
+                        engine=engine_name,
+                        error=str(e),
+                    )
+                    continue
+            
+            # Check if any engines are available
+            if not available_engines:
                 logger.warning(
-                    "Failed to check engine availability",
-                    engine=engine_name,
-                    error=str(e),
+                    "No available engines",
+                    category=category,
+                    candidate_engines=candidate_engines,
                 )
-                continue
-        
-        # Check if any engines are available
-        if not available_engines:
-            logger.warning(
-                "No available engines",
+                return SearchResponse(
+                    results=[],
+                    query=query,
+                    provider=self.name,
+                    error="No available engines",
+                    elapsed_ms=(time.time() - start_time) * 1000,
+                    connection_mode="cdp" if self._cdp_connected else None,
+                )
+            
+            # Weighted selection (sort by weight descending)
+            available_engines.sort(key=lambda x: x[1], reverse=True)
+            engine = available_engines[0][0]
+            
+            logger.debug(
+                "Engine selected",
+                engine=engine,
                 category=category,
-                candidate_engines=candidate_engines,
+                weight=available_engines[0][1],
+                available_count=len(available_engines),
             )
-            return SearchResponse(
-                results=[],
-                query=query,
-                provider=self.name,
-                error="No available engines",
-                elapsed_ms=(time.time() - start_time) * 1000,
-                connection_mode="cdp" if self._cdp_connected else None,
-            )
-        
-        # Weighted selection (sort by weight descending)
-        available_engines.sort(key=lambda x: x[1], reverse=True)
-        engine = available_engines[0][0]
-        
-        logger.debug(
-            "Engine selected",
-            engine=engine,
-            category=category,
-            weight=available_engines[0][1],
-            available_count=len(available_engines),
-        )
         
         try:
             await self._rate_limit(engine)
@@ -701,6 +903,10 @@ class BrowserSearchProvider(BaseSearchProvider):
                     engine=engine,
                     error=str(e),
                 )
+            
+            # Record lastmile usage if lastmile engine was used
+            if use_lastmile and lastmile_engine:
+                await self._record_lastmile_usage(lastmile_engine)
             
             return SearchResponse(
                 results=results,

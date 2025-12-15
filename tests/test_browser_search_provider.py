@@ -3189,3 +3189,337 @@ class TestDynamicWeightUsage:
         
         await provider.close()
 
+
+# ============================================================================
+# Lastmile Slot Selection Tests
+# ============================================================================
+
+
+class TestLastmileSlotSelection:
+    """
+    Tests for lastmile slot selection feature.
+    
+    Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
+    Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
+    
+    ## Test Perspectives Table
+    
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-LM-N-01 | harvest_rate=0.95 | Equivalence - above threshold | should_use_lastmile=True | - |
+    | TC-LM-N-02 | harvest_rate=0.5 | Equivalence - below threshold | should_use_lastmile=False | - |
+    | TC-LM-B-01 | harvest_rate=0.9 | Boundary - exact threshold | should_use_lastmile=True | - |
+    | TC-LM-B-02 | harvest_rate=0.89 | Boundary - just below | should_use_lastmile=False | - |
+    | TC-LM-B-03 | harvest_rate=0.0 | Boundary - zero | should_use_lastmile=False | - |
+    | TC-LM-B-04 | harvest_rate=1.0 | Boundary - max | should_use_lastmile=True | - |
+    | TC-LM-A-01 | No lastmile engines | Abnormal - empty | Returns None | - |
+    | TC-LM-A-02 | All at daily limit | Abnormal - limit | Returns None | - |
+    | TC-LM-N-03 | Engine available | Equivalence - select | Returns engine name | - |
+    | TC-LM-N-04 | search with harvest_rate | Equivalence - integration | Lastmile used | - |
+    | TC-LM-A-03 | harvest_rate=None | Abnormal - None | Normal selection | - |
+    """
+    
+    def test_should_use_lastmile_above_threshold(self):
+        """TC-LM-N-01: Test lastmile is used when harvest_rate > threshold."""
+        # Given: A BrowserSearchProvider and harvest_rate above threshold
+        provider = BrowserSearchProvider()
+        
+        # When: Checking if lastmile should be used
+        result = provider._should_use_lastmile(harvest_rate=0.95, threshold=0.9)
+        
+        # Then: should_use_lastmile is True
+        assert result.should_use_lastmile is True
+        assert result.harvest_rate == 0.95
+        assert result.threshold == 0.9
+        assert "0.95" in result.reason
+        assert ">=" in result.reason
+    
+    def test_should_use_lastmile_below_threshold(self):
+        """TC-LM-N-02: Test lastmile is not used when harvest_rate < threshold."""
+        # Given: A BrowserSearchProvider and harvest_rate below threshold
+        provider = BrowserSearchProvider()
+        
+        # When: Checking if lastmile should be used
+        result = provider._should_use_lastmile(harvest_rate=0.5, threshold=0.9)
+        
+        # Then: should_use_lastmile is False
+        assert result.should_use_lastmile is False
+        assert result.harvest_rate == 0.5
+        assert "<" in result.reason
+    
+    def test_should_use_lastmile_exact_threshold(self):
+        """TC-LM-B-01: Test lastmile is used at exact threshold boundary."""
+        # Given: A BrowserSearchProvider and harvest_rate at exact threshold
+        provider = BrowserSearchProvider()
+        
+        # When: Checking if lastmile should be used (boundary: exact threshold)
+        result = provider._should_use_lastmile(harvest_rate=0.9, threshold=0.9)
+        
+        # Then: should_use_lastmile is True (>= threshold)
+        assert result.should_use_lastmile is True
+        assert result.harvest_rate == 0.9
+    
+    def test_should_use_lastmile_just_below_threshold(self):
+        """TC-LM-B-02: Test lastmile is not used just below threshold."""
+        # Given: A BrowserSearchProvider and harvest_rate just below threshold
+        provider = BrowserSearchProvider()
+        
+        # When: Checking if lastmile should be used (boundary: just below)
+        result = provider._should_use_lastmile(harvest_rate=0.89, threshold=0.9)
+        
+        # Then: should_use_lastmile is False
+        assert result.should_use_lastmile is False
+        assert result.harvest_rate == 0.89
+    
+    def test_should_use_lastmile_zero_harvest_rate(self):
+        """TC-LM-B-03: Test lastmile is not used when harvest_rate is 0."""
+        # Given: A BrowserSearchProvider and harvest_rate of 0
+        provider = BrowserSearchProvider()
+        
+        # When: Checking if lastmile should be used (boundary: zero)
+        result = provider._should_use_lastmile(harvest_rate=0.0, threshold=0.9)
+        
+        # Then: should_use_lastmile is False
+        assert result.should_use_lastmile is False
+        assert result.harvest_rate == 0.0
+    
+    def test_should_use_lastmile_max_harvest_rate(self):
+        """TC-LM-B-04: Test lastmile is used when harvest_rate is 1.0."""
+        # Given: A BrowserSearchProvider and harvest_rate of 1.0
+        provider = BrowserSearchProvider()
+        
+        # When: Checking if lastmile should be used (boundary: max)
+        result = provider._should_use_lastmile(harvest_rate=1.0, threshold=0.9)
+        
+        # Then: should_use_lastmile is True
+        assert result.should_use_lastmile is True
+        assert result.harvest_rate == 1.0
+    
+    @pytest.mark.asyncio
+    async def test_select_lastmile_engine_no_engines_configured(self):
+        """TC-LM-A-01: Test returns None when no lastmile engines configured."""
+        # Given: A BrowserSearchProvider with no lastmile engines
+        provider = BrowserSearchProvider()
+        
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config:
+            mock_config = MagicMock()
+            mock_config.get_lastmile_engines.return_value = []
+            mock_get_config.return_value = mock_config
+            
+            # When: Selecting a lastmile engine
+            engine = await provider._select_lastmile_engine()
+            
+            # Then: Returns None
+            assert engine is None
+    
+    @pytest.mark.asyncio
+    async def test_select_lastmile_engine_all_at_daily_limit(self):
+        """TC-LM-A-02: Test returns None when all engines at daily limit."""
+        # Given: A BrowserSearchProvider with all lastmile engines at limit
+        provider = BrowserSearchProvider()
+        
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config, patch(
+            "src.search.browser_search_provider.check_engine_available",
+            AsyncMock(return_value=True),
+        ):
+            mock_config = MagicMock()
+            mock_config.get_lastmile_engines.return_value = ["brave", "google"]
+            
+            mock_engine = MagicMock()
+            mock_engine.is_available = True
+            mock_engine.daily_limit = 10
+            mock_config.get_engine.return_value = mock_engine
+            mock_get_config.return_value = mock_config
+            
+            # Mock daily usage to be at limit
+            with patch.object(provider, "_get_daily_usage", AsyncMock(return_value=10)):
+                # When: Selecting a lastmile engine
+                engine = await provider._select_lastmile_engine()
+                
+                # Then: Returns None (all at daily limit)
+                assert engine is None
+    
+    @pytest.mark.asyncio
+    async def test_select_lastmile_engine_returns_available_engine(self):
+        """TC-LM-N-03: Test returns first available engine."""
+        # Given: A BrowserSearchProvider with available lastmile engines
+        provider = BrowserSearchProvider()
+        
+        with patch(
+            "src.search.browser_search_provider.get_engine_config_manager"
+        ) as mock_get_config, patch(
+            "src.search.browser_search_provider.check_engine_available",
+            AsyncMock(return_value=True),
+        ):
+            mock_config = MagicMock()
+            mock_config.get_lastmile_engines.return_value = ["brave", "google"]
+            
+            mock_engine = MagicMock()
+            mock_engine.is_available = True
+            mock_engine.daily_limit = 50
+            mock_engine.qps = 0.1
+            mock_config.get_engine.return_value = mock_engine
+            mock_get_config.return_value = mock_config
+            
+            # Mock daily usage under limit
+            with patch.object(provider, "_get_daily_usage", AsyncMock(return_value=5)):
+                # When: Selecting a lastmile engine
+                engine = await provider._select_lastmile_engine()
+                
+                # Then: Returns first available engine
+                assert engine == "brave"
+    
+    @pytest.mark.asyncio
+    async def test_search_with_harvest_rate_triggers_lastmile(self):
+        """TC-LM-N-04: Test search uses lastmile engine when harvest_rate >= 0.9."""
+        # Given: A BrowserSearchProvider and harvest_rate triggering lastmile
+        provider = BrowserSearchProvider()
+        provider._closed = False
+        
+        lastmile_engine_selected = []
+        
+        # Mock lastmile selection to track calls
+        async def mock_select_lastmile():
+            lastmile_engine_selected.append("brave")
+            return "brave"
+        
+        with patch.object(provider, "_select_lastmile_engine", mock_select_lastmile):
+            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                with patch.object(provider, "_rate_limit", AsyncMock()):
+                    with patch.object(provider, "_get_page") as mock_get_page:
+                        mock_page = AsyncMock()
+                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+                        mock_page.wait_for_load_state = AsyncMock()
+                        mock_page.content = AsyncMock(return_value="<html></html>")
+                        mock_page.query_selector_all = AsyncMock(return_value=[])
+                        mock_page.is_closed = MagicMock(return_value=False)
+                        mock_get_page.return_value = mock_page
+                        
+                        with patch(
+                            "src.search.browser_search_provider.get_parser"
+                        ) as mock_get_parser:
+                            mock_parser = MagicMock()
+                            mock_parser.build_search_url = MagicMock(
+                                return_value="https://search.brave.com/?q=test"
+                            )
+                            mock_parser.parse = MagicMock(return_value=ParseResult(
+                                ok=True,
+                                is_captcha=False,
+                                results=[],
+                            ))
+                            mock_get_parser.return_value = mock_parser
+                            
+                            with patch(
+                                "src.search.browser_search_provider.transform_query_for_engine",
+                                return_value="test query",
+                            ), patch(
+                                "src.search.browser_search_provider.record_engine_result",
+                                AsyncMock(),
+                            ), patch.object(
+                                provider, "_save_session", AsyncMock()
+                            ), patch.object(
+                                provider, "_record_lastmile_usage", AsyncMock()
+                            ), patch.object(
+                                provider, "_human_behavior"
+                            ) as mock_human:
+                                mock_human.simulate_reading = AsyncMock()
+                                mock_human.move_mouse_to_element = AsyncMock()
+                                
+                                # When: search is called with harvest_rate >= 0.9
+                                response = await provider.search(
+                                    "test query",
+                                    harvest_rate=0.95,
+                                )
+                                
+                                # Then: Lastmile engine was selected
+                                assert len(lastmile_engine_selected) == 1
+                                assert lastmile_engine_selected[0] == "brave"
+    
+    @pytest.mark.asyncio
+    async def test_search_without_harvest_rate_uses_normal_selection(self):
+        """TC-LM-A-03: Test search uses normal engine selection when harvest_rate=None."""
+        # Given: A BrowserSearchProvider
+        provider = BrowserSearchProvider()
+        provider._closed = False
+        
+        should_use_lastmile_calls = []
+        
+        # Track _should_use_lastmile calls
+        original_should_use = provider._should_use_lastmile
+        
+        def mock_should_use(*args, **kwargs):
+            should_use_lastmile_calls.append(args)
+            return original_should_use(*args, **kwargs)
+        
+        with patch.object(provider, "_should_use_lastmile", mock_should_use):
+            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                with patch.object(provider, "_rate_limit", AsyncMock()):
+                    with patch.object(provider, "_get_page") as mock_get_page:
+                        mock_page = AsyncMock()
+                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+                        mock_page.wait_for_load_state = AsyncMock()
+                        mock_page.content = AsyncMock(return_value="<html></html>")
+                        mock_page.query_selector_all = AsyncMock(return_value=[])
+                        mock_page.is_closed = MagicMock(return_value=False)
+                        mock_get_page.return_value = mock_page
+                        
+                        with patch(
+                            "src.search.browser_search_provider.get_engine_config_manager"
+                        ) as mock_get_config:
+                            mock_config = MagicMock()
+                            mock_engine = MagicMock()
+                            mock_engine.name = "duckduckgo"
+                            mock_engine.is_available = True
+                            mock_engine.min_interval = 2.0
+                            mock_config.get_engines_for_category.return_value = [mock_engine]
+                            mock_config.get_engine.return_value = mock_engine
+                            mock_get_config.return_value = mock_config
+                            
+                            with patch(
+                                "src.search.browser_search_provider.check_engine_available",
+                                AsyncMock(return_value=True),
+                            ), patch(
+                                "src.search.browser_search_provider.get_policy_engine"
+                            ) as mock_get_policy:
+                                mock_policy = AsyncMock()
+                                mock_policy.get_dynamic_engine_weight = AsyncMock(return_value=0.7)
+                                mock_get_policy.return_value = mock_policy
+                                
+                                with patch(
+                                    "src.search.browser_search_provider.get_parser"
+                                ) as mock_get_parser:
+                                    mock_parser = MagicMock()
+                                    mock_parser.build_search_url = MagicMock(
+                                        return_value="https://duckduckgo.com/?q=test"
+                                    )
+                                    mock_parser.parse = MagicMock(return_value=ParseResult(
+                                        ok=True,
+                                        is_captcha=False,
+                                        results=[],
+                                    ))
+                                    mock_get_parser.return_value = mock_parser
+                                    
+                                    with patch(
+                                        "src.search.browser_search_provider.transform_query_for_engine",
+                                        return_value="test query",
+                                    ), patch(
+                                        "src.search.browser_search_provider.record_engine_result",
+                                        AsyncMock(),
+                                    ), patch.object(
+                                        provider, "_save_session", AsyncMock()
+                                    ), patch.object(
+                                        provider, "_human_behavior"
+                                    ) as mock_human:
+                                        mock_human.simulate_reading = AsyncMock()
+                                        mock_human.move_mouse_to_element = AsyncMock()
+                                        
+                                        # When: search is called without harvest_rate
+                                        response = await provider.search("test query")
+                                        
+                                        # Then: _should_use_lastmile was NOT called
+                                        assert len(should_use_lastmile_calls) == 0
+

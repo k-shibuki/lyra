@@ -921,89 +921,78 @@ async def fetch(self, url: str, ...):
 
 ---
 
-## 問題13: ラストマイルスロットの判定ロジックが未実装
+## 問題13: ラストマイルスロットの判定ロジックが未実装 ✅ 実装完了
 
-### 影響範囲
+**実装完了日**: 2025-12-15  
+**実装ファイル**: 
+- `src/search/browser_search_provider.py:400-575` (`_should_use_lastmile()`, `_select_lastmile_engine()`, `search()` 修正)
+- `src/research/state.py:537-560` (`get_overall_harvest_rate()` 追加)
+- `src/utils/schemas.py:104-130` (`LastmileCheckResult` モデル追加)
+- `src/storage/schema.sql:253-264` (`lastmile_usage` テーブル追加)
 
-**影響箇所**:
-- `src/search/browser_search_provider.py:280` - `BrowserSearchProvider.search()`
-- `src/research/state.py` - `ExplorationState`での回収率計算
+**検証スクリプト**: `tests/scripts/debug_lastmile_slot_flow.py`  
+**シーケンス図**: `docs/sequences/lastmile_slot_flow.md`
 
-### 現状の実装
+### 実装内容
 
+#### 1. `LastmileCheckResult` Pydanticモデル
 ```python
-# src/search/browser_search_provider.py:280-283
-# Determine engine to use
-engine = self._default_engine
-if options.engines:
-    engine = options.engines[0]  # 単純に最初のエンジンを使用
-# ラストマイルスロットの判定がない
+class LastmileCheckResult(BaseModel):
+    should_use_lastmile: bool  # Whether to use lastmile engine
+    reason: str                # Reason for decision
+    harvest_rate: float        # Current harvest rate (0.0-1.0)
+    threshold: float = 0.9     # Threshold for lastmile activation
 ```
 
-### 問題点
-
-1. **回収率の計算はあるが、ラストマイル判定がない**: `ExplorationState`で`harvest_rate`は計算されているが、回収率の最後の10%を判定するロジックがない
-2. **ラストマイルエンジンの使用ロジックがない**: `is_lastmile`プロパティはあるが、実際にラストマイルエンジンを使用する判定がない
-3. **厳格なQPS・回数・時間帯制御がない**: ラストマイルエンジンを使用する際の厳格な制御が実装されていない
-
-### 仕様書の要件
-
-- §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠としてGoogle/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
-
-### 修正提案
-
-**方針**: 回収率が最後の10%に達した場合にのみ、ラストマイルエンジンを使用する
-
-**実装箇所**:
-- `src/search/browser_search_provider.py:280` - `BrowserSearchProvider.search()`
-- `src/research/state.py` - `ExplorationState`での回収率計算
-
-**修正案**:
+#### 2. `ExplorationState.get_overall_harvest_rate()`
 ```python
-async def search(self, query: str, options: SearchOptions | None = None) -> SearchResponse:
-    # ... 既存の処理 ...
-    
-    # 回収率を計算
-    from src.research.state import get_exploration_state
-    state = get_exploration_state(task_id)
-    
-    # 全体の回収率を計算
-    total_harvest_rate = state.calculate_overall_harvest_rate()
-    
-    # ラストマイルスロットの判定（回収率の最後の10%）
-    # 例: 回収率が0.9以上の場合、ラストマイルエンジンを使用
-    use_lastmile = total_harvest_rate >= 0.9
-    
-    # エンジン選択
-    if use_lastmile:
-        # ラストマイルエンジンを使用（厳格な制御）
-        from src.search.engine_config import get_engine_config_manager
-        config_manager = get_engine_config_manager()
-        
-        lastmile_engines = config_manager.get_lastmile_engines()
-        if lastmile_engines:
-            # 厳格なQPS・回数・時間帯制御を適用
-            engine = self._select_lastmile_engine(lastmile_engines)
-            if engine:
-                # ラストマイルエンジンを使用
-                logger.info(
-                    "Using lastmile engine",
-                    engine=engine,
-                    harvest_rate=total_harvest_rate,
-                )
-    else:
-        # 通常のエンジン選択ロジック
-        engine = self._select_normal_engine(options)
-    
-    # ... 検索実行 ...
+def get_overall_harvest_rate(self) -> float:
+    """Calculate overall harvest rate across all searches."""
+    if not self._searches:
+        return 0.0
+    total_useful = sum(s.useful_fragments for s in self._searches.values())
+    total_pages = sum(s.pages_fetched for s in self._searches.values())
+    return total_useful / max(1, total_pages)
 ```
 
-**注意点**:
-- 回収率の計算方法を明確化（全体の回収率 vs クエリ別の回収率）
-- ラストマイルエンジンの使用回数・時間帯制御の実装
-- 厳格なQPS制御（例: Google=0.05, Brave=0.1）
+#### 3. `BrowserSearchProvider._should_use_lastmile()`
+```python
+def _should_use_lastmile(self, harvest_rate: float, threshold: float = 0.9) -> LastmileCheckResult:
+    """Check if lastmile engine should be used based on harvest rate."""
+    if harvest_rate >= threshold:
+        return LastmileCheckResult(should_use_lastmile=True, ...)
+    return LastmileCheckResult(should_use_lastmile=False, ...)
+```
 
-**関連Issue**: 問題8（エンジン選択ロジック）で基本的なエンジン選択は実装済み。本問題では回収率判定とラストマイルエンジンの使用ロジックを追加する。
+#### 4. `BrowserSearchProvider._select_lastmile_engine()`
+- Circuit breaker チェック
+- 日次使用制限チェック (daily_limit)
+- 厳格な QPS 制限適用
+
+#### 5. `search()` メソッド拡張
+- `harvest_rate` パラメータを追加
+- `harvest_rate >= 0.9` の場合、ラストマイルエンジンを選択
+
+### 厳格な制御
+
+| エンジン | QPS | Daily Limit |
+|---------|-----|-------------|
+| brave | 0.1 | 50 |
+| google | 0.05 | 10 |
+| bing | 0.05 | 10 |
+
+### テスト実行
+
+```bash
+# ユニットテスト
+pytest tests/test_browser_search_provider.py::TestLastmileSlotSelection -v
+
+# 回収率テスト
+pytest tests/test_research.py::TestGetOverallHarvestRate -v
+
+# デバッグスクリプト
+python tests/scripts/debug_lastmile_slot_flow.py
+```
 
 ---
 
@@ -1305,9 +1294,9 @@ if simulate_human:
 4. ~~問題14（プロファイル健全性監査の自動実行）~~ ✅ 完了
 5. ~~問題15（ヒューマンライク操作の完全な適用）~~ ✅ 完了
 6. ~~問題8（エンジン選択ロジック + 動的重み学習）~~ ✅ 完了
-7. 問題13（ラストマイルスロット判定）
+7. ~~問題13（ラストマイルスロット判定）~~ ✅ 完了
 8. ~~問題9（エンジン別QPS制限）~~ ✅ 完了
-9. 問題16（エンジン正規化レイヤ）
+9. ~~問題16（エンジン正規化レイヤ）~~ ✅ 実装済み（`transform_query_for_engine`）
 10. 問題10（Tor日次利用上限）
 11. 問題11（時間帯・日次予算上限）
 12. 問題4, 6, 7（要確認事項の確認）
