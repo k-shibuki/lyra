@@ -7,6 +7,7 @@ to HTTP client requests, including:
 - Same-domain restriction enforcement
 - Sec-Fetch-*/Referer header consistency
 - Session lifecycle management
+- Pydantic validation
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -23,6 +24,10 @@ to HTTP client requests, including:
 | TC-STM-04 | Update session | Equivalence – update | Session updated | - |
 | TC-STM-05 | Invalidate session | Equivalence – invalidate | Session removed | - |
 | TC-CF-01 | get_session_transfer_manager | Equivalence – singleton | Returns manager | - |
+| TC-PV-01 | CookieData missing required field | Boundary – validation | ValidationError raised | Pydantic |
+| TC-PV-02 | SessionData missing required field | Boundary – validation | ValidationError raised | Pydantic |
+| TC-PV-03 | TransferResult missing required field | Boundary – validation | ValidationError raised | Pydantic |
+| TC-PV-04 | CookieData with default values | Equivalence – defaults | Defaults applied | Pydantic |
 """
 
 import pytest
@@ -680,6 +685,157 @@ class TestSecFetchHeaderConsistency:
         assert result.headers["Referer"] == "https://example.com/source"
 
 
+# =============================================================================
+# Pydantic Validation Tests
+# =============================================================================
+
+class TestPydanticValidation:
+    """Tests for Pydantic model validation after migration from dataclass."""
+    
+    def test_cookie_data_missing_required_fields(self):
+        """
+        CookieData should raise ValidationError when required fields are missing.
+        
+        // Given: No arguments provided
+        // When: Creating CookieData without required fields
+        // Then: ValidationError is raised with field info
+        """
+        from pydantic import ValidationError
+        
+        with pytest.raises(ValidationError) as exc_info:
+            CookieData()
+        
+        # Check that error mentions missing required fields
+        error_str = str(exc_info.value)
+        assert "name" in error_str
+        assert "value" in error_str
+        assert "domain" in error_str
+    
+    def test_session_data_missing_required_field(self):
+        """
+        SessionData should raise ValidationError when domain is missing.
+        
+        // Given: No domain provided
+        // When: Creating SessionData without domain
+        // Then: ValidationError is raised
+        """
+        from pydantic import ValidationError
+        
+        with pytest.raises(ValidationError) as exc_info:
+            SessionData()
+        
+        error_str = str(exc_info.value)
+        assert "domain" in error_str
+    
+    def test_transfer_result_missing_required_field(self):
+        """
+        TransferResult should raise ValidationError when ok is missing.
+        
+        // Given: No ok field provided
+        // When: Creating TransferResult without ok
+        // Then: ValidationError is raised
+        """
+        from pydantic import ValidationError
+        
+        with pytest.raises(ValidationError) as exc_info:
+            TransferResult()
+        
+        error_str = str(exc_info.value)
+        assert "ok" in error_str
+    
+    def test_cookie_data_default_values(self):
+        """
+        CookieData should apply default values for optional fields.
+        
+        // Given: Only required fields provided
+        // When: Creating CookieData with minimal arguments
+        // Then: Defaults are applied correctly
+        """
+        cookie = CookieData(name="test", value="val", domain="example.com")
+        
+        assert cookie.path == "/"
+        assert cookie.secure is True
+        assert cookie.http_only is False
+        assert cookie.same_site == "Lax"
+        assert cookie.expires is None
+    
+    def test_session_data_default_values(self):
+        """
+        SessionData should apply default values for optional fields.
+        
+        // Given: Only domain provided
+        // When: Creating SessionData with minimal arguments
+        // Then: Defaults are applied correctly
+        """
+        session = SessionData(domain="example.com")
+        
+        assert session.cookies == []
+        assert session.etag is None
+        assert session.last_modified is None
+        assert session.user_agent is None
+        assert session.accept_language == "ja,en-US;q=0.9,en;q=0.8"
+        assert session.last_url is None
+        assert session.created_at > 0
+        assert session.last_used_at > 0
+    
+    def test_transfer_result_default_values(self):
+        """
+        TransferResult should apply default values for optional fields.
+        
+        // Given: Only ok field provided
+        // When: Creating TransferResult with ok=True
+        // Then: Defaults are applied correctly
+        """
+        result = TransferResult(ok=True)
+        
+        assert result.headers == {}
+        assert result.reason is None
+        assert result.session_id is None
+    
+    def test_cookie_data_model_dump(self):
+        """
+        CookieData should support Pydantic model_dump method.
+        
+        // Given: Valid CookieData instance
+        // When: Calling model_dump()
+        // Then: Dictionary with all fields is returned
+        """
+        cookie = CookieData(
+            name="session_id",
+            value="abc123",
+            domain="example.com",
+            path="/app",
+            secure=False,
+        )
+        
+        dump = cookie.model_dump()
+        
+        assert dump["name"] == "session_id"
+        assert dump["value"] == "abc123"
+        assert dump["domain"] == "example.com"
+        assert dump["path"] == "/app"
+        assert dump["secure"] is False
+    
+    def test_session_data_model_dump_with_cookies(self):
+        """
+        SessionData should correctly serialize nested CookieData.
+        
+        // Given: SessionData with cookies
+        // When: Calling model_dump()
+        // Then: Nested cookies are also serialized
+        """
+        session = SessionData(
+            domain="example.com",
+            cookies=[
+                CookieData(name="c1", value="v1", domain="example.com"),
+            ],
+        )
+        
+        dump = session.model_dump()
+        
+        assert dump["domain"] == "example.com"
+        assert len(dump["cookies"]) == 1
+        assert dump["cookies"][0]["name"] == "c1"
 
 
 

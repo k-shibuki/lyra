@@ -14,7 +14,7 @@
 
 ---
 
-## 2. 実装完成度サマリ（2025-12-11 更新）
+## 2. 実装完成度サマリ（2025-12-15 更新）
 
 | Phase | 内容 | ユニットテスト | E2E検証 | 状態 | セクション |
 |-------|------|:-------------:|:-------:|:----:|:----------:|
@@ -25,7 +25,7 @@
 | N | E2Eケーススタディ | - | ⏳ | 進行中（N.2-5完了） | §6 |
 | **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.3）** | §6 |
 
-**現在のテスト数**: 2688件（全パス）
+**現在のテスト数**: 2886件（全パス）
 
 ---
 
@@ -475,7 +475,7 @@ python -c "import sentence_transformers, transformers, torch" 2>/dev/null && ech
 python -c "import fitz, PIL" 2>/dev/null && echo "PDF/OCR deps OK" || echo "PDF/OCR deps MISSING"
 ```
 
-**現在のテスト数**: 2754件（依存関係インストール済み環境で全パス、依存関係不足時は17件失敗）
+**現在のテスト数**: 2886件（依存関係インストール済み環境で全パス、依存関係不足時は一部スキップ）
 
 #### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -2144,7 +2144,13 @@ async def _capture_auth_session(queue_id: str, domain: str) -> dict | None:
 **実装完了項目**:
 - [x] 問題3: 認証待ちキューで保存されたセッションが後続リクエストで再利用されていない ✅
 - [x] 問題5: `start_session()`でブラウザを開く処理が未実装 ✅
+- [x] 問題10: Tor日次利用上限のチェックが未実装 ✅（2025-12-15実装）
 - [x] 問題12: セッション転送が実装されているが適用されていない ✅
+
+**Pydantic移行完了**（2025-12-15）:
+- [x] `src/crawler/session_transfer.py`: `CookieData`, `SessionData`, `TransferResult` → Pydantic BaseModel
+- [x] `src/search/provider.py`: `SearchResult`, `SearchResponse`, `SearchOptions`, `HealthStatus` → Pydantic BaseModel
+- [x] `src/utils/schemas.py`: `TorUsageMetrics`, `DomainTorMetrics` 追加
 
 **実装詳細**:
 - **問題3**: `BrowserFetcher.fetch()`で`InterventionQueue.get_session_for_domain()`を呼び出し、Cookieを`context.add_cookies()`で適用（`src/crawler/fetcher.py:1086-1137`）

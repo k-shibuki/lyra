@@ -227,3 +227,89 @@ class DynamicWeightResult(BaseModel):
             }
         }
 
+
+# =============================================================================
+# Tor Daily Limit (Problem 10)
+# =============================================================================
+
+
+class TorUsageMetrics(BaseModel):
+    """Daily Tor usage metrics for rate limiting.
+    
+    Per §4.3 and §7: Track global Tor usage to enforce daily limit (20%).
+    Metrics are reset at the start of each new day.
+    """
+    total_requests: int = Field(
+        default=0, ge=0,
+        description="Total requests today (all types)"
+    )
+    tor_requests: int = Field(
+        default=0, ge=0,
+        description="Tor-routed requests today"
+    )
+    date: str = Field(
+        ...,
+        description="Date in YYYY-MM-DD format for reset detection"
+    )
+    
+    @property
+    def usage_ratio(self) -> float:
+        """Calculate current Tor usage ratio.
+        
+        Returns:
+            Ratio of tor_requests to total_requests (0.0 if no requests).
+        """
+        if self.total_requests == 0:
+            return 0.0
+        return self.tor_requests / self.total_requests
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total_requests": 100,
+                "tor_requests": 15,
+                "date": "2025-12-15",
+            }
+        }
+
+
+class DomainTorMetrics(BaseModel):
+    """Domain-specific Tor usage metrics.
+    
+    Per §4.3: Track per-domain Tor usage to enforce domain-specific limits.
+    Each domain can have its own tor_usage_ratio limit in domain policy.
+    """
+    domain: str = Field(..., description="Domain name (lowercase)")
+    total_requests: int = Field(
+        default=0, ge=0,
+        description="Total requests to this domain today"
+    )
+    tor_requests: int = Field(
+        default=0, ge=0,
+        description="Tor-routed requests to this domain today"
+    )
+    date: str = Field(
+        ...,
+        description="Date in YYYY-MM-DD format for reset detection"
+    )
+    
+    @property
+    def usage_ratio(self) -> float:
+        """Calculate domain Tor usage ratio.
+        
+        Returns:
+            Ratio of tor_requests to total_requests (0.0 if no requests).
+        """
+        if self.total_requests == 0:
+            return 0.0
+        return self.tor_requests / self.total_requests
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "domain": "example.com",
+                "total_requests": 50,
+                "tor_requests": 10,
+                "date": "2025-12-15",
+            }
+        }

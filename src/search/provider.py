@@ -6,10 +6,11 @@ between different search backends (BrowserSearchProvider is the default).
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.utils.logging import get_logger
 
@@ -17,7 +18,7 @@ logger = get_logger(__name__)
 
 
 # ============================================================================
-# Data Classes for Search Results
+# Pydantic Models for Search Results
 # ============================================================================
 
 
@@ -33,32 +34,24 @@ class SourceTag(str, Enum):
     UNKNOWN = "unknown"
 
 
-@dataclass
-class SearchResult:
+class SearchResult(BaseModel):
     """
     Normalized search result from any provider.
     
     Implements the standard SERP schema defined in docs/requirements.md §3.2.1:
     - title, url, snippet, date, engine, rank, source_tag
-    
-    Attributes:
-        title: Result title.
-        url: Result URL.
-        snippet: Text snippet/content preview.
-        date: Publication date if available.
-        engine: Search engine that returned this result.
-        rank: Rank position in search results.
-        source_tag: Classification of source type.
-        raw_data: Optional raw data from provider for debugging.
     """
-    title: str
-    url: str
-    snippet: str
-    engine: str
-    rank: int
-    date: str | None = None
-    source_tag: SourceTag = SourceTag.UNKNOWN
-    raw_data: dict[str, Any] | None = None
+    
+    model_config = ConfigDict(frozen=False)
+    
+    title: str = Field(..., description="Result title")
+    url: str = Field(..., description="Result URL")
+    snippet: str = Field(..., description="Text snippet/content preview")
+    engine: str = Field(..., description="Search engine that returned this result")
+    rank: int = Field(..., ge=0, description="Rank position in search results")
+    date: str | None = Field(default=None, description="Publication date if available")
+    source_tag: SourceTag = Field(default=SourceTag.UNKNOWN, description="Classification of source type")
+    raw_data: dict[str, Any] | None = Field(default=None, description="Optional raw data from provider")
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -86,27 +79,20 @@ class SearchResult:
         )
 
 
-@dataclass
-class SearchResponse:
+class SearchResponse(BaseModel):
     """
     Response from a search provider.
-    
-    Attributes:
-        results: List of search results.
-        query: Original query.
-        total_count: Total number of results (may exceed returned results).
-        error: Error message if search failed.
-        provider: Provider name that returned this response.
-        elapsed_ms: Time taken for search in milliseconds.
-        connection_mode: Browser connection mode used ("cdp" or None if not applicable).
     """
-    results: list[SearchResult]
-    query: str
-    provider: str
-    total_count: int = 0
-    error: str | None = None
-    elapsed_ms: float = 0.0
-    connection_mode: str | None = None
+    
+    model_config = ConfigDict(frozen=False)
+    
+    results: list[SearchResult] = Field(..., description="List of search results")
+    query: str = Field(..., description="Original query")
+    provider: str = Field(..., description="Provider name that returned this response")
+    total_count: int = Field(default=0, ge=0, description="Total number of results")
+    error: str | None = Field(default=None, description="Error message if search failed")
+    elapsed_ms: float = Field(default=0.0, ge=0.0, description="Time taken for search in milliseconds")
+    connection_mode: str | None = Field(default=None, description="Browser connection mode used")
     
     @property
     def ok(self) -> bool:
@@ -127,25 +113,19 @@ class SearchResponse:
         }
 
 
-@dataclass
-class SearchOptions:
+class SearchOptions(BaseModel):
     """
     Options for search requests.
-    
-    Attributes:
-        engines: List of search engines to use (provider-specific).
-        categories: Search categories (e.g., general, images, news).
-        language: Search language code (e.g., ja, en).
-        time_range: Time filter (all, day, week, month, year).
-        limit: Maximum number of results to return.
-        page: Page number for pagination.
     """
-    engines: list[str] | None = None
-    categories: list[str] | None = None
-    language: str = "ja"
-    time_range: str = "all"
-    limit: int = 10
-    page: int = 1
+    
+    model_config = ConfigDict(frozen=False)
+    
+    engines: list[str] | None = Field(default=None, description="List of search engines to use")
+    categories: list[str] | None = Field(default=None, description="Search categories")
+    language: str = Field(default="ja", description="Search language code")
+    time_range: str = Field(default="all", description="Time filter (all, day, week, month, year)")
+    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
+    page: int = Field(default=1, ge=1, description="Page number for pagination")
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -172,25 +152,19 @@ class HealthState(str, Enum):
     UNKNOWN = "unknown"
 
 
-@dataclass
-class HealthStatus:
+class HealthStatus(BaseModel):
     """
     Health status of a search provider.
-    
-    Attributes:
-        state: Current health state.
-        success_rate: Recent success rate (0.0 to 1.0).
-        latency_ms: Average latency in milliseconds.
-        last_check: Last health check time.
-        message: Optional status message.
-        details: Additional health details.
     """
-    state: HealthState
-    success_rate: float = 1.0
-    latency_ms: float = 0.0
-    last_check: datetime | None = None
-    message: str | None = None
-    details: dict[str, Any] = field(default_factory=dict)
+    
+    model_config = ConfigDict(frozen=False)
+    
+    state: HealthState = Field(..., description="Current health state")
+    success_rate: float = Field(default=1.0, ge=0.0, le=1.0, description="Recent success rate")
+    latency_ms: float = Field(default=0.0, ge=0.0, description="Average latency in milliseconds")
+    last_check: datetime | None = Field(default=None, description="Last health check time")
+    message: str | None = Field(default=None, description="Optional status message")
+    details: dict[str, Any] = Field(default_factory=dict, description="Additional health details")
     
     @classmethod
     def healthy(cls, latency_ms: float = 0.0) -> "HealthStatus":
