@@ -90,13 +90,19 @@ async def get_materials_action(
 
 
 async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
-    """Collect claims for a task."""
+    """Collect claims for a task.
+    
+    O.7 fix: Updated to match actual DB schema.
+    - claims table has verification_notes (stores source_url) not source_url
+    - fragments table has relevance_reason (stores source metadata) not source_url
+    """
     claims = []
     
     try:
         rows = await db.fetch_all(
             """
-            SELECT c.id, c.claim_text, c.confidence_score, c.source_url,
+            SELECT c.id, c.claim_text, c.confidence_score, c.verification_notes,
+                   c.source_fragment_ids,
                    COUNT(DISTINCT e.id) as evidence_count,
                    MAX(CASE WHEN e.relation = 'refutes' THEN 1 ELSE 0 END) as has_refutation
             FROM claims c
@@ -109,10 +115,16 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
         )
         
         for row in rows:
-            # Get sources for this claim
+            # Extract source_url from verification_notes (format: "source_url=...")
+            verification_notes = row.get("verification_notes", "") or ""
+            source_url = ""
+            if "source_url=" in verification_notes:
+                source_url = verification_notes.split("source_url=")[1].split(";")[0].strip()
+            
+            # Get sources from linked fragments
             sources = await db.fetch_all(
                 """
-                SELECT DISTINCT f.source_url, f.title, f.is_primary
+                SELECT DISTINCT f.relevance_reason, f.heading_context
                 FROM fragments f
                 JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
                 WHERE e.target_id = ? AND e.target_type = 'claim'
@@ -120,20 +132,33 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
                 (row["id"],),
             )
             
+            # Parse relevance_reason to extract metadata
+            parsed_sources = []
+            for s in sources:
+                reason = s.get("relevance_reason", "") or ""
+                url = ""
+                is_primary = False
+                if "url=" in reason:
+                    url = reason.split("url=")[1].split(";")[0].strip()
+                if "primary_source=True" in reason:
+                    is_primary = True
+                parsed_sources.append({
+                    "url": url or source_url,
+                    "title": s.get("heading_context", ""),
+                    "is_primary": is_primary,
+                })
+            
+            # If no sources from edges, use source_url from verification_notes
+            if not parsed_sources and source_url:
+                parsed_sources = [{"url": source_url, "title": "", "is_primary": False}]
+            
             claims.append({
                 "id": row["id"],
                 "text": row.get("claim_text", ""),
                 "confidence": row.get("confidence_score", 0.5),
                 "evidence_count": row.get("evidence_count", 0),
                 "has_refutation": bool(row.get("has_refutation", 0)),
-                "sources": [
-                    {
-                        "url": s.get("source_url", ""),
-                        "title": s.get("title", ""),
-                        "is_primary": bool(s.get("is_primary", False)),
-                    }
-                    for s in sources
-                ],
+                "sources": parsed_sources,
             })
     
     except Exception as e:
@@ -143,28 +168,46 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
 
 
 async def _collect_fragments(db, task_id: str) -> list[dict[str, Any]]:
-    """Collect fragments for a task."""
+    """Collect fragments for a task.
+    
+    O.7 fix: Updated to match actual DB schema.
+    - fragments table has text_content not text
+    - fragments table has no task_id, need to join via claims
+    - Source URL and is_primary stored in relevance_reason field
+    """
     fragments = []
     
     try:
+        # Get fragments linked to this task's claims via edges
         rows = await db.fetch_all(
             """
-            SELECT id, text, source_url, title, heading_context, is_primary
-            FROM fragments
-            WHERE task_id = ?
-            ORDER BY created_at DESC
+            SELECT DISTINCT f.id, f.text_content, f.heading_context, f.relevance_reason
+            FROM fragments f
+            JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+            JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+            WHERE c.task_id = ?
+            ORDER BY f.created_at DESC
             LIMIT 100
             """,
             (task_id,),
         )
         
         for row in rows:
+            # Parse relevance_reason to extract metadata
+            reason = row.get("relevance_reason", "") or ""
+            source_url = ""
+            is_primary = False
+            if "url=" in reason:
+                source_url = reason.split("url=")[1].split(";")[0].strip()
+            if "primary_source=True" in reason:
+                is_primary = True
+            
             fragments.append({
                 "id": row["id"],
-                "text": row.get("text", "")[:500],  # Limit text length
-                "source_url": row.get("source_url", ""),
-                "context": row.get("heading_context", row.get("title", "")),
-                "is_primary": bool(row.get("is_primary", False)),
+                "text": (row.get("text_content", "") or "")[:500],  # Limit text length
+                "source_url": source_url,
+                "context": row.get("heading_context", ""),
+                "is_primary": is_primary,
             })
     
     except Exception as e:
@@ -207,28 +250,35 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
                     "label": row.get("label", "")[:50],
                 })
             
+            # O.7 fix: fragments doesn't have task_id, get via edges linked to claims
             fragment_rows = await db.fetch_all(
-                "SELECT id, 'fragment' as type, source_url as label FROM fragments WHERE task_id = ? LIMIT 50",
+                """
+                SELECT DISTINCT f.id, 'fragment' as type, f.heading_context as label
+                FROM fragments f
+                JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+                JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+                WHERE c.task_id = ?
+                LIMIT 50
+                """,
                 (task_id,),
             )
             for row in fragment_rows:
                 nodes.append({
                     "id": row["id"],
                     "type": "fragment",
-                    "label": row.get("label", "")[:50],
+                    "label": (row.get("label", "") or "")[:50],
                 })
             
-            # Get edges
+            # Get edges linked to this task's claims
             edge_rows = await db.fetch_all(
                 """
-                SELECT id, source_type, source_id, target_type, target_id, relation, confidence
-                FROM edges
-                WHERE source_id IN (SELECT id FROM claims WHERE task_id = ?)
-                   OR source_id IN (SELECT id FROM fragments WHERE task_id = ?)
-                   OR target_id IN (SELECT id FROM claims WHERE task_id = ?)
+                SELECT e.id, e.source_type, e.source_id, e.target_type, e.target_id, e.relation, e.confidence
+                FROM edges e
+                WHERE e.target_id IN (SELECT id FROM claims WHERE task_id = ?)
+                   OR e.source_id IN (SELECT id FROM claims WHERE task_id = ?)
                 LIMIT 100
                 """,
-                (task_id, task_id, task_id),
+                (task_id, task_id),
             )
             for row in edge_rows:
                 edges.append({

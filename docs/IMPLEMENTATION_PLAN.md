@@ -1990,6 +1990,48 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 | `tests/scripts/debug_human_behavior_flow.py` | 問題15 |
 | `tests/scripts/debug_query_normalizer_flow.py` | 問題16 |
 
+#### O.7 MCPツール仕様適合性検証 ✅ 完了
+
+**調査日**: 2025-12-15  
+**実装完了日**: 2025-12-15
+
+##### 問題と対処ステータス
+
+| # | 問題 | ステータス | 概要 |
+|---|------|----------|------|
+| 1 | searchパイプライン連動 | ✅ 完了 | DB永続化追加、original_query属性追加 |
+| 2 | get_statusメトリクス計算 | ✅ 完了 | searches配列マッピング修正 |
+| 3 | get_materialsグラフ構築 | ✅ 完了 | SQLクエリをスキーマに適合 |
+| 4 | その他ツール検証 | ✅ 完了 | calibrate/notify_user等動作確認 |
+
+##### 得られた知見
+
+1. **DB永続化の重要性**: search中のclaims/fragmentsは明示的にDB書き込みが必要（メモリ上のみでは`get_materials()`が空になる）
+2. **スキーマ整合性**: SQLクエリは実際のテーブルスキーマと一致している必要がある（source_url vs verification_notes等）
+3. **キー名の統一**: 内部キー名（subqueries）と外部API名（searches）のマッピングを一貫させること
+
+##### 外部ドキュメント
+
+- **詳細ドキュメント**: `docs/O7_MCP_TOOL_CONFORMANCE.md`
+
+##### シーケンス図
+
+| シーケンス図 | 対象 |
+|------------|------|
+| `docs/sequences/search_pipeline_flow.md` | 問題1: searchパイプライン |
+| `docs/sequences/get_status_flow.md` | 問題2: get_status |
+| `docs/sequences/get_materials_flow.md` | 問題3: get_materials |
+
+##### デバッグスクリプト
+
+| スクリプト | 対象 |
+|----------|------|
+| `tests/scripts/debug_search_pipeline_flow.py` | searchパイプライン |
+| `tests/scripts/debug_get_status_flow.py` | get_status |
+| `tests/scripts/debug_get_materials_flow.py` | get_materials |
+| `tests/scripts/debug_other_tools_flow.py` | calibrate等 |
+| `tests/scripts/debug_e2e_mcp_flow.py` | E2E統合テスト |
+
 ---
 
 ## 7. 開発環境

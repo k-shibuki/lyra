@@ -697,7 +697,7 @@ class DomainPolicyManager:
                     policy.max_requests_per_day = entry.max_requests_per_day
                 if entry.max_pages_per_day is not None:
                     policy.max_pages_per_day = entry.max_pages_per_day
-
+                
                 policy.trust_level = entry.trust_level
                 policy.internal_search = entry.internal_search
                 policy.source = "allowlist"

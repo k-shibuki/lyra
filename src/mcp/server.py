@@ -569,9 +569,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
         
         # Build unified response per §3.2.1
         if exploration_status:
-            # Convert subqueries to searches (field name mapping)
+            # Convert searches to §3.2.1 format (text -> query field name mapping)
             searches = []
-            for sq in exploration_status.get("subqueries", []):
+            for sq in exploration_status.get("searches", []):
                 searches.append({
                     "id": sq.get("id"),
                     "query": sq.get("text"),
