@@ -17,6 +17,8 @@ from enum import Enum
 from typing import Any, TYPE_CHECKING
 from collections import deque
 
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
 from src.storage.database import get_database
 from src.utils.logging import get_logger
 
@@ -52,38 +54,119 @@ class TaskStatus(Enum):
     FAILED = "failed"                # Failed with error
 
 
-@dataclass
-class SearchState:
-    """State of a single search query."""
+class SearchState(BaseModel):
+    """State of a single search query.
     
-    id: str
-    text: str
-    status: SearchStatus = SearchStatus.PENDING
-    priority: str = "medium"  # high, medium, low
+    Per §3.1.7.2, §3.1.7.3: Tracks source count, satisfaction score,
+    and novelty metrics for Cursor AI decision making.
+    
+    Migrated from dataclass to Pydantic BaseModel for type safety
+    and validation in module-to-module data exchange.
+    """
+    
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,  # For deque type
+        validate_assignment=True,  # Validate on attribute assignment
+    )
+    
+    # Required fields
+    id: str = Field(..., description="Unique search identifier")
+    text: str = Field(..., description="Search query text")
+    
+    # Status and priority
+    status: SearchStatus = Field(
+        default=SearchStatus.PENDING,
+        description="Current execution status"
+    )
+    priority: str = Field(
+        default="medium",
+        description="Execution priority (high/medium/low)"
+    )
     
     # Source tracking
-    independent_sources: int = 0
-    has_primary_source: bool = False
-    source_domains: list[str] = field(default_factory=list)
+    independent_sources: int = Field(
+        default=0, ge=0,
+        description="Count of independent sources found"
+    )
+    has_primary_source: bool = Field(
+        default=False,
+        description="Whether a gov/academic primary source was found"
+    )
+    source_domains: list[str] = Field(
+        default_factory=list,
+        description="List of unique source domains"
+    )
     
     # Metrics
-    pages_fetched: int = 0
-    useful_fragments: int = 0
-    harvest_rate: float = 0.0
-    novelty_score: float = 1.0
-    satisfaction_score: float = 0.0
+    pages_fetched: int = Field(
+        default=0, ge=0,
+        description="Number of pages fetched"
+    )
+    useful_fragments: int = Field(
+        default=0, ge=0,
+        description="Number of useful fragments extracted"
+    )
+    harvest_rate: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description="Ratio of useful fragments to pages"
+    )
+    novelty_score: float = Field(
+        default=1.0, ge=0.0, le=1.0,
+        description="Ratio of novel fragments in recent window"
+    )
+    satisfaction_score: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description="Source satisfaction score"
+    )
     
     # Refutation
-    refutation_status: str = "pending"  # pending, found, not_found
-    refutation_count: int = 0
+    refutation_status: str = Field(
+        default="pending",
+        description="Refutation status (pending/found/not_found)"
+    )
+    refutation_count: int = Field(
+        default=0, ge=0,
+        description="Number of refutations found"
+    )
     
     # Budget
-    budget_pages: int | None = None
-    budget_time_seconds: int | None = None
-    time_started: float | None = None
+    budget_pages: int | None = Field(
+        default=None, ge=0,
+        description="Optional page budget for this search"
+    )
+    budget_time_seconds: int | None = Field(
+        default=None, ge=0,
+        description="Optional time budget in seconds"
+    )
+    time_started: float | None = Field(
+        default=None,
+        description="Unix timestamp when search started"
+    )
     
-    # Recent fragments for novelty calculation
-    recent_fragment_hashes: deque = field(default_factory=lambda: deque(maxlen=20))
+    # Recent fragments for novelty calculation (not serialized)
+    recent_fragment_hashes: deque = Field(
+        default_factory=lambda: deque(maxlen=20),
+        exclude=True,  # Exclude from serialization
+        description="Recent fragment hashes for novelty calculation"
+    )
+    
+    @field_validator("priority")
+    @classmethod
+    def validate_priority(cls, v: str) -> str:
+        """Validate priority is one of the allowed values."""
+        allowed = {"high", "medium", "low"}
+        if v not in allowed:
+            raise ValueError(f"priority must be one of {allowed}, got '{v}'")
+        return v
+    
+    @field_validator("refutation_status")
+    @classmethod
+    def validate_refutation_status(cls, v: str) -> str:
+        """Validate refutation_status is one of the allowed values."""
+        allowed = {"pending", "found", "not_found"}
+        if v not in allowed:
+            raise ValueError(f"refutation_status must be one of {allowed}, got '{v}'")
+        return v
     
     def calculate_satisfaction_score(self) -> float:
         """
@@ -132,7 +215,11 @@ class SearchState:
             self.harvest_rate = self.useful_fragments / self.pages_fetched
     
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization."""
+        """Convert to dictionary for serialization.
+        
+        Note: Uses Pydantic's model_dump() internally but formats
+        status as string value for API compatibility.
+        """
         return {
             "id": self.id,
             "text": self.text,

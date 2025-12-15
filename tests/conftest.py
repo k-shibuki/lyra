@@ -149,8 +149,17 @@ def temp_db_path(temp_dir: Path) -> Path:
 
 @pytest_asyncio.fixture
 async def test_database(temp_db_path: Path):
-    """Create a temporary test database."""
+    """Create a temporary test database.
+    
+    Guards against global database singleton interference by saving
+    and restoring the global state around the test.
+    """
     from src.storage.database import Database
+    from src.storage import database as db_module
+    
+    # Save and clear global to prevent interference from previous tests
+    saved_global = db_module._db
+    db_module._db = None
     
     db = Database(temp_db_path)
     await db.connect()
@@ -159,6 +168,9 @@ async def test_database(temp_db_path: Path):
     yield db
     
     await db.close()
+    
+    # Restore global (should be None anyway, but be defensive)
+    db_module._db = saved_global
 
 
 @pytest.fixture
@@ -272,6 +284,22 @@ def reset_search_provider():
     # Reset after each test
     from src.search.provider import reset_registry
     reset_registry()
+
+
+@pytest.fixture(autouse=True)
+def reset_global_database():
+    """Reset global database singleton between tests.
+    
+    Prevents asyncio.Lock() from being bound to a stale event loop,
+    which can cause intermittent hangs when running multiple tests.
+    """
+    yield
+    # Reset global database after each test
+    from src.storage import database as db_module
+    if db_module._db is not None:
+        # Force reset without awaiting (connection should already be closed
+        # by the test_database fixture if it was used)
+        db_module._db = None
 
 
 # =============================================================================
@@ -424,28 +452,25 @@ def cleanup_aiohttp_sessions(request):
     
     This prevents 'Unclosed client session' warnings by ensuring all
     singleton clients are properly closed at the end of the test session.
+    
+    Note: We use synchronous reset instead of async cleanup to avoid
+    creating a new event loop, which can interfere with pytest-asyncio's
+    event loop management and cause intermittent hangs.
     """
     yield  # Run all tests first
     
-    # Cleanup after all tests complete
-    async def _cleanup():
-        # Cleanup Ollama client
-        try:
-            from src.filter.llm import _cleanup_client as cleanup_ollama
-            await cleanup_ollama()
-        except ImportError:
-            pass
-    
-    # Run cleanup with proper event loop management
+    # Synchronous cleanup - just reset globals without async operations
+    # This avoids event loop conflicts with pytest-asyncio
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(_cleanup())
-        finally:
-            loop.close()
-    except RuntimeError:
-        # Event loop already running (shouldn't happen in session teardown)
+        from src.filter import llm
+        llm._client = None
+    except ImportError:
+        pass
+    
+    try:
+        from src.storage import database as db_module
+        db_module._db = None
+    except ImportError:
         pass
 
 

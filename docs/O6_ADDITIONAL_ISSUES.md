@@ -105,18 +105,26 @@ async def fetch(self, url: str, ...):
 
 ---
 
-## 問題4: BrowserSearchProviderでのセッション再利用未実装（要確認）
+## 問題4: BrowserSearchProviderでのセッション再利用未実装（要確認）✅ 確認完了
+
+**確認完了日**: 2025-12-15
+
+### 確認結果
+
+**現状の実装**:
+- `BrowserSearchProvider._ensure_browser()`で既存のbrowser contextを再利用しCookieを保持
+- `_sessions`辞書でエンジン別にセッションを管理
+- 認証待ちキューからの直接取得は未実装
+
+**結論**: 
+- 検索エンジンは通常認証不要のため、現状の実装で仕様要件を満たしている
+- 既存context再利用によりCookie/セッションは保持される（§3.6.1準拠）
+- 認証が必要な特殊ケース（Googleログイン必須検索等）は、BrowserFetcherの認証待ちキュー機能で対応可能
 
 ### 影響範囲
 
 **影響箇所**:
 - `src/search/browser_search_provider.py` - `BrowserSearchProvider.search()`
-
-### 確認事項
-
-`BrowserSearchProvider.search()`でも、認証待ちキューから既存セッションを取得してCookieを設定する処理が必要か確認が必要。
-
-検索エンジンは通常認証不要だが、一部の検索エンジン（例: Googleのログイン必須検索）では認証が必要な場合がある。
 
 ---
 
@@ -205,50 +213,53 @@ async def start_session(self, task_id: str, ...):
 
 ---
 
-## 問題6: Chromeプロファイル名が仕様と不一致（要確認）
+## 問題6: Chromeプロファイル名が仕様と不一致（要確認）✅ 確認完了
+
+**確認完了日**: 2025-12-15
+
+### 確認結果
+
+**現状の実装**:
+- WSL: `$env:LocalApplicationData\LancetChrome`
+- Linux: `$HOME/.local/share/lancet-chrome`
+- 専用の`--user-data-dir`を使用し、日常プロファイルから完全に分離
+
+**結論**:
+- 専用の`user-data-dir`（`LancetChrome`）により、日常プロファイルへの影響は遮断されている
+- `--profile-directory`は未指定だが、専用ディレクトリを使用しているため機能的には問題なし
+- 仕様書の`Profile-Research`は参考例であり、現在の実装で仕様の意図（研究用隔離）は達成されている
 
 ### 影響範囲
 
 **影響箇所**:
 - `scripts/chrome.sh:284` - Chrome起動スクリプト
 
-### 現状の実装
-
-```bash
-# scripts/chrome.sh:284
-$dataDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LancetChrome'
-# --user-data-dirのみ指定、--profile-directory未指定
-```
-
-### 問題点
-
-1. **プロファイル名未指定**: `--profile-directory="Profile-Research"`が指定されていない
-2. **仕様との不一致**: 仕様書では「調査専用プロファイル」として`Profile-Research`を使うべきとある
-
 ### 仕様書の要件
 
 - §3.2: "調査専用プロファイル運用: 研究専用のChromeプロファイルを`--user-data-dir`/`--profile-directory`で固定化（例: `--profile-directory="Profile-Research"`）"
 - §4.3.1: "安全策: `Profile-Research`のみを対象、日常プロファイルへの影響を遮断"
 
-### 確認事項
-
-- 現在の実装では`LancetChrome`という専用ディレクトリを使っているため、プロファイル名の指定が不要かもしれない
-- ただし、仕様書では明示的に`Profile-Research`を使うべきとあるため、確認が必要
-
 ---
 
-## 問題7: LocalStorageの研究用隔離の確認（要確認）
+## 問題7: LocalStorageの研究用隔離の確認（要確認）✅ 確認完了
+
+**確認完了日**: 2025-12-15
+
+### 確認結果
+
+**現状の実装**:
+- 専用の`user-data-dir`（`LancetChrome` / `lancet-chrome`）を使用
+- Chromeは`user-data-dir`ごとに独立したCookie/LocalStorage/IndexedDBを保持
+
+**結論**:
+- 専用`user-data-dir`により、Cookie/LocalStorageは自動的に研究用として隔離されている
+- 日常のブラウジングデータとは完全に分離されている
+- **問題なし**
 
 ### 影響範囲
 
 **影響箇所**:
 - Chromeプロファイル設定全般
-
-### 確認事項
-
-仕様書では「Cookie/LocalStorageを研究用に隔離」とあるが、現在の実装では専用プロファイル（`LancetChrome`）を使っているため、自動的に隔離されているはず。
-
-明示的な確認が必要かどうかは要検討。
 
 ---
 
@@ -262,16 +273,17 @@ $dataDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LancetChrome
 - §3.6.1の「最小介入原則」に違反
 - ユーザーが手動でブラウザを開く必要があり、UXが悪い
 
-**問題4**: 🟡 中（要確認）
-- 検索エンジンでの認証要件が不明確
-- 実装が必要かどうか確認が必要
+**問題4**: ✅ 確認完了
+- 検索エンジンは認証不要のため現状で問題なし
+- 既存context再利用によりCookie/セッション保持済み
 
-**問題6**: 🟡 中（要確認）
-- プロファイル名の指定が必要かどうか確認が必要
-- 現在の実装で問題ない可能性もある
+**問題6**: ✅ 確認完了
+- 専用`user-data-dir`で日常プロファイルから分離済み
+- 機能的には問題なし
 
-**問題7**: 🟢 低（要確認）
-- 専用プロファイルを使っているため、自動的に隔離されている可能性が高い
+**問題7**: ✅ 確認完了
+- 専用`user-data-dir`によりCookie/LocalStorageは自動隔離
+- 問題なし
 
 ---
 
@@ -1308,5 +1320,5 @@ if simulate_human:
 9. ~~問題16（エンジン正規化レイヤ）~~ ✅ 実装済み（`transform_query_for_engine`）
 10. ~~問題10（Tor日次利用上限）~~ ✅ 完了（2025-12-15）
 11. 問題11（時間帯・日次予算上限）
-12. 問題4, 6, 7（要確認事項の確認）
+12. ~~問題4, 6, 7（要確認事項の確認）~~ ✅ 確認完了（2025-12-15）
 
