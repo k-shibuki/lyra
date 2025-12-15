@@ -1357,9 +1357,33 @@ class BrowserFetcher:
                     content_bytes = content.encode("utf-8")
                     content_hash = hashlib.sha256(content_bytes).hexdigest()
             
-            # Simulate human reading behavior
+            # Simulate human reading behavior with full human-like interactions
             if simulate_human:
+                # Apply inertial scrolling (reading simulation)
                 await self._human_behavior.simulate_reading(page, len(content_bytes))
+                
+                # Apply mouse trajectory to page elements
+                try:
+                    # Find interactive elements (links, buttons, inputs)
+                    elements = await page.query_selector_all("a, button, input[type='text'], input[type='search']")
+                    if elements:
+                        # Select random element from first 5 elements
+                        target_element = random.choice(elements[:5])
+                        # Get element selector
+                        element_selector = await target_element.evaluate("""
+                            (el) => {
+                                if (el.id) return `#${el.id}`;
+                                if (el.className) {
+                                    const classes = el.className.split(' ').filter(c => c).join('.');
+                                    if (classes) return `${el.tagName.toLowerCase()}.${classes}`;
+                                }
+                                return el.tagName.toLowerCase();
+                            }
+                        """)
+                        if element_selector:
+                            await self._human_behavior.move_mouse_to_element(page, element_selector)
+                except Exception as e:
+                    logger.debug("Mouse movement skipped", error=str(e))
             
             # Save content
             html_path = await _save_content(url, content_bytes, {})

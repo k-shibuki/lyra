@@ -444,7 +444,18 @@
 
 #### G.2 テスト実行
 
+**実行環境**:
+- **WSL venv（推奨）**: `requirements-mcp.txt`で基本テスト実行可能
+- **オプショナル依存関係**: ML/PDF/OCR機能のテストには追加依存関係が必要（§K.4参照）
+
 ```bash
+# WSL venvから実行（推奨）
+source .venv/bin/activate
+pytest tests/ -m 'not e2e' --tb=short -q
+
+# オプショナル依存関係をインストールする場合
+pip install -r requirements-ml.txt
+
 # 全テスト実行（devコンテナ内で実行）
 podman exec lancet pytest tests/
 
@@ -455,7 +466,16 @@ podman exec lancet pytest tests/ --tb=no -q
 podman exec lancet pytest tests/test_robots.py -v
 ```
 
-**現在のテスト数**: 2688件（全パス）
+**依存関係確認**（回帰テスト実行前）:
+```bash
+# ML関連依存関係の確認
+python -c "import sentence_transformers, transformers, torch" 2>/dev/null && echo "ML deps OK" || echo "ML deps MISSING"
+
+# PDF/OCR関連依存関係の確認
+python -c "import fitz, PIL" 2>/dev/null && echo "PDF/OCR deps OK" || echo "PDF/OCR deps MISSING"
+```
+
+**現在のテスト数**: 2754件（依存関係インストール済み環境で全パス、依存関係不足時は17件失敗）
 
 #### G.3 E2Eスクリプト（tests/scripts/）
 
@@ -602,6 +622,64 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 **注**: Bingパーサー実装はH.1のマトリクスに反映済み。CDPフォールバック問題の修正はH.2.3に既に記載。
 
 ##### H.2.6 MCPサーバ経由での動作確認
+
+---
+
+#### G.4 実装の状況確認タスク
+
+**目的**: 実装計画書の記述と実際の実装状況に不一致がないか定期的に確認する。
+
+**確認項目**:
+
+1. **依存関係の整合性**
+   - 実装計画書で「依存関係不要」と記載されている機能のテストが、実際には依存関係を必要としていないか
+   - テストコード内で直接インポートしている箇所がないか（モックを使う前にインポートが実行される）
+   - オプショナルな依存関係の不足によるテスト失敗が適切に文書化されているか
+
+2. **テスト実行環境の整合性**
+   - WSL venvとコンテナ環境でのテスト実行結果が一致しているか
+   - テストマーカー（`@pytest.mark.skip`等）が適切に設定されているか
+   - E2Eテストが適切な環境で実行されているか
+
+3. **実装計画書の更新**
+   - 実装完了後の知見が実装計画書に反映されているか
+   - 設計方針と実際の実装に不一致がないか
+   - トラブルシューティング情報が追記されているか
+
+**実行タイミング**:
+- 新機能実装完了時
+- 回帰テスト実行時
+- 実装計画書の更新時
+
+**実行方法**:
+```bash
+# 1. 回帰テスト実行
+./scripts/test.sh run tests/
+
+# 2. テスト結果確認
+./scripts/test.sh check
+./scripts/test.sh get
+
+# 3. 失敗テストの原因分析
+# - 依存関係の不足か（§G.2「依存関係確認」を参照）
+# - 実装計画書との不一致か（§K.4.7参照）
+# - バグか
+
+# 4. 実装計画書の更新
+# - 知見・トラブルシューティングセクションに追記
+# - 設計方針との不一致を明記
+# - 依存関係要件を更新
+```
+
+**チェックリスト**:
+- [ ] 回帰テスト実行前に依存関係を確認（§G.2参照）
+- [ ] テスト失敗の原因を分析（依存関係不足 / 実装計画書との不一致 / バグ）
+- [ ] 実装計画書との不一致があれば、該当セクションに追記
+- [ ] 依存関係要件が実装計画書に明記されているか確認
+- [ ] テスト実行環境の違い（WSL venv / コンテナ）が文書化されているか確認
+
+**過去の事例**:
+- **Phase K.4**: MLモデルは別コンテナで実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要（§K.4.7参照）
 
 - [x] **MCPツールハンドラ検証** ✅
   - `tests/scripts/verify_mcp_tools.py`作成
@@ -1166,12 +1244,49 @@ K.1の調査で以下が判明:
    - `/app/models`ディレクトリを事前に作成（`RUN mkdir -p /app/models`）
    - オフラインモードでのビルド時は、事前にモデルをキャッシュしておく必要がある
 
-6. **回帰テストの結果**
-   - 全2728テストが成功（4テストスキップ、23テスト除外）
-   - 既存機能への影響なし
-   - MLサーバーのテストは26件成功、4件スキップ（FastAPI TestClient関連）
+6. **回帰テストの結果と依存関係要件**
+   - **注意**: 回帰テスト実行には、オプショナルな依存関係の確認が必要
+   - **コア機能テスト**: WSL venv（`requirements-mcp.txt`）のみで実行可能
+   - **オプショナル機能テスト**: 以下の依存関係が必要（インストールされていない場合はテストが失敗する）
+     - **ML関連** (`requirements-ml.txt`): `sentence-transformers`, `transformers`, `torch`
+       - 影響テスト: `tests/test_ml_server.py`（`import torch`等の直接インポート）
+     - **PDF/OCR関連**: `PyMuPDF` (`fitz`), `Pillow` (`PIL`)
+       - 影響テスト: `tests/test_extractor.py`（PDF抽出、OCR機能）
+   - **実装状況**:
+     - MLモデルは別コンテナ（`lancet-ml`）で実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要
+     - モックを使用しているテストでも、インポート時に依存関係がチェックされるため、事前インストールが必要
+   - **回帰テスト実行前の確認タスク**:
+     - [ ] WSL venvにオプショナル依存関係がインストールされているか確認
+       ```bash
+       # ML関連依存関係の確認
+       python -c "import sentence_transformers, transformers, torch" 2>/dev/null && echo "ML deps OK" || echo "ML deps MISSING"
+       
+       # PDF/OCR関連依存関係の確認
+       python -c "import fitz, PIL" 2>/dev/null && echo "PDF/OCR deps OK" || echo "PDF/OCR deps MISSING"
+       ```
+     - [ ] 依存関係が不足している場合、テスト失敗を許容するか、`requirements-ml.txt`をインストールするか判断
+     - [ ] 回帰テスト実行後、失敗したテストが依存関係不足によるものか確認
+   - **過去の回帰テスト結果**（依存関係インストール済み環境）:
+     - 全2728テストが成功（4テストスキップ、23テスト除外）
+     - 既存機能への影響なし
+     - MLサーバーのテストは26件成功、4件スキップ（FastAPI TestClient関連）
 
-7. **セキュリティ対策: パス検証とサニタイズ**
+7. **テスト実行時の依存関係について（設計方針との不一致）**
+   - **問題**: テストコード内で直接インポート（`import torch`, `from PIL import Image`等）しているため、モックを使う前にインポートが実行され、依存関係がインストールされていないと失敗する
+   - **設計方針との不一致**: 
+     - 実装計画では「モックを使っているので依存関係不要」と記載していたが、実際にはテストコード内で直接インポートしているため依存関係が必要
+     - MLモデルは別コンテナ（`lancet-ml`）で実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要
+   - **影響範囲**:
+     - `tests/test_ml_server.py`: `import torch`（727行目）→ `sentence-transformers`, `transformers`, `torch`が必要
+     - `tests/test_extractor.py`: `from PIL import Image`（297行目等）→ `Pillow`が必要
+     - `tests/test_extractor.py`: PDF抽出テスト → `PyMuPDF`（`fitz`）が必要
+   - **対応方針**: 
+     - WSL venvで基本テストを実行する場合は、オプショナルな依存関係の不足による失敗は許容する（コア機能のテストはパス）
+     - ML/PDF/OCR機能のテストを実行する場合は、`pip install -r requirements-ml.txt`で依存関係をインストールする
+     - または、テストコードを修正して依存関係がない場合にスキップする（将来の改善案）
+   - **実装計画書の更新**: 本セクションに追記し、Phase G.2にも注意事項を追加（§G.2、§G.4参照）
+
+8. **セキュリティ対策: パス検証とサニタイズ**
    - **問題**: `model_paths.json`に不正なパス（パストラバーサル、許可外ディレクトリ）が含まれている場合のリスク
    - **対策**: `_validate_and_sanitize_path()`関数を実装
      - パスを絶対パスに正規化（`Path.resolve()`）

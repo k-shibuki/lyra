@@ -1111,3 +1111,220 @@ class TestHTTPFetcherConditionalHeaders:
                         "include_conditional should be True when no cached values are provided"
                     )
 
+
+@pytest.mark.unit
+class TestBrowserFetcherHumanBehavior:
+    """Tests for human-like behavior integration in BrowserFetcher.fetch() (§4.3.4)."""
+    
+    @pytest.mark.asyncio
+    async def test_fetch_with_human_behavior_enabled(self):
+        """Test BrowserFetcher.fetch() applies human behavior when simulate_human=True.
+        
+        Given: simulate_human=True, page has interactive elements
+        When: fetch() is called
+        Then: simulate_reading() and move_mouse_to_element() are called
+        """
+        from src.crawler.fetcher import BrowserFetcher
+        from unittest.mock import AsyncMock, MagicMock, patch
+        
+        fetcher = BrowserFetcher()
+        
+        # Mock page with elements
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.content = AsyncMock(return_value="<html><body><a href='#'>Link</a></body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[
+            MagicMock(evaluate=AsyncMock(return_value="a"))
+        ])
+        
+        # Mock context
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.add_cookies = AsyncMock()
+        
+        # Mock browser
+        mock_browser = MagicMock()
+        
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+                                    from src.crawler.http3_policy import ProtocolVersion
+                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+                                        mock_http3_manager = MagicMock()
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.record_request = AsyncMock()
+                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
+                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
+                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                                    result = await fetcher.fetch(
+                                                        "https://example.com",
+                                                        simulate_human=True,
+                                                        take_screenshot=False,
+                                                    )
+                                                    
+                                                    # Verify human behavior was applied
+                                                    mock_simulate.assert_called_once()
+                                                    mock_mouse.assert_called_once()
+                                                    assert result.ok is True
+        
+        await fetcher.close()
+    
+    @pytest.mark.asyncio
+    async def test_fetch_with_human_behavior_disabled(self):
+        """Test BrowserFetcher.fetch() skips human behavior when simulate_human=False.
+        
+        Given: simulate_human=False
+        When: fetch() is called
+        Then: simulate_reading() and move_mouse_to_element() are not called
+        """
+        from src.crawler.fetcher import BrowserFetcher
+        from unittest.mock import AsyncMock, MagicMock, patch
+        
+        fetcher = BrowserFetcher()
+        
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.content = AsyncMock(return_value="<html><body>Content</body></html>")
+        
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.add_cookies = AsyncMock()
+        
+        mock_browser = MagicMock()
+        
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+                                    from src.crawler.http3_policy import ProtocolVersion
+                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+                                        mock_http3_manager = MagicMock()
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.record_request = AsyncMock()
+                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
+                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
+                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                                    result = await fetcher.fetch(
+                                                        "https://example.com",
+                                                        simulate_human=False,
+                                                        take_screenshot=False,
+                                                    )
+                                                    
+                                                    # Verify human behavior was not applied
+                                                    mock_simulate.assert_not_called()
+                                                    mock_mouse.assert_not_called()
+                                                    assert result.ok is True
+        
+        await fetcher.close()
+    
+    @pytest.mark.asyncio
+    async def test_fetch_with_no_elements(self):
+        """Test BrowserFetcher.fetch() handles pages with no interactive elements.
+        
+        Given: simulate_human=True, page has no interactive elements
+        When: fetch() is called
+        Then: simulate_reading() is called but move_mouse_to_element() is skipped
+        """
+        from src.crawler.fetcher import BrowserFetcher
+        from unittest.mock import AsyncMock, MagicMock, patch
+        
+        fetcher = BrowserFetcher()
+        
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.content = AsyncMock(return_value="<html><body>No links</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])  # No elements
+        
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.add_cookies = AsyncMock()
+        
+        mock_browser = MagicMock()
+        
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+                                    from src.crawler.http3_policy import ProtocolVersion
+                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+                                        mock_http3_manager = MagicMock()
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.record_request = AsyncMock()
+                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
+                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
+                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                                    result = await fetcher.fetch(
+                                                        "https://example.com",
+                                                        simulate_human=True,
+                                                        take_screenshot=False,
+                                                    )
+                                                    
+                                                    # Verify simulate_reading was called but mouse movement was skipped
+                                                    mock_simulate.assert_called_once()
+                                                    mock_mouse.assert_not_called()
+                                                    assert result.ok is True
+        
+        await fetcher.close()
+    
+    @pytest.mark.asyncio
+    async def test_fetch_with_element_search_exception(self):
+        """Test BrowserFetcher.fetch() handles exceptions during element search gracefully.
+        
+        Given: simulate_human=True, query_selector_all raises exception
+        When: fetch() is called
+        Then: Exception is caught, logged, and normal flow continues
+        """
+        from src.crawler.fetcher import BrowserFetcher
+        from unittest.mock import AsyncMock, MagicMock, patch
+        
+        fetcher = BrowserFetcher()
+        
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.content = AsyncMock(return_value="<html><body>Content</body></html>")
+        mock_page.query_selector_all = AsyncMock(side_effect=Exception("Search failed"))
+        
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.add_cookies = AsyncMock()
+        
+        mock_browser = MagicMock()
+        
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+                                    from src.crawler.http3_policy import ProtocolVersion
+                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+                                        mock_http3_manager = MagicMock()
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.record_request = AsyncMock()
+                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
+                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
+                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                                    result = await fetcher.fetch(
+                                                        "https://example.com",
+                                                        simulate_human=True,
+                                                        take_screenshot=False,
+                                                    )
+                                                    
+                                                    # Verify simulate_reading was called but mouse movement failed gracefully
+                                                    mock_simulate.assert_called_once()
+                                                    mock_mouse.assert_not_called()  # Exception prevented call
+                                                    assert result.ok is True  # Normal flow continues
+        
+        await fetcher.close()
+
