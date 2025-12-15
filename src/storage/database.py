@@ -555,13 +555,15 @@ class Database:
         if result is None:
             return None
         
+        # Use explicit None checks to preserve valid 0.0 values
+        # (e.g., 0% success rate should not be treated as 100%)
         return {
             "engine": result["engine"],
-            "success_rate_1h": result.get("success_rate_1h", 1.0) or 1.0,
-            "success_rate_24h": result.get("success_rate_24h", 1.0) or 1.0,
-            "captcha_rate": result.get("captcha_rate", 0.0) or 0.0,
-            "median_latency_ms": result.get("median_latency_ms", 1000.0) or 1000.0,
-            "http_error_rate": result.get("http_error_rate", 0.0) or 0.0,
+            "success_rate_1h": 1.0 if (v := result.get("success_rate_1h")) is None else v,
+            "success_rate_24h": 1.0 if (v := result.get("success_rate_24h")) is None else v,
+            "captcha_rate": 0.0 if (v := result.get("captcha_rate")) is None else v,
+            "median_latency_ms": 1000.0 if (v := result.get("median_latency_ms")) is None else v,
+            "http_error_rate": 0.0 if (v := result.get("http_error_rate")) is None else v,
             "updated_at": result.get("updated_at"),
         }
     
