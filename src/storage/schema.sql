@@ -2,6 +2,17 @@
 -- SQLite with FTS5 for full-text search
 
 -- ============================================================
+-- Schema Migration Tracking
+-- ============================================================
+
+-- Track applied migrations for version control
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================
 -- Core Tables
 -- ============================================================
 
@@ -188,7 +199,10 @@ CREATE TABLE IF NOT EXISTS domains (
     total_success INTEGER DEFAULT 0,
     total_failures INTEGER DEFAULT 0,
     total_captchas INTEGER DEFAULT 0,
-    -- IPv6 settings (§4.3)
+    -- Wayback Machine fallback tracking
+    wayback_success_count INTEGER DEFAULT 0,
+    wayback_failure_count INTEGER DEFAULT 0,
+    -- IPv6 settings
     ipv6_enabled BOOLEAN DEFAULT 1,
     ipv6_success_rate REAL DEFAULT 0.5,
     ipv4_success_rate REAL DEFAULT 0.5,
