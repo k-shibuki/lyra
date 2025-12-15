@@ -2074,6 +2074,12 @@ async def fetch_url(
             )
             escalation_path.append(f"http_client(tor={use_tor})")
             
+            # Record Tor usage when explicitly requested (Problem 10)
+            if use_tor:
+                from src.utils.metrics import get_metrics_collector
+                collector = get_metrics_collector()
+                collector.record_tor_usage(domain)
+            
             # Handle 304 Not Modified - use cached content
             if result.ok and result.status == 304 and cached_content_path:
                 logger.info(

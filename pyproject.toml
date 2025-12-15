@@ -81,6 +81,9 @@ filterwarnings = [
     # collected after tests complete. The warning doesn't affect test behavior.
     "ignore:unclosed event loop:ResourceWarning",
     "ignore:unclosed <socket:ResourceWarning",
+    # Ignore PytestUnraisableExceptionWarning for subprocess cleanup after tests
+    # This occurs when BaseSubprocessTransport.__del__ runs after the event loop closes
+    "ignore:Exception ignored in.*BaseSubprocessTransport:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]
