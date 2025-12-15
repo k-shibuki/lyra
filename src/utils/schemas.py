@@ -313,3 +313,102 @@ class DomainTorMetrics(BaseModel):
                 "date": "2025-12-15",
             }
         }
+
+
+# =============================================================================
+# Domain Daily Budget (Problem 11)
+# =============================================================================
+
+
+class DomainDailyBudget(BaseModel):
+    """Daily budget state for a domain.
+    
+    Per §4.3: "時間帯・日次の予算上限を設定" for IP block prevention.
+    Tracks requests and pages consumed today for rate limiting.
+    """
+    domain: str = Field(..., description="Domain name (lowercase)")
+    requests_today: int = Field(
+        default=0, ge=0,
+        description="Requests made to this domain today"
+    )
+    pages_today: int = Field(
+        default=0, ge=0,
+        description="Pages fetched from this domain today"
+    )
+    max_requests_per_day: int = Field(
+        ..., ge=0,
+        description="Maximum requests allowed per day (0 = unlimited)"
+    )
+    max_pages_per_day: int = Field(
+        ..., ge=0,
+        description="Maximum pages allowed per day (0 = unlimited)"
+    )
+    date: str = Field(
+        ...,
+        description="Date in YYYY-MM-DD format for reset detection"
+    )
+    
+    @property
+    def requests_remaining(self) -> int:
+        """Calculate remaining requests for today.
+        
+        Returns:
+            Remaining requests (int max if unlimited).
+        """
+        if self.max_requests_per_day == 0:
+            return 2**31 - 1  # Effectively unlimited
+        return max(0, self.max_requests_per_day - self.requests_today)
+    
+    @property
+    def pages_remaining(self) -> int:
+        """Calculate remaining pages for today.
+        
+        Returns:
+            Remaining pages (int max if unlimited).
+        """
+        if self.max_pages_per_day == 0:
+            return 2**31 - 1  # Effectively unlimited
+        return max(0, self.max_pages_per_day - self.pages_today)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "domain": "example.com",
+                "requests_today": 50,
+                "pages_today": 25,
+                "max_requests_per_day": 200,
+                "max_pages_per_day": 100,
+                "date": "2025-12-15",
+            }
+        }
+
+
+class DomainBudgetCheckResult(BaseModel):
+    """Result of domain daily budget check.
+    
+    Per §4.3: Used by fetch_url() to determine if request should proceed.
+    Provides detailed information for logging and debugging.
+    """
+    allowed: bool = Field(..., description="Whether the request is allowed")
+    reason: Optional[str] = Field(
+        None,
+        description="Reason for denial (None if allowed)"
+    )
+    requests_remaining: int = Field(
+        ..., ge=0,
+        description="Remaining requests for today"
+    )
+    pages_remaining: int = Field(
+        ..., ge=0,
+        description="Remaining pages for today"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "allowed": True,
+                "reason": None,
+                "requests_remaining": 150,
+                "pages_remaining": 75,
+            }
+        }

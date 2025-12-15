@@ -10,6 +10,9 @@ default_policy:
   cooldown_minutes: 60
   max_retries: 3
   trust_level: "unverified"  # primary, government, academic, trusted, low, unverified, blocked
+  # Daily budget limits (§4.3 - IP block prevention)
+  max_requests_per_day: 200  # Maximum requests per domain per day (0=unlimited)
+  max_pages_per_day: 100     # Maximum pages per domain per day (0=unlimited)
 
 # === Search Engine Settings ===
 search_engine_policy:
@@ -106,6 +109,8 @@ allowlist:
     trust_level: "trusted"
     qps: 0.5
     headful_ratio: 0
+    max_requests_per_day: 500  # Higher budget for high-trust sites
+    max_pages_per_day: 250
     
   - domain: "wikidata.org"
     trust_level: "trusted"

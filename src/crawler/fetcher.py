@@ -2008,6 +2008,24 @@ async def fetch_url(
                 reason="domain_cooldown",
             ).to_dict()
         
+        # Check domain daily budget (§4.3 - IP block prevention, Problem 11)
+        from src.scheduler.domain_budget import get_domain_budget_manager
+        budget_manager = get_domain_budget_manager()
+        budget_check = budget_manager.can_request_to_domain(domain)
+        
+        if not budget_check.allowed:
+            logger.warning(
+                "Domain daily budget exceeded",
+                domain=domain,
+                reason=budget_check.reason,
+                url=url[:80],
+            )
+            return FetchResult(
+                ok=False,
+                url=url,
+                reason="domain_budget_exceeded",
+            ).to_dict()
+        
         # Record request for Tor daily limit tracking (Problem 10)
         # Must be after cooldown check to only count actual fetches
         from src.utils.metrics import get_metrics_collector
@@ -2511,6 +2529,11 @@ async def fetch_url(
             component="crawler",
             details=event_details,
         )
+        
+        # Record domain request for daily budget tracking (§4.3 - Problem 11)
+        # Only record successful fetches with actual content (not 304)
+        if result.ok and result.status != 304:
+            budget_manager.record_domain_request(domain, is_page=True)
         
         return result.to_dict()
 
