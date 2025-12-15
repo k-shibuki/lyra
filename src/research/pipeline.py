@@ -30,7 +30,7 @@ class SearchResult:
     
     search_id: str
     query: str
-    status: str = "running"  # satisfied|partial|exhausted|running
+    status: str = "running"  # satisfied|partial|exhausted|running|failed
     pages_fetched: int = 0
     useful_fragments: int = 0
     harvest_rate: float = 0.0
@@ -48,10 +48,17 @@ class SearchResult:
     auth_blocked_urls: int = 0
     auth_queued_count: int = 0
     
+    # Error tracking for MCP
+    error_code: str | None = None  # MCP error code if failed
+    error_details: dict[str, Any] = field(default_factory=dict)  # Additional error info
+    
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary conforming to §3.2.1 schema."""
+        # Determine ok based on error_code presence (error_code takes precedence)
+        is_ok = self.error_code is None and len(self.errors) == 0
+        
         result: dict[str, Any] = {
-            "ok": len(self.errors) == 0,
+            "ok": is_ok,
             "search_id": self.search_id,
             "query": self.query,
             "status": self.status,
@@ -64,6 +71,11 @@ class SearchResult:
             "budget_remaining": self.budget_remaining,
         }
         
+        # Include error information if present
+        if self.error_code:
+            result["error_code"] = self.error_code
+        if self.error_details:
+            result["error_details"] = self.error_details
         if self.errors:
             result["errors"] = self.errors
         
@@ -218,6 +230,11 @@ class SearchPipeline:
         result.novelty_score = exec_result.novelty_score
         result.auth_blocked_urls = exec_result.auth_blocked_urls
         result.auth_queued_count = exec_result.auth_queued_count
+        
+        # Propagate error information
+        if exec_result.error_code:
+            result.error_code = exec_result.error_code
+            result.error_details = exec_result.error_details
         
         # Convert claims to §3.2.1 format
         for claim in exec_result.new_claims:

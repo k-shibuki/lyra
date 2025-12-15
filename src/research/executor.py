@@ -71,11 +71,17 @@ class SearchResult:
     # §16.7.4: Authentication queue tracking
     auth_blocked_urls: int = 0  # Count of URLs blocked by authentication
     auth_queued_count: int = 0  # Count of items queued for authentication this run
+    # Error tracking for MCP
+    error_code: str | None = None  # MCP error code if failed
+    error_details: dict[str, Any] = field(default_factory=dict)  # Additional error info
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        result = {
-            "ok": len(self.errors) == 0,
+        # Determine ok based on error_code presence (error_code takes precedence)
+        is_ok = self.error_code is None and len(self.errors) == 0
+        
+        result: dict[str, Any] = {
+            "ok": is_ok,
             "search_id": self.search_id,
             "status": self.status,
             "pages_fetched": self.pages_fetched,
@@ -87,8 +93,16 @@ class SearchResult:
             "novelty_score": self.novelty_score,
             "new_claims": self.new_claims,
             "budget_remaining": self.budget_remaining,
-            "errors": self.errors if self.errors else None,
         }
+        
+        # Include error information if present
+        if self.error_code:
+            result["error_code"] = self.error_code
+        if self.error_details:
+            result["error_details"] = self.error_details
+        if self.errors:
+            result["errors"] = self.errors
+        
         # §16.7.4: Include auth info only if there are blocked/queued items
         if self.auth_blocked_urls > 0 or self.auth_queued_count > 0:
             result["auth_blocked_urls"] = self.auth_blocked_urls
@@ -187,9 +201,28 @@ class SearchExecutor:
                 
                 # Step 2: Execute search for each expanded query
                 all_serp_items = []
+                search_errors = []  # Track errors from all queries
+                
                 for eq in expanded_queries:
-                    serp_items = await self._execute_search(eq)
+                    serp_items, error_code, error_details = await self._execute_search(eq)
+                    if error_code:
+                        search_errors.append((eq, error_code, error_details))
                     all_serp_items.extend(serp_items)
+                
+                # If all searches failed, report the first error
+                if not all_serp_items and search_errors:
+                    first_error = search_errors[0]
+                    result.status = "failed"
+                    result.error_code = first_error[1]
+                    result.error_details = first_error[2]
+                    result.errors.append(f"All searches failed: {first_error[1]}")
+                    logger.error(
+                        "All searches failed",
+                        error_code=first_error[1],
+                        error_details=first_error[2],
+                        query_count=len(expanded_queries),
+                    )
+                    return result
                 
                 # Deduplicate by URL
                 seen_urls = set()
@@ -204,6 +237,7 @@ class SearchExecutor:
                     "Search completed",
                     expanded_count=len(expanded_queries),
                     total_results=len(unique_serp_items),
+                    errors_encountered=len(search_errors),
                 )
                 
                 # Step 3: Fetch and extract from top results
@@ -218,6 +252,7 @@ class SearchExecutor:
                     dynamic_budget=dynamic_budget,
                 )
                 
+                fetch_attempted = 0
                 for item in unique_serp_items[:budget]:
                     # Check overall budget
                     within_budget, _ = self.state.check_budget()
@@ -230,10 +265,27 @@ class SearchExecutor:
                         logger.info("Novelty stop condition met", search_id=search_id)
                         break
                     
+                    fetch_attempted += 1
                     await self._fetch_and_extract(search_id, item, result)
                 
-                # Update result from state
+                # Check for ALL_FETCHES_FAILED condition
+                # If we attempted fetches but got no successful pages
                 search_state = self.state.get_search(search_id)
+                if fetch_attempted > 0 and search_state and search_state.pages_fetched == 0:
+                    result.status = "failed"
+                    result.error_code = "ALL_FETCHES_FAILED"
+                    result.error_details = {
+                        "total_urls": fetch_attempted,
+                        "auth_blocked_count": result.auth_blocked_urls,
+                    }
+                    result.errors.append(f"All {fetch_attempted} URL fetches failed")
+                    logger.warning(
+                        "All fetches failed",
+                        attempted=fetch_attempted,
+                        auth_blocked=result.auth_blocked_urls,
+                    )
+                
+                # Update result from state
                 if search_state:
                     search_state.update_status()
                     result.status = search_state.status.value
@@ -289,9 +341,19 @@ class SearchExecutor:
         
         return expanded
     
-    async def _execute_search(self, query: str) -> list[dict[str, Any]]:
-        """Execute search via search provider."""
+    async def _execute_search(self, query: str) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
+        """Execute search via search provider.
+        
+        Returns:
+            Tuple of (results, error_code, error_details).
+            error_code is None if successful.
+        """
         from src.search import search_serp
+        from src.search.search_api import (
+            SearchError,
+            ParserNotAvailableSearchError,
+            SerpSearchError,
+        )
         
         try:
             # Pass engines if specified (O.8 fix)
@@ -301,10 +363,38 @@ class SearchExecutor:
                 task_id=self.task_id,
                 engines=getattr(self, '_engines', None),
             )
-            return results
+            return results, None, {}
+        except ParserNotAvailableSearchError as e:
+            logger.error(
+                "Search failed: parser not available",
+                query=query[:50],
+                engine=e.engine,
+                available=e.available_engines,
+            )
+            return [], "PARSER_NOT_AVAILABLE", {
+                "engine": e.engine,
+                "available_engines": e.available_engines,
+            }
+        except SerpSearchError as e:
+            logger.error(
+                "Search failed: SERP error",
+                query=query[:50],
+                error=e.message,
+            )
+            return [], "SERP_SEARCH_FAILED", {
+                "query": e.query,
+                "provider_error": e.provider_error,
+            }
+        except SearchError as e:
+            logger.error(
+                "Search failed: generic error",
+                query=query[:50],
+                error=str(e),
+            )
+            return [], "SERP_SEARCH_FAILED", {"error": str(e)}
         except Exception as e:
-            logger.error("Search failed", query=query[:50], error=str(e))
-            return []
+            logger.error("Search failed: unexpected error", query=query[:50], error=str(e))
+            return [], "INTERNAL_ERROR", {"error": str(e)}
     
     async def _fetch_and_extract(
         self,

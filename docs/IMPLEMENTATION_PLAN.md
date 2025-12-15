@@ -25,7 +25,7 @@
 | N | E2Eケーススタディ | - | ⏳ | 進行中（N.2-5完了） | §6 |
 | **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.8）** | §6 |
 
-**現在のテスト数**: 2942件（全パス、マイグレーションテスト20件追加）
+**現在のテスト数**: 2977件（全パス、O.8で累積タイムアウト・統合テスト追加）
 
 ---
 
@@ -58,10 +58,11 @@
 - Phase I: 保守性改善 ✅
 - Phase K.3: プロンプトインジェクション対策 ✅
 - Phase M: MCPツールリファクタリング ✅
+- **Phase J.2: 学術API統合（エビデンスグラフ強化）⏳**
 - **Phase N: E2Eケーススタディ（論文投稿向け）⏳**
 
 #### Phase 2（論文投稿後）
-- Phase J: 外部データソース統合
+- Phase J.1, J.3-J.5: 日本政府API/特許/防衛情報
 - Phase K.1-K.2: モデル選択最適化、プロンプト外部化
 - Phase L: ドキュメント
 
@@ -785,7 +786,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 ---
 
-### Phase J: 外部データソース統合 ⏳
+### Phase J: 外部データソース統合 🔄（J.2優先）
 
 #### J.0 API仕様調査（優先）
 
@@ -796,10 +797,10 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 国会会議録API | 同上 | 未着手 |
 | gBizINFO | 同上 | 未着手 |
 | EDINET | 同上 | 未着手 |
-| OpenAlex | 同上 | 未着手 |
-| Semantic Scholar | 同上 | 未着手 |
-| Crossref | 同上 | 未着手 |
-| Unpaywall | 同上 | 未着手 |
+| **OpenAlex** | 同上 | **設計完了/実装前** |
+| **Semantic Scholar** | 同上 | **設計完了/実装前** |
+| **Crossref** | 同上 | **設計完了/実装前** |
+| **Unpaywall** | 同上 | **設計完了/実装前** |
 | Wikidata | 同上 | 未着手 |
 
 #### J.1 日本政府API統合
@@ -811,13 +812,40 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - gBizINFO API: 法人基本情報
 - EDINET API: 有価証券報告書
 
-#### J.2 学術API統合
+#### J.2 学術API統合 🔴優先
+
+**状態**: 設計完了、実装待ち  
+**詳細ドキュメント**: `docs/J2_ACADEMIC_API_INTEGRATION.md`
 
 **対象（§3.1.3、§5.1.1）**:
-- OpenAlex API: 論文メタデータ/引用グラフ
-- Semantic Scholar API: 論文/引用ネットワーク
-- Crossref API: DOI/引用情報
+- Semantic Scholar API: 論文/引用ネットワーク（引用グラフ主API）
+- OpenAlex API: 論文メタデータ/引用グラフ（大規模検索）
+- Crossref API: DOI/引用情報（メタデータ正規化）
+- arXiv API: プレプリント検索
 - Unpaywall API: OA版論文リンク
+
+**優先度を上げた理由**:
+- エビデンスグラフ強化に直結（引用チェーンによる主張の裏付け）
+- 全API無料、bot検知問題なし（Zero OpEx原則に適合）
+- 論文ケーススタディ（Phase N）で有用
+
+**実装タスク**:
+
+| タスク | 説明 | 状態 |
+|--------|------|:----:|
+| J.2.1 | `AcademicSearchProvider` 設計 | ✅ 設計完了 |
+| J.2.2 | Semantic Scholar APIクライアント | ⏳ |
+| J.2.3 | OpenAlex APIクライアント | ⏳ |
+| J.2.4 | Crossref APIクライアント | ⏳ |
+| J.2.5 | arXiv APIクライアント | ⏳ |
+| J.2.6 | エビデンスグラフ拡張（PAPER/academic_cites） | ⏳ |
+| J.2.7 | 検索パイプライン統合 | ⏳ |
+| J.2.8 | テスト・E2E検証 | ⏳ |
+
+**仕様書更新**:
+- §3.1.3: 学術API統合戦略を追加
+- §3.3.1: エビデンスグラフにPAPERノード/academic_citesエッジを追加
+- §7: 学術的支持の品質基準を追加
 
 #### J.3 エンティティ解決強化
 
@@ -2188,6 +2216,27 @@ python scripts/migrate.py create NAME  # 新規作成
 |----------|----------|
 | `src/research/executor.py` | enginesパラメータ追加、search_serpへの伝搬 |
 | `src/research/pipeline.py` | SearchExecutor.execute()にenginesを渡すよう修正 |
+| `src/crawler/fetcher.py` | 累積タイムアウト（max_fetch_time）実装、fetch_url関数リファクタ |
+| `src/utils/config.py` | CrawlerConfigにmax_fetch_time=90秒追加 |
+| `tests/test_fetcher.py` | TestFetchUrlCumulativeTimeout追加（5テストケース） |
+| `tests/test_mcp_integration.py` | get_status/get_materials統合テスト追加（6テストケース） |
+
+##### O.8 追加修正内容（2025-12-15）
+
+**1. 累積タイムアウト戦略の実装**
+
+問題: `fetch_url`関数には累積タイムアウトがなく、各ステージ（HTTP→ブラウザヘッドレス→ヘッドフル→Undetected ChromeDriver→Wayback）が順次タイムアウトするため、最悪ケースで1URLに120-180秒以上かかる可能性があった。
+
+対策:
+- `max_fetch_time`設定追加（デフォルト90秒）
+- `fetch_url`を`_fetch_url_impl`にリファクタし、`asyncio.wait_for`でラップ
+- タイムアウト時は`reason="cumulative_timeout"`を返却
+
+**2. テスト拡充**
+
+- タイムアウト境界値テスト（5ケース）
+- get_status/get_materials統合テスト（6ケース）
+- E2E検証: `verify_mcp_integration.py --basic`で11ツール全てパス
 
 ---
 

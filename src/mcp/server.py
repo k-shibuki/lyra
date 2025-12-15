@@ -868,6 +868,42 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
             options=options,
         )
         
+        # Check for error codes in result and convert to MCPError
+        if result.get("error_code"):
+            from src.mcp.errors import (
+                MCPErrorCode,
+                ParserNotAvailableError,
+                SerpSearchFailedError,
+                AllFetchesFailedError,
+                PipelineError,
+            )
+            
+            error_code = result["error_code"]
+            error_details = result.get("error_details", {})
+            
+            if error_code == "PARSER_NOT_AVAILABLE":
+                raise ParserNotAvailableError(
+                    engine=error_details.get("engine", "unknown"),
+                    available_engines=error_details.get("available_engines"),
+                )
+            elif error_code == "SERP_SEARCH_FAILED":
+                raise SerpSearchFailedError(
+                    message=f"SERP search failed: {error_details.get('provider_error', 'unknown error')}",
+                    query=error_details.get("query"),
+                    error_details=error_details.get("provider_error"),
+                )
+            elif error_code == "ALL_FETCHES_FAILED":
+                raise AllFetchesFailedError(
+                    total_urls=error_details.get("total_urls", 0),
+                    auth_blocked_count=error_details.get("auth_blocked_count", 0),
+                )
+            else:
+                # Generic pipeline error for unknown error codes
+                raise PipelineError(
+                    message=f"Search failed: {error_code}",
+                    stage="search",
+                )
+        
         return result
 
 
