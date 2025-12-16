@@ -1063,6 +1063,88 @@ async def add_citation(
     return edge_id
 
 
+async def add_academic_page_with_citations(
+    page_id: str,
+    paper_metadata: dict,
+    citations: list,
+    task_id: str | None = None,
+) -> None:
+    """Add academic paper and its citations to evidence graph.
+    
+    Adds PAGE node with academic metadata and CITES edges for citation relationships.
+    
+    Args:
+        page_id: Page ID (from pages table)
+        paper_metadata: Paper metadata dict (from paper_metadata JSON column)
+        citations: List of Citation objects
+        task_id: Task ID
+    """
+    from src.utils.schemas import Citation
+    
+    graph = await get_evidence_graph(task_id)
+    db = await get_database()
+    
+    # Ensure PAGE node exists
+    page_node = graph._make_node_id(NodeType.PAGE, page_id)
+    if not graph._graph.has_node(page_node):
+        graph.add_node(NodeType.PAGE, page_id)
+    
+    # Add academic metadata to node
+    graph._graph.nodes[page_node].update({
+        "is_academic": True,
+        "doi": paper_metadata.get("doi"),
+        "citation_count": paper_metadata.get("citation_count", 0),
+        "year": paper_metadata.get("year"),
+        "venue": paper_metadata.get("venue"),
+        "source_api": paper_metadata.get("source_api"),
+    })
+    
+    # Add citation edges
+    for citation in citations:
+        if not isinstance(citation, Citation):
+            continue
+        
+        cited_page_id = citation.cited_paper_id
+        
+        # Ensure cited PAGE node exists
+        cited_node = graph._make_node_id(NodeType.PAGE, cited_page_id)
+        if not graph._graph.has_node(cited_node):
+            graph.add_node(NodeType.PAGE, cited_page_id)
+        
+        # Add CITES edge with academic attributes
+        edge_id = graph.add_edge(
+            source_type=NodeType.PAGE,
+            source_id=page_id,
+            target_type=NodeType.PAGE,
+            target_id=cited_page_id,
+            relation=RelationType.CITES,
+            confidence=1.0,
+            is_academic=True,
+            is_influential=citation.is_influential,
+            citation_context=citation.context,
+        )
+        
+        # Persist edge to database
+        await db.insert("edges", {
+            "id": edge_id,
+            "source_type": NodeType.PAGE.value,
+            "source_id": page_id,
+            "target_type": NodeType.PAGE.value,
+            "target_id": cited_page_id,
+            "relation": RelationType.CITES.value,
+            "confidence": 1.0,
+            "is_academic": 1,
+            "is_influential": 1 if citation.is_influential else 0,
+            "citation_context": citation.context,
+        }, or_replace=True)
+    
+    logger.debug(
+        "Added academic page with citations",
+        page_id=page_id,
+        citation_count=len(citations),
+    )
+
+
 async def get_claim_assessment(
     claim_id: str,
     task_id: str | None = None,

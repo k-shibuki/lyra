@@ -112,6 +112,74 @@ class TestPaperIdentityResolver:
         assert "the" not in normalized
         assert ":" not in normalized
         assert normalized == normalized.lower()
+    
+    def test_extract_first_author_surname_first_last_format(self):
+        """Test extracting surname from 'First Last' format.
+        
+        // Given: Author name in "First Last" format
+        // When: Extracting surname
+        // Then: Returns last name (lowercased)
+        """
+        # Given: Author name in "First Last" format
+        resolver = PaperIdentityResolver()
+        authors = [Author(name="John Smith")]
+        
+        # When: Extracting surname
+        surname = resolver._extract_first_author_surname(authors)
+        
+        # Then: Returns "smith"
+        assert surname == "smith"
+    
+    def test_extract_first_author_surname_last_first_format(self):
+        """Test extracting surname from 'Last, First' format.
+        
+        // Given: Author name in "Last, First" format
+        // When: Extracting surname
+        // Then: Returns last name (lowercased)
+        """
+        # Given: Author name in "Last, First" format
+        resolver = PaperIdentityResolver()
+        authors = [Author(name="Smith, John")]
+        
+        # When: Extracting surname
+        surname = resolver._extract_first_author_surname(authors)
+        
+        # Then: Returns "smith" (NOT "john")
+        assert surname == "smith"
+    
+    def test_extract_first_author_surname_single_name(self):
+        """Test extracting surname from single name.
+        
+        // Given: Single name author
+        // When: Extracting surname
+        // Then: Returns the name (lowercased)
+        """
+        # Given: Single name
+        resolver = PaperIdentityResolver()
+        authors = [Author(name="Madonna")]
+        
+        # When: Extracting surname
+        surname = resolver._extract_first_author_surname(authors)
+        
+        # Then: Returns "madonna"
+        assert surname == "madonna"
+    
+    def test_extract_first_author_surname_empty(self):
+        """Test extracting surname from empty authors list.
+        
+        // Given: Empty authors list
+        // When: Extracting surname
+        // Then: Returns None
+        """
+        # Given: Empty authors list
+        resolver = PaperIdentityResolver()
+        authors = []
+        
+        # When: Extracting surname
+        surname = resolver._extract_first_author_surname(authors)
+        
+        # Then: Returns None
+        assert surname is None
 
 
 class TestCanonicalPaperIndex:

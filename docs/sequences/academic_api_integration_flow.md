@@ -125,7 +125,7 @@ sequenceDiagram
 
 ## デバッグ後のシーケンス図（設計目標版）
 
-**実装状況**: ⚠️ 部分実装 - Abstract Only戦略と完全なエビデンスグラフ連携が未完成
+**実装状況**: ✅ 実装完了 - Abstract Only戦略とエビデンスグラフ連携が完成
 
 **期待される変更点**:
 - API経由の抄録をFragmentとして直接保存（fetchスキップ）
@@ -323,113 +323,54 @@ class AcademicSearchResult(BaseModel):
 | ArxivClient | `src/search/apis/arxiv.py` | ✅ 完了 |
 | CanonicalPaperIndex | `src/search/canonical_index.py` | ✅ 完了 |
 | AcademicSearchProvider | `src/search/academic_provider.py` | ✅ 完了 |
+| AcademicSearchProvider.get_last_index() | `src/search/academic_provider.py` | ✅ 完了 |
 | _is_academic_query() | `src/research/pipeline.py` | ✅ 完了 |
 | _expand_academic_query() | `src/research/pipeline.py` | ✅ 完了 |
-| _execute_complementary_search() | `src/research/pipeline.py` | ⚠️ 部分実装 |
+| _execute_complementary_search() | `src/research/pipeline.py` | ✅ 完了 |
+| _persist_abstract_as_fragment() | `src/research/pipeline.py` | ✅ 完了 |
+| add_academic_page_with_citations() | `src/filter/evidence_graph.py` | ✅ 完了 |
 | DBマイグレーション | `migrations/002_add_academic_columns.sql` | ✅ 完了 |
 | is_academic属性 | `src/filter/evidence_graph.py` | ✅ 完了 |
+| test_pipeline_academic.py | `tests/test_pipeline_academic.py` | ✅ 完了 |
+| test_evidence_graph_academic.py | `tests/test_evidence_graph_academic.py` | ✅ 完了 |
 
 ## 未実装コンポーネント
 
 | コンポーネント | 必要な変更 | 優先度 |
 |---------------|-----------|--------|
-| Abstract Only処理 | `_execute_complementary_search()`でAPI抄録をFragment保存 | 高 |
-| add_academic_page_with_citations() | エビデンスグラフへの学術引用追加 | 中 |
-| Citation graph統合 | 検索後に引用グラフ取得・保存 | 中 |
 | test_semantic_scholar.py | SemanticScholarClientのテスト | 中 |
 | test_openalex.py | OpenAlexClientのテスト | 中 |
 | test_crossref.py | CrossrefClientのテスト | 低 |
 | test_arxiv.py | ArxivClientのテスト | 低 |
 
-## 修正内容（必要）
+## 実装済み内容
 
 ### 1. Abstract Only戦略の実装
 
-```python
-# src/research/pipeline.py
-async def _execute_complementary_search(self, ...):
-    ...
-    # Phase 5: Process unique entries (Abstract Only strategy)
-    unique_entries = index.get_all_entries()
-    
-    for entry in unique_entries:
-        if entry.paper and entry.paper.abstract:
-            # ✓ API経由で抄録あり → fetchスキップ
-            await self._persist_abstract_as_fragment(
-                paper=entry.paper,
-                task_id=self.task_id,
-                search_id=search_id,
-            )
-        elif entry.serp_results:
-            # SERP only → 通常のfetch & extract
-            await self._fetch_and_extract(entry.serp_results[0].url, ...)
-```
+`src/research/pipeline.py` の `_execute_complementary_search()` にPhase 5-6を追加:
+- 抄録があるPaperはfetchをスキップし、`_persist_abstract_as_fragment()`で直接DB保存
+- `paper_to_page_map`でpaper_id → page_idの追跡
+- SERP-onlyエントリはブラウザ検索にフォールバック
 
 ### 2. 抄録のFragment永続化
 
-```python
-async def _persist_abstract_as_fragment(
-    self,
-    paper: Paper,
-    task_id: str,
-    search_id: str,
-) -> str:
-    """Persist abstract as fragment (Abstract Only strategy)."""
-    db = await get_database()
-    
-    # 1. Insert page with paper_metadata
-    page_id = f"page_{uuid.uuid4().hex[:8]}"
-    reference_url = paper.oa_url or (f"https://doi.org/{paper.doi}" if paper.doi else None)
-    
-    await db.execute(
-        """INSERT INTO pages (id, url, page_type, paper_metadata, ...)
-           VALUES (?, ?, 'academic_paper', ?, ...)""",
-        (page_id, reference_url, json.dumps(paper.dict()), ...)
-    )
-    
-    # 2. Insert abstract as fragment
-    fragment_id = f"frag_{uuid.uuid4().hex[:8]}"
-    await db.execute(
-        """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, ...)
-           VALUES (?, ?, 'abstract', ?, 'Abstract', ...)""",
-        (fragment_id, page_id, paper.abstract, ...)
-    )
-    
-    return fragment_id
-```
+`src/research/pipeline.py` に `_persist_abstract_as_fragment()` メソッドを追加:
+- pagesテーブルに`page_type='academic_paper'`として挿入
+- `paper_metadata` JSONカラムに著者・引用数等を保存
+- fragmentsテーブルに`fragment_type='abstract'`として抄録を保存
 
 ### 3. エビデンスグラフ連携
 
-```python
-# src/filter/evidence_graph.py
-async def add_academic_page_with_citations(
-    self,
-    page_id: str,
-    paper_metadata: dict,
-    citations: list[Citation],
-) -> None:
-    """Add academic paper and citations to evidence graph."""
-    page_node = self._make_node_id(NodeType.PAGE, page_id)
-    if not self._graph.has_node(page_node):
-        self.add_node(NodeType.PAGE, page_id)
-    
-    # Add academic metadata
-    self._graph.nodes[page_node].update({
-        "is_academic": True,
-        "doi": paper_metadata.get("doi"),
-        "citation_count": paper_metadata.get("citation_count", 0),
-    })
-    
-    # Add citation edges
-    for citation in citations:
-        self.add_edge(
-            NodeType.PAGE, page_id,
-            NodeType.PAGE, citation.cited_paper_id,
-            RelationType.CITES,
-            is_academic=True,
-            is_influential=citation.is_influential,
-        )
-```
+`src/filter/evidence_graph.py` に `add_academic_page_with_citations()` 関数を追加:
+- PAGEノードに`is_academic`、`doi`、`citation_count`等の属性を追加
+- 各引用関係をCITESエッジとして追加（`is_academic=True`、`is_influential`属性付き）
+- edgesテーブルへの永続化
+
+### 4. AcademicSearchProviderの拡張
+
+`src/search/academic_provider.py` に `get_last_index()` メソッドを追加:
+- 内部のCanonicalPaperIndexを外部に公開
+- Paperオブジェクト（抄録含む）への直接アクセスを可能に
 
 ## 検証スクリプト
 

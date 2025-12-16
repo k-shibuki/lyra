@@ -115,8 +115,15 @@ class PaperIdentityResolver:
             name = str(first_author)
         
         # "John Smith" -> "smith", "Smith, John" -> "smith"
-        parts = name.replace(',', ' ').split()
-        return parts[-1].lower() if parts else None
+        if ',' in name:
+            # "Last, First" format → take the part before comma
+            surname = name.split(',')[0].strip()
+        else:
+            # "First Last" format → take the last word
+            parts = name.split()
+            surname = parts[-1] if parts else ""
+        
+        return surname.lower() if surname else None
     
     def _find_similar_title(self, normalized_title: str) -> Optional[str]:
         """Find similar title (Jaccard coefficient).
