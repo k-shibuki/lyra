@@ -248,9 +248,9 @@ class TestAddAcademicPageWithCitations:
         """
         Test: Function adds CITES edges for citations.
         
-        Given: page_id, paper_metadata, and citations list
+        Given: page_id, paper_metadata, citations list, and paper_to_page_map
         When: add_academic_page_with_citations() is called
-        Then: CITES edges are created for each citation
+        Then: CITES edges are created for each citation with mapped page_id
         """
         with patch("src.filter.evidence_graph.get_database") as mock_db, \
              patch("src.filter.evidence_graph._graph", None):
@@ -260,7 +260,12 @@ class TestAddAcademicPageWithCitations:
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
             
-            # Given
+            # Given: paper_to_page_map mapping cited_paper_id to page_id
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",
+                "s2:ref2": "page_ref2",
+                "s2:ref3": "page_ref3",
+            }
             page_id = "page_123"
             
             # When
@@ -269,9 +274,10 @@ class TestAddAcademicPageWithCitations:
                 paper_metadata=sample_paper_metadata,
                 citations=sample_citations,
                 task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
             )
             
-            # Then: Verify DB inserts
+            # Then: Verify DB inserts (all citations should be mapped)
             assert mock_db_instance.insert.call_count == len(sample_citations)
             
             # Check each edge insert
@@ -302,7 +308,12 @@ class TestAddAcademicPageWithCitations:
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
             
-            # Given
+            # Given: paper_to_page_map
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",
+                "s2:ref2": "page_ref2",
+                "s2:ref3": "page_ref3",
+            }
             page_id = "page_123"
             
             # When
@@ -311,6 +322,7 @@ class TestAddAcademicPageWithCitations:
                 paper_metadata=sample_paper_metadata,
                 citations=sample_citations,
                 task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
             )
             
             # Then: Verify is_influential matches original citations
@@ -547,12 +559,19 @@ class TestExceptionHandlingEvidenceGraph:
                 ),
             ]
             
+            # Given: paper_to_page_map for valid citations
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",
+                "s2:ref2": "page_ref2",
+            }
+            
             # When: Adding citations
             await add_academic_page_with_citations(
                 page_id="page_123",
                 paper_metadata=sample_paper_metadata,
                 citations=invalid_citations,
                 task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
             )
             
             # Then: Only valid citations should create edges
@@ -575,13 +594,21 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db_instance.insert = AsyncMock(side_effect=Exception("DB error"))
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
             
-            # When: Adding citations (should raise exception)
+            # Given: paper_to_page_map so citations are not skipped
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",
+                "s2:ref2": "page_ref2",
+                "s2:ref3": "page_ref3",
+            }
+            
+            # When: Adding citations (should raise exception on DB insert)
             with pytest.raises(Exception) as exc_info:
                 await add_academic_page_with_citations(
                     page_id="page_123",
                     paper_metadata=sample_paper_metadata,
                     citations=sample_citations,
                     task_id="test_task",
+                    paper_to_page_map=paper_to_page_map,
                 )
             
             # Then: Exception is raised (caller should handle it)
@@ -618,5 +645,99 @@ class TestExceptionHandlingEvidenceGraph:
             )
             
             # Then: Edge should be created (empty string is valid)
+            # Note: Empty string cited_paper_id won't be in paper_to_page_map, so it will be skipped
+            # This test verifies the function handles empty string gracefully
+            assert mock_db_instance.insert.call_count == 0  # Skipped because not in map
+    
+    @pytest.mark.asyncio
+    async def test_skips_citations_without_page_mapping(self, sample_paper_metadata):
+        """
+        TC-EG-N-11: Citations without page_id mapping are skipped.
+        
+        Given: Citations with cited_paper_id not in paper_to_page_map
+        When: add_academic_page_with_citations() is called
+        Then: Citations are skipped, no edges created
+        """
+        from src.utils.schemas import Citation
+        
+        with patch("src.filter.evidence_graph.get_database") as mock_db, \
+             patch("src.filter.evidence_graph._graph", None):
+            
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+            
+            # Given: Citations with paper IDs not in mapping
+            citations = [
+                Citation(
+                    citing_paper_id="page_123",
+                    cited_paper_id="s2:unmapped1",  # Not in paper_to_page_map
+                    is_influential=False,
+                ),
+                Citation(
+                    citing_paper_id="page_123",
+                    cited_paper_id="s2:unmapped2",  # Not in paper_to_page_map
+                    is_influential=True,
+                ),
+            ]
+            paper_to_page_map = {}  # Empty map
+            
+            # When
+            await add_academic_page_with_citations(
+                page_id="page_123",
+                paper_metadata=sample_paper_metadata,
+                citations=citations,
+                task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
+            )
+            
+            # Then: No edges created (all citations skipped)
+            assert mock_db_instance.insert.call_count == 0
+    
+    @pytest.mark.asyncio
+    async def test_maps_cited_paper_id_to_page_id(self, sample_paper_metadata):
+        """
+        TC-EG-N-12: cited_paper_id is correctly mapped to page_id.
+        
+        Given: Citations with cited_paper_id in paper_to_page_map
+        When: add_academic_page_with_citations() is called
+        Then: Edges use mapped page_id, not paper_id
+        """
+        from src.utils.schemas import Citation
+        
+        with patch("src.filter.evidence_graph.get_database") as mock_db, \
+             patch("src.filter.evidence_graph._graph", None):
+            
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+            
+            # Given: Citations with paper IDs mapped to page IDs
+            citations = [
+                Citation(
+                    citing_paper_id="page_123",
+                    cited_paper_id="s2:ref1",  # Maps to page_ref1
+                    is_influential=False,
+                ),
+            ]
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",  # Mapping
+            }
+            
+            # When
+            await add_academic_page_with_citations(
+                page_id="page_123",
+                paper_metadata=sample_paper_metadata,
+                citations=citations,
+                task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
+            )
+            
+            # Then: Edge uses mapped page_id, not paper_id
             assert mock_db_instance.insert.call_count == 1
+            edge_data = mock_db_instance.insert.call_args[0][1]
+            assert edge_data["target_id"] == "page_ref1"  # Mapped page_id
+            assert edge_data["target_id"] != "s2:ref1"  # Not paper_id
 

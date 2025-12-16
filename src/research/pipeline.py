@@ -478,6 +478,7 @@ class SearchPipeline:
                             paper_metadata=paper_metadata,
                             citations=citations,
                             task_id=self.task_id,
+                            paper_to_page_map=paper_to_page_map,
                         )
                         
                         logger.debug(

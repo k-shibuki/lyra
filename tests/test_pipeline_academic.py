@@ -261,12 +261,20 @@ class TestEvidenceGraphIntegration:
                 "source_api": "semantic_scholar",
             }
             
+            # Given: paper_to_page_map for citations
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",
+                "s2:ref2": "page_ref2",
+                "s2:ref3": "page_ref3",
+            }
+            
             # When
             await add_academic_page_with_citations(
                 page_id=page_id,
                 paper_metadata=paper_metadata,
                 citations=sample_citations,
                 task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
             )
             
             # Then: Verify edges were inserted
@@ -457,44 +465,46 @@ class TestCanonicalEntryNeedsFetch:
 class TestSemanticScholarIDNormalization:
     """Tests for Semantic Scholar API ID format normalization (Bug 2 fix)."""
     
-    def test_normalize_s2_prefix_to_corpusid(self):
+    def test_normalize_s2_prefix_removed(self):
         """
-        TC-SS-N-01: s2: prefix is normalized to CorpusId:.
+        TC-SS-N-01: s2: prefix is removed, paperId used directly.
         
-        Given: Paper ID with s2: prefix
+        Given: Paper ID with s2: prefix (40-char alphanumeric hash)
         When: Normalizing for API
-        Then: Returns CorpusId: format
+        Then: Returns paperId without prefix (API expects direct paperId)
         """
         from src.search.apis.semantic_scholar import SemanticScholarClient
         
-        # Given
+        # Given: s2: prefix with 40-char paperId hash
         client = SemanticScholarClient()
-        paper_id = "s2:12345"
+        paper_id_hash = "204e3073870fae3d05bcbc2f6a8e263d9b72e776"
+        paper_id = f"s2:{paper_id_hash}"
         
         # When
         normalized = client._normalize_paper_id(paper_id)
         
-        # Then
-        assert normalized == "CorpusId:12345"
+        # Then: Prefix removed, paperId used directly
+        assert normalized == paper_id_hash
+        assert normalized.startswith("s2:") is False
     
     def test_normalize_corpusid_unchanged(self):
         """
-        TC-SS-N-02: CorpusId: format is returned as-is.
+        TC-SS-N-02: CorpusId: format is returned as-is (for numeric Corpus IDs).
         
-        Given: Paper ID with CorpusId: prefix
+        Given: Paper ID with CorpusId: prefix (numeric Corpus ID)
         When: Normalizing for API
-        Then: Returns unchanged
+        Then: Returns unchanged (CorpusId: prefix is valid for numeric IDs)
         """
         from src.search.apis.semantic_scholar import SemanticScholarClient
         
-        # Given
+        # Given: CorpusId: with numeric ID (valid format)
         client = SemanticScholarClient()
         paper_id = "CorpusId:12345"
         
         # When
         normalized = client._normalize_paper_id(paper_id)
         
-        # Then
+        # Then: Unchanged (CorpusId: is valid for numeric IDs)
         assert normalized == "CorpusId:12345"
     
     def test_normalize_doi_unchanged(self):
@@ -517,25 +527,25 @@ class TestSemanticScholarIDNormalization:
         # Then
         assert normalized == "DOI:10.1234/example"
     
-    def test_normalize_no_prefix_adds_corpusid(self):
+    def test_normalize_no_prefix_unchanged(self):
         """
-        TC-SS-N-04: ID without prefix gets CorpusId: prefix.
+        TC-SS-N-04: ID without prefix is used as-is (assumed to be paperId).
         
-        Given: Paper ID without prefix
+        Given: Paper ID without prefix (40-char hash)
         When: Normalizing for API
-        Then: Returns with CorpusId: prefix
+        Then: Returns unchanged (API expects direct paperId)
         """
         from src.search.apis.semantic_scholar import SemanticScholarClient
         
-        # Given
+        # Given: paperId without prefix (40-char hash)
         client = SemanticScholarClient()
-        paper_id = "12345"
+        paper_id = "204e3073870fae3d05bcbc2f6a8e263d9b72e776"
         
         # When
         normalized = client._normalize_paper_id(paper_id)
         
-        # Then
-        assert normalized == "CorpusId:12345"
+        # Then: Unchanged (assumed to be paperId)
+        assert normalized == paper_id
     
     @pytest.mark.asyncio
     async def test_get_references_uses_normalized_id(self):
@@ -544,32 +554,45 @@ class TestSemanticScholarIDNormalization:
         
         Given: Paper ID with s2: prefix
         When: Calling get_references()
-        Then: API is called with CorpusId: format
+        Then: API is called with paperId without prefix
         """
         from src.search.apis.semantic_scholar import SemanticScholarClient
+        from src.utils.api_retry import retry_api_call
         
-        # Given
+        # Given: s2: prefix with paperId hash
         client = SemanticScholarClient()
-        paper_id = "s2:12345"
+        paper_id_hash = "204e3073870fae3d05bcbc2f6a8e263d9b72e776"
+        paper_id = f"s2:{paper_id_hash}"
         
-        with patch.object(client, '_get_session') as mock_session:
-            mock_http = AsyncMock()
-            mock_session.return_value = mock_http
-            
-            mock_response = MagicMock()
-            mock_response.json = AsyncMock(return_value={"data": []})
-            mock_response.raise_for_status = MagicMock()  # Not async
-            mock_http.get = AsyncMock(return_value=mock_response)
+        # Create mock response - httpx.Response.json() is synchronous, not async
+        mock_response = MagicMock()
+        mock_response.json = MagicMock(return_value={"data": []})
+        mock_response.raise_for_status = MagicMock()  # Not async
+        
+        # Create mock HTTP client with properly configured get method
+        mock_http = MagicMock()
+        mock_http.get = AsyncMock(return_value=mock_response)
+        
+        # Mock retry_api_call to directly execute the _fetch function
+        async def mock_retry_api_call(func, *args, **kwargs):
+            """Execute the function directly without retry logic."""
+            # func is the _fetch function, which is async
+            # We need to await it to get the result
+            return await func()
+        
+        with patch.object(client, '_get_session', return_value=mock_http), \
+             patch('src.search.apis.semantic_scholar.retry_api_call', new=mock_retry_api_call):
             
             # When
             await client.get_references(paper_id)
             
-            # Then: API should be called with normalized ID
+            # Then: API should be called with paperId without prefix
             mock_http.get.assert_called_once()
             call_args = mock_http.get.call_args
             url = call_args[0][0]
-            assert "CorpusId:12345" in url
-            assert "s2:12345" not in url
+            assert paper_id_hash in url
+            assert "s2:" not in url
+            assert "CorpusId:" not in url
     
     @pytest.mark.asyncio
     async def test_get_citations_uses_normalized_id(self):
@@ -578,32 +601,45 @@ class TestSemanticScholarIDNormalization:
         
         Given: Paper ID with s2: prefix
         When: Calling get_citations()
-        Then: API is called with CorpusId: format
+        Then: API is called with paperId without prefix
         """
         from src.search.apis.semantic_scholar import SemanticScholarClient
+        from src.utils.api_retry import retry_api_call
         
-        # Given
+        # Given: s2: prefix with paperId hash
         client = SemanticScholarClient()
-        paper_id = "s2:12345"
+        paper_id_hash = "204e3073870fae3d05bcbc2f6a8e263d9b72e776"
+        paper_id = f"s2:{paper_id_hash}"
         
-        with patch.object(client, '_get_session') as mock_session:
-            mock_http = AsyncMock()
-            mock_session.return_value = mock_http
-            
-            mock_response = MagicMock()
-            mock_response.json = AsyncMock(return_value={"data": []})
-            mock_response.raise_for_status = MagicMock()  # Not async
-            mock_http.get = AsyncMock(return_value=mock_response)
+        # Create mock response - httpx.Response.json() is synchronous, not async
+        mock_response = MagicMock()
+        mock_response.json = MagicMock(return_value={"data": []})
+        mock_response.raise_for_status = MagicMock()  # Not async
+        
+        # Create mock HTTP client with properly configured get method
+        mock_http = MagicMock()
+        mock_http.get = AsyncMock(return_value=mock_response)
+        
+        # Mock retry_api_call to directly execute the _fetch function
+        async def mock_retry_api_call(func, *args, **kwargs):
+            """Execute the function directly without retry logic."""
+            # func is the _fetch function, which is async
+            # We need to await it to get the result
+            return await func()
+        
+        with patch.object(client, '_get_session', return_value=mock_http), \
+             patch('src.search.apis.semantic_scholar.retry_api_call', new=mock_retry_api_call):
             
             # When
             await client.get_citations(paper_id)
             
-            # Then: API should be called with normalized ID
+            # Then: API should be called with paperId without prefix
             mock_http.get.assert_called_once()
             call_args = mock_http.get.call_args
             url = call_args[0][0]
-            assert "CorpusId:12345" in url
-            assert "s2:12345" not in url
+            assert paper_id_hash in url
+            assert "s2:" not in url
+            assert "CorpusId:" not in url
 
 
 # =============================================================================
