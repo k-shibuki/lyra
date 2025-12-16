@@ -401,7 +401,7 @@ class SearchPipeline:
             # - Skip fetch for entries with abstracts from API
             # - Fetch and extract for SERP-only entries
             
-            from src.filter.evidence_graph import get_evidence_graph, add_academic_page_with_citations
+            from src.filter.evidence_graph import get_evidence_graph, add_academic_page_with_citations, NodeType
             
             pages_created = 0
             fragments_created = 0
@@ -445,7 +445,6 @@ class SearchPipeline:
             
             # Phase 6: Citation graph integration
             # Get citation graphs for top N papers with abstracts
-            from src.filter.evidence_graph import NodeType
             
             papers_with_abstracts = [
                 entry.paper for entry in unique_entries

@@ -118,7 +118,7 @@ class ArxivClient(BaseAcademicClient):
         try:
             # Extract arXiv ID from ID element
             id_elem = entry.find("atom:id", ns)
-            if id_elem is None:
+            if id_elem is None or id_elem.text is None:
                 return None
             
             arxiv_url = id_elem.text
