@@ -636,10 +636,10 @@ class BrowserSearchProvider(BaseSearchProvider):
                 candidate_engines = config_manager.get_default_engines()
                 if not candidate_engines:
                     # Fall back to category engines if no defaults configured
-                candidate_engines_configs = config_manager.get_engines_for_category(category)
-                if not candidate_engines_configs:
-                    candidate_engines_configs = config_manager.get_available_engines()
-                candidate_engines = [cfg.name for cfg in candidate_engines_configs]
+                    candidate_engines_configs = config_manager.get_engines_for_category(category)
+                    if not candidate_engines_configs:
+                        candidate_engines_configs = config_manager.get_available_engines()
+                    candidate_engines = [cfg.name for cfg in candidate_engines_configs]
             
             # Filter by circuit breaker and availability
             # Use dynamic weights from PolicyEngine (per §3.1.1, §3.1.4, §4.6)
