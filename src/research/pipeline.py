@@ -501,11 +501,18 @@ class SearchPipeline:
             serp_only_entries = [e for e in unique_entries if e.source == "serp" and not e.paper]
             if serp_only_entries:
                 # Use browser search for SERP-only entries
+                # Save current stats before calling _execute_browser_search (it modifies result in-place)
+                pages_before = result.pages_fetched
+                fragments_before = result.useful_fragments
+                
                 expanded_queries = self._expand_academic_query(query)
                 browser_result = await self._execute_browser_search(search_id, expanded_queries[0], options, result)
-                # Merge stats
-                result.pages_fetched += browser_result.pages_fetched
-                result.useful_fragments += browser_result.useful_fragments
+                
+                # Accumulate stats: add browser search results to existing counts
+                # (browser_result is the same object as result, so browser_result.pages_fetched
+                # contains the new value that overwrote pages_before)
+                result.pages_fetched = pages_before + browser_result.pages_fetched
+                result.useful_fragments = fragments_before + browser_result.useful_fragments
             
             return result
         finally:

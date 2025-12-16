@@ -118,12 +118,18 @@ class CrossrefClient(BaseAcademicClient):
             if date_parts:
                 year = date_parts[0]
         
+        # Fallback: if year not found, try published-print directly
+        if not year and data.get("published-print"):
+            date_parts = data.get("published-print", {}).get("date-parts", [[None]])
+            if date_parts and date_parts[0]:
+                year = date_parts[0][0]
+        
         return Paper(
             id=f"crossref:{doi}" if doi else f"crossref:{data.get('URL', '').split('/')[-1]}",
             title=data.get("title", [""])[0] if isinstance(data.get("title"), list) else data.get("title", ""),
             abstract=None,  # Crossref API often does not have abstract
             authors=authors,
-            year=year or data.get("published-print", {}).get("date-parts", [[None]])[0][0] if data.get("published-print") else None,
+            year=year,
             doi=doi if doi else None,
             venue=data.get("container-title", [""])[0] if isinstance(data.get("container-title"), list) else data.get("container-title"),
             citation_count=0,  # Crossref API does not have citation count
