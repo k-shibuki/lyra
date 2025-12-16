@@ -86,8 +86,10 @@ class SemanticScholarClient(BaseAcademicClient):
     def _normalize_paper_id(self, paper_id: str) -> str:
         """Normalize paper ID for Semantic Scholar API.
         
-        Converts internal ID format (e.g., 's2:12345') to API format (e.g., 'CorpusId:12345').
-        Also handles DOI, ArXiv, PMID formats.
+        Converts internal ID format (e.g., 's2:204e3073...') to API format.
+        Semantic Scholar API paperId values are 40-character alphanumeric hashes
+        that should be used directly without any prefix. CorpusId: prefix is only
+        for numeric Corpus IDs.
         
         Args:
             paper_id: Paper ID in various formats
@@ -95,16 +97,19 @@ class SemanticScholarClient(BaseAcademicClient):
         Returns:
             Normalized paper ID for API
         """
-        # Handle s2: prefix (internal format) -> CorpusId: (API format)
+        # Handle s2: prefix (internal format) -> remove prefix, use paperId directly
         if paper_id.startswith("s2:"):
-            return paper_id.replace("s2:", "CorpusId:", 1)
+            # Extract paperId (40-char alphanumeric hash) and use directly
+            paper_id_without_prefix = paper_id[3:]  # Remove "s2:" prefix
+            return paper_id_without_prefix
         
-        # Already in correct format (CorpusId:, DOI:, ArXiv:, PMID:)
+        # Already in correct format (DOI:, ArXiv:, PMID:)
+        # These prefixes are recognized by the API
         if ":" in paper_id:
             return paper_id
         
-        # Assume it's a Corpus ID if no prefix
-        return f"CorpusId:{paper_id}"
+        # If no prefix, assume it's already a paperId (40-char hash) and use directly
+        return paper_id
     
     async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get references (papers cited by this paper) with influential citation flag."""

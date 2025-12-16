@@ -1068,6 +1068,7 @@ async def add_academic_page_with_citations(
     paper_metadata: dict,
     citations: list,
     task_id: str | None = None,
+    paper_to_page_map: dict[str, str] | None = None,
 ) -> None:
     """Add academic paper and its citations to evidence graph.
     
@@ -1078,6 +1079,9 @@ async def add_academic_page_with_citations(
         paper_metadata: Paper metadata dict (from paper_metadata JSON column)
         citations: List of Citation objects
         task_id: Task ID
+        paper_to_page_map: Mapping from paper_id to page_id for cited papers.
+                          If None, citations with paper IDs that don't map to pages
+                          will be skipped.
     """
     from src.utils.schemas import Citation
     
@@ -1100,11 +1104,30 @@ async def add_academic_page_with_citations(
     })
     
     # Add citation edges
+    if paper_to_page_map is None:
+        paper_to_page_map = {}
+    
+    edges_created = 0
+    edges_skipped = 0
+    
     for citation in citations:
         if not isinstance(citation, Citation):
             continue
         
-        cited_page_id = citation.cited_paper_id
+        # Map cited_paper_id (paper ID) to cited_page_id (page ID)
+        cited_paper_id = citation.cited_paper_id
+        cited_page_id = paper_to_page_map.get(cited_paper_id)
+        
+        # Skip citations where the cited paper doesn't have a corresponding page
+        # (e.g., papers that weren't persisted because they had no abstract)
+        if not cited_page_id:
+            logger.debug(
+                "Skipping citation: cited paper not in pages table",
+                cited_paper_id=cited_paper_id,
+                page_id=page_id,
+            )
+            edges_skipped += 1
+            continue
         
         # Ensure cited PAGE node exists
         cited_node = graph._make_node_id(NodeType.PAGE, cited_page_id)
@@ -1137,10 +1160,14 @@ async def add_academic_page_with_citations(
             "is_influential": 1 if citation.is_influential else 0,
             "citation_context": citation.context,
         }, or_replace=True)
+        
+        edges_created += 1
     
     logger.debug(
         "Added academic page with citations",
         page_id=page_id,
+        edges_created=edges_created,
+        edges_skipped=edges_skipped,
         citation_count=len(citations),
     )
 
