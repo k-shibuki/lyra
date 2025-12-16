@@ -21,35 +21,88 @@
 
 | 仕様書参照 | 内容 | 本計画での対応 |
 |-----------|------|---------------|
-| §3.1 | 学術・公的は直接ソース（arXiv, PubMed等）を優先 | AcademicSearchProvider実装 |
-| §3.1.3 | OpenAlex/Semantic Scholar/Crossref/Unpaywall APIの利用 | 4つのAPIクライアント実装 |
-| §3.3.1 | エビデンスグラフ: supports/refutes/citesエッジ | `academic_cites`エッジ追加 |
-| §4.3.5 | 公式APIへのバックオフ付きリトライ | `ACADEMIC_API_POLICY`適用 |
+| §3.1 | 学術・公的は直接ソース（arXiv, PubMed等）を優先 | AcademicSearchProvider + BrowserSearchProvider 補完的実行 |
+| §3.1.3 | OpenAlex/Semantic Scholar/Crossref/Unpaywall APIの利用 | 4つのAPIクライアント実装（arXiv含む） |
+| §3.3.1 | エビデンスグラフ: supports/refutes/citesエッジ | 既存CITESエッジに `is_academic`, `is_influential` 属性追加 |
+| §4.3.5 | 公式APIへのバックオフ付きリトライ | 既存`ACADEMIC_API_POLICY`を活用 |
 | §5.1 | 学術: OpenAlex/Semantic Scholar/Crossref/Unpaywall | 外部依存として明記 |
-| §7 | ソース階層: 一次資料 > 公的機関 > 学術 | 信頼度計算に反映 |
+| §7 | ソース階層: 一次資料 > 公的機関 > 学術 | `SourceTag.ACADEMIC` で信頼度計算に反映 |
 
 ### 1.3 Zero OpEx原則との適合
 
 | API | 料金 | 認証 | Rate Limit | 適合 |
 |-----|:----:|:----:|:----------:|:----:|
-| **Semantic Scholar** | 無料 | 不要 | 100/5min | ✅ |
-| **OpenAlex** | 無料 | 不要 | 100k/day | ✅ |
-| **Crossref** | 無料 | 不要 | polite pool | ✅ |
-| **arXiv API** | 無料 | 不要 | 3秒間隔 | ✅ |
-| **Unpaywall** | 無料 | メール | 100k/day | ✅ |
+| **Semantic Scholar** | 無料 | API Key推奨 | 認証なし: 不明、認証あり: 1000/sec | ✅ |
+| **OpenAlex** | 無料 | 不要 | 100k/day + 10/sec | ✅ |
+| **Crossref** | 無料 | 不要 | polite pool（mailto推奨） | ✅ |
+| **arXiv API** | 無料 | 不要 | 3秒間隔、最大30,000件 | ✅ |
+| **Unpaywall** | 無料 | メール必須 | 100k/day | ✅ |
+
+**API仕様調査日**: 2025-12-16
+
+**補足**:
+- Semantic Scholar: API Keyを取得することでrate limit向上。polite pool対応
+- OpenAlex: `mailto=` パラメータでpolite pool入り（優先レスポンス）
+- Crossref: `mailto=` パラメータでpolite pool入り
+- arXiv: 結果は2,000件/回で取得、最大30,000件まで
 
 ---
 
 ## 2. アーキテクチャ設計
 
-### 2.1 全体構成
+### 2.1 検索戦略: 補完的アプローチ
+
+学術クエリに対して、**一般検索と学術API検索を並列実行**し、結果をマージする。
+
+```
+                         クエリ入力
+                             │
+                    ┌────────▼────────┐
+                    │ 学術クエリ判定   │
+                    │ (_is_academic)  │
+                    └────────┬────────┘
+                             │ 学術クエリの場合
+            ┌────────────────┴────────────────┐
+            │           並列実行               │
+    ┌───────▼───────┐               ┌─────────▼─────────┐
+    │BrowserSearch   │               │ AcademicSearch    │
+    │Provider        │               │ Provider          │
+    │(一般検索)       │               │(学術API)          │
+    └───────┬───────┘               └─────────┬─────────┘
+            │                                 │
+            │ SERP結果                        │ Paper結果
+            │                                 │
+            └────────────────┬────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │ 結果マージ       │
+                    │ (DOI/URLで重複排除) │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │ 統合SERP結果     │
+                    │ + 引用グラフ取得  │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │ 既存パイプライン  │
+                    │ (fetch/extract)  │
+                    └─────────────────┘
+```
+
+**設計ポイント**:
+- 学術クエリでも一般検索は実行（arXiv/PubMed等のWebページも取得可能）
+- 学術APIの結果は `SourceTag.ACADEMIC` としてマーク
+- 重複排除: DOIがあればDOIで、なければURL/タイトルで照合
+- 一般クエリの場合は従来通りBrowserSearchProviderのみ使用
+
+### 2.2 AcademicSearchProvider 構成
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      SearchProviderRegistry                      │
+│                    AcademicSearchProvider                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  BrowserSearchProvider     │  AcademicSearchProvider (NEW)      │
-│  (検索エンジン用)           │  (学術API用)                        │
+│  複数の学術APIクライアントを統合し、統一インターフェースを提供      │
 └─────────────────────────────────────────────────────────────────┘
                                       │
                     ┌─────────────────┼─────────────────┐
@@ -57,32 +110,51 @@
            ┌────────▼───────┐ ┌──────▼──────┐ ┌───────▼───────┐
            │ SemanticScholar │ │  OpenAlex   │ │   Crossref    │
            │    Client       │ │   Client    │ │    Client     │
+           │ (引用グラフ主)   │ │ (大規模検索) │ │  (DOI解決)    │
            └────────┬────────┘ └──────┬──────┘ └───────┬───────┘
                     │                 │                 │
-                    └─────────────────┼─────────────────┘
-                                      │
-                    ┌─────────────────▼─────────────────┐
-                    │        EvidenceGraph 拡張         │
-                    │  NodeType.PAPER (NEW)            │
-                    │  RelationType.ACADEMIC_CITES (NEW)│
-                    └───────────────────────────────────┘
+           ┌────────▼───────┐        │                 │
+           │  ArxivClient   │        │                 │
+           │ (プレプリント)  │        │                 │
+           └────────────────┘        │                 │
+                                     │                 │
+                    ┌────────────────┴─────────────────┘
+                    │
+                    ▼
+           ┌─────────────────┐
+           │ EvidenceGraph   │
+           │ (既存CITES拡張) │
+           │ is_academic属性 │
+           └─────────────────┘
 ```
 
-### 2.2 モジュール構成
+### 2.3 モジュール構成
 
-| ディレクトリ | ファイル | 役割 |
-|------------|---------|------|
-| `src/search/apis/` | `__init__.py` | APIクライアント共通エクスポート |
-| | `base.py` | `BaseAcademicClient` 抽象クラス |
-| | `semantic_scholar.py` | Semantic Scholar APIクライアント |
-| | `openalex.py` | OpenAlex APIクライアント |
-| | `crossref.py` | Crossref APIクライアント |
-| | `arxiv.py` | arXiv OAI-PMH クライアント |
-| | `unpaywall.py` | Unpaywall APIクライアント |
-| `src/search/` | `academic_provider.py` | `AcademicSearchProvider` 統合プロバイダ |
-| `src/filter/` | `evidence_graph.py` | `NodeType.PAPER`, `RelationType.ACADEMIC_CITES` 追加 |
-| `src/utils/` | `schemas.py` | `Paper`, `Citation`, `Author` Pydanticモデル |
-| `config/` | `academic_apis.yaml` | API設定（エンドポイント、rate limit等） |
+| ディレクトリ | ファイル | 役割 | 変更種別 |
+|------------|---------|------|:--------:|
+| `src/search/apis/` | `__init__.py` | APIクライアント共通エクスポート | 新規 |
+| | `base.py` | `BaseAcademicClient` 抽象クラス | 新規 |
+| | `semantic_scholar.py` | Semantic Scholar APIクライアント | 新規 |
+| | `openalex.py` | OpenAlex APIクライアント | 新規 |
+| | `crossref.py` | Crossref APIクライアント | 新規 |
+| | `arxiv.py` | arXiv API クライアント | 新規 |
+| `src/search/` | `academic_provider.py` | `AcademicSearchProvider` 統合プロバイダ | 新規 |
+| `src/research/` | `pipeline.py` | 補完的検索のマージロジック追加 | 修正 |
+| `src/filter/` | `evidence_graph.py` | CITESエッジに `is_academic`, `is_influential` 属性追加 | 修正 |
+| `src/storage/` | `schema.sql` | pagesテーブルに `paper_metadata` カラム追加 | 修正 |
+| `src/utils/` | `schemas.py` | `Paper`, `Citation`, `Author` Pydanticモデル追加 | 修正 |
+| `config/` | `academic_apis.yaml` | API設定（エンドポイント、rate limit等） | 新規 |
+
+### 2.4 既存資産の活用
+
+以下は既存実装をそのまま活用（変更不要）:
+
+| ファイル | 理由 |
+|----------|------|
+| `src/extractor/content.py` | PDF抽出機能（PyMuPDF + OCR）は実装済み |
+| `src/crawler/fetcher.py` | PDF取得・保存は対応済み |
+| `src/search/provider.py` | `BaseSearchProvider`, `SourceTag.ACADEMIC` 既存 |
+| `src/utils/api_retry.py` | `ACADEMIC_API_POLICY` 定義済み |
 
 ---
 
@@ -147,72 +219,84 @@ class AcademicSearchResult(BaseModel):
     source_api: str
 ```
 
-### 3.2 エビデンスグラフ拡張（`src/filter/evidence_graph.py`）
+### 3.2 Paper/Page 統合設計（ハイブリッド方式）
+
+**設計選択の根拠**:
+
+| 選択肢 | 概要 | 利点 | 欠点 |
+|--------|------|------|------|
+| A: 統合 | Paper → Page に変換して保存 | 既存パイプラインをそのまま使用 | 学術メタデータ（著者、引用数）が失われる |
+| B: 分離 | papers テーブルを別に作成 | 学術固有データを保持可能 | 二重管理、クエリ複雑化 |
+| **C: ハイブリッド** | Page + paper_metadata JSON | 既存構造を維持しつつメタデータ保持 | **採用** |
+
+**採用設計（ハイブリッド方式）**:
+- `pages` テーブルに `paper_metadata` カラムを追加（JSON）
+- 学術論文は `pages.page_type = 'academic_paper'` でマーク
+- `paper_metadata` には DOI, 著者, 引用数, venue 等を格納
+- エビデンスグラフでは `NodeType.PAGE` を使用（`NodeType.PAPER` は追加しない）
+
+### 3.3 エビデンスグラフ拡張（`src/filter/evidence_graph.py`）
 
 ```python
-# 既存
+# 既存のNodeType/RelationTypeは変更なし
 class NodeType(str, Enum):
     CLAIM = "claim"
     FRAGMENT = "fragment"
-    PAGE = "page"
-    PAPER = "paper"  # NEW: 学術論文ノード
+    PAGE = "page"  # 学術論文もPAGEとして扱う
 
 class RelationType(str, Enum):
     SUPPORTS = "supports"
     REFUTES = "refutes"
-    CITES = "cites"
+    CITES = "cites"  # 既存のCITESを拡張（属性追加）
     NEUTRAL = "neutral"
-    ACADEMIC_CITES = "academic_cites"  # NEW: 学術引用（正式な引用関係）
 ```
 
-**拡張理由**:
-- `PAGE`と`PAPER`の区別: 学術論文は構造化メタデータ（著者、DOI、引用数）を持つ
-- `CITES`と`ACADEMIC_CITES`の区別: 学術引用は正式な引用関係であり、信頼度が高い
+**CITESエッジへの属性追加**:
+```python
+# add_edge() 呼び出し時に追加属性を指定
+graph.add_edge(
+    source_type=NodeType.PAGE,
+    source_id=citing_page_id,
+    target_type=NodeType.PAGE,
+    target_id=cited_page_id,
+    relation=RelationType.CITES,
+    is_academic=True,       # NEW: 学術引用フラグ
+    is_influential=True,    # NEW: Semantic Scholar の influential citation
+    citation_context=None,  # NEW: 引用箇所のテキスト（オプション）
+)
+```
 
-### 3.3 DBスキーマ拡張（`src/storage/schema.sql`）
+**設計根拠**:
+- `NodeType.PAPER` / `RelationType.ACADEMIC_CITES` を新規追加する案は廃止
+- 既存の引用ループ検出・整合性レポート機能をそのまま活用可能
+- `is_academic` 属性で学術引用とWeb引用を区別
+
+### 3.4 DBスキーマ拡張（`src/storage/schema.sql`）
 
 ```sql
--- 学術論文テーブル（NEW）
-CREATE TABLE IF NOT EXISTS papers (
-    id TEXT PRIMARY KEY,
-    task_id TEXT,
-    title TEXT NOT NULL,
-    abstract TEXT,
-    authors TEXT,  -- JSON配列
-    year INTEGER,
-    published_date TEXT,
-    doi TEXT UNIQUE,
-    arxiv_id TEXT,
-    venue TEXT,
-    citation_count INTEGER DEFAULT 0,
-    reference_count INTEGER DEFAULT 0,
-    is_open_access INTEGER DEFAULT 0,
-    oa_url TEXT,
-    pdf_url TEXT,
-    source_api TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (task_id) REFERENCES tasks(id)
-);
+-- pages テーブルへのカラム追加（マイグレーション）
+ALTER TABLE pages ADD COLUMN paper_metadata TEXT;
+-- paper_metadata JSON構造:
+-- {
+--   "doi": "10.1234/example",
+--   "authors": [{"name": "John Doe", "orcid": "0000-0001-2345-6789"}],
+--   "year": 2024,
+--   "venue": "Nature",
+--   "citation_count": 42,
+--   "reference_count": 25,
+--   "is_open_access": true,
+--   "source_api": "semantic_scholar"
+-- }
 
-CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi);
-CREATE INDEX IF NOT EXISTS idx_papers_task_id ON papers(task_id);
-CREATE INDEX IF NOT EXISTS idx_papers_year ON papers(year);
+-- edges テーブルへのカラム追加（マイグレーション）
+ALTER TABLE edges ADD COLUMN is_academic INTEGER DEFAULT 0;
+ALTER TABLE edges ADD COLUMN is_influential INTEGER DEFAULT 0;
+ALTER TABLE edges ADD COLUMN citation_context TEXT;
+```
 
--- 学術引用テーブル（NEW）
-CREATE TABLE IF NOT EXISTS academic_citations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    citing_paper_id TEXT NOT NULL,
-    cited_paper_id TEXT NOT NULL,
-    context TEXT,
-    is_influential INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (citing_paper_id) REFERENCES papers(id),
-    FOREIGN KEY (cited_paper_id) REFERENCES papers(id),
-    UNIQUE(citing_paper_id, cited_paper_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_academic_citations_citing ON academic_citations(citing_paper_id);
-CREATE INDEX IF NOT EXISTS idx_academic_citations_cited ON academic_citations(cited_paper_id);
+**page_type の新規値**:
+```
+academic_paper  -- 学術論文（PDF/HTML問わず）
 ```
 
 ---
@@ -633,130 +717,371 @@ class AcademicSearchProvider(BaseSearchProvider):
 
 ## 6. パイプライン統合
 
-### 6.1 検索パイプライン連携
+### 6.1 補完的検索パイプライン
 
-**変更ファイル**: `src/research/executor.py`
+**変更ファイル**: `src/research/pipeline.py`
+
+学術クエリの場合、一般検索と学術API検索を**並列実行**し、結果をマージする。
 
 ```python
-async def _execute_search(self, query: str) -> tuple[list[dict], str | None, dict]:
-    """検索実行（学術ソース判定追加）."""
+async def _execute_complementary_search(
+    self,
+    query: str,
+    options: SearchOptions,
+) -> list[dict]:
+    """補完的検索: 一般検索 + 学術API検索を並列実行."""
     
-    # 学術クエリ判定
-    if self._is_academic_query(query):
+    tasks = []
+    
+    # 1. 一般検索（常に実行）
+    tasks.append(self._execute_browser_search(query, options))
+    
+    # 2. 学術API検索（学術クエリの場合のみ）
+    if self._is_academic_query(query) or options.academic:
         from src.search.academic_provider import get_academic_provider
-        provider = get_academic_provider()
-        response = await provider.search(query, options)
-        return [r.to_dict() for r in response.results], None, {}
+        academic_provider = get_academic_provider()
+        tasks.append(academic_provider.search(query, options))
     
-    # 既存のブラウザ検索
-    return await self._execute_browser_search(query)
+    # 並列実行
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # 結果マージ・重複排除
+    merged = self._merge_search_results(results)
+    
+    return merged
 
+def _merge_search_results(
+    self,
+    results: list[SearchResponse | Exception],
+) -> list[dict]:
+    """検索結果をマージし、DOI/URLで重複排除."""
+    seen_keys: set[str] = set()
+    merged: list[dict] = []
+    
+    for result in results:
+        if isinstance(result, Exception):
+            logger.warning("Search failed", error=str(result))
+            continue
+        
+        for item in result.results:
+            # 重複キー: DOI > URL > タイトル
+            key = item.doi or item.url or item.title
+            if key not in seen_keys:
+                seen_keys.add(key)
+                merged.append(item.to_dict())
+    
+    return merged
+```
+
+### 6.2 学術クエリ判定
+
+```python
 def _is_academic_query(self, query: str) -> bool:
     """学術クエリかどうかを判定.
     
     判定基準:
-    - 明示的指定: engines=["semantic_scholar", "arxiv"]
-    - キーワード: "論文", "paper", "研究", "study", "arXiv", "DOI"
-    - サイト指定: site:arxiv.org, site:pubmed
+    1. キーワード: "論文", "paper", "研究", "study", "arXiv", "DOI"
+    2. サイト指定: site:arxiv.org, site:pubmed
+    3. DOI形式: 10.xxxx/... パターン
+    4. 明示的オプション: options.academic=True
     """
-    academic_keywords = [
-        "論文", "paper", "研究", "study", "学術",
-        "arxiv", "pubmed", "doi:", "10.1", "journal"
-    ]
+    import re
+    
     query_lower = query.lower()
-    return any(kw in query_lower for kw in academic_keywords)
+    
+    # キーワード判定
+    academic_keywords = [
+        "論文", "paper", "研究", "study", "学術", "journal",
+        "arxiv", "pubmed", "doi:", "citation", "引用"
+    ]
+    if any(kw in query_lower for kw in academic_keywords):
+        return True
+    
+    # サイト指定判定
+    academic_sites = ["arxiv.org", "pubmed", "scholar.google", "jstage"]
+    if any(f"site:{site}" in query_lower for site in academic_sites):
+        return True
+    
+    # DOI形式判定
+    if re.search(r"10\.\d{4,}/", query):
+        return True
+    
+    return False
 ```
 
-### 6.2 エビデンスグラフ連携
+### 6.3 学術論文のコンテンツ戦略: Abstract Only
+
+学術論文は**抄録（Abstract）とメタデータのみ**を自動取得し、フルテキストは参照先（DOI/OA URL）として提示する。
+
+#### 6.3.1 設計思想
+
+Lancetは**コンテキストエンジニアリングの一部**であり、すべてを自動処理することが目的ではない。
+
+| 役割 | 自動化（Lancet） | 人間/Cursor AI |
+|------|:----------------:|:--------------:|
+| **論文発見** | ✅ | - |
+| **メタデータ取得** | ✅ | - |
+| **抄録によるエビデンス** | ✅ | - |
+| **引用グラフ構築** | ✅ | - |
+| **フルテキスト参照先提示** | ✅ | - |
+| **フルテキストの詳細解釈** | - | ✅ |
+
+**設計根拠**:
+1. **学術APIから高品質な抄録が取得可能**: PDFパースによる誤りがない
+2. **PDF本文の自動処理は複雑**: 段組み、図表、数式、OCR問題
+3. **フルテキストの解釈には専門知識が必要**: 人間が読むべき
+4. **信頼性の高いサジェストが重要**: 「どの論文を読むべきか」を正確に示す
+
+#### 6.3.2 データフロー
+
+```
+学術API検索
+    │
+    ▼
+Paper {
+    title, authors, year, venue,
+    abstract,        ← Fragmentとして保存
+    doi,             ← 参照先として提示
+    oa_url,          ← OA版へのリンク
+    citation_count,
+    ...
+}
+    │
+    ▼
+┌─────────────────────────────────────────────────────┐
+│ 抄録をFragmentに保存                                 │
+│ - fragment_type: "abstract"                         │
+│ - source_tag: SourceTag.ACADEMIC                    │
+│ - DOI/OA URLを参照先として付与                       │
+└─────────────────────────────────────────────────────┘
+    │
+    ▼
+エビデンスグラフに追加
+（引用関係も含む）
+```
+
+#### 6.3.3 PDF取得が発生するケース
+
+**なし**（設計上排除）
+
+PDF取得・抽出は本設計のスコープ外とする。将来的に必要になった場合は、既存の `src/extractor/content.py` を活用可能。
+
+#### 6.3.4 フルテキストが必要な場合のワークフロー
+
+1. **Lancetの出力**: 「詳細は以下の論文を参照: [DOI: 10.xxxx/...]」
+2. **ユーザーのアクション**: PDFをダウンロードしてCursor AIに添付
+3. **Cursor AIのアクション**: フルテキストを解釈し、レポートに反映
+
+**この分業により**:
+- Lancetは「信頼性の高い論文発見」に専念
+- 専門的な解釈は人間/Cursor AIが担当
+- PDFパースの複雑な問題を回避
+
+#### 6.3.5 実装コード
+
+```python
+async def _process_paper_content(
+    self,
+    paper: Paper,
+) -> list[Fragment]:
+    """論文コンテンツを処理.
+    
+    Abstract Only戦略: 抄録のみをFragmentとして保存し、
+    フルテキストへの参照（DOI/OA URL）を付与する。
+    
+    Args:
+        paper: 論文メタデータ
+        
+    Returns:
+        fragments: 抄録を含むFragmentリスト
+    """
+    fragments = []
+    
+    if paper.abstract:
+        # 参照先を構築
+        reference_url = paper.oa_url or (f"https://doi.org/{paper.doi}" if paper.doi else None)
+        
+        fragments.append(Fragment(
+            text_content=paper.abstract,
+            fragment_type="abstract",
+            heading_context="Abstract",
+            source_url=reference_url,
+            metadata={
+                "doi": paper.doi,
+                "oa_url": paper.oa_url,
+                "citation_count": paper.citation_count,
+                "year": paper.year,
+                "venue": paper.venue,
+                "note": "フルテキストは参照先URLで確認可能",
+            },
+        ))
+    
+    return fragments
+```
+
+### 6.4 引用グラフ取得（検索時）
+
+検索結果の上位N件に対して、Semantic Scholar APIで引用グラフを取得する。
+
+```python
+async def _fetch_citation_graph(
+    self,
+    papers: list[Paper],
+    top_n: int = 5,
+    depth: int = 1,
+) -> tuple[list[Paper], list[Citation]]:
+    """検索結果の上位論文に対して引用グラフを取得.
+    
+    Args:
+        papers: 検索結果の論文リスト
+        top_n: 引用グラフを取得する論文数
+        depth: 引用グラフの深度（1=直接引用のみ）
+        
+    Returns:
+        (related_papers, citations) タプル
+    """
+    from src.search.academic_provider import get_academic_provider
+    
+    provider = get_academic_provider()
+    all_papers = []
+    all_citations = []
+    
+    for paper in papers[:top_n]:
+        try:
+            related, citations = await provider.get_citation_graph(
+                paper_id=paper.id,
+                depth=depth,
+                direction="both",
+            )
+            all_papers.extend(related)
+            all_citations.extend(citations)
+        except Exception as e:
+            logger.warning("Citation graph fetch failed", paper_id=paper.id, error=str(e))
+    
+    return all_papers, all_citations
+```
+
+### 6.5 エビデンスグラフ連携
 
 **変更ファイル**: `src/filter/evidence_graph.py`
 
 ```python
-async def add_paper_with_citations(
+async def add_academic_page_with_citations(
     self,
-    paper: Paper,
+    page_id: str,
+    paper_metadata: dict,
     citations: list[Citation],
 ) -> None:
-    """論文と引用関係をグラフに追加.
+    """学術論文ページと引用関係をグラフに追加.
     
     Args:
-        paper: 論文メタデータ
+        page_id: ページID（pagesテーブルのID）
+        paper_metadata: 論文メタデータ（JSON）
         citations: 引用関係リスト
     """
-    # 論文ノードを追加
-    self.add_node(
-        NodeType.PAPER,
-        paper.id,
-        title=paper.title,
-        doi=paper.doi,
-        year=paper.year,
-        citation_count=paper.citation_count,
-        source_api=paper.source_api,
-    )
+    # ページノードが存在することを確認
+    page_node = self._make_node_id(NodeType.PAGE, page_id)
+    if not self._graph.has_node(page_node):
+        self.add_node(NodeType.PAGE, page_id)
     
-    # 引用エッジを追加
+    # ページノードに学術メタデータを追加
+    self._graph.nodes[page_node].update({
+        "is_academic": True,
+        "doi": paper_metadata.get("doi"),
+        "citation_count": paper_metadata.get("citation_count", 0),
+        "year": paper_metadata.get("year"),
+    })
+    
+    # 引用エッジを追加（既存のCITESを使用、属性追加）
     for citation in citations:
-        # 被引用論文ノードが存在しなければ追加（軽量版）
-        cited_node = self._make_node_id(NodeType.PAPER, citation.cited_paper_id)
+        cited_page_id = citation.cited_paper_id
+        
+        # 被引用ページノードが存在しなければ追加
+        cited_node = self._make_node_id(NodeType.PAGE, cited_page_id)
         if not self._graph.has_node(cited_node):
-            self.add_node(NodeType.PAPER, citation.cited_paper_id)
+            self.add_node(NodeType.PAGE, cited_page_id)
         
-        # 学術引用エッジを追加
+        # CITESエッジを追加（学術属性付き）
         self.add_edge(
-            NodeType.PAPER, citation.citing_paper_id,
-            NodeType.PAPER, citation.cited_paper_id,
-            RelationType.ACADEMIC_CITES,
+            NodeType.PAGE, page_id,
+            NodeType.PAGE, cited_page_id,
+            RelationType.CITES,
+            is_academic=True,
             is_influential=citation.is_influential,
-            context=citation.context,
+            citation_context=citation.context,
         )
-
-def calculate_academic_support(self, claim_id: str) -> dict[str, Any]:
-    """主張に対する学術的支持を計算.
-    
-    Returns:
-        {
-            "supporting_papers": [...],  # 主張を支持する論文
-            "total_citations": int,      # 支持論文の総被引用数
-            "avg_year": float,           # 支持論文の平均発行年
-            "has_influential": bool,     # influential citationを含むか
-        }
-    """
-    claim_node = self._make_node_id(NodeType.CLAIM, claim_id)
-    
-    # 主張を支持するフラグメント → ソースページ → 論文 を辿る
-    supporting_papers = []
-    for fragment_node in self._graph.predecessors(claim_node):
-        edge = self._graph.edges[fragment_node, claim_node]
-        if edge.get("relation") != RelationType.SUPPORTS.value:
-            continue
-        
-        # フラグメント → ページ → 論文
-        for page_node in self._graph.predecessors(fragment_node):
-            for paper_node in self._graph.predecessors(page_node):
-                node_data = self._graph.nodes[paper_node]
-                if node_data.get("node_type") == NodeType.PAPER.value:
-                    supporting_papers.append(node_data)
-    
-    if not supporting_papers:
-        return {"supporting_papers": [], "total_citations": 0, "avg_year": 0, "has_influential": False}
-    
-    return {
-        "supporting_papers": supporting_papers,
-        "total_citations": sum(p.get("citation_count", 0) for p in supporting_papers),
-        "avg_year": sum(p.get("year", 0) for p in supporting_papers) / len(supporting_papers),
-        "has_influential": any(
-            self._graph.edges[p, c].get("is_influential")
-            for p in supporting_papers
-            for c in self._graph.successors(self._make_node_id(NodeType.PAPER, p.get("obj_id")))
-        ),
-    }
 ```
 
 ---
 
-## 7. 設定ファイル
+## 7. 追加検討事項
 
-### 7.1 `config/academic_apis.yaml`
+### 7.1 Abstract Only 戦略の根拠
+
+**§6.3の設計選択を裏付ける技術的根拠**:
+
+| 観点 | フルテキスト自動処理 | Abstract Only |
+|------|:-------------------:|:-------------:|
+| **データ品質** | PDF構造依存で不安定 | APIから高品質な構造化データ |
+| **実装複雑度** | 高（段組み、図表、数式） | 低（API呼び出しのみ） |
+| **処理時間** | PDF取得＋抽出で遅い | 軽量 |
+| **エラー率** | OCR誤り、構造解析失敗 | ほぼゼロ |
+| **Zero OpEx適合** | Vision API依存の恐れ | 完全適合 |
+
+**フルテキストが必要な場面の対応**:
+- DOI/OA URL を参照先として明示
+- ユーザーがCursor AIにPDFを添付して解釈を依頼
+- Lancetは「何を読むべきか」を信頼性高くサジェスト
+
+### 7.2 Rate Limit 対策
+
+| 対策 | 内容 |
+|------|------|
+| `ACADEMIC_API_POLICY` | 既存の `src/utils/api_retry.py` を適用（max_retries=5, backoff 1-120秒） |
+| polite pool | OpenAlex/Crossref には `mailto=` パラメータを付与 |
+| 引用グラフバッチ化 | 複数論文の引用グラフをまとめて取得 |
+| キャッシュ | DOI → Paper メタデータを24時間キャッシュ |
+| 上位N件制限 | 引用グラフ取得は検索結果上位5件に限定 |
+
+### 7.3 学術クエリ判定の改善
+
+現行の `_is_academic_query()` を以下に拡張:
+
+| 判定基準 | 例 |
+|----------|-----|
+| キーワード検出 | "論文", "paper", "研究", "study", "arXiv", "DOI" |
+| サイト指定 | `site:arxiv.org`, `site:pubmed`, `site:jstage` |
+| DOI形式検出 | `10.xxxx/...` パターン |
+| 明示的指定 | `options.academic=True`（Cursor AIからの指定） |
+
+### 7.4 コードベース影響範囲サマリ
+
+**変更が必要なファイル**:
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/search/apis/` | 新規: 学術APIクライアント群 |
+| `src/search/academic_provider.py` | 新規: AcademicSearchProvider |
+| `src/utils/schemas.py` | 追加: Paper, Author, Citation モデル |
+| `src/research/pipeline.py` | 修正: 補完的検索のマージロジック |
+| `src/storage/schema.sql` | 修正: `paper_metadata` カラム追加 |
+| `src/filter/evidence_graph.py` | 修正: CITESエッジに属性追加 |
+| `config/academic_apis.yaml` | 新規: API設定 |
+
+**既存のまま活用するファイル**:
+
+| ファイル | 理由 |
+|----------|------|
+| `src/extractor/content.py` | PDF抽出機能（PyMuPDF + OCR）は実装済み |
+| `src/crawler/fetcher.py` | PDF取得・保存は対応済み |
+| `src/search/provider.py` | `BaseSearchProvider`, `SourceTag.ACADEMIC` 既存 |
+| `src/utils/api_retry.py` | `ACADEMIC_API_POLICY` 定義済み |
+
+---
+
+## 8. 設定ファイル
+
+### 8.1 `config/academic_apis.yaml`
 
 ```yaml
 # 学術API設定
@@ -817,9 +1142,9 @@ defaults:
 
 ---
 
-## 8. テスト計画
+## 9. テスト計画
 
-### 8.1 テスト観点表
+### 9.1 テスト観点表
 
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
 |---------|---------------------|-------------|-----------------|-------|
@@ -835,7 +1160,7 @@ defaults:
 | TC-I-01 | Semantic Scholar → OpenAlex フォールバック | 統合 | 2つのAPIから結果マージ | - |
 | TC-I-02 | 引用グラフ → エビデンスグラフ | 統合 | PAPER/ACADEMIC_CITESノード追加 | - |
 
-### 8.2 テストファイル構成
+### 9.2 テストファイル構成
 
 | ファイル | 内容 | 件数目安 |
 |---------|------|:--------:|
@@ -846,7 +1171,7 @@ defaults:
 | `tests/test_academic_provider.py` | AcademicSearchProvider | 20 |
 | `tests/test_evidence_graph_academic.py` | 学術拡張 | 15 |
 
-### 8.3 E2E検証スクリプト
+### 9.3 E2E検証スクリプト
 
 **`tests/scripts/debug_academic_api_flow.py`**
 
@@ -869,9 +1194,9 @@ Usage:
 
 ---
 
-## 9. 実装タスクリスト
+## 10. 実装タスクリスト
 
-### 9.1 Phase 1: 基盤（Week 1）
+### 10.1 Phase 1: 基盤（Week 1）
 
 - [ ] `src/utils/schemas.py`: `Paper`, `Citation`, `Author`, `AcademicSearchResult` モデル追加
 - [ ] `src/search/apis/base.py`: `BaseAcademicClient` 抽象クラス
@@ -879,14 +1204,14 @@ Usage:
 - [ ] `tests/test_semantic_scholar.py`: ユニットテスト
 - [ ] `config/academic_apis.yaml`: 設定ファイル
 
-### 9.2 Phase 2: 追加API（Week 2）
+### 10.2 Phase 2: 追加API（Week 2）
 
 - [ ] `src/search/apis/openalex.py`: OpenAlex APIクライアント
 - [ ] `src/search/apis/crossref.py`: Crossref APIクライアント
 - [ ] `src/search/apis/arxiv.py`: arXiv APIクライアント
 - [ ] `tests/test_openalex.py`, `tests/test_crossref.py`, `tests/test_arxiv.py`
 
-### 9.3 Phase 3: 統合（Week 3）
+### 10.3 Phase 3: 統合（Week 3）
 
 - [ ] `src/search/academic_provider.py`: `AcademicSearchProvider`
 - [ ] `src/filter/evidence_graph.py`: `NodeType.PAPER`, `RelationType.ACADEMIC_CITES` 追加
@@ -894,7 +1219,7 @@ Usage:
 - [ ] `migrations/002_add_academic_tables.sql`: マイグレーション
 - [ ] `src/research/executor.py`: 学術クエリ判定・ルーティング
 
-### 9.4 Phase 4: テスト・検証（Week 4）
+### 10.4 Phase 4: テスト・検証（Week 4）
 
 - [ ] `tests/test_academic_provider.py`: 統合テスト
 - [ ] `tests/test_evidence_graph_academic.py`: エビデンスグラフ拡張テスト
@@ -903,30 +1228,32 @@ Usage:
 
 ---
 
-## 10. 仕様書更新提案
+## 11. 仕様書更新提案
 
-### 10.1 `docs/requirements.md` への追記案
+### 11.1 `docs/requirements.md` への追記案
 
 **§3.3.1 エビデンスグラフ拡張** に追記:
 
 ```markdown
 - 学術引用グラフ統合:
-  - ノードタイプ: `PAPER`（学術論文）を追加
-  - エッジタイプ: `academic_cites`（正式な学術引用関係）を追加
-  - 学術引用は信頼度が高い（正式な引用関係のため）
+  - 学術論文は `pages.page_type = 'academic_paper'` で識別
+  - 学術メタデータは `pages.paper_metadata` (JSON) に格納
+  - 既存CITESエッジに `is_academic`, `is_influential` 属性を追加
   - Semantic Scholar APIの"influential citations"フラグを活用
+  - 引用チェーン深度≤3を推奨（孫引き以上は信頼度を減衰）
 ```
 
 **§3.1.3 外部データソースAPI** を更新:
 
 ```markdown
-- 学術API統合戦略:
+- 学術API統合戦略（補完的アプローチ）:
+  - 学術クエリ時は一般検索と学術API検索を並列実行し、結果をマージ
   - Semantic Scholar: 引用グラフ取得の主API（influential citations対応）
-  - OpenAlex: メタデータ補完、大規模検索
-  - Crossref: DOI解決、メタデータ正規化
-  - arXiv: プレプリント検索
-  - Unpaywall: OA版リンク解決
+  - OpenAlex: メタデータ補完、大規模検索（100k/day + 10/sec）
+  - Crossref: DOI解決、メタデータ正規化（polite pool推奨）
+  - arXiv: プレプリント検索（3秒間隔、最大30,000件）
   - 優先順位: Semantic Scholar > OpenAlex > Crossref > arXiv
+  - polite pool: mailto パラメータでrate limit優遇
 ```
 
 **§7 品質基準** に追記:
@@ -936,11 +1263,12 @@ Usage:
   - 学術主張に対し、査読済み論文からの支持≥1件
   - 支持論文の総被引用数≥10（影響力の指標）
   - 引用チェーンの深度≤3（孫引き以上は要注意フラグ）
+  - influential citation（Semantic Scholar）を含む場合、信頼度を加点
 ```
 
 ---
 
-## 11. リスクと対策
+## 12. リスクと対策
 
 | リスク | 影響 | 対策 |
 |-------|------|------|
@@ -952,7 +1280,7 @@ Usage:
 
 ---
 
-## 12. 関連ドキュメント
+## 13. 関連ドキュメント
 
 - `docs/IMPLEMENTATION_PLAN.md` §Phase J.2
 - `docs/requirements.md` §3.1.3, §3.3.1, §5.1
@@ -965,4 +1293,6 @@ Usage:
 | 日付 | 内容 |
 |------|------|
 | 2025-12-16 | 初版作成 |
+| 2025-12-16 | アーキテクチャ改訂: 補完的検索戦略に変更、PDFフルテキスト取得フロー追加、Paper/Page統合設計（ハイブリッド方式）、引用グラフ検索時取得、API仕様調査結果反映 |
+| 2025-12-16 | **Abstract Only戦略採用**: PDFフルテキスト取得を設計上排除。学術論文は抄録＋メタデータのみ自動取得し、フルテキストは参照先（DOI/OA URL）として提示。Lancetは「コンテキストエンジニアリングの一部」として信頼性の高いサジェストに専念する設計思想を明確化 |
 
