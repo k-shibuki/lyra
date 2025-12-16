@@ -428,16 +428,10 @@ class SearchPipeline:
                         
                     except Exception as e:
                         logger.warning("Failed to persist abstract", error=str(e), paper_id=entry.paper.id)
-                elif entry.serp_results:
-                    # SERP only: Need fetch & extract
-                    # Use first SERP result URL
-                    first_serp = entry.serp_results[0]
-                    serp_url = first_serp.url if hasattr(first_serp, 'url') else first_serp.get("url", "")
-                    
-                    if serp_url:
-                        # Defer to browser search executor for fetch/extract
-                        # This will be handled by the existing pipeline
-                        pass
+                elif entry.needs_fetch:
+                    # Entry needs fetch: either no paper or paper without abstract
+                    # Collect URLs for browser search fallback
+                    pass  # Will be handled by browser search fallback below
             
             # Update result stats
             result.pages_fetched += pages_created
@@ -496,9 +490,10 @@ class SearchPipeline:
                 except Exception as e:
                     logger.warning("Failed to get citation graph", paper_id=paper.id, error=str(e))
             
-            # For SERP-only entries, fall back to browser search
-            serp_only_entries = [e for e in unique_entries if e.source == "serp" and not e.paper]
-            if serp_only_entries:
+            # For entries that need fetch (no abstract available), fall back to browser search
+            # This includes: SERP-only entries, and entries with paper but no abstract
+            entries_needing_fetch = [e for e in unique_entries if e.needs_fetch]
+            if entries_needing_fetch:
                 # Use browser search for SERP-only entries
                 # Save current stats before calling _execute_browser_search (it modifies result in-place)
                 pages_before = result.pages_fetched
