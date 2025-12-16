@@ -7,7 +7,9 @@ Replaces execute_subquery and execute_refutation MCPtools with a single `search`
 See docs/requirements.md §2.1, §3.2.1.
 """
 
+import asyncio
 import hashlib
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -207,13 +209,31 @@ class SearchPipeline:
         result: SearchResult,
     ) -> SearchResult:
         """Execute normal search mode."""
-        # Use SearchExecutor for the core pipeline logic
+        # Check if academic query
+        is_academic = self._is_academic_query(query)
+        
+        if is_academic:
+            # Complementary search: Browser + Academic API
+            return await self._execute_complementary_search(
+                search_id, query, options, result
+            )
+        else:
+            # Standard browser search only
+            return await self._execute_browser_search(
+                search_id, query, options, result
+            )
+    
+    async def _execute_browser_search(
+        self,
+        search_id: str,
+        query: str,
+        options: SearchOptions,
+        result: SearchResult,
+    ) -> SearchResult:
+        """Execute browser search only."""
         executor = SearchExecutor(self.task_id, self.state)
-
-        # Convert options to executor parameters
         budget_pages = options.max_pages
 
-        # Execute through executor (O.8 fix: pass engines option)
         exec_result = await executor.execute(
             query=query,
             priority="high" if options.seek_primary else "medium",
@@ -231,12 +251,10 @@ class SearchPipeline:
         result.auth_blocked_urls = exec_result.auth_blocked_urls
         result.auth_queued_count = exec_result.auth_queued_count
         
-        # Propagate error information
         if exec_result.error_code:
             result.error_code = exec_result.error_code
             result.error_details = exec_result.error_details
         
-        # Convert claims to §3.2.1 format
         for claim in exec_result.new_claims:
             result.claims_found.append({
                 "id": f"c_{uuid.uuid4().hex[:8]}",
@@ -250,6 +268,195 @@ class SearchPipeline:
             result.errors.extend(exec_result.errors)
         
         return result
+    
+    async def _execute_complementary_search(
+        self,
+        search_id: str,
+        query: str,
+        options: SearchOptions,
+        result: SearchResult,
+    ) -> SearchResult:
+        """Execute complementary search (Browser + Academic API).
+        
+        Performs unified deduplication across both sources.
+        """
+        from src.search.academic_provider import AcademicSearchProvider
+        from src.search.canonical_index import CanonicalPaperIndex
+        from src.search.identifier_extractor import IdentifierExtractor
+        from src.search.id_resolver import IDResolver
+        from src.search.search_api import search_serp
+        from src.search.provider import SearchResult as ProviderSearchResult
+        
+        logger.info("Executing complementary search", query=query[:100])
+        
+        # Initialize components
+        index = CanonicalPaperIndex()
+        extractor = IdentifierExtractor()
+        resolver = IDResolver()
+        
+        # Phase 1: Parallel search
+        browser_task = search_serp(
+            query=query,
+            limit=options.max_pages or 20,
+            task_id=self.task_id,
+            engines=options.engines,
+        )
+        
+        academic_provider = AcademicSearchProvider()
+        academic_task = academic_provider.search(query, options)
+        
+        # Execute in parallel
+        try:
+            serp_items, academic_response = await asyncio.gather(
+                browser_task,
+                academic_task,
+                return_exceptions=True
+            )
+        except Exception as e:
+            logger.error("Parallel search failed", error=str(e))
+            serp_items = []
+            academic_response = None
+        
+        if isinstance(serp_items, Exception):
+            logger.warning("Browser search failed", error=str(serp_items))
+            serp_items = []
+        if isinstance(academic_response, Exception):
+            logger.warning("Academic API search failed", error=str(academic_response))
+            academic_response = None
+        
+        # Phase 2: Register Academic API results first (structured, high priority)
+        academic_count = 0
+        if academic_response and academic_response.ok:
+            for search_result in academic_response.results:
+                # SearchResultから識別子を抽出
+                identifier = extractor.extract(search_result.url)
+                
+                # DOIが既にある場合はそのまま使用
+                if not identifier.doi and search_result.url:
+                    # URLからDOIを再抽出
+                    identifier = extractor.extract(search_result.url)
+                
+                canonical_id = index.register_serp_result(search_result, identifier)
+                academic_count += 1
+        
+        # Phase 3: Process browser SERP results with identifier extraction
+        serp_count = 0
+        for item in serp_items:
+            if not isinstance(item, dict):
+                continue
+            
+            url = item.get("url", "")
+            if not url:
+                continue
+            
+            identifier = extractor.extract(url)
+            
+            # Resolve DOI if needed
+            if identifier.needs_meta_extraction and not identifier.doi:
+                try:
+                    if identifier.pmid:
+                        identifier.doi = await resolver.resolve_pmid_to_doi(identifier.pmid)
+                    elif identifier.arxiv_id:
+                        identifier.doi = await resolver.resolve_arxiv_to_doi(identifier.arxiv_id)
+                except Exception as e:
+                    logger.debug("DOI resolution failed", url=url, error=str(e))
+            
+            # Convert dict to SearchResult
+            serp_result = ProviderSearchResult(
+                title=item.get("title", ""),
+                url=url,
+                snippet=item.get("snippet", ""),
+                engine=item.get("engine", "unknown"),
+                rank=item.get("rank", 0),
+                date=item.get("date"),
+            )
+            
+            canonical_id = index.register_serp_result(serp_result, identifier)
+            serp_count += 1
+        
+        # Phase 4: Get deduplication stats
+        stats = index.get_stats()
+        unique_entries = index.get_all_entries()
+        
+        logger.info(
+            "Complementary search deduplication",
+            query=query[:100],
+            browser_count=serp_count,
+            academic_count=academic_count,
+            unique_count=stats["total"],
+            overlap_count=stats["both"],
+            api_only=stats["api_only"],
+            serp_only=stats["serp_only"],
+        )
+        
+        # Phase 5: Process unique entries through SearchExecutor
+        # For now, use browser search executor with merged unique URLs
+        # Full implementation would:
+        # - Skip fetch for entries with abstracts from API
+        # - Fetch and extract for SERP-only entries
+        
+        # Simplified: Use browser search with expanded queries
+        expanded_queries = self._expand_academic_query(query)
+        return await self._execute_browser_search(search_id, expanded_queries[0], options, result)
+    
+    def _is_academic_query(self, query: str) -> bool:
+        """学術クエリかどうかを判定.
+        
+        Args:
+            query: 検索クエリ
+            
+        Returns:
+            True if academic query
+        """
+        query_lower = query.lower()
+        
+        # キーワード判定
+        academic_keywords = [
+            "論文", "paper", "研究", "study", "学術", "journal",
+            "arxiv", "pubmed", "doi:", "citation", "引用",
+            "preprint", "peer-review", "査読", "publication",
+        ]
+        if any(kw in query_lower for kw in academic_keywords):
+            return True
+        
+        # サイト指定判定
+        academic_sites = [
+            "arxiv.org", "pubmed", "scholar.google", "jstage",
+            "doi.org", "semanticscholar.org", "crossref.org",
+        ]
+        if any(f"site:{site}" in query_lower for site in academic_sites):
+            return True
+        
+        # DOI形式判定
+        if re.search(r"10\.\d{4,}/", query):
+            return True
+        
+        return False
+    
+    def _expand_academic_query(self, query: str) -> list[str]:
+        """学術クエリを複数のサイト指定クエリに展開.
+        
+        Args:
+            query: 元のクエリ
+            
+        Returns:
+            展開されたクエリのリスト
+        """
+        queries = [query]  # 元のクエリ
+        
+        # site:演算子を除去
+        base_query = re.sub(r'\bsite:\S+', '', query).strip()
+        
+        # 学術サイト指定を追加（上位2サイトのみ）
+        academic_sites = [
+            "arxiv.org",
+            "pubmed.ncbi.nlm.nih.gov",
+        ]
+        
+        for site in academic_sites[:2]:
+            queries.append(f"{base_query} site:{site}")
+        
+        return queries
     
     async def _execute_refutation_search(
         self,

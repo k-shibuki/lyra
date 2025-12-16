@@ -836,6 +836,9 @@ class EvidenceGraph:
                     "confidence": data.get("confidence"),
                     "nli_label": data.get("nli_label"),
                     "nli_confidence": data.get("nli_confidence"),
+                    "is_academic": 1 if data.get("is_academic") else 0,
+                    "is_influential": 1 if data.get("is_influential") else 0,
+                    "citation_context": data.get("citation_context"),
                     "cause_id": trace.id,
                 }, or_replace=True)
         
@@ -1010,6 +1013,9 @@ async def add_citation(
     source_id: str,
     page_id: str,
     task_id: str | None = None,
+    is_academic: bool = False,
+    is_influential: bool = False,
+    citation_context: str | None = None,
 ) -> str:
     """Add citation relationship.
     
@@ -1018,6 +1024,9 @@ async def add_citation(
         source_id: Source object ID.
         page_id: Page being cited.
         task_id: Task ID.
+        is_academic: Whether this is an academic citation.
+        is_influential: Whether this is an influential citation (Semantic Scholar).
+        citation_context: Citation context text.
         
     Returns:
         Edge ID.
@@ -1031,6 +1040,9 @@ async def add_citation(
         target_id=page_id,
         relation=RelationType.CITES,
         confidence=1.0,
+        is_academic=is_academic,
+        is_influential=is_influential,
+        citation_context=citation_context,
     )
     
     # Persist
@@ -1043,6 +1055,9 @@ async def add_citation(
         "target_id": page_id,
         "relation": RelationType.CITES.value,
         "confidence": 1.0,
+        "is_academic": 1 if is_academic else 0,
+        "is_influential": 1 if is_influential else 0,
+        "citation_context": citation_context,
     }, or_replace=True)
     
     return edge_id
