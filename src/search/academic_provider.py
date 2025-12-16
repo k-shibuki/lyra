@@ -45,6 +45,17 @@ class AcademicSearchProvider(BaseSearchProvider):
         super().__init__("academic")
         self._clients: dict[str, BaseAcademicClient] = {}
         self._default_apis = ["semantic_scholar", "openalex"]  # Default APIs to use
+        self._last_index: Optional[CanonicalPaperIndex] = None  # Expose last search index
+    
+    def get_last_index(self) -> Optional[CanonicalPaperIndex]:
+        """Get the CanonicalPaperIndex from the last search.
+        
+        Returns the internal index containing Paper objects with full metadata.
+        
+        Returns:
+            CanonicalPaperIndex or None if no search has been performed
+        """
+        return self._last_index
     
     async def _get_client(self, api_name: str) -> BaseAcademicClient:
         """Get client (lazy initialization)."""
@@ -125,6 +136,9 @@ class AcademicSearchProvider(BaseSearchProvider):
             # Register each paper (duplicates are automatically skipped)
             for paper in result.papers:
                 index.register_paper(paper, source_api=api_name)
+        
+        # Store index for external access (e.g., to get Paper objects)
+        self._last_index = index
         
         # Get unique paper list
         unique_entries = index.get_all_entries()

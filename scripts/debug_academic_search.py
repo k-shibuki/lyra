@@ -216,6 +216,132 @@ class AcademicSearchDebugger:
             "stats": stats,
         }
     
+    async def test_abstract_only_strategy(self) -> dict:
+        """Test Abstract Only strategy.
+        
+        Verifies that papers with abstracts skip fetch and are stored directly.
+        
+        Returns:
+            Test results
+        """
+        print(f"\n{'='*60}")
+        print("Abstract Only Strategy Tests")
+        print(f"{'='*60}\n")
+        
+        from src.utils.schemas import Paper, Author
+        from src.search.canonical_index import CanonicalPaperIndex
+        
+        # Test 1: Paper with abstract (should skip fetch)
+        paper_with_abstract = Paper(
+            id="test:abstract_paper",
+            title="Test Paper With Abstract",
+            abstract="This is a test abstract for the Abstract Only strategy validation.",
+            doi="10.1234/test_abstract",
+            authors=[Author(name="Test Author")],
+            year=2024,
+            source_api="semantic_scholar",
+            is_open_access=True,
+            oa_url="https://example.com/paper.pdf",
+        )
+        
+        # Test 2: Paper without abstract (should need fetch)
+        paper_without_abstract = Paper(
+            id="test:no_abstract_paper",
+            title="Test Paper Without Abstract",
+            abstract=None,
+            doi="10.1234/test_no_abstract",
+            authors=[Author(name="Test Author")],
+            year=2024,
+            source_api="semantic_scholar",
+        )
+        
+        index = CanonicalPaperIndex()
+        
+        # Register papers
+        id1 = index.register_paper(paper_with_abstract, "semantic_scholar")
+        id2 = index.register_paper(paper_without_abstract, "semantic_scholar")
+        
+        entries = index.get_all_entries()
+        
+        results = {
+            "paper_with_abstract": {
+                "canonical_id": id1,
+                "needs_fetch": False,  # Should skip fetch
+                "passed": True,
+            },
+            "paper_without_abstract": {
+                "canonical_id": id2,
+                "needs_fetch": True,  # Should need fetch
+                "passed": True,
+            },
+        }
+        
+        # Verify needs_fetch property
+        for entry in entries:
+            if entry.paper and entry.paper.id == "test:abstract_paper":
+                needs_fetch = entry.needs_fetch
+                results["paper_with_abstract"]["actual_needs_fetch"] = needs_fetch
+                results["paper_with_abstract"]["passed"] = not needs_fetch
+            elif entry.paper and entry.paper.id == "test:no_abstract_paper":
+                needs_fetch = entry.needs_fetch
+                results["paper_without_abstract"]["actual_needs_fetch"] = needs_fetch
+                results["paper_without_abstract"]["passed"] = needs_fetch
+        
+        # Print results
+        for name, res in results.items():
+            status = "✓" if res["passed"] else "✗"
+            print(f"  {status} {name}")
+            print(f"    canonical_id: {res['canonical_id']}")
+            print(f"    expected needs_fetch: {res['needs_fetch']}")
+            print(f"    actual needs_fetch: {res.get('actual_needs_fetch', 'N/A')}")
+        
+        passed_count = sum(1 for r in results.values() if r["passed"])
+        print(f"\nPassed: {passed_count}/{len(results)}")
+        
+        return {"tests": results, "passed": passed_count, "total": len(results)}
+    
+    async def test_citation_graph(self) -> dict:
+        """Test citation graph retrieval.
+        
+        Returns:
+            Test results
+        """
+        print(f"\n{'='*60}")
+        print("Citation Graph Tests")
+        print(f"{'='*60}\n")
+        
+        # Use a known paper ID from Semantic Scholar
+        # "Attention Is All You Need" paper
+        test_paper_id = "s2:204e3073870fae3d05bcbc2f6a8e263d9b72e776"
+        
+        try:
+            related_papers, citations = await self.provider.get_citation_graph(
+                paper_id=test_paper_id,
+                depth=1,
+                direction="references",
+            )
+            
+            result = {
+                "paper_id": test_paper_id,
+                "related_papers_count": len(related_papers),
+                "citations_count": len(citations),
+                "passed": len(related_papers) > 0 or len(citations) > 0,
+            }
+            
+            status = "✓" if result["passed"] else "✗"
+            print(f"  {status} Citation graph for {test_paper_id[:30]}...")
+            print(f"    Related papers: {len(related_papers)}")
+            print(f"    Citations: {len(citations)}")
+            
+            if related_papers:
+                print(f"    Sample related paper: {related_papers[0].title[:50]}...")
+            
+            return result
+            
+        except Exception as e:
+            print(f"  ✗ Citation graph failed: {e}")
+            return {"paper_id": test_paper_id, "error": str(e), "passed": False}
+    
     async def run_all_tests(self) -> dict:
         """Run all diagnostic tests.
         
@@ -229,6 +355,12 @@ class AcademicSearchDebugger:
         
         # Test canonical index
         results["canonical_index"] = await self.test_canonical_index()
+        
+        # Test Abstract Only strategy
+        results["abstract_only"] = await self.test_abstract_only_strategy()
+        
+        # Test citation graph
+        results["citation_graph"] = await self.test_citation_graph()
         
         # Test actual search
         test_queries = [
@@ -256,6 +388,12 @@ class AcademicSearchDebugger:
         ci_tests = results["canonical_index"]
         print(f"Canonical Index: dedup={'✓' if ci_tests['dedup_success'] else '✗'}, "
               f"serp_link={'✓' if ci_tests['serp_link_success'] else '✗'}")
+        
+        ao_tests = results["abstract_only"]
+        print(f"Abstract Only: {ao_tests['passed']}/{ao_tests['total']} passed")
+        
+        cg_test = results["citation_graph"]
+        print(f"Citation Graph: {'✓' if cg_test.get('passed', False) else '✗'}")
         
         for search_result in results["search_tests"]:
             if "error" in search_result and search_result["error"]:
