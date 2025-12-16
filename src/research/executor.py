@@ -271,7 +271,8 @@ class SearchExecutor:
                 # Check for ALL_FETCHES_FAILED condition
                 # If we attempted fetches but got no successful pages
                 search_state = self.state.get_search(search_id)
-                if fetch_attempted > 0 and search_state and search_state.pages_fetched == 0:
+                all_fetches_failed = fetch_attempted > 0 and search_state and search_state.pages_fetched == 0
+                if all_fetches_failed:
                     result.status = "failed"
                     result.error_code = "ALL_FETCHES_FAILED"
                     result.error_details = {
@@ -285,10 +286,11 @@ class SearchExecutor:
                         auth_blocked=result.auth_blocked_urls,
                     )
                 
-                # Update result from state
+                # Update result from state (but preserve failed status if all fetches failed)
                 if search_state:
                     search_state.update_status()
-                    result.status = search_state.status.value
+                    if not all_fetches_failed:
+                        result.status = search_state.status.value
                     result.pages_fetched = search_state.pages_fetched
                     result.useful_fragments = search_state.useful_fragments
                     result.harvest_rate = search_state.harvest_rate
