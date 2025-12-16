@@ -1485,3 +1485,177 @@ class TestGetOverallHarvestRate:
         expected = 19 / 20
         assert abs(rate - expected) < 0.001
         assert rate >= 0.9  # Triggers lastmile per §3.1.1
+
+
+# =============================================================================
+# Academic Query Detection Tests (J2)
+# =============================================================================
+
+
+class TestAcademicQueryDetection:
+    """Tests for academic query detection and complementary search (J2).
+    
+    Tests for _is_academic_query() and _expand_academic_query() methods
+    in SearchPipeline.
+    
+    ## Test Perspectives Table
+    
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-AQ-N-01 | Query with academic keyword | Equivalence – normal | Returns True | - |
+    | TC-AQ-N-02 | Query with site:arxiv.org | Equivalence – normal | Returns True | - |
+    | TC-AQ-N-03 | Query with DOI pattern | Equivalence – normal | Returns True | - |
+    | TC-AQ-B-01 | Empty query string | Boundary – empty | Returns False | - |
+    | TC-AQ-B-02 | Query without academic indicators | Boundary – no match | Returns False | - |
+    | TC-AQ-N-04 | Expand academic query | Equivalence – normal | Returns expanded queries | - |
+    | TC-AQ-B-03 | Expand empty query | Boundary – empty | Returns list with empty query | - |
+    """
+    
+    def test_is_academic_query_with_keyword(self):
+        """TC-AQ-N-01: Test query with academic keyword.
+        
+        // Given: Query containing academic keyword
+        // When: Checking if academic query
+        // Then: Returns True
+        """
+        from src.research.pipeline import SearchPipeline
+        from src.research.state import ExplorationState
+        
+        # Given: Query with academic keyword
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        query = "transformer attention 論文"
+        
+        # When: Checking if academic query
+        is_academic = pipeline._is_academic_query(query)
+        
+        # Then: Returns True
+        assert is_academic is True
+    
+    def test_is_academic_query_with_site_operator(self):
+        """TC-AQ-N-02: Test query with site:arxiv.org.
+        
+        // Given: Query with site:arxiv.org operator
+        // When: Checking if academic query
+        // Then: Returns True
+        """
+        from src.research.pipeline import SearchPipeline
+        from src.research.state import ExplorationState
+        
+        # Given: Query with site operator
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        query = "machine learning site:arxiv.org"
+        
+        # When: Checking if academic query
+        is_academic = pipeline._is_academic_query(query)
+        
+        # Then: Returns True
+        assert is_academic is True
+    
+    def test_is_academic_query_with_doi_pattern(self):
+        """TC-AQ-N-03: Test query with DOI pattern.
+        
+        // Given: Query containing DOI pattern
+        // When: Checking if academic query
+        // Then: Returns True
+        """
+        from src.research.pipeline import SearchPipeline
+        from src.research.state import ExplorationState
+        
+        # Given: Query with DOI pattern
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        query = "paper 10.1038/nature12373"
+        
+        # When: Checking if academic query
+        is_academic = pipeline._is_academic_query(query)
+        
+        # Then: Returns True
+        assert is_academic is True
+    
+    def test_is_academic_query_empty(self):
+        """TC-AQ-B-01: Test empty query string.
+        
+        // Given: Empty query string
+        // When: Checking if academic query
+        // Then: Returns False
+        """
+        from src.research.pipeline import SearchPipeline
+        from src.research.state import ExplorationState
+        
+        # Given: Empty query string
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        
+        # When: Checking if academic query
+        is_academic = pipeline._is_academic_query("")
+        
+        # Then: Returns False
+        assert is_academic is False
+    
+    def test_is_academic_query_general(self):
+        """TC-AQ-B-02: Test query without academic indicators.
+        
+        // Given: General query without academic indicators
+        // When: Checking if academic query
+        // Then: Returns False
+        """
+        from src.research.pipeline import SearchPipeline
+        from src.research.state import ExplorationState
+        
+        # Given: General query
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        query = "今日の天気"
+        
+        # When: Checking if academic query
+        is_academic = pipeline._is_academic_query(query)
+        
+        # Then: Returns False
+        assert is_academic is False
+    
+    def test_expand_academic_query(self):
+        """TC-AQ-N-04: Test expanding academic query.
+        
+        // Given: Academic query
+        // When: Expanding query
+        // Then: Returns expanded queries with site operators
+        """
+        from src.research.pipeline import SearchPipeline
+        from src.research.state import ExplorationState
+        
+        # Given: Academic query
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        query = "transformer attention"
+        
+        # When: Expanding query
+        expanded = pipeline._expand_academic_query(query)
+        
+        # Then: Returns expanded queries
+        assert len(expanded) >= 1
+        assert query in expanded
+        # Should include site: operators
+        assert any("site:arxiv.org" in q or "site:pubmed" in q for q in expanded)
+    
+    def test_expand_academic_query_empty(self):
+        """TC-AQ-B-03: Test expanding empty query.
+        
+        // Given: Empty query
+        // When: Expanding query
+        // Then: Returns list with empty query
+        """
+        from src.research.pipeline import SearchPipeline
+        from src.research.state import ExplorationState
+        
+        # Given: Empty query
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        
+        # When: Expanding query
+        expanded = pipeline._expand_academic_query("")
+        
+        # Then: Returns list with empty query
+        assert len(expanded) >= 1
+        assert "" in expanded

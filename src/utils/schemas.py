@@ -4,7 +4,9 @@ Pydantic schemas for module间データ受け渡し.
 モジュール間のデータ受け渡しを型安全にするためのPydanticモデル定義。
 """
 
-from datetime import datetime
+import hashlib
+import uuid
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 from typing import Optional, Any
 
@@ -412,3 +414,121 @@ class DomainBudgetCheckResult(BaseModel):
                 "pages_remaining": 75,
             }
         }
+
+
+# =============================================================================
+# Academic API Integration (J2)
+# =============================================================================
+
+
+class Author(BaseModel):
+    """Paper author."""
+    name: str = Field(..., description="Author name")
+    affiliation: Optional[str] = Field(None, description="Affiliation")
+    orcid: Optional[str] = Field(None, description="ORCID ID")
+
+
+class Paper(BaseModel):
+    """Academic paper metadata."""
+    id: str = Field(..., description="Internal ID (provider:external_id format)")
+    title: str = Field(..., description="Paper title")
+    abstract: Optional[str] = Field(None, description="Abstract")
+    authors: list[Author] = Field(default_factory=list, description="Author list")
+    year: Optional[int] = Field(None, description="Publication year")
+    published_date: Optional[date] = Field(None, description="Publication date")
+    doi: Optional[str] = Field(None, description="DOI")
+    arxiv_id: Optional[str] = Field(None, description="arXiv ID")
+    venue: Optional[str] = Field(None, description="Journal/Conference name")
+    citation_count: int = Field(default=0, ge=0, description="Citation count")
+    reference_count: int = Field(default=0, ge=0, description="Reference count")
+    is_open_access: bool = Field(default=False, description="Open access flag")
+    oa_url: Optional[str] = Field(None, description="Open access URL")
+    pdf_url: Optional[str] = Field(None, description="PDF URL")
+    source_api: str = Field(..., description="Source API name")
+    
+    def to_search_result(self) -> "SearchResult":
+        """Convert to SearchResult format."""
+        from src.search.provider import SearchResult, SourceTag
+        
+        url = self.oa_url or (f"https://doi.org/{self.doi}" if self.doi else "")
+        snippet = self.abstract[:500] if self.abstract else ""
+        
+        return SearchResult(
+            title=self.title,
+            url=url,
+            snippet=snippet,
+            engine=self.source_api,
+            rank=0,
+            date=str(self.year) if self.year else None,
+            source_tag=SourceTag.ACADEMIC,
+        )
+
+
+class Citation(BaseModel):
+    """Citation relationship."""
+    citing_paper_id: str = Field(..., description="Citing paper ID")
+    cited_paper_id: str = Field(..., description="Cited paper ID")
+    context: Optional[str] = Field(None, description="Citation context text")
+    is_influential: bool = Field(default=False, description="Semantic Scholar influential citation")
+
+
+class AcademicSearchResult(BaseModel):
+    """Academic API search result."""
+    papers: list[Paper] = Field(..., description="Paper list")
+    total_count: int = Field(..., ge=0, description="Total count")
+    next_cursor: Optional[str] = Field(None, description="Pagination cursor")
+    source_api: str = Field(..., description="Source API name")
+
+
+class PaperIdentifier(BaseModel):
+    """Paper identifier (multiple format support)."""
+    doi: Optional[str] = Field(None, description="DOI")
+    pmid: Optional[str] = Field(None, description="PubMed ID")
+    arxiv_id: Optional[str] = Field(None, description="arXiv ID")
+    crid: Optional[str] = Field(None, description="CiNii Research ID")
+    url: Optional[str] = Field(None, description="URL (fallback)")
+    needs_meta_extraction: bool = Field(default=False, description="Whether meta tag extraction is needed")
+    
+    def get_canonical_id(self) -> str:
+        """Return canonical ID (priority: DOI > PMID > arXiv > CRID > URL)."""
+        if self.doi:
+            return f"doi:{self.doi.lower().strip()}"
+        if self.pmid:
+            return f"pmid:{self.pmid}"
+        if self.arxiv_id:
+            return f"arxiv:{self.arxiv_id}"
+        if self.crid:
+            return f"crid:{self.crid}"
+        if self.url:
+            return f"url:{hashlib.md5(self.url.encode()).hexdigest()[:12]}"
+        return f"unknown:{uuid.uuid4().hex[:8]}"
+
+
+class CanonicalEntry(BaseModel):
+    """Canonical paper entry (SERP + Academic integration)."""
+    canonical_id: str = Field(..., description="Canonical ID")
+    paper: Optional[Paper] = Field(None, description="Data from academic API")
+    serp_results: list[Any] = Field(default_factory=list, description="SERP result list")
+    source: str = Field(..., description="Source: 'api', 'serp', 'both'")
+    
+    @property
+    def best_url(self) -> str:
+        """Return the best URL."""
+        if self.paper and self.paper.oa_url:
+            return self.paper.oa_url
+        if self.paper and self.paper.doi:
+            return f"https://doi.org/{self.paper.doi}"
+        if self.serp_results:
+            from src.search.provider import SearchResult
+            first_serp = self.serp_results[0]
+            if isinstance(first_serp, SearchResult):
+                return first_serp.url
+            if isinstance(first_serp, dict):
+                return first_serp.get("url", "")
+        return ""
+    
+    @property
+    def needs_fetch(self) -> bool:
+        """Whether fetch/extract is needed."""
+        # Fetch not needed if abstract is available from academic API
+        return self.paper is None or not self.paper.abstract

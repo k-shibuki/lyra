@@ -1,0 +1,160 @@
+"""
+Semantic Scholar API client.
+
+Primary API for citation graphs (priority=1).
+"""
+
+from typing import Optional
+
+import httpx
+
+from src.search.apis.base import BaseAcademicClient
+from src.utils.schemas import Paper, Author, AcademicSearchResult
+from src.utils.api_retry import retry_api_call, ACADEMIC_API_POLICY
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class SemanticScholarClient(BaseAcademicClient):
+    """Semantic Scholar API client."""
+    
+    BASE_URL = "https://api.semanticscholar.org/graph/v1"
+    FIELDS = "paperId,title,abstract,year,authors,citationCount,referenceCount,isOpenAccess,openAccessPdf,venue,externalIds"
+    
+    def __init__(self):
+        """Initialize Semantic Scholar client."""
+        super().__init__("semantic_scholar")
+    
+    async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
+        """Search for papers."""
+        session = await self._get_session()
+        
+        async def _search():
+            response = await session.get(
+                f"{self.BASE_URL}/paper/search",
+                params={"query": query, "limit": limit, "fields": self.FIELDS}
+            )
+            response.raise_for_status()
+            return response.json()
+        
+        try:
+            data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
+            papers = [self._parse_paper(p) for p in data.get("data", [])]
+            
+            next_cursor = data.get("next")
+            # Semantic Scholar API returns 'next' as int offset, convert to string
+            if next_cursor is not None:
+                next_cursor = str(next_cursor)
+            
+            return AcademicSearchResult(
+                papers=papers,
+                total_count=data.get("total", 0),
+                next_cursor=next_cursor,
+                source_api="semantic_scholar"
+            )
+        except Exception as e:
+            logger.error("Semantic Scholar search failed", query=query, error=str(e))
+            return AcademicSearchResult(
+                papers=[],
+                total_count=0,
+                source_api="semantic_scholar"
+            )
+    
+    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+        """Get paper metadata."""
+        session = await self._get_session()
+        
+        async def _fetch():
+            response = await session.get(
+                f"{self.BASE_URL}/paper/{paper_id}",
+                params={"fields": self.FIELDS}
+            )
+            response.raise_for_status()
+            return response.json()
+        
+        try:
+            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+            return self._parse_paper(data)
+        except Exception as e:
+            logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
+            return None
+    
+    async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+        """Get references (papers cited by this paper) with influential citation flag."""
+        session = await self._get_session()
+        
+        async def _fetch():
+            response = await session.get(
+                f"{self.BASE_URL}/paper/{paper_id}/references",
+                params={"fields": self.FIELDS + ",isInfluential"}
+            )
+            response.raise_for_status()
+            return response.json()
+        
+        try:
+            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+            results = []
+            for ref in data.get("data", []):
+                if ref.get("citedPaper"):
+                    paper = self._parse_paper(ref["citedPaper"])
+                    is_influential = ref.get("isInfluential", False)
+                    results.append((paper, is_influential))
+            return results
+        except Exception as e:
+            logger.warning("Failed to get references", paper_id=paper_id, error=str(e))
+            return []
+    
+    async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+        """Get citations (papers that cite this paper)."""
+        session = await self._get_session()
+        
+        async def _fetch():
+            response = await session.get(
+                f"{self.BASE_URL}/paper/{paper_id}/citations",
+                params={"fields": self.FIELDS + ",isInfluential"}
+            )
+            response.raise_for_status()
+            return response.json()
+        
+        try:
+            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+            results = []
+            for cit in data.get("data", []):
+                if cit.get("citingPaper"):
+                    paper = self._parse_paper(cit["citingPaper"])
+                    is_influential = cit.get("isInfluential", False)
+                    results.append((paper, is_influential))
+            return results
+        except Exception as e:
+            logger.warning("Failed to get citations", paper_id=paper_id, error=str(e))
+            return []
+    
+    def _parse_paper(self, data: dict) -> Paper:
+        """Convert API response to Paper model."""
+        external_ids = data.get("externalIds", {})
+        oa_pdf = data.get("openAccessPdf", {})
+        
+        authors = []
+        for author_data in data.get("authors", []):
+            authors.append(Author(
+                name=author_data.get("name", ""),
+                affiliation=None,  # Semantic Scholar API does not provide affiliation
+                orcid=None
+            ))
+        
+        return Paper(
+            id=f"s2:{data['paperId']}",
+            title=data.get("title", ""),
+            abstract=data.get("abstract"),
+            authors=authors,
+            year=data.get("year"),
+            doi=external_ids.get("DOI"),
+            arxiv_id=external_ids.get("ArXiv"),
+            venue=data.get("venue"),
+            citation_count=data.get("citationCount", 0),
+            reference_count=data.get("referenceCount", 0),
+            is_open_access=data.get("isOpenAccess", False),
+            oa_url=oa_pdf.get("url") if oa_pdf else None,
+            source_api="semantic_scholar"
+        )
