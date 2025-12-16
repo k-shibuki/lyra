@@ -65,9 +65,12 @@ class SemanticScholarClient(BaseAcademicClient):
         """Get paper metadata."""
         session = await self._get_session()
         
+        # Normalize paper ID for API
+        normalized_id = self._normalize_paper_id(paper_id)
+        
         async def _fetch():
             response = await session.get(
-                f"{self.BASE_URL}/paper/{paper_id}",
+                f"{self.BASE_URL}/paper/{normalized_id}",
                 params={"fields": self.FIELDS}
             )
             response.raise_for_status()
@@ -80,13 +83,39 @@ class SemanticScholarClient(BaseAcademicClient):
             logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
             return None
     
+    def _normalize_paper_id(self, paper_id: str) -> str:
+        """Normalize paper ID for Semantic Scholar API.
+        
+        Converts internal ID format (e.g., 's2:12345') to API format (e.g., 'CorpusId:12345').
+        Also handles DOI, ArXiv, PMID formats.
+        
+        Args:
+            paper_id: Paper ID in various formats
+            
+        Returns:
+            Normalized paper ID for API
+        """
+        # Handle s2: prefix (internal format) -> CorpusId: (API format)
+        if paper_id.startswith("s2:"):
+            return paper_id.replace("s2:", "CorpusId:", 1)
+        
+        # Already in correct format (CorpusId:, DOI:, ArXiv:, PMID:)
+        if ":" in paper_id:
+            return paper_id
+        
+        # Assume it's a Corpus ID if no prefix
+        return f"CorpusId:{paper_id}"
+    
     async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get references (papers cited by this paper) with influential citation flag."""
         session = await self._get_session()
         
+        # Normalize paper ID for API
+        normalized_id = self._normalize_paper_id(paper_id)
+        
         async def _fetch():
             response = await session.get(
-                f"{self.BASE_URL}/paper/{paper_id}/references",
+                f"{self.BASE_URL}/paper/{normalized_id}/references",
                 params={"fields": self.FIELDS + ",isInfluential"}
             )
             response.raise_for_status()
@@ -109,9 +138,12 @@ class SemanticScholarClient(BaseAcademicClient):
         """Get citations (papers that cite this paper)."""
         session = await self._get_session()
         
+        # Normalize paper ID for API
+        normalized_id = self._normalize_paper_id(paper_id)
+        
         async def _fetch():
             response = await session.get(
-                f"{self.BASE_URL}/paper/{paper_id}/citations",
+                f"{self.BASE_URL}/paper/{normalized_id}/citations",
                 params={"fields": self.FIELDS + ",isInfluential"}
             )
             response.raise_for_status()

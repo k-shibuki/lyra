@@ -3,6 +3,22 @@ Tests for academic citation integration in evidence graph.
 
 Tests the add_academic_page_with_citations() function and
 is_academic/is_influential edge attributes.
+
+## Test Perspectives Table
+
+| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+|---------|---------------------|---------------------------------------|-----------------|-------|
+| TC-EG-N-01 | Add edge with is_academic=True | Equivalence – normal | Edge created with is_academic attribute | - |
+| TC-EG-N-02 | Add edge with is_influential=True | Equivalence – normal | Edge created with is_influential attribute | - |
+| TC-EG-N-03 | Add edge with citation_context | Equivalence – normal | Edge created with citation_context | - |
+| TC-EG-N-04 | add_academic_page_with_citations() with citations | Equivalence – normal | PAGE node and CITES edges created | - |
+| TC-EG-N-05 | add_academic_page_with_citations() without citations | Equivalence – normal | PAGE node created, no edges | - |
+| TC-EG-B-01 | citations=[] (empty list) | Boundary – empty | No edges created | - |
+| TC-EG-B-02 | citation_context=None | Boundary – NULL | Edge created with None context | - |
+| TC-EG-B-03 | paper_metadata={} (empty dict) | Boundary – empty | Node created with default values | - |
+| TC-EG-A-01 | Invalid Citation object in list | Abnormal – invalid input | Citation skipped, processing continues | - |
+| TC-EG-A-02 | DB insert fails | Abnormal – exception | Exception handled gracefully | - |
+| TC-EG-A-03 | cited_paper_id is None | Abnormal – invalid input | Edge creation skipped or handled | - |
 """
 
 import pytest
@@ -411,4 +427,196 @@ class TestAcademicEdgeQuery:
         
         # Then
         assert len(influential_edges) == 1
+
+
+# =============================================================================
+# Test: Boundary Values and Edge Cases
+# =============================================================================
+
+
+class TestBoundaryValues:
+    """Tests for boundary values and edge cases."""
+    
+    @pytest.mark.asyncio
+    async def test_citation_context_none(self, sample_paper_metadata):
+        """
+        TC-EG-B-02: citation_context=None is handled correctly.
+        
+        Given: Citation with context=None
+        When: Adding citation edge
+        Then: Edge is created with None context
+        """
+        citation = Citation(
+            citing_paper_id="page_123",
+            cited_paper_id="s2:ref1",
+            is_influential=False,
+            context=None,  # None context
+        )
+        
+        graph = EvidenceGraph(task_id="test_task")
+        
+        # When: Adding edge with None context
+        edge_id = graph.add_edge(
+            NodeType.PAGE, "page_123",
+            NodeType.PAGE, "s2:ref1",
+            RelationType.CITES,
+            is_academic=True,
+            citation_context=None,
+        )
+        
+        # Then: Edge created with None context
+        assert edge_id is not None
+        source_node = graph._make_node_id(NodeType.PAGE, "page_123")
+        target_node = graph._make_node_id(NodeType.PAGE, "s2:ref1")
+        edge_data = graph._graph.edges[source_node, target_node]
+        assert edge_data.get("citation_context") is None
+    
+    @pytest.mark.asyncio
+    async def test_empty_paper_metadata(self):
+        """
+        TC-EG-B-03: Empty paper_metadata dict is handled correctly.
+        
+        Given: Empty paper_metadata dict
+        When: add_academic_page_with_citations() is called
+        Then: Node created with default values
+        """
+        with patch("src.filter.evidence_graph.get_database") as mock_db:
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+            
+            # Given: Empty metadata
+            page_id = "page_test"
+            empty_metadata = {}
+            
+            # When: Adding page with empty metadata
+            await add_academic_page_with_citations(
+                page_id=page_id,
+                paper_metadata=empty_metadata,
+                citations=[],
+                task_id="test_task",
+            )
+            
+            # Then: Node should be created (default values used)
+            graph = await get_evidence_graph("test_task")
+            page_node = graph._make_node_id(NodeType.PAGE, page_id)
+            assert graph._graph.has_node(page_node)
+            
+            node_data = graph._graph.nodes[page_node]
+            assert node_data.get("is_academic") is True
+            assert node_data.get("citation_count", 0) == 0  # Default value
+
+
+# =============================================================================
+# Test: Exception Handling
+# =============================================================================
+
+
+class TestExceptionHandlingEvidenceGraph:
+    """Tests for exception handling in evidence graph operations."""
+    
+    @pytest.mark.asyncio
+    async def test_invalid_citation_object_skipped(self, sample_paper_metadata):
+        """
+        TC-EG-A-01: Invalid Citation object in list is skipped.
+        
+        Given: Citations list with invalid object
+        When: add_academic_page_with_citations() is called
+        Then: Invalid citation is skipped, processing continues
+        """
+        with patch("src.filter.evidence_graph.get_database") as mock_db:
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+            
+            # Given: Citations list with invalid object
+            invalid_citations = [
+                Citation(
+                    citing_paper_id="page_123",
+                    cited_paper_id="s2:ref1",
+                    is_influential=True,
+                ),
+                "not_a_citation",  # Invalid object
+                {"invalid": "dict"},  # Invalid object
+                Citation(
+                    citing_paper_id="page_123",
+                    cited_paper_id="s2:ref2",
+                    is_influential=False,
+                ),
+            ]
+            
+            # When: Adding citations
+            await add_academic_page_with_citations(
+                page_id="page_123",
+                paper_metadata=sample_paper_metadata,
+                citations=invalid_citations,
+                task_id="test_task",
+            )
+            
+            # Then: Only valid citations should create edges
+            # Should have 2 edge inserts (for 2 valid Citation objects)
+            valid_citation_count = sum(1 for c in invalid_citations if isinstance(c, Citation))
+            assert mock_db_instance.insert.call_count == valid_citation_count
+    
+    @pytest.mark.asyncio
+    async def test_db_insert_failure_handled(self, sample_paper_metadata, sample_citations):
+        """
+        TC-EG-A-02: DB insert failure is handled gracefully.
+        
+        Given: DB insert raises exception
+        When: add_academic_page_with_citations() is called
+        Then: Exception is raised (caller should handle it)
+        """
+        with patch("src.filter.evidence_graph.get_database") as mock_db:
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock(side_effect=Exception("DB error"))
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+            
+            # When: Adding citations (should raise exception)
+            with pytest.raises(Exception) as exc_info:
+                await add_academic_page_with_citations(
+                    page_id="page_123",
+                    paper_metadata=sample_paper_metadata,
+                    citations=sample_citations,
+                    task_id="test_task",
+                )
+            
+            # Then: Exception is raised (caller should handle it)
+            assert "DB error" in str(exc_info.value)
+    
+    @pytest.mark.asyncio
+    async def test_cited_paper_id_empty_string_handled(self, sample_paper_metadata):
+        """
+        TC-EG-A-03: cited_paper_id is empty string is handled.
+        
+        Given: Citation with cited_paper_id=""
+        When: Adding citation edge
+        Then: Edge creation proceeds (empty string is valid)
+        """
+        # Given: Citation with empty string cited_paper_id
+        citation_with_empty = Citation(
+            citing_paper_id="page_123",
+            cited_paper_id="",  # Empty string (valid but edge case)
+            is_influential=False,
+        )
+        
+        with patch("src.filter.evidence_graph.get_database") as mock_db:
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+            
+            # When: Adding citation with empty ID
+            await add_academic_page_with_citations(
+                page_id="page_123",
+                paper_metadata=sample_paper_metadata,
+                citations=[citation_with_empty],
+                task_id="test_task",
+            )
+            
+            # Then: Edge should be created (empty string is valid)
+            assert mock_db_instance.insert.call_count == 1
 
