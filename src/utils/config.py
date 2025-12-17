@@ -6,7 +6,7 @@ Loads and validates settings from YAML files and environment variables.
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -216,6 +216,40 @@ class MetricsConfig(BaseModel):
     hysteresis_min_interval: int = 300
 
 
+class AcademicAPIRateLimitConfig(BaseModel):
+    """Academic API rate limit configuration."""
+    requests_per_interval: Optional[int] = None
+    interval_seconds: Optional[int] = None
+    requests_per_day: Optional[int] = None
+    polite_pool: Optional[bool] = None
+    min_interval_seconds: Optional[int] = None
+
+
+class AcademicAPIConfig(BaseModel):
+    """Configuration for a single academic API."""
+    enabled: bool = True
+    base_url: str
+    timeout_seconds: int = 30
+    priority: int = 999
+    rate_limit: Optional[AcademicAPIRateLimitConfig] = None
+    headers: Optional[dict[str, str]] = None
+    email: Optional[str] = None  # For Unpaywall
+
+
+class AcademicAPIsDefaultsConfig(BaseModel):
+    """Default settings for academic APIs."""
+    search_apis: list[str] = Field(default_factory=lambda: ["semantic_scholar", "openalex"])
+    citation_graph_api: str = "semantic_scholar"
+    max_citation_depth: int = 2
+    max_papers_per_search: int = 50
+
+
+class AcademicAPIsConfig(BaseModel):
+    """Academic APIs configuration."""
+    apis: dict[str, AcademicAPIConfig] = Field(default_factory=dict)
+    defaults: AcademicAPIsDefaultsConfig = Field(default_factory=AcademicAPIsDefaultsConfig)
+
+
 class GeneralConfig(BaseModel):
     """General configuration."""
     project_name: str = "lancet"
@@ -287,6 +321,68 @@ def _load_yaml_config(config_dir: Path) -> dict[str, Any]:
             config = _deep_merge(config, settings_data)
     
     return config
+
+
+def _load_academic_apis_config(config_dir: Path) -> dict[str, Any]:
+    """Load academic APIs configuration from YAML file.
+    
+    Args:
+        config_dir: Configuration directory path.
+        
+    Returns:
+        Academic APIs configuration dictionary.
+    """
+    config_path = config_dir / "academic_apis.yaml"
+    if not config_path.exists():
+        return {}
+    
+    with open(config_path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+        return data
+
+
+@lru_cache(maxsize=1)
+def get_academic_apis_config() -> AcademicAPIsConfig:
+    """Get academic APIs configuration.
+    
+    Configuration is loaded from:
+    1. config/academic_apis.yaml
+    2. Environment variables (highest priority, prefixed with LANCET_ACADEMIC_APIS__)
+    
+    Returns:
+        AcademicAPIsConfig instance.
+    """
+    # Determine config directory
+    config_dir = Path(os.environ.get("LANCET_CONFIG_DIR", "config"))
+    
+    # Load base configuration
+    config_data = _load_academic_apis_config(config_dir)
+    
+    # Apply environment overrides
+    config_data = _apply_env_overrides({"academic_apis": config_data}).get("academic_apis", config_data)
+    
+    # Parse API configurations
+    apis_dict = {}
+    if "apis" in config_data:
+        for api_name, api_data in config_data["apis"].items():
+            # Parse rate_limit if present
+            rate_limit_data = api_data.get("rate_limit", {})
+            rate_limit = None
+            if rate_limit_data:
+                rate_limit = AcademicAPIRateLimitConfig(**rate_limit_data)
+            
+            # Create API config
+            api_config_data = {k: v for k, v in api_data.items() if k != "rate_limit"}
+            if rate_limit:
+                api_config_data["rate_limit"] = rate_limit
+            
+            apis_dict[api_name] = AcademicAPIConfig(**api_config_data)
+    
+    # Parse defaults
+    defaults_data = config_data.get("defaults", {})
+    defaults = AcademicAPIsDefaultsConfig(**defaults_data)
+    
+    return AcademicAPIsConfig(apis=apis_dict, defaults=defaults)
 
 
 def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:

@@ -19,12 +19,25 @@ logger = get_logger(__name__)
 class SemanticScholarClient(BaseAcademicClient):
     """Semantic Scholar API client."""
     
-    BASE_URL = "https://api.semanticscholar.org/graph/v1"
     FIELDS = "paperId,title,abstract,year,authors,citationCount,referenceCount,isOpenAccess,openAccessPdf,venue,externalIds"
     
     def __init__(self):
         """Initialize Semantic Scholar client."""
-        super().__init__("semantic_scholar")
+        # Load config
+        try:
+            from src.utils.config import get_academic_apis_config
+            config = get_academic_apis_config()
+            api_config = config.apis.get("semantic_scholar", {})
+            base_url = api_config.base_url if api_config.base_url else "https://api.semanticscholar.org/graph/v1"
+            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
+            headers = api_config.headers if api_config.headers else None
+        except Exception:
+            # Fallback to defaults if config loading fails
+            base_url = "https://api.semanticscholar.org/graph/v1"
+            timeout = 30.0
+            headers = None
+        
+        super().__init__("semantic_scholar", base_url=base_url, timeout=timeout, headers=headers)
     
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers."""
@@ -32,7 +45,7 @@ class SemanticScholarClient(BaseAcademicClient):
         
         async def _search():
             response = await session.get(
-                f"{self.BASE_URL}/paper/search",
+                f"{self.base_url}/paper/search",
                 params={"query": query, "limit": limit, "fields": self.FIELDS}
             )
             response.raise_for_status()
@@ -70,7 +83,7 @@ class SemanticScholarClient(BaseAcademicClient):
         
         async def _fetch():
             response = await session.get(
-                f"{self.BASE_URL}/paper/{normalized_id}",
+                f"{self.base_url}/paper/{normalized_id}",
                 params={"fields": self.FIELDS}
             )
             response.raise_for_status()
@@ -120,7 +133,7 @@ class SemanticScholarClient(BaseAcademicClient):
         
         async def _fetch():
             response = await session.get(
-                f"{self.BASE_URL}/paper/{normalized_id}/references",
+                f"{self.base_url}/paper/{normalized_id}/references",
                 params={"fields": self.FIELDS + ",isInfluential"}
             )
             response.raise_for_status()
@@ -148,7 +161,7 @@ class SemanticScholarClient(BaseAcademicClient):
         
         async def _fetch():
             response = await session.get(
-                f"{self.BASE_URL}/paper/{normalized_id}/citations",
+                f"{self.base_url}/paper/{normalized_id}/citations",
                 params={"fields": self.FIELDS + ",isInfluential"}
             )
             response.raise_for_status()

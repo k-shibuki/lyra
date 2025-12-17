@@ -19,11 +19,23 @@ logger = get_logger(__name__)
 class OpenAlexClient(BaseAcademicClient):
     """OpenAlex API client."""
     
-    BASE_URL = "https://api.openalex.org"
-    
     def __init__(self):
         """Initialize OpenAlex client."""
-        super().__init__("openalex")
+        # Load config
+        try:
+            from src.utils.config import get_academic_apis_config
+            config = get_academic_apis_config()
+            api_config = config.apis.get("openalex", {})
+            base_url = api_config.base_url if api_config.base_url else "https://api.openalex.org"
+            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
+            headers = api_config.headers if api_config.headers else None
+        except Exception:
+            # Fallback to defaults if config loading fails
+            base_url = "https://api.openalex.org"
+            timeout = 30.0
+            headers = None
+        
+        super().__init__("openalex", base_url=base_url, timeout=timeout, headers=headers)
     
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers."""
@@ -31,7 +43,7 @@ class OpenAlexClient(BaseAcademicClient):
         
         async def _search():
             response = await session.get(
-                f"{self.BASE_URL}/works",
+                f"{self.base_url}/works",
                 params={
                     "search": query,
                     "per-page": limit,
@@ -68,7 +80,7 @@ class OpenAlexClient(BaseAcademicClient):
             if pid.startswith("https://"):
                 pid = pid.split("/")[-1]
             response = await session.get(
-                f"{self.BASE_URL}/works/{pid}",
+                f"{self.base_url}/works/{pid}",
                 params={"select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location"}
             )
             response.raise_for_status()
