@@ -21,11 +21,23 @@ logger = get_logger(__name__)
 class ArxivClient(BaseAcademicClient):
     """arXiv API client."""
     
-    BASE_URL = "http://export.arxiv.org/api/query"
-    
     def __init__(self):
         """Initialize arXiv client."""
-        super().__init__("arxiv")
+        # Load config
+        try:
+            from src.utils.config import get_academic_apis_config
+            config = get_academic_apis_config()
+            api_config = config.apis.get("arxiv", {})
+            base_url = api_config.base_url if api_config.base_url else "http://export.arxiv.org/api/query"
+            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
+            headers = api_config.headers if api_config.headers else None
+        except Exception:
+            # Fallback to defaults if config loading fails
+            base_url = "http://export.arxiv.org/api/query"
+            timeout = 30.0
+            headers = None
+        
+        super().__init__("arxiv", base_url=base_url, timeout=timeout, headers=headers)
     
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers (Atom XML format)."""
@@ -33,7 +45,7 @@ class ArxivClient(BaseAcademicClient):
         
         async def _search():
             response = await session.get(
-                self.BASE_URL,
+                self.base_url,
                 params={
                     "search_query": f"all:{query}",
                     "start": 0,
@@ -70,7 +82,7 @@ class ArxivClient(BaseAcademicClient):
             # paper_id is "2301.12345" format or "arXiv:2301.12345"
             arxiv_id = paper_id.replace("arXiv:", "").replace("arxiv:", "")
             response = await session.get(
-                self.BASE_URL,
+                self.base_url,
                 params={"id_list": arxiv_id}
             )
             response.raise_for_status()

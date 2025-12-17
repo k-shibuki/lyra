@@ -409,6 +409,17 @@ class SearchPipeline:
             
             for entry in unique_entries:
                 if entry.paper and entry.paper.abstract:
+                    # Try to resolve OA URL via Unpaywall if not available
+                    if not entry.paper.oa_url and entry.paper.doi:
+                        try:
+                            resolved_oa_url = await academic_provider.resolve_oa_url_for_paper(entry.paper)
+                            if resolved_oa_url:
+                                # Update paper object with resolved OA URL
+                                entry.paper.oa_url = resolved_oa_url
+                                entry.paper.is_open_access = True
+                        except Exception as e:
+                            logger.debug("Failed to resolve OA URL via Unpaywall", doi=entry.paper.doi, error=str(e))
+                    
                     # Abstract Only: Skip fetch, persist abstract directly
                     try:
                         page_id, fragment_id = await self._persist_abstract_as_fragment(
@@ -516,17 +527,17 @@ class SearchPipeline:
             await academic_provider.close()
     
     def _is_academic_query(self, query: str) -> bool:
-        """学術クエリかどうかを判定.
+        """Determine if query is academic.
         
         Args:
-            query: 検索クエリ
+            query: Search query
             
         Returns:
             True if academic query
         """
         query_lower = query.lower()
         
-        # キーワード判定
+        # Keyword detection
         academic_keywords = [
             "論文", "paper", "研究", "study", "学術", "journal",
             "arxiv", "pubmed", "doi:", "citation", "引用",
@@ -535,7 +546,7 @@ class SearchPipeline:
         if any(kw in query_lower for kw in academic_keywords):
             return True
         
-        # サイト指定判定
+        # Site specification detection
         academic_sites = [
             "arxiv.org", "pubmed", "scholar.google", "jstage",
             "doi.org", "semanticscholar.org", "crossref.org",
@@ -543,27 +554,27 @@ class SearchPipeline:
         if any(f"site:{site}" in query_lower for site in academic_sites):
             return True
         
-        # DOI形式判定
+        # DOI format detection
         if re.search(r"10\.\d{4,}/", query):
             return True
         
         return False
     
     def _expand_academic_query(self, query: str) -> list[str]:
-        """学術クエリを複数のサイト指定クエリに展開.
+        """Expand academic query into multiple site-specific queries.
         
         Args:
-            query: 元のクエリ
+            query: Original query
             
         Returns:
-            展開されたクエリのリスト
+            List of expanded queries
         """
-        queries = [query]  # 元のクエリ
+        queries = [query]  # Original query
         
-        # site:演算子を除去
+        # Remove site: operator
         base_query = re.sub(r'\bsite:\S+', '', query).strip()
         
-        # 学術サイト指定を追加（上位2サイトのみ）
+        # Add academic site specifications (top 2 sites only)
         academic_sites = [
             "arxiv.org",
             "pubmed.ncbi.nlm.nih.gov",

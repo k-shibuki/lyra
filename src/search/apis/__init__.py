@@ -13,6 +13,7 @@ from src.search.apis.semantic_scholar import SemanticScholarClient
 from src.search.apis.openalex import OpenAlexClient
 from src.search.apis.crossref import CrossrefClient
 from src.search.apis.arxiv import ArxivClient
+from src.search.apis.unpaywall import UnpaywallClient
 
 __all__ = [
     "BaseAcademicClient",
@@ -20,5 +21,6 @@ __all__ = [
     "OpenAlexClient",
     "CrossrefClient",
     "ArxivClient",
+    "UnpaywallClient",
 ]
 

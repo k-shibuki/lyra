@@ -1,0 +1,56 @@
+# Academic API Configuration for Lancet
+# See docs/J2_ACADEMIC_API_INTEGRATION.md §8.1
+
+apis:
+  semantic_scholar:
+    enabled: true
+    base_url: "https://api.semanticscholar.org/graph/v1"
+    rate_limit:
+      requests_per_interval: 100
+      interval_seconds: 300  # 5 minutes
+    timeout_seconds: 30
+    priority: 1  # Highest priority (best citation graph coverage)
+    
+  openalex:
+    enabled: true
+    base_url: "https://api.openalex.org"
+    rate_limit:
+      requests_per_day: 100000
+    timeout_seconds: 30
+    priority: 2
+    headers:
+      User-Agent: "Lancet/1.0 (research tool; mailto:lancet@example.com)"
+    
+  crossref:
+    enabled: true
+    base_url: "https://api.crossref.org"
+    rate_limit:
+      polite_pool: true  # Polite pool access with mailto in User-Agent
+    timeout_seconds: 30
+    priority: 3
+    headers:
+      User-Agent: "Lancet/1.0 (research tool; mailto:lancet@example.com)"
+    
+  arxiv:
+    enabled: true
+    base_url: "http://export.arxiv.org/api/query"
+    rate_limit:
+      min_interval_seconds: 3
+    timeout_seconds: 30
+    priority: 4  # Preprint-specific
+    
+  unpaywall:
+    enabled: false  # Disabled by default. Set LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__ENABLED=true to enable
+    base_url: "https://api.unpaywall.org/v2"
+    rate_limit:
+      requests_per_day: 100000
+    timeout_seconds: 30
+    priority: 5  # OA URL resolution only
+    email: "lancet@example.com"  # Required if enabled (can be overridden via LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL env var)
+
+# Default settings
+defaults:
+  search_apis: ["semantic_scholar", "openalex"]
+  citation_graph_api: "semantic_scholar"
+  max_citation_depth: 2
+  max_papers_per_search: 50

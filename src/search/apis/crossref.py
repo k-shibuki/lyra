@@ -19,11 +19,23 @@ logger = get_logger(__name__)
 class CrossrefClient(BaseAcademicClient):
     """Crossref API client."""
     
-    BASE_URL = "https://api.crossref.org"
-    
     def __init__(self):
         """Initialize Crossref client."""
-        super().__init__("crossref")
+        # Load config
+        try:
+            from src.utils.config import get_academic_apis_config
+            config = get_academic_apis_config()
+            api_config = config.apis.get("crossref", {})
+            base_url = api_config.base_url if api_config.base_url else "https://api.crossref.org"
+            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
+            headers = api_config.headers if api_config.headers else None
+        except Exception:
+            # Fallback to defaults if config loading fails
+            base_url = "https://api.crossref.org"
+            timeout = 30.0
+            headers = None
+        
+        super().__init__("crossref", base_url=base_url, timeout=timeout, headers=headers)
     
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers."""
@@ -31,7 +43,7 @@ class CrossrefClient(BaseAcademicClient):
         
         async def _search():
             response = await session.get(
-                f"{self.BASE_URL}/works",
+                f"{self.base_url}/works",
                 params={"query": query, "rows": limit}
             )
             response.raise_for_status()
@@ -64,7 +76,7 @@ class CrossrefClient(BaseAcademicClient):
         session = await self._get_session()
         
         async def _fetch():
-            response = await session.get(f"{self.BASE_URL}/works/{doi}")
+            response = await session.get(f"{self.base_url}/works/{doi}")
             if response.status_code == 404:
                 return None
             response.raise_for_status()
