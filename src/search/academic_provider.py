@@ -283,11 +283,11 @@ class AcademicSearchProvider(BaseSearchProvider):
         # Try Unpaywall API
         try:
             unpaywall_client = await self._get_client("unpaywall")
-            if isinstance(unpaywall_client, UnpaywallClient):
-                oa_url = await unpaywall_client.resolve_oa_url(paper.doi)
-                if oa_url:
-                    logger.debug("Resolved OA URL via Unpaywall", doi=paper.doi, oa_url=oa_url)
-                    return oa_url
+            # _get_client("unpaywall") always returns UnpaywallClient when enabled
+            oa_url = await unpaywall_client.resolve_oa_url(paper.doi)
+            if oa_url:
+                logger.debug("Resolved OA URL via Unpaywall", doi=paper.doi, oa_url=oa_url)
+                return oa_url
         except ValueError as e:
             # Unpaywall is disabled
             logger.debug("Unpaywall is disabled", error=str(e))
