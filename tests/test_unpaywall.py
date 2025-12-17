@@ -331,7 +331,8 @@ class TestAcademicSearchProviderIntegration:
         provider = AcademicSearchProvider()
         
         # When: Resolving OA URL via Unpaywall
-        with patch.object(provider, "_get_client") as mock_get_client:
+        with patch.object(provider, "_is_unpaywall_enabled", return_value=True), \
+             patch.object(provider, "_get_client") as mock_get_client:
             mock_unpaywall_client = AsyncMock(spec=UnpaywallClient)
             mock_unpaywall_client.resolve_oa_url = AsyncMock(return_value="https://example.com/resolved.pdf")
             mock_get_client.return_value = mock_unpaywall_client
@@ -349,7 +350,8 @@ class TestAcademicSearchProviderIntegration:
         provider = AcademicSearchProvider()
         
         # When: Resolving OA URL and API returns None
-        with patch.object(provider, "_get_client") as mock_get_client:
+        with patch.object(provider, "_is_unpaywall_enabled", return_value=True), \
+             patch.object(provider, "_get_client") as mock_get_client:
             mock_unpaywall_client = AsyncMock(spec=UnpaywallClient)
             mock_unpaywall_client.resolve_oa_url = AsyncMock(return_value=None)
             mock_get_client.return_value = mock_unpaywall_client
@@ -366,7 +368,8 @@ class TestAcademicSearchProviderIntegration:
         provider = AcademicSearchProvider()
         
         # When: Resolving OA URL and exception occurs
-        with patch.object(provider, "_get_client") as mock_get_client:
+        with patch.object(provider, "_is_unpaywall_enabled", return_value=True), \
+             patch.object(provider, "_get_client") as mock_get_client:
             mock_get_client.side_effect = Exception("Client initialization failed")
             
             # Then: Should not raise exception, return None
