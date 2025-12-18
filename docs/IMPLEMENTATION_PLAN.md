@@ -797,10 +797,11 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | 国会会議録API | 同上 | 未着手 |
 | gBizINFO | 同上 | 未着手 |
 | EDINET | 同上 | 未着手 |
-| **OpenAlex** | 同上 | **設計完了/実装前** |
-| **Semantic Scholar** | 同上 | **設計完了/実装前** |
-| **Crossref** | 同上 | **設計完了/実装前** |
-| **Unpaywall** | 同上 | **設計完了/実装前** |
+| **OpenAlex** | 同上 | ✅ **実装完了** |
+| **Semantic Scholar** | 同上 | ✅ **実装完了** |
+| **Crossref** | 同上 | ✅ **実装完了** |
+| **arXiv** | 同上 | ✅ **実装完了** |
+| **Unpaywall** | 同上 | ✅ **実装完了** |
 | Wikidata | 同上 | 未着手 |
 
 #### J.1 日本政府API統合
@@ -812,10 +813,11 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - gBizINFO API: 法人基本情報
 - EDINET API: 有価証券報告書
 
-#### J.2 学術API統合 🔴優先
+#### J.2 学術API統合 ✅完了
 
-**状態**: 設計完了、実装待ち  
-**詳細ドキュメント**: `docs/J2_ACADEMIC_API_INTEGRATION.md`
+**状態**: ✅ 実装完了  
+**詳細ドキュメント**: `docs/J2_ACADEMIC_API_INTEGRATION.md`  
+**完了日**: 2025-12-18
 
 **対象（§3.1.3、§5.1.1）**:
 - Semantic Scholar API: 論文/引用ネットワーク（引用グラフ主API）
@@ -833,19 +835,31 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
-| J.2.1 | `AcademicSearchProvider` 設計 | ✅ 設計完了 |
-| J.2.2 | Semantic Scholar APIクライアント | ⏳ |
-| J.2.3 | OpenAlex APIクライアント | ⏳ |
-| J.2.4 | Crossref APIクライアント | ⏳ |
-| J.2.5 | arXiv APIクライアント | ⏳ |
-| J.2.6 | エビデンスグラフ拡張（PAPER/academic_cites） | ⏳ |
-| J.2.7 | 検索パイプライン統合 | ⏳ |
-| J.2.8 | テスト・E2E検証 | ⏳ |
+| J.2.1 | `AcademicSearchProvider` 設計 | ✅ 完了 |
+| J.2.2 | Semantic Scholar APIクライアント | ✅ 完了 |
+| J.2.3 | OpenAlex APIクライアント | ✅ 完了 |
+| J.2.4 | Crossref APIクライアント | ✅ 完了 |
+| J.2.5 | arXiv APIクライアント | ✅ 完了 |
+| J.2.6 | エビデンスグラフ拡張（CITESエッジにis_academic/is_influential属性追加） | ✅ 完了 |
+| J.2.7 | 検索パイプライン統合（補完的検索戦略） | ✅ 完了 |
+| J.2.8 | テスト・E2E検証 | ✅ 完了 |
 
-**仕様書更新**:
-- §3.1.3: 学術API統合戦略を追加
-- §3.3.1: エビデンスグラフにPAPERノード/academic_citesエッジを追加
-- §7: 学術的支持の品質基準を追加
+**成果物**:
+- `src/search/apis/`: 5つのAPIクライアント（semantic_scholar, openalex, crossref, arxiv, unpaywall）
+- `src/search/academic_provider.py`: 統合プロバイダ
+- `src/search/canonical_index.py`: DOIベース重複排除
+- `src/search/identifier_extractor.py`: URL/DOI識別子抽出
+- `src/search/id_resolver.py`: PMID/arXiv→DOI解決
+- `src/filter/evidence_graph.py`: 学術引用エッジ対応
+- `config/academic_apis.yaml`: API設定ファイル
+- `migrations/002_add_academic_columns.sql`: DBスキーマ拡張
+- テスト: 61件（test_pipeline_academic.py, test_evidence_graph_academic.py, test_academic_apis_config.py, test_unpaywall.py）
+- E2E検証: `tests/scripts/debug_academic_api_flow.py`
+
+**設計変更**:
+- **Abstract Only戦略採用**: PDFフルテキスト取得を排除し、抄録＋メタデータのみ自動取得
+- **ハイブリッド方式**: Paper→Page統合（paper_metadataはJSON列として格納予定）
+- **補完的検索**: 学術クエリ時はブラウザ検索とAPI検索を並列実行
 
 #### J.3 エンティティ解決強化
 
