@@ -1162,12 +1162,12 @@ class PageClassifier:
             hostname_parts = hostname.split(".")
             if hostname_parts:
                 subdomain = hostname_parts[0]
-                if subdomain in ["docs", "blog", "forum", "wiki", "help", 
+                if subdomain in ["docs", "blog", "forum", "wiki", "help",
                                 "support", "community", "news"]:
                     hints.append(subdomain)
-        except Exception:
-            pass
-        
+        except Exception as e:
+            logger.debug("URL hint extraction failed", error=str(e))
+
         return hints
     
     def _features_to_dict(self, features: PageFeatures) -> dict[str, Any]:

@@ -414,9 +414,9 @@ class UndetectedChromeProvider(BaseBrowserProvider):
             )
         
         options = options or BrowserOptions(mode=BrowserMode.HEADFUL)
-        
+
         # Run synchronous navigation in thread pool
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self._navigate_sync(url, options),
@@ -432,8 +432,8 @@ class UndetectedChromeProvider(BaseBrowserProvider):
         
         if self._driver is None:
             raise RuntimeError("No browser instance available")
-        
-        loop = asyncio.get_event_loop()
+
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self._driver.execute_script(script, *args),
@@ -445,9 +445,9 @@ class UndetectedChromeProvider(BaseBrowserProvider):
         
         if self._driver is None:
             return []
-        
+
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             raw_cookies = await loop.run_in_executor(
                 None,
                 self._driver.get_cookies,
@@ -474,8 +474,8 @@ class UndetectedChromeProvider(BaseBrowserProvider):
                         cookie_name=cookie.name,
                         error=str(e),
                     )
-        
-        loop = asyncio.get_event_loop()
+
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, _set_cookies_sync)
     
     async def take_screenshot(
@@ -494,9 +494,9 @@ class UndetectedChromeProvider(BaseBrowserProvider):
             screenshots_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             path = str(screenshots_dir / f"{timestamp}_manual_uc.png")
-        
+
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 None,
                 lambda: self._driver.save_screenshot(path),
@@ -531,7 +531,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
     
     async def close(self) -> None:
         """Close and cleanup provider resources."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._close_sync)
         await super().close()
         logger.info("UndetectedChrome provider closed")

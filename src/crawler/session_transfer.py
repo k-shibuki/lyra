@@ -166,7 +166,8 @@ class SessionData(BaseModel):
             parsed = urlparse(url)
             target_domain = _get_registrable_domain(parsed.netloc)
             return target_domain == self.domain
-        except Exception:
+        except Exception as e:
+            logger.debug("Session URL validation failed", url=url[:100], error=str(e))
             return False
     
     def get_cookies_for_url(self, url: str) -> list[CookieData]:

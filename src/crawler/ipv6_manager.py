@@ -439,9 +439,9 @@ class IPv6ConnectionManager:
         """
         ipv6_addresses: list[IPv6Address] = []
         ipv4_addresses: list[IPv6Address] = []
-        
-        loop = asyncio.get_event_loop()
-        
+
+        loop = asyncio.get_running_loop()
+
         try:
             # Try to resolve both IPv6 and IPv4
             # Use AF_UNSPEC to get both

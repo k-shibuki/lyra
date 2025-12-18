@@ -649,10 +649,11 @@ class SitemapParser:
             )
             
             return response.status_code == 200
-            
-        except Exception:
+
+        except Exception as e:
+            logger.debug("Sitemap HEAD request failed", url=url, error=str(e))
             return False
-    
+
     def _extract_sitemap_urls(self, root: ET.Element) -> list[str]:
         """Extract sitemap URLs from sitemap index.
         
