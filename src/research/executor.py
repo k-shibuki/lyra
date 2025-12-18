@@ -426,7 +426,8 @@ class SearchExecutor:
                 domain_short = ".".join(parts[-2:])
             else:
                 domain_short = domain
-        except Exception:
+        except Exception as e:
+            logger.debug("URL parsing failed, using raw URL", url=url[:50], error=str(e))
             domain = url
             domain_short = url
         
