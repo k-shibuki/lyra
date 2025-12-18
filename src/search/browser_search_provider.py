@@ -59,7 +59,7 @@ logger = get_logger(__name__)
 class CDPConnectionError(Exception):
     """
     Raised when CDP connection to Chrome fails.
-    
+
     This indicates Chrome is not running with remote debugging enabled.
     Per spec (§4.3.3), headless fallback is not supported.
     """
@@ -74,22 +74,22 @@ class CDPConnectionError(Exception):
 @dataclass
 class BrowserSearchSession:
     """Session data for browser-based search."""
-    
+
     engine: str
     cookies: list[dict[str, Any]]
     last_used: float
     captcha_count: int = 0
     success_count: int = 0
-    
+
     def is_fresh(self, max_age_seconds: float = 3600.0) -> bool:
         """Check if session is still fresh."""
         return (time.time() - self.last_used) < max_age_seconds
-    
+
     def record_success(self) -> None:
         """Record successful search."""
         self.success_count += 1
         self.last_used = time.time()
-    
+
     def record_captcha(self) -> None:
         """Record CAPTCHA encounter."""
         self.captcha_count += 1
@@ -104,17 +104,17 @@ class BrowserSearchSession:
 class BrowserSearchProvider(BaseSearchProvider):
     """
     Browser-based search provider using Playwright.
-    
+
     Executes searches directly in browser, maintaining consistent
     fingerprint and session across search and fetch stages.
-    
+
     Features:
     - Direct browser search via Playwright
     - Cookie/fingerprint consistency
     - CAPTCHA detection and intervention queue integration
     - Session preservation across searches
     - Multiple search engine support (DuckDuckGo, Mojeek, etc.)
-    
+
     Example:
         provider = BrowserSearchProvider()
         response = await provider.search("AI regulations", SearchOptions(language="ja"))
@@ -123,11 +123,11 @@ class BrowserSearchProvider(BaseSearchProvider):
                 print(result.title, result.url)
         await provider.close()
     """
-    
+
     DEFAULT_ENGINE = "duckduckgo"
     DEFAULT_TIMEOUT = 30
     MIN_INTERVAL = 2.0  # Minimum seconds between searches
-    
+
     def __init__(
         self,
         default_engine: str | None = None,
@@ -136,67 +136,67 @@ class BrowserSearchProvider(BaseSearchProvider):
     ):
         """
         Initialize browser search provider.
-        
+
         Args:
             default_engine: Default search engine to use.
             timeout: Search timeout in seconds.
             min_interval: Minimum interval between searches.
         """
         super().__init__("browser_search")
-        
+
         self._settings = get_settings()
         self._default_engine = default_engine or self.DEFAULT_ENGINE
         self._timeout = timeout or self.DEFAULT_TIMEOUT
         self._min_interval = min_interval or self.MIN_INTERVAL
-        
+
         # Browser state (lazy initialization)
         self._playwright = None
         self._browser = None
         self._context = None
         self._page = None
-        
+
         # Rate limiting
         self._rate_limiter = asyncio.Semaphore(1)
         self._last_search_time = 0.0
         self._last_search_times: dict[str, float] = {}  # Per-engine tracking
-        
+
         # Session management
         self._sessions: dict[str, BrowserSearchSession] = {}
-        
+
         # CDP connection state
         self._cdp_connected = False
-        
+
         # Health metrics
         self._success_count = 0
         self._failure_count = 0
         self._captcha_count = 0
         self._total_latency = 0.0
         self._last_error: str | None = None
-        
+
         # Human behavior simulation
         self._human_behavior = HumanBehavior()
-    
+
     async def _ensure_browser(self) -> None:
         """
         Ensure browser is initialized via CDP connection.
-        
+
         Per spec (§3.2, §4.3.3), CDP connection to real Chrome profile is required.
         Headless fallback is not supported as it violates the "real profile consistency" principle.
-        
+
         Raises:
             CDPConnectionError: If CDP connection fails (Chrome not running or not accessible).
         """
         if self._playwright is None:
             try:
                 from playwright.async_api import async_playwright
-                
+
                 self._playwright = await async_playwright().start()
-                
+
                 # CDP connection to Chrome (required, no fallback)
                 chrome_host = getattr(self._settings.browser, "chrome_host", "localhost")
                 chrome_port = getattr(self._settings.browser, "chrome_port", 9222)
                 cdp_url = f"http://{chrome_host}:{chrome_port}"
-                
+
                 try:
                     self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
                     self._cdp_connected = True
@@ -207,12 +207,12 @@ class BrowserSearchProvider(BaseSearchProvider):
                     self._cdp_connected = False
                     await self._playwright.stop()
                     self._playwright = None
-                    
+
                     raise CDPConnectionError(
                         f"CDP connection failed: {e}. "
                         f"Start Chrome with: ./scripts/chrome.sh start"
                     ) from e
-                
+
                 # Reuse existing context if available (preserves profile cookies per §3.6.1)
                 existing_contexts = self._browser.contexts
                 if existing_contexts:
@@ -230,24 +230,24 @@ class BrowserSearchProvider(BaseSearchProvider):
                         user_agent=self._get_user_agent(),
                     )
                     logger.info("Created new browser context")
-                
+
                 # Block unnecessary resources
                 await self._context.route(
                     "**/*.{png,jpg,jpeg,gif,svg,webp,mp4,webm,mp3,woff,woff2}",
                     lambda route: route.abort(),
                 )
-                
+
                 # Perform profile health audit on browser session initialization
                 # Only audit when new context is created (not when reusing existing context)
                 if not existing_contexts:
                     await self._perform_health_audit()
-                
+
             except CDPConnectionError:
                 raise
             except Exception as e:
                 logger.error("Failed to initialize browser", error=str(e))
                 raise
-    
+
     def _get_user_agent(self) -> str:
         """Get user agent string matching Windows Chrome."""
         return (
@@ -255,28 +255,28 @@ class BrowserSearchProvider(BaseSearchProvider):
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/120.0.0.0 Safari/537.36"
         )
-    
+
     async def _perform_health_audit(self) -> None:
         """Perform profile health audit on browser session initialization.
-        
+
         Per high-frequency check requirement: Execute audit at browser session
         initialization to detect drift in UA, fonts, language, timezone, canvas, audio.
         """
         try:
             from src.crawler.profile_audit import perform_health_check, AuditStatus
-            
+
             # Create temporary page for audit (minimal impact on performance)
             page = await self._context.new_page()
             try:
                 await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
-                
+
                 # Perform health check with auto-repair enabled
                 audit_result = await perform_health_check(
                     page,
                     force=False,
                     auto_repair=True,
                 )
-                
+
                 if audit_result.status == AuditStatus.DRIFT:
                     logger.warning(
                         "Profile drift detected and repaired",
@@ -301,65 +301,65 @@ class BrowserSearchProvider(BaseSearchProvider):
                 "Profile health audit error (non-blocking)",
                 error=str(e),
             )
-    
+
     async def _get_page(self) -> Any:
         """Get or create a browser page."""
         await self._ensure_browser()
-        
+
         if self._page is None or self._page.is_closed():
             self._page = await self._context.new_page()
-        
+
         return self._page
-    
+
     async def _rate_limit(self, engine: str | None = None) -> None:
         """Apply rate limiting between searches (per-engine QPS).
-        
+
         Per spec §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
         Per spec §4.3: "Engine QPS≤0.25, concurrency=1"
-        
+
         Args:
             engine: Engine name for per-engine rate limiting.
                    If None, uses default interval for backward compatibility.
         """
         # Get engine-specific interval from config
         min_interval = self._min_interval  # Default fallback
-        
+
         if engine:
             engine_config = get_engine_config_manager().get_engine(engine)
             if engine_config:
                 min_interval = engine_config.min_interval
-        
+
         async with self._rate_limiter:
             # Track per-engine last search time
             engine_key = engine or "default"
             last_time = self._last_search_times.get(engine_key, 0.0)
-            
+
             elapsed = time.time() - last_time
             if elapsed < min_interval:
                 await asyncio.sleep(min_interval - elapsed)
-            
+
             self._last_search_times[engine_key] = time.time()
             # Also update shared time for backward compatibility
             self._last_search_time = time.time()
-    
+
     def _detect_category(self, query: str) -> str:
         """Detect query category based on keywords.
-        
+
         Simple keyword-based category detection. Categories:
         - academic: research papers, academic sources
         - news: current events, news articles
         - government: government sources, official documents
         - technical: technical documentation, code, APIs
         - general: default category
-        
+
         Args:
             query: Search query text.
-            
+
         Returns:
             Category name: "general", "academic", "news", "government", or "technical".
         """
         query_lower = query.lower()
-        
+
         # Academic keywords
         academic_keywords = [
             "論文", "research", "study", "studies", "arxiv", "pubmed",
@@ -368,7 +368,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         ]
         if any(keyword in query_lower for keyword in academic_keywords):
             return "academic"
-        
+
         # News keywords
         news_keywords = [
             "ニュース", "news", "最新", "today", "recent", "breaking",
@@ -376,7 +376,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         ]
         if any(keyword in query_lower for keyword in news_keywords):
             return "news"
-        
+
         # Government keywords
         government_keywords = [
             "政府", "government", "官公庁", ".gov", "official", "ministry",
@@ -385,7 +385,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         ]
         if any(keyword in query_lower for keyword in government_keywords):
             return "government"
-        
+
         # Technical keywords
         technical_keywords = [
             "技術", "technical", "api", "code", "github", "documentation",
@@ -394,14 +394,14 @@ class BrowserSearchProvider(BaseSearchProvider):
         ]
         if any(keyword in query_lower for keyword in technical_keywords):
             return "technical"
-        
+
         # Default to general
         return "general"
-    
+
     # =========================================================================
     # Lastmile Slot Selection (§3.1.1)
     # =========================================================================
-    
+
     def _should_use_lastmile(
         self,
         harvest_rate: float,
@@ -409,14 +409,14 @@ class BrowserSearchProvider(BaseSearchProvider):
     ) -> LastmileCheckResult:
         """
         Check if lastmile engine should be used based on harvest rate.
-        
+
         Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
         Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
-        
+
         Args:
             harvest_rate: Current harvest rate (0.0-1.0).
             threshold: Threshold for lastmile activation (default 0.9).
-            
+
         Returns:
             LastmileCheckResult with decision and reason.
         """
@@ -433,25 +433,25 @@ class BrowserSearchProvider(BaseSearchProvider):
             harvest_rate=harvest_rate,
             threshold=threshold,
         )
-    
+
     async def _select_lastmile_engine(self) -> str | None:
         """
         Select a lastmile engine with strict QPS/daily limit checks.
-        
+
         Per §3.1.1: Lastmile engines (Google/Brave/Bing) have strict limits:
         - Daily limits (google: 10, brave: 50, bing: 10)
         - Stricter QPS (google: 0.05, brave: 0.1, bing: 0.05)
-        
+
         Returns:
             Engine name if available, None if all engines exhausted.
         """
         config_manager = get_engine_config_manager()
         lastmile_engines = config_manager.get_lastmile_engines()
-        
+
         if not lastmile_engines:
             logger.debug("No lastmile engines configured")
             return None
-        
+
         # Check each lastmile engine for availability
         for engine_name in lastmile_engines:
             try:
@@ -462,7 +462,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         engine=engine_name,
                     )
                     continue
-                
+
                 # Get engine config
                 engine_config = config_manager.get_engine(engine_name)
                 if not engine_config or not engine_config.is_available:
@@ -471,7 +471,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         engine=engine_name,
                     )
                     continue
-                
+
                 # Check daily limit
                 if engine_config.daily_limit:
                     daily_usage = await self._get_daily_usage(engine_name)
@@ -483,7 +483,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                             daily_limit=engine_config.daily_limit,
                         )
                         continue
-                
+
                 # Engine is available
                 logger.info(
                     "Selected lastmile engine",
@@ -492,7 +492,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                     qps=engine_config.qps,
                 )
                 return engine_name
-                
+
             except Exception as e:
                 logger.warning(
                     "Error checking lastmile engine",
@@ -500,27 +500,27 @@ class BrowserSearchProvider(BaseSearchProvider):
                     error=str(e),
                 )
                 continue
-        
+
         logger.warning("No lastmile engines available")
         return None
-    
+
     async def _get_daily_usage(self, engine: str) -> int:
         """
         Get today's usage count for an engine.
-        
+
         Args:
             engine: Engine name.
-            
+
         Returns:
             Number of searches today.
         """
         try:
             from datetime import date
             from src.storage.database import get_database
-            
+
             db = await get_database()
             today = date.today().isoformat()
-            
+
             result = await db.fetch_one(
                 """
                 SELECT usage_count FROM lastmile_usage
@@ -528,7 +528,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 """,
                 (engine, today),
             )
-            
+
             return result["usage_count"] if result else 0
         except Exception as e:
             logger.debug(
@@ -537,21 +537,21 @@ class BrowserSearchProvider(BaseSearchProvider):
                 error=str(e),
             )
             return 0
-    
+
     async def _record_lastmile_usage(self, engine: str) -> None:
         """
         Record usage of a lastmile engine.
-        
+
         Args:
             engine: Engine name.
         """
         try:
             from datetime import date
             from src.storage.database import get_database
-            
+
             db = await get_database()
             today = date.today().isoformat()
-            
+
             await db.execute(
                 """
                 INSERT INTO lastmile_usage (engine, date, usage_count)
@@ -561,7 +561,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 """,
                 (engine, today),
             )
-            
+
             logger.debug(
                 "Recorded lastmile usage",
                 engine=engine,
@@ -573,7 +573,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 engine=engine,
                 error=str(e),
             )
-    
+
     async def search(
         self,
         query: str,
@@ -582,30 +582,30 @@ class BrowserSearchProvider(BaseSearchProvider):
     ) -> SearchResponse:
         """
         Execute a search using browser.
-        
+
         Args:
             query: Search query text.
             options: Search options.
             harvest_rate: Current harvest rate (0.0-1.0) for lastmile decision.
                          If provided and >= 0.9, lastmile engines may be used.
-            
+
         Returns:
             SearchResponse with results or error.
         """
         self._check_closed()
-        
+
         if options is None:
             options = SearchOptions()
-        
+
         start_time = time.time()
-        
+
         # Category detection
         category = self._detect_category(query)
-        
+
         # Check if lastmile engines should be used (§3.1.1)
         use_lastmile = False
         lastmile_engine: str | None = None
-        
+
         if harvest_rate is not None:
             lastmile_check = self._should_use_lastmile(harvest_rate)
             if lastmile_check.should_use_lastmile:
@@ -618,10 +618,10 @@ class BrowserSearchProvider(BaseSearchProvider):
                         harvest_rate=harvest_rate,
                         reason=lastmile_check.reason,
                     )
-        
+
         # Engine selection with weighted selection and circuit breaker
         config_manager = get_engine_config_manager()
-        
+
         # If lastmile engine selected, use it directly
         if use_lastmile and lastmile_engine:
             engine = lastmile_engine
@@ -640,12 +640,12 @@ class BrowserSearchProvider(BaseSearchProvider):
                     if not candidate_engines_configs:
                         candidate_engines_configs = config_manager.get_available_engines()
                     candidate_engines = [cfg.name for cfg in candidate_engines_configs]
-            
+
             # Filter to only engines with available parsers
             # This prevents selection of engines like arxiv, wikipedia, marginalia
             # that are defined in engines.yaml but don't have parsers implemented
             candidate_engines = config_manager.get_engines_with_parsers(candidate_engines)
-            
+
             if not candidate_engines:
                 logger.warning(
                     "No engines with parsers available",
@@ -660,12 +660,12 @@ class BrowserSearchProvider(BaseSearchProvider):
                     elapsed_ms=(time.time() - start_time) * 1000,
                     connection_mode="cdp" if self._cdp_connected else None,
                 )
-            
+
             # Filter by circuit breaker and availability
             # Use dynamic weights from PolicyEngine (per §3.1.1, §3.1.4, §4.6)
             available_engines: list[tuple[str, float]] = []
             policy_engine = await get_policy_engine()
-            
+
             for engine_name in candidate_engines:
                 try:
                     if await check_engine_available(engine_name):
@@ -684,7 +684,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         error=str(e),
                     )
                     continue
-            
+
             # Check if any engines are available
             if not available_engines:
                 logger.warning(
@@ -700,11 +700,11 @@ class BrowserSearchProvider(BaseSearchProvider):
                     elapsed_ms=(time.time() - start_time) * 1000,
                     connection_mode="cdp" if self._cdp_connected else None,
                 )
-            
+
             # Weighted selection (sort by weight descending)
             available_engines.sort(key=lambda x: x[1], reverse=True)
             engine = available_engines[0][0]
-            
+
             logger.debug(
                 "Engine selected",
                 engine=engine,
@@ -712,10 +712,10 @@ class BrowserSearchProvider(BaseSearchProvider):
                 weight=available_engines[0][1],
                 available_count=len(available_engines),
             )
-        
+
         try:
             await self._rate_limit(engine)
-            
+
             # Get parser for engine
             parser = get_parser(engine)
             if parser is None:
@@ -727,10 +727,10 @@ class BrowserSearchProvider(BaseSearchProvider):
                     elapsed_ms=(time.time() - start_time) * 1000,
                     connection_mode="cdp" if self._cdp_connected else None,
                 )
-            
+
             # Normalize query operators for the selected engine (§3.1.4)
             normalized_query = transform_query_for_engine(query, engine)
-            
+
             # Log if query was transformed
             if normalized_query != query:
                 logger.debug(
@@ -739,30 +739,30 @@ class BrowserSearchProvider(BaseSearchProvider):
                     normalized=normalized_query[:50] if normalized_query else "",
                     engine=engine,
                 )
-            
+
             # Build search URL
             search_url = parser.build_search_url(
                 query=normalized_query,
                 time_range=options.time_range,
             )
-            
+
             logger.debug(
                 "Browser search",
                 engine=engine,
                 query=normalized_query[:50] if normalized_query else "",
                 url=search_url[:100],
             )
-            
+
             # Execute search
             page = await self._get_page()
-            
+
             # Navigate to search page
             response = await page.goto(
                 search_url,
                 timeout=self._timeout * 1000,
                 wait_until="domcontentloaded",
             )
-            
+
             # Wait for content to load (with fallback for JS-heavy sites)
             try:
                 await page.wait_for_load_state("networkidle", timeout=5000)
@@ -770,15 +770,15 @@ class BrowserSearchProvider(BaseSearchProvider):
                 # Some engines (e.g., Brave) have constant JS activity
                 # Fall back to a short fixed wait
                 await asyncio.sleep(2)
-            
+
             # Get HTML content
             html = await page.content()
-            
+
             # Apply human-like behavior to search results page
             try:
                 # Apply inertial scrolling (reading simulation)
                 await self._human_behavior.simulate_reading(page, len(html.encode("utf-8")))
-                
+
                 # Apply mouse trajectory to search result links
                 try:
                     # Find search result links
@@ -803,17 +803,17 @@ class BrowserSearchProvider(BaseSearchProvider):
                     logger.debug("Mouse movement skipped in search", error=str(e))
             except Exception as e:
                 logger.debug("Human behavior simulation skipped", error=str(e))
-            
+
             # Parse results
             parse_result = parser.parse(html, query)
-            
+
             elapsed_ms = (time.time() - start_time) * 1000
-            
+
             # Handle CAPTCHA
             if parse_result.is_captcha:
                 self._captcha_count += 1
                 self._record_session_captcha(engine)
-                
+
                 # Record engine health (CAPTCHA)
                 try:
                     await record_engine_result(
@@ -828,7 +828,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         engine=engine,
                         error=str(e),
                     )
-                
+
                 # Trigger intervention queue
                 intervention_result = await self._request_intervention(
                     url=search_url,
@@ -836,7 +836,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                     captcha_type=parse_result.captcha_type,
                     page=page,
                 )
-                
+
                 if intervention_result:
                     # Retry after intervention
                     html = await page.content()
@@ -850,25 +850,25 @@ class BrowserSearchProvider(BaseSearchProvider):
                         elapsed_ms=elapsed_ms,
                         connection_mode="cdp",
                     )
-            
+
             # Handle parse failure
             if not parse_result.ok:
                 self._failure_count += 1
                 self._last_error = parse_result.error
-                
+
                 error_msg = parse_result.error or "Parse failed"
                 if parse_result.selector_errors:
                     error_msg += f" ({len(parse_result.selector_errors)} selector errors)"
                 if parse_result.html_saved_path:
                     error_msg += f" [HTML saved: {parse_result.html_saved_path}]"
-                
+
                 logger.error(
                     "Search parse failed",
                     engine=engine,
                     query=query[:50],
                     error=error_msg,
                 )
-                
+
                 # Record engine health (failure)
                 try:
                     await record_engine_result(
@@ -883,7 +883,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         engine=engine,
                         error=str(e),
                     )
-                
+
                 return SearchResponse(
                     results=[],
                     query=query,
@@ -892,19 +892,19 @@ class BrowserSearchProvider(BaseSearchProvider):
                     elapsed_ms=elapsed_ms,
                     connection_mode="cdp",
                 )
-            
+
             # Convert results
             results = [
                 r.to_search_result(engine)
                 for r in parse_result.results[:options.limit]
             ]
-            
+
             # Save session cookies
             await self._save_session(engine, page)
-            
+
             self._success_count += 1
             self._total_latency += elapsed_ms
-            
+
             logger.info(
                 "Browser search completed",
                 engine=engine,
@@ -912,7 +912,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 result_count=len(results),
                 elapsed_ms=round(elapsed_ms, 1),
             )
-            
+
             # Record engine health (success)
             try:
                 await record_engine_result(
@@ -926,11 +926,11 @@ class BrowserSearchProvider(BaseSearchProvider):
                     engine=engine,
                     error=str(e),
                 )
-            
+
             # Record lastmile usage if lastmile engine was used
             if use_lastmile and lastmile_engine:
                 await self._record_lastmile_usage(lastmile_engine)
-            
+
             return SearchResponse(
                 results=results,
                 query=query,
@@ -939,18 +939,18 @@ class BrowserSearchProvider(BaseSearchProvider):
                 elapsed_ms=elapsed_ms,
                 connection_mode="cdp",
             )
-            
+
         except CDPConnectionError as e:
             # CDP connection failed - Chrome not running with remote debugging
             self._failure_count += 1
             self._last_error = str(e)
             elapsed_ms = (time.time() - start_time) * 1000
-            
+
             logger.error(
                 "CDP connection failed",
                 error=str(e),
             )
-            
+
             return SearchResponse(
                 results=[],
                 query=query,
@@ -959,14 +959,14 @@ class BrowserSearchProvider(BaseSearchProvider):
                 elapsed_ms=elapsed_ms,
                 connection_mode=None,
             )
-            
+
         except asyncio.TimeoutError:
             self._failure_count += 1
             self._last_error = "Timeout"
             elapsed_ms = (time.time() - start_time) * 1000
-            
+
             logger.error("Browser search timeout", engine=engine, query=query[:50])
-            
+
             return SearchResponse(
                 results=[],
                 query=query,
@@ -975,19 +975,19 @@ class BrowserSearchProvider(BaseSearchProvider):
                 elapsed_ms=elapsed_ms,
                 connection_mode="cdp" if self._cdp_connected else None,
             )
-            
+
         except Exception as e:
             self._failure_count += 1
             self._last_error = str(e)
             elapsed_ms = (time.time() - start_time) * 1000
-            
+
             logger.error(
                 "Browser search error",
                 engine=engine,
                 query=query[:50],
                 error=str(e),
             )
-            
+
             return SearchResponse(
                 results=[],
                 query=query,
@@ -996,7 +996,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 elapsed_ms=elapsed_ms,
                 connection_mode="cdp" if self._cdp_connected else None,
             )
-    
+
     async def _request_intervention(
         self,
         url: str,
@@ -1006,7 +1006,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     ) -> bool:
         """
         Request manual intervention for CAPTCHA.
-        
+
         Returns True if intervention succeeded.
         """
         try:
@@ -1015,9 +1015,9 @@ class BrowserSearchProvider(BaseSearchProvider):
                 InterventionStatus,
                 get_intervention_manager,
             )
-            
+
             intervention_manager = get_intervention_manager()
-            
+
             # Map captcha type to intervention type
             type_map = {
                 "recaptcha": InterventionType.CAPTCHA,
@@ -1027,12 +1027,12 @@ class BrowserSearchProvider(BaseSearchProvider):
                 "rate_limit": InterventionType.CLOUDFLARE,
                 "blocked": InterventionType.CLOUDFLARE,
             }
-            
+
             intervention_type = type_map.get(
                 captcha_type or "",
                 InterventionType.CAPTCHA,
             )
-            
+
             # Request intervention
             result = await intervention_manager.request_intervention(
                 intervention_type=intervention_type,
@@ -1041,68 +1041,68 @@ class BrowserSearchProvider(BaseSearchProvider):
                 message=f"CAPTCHA detected on {engine} search",
                 page=page,
             )
-            
+
             # Check if resolved
             return result.status == InterventionStatus.SUCCESS
-            
+
         except ImportError:
             logger.warning("InterventionManager not available")
             return False
         except Exception as e:
             logger.error("Intervention request failed", error=str(e))
             return False
-    
+
     async def _save_session(self, engine: str, page: Any) -> None:
         """Save session cookies for engine."""
         try:
             cookies = await self._context.cookies()
-            
+
             self._sessions[engine] = BrowserSearchSession(
                 engine=engine,
                 cookies=[dict(c) for c in cookies],
                 last_used=time.time(),
             )
             self._sessions[engine].record_success()
-            
+
         except Exception as e:
             logger.debug("Failed to save session", error=str(e))
-    
+
     def _record_session_captcha(self, engine: str) -> None:
         """Record CAPTCHA for engine session."""
         if engine in self._sessions:
             self._sessions[engine].record_captcha()
-    
+
     def get_session(self, engine: str) -> BrowserSearchSession | None:
         """Get session for engine."""
         session = self._sessions.get(engine)
         if session and session.is_fresh():
             return session
         return None
-    
+
     async def get_health(self) -> HealthStatus:
         """
         Get current health status.
-        
+
         Returns:
             HealthStatus based on recent metrics.
         """
         if self._is_closed:
             return HealthStatus.unhealthy("Provider closed")
-        
+
         total = self._success_count + self._failure_count
-        
+
         if total == 0:
             return HealthStatus(
                 state=HealthState.UNKNOWN,
                 message="No searches made yet",
             )
-        
+
         success_rate = self._success_count / total
         avg_latency = self._total_latency / total if total > 0 else 0
-        
+
         # Factor in CAPTCHA rate
         captcha_rate = self._captcha_count / total if total > 0 else 0
-        
+
         if success_rate >= 0.9 and captcha_rate < 0.1:
             return HealthStatus.healthy(latency_ms=avg_latency)
         elif success_rate >= 0.5:
@@ -1115,22 +1115,22 @@ class BrowserSearchProvider(BaseSearchProvider):
             )
         else:
             return HealthStatus.unhealthy(message=self._last_error)
-    
+
     async def close(self) -> None:
         """Close browser and cleanup."""
         try:
             if self._page and not self._page.is_closed():
                 await self._page.close()
-            
+
             if self._context:
                 await self._context.close()
-            
+
             if self._browser:
                 await self._browser.close()
-            
+
             if self._playwright:
                 await self._playwright.stop()
-                
+
         except Exception as e:
             logger.warning("Error during browser cleanup", error=str(e))
         finally:
@@ -1138,9 +1138,9 @@ class BrowserSearchProvider(BaseSearchProvider):
             self._context = None
             self._browser = None
             self._playwright = None
-        
+
         await super().close()
-    
+
     def reset_metrics(self) -> None:
         """Reset health metrics. For testing purposes."""
         self._success_count = 0
@@ -1148,11 +1148,11 @@ class BrowserSearchProvider(BaseSearchProvider):
         self._captcha_count = 0
         self._total_latency = 0.0
         self._last_error = None
-    
+
     def get_available_engines(self) -> list[str]:
         """Get list of available search engines."""
         return get_available_parsers()
-    
+
     def get_stats(self) -> dict[str, Any]:
         """Get provider statistics."""
         total = self._success_count + self._failure_count
@@ -1182,7 +1182,7 @@ _default_provider: BrowserSearchProvider | None = None
 def get_browser_search_provider() -> BrowserSearchProvider:
     """
     Get or create the default BrowserSearchProvider instance.
-    
+
     Returns:
         BrowserSearchProvider singleton instance.
     """
@@ -1195,7 +1195,7 @@ def get_browser_search_provider() -> BrowserSearchProvider:
 async def cleanup_browser_search_provider() -> None:
     """
     Close and cleanup the default BrowserSearchProvider.
-    
+
     Used for testing cleanup and graceful shutdown.
     """
     global _default_provider

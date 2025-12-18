@@ -51,19 +51,19 @@ class ParameterBounds:
 
 def _get_default_bounds() -> dict["PolicyParameter", ParameterBounds]:
     """Get default parameter bounds from DomainPolicyManager.
-    
+
     Loads bounds from config/domains.yaml via DomainPolicyManager.
     Falls back to hardcoded defaults if config not available.
-    
+
     Returns:
         Dictionary mapping PolicyParameter to ParameterBounds.
     """
     try:
         from src.utils.domain_policy import get_domain_policy_manager
-        
+
         policy_manager = get_domain_policy_manager()
         policy_bounds = policy_manager.get_policy_bounds()
-        
+
         # Map config schema to ParameterBounds
         return {
             PolicyParameter.ENGINE_WEIGHT: ParameterBounds(
@@ -157,7 +157,7 @@ _default_bounds: dict[PolicyParameter, ParameterBounds] | None = None
 
 def get_default_bounds() -> dict[PolicyParameter, ParameterBounds]:
     """Get default parameter bounds (lazy-loaded singleton).
-    
+
     Returns:
         Dictionary mapping PolicyParameter to ParameterBounds.
     """
@@ -175,25 +175,25 @@ def reset_default_bounds() -> None:
 
 class _DefaultBoundsProxy:
     """Proxy class that mimics dict access but loads bounds lazily."""
-    
+
     def __getitem__(self, key: PolicyParameter) -> ParameterBounds:
         return get_default_bounds()[key]
-    
+
     def get(self, key: PolicyParameter, default: ParameterBounds | None = None) -> ParameterBounds | None:
         return get_default_bounds().get(key, default)
-    
+
     def keys(self):
         return get_default_bounds().keys()
-    
+
     def values(self):
         return get_default_bounds().values()
-    
+
     def items(self):
         return get_default_bounds().items()
-    
+
     def __iter__(self):
         return iter(get_default_bounds())
-    
+
     def __len__(self):
         return len(get_default_bounds())
 
@@ -209,19 +209,19 @@ class ParameterState:
     last_changed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_direction: str = "none"  # "up", "down", "none"
     change_count: int = 0
-    
+
     def can_change(self, min_interval_seconds: int = 300) -> bool:
         """Check if enough time has passed since last change.
-        
+
         Args:
             min_interval_seconds: Minimum seconds between changes.
-            
+
         Returns:
             True if change is allowed.
         """
         elapsed = (datetime.now(timezone.utc) - self.last_changed_at).total_seconds()
         return elapsed >= min_interval_seconds
-    
+
     def apply_change(
         self,
         new_value: float,
@@ -229,23 +229,23 @@ class ParameterState:
         bounds: ParameterBounds,
     ) -> float:
         """Apply a parameter change with bounds checking.
-        
+
         Args:
             new_value: Proposed new value.
             direction: "up" or "down".
             bounds: Parameter bounds.
-            
+
         Returns:
             Actual new value after bounds clamping.
         """
         # Clamp to bounds
         clamped = max(bounds.min_value, min(bounds.max_value, new_value))
-        
+
         self.current_value = clamped
         self.last_changed_at = datetime.now(timezone.utc)
         self.last_direction = direction
         self.change_count += 1
-        
+
         return clamped
 
 
@@ -264,12 +264,12 @@ class PolicyUpdate:
 
 class PolicyEngine:
     """Engine for automatic policy adjustments.
-    
+
     Runs periodic updates based on collected metrics, adjusting
     system parameters to maintain optimal performance while
     avoiding blocks and errors.
     """
-    
+
     def __init__(
         self,
         metrics_collector: MetricsCollector | None = None,
@@ -277,7 +277,7 @@ class PolicyEngine:
         hysteresis_interval: int | None = None,
     ):
         """Initialize policy engine.
-        
+
         Args:
             metrics_collector: Metrics collector to use.
             update_interval: Seconds between policy updates.
@@ -285,7 +285,7 @@ class PolicyEngine:
         """
         self._settings = get_settings()
         self._collector = metrics_collector or get_metrics_collector()
-        
+
         self._update_interval = (
             update_interval if update_interval is not None
             else self._settings.metrics.ema_update_interval
@@ -294,19 +294,19 @@ class PolicyEngine:
             hysteresis_interval if hysteresis_interval is not None
             else self._settings.metrics.hysteresis_min_interval
         )
-        
+
         # Parameter states: {target_type}:{target_id}:{param} -> ParameterState
         self._param_states: dict[str, ParameterState] = {}
-        
+
         # Update history
         self._update_history: list[PolicyUpdate] = []
         self._max_history = 1000
-        
+
         # Control loop
         self._running = False
         self._task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
-    
+
     def _get_param_key(
         self,
         target_type: str,
@@ -315,7 +315,7 @@ class PolicyEngine:
     ) -> str:
         """Generate key for parameter state lookup."""
         return f"{target_type}:{target_id}:{param.value}"
-    
+
     def _get_or_create_state(
         self,
         target_type: str,
@@ -323,52 +323,52 @@ class PolicyEngine:
         param: PolicyParameter,
     ) -> ParameterState:
         """Get or create parameter state.
-        
+
         Args:
             target_type: "engine" or "domain".
             target_id: Engine or domain name.
             param: Parameter type.
-            
+
         Returns:
             ParameterState instance.
         """
         key = self._get_param_key(target_type, target_id, param)
-        
+
         if key not in self._param_states:
             bounds = DEFAULT_BOUNDS[param]
             self._param_states[key] = ParameterState(
                 current_value=bounds.default_value,
             )
-        
+
         return self._param_states[key]
-    
+
     # =========================================================
     # Policy adjustment logic
     # =========================================================
-    
+
     async def _adjust_engine_policy(self, engine: str) -> list[PolicyUpdate]:
         """Adjust policy for a search engine based on metrics.
-        
+
         Args:
             engine: Engine name.
-            
+
         Returns:
             List of policy updates made.
         """
         updates = []
         engine_metrics = self._collector.get_engine_metrics(engine)
-        
+
         if not engine_metrics:
             return updates
-        
+
         # Get success rate EMA
         success_rate = engine_metrics.get("success_rate", {}).get("ema_short", 0.5)
         latency = engine_metrics.get("latency_ms", {}).get("ema_short", 1000)
-        
+
         # Adjust engine weight based on success rate
         weight_state = self._get_or_create_state("engine", engine, PolicyParameter.ENGINE_WEIGHT)
         weight_bounds = DEFAULT_BOUNDS[PolicyParameter.ENGINE_WEIGHT]
-        
+
         if weight_state.can_change(self._hysteresis_interval):
             if success_rate < 0.5:
                 # Low success rate -> decrease weight
@@ -402,11 +402,11 @@ class PolicyEngine:
                         reason=f"High success rate: {success_rate:.2f}",
                         metrics_snapshot={"success_rate": success_rate, "latency_ms": latency},
                     ))
-        
+
         # Adjust QPS based on error patterns
         qps_state = self._get_or_create_state("engine", engine, PolicyParameter.ENGINE_QPS)
         qps_bounds = DEFAULT_BOUNDS[PolicyParameter.ENGINE_QPS]
-        
+
         if qps_state.can_change(self._hysteresis_interval):
             if success_rate < 0.7:
                 # Reduce QPS on poor performance
@@ -424,36 +424,36 @@ class PolicyEngine:
                         reason=f"Reducing QPS due to low success rate: {success_rate:.2f}",
                         metrics_snapshot={"success_rate": success_rate},
                     ))
-        
+
         return updates
-    
+
     async def _adjust_domain_policy(self, domain: str) -> list[PolicyUpdate]:
         """Adjust policy for a domain based on metrics.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             List of policy updates made.
         """
         updates = []
         domain_metrics = self._collector.get_domain_metrics(domain)
-        
+
         if not domain_metrics:
             return updates
-        
+
         # Get error rates
         captcha_rate = domain_metrics.get("captcha_rate", {}).get("ema_short", 0.0)
         error_403_rate = domain_metrics.get("error_403_rate", {}).get("ema_short", 0.0)
         error_429_rate = domain_metrics.get("error_429_rate", {}).get("ema_short", 0.0)
         tor_usage = domain_metrics.get("tor_usage", {}).get("ema_short", 0.0)
-        
+
         combined_error_rate = captcha_rate + error_403_rate + error_429_rate
-        
+
         # Adjust headful ratio based on error rates
         headful_state = self._get_or_create_state("domain", domain, PolicyParameter.HEADFUL_RATIO)
         headful_bounds = DEFAULT_BOUNDS[PolicyParameter.HEADFUL_RATIO]
-        
+
         if headful_state.can_change(self._hysteresis_interval):
             if combined_error_rate > 0.3:
                 # High error rate -> increase headful usage
@@ -491,11 +491,11 @@ class PolicyEngine:
                         reason=f"Low error rate: {combined_error_rate:.2f}",
                         metrics_snapshot={"combined_error_rate": combined_error_rate},
                     ))
-        
+
         # Adjust Tor usage based on 403/429 rates
         tor_state = self._get_or_create_state("domain", domain, PolicyParameter.TOR_USAGE_RATIO)
         tor_bounds = DEFAULT_BOUNDS[PolicyParameter.TOR_USAGE_RATIO]
-        
+
         if tor_state.can_change(self._hysteresis_interval):
             if error_403_rate > 0.2 or error_429_rate > 0.2:
                 # High block rate -> consider Tor
@@ -516,11 +516,11 @@ class PolicyEngine:
                             "error_429_rate": error_429_rate,
                         },
                     ))
-        
+
         # Adjust cooldown based on persistent errors
         cooldown_state = self._get_or_create_state("domain", domain, PolicyParameter.DOMAIN_COOLDOWN)
         cooldown_bounds = DEFAULT_BOUNDS[PolicyParameter.DOMAIN_COOLDOWN]
-        
+
         if cooldown_state.can_change(self._hysteresis_interval):
             if captcha_rate > 0.3:
                 # High CAPTCHA rate -> increase cooldown
@@ -538,22 +538,22 @@ class PolicyEngine:
                         reason=f"High CAPTCHA rate: {captcha_rate:.2f}",
                         metrics_snapshot={"captcha_rate": captcha_rate},
                     ))
-        
+
         return updates
-    
+
     async def _apply_updates_to_db(self, updates: list[PolicyUpdate]) -> None:
         """Persist policy updates to database.
-        
+
         Args:
             updates: List of policy updates to persist.
         """
         if not updates:
             return
-        
+
         # Lazy import to avoid circular dependency
         from src.storage.database import get_database
         db = await get_database()
-        
+
         for update in updates:
             if update.target_type == "engine":
                 # Update engine_health table
@@ -579,7 +579,7 @@ class PolicyEngine:
                         "UPDATE domains SET cooldown_minutes = ?, updated_at = ? WHERE domain = ?",
                         (int(update.new_value), datetime.now(timezone.utc).isoformat(), update.target_id),
                     )
-            
+
             # Log the update event
             await db.log_event(
                 event_type="policy_update",
@@ -595,44 +595,44 @@ class PolicyEngine:
                     "metrics_snapshot": update.metrics_snapshot,
                 },
             )
-    
+
     # =========================================================
     # Control loop
     # =========================================================
-    
+
     async def _run_update_cycle(self) -> None:
         """Run a single policy update cycle."""
         async with self._lock:
             all_updates = []
-            
+
             # Process engine metrics
             engine_metrics = self._collector.get_all_engine_metrics()
             for engine in engine_metrics.keys():
                 updates = await self._adjust_engine_policy(engine)
                 all_updates.extend(updates)
-            
+
             # Process domain metrics
             domain_metrics = self._collector.get_all_domain_metrics()
             for domain in domain_metrics.keys():
                 updates = await self._adjust_domain_policy(domain)
                 all_updates.extend(updates)
-            
+
             # Apply updates to database
             if all_updates:
                 await self._apply_updates_to_db(all_updates)
-                
+
                 # Store in history
                 self._update_history.extend(all_updates)
                 if len(self._update_history) > self._max_history:
                     self._update_history = self._update_history[-self._max_history:]
-                
+
                 logger.info(
                     "Policy updates applied",
                     update_count=len(all_updates),
                     engines_updated=len(set(u.target_id for u in all_updates if u.target_type == "engine")),
                     domains_updated=len(set(u.target_id for u in all_updates if u.target_type == "domain")),
                 )
-    
+
     async def _update_loop(self) -> None:
         """Background loop for periodic policy updates."""
         logger.info(
@@ -640,27 +640,27 @@ class PolicyEngine:
             update_interval=self._update_interval,
             hysteresis_interval=self._hysteresis_interval,
         )
-        
+
         while self._running:
             try:
                 await self._run_update_cycle()
             except Exception as e:
                 logger.error("Policy update cycle failed", error=str(e))
-            
+
             await asyncio.sleep(self._update_interval)
-    
+
     async def start(self) -> None:
         """Start the policy engine background loop."""
         if self._running:
             return
-        
+
         self._running = True
         self._task = asyncio.create_task(self._update_loop())
-    
+
     async def stop(self) -> None:
         """Stop the policy engine background loop."""
         self._running = False
-        
+
         if self._task:
             self._task.cancel()
             try:
@@ -668,22 +668,22 @@ class PolicyEngine:
             except asyncio.CancelledError:
                 pass
             self._task = None
-        
+
         logger.info("Policy engine stopped")
-    
+
     # =========================================================
     # Manual interventions
     # =========================================================
-    
+
     async def force_update(self) -> list[PolicyUpdate]:
         """Force an immediate policy update cycle.
-        
+
         Returns:
             List of updates made.
         """
         await self._run_update_cycle()
         return self._update_history[-50:]  # Return recent updates
-    
+
     def get_parameter_value(
         self,
         target_type: str,
@@ -691,18 +691,18 @@ class PolicyEngine:
         param: PolicyParameter,
     ) -> float:
         """Get current value of a parameter.
-        
+
         Args:
             target_type: "engine" or "domain".
             target_id: Engine or domain name.
             param: Parameter type.
-            
+
         Returns:
             Current parameter value.
         """
         state = self._get_or_create_state(target_type, target_id, param)
         return state.current_value
-    
+
     async def set_parameter_value(
         self,
         target_type: str,
@@ -712,25 +712,25 @@ class PolicyEngine:
         reason: str = "Manual override",
     ) -> PolicyUpdate:
         """Manually set a parameter value.
-        
+
         Args:
             target_type: "engine" or "domain".
             target_id: Engine or domain name.
             param: Parameter type.
             value: New value.
             reason: Reason for change.
-            
+
         Returns:
             PolicyUpdate record.
         """
         async with self._lock:
             state = self._get_or_create_state(target_type, target_id, param)
             bounds = DEFAULT_BOUNDS[param]
-            
+
             old_value = state.current_value
             direction = "up" if value > old_value else "down"
             actual = state.apply_change(value, direction, bounds)
-            
+
             update = PolicyUpdate(
                 timestamp=datetime.now(timezone.utc),
                 target_type=target_type,
@@ -741,12 +741,12 @@ class PolicyEngine:
                 reason=reason,
                 metrics_snapshot={},
             )
-            
+
             await self._apply_updates_to_db([update])
             self._update_history.append(update)
-            
+
             return update
-    
+
     def get_update_history(
         self,
         limit: int = 100,
@@ -754,22 +754,22 @@ class PolicyEngine:
         target_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get policy update history.
-        
+
         Args:
             limit: Maximum number of updates to return.
             target_type: Filter by target type.
             target_id: Filter by target ID.
-            
+
         Returns:
             List of update records.
         """
         history = self._update_history.copy()
-        
+
         if target_type:
             history = [u for u in history if u.target_type == target_type]
         if target_id:
             history = [u for u in history if u.target_id == target_id]
-        
+
         return [
             {
                 "timestamp": u.timestamp.isoformat(),
@@ -782,11 +782,11 @@ class PolicyEngine:
             }
             for u in history[-limit:]
         ]
-    
+
     # =========================================================
     # Dynamic Weight Calculation
     # =========================================================
-    
+
     def calculate_dynamic_weight(
         self,
         base_weight: float,
@@ -797,11 +797,11 @@ class PolicyEngine:
         last_used_at: datetime | None,
     ) -> tuple[float, float]:
         """Calculate dynamic weight based on engine health metrics.
-        
+
         Per §3.1.1, §3.1.4, §4.6: Calculates engine weight adjustment based on
         past accuracy, failure rate, and block rate. Uses time decay to
         handle stale metrics from infrequently used engines.
-        
+
         Args:
             base_weight: Base weight from config/engines.yaml (0.0-2.0).
             success_rate_1h: 1-hour EMA success rate (0.0-1.0).
@@ -809,7 +809,7 @@ class PolicyEngine:
             captcha_rate: CAPTCHA encounter rate (0.0-1.0).
             median_latency_ms: Median latency in milliseconds.
             last_used_at: Last usage timestamp for time decay calculation.
-            
+
         Returns:
             Tuple of (dynamic_weight, confidence):
             - dynamic_weight: Adjusted weight (0.1-1.0)
@@ -824,44 +824,44 @@ class PolicyEngine:
             confidence = max(0.1, 1.0 - (hours_since_use / 48))
         else:
             confidence = 0.1  # Never used = almost default
-        
+
         # 2. Calculate raw dynamic weight from metrics
         # Success factor: weighted average of short and long term
         success_factor = 0.6 * success_rate_1h + 0.4 * success_rate_24h
-        
+
         # CAPTCHA penalty: high CAPTCHA rate reduces weight
         captcha_penalty = 1.0 - (captcha_rate * 0.5)
-        
+
         # Latency factor: high latency reduces weight (1s baseline)
         latency_factor = 1.0 / (1.0 + median_latency_ms / 1000.0)
-        
+
         # Raw weight from metrics
         raw_weight = base_weight * success_factor * captcha_penalty * latency_factor
-        
+
         # 3. Apply time decay: blend raw weight with base weight
         # based on confidence
         final_weight = confidence * raw_weight + (1 - confidence) * base_weight
-        
+
         # 4. Clamp to valid range
         final_weight = max(0.1, min(1.0, final_weight))
-        
+
         return final_weight, confidence
-    
+
     async def get_dynamic_engine_weight(
         self,
         engine: str,
         category: str | None = None,
     ) -> float:
         """Get dynamic weight for an engine.
-        
+
         Per §3.1.1, §3.1.4: Retrieves engine health metrics from database
         and calculates dynamic weight with time decay.
-        
+
         Args:
             engine: Engine name (case-insensitive).
             category: Optional query category for future category-specific
                      weight adjustments.
-            
+
         Returns:
             Dynamic weight (0.1-1.0). Returns base weight from config
             if engine not found in database or on error.
@@ -869,17 +869,17 @@ class PolicyEngine:
         # Get base weight from engine config
         try:
             from src.search.engine_config import get_engine_config_manager
-            
+
             config_manager = get_engine_config_manager()
             engine_config = config_manager.get_engine(engine)
-            
+
             if engine_config is None:
                 logger.debug(
                     "Engine not found in config, using default weight",
                     engine=engine,
                 )
                 return 1.0
-            
+
             base_weight = engine_config.weight
         except Exception as e:
             logger.warning(
@@ -888,14 +888,14 @@ class PolicyEngine:
                 error=str(e),
             )
             return 1.0
-        
+
         # Get health metrics from database
         try:
             from src.storage.database import get_database
-            
+
             db = await get_database()
             metrics = await db.get_engine_health_metrics(engine)
-            
+
             if metrics is None:
                 logger.debug(
                     "No health metrics for engine, using base weight",
@@ -903,7 +903,7 @@ class PolicyEngine:
                     base_weight=base_weight,
                 )
                 return base_weight
-            
+
             # Parse last_used_at from updated_at
             last_used_at = None
             if metrics.get("updated_at"):
@@ -914,7 +914,7 @@ class PolicyEngine:
                         last_used_at = last_used_at.replace(tzinfo=timezone.utc)
                 except (ValueError, TypeError):
                     last_used_at = None
-            
+
             # Calculate dynamic weight
             dynamic_weight, confidence = self.calculate_dynamic_weight(
                 base_weight=base_weight,
@@ -924,7 +924,7 @@ class PolicyEngine:
                 median_latency_ms=metrics.get("median_latency_ms", 1000.0),
                 last_used_at=last_used_at,
             )
-            
+
             logger.debug(
                 "Dynamic weight calculated",
                 engine=engine,
@@ -933,9 +933,9 @@ class PolicyEngine:
                 confidence=round(confidence, 3),
                 category=category,
             )
-            
+
             return dynamic_weight
-            
+
         except Exception as e:
             logger.warning(
                 "Failed to calculate dynamic weight, using base weight",
@@ -951,7 +951,7 @@ _engine: PolicyEngine | None = None
 
 async def get_policy_engine() -> PolicyEngine:
     """Get the global policy engine instance.
-    
+
     Returns:
         PolicyEngine instance.
     """

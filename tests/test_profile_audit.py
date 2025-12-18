@@ -117,38 +117,38 @@ def mock_page():
 
 class TestFingerprintData:
     """Tests for FingerprintData dataclass."""
-    
+
     def test_to_dict(self, sample_fingerprint: FingerprintData):
         """Test serialization to dictionary."""
         data = sample_fingerprint.to_dict()
-        
+
         assert data["user_agent"] == sample_fingerprint.user_agent
         assert data["ua_major_version"] == "120"
         assert "Arial" in data["fonts"]
         assert data["language"] == "ja-JP"
         assert data["timezone"] == "Asia/Tokyo"
-    
+
     def test_from_dict(self, sample_fingerprint: FingerprintData):
         """Test deserialization from dictionary."""
         data = sample_fingerprint.to_dict()
         restored = FingerprintData.from_dict(data)
-        
+
         assert restored.user_agent == sample_fingerprint.user_agent
         assert restored.ua_major_version == sample_fingerprint.ua_major_version
         assert restored.fonts == sample_fingerprint.fonts
         assert restored.language == sample_fingerprint.language
-    
+
     def test_fonts_sorted_in_dict(self, sample_fingerprint: FingerprintData):
         """Test that fonts are sorted when serialized."""
         data = sample_fingerprint.to_dict()
-        
+
         # Should be sorted alphabetically
         assert data["fonts"] == sorted(sample_fingerprint.fonts)
-    
+
     def test_empty_fingerprint(self):
         """Test default empty fingerprint."""
         fp = FingerprintData()
-        
+
         assert fp.user_agent == ""
         assert fp.fonts == set()
         assert fp.timestamp == 0.0
@@ -160,7 +160,7 @@ class TestFingerprintData:
 
 class TestDriftDetection:
     """Tests for drift detection logic."""
-    
+
     def test_no_drift_identical_fingerprints(
         self,
         auditor: ProfileAuditor,
@@ -171,9 +171,9 @@ class TestDriftDetection:
             sample_fingerprint,
             sample_fingerprint,
         )
-        
+
         assert len(drifts) == 0
-    
+
     def test_ua_version_drift(
         self,
         auditor: ProfileAuditor,
@@ -185,14 +185,14 @@ class TestDriftDetection:
             sample_fingerprint,
             drifted_fingerprint,
         )
-        
+
         assert len(drifts) == 1
         assert drifts[0].attribute == "ua_major_version"
         assert drifts[0].baseline_value == "120"
         assert drifts[0].current_value == "121"
         assert drifts[0].severity == "high"
         assert drifts[0].repair_action == RepairAction.RESTART_BROWSER
-    
+
     def test_language_drift(
         self,
         auditor: ProfileAuditor,
@@ -209,14 +209,14 @@ class TestDriftDetection:
             audio_hash=sample_fingerprint.audio_hash,
             timestamp=time.time(),
         )
-        
+
         drifts = auditor.compare_fingerprints(sample_fingerprint, changed)
-        
+
         assert len(drifts) == 1
         assert drifts[0].attribute == "language"
         assert drifts[0].baseline_value == "ja-JP"
         assert drifts[0].current_value == "en-US"
-    
+
     def test_timezone_drift(
         self,
         auditor: ProfileAuditor,
@@ -233,12 +233,12 @@ class TestDriftDetection:
             audio_hash=sample_fingerprint.audio_hash,
             timestamp=time.time(),
         )
-        
+
         drifts = auditor.compare_fingerprints(sample_fingerprint, changed)
-        
+
         assert len(drifts) == 1
         assert drifts[0].attribute == "timezone"
-    
+
     def test_font_drift_significant(
         self,
         auditor: ProfileAuditor,
@@ -256,13 +256,13 @@ class TestDriftDetection:
             audio_hash=sample_fingerprint.audio_hash,
             timestamp=time.time(),
         )
-        
+
         drifts = auditor.compare_fingerprints(sample_fingerprint, changed)
-        
+
         font_drifts = [d for d in drifts if d.attribute == "fonts"]
         assert len(font_drifts) == 1
         assert font_drifts[0].repair_action == RepairAction.RESYNC_FONTS
-    
+
     def test_font_drift_minor_allowed(
         self,
         auditor: ProfileAuditor,
@@ -280,13 +280,13 @@ class TestDriftDetection:
             audio_hash=sample_fingerprint.audio_hash,
             timestamp=time.time(),
         )
-        
+
         drifts = auditor.compare_fingerprints(sample_fingerprint, changed)
-        
+
         # Should not detect drift since overlap is > 80%
         font_drifts = [d for d in drifts if d.attribute == "fonts"]
         assert len(font_drifts) == 0
-    
+
     def test_canvas_hash_drift(
         self,
         auditor: ProfileAuditor,
@@ -303,13 +303,13 @@ class TestDriftDetection:
             audio_hash=sample_fingerprint.audio_hash,
             timestamp=time.time(),
         )
-        
+
         drifts = auditor.compare_fingerprints(sample_fingerprint, changed)
-        
+
         assert len(drifts) == 1
         assert drifts[0].attribute == "canvas_hash"
         assert drifts[0].severity == "low"
-    
+
     def test_multiple_drifts(
         self,
         auditor: ProfileAuditor,
@@ -326,12 +326,12 @@ class TestDriftDetection:
             audio_hash="different",  # Changed
             timestamp=time.time(),
         )
-        
+
         drifts = auditor.compare_fingerprints(sample_fingerprint, changed)
-        
+
         # Should detect multiple drifts
         assert len(drifts) >= 4
-        
+
         drift_attributes = {d.attribute for d in drifts}
         assert "ua_major_version" in drift_attributes
         assert "language" in drift_attributes
@@ -344,13 +344,13 @@ class TestDriftDetection:
 
 class TestRepairActions:
     """Tests for repair action determination."""
-    
+
     def test_no_repair_for_no_drifts(self, auditor: ProfileAuditor):
         """Test that no repair is needed when no drifts exist."""
         actions = auditor.determine_repair_actions([])
-        
+
         assert actions == [RepairAction.NONE]
-    
+
     def test_restart_browser_for_ua_drift(self, auditor: ProfileAuditor):
         """Test browser restart is recommended for UA drift."""
         drifts = [
@@ -362,11 +362,11 @@ class TestRepairActions:
                 repair_action=RepairAction.RESTART_BROWSER,
             )
         ]
-        
+
         actions = auditor.determine_repair_actions(drifts)
-        
+
         assert RepairAction.RESTART_BROWSER in actions
-    
+
     def test_resync_fonts_for_font_drift(self, auditor: ProfileAuditor):
         """Test font resync is recommended for font drift."""
         drifts = [
@@ -378,11 +378,11 @@ class TestRepairActions:
                 repair_action=RepairAction.RESYNC_FONTS,
             )
         ]
-        
+
         actions = auditor.determine_repair_actions(drifts)
-        
+
         assert RepairAction.RESYNC_FONTS in actions
-    
+
     def test_multiple_actions_ordered(self, auditor: ProfileAuditor):
         """Test that multiple repair actions are ordered by severity."""
         drifts = [
@@ -399,9 +399,9 @@ class TestRepairActions:
                 repair_action=RepairAction.RESTART_BROWSER,
             ),
         ]
-        
+
         actions = auditor.determine_repair_actions(drifts)
-        
+
         # RESYNC_FONTS comes before RESTART_BROWSER in severity order
         assert len(actions) == 2
         assert actions[0] == RepairAction.RESYNC_FONTS
@@ -414,7 +414,7 @@ class TestRepairActions:
 
 class TestBaselineManagement:
     """Tests for baseline fingerprint management."""
-    
+
     def test_save_and_load_baseline(
         self,
         auditor: ProfileAuditor,
@@ -422,14 +422,14 @@ class TestBaselineManagement:
     ):
         """Test saving and loading baseline fingerprint."""
         auditor._save_baseline(sample_fingerprint)
-        
+
         # Create new auditor instance to test loading
         new_auditor = ProfileAuditor(profile_dir=auditor._profile_dir)
-        
+
         assert new_auditor._baseline is not None
         assert new_auditor._baseline.ua_major_version == "120"
         assert new_auditor._baseline.language == "ja-JP"
-    
+
     def test_reset_baseline(
         self,
         auditor: ProfileAuditor,
@@ -438,12 +438,12 @@ class TestBaselineManagement:
         """Test resetting baseline fingerprint."""
         auditor._save_baseline(sample_fingerprint)
         assert auditor._baseline is not None
-        
+
         auditor.reset_baseline()
-        
+
         assert auditor._baseline is None
         assert not auditor._get_baseline_path().exists()
-    
+
     def test_baseline_file_format(
         self,
         auditor: ProfileAuditor,
@@ -451,11 +451,11 @@ class TestBaselineManagement:
     ):
         """Test that baseline is saved as valid JSON."""
         auditor._save_baseline(sample_fingerprint)
-        
+
         baseline_path = auditor._get_baseline_path()
         with open(baseline_path, "r") as f:
             data = json.load(f)
-        
+
         assert "user_agent" in data
         assert "ua_major_version" in data
         assert "fonts" in data
@@ -468,7 +468,7 @@ class TestBaselineManagement:
 
 class TestAuditExecution:
     """Tests for audit execution."""
-    
+
     @pytest.mark.asyncio
     async def test_audit_establishes_baseline_on_first_run(
         self,
@@ -490,13 +490,13 @@ class TestAuditExecution:
             "plugins_count": 3,
             "timestamp": time.time(),
         }
-        
+
         result = await auditor.audit(mock_page, force=True)
-        
+
         assert result.status == AuditStatus.PASS
         assert auditor._baseline is not None
         assert auditor._baseline.ua_major_version == "120"
-    
+
     @pytest.mark.asyncio
     async def test_audit_detects_drift_from_baseline(
         self,
@@ -507,7 +507,7 @@ class TestAuditExecution:
         """Test that audit detects drift from baseline."""
         # Set baseline
         auditor._save_baseline(sample_fingerprint)
-        
+
         # Return different fingerprint
         mock_page.evaluate.return_value = {
             "user_agent": "Chrome/121",
@@ -523,13 +523,13 @@ class TestAuditExecution:
             "plugins_count": 3,
             "timestamp": time.time(),
         }
-        
+
         result = await auditor.audit(mock_page, force=True)
-        
+
         assert result.status == AuditStatus.DRIFT
         assert len(result.drifts) >= 1
         assert result.drifts[0].attribute == "ua_major_version"
-    
+
     @pytest.mark.asyncio
     async def test_audit_skipped_within_interval(
         self,
@@ -540,12 +540,12 @@ class TestAuditExecution:
         """Test that audit is skipped if called too quickly."""
         auditor._save_baseline(sample_fingerprint)
         auditor._last_audit_time = time.time()  # Just audited
-        
+
         result = await auditor.audit(mock_page, force=False)
-        
+
         assert result.status == AuditStatus.SKIPPED
         mock_page.evaluate.assert_not_called()
-    
+
     @pytest.mark.asyncio
     async def test_audit_force_bypasses_interval(
         self,
@@ -556,14 +556,14 @@ class TestAuditExecution:
         """Test that force=True bypasses minimum interval."""
         auditor._save_baseline(sample_fingerprint)
         auditor._last_audit_time = time.time()  # Just audited
-        
+
         mock_page.evaluate.return_value = sample_fingerprint.to_dict()
-        
+
         result = await auditor.audit(mock_page, force=True)
-        
+
         assert result.status in (AuditStatus.PASS, AuditStatus.DRIFT)
         mock_page.evaluate.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_audit_handles_errors_gracefully(
         self,
@@ -572,9 +572,9 @@ class TestAuditExecution:
     ):
         """Test that audit handles errors without crashing."""
         mock_page.evaluate.side_effect = Exception("JavaScript error")
-        
+
         result = await auditor.audit(mock_page, force=True)
-        
+
         assert result.status == AuditStatus.FAIL
         assert result.error == "JavaScript error"
 
@@ -585,7 +585,7 @@ class TestAuditExecution:
 
 class TestAuditLogging:
     """Tests for audit log functionality."""
-    
+
     @pytest.mark.asyncio
     async def test_audit_logs_to_file(
         self,
@@ -603,20 +603,20 @@ class TestAuditLogging:
             "audio_hash": "xyz",
             "timestamp": time.time(),
         }
-        
+
         await auditor.audit(mock_page, force=True)
-        
+
         log_path = auditor._get_audit_log_path()
         assert log_path.exists()
-        
+
         with open(log_path, "r") as f:
             lines = f.readlines()
-        
+
         assert len(lines) == 1
         log_entry = json.loads(lines[0])
         assert "timestamp" in log_entry
         assert "status" in log_entry
-    
+
     @pytest.mark.asyncio
     async def test_multiple_audits_append_to_log(
         self,
@@ -634,15 +634,15 @@ class TestAuditLogging:
             "audio_hash": "xyz",
             "timestamp": time.time(),
         }
-        
+
         await auditor.audit(mock_page, force=True)
         auditor._last_audit_time = 0  # Reset for next audit
         await auditor.audit(mock_page, force=True)
-        
+
         log_path = auditor._get_audit_log_path()
         with open(log_path, "r") as f:
             lines = f.readlines()
-        
+
         assert len(lines) == 2
 
 
@@ -652,7 +652,7 @@ class TestAuditLogging:
 
 class TestAuditorStats:
     """Tests for auditor statistics."""
-    
+
     @pytest.mark.asyncio
     async def test_stats_track_audit_count(
         self,
@@ -668,17 +668,17 @@ class TestAuditorStats:
             "timezone": "Asia/Tokyo",
             "timestamp": time.time(),
         }
-        
+
         await auditor.audit(mock_page, force=True)
-        
+
         stats = auditor.get_stats()
         assert stats["audit_count"] == 1
         assert stats["has_baseline"] is True
-    
+
     def test_stats_initial_state(self, auditor: ProfileAuditor):
         """Test initial stats state."""
         stats = auditor.get_stats()
-        
+
         assert stats["audit_count"] == 0
         assert stats["repair_count"] == 0
         assert stats["has_baseline"] is False
@@ -691,7 +691,7 @@ class TestAuditorStats:
 
 class TestPerformHealthCheck:
     """Tests for the convenience function."""
-    
+
     @pytest.mark.asyncio
     async def test_perform_health_check_function(self, mock_page, tmp_path):
         """Test the perform_health_check convenience function."""
@@ -699,7 +699,7 @@ class TestPerformHealthCheck:
             with patch("src.crawler.profile_audit.get_profile_auditor") as mock_get:
                 auditor = ProfileAuditor(profile_dir=tmp_path)
                 mock_get.return_value = auditor
-                
+
                 mock_page.evaluate.return_value = {
                     "user_agent": "Chrome/120",
                     "ua_major_version": "120",
@@ -708,13 +708,13 @@ class TestPerformHealthCheck:
                     "timezone": "Asia/Tokyo",
                     "timestamp": time.time(),
                 }
-                
+
                 result = await perform_health_check(
                     page=mock_page,
                     force=True,
                     auto_repair=False,
                 )
-                
+
                 assert result.status == AuditStatus.PASS
 
 
@@ -724,7 +724,7 @@ class TestPerformHealthCheck:
 
 class TestAuditResult:
     """Tests for AuditResult serialization."""
-    
+
     def test_audit_result_to_dict(self, sample_fingerprint: FingerprintData):
         """Test AuditResult serialization."""
         result = AuditResult(
@@ -746,9 +746,9 @@ class TestAuditResult:
             retry_count=1,
             timestamp=time.time(),
         )
-        
+
         data = result.to_dict()
-        
+
         assert data["status"] == "drift"
         assert len(data["drifts"]) == 1
         assert data["drifts"][0]["attribute"] == "ua_major_version"

@@ -124,7 +124,7 @@ async def main():
     print(f"  - pages_limit: {budget.get('pages_limit')}")
     print(f"  - time_used_seconds: {budget.get('time_used_seconds')}")
     print(f"  - time_limit_seconds: {budget.get('time_limit_seconds')}")
-    
+
     # Note: remaining_percent is NOT in ExplorationState.get_status() but is in _handle_get_status()
     # Spec §3.2.1 expects remaining_percent, added by _handle_get_status
     has_remaining_percent = "remaining_percent" in budget
@@ -171,7 +171,7 @@ async def main():
     print(f"  - task_id: {result.get('task_id')}")
     print(f"  - status: {result.get('status')}")
     print(f"  - query: {result.get('query')}")
-    
+
     # Check "searches" field (mapped from "subqueries")
     searches = result.get("searches", [])
     print(f"  - searches count: {len(searches)}")

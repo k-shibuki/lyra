@@ -46,7 +46,7 @@ class TestBackoffConfig:
         # Given: No arguments
         # When: Creating default config
         config = BackoffConfig()
-        
+
         # Then: Default values are set
         assert config.base_delay == 1.0
         assert config.max_delay == 60.0
@@ -63,7 +63,7 @@ class TestBackoffConfig:
             exponential_base=3.0,
             jitter_factor=0.2,
         )
-        
+
         # Then: Custom values are set
         assert config.base_delay == 2.0
         assert config.max_delay == 120.0
@@ -123,7 +123,7 @@ class TestBackoffConfig:
         """Test that BackoffConfig is immutable."""
         # Given: A config instance
         config = BackoffConfig()
-        
+
         # When/Then: Attempting to modify raises FrozenInstanceError
         with pytest.raises(Exception):  # FrozenInstanceError in dataclasses
             config.base_delay = 5.0
@@ -137,7 +137,7 @@ class TestCalculateBackoff:
         # Given: attempt=0, default config, no jitter
         # When: Calculating backoff
         delay = calculate_backoff(0, add_jitter=False)
-        
+
         # Then: Delay equals base_delay (1.0)
         assert delay == 1.0
 
@@ -146,7 +146,7 @@ class TestCalculateBackoff:
         # Given: attempt=1, default config, no jitter
         # When: Calculating backoff
         delay = calculate_backoff(1, add_jitter=False)
-        
+
         # Then: Delay equals base_delay * 2^1 = 2.0
         assert delay == 2.0
 
@@ -155,7 +155,7 @@ class TestCalculateBackoff:
         # Given: attempt=5, default config, no jitter
         # When: Calculating backoff
         delay = calculate_backoff(5, add_jitter=False)
-        
+
         # Then: Delay equals base_delay * 2^5 = 32.0
         assert delay == 32.0
 
@@ -164,7 +164,7 @@ class TestCalculateBackoff:
         # Given: High attempt number, default config
         # When: Calculating backoff
         delay = calculate_backoff(10, add_jitter=False)
-        
+
         # Then: Delay is capped at max_delay (60.0)
         assert delay == 60.0
 
@@ -180,7 +180,7 @@ class TestCalculateBackoff:
         # Given: Multiple attempts with jitter disabled
         # When: Calculating backoffs
         delays = [calculate_backoff(i, add_jitter=False) for i in range(5)]
-        
+
         # Then: Values are exact powers of 2
         assert delays == [1.0, 2.0, 4.0, 8.0, 16.0]
 
@@ -189,15 +189,15 @@ class TestCalculateBackoff:
         # Given: Fixed random seed for reproducibility
         random.seed(42)
         config = BackoffConfig(jitter_factor=0.1)
-        
+
         # When: Calculating backoff multiple times
         delays = [calculate_backoff(2, config, add_jitter=True) for _ in range(100)]
-        
+
         # Then: All delays are within ±10% of base value (4.0)
         base_value = 4.0
         min_expected = base_value * 0.9
         max_expected = base_value * 1.1
-        
+
         for delay in delays:
             assert min_expected <= delay <= max_expected, f"Delay {delay} outside ±10% of {base_value}"
 
@@ -209,10 +209,10 @@ class TestCalculateBackoff:
             max_delay=100.0,
             exponential_base=3.0,
         )
-        
+
         # When: Calculating backoffs
         delays = [calculate_backoff(i, config, add_jitter=False) for i in range(4)]
-        
+
         # Then: Values follow custom base (3^n)
         assert delays == [2.0, 6.0, 18.0, 54.0]
 
@@ -221,7 +221,7 @@ class TestCalculateBackoff:
         # Given: No config provided
         # When: Calculating backoff
         delay = calculate_backoff(0, None, add_jitter=False)
-        
+
         # Then: Default base_delay is used
         assert delay == 1.0
 
@@ -229,11 +229,11 @@ class TestCalculateBackoff:
         """Test that delay is never negative even with large negative jitter."""
         # Given: Config with large jitter (edge case)
         config = BackoffConfig(jitter_factor=0.9)
-        
+
         # When: Calculating many backoffs
         random.seed(42)
         delays = [calculate_backoff(0, config, add_jitter=True) for _ in range(1000)]
-        
+
         # Then: No delay is negative
         assert all(d >= 0.0 for d in delays), "Delay should never be negative"
 
@@ -246,7 +246,7 @@ class TestCalculateCooldownMinutes:
         # Given: No failures
         # When: Calculating cooldown
         cooldown = calculate_cooldown_minutes(0)
-        
+
         # Then: Base cooldown (30 min) is returned
         assert cooldown == 30
 
@@ -255,7 +255,7 @@ class TestCalculateCooldownMinutes:
         # Given: Failures in first tier (0-2)
         # When: Calculating cooldowns
         cooldowns = [calculate_cooldown_minutes(i) for i in range(3)]
-        
+
         # Then: All return base cooldown
         assert all(c == 30 for c in cooldowns)
 
@@ -264,7 +264,7 @@ class TestCalculateCooldownMinutes:
         # Given: Failures in second tier
         # When: Calculating cooldowns
         cooldowns = [calculate_cooldown_minutes(i) for i in range(3, 6)]
-        
+
         # Then: Cooldown is 30 * 2 = 60
         assert all(c == 60 for c in cooldowns)
 
@@ -273,7 +273,7 @@ class TestCalculateCooldownMinutes:
         # Given: Failures in third tier
         # When: Calculating cooldowns
         cooldowns = [calculate_cooldown_minutes(i) for i in range(6, 9)]
-        
+
         # Then: Cooldown is min(30 * 4, 120) = 120
         assert all(c == 120 for c in cooldowns)
 
@@ -282,7 +282,7 @@ class TestCalculateCooldownMinutes:
         # Given: Very high failure count
         # When: Calculating cooldown
         cooldown = calculate_cooldown_minutes(100)
-        
+
         # Then: Capped at 120 minutes
         assert cooldown == 120
 
@@ -298,7 +298,7 @@ class TestCalculateCooldownMinutes:
         # Given: Custom values
         # When: Calculating cooldown
         cooldown = calculate_cooldown_minutes(6, base_minutes=60, max_minutes=300)
-        
+
         # Then: 60 * 4 = 240 (within max)
         assert cooldown == 240
 
@@ -307,7 +307,7 @@ class TestCalculateCooldownMinutes:
         # Given: Custom max that is lower than calculated
         # When: Calculating cooldown
         cooldown = calculate_cooldown_minutes(6, base_minutes=60, max_minutes=100)
-        
+
         # Then: Capped at custom max
         assert cooldown == 100
 
@@ -341,7 +341,7 @@ class TestCalculateTotalDelay:
         # Given: 3 retries with default config
         # When: Calculating total delay
         total = calculate_total_delay(3)
-        
+
         # Then: 1 + 2 + 4 = 7.0
         assert total == 7.0
 
@@ -350,7 +350,7 @@ class TestCalculateTotalDelay:
         # Given: No retries
         # When: Calculating total delay
         total = calculate_total_delay(0)
-        
+
         # Then: Total is 0.0
         assert total == 0.0
 
@@ -359,7 +359,7 @@ class TestCalculateTotalDelay:
         # Given: 5 retries with default config
         # When: Calculating total delay
         total = calculate_total_delay(5)
-        
+
         # Then: 1 + 2 + 4 + 8 + 16 = 31.0
         assert total == 31.0
 
@@ -367,10 +367,10 @@ class TestCalculateTotalDelay:
         """Test total delay with values hitting max_delay cap."""
         # Given: Many retries, some will hit cap
         config = BackoffConfig(base_delay=1.0, max_delay=10.0)
-        
+
         # When: Calculating total delay
         total = calculate_total_delay(6, config)
-        
+
         # Then: 1 + 2 + 4 + 8 + 10 + 10 = 35.0 (last two capped)
         assert total == 35.0
 
@@ -382,10 +382,10 @@ class TestCalculateTotalDelay:
             max_delay=100.0,
             exponential_base=2.0,
         )
-        
+
         # When: Calculating total delay
         total = calculate_total_delay(3, config)
-        
+
         # Then: 2 + 4 + 8 = 14.0
         assert total == 14.0
 
@@ -404,7 +404,7 @@ class TestSpecCompliance:
         """Test §4.3.5 formula: delay = min(base_delay * (2 ^ attempt), max_delay)."""
         # Given: Various attempts
         config = BackoffConfig(base_delay=1.0, max_delay=60.0, exponential_base=2.0)
-        
+
         # When/Then: Formula is correctly applied
         assert calculate_backoff(0, config, add_jitter=False) == 1.0  # 1 * 2^0 = 1
         assert calculate_backoff(1, config, add_jitter=False) == 2.0  # 1 * 2^1 = 2
@@ -425,7 +425,7 @@ class TestSpecCompliance:
         # Given: Any failure count
         # When: Calculating cooldown
         cooldown = calculate_cooldown_minutes(0)
-        
+
         # Then: Cooldown is at least 30 minutes
         assert cooldown >= 30
 
@@ -434,7 +434,7 @@ class TestSpecCompliance:
         # Given: Various failure counts
         # When: Calculating cooldowns
         cooldowns = [calculate_cooldown_minutes(i) for i in range(20)]
-        
+
         # Then: All cooldowns are within 30-120 range
         assert all(30 <= c <= 120 for c in cooldowns)
 
@@ -443,10 +443,10 @@ class TestSpecCompliance:
         # Given: Same attempt, multiple calculations
         random.seed(42)
         config = BackoffConfig(jitter_factor=0.1)
-        
+
         # When: Calculating many backoffs
         delays = [calculate_backoff(3, config, add_jitter=True) for _ in range(50)]
-        
+
         # Then: Delays vary (not all identical) - prevents thundering herd
         unique_delays = set(round(d, 6) for d in delays)
         assert len(unique_delays) > 1, "Jitter should provide variation"

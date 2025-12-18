@@ -34,38 +34,38 @@ class TaskBudget:
     """
     task_id: str
     created_at: float = field(default_factory=time.time)
-    
+
     # Page tracking
     pages_fetched: int = 0
     max_pages: int = 120
-    
+
     # Time tracking (seconds)
     start_time: float = field(default_factory=time.time)
     max_time_seconds: float = 3600.0  # 60 minutes default
-    
+
     # LLM time tracking
     llm_time_seconds: float = 0.0
     max_llm_ratio: float = 0.30
-    
+
     # State
     is_active: bool = True
     exceeded_reason: BudgetExceededReason | None = None
-    
+
     @property
     def elapsed_seconds(self) -> float:
         """Total elapsed time since task start."""
         return time.time() - self.start_time
-    
+
     @property
     def remaining_pages(self) -> int:
         """Number of pages remaining in budget."""
         return max(0, self.max_pages - self.pages_fetched)
-    
+
     @property
     def remaining_time_seconds(self) -> float:
         """Time remaining in budget (seconds)."""
         return max(0.0, self.max_time_seconds - self.elapsed_seconds)
-    
+
     @property
     def current_llm_ratio(self) -> float:
         """Current LLM time ratio."""
@@ -73,7 +73,7 @@ class TaskBudget:
         if elapsed <= 0:
             return 0.0
         return self.llm_time_seconds / elapsed
-    
+
     @property
     def available_llm_time(self) -> float:
         """Remaining LLM time within ratio limit (seconds)."""
@@ -82,59 +82,59 @@ class TaskBudget:
         # available = max_ratio * elapsed - llm_time
         max_llm_time = self.max_llm_ratio * self.elapsed_seconds
         return max(0.0, max_llm_time - self.llm_time_seconds)
-    
+
     def can_fetch_page(self) -> bool:
         """Check if a page can be fetched within budget."""
         if not self.is_active:
             return False
         return self.pages_fetched < self.max_pages
-    
+
     def can_continue(self) -> tuple[bool, BudgetExceededReason | None]:
         """
         Check if task can continue execution.
-        
+
         Returns:
             Tuple of (can_continue, reason if not)
         """
         if not self.is_active:
             return False, self.exceeded_reason
-        
+
         # Check page limit
         if self.pages_fetched >= self.max_pages:
             return False, BudgetExceededReason.PAGE_LIMIT
-        
+
         # Check time limit
         if self.elapsed_seconds >= self.max_time_seconds:
             return False, BudgetExceededReason.TIME_LIMIT
-        
+
         return True, None
-    
+
     def can_run_llm(self, estimated_seconds: float = 10.0) -> bool:
         """
         Check if LLM job can run within ratio limit.
-        
+
         Args:
             estimated_seconds: Estimated LLM processing time.
-            
+
         Returns:
             True if LLM can run within budget.
         """
         if not self.is_active:
             return False
-        
+
         # Project future ratio
         projected_llm_time = self.llm_time_seconds + estimated_seconds
         projected_elapsed = self.elapsed_seconds + estimated_seconds
-        
+
         # For new tasks with very short elapsed time, allow LLM execution
         # The ratio check only makes sense after some baseline time has elapsed
         MIN_ELAPSED_FOR_RATIO_CHECK = 30.0  # 30 seconds minimum
         if projected_elapsed < MIN_ELAPSED_FOR_RATIO_CHECK:
             return True
-        
+
         projected_ratio = projected_llm_time / projected_elapsed
         return projected_ratio <= self.max_llm_ratio
-    
+
     def record_page_fetch(self) -> None:
         """Record a page fetch."""
         self.pages_fetched += 1
@@ -144,11 +144,11 @@ class TaskBudget:
             pages_fetched=self.pages_fetched,
             max_pages=self.max_pages,
         )
-    
+
     def record_llm_time(self, seconds: float) -> None:
         """
         Record LLM processing time.
-        
+
         Args:
             seconds: LLM processing time in seconds.
         """
@@ -160,11 +160,11 @@ class TaskBudget:
             current_ratio=self.current_llm_ratio,
             max_ratio=self.max_llm_ratio,
         )
-    
+
     def stop(self, reason: BudgetExceededReason | None = None) -> None:
         """
         Stop the task budget.
-        
+
         Args:
             reason: Reason for stopping (if budget exceeded).
         """
@@ -178,7 +178,7 @@ class TaskBudget:
             elapsed_seconds=self.elapsed_seconds,
             llm_ratio=self.current_llm_ratio,
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -203,23 +203,23 @@ class BudgetManager:
     Manages task budgets across the system.
     Provides budget allocation, tracking, and enforcement.
     """
-    
+
     def __init__(self):
         self._settings = get_settings()
         self._budgets: dict[str, TaskBudget] = {}
         self._lock = asyncio.Lock()
-        
+
         # Load limits from settings
         task_limits = self._settings.get("task_limits", {})
         self._max_pages = task_limits.get("max_pages_per_task", 120)
         self._max_time_gpu = task_limits.get("max_time_minutes_gpu", 20) * 60
         self._max_time_cpu = task_limits.get("max_time_minutes_cpu", 25) * 60
         self._max_llm_ratio = task_limits.get("llm_time_ratio_max", 0.30)
-        
+
         # Detect GPU availability (simplified check)
         self._has_gpu = self._check_gpu_available()
         self._max_time = self._max_time_gpu if self._has_gpu else self._max_time_cpu
-        
+
         logger.info(
             "Budget manager initialized",
             max_pages=self._max_pages,
@@ -227,7 +227,7 @@ class BudgetManager:
             max_llm_ratio=self._max_llm_ratio,
             has_gpu=self._has_gpu,
         )
-    
+
     def _check_gpu_available(self) -> bool:
         """Check if GPU is available."""
         try:
@@ -235,14 +235,14 @@ class BudgetManager:
             return torch.cuda.is_available()
         except ImportError:
             return False
-    
+
     async def create_budget(self, task_id: str) -> TaskBudget:
         """
         Create a new budget for a task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             New TaskBudget instance.
         """
@@ -250,7 +250,7 @@ class BudgetManager:
             if task_id in self._budgets:
                 logger.warning("Budget already exists for task", task_id=task_id)
                 return self._budgets[task_id]
-            
+
             budget = TaskBudget(
                 task_id=task_id,
                 max_pages=self._max_pages,
@@ -258,28 +258,28 @@ class BudgetManager:
                 max_llm_ratio=self._max_llm_ratio,
             )
             self._budgets[task_id] = budget
-            
+
             logger.info(
                 "Budget created",
                 task_id=task_id,
                 max_pages=budget.max_pages,
                 max_time_seconds=budget.max_time_seconds,
             )
-            
+
             return budget
-    
+
     async def get_budget(self, task_id: str) -> TaskBudget | None:
         """
         Get budget for a task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             TaskBudget or None if not found.
         """
         return self._budgets.get(task_id)
-    
+
     async def check_and_update(
         self,
         task_id: str,
@@ -289,12 +289,12 @@ class BudgetManager:
     ) -> tuple[bool, BudgetExceededReason | None]:
         """
         Check budget and optionally update counters.
-        
+
         Args:
             task_id: Task identifier.
             record_page: Whether to record a page fetch.
             llm_time_seconds: LLM time to record.
-            
+
         Returns:
             Tuple of (can_continue, exceeded_reason)
         """
@@ -303,29 +303,29 @@ class BudgetManager:
             if budget is None:
                 # No budget means no limits (for backward compatibility)
                 return True, None
-            
+
             # Record updates
             if record_page:
                 budget.record_page_fetch()
-            
+
             if llm_time_seconds > 0:
                 budget.record_llm_time(llm_time_seconds)
-            
+
             # Check if can continue
             can_continue, reason = budget.can_continue()
-            
+
             if not can_continue and budget.is_active:
                 budget.stop(reason)
-            
+
             return can_continue, reason
-    
+
     async def can_fetch_page(self, task_id: str) -> bool:
         """
         Check if a page can be fetched.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             True if page fetch is within budget.
         """
@@ -333,7 +333,7 @@ class BudgetManager:
         if budget is None:
             return True
         return budget.can_fetch_page()
-    
+
     async def can_run_llm(
         self,
         task_id: str,
@@ -341,11 +341,11 @@ class BudgetManager:
     ) -> bool:
         """
         Check if LLM can run within ratio limit.
-        
+
         Args:
             task_id: Task identifier.
             estimated_seconds: Estimated LLM processing time.
-            
+
         Returns:
             True if LLM can run within budget.
         """
@@ -353,31 +353,31 @@ class BudgetManager:
         if budget is None:
             return True
         return budget.can_run_llm(estimated_seconds)
-    
+
     async def get_remaining_budget(
         self,
         task_id: str,
     ) -> dict[str, Any] | None:
         """
         Get remaining budget for a task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             Dictionary with remaining budget info.
         """
         budget = self._budgets.get(task_id)
         if budget is None:
             return None
-        
+
         return {
             "remaining_pages": budget.remaining_pages,
             "remaining_time_seconds": budget.remaining_time_seconds,
             "available_llm_time": budget.available_llm_time,
             "is_active": budget.is_active,
         }
-    
+
     async def stop_budget(
         self,
         task_id: str,
@@ -385,7 +385,7 @@ class BudgetManager:
     ) -> None:
         """
         Stop a task's budget.
-        
+
         Args:
             task_id: Task identifier.
             reason: Reason for stopping.
@@ -394,11 +394,11 @@ class BudgetManager:
             budget = self._budgets.get(task_id)
             if budget:
                 budget.stop(reason)
-    
+
     async def remove_budget(self, task_id: str) -> None:
         """
         Remove a task's budget.
-        
+
         Args:
             task_id: Task identifier.
         """
@@ -406,11 +406,11 @@ class BudgetManager:
             if task_id in self._budgets:
                 del self._budgets[task_id]
                 logger.debug("Budget removed", task_id=task_id)
-    
+
     async def get_all_active_budgets(self) -> list[dict[str, Any]]:
         """
         Get all active task budgets.
-        
+
         Returns:
             List of budget dictionaries.
         """
@@ -419,27 +419,27 @@ class BudgetManager:
             for budget in self._budgets.values()
             if budget.is_active
         ]
-    
+
     async def enforce_limits(self, task_id: str) -> dict[str, Any]:
         """
         Enforce budget limits and return status.
         Called periodically to check and stop tasks that exceed limits.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             Status dict with enforcement results.
         """
         budget = self._budgets.get(task_id)
         if budget is None:
             return {"enforced": False, "reason": "no_budget"}
-        
+
         can_continue, reason = budget.can_continue()
-        
+
         if not can_continue and budget.is_active:
             budget.stop(reason)
-            
+
             # Log enforcement action
             logger.warning(
                 "Budget limit enforced",
@@ -449,13 +449,13 @@ class BudgetManager:
                 elapsed_seconds=budget.elapsed_seconds,
                 llm_ratio=budget.current_llm_ratio,
             )
-            
+
             return {
                 "enforced": True,
                 "reason": reason.value if reason else "unknown",
                 "budget": budget.to_dict(),
             }
-        
+
         return {
             "enforced": False,
             "budget": budget.to_dict(),

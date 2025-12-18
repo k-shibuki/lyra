@@ -33,12 +33,12 @@ async def test_academic_query_detection():
     print("\n" + "=" * 60)
     print("[Step 1] Testing academic query detection")
     print("=" * 60)
-    
+
     from src.research.pipeline import SearchPipeline
-    
+
     # Create pipeline instance (minimal setup for testing)
     pipeline = SearchPipeline.__new__(SearchPipeline)
-    
+
     # Test cases: (query, expected_is_academic)
     test_cases = [
         ("machine learning paper", True),
@@ -49,10 +49,10 @@ async def test_academic_query_detection():
         ("how to cook pasta", False),
         ("python programming tutorial", False),
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for query, expected in test_cases:
         result = pipeline._is_academic_query(query)
         status = "✓" if result == expected else "✗"
@@ -61,7 +61,7 @@ async def test_academic_query_detection():
         else:
             failed += 1
         print(f"  {status} Query: '{query[:40]}...' -> {result} (expected: {expected})")
-    
+
     print(f"\n  Summary: {passed} passed, {failed} failed")
     return failed == 0
 
@@ -71,16 +71,16 @@ async def test_academic_provider_initialization():
     print("\n" + "=" * 60)
     print("[Step 2] Testing AcademicSearchProvider initialization")
     print("=" * 60)
-    
+
     from src.search.academic_provider import AcademicSearchProvider
-    
+
     provider = AcademicSearchProvider()
-    
+
     # Verify default APIs
     assert provider._default_apis == ["semantic_scholar", "openalex"], \
         f"Expected default APIs: semantic_scholar, openalex, got: {provider._default_apis}"
     print(f"  ✓ Default APIs: {provider._default_apis}")
-    
+
     # Verify API priority
     expected_priority = {
         "semantic_scholar": 1,
@@ -92,14 +92,14 @@ async def test_academic_provider_initialization():
     assert provider.API_PRIORITY == expected_priority, \
         f"API priority mismatch: {provider.API_PRIORITY}"
     print(f"  ✓ API priority order: semantic_scholar(1) > openalex(2) > crossref(3) > arxiv(4) > unpaywall(5)")
-    
+
     # Verify lazy initialization
     assert provider._clients == {}, "Clients should be empty (lazy init)"
     print("  ✓ Clients are lazily initialized")
-    
+
     await provider.close()
     print("  ✓ Provider cleanup successful")
-    
+
     return True
 
 
@@ -108,14 +108,14 @@ async def test_paper_model():
     print("\n" + "=" * 60)
     print("[Step 3] Testing Paper/Citation/Author Pydantic models")
     print("=" * 60)
-    
+
     from src.utils.schemas import Paper, Citation, Author
-    
+
     # Test Author model
     author = Author(name="John Doe", affiliation="MIT", orcid="0000-0001-2345-6789")
     assert author.name == "John Doe"
     print(f"  ✓ Author model: {author.name}")
-    
+
     # Test Paper model
     paper = Paper(
         id="s2:12345",
@@ -133,13 +133,13 @@ async def test_paper_model():
     assert paper.id == "s2:12345"
     assert paper.citation_count == 42
     print(f"  ✓ Paper model: {paper.title} (citations: {paper.citation_count})")
-    
+
     # Test to_search_result conversion
     search_result = paper.to_search_result()
     assert search_result.title == paper.title
     assert search_result.engine == "semantic_scholar"
     print(f"  ✓ Paper.to_search_result(): engine={search_result.engine}")
-    
+
     # Test Citation model
     citation = Citation(
         citing_paper_id="s2:12345",
@@ -149,7 +149,7 @@ async def test_paper_model():
     )
     assert citation.is_influential is True
     print(f"  ✓ Citation model: {citation.citing_paper_id} -> {citation.cited_paper_id}")
-    
+
     return True
 
 
@@ -158,12 +158,12 @@ async def test_canonical_paper_index():
     print("\n" + "=" * 60)
     print("[Step 4] Testing CanonicalPaperIndex deduplication")
     print("=" * 60)
-    
+
     from src.search.canonical_index import CanonicalPaperIndex
     from src.utils.schemas import Paper
-    
+
     index = CanonicalPaperIndex()
-    
+
     # Register paper from Semantic Scholar
     paper1 = Paper(
         id="s2:12345",
@@ -176,7 +176,7 @@ async def test_canonical_paper_index():
     )
     id1 = index.register_paper(paper1, source_api="semantic_scholar")
     print(f"  ✓ Registered from Semantic Scholar: {id1}")
-    
+
     # Register same paper from OpenAlex (should deduplicate)
     paper2 = Paper(
         id="openalex:W2963403868",
@@ -189,26 +189,26 @@ async def test_canonical_paper_index():
     )
     id2 = index.register_paper(paper2, source_api="openalex")
     print(f"  ✓ Registered from OpenAlex (same DOI): {id2}")
-    
+
     # Verify deduplication
     assert id1 == id2, f"DOI deduplication failed: {id1} != {id2}"
     print(f"  ✓ DOI deduplication: both IDs map to {id1}")
-    
+
     # Check stats
     stats = index.get_stats()
     assert stats["total"] == 1, f"Expected 1 unique paper, got {stats['total']}"
     print(f"  ✓ Stats: {stats}")
-    
+
     # Get all entries
     entries = index.get_all_entries()
     assert len(entries) == 1
-    
+
     # Verify Paper object is preserved
     entry = entries[0]
     assert entry.paper is not None
     assert entry.paper.citation_count in [100000, 95000]  # First registered wins
     print(f"  ✓ Entry preserved: source={entry.source}, paper.id={entry.paper.id}")
-    
+
     return True
 
 
@@ -217,18 +217,18 @@ async def test_semantic_scholar_client():
     print("\n" + "=" * 60)
     print("[Step 5] Testing Semantic Scholar client")
     print("=" * 60)
-    
+
     from src.search.apis.semantic_scholar import SemanticScholarClient
-    
+
     client = SemanticScholarClient()
-    
+
     # Verify client attributes
     assert client.name == "semantic_scholar"
     print(f"  ✓ Client name: {client.name}")
-    
+
     assert "semanticscholar.org" in client.base_url
     print(f"  ✓ Base URL: {client.base_url}")
-    
+
     # Test ID normalization (important bug fix)
     test_ids = [
         ("s2:12345", "12345"),  # Remove s2: prefix
@@ -236,12 +236,12 @@ async def test_semantic_scholar_client():
         ("10.1234/test", "10.1234/test"),  # Keep DOI
         ("12345", "12345"),  # Keep raw ID
     ]
-    
+
     for input_id, expected in test_ids:
         normalized = client._normalize_paper_id(input_id)
         assert normalized == expected, f"ID normalization failed: {input_id} -> {normalized}, expected {expected}"
         print(f"  ✓ ID normalization: '{input_id}' -> '{normalized}'")
-    
+
     await client.close()
     return True
 
@@ -251,15 +251,15 @@ async def test_evidence_graph_academic_edges():
     print("\n" + "=" * 60)
     print("[Step 6] Testing evidence graph academic edge attributes")
     print("=" * 60)
-    
+
     from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
-    
+
     graph = EvidenceGraph()
-    
+
     # Add PAGE nodes
     graph.add_node(NodeType.PAGE, "page1")
     graph.add_node(NodeType.PAGE, "page2")
-    
+
     # Add academic CITES edge
     edge_id = graph.add_edge(
         source_type=NodeType.PAGE,
@@ -271,21 +271,21 @@ async def test_evidence_graph_academic_edges():
         is_influential=True,
         citation_context="This work builds upon [1].",
     )
-    
+
     # Verify edge attributes
     source_node = f"{NodeType.PAGE.value}:page1"
     target_node = f"{NodeType.PAGE.value}:page2"
     edge_data = graph._graph.edges[source_node, target_node]
-    
+
     assert edge_data.get("is_academic") is True
     print(f"  ✓ is_academic attribute: {edge_data.get('is_academic')}")
-    
+
     assert edge_data.get("is_influential") is True
     print(f"  ✓ is_influential attribute: {edge_data.get('is_influential')}")
-    
+
     assert edge_data.get("citation_context") == "This work builds upon [1]."
     print(f"  ✓ citation_context attribute: '{edge_data.get('citation_context')[:30]}...'")
-    
+
     return True
 
 
@@ -294,39 +294,39 @@ async def test_live_api_search(live: bool = False):
     print("\n" + "=" * 60)
     print("[Step 7] Live API search test")
     print("=" * 60)
-    
+
     if not live:
         print("  ⏭ Skipped (use --live flag to enable)")
         return True
-    
+
     from src.search.academic_provider import AcademicSearchProvider
     from src.search.provider import SearchOptions
-    
+
     provider = AcademicSearchProvider()
-    
+
     try:
         query = "transformer attention mechanism"
         options = SearchOptions(limit=5, engines=["semantic_scholar", "openalex"])
-        
+
         print(f"  Searching: '{query}'...")
         response = await provider.search(query, options)
-        
+
         if response.ok:
             print(f"  ✓ Search successful: {len(response.results)} results")
             for i, result in enumerate(response.results[:3]):
                 print(f"    [{i+1}] {result.title[:50]}...")
         else:
             print(f"  ⚠ Search failed: {response.error}")
-        
+
         # Get internal index for more details
         index = provider.get_last_index()
         if index:
             stats = index.get_stats()
             print(f"  ✓ Deduplication stats: {stats}")
-        
+
     finally:
         await provider.close()
-    
+
     return True
 
 
@@ -335,37 +335,37 @@ async def test_config_loading():
     print("\n" + "=" * 60)
     print("[Step 8] Testing academic APIs config loading")
     print("=" * 60)
-    
+
     from src.utils.config import get_academic_apis_config
-    
+
     config = get_academic_apis_config()
-    
+
     # Verify config structure
     assert config.apis is not None
     print(f"  ✓ APIs configured: {list(config.apis.keys())}")
-    
+
     # Verify Semantic Scholar config
     ss_config = config.apis.get("semantic_scholar")
     assert ss_config is not None
     assert ss_config.enabled is True
     print(f"  ✓ Semantic Scholar: enabled={ss_config.enabled}, priority={ss_config.priority}")
-    
+
     # Verify OpenAlex config
     oa_config = config.apis.get("openalex")
     assert oa_config is not None
     assert oa_config.enabled is True
     print(f"  ✓ OpenAlex: enabled={oa_config.enabled}, priority={oa_config.priority}")
-    
+
     # Verify Unpaywall is disabled by default
     up_config = config.apis.get("unpaywall")
     if up_config:
         print(f"  ✓ Unpaywall: enabled={up_config.enabled}")
-    
+
     # Verify defaults
     assert config.defaults is not None
     assert "semantic_scholar" in config.defaults.search_apis
     print(f"  ✓ Default search APIs: {config.defaults.search_apis}")
-    
+
     return True
 
 
@@ -374,14 +374,14 @@ async def main():
     print("=" * 60)
     print(" J.2 Academic API Integration - E2E Verification")
     print("=" * 60)
-    
+
     # Check for --live flag
     live = "--live" in sys.argv
     if live:
         print("\n⚠ Running with --live flag: actual API calls will be made")
-    
+
     all_passed = True
-    
+
     try:
         # Run all steps
         steps = [
@@ -394,7 +394,7 @@ async def main():
             ("Live API search", lambda: test_live_api_search(live)),
             ("Config loading", test_config_loading),
         ]
-        
+
         for name, test_func in steps:
             try:
                 result = await test_func()
@@ -403,13 +403,13 @@ async def main():
             except Exception as e:
                 print(f"\n  ✗ Error in '{name}': {e}")
                 all_passed = False
-        
+
     except Exception as e:
         print(f"\n✗ Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         all_passed = False
-    
+
     # Summary
     print("\n" + "=" * 60)
     if all_passed:
@@ -417,7 +417,7 @@ async def main():
     else:
         print("✗ Some verification steps failed")
     print("=" * 60)
-    
+
     return 0 if all_passed else 1
 
 

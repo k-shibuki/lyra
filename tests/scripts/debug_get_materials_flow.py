@@ -62,7 +62,7 @@ async def main():
     # Create test fragments (as the search pipeline would)
     fragment1_id = f"f_{uuid.uuid4().hex[:8]}"
     fragment2_id = f"f_{uuid.uuid4().hex[:8]}"
-    
+
     await db.execute(
         """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant, relevance_reason, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
@@ -78,7 +78,7 @@ async def main():
     # Create test claims (as the search pipeline would)
     claim1_id = f"c_{uuid.uuid4().hex[:8]}"
     claim2_id = f"c_{uuid.uuid4().hex[:8]}"
-    
+
     await db.execute(
         """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
@@ -94,7 +94,7 @@ async def main():
     # Create test edges (fragment -> claim relationship)
     edge1_id = f"e_{uuid.uuid4().hex[:8]}"
     edge2_id = f"e_{uuid.uuid4().hex[:8]}"
-    
+
     await db.execute(
         """INSERT INTO edges (id, source_type, source_id, target_type, target_id, relation, created_at)
            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
@@ -124,7 +124,7 @@ async def main():
     print(f"  - query: {result.get('query')}")
     print(f"  - claims count: {len(result.get('claims', []))}")
     print(f"  - fragments count: {len(result.get('fragments', []))}")
-    
+
     evidence_graph = result.get("evidence_graph", {})
     print(f"  - evidence_graph.nodes count: {len(evidence_graph.get('nodes', []))}")
     print(f"  - evidence_graph.edges count: {len(evidence_graph.get('edges', []))}")
@@ -240,7 +240,7 @@ async def main():
 
     if len(claims) < 2:
         issues.append(f"Expected >= 2 claims, got {len(claims)}")
-    
+
     if len(evidence_graph.get("nodes", [])) == 0:
         issues.append("evidence_graph.nodes is empty")
 

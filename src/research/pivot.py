@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 class EntityType(Enum):
     """Types of entities for pivot exploration."""
-    
+
     ORGANIZATION = "organization"
     DOMAIN = "domain"
     PERSON = "person"
@@ -33,7 +33,7 @@ class EntityType(Enum):
 
 class PivotType(Enum):
     """Types of pivot expansions."""
-    
+
     # Organization pivots
     ORG_SUBSIDIARY = "org_subsidiary"
     ORG_OFFICER = "org_officer"
@@ -41,20 +41,20 @@ class PivotType(Enum):
     ORG_DOMAIN = "org_domain"
     ORG_REGISTRATION = "org_registration"
     ORG_FINANCIAL = "org_financial"
-    
+
     # Domain pivots
     DOMAIN_SUBDOMAIN = "domain_subdomain"
     DOMAIN_CERTIFICATE = "domain_certificate"
     DOMAIN_WHOIS = "domain_whois"
     DOMAIN_ORGANIZATION = "domain_organization"
     DOMAIN_DNS = "domain_dns"
-    
+
     # Person pivots
     PERSON_ALIAS = "person_alias"
     PERSON_HANDLE = "person_handle"
     PERSON_AFFILIATION = "person_affiliation"
     PERSON_PUBLICATION = "person_publication"
-    
+
     # Cross-entity pivots
     CITATION_SOURCE = "citation_source"
     RELATED_ENTITY = "related_entity"
@@ -63,7 +63,7 @@ class PivotType(Enum):
 @dataclass
 class PivotSuggestion:
     """A suggested pivot query for exploration.
-    
+
     Attributes:
         pivot_type: Type of pivot expansion.
         query_template: Query template with placeholders.
@@ -74,7 +74,7 @@ class PivotSuggestion:
         rationale: Why this pivot is suggested.
         operators: Recommended search operators.
     """
-    
+
     pivot_type: PivotType
     query_template: str
     query_examples: list[str] = field(default_factory=list)
@@ -280,19 +280,19 @@ PERSON_PIVOT_TEMPLATES = {
 class PivotExpander:
     """
     Generates pivot queries for OSINT entity expansion.
-    
+
     Implements §3.1.1 pivot exploration patterns. This class generates
     query suggestions for Cursor AI to consider when designing subqueries.
     It does NOT decide which pivots to execute - that remains Cursor AI's
     responsibility per §2.1 responsibility matrix.
     """
-    
+
     def __init__(self):
         """Initialize the pivot expander."""
         self._org_templates = ORG_PIVOT_TEMPLATES
         self._domain_templates = DOMAIN_PIVOT_TEMPLATES
         self._person_templates = PERSON_PIVOT_TEMPLATES
-    
+
     def expand_entity(
         self,
         entity_text: str,
@@ -302,13 +302,13 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """
         Generate pivot suggestions for an entity.
-        
+
         Args:
             entity_text: The entity text to expand.
             entity_type: Type of entity (organization, domain, person, etc.).
             context: Additional context about the entity.
             include_low_priority: Whether to include low-priority pivots.
-            
+
         Returns:
             List of pivot suggestions ordered by priority.
         """
@@ -318,9 +318,9 @@ class PivotExpander:
             except ValueError:
                 logger.warning(f"Unknown entity type: {entity_type}")
                 return []
-        
+
         suggestions = []
-        
+
         if entity_type == EntityType.ORGANIZATION:
             suggestions = self._expand_organization(entity_text, context)
         elif entity_type == EntityType.DOMAIN:
@@ -330,17 +330,17 @@ class PivotExpander:
         else:
             # For other types, try to infer applicable pivots
             suggestions = self._expand_generic(entity_text, entity_type, context)
-        
+
         # Filter by priority if requested
         if not include_low_priority:
             suggestions = [s for s in suggestions if s.priority != "low"]
-        
+
         # Sort by priority (high > medium > low)
         priority_order = {"high": 0, "medium": 1, "low": 2}
         suggestions.sort(key=lambda x: priority_order.get(x.priority, 1))
-        
+
         return suggestions
-    
+
     def _expand_organization(
         self,
         entity: str,
@@ -348,13 +348,13 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """Generate pivot suggestions for an organization entity."""
         suggestions = []
-        
+
         for pivot_type, template_info in self._org_templates.items():
             examples = []
             for template in template_info["templates"]:
                 query = template.replace("{entity}", entity)
                 examples.append(query)
-            
+
             suggestion = PivotSuggestion(
                 pivot_type=pivot_type,
                 query_template=template_info["templates"][0],
@@ -366,9 +366,9 @@ class PivotExpander:
                 operators=template_info["operators"],
             )
             suggestions.append(suggestion)
-        
+
         return suggestions
-    
+
     def _expand_domain(
         self,
         entity: str,
@@ -376,19 +376,19 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """Generate pivot suggestions for a domain entity."""
         suggestions = []
-        
+
         # Normalize domain (remove protocol if present)
         domain = entity.lower()
         if "://" in domain:
             domain = domain.split("://")[1]
         domain = domain.rstrip("/")
-        
+
         for pivot_type, template_info in self._domain_templates.items():
             examples = []
             for template in template_info["templates"]:
                 query = template.replace("{entity}", domain)
                 examples.append(query)
-            
+
             suggestion = PivotSuggestion(
                 pivot_type=pivot_type,
                 query_template=template_info["templates"][0],
@@ -400,9 +400,9 @@ class PivotExpander:
                 operators=template_info["operators"],
             )
             suggestions.append(suggestion)
-        
+
         return suggestions
-    
+
     def _expand_person(
         self,
         entity: str,
@@ -410,13 +410,13 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """Generate pivot suggestions for a person entity."""
         suggestions = []
-        
+
         for pivot_type, template_info in self._person_templates.items():
             examples = []
             for template in template_info["templates"]:
                 query = template.replace("{entity}", entity)
                 examples.append(query)
-            
+
             suggestion = PivotSuggestion(
                 pivot_type=pivot_type,
                 query_template=template_info["templates"][0],
@@ -428,9 +428,9 @@ class PivotExpander:
                 operators=template_info["operators"],
             )
             suggestions.append(suggestion)
-        
+
         return suggestions
-    
+
     def _expand_generic(
         self,
         entity: str,
@@ -439,7 +439,7 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """Generate generic pivot suggestions for other entity types."""
         suggestions = []
-        
+
         # Related entity search
         suggestions.append(PivotSuggestion(
             pivot_type=PivotType.RELATED_ENTITY,
@@ -454,9 +454,9 @@ class PivotExpander:
             rationale="関連エンティティの探索",
             operators=[],
         ))
-        
+
         return suggestions
-    
+
     def expand_all_entities(
         self,
         entities: list[dict[str, Any]],
@@ -464,21 +464,21 @@ class PivotExpander:
     ) -> dict[str, list[PivotSuggestion]]:
         """
         Generate pivot suggestions for multiple entities.
-        
+
         Args:
             entities: List of entity dictionaries with 'text' and 'type' keys.
             include_low_priority: Whether to include low-priority pivots.
-            
+
         Returns:
             Dictionary mapping entity text to list of suggestions.
         """
         results = {}
-        
+
         for entity_info in entities:
             entity_text = entity_info.get("text", "")
             entity_type = entity_info.get("type", "")
             context = entity_info.get("context", "")
-            
+
             if entity_text:
                 suggestions = self.expand_entity(
                     entity_text,
@@ -488,9 +488,9 @@ class PivotExpander:
                 )
                 if suggestions:
                     results[entity_text] = suggestions
-        
+
         return results
-    
+
     def get_priority_pivots(
         self,
         entities: list[dict[str, Any]],
@@ -498,21 +498,21 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """
         Get highest priority pivots across all entities.
-        
+
         Args:
             entities: List of entity dictionaries.
             max_per_entity: Maximum pivots per entity.
-            
+
         Returns:
             List of top priority pivot suggestions.
         """
         all_pivots = []
-        
+
         for entity_info in entities:
             entity_text = entity_info.get("text", "")
             entity_type = entity_info.get("type", "")
             context = entity_info.get("context", "")
-            
+
             if entity_text:
                 suggestions = self.expand_entity(
                     entity_text,
@@ -522,32 +522,32 @@ class PivotExpander:
                 )
                 # Take top N per entity
                 all_pivots.extend(suggestions[:max_per_entity])
-        
+
         # Sort all by priority
         priority_order = {"high": 0, "medium": 1, "low": 2}
         all_pivots.sort(key=lambda x: priority_order.get(x.priority, 1))
-        
+
         return all_pivots
 
 
 def detect_entity_type(text: str) -> EntityType | None:
     """
     Attempt to detect the type of an entity from its text.
-    
+
     Detection order is important - more specific patterns first:
     1. Organization (has distinctive suffixes)
     2. Domain (has distinctive TLD patterns)
     3. Location (check before person to avoid false positives)
     4. Person (most general pattern)
-    
+
     Args:
         text: Entity text to analyze.
-        
+
     Returns:
         Detected EntityType or None if unknown.
     """
     text_lower = text.lower()
-    
+
     # Organization patterns (check first - most distinctive)
     org_patterns = [
         r"株式会社", r"有限会社", r"合同会社",
@@ -557,7 +557,7 @@ def detect_entity_type(text: str) -> EntityType | None:
     for pattern in org_patterns:
         if re.search(pattern, text, re.IGNORECASE):
             return EntityType.ORGANIZATION
-    
+
     # Domain patterns
     domain_patterns = [
         r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z]{2,})+$",
@@ -566,7 +566,7 @@ def detect_entity_type(text: str) -> EntityType | None:
     for pattern in domain_patterns:
         if re.search(pattern, text_lower):
             return EntityType.DOMAIN
-    
+
     # Location patterns (check BEFORE person - 都/県/市 are distinctive)
     location_patterns = [
         r"(都|道|府|県|市|区|町|村)$",  # Japanese administrative units
@@ -576,7 +576,7 @@ def detect_entity_type(text: str) -> EntityType | None:
     for pattern in location_patterns:
         if re.search(pattern, text, re.IGNORECASE):
             return EntityType.LOCATION
-    
+
     # Person patterns (Japanese names, titles) - check last
     person_patterns = [
         r"(氏|さん|様)$",  # Honorifics
@@ -587,7 +587,7 @@ def detect_entity_type(text: str) -> EntityType | None:
     for pattern in person_patterns:
         if re.search(pattern, text):
             return EntityType.PERSON
-    
+
     return None
 
 

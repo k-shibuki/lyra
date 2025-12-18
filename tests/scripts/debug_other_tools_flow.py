@@ -37,7 +37,7 @@ async def main():
     from src.storage.database import get_database
 
     db = await get_database()
-    
+
     task_id = f"task_debug_{uuid.uuid4().hex[:8]}"
     await db.execute(
         """INSERT INTO tasks (id, query, status, created_at)

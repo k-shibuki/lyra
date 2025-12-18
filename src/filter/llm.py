@@ -45,72 +45,72 @@ audit_logger = get_audit_logger()
 class OllamaClient:
     """
     Legacy compatibility wrapper for OllamaProvider.
-    
+
     Per §4.2, LLM processes should be released after task completion.
     This client wraps the OllamaProvider to maintain backward compatibility.
-    
+
     Deprecated: Use LLMProvider directly for new code.
     """
-    
+
     def __init__(self):
         self._provider: OllamaProvider | None = None
         self._settings = get_settings()
-    
+
     def _get_provider(self) -> OllamaProvider:
         """Get or create Ollama provider."""
         if self._provider is None:
             self._provider = create_ollama_provider()
         return self._provider
-    
+
     @property
     def _current_task_id(self) -> str | None:
         """Get current task ID from provider (legacy compatibility)."""
         if self._provider is None:
             return None
         return self._provider._current_task_id
-    
+
     @_current_task_id.setter
     def _current_task_id(self, value: str | None) -> None:
         """Set current task ID on provider (legacy compatibility)."""
         provider = self._get_provider()
         provider._current_task_id = value
-    
+
     @property
     def _current_model(self) -> str | None:
         """Get current model from provider (legacy compatibility)."""
         if self._provider is None:
             return None
         return self._provider._current_model
-    
+
     @_current_model.setter
     def _current_model(self, value: str | None) -> None:
         """Set current model on provider (legacy compatibility)."""
         provider = self._get_provider()
         provider._current_model = value
-    
+
     def set_task_id(self, task_id: str | None) -> None:
         """Set current task ID for lifecycle tracking."""
         provider = self._get_provider()
         provider.set_task_id(task_id)
-    
+
     async def close(self) -> None:
         """Close HTTP session."""
         if self._provider is not None:
             await self._provider.close()
-    
+
     async def unload_model(self, model: str | None = None) -> bool:
         """Unload model to free VRAM."""
         if self._provider is None:
             return False
         return await self._provider.unload_model(model)
-    
+
     async def cleanup_for_task(self, unload_model: bool = True) -> None:
         """Cleanup resources after task completion."""
         if unload_model and self._settings.llm.unload_on_task_complete:
             await self.unload_model()
         if self._provider:
             self._provider.set_task_id(None)
-    
+
     async def generate(
         self,
         prompt: str,
@@ -121,21 +121,21 @@ class OllamaClient:
     ) -> str:
         """Generate completion from Ollama."""
         provider = self._get_provider()
-        
+
         options = LLMOptions(
             model=model,
             system=system,
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        
+
         response = await provider.generate(prompt, options)
-        
+
         if not response.ok:
             raise RuntimeError(f"Ollama error: {response.error}")
-        
+
         return response.text
-    
+
     async def chat(
         self,
         messages: list[dict[str, str]],
@@ -144,7 +144,7 @@ class OllamaClient:
     ) -> str:
         """Chat completion from Ollama."""
         provider = self._get_provider()
-        
+
         # Convert dict messages to ChatMessage objects
         chat_messages = [
             ChatMessage(
@@ -153,17 +153,17 @@ class OllamaClient:
             )
             for m in messages
         ]
-        
+
         options = LLMOptions(
             model=model,
             temperature=temperature,
         )
-        
+
         response = await provider.chat(chat_messages, options)
-        
+
         if not response.ok:
             raise RuntimeError(f"Ollama error: {response.error}")
-        
+
         return response.text
 
 
@@ -190,7 +190,7 @@ async def _cleanup_client() -> None:
 async def cleanup_llm_for_task(task_id: str | None = None) -> None:
     """
     Cleanup LLM resources after task completion.
-    
+
     Per §4.2: LLM processes should be released after task completion.
     """
     global _client
@@ -214,26 +214,26 @@ def set_llm_task_id(task_id: str | None) -> None:
 def _get_provider() -> LLMProvider:
     """
     Get the default LLM provider.
-    
+
     Initializes the registry with Ollama provider if not already done.
-    
+
     Returns:
         The default LLM provider.
-        
+
     Raises:
         RuntimeError: If no provider is available.
     """
     registry = get_llm_registry()
-    
+
     # Auto-register Ollama provider if registry is empty
     if not registry.list_providers():
         provider = create_ollama_provider()
         registry.register(provider, set_default=True)
-    
+
     default = registry.get_default()
     if default is None:
         raise RuntimeError("No LLM provider available")
-    
+
     return default
 
 
@@ -247,7 +247,7 @@ async def generate_with_provider(
 ) -> str:
     """
     Generate text using the LLM provider abstraction.
-    
+
     Args:
         prompt: Input prompt.
         model: Model name (uses provider default if not specified).
@@ -255,15 +255,15 @@ async def generate_with_provider(
         temperature: Generation temperature.
         max_tokens: Maximum tokens to generate.
         provider_name: Specific provider to use (default provider if not specified).
-        
+
     Returns:
         Generated text.
-        
+
     Raises:
         RuntimeError: If generation fails.
     """
     registry = get_llm_registry()
-    
+
     # Get provider
     if provider_name:
         provider = registry.get(provider_name)
@@ -271,19 +271,19 @@ async def generate_with_provider(
             raise RuntimeError(f"Provider '{provider_name}' not found")
     else:
         provider = _get_provider()
-    
+
     options = LLMOptions(
         model=model,
         system=system,
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    
+
     response = await provider.generate(prompt, options)
-    
+
     if not response.ok:
         raise RuntimeError(f"LLM generation failed: {response.error}")
-    
+
     return response.text
 
 
@@ -295,25 +295,25 @@ async def chat_with_provider(
 ) -> str:
     """
     Chat completion using the LLM provider abstraction.
-    
+
     Args:
         messages: List of message dicts with 'role' and 'content'.
         model: Model name.
         temperature: Generation temperature.
         provider_name: Specific provider to use.
-        
+
     Returns:
         Assistant response.
     """
     registry = get_llm_registry()
-    
+
     if provider_name:
         provider = registry.get(provider_name)
         if provider is None:
             raise RuntimeError(f"Provider '{provider_name}' not found")
     else:
         provider = _get_provider()
-    
+
     chat_messages = [
         ChatMessage(
             role=m.get("role", "user"),
@@ -321,17 +321,17 @@ async def chat_with_provider(
         )
         for m in messages
     ]
-    
+
     options = LLMOptions(
         model=model,
         temperature=temperature,
     )
-    
+
     response = await provider.chat(chat_messages, options)
-    
+
     if not response.ok:
         raise RuntimeError(f"LLM chat failed: {response.error}")
-    
+
     return response.text
 
 
@@ -381,46 +381,46 @@ async def llm_extract(
 ) -> dict[str, Any]:
     """
     Extract information using LLM.
-    
+
     Args:
         passages: List of passage dicts with 'id' and 'text'.
         task: Task type (extract_facts, extract_claims, summarize, translate).
         context: Additional context (e.g., research question).
         use_provider: Whether to use the new provider API (default: True).
-        
+
     Returns:
         Extraction result.
-    
+
     Note:
         Per §K.1: Single 3B model is used for all LLM tasks.
     """
     settings = get_settings()
-    
+
     if use_provider:
         # Use new provider-based API
         registry = get_llm_registry()
-        
+
         # Auto-register if needed
         if not registry.list_providers():
             provider = create_ollama_provider()
             registry.register(provider, set_default=True)
-        
+
         default_provider = registry.get_default()
         if default_provider is None:
             raise RuntimeError("No LLM provider available")
-        
+
         # Use single model (per §K.1)
         model = None
         if hasattr(default_provider, 'model'):
             model = default_provider.model
-        
+
         results = []
-        
+
         for passage in passages:
             passage_id = passage.get("id", "unknown")
             text = passage.get("text", "")
             source_url = passage.get("source_url", "")
-            
+
             # Select and render prompt template based on task (Phase K.2)
             if task == "extract_facts":
                 prompt = render_prompt("extract_facts", text=text[:4000])
@@ -441,20 +441,20 @@ async def llm_extract(
                 )
             else:
                 raise ValueError(f"Unknown task: {task}")
-            
+
             try:
                 options = LLMOptions(model=model)
                 response = await default_provider.generate(prompt, options)
-                
+
                 if not response.ok:
                     results.append({
                         "id": passage_id,
                         "error": response.error,
                     })
                     continue
-                
+
                 response_text = response.text
-                
+
                 # Validate LLM output per §4.4.1 L4
                 # Use instruction-only template to avoid false positives from user text
                 validation_result = validate_llm_output(
@@ -469,7 +469,7 @@ async def llm_extract(
                         fragment_count=validation_result.leakage_result.total_leaks if validation_result.leakage_result else 1,
                     )
                 response_text = validation_result.validated_text
-                
+
                 # Parse response based on task
                 if task in ("extract_facts", "extract_claims"):
                     try:
@@ -480,7 +480,7 @@ async def llm_extract(
                             extracted = []
                     except json.JSONDecodeError:
                         extracted = [{"raw_response": response_text}]
-                    
+
                     results.append({
                         "id": passage_id,
                         "source_url": source_url,
@@ -492,7 +492,7 @@ async def llm_extract(
                         "source_url": source_url,
                         "result": response_text.strip(),
                     })
-                    
+
             except Exception as e:
                 # L8: Use secure logger for exception handling
                 sanitized = secure_logger.log_exception(
@@ -507,14 +507,14 @@ async def llm_extract(
         # Legacy path using OllamaClient
         client = _get_client()
         model = settings.llm.model
-        
+
         results = []
-        
+
         for passage in passages:
             passage_id = passage.get("id", "unknown")
             text = passage.get("text", "")
             source_url = passage.get("source_url", "")
-            
+
             # Select and render prompt template based on task (Phase K.2)
             if task == "extract_facts":
                 prompt = render_prompt("extract_facts", text=text[:4000])
@@ -535,10 +535,10 @@ async def llm_extract(
                 )
             else:
                 raise ValueError(f"Unknown task: {task}")
-            
+
             try:
                 response_text = await client.generate(prompt, model=model)
-                
+
                 # Validate LLM output per §4.4.1 L4
                 # Use instruction-only template to avoid false positives from user text
                 validation_result = validate_llm_output(
@@ -553,7 +553,7 @@ async def llm_extract(
                         fragment_count=validation_result.leakage_result.total_leaks if validation_result.leakage_result else 1,
                     )
                 response_text = validation_result.validated_text
-                
+
                 if task in ("extract_facts", "extract_claims"):
                     try:
                         json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
@@ -563,7 +563,7 @@ async def llm_extract(
                             extracted = []
                     except json.JSONDecodeError:
                         extracted = [{"raw_response": response_text}]
-                    
+
                     results.append({
                         "id": passage_id,
                         "source_url": source_url,
@@ -575,7 +575,7 @@ async def llm_extract(
                         "source_url": source_url,
                         "result": response_text.strip(),
                     })
-                    
+
             except Exception as e:
                 # L8: Use secure logger for exception handling
                 sanitized = secure_logger.log_exception(
@@ -586,7 +586,7 @@ async def llm_extract(
                     "id": passage_id,
                     "error": sanitized.sanitized_message,
                 })
-    
+
     # Aggregate results
     if task == "extract_facts":
         all_facts = []
@@ -596,14 +596,14 @@ async def llm_extract(
                     fact["source_passage_id"] = r["id"]
                     fact["source_url"] = r.get("source_url", "")
                     all_facts.append(fact)
-        
+
         return {
             "ok": True,
             "task": task,
             "facts": all_facts,
             "passage_results": results,
         }
-    
+
     elif task == "extract_claims":
         all_claims = []
         for r in results:
@@ -612,14 +612,14 @@ async def llm_extract(
                     claim["source_passage_id"] = r["id"]
                     claim["source_url"] = r.get("source_url", "")
                     all_claims.append(claim)
-        
+
         return {
             "ok": True,
             "task": task,
             "claims": all_claims,
             "passage_results": results,
         }
-    
+
     else:
         return {
             "ok": True,
@@ -636,12 +636,12 @@ async def llm_extract(
 async def cleanup_all_providers() -> None:
     """
     Cleanup all LLM providers and the global registry.
-    
+
     Should be called during application shutdown.
     """
     # Cleanup legacy client
     await _cleanup_client()
-    
+
     # Cleanup registry
     from src.filter.provider import cleanup_llm_registry
     await cleanup_llm_registry()
@@ -650,7 +650,7 @@ async def cleanup_all_providers() -> None:
 def reset_for_testing() -> None:
     """
     Reset module state for testing.
-    
+
     For testing purposes only.
     """
     global _client

@@ -33,7 +33,7 @@ STEALTH_JS = """
         get: () => undefined,
         configurable: true
     });
-    
+
     // Remove automation-related properties from navigator
     const automationProps = [
         'webdriver',
@@ -47,12 +47,12 @@ STEALTH_JS = """
         '__selenium_unwrapped',
         '__fxdriver_unwrapped'
     ];
-    
+
     for (const prop of automationProps) {
         try {
             delete navigator[prop];
         } catch (e) {}
-        
+
         try {
             Object.defineProperty(navigator, prop, {
                 get: () => undefined,
@@ -60,7 +60,7 @@ STEALTH_JS = """
             });
         } catch (e) {}
     }
-    
+
     // Override navigator.permissions.query to hide automation
     const originalQuery = navigator.permissions?.query?.bind(navigator.permissions);
     if (originalQuery) {
@@ -71,7 +71,7 @@ STEALTH_JS = """
             return originalQuery(parameters);
         };
     }
-    
+
     // Override chrome.runtime to appear as normal browser
     if (!window.chrome) {
         window.chrome = {};
@@ -79,7 +79,7 @@ STEALTH_JS = """
     if (!window.chrome.runtime) {
         window.chrome.runtime = {};
     }
-    
+
     // Override plugins array to have realistic length
     Object.defineProperty(navigator, 'plugins', {
         get: () => {
@@ -95,31 +95,31 @@ STEALTH_JS = """
         },
         configurable: true
     });
-    
+
     // Override languages to be realistic
     Object.defineProperty(navigator, 'languages', {
         get: () => ['ja-JP', 'ja', 'en-US', 'en'],
         configurable: true
     });
-    
+
     // Ensure hardwareConcurrency returns realistic value
     Object.defineProperty(navigator, 'hardwareConcurrency', {
         get: () => 8,
         configurable: true
     });
-    
+
     // Ensure deviceMemory returns realistic value
     Object.defineProperty(navigator, 'deviceMemory', {
         get: () => 8,
         configurable: true
     });
-    
+
     // Remove Playwright/Puppeteer detection
     delete window.__playwright;
     delete window.__puppeteer;
     delete window.callPhantom;
     delete window._phantom;
-    
+
     // Override toString to hide modifications
     const originalToString = Function.prototype.toString;
     Function.prototype.toString = function() {
@@ -142,7 +142,7 @@ CDP_STEALTH_JS = """
             configurable: true
         });
     } catch (e) {}
-    
+
     // Remove CDP-specific detection markers
     delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
     delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
@@ -158,7 +158,7 @@ CDP_STEALTH_JS = """
 @dataclass
 class ViewportJitterConfig:
     """Configuration for viewport jitter.
-    
+
     Attributes:
         base_width: Base viewport width.
         base_height: Base viewport height.
@@ -178,7 +178,7 @@ class ViewportJitterConfig:
 @dataclass
 class ViewportState:
     """Tracks viewport state for hysteresis.
-    
+
     Attributes:
         current_width: Current viewport width.
         current_height: Current viewport height.
@@ -191,14 +191,14 @@ class ViewportState:
 
 class ViewportJitter:
     """Applies viewport jitter with hysteresis to reduce fingerprinting.
-    
+
     Per §4.3, viewport jitter is applied with narrow limits and hysteresis
     to prevent oscillation while still providing some randomization.
     """
-    
+
     def __init__(self, config: ViewportJitterConfig | None = None):
         """Initialize viewport jitter.
-        
+
         Args:
             config: Jitter configuration. Uses defaults if not provided.
         """
@@ -207,15 +207,15 @@ class ViewportJitter:
             current_width=self._config.base_width,
             current_height=self._config.base_height,
         )
-    
+
     def get_viewport(self, force_update: bool = False) -> dict[str, int]:
         """Get viewport dimensions with jitter applied.
-        
+
         Respects hysteresis - won't change dimensions if too recent.
-        
+
         Args:
             force_update: Force jitter update regardless of hysteresis.
-            
+
         Returns:
             Dict with 'width' and 'height' keys.
         """
@@ -224,10 +224,10 @@ class ViewportJitter:
                 "width": self._config.base_width,
                 "height": self._config.base_height,
             }
-        
+
         current_time = time.time()
         time_since_last = current_time - self._state.last_change_time
-        
+
         # Check hysteresis
         if not force_update and time_since_last < self._config.hysteresis_seconds:
             logger.debug(
@@ -239,7 +239,7 @@ class ViewportJitter:
                 "width": self._state.current_width,
                 "height": self._state.current_height,
             }
-        
+
         # Apply narrow jitter
         width_jitter = random.randint(
             -self._config.max_width_jitter,
@@ -249,15 +249,15 @@ class ViewportJitter:
             -self._config.max_height_jitter,
             self._config.max_height_jitter,
         )
-        
+
         new_width = self._config.base_width + width_jitter
         new_height = self._config.base_height + height_jitter
-        
+
         # Update state
         self._state.current_width = new_width
         self._state.current_height = new_height
         self._state.last_change_time = current_time
-        
+
         logger.debug(
             "Viewport jitter applied",
             width=new_width,
@@ -265,12 +265,12 @@ class ViewportJitter:
             width_jitter=width_jitter,
             height_jitter=height_jitter,
         )
-        
+
         return {
             "width": new_width,
             "height": new_height,
         }
-    
+
     def reset(self) -> None:
         """Reset viewport state to base dimensions."""
         self._state = ViewportState(
@@ -285,10 +285,10 @@ class ViewportJitter:
 
 async def apply_stealth_to_page(page, is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright page.
-    
+
     Injects JavaScript to override navigator.webdriver and related
     properties per §4.3 requirements.
-    
+
     Args:
         page: Playwright page object.
         is_cdp: Whether the browser is connected via CDP.
@@ -296,22 +296,22 @@ async def apply_stealth_to_page(page, is_cdp: bool = False) -> None:
     try:
         # Inject main stealth script
         await page.add_init_script(STEALTH_JS)
-        
+
         # For CDP connections, add additional overrides
         if is_cdp:
             await page.add_init_script(CDP_STEALTH_JS)
-        
+
         logger.debug("Stealth scripts applied to page", is_cdp=is_cdp)
-        
+
     except Exception as e:
         logger.warning("Failed to apply stealth scripts", error=str(e))
 
 
 async def apply_stealth_to_context(context, is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright browser context.
-    
+
     Ensures all new pages in the context have stealth measures applied.
-    
+
     Args:
         context: Playwright browser context.
         is_cdp: Whether the browser is connected via CDP.
@@ -319,49 +319,49 @@ async def apply_stealth_to_context(context, is_cdp: bool = False) -> None:
     try:
         # Add init script to context so all new pages get it
         await context.add_init_script(STEALTH_JS)
-        
+
         if is_cdp:
             await context.add_init_script(CDP_STEALTH_JS)
-        
+
         logger.info("Stealth scripts applied to context", is_cdp=is_cdp)
-        
+
     except Exception as e:
         logger.warning("Failed to apply stealth to context", error=str(e))
 
 
 def get_stealth_args() -> list[str]:
     """Get Chrome/Chromium launch arguments for stealth.
-    
+
     Returns minimal set of arguments to reduce automation detection.
-    
+
     Returns:
         List of command-line arguments.
     """
     return [
         # Disable automation-controlled flag
         "--disable-blink-features=AutomationControlled",
-        
+
         # Disable infobars (e.g., "Chrome is being controlled by automated software")
         "--disable-infobars",
-        
+
         # Use /dev/shm for faster operation
         "--disable-dev-shm-usage",
-        
+
         # Disable extensions that might be detected
         "--disable-extensions",
-        
+
         # Disable background networking
         "--disable-background-networking",
-        
+
         # Disable sync
         "--disable-sync",
-        
+
         # Disable translate
         "--disable-translate",
-        
+
         # Disable various Chrome features that can be fingerprinted
         "--disable-features=IsolateOrigins,site-per-process",
-        
+
         # Set window size explicitly (can be overridden by viewport)
         "--window-size=1920,1080",
     ]
@@ -369,24 +369,24 @@ def get_stealth_args() -> list[str]:
 
 def verify_stealth(page_content: str) -> dict[str, bool]:
     """Verify stealth measures are working by checking page content.
-    
+
     This is useful for debugging and testing.
-    
+
     Args:
         page_content: HTML content of the page.
-        
+
     Returns:
         Dict with verification results.
     """
     content_lower = page_content.lower()
-    
+
     results = {
         # Check for automation detection markers
         "no_webdriver_detected": "webdriver" not in content_lower or "bot detected" not in content_lower,
         "no_automation_detected": "automation" not in content_lower or "bot" not in content_lower,
         "no_headless_detected": "headless" not in content_lower,
     }
-    
+
     return results
 
 
@@ -396,18 +396,18 @@ _viewport_jitter: ViewportJitter | None = None
 
 def get_viewport_jitter(config: ViewportJitterConfig | None = None) -> ViewportJitter:
     """Get or create viewport jitter instance.
-    
+
     Args:
         config: Optional configuration override.
-        
+
     Returns:
         ViewportJitter instance.
     """
     global _viewport_jitter
-    
+
     if _viewport_jitter is None or config is not None:
         _viewport_jitter = ViewportJitter(config)
-    
+
     return _viewport_jitter
 
 
