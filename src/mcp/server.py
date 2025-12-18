@@ -687,7 +687,8 @@ async def _check_chrome_cdp_ready() -> bool:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(cdp_url) as response:
                 return response.status == 200
-    except Exception:
+    except Exception as e:
+        logger.debug("Chrome health check failed", cdp_url=cdp_url, error=str(e))
         return False
 
 

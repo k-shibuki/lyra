@@ -295,7 +295,7 @@ class SiteSearchManager:
         Returns:
             SiteSearchResult with found URLs.
         """
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         result = SiteSearchResult(domain=domain, query=query, success=False)
         
         # Check if search is available
@@ -348,20 +348,20 @@ class SiteSearchManager:
             if fallback_to_site:
                 return await self._fallback_search(domain, query)
         
-        result.duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
+        result.duration_ms = int((asyncio.get_running_loop().time() - start_time) * 1000)
         return result
     
     async def _wait_for_rate_limit(self, domain: str) -> None:
         """Wait for rate limit if needed."""
         async with self._lock:
             last = self._last_search.get(domain, 0)
-            elapsed = asyncio.get_event_loop().time() - last
+            elapsed = asyncio.get_running_loop().time() - last
             wait_time = max(0, self._min_interval - elapsed)
             
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
             
-            self._last_search[domain] = asyncio.get_event_loop().time()
+            self._last_search[domain] = asyncio.get_running_loop().time()
     
     async def _browser_search(
         self,
@@ -645,8 +645,9 @@ class SiteSearchManager:
             ]
             
             return any(ind in content_lower for ind in challenge_indicators)
-            
-        except Exception:
+
+        except Exception as e:
+            logger.debug("Challenge page detection failed", error=str(e))
             return False
     
     async def _update_domain_policy(
