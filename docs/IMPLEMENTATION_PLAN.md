@@ -25,7 +25,7 @@
 | N | E2Eケーススタディ | - | ⏳ | 進行中（N.2-5完了） | §6 |
 | **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.8）** | §6 |
 
-**現在のテスト数**: 3013件（全パス、K.2でPromptManagerテスト36件追加）
+**現在のテスト数**: 3022件（全パス、K.2でPromptManagerテスト45件に更新）
 
 ---
 
@@ -936,7 +936,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | llm.py修正 | プロンプト定数削除、`render_prompt()`使用 | ✅ |
 | claim_decomposition.py修正 | `DECOMPOSE_PROMPT`削除、`render_prompt()`使用 | ✅ |
 
-**テスト**: `tests/test_prompt_manager.py`（36件）
+**テスト**: `tests/test_prompt_manager.py`（45件）
 
 **使用方法**:
 ```python

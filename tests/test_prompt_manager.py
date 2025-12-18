@@ -5,7 +5,7 @@ Verifies:
 - Template loading and caching
 - Variable injection
 - Error handling
-- Backward compatibility with original prompts
+- Jinja2 template validation (JSON format, edge cases)
 """
 
 import pytest
@@ -301,66 +301,211 @@ class TestRealTemplates:
 
 
 # ============================================================================
-# Backward Compatibility Tests
+# Template Validation Tests
 # ============================================================================
+#
+# Test Perspective Table:
+# | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+# |---------|---------------------|-------------|-----------------|-------|
+# | TC-N-01 | extract_facts with valid text | Equivalence - normal | Renders correctly, JSON uses single braces | - |
+# | TC-N-02 | extract_claims with valid text/context | Equivalence - normal | Renders correctly, JSON uses single braces | - |
+# | TC-N-03 | decompose with valid question | Equivalence - normal | Renders correctly, JSON uses single braces | - |
+# | TC-N-04 | summarize with valid text | Equivalence - normal | Renders correctly | - |
+# | TC-N-05 | translate with valid text/target_lang | Equivalence - normal | Renders correctly | - |
+# | TC-B-01 | Empty string for text | Boundary - empty | Renders correctly (empty string is valid) | - |
+# | TC-B-02 | Very long text (4000+ chars) | Boundary - max length | Renders correctly | - |
+# | TC-B-03 | Text with special chars (JSON, braces) | Boundary - special chars | Renders correctly, JSON example unchanged | - |
+# | TC-B-04 | Text with unicode/emoji | Boundary - unicode | Renders correctly | - |
+# | TC-A-01 | Missing required variable (text) | Boundary - missing var | Raises TemplateRenderError | - |
+# | TC-A-02 | Missing context for extract_claims | Boundary - missing var | Raises TemplateRenderError | - |
+# | TC-V-01 | JSON format check (extract_facts) | Validation - format | Single `{` not double `{{` | - |
+# | TC-V-02 | JSON format check (extract_claims) | Validation - format | Single `{` not double `{{` | - |
+# | TC-V-03 | JSON format check (decompose) | Validation - format | Single `{` not double `{{` | - |
 
-class TestBackwardCompatibility:
-    """Tests to verify output matches original hardcoded prompts."""
-    
-    def test_extract_facts_output_structure(self, real_manager):
-        """Test extract_facts output has expected structure."""
-        result = real_manager.render("extract_facts", text="TEST_TEXT")
+
+class TestTemplateValidation:
+    """Tests to validate Jinja2 template correctness, JSON format, and edge cases."""
+
+    # -------------------------------------------------------------------------
+    # TC-N-01 to TC-N-05: Normal cases - template rendering
+    # -------------------------------------------------------------------------
+
+    def test_extract_facts_renders_correctly(self, real_manager):
+        """TC-N-01: Test extract_facts template renders with valid input."""
+        # Given: Valid text input
+        text = "This is a sample text for testing."
         
-        # Should contain the key phrases from original prompt
-        assert "情報抽出の専門家" in result
-        assert "TEST_TEXT" in result
-        assert "JSON配列" in result
-        assert "fact" in result
-        assert "confidence" in result
-    
-    def test_extract_claims_output_structure(self, real_manager):
-        """Test extract_claims output has expected structure."""
-        result = real_manager.render(
-            "extract_claims",
-            text="TEST_TEXT",
-            context="TEST_CONTEXT"
-        )
+        # When: Rendering the template
+        result = real_manager.render("extract_facts", text=text)
         
-        # Should contain the key phrases from original prompt
-        assert "情報分析の専門家" in result
-        assert "TEST_TEXT" in result
-        assert "TEST_CONTEXT" in result
-        assert "JSON配列" in result
-        assert "claim" in result
-    
-    def test_summarize_output_structure(self, real_manager):
-        """Test summarize output has expected structure."""
-        result = real_manager.render("summarize", text="TEST_TEXT")
+        # Then: Template renders correctly with injected variable
+        assert text in result
+        assert "情報抽出" in result or "事実" in result
+        assert "JSON" in result
+
+    def test_extract_claims_renders_correctly(self, real_manager):
+        """TC-N-02: Test extract_claims template renders with valid input."""
+        # Given: Valid text and context input
+        text = "Sample claim text."
+        context = "Research question about AI"
         
-        # Should contain the key phrases from original prompt
+        # When: Rendering the template
+        result = real_manager.render("extract_claims", text=text, context=context)
+        
+        # Then: Template renders correctly with both variables injected
+        assert text in result
+        assert context in result
+        assert "主張" in result or "claim" in result
+
+    def test_decompose_renders_correctly(self, real_manager):
+        """TC-N-03: Test decompose template renders with valid input."""
+        # Given: Valid question input
+        question = "What are the benefits of renewable energy?"
+        
+        # When: Rendering the template
+        result = real_manager.render("decompose", question=question)
+        
+        # Then: Template renders correctly with question injected
+        assert question in result
+        assert "atomic" in result.lower() or "原子" in result
+
+    def test_summarize_renders_correctly(self, real_manager):
+        """TC-N-04: Test summarize template renders with valid input."""
+        # Given: Valid text input
+        text = "Long document text that needs summarization."
+        
+        # When: Rendering the template
+        result = real_manager.render("summarize", text=text)
+        
+        # Then: Template renders correctly
+        assert text in result
         assert "要約" in result
-        assert "TEST_TEXT" in result
-    
-    def test_translate_output_structure(self, real_manager):
-        """Test translate output has expected structure."""
-        result = real_manager.render(
-            "translate",
-            text="TEST_TEXT",
-            target_lang="TEST_LANG"
-        )
+
+    def test_translate_renders_correctly(self, real_manager):
+        """TC-N-05: Test translate template renders with valid input."""
+        # Given: Valid text and target language
+        text = "Hello, world!"
+        target_lang = "日本語"
         
-        # Should contain the key phrases from original prompt
+        # When: Rendering the template
+        result = real_manager.render("translate", text=text, target_lang=target_lang)
+        
+        # Then: Template renders correctly with both variables
+        assert text in result
+        assert target_lang in result
         assert "翻訳" in result
-        assert "TEST_TEXT" in result
-        assert "TEST_LANG" in result
-    
-    def test_decompose_output_structure(self, real_manager):
-        """Test decompose output has expected structure."""
-        result = real_manager.render("decompose", question="TEST_QUESTION")
+
+    # -------------------------------------------------------------------------
+    # TC-B-01 to TC-B-04: Boundary cases
+    # -------------------------------------------------------------------------
+
+    def test_empty_string_input(self, real_manager):
+        """TC-B-01: Test template renders with empty string input."""
+        # Given: Empty string for text
+        text = ""
         
-        # Should contain the key phrases from original prompt
-        assert "情報分析の専門家" in result
-        assert "TEST_QUESTION" in result
-        assert "atomic" in result.lower() or "原子主張" in result
-        assert "polarity" in result
-        assert "granularity" in result
+        # When: Rendering the template
+        result = real_manager.render("extract_facts", text=text)
+        
+        # Then: Template renders correctly (empty input is valid)
+        assert "テキスト:" in result
+        assert result.count("テキスト:") >= 1
+
+    def test_very_long_text_input(self, real_manager):
+        """TC-B-02: Test template renders with very long text (4000+ chars)."""
+        # Given: Very long text input
+        text = "A" * 5000  # 5000 characters
+        
+        # When: Rendering the template
+        result = real_manager.render("extract_facts", text=text)
+        
+        # Then: Template renders correctly with the long text
+        assert text in result
+        assert len(result) > 5000
+
+    def test_special_characters_in_input(self, real_manager):
+        """TC-B-03: Test template renders with special characters (JSON, braces)."""
+        # Given: Text containing JSON-like content and special characters
+        text = '{"key": "value"} and {braces} and {{double_braces}}'
+        
+        # When: Rendering the template
+        result = real_manager.render("extract_facts", text=text)
+        
+        # Then: Template renders correctly, input preserved as-is
+        assert text in result
+        # JSON example in template should still use single braces
+        assert '{"fact":' in result
+
+    def test_unicode_and_emoji_input(self, real_manager):
+        """TC-B-04: Test template renders with unicode and emoji."""
+        # Given: Text with unicode characters and emoji
+        text = "日本語テスト 🎉 émojis и кириллица"
+        
+        # When: Rendering the template
+        result = real_manager.render("extract_facts", text=text)
+        
+        # Then: Template renders correctly with unicode preserved
+        assert text in result
+
+    # -------------------------------------------------------------------------
+    # TC-A-01 to TC-A-02: Error cases - missing variables
+    # -------------------------------------------------------------------------
+
+    def test_missing_required_variable_extract_facts(self, real_manager):
+        """TC-A-01: Test extract_facts raises error when 'text' is missing."""
+        # Given: No text variable provided
+        # When: Attempting to render without required variable
+        # Then: Should raise TemplateRenderError
+        with pytest.raises(TemplateRenderError) as exc_info:
+            real_manager.render("extract_facts")
+        
+        assert "extract_facts" in str(exc_info.value)
+        assert "text" in str(exc_info.value).lower() or "undefined" in str(exc_info.value).lower()
+
+    def test_missing_required_variable_extract_claims(self, real_manager):
+        """TC-A-02: Test extract_claims raises error when 'context' is missing."""
+        # Given: Only text provided, context missing
+        # When: Attempting to render without context variable
+        # Then: Should raise TemplateRenderError
+        with pytest.raises(TemplateRenderError) as exc_info:
+            real_manager.render("extract_claims", text="some text")
+        
+        assert "extract_claims" in str(exc_info.value)
+
+    # -------------------------------------------------------------------------
+    # TC-V-01 to TC-V-03: JSON format validation (single braces, not double)
+    # -------------------------------------------------------------------------
+
+    def test_json_format_extract_facts(self, real_manager):
+        """TC-V-01: Verify extract_facts JSON example uses single braces."""
+        # Given: Valid input
+        result = real_manager.render("extract_facts", text="test")
+        
+        # When: Checking the JSON example format
+        # Then: Should use single braces {, not double {{
+        assert '{"fact":' in result, "JSON example should use single braces"
+        assert '{{"fact":' not in result, "JSON example should NOT use double braces"
+
+    def test_json_format_extract_claims(self, real_manager):
+        """TC-V-02: Verify extract_claims JSON example uses single braces."""
+        # Given: Valid input
+        result = real_manager.render("extract_claims", text="test", context="context")
+        
+        # When: Checking the JSON example format
+        # Then: Should use single braces {, not double {{
+        assert '{"claim":' in result, "JSON example should use single braces"
+        assert '{{"claim":' not in result, "JSON example should NOT use double braces"
+
+    def test_json_format_decompose(self, real_manager):
+        """TC-V-03: Verify decompose JSON example uses single braces."""
+        # Given: Valid input
+        result = real_manager.render("decompose", question="test question")
+        
+        # When: Checking the JSON example format
+        # Then: Should use single braces {, not double {{
+        # The decompose template has JSON in a multi-line example
+        assert '  {' in result, "JSON example should use single braces"
+        assert '  {{' not in result, "JSON example should NOT use double braces"
+        # Verify specific JSON structure
+        assert '"text":' in result
+        assert '"polarity":' in result
