@@ -299,8 +299,8 @@ class InterventionManager:
             # Also try OS-level window activation for better visibility
             try:
                 await self._platform_activate_window()
-            except Exception:
-                pass  # Best effort
+            except Exception as e:
+                logger.debug("OS-level window activation failed (best effort)", error=str(e))
             
             return True
             
@@ -492,8 +492,8 @@ class InterventionManager:
                 )
                 if datetime.now(timezone.utc) < cooldown_until:
                     return True
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to parse cooldown_until timestamp", error=str(e))
         
         return False
     

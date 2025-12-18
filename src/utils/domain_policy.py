@@ -561,7 +561,8 @@ class DomainPolicyManager:
         self._check_reload()
         if self._config is None:
             self._load_config()
-        return self._config  # type: ignore
+        assert self._config is not None, "_load_config must set _config"
+        return self._config
     
     def get_default_policy(self) -> DefaultPolicySchema:
         """Get default policy configuration."""
