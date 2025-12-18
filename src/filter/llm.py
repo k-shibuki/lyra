@@ -25,6 +25,7 @@ from src.filter.provider import (
 )
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.prompt_manager import render_prompt
 from src.utils.secure_logging import (
     get_secure_logger,
     get_audit_logger,
@@ -335,45 +336,11 @@ async def chat_with_provider(
 
 
 # ============================================================================
-# Prompt Templates
+# Prompt Templates (External)
 # ============================================================================
-
-
-EXTRACT_FACTS_PROMPT = """あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
-
-テキスト:
-{text}
-
-抽出した事実をJSON配列形式で出力してください。各事実は以下の形式で:
-{{"fact": "事実の内容", "confidence": 0.0-1.0の信頼度}}
-
-事実のみを出力し、意見や推測は含めないでください。"""
-
-EXTRACT_CLAIMS_PROMPT = """あなたは情報分析の専門家です。以下のテキストから主張を抽出してください。
-
-リサーチクエスチョン: {context}
-
-テキスト:
-{text}
-
-抽出した主張をJSON配列形式で出力してください。各主張は以下の形式で:
-{{"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}}
-
-"""
-
-SUMMARIZE_PROMPT = """以下のテキストを要約してください。重要なポイントを簡潔にまとめてください。
-
-テキスト:
-{text}
-
-要約:"""
-
-TRANSLATE_PROMPT = """以下のテキストを{target_lang}に翻訳してください。
-
-テキスト:
-{text}
-
-翻訳:"""
+# Per Phase K.2: Prompt templates are externalized to config/prompts/*.j2
+# Use render_prompt() to render templates with variables.
+# Template names: extract_facts, extract_claims, summarize, translate
 
 # Instruction-only templates for leakage detection (§4.4.1 L4)
 # These exclude user-provided text to avoid false positive leakage detection
@@ -454,19 +421,21 @@ async def llm_extract(
             text = passage.get("text", "")
             source_url = passage.get("source_url", "")
             
-            # Select prompt based on task
+            # Select and render prompt template based on task (Phase K.2)
             if task == "extract_facts":
-                prompt = EXTRACT_FACTS_PROMPT.format(text=text[:4000])
+                prompt = render_prompt("extract_facts", text=text[:4000])
             elif task == "extract_claims":
-                prompt = EXTRACT_CLAIMS_PROMPT.format(
+                prompt = render_prompt(
+                    "extract_claims",
                     text=text[:4000],
                     context=context or "一般的な調査",
                 )
             elif task == "summarize":
-                prompt = SUMMARIZE_PROMPT.format(text=text[:4000])
+                prompt = render_prompt("summarize", text=text[:4000])
             elif task == "translate":
                 target_lang = context or "英語"
-                prompt = TRANSLATE_PROMPT.format(
+                prompt = render_prompt(
+                    "translate",
                     text=text[:4000],
                     target_lang=target_lang,
                 )
@@ -546,18 +515,21 @@ async def llm_extract(
             text = passage.get("text", "")
             source_url = passage.get("source_url", "")
             
+            # Select and render prompt template based on task (Phase K.2)
             if task == "extract_facts":
-                prompt = EXTRACT_FACTS_PROMPT.format(text=text[:4000])
+                prompt = render_prompt("extract_facts", text=text[:4000])
             elif task == "extract_claims":
-                prompt = EXTRACT_CLAIMS_PROMPT.format(
+                prompt = render_prompt(
+                    "extract_claims",
                     text=text[:4000],
                     context=context or "一般的な調査",
                 )
             elif task == "summarize":
-                prompt = SUMMARIZE_PROMPT.format(text=text[:4000])
+                prompt = render_prompt("summarize", text=text[:4000])
             elif task == "translate":
                 target_lang = context or "英語"
-                prompt = TRANSLATE_PROMPT.format(
+                prompt = render_prompt(
+                    "translate",
                     text=text[:4000],
                     target_lang=target_lang,
                 )

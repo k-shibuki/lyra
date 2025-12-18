@@ -308,6 +308,7 @@ class TestBrowserSearchProvider:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -383,6 +384,7 @@ class TestBrowserSearchProvider:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -448,6 +450,7 @@ class TestBrowserSearchProvider:
             mock_engine_config.weight = 0.7
             mock_engine_config.is_available = True
             mock_engine_config.min_interval = 5.0  # Per-engine QPS
+            mock_config_manager.get_default_engines.return_value = []  # Fallback to category
             mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
@@ -730,6 +733,7 @@ class TestCDPConnection:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -801,6 +805,7 @@ class TestCDPConnection:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -959,6 +964,7 @@ class TestSearchOptionsIntegration:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1527,6 +1533,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1609,6 +1616,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1686,6 +1694,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -1769,6 +1778,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2190,6 +2200,7 @@ class TestPerEngineQPSRateLimiting:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2298,6 +2309,7 @@ class TestQueryNormalization:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2380,6 +2392,7 @@ class TestQueryNormalization:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2460,6 +2473,7 @@ class TestQueryNormalization:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2541,6 +2555,7 @@ class TestQueryNormalization:
                 mock_engine_config.weight = 1.0
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 20.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2622,6 +2637,7 @@ class TestQueryNormalization:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2701,6 +2717,7 @@ class TestQueryNormalization:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2774,6 +2791,7 @@ class TestQueryNormalization:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -2894,6 +2912,7 @@ class TestDynamicWeightUsage:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
@@ -3005,6 +3024,7 @@ class TestDynamicWeightUsage:
                 mock_engine2.is_available = True
                 mock_engine2.min_interval = 4.0
                 
+                mock_config_manager.get_default_engines.return_value = []  # Fallback to category
                 mock_config_manager.get_engines_for_category.return_value = [
                     mock_engine1, mock_engine2
                 ]
@@ -3127,6 +3147,7 @@ class TestDynamicWeightUsage:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0
+                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
