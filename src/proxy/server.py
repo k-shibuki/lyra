@@ -198,12 +198,12 @@ async def main() -> None:
     
     # Wait for shutdown signal
     stop_event = asyncio.Event()
-    
+
     def handle_signal(sig: int) -> None:
         logger.info("Received shutdown signal", signal=sig)
         stop_event.set()
-    
-    loop = asyncio.get_event_loop()
+
+    loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, lambda s=sig: handle_signal(s))
     

@@ -307,7 +307,7 @@ class DNSPolicyManager:
             else:
                 # Direct route - resolve using OS resolver
                 # Note: getaddrinfo is blocking, run in executor
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 addr_info = await loop.run_in_executor(
                     None,
                     lambda: socket.getaddrinfo(
