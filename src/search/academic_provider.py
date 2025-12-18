@@ -9,6 +9,7 @@ Provides unified interface for searching academic papers from:
 """
 
 import asyncio
+from collections import deque
 from typing import Optional
 
 from src.search.provider import BaseSearchProvider, SearchResponse, SearchOptions, SearchResult
@@ -216,14 +217,15 @@ class AcademicSearchProvider(BaseSearchProvider):
         """
         # Prefer Semantic Scholar (best citation graph coverage)
         client = await self._get_client("semantic_scholar")
-        
+
         papers: dict[str, Paper] = {}
         citations = []
-        to_explore = [(paper_id, 0)]  # (paper_id, current_depth)
+        # Use deque for O(1) popleft() in BFS traversal
+        to_explore: deque[tuple[str, int]] = deque([(paper_id, 0)])  # (paper_id, current_depth)
         explored = set()
-        
+
         while to_explore:
-            current_id, current_depth = to_explore.pop(0)
+            current_id, current_depth = to_explore.popleft()
             if current_id in explored or current_depth >= depth:
                 continue
             explored.add(current_id)
