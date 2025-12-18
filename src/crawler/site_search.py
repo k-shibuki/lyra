@@ -721,11 +721,21 @@ async def site_search(
         Search result dictionary.
     """
     manager = get_site_search_manager()
-    
+
+    # Note: Browser-based site search requires a Playwright context to be passed
+    # from the caller. This MCP tool entry point doesn't have direct access to
+    # the browser context, so we always use HTTP-based search with site: fallback.
+    if use_browser:
+        logger.warning(
+            "Browser-based site search requested but no context available, "
+            "falling back to HTTP-based search",
+            domain=domain,
+        )
+
     result = await manager.search(
         domain,
         query,
-        browser_context=None if not use_browser else None,  # TODO: Get browser context
+        browser_context=None,  # Browser context must be passed by caller with browser access
         fallback_to_site=fallback,
     )
     
