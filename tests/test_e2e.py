@@ -90,15 +90,7 @@ async def is_ollama_available() -> bool:
         return False
 
 
-@pytest.fixture(scope="module")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def e2e_database(tmp_path_factory):
     """Create a test database for E2E tests."""
     from src.storage.database import Database
@@ -112,7 +104,7 @@ async def e2e_database(tmp_path_factory):
     await db.close()
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def check_browser_search():
     """Check browser search availability and skip if not available."""
     available = await is_browser_search_available()
@@ -121,7 +113,7 @@ async def check_browser_search():
     return True
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def check_ollama():
     """Check Ollama availability and skip if not available."""
     available = await is_ollama_available()

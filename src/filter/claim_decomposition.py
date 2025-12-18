@@ -23,6 +23,7 @@ from typing import Any
 from src.filter.llm import _get_client
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.prompt_manager import render_prompt
 
 logger = get_logger(__name__)
 
@@ -126,39 +127,8 @@ class DecompositionResult:
         }
 
 
-# LLM prompt for claim decomposition
-DECOMPOSE_PROMPT = """あなたは情報分析の専門家です。以下のリサーチクエスチョンを検証可能な原子主張（atomic claims）に分解してください。
-
-リサーチクエスチョン:
-{question}
-
-各主張について以下の情報を含むJSON配列を出力してください：
-- text: 主張の内容（検証可能な形式で記述）
-- polarity: "positive"（真であることを主張）, "negative"（偽であることを主張）, "neutral"（中立的な問い）
-- granularity: "atomic"（これ以上分解不可）, "composite"（さらに分解可能）
-- type: "factual", "causal", "comparative", "definitional", "temporal", "quantitative"
-- keywords: 検索に有用なキーワードのリスト
-- hints: 検証のためのヒント（どこで情報を探すべきか）
-
-出力例:
-[
-  {{
-    "text": "GPT-4は2023年3月にリリースされた",
-    "polarity": "positive",
-    "granularity": "atomic",
-    "type": "temporal",
-    "keywords": ["GPT-4", "リリース", "2023年"],
-    "hints": ["OpenAI公式発表", "テクノロジーニュース"]
-  }}
-]
-
-注意:
-- 各主張は独立して検証可能であること
-- 曖昧な表現は避け、具体的に記述すること
-- 複合的な問いは複数の原子主張に分解すること
-- 日本語で出力すること
-
-JSON配列のみを出力してください："""
+# Per Phase K.2: Prompt template externalized to config/prompts/decompose.j2
+# Use render_prompt("decompose", question=...) to render the template.
 
 
 class ClaimDecomposer:
@@ -240,7 +210,8 @@ class ClaimDecomposer:
         client = _get_client()
         model = self._settings.llm.model
         
-        prompt = DECOMPOSE_PROMPT.format(question=question)
+        # Render prompt template (Phase K.2)
+        prompt = render_prompt("decompose", question=question)
         
         response = await client.generate(
             prompt=prompt,
