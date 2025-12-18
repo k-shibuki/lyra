@@ -28,7 +28,7 @@ class SearchConfig(BaseModel):
     # BrowserSearchProvider is used for all searches
     use_browser: bool = True
     default_engine: str = "duckduckgo"  # Default search engine for browser provider
-    
+
     initial_query_count_gpu: int = 12
     initial_query_count_cpu: int = 10
     results_per_query: int = 7
@@ -114,7 +114,7 @@ class BrowserConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     """LLM configuration.
-    
+
     Per §K.1: Single 3B model for all LLM tasks.
     VRAM budget (8GB) accommodates 3B (~2.5GB) + embedding (~1GB) + reranker (~1GB) + NLI (~0.5GB).
     """
@@ -153,7 +153,7 @@ class NLIConfig(BaseModel):
 
 class MLServerConfig(BaseModel):
     """ML Server configuration.
-    
+
     ML models (embedding, reranker, NLI) run in a separate container
     on the internal network (lancet-internal) for security isolation.
     """
@@ -257,7 +257,7 @@ class GeneralConfig(BaseModel):
     log_level: str = "INFO"
     data_dir: str = "data"
     logs_dir: str = "logs"
-    
+
     # Proxy URL for hybrid mode (lancet container proxy server)
     # MCP server always runs on WSL host, LLM/ML via proxy
     proxy_url: str = "http://localhost:8080"
@@ -285,11 +285,11 @@ class Settings(BaseModel):
 
 def _deep_merge(base: dict, override: dict) -> dict:
     """Deep merge two dictionaries.
-    
+
     Args:
         base: Base dictionary.
         override: Override dictionary.
-        
+
     Returns:
         Merged dictionary.
     """
@@ -304,38 +304,38 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 def _load_yaml_config(config_dir: Path) -> dict[str, Any]:
     """Load configuration from YAML files.
-    
+
     Args:
         config_dir: Configuration directory path.
-        
+
     Returns:
         Merged configuration dictionary.
     """
     config = {}
-    
+
     # Load settings.yaml
     settings_path = config_dir / "settings.yaml"
     if settings_path.exists():
         with open(settings_path, encoding="utf-8") as f:
             settings_data = yaml.safe_load(f) or {}
             config = _deep_merge(config, settings_data)
-    
+
     return config
 
 
 def _load_academic_apis_config(config_dir: Path) -> dict[str, Any]:
     """Load academic APIs configuration from YAML file.
-    
+
     Args:
         config_dir: Configuration directory path.
-        
+
     Returns:
         Academic APIs configuration dictionary.
     """
     config_path = config_dir / "academic_apis.yaml"
     if not config_path.exists():
         return {}
-    
+
     with open(config_path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
         return data
@@ -344,23 +344,23 @@ def _load_academic_apis_config(config_dir: Path) -> dict[str, Any]:
 @lru_cache(maxsize=1)
 def get_academic_apis_config() -> AcademicAPIsConfig:
     """Get academic APIs configuration.
-    
+
     Configuration is loaded from:
     1. config/academic_apis.yaml
     2. Environment variables (highest priority, prefixed with LANCET_ACADEMIC_APIS__)
-    
+
     Returns:
         AcademicAPIsConfig instance.
     """
     # Determine config directory
     config_dir = Path(os.environ.get("LANCET_CONFIG_DIR", "config"))
-    
+
     # Load base configuration
     config_data = _load_academic_apis_config(config_dir)
-    
+
     # Apply environment overrides
     config_data = _apply_env_overrides({"academic_apis": config_data}).get("academic_apis", config_data)
-    
+
     # Parse API configurations
     apis_dict = {}
     if "apis" in config_data:
@@ -370,52 +370,52 @@ def get_academic_apis_config() -> AcademicAPIsConfig:
             rate_limit = None
             if rate_limit_data:
                 rate_limit = AcademicAPIRateLimitConfig(**rate_limit_data)
-            
+
             # Create API config
             api_config_data = {k: v for k, v in api_data.items() if k != "rate_limit"}
             if rate_limit:
                 api_config_data["rate_limit"] = rate_limit
-            
+
             apis_dict[api_name] = AcademicAPIConfig(**api_config_data)
-    
+
     # Parse defaults
     defaults_data = config_data.get("defaults", {})
     defaults = AcademicAPIsDefaultsConfig(**defaults_data)
-    
+
     return AcademicAPIsConfig(apis=apis_dict, defaults=defaults)
 
 
 def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
     """Apply environment variable overrides.
-    
+
     Environment variables should be prefixed with LANCET_ and use
     double underscores for nested keys.
-    
+
     Example:
         LANCET_GENERAL__LOG_LEVEL=DEBUG
-        
+
     Args:
         config: Configuration dictionary.
-        
+
     Returns:
         Configuration with environment overrides.
     """
     prefix = "LANCET_"
-    
+
     for key, value in os.environ.items():
         if not key.startswith(prefix):
             continue
-        
+
         # Remove prefix and split by double underscore
         key_path = key[len(prefix):].lower().split("__")
-        
+
         # Navigate to the correct nested location
         current = config
         for part in key_path[:-1]:
             if part not in current:
                 current[part] = {}
             current = current[part]
-        
+
         # Set the value (attempt to parse as appropriate type)
         final_key = key_path[-1]
         try:
@@ -428,38 +428,38 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
                 current[final_key] = int(value)
         except ValueError:
             current[final_key] = value
-    
+
     return config
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Get application settings.
-    
+
     Settings are loaded from:
     1. Default values
     2. YAML configuration files
     3. Environment variables (highest priority)
-    
+
     Returns:
         Settings instance.
     """
     # Determine config directory
     config_dir = Path(os.environ.get("LANCET_CONFIG_DIR", "config"))
-    
+
     # Load base configuration
     config = _load_yaml_config(config_dir)
-    
+
     # Apply environment overrides
     config = _apply_env_overrides(config)
-    
+
     # Create and return settings
     return Settings(**config)
 
 
 def get_project_root() -> Path:
     """Get the project root directory.
-    
+
     Returns:
         Project root path.
     """
@@ -471,7 +471,7 @@ def ensure_directories() -> None:
     """Ensure all required directories exist."""
     settings = get_settings()
     root = get_project_root()
-    
+
     dirs = [
         root / settings.general.data_dir,
         root / settings.general.logs_dir,
@@ -481,7 +481,7 @@ def ensure_directories() -> None:
         root / settings.storage.cache_dir,
         root / settings.storage.archive_dir,
     ]
-    
+
     for dir_path in dirs:
         dir_path.mkdir(parents=True, exist_ok=True)
 

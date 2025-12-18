@@ -67,45 +67,45 @@ def audit_logger():
 
 class TestSecureLoggerNormal:
     """Test SecureLogger normal cases."""
-    
+
     def test_log_llm_io_normal(self, secure_logger):
         """
         TC-N-01: log_llm_io with normal input/output
-        
+
         // Given: Normal input and output text
         // When: Calling log_llm_io
         // Then: Hash, length, and preview are generated correctly
         """
         input_text = "What is Python programming language?"
         output_text = "Python is a high-level programming language."
-        
+
         with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io(
                 "extract_facts",
                 input_text=input_text,
                 output_text=output_text,
             )
-            
+
             mock_logger.debug.assert_called_once()
             call_kwargs = mock_logger.debug.call_args[1]
-            
+
             # Verify structure
             assert "input" in call_kwargs
             assert "output" in call_kwargs
             assert call_kwargs["operation"] == "extract_facts"
-            
+
             # Verify input summary
             assert call_kwargs["input"]["length"] == len(input_text)
             assert len(call_kwargs["input"]["hash"]) == 16  # SHA256 prefix
             assert call_kwargs["input"]["preview"] == input_text
-            
+
             # Verify output summary
             assert call_kwargs["output"]["length"] == len(output_text)
-    
+
     def test_log_exception_normal(self, secure_logger):
         """
         TC-N-02: log_exception with ValueError
-        
+
         // Given: A simple ValueError
         // When: Logging the exception
         // Then: Sanitized message and error_id are generated
@@ -115,18 +115,18 @@ class TestSecureLoggerNormal:
         except Exception as e:
             with patch.object(secure_logger, '_logger') as mock_logger:
                 result = secure_logger.log_exception(e)
-                
+
                 mock_logger.error.assert_called_once()
-                
+
                 assert isinstance(result, SanitizedExceptionInfo)
                 assert result.exception_type == "ValueError"
                 assert "Invalid input value" in result.sanitized_message
                 assert result.error_id.startswith("err_")
-    
+
     def test_log_sensitive_operation_normal(self, secure_logger):
         """
         TC-N-03: log_sensitive_operation with normal dict
-        
+
         // Given: A dict with normal values
         // When: Logging sensitive operation
         // Then: Values are passed through (or sanitized if needed)
@@ -136,13 +136,13 @@ class TestSecureLoggerNormal:
             "count": 5,
             "status": "success",
         }
-        
+
         with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_sensitive_operation("test_op", details)
-            
+
             mock_logger.info.assert_called_once()
             call_kwargs = mock_logger.info.call_args[1]
-            
+
             assert call_kwargs["operation"] == "test_op"
             assert call_kwargs["details"]["count"] == 5
 
@@ -153,47 +153,47 @@ class TestSecureLoggerNormal:
 
 class TestSecureLoggerAbnormal:
     """Test SecureLogger abnormal/error cases."""
-    
+
     def test_log_llm_io_with_prompt_content(self, secure_logger):
         """
         TC-A-01: log_llm_io with prompt-like content
-        
+
         // Given: Input containing LANCET tag patterns
         // When: Logging LLM I/O
         // Then: Content is masked with [MASKED]
         """
         input_text = "This is <LANCET-abc123> system instruction text"
-        
+
         with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text=input_text)
-            
+
             call_kwargs = mock_logger.debug.call_args[1]
-            
+
             assert "[MASKED]" in call_kwargs["input"]["preview"]
             assert call_kwargs["input"]["had_sensitive"] is True
-    
+
     def test_log_llm_io_with_path_content(self, secure_logger):
         """
         TC-A-02: log_llm_io with path-like content
-        
+
         // Given: Input containing file paths
         // When: Logging LLM I/O
         // Then: Paths are masked with [PATH]
         """
         input_text = "Error in file /home/user/secret/config.py"
-        
+
         with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text=input_text)
-            
+
             call_kwargs = mock_logger.debug.call_args[1]
-            
+
             assert "[PATH]" in call_kwargs["input"]["preview"]
             assert call_kwargs["input"]["had_sensitive"] is True
-    
+
     def test_log_exception_with_stack_trace(self, secure_logger):
         """
         TC-A-03: log_exception with stack trace
-        
+
         // Given: An exception message containing stack trace
         // When: Logging the exception
         // Then: Trace is removed from sanitized message
@@ -207,14 +207,14 @@ class TestSecureLoggerAbnormal:
             )
         except Exception as e:
             result = secure_logger.log_exception(e)
-            
+
             assert "Traceback" not in result.sanitized_message
             assert "/home/user" not in result.sanitized_message
-    
+
     def test_log_exception_with_file_path(self, secure_logger):
         """
         TC-A-04: log_exception with file path
-        
+
         // Given: An exception containing file paths
         // When: Logging the exception
         // Then: Paths are removed/masked
@@ -223,7 +223,7 @@ class TestSecureLoggerAbnormal:
             raise FileNotFoundError("Cannot open /home/statuser/lancet/secrets.txt")
         except Exception as e:
             result = secure_logger.log_exception(e)
-            
+
             assert "/home/statuser" not in result.sanitized_message
 
 
@@ -233,56 +233,56 @@ class TestSecureLoggerAbnormal:
 
 class TestSecureLoggerBoundary:
     """Test SecureLogger boundary cases."""
-    
+
     def test_log_llm_io_empty_string(self, secure_logger):
         """
         TC-B-01: log_llm_io with empty string
-        
+
         // Given: Empty input text
         // When: Logging LLM I/O
         // Then: No error, length=0
         """
         with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text="", output_text="")
-            
+
             call_kwargs = mock_logger.debug.call_args[1]
-            
+
             assert call_kwargs["input"]["length"] == 0
             assert call_kwargs["output"]["length"] == 0
-    
+
     def test_log_llm_io_very_long_text(self, secure_logger):
         """
         TC-B-02: log_llm_io with very long text (10000 chars)
-        
+
         // Given: Very long input text
         // When: Logging LLM I/O
         // Then: Preview is truncated to MAX_PREVIEW_LENGTH
         """
         long_text = "A" * 10000
-        
+
         with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text=long_text)
-            
+
             call_kwargs = mock_logger.debug.call_args[1]
-            
+
             assert call_kwargs["input"]["length"] == 10000
             # Preview should be truncated + "..."
             assert len(call_kwargs["input"]["preview"]) <= MAX_PREVIEW_LENGTH + 3
             assert call_kwargs["input"]["preview"].endswith("...")
-    
+
     def test_log_llm_io_none_input(self, secure_logger):
         """
         TC-B-03: log_llm_io with None input
-        
+
         // Given: None as input text
         // When: Logging LLM I/O
         // Then: No 'input' key in log data
         """
         with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text=None, output_text="response")
-            
+
             call_kwargs = mock_logger.debug.call_args[1]
-            
+
             assert "input" not in call_kwargs
             assert "output" in call_kwargs
 
@@ -293,11 +293,11 @@ class TestSecureLoggerBoundary:
 
 class TestAuditLoggerNormal:
     """Test AuditLogger normal cases."""
-    
+
     def test_log_security_event_prompt_leakage(self, audit_logger):
         """
         TC-N-04: log_security_event with PROMPT_LEAKAGE
-        
+
         // Given: A prompt leakage event
         // When: Logging security event
         // Then: Event is logged with correct severity
@@ -308,18 +308,18 @@ class TestAuditLoggerNormal:
                 severity="high",
                 details={"source": "llm_extract", "fragment_count": 2},
             )
-            
+
             mock_logger.warning.assert_called_once()
             call_kwargs = mock_logger.warning.call_args[1]
-            
+
             assert event_id.startswith("sec_")
             assert call_kwargs["event_type"] == "prompt_leakage_detected"
             assert call_kwargs["severity"] == "high"
-    
+
     def test_log_prompt_leakage_helper(self, audit_logger):
         """
         TC-N-05: log_prompt_leakage helper
-        
+
         // Given: Leakage details
         // When: Using log_prompt_leakage helper
         // Then: Correct event type and fragment count
@@ -329,16 +329,16 @@ class TestAuditLoggerNormal:
                 source="llm_extract",
                 fragment_count=3,
             )
-            
+
             assert event_id.startswith("sec_")
             call_kwargs = mock_logger.warning.call_args[1]
             assert call_kwargs["event_type"] == "prompt_leakage_detected"
             assert call_kwargs["details"]["fragment_count"] == 3
-    
+
     def test_log_dangerous_pattern_helper(self, audit_logger):
         """
         TC-N-06: log_dangerous_pattern helper
-        
+
         // Given: Dangerous patterns detected
         // When: Using log_dangerous_pattern helper
         // Then: Correct event type and pattern count
@@ -348,7 +348,7 @@ class TestAuditLoggerNormal:
                 patterns=["ignore previous", "system prompt"],
                 source="user_input",
             )
-            
+
             assert event_id.startswith("sec_")
             call_kwargs = mock_logger.info.call_args[1]
             assert call_kwargs["event_type"] == "dangerous_pattern_detected"
@@ -361,32 +361,32 @@ class TestAuditLoggerNormal:
 
 class TestAuditLoggerAbnormalBoundary:
     """Test AuditLogger abnormal and boundary cases."""
-    
+
     def test_log_security_event_long_details(self, audit_logger):
         """
         TC-A-05: log_security_event with long details
-        
+
         // Given: Details with very long string values
         // When: Logging security event
         // Then: Long values are sanitized (length indicator)
         """
         long_value = "A" * 100
-        
+
         with patch.object(audit_logger, '_logger') as mock_logger:
             audit_logger.log_security_event(
                 SecurityEventType.UNKNOWN_FIELD_REMOVED,
                 details={"long_field": long_value},
             )
-            
+
             call_kwargs = mock_logger.info.call_args[1]
-            
+
             # Long strings should be replaced with length indicator
             assert call_kwargs["details"]["long_field"] == "[100 chars]"
-    
+
     def test_log_security_event_none_details(self, audit_logger):
         """
         TC-B-04: log_security_event with None details
-        
+
         // Given: None as details
         // When: Logging security event
         // Then: No 'details' key in log
@@ -396,7 +396,7 @@ class TestAuditLoggerAbnormalBoundary:
                 SecurityEventType.OUTPUT_TRUNCATED,
                 details=None,
             )
-            
+
             call_kwargs = mock_logger.info.call_args[1]
             assert "details" not in call_kwargs
 
@@ -407,11 +407,11 @@ class TestAuditLoggerAbnormalBoundary:
 
 class TestStructlogProcessor:
     """Test structlog sanitization processor."""
-    
+
     def test_processor_normal_text(self):
         """
         TC-N-07: Event dict with normal text field
-        
+
         // Given: Event dict with normal short text
         // When: Processing through sanitize_log_processor
         // Then: No modification
@@ -421,15 +421,15 @@ class TestStructlogProcessor:
             "text": "This is normal text",
             "count": 5,
         }
-        
+
         result = sanitize_log_processor(None, "info", event_dict)
-        
+
         assert result["text"] == "This is normal text"
-    
+
     def test_processor_prompt_like_text(self):
         """
         TC-A-06: Event dict with prompt-like text
-        
+
         // Given: Event dict with prompt-like content in text field
         // When: Processing through sanitize_log_processor
         // Then: Content is sanitized
@@ -438,16 +438,16 @@ class TestStructlogProcessor:
             "event": "test_event",
             "prompt": "This is LANCET-secret123 instruction",
         }
-        
+
         result = sanitize_log_processor(None, "info", event_dict)
-        
+
         assert "LANCET" not in result["prompt"]
         assert "[SANITIZED:" in result["prompt"]
-    
+
     def test_processor_long_text(self):
         """
         TC-A-07: Event dict with long text (>500 chars)
-        
+
         // Given: Event dict with long text
         // When: Processing through sanitize_log_processor
         // Then: Content is truncated
@@ -457,9 +457,9 @@ class TestStructlogProcessor:
             "event": "test_event",
             "content": long_text,
         }
-        
+
         result = sanitize_log_processor(None, "info", event_dict)
-        
+
         # Should be truncated with hash/len info
         assert len(result["content"]) < 600
         assert "hash=" in result["content"]
@@ -472,19 +472,19 @@ class TestStructlogProcessor:
 
 class TestL7BugFix:
     """Test L7 duplicate processing bug fix."""
-    
+
     def test_no_duplicate_processing(self):
         """
         TC-N-08: Response with LLM fields at multiple levels
-        
+
         // Given: A response with LLM text fields in nested arrays
         // When: Sanitizing the response
         // Then: Each field is processed exactly once (no double counting)
         """
         from src.mcp.response_sanitizer import ResponseSanitizer
-        
+
         sanitizer = ResponseSanitizer()
-        
+
         # Use schema-valid response structure for 'search' tool
         # 'claims_found' contains objects with 'text' (LLM content field)
         response = {
@@ -497,28 +497,28 @@ class TestL7BugFix:
                 {"id": "2", "text": "Nested claim text 2", "confidence": 0.8, "source_count": 1},
             ],
         }
-        
+
         result = sanitizer.sanitize_response(response, "search")
-        
+
         # Each LLM content field should be processed exactly once:
         # - "query" at top level = 1
         # - "text" in claims_found[0] = 1
         # - "text" in claims_found[1] = 1
         # Total = 3 (not 6 which would indicate double counting from before the fix)
         assert result.stats.llm_fields_processed == 3
-    
+
     def test_stats_count_correctly(self):
         """
         TC-B-05: Verify stats.llm_fields_processed counts correctly
-        
+
         // Given: A response with known number of LLM fields
         // When: Sanitizing the response
         // Then: llm_fields_processed matches actual field count
         """
         from src.mcp.response_sanitizer import ResponseSanitizer
-        
+
         sanitizer = ResponseSanitizer()
-        
+
         # Use schema-valid response structure for 'get_materials' tool
         # 'claims' array contains objects with 'text' (LLM content field)
         response = {
@@ -530,9 +530,9 @@ class TestL7BugFix:
             "fragments": [],
             "evidence_graph": None,
         }
-        
+
         result = sanitizer.sanitize_response(response, "get_materials")
-        
+
         # Should be exactly 1, not 2 (which would indicate double processing)
         assert result.stats.llm_fields_processed == 1
 
@@ -543,7 +543,7 @@ class TestL7BugFix:
 
 class TestDataClasses:
     """Test data class functionality."""
-    
+
     def test_llm_io_summary_to_dict(self):
         """Test LLMIOSummary.to_dict()."""
         summary = LLMIOSummary(
@@ -552,14 +552,14 @@ class TestDataClasses:
             preview="Test preview...",
             had_sensitive_content=True,
         )
-        
+
         result = summary.to_dict()
-        
+
         assert result["hash"] == "abc123def456"
         assert result["length"] == 100
         assert result["preview"] == "Test preview..."
         assert result["had_sensitive"] is True
-    
+
     def test_sanitized_exception_info_to_dict(self):
         """Test SanitizedExceptionInfo.to_dict()."""
         info = SanitizedExceptionInfo(
@@ -567,9 +567,9 @@ class TestDataClasses:
             sanitized_message="Invalid value",
             error_id="err_abc123",
         )
-        
+
         result = info.to_dict()
-        
+
         assert result["type"] == "ValueError"
         assert result["message"] == "Invalid value"
         assert result["error_id"] == "err_abc123"
@@ -581,28 +581,28 @@ class TestDataClasses:
 
 class TestModuleFunctions:
     """Test module-level convenience functions."""
-    
+
     def test_get_secure_logger_without_name(self):
         """Test get_secure_logger returns singleton without name."""
         logger1 = get_secure_logger()
         logger2 = get_secure_logger()
-        
+
         assert logger1 is logger2
-    
+
     def test_get_secure_logger_with_name(self):
         """Test get_secure_logger creates new instance with name."""
         logger1 = get_secure_logger("module1")
         logger2 = get_secure_logger("module2")
-        
+
         assert logger1 is not logger2
         assert logger1._name == "module1"
         assert logger2._name == "module2"
-    
+
     def test_get_audit_logger_singleton(self):
         """Test get_audit_logger returns singleton."""
         logger1 = get_audit_logger()
         logger2 = get_audit_logger()
-        
+
         assert logger1 is logger2
 
 
@@ -612,13 +612,13 @@ class TestModuleFunctions:
 
 class TestSecurityEventType:
     """Test SecurityEventType enum."""
-    
+
     def test_all_event_types_have_values(self):
         """Test all event types have string values."""
         for event_type in SecurityEventType:
             assert isinstance(event_type.value, str)
             assert len(event_type.value) > 0
-    
+
     def test_event_type_uniqueness(self):
         """Test all event type values are unique."""
         values = [e.value for e in SecurityEventType]

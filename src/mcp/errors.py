@@ -328,7 +328,7 @@ class InternalError(MCPError):
 
 class ChromeNotReadyError(MCPError):
     """Raised when Chrome CDP connection is not available after auto-start attempt.
-    
+
     This error indicates that Chrome auto-start was attempted but failed.
     Chrome with remote debugging is required for browser-based search operations.
     """
@@ -348,7 +348,7 @@ class ChromeNotReadyError(MCPError):
 
 class ParserNotAvailableError(MCPError):
     """Raised when no parser is available for the selected search engine.
-    
+
     This indicates the engine was selected but has no parser implementation.
     Cursor AI should retry with a different engine or use default engines.
     """
@@ -372,7 +372,7 @@ class ParserNotAvailableError(MCPError):
 
 class SerpSearchFailedError(MCPError):
     """Raised when SERP search fails for all attempted engines.
-    
+
     This indicates the search phase itself failed, not the fetch phase.
     Common causes: all engines blocked, network issues, or query issues.
     """
@@ -402,7 +402,7 @@ class SerpSearchFailedError(MCPError):
 
 class AllFetchesFailedError(MCPError):
     """Raised when all URL fetches fail during search.
-    
+
     This indicates SERP search succeeded but all subsequent fetches failed.
     Common causes: timeouts, authentication required, or server errors.
     """

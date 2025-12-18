@@ -102,7 +102,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: Tests that take more than 5 seconds (excluded by default)"
     )
-    
+
     # Risk-based sub-markers for E2E tests (§16.10.1)
     config.addinivalue_line(
         "markers", "external: E2E using external services with moderate block risk (Mojeek, Qwant)"
@@ -118,7 +118,7 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(config, items):
     """
     Auto-apply 'unit' marker to tests without explicit classification.
-    
+
     Per §7.1.7, tests should be classified as unit/integration/e2e.
     Tests without explicit markers are assumed to be unit tests.
     """
@@ -128,7 +128,7 @@ def pytest_collection_modifyitems(config, items):
             marker.name in ("unit", "integration", "e2e")
             for marker in item.iter_markers()
         )
-        
+
         # Default to unit test if no classification
         if not has_classification:
             item.add_marker(pytest.mark.unit)
@@ -150,25 +150,25 @@ def temp_db_path(temp_dir: Path) -> Path:
 @pytest_asyncio.fixture
 async def test_database(temp_db_path: Path):
     """Create a temporary test database.
-    
+
     Guards against global database singleton interference by saving
     and restoring the global state around the test.
     """
     from src.storage.database import Database
     from src.storage import database as db_module
-    
+
     # Save and clear global to prevent interference from previous tests
     saved_global = db_module._db
     db_module._db = None
-    
+
     db = Database(temp_db_path)
     await db.connect()
     await db.initialize_schema()
-    
+
     yield db
-    
+
     await db.close()
-    
+
     # Restore global (should be None anyway, but be defensive)
     db_module._db = saved_global
 
@@ -181,7 +181,7 @@ def mock_settings():
     from src.utils.config import TaskLimitsConfig, TorConfig, BrowserConfig
     from src.utils.config import NLIConfig, NotificationConfig, QualityConfig
     from src.utils.config import CircuitBreakerConfig, MetricsConfig
-    
+
     return Settings(
         general=GeneralConfig(log_level="DEBUG"),
         storage=StorageConfig(
@@ -246,17 +246,17 @@ def mock_aiohttp_session():
 
 class MockResponse:
     """Mock aiohttp response."""
-    
+
     def __init__(self, json_data: dict, status: int = 200):
         self._json_data = json_data
         self.status = status
-    
+
     async def json(self):
         return self._json_data
-    
+
     async def __aenter__(self):
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
@@ -276,7 +276,7 @@ def make_mock_response():
 @pytest.fixture(autouse=True)
 def reset_search_provider():
     """Reset search provider singletons between tests.
-    
+
     Ensures that each test starts with a fresh provider state.
     This prevents 'Event loop is closed' errors from provider reuse.
     """
@@ -289,7 +289,7 @@ def reset_search_provider():
 @pytest.fixture(autouse=True)
 def reset_global_database():
     """Reset global database singleton between tests.
-    
+
     Prevents asyncio.Lock() from being bound to a stale event loop,
     which can cause intermittent hangs when running multiple tests.
     """
@@ -309,7 +309,7 @@ def reset_global_database():
 @pytest.fixture
 def mock_ollama():
     """Mock Ollama client for unit tests.
-    
+
     Per §7.1.7: External services (Ollama) should be mocked in unit/integration tests.
     """
     with patch("src.filter.llm_extract.ollama") as mock_ollama:
@@ -322,7 +322,7 @@ def mock_ollama():
 @pytest.fixture
 def mock_browser():
     """Mock Playwright browser for unit tests.
-    
+
     Per §7.1.7: External services (Chrome) should be mocked in unit/integration tests.
     """
     with patch("src.crawler.browser.playwright") as mock_pw:
@@ -343,17 +343,17 @@ def mock_browser():
 @pytest_asyncio.fixture
 async def memory_database():
     """Create an in-memory database for fast unit tests.
-    
+
     Per §7.1.7: Database should use in-memory SQLite for unit tests.
     """
     from src.storage.database import Database
-    
+
     db = Database(":memory:")
     await db.connect()
     await db.initialize_schema()
-    
+
     yield db
-    
+
     await db.close()
 
 
@@ -363,7 +363,7 @@ async def memory_database():
 
 def assert_dict_contains(actual: dict, expected: dict) -> None:
     """Assert that actual dict contains all key-value pairs from expected.
-    
+
     Provides clear error messages per §7.1.2 (Diagnosability).
     """
     for key, value in expected.items():
@@ -373,7 +373,7 @@ def assert_dict_contains(actual: dict, expected: dict) -> None:
 
 def assert_async_called_with(mock: AsyncMock, *args, **kwargs) -> None:
     """Assert that async mock was called with specific arguments.
-    
+
     Provides clear error messages per §7.1.2 (Diagnosability).
     """
     mock.assert_called()
@@ -386,7 +386,7 @@ def assert_async_called_with(mock: AsyncMock, *args, **kwargs) -> None:
 
 def assert_in_range(value: float, min_val: float, max_val: float, name: str = "value") -> None:
     """Assert that a value is within a specified range.
-    
+
     Per §7.1.2: Range checks should be explicit with tolerance.
     """
     assert min_val <= value <= max_val, (
@@ -401,7 +401,7 @@ def assert_in_range(value: float, min_val: float, max_val: float, name: str = "v
 @pytest.fixture
 def make_fragment():
     """Factory for creating test fragments with realistic data.
-    
+
     Per §7.1.3: Test data should be realistic and diverse.
     """
     def _make(
@@ -423,7 +423,7 @@ def make_fragment():
 @pytest.fixture
 def make_claim():
     """Factory for creating test claims with realistic data.
-    
+
     Per §7.1.3: Test data should be realistic and diverse.
     """
     def _make(
@@ -449,16 +449,16 @@ def make_claim():
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_aiohttp_sessions(request):
     """Cleanup global aiohttp client sessions after all tests complete.
-    
+
     This prevents 'Unclosed client session' warnings by ensuring all
     singleton clients are properly closed at the end of the test session.
-    
+
     Note: We use synchronous reset instead of async cleanup to avoid
     creating a new event loop, which can interfere with pytest-asyncio's
     event loop management and cause intermittent hangs.
     """
     yield  # Run all tests first
-    
+
     # Synchronous cleanup - just reset globals without async operations
     # This avoids event loop conflicts with pytest-asyncio
     try:
@@ -466,7 +466,7 @@ def cleanup_aiohttp_sessions(request):
         llm._client = None
     except ImportError:
         pass
-    
+
     try:
         from src.storage import database as db_module
         db_module._db = None

@@ -32,14 +32,14 @@ T = TypeVar("T")
 
 class APIRetryError(Exception):
     """Raised when all retry attempts are exhausted.
-    
+
     Attributes:
         message: Error description
         attempts: Number of attempts made
         last_error: The last exception that caused failure
         last_status: The last HTTP status code (if applicable)
     """
-    
+
     def __init__(
         self,
         message: str,
@@ -55,12 +55,12 @@ class APIRetryError(Exception):
 
 class HTTPStatusError(Exception):
     """Raised when HTTP response has an error status code.
-    
+
     Attributes:
         status: HTTP status code
         message: Error description
     """
-    
+
     def __init__(self, status: int, message: str = ""):
         super().__init__(message or f"HTTP {status}")
         self.status = status
@@ -69,21 +69,21 @@ class HTTPStatusError(Exception):
 @dataclass
 class APIRetryPolicy:
     """Retry policy for official public APIs per §3.1.3 and §4.3.5.
-    
+
     Safe to use because target APIs:
     - Are official government/academic APIs (§3.1.3)
     - Have no bot detection mechanisms
     - Use explicit rate limiting (429) handled with backoff
-    
+
     Per §4.3.5: "検索エンジン/ブラウザ取得では使用禁止"
-    
+
     Attributes:
         max_retries: Maximum retry attempts (default: 3 per §7)
         backoff: Backoff configuration for delay calculation
         retryable_exceptions: Exception types that are safe to retry
         retryable_status_codes: HTTP status codes that are safe to retry
         non_retryable_status_codes: HTTP status codes that should never be retried
-    
+
     Example:
         >>> policy = APIRetryPolicy(max_retries=5)
         >>> policy.should_retry_exception(ConnectionError())
@@ -93,10 +93,10 @@ class APIRetryPolicy:
         >>> policy.should_retry_status(404)
         False
     """
-    
+
     max_retries: int = 3
     backoff: BackoffConfig = field(default_factory=BackoffConfig)
-    
+
     # Network errors - always safe to retry
     # These are transient and not related to bot detection
     retryable_exceptions: tuple[type[Exception], ...] = (
@@ -104,7 +104,7 @@ class APIRetryPolicy:
         TimeoutError,
         OSError,
     )
-    
+
     # API rate limiting / transient server errors
     # 429: Rate limited (safe for official APIs)
     # 500: Internal server error (transient)
@@ -114,7 +114,7 @@ class APIRetryPolicy:
     retryable_status_codes: frozenset[int] = field(
         default_factory=lambda: frozenset({429, 500, 502, 503, 504})
     )
-    
+
     # Never retry these (client errors, not transient)
     # 400: Bad request (client error)
     # 401: Unauthorized (need auth)
@@ -124,36 +124,36 @@ class APIRetryPolicy:
     non_retryable_status_codes: frozenset[int] = field(
         default_factory=lambda: frozenset({400, 401, 403, 404, 410})
     )
-    
+
     def __post_init__(self) -> None:
         """Validate policy configuration."""
         if self.max_retries < 0:
             raise ValueError("max_retries must be non-negative")
-        
+
         # Ensure no overlap between retryable and non-retryable
         overlap = self.retryable_status_codes & self.non_retryable_status_codes
         if overlap:
             raise ValueError(
                 f"Status codes cannot be both retryable and non-retryable: {overlap}"
             )
-    
+
     def should_retry_exception(self, exc: Exception) -> bool:
         """Check if exception is retryable.
-        
+
         Args:
             exc: The exception to check
-        
+
         Returns:
             True if the exception type is in retryable_exceptions
         """
         return isinstance(exc, self.retryable_exceptions)
-    
+
     def should_retry_status(self, status: int) -> bool:
         """Check if HTTP status code is retryable.
-        
+
         Args:
             status: HTTP status code
-        
+
         Returns:
             True if status is retryable, False if non-retryable or unknown
         """
@@ -170,32 +170,32 @@ async def retry_api_call(
     **kwargs: Any,
 ) -> T:
     """Execute async function with retry logic for public APIs.
-    
+
     Per §4.3.5: This function implements "ネットワーク/APIリトライ"
     for official public APIs listed in §3.1.3.
-    
+
     The function will retry on:
     - Network errors (ConnectionError, TimeoutError, OSError)
     - HTTP status codes in policy.retryable_status_codes (429, 5xx)
-    
+
     The function will NOT retry on:
     - HTTP status codes in policy.non_retryable_status_codes (400, 401, 403, 404, 410)
     - Other exceptions not in policy.retryable_exceptions
-    
+
     Args:
         func: Async function to call
         *args: Positional arguments for func
         policy: Retry policy (default: APIRetryPolicy())
         operation_name: Name for logging (default: func.__name__)
         **kwargs: Keyword arguments for func
-    
+
     Returns:
         Result from func
-    
+
     Raises:
         APIRetryError: When all retries exhausted
         Exception: When a non-retryable error occurs
-    
+
     Example:
         >>> async def fetch_estat(endpoint: str) -> dict:
         ...     response = await client.get(endpoint)
@@ -211,19 +211,19 @@ async def retry_api_call(
     """
     if policy is None:
         policy = APIRetryPolicy()
-    
+
     op_name = operation_name or getattr(func, "__name__", "api_call")
     last_error: Exception | None = None
     last_status: int | None = None
-    
+
     for attempt in range(policy.max_retries + 1):
         try:
             return await func(*args, **kwargs)
-            
+
         except HTTPStatusError as e:
             last_error = e
             last_status = e.status
-            
+
             # Check if status is retryable
             if not policy.should_retry_status(e.status):
                 logger.warning(
@@ -233,11 +233,11 @@ async def retry_api_call(
                     attempt=attempt + 1,
                 )
                 raise
-            
+
             # Check if more retries available
             if attempt >= policy.max_retries:
                 break
-            
+
             # Calculate delay and wait
             delay = calculate_backoff(attempt, policy.backoff)
             logger.info(
@@ -249,10 +249,10 @@ async def retry_api_call(
                 delay_seconds=round(delay, 2),
             )
             await asyncio.sleep(delay)
-            
+
         except Exception as e:
             last_error = e
-            
+
             # Check if exception is retryable
             if not policy.should_retry_exception(e):
                 logger.warning(
@@ -263,11 +263,11 @@ async def retry_api_call(
                     attempt=attempt + 1,
                 )
                 raise
-            
+
             # Check if more retries available
             if attempt >= policy.max_retries:
                 break
-            
+
             # Calculate delay and wait
             delay = calculate_backoff(attempt, policy.backoff)
             logger.info(
@@ -279,7 +279,7 @@ async def retry_api_call(
                 delay_seconds=round(delay, 2),
             )
             await asyncio.sleep(delay)
-    
+
     # All retries exhausted
     raise APIRetryError(
         f"{op_name} failed after {policy.max_retries + 1} attempts",
@@ -294,16 +294,16 @@ def with_api_retry(
     operation_name: str | None = None,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Decorator for adding retry logic to async API functions.
-    
+
     Per §4.3.5: Use only for official public APIs (§3.1.3).
-    
+
     Args:
         policy: Retry policy (default: APIRetryPolicy())
         operation_name: Name for logging (default: function name)
-    
+
     Returns:
         Decorator function
-    
+
     Example:
         >>> @with_api_retry(APIRetryPolicy(max_retries=5))
         ... async def fetch_openalex_paper(doi: str) -> dict:

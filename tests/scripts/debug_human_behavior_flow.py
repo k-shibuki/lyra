@@ -29,10 +29,10 @@ async def test_browser_fetcher_human_behavior():
     print("\n" + "=" * 80)
     print("[Test 1] BrowserFetcher.fetch() with human behavior simulation")
     print("=" * 80)
-    
+
     fetcher = BrowserFetcher()
     test_url = "https://example.com"
-    
+
     try:
         print(f"\n[Step 1] BrowserFetcher.fetch({test_url}, simulate_human=True)")
         result = await fetcher.fetch(
@@ -40,18 +40,18 @@ async def test_browser_fetcher_human_behavior():
             simulate_human=True,
             take_screenshot=False,
         )
-        
+
         # Type check
         assert hasattr(result, 'ok'), "FetchResult should have 'ok' attribute"
         print(f"  ✓ BrowserFetcher returned: ok={result.ok}")
-        
+
         if result.ok:
             print("  ✓ Human behavior simulation applied:")
             print("    - Inertial scrolling (simulate_reading)")
             print("    - Mouse trajectory to page elements")
         else:
             print(f"  ⚠ Fetch failed: {result.reason}")
-            
+
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
@@ -69,25 +69,25 @@ async def test_browser_search_provider_human_behavior():
     print("\n" + "=" * 80)
     print("[Test 2] BrowserSearchProvider.search() with human behavior simulation")
     print("=" * 80)
-    
+
     provider = BrowserSearchProvider()
     test_query = "test query"
-    
+
     try:
         print(f"\n[Step 1] BrowserSearchProvider.search('{test_query}')")
         result = await provider.search(test_query)
-        
+
         # Type check
         assert hasattr(result, 'ok'), "SearchResponse should have 'ok' attribute"
         print(f"  ✓ BrowserSearchProvider returned: ok={result.ok}")
-        
+
         if result.ok:
             print("  ✓ Human behavior simulation applied:")
             print("    - Inertial scrolling (simulate_reading)")
             print("    - Mouse trajectory to search result links")
         else:
             print(f"  ⚠ Search failed: {result.error}")
-            
+
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
@@ -102,13 +102,13 @@ async def test_browser_search_provider_human_behavior():
 
 async def check_chrome_cdp():
     """Check Chrome CDP connection and auto-start if needed.
-    
+
     Returns:
         True if CDP is available, False otherwise.
     """
     chrome_script = project_root / "scripts" / "chrome.sh"
     print("\n[Pre-check] Checking Chrome CDP connection...")
-    
+
     try:
         check_result = subprocess.run(
             [str(chrome_script), "check"],
@@ -116,7 +116,7 @@ async def check_chrome_cdp():
             text=True,
             timeout=5,
         )
-        
+
         if "NOT_READY" in check_result.stdout or check_result.returncode != 0:
             print("  Chrome CDP not available, attempting auto-start...")
             start_result = subprocess.run(
@@ -125,16 +125,16 @@ async def check_chrome_cdp():
                 text=True,
                 timeout=30,
             )
-            
+
             if "READY" not in start_result.stdout or start_result.returncode != 0:
                 print(f"  ⚠ Failed to start Chrome: {start_result.stdout}")
                 print(f"  ⚠ Skipped: CDP connection not available")
                 return False
-            
+
             print("  ✓ Chrome started successfully")
         else:
             print("  ✓ Chrome CDP already available")
-        
+
         return True
     except Exception as e:
         print(f"  ⚠ CDP check failed: {e}")
@@ -151,14 +151,14 @@ async def main():
     print("fully applied in BrowserFetcher and BrowserSearchProvider.")
     print("\nNote: This requires Chrome to be running with CDP enabled.")
     print("=" * 80)
-    
+
     # Check Chrome CDP connection
     cdp_available = await check_chrome_cdp()
     if not cdp_available:
         print("\n⚠ Skipping tests: Chrome CDP connection not available")
         print("  → Run Chrome with: ./scripts/chrome.sh start")
         return 1
-    
+
     # Test BrowserFetcher
     try:
         await test_browser_fetcher_human_behavior()
@@ -166,7 +166,7 @@ async def main():
         print(f"\n✗ BrowserFetcher test failed: {e}")
         import traceback
         traceback.print_exc()
-    
+
     # Test BrowserSearchProvider
     try:
         await test_browser_search_provider_human_behavior()
@@ -178,7 +178,7 @@ async def main():
         print(f"\n✗ BrowserSearchProvider test failed: {e}")
         import traceback
         traceback.print_exc()
-    
+
     print("\n" + "=" * 80)
     print("✓ All tests completed")
     print("=" * 80)

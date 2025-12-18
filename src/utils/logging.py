@@ -53,25 +53,25 @@ def configure_logging(
     json_format: bool = True,
 ) -> None:
     """Configure structured logging.
-    
+
     Args:
         log_level: Log level (DEBUG, INFO, WARNING, ERROR). Uses settings if None.
         log_file: Path to log file. Uses settings if None.
         json_format: Whether to use JSON format (True) or console format (False).
     """
     settings = get_settings()
-    
+
     if log_level is None:
         log_level = settings.general.log_level
-    
+
     if log_file is None:
         log_dir = get_project_root() / settings.general.logs_dir
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"lancet_{datetime.now().strftime('%Y%m%d')}.log"
-    
+
     # Convert log level string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
-    
+
     # Configure stdlib logging
     logging.basicConfig(
         format="%(message)s",
@@ -81,7 +81,7 @@ def configure_logging(
             logging.FileHandler(log_file, encoding="utf-8"),
         ],
     )
-    
+
     # Define processors
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
@@ -93,7 +93,7 @@ def configure_logging(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
     ]
-    
+
     if json_format:
         # JSON format for file logging and production
         processors = shared_processors + [
@@ -105,7 +105,7 @@ def configure_logging(
         processors = shared_processors + [
             structlog.dev.ConsoleRenderer(colors=True),
         ]
-    
+
     structlog.configure(
         processors=processors,
         wrapper_class=structlog.stdlib.BoundLogger,
@@ -117,10 +117,10 @@ def configure_logging(
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """Get a logger instance.
-    
+
     Args:
         name: Logger name (usually __name__).
-        
+
     Returns:
         Configured logger instance.
     """
@@ -129,10 +129,10 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
 
 def bind_context(**kwargs: Any) -> None:
     """Bind context variables to all subsequent log calls.
-    
+
     Useful for adding task_id, job_id, cause_id to all logs
     within a context.
-    
+
     Args:
         **kwargs: Context variables to bind.
     """
@@ -141,7 +141,7 @@ def bind_context(**kwargs: Any) -> None:
 
 def unbind_context(*keys: str) -> None:
     """Unbind context variables.
-    
+
     Args:
         *keys: Context variable keys to unbind.
     """
@@ -155,27 +155,27 @@ def clear_context() -> None:
 
 class LogContext:
     """Context manager for scoped logging context.
-    
+
     Example:
         with LogContext(task_id="123", job_id="456"):
             logger.info("Processing task")
             # All logs within this block will have task_id and job_id
     """
-    
+
     def __init__(self, **kwargs: Any):
         """Initialize with context variables.
-        
+
         Args:
             **kwargs: Context variables to bind.
         """
         self.context = kwargs
         self._token = None
-    
+
     def __enter__(self) -> "LogContext":
         """Enter context and bind variables."""
         bind_context(**self.context)
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit context and unbind variables."""
         unbind_context(*self.context.keys())
@@ -183,21 +183,21 @@ class LogContext:
 
 class CausalTrace:
     """Helper for managing causal trace IDs.
-    
+
     Ensures all operations within a trace share the same cause_id,
     enabling reconstruction of decision chains.
     """
-    
+
     def __init__(self, cause_id: str | None = None):
         """Initialize causal trace.
-        
+
         Args:
             cause_id: Parent cause ID. If None, this is a root cause.
         """
         import uuid
         self.trace_id = str(uuid.uuid4())
         self.parent_id = cause_id
-    
+
     def __enter__(self) -> "CausalTrace":
         """Enter trace context."""
         bind_context(
@@ -205,11 +205,11 @@ class CausalTrace:
             parent_cause_id=self.parent_id,
         )
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit trace context."""
         unbind_context("cause_id", "parent_cause_id")
-    
+
     @property
     def id(self) -> str:
         """Get the trace ID."""

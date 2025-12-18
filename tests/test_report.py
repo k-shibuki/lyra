@@ -33,63 +33,63 @@ from src.report.generator import (
 
 class TestGenerateAnchorSlug:
     """Tests for generate_anchor_slug function."""
-    
+
     def test_simple_english_heading(self):
         """Test basic English heading slug generation."""
         result = generate_anchor_slug("Introduction")
         assert result == "introduction"
-    
+
     def test_heading_with_spaces(self):
         """Test heading with spaces becomes hyphenated."""
         result = generate_anchor_slug("Getting Started Guide")
         assert result == "getting-started-guide"
-    
+
     def test_heading_with_special_characters(self):
         """Test special characters are removed."""
         result = generate_anchor_slug("What's New? (2024)")
         assert result == "whats-new-2024"
-    
+
     def test_japanese_heading(self):
         """Test Japanese heading is preserved."""
         result = generate_anchor_slug("はじめに")
         assert result == "はじめに"
-    
+
     def test_japanese_heading_with_spaces(self):
         """Test Japanese heading with spaces."""
         result = generate_anchor_slug("第1章 概要")
         assert result == "第1章-概要"
-    
+
     def test_mixed_language_heading(self):
         """Test mixed Japanese/English heading."""
         result = generate_anchor_slug("API仕様 Overview")
         assert result == "api仕様-overview"
-    
+
     def test_empty_heading(self):
         """Test empty heading returns empty string."""
         result = generate_anchor_slug("")
         assert result == ""
-    
+
     def test_none_heading(self):
         """Test None heading returns empty string."""
         result = generate_anchor_slug(None)  # type: ignore
         assert result == ""
-    
+
     def test_heading_with_multiple_spaces(self):
         """Test multiple spaces collapse to single hyphen."""
         result = generate_anchor_slug("Section   One")
         assert result == "section-one"
-    
+
     def test_heading_with_underscores(self):
         """Test underscores become hyphens."""
         result = generate_anchor_slug("getting_started_guide")
         assert result == "getting-started-guide"
-    
+
     def test_heading_unicode_normalization(self):
         """Test unicode normalization (NFKC)."""
         # Full-width characters should be normalized
         result = generate_anchor_slug("ＡＢＣ")
         assert result == "abc"
-    
+
     def test_heading_with_numbers(self):
         """Test numbers are preserved."""
         result = generate_anchor_slug("Chapter 123")
@@ -98,7 +98,7 @@ class TestGenerateAnchorSlug:
 
 class TestGenerateDeepLink:
     """Tests for generate_deep_link function."""
-    
+
     def test_basic_deep_link(self):
         """Test basic deep link generation."""
         result = generate_deep_link(
@@ -106,7 +106,7 @@ class TestGenerateDeepLink:
             "Introduction"
         )
         assert result == "https://example.com/page#introduction"
-    
+
     def test_deep_link_with_japanese_heading(self):
         """Test deep link with Japanese heading."""
         result = generate_deep_link(
@@ -114,7 +114,7 @@ class TestGenerateDeepLink:
             "はじめに"
         )
         assert result == "https://example.com/doc#はじめに"
-    
+
     def test_deep_link_no_heading(self):
         """Test deep link without heading returns original URL."""
         result = generate_deep_link(
@@ -122,7 +122,7 @@ class TestGenerateDeepLink:
             None
         )
         assert result == "https://example.com/page"
-    
+
     def test_deep_link_empty_heading(self):
         """Test deep link with empty heading returns original URL."""
         result = generate_deep_link(
@@ -130,7 +130,7 @@ class TestGenerateDeepLink:
             ""
         )
         assert result == "https://example.com/page"
-    
+
     def test_deep_link_preserves_existing_fragment(self):
         """Test existing fragment is not overwritten."""
         result = generate_deep_link(
@@ -138,7 +138,7 @@ class TestGenerateDeepLink:
             "New Section"
         )
         assert result == "https://example.com/page#existing"
-    
+
     def test_deep_link_with_query_params(self):
         """Test deep link preserves query parameters."""
         result = generate_deep_link(
@@ -146,7 +146,7 @@ class TestGenerateDeepLink:
             "Results"
         )
         assert result == "https://example.com/page?q=test&lang=ja#results"
-    
+
     def test_deep_link_with_path(self):
         """Test deep link with complex path."""
         result = generate_deep_link(
@@ -158,7 +158,7 @@ class TestGenerateDeepLink:
 
 class TestCitation:
     """Tests for Citation class."""
-    
+
     def test_citation_creation(self):
         """Test basic citation creation."""
         citation = Citation(
@@ -167,7 +167,7 @@ class TestCitation:
         )
         assert citation.url == "https://example.com/doc"
         assert citation.title == "Test Document"
-    
+
     def test_citation_deep_link(self):
         """Test citation deep_link property."""
         citation = Citation(
@@ -176,7 +176,7 @@ class TestCitation:
             heading_context="Introduction",
         )
         assert citation.deep_link == "https://example.com/doc#introduction"
-    
+
     def test_citation_deep_link_no_heading(self):
         """Test citation deep_link without heading returns original URL."""
         citation = Citation(
@@ -184,7 +184,7 @@ class TestCitation:
             title="Test Document",
         )
         assert citation.deep_link == "https://example.com/doc"
-    
+
     def test_citation_is_primary_source_government(self):
         """Test government sources are primary."""
         citation = Citation(
@@ -193,7 +193,7 @@ class TestCitation:
             source_tag="government",
         )
         assert citation.is_primary_source is True
-    
+
     def test_citation_is_primary_source_academic(self):
         """Test academic sources are primary."""
         citation = Citation(
@@ -202,7 +202,7 @@ class TestCitation:
             source_tag="academic",
         )
         assert citation.is_primary_source is True
-    
+
     def test_citation_is_primary_source_blog(self):
         """Test blog sources are not primary."""
         citation = Citation(
@@ -211,7 +211,7 @@ class TestCitation:
             source_tag="blog",
         )
         assert citation.is_primary_source is False
-    
+
     def test_citation_is_primary_source_none(self):
         """Test no source_tag means not primary."""
         citation = Citation(
@@ -219,7 +219,7 @@ class TestCitation:
             title="Some Page",
         )
         assert citation.is_primary_source is False
-    
+
     def test_citation_to_markdown_basic(self):
         """Test basic markdown output."""
         citation = Citation(
@@ -228,7 +228,7 @@ class TestCitation:
         )
         result = citation.to_markdown(1, include_excerpt=False)
         assert "1. [Test Document](https://example.com/doc)" in result
-    
+
     def test_citation_to_markdown_with_heading(self):
         """Test markdown output includes section reference."""
         citation = Citation(
@@ -241,7 +241,7 @@ class TestCitation:
         assert "#第1章-概要" in result
         # Should include section label
         assert "セクション: 第1章 概要" in result
-    
+
     def test_citation_to_markdown_with_source_tag(self):
         """Test markdown output includes source type."""
         citation = Citation(
@@ -251,7 +251,7 @@ class TestCitation:
         )
         result = citation.to_markdown(1, include_excerpt=False)
         assert "政府・公的機関" in result
-    
+
     def test_citation_to_markdown_with_excerpt(self):
         """Test markdown output includes excerpt when requested."""
         citation = Citation(
@@ -261,7 +261,7 @@ class TestCitation:
         )
         result = citation.to_markdown(1, include_excerpt=True)
         assert "This is a test excerpt" in result
-    
+
     def test_citation_to_markdown_truncates_long_excerpt(self):
         """Test long excerpts are truncated."""
         long_text = "a" * 200
@@ -278,7 +278,7 @@ class TestCitation:
 
 class TestCitationSourcePriority:
     """Tests for source priority classification per §3.4."""
-    
+
     @pytest.mark.parametrize("source_tag,expected", [
         ("government", True),
         ("academic", True),
