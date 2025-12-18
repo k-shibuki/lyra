@@ -881,7 +881,8 @@ class SearchPipeline:
                 primary in domain
                 for primary in PRIMARY_SOURCE_DOMAINS
             )
-        except Exception:
+        except Exception as e:
+            logger.debug("Primary source check failed", url=url[:100], error=str(e))
             return False
 
 

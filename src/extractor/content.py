@@ -265,9 +265,9 @@ async def _fallback_extract_html(html: str) -> str | None:
         
         if len(text) > 100:
             return text
-    except Exception:
-        pass
-    
+    except Exception as e:
+        logger.debug("trafilatura extraction failed", error=str(e))
+
     # Try jusText
     try:
         import justext
@@ -275,9 +275,9 @@ async def _fallback_extract_html(html: str) -> str | None:
         text_parts = [p.text for p in paragraphs if not p.is_boilerplate]
         if text_parts:
             return "\n\n".join(text_parts)
-    except Exception:
-        pass
-    
+    except Exception as e:
+        logger.debug("justext extraction failed", error=str(e))
+
     return None
 
 

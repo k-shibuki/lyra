@@ -473,8 +473,8 @@ class UndetectedChromeFetcher:
         Returns:
             UndetectedFetchResult instance.
         """
-        loop = asyncio.get_event_loop()
-        
+        loop = asyncio.get_running_loop()
+
         # Run synchronous fetch in thread pool
         result = await loop.run_in_executor(
             None,
@@ -537,7 +537,7 @@ class UndetectedChromeFetcher:
     
     async def close_async(self) -> None:
         """Asynchronously close the browser."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.close)
     
     def __enter__(self):
