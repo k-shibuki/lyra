@@ -4,8 +4,9 @@ Unpaywall API client.
 Open Access URL resolution (priority=5).
 """
 
+from __future__ import annotations
+
 import os
-from typing import Optional
 
 import httpx
 
@@ -46,7 +47,7 @@ class UnpaywallClient(BaseAcademicClient):
         
         super().__init__("unpaywall", base_url=base_url, timeout=timeout, headers=headers)
     
-    async def resolve_oa_url(self, doi: str) -> Optional[str]:
+    async def resolve_oa_url(self, doi: str) -> str | None:
         """Resolve Open Access URL from DOI.
         
         Args:
@@ -112,7 +113,7 @@ class UnpaywallClient(BaseAcademicClient):
             source_api="unpaywall"
         )
     
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper is not supported by Unpaywall API.
         
         Use resolve_oa_url() instead for DOI-based OA URL resolution.

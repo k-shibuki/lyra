@@ -4,8 +4,9 @@ ID resolver for converting between different paper identifier formats.
 Converts PMID, arXiv ID, etc. to DOI using external APIs.
 """
 
+from __future__ import annotations
+
 import httpx
-from typing import Optional
 
 from src.utils.logging import get_logger
 from src.utils.api_retry import retry_api_call, ACADEMIC_API_POLICY
@@ -18,7 +19,7 @@ class IDResolver:
     
     def __init__(self):
         """Initialize ID resolver."""
-        self._session: Optional[httpx.AsyncClient] = None
+        self._session: httpx.AsyncClient | None = None
     
     async def _get_session(self) -> httpx.AsyncClient:
         """Get HTTP session (lazy initialization)."""
@@ -29,7 +30,7 @@ class IDResolver:
             )
         return self._session
     
-    async def resolve_pmid_to_doi(self, pmid: str) -> Optional[str]:
+    async def resolve_pmid_to_doi(self, pmid: str) -> str | None:
         """Get DOI from PMID (via Crossref API).
         
         Args:
@@ -64,7 +65,7 @@ class IDResolver:
             logger.warning("Failed to resolve PMID to DOI", pmid=pmid, error=str(e))
             return None
     
-    async def resolve_arxiv_to_doi(self, arxiv_id: str) -> Optional[str]:
+    async def resolve_arxiv_to_doi(self, arxiv_id: str) -> str | None:
         """Get DOI from arXiv ID (via Semantic Scholar).
         
         Args:
@@ -99,7 +100,7 @@ class IDResolver:
             logger.warning("Failed to resolve arXiv ID to DOI", arxiv_id=arxiv_id, error=str(e))
             return None
     
-    async def resolve_crid_to_doi(self, crid: str) -> Optional[str]:
+    async def resolve_crid_to_doi(self, crid: str) -> str | None:
         """Get DOI from CiNii CRID (via CiNii API).
         
         Note: CiNii API may not return DOI directly, future extension planned.
@@ -114,7 +115,7 @@ class IDResolver:
         logger.debug("CRID to DOI conversion not yet implemented", crid=crid)
         return None
     
-    async def resolve_to_doi(self, identifier: "PaperIdentifier") -> Optional[str]:
+    async def resolve_to_doi(self, identifier: "PaperIdentifier") -> str | None:
         """Resolve DOI from PaperIdentifier.
         
         Args:

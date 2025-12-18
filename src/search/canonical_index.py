@@ -4,9 +4,10 @@ Canonical paper index for unified deduplication.
 Manages unique papers across Browser Search (SERP) and Academic API results.
 """
 
+from __future__ import annotations
+
 import hashlib
 import re
-from typing import Optional
 
 from src.utils.schemas import Paper, PaperIdentifier, CanonicalEntry
 from src.utils.logging import get_logger
@@ -92,7 +93,7 @@ class PaperIdentityResolver:
         title = re.sub(r'\s+', ' ', title).strip()
         return title
     
-    def _extract_first_author_surname(self, authors: list) -> Optional[str]:
+    def _extract_first_author_surname(self, authors: list) -> str | None:
         """Extract first author's surname.
         
         Args:
@@ -125,7 +126,7 @@ class PaperIdentityResolver:
         
         return surname.lower() if surname else None
     
-    def _find_similar_title(self, normalized_title: str) -> Optional[str]:
+    def _find_similar_title(self, normalized_title: str) -> str | None:
         """Find similar title (Jaccard coefficient).
         
         Args:
@@ -204,7 +205,7 @@ class CanonicalPaperIndex:
     def register_serp_result(
         self,
         serp_result: "SearchResult",
-        identifier: Optional[PaperIdentifier] = None,
+        identifier: PaperIdentifier | None = None,
     ) -> str:
         """Register a SERP result.
         
@@ -241,7 +242,7 @@ class CanonicalPaperIndex:
         
         return canonical_id
     
-    def find_by_title_similarity(self, normalized_title: str, threshold: float = 0.9) -> Optional[CanonicalEntry]:
+    def find_by_title_similarity(self, normalized_title: str, threshold: float = 0.9) -> CanonicalEntry | None:
         """Find entry by title similarity.
         
         Args:

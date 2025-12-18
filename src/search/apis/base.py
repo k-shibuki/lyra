@@ -2,8 +2,9 @@
 Base class for academic API clients.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import httpx
 
@@ -16,7 +17,7 @@ logger = get_logger(__name__)
 class BaseAcademicClient(ABC):
     """Base class for academic API clients."""
     
-    def __init__(self, name: str, base_url: Optional[str] = None, timeout: Optional[float] = None, headers: Optional[dict[str, str]] = None):
+    def __init__(self, name: str, base_url: str | None = None, timeout: float | None = None, headers: dict[str, str] | None = None):
         """Initialize client.
         
         Args:
@@ -26,7 +27,7 @@ class BaseAcademicClient(ABC):
             headers: HTTP headers (if None, will use default)
         """
         self.name = name
-        self._session: Optional[httpx.AsyncClient] = None
+        self._session: httpx.AsyncClient | None = None
         
         # Load configuration if not provided
         if base_url is None or timeout is None:
@@ -80,7 +81,7 @@ class BaseAcademicClient(ABC):
         pass
     
     @abstractmethod
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata.
         
         Args:

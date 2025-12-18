@@ -4,7 +4,7 @@ OpenAlex API client.
 Large-scale search API (priority=2).
 """
 
-from typing import Optional
+from __future__ import annotations
 
 import httpx
 
@@ -70,7 +70,7 @@ class OpenAlexClient(BaseAcademicClient):
                 source_api="openalex"
             )
     
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
         session = await self._get_session()
         
@@ -141,7 +141,7 @@ class OpenAlexClient(BaseAcademicClient):
             source_api="openalex"
         )
     
-    def _reconstruct_abstract(self, inverted_index: Optional[dict]) -> Optional[str]:
+    def _reconstruct_abstract(self, inverted_index: dict | None) -> str | None:
         """Reconstruct plain text from OpenAlex inverted index format.
         
         Args:
