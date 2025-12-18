@@ -2150,7 +2150,7 @@ O.6/O.7では以下を修正:
 | フェッチ処理タイムアウト | 検索後のフェッチ処理でタイムアウトが発生する場合がある | 中 | ⏳ |
 | wayback_success_countカラム不存在 | Waybackフォールバック後のDB更新でエラー | 中 | ✅ 解決 |
 | fragments数が少ない | 5ページフェッチで2fragmentsのみ（期待値より少ない） | 中 | ✅ 解決 |
-| パーサー未対応エンジン | wikipedia, wikidata, arxiv, marginalia等のパーサーが未実装 | 低 | ⏳ |
+| パーサー未対応エンジン選択 | wikipedia, wikidata, arxiv, marginalia等のパーサーが未実装だが選択されていた | 中 | ✅ 解決 |
 
 **2025-12-15 追加対処**:
 - **wayback_success_count**: マイグレーションシステム実装（`scripts/migrate.py`）、`001_add_wayback_columns.sql`適用
@@ -2276,6 +2276,26 @@ python scripts/migrate.py create NAME  # 新規作成
 - タイムアウト境界値テスト（5ケース）
 - get_status/get_materials統合テスト（6ケース）
 - E2E検証: `verify_mcp_integration.py --basic`で11ツール全てパス
+
+**3. パーサー未対応エンジン選択問題の修正（2025-12-18）**
+
+問題: エンジン選択時にパーサー未実装のエンジン（`arxiv`, `wikipedia`, `marginalia`等）が選択され、`No parser available for engine: xxx`エラーが発生していた。
+
+根本原因:
+- `get_engines_for_category()`のフォールバックロジックで、`category_engines`に定義がないカテゴリの場合、全エンジン定義の`categories`フィールドからマッチングしていた
+- `engines.yaml`の`category_engines`でコメントアウトされていても、フォールバックロジックで選択されてしまっていた
+
+対策:
+- `SearchEngineConfigManager.get_engines_with_parsers()`メソッド追加: パーサーが存在するエンジンのみをフィルタリング
+- `BrowserSearchProvider.search()`でエンジン選択時にパーサーフィルタリングを適用
+- `get_engines_for_category()`の`category_engines`取得時とフォールバック時の両方でパーサーフィルタリングを適用
+
+変更ファイル:
+- `src/search/engine_config.py`: `get_engines_with_parsers()`追加、`get_engines_for_category()`修正
+- `src/search/browser_search_provider.py`: エンジン選択ロジックにパーサーフィルタリング追加
+- `tests/test_engine_config.py`: テスト修正（パーサー未対応エンジンが除外されることを確認）
+
+テスト結果: 49件のテストがパス
 
 ---
 

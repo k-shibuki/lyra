@@ -526,17 +526,28 @@ class SearchEngineConfigManager:
         engine_names = self.config.category_engines.get(category_lower, [])
         
         if engine_names:
+            # Filter to only engines with available parsers
+            filtered_names = self.get_engines_with_parsers(engine_names)
             return [
                 config
-                for name in engine_names
+                for name in filtered_names
                 if (config := self.get_engine(name)) is not None
             ]
         
         # Fall back to engines with matching category in their categories list
-        return [
+        # Filter to only engines with available parsers
+        all_matching = [
             config
             for config in self.get_all_engines()
             if category_lower in [c.lower() for c in config.categories]
+        ]
+        # Filter by parser availability
+        matching_names = [cfg.name for cfg in all_matching]
+        filtered_names = self.get_engines_with_parsers(matching_names)
+        return [
+            config
+            for config in all_matching
+            if config.name in filtered_names
         ]
     
     def get_block_resistant_engines(self) -> list[EngineConfig]:
@@ -546,6 +557,23 @@ class SearchEngineConfigManager:
             for config in self.get_all_engines()
             if config.block_resistant and config.is_available
         ]
+    
+    def get_engines_with_parsers(self, engines: list[str] | None = None) -> list[str]:
+        """Filter engines to only those with available parsers.
+        
+        Args:
+            engines: List of engine names to filter. If None, filters all engines.
+            
+        Returns:
+            List of engine names that have available parsers.
+        """
+        from src.search.search_parsers import get_available_parsers
+        available_parsers = set(get_available_parsers())
+        
+        if engines is None:
+            engines = [e.name for e in self.get_all_engines()]
+        
+        return [e for e in engines if e in available_parsers]
     
     def get_engine_qps(self, name: str) -> float:
         """Get QPS limit for an engine."""

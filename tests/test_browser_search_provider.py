@@ -310,6 +310,8 @@ class TestBrowserSearchProvider:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -386,6 +388,8 @@ class TestBrowserSearchProvider:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -452,6 +456,8 @@ class TestBrowserSearchProvider:
             mock_engine_config.min_interval = 5.0  # Per-engine QPS
             mock_config_manager.get_default_engines.return_value = []  # Fallback to category
             mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
             
@@ -735,6 +741,8 @@ class TestCDPConnection:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -807,6 +815,8 @@ class TestCDPConnection:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -882,6 +892,8 @@ class TestSearchOptionsIntegration:
                 mock_engine_config.weight = 0.7
                 mock_engine_config.is_available = True
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -966,6 +978,8 @@ class TestSearchOptionsIntegration:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -1306,6 +1320,8 @@ class TestBrowserSearchProviderHumanBehavior:
             mock_engine_config.is_available = True
             mock_engine_config.min_interval = 5.0  # Per-engine QPS
             mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
             
@@ -1358,6 +1374,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 "duckduckgo": mock_engine1,
                 "mojeek": mock_engine2,
             }.get(name)
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_get_config_manager.return_value = mock_config_manager
             
             # Given: Circuit breaker - duckduckgo unavailable, mojeek available
@@ -1416,6 +1434,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 "duckduckgo": mock_engine1,
                 "mojeek": mock_engine2,
             }.get(name)
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_get_config_manager.return_value = mock_config_manager
             
             with patch(
@@ -1475,6 +1495,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 "duckduckgo": mock_engine1,
                 "mojeek": mock_engine2,
             }.get(name)
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_get_config_manager.return_value = mock_config_manager
             
             with patch(
@@ -1535,6 +1557,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -1618,6 +1642,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -1696,6 +1722,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -1780,6 +1808,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 mock_engine_config.min_interval = 5.0  # Per-engine QPS
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -1844,6 +1874,10 @@ class TestBrowserSearchProviderHumanBehavior:
             mock_config_manager = MagicMock()
             mock_config_manager.get_engines_for_category.return_value = []
             mock_config_manager.get_available_engines.return_value = []
+            mock_config_manager.get_default_engines.return_value = []
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
+            mock_config_manager.get_engine.return_value = None
             mock_get_config_manager.return_value = mock_config_manager
             
             with patch(
@@ -1855,7 +1889,8 @@ class TestBrowserSearchProviderHumanBehavior:
                 
                 # Then: Error response is returned
                 assert response.ok is False
-                assert "No available engines" in response.error
+                # Error message can be "No available engines" or "No engines with parsers available"
+                assert "No available engines" in response.error or "No engines with parsers available" in response.error
                 assert response.results == []
         
         await provider.close()
@@ -1912,6 +1947,8 @@ class TestBrowserSearchProviderHumanBehavior:
             mock_engine_config.is_available = True
             mock_engine_config.min_interval = 5.0  # Per-engine QPS
             mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
             
@@ -1949,6 +1986,8 @@ class TestBrowserSearchProviderHumanBehavior:
             mock_config_manager = MagicMock()
             mock_config_manager.get_engines_for_category.return_value = []
             mock_config_manager.get_available_engines.return_value = []
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             # Given: get_engine() returns None
             mock_config_manager.get_engine.return_value = None
             mock_get_config_manager.return_value = mock_config_manager
@@ -2018,6 +2057,8 @@ class TestPerEngineQPSRateLimiting:
             mock_config_manager = MagicMock()
             mock_engine_config = MagicMock()
             mock_engine_config.min_interval = 5.0  # duckduckgo qps=0.2
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
             
@@ -2075,6 +2116,8 @@ class TestPerEngineQPSRateLimiting:
             mock_config_manager = MagicMock()
             mock_engine_config = MagicMock()
             mock_engine_config.min_interval = 4.0
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
             
@@ -2105,6 +2148,8 @@ class TestPerEngineQPSRateLimiting:
             mock_config_manager = MagicMock()
             mock_engine_config = MagicMock()
             mock_engine_config.min_interval = 5.0
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
             
@@ -2163,6 +2208,8 @@ class TestPerEngineQPSRateLimiting:
             mock_config_manager = MagicMock()
             mock_engine_config = MagicMock()
             mock_engine_config.min_interval = 4.0
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
             mock_config_manager.get_engine.return_value = mock_engine_config
             mock_get_config_manager.return_value = mock_config_manager
             
@@ -2202,6 +2249,8 @@ class TestPerEngineQPSRateLimiting:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2311,6 +2360,8 @@ class TestQueryNormalization:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2394,6 +2445,8 @@ class TestQueryNormalization:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2475,6 +2528,8 @@ class TestQueryNormalization:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2557,6 +2612,8 @@ class TestQueryNormalization:
                 mock_engine_config.min_interval = 20.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2639,6 +2696,8 @@ class TestQueryNormalization:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2719,6 +2778,8 @@ class TestQueryNormalization:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2793,6 +2854,8 @@ class TestQueryNormalization:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -2914,6 +2977,8 @@ class TestDynamicWeightUsage:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 
@@ -3037,6 +3102,8 @@ class TestDynamicWeightUsage:
                     return None
                 
                 mock_config_manager.get_engine.side_effect = get_engine_side_effect
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_get_config_manager.return_value = mock_config_manager
                 
                 # Setup policy engine to return different dynamic weights
@@ -3149,6 +3216,8 @@ class TestDynamicWeightUsage:
                 mock_engine_config.min_interval = 5.0
                 mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
                 mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+                # Mock get_engines_with_parsers to return engines as-is (for testing)
+                mock_config_manager.get_engines_with_parsers = MagicMock(side_effect=lambda engines: engines if engines else [])
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
                 

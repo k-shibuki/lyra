@@ -405,16 +405,34 @@ class TestCategoryManagement:
         academic = manager.get_engines_for_category("academic")
         
         names = {e.name for e in academic}
-        assert "arxiv" in names
-        assert "wikipedia" in names
+        # Only engines with parsers should be returned
+        # arxiv and wikipedia don't have parsers, so they should be filtered out
+        # duckduckgo has a parser and is in category_engines["academic"] via fallback
+        # But since category_engines["academic"] explicitly lists arxiv/wikipedia,
+        # and those don't have parsers, the list should be empty or contain only parsers
+        # Actually, category_engines["academic"] = ["arxiv", "wikipedia"] in test data
+        # So after filtering, it should be empty
+        # But duckduckgo might be included via fallback if category_engines is empty
+        # Let's check that only engines with parsers are returned
+        from src.search.search_parsers import get_available_parsers
+        available_parsers = set(get_available_parsers())
+        for engine in academic:
+            assert engine.name in available_parsers, f"Engine {engine.name} should have a parser"
     
     def test_get_engines_for_category_fallback(self, manager):
         """Test category lookup falls back to engine categories."""
         technical = manager.get_engines_for_category("technical")
         
         # Not in category_engines, but arxiv has it in categories
+        # However, arxiv doesn't have a parser, so it should be filtered out
         names = {e.name for e in technical}
-        assert "arxiv" in names
+        # Only engines with parsers should be returned
+        from src.search.search_parsers import get_available_parsers
+        available_parsers = set(get_available_parsers())
+        for engine in technical:
+            assert engine.name in available_parsers, f"Engine {engine.name} should have a parser"
+        # arxiv should NOT be in the result since it has no parser
+        assert "arxiv" not in names
     
     def test_get_all_categories(self, manager):
         """Test retrieving all categories."""

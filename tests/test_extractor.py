@@ -8,15 +8,14 @@ OCR functionality tests (§5.1.1):
 """
 
 import io
+import os
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 # Check optional dependencies for conditional test skipping
 try:
@@ -30,6 +29,9 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
+
+# Check environment variable to force running extractor tests (e.g., in container)
+_RUN_EXTRACTOR_TESTS = os.environ.get("LANCET_RUN_EXTRACTOR_TESTS", "0") == "1"
 
 # Skip messages with guidance for ML container-based testing
 _SKIP_MSG_FITZ = (
@@ -47,8 +49,15 @@ _SKIP_MSG_PIL = (
 )
 
 # Decorators for skipping tests based on optional dependencies
-requires_fitz = pytest.mark.skipif(not HAS_FITZ, reason=_SKIP_MSG_FITZ)
-requires_pil = pytest.mark.skipif(not HAS_PIL, reason=_SKIP_MSG_PIL)
+# If LANCET_RUN_EXTRACTOR_TESTS=1 is set (e.g., in container), don't skip even if libs are missing
+requires_fitz = pytest.mark.skipif(
+    not HAS_FITZ and not _RUN_EXTRACTOR_TESTS,
+    reason=_SKIP_MSG_FITZ,
+)
+requires_pil = pytest.mark.skipif(
+    not HAS_PIL and not _RUN_EXTRACTOR_TESTS,
+    reason=_SKIP_MSG_PIL,
+)
 
 
 class TestExtractContent:

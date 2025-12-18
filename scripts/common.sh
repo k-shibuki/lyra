@@ -220,6 +220,43 @@ detect_env() {
     fi
 }
 
+# Function: detect_container
+# Description: Detect if running inside container and which container
+# Sets global variables: IN_CONTAINER, CURRENT_CONTAINER_NAME, IS_ML_CONTAINER
+# Returns:
+#   0: Successfully detected container status
+detect_container() {
+    # Detect if running inside container
+    # Check for container markers (Docker/Podman)
+    IN_CONTAINER=false
+    CURRENT_CONTAINER_NAME=""
+    if [[ -f "/.dockerenv" ]] || [[ -f "/run/.containerenv" ]]; then
+        IN_CONTAINER=true
+        # Try to detect container name from HOSTNAME (set by Podman/Docker)
+        # HOSTNAME is typically set to container name
+        if [[ -n "${HOSTNAME:-}" ]]; then
+            CURRENT_CONTAINER_NAME="$HOSTNAME"
+        elif [[ -n "${CONTAINER_NAME:-}" ]]; then
+            CURRENT_CONTAINER_NAME="$CONTAINER_NAME"
+        fi
+    fi
+    
+    # Detect if running in ML container (lancet-ml has FastAPI and ML libs)
+    # Other containers: lancet (main), lancet-ollama (LLM), lancet-tor (proxy)
+    IS_ML_CONTAINER=false
+    if [[ "$IN_CONTAINER" == "true" ]] && [[ "$CURRENT_CONTAINER_NAME" == "lancet-ml" ]]; then
+        IS_ML_CONTAINER=true
+    fi
+    
+    # Export for use by scripts
+    export IN_CONTAINER
+    export CURRENT_CONTAINER_NAME
+    export IS_ML_CONTAINER
+}
+
+# Auto-detect container on source
+detect_container
+
 # Function: get_windows_host
 # Description: Get Windows host IP for WSL2 networking
 # Returns: Windows host IP if WSL, "localhost" otherwise

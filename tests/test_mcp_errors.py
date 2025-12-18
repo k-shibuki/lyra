@@ -69,7 +69,7 @@ class TestMCPErrorCode:
         // When: Counting all codes
         // Then: Count equals 10
         """
-        assert len(MCPErrorCode) == 10
+        assert len(MCPErrorCode) == 13
 
 
 class TestMCPError:

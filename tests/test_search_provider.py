@@ -724,8 +724,8 @@ class TestHealthStatus:
         // Then: Valid status created
         """
         # Given: success_rate = 1.0
-        # When: Creating healthy status
-        status = HealthStatus.healthy(success_rate=1.0)
+        # When: Creating healthy status (healthy() always has success_rate=1.0)
+        status = HealthStatus.healthy()
         
         # Then: Valid status
         assert status.success_rate == 1.0

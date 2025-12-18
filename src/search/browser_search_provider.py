@@ -641,6 +641,26 @@ class BrowserSearchProvider(BaseSearchProvider):
                         candidate_engines_configs = config_manager.get_available_engines()
                     candidate_engines = [cfg.name for cfg in candidate_engines_configs]
             
+            # Filter to only engines with available parsers
+            # This prevents selection of engines like arxiv, wikipedia, marginalia
+            # that are defined in engines.yaml but don't have parsers implemented
+            candidate_engines = config_manager.get_engines_with_parsers(candidate_engines)
+            
+            if not candidate_engines:
+                logger.warning(
+                    "No engines with parsers available",
+                    category=category,
+                    original_candidates=options.engines if options.engines else None,
+                )
+                return SearchResponse(
+                    results=[],
+                    query=query,
+                    provider=self.name,
+                    error="No engines with parsers available",
+                    elapsed_ms=(time.time() - start_time) * 1000,
+                    connection_mode="cdp" if self._cdp_connected else None,
+                )
+            
             # Filter by circuit breaker and availability
             # Use dynamic weights from PolicyEngine (per §3.1.1, §3.1.4, §4.6)
             available_engines: list[tuple[str, float]] = []

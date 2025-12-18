@@ -39,6 +39,9 @@ VENV_DIR="${PROJECT_ROOT}/.venv"
 TEST_RESULT_FILE="${PROJECT_ROOT}/.test_result.txt"
 TEST_PID_FILE="${PROJECT_ROOT}/.test_pid"
 
+# Container detection is done in common.sh (detect_container function)
+# Variables available: IN_CONTAINER, CURRENT_CONTAINER_NAME, IS_ML_CONTAINER
+
 # =============================================================================
 # VENV MANAGEMENT
 # =============================================================================
@@ -78,6 +81,33 @@ cmd_run() {
         source "${VENV_DIR}/bin/activate"
         cd "${PROJECT_ROOT}"
         export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+        
+        # Set environment variables for container-specific tests
+        # - lancet-ml container: Has FastAPI and ML libs (enable all ML tests)
+        # - lancet container: May have ML libs but no FastAPI (enable ML lib tests only)
+        # Note: .env file values take precedence (already loaded by common.sh)
+        # Note: Ollama/Tor tests are unit tests with mocks, so no special handling needed
+        if [[ "${IN_CONTAINER:-false}" == "true" ]]; then
+            # ML tests (lancet-ml container has all ML libs)
+            export LANCET_RUN_ML_TESTS="${LANCET_RUN_ML_TESTS:-1}"
+            # ML API tests (lancet-ml container has FastAPI)
+            if [[ "${IS_ML_CONTAINER:-false}" == "true" ]]; then
+                export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-1}"
+            else
+                # Check if FastAPI is available (fallback for other containers)
+                if python3 -c "import fastapi" 2>/dev/null; then
+                    export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-1}"
+                fi
+            fi
+            # Extractor tests (PDF/OCR - typically in ML container but may be in lancet)
+            export LANCET_RUN_EXTRACTOR_TESTS="${LANCET_RUN_EXTRACTOR_TESTS:-1}"
+        fi
+        
+        # Export container detection flags (default to 0 if not set and not in container)
+        export LANCET_RUN_ML_TESTS="${LANCET_RUN_ML_TESTS:-0}"
+        export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-0}"
+        export LANCET_RUN_EXTRACTOR_TESTS="${LANCET_RUN_EXTRACTOR_TESTS:-0}"
+        
         PYTHONUNBUFFERED=1 pytest "$target" -m 'not e2e' --tb=short -q > "$TEST_RESULT_FILE" 2>&1 &
         echo $! > "$TEST_PID_FILE"
     )
@@ -170,7 +200,24 @@ show_help() {
     echo ""
     echo "Pattern: Start with 'run', poll with 'check', get results with 'get'"
     echo ""
-    echo "Note: Tests run in WSL venv (.venv), not in container."
+    echo "Environment Detection:"
+    echo "  - Automatically detects if running inside container"
+    echo "  - Container detection: /.dockerenv, /run/.containerenv, HOSTNAME"
+    echo "  - In any container: ML tests (test_ml_server.py) are enabled"
+    echo "  - In lancet-ml container: ML API tests (TestMLServerAPI) are enabled"
+    echo ""
+    echo "Container Architecture:"
+    echo "  - lancet: Main container (proxy server, no ML libs)"
+    echo "  - lancet-ml: ML container (FastAPI + ML libs, GPU)"
+    echo "  - lancet-ollama: LLM container (Ollama, GPU) - unit tests use mocks"
+    echo "  - lancet-tor: Tor proxy container - unit tests use mocks"
+    echo ""
+    echo "Manual Override (via .env or environment):"
+    echo "  LANCET_RUN_ML_TESTS=1      Enable ML tests even without libs"
+    echo "  LANCET_RUN_ML_API_TESTS=1  Enable ML API tests even without FastAPI"
+    echo "  LANCET_RUN_EXTRACTOR_TESTS=1  Enable extractor tests even without libs"
+    echo ""
+    echo "Note: Tests run in WSL venv (.venv) by default, or in container if detected."
 }
 
 # =============================================================================
