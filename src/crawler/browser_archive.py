@@ -132,8 +132,9 @@ def url_to_surt(url: str) -> str:
         
         return f"{reversed_domain}){path}{query}"
         
-    except Exception:
+    except Exception as e:
         # Fallback to simple format
+        logger.debug("SURT conversion failed, using fallback", url=url[:50], error=str(e))
         return url.replace("://", ",").replace("/", ")")
 
 
@@ -585,8 +586,8 @@ class BrowserArchiver:
                 headers = {}
                 try:
                     headers = await response.all_headers()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed to get response headers", url=response.url[:50], error=str(e))
                 
                 collector.on_response(
                     url=response.url,
@@ -795,8 +796,8 @@ async def archive_browser_page(
     title = ""
     try:
         title = await page.title()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to get page title", url=url[:50], error=str(e))
     
     return await archiver.save_archive(
         url=url,
