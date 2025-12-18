@@ -78,13 +78,26 @@ async def is_browser_search_available() -> bool:
 
 
 async def is_ollama_available() -> bool:
-    """Check if Ollama is available."""
+    """Check if Ollama is available.
+    
+    Per Phase O: In hybrid mode, Ollama is accessed via proxy server.
+    Uses the same connection method as OllamaProvider (proxy_url/ollama).
+    """
     try:
         import aiohttp
+        from src.utils.config import get_settings
         
-        ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        # Use the same connection method as OllamaProvider
+        # In hybrid mode, Ollama is accessed via proxy (http://localhost:8080/ollama)
+        settings = get_settings()
+        proxy_url = settings.general.proxy_url
+        ollama_url = f"{proxy_url}/ollama"
+        
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{ollama_host}/api/tags", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            async with session.get(
+                f"{ollama_url}/api/tags",
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as resp:
                 return resp.status == 200
     except Exception:
         return False
@@ -1007,15 +1020,20 @@ class TestLLMIntegration:
     async def test_ollama_model_availability(self, check_ollama):
         """
         Verify Ollama is running and has required models.
+        
+        Per Phase O: Uses proxy URL for Ollama access (same as OllamaProvider).
         """
         import aiohttp
+        from src.utils.config import get_settings
         
         # Given: Ollama is available (check_ollama fixture)
-        ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        # Use the same connection method as OllamaProvider (proxy URL)
+        settings = get_settings()
+        ollama_url = f"{settings.general.proxy_url}/ollama"
         
         # When: Query the Ollama API for available models
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{ollama_host}/api/tags") as resp:
+            async with session.get(f"{ollama_url}/api/tags") as resp:
                 # Then: API responds with status 200 and model list
                 assert resp.status == 200
                 data = await resp.json()
