@@ -50,6 +50,10 @@ import pytest
 _HAS_SENTENCE_TRANSFORMERS = False
 _HAS_TRANSFORMERS = False
 
+# Check environment variable to force running ML tests (e.g., in container)
+_RUN_ML_TESTS = os.environ.get("LANCET_RUN_ML_TESTS", "0") == "1"
+_RUN_ML_API_TESTS = os.environ.get("LANCET_RUN_ML_API_TESTS", "0") == "1"
+
 try:
     import sentence_transformers  # noqa: F401
     _HAS_SENTENCE_TRANSFORMERS = True
@@ -59,6 +63,14 @@ except ImportError:
 try:
     import transformers  # noqa: F401
     _HAS_TRANSFORMERS = True
+except ImportError:
+    pass
+
+# Check if FastAPI is available (for TestMLServerAPI)
+_HAS_FASTAPI = False
+try:
+    import fastapi  # noqa: F401
+    _HAS_FASTAPI = True
 except ImportError:
     pass
 
@@ -82,13 +94,14 @@ _SKIP_MSG_ML_CONTAINER = (
 )
 
 # Decorators for skipping tests based on ML dependencies
+# If LANCET_RUN_ML_TESTS=1 is set (e.g., in container), don't skip even if libs are missing
 requires_sentence_transformers = pytest.mark.skipif(
-    not _HAS_SENTENCE_TRANSFORMERS,
+    not _HAS_SENTENCE_TRANSFORMERS and not _RUN_ML_TESTS,
     reason=_SKIP_MSG_SENTENCE_TRANSFORMERS,
 )
 
 requires_transformers = pytest.mark.skipif(
-    not _HAS_TRANSFORMERS,
+    not _HAS_TRANSFORMERS and not _RUN_ML_TESTS,
     reason=_SKIP_MSG_TRANSFORMERS,
 )
 
@@ -880,7 +893,10 @@ class TestNLIService:
 # =============================================================================
 
 
-@pytest.mark.skip(reason=_SKIP_MSG_ML_CONTAINER)
+@pytest.mark.skipif(
+    not _HAS_FASTAPI and not _RUN_ML_API_TESTS,
+    reason=_SKIP_MSG_ML_CONTAINER,
+)
 class TestMLServerAPI:
     """Integration tests for ML Server API endpoints.
 
