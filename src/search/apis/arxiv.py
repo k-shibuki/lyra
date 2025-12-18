@@ -4,7 +4,8 @@ arXiv API client.
 Preprint search (priority=4).
 """
 
-from typing import Optional
+from __future__ import annotations
+
 from datetime import datetime
 
 import httpx
@@ -74,7 +75,7 @@ class ArxivClient(BaseAcademicClient):
                 source_api="arxiv"
             )
     
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata from arXiv ID."""
         session = await self._get_session()
         
@@ -125,7 +126,7 @@ class ArxivClient(BaseAcademicClient):
         
         return papers
     
-    def _parse_entry(self, entry: ET.Element, ns: dict) -> Optional[Paper]:
+    def _parse_entry(self, entry: ET.Element, ns: dict) -> Paper | None:
         """Convert Atom entry element to Paper."""
         try:
             # Extract arXiv ID from ID element

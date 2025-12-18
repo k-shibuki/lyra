@@ -8,8 +8,9 @@ Provides unified interface for searching academic papers from:
 - arXiv (priority=4, preprints)
 """
 
+from __future__ import annotations
+
 import asyncio
-from typing import Optional
 
 from src.search.provider import BaseSearchProvider, SearchResponse, SearchOptions, SearchResult
 from src.search.apis.base import BaseAcademicClient
@@ -47,10 +48,10 @@ class AcademicSearchProvider(BaseSearchProvider):
         super().__init__("academic")
         self._clients: dict[str, BaseAcademicClient] = {}
         self._default_apis = ["semantic_scholar", "openalex"]  # Default APIs to use
-        self._last_index: Optional[CanonicalPaperIndex] = None  # Expose last search index
-        self._unpaywall_enabled: Optional[bool] = None  # Cache for Unpaywall enabled status
+        self._last_index: CanonicalPaperIndex | None = None  # Expose last search index
+        self._unpaywall_enabled: bool | None = None  # Cache for Unpaywall enabled status
     
-    def get_last_index(self) -> Optional[CanonicalPaperIndex]:
+    def get_last_index(self) -> CanonicalPaperIndex | None:
         """Get the CanonicalPaperIndex from the last search.
         
         Returns the internal index containing Paper objects with full metadata.
@@ -102,7 +103,7 @@ class AcademicSearchProvider(BaseSearchProvider):
     async def search(
         self,
         query: str,
-        options: Optional[SearchOptions] = None,
+        options: SearchOptions | None = None,
     ) -> SearchResponse:
         """Search for academic papers.
         
@@ -258,7 +259,7 @@ class AcademicSearchProvider(BaseSearchProvider):
         
         return list(papers.values()), citations
     
-    async def resolve_oa_url_for_paper(self, paper: Paper) -> Optional[str]:
+    async def resolve_oa_url_for_paper(self, paper: Paper) -> str | None:
         """Resolve OA URL for a paper using Unpaywall if not already available.
         
         Args:

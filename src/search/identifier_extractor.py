@@ -4,8 +4,9 @@ Identifier extractor for academic papers from URLs.
 Extracts DOI, PMID, arXiv ID, CiNii CRID, etc. from SERP result URLs.
 """
 
+from __future__ import annotations
+
 import re
-from typing import Optional
 from urllib.parse import urlparse
 
 from src.utils.schemas import PaperIdentifier
@@ -118,7 +119,7 @@ class IdentifierExtractor:
         return identifier
     
     @staticmethod
-    def extract_doi_from_text(text: str) -> Optional[str]:
+    def extract_doi_from_text(text: str) -> str | None:
         """Extract DOI from text (meta tags, etc.).
         
         Args:

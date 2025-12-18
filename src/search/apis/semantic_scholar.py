@@ -4,7 +4,7 @@ Semantic Scholar API client.
 Primary API for citation graphs (priority=1).
 """
 
-from typing import Optional
+from __future__ import annotations
 
 import httpx
 
@@ -74,7 +74,7 @@ class SemanticScholarClient(BaseAcademicClient):
                 source_api="semantic_scholar"
             )
     
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
         session = await self._get_session()
         

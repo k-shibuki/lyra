@@ -4,7 +4,7 @@ Crossref API client.
 DOI resolution and metadata normalization (priority=3).
 """
 
-from typing import Optional
+from __future__ import annotations
 
 import httpx
 
@@ -67,11 +67,11 @@ class CrossrefClient(BaseAcademicClient):
                 source_api="crossref"
             )
     
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata by DOI."""
         return await self.get_paper_by_doi(paper_id)
     
-    async def get_paper_by_doi(self, doi: str) -> Optional[Paper]:
+    async def get_paper_by_doi(self, doi: str) -> Paper | None:
         """Get paper metadata from DOI."""
         session = await self._get_session()
         
