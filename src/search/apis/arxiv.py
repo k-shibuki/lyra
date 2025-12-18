@@ -31,8 +31,9 @@ class ArxivClient(BaseAcademicClient):
             base_url = api_config.base_url if api_config.base_url else "http://export.arxiv.org/api/query"
             timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
             headers = api_config.headers if api_config.headers else None
-        except Exception:
+        except Exception as e:
             # Fallback to defaults if config loading fails
+            logger.debug("Config loading failed, using defaults", error=str(e))
             base_url = "http://export.arxiv.org/api/query"
             timeout = 30.0
             headers = None
@@ -162,8 +163,8 @@ class ArxivClient(BaseAcademicClient):
                 try:
                     dt = datetime.fromisoformat(published_elem.text.replace("Z", "+00:00"))
                     year = dt.year
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Date parsing failed", date_text=published_elem.text, error=str(e))
             
             # PDF URL
             pdf_url = None
