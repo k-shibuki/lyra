@@ -443,9 +443,12 @@ class FetchResult:
         archive_date: datetime | None = None,  # Date of the archive snapshot
         archive_url: str | None = None,  # Original Wayback Machine URL
         freshness_penalty: float = 0.0,  # Penalty for stale content (0.0-1.0)
+        # Redirect tracking
+        final_url: str | None = None,  # URL after following redirects
     ):
         self.ok = ok
         self.url = url
+        self.final_url = final_url or url  # Default to original URL if not provided
         self.status = status
         self.headers = headers or {}
         self.html_path = html_path
@@ -477,6 +480,7 @@ class FetchResult:
         result = {
             "ok": self.ok,
             "url": self.url,
+            "final_url": self.final_url,
             "status": self.status,
             "headers": self.headers,
             "html_path": self.html_path,
@@ -757,6 +761,7 @@ class HTTPFetcher:
             return FetchResult(
                 ok=True,
                 url=url,
+                final_url=str(response.url),  # Track final URL after redirects
                 status=response.status_code,
                 headers=resp_headers,
                 html_path=str(html_path) if html_path else None,
@@ -1529,6 +1534,7 @@ class BrowserFetcher:
             return FetchResult(
                 ok=True,
                 url=url,
+                final_url=page.url,  # Track final URL after redirects
                 status=response.status,
                 headers=resp_headers,
                 html_path=str(html_path) if html_path else None,
@@ -2512,7 +2518,7 @@ async def _fetch_url_impl(
             # Update pages table and capture page_id for fragment linking
             page_id = await db.insert("pages", {
                 "url": url,
-                "final_url": url,  # TODO: Track redirects
+                "final_url": result.final_url,
                 "domain": domain,
                 "fetch_method": result.method,
                 "http_status": result.status,

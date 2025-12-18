@@ -31,8 +31,9 @@ class SemanticScholarClient(BaseAcademicClient):
             base_url = api_config.base_url if api_config.base_url else "https://api.semanticscholar.org/graph/v1"
             timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
             headers = api_config.headers if api_config.headers else None
-        except Exception:
+        except Exception as e:
             # Fallback to defaults if config loading fails
+            logger.debug("Failed to load Semantic Scholar config, using defaults", error=str(e))
             base_url = "https://api.semanticscholar.org/graph/v1"
             timeout = 30.0
             headers = None

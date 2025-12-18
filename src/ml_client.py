@@ -15,6 +15,35 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+class MLClientError(Exception):
+    """Base exception for ML client errors."""
+
+    def __init__(self, message: str, operation: str | None = None):
+        self.operation = operation
+        super().__init__(message)
+
+
+class EmbeddingError(MLClientError):
+    """Raised when embedding operation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, operation="embedding")
+
+
+class RerankingError(MLClientError):
+    """Raised when reranking operation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, operation="reranking")
+
+
+class NLIError(MLClientError):
+    """Raised when NLI operation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, operation="nli")
+
+
 class MLClient:
     """HTTP client for ML Server."""
 
@@ -143,7 +172,7 @@ class MLClient:
         if not response.get("ok"):
             error = response.get("error", "Unknown error")
             logger.error("Embedding failed", error=error)
-            raise Exception(f"Embedding failed: {error}")
+            raise EmbeddingError(f"Embedding failed: {error}")
 
         return response.get("embeddings", [])
 
@@ -175,7 +204,7 @@ class MLClient:
         if not response.get("ok"):
             error = response.get("error", "Unknown error")
             logger.error("Reranking failed", error=error)
-            raise Exception(f"Reranking failed: {error}")
+            raise RerankingError(f"Reranking failed: {error}")
 
         results = response.get("results", [])
         return [(r["index"], r["score"]) for r in results]
@@ -206,7 +235,7 @@ class MLClient:
         if not response.get("ok"):
             error = response.get("error", "Unknown error")
             logger.error("NLI failed", error=error)
-            raise Exception(f"NLI failed: {error}")
+            raise NLIError(f"NLI failed: {error}")
 
         return response.get("results", [])
 

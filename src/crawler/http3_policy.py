@@ -708,8 +708,8 @@ async def detect_protocol_from_playwright_response(
             # Site advertises HTTP/3 - we might be using it
             # This is a hint, not definitive
             return ProtocolVersion.HTTP_3
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to check Alt-Svc header", error=str(e))
     
     return ProtocolVersion.UNKNOWN
 

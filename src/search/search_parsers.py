@@ -1061,8 +1061,9 @@ class BingParser(BaseSearchParser):
                             b64_part += "=" * padding
                         decoded = base64.urlsafe_b64decode(b64_part).decode("utf-8")
                         return decoded
-                    except Exception:
+                    except Exception as e:
                         # If decode fails, return as-is
+                        logger.debug("Base64 URL decode failed", encoded_url=encoded_url[:50], error=str(e))
                         return encoded_url[2:]
                 return encoded_url
         return url
