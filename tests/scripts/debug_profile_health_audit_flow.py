@@ -95,7 +95,7 @@ async def test_browser_fetcher_health_check():
         if browser_fetcher and browser_fetcher._playwright:
             try:
                 await browser_fetcher._playwright.stop()
-            except:
+            except Exception:
                 pass
             browser_fetcher._playwright = None
         return False
@@ -216,7 +216,7 @@ async def test_browser_search_provider_health_check():
         if provider and provider._playwright:
             try:
                 await provider._playwright.stop()
-            except:
+            except Exception:
                 pass
             provider._playwright = None
         return False
