@@ -4,7 +4,7 @@ OpenAlex API client.
 Large-scale search API (priority=2).
 """
 
-
+from typing import Any
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -17,17 +17,17 @@ logger = get_logger(__name__)
 class OpenAlexClient(BaseAcademicClient):
     """OpenAlex API client."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize OpenAlex client."""
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
 
             config = get_academic_apis_config()
-            api_config = config.apis.get("openalex", {})
-            base_url = api_config.base_url if api_config.base_url else "https://api.openalex.org"
-            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
-            headers = api_config.headers if api_config.headers else None
+            api_config = config.get_api_config("openalex")
+            base_url = api_config.base_url
+            timeout = float(api_config.timeout_seconds)
+            headers = api_config.headers
         except Exception:
             # Fallback to defaults if config loading fails
             base_url = "https://api.openalex.org"
@@ -40,7 +40,7 @@ class OpenAlexClient(BaseAcademicClient):
         """Search for papers."""
         session = await self._get_session()
 
-        async def _search():
+        async def _search() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/works",
                 params={
@@ -59,21 +59,18 @@ class OpenAlexClient(BaseAcademicClient):
             return AcademicSearchResult(
                 papers=papers,
                 total_count=data.get("meta", {}).get("count", 0),
+                next_cursor=None,  # OpenAlex uses meta.next_cursor
                 source_api="openalex",
             )
         except Exception as e:
             logger.error("OpenAlex search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[],
-                total_count=0,
-                source_api="openalex"
-            )
+            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="openalex")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
         session = await self._get_session()
 
-        async def _fetch():
+        async def _fetch() -> dict[str, Any]:
             # paper_id is "W123456789" format or "https://openalex.org/W123456789"
             pid = paper_id
             if pid.startswith("https://"):
@@ -117,11 +114,13 @@ class OpenAlexClient(BaseAcademicClient):
         authors = []
         for authorship in data.get("authorships", []):
             author_data = authorship.get("author", {})
-            authors.append(Author(
-                name=author_data.get("display_name", ""),
-                affiliation=None,  # OpenAlex does not provide detailed affiliation
-                orcid=author_data.get("orcid")
-            ))
+            authors.append(
+                Author(
+                    name=author_data.get("display_name", ""),
+                    affiliation=None,  # OpenAlex does not provide detailed affiliation
+                    orcid=author_data.get("orcid"),
+                )
+            )
 
         doi = data.get("doi", "")
         if doi and doi.startswith("https://doi.org/"):
@@ -133,7 +132,9 @@ class OpenAlexClient(BaseAcademicClient):
             abstract=abstract,
             authors=authors,
             year=data.get("publication_year"),
+            published_date=None,  # OpenAlex does not provide date
             doi=doi if doi else None,
+            arxiv_id=None,  # OpenAlex does not provide arXiv ID
             venue=location.get("source", {}).get("display_name")
             if location.get("source")
             else None,
@@ -141,6 +142,7 @@ class OpenAlexClient(BaseAcademicClient):
             reference_count=data.get("referenced_works_count", 0),
             is_open_access=oa.get("is_oa", False),
             oa_url=oa.get("oa_url"),
+            pdf_url=oa.get("oa_url"),  # Same as OA URL
             source_api="openalex",
         )
 

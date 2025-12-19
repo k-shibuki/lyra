@@ -138,7 +138,7 @@ class RobotsChecker:
     DEFAULT_USER_AGENT = "*"
     LANCET_USER_AGENT = "Lancet"  # Our crawler's user agent
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._cache: dict[str, RobotsRule] = {}
         self._lock = asyncio.Lock()
@@ -420,7 +420,7 @@ class SitemapParser:
     MAX_URLS_PER_SITEMAP = 1000  # Limit to prevent memory issues
     MAX_DEPTH = 3  # Maximum sitemap index nesting depth
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._cache: dict[str, SitemapResult] = {}
 
@@ -447,7 +447,8 @@ class SitemapParser:
         cache_key = f"{domain}:{sitemap_url}"
         if cache_key in self._cache:
             cached = self._cache[cache_key]
-            if (datetime.now(UTC) - cached.fetched_at).hours < 24:
+            age = datetime.now(UTC) - cached.fetched_at
+            if age.total_seconds() / 3600 < 24:  # Less than 24 hours
                 return cached
 
         result = SitemapResult(domain=domain)
@@ -674,7 +675,7 @@ class SitemapParser:
                 if loc is not None and loc.text:
                     urls.append(loc.text.strip())
 
-        return urls[:self.MAX_URLS_PER_SITEMAP]
+        return urls[: self.MAX_URLS_PER_SITEMAP]
 
     def _extract_url_entries(self, root: ET.Element) -> list[SitemapEntry]:
         """Extract URL entries from sitemap.
@@ -694,7 +695,7 @@ class SitemapParser:
         if not url_elements:
             url_elements = root.findall(".//url")
 
-        for url_elem in url_elements[:self.MAX_URLS_PER_SITEMAP]:
+        for url_elem in url_elements[: self.MAX_URLS_PER_SITEMAP]:
             entry = self._parse_url_element(url_elem)
             if entry:
                 entries.append(entry)
@@ -793,7 +794,7 @@ class RobotsManager:
     - Priority URL discovery from sitemaps
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._robots_checker = RobotsChecker()
         self._sitemap_parser = SitemapParser()
         self._settings = get_settings()

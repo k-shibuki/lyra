@@ -31,6 +31,7 @@ import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
+# E402: Intentionally import after pytestmark for test configuration
 from datetime import UTC, datetime
 
 from src.filter.temporal_consistency import (
@@ -476,7 +477,9 @@ class TestEdgeCases:
 
         # Should not raise exception, return valid result
         result = checker.check_consistency(claim_text, page_metadata)
-        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
+        assert isinstance(result, ConsistencyResult), (
+            f"Expected ConsistencyResult, got {type(result)}"
+        )
 
     def test_very_old_date(self, checker):
         """Should handle very old dates."""
@@ -485,7 +488,9 @@ class TestEdgeCases:
 
         result = checker.check_consistency(claim_text, page_metadata)
         # 1800 is not matched by our patterns (20\d{2})
-        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
+        assert isinstance(result, ConsistencyResult), (
+            f"Expected ConsistencyResult, got {type(result)}"
+        )
 
     def test_future_page_date(self, checker):
         """Should handle future page dates."""
@@ -494,7 +499,9 @@ class TestEdgeCases:
         current_time = datetime(2024, 6, 15, tzinfo=UTC)
 
         result = checker.check_consistency(claim_text, page_metadata, current_time)
-        assert isinstance(result, ConsistencyResult), f"Expected ConsistencyResult, got {type(result)}"
+        assert isinstance(result, ConsistencyResult), (
+            f"Expected ConsistencyResult, got {type(result)}"
+        )
 
     def test_same_date_claim_and_page(self, checker):
         """Should handle same date for claim and page."""

@@ -259,7 +259,7 @@ class WHOISParser:
         ],
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize parser."""
         self._compiled_patterns: dict[str, list[re.Pattern]] = {}
         self._compile_patterns()
@@ -406,9 +406,7 @@ class WHOISParser:
                         record.registrant.organization = value
                     elif "name server" in key or "nameserver" in key:
                         if value and "." in value:
-                            record.nameservers.append(
-                                NameserverInfo(hostname=value.lower())
-                            )
+                            record.nameservers.append(NameserverInfo(hostname=value.lower()))
 
     def _parse_rdap_json(self, soup: BeautifulSoup, record: WHOISRecord) -> None:
         """Parse RDAP JSON-LD data if present.

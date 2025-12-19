@@ -17,11 +17,11 @@ Follows §7.1 test code quality standards:
 - Boundary conditions coverage
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
+# E402: Intentionally import after pytestmark for test configuration
 from pathlib import Path
 from unittest.mock import patch
 
@@ -315,7 +315,9 @@ class TestDuckDuckGoParser:
 
         # Should fail with selector errors (at least 1 for missing container)
         assert result.ok is False
-        assert len(result.selector_errors) >= 1, f"Expected >=1 selector errors, got {result.selector_errors}"
+        assert len(result.selector_errors) >= 1, (
+            f"Expected >=1 selector errors, got {result.selector_errors}"
+        )
 
     def test_malformed_html(self):
         """Test handling of malformed HTML."""
@@ -407,7 +409,7 @@ class TestParserRegistry:
 
         assert parser1 is not None
         assert parser2 is not None
-        assert type(parser1) == type(parser2)
+        assert isinstance(parser1, type(parser2))
 
     def test_get_nonexistent_parser(self):
         """Test getting nonexistent parser returns None."""
@@ -478,7 +480,9 @@ class TestParserErrorHandling:
         result = parser.parse(html, "test query")
 
         assert result.ok is False
-        assert len(result.selector_errors) >= 1, f"Expected selector errors, got {result.selector_errors}"
+        assert len(result.selector_errors) >= 1, (
+            f"Expected selector errors, got {result.selector_errors}"
+        )
 
         # Check error messages contain diagnostics about the failed selector
         error_text = "\n".join(result.selector_errors)

@@ -19,7 +19,6 @@ Key Design:
 import asyncio
 import socket
 import time
-from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -156,7 +155,7 @@ class DNSPolicyManager:
     - Detect potential DNS leaks
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._cache: dict[str, DNSCacheEntry] = {}
         self._cache_lock = asyncio.Lock()
@@ -418,10 +417,7 @@ class DNSPolicyManager:
         """
         async with self._cache_lock:
             time.time()
-            expired_keys = [
-                key for key, entry in self._cache.items()
-                if entry.is_expired()
-            ]
+            expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
             for key in expired_keys:
                 del self._cache[key]
             return len(expired_keys)

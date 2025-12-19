@@ -87,6 +87,7 @@ class MCPIntegrationVerifier:
         # Check database
         try:
             from src.storage.database import get_database
+
             await get_database()
             print("  ✓ Database available")
         except Exception as e:
@@ -96,6 +97,7 @@ class MCPIntegrationVerifier:
         # Check MCP server module
         try:
             from src.mcp.server import TOOLS
+
             print(f"  ✓ MCP server module loaded ({len(TOOLS)} tools)")
         except Exception as e:
             print(f"  ✗ MCP server import failed: {e}")

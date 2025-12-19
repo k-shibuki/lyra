@@ -9,6 +9,7 @@ Provides unified interface for searching academic papers from:
 """
 
 import asyncio
+from typing import Any
 
 from src.search.apis.arxiv import ArxivClient
 from src.search.apis.base import BaseAcademicClient
@@ -41,7 +42,7 @@ class AcademicSearchProvider(BaseSearchProvider):
         "unpaywall": 5,
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize academic search provider."""
         super().__init__("academic")
         self._clients: dict[str, BaseAcademicClient] = {}
@@ -121,10 +122,7 @@ class AcademicSearchProvider(BaseSearchProvider):
         apis_to_use = options.engines if options.engines else self._default_apis
 
         # Sort by priority
-        apis_to_use = sorted(
-            apis_to_use,
-            key=lambda api: self.API_PRIORITY.get(api, 999)
-        )
+        apis_to_use = sorted(apis_to_use, key=lambda api: self.API_PRIORITY.get(api, 999))
 
         # Parallel search
         tasks = []
@@ -240,6 +238,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                         Citation(
                             citing_paper_id=current_id,
                             cited_paper_id=ref_paper.id,
+                            context=None,
                             is_influential=is_influential,
                         )
                     )
@@ -257,6 +256,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                         Citation(
                             citing_paper_id=cit_paper.id,
                             cited_paper_id=current_id,
+                            context=None,
                             is_influential=is_influential,
                         )
                     )
@@ -289,8 +289,12 @@ class AcademicSearchProvider(BaseSearchProvider):
 
         # Try Unpaywall API
         try:
+            from src.search.apis.unpaywall import UnpaywallClient
+
             unpaywall_client = await self._get_client("unpaywall")
             # _get_client("unpaywall") always returns UnpaywallClient when enabled
+            if not isinstance(unpaywall_client, UnpaywallClient):
+                return None
             oa_url = await unpaywall_client.resolve_oa_url(paper.doi)
             if oa_url:
                 logger.debug("Resolved OA URL via Unpaywall", doi=paper.doi, oa_url=oa_url)
@@ -304,7 +308,7 @@ class AcademicSearchProvider(BaseSearchProvider):
 
         return None
 
-    async def get_health(self):
+    async def get_health(self) -> Any:
         """Get health status."""
         from src.search.provider import HealthStatus
 

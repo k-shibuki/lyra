@@ -252,8 +252,7 @@ class TestHumanTyping:
 
         # Check first event is 'h'
         first_key_event = next(
-            e for e in events
-            if e.event_type == TypingEvent.EventType.KEY and e.key
+            e for e in events if e.event_type == TypingEvent.EventType.KEY and e.key
         )
         assert first_key_event.key == "h"
 
@@ -384,8 +383,10 @@ class TestInertialScroll:
 
         # Calculate step sizes
         positions = [s.position for s in steps]
-        step_sizes = [positions[i] - positions[i-1] if i > 0 else positions[0]
-                      for i in range(len(positions))]
+        step_sizes = [
+            positions[i] - positions[i - 1] if i > 0 else positions[0]
+            for i in range(len(positions))
+        ]
 
         # Ease-out means larger steps at start, smaller at end
         assert step_sizes[0] > step_sizes[-1]
@@ -530,9 +531,9 @@ mouse:
 
         # Mock page and element
         element = MagicMock()
-        element.bounding_box = AsyncMock(return_value={
-            "x": 100, "y": 100, "width": 50, "height": 50
-        })
+        element.bounding_box = AsyncMock(
+            return_value={"x": 100, "y": 100, "width": 50, "height": 50}
+        )
 
         page = MagicMock()
         page.query_selector = AsyncMock(return_value=element)
@@ -560,9 +561,11 @@ mouse:
     @pytest.mark.asyncio
     async def test_type_text(self):
         """Test type_text with mock page."""
-        simulator = HumanBehaviorSimulator(HumanBehaviorConfig(
-            typing=TypingConfig(typo_probability=0.0),  # Disable typos
-        ))
+        simulator = HumanBehaviorSimulator(
+            HumanBehaviorConfig(
+                typing=TypingConfig(typo_probability=0.0),  # Disable typos
+            )
+        )
 
         page = MagicMock()
         page.keyboard = MagicMock()
@@ -593,11 +596,13 @@ mouse:
         simulator = HumanBehaviorSimulator()
 
         page = MagicMock()
-        page.evaluate = AsyncMock(return_value={
-            "height": 2000,
-            "viewportHeight": 800,
-            "currentScroll": 0,
-        })
+        page.evaluate = AsyncMock(
+            return_value={
+                "height": 2000,
+                "viewportHeight": 800,
+                "currentScroll": 0,
+            }
+        )
 
         await simulator.read_page(page, max_scrolls=2)
 
@@ -607,10 +612,12 @@ mouse:
     @pytest.mark.asyncio
     async def test_think(self):
         """Test think delay."""
-        simulator = HumanBehaviorSimulator(HumanBehaviorConfig(
-            think_time_min_ms=10.0,
-            think_time_max_ms=20.0,
-        ))
+        simulator = HumanBehaviorSimulator(
+            HumanBehaviorConfig(
+                think_time_min_ms=10.0,
+                think_time_max_ms=20.0,
+            )
+        )
 
         start = asyncio.get_event_loop().time()
         await simulator.think()

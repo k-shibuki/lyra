@@ -18,10 +18,14 @@ import random
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
 from src.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from playwright.async_api import Page
 
 logger = get_logger(__name__)
 
@@ -72,15 +76,36 @@ class TypingConfig:
 
     # Typo simulation
     typo_probability: float = 0.01  # 1% chance per character
-    typo_adjacent_keys: dict = field(default_factory=lambda: {
-        'a': 'sqwz', 'b': 'vghn', 'c': 'xdfv', 'd': 'erfcxs',
-        'e': 'wrsdf', 'f': 'rtgvcd', 'g': 'tyhbvf', 'h': 'yujnbg',
-        'i': 'uojkl', 'j': 'uikmnh', 'k': 'ioljm', 'l': 'opk',
-        'm': 'njk', 'n': 'bhjm', 'o': 'iplk', 'p': 'ol',
-        'q': 'wa', 'r': 'etdf', 's': 'wedxza', 't': 'ryfg',
-        'u': 'yihj', 'v': 'cfgb', 'w': 'qeas', 'x': 'zsdc',
-        'y': 'tugh', 'z': 'asx',
-    })
+    typo_adjacent_keys: dict = field(
+        default_factory=lambda: {
+            "a": "sqwz",
+            "b": "vghn",
+            "c": "xdfv",
+            "d": "erfcxs",
+            "e": "wrsdf",
+            "f": "rtgvcd",
+            "g": "tyhbvf",
+            "h": "yujnbg",
+            "i": "uojkl",
+            "j": "uikmnh",
+            "k": "ioljm",
+            "l": "opk",
+            "m": "njk",
+            "n": "bhjm",
+            "o": "iplk",
+            "p": "ol",
+            "q": "wa",
+            "r": "etdf",
+            "s": "wedxza",
+            "t": "ryfg",
+            "u": "yihj",
+            "v": "cfgb",
+            "w": "qeas",
+            "x": "zsdc",
+            "y": "tugh",
+            "z": "asx",
+        }
+    )
 
     # Correction timing
     typo_detection_delay_ms: float = 300.0  # delay before noticing typo
@@ -139,19 +164,30 @@ class HumanBehaviorConfig:
             with open(path) as f:
                 data = yaml.safe_load(f) or {}
 
-            mouse_data = data.get('mouse', {})
-            typing_data = data.get('typing', {})
-            scroll_data = data.get('scroll', {})
+            mouse_data = data.get("mouse", {})
+            typing_data = data.get("typing", {})
+            scroll_data = data.get("scroll", {})
 
             return cls(
-                mouse=MouseConfig(**{k: v for k, v in mouse_data.items()
-                                    if k in MouseConfig.__dataclass_fields__}),
-                typing=TypingConfig(**{k: v for k, v in typing_data.items()
-                                      if k in TypingConfig.__dataclass_fields__}),
-                scroll=ScrollConfig(**{k: v for k, v in scroll_data.items()
-                                      if k in ScrollConfig.__dataclass_fields__}),
-                think_time_min_ms=data.get('think_time_min_ms', 200.0),
-                think_time_max_ms=data.get('think_time_max_ms', 800.0),
+                mouse=MouseConfig(
+                    **{k: v for k, v in mouse_data.items() if k in MouseConfig.__dataclass_fields__}
+                ),
+                typing=TypingConfig(
+                    **{
+                        k: v
+                        for k, v in typing_data.items()
+                        if k in TypingConfig.__dataclass_fields__
+                    }
+                ),
+                scroll=ScrollConfig(
+                    **{
+                        k: v
+                        for k, v in scroll_data.items()
+                        if k in ScrollConfig.__dataclass_fields__
+                    }
+                ),
+                think_time_min_ms=data.get("think_time_min_ms", 200.0),
+                think_time_max_ms=data.get("think_time_max_ms", 800.0),
             )
         except Exception as e:
             logger.error(f"Failed to load config from {path}: {e}")
@@ -212,10 +248,7 @@ class MouseTrajectory:
             return [(end[0], end[1], 0)]
 
         # Calculate number of steps based on distance
-        num_steps = max(
-            self._config.min_steps,
-            min(self._config.max_steps, int(distance / 20))
-        )
+        num_steps = max(self._config.min_steps, min(self._config.max_steps, int(distance / 20)))
 
         # Generate control points for Bezier curve
         control_points = self._generate_control_points(start_pt, end_pt)
@@ -389,19 +422,23 @@ class HumanTyping:
 
         for i, char in enumerate(text):
             # Check for typo
-            if (char.lower() in self._config.typo_adjacent_keys and
-                random.random() < self._config.typo_probability):
+            if (
+                char.lower() in self._config.typo_adjacent_keys
+                and random.random() < self._config.typo_probability
+            ):
                 # Generate typo
                 typo_events = self._generate_typo(char)
                 events.extend(typo_events)
             else:
                 # Normal keystroke
-                delay = self._get_key_delay(char, i > 0 and text[i-1] or None)
-                events.append(TypingEvent(
-                    event_type=TypingEvent.EventType.KEY,
-                    key=char,
-                    delay_ms=delay,
-                ))
+                delay = self._get_key_delay(char, i > 0 and text[i - 1] or None)
+                events.append(
+                    TypingEvent(
+                        event_type=TypingEvent.EventType.KEY,
+                        key=char,
+                        delay_ms=delay,
+                    )
+                )
 
         return events
 
@@ -460,32 +497,40 @@ class HumanTyping:
         if intended_char.isupper():
             wrong_char = wrong_char.upper()
 
-        events.append(TypingEvent(
-            event_type=TypingEvent.EventType.KEY,
-            key=wrong_char,
-            delay_ms=self._get_key_delay(wrong_char, None),
-        ))
+        events.append(
+            TypingEvent(
+                event_type=TypingEvent.EventType.KEY,
+                key=wrong_char,
+                delay_ms=self._get_key_delay(wrong_char, None),
+            )
+        )
 
         # Pause to "notice" the typo
-        events.append(TypingEvent(
-            event_type=TypingEvent.EventType.KEY,
-            key="",  # No actual key, just delay
-            delay_ms=self._config.typo_detection_delay_ms,
-        ))
+        events.append(
+            TypingEvent(
+                event_type=TypingEvent.EventType.KEY,
+                key="",  # No actual key, just delay
+                delay_ms=self._config.typo_detection_delay_ms,
+            )
+        )
 
         # Backspace to correct
-        events.append(TypingEvent(
-            event_type=TypingEvent.EventType.BACKSPACE,
-            key="",
-            delay_ms=self._config.backspace_delay_ms,
-        ))
+        events.append(
+            TypingEvent(
+                event_type=TypingEvent.EventType.BACKSPACE,
+                key="",
+                delay_ms=self._config.backspace_delay_ms,
+            )
+        )
 
         # Type correct character
-        events.append(TypingEvent(
-            event_type=TypingEvent.EventType.KEY,
-            key=intended_char,
-            delay_ms=self._get_key_delay(intended_char, None),
-        ))
+        events.append(
+            TypingEvent(
+                event_type=TypingEvent.EventType.KEY,
+                key=intended_char,
+                delay_ms=self._get_key_delay(intended_char, None),
+            )
+        )
 
         return events
 
@@ -555,10 +600,12 @@ class InertialScroll:
 
                 # Pause after reverse
                 if random.random() < 0.5:
-                    steps.append(ScrollStep(
-                        position=position,
-                        delay_ms=random.uniform(200, 500),
-                    ))
+                    steps.append(
+                        ScrollStep(
+                            position=position,
+                            delay_ms=random.uniform(200, 500),
+                        )
+                    )
 
             # Generate inertial scroll animation
             target_position = min(position + int(amount), max_scroll)
@@ -677,7 +724,7 @@ class HumanBehaviorSimulator:
 
     async def move_mouse(
         self,
-        page,
+        page: "Page",
         start: tuple[float, float],
         end: tuple[float, float],
     ) -> None:
@@ -695,7 +742,7 @@ class HumanBehaviorSimulator:
             if delay_ms > 0:
                 await asyncio.sleep(delay_ms / 1000)
 
-    async def move_to_element(self, page, selector: str) -> bool:
+    async def move_to_element(self, page: "Page", selector: str) -> bool:
         """Move mouse to element with human-like trajectory.
 
         Args:
@@ -733,7 +780,7 @@ class HumanBehaviorSimulator:
 
     async def type_text(
         self,
-        page,
+        page: "Page",
         text: str,
         selector: str | None = None,
     ) -> None:
@@ -762,7 +809,7 @@ class HumanBehaviorSimulator:
 
     async def scroll_page(
         self,
-        page,
+        page: "Page",
         amount: int | None = None,
         direction: int = 1,
     ) -> None:
@@ -785,7 +832,7 @@ class HumanBehaviorSimulator:
 
     async def read_page(
         self,
-        page,
+        page: "Page",
         max_scrolls: int = 5,
     ) -> None:
         """Simulate reading a page with natural scrolling.

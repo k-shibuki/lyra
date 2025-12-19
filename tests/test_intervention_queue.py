@@ -127,9 +127,7 @@ class TestInterventionQueueInit:
         queue = InterventionQueue()
 
         # Then
-        assert queue._db is None, (
-            "_db should be None before _ensure_db is called"
-        )
+        assert queue._db is None, "_db should be None before _ensure_db is called"
 
     @pytest.mark.asyncio
     async def test_ensure_db_creates_connection(self, test_database):
@@ -200,9 +198,7 @@ class TestEnqueue:
 
         # Then: Verify by fetching
         items = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(items) == 1, (
-            f"Should have 1 item in queue, got {len(items)}"
-        )
+        assert len(items) == 1, f"Should have 1 item in queue, got {len(items)}"
 
         item = items[0]
         assert item["id"] == queue_id, f"Item ID should be '{queue_id}', got '{item['id']}'"
@@ -258,9 +254,7 @@ class TestEnqueue:
         # Then
         items = await queue_with_db.get_pending(task_id=sample_task_id)
         expires_str = items[0]["expires_at"]
-        assert expires_str is not None, (
-            "expires_at should be set"
-        )
+        assert expires_str is not None, "expires_at should be set"
 
         # Parse and verify within 1 hour +/- 1 minute
         expires = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
@@ -315,9 +309,7 @@ class TestGetPending:
         items = await queue_with_db.get_pending(task_id=sample_task_id)
 
         # Then
-        assert items == [], (
-            f"Empty queue should return [], got {items}"
-        )
+        assert items == [], f"Empty queue should return [], got {items}"
 
     @pytest.mark.asyncio
     async def test_get_pending_returns_correct_items(self, queue_with_db, sample_task_id):
@@ -343,9 +335,7 @@ class TestGetPending:
         assert len(items) == 3, f"Should return 3 items, got {len(items)}"
         returned_urls = [item["url"] for item in items]
         for url in urls:
-            assert url in returned_urls, (
-                f"URL '{url}' should be in returned items"
-            )
+            assert url in returned_urls, f"URL '{url}' should be in returned items"
 
     @pytest.mark.asyncio
     async def test_get_pending_orders_by_priority(self, queue_with_db, sample_task_id):
@@ -415,9 +405,7 @@ class TestGetPending:
             f"Task 1 item domain should be 'task1.com', got '{items_task1[0]['domain']}'"
         )
 
-        assert len(items_task2) == 1, (
-            f"Task 2 should have 1 item, got {len(items_task2)}"
-        )
+        assert len(items_task2) == 1, f"Task 2 should have 1 item, got {len(items_task2)}"
         assert items_task2[0]["domain"] == "task2.com", (
             f"Task 2 item domain should be 'task2.com', got '{items_task2[0]['domain']}'"
         )
@@ -482,18 +470,10 @@ class TestGetPendingCount:
         counts = await queue_with_db.get_pending_count(sample_task_id)
 
         # Then
-        assert counts["high"] == 0, (
-            f"high count should be 0, got {counts['high']}"
-        )
-        assert counts["medium"] == 0, (
-            f"medium count should be 0, got {counts['medium']}"
-        )
-        assert counts["low"] == 0, (
-            f"low count should be 0, got {counts['low']}"
-        )
-        assert counts["total"] == 0, (
-            f"total count should be 0, got {counts['total']}"
-        )
+        assert counts["high"] == 0, f"high count should be 0, got {counts['high']}"
+        assert counts["medium"] == 0, f"medium count should be 0, got {counts['medium']}"
+        assert counts["low"] == 0, f"low count should be 0, got {counts['low']}"
+        assert counts["total"] == 0, f"total count should be 0, got {counts['total']}"
 
     @pytest.mark.asyncio
     async def test_get_pending_count_by_priority(self, queue_with_db, sample_task_id):
@@ -560,12 +540,8 @@ class TestStartSession:
         assert result["session_started"] is False, (
             "session_started should be False with no pending items"
         )
-        assert result["count"] == 0, (
-            f"count should be 0, got {result['count']}"
-        )
-        assert result["items"] == [], (
-            f"items should be empty list, got {result['items']}"
-        )
+        assert result["count"] == 0, f"count should be 0, got {result['count']}"
+        assert result["items"] == [], f"items should be empty list, got {result['items']}"
 
     @pytest.mark.asyncio
     async def test_start_session_marks_items_in_progress(self, queue_with_db, sample_task_id):
@@ -582,12 +558,8 @@ class TestStartSession:
         result = await queue_with_db.start_session(task_id=sample_task_id)
 
         # Then
-        assert result["session_started"] is True, (
-            "session_started should be True"
-        )
-        assert result["count"] == 1, (
-            f"count should be 1, got {result['count']}"
-        )
+        assert result["session_started"] is True, "session_started should be True"
+        assert result["count"] == 1, f"count should be 1, got {result['count']}"
 
         # Verify status changed - pending items should be 0 now
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
@@ -617,9 +589,7 @@ class TestStartSession:
 
         # Then
         items = result["items"]
-        assert len(items) == 1, (
-            f"Should return 1 item, got {len(items)}"
-        )
+        assert len(items) == 1, f"Should return 1 item, got {len(items)}"
 
         item = items[0]
         assert item["url"] == url, f"Item URL should be '{url}', got '{item['url']}'"
@@ -661,18 +631,12 @@ class TestStartSession:
         )
 
         # Then
-        assert result["count"] == 2, (
-            f"Should process 2 items, got {result['count']}"
-        )
+        assert result["count"] == 2, f"Should process 2 items, got {result['count']}"
 
         # id2 should still be pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 1, (
-            f"Should have 1 pending item, got {len(pending)}"
-        )
-        assert pending[0]["id"] == id2, (
-            f"Pending item should be id2, got '{pending[0]['id']}'"
-        )
+        assert len(pending) == 1, f"Should have 1 pending item, got {len(pending)}"
+        assert pending[0]["id"] == id2, f"Pending item should be id2, got '{pending[0]['id']}'"
 
     @pytest.mark.asyncio
     async def test_start_session_filters_by_priority(self, queue_with_db, sample_task_id):
@@ -700,21 +664,13 @@ class TestStartSession:
         )
 
         # Then
-        assert result["count"] == 1, (
-            f"Should process 1 high priority item, got {result['count']}"
-        )
-        assert result["items"][0]["priority"] == "high", (
-            "Processed item should be high priority"
-        )
+        assert result["count"] == 1, f"Should process 1 high priority item, got {result['count']}"
+        assert result["items"][0]["priority"] == "high", "Processed item should be high priority"
 
         # Low priority should still be pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 1, (
-            f"Should have 1 pending item, got {len(pending)}"
-        )
-        assert pending[0]["priority"] == "low", (
-            "Pending item should be low priority"
-        )
+        assert len(pending) == 1, f"Should have 1 pending item, got {len(pending)}"
+        assert pending[0]["priority"] == "low", "Pending item should be low priority"
 
 
 # =============================================================================
@@ -861,18 +817,12 @@ class TestSkip:
         result = await queue_with_db.skip(task_id=sample_task_id)
 
         # Then
-        assert result["ok"] is True, (
-            "ok should be True"
-        )
-        assert result["skipped"] >= 3, (
-            f"Should skip at least 3 items, got {result['skipped']}"
-        )
+        assert result["ok"] is True, "ok should be True"
+        assert result["skipped"] >= 3, f"Should skip at least 3 items, got {result['skipped']}"
 
         # Verify no pending items remain
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 0, (
-            f"Should have no pending items, got {len(pending)}"
-        )
+        assert len(pending) == 0, f"Should have no pending items, got {len(pending)}"
 
     @pytest.mark.asyncio
     async def test_skip_specific_queue_ids(self, queue_with_db, sample_task_id):
@@ -896,12 +846,8 @@ class TestSkip:
 
         # Then: id2 should still be pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 1, (
-            f"Should have 1 pending item, got {len(pending)}"
-        )
-        assert pending[0]["id"] == id2, (
-            "Pending item should be id2"
-        )
+        assert len(pending) == 1, f"Should have 1 pending item, got {len(pending)}"
+        assert pending[0]["id"] == id2, "Pending item should be id2"
 
     @pytest.mark.asyncio
     async def test_skip_in_progress_items(self, queue_with_db, sample_task_id):
@@ -941,9 +887,7 @@ class TestGetSessionForDomain:
         session = await queue_with_db.get_session_for_domain(domain="unknown.com")
 
         # Then
-        assert session is None, (
-            "Should return None when no session exists"
-        )
+        assert session is None, "Should return None when no session exists"
 
     @pytest.mark.asyncio
     async def test_get_session_returns_stored_session(self, queue_with_db, sample_task_id):
@@ -1046,15 +990,11 @@ class TestCleanupExpired:
         cleaned = await queue_with_db.cleanup_expired()
 
         # Then
-        assert cleaned >= 1, (
-            f"Should have cleaned at least 1 expired item, got {cleaned}"
-        )
+        assert cleaned >= 1, f"Should have cleaned at least 1 expired item, got {cleaned}"
 
         # Verify item is no longer pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 0, (
-            f"Should have no pending items after cleanup, got {len(pending)}"
-        )
+        assert len(pending) == 0, f"Should have no pending items after cleanup, got {len(pending)}"
 
     @pytest.mark.asyncio
     async def test_cleanup_does_not_affect_valid_items(self, queue_with_db, sample_task_id):
@@ -1101,9 +1041,7 @@ class TestBoundaryConditions:
         items = await queue_with_db.get_pending(task_id=sample_task_id, limit=0)
 
         # Then
-        assert items == [], (
-            f"limit=0 should return empty list, got {len(items)} items"
-        )
+        assert items == [], f"limit=0 should return empty list, got {len(items)} items"
 
     @pytest.mark.asyncio
     async def test_start_session_with_nonexistent_queue_ids(self, queue_with_db, sample_task_id):
@@ -1225,12 +1163,8 @@ class TestGetAuthenticationQueueSummary:
         assert len(summary["domains"]) == 2, (
             f"Should have 2 distinct domains, got {len(summary['domains'])}"
         )
-        assert "example.com" in summary["domains"], (
-            "example.com should be in domains"
-        )
-        assert "other.com" in summary["domains"], (
-            "other.com should be in domains"
-        )
+        assert "example.com" in summary["domains"], "example.com should be in domains"
+        assert "other.com" in summary["domains"], "other.com should be in domains"
 
     @pytest.mark.asyncio
     async def test_summary_tracks_oldest_queued_at(self, queue_with_db, sample_task_id):
@@ -1247,9 +1181,7 @@ class TestGetAuthenticationQueueSummary:
         summary = await queue_with_db.get_authentication_queue_summary(sample_task_id)
 
         # Then
-        assert summary["oldest_queued_at"] is not None, (
-            "oldest_queued_at should not be None"
-        )
+        assert summary["oldest_queued_at"] is not None, "oldest_queued_at should not be None"
 
     @pytest.mark.asyncio
     async def test_summary_counts_by_auth_type(self, queue_with_db, sample_task_id):
@@ -1393,9 +1325,7 @@ class TestGetInterventionQueue:
         queue2 = get_intervention_queue()
 
         # Then
-        assert queue1 is queue2, (
-            "Should return same instance on multiple calls"
-        )
+        assert queue1 is queue2, "Should return same instance on multiple calls"
 
         # Then
         assert queue1 is queue2, "Should return same instance on multiple calls"

@@ -237,10 +237,7 @@ class EnvironmentVerifier:
 
             # Create provider with configured host
             # In container, Ollama is accessible via internal network
-            ollama_host = os.environ.get(
-                "LANCET_LLM__OLLAMA_HOST",
-                settings.llm.ollama_host
-            )
+            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             provider = OllamaProvider(host=ollama_host)
 
@@ -278,7 +275,9 @@ class EnvironmentVerifier:
 
                 print(f"    ✓ Ollama reachable at {ollama_host}")
                 print(f"    ✓ Available models: {len(model_names)}")
-                print(f"    {'✓' if has_model else '!'} Model ({model}): {'available' if has_model else 'not found'}")
+                print(
+                    f"    {'✓' if has_model else '!'} Model ({model}): {'available' if has_model else 'not found'}"
+                )
 
                 # Pass if Ollama is reachable (models can be pulled later)
                 passed = health.state != LLMHealthState.UNHEALTHY
@@ -318,10 +317,7 @@ class EnvironmentVerifier:
             from src.utils.config import get_settings
 
             settings = get_settings()
-            ollama_host = os.environ.get(
-                "LANCET_LLM__OLLAMA_HOST",
-                settings.llm.ollama_host
-            )
+            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             # Try to connect to Ollama API
             async with aiohttp.ClientSession() as session:
@@ -351,8 +347,12 @@ class EnvironmentVerifier:
                 "ollama_host": ollama_host,
             }
 
-            print(f"    {'✓' if internal_ok else '✗'} Ollama internal network: {'connected' if internal_ok else 'failed'}")
-            print(f"    {'✓' if external_ok else '!'} External network: {'connected' if external_ok else 'blocked/failed'}")
+            print(
+                f"    {'✓' if internal_ok else '✗'} Ollama internal network: {'connected' if internal_ok else 'failed'}"
+            )
+            print(
+                f"    {'✓' if external_ok else '!'} External network: {'connected' if external_ok else 'blocked/failed'}"
+            )
 
             # Pass if internal network works
             passed = internal_ok

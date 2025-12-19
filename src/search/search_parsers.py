@@ -256,12 +256,14 @@ class BaseSearchParser(ABC):
         for selector_config in self.config.get_required_selectors():
             elements = self.find_elements(soup, selector_config.name)
             if not elements:
-                failed.append(FailedSelector(
-                    name=selector_config.name,
-                    selector=selector_config.selector,
-                    required=selector_config.required,
-                    diagnostic_message=selector_config.diagnostic_message,
-                ))
+                failed.append(
+                    FailedSelector(
+                        name=selector_config.name,
+                        selector=selector_config.selector,
+                        required=selector_config.required,
+                        diagnostic_message=selector_config.diagnostic_message,
+                    )
+                )
 
         return failed
 
@@ -281,7 +283,7 @@ class BaseSearchParser(ABC):
         self,
         query: str,
         time_range: str = "all",
-        **kwargs,
+        **kwargs: str,
     ) -> str:
         """
         Build search URL for this engine.
@@ -501,7 +503,7 @@ class BaseSearchParser(ABC):
 class DuckDuckGoParser(BaseSearchParser):
     """Parser for DuckDuckGo search results."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("duckduckgo")
 
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
@@ -530,7 +532,9 @@ class DuckDuckGoParser(BaseSearchParser):
 
         # Fallback: try direct search in container
         if title_elem is None:
-            title_elem = container.select_one("h2 a, a[data-testid='result-title-a'], .result__title a")
+            title_elem = container.select_one(
+                "h2 a, a[data-testid='result-title-a'], .result__title a"
+            )
 
         if url_elem is None:
             url_elem = container.select_one("a[data-testid='result-title-a'], h2 a")
@@ -577,7 +581,7 @@ class DuckDuckGoParser(BaseSearchParser):
 class MojeekParser(BaseSearchParser):
     """Parser for Mojeek search results."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("mojeek")
 
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
@@ -639,7 +643,7 @@ class MojeekParser(BaseSearchParser):
 class GoogleParser(BaseSearchParser):
     """Parser for Google search results (high block risk)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("google")
 
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
@@ -738,7 +742,7 @@ class GoogleParser(BaseSearchParser):
 class BraveParser(BaseSearchParser):
     """Parser for Brave Search results."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("brave")
 
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
@@ -803,7 +807,7 @@ class BraveParser(BaseSearchParser):
 class EcosiaParser(BaseSearchParser):
     """Parser for Ecosia search results (Bing-based, relatively lenient)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("ecosia")
 
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
@@ -882,7 +886,7 @@ class EcosiaParser(BaseSearchParser):
 class StartpageParser(BaseSearchParser):
     """Parser for Startpage search results (Google-based, privacy-focused)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("startpage")
 
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
@@ -977,7 +981,7 @@ class StartpageParser(BaseSearchParser):
 class BingParser(BaseSearchParser):
     """Parser for Bing search results (high block risk)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("bing")
 
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
@@ -1123,7 +1127,8 @@ def get_parser(engine_name: str) -> BaseSearchParser | None:
         logger.warning(f"Engine {engine_name} not configured in search_parsers.yaml")
         return None
 
-    return parser_class()
+    # Type ignore: parser subclasses have engine name hardcoded in their __init__
+    return parser_class()  # type: ignore[call-arg]
 
 
 def get_available_parsers() -> list[str]:

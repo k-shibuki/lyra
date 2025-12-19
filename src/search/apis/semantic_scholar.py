@@ -4,7 +4,7 @@ Semantic Scholar API client.
 Primary API for citation graphs (priority=1).
 """
 
-
+from typing import Any
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -19,21 +19,17 @@ class SemanticScholarClient(BaseAcademicClient):
 
     FIELDS = "paperId,title,abstract,year,authors,citationCount,referenceCount,isOpenAccess,openAccessPdf,venue,externalIds"
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Semantic Scholar client."""
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
 
             config = get_academic_apis_config()
-            api_config = config.apis.get("semantic_scholar", {})
-            base_url = (
-                api_config.base_url
-                if api_config.base_url
-                else "https://api.semanticscholar.org/graph/v1"
-            )
-            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
-            headers = api_config.headers if api_config.headers else None
+            api_config = config.get_api_config("semantic_scholar")
+            base_url = api_config.base_url
+            timeout = float(api_config.timeout_seconds)
+            headers = api_config.headers
         except Exception:
             # Fallback to defaults if config loading fails
             base_url = "https://api.semanticscholar.org/graph/v1"
@@ -46,7 +42,7 @@ class SemanticScholarClient(BaseAcademicClient):
         """Search for papers."""
         session = await self._get_session()
 
-        async def _search():
+        async def _search() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/paper/search",
                 params={"query": query, "limit": limit, "fields": self.FIELDS},
@@ -71,11 +67,7 @@ class SemanticScholarClient(BaseAcademicClient):
             )
         except Exception as e:
             logger.error("Semantic Scholar search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[],
-                total_count=0,
-                source_api="semantic_scholar"
-            )
+            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="semantic_scholar")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
@@ -84,7 +76,7 @@ class SemanticScholarClient(BaseAcademicClient):
         # Normalize paper ID for API
         normalized_id = self._normalize_paper_id(paper_id)
 
-        async def _fetch():
+        async def _fetch() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/paper/{normalized_id}", params={"fields": self.FIELDS}
             )
@@ -133,7 +125,7 @@ class SemanticScholarClient(BaseAcademicClient):
         # Normalize paper ID for API
         normalized_id = self._normalize_paper_id(paper_id)
 
-        async def _fetch():
+        async def _fetch() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/paper/{normalized_id}/references",
                 params={"fields": self.FIELDS + ",isInfluential"},
@@ -161,7 +153,7 @@ class SemanticScholarClient(BaseAcademicClient):
         # Normalize paper ID for API
         normalized_id = self._normalize_paper_id(paper_id)
 
-        async def _fetch():
+        async def _fetch() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/paper/{normalized_id}/citations",
                 params={"fields": self.FIELDS + ",isInfluential"},
@@ -189,11 +181,13 @@ class SemanticScholarClient(BaseAcademicClient):
 
         authors = []
         for author_data in data.get("authors", []):
-            authors.append(Author(
-                name=author_data.get("name", ""),
-                affiliation=None,  # Semantic Scholar API does not provide affiliation
-                orcid=None
-            ))
+            authors.append(
+                Author(
+                    name=author_data.get("name", ""),
+                    affiliation=None,  # Semantic Scholar API does not provide affiliation
+                    orcid=None,
+                )
+            )
 
         return Paper(
             id=f"s2:{data['paperId']}",
@@ -201,6 +195,7 @@ class SemanticScholarClient(BaseAcademicClient):
             abstract=data.get("abstract"),
             authors=authors,
             year=data.get("year"),
+            published_date=None,  # Semantic Scholar does not provide date
             doi=external_ids.get("DOI"),
             arxiv_id=external_ids.get("ArXiv"),
             venue=data.get("venue"),
@@ -208,5 +203,6 @@ class SemanticScholarClient(BaseAcademicClient):
             reference_count=data.get("referenceCount", 0),
             is_open_access=data.get("isOpenAccess", False),
             oa_url=oa_pdf.get("url") if oa_pdf else None,
+            pdf_url=oa_pdf.get("url") if oa_pdf else None,  # Same as OA URL
             source_api="semantic_scholar",
         )

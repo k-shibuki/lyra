@@ -14,7 +14,7 @@ logger = structlog.get_logger(__name__)
 class EmbeddingService:
     """Embedding model service using sentence-transformers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._model = None
         self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
 
@@ -48,6 +48,7 @@ class EmbeddingService:
                 model_path,
                 local_files_only=local_only,
             )
+            assert self._model is not None  # SentenceTransformer always returns model
 
             # Move to GPU if available
             if self._use_gpu:
@@ -83,6 +84,7 @@ class EmbeddingService:
             return []
 
         await self.load()
+        assert self._model is not None  # Guaranteed by load()
 
         embeddings = self._model.encode(
             texts,

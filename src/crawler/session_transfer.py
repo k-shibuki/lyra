@@ -145,7 +145,9 @@ class SessionData(BaseModel):
     etag: str | None = Field(default=None, description="ETag header value")
     last_modified: str | None = Field(default=None, description="Last-Modified header value")
     user_agent: str | None = Field(default=None, description="User-Agent string")
-    accept_language: str = Field(default="ja,en-US;q=0.9,en;q=0.8", description="Accept-Language header")
+    accept_language: str = Field(
+        default="ja,en-US;q=0.9,en;q=0.8", description="Accept-Language header"
+    )
     last_url: str | None = Field(default=None, description="Last visited URL for Referer header")
     created_at: float = Field(default_factory=time.time, description="Session creation timestamp")
     last_used_at: float = Field(default_factory=time.time, description="Last usage timestamp")
@@ -379,7 +381,7 @@ class SessionTransferManager:
 
     async def capture_from_browser(
         self,
-        context,  # Playwright BrowserContext
+        context: Any,  # Playwright BrowserContext
         url: str,
         response_headers: dict[str, str] | None = None,
     ) -> str | None:
@@ -737,7 +739,7 @@ def get_session_transfer_manager() -> SessionTransferManager:
 
 
 async def capture_browser_session(
-    context,
+    context: Any,
     url: str,
     response_headers: dict[str, str] | None = None,
 ) -> str | None:

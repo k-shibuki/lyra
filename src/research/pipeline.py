@@ -18,6 +18,7 @@ from src.research.executor import PRIMARY_SOURCE_DOMAINS, REFUTATION_SUFFIXES, S
 from src.research.state import ExplorationState
 from src.storage.database import get_database
 from src.utils.logging import LogContext, get_logger
+from src.utils.schemas import Paper
 
 logger = get_logger(__name__)
 
@@ -180,9 +181,7 @@ class SearchPipeline:
                     )
                 else:
                     # Normal search mode
-                    result = await self._execute_normal_search(
-                        search_id, query, options, result
-                    )
+                    result = await self._execute_normal_search(search_id, query, options, result)
 
                 # Calculate remaining budget
                 overall_status = await self.state.get_status()
@@ -222,9 +221,7 @@ class SearchPipeline:
             return await self._execute_complementary_search(search_id, query, options, result)
         else:
             # Standard browser search only
-            return await self._execute_browser_search(
-                search_id, query, options, result
-            )
+            return await self._execute_browser_search(search_id, query, options, result)
 
     async def _execute_browser_search(
         self,
@@ -259,13 +256,15 @@ class SearchPipeline:
             result.error_details = exec_result.error_details
 
         for claim in exec_result.new_claims:
-            result.claims_found.append({
-                "id": f"c_{uuid.uuid4().hex[:8]}",
-                "text": claim.get("claim", claim.get("snippet", ""))[:200],
-                "confidence": claim.get("confidence", 0.5),
-                "source_url": claim.get("source_url", ""),
-                "is_primary_source": self._is_primary_source(claim.get("source_url", "")),
-            })
+            result.claims_found.append(
+                {
+                    "id": f"c_{uuid.uuid4().hex[:8]}",
+                    "text": claim.get("claim", claim.get("snippet", ""))[:200],
+                    "confidence": claim.get("confidence", 0.5),
+                    "source_url": claim.get("source_url", ""),
+                    "is_primary_source": self._is_primary_source(claim.get("source_url", "")),
+                }
+            )
 
         if exec_result.errors:
             result.errors.extend(exec_result.errors)
@@ -427,7 +426,11 @@ class SearchPipeline:
                                 entry.paper.oa_url = resolved_oa_url
                                 entry.paper.is_open_access = True
                         except Exception as e:
-                            logger.debug("Failed to resolve OA URL via Unpaywall", doi=entry.paper.doi, error=str(e))
+                            logger.debug(
+                                "Failed to resolve OA URL via Unpaywall",
+                                doi=entry.paper.doi,
+                                error=str(e),
+                            )
 
                     # Abstract Only: Skip fetch, persist abstract directly
                     try:
@@ -527,7 +530,9 @@ class SearchPipeline:
                 fragments_before = result.useful_fragments
 
                 expanded_queries = self._expand_academic_query(query)
-                browser_result = await self._execute_browser_search(search_id, expanded_queries[0], options, result)
+                browser_result = await self._execute_browser_search(
+                    search_id, expanded_queries[0], options, result
+                )
 
                 # Accumulate stats: add browser search results to existing counts
                 # (browser_result is the same object as result, so browser_result.pages_fetched
@@ -604,7 +609,7 @@ class SearchPipeline:
         queries = [query]  # Original query
 
         # Remove site: operator
-        base_query = re.sub(r'\bsite:\S+', '', query).strip()
+        base_query = re.sub(r"\bsite:\S+", "", query).strip()
 
         # Add academic site specifications (top 2 sites only)
         academic_sites = [
@@ -668,29 +673,37 @@ class SearchPipeline:
         page_id = f"page_{uuid.uuid4().hex[:8]}"
 
         # Insert into pages table
-        await db.insert("pages", {
-            "id": page_id,
-            "url": reference_url,
-            "final_url": reference_url,
-            "domain": self._extract_domain(reference_url),
-            "page_type": "academic_paper",
-            "fetch_method": "academic_api",
-            "title": paper.title,
-            "paper_metadata": json.dumps(paper_metadata),
-            "fetched_at": time.time(),
-        }, auto_id=False)
+        await db.insert(
+            "pages",
+            {
+                "id": page_id,
+                "url": reference_url,
+                "final_url": reference_url,
+                "domain": self._extract_domain(reference_url),
+                "page_type": "academic_paper",
+                "fetch_method": "academic_api",
+                "title": paper.title,
+                "paper_metadata": json.dumps(paper_metadata),
+                "fetched_at": time.time(),
+            },
+            auto_id=False,
+        )
 
         # Insert abstract as fragment
         fragment_id = f"frag_{uuid.uuid4().hex[:8]}"
-        await db.insert("fragments", {
-            "id": fragment_id,
-            "page_id": page_id,
-            "fragment_type": "abstract",
-            "text_content": paper.abstract or "",
-            "heading_context": "Abstract",
-            "position": 0,
-            "created_at": time.time(),
-        }, auto_id=False)
+        await db.insert(
+            "fragments",
+            {
+                "id": fragment_id,
+                "page_id": page_id,
+                "fragment_type": "abstract",
+                "text_content": paper.abstract or "",
+                "heading_context": "Abstract",
+                "position": 0,
+                "created_at": time.time(),
+            },
+            auto_id=False,
+        )
 
         logger.info(
             "Persisted abstract as fragment",
@@ -805,14 +818,16 @@ class SearchPipeline:
 
                         if refutation:
                             all_refutations.append(refutation)
-                            result.claims_found.append({
-                                "id": f"c_{uuid.uuid4().hex[:8]}",
-                                "text": refutation["refuting_passage"][:200],
-                                "confidence": refutation["nli_confidence"],
-                                "source_url": url,
-                                "is_primary_source": self._is_primary_source(url),
-                                "is_refutation": True,
-                            })
+                            result.claims_found.append(
+                                {
+                                    "id": f"c_{uuid.uuid4().hex[:8]}",
+                                    "text": refutation["refuting_passage"][:200],
+                                    "confidence": refutation["nli_confidence"],
+                                    "source_url": url,
+                                    "is_primary_source": self._is_primary_source(url),
+                                    "is_refutation": True,
+                                }
+                            )
 
                     except Exception as e:
                         logger.debug("Refutation fetch failed", url=url[:50], error=str(e))
@@ -861,9 +876,9 @@ class SearchPipeline:
         self,
         claim_text: str,
         passage: str,
-        source_url: str,
+        source_url: str | None,
         source_title: str,
-        nli_judge,
+        nli_judge: Any,
     ) -> dict[str, Any] | None:
         """
         Detect if a passage refutes a claim using NLI.
@@ -879,11 +894,13 @@ class SearchPipeline:
             Refutation details if detected, None otherwise.
         """
         try:
-            pairs = [{
-                "pair_id": "refutation_check",
-                "premise": passage,
-                "hypothesis": claim_text,
-            }]
+            pairs = [
+                {
+                    "pair_id": "refutation_check",
+                    "premise": passage,
+                    "hypothesis": claim_text,
+                }
+            ]
 
             results = await nli_judge(pairs=pairs)
 
@@ -913,10 +930,7 @@ class SearchPipeline:
             parsed = urlparse(url)
             domain = parsed.netloc.lower()
 
-            return any(
-                primary in domain
-                for primary in PRIMARY_SOURCE_DOMAINS
-            )
+            return any(primary in domain for primary in PRIMARY_SOURCE_DOMAINS)
         except Exception as e:
             logger.debug("Primary source check failed", url=url[:100], error=str(e))
             return False

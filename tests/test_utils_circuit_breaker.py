@@ -111,9 +111,7 @@ class TestCircuitBreakerNormalCases:
         assert breaker.consecutive_failures == 0
         assert breaker.state == CircuitState.CLOSED
 
-    def test_failures_below_threshold_stay_closed(
-        self, breaker: CircuitBreaker
-    ) -> None:
+    def test_failures_below_threshold_stay_closed(self, breaker: CircuitBreaker) -> None:
         """
         TC-N-02: Failures below threshold keep circuit CLOSED.
 
@@ -131,9 +129,7 @@ class TestCircuitBreakerNormalCases:
         assert breaker.is_available is True
         assert breaker.consecutive_failures == 1
 
-    def test_failures_at_threshold_opens_circuit(
-        self, breaker: CircuitBreaker
-    ) -> None:
+    def test_failures_at_threshold_opens_circuit(self, breaker: CircuitBreaker) -> None:
         """
         TC-N-03: Failures reaching threshold opens circuit.
 
@@ -152,9 +148,7 @@ class TestCircuitBreakerNormalCases:
         assert breaker.is_available is False
         assert breaker.consecutive_failures == 2
 
-    def test_cooldown_elapsed_transitions_to_half_open(
-        self, fast_breaker: CircuitBreaker
-    ) -> None:
+    def test_cooldown_elapsed_transitions_to_half_open(self, fast_breaker: CircuitBreaker) -> None:
         """
         TC-N-04: After cooldown, OPEN transitions to HALF_OPEN.
 
@@ -173,9 +167,7 @@ class TestCircuitBreakerNormalCases:
         assert fast_breaker.state == CircuitState.HALF_OPEN
         assert fast_breaker.is_available is True
 
-    def test_half_open_success_closes_circuit(
-        self, fast_breaker: CircuitBreaker
-    ) -> None:
+    def test_half_open_success_closes_circuit(self, fast_breaker: CircuitBreaker) -> None:
         """
         TC-N-05: Success in HALF_OPEN state closes circuit.
 
@@ -195,9 +187,7 @@ class TestCircuitBreakerNormalCases:
         assert fast_breaker.state == CircuitState.CLOSED
         assert fast_breaker.is_available is True
 
-    def test_half_open_failure_reopens_circuit(
-        self, fast_breaker: CircuitBreaker
-    ) -> None:
+    def test_half_open_failure_reopens_circuit(self, fast_breaker: CircuitBreaker) -> None:
         """
         TC-N-06: Failure in HALF_OPEN state reopens circuit.
 
@@ -430,9 +420,7 @@ class TestCircuitBreakerForceOperations:
 class TestCircuitBreakerCallbacks:
     """Tests for state change callbacks."""
 
-    def test_callback_invoked_on_state_change(
-        self, breaker: CircuitBreaker
-    ) -> None:
+    def test_callback_invoked_on_state_change(self, breaker: CircuitBreaker) -> None:
         """
         TC-C-01: Callback is invoked when state changes.
 
@@ -456,9 +444,7 @@ class TestCircuitBreakerCallbacks:
         assert len(transitions) == 1
         assert transitions[0] == (CircuitState.CLOSED, CircuitState.OPEN)
 
-    def test_callback_exception_does_not_crash(
-        self, fast_breaker: CircuitBreaker
-    ) -> None:
+    def test_callback_exception_does_not_crash(self, fast_breaker: CircuitBreaker) -> None:
         """
         TC-C-02: Exception in callback doesn't crash circuit breaker.
 
@@ -695,9 +681,7 @@ class TestAsyncCircuitBreaker:
 class TestCircuitBreakerError:
     """Tests for CircuitBreakerError exception."""
 
-    def test_error_contains_breaker_info(
-        self, breaker: CircuitBreaker
-    ) -> None:
+    def test_error_contains_breaker_info(self, breaker: CircuitBreaker) -> None:
         """
         Verify error contains breaker and state info.
 

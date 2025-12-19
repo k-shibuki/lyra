@@ -84,14 +84,16 @@ def generate_deep_link(url: str, heading_context: str | None) -> str:
         return url
 
     # Add anchor fragment
-    new_url = urlunparse((
-        parsed.scheme,
-        parsed.netloc,
-        parsed.path,
-        parsed.params,
-        parsed.query,
-        anchor,
-    ))
+    new_url = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            anchor,
+        )
+    )
 
     return new_url
 
@@ -187,7 +189,7 @@ class Citation:
 class ReportGenerator:
     """Generates research reports from evidence."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
 
     async def generate(
@@ -390,10 +392,18 @@ class ReportGenerator:
 
         if fragments:
             # Separate primary and secondary sources
-            primary_frags = [f for f in fragments if f.get("source_tag") in
-                           ("government", "academic", "official", "standard", "registry")]
-            secondary_frags = [f for f in fragments if f.get("source_tag") not in
-                             ("government", "academic", "official", "standard", "registry")]
+            primary_frags = [
+                f
+                for f in fragments
+                if f.get("source_tag")
+                in ("government", "academic", "official", "standard", "registry")
+            ]
+            secondary_frags = [
+                f
+                for f in fragments
+                if f.get("source_tag")
+                not in ("government", "academic", "official", "standard", "registry")
+            ]
 
             # Primary sources first (§3.4)
             if primary_frags:
@@ -818,9 +828,7 @@ async def get_report_materials(
             )
             # Add deep link
             if frag.get("url") and frag.get("heading_context"):
-                frag["deep_link"] = generate_deep_link(
-                    frag["url"], frag["heading_context"]
-                )
+                frag["deep_link"] = generate_deep_link(frag["url"], frag["heading_context"])
 
     # Get evidence graph if requested
     evidence_graph = None

@@ -296,7 +296,7 @@ class SearchEngineConfigManager:
         self._load_config()
 
     @classmethod
-    def get_instance(cls, **kwargs) -> SearchEngineConfigManager:
+    def get_instance(cls, **kwargs: Any) -> SearchEngineConfigManager:
         """Get singleton instance of engine config manager."""
         if cls._instance is None:
             with cls._lock:
@@ -423,7 +423,9 @@ class SearchEngineConfigManager:
         self._check_reload()
         if self._config is None:
             self._load_config()
-        return self._config  # type: ignore
+        # After _load_config(), _config is guaranteed to be non-None
+        assert self._config is not None
+        return self._config
 
     # =========================================================================
     # Engine Selection Policy
@@ -549,11 +551,7 @@ class SearchEngineConfigManager:
         # Filter by parser availability
         matching_names = [cfg.name for cfg in all_matching]
         filtered_names = self.get_engines_with_parsers(matching_names)
-        return [
-            config
-            for config in all_matching
-            if config.name in filtered_names
-        ]
+        return [config for config in all_matching if config.name in filtered_names]
 
     def get_block_resistant_engines(self) -> list[EngineConfig]:
         """Get engines marked as block-resistant."""
@@ -682,12 +680,14 @@ class SearchEngineConfigManager:
                 continue
 
             for source_schema in source_list:
-                sources.append(DirectSource(
-                    domain=source_schema.domain,
-                    priority=source_schema.priority,
-                    search_url=source_schema.search_url,
-                    category=cat,
-                ))
+                sources.append(
+                    DirectSource(
+                        domain=source_schema.domain,
+                        priority=source_schema.priority,
+                        search_url=source_schema.search_url,
+                        category=cat,
+                    )
+                )
 
         return sources
 
@@ -805,7 +805,7 @@ _manager_instance: SearchEngineConfigManager | None = None
 _manager_lock = threading.Lock()
 
 
-def get_engine_config_manager(**kwargs) -> SearchEngineConfigManager:
+def get_engine_config_manager(**kwargs: Any) -> SearchEngineConfigManager:
     """
     Get the singleton SearchEngineConfigManager instance.
 

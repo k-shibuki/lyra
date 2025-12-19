@@ -68,7 +68,9 @@ async def main():
         assert hasattr(transfer_result, "headers"), "TransferResult should have 'headers' attribute"
         assert isinstance(transfer_result.headers, dict), "headers should be dict"
 
-        print(f"  ✓ SessionTransfer returned: ok={transfer_result.ok}, headers={len(transfer_result.headers)}")
+        print(
+            f"  ✓ SessionTransfer returned: ok={transfer_result.ok}, headers={len(transfer_result.headers)}"
+        )
 
         if transfer_result.ok:
             print("  ✓ Transfer headers available:")
@@ -142,7 +144,7 @@ async def main():
             cached_last_modified=cached_last_modified,
         )
 
-        assert hasattr(http_result2, 'ok'), "FetchResult should have 'ok' attribute"
+        assert hasattr(http_result2, "ok"), "FetchResult should have 'ok' attribute"
         print(f"  ✓ HTTPFetcher returned: ok={http_result2.ok}")
 
         if http_result2.ok:

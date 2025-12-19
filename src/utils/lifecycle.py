@@ -16,9 +16,13 @@ import time
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
+
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, BrowserContext, Playwright
+    from stem.control import Controller
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -75,7 +79,7 @@ class ProcessLifecycleManager:
     - Prevention of memory leaks
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize lifecycle manager."""
         self._resources: dict[str, ResourceInfo] = {}
         self._task_resources: dict[str, set[str]] = {}  # task_id -> resource_ids
@@ -362,7 +366,7 @@ class ProcessLifecycleManager:
             )
             return False
 
-    async def _cleanup_browser(self, browser) -> None:
+    async def _cleanup_browser(self, browser: "Browser") -> None:
         """Cleanup Playwright browser instance.
 
         Args:
@@ -373,7 +377,7 @@ class ProcessLifecycleManager:
         except Exception as e:
             logger.debug("Browser close error (may be expected)", error=str(e))
 
-    async def _cleanup_browser_context(self, context) -> None:
+    async def _cleanup_browser_context(self, context: "BrowserContext") -> None:
         """Cleanup Playwright browser context.
 
         Args:
@@ -384,7 +388,7 @@ class ProcessLifecycleManager:
         except Exception as e:
             logger.debug("Context close error (may be expected)", error=str(e))
 
-    async def _cleanup_playwright(self, playwright) -> None:
+    async def _cleanup_playwright(self, playwright: "Playwright") -> None:
         """Cleanup Playwright instance.
 
         Args:
@@ -467,7 +471,7 @@ class ProcessLifecycleManager:
             except Exception as e:
                 logger.debug("HTTP session close error", error=str(e))
 
-    async def _cleanup_tor_controller(self, controller) -> None:
+    async def _cleanup_tor_controller(self, controller: "Controller") -> None:
         """Cleanup Tor controller connection.
 
         Args:
@@ -524,9 +528,9 @@ async def cleanup_all_resources() -> dict[str, bool]:
 
 async def register_browser_for_task(
     task_id: str,
-    browser,
-    context=None,
-    playwright=None,
+    browser: "Browser",
+    context: "BrowserContext | None" = None,
+    playwright: "Playwright | None" = None,
 ) -> list[str]:
     """Register browser resources for task-scoped lifecycle management.
 

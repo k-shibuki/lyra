@@ -37,11 +37,11 @@ logger = get_logger(__name__)
 class QualityIssue(Enum):
     """Types of quality issues detected."""
 
-    AGGREGATOR = "aggregator"          # Content aggregator/curation site
-    AI_GENERATED = "ai_generated"      # AI-generated content suspected
-    SEO_SPAM = "seo_spam"              # SEO spam patterns
-    THIN_CONTENT = "thin_content"      # Very little actual content
-    AD_HEAVY = "ad_heavy"              # High advertisement density
+    AGGREGATOR = "aggregator"  # Content aggregator/curation site
+    AI_GENERATED = "ai_generated"  # AI-generated content suspected
+    SEO_SPAM = "seo_spam"  # SEO spam patterns
+    THIN_CONTENT = "thin_content"  # Very little actual content
+    AD_HEAVY = "ad_heavy"  # High advertisement density
     TEMPLATE_HEAVY = "template_heavy"  # High boilerplate/template ratio
     REPETITIVE = "repetitive"  # Repetitive text patterns
     KEYWORD_STUFFING = "keyword_stuffing"  # Excessive keyword repetition
@@ -189,29 +189,179 @@ class ContentQualityAnalyzer:
     """
 
     # Common stopwords (English + Japanese)
-    STOPWORDS_EN = frozenset([
-        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-        "of", "with", "by", "from", "as", "is", "was", "are", "were", "been",
-        "be", "have", "has", "had", "do", "does", "did", "will", "would",
-        "could", "should", "may", "might", "must", "shall", "can", "need",
-        "this", "that", "these", "those", "it", "its", "they", "them", "their",
-        "we", "us", "our", "you", "your", "he", "she", "him", "her", "his",
-        "i", "me", "my", "not", "no", "yes", "so", "if", "then", "than",
-        "when", "where", "what", "which", "who", "whom", "how", "why",
-        "all", "each", "every", "both", "few", "more", "most", "other",
-        "some", "such", "only", "own", "same", "just", "also", "very",
-    ])
+    STOPWORDS_EN = frozenset(
+        [
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "from",
+            "as",
+            "is",
+            "was",
+            "are",
+            "were",
+            "been",
+            "be",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "this",
+            "that",
+            "these",
+            "those",
+            "it",
+            "its",
+            "they",
+            "them",
+            "their",
+            "we",
+            "us",
+            "our",
+            "you",
+            "your",
+            "he",
+            "she",
+            "him",
+            "her",
+            "his",
+            "i",
+            "me",
+            "my",
+            "not",
+            "no",
+            "yes",
+            "so",
+            "if",
+            "then",
+            "than",
+            "when",
+            "where",
+            "what",
+            "which",
+            "who",
+            "whom",
+            "how",
+            "why",
+            "all",
+            "each",
+            "every",
+            "both",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "only",
+            "own",
+            "same",
+            "just",
+            "also",
+            "very",
+        ]
+    )
 
-    STOPWORDS_JA = frozenset([
-        "の", "に", "は", "を", "た", "が", "で", "て", "と", "し", "れ", "さ",
-        "ある", "いる", "も", "する", "から", "な", "こと", "として", "い", "や",
-        "れる", "など", "なっ", "ない", "この", "ため", "その", "あっ", "よう",
-        "また", "もの", "という", "あり", "まで", "られ", "なる", "へ", "か",
-        "だ", "これ", "によって", "により", "おり", "より", "による", "ず",
-        "なり", "られる", "において", "ば", "なかっ", "なく", "しかし", "について",
-        "せ", "だっ", "その後", "できる", "それ", "う", "ので", "なお", "のみ",
-        "でき", "き", "つ", "における", "および", "いう", "さらに", "でも",
-    ])
+    STOPWORDS_JA = frozenset(
+        [
+            "の",
+            "に",
+            "は",
+            "を",
+            "た",
+            "が",
+            "で",
+            "て",
+            "と",
+            "し",
+            "れ",
+            "さ",
+            "ある",
+            "いる",
+            "も",
+            "する",
+            "から",
+            "な",
+            "こと",
+            "として",
+            "い",
+            "や",
+            "れる",
+            "など",
+            "なっ",
+            "ない",
+            "この",
+            "ため",
+            "その",
+            "あっ",
+            "よう",
+            "また",
+            "もの",
+            "という",
+            "あり",
+            "まで",
+            "られ",
+            "なる",
+            "へ",
+            "か",
+            "だ",
+            "これ",
+            "によって",
+            "により",
+            "おり",
+            "より",
+            "による",
+            "ず",
+            "なり",
+            "られる",
+            "において",
+            "ば",
+            "なかっ",
+            "なく",
+            "しかし",
+            "について",
+            "せ",
+            "だっ",
+            "その後",
+            "できる",
+            "それ",
+            "う",
+            "ので",
+            "なお",
+            "のみ",
+            "でき",
+            "き",
+            "つ",
+            "における",
+            "および",
+            "いう",
+            "さらに",
+            "でも",
+        ]
+    )
 
     # Ad-related patterns
     AD_PATTERNS = [
@@ -333,27 +483,13 @@ class ContentQualityAnalyzer:
         self._ollama_client = ollama_client
 
         # Compile patterns
-        self._ad_pattern = re.compile(
-            "|".join(self.AD_PATTERNS), re.IGNORECASE
-        )
-        self._affiliate_pattern = re.compile(
-            "|".join(self.AFFILIATE_PATTERNS), re.IGNORECASE
-        )
-        self._cta_pattern = re.compile(
-            "|".join(self.CTA_PATTERNS), re.IGNORECASE
-        )
-        self._aggregator_pattern = re.compile(
-            "|".join(self.AGGREGATOR_PATTERNS), re.IGNORECASE
-        )
-        self._clickbait_pattern = re.compile(
-            "|".join(self.CLICKBAIT_PATTERNS), re.IGNORECASE
-        )
-        self._seo_spam_pattern = re.compile(
-            "|".join(self.SEO_SPAM_PATTERNS), re.IGNORECASE
-        )
-        self._ai_pattern = re.compile(
-            "|".join(self.AI_PATTERNS), re.IGNORECASE
-        )
+        self._ad_pattern = re.compile("|".join(self.AD_PATTERNS), re.IGNORECASE)
+        self._affiliate_pattern = re.compile("|".join(self.AFFILIATE_PATTERNS), re.IGNORECASE)
+        self._cta_pattern = re.compile("|".join(self.CTA_PATTERNS), re.IGNORECASE)
+        self._aggregator_pattern = re.compile("|".join(self.AGGREGATOR_PATTERNS), re.IGNORECASE)
+        self._clickbait_pattern = re.compile("|".join(self.CLICKBAIT_PATTERNS), re.IGNORECASE)
+        self._seo_spam_pattern = re.compile("|".join(self.SEO_SPAM_PATTERNS), re.IGNORECASE)
+        self._ai_pattern = re.compile("|".join(self.AI_PATTERNS), re.IGNORECASE)
 
     def set_ollama_client(self, client: OllamaClient) -> None:
         """Set the Ollama client for LLM-based assessment.
@@ -397,9 +533,7 @@ class ContentQualityAnalyzer:
                 return future.result()
         except RuntimeError:
             # No running event loop, safe to use asyncio.run()
-            return asyncio.run(
-                self.analyze_async(html, text, url, use_llm, use_llm_on_ambiguous)
-            )
+            return asyncio.run(self.analyze_async(html, text, url, use_llm, use_llm_on_ambiguous))
 
     async def analyze_async(
         self,
@@ -450,10 +584,7 @@ class ContentQualityAnalyzer:
                     # Incorporate LLM score into final score
                     if features.llm_quality_score is not None:
                         # Weight: 60% LLM, 40% rule-based
-                        quality_score = (
-                            0.6 * features.llm_quality_score +
-                            0.4 * quality_score
-                        )
+                        quality_score = 0.6 * features.llm_quality_score + 0.4 * quality_score
 
                     # Add LLM-detected issues
                     if features.llm_is_ai_generated:
@@ -521,7 +652,9 @@ class ContentQualityAnalyzer:
         try:
             # Detect language and use appropriate prompt
             is_japanese = self._is_japanese_text(text)
-            prompt = LLM_QUALITY_ASSESSMENT_PROMPT if is_japanese else LLM_QUALITY_ASSESSMENT_PROMPT_EN
+            prompt = (
+                LLM_QUALITY_ASSESSMENT_PROMPT if is_japanese else LLM_QUALITY_ASSESSMENT_PROMPT_EN
+            )
 
             # Truncate text to first 2000 chars
             truncated_text = text[:2000]
@@ -619,11 +752,11 @@ class ContentQualityAnalyzer:
         # <br> tags (count consecutive <br> as single break, <br><br> = paragraph break)
         br_breaks = len(re.findall(r"(?:<br\s*/?>[\s\n]*){2,}", html, re.IGNORECASE))
         # <div> with substantial content (not just wrappers)
-        len(re.findall(r'<div\b[^>]*>', html, re.IGNORECASE))
+        len(re.findall(r"<div\b[^>]*>", html, re.IGNORECASE))
         # Blockquote, article, section also indicate content blocks
-        blockquote_tags = len(re.findall(r'<blockquote\b[^>]*>', html, re.IGNORECASE))
-        len(re.findall(r'<article\b[^>]*>', html, re.IGNORECASE))
-        len(re.findall(r'<section\b[^>]*>', html, re.IGNORECASE))
+        blockquote_tags = len(re.findall(r"<blockquote\b[^>]*>", html, re.IGNORECASE))
+        len(re.findall(r"<article\b[^>]*>", html, re.IGNORECASE))
+        len(re.findall(r"<section\b[^>]*>", html, re.IGNORECASE))
 
         # HTML-based paragraph count: prioritize semantic elements
         # p and li are primary content blocks, others are structural
@@ -651,10 +784,10 @@ class ContentQualityAnalyzer:
             features.text_to_html_ratio = features.total_text_length / features.html_length
 
         # Structural features
-        features.heading_count = len(re.findall(r'<h[1-6][^>]*>', html_lower))
-        features.link_count = len(re.findall(r'<a[^>]*href', html_lower))
-        features.image_count = len(re.findall(r'<img[^>]*>', html_lower))
-        features.script_count = len(re.findall(r'<script[^>]*>', html_lower))
+        features.heading_count = len(re.findall(r"<h[1-6][^>]*>", html_lower))
+        features.link_count = len(re.findall(r"<a[^>]*href", html_lower))
+        features.image_count = len(re.findall(r"<img[^>]*>", html_lower))
+        features.script_count = len(re.findall(r"<script[^>]*>", html_lower))
 
         # Link density
         if features.total_text_length > 0:
@@ -727,10 +860,9 @@ class ContentQualityAnalyzer:
         features.source_mention_count = len(aggregator_matches)
 
         # Curated list pattern
-        features.has_curated_list_pattern = bool(re.search(
-            r'(top\s+\d+|best\s+\d+|\d+\s+(best|top)|まとめ|\d+選)',
-            text.lower()
-        ))
+        features.has_curated_list_pattern = bool(
+            re.search(r"(top\s+\d+|best\s+\d+|\d+\s+(best|top)|まとめ|\d+選)", text.lower())
+        )
 
         return features
 
@@ -995,7 +1127,7 @@ class ContentQualityAnalyzer:
         similarities = []
         for i in range(len(sentences) - 1):
             words1 = set(sentences[i].lower().split())
-            words2 = set(sentences[i+1].lower().split())
+            words2 = set(sentences[i + 1].lower().split())
 
             if not words1 or not words2:
                 continue
@@ -1023,7 +1155,7 @@ class ContentQualityAnalyzer:
         if mean_length == 0:
             return 0.0
 
-        variance = sum((l - mean_length) ** 2 for l in lengths) / len(lengths)
+        variance = sum((length - mean_length) ** 2 for length in lengths) / len(lengths)
         std_dev = math.sqrt(variance)
 
         # Coefficient of variation
@@ -1048,10 +1180,7 @@ class ContentQualityAnalyzer:
             return 0.0
 
         # Calculate how many sentences are within 20% of mean length
-        within_range = sum(
-            1 for l in lengths
-            if abs(l - mean_length) / mean_length < 0.2
-        )
+        within_range = sum(1 for length in lengths if abs(length - mean_length) / mean_length < 0.2)
 
         return within_range / len(lengths)
 
@@ -1087,7 +1216,7 @@ class ContentQualityAnalyzer:
             return 0.0
 
         # Count external links (starting with http/https)
-        external = sum(1 for link in all_links if link.startswith(('http://', 'https://')))
+        external = sum(1 for link in all_links if link.startswith(("http://", "https://")))
 
         return external / len(all_links)
 
@@ -1124,7 +1253,9 @@ class ContentQualityAnalyzer:
         nav_matches = re.findall(r"<nav[^>]*>.*?</nav>", html_lower, re.DOTALL)
         nav_length += sum(len(m) for m in nav_matches)
 
-        menu_matches = re.findall(r'class=["\'][^"\']*menu[^"\']*["\'][^>]*>.*?</\w+>', html_lower, re.DOTALL)
+        menu_matches = re.findall(
+            r'class=["\'][^"\']*menu[^"\']*["\'][^>]*>.*?</\w+>', html_lower, re.DOTALL
+        )
         nav_length += sum(len(m) for m in menu_matches)
 
         if len(html) == 0:

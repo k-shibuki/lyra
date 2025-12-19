@@ -19,7 +19,7 @@ class NLIModel:
 
     LABELS = ["supports", "refutes", "neutral"]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._fast_model = None
         self._slow_model = None
         self._settings = get_settings()
@@ -164,11 +164,13 @@ class NLIModel:
 
             predictions = []
             for result in results:
-                predictions.append({
-                    "label": self._map_label(result["label"]),
-                    "confidence": result["score"],
-                    "raw_label": result["label"],
-                })
+                predictions.append(
+                    {
+                        "label": self._map_label(result["label"]),
+                        "confidence": result["score"],
+                        "raw_label": result["label"],
+                    }
+                )
 
             return predictions
 
@@ -242,12 +244,14 @@ async def _nli_judge_remote(
     # Map result format
     final_results = []
     for idx, result in enumerate(results):
-        final_results.append({
-            "pair_id": result.get("pair_id", pairs[idx].get("pair_id", "unknown")),
-            "stance": result.get("label", "neutral"),
-            "confidence": result.get("confidence", 0.0),
-            "used_slow_model": result.get("used_slow_model", False),
-        })
+        final_results.append(
+            {
+                "pair_id": result.get("pair_id", pairs[idx].get("pair_id", "unknown")),
+                "stance": result.get("label", "neutral"),
+                "confidence": result.get("confidence", 0.0),
+                "used_slow_model": result.get("used_slow_model", False),
+            }
+        )
 
     logger.info(
         "NLI judgment completed (remote)",
@@ -280,12 +284,14 @@ async def _nli_judge_local(
         if need_slow:
             prediction = await model.predict(premise, hypothesis, use_slow=True)
 
-        results.append({
-            "pair_id": pair_id,
-            "stance": prediction["label"],
-            "confidence": prediction["confidence"],
-            "used_slow_model": need_slow,
-        })
+        results.append(
+            {
+                "pair_id": pair_id,
+                "stance": prediction["label"],
+                "confidence": prediction["confidence"],
+                "used_slow_model": need_slow,
+            }
+        )
 
     logger.info(
         "NLI judgment completed (local)",
@@ -330,13 +336,15 @@ async def detect_contradictions(
                 )
 
                 if pred_slow["label"] == "refutes" and pred_slow["confidence"] > 0.6:
-                    contradictions.append({
-                        "claim1_id": claim1["id"],
-                        "claim2_id": claim2["id"],
-                        "claim1_text": claim1["text"],
-                        "claim2_text": claim2["text"],
-                        "confidence": pred_slow["confidence"],
-                    })
+                    contradictions.append(
+                        {
+                            "claim1_id": claim1["id"],
+                            "claim2_id": claim2["id"],
+                            "claim1_text": claim1["text"],
+                            "claim2_text": claim2["text"],
+                            "confidence": pred_slow["confidence"],
+                        }
+                    )
 
     logger.info(
         "Contradiction detection completed",

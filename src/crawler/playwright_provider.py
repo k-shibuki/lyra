@@ -18,7 +18,10 @@ import random
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, BrowserContext, Page, Playwright, Route
 
 from src.crawler.browser_provider import (
     BaseBrowserProvider,
@@ -68,7 +71,7 @@ class HumanBehaviorSimulator:
         return positions
 
     @staticmethod
-    async def simulate_reading(page, content_length: int) -> None:
+    async def simulate_reading(page: "Page", content_length: int) -> None:
         """Simulate human reading behavior on page."""
         try:
             dimensions = await page.evaluate("""
@@ -81,9 +84,7 @@ class HumanBehaviorSimulator:
             page_height = dimensions.get("height", 2000)
             viewport_height = dimensions.get("viewportHeight", 1080)
 
-            scroll_positions = HumanBehaviorSimulator.scroll_pattern(
-                page_height, viewport_height
-            )
+            scroll_positions = HumanBehaviorSimulator.scroll_pattern(page_height, viewport_height)
 
             for scroll_y, delay in scroll_positions[:5]:  # Limit scrolls
                 await page.evaluate(f"window.scrollTo(0, {scroll_y})")
@@ -105,19 +106,19 @@ class PlaywrightProvider(BaseBrowserProvider):
     - Screenshot and content capture
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Playwright provider."""
         super().__init__("playwright")
         self._settings = get_settings()
-        self._playwright = None
-        self._headless_browser = None
-        self._headless_context = None
-        self._headful_browser = None
-        self._headful_context = None
-        self._current_page = None
+        self._playwright: Playwright | None = None
+        self._headless_browser: Browser | None = None
+        self._headless_context: BrowserContext | None = None
+        self._headful_browser: Browser | None = None
+        self._headful_context: BrowserContext | None = None
+        self._current_page: Page | None = None
         self._human_sim = HumanBehaviorSimulator()
 
-    async def _ensure_playwright(self):
+    async def _ensure_playwright(self) -> None:
         """Ensure Playwright is initialized."""
         if self._playwright is None:
             try:
@@ -125,8 +126,8 @@ class PlaywrightProvider(BaseBrowserProvider):
 
                 self._playwright = await async_playwright().start()
                 logger.info("Playwright initialized")
-            except ImportError:
-                raise RuntimeError("Playwright not installed")
+            except ImportError as e:
+                raise RuntimeError("Playwright not installed") from e
 
     async def _get_browser_and_context(
         self,
@@ -141,6 +142,7 @@ class PlaywrightProvider(BaseBrowserProvider):
             Tuple of (browser, context).
         """
         await self._ensure_playwright()
+        assert self._playwright is not None  # Guaranteed by _ensure_playwright
 
         browser_settings = self._settings.browser
 
@@ -160,9 +162,7 @@ class PlaywrightProvider(BaseBrowserProvider):
                         "CDP connection failed, launching local headful browser",
                         error=str(e),
                     )
-                    self._headful_browser = await self._playwright.chromium.launch(
-                        headless=False
-                    )
+                    self._headful_browser = await self._playwright.chromium.launch(headless=False)
 
                 # Reuse existing context if available (preserves profile cookies per §3.6.1)
                 # This only applies when connected via CDP to real Chrome
@@ -213,39 +213,45 @@ class PlaywrightProvider(BaseBrowserProvider):
 
             return self._headless_browser, self._headless_context
 
-    async def _setup_blocking(self, context) -> None:
+    async def _setup_blocking(self, context: "BrowserContext") -> None:
         """Setup resource blocking rules."""
         browser_settings = self._settings.browser
 
         block_patterns = []
 
         if browser_settings.block_ads:
-            block_patterns.extend([
-                "*googlesyndication.com*",
-                "*doubleclick.net*",
-                "*googleadservices.com*",
-                "*adnxs.com*",
-                "*criteo.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*googlesyndication.com*",
+                    "*doubleclick.net*",
+                    "*googleadservices.com*",
+                    "*adnxs.com*",
+                    "*criteo.com*",
+                ]
+            )
 
         if browser_settings.block_trackers:
-            block_patterns.extend([
-                "*google-analytics.com*",
-                "*googletagmanager.com*",
-                "*facebook.com/tr*",
-                "*hotjar.com*",
-                "*mixpanel.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*google-analytics.com*",
+                    "*googletagmanager.com*",
+                    "*facebook.com/tr*",
+                    "*hotjar.com*",
+                    "*mixpanel.com*",
+                ]
+            )
 
         if browser_settings.block_large_media:
-            block_patterns.extend([
-                "*.mp4",
-                "*.webm",
-                "*.avi",
-                "*.mov",
-            ])
+            block_patterns.extend(
+                [
+                    "*.mp4",
+                    "*.webm",
+                    "*.avi",
+                    "*.mov",
+                ]
+            )
 
-        async def block_route(route):
+        async def block_route(route: "Route") -> None:
             await route.abort()
 
         for pattern in block_patterns:
@@ -302,7 +308,7 @@ class PlaywrightProvider(BaseBrowserProvider):
         filepath.write_bytes(content)
         return filepath
 
-    async def _save_screenshot(self, page, url: str) -> Path | None:
+    async def _save_screenshot(self, page: "Page", url: str) -> Path | None:
         """Save page screenshot."""
         screenshots_dir = Path(self._settings.storage.screenshots_dir)
         screenshots_dir.mkdir(parents=True, exist_ok=True)

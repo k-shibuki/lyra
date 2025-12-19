@@ -35,6 +35,17 @@ class Database:
         self._connection: aiosqlite.Connection | None = None
         self._lock = asyncio.Lock()
 
+    @property
+    def _conn(self) -> aiosqlite.Connection:
+        """Get connection with type guarantee.
+
+        Raises:
+            RuntimeError: If database is not connected.
+        """
+        if self._connection is None:
+            raise RuntimeError("Database not connected. Call connect() first.")
+        return self._connection
+
     async def connect(self) -> None:
         """Connect to the database and initialize schema."""
         if self._connection is not None:
@@ -75,7 +86,7 @@ class Database:
         schema_sql = schema_path.read_text(encoding="utf-8")
 
         async with self._lock:
-            await self._connection.executescript(schema_sql)
+            await self._conn.executescript(schema_sql)
 
         logger.info("Database schema initialized")
 
@@ -147,7 +158,7 @@ class Database:
     async def execute(
         self,
         sql: str,
-        parameters: tuple | dict | None = None,
+        parameters: tuple[Any, ...] | list[Any] | dict[Any, Any] | None = None,
     ) -> aiosqlite.Cursor:
         """Execute a SQL statement.
 
@@ -160,9 +171,9 @@ class Database:
         """
         async with self._lock:
             if parameters:
-                cursor = await self._connection.execute(sql, parameters)
+                cursor = await self._conn.execute(sql, parameters)
             else:
-                cursor = await self._connection.execute(sql)
+                cursor = await self._conn.execute(sql)
             return cursor
 
     async def execute_many(
@@ -177,12 +188,12 @@ class Database:
             parameters: List of parameter sets.
         """
         async with self._lock:
-            await self._connection.executemany(sql, parameters)
+            await self._conn.executemany(sql, parameters)
 
     async def fetch_one(
         self,
         sql: str,
-        parameters: tuple | dict | None = None,
+        parameters: tuple[Any, ...] | list[Any] | dict[Any, Any] | None = None,
     ) -> dict[str, Any] | None:
         """Fetch a single row.
 
@@ -200,7 +211,7 @@ class Database:
     async def fetch_all(
         self,
         sql: str,
-        parameters: tuple | dict | None = None,
+        parameters: tuple[Any, ...] | list[Any] | dict[Any, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch all rows.
 
@@ -395,9 +406,7 @@ class Database:
             is_http_error: Whether an HTTP error occurred.
         """
         # Get or create domain record
-        existing = await self.fetch_one(
-            "SELECT * FROM domains WHERE domain = ?", (domain,)
-        )
+        existing = await self.fetch_one("SELECT * FROM domains WHERE domain = ?", (domain,))
 
         if existing is None:
             await self.insert("domains", {"domain": domain}, auto_id=False)
@@ -504,9 +513,7 @@ class Database:
             latency_ms: Response latency in milliseconds.
             is_captcha: Whether a CAPTCHA was encountered.
         """
-        existing = await self.fetch_one(
-            "SELECT * FROM engine_health WHERE engine = ?", (engine,)
-        )
+        existing = await self.fetch_one("SELECT * FROM engine_health WHERE engine = ?", (engine,))
 
         if existing is None:
             await self.insert("engine_health", {"engine": engine}, auto_id=False)

@@ -588,7 +588,9 @@ class TestParsedOperator:
             raw_text="site:example.com",
         )
 
-        assert op.operator_type == "site", f"Expected operator_type='site', got '{op.operator_type}'"
+        assert op.operator_type == "site", (
+            f"Expected operator_type='site', got '{op.operator_type}'"
+        )
         assert op.value == "example.com", f"Expected value='example.com', got '{op.value}'"
         assert op.raw_text == "site:example.com", (
             f"Expected raw_text='site:example.com', got '{op.raw_text}'"
@@ -671,7 +673,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("AI規制 site:go.jp")
 
-        assert parsed.base_query == "AI規制", f"Expected base_query='AI規制', got '{parsed.base_query}'"
+        assert parsed.base_query == "AI規制", (
+            f"Expected base_query='AI規制', got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
         assert parsed.operators[0].operator_type == "site", (
             f"Expected operator_type='site', got '{parsed.operators[0].operator_type}'"
@@ -690,7 +694,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("技術仕様 filetype:pdf")
 
-        assert parsed.base_query == "技術仕様", f"Expected base_query='技術仕様', got '{parsed.base_query}'"
+        assert parsed.base_query == "技術仕様", (
+            f"Expected base_query='技術仕様', got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
         assert parsed.operators[0].operator_type == "filetype", (
             f"Expected operator_type='filetype', got '{parsed.operators[0].operator_type}'"
@@ -709,7 +715,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("intitle:重要 調査レポート")
 
-        assert "調査レポート" in parsed.base_query, f"Expected '調査レポート' in base_query, got '{parsed.base_query}'"
+        assert "調査レポート" in parsed.base_query, (
+            f"Expected '調査レポート' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
         assert parsed.operators[0].operator_type == "intitle", (
             f"Expected operator_type='intitle', got '{parsed.operators[0].operator_type}'"
@@ -728,7 +736,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse('intitle:"重要なお知らせ" 情報')
 
-        assert "情報" in parsed.base_query, f"Expected '情報' in base_query, got '{parsed.base_query}'"
+        assert "情報" in parsed.base_query, (
+            f"Expected '情報' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
         assert parsed.operators[0].operator_type == "intitle", (
             f"Expected operator_type='intitle', got '{parsed.operators[0].operator_type}'"
@@ -747,7 +757,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse('"人工知能の発展" 影響')
 
-        assert "影響" in parsed.base_query, f"Expected '影響' in base_query, got '{parsed.base_query}'"
+        assert "影響" in parsed.base_query, (
+            f"Expected '影響' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
         assert parsed.operators[0].operator_type == "exact", (
             f"Expected operator_type='exact', got '{parsed.operators[0].operator_type}'"
@@ -783,7 +795,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("機械学習 +Python +TensorFlow")
 
-        assert "機械学習" in parsed.base_query, f"Expected '機械学習' in base_query, got '{parsed.base_query}'"
+        assert "機械学習" in parsed.base_query, (
+            f"Expected '機械学習' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 2, f"Expected 2 operators, got {len(parsed.operators)}"
 
         required_values = [op.value for op in parsed.operators if op.operator_type == "required"]
@@ -804,7 +818,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("最新技術 after:2024-01-01")
 
-        assert "最新技術" in parsed.base_query, f"Expected '最新技術' in base_query, got '{parsed.base_query}'"
+        assert "最新技術" in parsed.base_query, (
+            f"Expected '最新技術' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
         assert parsed.operators[0].operator_type == "date_after", (
             f"Expected operator_type='date_after', got '{parsed.operators[0].operator_type}'"
@@ -823,8 +839,12 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("研究 after:2023")
 
-        assert parsed.operators[0].operator_type == "date_after", f"Expected operator_type='date_after', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "2023", f"Expected value='2023', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "date_after", (
+            f"Expected operator_type='date_after', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "2023", (
+            f"Expected value='2023', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_multiple_operators(self):
         """Test parsing query with multiple operators.
@@ -839,7 +859,9 @@ class TestQueryOperatorProcessor:
         parsed = processor.parse(query)
 
         # Base query should only contain "AI規制"
-        assert "AI規制" in parsed.base_query, f"Expected 'AI規制' in base_query, got '{parsed.base_query}'"
+        assert "AI規制" in parsed.base_query, (
+            f"Expected 'AI規制' in base_query, got '{parsed.base_query}'"
+        )
 
         # Should have 5 operators
         assert len(parsed.operators) == 5, f"Expected 5 operators, got {len(parsed.operators)}"
@@ -871,7 +893,9 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("simple query text")
 
-        assert parsed.base_query == "simple query text", f"Expected base_query='simple query text', got '{parsed.base_query}'"
+        assert parsed.base_query == "simple query text", (
+            f"Expected base_query='simple query text', got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 0, f"Expected 0 operators, got {len(parsed.operators)}"
 
     def test_parse_exclude_not_negative_number(self):
@@ -1160,7 +1184,7 @@ class TestQueryOperatorEdgeCases:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("test site:sub.domain-name.co.jp")
 
-        assert parsed.operators[0].value == "sub.domain-name.co.jp", \
+        assert parsed.operators[0].value == "sub.domain-name.co.jp", (
             f"Expected value='sub.domain-name.co.jp', got '{parsed.operators[0].value}'"
         )
 
@@ -1177,6 +1201,7 @@ class TestQueryOperatorEdgeCases:
         intitle_op = next(op for op in parsed.operators if op.operator_type == "intitle")
         assert intitle_op.value == "日本語タイトル", (
             f"Expected intitle value='日本語タイトル', got '{intitle_op.value}'"
+        )
 
         exact_op = next(op for op in parsed.operators if op.operator_type == "exact")
         assert exact_op.value == "検索テスト", (
@@ -1214,13 +1239,25 @@ class TestQueryOperatorEdgeCases:
         parsed2 = processor.parse("test Site:example.com")
         parsed3 = processor.parse("test site:example.com")
 
-        assert len(parsed1.operators) == 1, f"Expected 1 operator for SITE:, got {len(parsed1.operators)}"
-        assert len(parsed2.operators) == 1, f"Expected 1 operator for Site:, got {len(parsed2.operators)}"
-        assert len(parsed3.operators) == 1, f"Expected 1 operator for site:, got {len(parsed3.operators)}"
+        assert len(parsed1.operators) == 1, (
+            f"Expected 1 operator for SITE:, got {len(parsed1.operators)}"
+        )
+        assert len(parsed2.operators) == 1, (
+            f"Expected 1 operator for Site:, got {len(parsed2.operators)}"
+        )
+        assert len(parsed3.operators) == 1, (
+            f"Expected 1 operator for site:, got {len(parsed3.operators)}"
+        )
 
-        assert parsed1.operators[0].operator_type == "site", f"Expected 'site' for SITE:, got '{parsed1.operators[0].operator_type}'"
-        assert parsed2.operators[0].operator_type == "site", f"Expected 'site' for Site:, got '{parsed2.operators[0].operator_type}'"
-        assert parsed3.operators[0].operator_type == "site", f"Expected 'site' for site:, got '{parsed3.operators[0].operator_type}'"
+        assert parsed1.operators[0].operator_type == "site", (
+            f"Expected 'site' for SITE:, got '{parsed1.operators[0].operator_type}'"
+        )
+        assert parsed2.operators[0].operator_type == "site", (
+            f"Expected 'site' for Site:, got '{parsed2.operators[0].operator_type}'"
+        )
+        assert parsed3.operators[0].operator_type == "site", (
+            f"Expected 'site' for site:, got '{parsed3.operators[0].operator_type}'"
+        )
 
 
 class TestMirrorQueryGeneration:
@@ -1281,11 +1318,7 @@ class TestMirrorQueryGeneration:
         """Test that same-language returns original query."""
         from src.search.search_api import generate_mirror_query
 
-        result = await generate_mirror_query(
-            "test query",
-            source_lang="en",
-            target_lang="en"
-        )
+        result = await generate_mirror_query("test query", source_lang="en", target_lang="en")
 
         assert result == "test query", "Same language should return original"
 

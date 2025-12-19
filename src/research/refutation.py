@@ -90,6 +90,7 @@ class RefutationExecutor:
             RefutationResult with search results.
         """
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         result = RefutationResult(target=claim_id, target_type="claim")
 
@@ -154,6 +155,7 @@ class RefutationExecutor:
             RefutationResult with search results.
         """
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         result = RefutationResult(target=subquery_id, target_type="subquery")
 
@@ -314,11 +316,13 @@ class RefutationExecutor:
 
         try:
             # Use NLI to check stance
-            pairs = [{
-                "pair_id": "refutation_check",
-                "premise": passage,
-                "hypothesis": claim_text,
-            }]
+            pairs = [
+                {
+                    "pair_id": "refutation_check",
+                    "premise": passage,
+                    "hypothesis": claim_text,
+                }
+            ]
 
             results = await nli_judge(pairs=pairs)
 
@@ -349,6 +353,7 @@ class RefutationExecutor:
         import uuid
 
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         edge_id = f"edge_{uuid.uuid4().hex[:8]}"
 

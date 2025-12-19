@@ -63,6 +63,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
+# E402: Intentionally import after pytestmark for test configuration
 from src.research.context import (
     ResearchContext,
 )
@@ -1209,13 +1210,13 @@ class TestResponsibilityBoundary:
         §2.1.1: Query design is Cursor AI's exclusive responsibility.
         """
         # Given/When/Then: ResearchContext has no design methods
-        assert not hasattr(ResearchContext, 'design_subqueries')
-        assert not hasattr(ResearchContext, 'generate_subqueries')
-        assert not hasattr(ResearchContext, 'suggest_queries')
+        assert not hasattr(ResearchContext, "design_subqueries")
+        assert not hasattr(ResearchContext, "generate_subqueries")
+        assert not hasattr(ResearchContext, "suggest_queries")
 
         # Given/When/Then: SubqueryExecutor has no design methods
-        assert not hasattr(SubqueryExecutor, 'design_query')
-        assert not hasattr(SubqueryExecutor, 'generate_query')
+        assert not hasattr(SubqueryExecutor, "design_query")
+        assert not hasattr(SubqueryExecutor, "generate_query")
 
     def test_refutation_uses_only_mechanical_patterns(self):
         """
@@ -1224,8 +1225,8 @@ class TestResponsibilityBoundary:
         §2.1.4: LLM must NOT be used for reverse query design.
         """
         # Given/When/Then: RefutationExecutor has no LLM methods
-        assert not hasattr(RefutationExecutor, 'generate_hypothesis')
-        assert not hasattr(RefutationExecutor, 'llm_reverse_query')
+        assert not hasattr(RefutationExecutor, "generate_hypothesis")
+        assert not hasattr(RefutationExecutor, "llm_reverse_query")
 
         # Given/When/Then: REFUTATION_SUFFIXES are predefined constants
         assert isinstance(REFUTATION_SUFFIXES, list)

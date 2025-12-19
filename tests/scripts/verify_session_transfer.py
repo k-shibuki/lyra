@@ -86,6 +86,7 @@ class SessionTransferVerifier:
         # Check session transfer manager
         try:
             from src.crawler.session_transfer import get_session_transfer_manager
+
             get_session_transfer_manager()
             print("  ✓ Session transfer manager available")
         except Exception as e:
@@ -603,9 +604,13 @@ class SessionTransferVerifier:
                 response_headers = {}
                 if hasattr(result1, "headers") and result1.headers:
                     response_headers = dict(result1.headers)
-                    etag = response_headers.get('etag') or response_headers.get('ETag')
-                    last_mod = response_headers.get('last-modified') or response_headers.get('Last-Modified')
-                    print(f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})")
+                    etag = response_headers.get("etag") or response_headers.get("ETag")
+                    last_mod = response_headers.get("last-modified") or response_headers.get(
+                        "Last-Modified"
+                    )
+                    print(
+                        f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})"
+                    )
 
                 session_id = await manager.capture_from_browser(
                     browser_fetcher._context,
@@ -663,7 +668,9 @@ class SessionTransferVerifier:
                     skip_reason="Target site does not provide ETag/Last-Modified",
                 )
 
-            print(f"    ✓ Conditional headers: If-None-Match={transfer_result.headers.get('If-None-Match', 'N/A')}")
+            print(
+                f"    ✓ Conditional headers: If-None-Match={transfer_result.headers.get('If-None-Match', 'N/A')}"
+            )
 
             # Make HTTP request with conditional headers
             policy = FetchPolicy(
@@ -770,8 +777,10 @@ class SessionTransferVerifier:
             test_manager._cleanup_expired_sessions()
             stats = test_manager.get_session_stats()
 
-            if stats['total_sessions'] > 0:
-                print(f"    ! {stats['total_sessions']} session(s) still active (may be recently accessed)")
+            if stats["total_sessions"] > 0:
+                print(
+                    f"    ! {stats['total_sessions']} session(s) still active (may be recently accessed)"
+                )
             else:
                 print("    ✓ All sessions expired")
 

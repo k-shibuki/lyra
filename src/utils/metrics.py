@@ -20,10 +20,10 @@ class MetricType(str, Enum):
     """Types of metrics collected."""
 
     # Search quality metrics
-    HARVEST_RATE = "harvest_rate"              # useful_fragments / fetched_pages
-    NOVELTY_SCORE = "novelty_score"            # unique n-gram ratio
-    DUPLICATE_RATE = "duplicate_rate"          # duplicate fragments rate
-    DOMAIN_DIVERSITY = "domain_diversity"       # unique domains / total sources
+    HARVEST_RATE = "harvest_rate"  # useful_fragments / fetched_pages
+    NOVELTY_SCORE = "novelty_score"  # unique n-gram ratio
+    DUPLICATE_RATE = "duplicate_rate"  # duplicate fragments rate
+    DOMAIN_DIVERSITY = "domain_diversity"  # unique domains / total sources
 
     # Exposure/avoidance metrics
     TOR_USAGE_RATE = "tor_usage_rate"  # tor requests / total requests
@@ -35,12 +35,12 @@ class MetricType(str, Enum):
     HTTP_ERROR_429_RATE = "http_error_429_rate"  # 429 responses / total requests
 
     # OSINT quality metrics
-    PRIMARY_SOURCE_RATE = "primary_source_rate"   # primary sources / total sources
-    CITATION_LOOP_RATE = "citation_loop_rate"     # loops detected / total citations
-    NARRATIVE_DIVERSITY = "narrative_diversity"   # narrative clusters diversity
-    CONTRADICTION_RATE = "contradiction_rate"     # contradictions found / claims
-    TIMELINE_COVERAGE = "timeline_coverage"       # claims with timeline / total claims
-    AGGREGATOR_RATE = "aggregator_rate"           # aggregator sources / total sources
+    PRIMARY_SOURCE_RATE = "primary_source_rate"  # primary sources / total sources
+    CITATION_LOOP_RATE = "citation_loop_rate"  # loops detected / total citations
+    NARRATIVE_DIVERSITY = "narrative_diversity"  # narrative clusters diversity
+    CONTRADICTION_RATE = "contradiction_rate"  # contradictions found / claims
+    TIMELINE_COVERAGE = "timeline_coverage"  # claims with timeline / total claims
+    AGGREGATOR_RATE = "aggregator_rate"  # aggregator sources / total sources
 
     # System performance metrics
     LLM_TIME_RATIO = "llm_time_ratio"  # LLM time / total time
@@ -295,7 +295,7 @@ class MetricsCollector:
     - Per-engine metrics
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize metrics collector."""
         self._settings = get_settings()
         self._global_metrics: dict[str, MetricValue] = {}
@@ -374,9 +374,7 @@ class MetricsCollector:
 
             for metric_name, value in computed.items():
                 if metric_name in self._global_metrics:
-                    self._global_metrics[metric_name].update(
-                        value, alpha_short, alpha_long
-                    )
+                    self._global_metrics[metric_name].update(value, alpha_short, alpha_long)
 
             result = task_metrics.to_dict()
             logger.info(
@@ -765,10 +763,7 @@ class MetricsCollector:
         Returns:
             Dictionary of metric name to value info.
         """
-        return {
-            name: value.to_dict()
-            for name, value in self._global_metrics.items()
-        }
+        return {name: value.to_dict() for name, value in self._global_metrics.items()}
 
     def get_domain_metrics(self, domain: str) -> dict[str, dict[str, Any]]:
         """Get metrics for a specific domain.
@@ -782,10 +777,7 @@ class MetricsCollector:
         if domain not in self._domain_metrics:
             return {}
 
-        return {
-            name: value.to_dict()
-            for name, value in self._domain_metrics[domain].items()
-        }
+        return {name: value.to_dict() for name, value in self._domain_metrics[domain].items()}
 
     def get_engine_metrics(self, engine: str) -> dict[str, dict[str, Any]]:
         """Get metrics for a specific engine.
@@ -799,10 +791,7 @@ class MetricsCollector:
         if engine not in self._engine_metrics:
             return {}
 
-        return {
-            name: value.to_dict()
-            for name, value in self._engine_metrics[engine].items()
-        }
+        return {name: value.to_dict() for name, value in self._engine_metrics[engine].items()}
 
     def get_all_domain_metrics(self) -> dict[str, dict[str, dict[str, Any]]]:
         """Get metrics for all domains.

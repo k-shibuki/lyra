@@ -15,12 +15,18 @@ References:
 import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote_plus, urljoin, urlparse
+
+if TYPE_CHECKING:
+    from bs4 import Tag  # noqa: F401 - used for type checking in functions
+    from playwright.async_api import BrowserContext, Page
 
 import yaml
 
 from src.crawler.bfs import LinkExtractor
+from src.crawler.browser_provider import BrowserMode
+from src.crawler.playwright_provider import get_playwright_provider
 from src.storage.database import get_database
 from src.utils.config import get_project_root, get_settings
 from src.utils.logging import get_logger
@@ -162,7 +168,7 @@ class SiteSearchManager:
     - DomainPolicyManager integration for QPS settings
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         from src.utils.domain_policy import get_domain_policy_manager
 
         self._settings = get_settings()
@@ -174,8 +180,8 @@ class SiteSearchManager:
 
         # Get QPS settings from DomainPolicyManager
         policy_manager = get_domain_policy_manager()
-        self._site_search_qps = policy_manager.get_site_search_qps()
-        self._min_interval = policy_manager.get_site_search_min_interval()
+        self._site_search_qps = float(policy_manager.get_site_search_qps())
+        self._min_interval = float(policy_manager.get_site_search_min_interval())
 
         # Load templates from config
         self._load_templates()
@@ -283,7 +289,7 @@ class SiteSearchManager:
         self,
         domain: str,
         query: str,
-        browser_context=None,
+        browser_context: "BrowserContext | None" = None,
         fallback_to_site: bool = True,
     ) -> SiteSearchResult:
         """Execute site-internal search.
@@ -312,6 +318,13 @@ class SiteSearchManager:
 
         template = self.get_template(domain)
         stats = self.get_stats(domain)
+
+        # Template required for search
+        if template is None:
+            if fallback_to_site:
+                return await self._fallback_search(domain, query)
+            result.error = "no_search_template"
+            return result
 
         try:
             if browser_context:
@@ -373,7 +386,7 @@ class SiteSearchManager:
         domain: str,
         query: str,
         template: SearchTemplate,
-        context,
+        context: "BrowserContext",
     ) -> SiteSearchResult:
         """Execute search using browser automation.
 
@@ -592,12 +605,12 @@ class SiteSearchManager:
         from bs4 import BeautifulSoup
 
         soup = BeautifulSoup(html, "html.parser")
-        urls = []
-        seen = set()
+        urls: list[str] = []
+        seen: set[str] = set()
 
         # Find result containers if specified
         if template.results_selector:
-            containers = soup.select(template.results_selector)
+            containers = list(soup.select(template.results_selector))
         else:
             containers = [soup]
 
@@ -610,8 +623,11 @@ class SiteSearchManager:
                 if not href:
                     continue
 
+                # Handle href - could be list or string
+                href_str = href[0] if isinstance(href, list) else href
+
                 # Resolve relative URLs
-                absolute_url = urljoin(f"https://{domain}/", href)
+                absolute_url = urljoin(f"https://{domain}/", href_str)
 
                 # Filter to same domain
                 parsed = urlparse(absolute_url)
@@ -634,7 +650,7 @@ class SiteSearchManager:
 
         return urls[:50]  # Limit results
 
-    async def _detect_challenge(self, page) -> bool:
+    async def _detect_challenge(self, page: "Page") -> bool:
         """Detect CAPTCHA or login wall.
 
         Args:
@@ -685,7 +701,9 @@ class SiteSearchManager:
                 ON CONFLICT(domain) DO UPDATE SET
                     internal_search_success_rate = excluded.internal_search_success_rate,
                     internal_search_harvest_rate = excluded.internal_search_harvest_rate
-            """, (domain, stats.success_rate, stats.harvest_rate))
+            """,
+                (domain, stats.success_rate, stats.harvest_rate),
+            )
 
         except Exception as e:
             logger.debug(
@@ -743,7 +761,7 @@ async def site_search(
     if use_browser:
         try:
             provider = get_playwright_provider()
-            _, browser_context = await provider._ensure_browser(BrowserMode.HEADLESS)
+            _, browser_context = await provider._get_browser_and_context(BrowserMode.HEADLESS)
         except Exception as e:
             logger.warning(
                 "Failed to get browser context for site search, falling back to HTTP",
@@ -811,12 +829,14 @@ async def list_allowlisted_domains() -> dict[str, Any]:
     domains = []
     for domain, _template in manager._templates.items():
         stats = manager.get_stats(domain)
-        domains.append({
-            "domain": domain,
-            "success_rate": stats.success_rate,
-            "harvest_rate": stats.harvest_rate,
-            "is_skipped": stats.is_skipped(),
-        })
+        domains.append(
+            {
+                "domain": domain,
+                "success_rate": stats.success_rate,
+                "harvest_rate": stats.harvest_rate,
+                "is_skipped": stats.is_skipped(),
+            }
+        )
 
     return {
         "domains": domains,

@@ -13,9 +13,19 @@ subqueries. It does NOT execute searches - that remains Cursor AI's decision.
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
 
 from src.utils.logging import get_logger
+
+
+class PivotTemplateInfo(TypedDict):
+    """Type definition for pivot template information."""
+
+    templates: list[str]
+    priority: str
+    target_type: "EntityType | None"
+    rationale: str
+    operators: list[str]
 
 logger = get_logger(__name__)
 
@@ -86,7 +96,7 @@ class PivotSuggestion:
 
 
 # Organization pivot templates
-ORG_PIVOT_TEMPLATES = {
+ORG_PIVOT_TEMPLATES: dict[PivotType, PivotTemplateInfo] = {
     PivotType.ORG_SUBSIDIARY: {
         "templates": [
             '"{entity}" 子会社',
@@ -164,7 +174,7 @@ ORG_PIVOT_TEMPLATES = {
 
 
 # Domain pivot templates
-DOMAIN_PIVOT_TEMPLATES = {
+DOMAIN_PIVOT_TEMPLATES: dict[PivotType, PivotTemplateInfo] = {
     PivotType.DOMAIN_SUBDOMAIN: {
         "templates": [
             "site:{entity}",
@@ -224,7 +234,7 @@ DOMAIN_PIVOT_TEMPLATES = {
 
 
 # Person pivot templates
-PERSON_PIVOT_TEMPLATES = {
+PERSON_PIVOT_TEMPLATES: dict[PivotType, PivotTemplateInfo] = {
     PivotType.PERSON_ALIAS: {
         "templates": [
             '"{entity}" 本名',
@@ -287,7 +297,7 @@ class PivotExpander:
     responsibility per §2.1 responsibility matrix.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the pivot expander."""
         self._org_templates = ORG_PIVOT_TEMPLATES
         self._domain_templates = DOMAIN_PIVOT_TEMPLATES
@@ -441,19 +451,21 @@ class PivotExpander:
         suggestions = []
 
         # Related entity search
-        suggestions.append(PivotSuggestion(
-            pivot_type=PivotType.RELATED_ENTITY,
-            query_template='"{entity}" 関連',
-            query_examples=[
-                f'"{entity}" 関連',
-                f'"{entity}" related',
-            ],
-            source_entity=entity,
-            target_entity_type=None,
-            priority="medium",
-            rationale="関連エンティティの探索",
-            operators=[],
-        ))
+        suggestions.append(
+            PivotSuggestion(
+                pivot_type=PivotType.RELATED_ENTITY,
+                query_template='"{entity}" 関連',
+                query_examples=[
+                    f'"{entity}" 関連',
+                    f'"{entity}" related',
+                ],
+                source_entity=entity,
+                target_entity_type=None,
+                priority="medium",
+                rationale="関連エンティティの探索",
+                operators=[],
+            )
+        )
 
         return suggestions
 

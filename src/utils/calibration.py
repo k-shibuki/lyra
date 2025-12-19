@@ -203,8 +203,12 @@ class PlattScaling:
         Returns:
             Tuple of (A, B) parameters.
         """
-        logits = np.array(logits, dtype=np.float64)
-        labels = np.array(labels, dtype=np.float64)
+        logits_arr: np.ndarray[Any, np.dtype[np.float64]] = np.array(
+            logits, dtype=np.float64
+        )
+        labels_arr: np.ndarray[Any, np.dtype[np.float64]] = np.array(
+            labels, dtype=np.float64
+        )
 
         # Initialize parameters
         A = 0.0
@@ -212,20 +216,20 @@ class PlattScaling:
 
         for _ in range(max_iter):
             # Forward pass
-            z = A * logits + B
+            z = A * logits_arr + B
             p = 1.0 / (1.0 + np.exp(-z))
 
             # Clip for numerical stability
             p = np.clip(p, 1e-10, 1 - 1e-10)
 
             # Gradients
-            error = p - labels
-            grad_A = np.mean(error * logits)
+            error = p - labels_arr
+            grad_A = np.mean(error * logits_arr)
             grad_B = np.mean(error)
 
             # Update
-            A -= lr * grad_A
-            B -= lr * grad_B
+            A -= float(lr * grad_A)
+            B -= float(lr * grad_B)
 
         return float(A), float(B)
 
@@ -337,10 +341,10 @@ def brier_score(
     if not predictions or not labels:
         return float("nan")
 
-    predictions = np.array(predictions)
-    labels = np.array(labels)
+    predictions_arr: np.ndarray[Any, np.dtype[Any]] = np.array(predictions)
+    labels_arr: np.ndarray[Any, np.dtype[Any]] = np.array(labels)
 
-    return float(np.mean((predictions - labels) ** 2))
+    return float(np.mean((predictions_arr - labels_arr) ** 2))
 
 
 def expected_calibration_error(
@@ -360,8 +364,8 @@ def expected_calibration_error(
     Returns:
         Tuple of (ECE score, bin data for reliability diagram).
     """
-    predictions = np.array(predictions)
-    labels = np.array(labels)
+    predictions_arr: np.ndarray[Any, np.dtype[Any]] = np.array(predictions)
+    labels_arr: np.ndarray[Any, np.dtype[Any]] = np.array(labels)
 
     bin_boundaries = np.linspace(0, 1, n_bins + 1)
     bins_data = []
@@ -373,32 +377,36 @@ def expected_calibration_error(
         upper = bin_boundaries[i + 1]
 
         # Find samples in this bin
-        in_bin = (predictions > lower) & (predictions <= upper)
+        in_bin = (predictions_arr > lower) & (predictions_arr <= upper)
         count = np.sum(in_bin)
 
         if count > 0:
-            accuracy = np.mean(labels[in_bin])
-            confidence = np.mean(predictions[in_bin])
+            accuracy = np.mean(labels_arr[in_bin])
+            confidence = np.mean(predictions_arr[in_bin])
 
             ece += (count / n) * abs(accuracy - confidence)
 
-            bins_data.append({
-                "bin_lower": float(lower),
-                "bin_upper": float(upper),
-                "count": int(count),
-                "accuracy": float(accuracy),
-                "confidence": float(confidence),
-                "gap": float(abs(accuracy - confidence)),
-            })
+            bins_data.append(
+                {
+                    "bin_lower": float(lower),
+                    "bin_upper": float(upper),
+                    "count": int(count),
+                    "accuracy": float(accuracy),
+                    "confidence": float(confidence),
+                    "gap": float(abs(accuracy - confidence)),
+                }
+            )
         else:
-            bins_data.append({
-                "bin_lower": float(lower),
-                "bin_upper": float(upper),
-                "count": 0,
-                "accuracy": 0.0,
-                "confidence": 0.0,
-                "gap": 0.0,
-            })
+            bins_data.append(
+                {
+                    "bin_lower": float(lower),
+                    "bin_upper": float(upper),
+                    "count": 0,
+                    "accuracy": 0.0,
+                    "confidence": 0.0,
+                    "gap": 0.0,
+                }
+            )
 
     return float(ece), bins_data
 
@@ -452,9 +460,7 @@ class CalibrationHistory:
                     data = json.load(f)
 
                 for source, params_list in data.items():
-                    self._history[source] = [
-                        CalibrationParams.from_dict(p) for p in params_list
-                    ]
+                    self._history[source] = [CalibrationParams.from_dict(p) for p in params_list]
 
                 logger.debug(
                     "Loaded calibration history",
@@ -521,7 +527,7 @@ class CalibrationHistory:
 
         # Trim history to max size
         if len(self._history[source]) > self._max_history:
-            self._history[source] = self._history[source][-self._max_history:]
+            self._history[source] = self._history[source][-self._max_history :]
 
         self._save_history()
 
@@ -847,10 +853,7 @@ class Calibrator:
         path = self._get_params_path()
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = {
-            source: params.to_dict()
-            for source, params in self._params.items()
-        }
+        data = {source: params.to_dict() for source, params in self._params.items()}
 
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
@@ -1038,9 +1041,7 @@ class Calibrator:
         params.brier_after = brier_after
 
         # Check for degradation before saving
-        is_degraded, degradation_ratio = self._history.check_degradation(
-            source, brier_after
-        )
+        is_degraded, degradation_ratio = self._history.check_degradation(source, brier_after)
 
         if is_degraded and self._enable_auto_rollback:
             # Rollback to previous parameters
@@ -1163,10 +1164,7 @@ class Calibrator:
 
         # Evaluate with calibration if available
         if source in self._params:
-            calibrated = [
-                self.calibrate(s.predicted_prob, source, s.logit)
-                for s in samples
-            ]
+            calibrated = [self.calibrate(s.predicted_prob, source, s.logit) for s in samples]
 
             brier_after = brier_score(calibrated, labels)
             result.brier_score_calibrated = brier_after
@@ -1954,7 +1952,9 @@ class CalibrationEvaluator:
             cursor = await db.execute("SELECT COUNT(*) FROM calibration_evaluations")
 
         row = await cursor.fetchone()
-        return row[0]
+        if row is None:
+            return 0
+        return int(row[0])
 
 
 # =============================================================================

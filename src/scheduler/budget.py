@@ -205,17 +205,17 @@ class BudgetManager:
     Provides budget allocation, tracking, and enforcement.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._budgets: dict[str, TaskBudget] = {}
         self._lock = asyncio.Lock()
 
-        # Load limits from settings
-        task_limits = self._settings.get("task_limits", {})
-        self._max_pages = task_limits.get("max_pages_per_task", 120)
-        self._max_time_gpu = task_limits.get("max_time_minutes_gpu", 20) * 60
-        self._max_time_cpu = task_limits.get("max_time_minutes_cpu", 25) * 60
-        self._max_llm_ratio = task_limits.get("llm_time_ratio_max", 0.30)
+        # Load limits from settings (Settings is a Pydantic model)
+        task_limits = self._settings.task_limits
+        self._max_pages = task_limits.max_pages_per_task
+        self._max_time_gpu = task_limits.max_time_minutes_gpu * 60
+        self._max_time_cpu = task_limits.max_time_minutes_cpu * 60
+        self._max_llm_ratio = task_limits.llm_time_ratio_max
 
         # Detect GPU availability (simplified check)
         self._has_gpu = self._check_gpu_available()
@@ -416,11 +416,7 @@ class BudgetManager:
         Returns:
             List of budget dictionaries.
         """
-        return [
-            budget.to_dict()
-            for budget in self._budgets.values()
-            if budget.is_active
-        ]
+        return [budget.to_dict() for budget in self._budgets.values() if budget.is_active]
 
     async def enforce_limits(self, task_id: str) -> dict[str, Any]:
         """

@@ -312,7 +312,9 @@ async def test_supported_operators():
             exclude = "✓" if "exclude" in supported else "✗"
             after = "✓" if "date_after" in supported else "✗"
 
-            print(f"  {engine:<12} | {site:<6} | {filetype:<8} | {intitle:<7} | {exact:<5} | {exclude:<7} | {after:<6}")
+            print(
+                f"  {engine:<12} | {site:<6} | {filetype:<8} | {intitle:<7} | {exact:<5} | {exclude:<7} | {after:<6}"
+            )
         except Exception as e:
             print(f"  {engine:<12} | Error: {e}")
             all_passed = False

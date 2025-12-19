@@ -226,7 +226,9 @@ class TestLLMResponse:
             status=LLMResponseStatus.TIMEOUT,
         )
 
-        assert response.status == LLMResponseStatus.TIMEOUT, f"Expected TIMEOUT, got {response.status}"
+        assert response.status == LLMResponseStatus.TIMEOUT, (
+            f"Expected TIMEOUT, got {response.status}"
+        )
         assert response.ok is False, "Timeout response should have ok=False"
 
     def test_to_dict_serialization(self):
@@ -544,11 +546,13 @@ class TestOllamaProviderGenerate:
         # Ollama API response format: response, prompt_eval_count, eval_count
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "response": "Generated text here",
-            "prompt_eval_count": 10,
-            "eval_count": 20,
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "response": "Generated text here",
+                "prompt_eval_count": 10,
+                "eval_count": 20,
+            }
+        )
 
         # Create a proper async context manager for aiohttp
         mock_cm = AsyncMock()
@@ -558,15 +562,25 @@ class TestOllamaProviderGenerate:
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             response = await ollama_provider.generate("Test prompt")
 
-        assert response.ok is True, f"Expected ok=True, got ok={response.ok}, error={response.error}"
-        assert response.text == "Generated text here", f"Expected 'Generated text here', got '{response.text}'"
-        assert response.model == "test-model:3b", f"Expected 'test-model:3b', got '{response.model}'"
+        assert response.ok is True, (
+            f"Expected ok=True, got ok={response.ok}, error={response.error}"
+        )
+        assert response.text == "Generated text here", (
+            f"Expected 'Generated text here', got '{response.text}'"
+        )
+        assert response.model == "test-model:3b", (
+            f"Expected 'test-model:3b', got '{response.model}'"
+        )
         assert response.provider == "ollama", f"Expected 'ollama', got '{response.provider}'"
-        assert response.usage["prompt_tokens"] == 10, f"Expected 10 prompt tokens, got {response.usage.get('prompt_tokens')}"
-        assert response.usage["completion_tokens"] == 20, f"Expected 20 completion tokens, got {response.usage.get('completion_tokens')}"
+        assert response.usage["prompt_tokens"] == 10, (
+            f"Expected 10 prompt tokens, got {response.usage.get('prompt_tokens')}"
+        )
+        assert response.usage["completion_tokens"] == 20, (
+            f"Expected 20 completion tokens, got {response.usage.get('completion_tokens')}"
+        )
 
     @pytest.mark.asyncio
     async def test_generate_with_options(self, ollama_provider):
@@ -589,7 +603,7 @@ class TestOllamaProviderGenerate:
         mock_session = MagicMock()
         mock_session.post = capture_post
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             options = LLMOptions(
                 model="custom-model",
                 temperature=0.8,
@@ -617,12 +631,16 @@ class TestOllamaProviderGenerate:
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             response = await ollama_provider.generate("Test prompt")
 
         assert response.ok is False, f"API error should have ok=False, got {response.ok}"
-        assert "500" in response.error, f"Error message should contain status code 500: {response.error}"
-        assert response.status == LLMResponseStatus.ERROR, f"Expected ERROR status, got {response.status}"
+        assert "500" in response.error, (
+            f"Error message should contain status code 500: {response.error}"
+        )
+        assert response.status == LLMResponseStatus.ERROR, (
+            f"Expected ERROR status, got {response.status}"
+        )
 
     @pytest.mark.asyncio
     async def test_generate_tracks_model(self, ollama_provider):
@@ -638,7 +656,7 @@ class TestOllamaProviderGenerate:
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             await ollama_provider.generate("Test")
 
         assert ollama_provider._current_model == "test-model:3b"
@@ -652,9 +670,11 @@ class TestOllamaProviderChat:
         """chat() should return assistant response with content extracted."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "message": {"content": "Hello! How can I help?"},
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "message": {"content": "Hello! How can I help?"},
+            }
+        )
 
         mock_cm = AsyncMock()
         mock_cm.__aenter__.return_value = mock_response
@@ -663,12 +683,16 @@ class TestOllamaProviderChat:
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             messages = [ChatMessage(role="user", content="Hi")]
             response = await ollama_provider.chat(messages)
 
-        assert response.ok is True, f"Expected ok=True, got ok={response.ok}, error={response.error}"
-        assert response.text == "Hello! How can I help?", f"Expected chat response content, got '{response.text}'"
+        assert response.ok is True, (
+            f"Expected ok=True, got ok={response.ok}, error={response.error}"
+        )
+        assert response.text == "Hello! How can I help?", (
+            f"Expected chat response content, got '{response.text}'"
+        )
 
     @pytest.mark.asyncio
     async def test_chat_converts_messages(self, ollama_provider):
@@ -690,7 +714,7 @@ class TestOllamaProviderChat:
         mock_session = MagicMock()
         mock_session.post = capture_post
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             messages = [
                 ChatMessage(role="system", content="Be helpful"),
                 ChatMessage(role="user", content="Hello"),
@@ -710,9 +734,11 @@ class TestOllamaProviderEmbed:
         """embed() should return embedding vectors."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+            }
+        )
 
         mock_cm = AsyncMock()
         mock_cm.__aenter__.return_value = mock_response
@@ -721,7 +747,7 @@ class TestOllamaProviderEmbed:
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             response = await ollama_provider.embed(["text1", "text2"])
 
         assert response.ok is True
@@ -737,9 +763,11 @@ class TestOllamaProviderHealth:
         """get_health() should return healthy when API responds."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "models": [{"name": "model1"}, {"name": "model2"}],
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "models": [{"name": "model1"}, {"name": "model2"}],
+            }
+        )
 
         mock_cm = AsyncMock()
         mock_cm.__aenter__.return_value = mock_response
@@ -748,7 +776,7 @@ class TestOllamaProviderHealth:
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             health = await ollama_provider.get_health()
 
         assert health.state == LLMHealthState.HEALTHY
@@ -764,7 +792,7 @@ class TestOllamaProviderHealth:
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             health = await ollama_provider.get_health()
 
         assert health.state == LLMHealthState.UNHEALTHY
@@ -805,7 +833,7 @@ class TestOllamaProviderUnload:
         mock_session = MagicMock()
         mock_session.post = capture_post
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             result = await ollama_provider.unload_model()
 
         assert result is True
@@ -831,12 +859,14 @@ class TestOllamaProviderListModels:
         """list_models() should return available models."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "models": [
-                {"name": "qwen2.5:3b", "details": {"parameter_size": "3B"}},
-                {"name": "llama2:7b", "details": {"parameter_size": "7B"}},
-            ],
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "models": [
+                    {"name": "qwen2.5:3b", "details": {"parameter_size": "3B"}},
+                    {"name": "llama2:7b", "details": {"parameter_size": "7B"}},
+                ],
+            }
+        )
 
         mock_cm = AsyncMock()
         mock_cm.__aenter__.return_value = mock_response
@@ -845,7 +875,7 @@ class TestOllamaProviderListModels:
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_cm)
 
-        with patch.object(ollama_provider, '_get_session', AsyncMock(return_value=mock_session)):
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
             models = await ollama_provider.list_models()
 
         assert len(models) == 2
@@ -871,7 +901,9 @@ class TestLLMProviderRegistry:
 
         providers = registry.list_providers()
         assert "ollama" in providers, f"'ollama' not in registered providers: {providers}"
-        assert registry.get("ollama") is provider, "get() should return the registered provider instance"
+        assert registry.get("ollama") is provider, (
+            "get() should return the registered provider instance"
+        )
 
     def test_register_sets_default(self):
         """First registered provider should become default (§4.3.1 Fallback)."""
@@ -997,7 +1029,9 @@ class TestLLMProviderRegistry:
 
         response = await registry.generate_with_fallback("Test prompt")
 
-        assert response.ok is True, f"Expected ok=True, got ok={response.ok}, error={response.error}"
+        assert response.ok is True, (
+            f"Expected ok=True, got ok={response.ok}, error={response.error}"
+        )
         assert response.text == "Success!", f"Expected 'Success!', got '{response.text}'"
         assert response.provider == "good", f"Expected provider 'good', got '{response.provider}'"
 
@@ -1043,8 +1077,12 @@ class TestLLMProviderRegistry:
 
         response = await registry.generate_with_fallback("Test")
 
-        assert response.ok is True, f"Fallback should succeed, got ok={response.ok}, error={response.error}"
-        assert response.provider == "success", f"Should fallback to 'success' provider, got '{response.provider}'"
+        assert response.ok is True, (
+            f"Fallback should succeed, got ok={response.ok}, error={response.error}"
+        )
+        assert response.provider == "success", (
+            f"Should fallback to 'success' provider, got '{response.provider}'"
+        )
 
     @pytest.mark.asyncio
     async def test_generate_with_fallback_skips_unhealthy(self):
@@ -1089,7 +1127,9 @@ class TestLLMProviderRegistry:
         response = await registry.generate_with_fallback("Test")
 
         assert response.ok is True, f"Should skip unhealthy and succeed, got ok={response.ok}"
-        assert response.provider == "healthy", f"Should use 'healthy' provider, got '{response.provider}'"
+        assert response.provider == "healthy", (
+            f"Should use 'healthy' provider, got '{response.provider}'"
+        )
 
     @pytest.mark.asyncio
     async def test_generate_with_fallback_all_fail(self):
@@ -1118,7 +1158,9 @@ class TestLLMProviderRegistry:
         response = await registry.generate_with_fallback("Test")
 
         assert response.ok is False, f"All providers failed should have ok=False, got {response.ok}"
-        assert "All providers failed" in response.error, f"Error should mention 'All providers failed': {response.error}"
+        assert "All providers failed" in response.error, (
+            f"Error should mention 'All providers failed': {response.error}"
+        )
 
     @pytest.mark.asyncio
     async def test_generate_with_fallback_no_providers(self):

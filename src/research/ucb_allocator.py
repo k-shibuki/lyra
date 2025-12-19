@@ -295,10 +295,7 @@ class UCBAllocator:
         Returns:
             Dictionary mapping search_id to UCB1 score.
         """
-        return {
-            search_id: self.calculate_ucb_score(search_id)
-            for search_id in self._arms
-        }
+        return {search_id: self.calculate_ucb_score(search_id) for search_id in self._arms}
 
     def _get_max_budget(self) -> int:
         """Get maximum budget per search."""
@@ -364,7 +361,9 @@ class UCBAllocator:
 
         # Handle infinite scores (unplayed arms)
         inf_arms = [(sid, arm, score) for sid, arm, score in active_arms if math.isinf(score)]
-        finite_arms = [(sid, arm, score) for sid, arm, score in active_arms if not math.isinf(score)]
+        finite_arms = [
+            (sid, arm, score) for sid, arm, score in active_arms if not math.isinf(score)
+        ]
 
         allocations: dict[str, int] = {}
 
@@ -391,10 +390,7 @@ class UCBAllocator:
 
                     # Apply min/max constraints
                     max_additional = self._get_max_budget() - arm.consumed_budget
-                    new_alloc = max(
-                        self.min_budget_per_search,
-                        min(raw_alloc, max_additional)
-                    )
+                    new_alloc = max(self.min_budget_per_search, min(raw_alloc, max_additional))
 
                     arm.allocated_budget = arm.consumed_budget + new_alloc
                     allocations[sid] = arm.remaining_budget()
@@ -413,9 +409,7 @@ class UCBAllocator:
                 allocations[sid] = arm.remaining_budget()
 
         self._pulls_since_reallocation = 0
-        self._allocated_budget = sum(
-            arm.allocated_budget for arm in self._arms.values()
-        )
+        self._allocated_budget = sum(arm.allocated_budget for arm in self._arms.values())
 
         logger.debug(
             "Budget reallocated",
@@ -442,9 +436,11 @@ class UCBAllocator:
         # Check if any played search has exhausted its budget
         # Note: Unplayed arms (consumed_budget=0) with no allocation are NOT considered exhausted
         for arm in self._arms.values():
-            if (arm.consumed_budget > 0 and
-                arm.remaining_budget() <= 0 and
-                arm.consumed_budget < self._get_max_budget()):
+            if (
+                arm.consumed_budget > 0
+                and arm.remaining_budget() <= 0
+                and arm.consumed_budget < self._get_max_budget()
+            ):
                 return True
 
         return False

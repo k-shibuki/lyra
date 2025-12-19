@@ -18,12 +18,12 @@ logger = get_logger(__name__)
 class BM25Ranker:
     """BM25-based first-stage ranker."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._index = None
-        self._corpus = []
+        self._corpus: list[str] = []
         self._tokenizer = None
 
-    def _get_tokenizer(self):
+    def _get_tokenizer(self) -> Any:
         """Get or create tokenizer."""
         if self._tokenizer is None:
             try:
@@ -55,10 +55,7 @@ class BM25Ranker:
             return tokens
         else:
             # SudachiPy tokenization
-            tokens = [
-                m.surface()
-                for m in tokenizer.tokenize(text, self._tokenize_mode)
-            ]
+            tokens = [m.surface() for m in tokenizer.tokenize(text, self._tokenize_mode)]
             return tokens
 
     def fit(self, corpus: list[str]) -> None:
@@ -98,10 +95,10 @@ class EmbeddingRanker:
     Supports both local and remote (ML server) execution based on ml.use_remote setting.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._model = None
         self._settings = get_settings()
-        self._cache = {}
+        self._cache: dict[str, Any] = {}
 
     async def _ensure_model(self) -> None:
         """Ensure embedding model is loaded (local mode only)."""
@@ -118,6 +115,7 @@ class EmbeddingRanker:
 
             # Try to load ONNX version if available
             self._model = SentenceTransformer(model_name)
+            assert self._model is not None  # SentenceTransformer always returns model
 
             # Move to GPU if available
             if self._settings.embedding.use_gpu:
@@ -167,6 +165,7 @@ class EmbeddingRanker:
     async def _encode_local(self, texts: list[str]) -> list[list[float]]:
         """Encode texts using local model."""
         await self._ensure_model()
+        assert self._model is not None  # Guaranteed by _ensure_model
 
         # Check cache
         uncached_texts = []
@@ -235,7 +234,7 @@ class Reranker:
     Supports both local and remote (ML server) execution based on ml.use_remote setting.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._model = None
         self._settings = get_settings()
 
@@ -307,6 +306,7 @@ class Reranker:
     ) -> list[tuple[int, float]]:
         """Rerank using local model."""
         await self._ensure_model()
+        assert self._model is not None  # Guaranteed by _ensure_model
 
         # Prepare pairs
         pairs = [(query, doc) for doc in documents]
@@ -392,7 +392,7 @@ async def rank_candidates(
 
     # Sort by combined score and get top candidates for reranking
     combined.sort(key=lambda x: x[3], reverse=True)
-    rerank_candidates = combined[:settings.reranker.top_k]
+    rerank_candidates = combined[: settings.reranker.top_k]
 
     # Stage 3: Reranker
     rerank_texts = [texts[idx] for idx, _, _, _ in rerank_candidates]
@@ -420,4 +420,14 @@ async def rank_candidates(
 
     return results
 
-    return results
+
+def get_embedding_ranker() -> EmbeddingRanker:
+    """Get or create the global EmbeddingRanker instance.
+
+    Returns:
+        EmbeddingRanker instance.
+    """
+    global _embedding_ranker
+    if _embedding_ranker is None:
+        _embedding_ranker = EmbeddingRanker()
+    return _embedding_ranker

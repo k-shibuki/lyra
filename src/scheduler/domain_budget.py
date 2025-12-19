@@ -52,7 +52,7 @@ class DomainDailyBudgetManager:
     _instance: DomainDailyBudgetManager | None = None
     _lock = threading.Lock()
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize domain daily budget manager."""
         self._budgets: dict[str, DomainDailyBudget] = {}
         self._data_lock = threading.RLock()

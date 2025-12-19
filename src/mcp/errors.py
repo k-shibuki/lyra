@@ -297,7 +297,7 @@ class TimeoutError(MCPError):
         timeout_seconds: float | None = None,
         operation: str | None = None,
     ):
-        details = {}
+        details: dict[str, Any] = {}
         if timeout_seconds is not None:
             details["timeout_seconds"] = timeout_seconds
         if operation:

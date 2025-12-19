@@ -21,8 +21,11 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from playwright.async_api import Page, Request, Response
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -152,7 +155,7 @@ class NetworkEventCollector:
     resource information for later HAR/CDXJ generation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._resources: dict[str, ResourceInfo] = {}
         self._main_frame_url: str | None = None
         self._start_time: float = 0.0
@@ -374,10 +377,14 @@ class HARGenerator:
         }
 
         # Calculate timing
-        started = datetime.fromtimestamp(
-            resource.start_time,
-            tz=UTC,
-        ).isoformat() if resource.start_time else self._started_datetime
+        started = (
+            datetime.fromtimestamp(
+                resource.start_time,
+                tz=UTC,
+            ).isoformat()
+            if resource.start_time
+            else self._started_datetime
+        )
 
         duration = resource.duration_ms or 0
 
@@ -463,7 +470,7 @@ class CDXJGenerator:
     suitable for archive verification and lookup.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._entries: list[CDXJEntry] = []
         self._capture_time = datetime.now(UTC)
 
@@ -563,7 +570,9 @@ class BrowserArchiver:
         self._collector = NetworkEventCollector()
         return self._collector
 
-    async def attach_to_page(self, page, main_url: str) -> NetworkEventCollector:
+    async def attach_to_page(
+        self, page: "Page", main_url: str
+    ) -> NetworkEventCollector:
         """Attach network event listeners to a Playwright page.
 
         This sets up event handlers to automatically collect network
@@ -580,7 +589,7 @@ class BrowserArchiver:
         collector.start_collection(main_url)
 
         # Handle request events
-        async def on_request(request):
+        async def on_request(request: "Request") -> None:
             try:
                 collector.on_request(
                     url=request.url,
@@ -592,7 +601,7 @@ class BrowserArchiver:
                 logger.debug("Error handling request event", error=str(e))
 
         # Handle response events
-        async def on_response(response):
+        async def on_response(response: "Response") -> None:
             try:
                 headers = {}
                 try:
@@ -611,7 +620,7 @@ class BrowserArchiver:
                 logger.debug("Error handling response event", error=str(e))
 
         # Handle request finished events
-        async def on_request_finished(request):
+        async def on_request_finished(request: "Request") -> None:
             try:
                 sizes = await request.sizes()
                 collector.on_request_finished(
@@ -779,7 +788,7 @@ def get_browser_archiver() -> BrowserArchiver:
 
 
 async def archive_browser_page(
-    page,
+    page: "Page",
     url: str,
     content: bytes | None = None,
     warc_path: str | None = None,

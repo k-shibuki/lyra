@@ -232,7 +232,7 @@ class ReplayEngine:
     - A/B testing of policy changes
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize replay engine."""
         self._sessions: dict[str, ReplaySession] = {}
         self._lock = asyncio.Lock()
@@ -343,20 +343,24 @@ class ReplayEngine:
         # Compare output data
         if original.output_data != replayed.output_data:
             diverged = True
-            differences.append({
-                "field": "output_data",
-                "original": original.output_data,
-                "replayed": replayed.output_data,
-            })
+            differences.append(
+                {
+                    "field": "output_data",
+                    "original": original.output_data,
+                    "replayed": replayed.output_data,
+                }
+            )
 
         # Compare decision type
         if original.decision_type != replayed.decision_type:
             diverged = True
-            differences.append({
-                "field": "decision_type",
-                "original": original.decision_type.value,
-                "replayed": replayed.decision_type.value,
-            })
+            differences.append(
+                {
+                    "field": "decision_type",
+                    "original": original.decision_type.value,
+                    "replayed": replayed.decision_type.value,
+                }
+            )
 
         return {
             "diverged": diverged,
@@ -432,12 +436,8 @@ class ReplayEngine:
         db = await get_database()
 
         # Get task info
-        task_a = await db.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id_a,)
-        )
-        task_b = await db.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id_b,)
-        )
+        task_a = await db.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id_a,))
+        task_b = await db.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id_b,))
 
         if not task_a or not task_b:
             raise ValueError("One or both tasks not found")

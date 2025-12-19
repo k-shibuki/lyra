@@ -41,9 +41,9 @@ class IdentifierExtractor:
             PaperIdentifier with extracted identifiers
         """
         if not url:
-            return PaperIdentifier(url=url)
+            return PaperIdentifier(doi=None, pmid=None, arxiv_id=None, crid=None, url=url)
 
-        identifier = PaperIdentifier(url=url)
+        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id=None, crid=None, url=url)
 
         # 1. DOI (doi.org)
         doi_match = self.PATTERNS["doi"].search(url)
@@ -116,7 +116,9 @@ class IdentifierExtractor:
         domain_lower = parsed.netloc.lower()
         if any(academic_domain in domain_lower for academic_domain in academic_domains):
             identifier.needs_meta_extraction = True
-            logger.debug("Detected academic domain, needs meta extraction", domain=domain_lower, url=url)
+            logger.debug(
+                "Detected academic domain, needs meta extraction", domain=domain_lower, url=url
+            )
 
         return identifier
 

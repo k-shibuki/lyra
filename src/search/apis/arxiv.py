@@ -18,19 +18,17 @@ logger = get_logger(__name__)
 class ArxivClient(BaseAcademicClient):
     """arXiv API client."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize arXiv client."""
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
 
             config = get_academic_apis_config()
-            api_config = config.apis.get("arxiv", {})
-            base_url = (
-                api_config.base_url if api_config.base_url else "http://export.arxiv.org/api/query"
-            )
-            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
-            headers = api_config.headers if api_config.headers else None
+            api_config = config.get_api_config("arxiv")
+            base_url = api_config.base_url
+            timeout = float(api_config.timeout_seconds)
+            headers = api_config.headers
         except Exception:
             # Fallback to defaults if config loading fails
             base_url = "http://export.arxiv.org/api/query"
@@ -43,7 +41,7 @@ class ArxivClient(BaseAcademicClient):
         """Search for papers (Atom XML format)."""
         session = await self._get_session()
 
-        async def _search():
+        async def _search() -> str:
             response = await session.get(
                 self.base_url,
                 params={
@@ -61,24 +59,16 @@ class ArxivClient(BaseAcademicClient):
             xml_text = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
             papers = self._parse_atom_feed(xml_text)
 
-            return AcademicSearchResult(
-                papers=papers,
-                total_count=len(papers),
-                source_api="arxiv"
-            )
+            return AcademicSearchResult(papers=papers, total_count=len(papers), next_cursor=None, source_api="arxiv")
         except Exception as e:
             logger.error("arXiv search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[],
-                total_count=0,
-                source_api="arxiv"
-            )
+            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="arxiv")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata from arXiv ID."""
         session = await self._get_session()
 
-        async def _fetch():
+        async def _fetch() -> str:
             # paper_id is "2301.12345" format or "arXiv:2301.12345"
             arxiv_id = paper_id.replace("arXiv:", "").replace("arxiv:", "")
             response = await session.get(self.base_url, params={"id_list": arxiv_id})
@@ -131,7 +121,11 @@ class ArxivClient(BaseAcademicClient):
                 return None
 
             arxiv_url = id_elem.text
-            arxiv_id = arxiv_url.split("/")[-1] if "/" in arxiv_url else arxiv_url.replace("http://arxiv.org/abs/", "")
+            arxiv_id = (
+                arxiv_url.split("/")[-1]
+                if "/" in arxiv_url
+                else arxiv_url.replace("http://arxiv.org/abs/", "")
+            )
 
             # Title
             title_elem = entry.find("atom:title", ns)
@@ -139,18 +133,20 @@ class ArxivClient(BaseAcademicClient):
 
             # Abstract
             summary_elem = entry.find("atom:summary", ns)
-            abstract = summary_elem.text.strip() if summary_elem is not None and summary_elem.text else None
+            abstract = (
+                summary_elem.text.strip()
+                if summary_elem is not None and summary_elem.text
+                else None
+            )
 
             # Authors
             authors = []
             for author_elem in entry.findall("atom:author", ns):
                 name_elem = author_elem.find("atom:name", ns)
                 if name_elem is not None and name_elem.text:
-                    authors.append(Author(
-                        name=name_elem.text.strip(),
-                        affiliation=None,
-                        orcid=None
-                    ))
+                    authors.append(
+                        Author(name=name_elem.text.strip(), affiliation=None, orcid=None)
+                    )
 
             # Publication year
             published_elem = entry.find("atom:published", ns)
@@ -175,6 +171,8 @@ class ArxivClient(BaseAcademicClient):
                 abstract=abstract,
                 authors=authors,
                 year=year,
+                published_date=None,  # arXiv date handled via year
+                doi=None,  # arXiv papers may not have DOI
                 arxiv_id=arxiv_id,
                 venue="arXiv",
                 citation_count=0,  # arXiv API does not have citation count

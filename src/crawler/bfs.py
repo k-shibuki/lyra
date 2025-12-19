@@ -17,10 +17,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urldefrag, urljoin, urlparse
 
 from bs4 import BeautifulSoup
+
+if TYPE_CHECKING:
+    from bs4 import Tag
 
 from src.crawler.robots import get_robots_manager
 from src.utils.config import get_settings
@@ -37,13 +40,13 @@ logger = get_logger(__name__)
 class LinkType(Enum):
     """Type of link based on context."""
 
-    NAVIGATION = "navigation"       # Header/footer navigation
-    TOC = "toc"                     # Table of contents
-    HEADING = "heading"             # Links within headings
-    RELATED = "related"             # Related articles section
-    BODY = "body"                   # General body content
-    SIDEBAR = "sidebar"             # Sidebar links
-    PAGINATION = "pagination"       # Pagination links
+    NAVIGATION = "navigation"  # Header/footer navigation
+    TOC = "toc"  # Table of contents
+    HEADING = "heading"  # Links within headings
+    RELATED = "related"  # Related articles section
+    BODY = "body"  # General body content
+    SIDEBAR = "sidebar"  # Sidebar links
+    PAGINATION = "pagination"  # Pagination links
     UNKNOWN = "unknown"
 
 
@@ -59,10 +62,10 @@ class ExtractedLink:
     source_url: str = ""
     context: str = ""  # Surrounding text
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.url)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, ExtractedLink):
             return self.url == other.url
         return False
@@ -183,7 +186,7 @@ class LinkExtractor:
         r"/checkout",  # E-commerce
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._skip_patterns = [re.compile(p, re.I) for p in self.SKIP_PATTERNS]
 
@@ -209,7 +212,9 @@ class LinkExtractor:
 
         # Find all anchor tags
         for anchor in soup.find_all("a", href=True):
-            href = anchor.get("href", "").strip()
+            href_attr = anchor.get("href", "")
+            # Ensure href is a string (could be AttributeValueList in rare cases)
+            href = str(href_attr).strip() if href_attr else ""
 
             if not href:
                 continue
@@ -242,14 +247,16 @@ class LinkExtractor:
             text = anchor.get_text(strip=True)[:200]
             context = self._get_context(anchor)
 
-            links.append(ExtractedLink(
-                url=absolute_url,
-                text=text,
-                link_type=link_type,
-                priority=priority,
-                source_url=base_url,
-                context=context,
-            ))
+            links.append(
+                ExtractedLink(
+                    url=absolute_url,
+                    text=text,
+                    link_type=link_type,
+                    priority=priority,
+                    source_url=base_url,
+                    context=context,
+                )
+            )
 
         # Sort by priority
         links.sort(key=lambda x: x.priority, reverse=True)
@@ -263,7 +270,7 @@ class LinkExtractor:
                 return True
         return False
 
-    def _classify_link(self, anchor, soup: BeautifulSoup) -> LinkType:
+    def _classify_link(self, anchor: "Tag", soup: BeautifulSoup) -> LinkType:
         """Classify link type based on context.
 
         Args:
@@ -308,7 +315,7 @@ class LinkExtractor:
         # Default to body
         return LinkType.BODY
 
-    def _calculate_priority(self, anchor, link_type: LinkType) -> float:
+    def _calculate_priority(self, anchor: "Tag", link_type: LinkType) -> float:
         """Calculate link priority score.
 
         Args:
@@ -349,7 +356,7 @@ class LinkExtractor:
 
         return min(1.0, priority)
 
-    def _get_context(self, anchor, chars: int = 100) -> str:
+    def _get_context(self, anchor: "Tag", chars: int = 100) -> str:
         """Get surrounding text context for link.
 
         Args:
@@ -387,7 +394,7 @@ class DomainBFSCrawler:
     DEFAULT_MAX_DEPTH = 2
     DEFAULT_MAX_URLS = 50
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._link_extractor = LinkExtractor()
         self._robots_manager = get_robots_manager()
@@ -583,10 +590,7 @@ class DomainBFSCrawler:
             if len(allowed_links) >= limit:
                 break
 
-        return [
-            (link.url, link.priority, link.link_type.value)
-            for link in allowed_links[:limit]
-        ]
+        return [(link.url, link.priority, link.link_type.value) for link in allowed_links[:limit]]
 
 
 # =============================================================================

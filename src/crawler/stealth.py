@@ -12,8 +12,12 @@ Note: Excessive fingerprint manipulation is avoided to maintain consistency.
 import random
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from src.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext, Page
 
 logger = get_logger(__name__)
 
@@ -286,7 +290,7 @@ class ViewportJitter:
 # =============================================================================
 
 
-async def apply_stealth_to_page(page, is_cdp: bool = False) -> None:
+async def apply_stealth_to_page(page: "Page", is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright page.
 
     Injects JavaScript to override navigator.webdriver and related
@@ -310,7 +314,7 @@ async def apply_stealth_to_page(page, is_cdp: bool = False) -> None:
         logger.warning("Failed to apply stealth scripts", error=str(e))
 
 
-async def apply_stealth_to_context(context, is_cdp: bool = False) -> None:
+async def apply_stealth_to_context(context: "BrowserContext", is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright browser context.
 
     Ensures all new pages in the context have stealth measures applied.
@@ -343,28 +347,20 @@ def get_stealth_args() -> list[str]:
     return [
         # Disable automation-controlled flag
         "--disable-blink-features=AutomationControlled",
-
         # Disable infobars (e.g., "Chrome is being controlled by automated software")
         "--disable-infobars",
-
         # Use /dev/shm for faster operation
         "--disable-dev-shm-usage",
-
         # Disable extensions that might be detected
         "--disable-extensions",
-
         # Disable background networking
         "--disable-background-networking",
-
         # Disable sync
         "--disable-sync",
-
         # Disable translate
         "--disable-translate",
-
         # Disable various Chrome features that can be fingerprinted
         "--disable-features=IsolateOrigins,site-per-process",
-
         # Set window size explicitly (can be overridden by viewport)
         "--window-size=1920,1080",
     ]

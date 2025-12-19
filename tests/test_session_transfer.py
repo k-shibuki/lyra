@@ -34,6 +34,7 @@ import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
+# E402: Intentionally import after pytestmark for test configuration
 import time
 from unittest.mock import AsyncMock
 

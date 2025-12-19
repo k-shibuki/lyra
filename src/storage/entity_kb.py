@@ -329,7 +329,7 @@ class EntityMatch:
 class NameNormalizer:
     """Normalizes organization and person names."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize normalizer."""
         # Build reverse lookup for suffixes (English: at end of string)
         self._suffix_patterns: list[tuple[re.Pattern, str, str]] = []
@@ -353,7 +353,9 @@ class NameNormalizer:
             (re.compile(r"^（有）(.+)$"), "YK"),
         ]
 
-    def normalize(self, name: str, entity_type: EntityType = EntityType.ORGANIZATION) -> NormalizedName:
+    def normalize(
+        self, name: str, entity_type: EntityType = EntityType.ORGANIZATION
+    ) -> NormalizedName:
         """Normalize a name.
 
         Args:
@@ -585,7 +587,7 @@ class NameNormalizer:
 class AddressNormalizer:
     """Normalizes addresses."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize normalizer."""
         # Build country lookup
         self._country_lookup: dict[str, str] = {}
@@ -917,7 +919,6 @@ class EntityKB:
             )""",
             "CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type)",
             "CREATE INDEX IF NOT EXISTS idx_entities_canonical ON entities(canonical_name)",
-
             # Entity aliases
             """CREATE TABLE IF NOT EXISTS entity_aliases (
                 id TEXT PRIMARY KEY,
@@ -933,7 +934,6 @@ class EntityKB:
             )""",
             "CREATE INDEX IF NOT EXISTS idx_aliases_entity ON entity_aliases(entity_id)",
             "CREATE INDEX IF NOT EXISTS idx_aliases_normalized ON entity_aliases(alias_normalized)",
-
             # Entity identifiers
             """CREATE TABLE IF NOT EXISTS entity_identifiers (
                 id TEXT PRIMARY KEY,
@@ -952,7 +952,6 @@ class EntityKB:
             "CREATE INDEX IF NOT EXISTS idx_identifiers_entity ON entity_identifiers(entity_id)",
             "CREATE INDEX IF NOT EXISTS idx_identifiers_normalized ON entity_identifiers(identifier_normalized)",
             "CREATE INDEX IF NOT EXISTS idx_identifiers_type ON entity_identifiers(identifier_type)",
-
             # Entity relationships
             """CREATE TABLE IF NOT EXISTS entity_relationships (
                 id TEXT PRIMARY KEY,
@@ -968,7 +967,6 @@ class EntityKB:
             )""",
             "CREATE INDEX IF NOT EXISTS idx_relationships_source ON entity_relationships(source_entity_id)",
             "CREATE INDEX IF NOT EXISTS idx_relationships_target ON entity_relationships(target_entity_id)",
-
             # FTS for entity search
             """CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(
                 canonical_name,
@@ -1037,7 +1035,9 @@ class EntityKB:
                 # Update existing entity if new info has higher confidence
                 existing = matches[0].entity
                 if confidence > existing.confidence:
-                    await self._update_entity(existing, normalized_name, normalized_address, confidence)
+                    await self._update_entity(
+                        existing, normalized_name, normalized_address, confidence
+                    )
 
                 # Add new identifiers/aliases
                 if identifiers:
@@ -1067,18 +1067,24 @@ class EntityKB:
 
         # Save to database
         if self._db:
-            await self._db.insert("entities", {
-                "id": entity_id,
-                "entity_type": entity_type.value,
-                "canonical_name": normalized_name.canonical,
-                "display_name": normalized_name.original,
-                "normalized_name_json": json.dumps(normalized_name.to_dict()),
-                "normalized_address_json": json.dumps(normalized_address.to_dict()) if normalized_address else None,
-                "confidence": confidence,
-                "source_type": source_type.value,
-                "source_url": source_url,
-                "extra_data_json": json.dumps(extra_data) if extra_data else None,
-            }, auto_id=False)
+            await self._db.insert(
+                "entities",
+                {
+                    "id": entity_id,
+                    "entity_type": entity_type.value,
+                    "canonical_name": normalized_name.canonical,
+                    "display_name": normalized_name.original,
+                    "normalized_name_json": json.dumps(normalized_name.to_dict()),
+                    "normalized_address_json": json.dumps(normalized_address.to_dict())
+                    if normalized_address
+                    else None,
+                    "confidence": confidence,
+                    "source_type": source_type.value,
+                    "source_url": source_url,
+                    "extra_data_json": json.dumps(extra_data) if extra_data else None,
+                },
+                auto_id=False,
+            )
 
         # Cache
         self._entity_cache[entity_id] = entity
@@ -1135,12 +1141,14 @@ class EntityKB:
                     for row in rows:
                         entity = await self._get_entity(row["entity_id"])
                         if entity:
-                            matches.append(EntityMatch(
-                                entity=entity,
-                                match_score=1.0,
-                                match_type="identifier",
-                                matched_value=id_value,
-                            ))
+                            matches.append(
+                                EntityMatch(
+                                    entity=entity,
+                                    match_score=1.0,
+                                    match_type="identifier",
+                                    matched_value=id_value,
+                                )
+                            )
 
         # Search by name
         if name:
@@ -1164,12 +1172,14 @@ class EntityKB:
                 for row in rows:
                     entity = self._row_to_entity(row)
                     if entity and not any(m.entity.id == entity.id for m in matches):
-                        matches.append(EntityMatch(
-                            entity=entity,
-                            match_score=1.0,
-                            match_type="canonical",
-                            matched_value=name,
-                        ))
+                        matches.append(
+                            EntityMatch(
+                                entity=entity,
+                                match_score=1.0,
+                                match_type="canonical",
+                                matched_value=name,
+                            )
+                        )
 
             # Alias search
             if self._db:
@@ -1186,12 +1196,14 @@ class EntityKB:
                     entity = await self._get_entity(row["entity_id"])
                     if entity and not any(m.entity.id == entity.id for m in matches):
                         if entity_type is None or entity.entity_type == entity_type:
-                            matches.append(EntityMatch(
-                                entity=entity,
-                                match_score=0.95,
-                                match_type="alias",
-                                matched_value=row["alias_text"],
-                            ))
+                            matches.append(
+                                EntityMatch(
+                                    entity=entity,
+                                    match_score=0.95,
+                                    match_type="alias",
+                                    matched_value=row["alias_text"],
+                                )
+                            )
 
             # Fuzzy match on remaining candidates
             if len(matches) < limit and self._db:
@@ -1214,12 +1226,14 @@ class EntityKB:
                                 entity.normalized_name,
                             )
                             if similarity >= threshold:
-                                matches.append(EntityMatch(
-                                    entity=entity,
-                                    match_score=similarity,
-                                    match_type="fuzzy",
-                                    matched_value=name,
-                                ))
+                                matches.append(
+                                    EntityMatch(
+                                        entity=entity,
+                                        match_score=similarity,
+                                        match_type="fuzzy",
+                                        matched_value=name,
+                                    )
+                                )
 
         # Sort by score and limit
         matches.sort(key=lambda m: m.match_score, reverse=True)
@@ -1299,15 +1313,19 @@ class EntityKB:
         rel_id = str(uuid.uuid4())
 
         if self._db:
-            await self._db.insert("entity_relationships", {
-                "id": rel_id,
-                "source_entity_id": source_entity_id,
-                "target_entity_id": target_entity_id,
-                "relationship_type": relationship_type,
-                "confidence": confidence,
-                "source_type": source_type.value,
-                "evidence_json": json.dumps(evidence) if evidence else None,
-            }, auto_id=False)
+            await self._db.insert(
+                "entity_relationships",
+                {
+                    "id": rel_id,
+                    "source_entity_id": source_entity_id,
+                    "target_entity_id": target_entity_id,
+                    "relationship_type": relationship_type,
+                    "confidence": confidence,
+                    "source_type": source_type.value,
+                    "evidence_json": json.dumps(evidence) if evidence else None,
+                },
+                auto_id=False,
+            )
 
         return rel_id
 
@@ -1467,14 +1485,18 @@ class EntityKB:
         identifier_id = str(uuid.uuid4())
 
         if self._db:
-            await self._db.insert("entity_identifiers", {
-                "id": identifier_id,
-                "entity_id": entity_id,
-                "identifier_type": id_type.value,
-                "identifier_value": id_value,
-                "identifier_normalized": normalized,
-                "source_type": source_type.value,
-            }, auto_id=False)
+            await self._db.insert(
+                "entity_identifiers",
+                {
+                    "id": identifier_id,
+                    "entity_id": entity_id,
+                    "identifier_type": id_type.value,
+                    "identifier_value": id_value,
+                    "identifier_normalized": normalized,
+                    "source_type": source_type.value,
+                },
+                auto_id=False,
+            )
 
         # Update index
         if normalized not in self._identifier_index:
@@ -1509,14 +1531,18 @@ class EntityKB:
         alias_id = str(uuid.uuid4())
 
         if self._db:
-            await self._db.insert("entity_aliases", {
-                "id": alias_id,
-                "entity_id": entity_id,
-                "alias_text": alias,
-                "alias_normalized": normalized,
-                "alias_type": "name",
-                "source_type": source_type.value,
-            }, auto_id=False)
+            await self._db.insert(
+                "entity_aliases",
+                {
+                    "id": alias_id,
+                    "entity_id": entity_id,
+                    "alias_text": alias,
+                    "alias_normalized": normalized,
+                    "alias_type": "name",
+                    "source_type": source_type.value,
+                },
+                auto_id=False,
+            )
 
         # Update index
         if normalized not in self._alias_index:

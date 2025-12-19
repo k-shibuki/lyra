@@ -33,7 +33,6 @@ Per §7.1 test quality standards:
 | TC-CF-01 | get_ipv6_manager | Equivalence – singleton | Returns manager | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -972,7 +971,9 @@ class TestIPv6BoundaryConditions:
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             with patch("socket.getaddrinfo", return_value=mock_addr_info):
                 manager = IPv6ConnectionManager()
-                addresses = await manager.get_preferred_addresses("ipv6only.example.com", "ipv6only.example.com")
+                addresses = await manager.get_preferred_addresses(
+                    "ipv6only.example.com", "ipv6only.example.com"
+                )
 
         assert len(addresses) == 1, "Should have exactly 1 address"
         assert addresses[0].family == AddressFamily.IPV6, "Address should be IPv6"
@@ -988,7 +989,9 @@ class TestIPv6BoundaryConditions:
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             with patch("socket.getaddrinfo", return_value=mock_addr_info):
                 manager = IPv6ConnectionManager()
-                addresses = await manager.get_preferred_addresses("ipv4only.example.com", "ipv4only.example.com")
+                addresses = await manager.get_preferred_addresses(
+                    "ipv4only.example.com", "ipv4only.example.com"
+                )
 
         assert len(addresses) == 1, "Should have exactly 1 address"
         assert addresses[0].family == AddressFamily.IPV4, "Address should be IPv4"

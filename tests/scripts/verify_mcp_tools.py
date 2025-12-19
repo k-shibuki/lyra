@@ -81,6 +81,7 @@ class MCPToolsVerifier:
         # Check database
         try:
             from src.storage.database import get_database
+
             await get_database()
             print("  ✓ Database available")
         except Exception as e:
@@ -179,9 +180,7 @@ class MCPToolsVerifier:
             # Verify result item structure
             first_result = results[0]
             result_required_fields = ["title", "url", "snippet", "engine", "rank"]
-            missing_result_fields = [
-                f for f in result_required_fields if f not in first_result
-            ]
+            missing_result_fields = [f for f in result_required_fields if f not in first_result]
 
             if missing_result_fields:
                 return VerificationResult(
@@ -401,6 +400,7 @@ class MCPToolsVerifier:
             # Verify app is a Server instance
             from mcp.server import Server
             from src.mcp.server import TOOLS, app
+
             if not isinstance(app, Server):
                 return VerificationResult(
                     name="MCP server structure",

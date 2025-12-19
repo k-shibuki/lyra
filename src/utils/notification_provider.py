@@ -456,7 +456,7 @@ class LinuxNotifyProvider(BaseNotificationProvider):
     Uses libnotify/notify-send for desktop notifications on Linux.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Linux notification provider."""
         super().__init__("linux_notify", Platform.LINUX)
         self._notify_send_path: str | None = None
@@ -614,7 +614,7 @@ class WindowsToastProvider(BaseNotificationProvider):
     Uses Windows UWP Toast Notification API via PowerShell.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Windows toast provider."""
         super().__init__("windows_toast", Platform.WINDOWS)
 
@@ -774,7 +774,7 @@ class WSLBridgeProvider(BaseNotificationProvider):
     Supports BurntToast module if available, falls back to NotifyIcon.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize WSL bridge provider."""
         super().__init__("wsl_bridge", Platform.WSL)
 
@@ -916,7 +916,7 @@ class NotificationProviderRegistry:
         result = await provider.send(title, message)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize empty registry."""
         self._providers: dict[str, NotificationProvider] = {}
         self._default_name: str | None = None
