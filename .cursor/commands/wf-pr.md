@@ -313,6 +313,29 @@ git diff main..HEAD
 **ケースA（未マージPR）**: PRブランチでテストを実行
 **ケースB（既マージPR）**: mainブランチ全体でテストを実行
 
+### 実行例
+
+```bash
+# テスト開始
+./scripts/test.sh run tests/
+
+# 完了までポーリング（最大5分、5秒間隔）
+for i in {1..60}; do
+    sleep 5
+    status=$(./scripts/test.sh check 2>&1)
+    echo "[$i] $status"
+    # 完了判定: "DONE"またはテスト結果キーワード（passed/failed/skipped）が含まれる
+    if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
+        break
+    fi
+done
+
+# 結果取得
+./scripts/test.sh get
+```
+
+**注意**: `check`コマンドは、テスト結果に`passed`/`failed`/`skipped`/`deselected`などのキーワードが含まれていれば自動的に`DONE`を返すため、明示的な`DONE`チェックは不要。
+
 ## 5. マージ判断
 
 ### マージ可能条件

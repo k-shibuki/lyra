@@ -28,6 +28,31 @@
 
 バックグラウンド実行→ポーリングで結果確認のパターン。
 
+### ポーリング例（推奨）
+
+```bash
+# テスト開始
+./scripts/test.sh run tests/
+
+# 完了までポーリング（最大5分、5秒間隔）
+for i in {1..60}; do
+    sleep 5
+    status=$(./scripts/test.sh check 2>&1)
+    echo "[$i] $status"
+    # 完了判定: "DONE"またはテスト結果キーワード（passed/failed/skipped）が含まれる
+    if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
+        break
+    fi
+done
+
+# 結果取得
+./scripts/test.sh get
+```
+
+**完了判定の仕組み**:
+- `check`コマンドは、テスト結果に`passed`/`failed`/`skipped`/`deselected`などのキーワードが含まれていれば自動的に`DONE`を返す
+- キーワードが見つからない場合は、ファイル更新時刻で判定（5秒以上更新がなければ`DONE`）
+
 ## chrome.sh（Chrome管理）
 ```bash
 ./scripts/chrome.sh check [port]     # 接続可能か確認（デフォルト）
