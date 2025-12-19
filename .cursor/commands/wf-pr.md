@@ -29,16 +29,122 @@
 
 ## 1. PR取得
 
+### 1.1. リモート情報の取得とPR候補の列挙
+
 ```bash
 # リモートの最新情報を取得
 git fetch origin
 
 # PRブランチ一覧を確認（リモートブランチ）
-git branch -r
+git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)"
+```
 
-# PRブランチをチェックアウト
+### 1.2. PR順序付け（技術的最適化）
+
+PRをレビューする順序を以下の優先順位で決定する：
+
+#### 優先順位1: 変更量（小→大）
+- **理由**: 小さな変更からレビューすることで、コンフリクトリスクを低減
+- **判断方法**: `git diff main..<branch> --stat` で変更ファイル数・差分行数を確認
+- **優先**: 変更ファイル数が少ないPRから
+
+#### 優先順位2: コミット日時（古→新）
+- **理由**: 古いPRは先にマージすべき（依存関係の観点）
+- **判断方法**: `git log origin/main..<branch> --format="%ci %s" | head -1` で最初のコミット日時を確認
+- **優先**: 古いコミットから
+
+#### 優先順位3: 変更内容の種類
+- **優先順位**: バグ修正 → リファクタリング → 新機能 → ドキュメント
+- **判断方法**: コミットメッセージのプレフィックス（`fix:` > `refactor:` > `feat:` > `docs:`）
+
+#### 優先順位4: 依存関係
+- **理由**: 他のPRに依存するPRは後回し
+- **判断方法**: ブランチ名やコミットメッセージから依存関係を推測
+- **例**: `feature/phase-m-get-status` は他の機能に依存する可能性が高い
+
+#### 実装例（推奨スクリプト）
+
+```bash
+#!/bin/bash
+# PR候補を技術的最適順序でソート
+
+# 1. 変更量でソート（小→大）
+get_pr_by_changes() {
+    for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD"); do
+        # mainとの差分がないブランチはスキップ
+        if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+            continue
+        fi
+        
+        # 変更ファイル数と差分行数を取得
+        stat=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1)
+        if [ -z "$stat" ]; then
+            continue
+        fi
+        
+        # 変更行数を抽出（追加+削除）
+        changes=$(echo "$stat" | awk '{print $4+$6}' | sed 's/[^0-9]//g')
+        if [ -z "$changes" ] || [ "$changes" = "0" ]; then
+            changes=0
+        fi
+        
+        # コミット日時を取得（ISO形式）
+        date=$(git log origin/main..$branch --format="%ci" 2>/dev/null | tail -1)
+        if [ -z "$date" ]; then
+            date="9999-12-31 00:00:00 +0000"
+        fi
+        
+        # コミットメッセージのプレフィックスを取得
+        prefix=$(git log origin/main..$branch --format="%s" 2>/dev/null | head -1 | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
+        case "$prefix" in
+            fix) priority=1 ;;
+            refactor) priority=2 ;;
+            feat) priority=3 ;;
+            docs) priority=4 ;;
+            *) priority=5 ;;
+        esac
+        
+        echo "$changes|$date|$priority|$branch"
+    done | sort -t'|' -k1,1n -k2,2 -k3,3n | cut -d'|' -f4
+}
+
+# 使用例
+get_pr_by_changes
+```
+
+#### 簡易版（変更量のみ）
+
+```bash
+# PR候補を変更量でソート（最もシンプル）
+for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD"); do
+    if git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+        changes=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1 | awk '{print $4+$6}' | sed 's/[^0-9]//g')
+        echo "${changes:-0} $branch"
+    fi
+done | sort -n | awk '{print $2}'
+```
+
+### 1.3. PRブランチのチェックアウト
+
+```bash
+# 決定した順序でPRブランチをチェックアウト
 git checkout -b <pr-branch> origin/<pr-branch>
 ```
+
+### 1.4. 順序付けの実行手順
+
+実際のワークフローでは以下の手順で実行：
+
+1. **PR候補の列挙**: `git branch -r` でリモートブランチを確認
+2. **各PRの変更量を確認**: `git diff origin/main..<branch> --stat` で変更ファイル数・行数を確認
+3. **コミット日時を確認**: `git log origin/main..<branch> --format="%ci" | tail -1` で最初のコミット日時を確認
+4. **変更内容の種類を確認**: `git log origin/main..<branch> --format="%s" | head -1` でコミットメッセージのプレフィックスを確認
+5. **優先順位でソート**: 変更量（小→大）→ コミット日時（古→新）→ 変更種類の順でソート
+6. **順番にレビュー**: ソートされた順序でPRをレビュー
+
+**注意**: 
+- mainとの差分がないブランチはスキップ
+- 既にマージ済みのブランチは自動的に除外される（`git log origin/main..<branch>` が空）
 
 ## 2. コードレビュー
 
