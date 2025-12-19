@@ -9,7 +9,7 @@ Tests:
 - Hot-reload support
 - Direct source configuration
 
-Per §7.1 of docs/requirements.md:
+Per §7.1 of docs/REQUIREMENTS.md:
 - No conditional assertions
 - Specific expected values
 - Clear test documentation

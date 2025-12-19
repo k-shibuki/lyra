@@ -1,4 +1,4 @@
-# dev-workflow
+# wf-dev
 
 Lancet開発の統合ワークフロー。単機能コマンドを順次実行する。
 
@@ -45,16 +45,10 @@ Lancet開発の統合ワークフロー。単機能コマンドを順次実行�
 - リファクタ関連: @.cursor/rules/refactoring.mdc
 - git commit: @.cursor/rules/commit-message-format.mdc
 
-## デバッグ・診断コマンド
-- **モジュール間連動の問題がある場合**: `/integration-design` - データフロー図・型定義・デバッグスクリプト作成
-  - 複数モジュールにまたがる機能実装時
-  - モジュール間の連動に問題がある場合（docs/O6_ADDITIONAL_ISSUES.md参照）
-  - リファクタリングでインターフェース変更時
-
 ## リファレンス
 - スクリプト使い方: `/scripts-help`
 - 実装計画: @docs/IMPLEMENTATION_PLAN.md
-- 仕様: @docs/requirements.md
+- 仕様: @docs/REQUIREMENTS.md
 
 ## 使い方
 
@@ -79,4 +73,3 @@ Lancet開発の統合ワークフロー。単機能コマンドを順次実行�
 - [ ] コミット完了
 - [ ] mainマージ完了
 - [ ] 実装計画書更新済み
-

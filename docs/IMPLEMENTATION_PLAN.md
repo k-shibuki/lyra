@@ -6,7 +6,7 @@
 
 | ドキュメント | 役割 | 参照 |
 |-------------|------|------|
-| `docs/requirements.md` | 仕様書（要件定義） | §1-8で機能・非機能要件を定義 |
+| `docs/REQUIREMENTS.md` | 仕様書（要件定義） | §1-8で機能・非機能要件を定義 |
 | `docs/PUBLICATION_PLAN.md` | 論文執筆準備メモ | SoftwareX投稿、ケーススタディ設計 |
 | **`docs/IMPLEMENTATION_PLAN.md`**（本文書） | **実装計画書** | Phase別の実装状況・知見を管理 |
 
@@ -258,7 +258,7 @@
 - `BaseSearchParser` + エンジン別パーサー: DuckDuckGo, Mojeek, Google, Brave, Qwant, Ecosia, Startpage
 - `config/search_parsers.yaml`: セレクター外部化、AI修正用診断メッセージ
 
-#### C.3 docs/requirements.md修正内容
+#### C.3 docs/REQUIREMENTS.md修正内容
 
 **§3.2 エージェント実行機能**:
 ```
@@ -748,7 +748,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 - `src/search/circuit_breaker.py`: 共通ユーティリティを使用するよう更新
   - `_calculate_cooldown()` → `calculate_cooldown_minutes()` を使用
 
-**仕様書更新**: `docs/requirements.md` §4.3.5「リトライ戦略の分類」を追加
+**仕様書更新**: `docs/REQUIREMENTS.md` §4.3.5「リトライ戦略の分類」を追加
 - エスカレーションパス（検索/取得向け）: 同一経路での単純リトライ禁止
 - ネットワーク/APIリトライ（トランジェントエラー向け）: 公式APIのみ適用可
 
@@ -905,7 +905,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 **目的**: ローカルLLMを3B/7Bの2モデル体制から3B単一モデルに変更し、コードを簡素化する。VRAM制約（8GB）を考慮し、3Bモデルを選択。
 
 **変更内容**:
-- [x] 仕様書・実装計画書修正: docs/requirements.mdとdocs/IMPLEMENTATION_PLAN.mdを更新
+- [x] 仕様書・実装計画書修正: docs/REQUIREMENTS.mdとdocs/IMPLEMENTATION_PLAN.mdを更新
 - [x] 設定ファイル修正: `config/settings.yaml`と`src/utils/config.py`を更新
 - [x] LLMプロバイダー修正: `src/filter/ollama_provider.py`を更新
 - [x] LLM抽出ロジック修正: `src/filter/llm.py`から`use_slow_model`と`should_promote_to_slow_model()`を削除
@@ -1253,7 +1253,7 @@ K.1の調査で以下が判明:
 - モデルはビルド時にダウンロードしてイメージに含める
 
 **タスク**:
-- [x] 仕様書にMLモデルのセキュリティ方針を追記（docs/requirements.md L1セクション）
+- [x] 仕様書にMLモデルのセキュリティ方針を追記（docs/REQUIREMENTS.md L1セクション）
 - [x] MLコンテナ用Dockerfile作成（`Dockerfile.ml`）
 - [x] `podman-compose.yml`にMLコンテナ追加（`lancet-ml`サービス）
 - [x] `lancet-internal`ネットワーク追加（`internal: true`、Ollamaと共用）
@@ -1671,7 +1671,7 @@ _handle_search() (server.py)
 | N.5.2-1 | MCPエラーコード `CHROME_NOT_READY` 追加 | ✅ |
 | N.5.2-2 | `search` ハンドラにCDP事前チェック追加 | ✅ |
 | N.5.2-3 | Chrome自動起動機能の実装 | ✅ |
-| N.5.2-4 | docs/requirements.md §3.2.1 に仕様追記 | ✅ |
+| N.5.2-4 | docs/REQUIREMENTS.md §3.2.1 に仕様追記 | ✅ |
 | N.5.2-5 | E2Eテスト（CDP未接続→自動起動→検索成功の確認） | ✅ |
 
 **設計詳細**:
@@ -1734,7 +1734,7 @@ _handle_search() (server.py)
    }
    ```
 
-5. **docs/requirements.md更新** (§3.2.1): ✅ 完了
+5. **docs/REQUIREMENTS.md更新** (§3.2.1): ✅ 完了
    - `search` ツールの前提条件にChrome自動起動を明記
    - 自動起動のフロー・タイムアウト・エラー応答を定義
 
@@ -1943,7 +1943,7 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 
 | ファイル | 変更内容 | 優先度 |
 |---------|---------|:------:|
-| `docs/requirements.md` | execution_mode説明削除、常にWSLモードに統一 | 高 |
+| `docs/REQUIREMENTS.md` | execution_mode説明削除、常にWSLモードに統一 | 高 |
 | `docs/IMPLEMENTATION_PLAN.md` | 旧構成関連説明削除 | 中 |
 | `README.md`（未作成） | セットアップ手順からsocat/host-gateway削除 | 中 |
 | `.env.example` | コメント更新（WSLハイブリッド構成の説明） | 中 |

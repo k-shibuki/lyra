@@ -1230,7 +1230,7 @@ Usage:
 
 ## 11. 仕様書更新提案
 
-### 11.1 `docs/requirements.md` への追記案
+### 11.1 `docs/REQUIREMENTS.md` への追記案
 
 **§3.3.1 エビデンスグラフ拡張** に追記:
 
@@ -1283,7 +1283,7 @@ Usage:
 ## 13. 関連ドキュメント
 
 - `docs/IMPLEMENTATION_PLAN.md` §Phase J.2
-- `docs/requirements.md` §3.1.3, §3.3.1, §5.1
+- `docs/REQUIREMENTS.md` §3.1.3, §3.3.1, §5.1
 - `docs/O6_ADDITIONAL_ISSUES.md`（類似フォーマットの参考）
 
 ---

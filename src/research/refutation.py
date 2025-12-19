@@ -5,7 +5,7 @@ Executes refutation searches using mechanical patterns only.
 Cursor AI designs which claims/subqueries to refute;
 Lancet applies mechanical suffix patterns.
 
-See docs/requirements.md §2.1.4 and §3.1.7.5.
+See docs/REQUIREMENTS.md §2.1.4 and §3.1.7.5.
 """
 
 from dataclasses import dataclass, field

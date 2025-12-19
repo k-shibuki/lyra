@@ -1,6 +1,6 @@
 # quality-check
 
-コード品質を確認する（lint、型チェック等）。
+コード品質を確認する（lint、型チェック）。
 
 ## 関連ルール
 - コード実行時: @.cursor/rules/code-execution.mdc
@@ -13,34 +13,43 @@
 
 ## 実行方法
 
-**Lintエラー確認**:
+### Lintエラー確認（ruff）
+
 ```bash
 podman exec lancet ruff check src/ tests/
 ```
 
-**型チェック（必要に応じて）**:
+自動修正可能なエラーがある場合:
+```bash
+podman exec lancet ruff check --fix src/ tests/
+```
+
+### フォーマット確認（ruff format）
+
+```bash
+podman exec lancet ruff format --check src/ tests/
+```
+
+自動修正:
+```bash
+podman exec lancet ruff format src/ tests/
+```
+
+### 型チェック（mypy）
+
 ```bash
 podman exec lancet mypy src/
 ```
 
-**テスト実行（scripts/test.sh推奨）**:
-```bash
-# 1. テスト開始
-./scripts/test.sh run tests/
-
-# 2. 完了確認（DONEになるまで繰り返す）
-./scripts/test.sh check
-
-# 3. 結果取得
-./scripts/test.sh get
-```
-
 ## 完了条件
 - [ ] Lintエラーが解消済み
+- [ ] フォーマットが整っている
 - [ ] 型エラーが解消済み
 - [ ] any型でエラーを隠していない
+
+## 次のステップ
+品質確認後、`/regression-test` でテストを実行する。
 
 ## 出力
 - 検出した問題一覧
 - 修正内容
-

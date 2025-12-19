@@ -2,7 +2,7 @@
 MCP Server implementation for Lancet.
 Provides tools for research operations that can be called by Cursor/LLM.
 
-Phase M: Refactored to 11 tools per docs/requirements.md §3.2.1.
+Phase M: Refactored to 11 tools per docs/REQUIREMENTS.md §3.2.1.
 """
 
 import asyncio
@@ -758,7 +758,7 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
     """
     Ensure Chrome CDP is ready, auto-starting if needed.
     
-    Per N.5.3 and docs/requirements.md §3.2.1:
+    Per N.5.3 and docs/REQUIREMENTS.md §3.2.1:
     1. Check if CDP is already connected
     2. If not, auto-start Chrome using chrome.sh
     3. Wait up to timeout seconds for CDP connection

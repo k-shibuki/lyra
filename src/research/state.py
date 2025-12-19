@@ -4,7 +4,7 @@ Exploration state management for Lancet.
 Manages task and search states, calculates satisfaction and novelty scores.
 Reports state to Cursor AI for decision making.
 
-See docs/requirements.md §3.1.7.2, §3.1.7.3, §3.1.7.4.
+See docs/REQUIREMENTS.md §3.1.7.2, §3.1.7.3, §3.1.7.4.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """

@@ -7,7 +7,7 @@
 - リファクタ関連タスク: @.cursor/rules/refactoring.mdc
 
 ## 事前確認
-必要に応じて @docs/requirements.md の仕様とコードベースを `grep` 等のツールで確認せよ。
+必要に応じて @docs/REQUIREMENTS.md の仕様とコードベースを `grep` 等のツールで確認せよ。
 コード中のコメントで @docs/IMPLEMENTATION_PLAN.md を参照させることは禁止する。
 
 ## 実装作業

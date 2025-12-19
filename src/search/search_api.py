@@ -95,7 +95,7 @@ class SerpSearchError(SearchError):
 
 
 # ============================================================================
-# Query Operator Processing (§3.1.1, §3.1.4 in docs/requirements.md)
+# Query Operator Processing (§3.1.1, §3.1.4 in docs/REQUIREMENTS.md)
 # ============================================================================
 
 
