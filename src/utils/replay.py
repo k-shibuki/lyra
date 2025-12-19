@@ -97,13 +97,13 @@ class ReplaySession:
 
 class DecisionLogger:
     """Logger for recording decisions during task execution.
-    
+
     Records all decision points to enable later replay and analysis.
     """
 
     def __init__(self, task_id: str):
         """Initialize decision logger.
-        
+
         Args:
             task_id: Task being logged.
         """
@@ -129,7 +129,7 @@ class DecisionLogger:
         duration_ms: int = 0,
     ) -> Decision:
         """Log a decision.
-        
+
         Args:
             decision_type: Type of decision.
             input_data: Input to the decision.
@@ -137,7 +137,7 @@ class DecisionLogger:
             context: Additional context (metrics, state).
             cause_id: Parent cause ID for tracing.
             duration_ms: Time taken for decision.
-            
+
         Returns:
             Logged Decision object.
         """
@@ -159,7 +159,7 @@ class DecisionLogger:
 
     async def export_decisions(self) -> list[dict[str, Any]]:
         """Export all logged decisions.
-        
+
         Returns:
             List of decision dictionaries.
         """
@@ -185,10 +185,10 @@ class DecisionLogger:
 
     async def save_to_file(self, path: Path | None = None) -> Path:
         """Save decisions to JSON file.
-        
+
         Args:
             path: Output path. Auto-generated if None.
-            
+
         Returns:
             Path to saved file.
         """
@@ -221,7 +221,7 @@ class DecisionLogger:
 
 class ReplayEngine:
     """Engine for replaying task decision flows.
-    
+
     Enables:
     - Re-execution of tasks with same or modified parameters
     - Comparison of outcomes between runs
@@ -235,10 +235,10 @@ class ReplayEngine:
 
     async def load_decisions_from_file(self, path: Path) -> list[Decision]:
         """Load decisions from JSON file.
-        
+
         Args:
             path: Path to decision file.
-            
+
         Returns:
             List of Decision objects.
         """
@@ -252,10 +252,10 @@ class ReplayEngine:
         task_id: str,
     ) -> list[Decision]:
         """Load decisions from database.
-        
+
         Args:
             task_id: Task ID to load decisions for.
-            
+
         Returns:
             List of Decision objects.
         """
@@ -286,11 +286,11 @@ class ReplayEngine:
         decisions: list[Decision] | None = None,
     ) -> ReplaySession:
         """Create a new replay session.
-        
+
         Args:
             original_task_id: Task ID to replay.
             decisions: Pre-loaded decisions (loads from DB if None).
-            
+
         Returns:
             ReplaySession object.
         """
@@ -324,11 +324,11 @@ class ReplayEngine:
         replayed: Decision,
     ) -> dict[str, Any]:
         """Compare two decisions for divergence.
-        
+
         Args:
             original: Original decision.
             replayed: Replayed decision.
-            
+
         Returns:
             Comparison result with divergence info.
         """
@@ -367,11 +367,11 @@ class ReplayEngine:
         output_path: Path | None = None,
     ) -> dict[str, Any]:
         """Export replay session report.
-        
+
         Args:
             session_id: Session to export.
             output_path: Optional path to save report.
-            
+
         Returns:
             Report dictionary.
         """
@@ -412,11 +412,11 @@ class ReplayEngine:
         task_id_b: str,
     ) -> dict[str, Any]:
         """Compare metrics between two task runs.
-        
+
         Args:
             task_id_a: First task ID.
             task_id_b: Second task ID.
-            
+
         Returns:
             Metrics comparison dictionary.
         """
@@ -505,10 +505,10 @@ _replay_engine: ReplayEngine | None = None
 
 def get_decision_logger(task_id: str) -> DecisionLogger:
     """Get or create a decision logger for a task.
-    
+
     Args:
         task_id: Task identifier.
-        
+
     Returns:
         DecisionLogger instance.
     """
@@ -519,7 +519,7 @@ def get_decision_logger(task_id: str) -> DecisionLogger:
 
 def get_replay_engine() -> ReplayEngine:
     """Get the global replay engine.
-    
+
     Returns:
         ReplayEngine instance.
     """
@@ -531,7 +531,7 @@ def get_replay_engine() -> ReplayEngine:
 
 async def cleanup_decision_logger(task_id: str, save: bool = True) -> None:
     """Cleanup decision logger after task completion.
-    
+
     Args:
         task_id: Task identifier.
         save: Whether to save decisions before cleanup.

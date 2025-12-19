@@ -53,10 +53,10 @@ class TaskStatus(Enum):
 
 class SearchState(BaseModel):
     """State of a single search query.
-    
+
     Per §3.1.7.2, §3.1.7.3: Tracks source count, satisfaction score,
     and novelty metrics for Cursor AI decision making.
-    
+
     Migrated from dataclass to Pydantic BaseModel for type safety
     and validation in module-to-module data exchange.
     """
@@ -168,7 +168,7 @@ class SearchState(BaseModel):
     def calculate_satisfaction_score(self) -> float:
         """
         Calculate satisfaction score per §3.1.7.3.
-        
+
         Formula: min(1.0, (independent_sources / 3) * 0.7 + (primary ? 0.3 : 0))
         Satisfied when score >= 0.8
         """
@@ -213,7 +213,7 @@ class SearchState(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization.
-        
+
         Note: Uses Pydantic's model_dump() internally but formats
         status as string value for API compatibility.
         """
@@ -240,10 +240,10 @@ SubqueryState = SearchState
 class ExplorationState:
     """
     Manages exploration state for a research task.
-    
+
     Tracks search execution, calculates metrics, and provides
     status reports to Cursor AI for decision making.
-    
+
     Integrates UCB1-based dynamic budget allocation (§3.1.1):
     - High-yield searches receive more budget
     - Budget is reallocated based on harvest rates
@@ -256,7 +256,7 @@ class ExplorationState:
         ucb_exploration_constant: float | None = None,
     ):
         """Initialize exploration state for a task.
-        
+
         Args:
             task_id: The task ID to manage state for.
             enable_ucb_allocation: Enable UCB1-based dynamic budget allocation.
@@ -371,14 +371,14 @@ class ExplorationState:
     ) -> SearchState:
         """
         Register a new search for execution.
-        
+
         Args:
             search_id: Unique identifier for the search.
             text: The search query text (designed by Cursor AI).
             priority: Execution priority (high/medium/low).
             budget_pages: Optional page budget for this search.
             budget_time_seconds: Optional time budget for this search.
-            
+
         Returns:
             The created SearchState.
         """
@@ -462,7 +462,7 @@ class ExplorationState:
     ) -> None:
         """
         Record a page fetch for a search.
-        
+
         Args:
             search_id: The search ID.
             domain: Domain of the fetched page.
@@ -505,7 +505,7 @@ class ExplorationState:
 
     def record_claim(self, search_id: str, is_verified: bool = False, is_refuted: bool = False) -> None:
         """Record a claim extraction.
-        
+
         Args:
             search_id: The search ID.
             is_verified: Whether the claim is verified (supported by evidence).
@@ -519,7 +519,7 @@ class ExplorationState:
 
     def record_claim_verified(self, claim_id: str) -> None:
         """Record that a claim has been verified by NLI.
-        
+
         Args:
             claim_id: The claim ID that was verified.
         """
@@ -527,7 +527,7 @@ class ExplorationState:
 
     def record_claim_refuted(self, claim_id: str) -> None:
         """Record that a claim has been refuted by counter-evidence.
-        
+
         Args:
             claim_id: The claim ID that was refuted.
         """
@@ -536,7 +536,7 @@ class ExplorationState:
     def check_budget(self) -> tuple[bool, str | None]:
         """
         Check if budget is exhausted.
-        
+
         Returns:
             Tuple of (is_within_budget, warning_message).
         """
@@ -560,13 +560,13 @@ class ExplorationState:
     def get_dynamic_budget(self, search_id: str) -> int:
         """
         Get dynamic budget for a search using UCB1 allocation (§3.1.1).
-        
+
         If UCB allocation is enabled, returns budget based on harvest rates.
         Otherwise, returns the static budget from SearchState.
-        
+
         Args:
             search_id: The search ID.
-            
+
         Returns:
             Available budget (pages) for the search.
         """
@@ -587,7 +587,7 @@ class ExplorationState:
     def get_ucb_recommended_search(self) -> str | None:
         """
         Get the search recommended by UCB1 for next execution.
-        
+
         Returns:
             Search ID with highest UCB score, or None.
         """
@@ -603,7 +603,7 @@ class ExplorationState:
     def get_ucb_scores(self) -> dict[str, float]:
         """
         Get UCB1 scores for all searches.
-        
+
         Returns:
             Dictionary mapping search_id to UCB1 score.
         """
@@ -614,9 +614,9 @@ class ExplorationState:
     def trigger_budget_reallocation(self) -> dict[str, int]:
         """
         Manually trigger budget reallocation.
-        
+
         Useful after significant changes in harvest rates.
-        
+
         Returns:
             New budget allocations per search.
         """
@@ -627,10 +627,10 @@ class ExplorationState:
     def get_overall_harvest_rate(self) -> float:
         """
         Calculate overall harvest rate across all searches.
-        
+
         Per §3.1.1: Used for lastmile slot determination.
         Lastmile engines are activated when harvest rate >= 0.9.
-        
+
         Returns:
             Overall harvest rate (0.0-1.0).
         """
@@ -648,7 +648,7 @@ class ExplorationState:
     def check_novelty_stop_condition(self, search_id: str) -> bool:
         """
         Check if novelty stop condition is met (§3.1.7.4).
-        
+
         Stop if novelty < 10% for 2 consecutive cycles.
         """
         search = self._searches.get(search_id)
@@ -673,13 +673,13 @@ class ExplorationState:
     async def get_status(self) -> dict[str, Any]:
         """
         Get current exploration status for Cursor AI.
-        
+
         Returns metrics and state only - no recommendations.
         Cursor AI makes all decisions based on this data.
-        
+
         Per §16.7.1: Now includes authentication_queue information.
         Per §16.7.3: Includes authentication threshold alerts in warnings.
-        
+
         Returns:
             - Task status
             - All subquery states
@@ -759,9 +759,9 @@ class ExplorationState:
 
     async def _get_authentication_queue_summary(self) -> dict[str, Any] | None:
         """Get authentication queue summary for this task.
-        
+
         Per §16.7.1: Provides authentication queue information.
-        
+
         Returns:
             Authentication queue summary or None if no pending items.
         """
@@ -789,14 +789,14 @@ class ExplorationState:
         auth_queue: dict[str, Any] | None,
     ) -> list[str]:
         """Generate alerts for authentication queue status.
-        
+
         Per §16.7.3: Warning levels based on queue depth.
         - warning: pending auth ≥3 items
         - critical: pending auth ≥5 items OR high priority ≥2 items
-        
+
         Args:
             auth_queue: Authentication queue summary.
-            
+
         Returns:
             List of warning messages.
         """
@@ -836,7 +836,7 @@ class ExplorationState:
 
     async def _get_evidence_graph_stats(self) -> dict[str, Any]:
         """Get statistics from the evidence graph.
-        
+
         Returns:
             Dictionary with total_nodes and total_edges.
         """
@@ -858,7 +858,7 @@ class ExplorationState:
     async def finalize(self) -> dict[str, Any]:
         """
         Finalize exploration and return summary.
-        
+
         Returns summary including:
         - Final status
         - Subquery completion summary

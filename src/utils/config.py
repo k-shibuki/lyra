@@ -113,7 +113,7 @@ class BrowserConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     """LLM configuration.
-    
+
     Per §K.1: Single 3B model for all LLM tasks.
     VRAM budget (8GB) accommodates 3B (~2.5GB) + embedding (~1GB) + reranker (~1GB) + NLI (~0.5GB).
     """
@@ -152,7 +152,7 @@ class NLIConfig(BaseModel):
 
 class MLServerConfig(BaseModel):
     """ML Server configuration.
-    
+
     ML models (embedding, reranker, NLI) run in a separate container
     on the internal network (lancet-internal) for security isolation.
     """
@@ -284,11 +284,11 @@ class Settings(BaseModel):
 
 def _deep_merge(base: dict, override: dict) -> dict:
     """Deep merge two dictionaries.
-    
+
     Args:
         base: Base dictionary.
         override: Override dictionary.
-        
+
     Returns:
         Merged dictionary.
     """
@@ -303,10 +303,10 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 def _load_yaml_config(config_dir: Path) -> dict[str, Any]:
     """Load configuration from YAML files.
-    
+
     Args:
         config_dir: Configuration directory path.
-        
+
     Returns:
         Merged configuration dictionary.
     """
@@ -324,10 +324,10 @@ def _load_yaml_config(config_dir: Path) -> dict[str, Any]:
 
 def _load_academic_apis_config(config_dir: Path) -> dict[str, Any]:
     """Load academic APIs configuration from YAML file.
-    
+
     Args:
         config_dir: Configuration directory path.
-        
+
     Returns:
         Academic APIs configuration dictionary.
     """
@@ -343,11 +343,11 @@ def _load_academic_apis_config(config_dir: Path) -> dict[str, Any]:
 @lru_cache(maxsize=1)
 def get_academic_apis_config() -> AcademicAPIsConfig:
     """Get academic APIs configuration.
-    
+
     Configuration is loaded from:
     1. config/academic_apis.yaml
     2. Environment variables (highest priority, prefixed with LANCET_ACADEMIC_APIS__)
-    
+
     Returns:
         AcademicAPIsConfig instance.
     """
@@ -386,16 +386,16 @@ def get_academic_apis_config() -> AcademicAPIsConfig:
 
 def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
     """Apply environment variable overrides.
-    
+
     Environment variables should be prefixed with LANCET_ and use
     double underscores for nested keys.
-    
+
     Example:
         LANCET_GENERAL__LOG_LEVEL=DEBUG
-        
+
     Args:
         config: Configuration dictionary.
-        
+
     Returns:
         Configuration with environment overrides.
     """
@@ -434,12 +434,12 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Get application settings.
-    
+
     Settings are loaded from:
     1. Default values
     2. YAML configuration files
     3. Environment variables (highest priority)
-    
+
     Returns:
         Settings instance.
     """
@@ -458,7 +458,7 @@ def get_settings() -> Settings:
 
 def get_project_root() -> Path:
     """Get the project root directory.
-    
+
     Returns:
         Project root path.
     """

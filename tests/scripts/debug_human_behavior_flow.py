@@ -102,7 +102,7 @@ async def test_browser_search_provider_human_behavior():
 
 async def check_chrome_cdp():
     """Check Chrome CDP connection and auto-start if needed.
-    
+
     Returns:
         True if CDP is available, False otherwise.
     """

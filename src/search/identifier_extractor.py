@@ -29,10 +29,10 @@ class IdentifierExtractor:
 
     def extract(self, url: str) -> PaperIdentifier:
         """Extract identifiers from URL.
-        
+
         Args:
             url: Paper URL
-            
+
         Returns:
             PaperIdentifier with extracted identifiers
         """
@@ -119,10 +119,10 @@ class IdentifierExtractor:
     @staticmethod
     def extract_doi_from_text(text: str) -> str | None:
         """Extract DOI from text (meta tags, etc.).
-        
+
         Args:
             text: HTML text or meta tag content
-            
+
         Returns:
             DOI string or None
         """

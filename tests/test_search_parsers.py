@@ -186,7 +186,7 @@ class TestEngineParserConfig:
     def test_build_search_url_no_encoding(self):
         """
         Test EngineParserConfig.build_search_url does NOT encode query.
-        
+
         EngineParserConfig is a low-level config class that provides raw URL
         template substitution. URL encoding is the responsibility of the
         calling code (e.g., BaseSearchParser.build_search_url).
@@ -329,7 +329,7 @@ class TestDuckDuckGoParser:
     def test_build_search_url_with_encoding(self):
         """
         Test BaseSearchParser.build_search_url URL-encodes the query.
-        
+
         Unlike EngineParserConfig.build_search_url, the parser's build_search_url
         method URL-encodes the query (e.g., spaces become '+').
         """

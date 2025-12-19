@@ -42,7 +42,7 @@ class LLMResponseStatus(str, Enum):
 class LLMOptions:
     """
     Options for LLM generation requests.
-    
+
     Attributes:
         model: Model name to use.
         temperature: Generation temperature (0.0-2.0).
@@ -80,7 +80,7 @@ class LLMOptions:
 class ChatMessage:
     """
     A single message in a chat conversation.
-    
+
     Attributes:
         role: Message role (system, user, assistant).
         content: Message content.
@@ -111,7 +111,7 @@ class ChatMessage:
 class LLMResponse:
     """
     Response from an LLM provider.
-    
+
     Attributes:
         text: Generated text.
         status: Response status.
@@ -195,7 +195,7 @@ class LLMResponse:
 class EmbeddingResponse:
     """
     Response from an embedding request.
-    
+
     Attributes:
         embeddings: List of embedding vectors.
         status: Response status.
@@ -271,7 +271,7 @@ class EmbeddingResponse:
 class ModelInfo:
     """
     Information about an available model.
-    
+
     Attributes:
         name: Model name.
         size: Model size description (e.g., "3B", "7B").
@@ -314,7 +314,7 @@ class LLMHealthState(str, Enum):
 class LLMHealthStatus:
     """
     Health status of an LLM provider.
-    
+
     Attributes:
         state: Current health state.
         available_models: List of available model names.
@@ -398,28 +398,28 @@ class LLMHealthStatus:
 class LLMProvider(Protocol):
     """
     Protocol for LLM providers.
-    
+
     Defines the interface that all LLM providers must implement.
     Uses Python's Protocol for structural subtyping, allowing duck typing
     while maintaining type safety.
-    
+
     Example implementation:
         class MyProvider:
             @property
             def name(self) -> str:
                 return "my_provider"
-            
+
             async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 # Implementation
                 ...
-            
+
             async def chat(self, messages: list[ChatMessage], options: LLMOptions | None = None) -> LLMResponse:
                 # Implementation
                 ...
-            
+
             async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
-            
+
             async def close(self) -> None:
                 # Cleanup
                 ...
@@ -437,11 +437,11 @@ class LLMProvider(Protocol):
     ) -> LLMResponse:
         """
         Generate text completion.
-        
+
         Args:
             prompt: Input prompt text.
             options: Generation options.
-            
+
         Returns:
             LLMResponse with generated text or error.
         """
@@ -454,11 +454,11 @@ class LLMProvider(Protocol):
     ) -> LLMResponse:
         """
         Generate chat completion.
-        
+
         Args:
             messages: List of chat messages.
             options: Generation options.
-            
+
         Returns:
             LLMResponse with assistant response or error.
         """
@@ -471,11 +471,11 @@ class LLMProvider(Protocol):
     ) -> EmbeddingResponse:
         """
         Generate embeddings for texts.
-        
+
         Args:
             texts: List of texts to embed.
             model: Model name for embedding (optional).
-            
+
         Returns:
             EmbeddingResponse with embedding vectors or error.
         """
@@ -484,10 +484,10 @@ class LLMProvider(Protocol):
     async def get_model_info(self, model: str) -> ModelInfo | None:
         """
         Get information about a specific model.
-        
+
         Args:
             model: Model name.
-            
+
         Returns:
             ModelInfo or None if model not found.
         """
@@ -496,7 +496,7 @@ class LLMProvider(Protocol):
     async def list_models(self) -> list[ModelInfo]:
         """
         List all available models.
-        
+
         Returns:
             List of ModelInfo for available models.
         """
@@ -505,7 +505,7 @@ class LLMProvider(Protocol):
     async def get_health(self) -> LLMHealthStatus:
         """
         Get current health status.
-        
+
         Returns:
             LLMHealthStatus indicating provider health.
         """
@@ -514,12 +514,12 @@ class LLMProvider(Protocol):
     async def unload_model(self, model: str | None = None) -> bool:
         """
         Unload a model to free resources.
-        
+
         Per §4.2: LLM processes should be released after task completion.
-        
+
         Args:
             model: Model name to unload (provider-specific default if not specified).
-            
+
         Returns:
             True if unload was successful.
         """
@@ -528,7 +528,7 @@ class LLMProvider(Protocol):
     async def close(self) -> None:
         """
         Close and cleanup provider resources.
-        
+
         Should be called when the provider is no longer needed.
         """
         ...
@@ -537,7 +537,7 @@ class LLMProvider(Protocol):
 class BaseLLMProvider(ABC):
     """
     Abstract base class for LLM providers.
-    
+
     Provides common functionality and enforces the interface contract.
     Subclasses should implement the abstract methods.
     """
@@ -545,7 +545,7 @@ class BaseLLMProvider(ABC):
     def __init__(self, provider_name: str):
         """
         Initialize base provider.
-        
+
         Args:
             provider_name: Unique name for this provider.
         """
@@ -635,20 +635,20 @@ class BaseLLMProvider(ABC):
 class LLMProviderRegistry:
     """
     Registry for LLM providers.
-    
+
     Manages registration, retrieval, and lifecycle of LLM providers.
     Supports multiple providers with fallback selection.
-    
+
     Example usage:
         registry = LLMProviderRegistry()
         registry.register(OllamaProvider())
-        
+
         # Get specific provider
         provider = registry.get("ollama")
-        
+
         # Get default provider
         provider = registry.get_default()
-        
+
         # Generate with fallback
         response = await registry.generate_with_fallback(prompt)
     """
@@ -665,11 +665,11 @@ class LLMProviderRegistry:
     ) -> None:
         """
         Register an LLM provider.
-        
+
         Args:
             provider: Provider instance to register.
             set_default: Whether to set as default provider.
-        
+
         Raises:
             ValueError: If provider with same name already registered.
         """
@@ -692,10 +692,10 @@ class LLMProviderRegistry:
     def unregister(self, name: str) -> LLMProvider | None:
         """
         Unregister a provider by name.
-        
+
         Args:
             name: Provider name to unregister.
-            
+
         Returns:
             The unregistered provider, or None if not found.
         """
@@ -713,10 +713,10 @@ class LLMProviderRegistry:
     def get(self, name: str) -> LLMProvider | None:
         """
         Get a provider by name.
-        
+
         Args:
             name: Provider name.
-            
+
         Returns:
             Provider instance or None if not found.
         """
@@ -725,7 +725,7 @@ class LLMProviderRegistry:
     def get_default(self) -> LLMProvider | None:
         """
         Get the default provider.
-        
+
         Returns:
             Default provider or None if no providers registered.
         """
@@ -736,10 +736,10 @@ class LLMProviderRegistry:
     def set_default(self, name: str) -> None:
         """
         Set the default provider.
-        
+
         Args:
             name: Provider name to set as default.
-            
+
         Raises:
             ValueError: If provider not found.
         """
@@ -752,7 +752,7 @@ class LLMProviderRegistry:
     def list_providers(self) -> list[str]:
         """
         List all registered provider names.
-        
+
         Returns:
             List of provider names.
         """
@@ -761,7 +761,7 @@ class LLMProviderRegistry:
     async def get_all_health(self) -> dict[str, LLMHealthStatus]:
         """
         Get health status for all providers.
-        
+
         Returns:
             Dict mapping provider names to health status.
         """
@@ -782,15 +782,15 @@ class LLMProviderRegistry:
     ) -> LLMResponse:
         """
         Generate with automatic fallback to other providers on failure.
-        
+
         Args:
             prompt: Input prompt.
             options: Generation options.
             provider_order: Order of providers to try.
-            
+
         Returns:
             LLMResponse from first successful provider.
-            
+
         Raises:
             RuntimeError: If no providers available or all fail.
         """
@@ -857,12 +857,12 @@ class LLMProviderRegistry:
     ) -> LLMResponse:
         """
         Chat with automatic fallback to other providers on failure.
-        
+
         Args:
             messages: Chat messages.
             options: Generation options.
             provider_order: Order of providers to try.
-            
+
         Returns:
             LLMResponse from first successful provider.
         """
@@ -930,7 +930,7 @@ _registry: LLMProviderRegistry | None = None
 def get_llm_registry() -> LLMProviderRegistry:
     """
     Get the global LLM provider registry.
-    
+
     Returns:
         The global LLMProviderRegistry instance.
     """
@@ -943,7 +943,7 @@ def get_llm_registry() -> LLMProviderRegistry:
 async def cleanup_llm_registry() -> None:
     """
     Cleanup the global registry.
-    
+
     Closes all providers and resets the registry.
     """
     global _registry
@@ -955,7 +955,7 @@ async def cleanup_llm_registry() -> None:
 def reset_llm_registry() -> None:
     """
     Reset the global registry without closing providers.
-    
+
     For testing purposes only.
     """
     global _registry

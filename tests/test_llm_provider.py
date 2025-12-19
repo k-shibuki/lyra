@@ -462,7 +462,7 @@ class TestOllamaProviderInit:
     def test_default_configuration(self):
         """
         TC-OI-01: OllamaProvider uses proxy URL in hybrid mode.
-        
+
         // Given: Settings with proxy_url configured
         // When: Creating OllamaProvider without explicit host
         // Then: Host is set to proxy_url/ollama
@@ -481,7 +481,7 @@ class TestOllamaProviderInit:
     def test_explicit_configuration(self):
         """
         TC-OI-02: OllamaProvider accepts explicit host/model configuration.
-        
+
         // Given: Explicit host and model arguments
         // When: Creating OllamaProvider with explicit args
         // Then: Explicit values override proxy URL
@@ -497,7 +497,7 @@ class TestOllamaProviderInit:
     def test_provider_name(self):
         """
         TC-OI-03: OllamaProvider has correct provider name.
-        
+
         // Given: OllamaProvider instance
         // When: Accessing name property
         // Then: Returns "ollama"

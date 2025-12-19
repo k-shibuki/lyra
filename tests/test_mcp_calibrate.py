@@ -158,7 +158,7 @@ class TestCalibrateHandler:
     async def test_add_sample_valid(self, mock_calibration_sample_result: dict[str, Any]) -> None:
         """
         TC-N-01: action="add_sample" with valid data.
-        
+
         // Given: Valid sample data (source, prediction, actual)
         // When: Calling calibrate with action="add_sample"
         // Then: Sample is added and ok=True returned
@@ -191,7 +191,7 @@ class TestCalibrateHandler:
     async def test_add_sample_with_logit(self, mock_calibration_sample_result: dict[str, Any]) -> None:
         """
         TC-N-01b: action="add_sample" with optional logit.
-        
+
         // Given: Valid sample data including logit
         // When: Calling calibrate with action="add_sample" and logit
         // Then: Sample is added with logit passed
@@ -223,7 +223,7 @@ class TestCalibrateHandler:
     async def test_get_stats(self, mock_calibration_stats: dict[str, Any]) -> None:
         """
         TC-N-02: action="get_stats".
-        
+
         // Given: Calibration system initialized
         // When: Calling calibrate with action="get_stats"
         // Then: Statistics returned with ok=True
@@ -246,7 +246,7 @@ class TestCalibrateHandler:
     async def test_get_stats_no_data(self, mock_calibration_stats: dict[str, Any]) -> None:
         """
         TC-N-02b: action="get_stats" with no data field.
-        
+
         // Given: Calibration system initialized
         // When: Calling calibrate with action="get_stats" without data
         // Then: Statistics returned (data not required for get_stats)
@@ -267,7 +267,7 @@ class TestCalibrateHandler:
     async def test_evaluate_valid(self, mock_evaluation_result: dict[str, Any]) -> None:
         """
         TC-N-03: action="evaluate" with valid data.
-        
+
         // Given: Valid predictions and labels arrays
         // When: Calling calibrate with action="evaluate"
         // Then: Evaluation saved and results returned
@@ -298,7 +298,7 @@ class TestCalibrateHandler:
     async def test_get_evaluations_valid(self, mock_evaluations_result: dict[str, Any]) -> None:
         """
         TC-N-04: action="get_evaluations".
-        
+
         // Given: Evaluation history exists
         // When: Calling calibrate with action="get_evaluations"
         // Then: Evaluations list returned
@@ -328,7 +328,7 @@ class TestCalibrateHandler:
     async def test_get_evaluations_with_since(self, mock_evaluations_result: dict[str, Any]) -> None:
         """
         TC-N-04b: action="get_evaluations" with since filter.
-        
+
         // Given: Evaluation history exists
         // When: Calling calibrate with action="get_evaluations" and since
         // Then: Filtered evaluations returned
@@ -357,7 +357,7 @@ class TestCalibrateHandler:
     async def test_get_diagram_data_valid(self, mock_diagram_data: dict[str, Any]) -> None:
         """
         TC-N-05: action="get_diagram_data" with valid source.
-        
+
         // Given: Evaluation exists for source
         // When: Calling calibrate with action="get_diagram_data"
         // Then: Diagram data returned
@@ -385,7 +385,7 @@ class TestCalibrateHandler:
     async def test_get_diagram_data_with_evaluation_id(self, mock_diagram_data: dict[str, Any]) -> None:
         """
         TC-N-05b: action="get_diagram_data" with evaluation_id.
-        
+
         // Given: Specific evaluation exists
         // When: Calling calibrate with action="get_diagram_data" and evaluation_id
         // Then: Specific evaluation diagram data returned
@@ -417,7 +417,7 @@ class TestCalibrateHandler:
     async def test_action_none(self) -> None:
         """
         TC-A-01: action=None.
-        
+
         // Given: No action specified
         // When: Calling calibrate without action
         // Then: InvalidParamsError raised
@@ -433,7 +433,7 @@ class TestCalibrateHandler:
     async def test_action_empty(self) -> None:
         """
         TC-A-02: action="" (empty string).
-        
+
         // Given: Empty action string
         // When: Calling calibrate with action=""
         // Then: InvalidParamsError raised
@@ -449,7 +449,7 @@ class TestCalibrateHandler:
     async def test_action_invalid(self) -> None:
         """
         TC-A-03: action="invalid_action".
-        
+
         // Given: Invalid action name
         // When: Calling calibrate with unknown action
         // Then: ok=False with error=INVALID_PARAMS
@@ -468,7 +468,7 @@ class TestCalibrateHandler:
     async def test_add_sample_source_none(self) -> None:
         """
         TC-A-04: add_sample: source=None.
-        
+
         // Given: add_sample action without source
         // When: Calling calibrate
         // Then: ok=False with error=INVALID_PARAMS
@@ -491,7 +491,7 @@ class TestCalibrateHandler:
     async def test_add_sample_prediction_none(self) -> None:
         """
         TC-A-05: add_sample: prediction=None.
-        
+
         // Given: add_sample action without prediction
         // When: Calling calibrate
         // Then: ok=False with error=INVALID_PARAMS
@@ -514,7 +514,7 @@ class TestCalibrateHandler:
     async def test_add_sample_actual_none(self) -> None:
         """
         TC-A-06: add_sample: actual=None.
-        
+
         // Given: add_sample action without actual
         // When: Calling calibrate
         // Then: ok=False with error=INVALID_PARAMS
@@ -537,7 +537,7 @@ class TestCalibrateHandler:
     async def test_evaluate_source_none(self) -> None:
         """
         TC-A-07: evaluate: source=None.
-        
+
         // Given: evaluate action without source
         // When: Calling calibrate
         // Then: ok=False with error=INVALID_PARAMS
@@ -560,7 +560,7 @@ class TestCalibrateHandler:
     async def test_evaluate_predictions_none(self) -> None:
         """
         TC-A-08: evaluate: predictions=None.
-        
+
         // Given: evaluate action without predictions
         // When: Calling calibrate
         // Then: ok=False with error=INVALID_PARAMS
@@ -583,7 +583,7 @@ class TestCalibrateHandler:
     async def test_evaluate_labels_none(self) -> None:
         """
         TC-A-09: evaluate: labels=None.
-        
+
         // Given: evaluate action without labels
         // When: Calling calibrate
         // Then: ok=False with error=INVALID_PARAMS
@@ -606,7 +606,7 @@ class TestCalibrateHandler:
     async def test_get_diagram_data_source_none(self) -> None:
         """
         TC-A-10: get_diagram_data: source=None.
-        
+
         // Given: get_diagram_data action without source
         // When: Calling calibrate
         // Then: ok=False with error=INVALID_PARAMS
@@ -630,7 +630,7 @@ class TestCalibrateHandler:
     async def test_add_sample_prediction_zero(self, mock_calibration_sample_result: dict[str, Any]) -> None:
         """
         TC-B-01: add_sample: prediction=0.0 (minimum).
-        
+
         // Given: Prediction at minimum value (0.0)
         // When: Calling calibrate with action="add_sample"
         // Then: Sample is added successfully
@@ -661,7 +661,7 @@ class TestCalibrateHandler:
     async def test_add_sample_prediction_one(self, mock_calibration_sample_result: dict[str, Any]) -> None:
         """
         TC-B-02: add_sample: prediction=1.0 (maximum).
-        
+
         // Given: Prediction at maximum value (1.0)
         // When: Calling calibrate with action="add_sample"
         // Then: Sample is added successfully
@@ -692,7 +692,7 @@ class TestCalibrateHandler:
     async def test_add_sample_actual_zero(self, mock_calibration_sample_result: dict[str, Any]) -> None:
         """
         TC-B-03: add_sample: actual=0 (minimum label).
-        
+
         // Given: Actual label at minimum (0)
         // When: Calling calibrate with action="add_sample"
         // Then: Sample is added successfully
@@ -723,7 +723,7 @@ class TestCalibrateHandler:
     async def test_add_sample_actual_one(self, mock_calibration_sample_result: dict[str, Any]) -> None:
         """
         TC-B-04: add_sample: actual=1 (maximum label).
-        
+
         // Given: Actual label at maximum (1)
         // When: Calling calibrate with action="add_sample"
         // Then: Sample is added successfully
@@ -754,7 +754,7 @@ class TestCalibrateHandler:
     async def test_get_evaluations_limit_zero(self) -> None:
         """
         TC-B-05: get_evaluations: limit=0.
-        
+
         // Given: limit set to zero
         // When: Calling calibrate with action="get_evaluations"
         // Then: Empty list returned
@@ -791,7 +791,7 @@ class TestCalibrateActionDirectly:
     async def test_calibrate_action_exception_handling(self) -> None:
         """
         TC-E-01: Exception during action execution.
-        
+
         // Given: Internal function raises exception
         // When: Calling calibrate_action
         // Then: ok=False with error=INTERNAL_ERROR
@@ -811,7 +811,7 @@ class TestCalibrateActionDirectly:
     async def test_calibrate_action_data_none(self) -> None:
         """
         TC-E-02: data=None passed to calibrate_action.
-        
+
         // Given: data is None
         // When: Calling calibrate_action
         // Then: Handled gracefully (uses empty dict)

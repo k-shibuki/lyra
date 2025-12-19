@@ -74,7 +74,7 @@ class TestNormalCases:
     def test_create_task_response_passes_through(self, sanitizer):
         """
         TC-N-01: Valid create_task response
-        
+
         // Given: A valid create_task response with all required fields
         // When: Sanitizing the response
         // Then: All fields pass through unchanged
@@ -99,7 +99,7 @@ class TestNormalCases:
     def test_get_status_response_passes_through(self, sanitizer):
         """
         TC-N-02: Valid get_status response
-        
+
         // Given: A valid get_status response
         // When: Sanitizing the response
         // Then: All schema-compliant fields pass through
@@ -150,7 +150,7 @@ class TestNormalCases:
     def test_search_response_with_claims(self, sanitizer):
         """
         TC-N-03: Valid search response with claims
-        
+
         // Given: A search response containing LLM-extracted claims
         // When: Sanitizing the response
         // Then: Claims text passes through L4 validation
@@ -185,7 +185,7 @@ class TestNormalCases:
     def test_error_response_format(self, sanitizer):
         """
         TC-N-04: Valid error response
-        
+
         // Given: A valid error response
         // When: Sanitizing the response
         // Then: Error format is preserved
@@ -205,7 +205,7 @@ class TestNormalCases:
     def test_calibrate_one_of_schema_matching(self, sanitizer):
         """
         TC-N-05: oneOf schema (calibrate) matches correct variant
-        
+
         // Given: A calibrate response with action="add_sample"
         // When: Sanitizing the response
         // Then: Matches the add_sample variant schema
@@ -235,7 +235,7 @@ class TestAbnormalCases:
     def test_unknown_field_removed(self, sanitizer):
         """
         TC-A-01: Unknown field in response
-        
+
         // Given: A response with fields not in schema
         // When: Sanitizing the response
         // Then: Unknown fields are removed
@@ -263,7 +263,7 @@ class TestAbnormalCases:
     def test_llm_field_with_url_detected(self, sanitizer):
         """
         TC-A-02: LLM field with URL
-        
+
         // Given: A response with URL in LLM-generated text field
         // When: Sanitizing the response
         // Then: URL is detected and logged as suspicious
@@ -293,7 +293,7 @@ class TestAbnormalCases:
     def test_llm_field_with_prompt_leakage_masked(self, sanitizer_with_prompt):
         """
         TC-A-03: LLM field with prompt fragment
-        
+
         // Given: A response with system prompt fragment in LLM text
         // When: Sanitizing the response
         // Then: Fragment is masked with [REDACTED]
@@ -322,7 +322,7 @@ class TestAbnormalCases:
     def test_error_with_stack_trace_sanitized(self, sanitizer):
         """
         TC-A-04: Error with stack trace
-        
+
         // Given: An exception with stack trace
         // When: Sanitizing as error response
         // Then: Stack trace is removed
@@ -340,7 +340,7 @@ class TestAbnormalCases:
     def test_error_with_file_path_sanitized(self, sanitizer):
         """
         TC-A-05: Error with file path
-        
+
         // Given: An exception containing file paths
         // When: Sanitizing as error response
         // Then: Paths are removed
@@ -358,7 +358,7 @@ class TestAbnormalCases:
     def test_tool_without_schema_passes_through(self, sanitizer):
         """
         TC-A-06: Tool without schema
-        
+
         // Given: A response for a tool with no schema defined
         // When: Sanitizing the response
         // Then: Warning is logged, response passes through
@@ -378,7 +378,7 @@ class TestAbnormalCases:
     def test_empty_response(self, sanitizer):
         """
         TC-A-07: Empty response
-        
+
         // Given: An empty response dict
         // When: Sanitizing the response
         // Then: Empty object is returned
@@ -393,7 +393,7 @@ class TestAbnormalCases:
     def test_null_field_value_preserved(self, sanitizer):
         """
         TC-A-08: Field with NULL value
-        
+
         // Given: A response with None/null field value
         // When: Sanitizing the response
         // Then: NULL value is preserved
@@ -438,7 +438,7 @@ class TestBoundaryCases:
     def test_nested_objects_sanitized(self, sanitizer):
         """
         TC-B-01: Nested objects
-        
+
         // Given: A response with deeply nested objects
         // When: Sanitizing the response
         // Then: Nested objects are recursively sanitized
@@ -464,7 +464,7 @@ class TestBoundaryCases:
     def test_large_array_processed(self, sanitizer):
         """
         TC-B-02: Large array (100 elements)
-        
+
         // Given: A response with 100 search items
         // When: Sanitizing the response
         // Then: All elements are processed
@@ -515,7 +515,7 @@ class TestBoundaryCases:
     def test_long_text_processed(self, sanitizer):
         """
         TC-B-03: Long text (10000 chars)
-        
+
         // Given: A claim with very long text
         // When: Sanitizing the response
         // Then: Text is processed normally
@@ -680,7 +680,7 @@ class TestIntegration:
     async def test_sanitizer_integration_with_mcp_flow(self):
         """
         Test sanitizer works in MCP call flow.
-        
+
         // Given: A simulated MCP tool response
         // When: Processing through sanitization layer
         // Then: Response is properly sanitized
@@ -716,7 +716,7 @@ class TestSecurityCases:
     def test_injection_attempt_in_error(self, sanitizer):
         """
         Test that injection attempts in errors are sanitized.
-        
+
         // Given: An error message with injection attempt
         // When: Sanitizing as error
         // Then: Injection content is neutralized
@@ -735,7 +735,7 @@ class TestSecurityCases:
     def test_nested_unknown_fields_all_removed(self, sanitizer):
         """
         Test that deeply nested unknown fields are removed.
-        
+
         // Given: Response with deeply nested unknown fields
         // When: Sanitizing
         // Then: All unknown fields at all levels are removed
@@ -786,11 +786,11 @@ class TestSecurityCases:
     def test_nested_query_field_sanitized(self, sanitizer_with_prompt):
         """
         TC-S-01: Nested query fields in searches array are sanitized.
-        
+
         // Given: A response with query fields containing prompt fragments
         // When: Sanitizing the response
         // Then: Query fields are processed through L4 validation
-        
+
         This test verifies the fix for the regression where LLM_NESTED_PATHS
         processing was removed, causing searches[*].query to skip sanitization.
         """
@@ -840,7 +840,7 @@ class TestSecurityCases:
     def test_query_field_in_llm_content_fields(self):
         """
         TC-S-02: Verify query is in LLM_CONTENT_FIELDS.
-        
+
         // Given: The LLM_CONTENT_FIELDS constant
         // When: Checking for "query"
         // Then: "query" should be present for defensive sanitization

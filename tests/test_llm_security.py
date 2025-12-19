@@ -726,7 +726,7 @@ class TestDetectPromptLeakage:
 
     def test_json_structure_leakage_with_single_braces(self):
         """TC-N-06: JSON structure patterns with single braces are detected.
-        
+
         Regression test: Instruction templates must use single braces (not double)
         so that JSON structures like '{"fact":' can be matched in LLM output.
         Double braces '{{' would NOT match single braces '{' in n-gram detection.
@@ -747,10 +747,10 @@ class TestDetectPromptLeakage:
 
     def test_json_structure_leakage_detection_realistic(self):
         """TC-N-07: Realistic JSON template leakage from TASK_INSTRUCTIONS.
-        
+
         Verifies that the actual instruction templates (used for leakage detection
         in llm_extract) can detect JSON patterns in LLM output.
-        
+
         Important: This test specifically verifies that the JSON pattern itself
         (with single braces) is detected, not just the Japanese instruction text.
         If EXTRACT_FACTS_INSTRUCTION accidentally uses double braces {{}}, the JSON
@@ -800,7 +800,7 @@ class TestDetectPromptLeakage:
 
     def test_json_pattern_only_leakage_detection(self):
         """TC-N-08: JSON pattern only (no Japanese text) should be detected.
-        
+
         This test ensures that the JSON structure itself is matched,
         not just relying on Japanese instruction text for detection.
         If EXTRACT_FACTS_INSTRUCTION uses double braces, this test will fail.
@@ -825,7 +825,7 @@ class TestDetectPromptLeakage:
 
     def test_single_braces_do_match_json_opening(self):
         """TC-A-05: Single braces in template correctly match JSON output.
-        
+
         Complementary test to TC-A-04: with single braces, detection works.
         """
         # Given: Template with SINGLE braces (correct)

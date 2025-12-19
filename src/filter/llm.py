@@ -43,10 +43,10 @@ audit_logger = get_audit_logger()
 class OllamaClient:
     """
     Legacy compatibility wrapper for OllamaProvider.
-    
+
     Per §4.2, LLM processes should be released after task completion.
     This client wraps the OllamaProvider to maintain backward compatibility.
-    
+
     Deprecated: Use LLMProvider directly for new code.
     """
 
@@ -188,7 +188,7 @@ async def _cleanup_client() -> None:
 async def cleanup_llm_for_task(task_id: str | None = None) -> None:
     """
     Cleanup LLM resources after task completion.
-    
+
     Per §4.2: LLM processes should be released after task completion.
     """
     global _client
@@ -212,12 +212,12 @@ def set_llm_task_id(task_id: str | None) -> None:
 def _get_provider() -> LLMProvider:
     """
     Get the default LLM provider.
-    
+
     Initializes the registry with Ollama provider if not already done.
-    
+
     Returns:
         The default LLM provider.
-        
+
     Raises:
         RuntimeError: If no provider is available.
     """
@@ -245,7 +245,7 @@ async def generate_with_provider(
 ) -> str:
     """
     Generate text using the LLM provider abstraction.
-    
+
     Args:
         prompt: Input prompt.
         model: Model name (uses provider default if not specified).
@@ -253,10 +253,10 @@ async def generate_with_provider(
         temperature: Generation temperature.
         max_tokens: Maximum tokens to generate.
         provider_name: Specific provider to use (default provider if not specified).
-        
+
     Returns:
         Generated text.
-        
+
     Raises:
         RuntimeError: If generation fails.
     """
@@ -293,13 +293,13 @@ async def chat_with_provider(
 ) -> str:
     """
     Chat completion using the LLM provider abstraction.
-    
+
     Args:
         messages: List of message dicts with 'role' and 'content'.
         model: Model name.
         temperature: Generation temperature.
         provider_name: Specific provider to use.
-        
+
     Returns:
         Assistant response.
     """
@@ -379,16 +379,16 @@ async def llm_extract(
 ) -> dict[str, Any]:
     """
     Extract information using LLM.
-    
+
     Args:
         passages: List of passage dicts with 'id' and 'text'.
         task: Task type (extract_facts, extract_claims, summarize, translate).
         context: Additional context (e.g., research question).
         use_provider: Whether to use the new provider API (default: True).
-        
+
     Returns:
         Extraction result.
-    
+
     Note:
         Per §K.1: Single 3B model is used for all LLM tasks.
     """
@@ -634,7 +634,7 @@ async def llm_extract(
 async def cleanup_all_providers() -> None:
     """
     Cleanup all LLM providers and the global registry.
-    
+
     Should be called during application shutdown.
     """
     # Cleanup legacy client
@@ -648,7 +648,7 @@ async def cleanup_all_providers() -> None:
 def reset_for_testing() -> None:
     """
     Reset module state for testing.
-    
+
     For testing purposes only.
     """
     global _client

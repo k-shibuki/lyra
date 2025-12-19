@@ -19,13 +19,13 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class BackoffConfig:
     """Configuration for exponential backoff calculation.
-    
+
     Per §4.3.5:
     - base_delay: Starting delay in seconds (default: 1.0)
     - max_delay: Maximum delay cap in seconds (default: 60.0)
     - exponential_base: Base for exponential calculation (default: 2.0)
     - jitter_factor: Random variation factor ±10% (default: 0.1)
-    
+
     Example:
         >>> config = BackoffConfig(base_delay=2.0, max_delay=120.0)
     """
@@ -56,18 +56,18 @@ def calculate_backoff(
     add_jitter: bool = True,
 ) -> float:
     """Calculate delay with exponential backoff and optional jitter.
-    
+
     Per §4.3.5: delay = min(base_delay * (2 ^ attempt), max_delay)
     With jitter: ±jitter_factor random variation
-    
+
     Args:
         attempt: Attempt number (0-indexed, 0 = first retry)
         config: Backoff configuration (default: BackoffConfig())
         add_jitter: Whether to add random jitter (default: True)
-    
+
     Returns:
         Delay in seconds
-    
+
     Example:
         >>> calculate_backoff(0)  # First retry: ~1s (base)
         1.05  # with jitter
@@ -77,7 +77,7 @@ def calculate_backoff(
         3.9   # with jitter
         >>> calculate_backoff(10)  # Capped at max_delay
         58.5  # ~60s with jitter
-    
+
     Note:
         The jitter helps prevent "thundering herd" problems where
         many clients retry simultaneously after a shared failure.
@@ -110,25 +110,25 @@ def calculate_cooldown_minutes(
     max_minutes: int = 120,
 ) -> int:
     """Calculate cooldown duration for circuit breaker / domain policy.
-    
+
     Per §4.3.5: cooldown = min(base_minutes * (2 ^ (failures // 3)), max_minutes)
     Per §4.3: "クールダウン≥30分"
     Per §3.1.4: "自動無効化: TTL（30〜120分）"
-    
+
     The formula groups failures into tiers of 3, doubling cooldown each tier:
     - 0-2 failures: base_minutes (30 min default)
     - 3-5 failures: base_minutes * 2 (60 min)
     - 6-8 failures: base_minutes * 4 (120 min, capped)
     - 9+ failures: max_minutes (120 min)
-    
+
     Args:
         failure_count: Number of failures (can be consecutive or total in window)
         base_minutes: Minimum cooldown (default: 30 per §4.3)
         max_minutes: Maximum cooldown (default: 120 per §3.1.4)
-    
+
     Returns:
         Cooldown duration in minutes
-    
+
     Example:
         >>> calculate_cooldown_minutes(0)  # No failures yet
         30
@@ -163,16 +163,16 @@ def calculate_total_delay(
     config: BackoffConfig | None = None,
 ) -> float:
     """Calculate total delay for all retry attempts (worst case).
-    
+
     Useful for estimating timeout budgets.
-    
+
     Args:
         max_retries: Maximum number of retry attempts
         config: Backoff configuration
-    
+
     Returns:
         Total delay in seconds (without jitter)
-    
+
     Example:
         >>> calculate_total_delay(3)  # 1 + 2 + 4 = 7 seconds
         7.0

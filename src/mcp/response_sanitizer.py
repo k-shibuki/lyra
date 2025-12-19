@@ -116,12 +116,12 @@ class SanitizationResult:
 class ResponseSanitizer:
     """
     Sanitizes MCP responses before they reach Cursor AI.
-    
+
     Implements L7 per §4.4.1:
     - Allowlist-based field filtering using JSON schemas
     - L4 validation for LLM-generated content
     - Error response sanitization
-    
+
     Example:
         sanitizer = ResponseSanitizer()
         result = sanitizer.sanitize_response(response, "search")
@@ -131,7 +131,7 @@ class ResponseSanitizer:
     def __init__(self, system_prompt: str | None = None):
         """
         Initialize sanitizer.
-        
+
         Args:
             system_prompt: System prompt for L4 leakage detection (optional).
         """
@@ -145,15 +145,15 @@ class ResponseSanitizer:
     ) -> SanitizationResult:
         """
         Sanitize an MCP response.
-        
+
         Applies:
         1. Schema-based field filtering (allowlist)
         2. LLM content field sanitization (L4)
-        
+
         Args:
             response: Raw response from handler.
             tool_name: Tool name for schema lookup.
-            
+
         Returns:
             SanitizationResult with sanitized response.
         """
@@ -208,16 +208,16 @@ class ResponseSanitizer:
     ) -> dict[str, Any]:
         """
         Sanitize an error into a safe response.
-        
+
         Removes:
         - Stack traces
         - Internal file paths
         - Sensitive details
-        
+
         Args:
             error: Exception to sanitize.
             error_id: Error ID for log reference (generated if not provided).
-            
+
         Returns:
             Safe error response dict.
         """
@@ -250,11 +250,11 @@ class ResponseSanitizer:
     ) -> tuple[dict[str, Any], int]:
         """
         Strip fields not defined in schema (allowlist approach).
-        
+
         Args:
             obj: Object to filter.
             schema: JSON schema defining allowed fields.
-            
+
         Returns:
             Tuple of (filtered object, count of removed fields).
         """
@@ -326,7 +326,7 @@ class ResponseSanitizer:
     ) -> dict[str, Any] | None:
         """
         Match object against oneOf schema variants.
-        
+
         Returns the best matching variant based on required fields.
         """
         for variant in variants:
@@ -355,14 +355,14 @@ class ResponseSanitizer:
     ) -> tuple[dict[str, Any], dict[str, int]]:
         """
         Sanitize fields containing LLM-generated content.
-        
+
         Applies L4 validation (prompt leakage detection, URL detection).
         Uses recursive processing to handle all nested structures uniformly,
         avoiding duplicate processing of top-level and nested fields.
-        
+
         Args:
             obj: Object with potential LLM content.
-            
+
         Returns:
             Tuple of (sanitized object, stats dict).
         """
@@ -401,10 +401,10 @@ class ResponseSanitizer:
     def _validate_llm_content(self, text: str) -> tuple[str, bool]:
         """
         Validate LLM content using L4 security.
-        
+
         Args:
             text: Text to validate.
-            
+
         Returns:
             Tuple of (validated text, whether issues were found).
         """
@@ -427,10 +427,10 @@ class ResponseSanitizer:
     def _sanitize_error_message(self, message: str) -> str:
         """
         Remove sensitive information from error message.
-        
+
         Args:
             message: Raw error message.
-            
+
         Returns:
             Sanitized message.
         """
@@ -487,10 +487,10 @@ _default_sanitizer: ResponseSanitizer | None = None
 def get_sanitizer(system_prompt: str | None = None) -> ResponseSanitizer:
     """
     Get or create the default sanitizer instance.
-    
+
     Args:
         system_prompt: System prompt for L4 detection (optional).
-        
+
     Returns:
         ResponseSanitizer instance.
     """
@@ -509,12 +509,12 @@ def sanitize_response(
 ) -> dict[str, Any]:
     """
     Convenience function to sanitize a response.
-    
+
     Args:
         response: Raw response from handler.
         tool_name: Tool name for schema lookup.
         system_prompt: System prompt for L4 detection (optional).
-        
+
     Returns:
         Sanitized response dict.
     """
@@ -529,11 +529,11 @@ def sanitize_error(
 ) -> dict[str, Any]:
     """
     Convenience function to sanitize an error.
-    
+
     Args:
         error: Exception to sanitize.
         error_id: Error ID for log reference.
-        
+
     Returns:
         Safe error response dict.
     """

@@ -97,7 +97,7 @@ def reset_registry():
 
 class MockBrowserProvider(BaseBrowserProvider):
     """Mock browser provider for testing.
-    
+
     Simulates browser behavior without actual browser dependency.
     """
 
@@ -803,7 +803,7 @@ class TestPlaywrightProviderMocked:
     @pytest.mark.asyncio
     async def test_playwright_provider_health_returns_healthy_when_not_closed(self):
         """PlaywrightProvider.get_health() returns HEALTHY when provider is not closed.
-        
+
         The health check does not require Playwright to be initialized - it only
         checks if the provider is closed and if imports would succeed.
         """

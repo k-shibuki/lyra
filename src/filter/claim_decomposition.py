@@ -59,7 +59,7 @@ class ClaimType(str, Enum):
 class AtomicClaim:
     """
     An atomic claim extracted from a research question.
-    
+
     Per §3.3.1: Schema: claim_id, text, expected_polarity, granularity
     """
 
@@ -134,11 +134,11 @@ class DecompositionResult:
 class ClaimDecomposer:
     """
     Decomposes research questions into atomic claims.
-    
+
     Per §3.3.1: Question-to-Claim Decomposition
     - Decompose high-level questions into atomic claims
     - LLM or rule-based decomposition logic
-    
+
     Per §2.1.4: Permitted uses of local LLM
     - Fact/claim extraction from fragments is allowed
     """
@@ -146,7 +146,7 @@ class ClaimDecomposer:
     def __init__(self, use_llm: bool = True):
         """
         Initialize claim decomposer.
-        
+
         Args:
             use_llm: Whether to use LLM for decomposition.
                      If False, uses rule-based decomposition.
@@ -160,13 +160,13 @@ class ClaimDecomposer:
     ) -> DecompositionResult:
         """
         Decompose a research question into atomic claims.
-        
+
         Args:
             question: The research question to decompose.
-            
+
         Returns:
             DecompositionResult containing atomic claims.
-        
+
         Note:
             Per §K.1: Single 3B model is used for all LLM tasks.
         """
@@ -203,7 +203,7 @@ class ClaimDecomposer:
         question: str,
     ) -> DecompositionResult:
         """Decompose using LLM.
-        
+
         Note:
             Per §K.1: Single 3B model is used for all LLM tasks.
         """
@@ -299,7 +299,7 @@ class ClaimDecomposer:
     def _decompose_with_rules(self, question: str) -> DecompositionResult:
         """
         Decompose using rule-based approach.
-        
+
         This is a fallback when LLM is not available or fails.
         Uses pattern matching and linguistic heuristics.
         """
@@ -531,14 +531,14 @@ async def decompose_question(
 ) -> DecompositionResult:
     """
     Convenience function to decompose a research question.
-    
+
     Args:
         question: The research question to decompose.
         use_llm: Whether to use LLM (True) or rule-based (False).
-        
+
     Returns:
         DecompositionResult containing atomic claims.
-    
+
     Note:
         Per §K.1: Single 3B model is used for all LLM tasks.
     """

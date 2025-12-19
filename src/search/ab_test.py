@@ -96,7 +96,7 @@ class HighYieldPattern:
 class QueryVariantGenerator:
     """
     Generate query variants for A/B testing.
-    
+
     Implements three types of variations:
     1. Notation: Kanji↔Hiragana, long vowels, etc.
     2. Particle: Japanese particle substitutions
@@ -188,11 +188,11 @@ class QueryVariantGenerator:
     def generate_notation_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
         Generate notation variants.
-        
+
         Args:
             query: Original query.
             max_variants: Maximum number of variants to generate.
-            
+
         Returns:
             List of notation variants.
         """
@@ -218,11 +218,11 @@ class QueryVariantGenerator:
     def generate_particle_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
         Generate particle variants.
-        
+
         Args:
             query: Original query.
             max_variants: Maximum number of variants to generate.
-            
+
         Returns:
             List of particle variants.
         """
@@ -246,11 +246,11 @@ class QueryVariantGenerator:
     def generate_order_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
         Generate word order variants.
-        
+
         Args:
             query: Original query.
             max_variants: Maximum number of variants to generate.
-            
+
         Returns:
             List of order variants.
         """
@@ -316,12 +316,12 @@ class QueryVariantGenerator:
     ) -> list[QueryVariant]:
         """
         Generate all types of variants.
-        
+
         Args:
             query: Original query.
             max_per_type: Maximum variants per type.
             max_total: Maximum total variants (excluding original).
-            
+
         Returns:
             List of all variants (including original).
         """
@@ -363,7 +363,7 @@ class QueryVariantGenerator:
 class ABTestExecutor:
     """
     Execute A/B tests for query variants.
-    
+
     Runs multiple query variants, measures harvest rates,
     and identifies the best-performing variant.
     """
@@ -383,7 +383,7 @@ class ABTestExecutor:
     ) -> ABTestSession:
         """
         Run an A/B test on query variants.
-        
+
         Args:
             task_id: Task ID for tracking.
             base_query: Original query to test.
@@ -391,7 +391,7 @@ class ABTestExecutor:
             limit: Results limit per query.
             time_range: Time range filter.
             max_variants: Maximum variants to test (including original).
-            
+
         Returns:
             ABTestSession with results.
         """
@@ -631,7 +631,7 @@ class ABTestExecutor:
 class HighYieldQueryCache:
     """
     Cache and retrieve high-yield query patterns.
-    
+
     Implements §3.1.1: Cache and reuse high-yield queries.
     """
 
@@ -642,11 +642,11 @@ class HighYieldQueryCache:
     ) -> str | None:
         """
         Get an improved version of a query based on cached patterns.
-        
+
         Args:
             query: Original query.
             min_confidence: Minimum confidence threshold.
-            
+
         Returns:
             Improved query or None if no suitable pattern found.
         """
@@ -774,16 +774,16 @@ async def run_query_ab_test(
 ) -> ABTestSession:
     """
     Run an A/B test on a query.
-    
+
     Convenience function for running A/B tests.
-    
+
     Args:
         task_id: Task ID.
         query: Query to test.
         engines: Search engines.
         limit: Results limit.
         max_variants: Max variants.
-        
+
     Returns:
         ABTestSession with results.
     """
@@ -800,10 +800,10 @@ async def run_query_ab_test(
 async def get_optimized_query(query: str) -> str:
     """
     Get an optimized version of a query using cached patterns.
-    
+
     Args:
         query: Original query.
-        
+
     Returns:
         Optimized query (or original if no optimization found).
     """
@@ -815,11 +815,11 @@ async def get_optimized_query(query: str) -> str:
 def generate_query_variants(query: str, max_variants: int = 5) -> list[QueryVariant]:
     """
     Generate query variants for testing.
-    
+
     Args:
         query: Original query.
         max_variants: Maximum variants.
-        
+
     Returns:
         List of variants.
     """

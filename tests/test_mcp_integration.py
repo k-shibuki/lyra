@@ -30,7 +30,7 @@ class TestGetStatusIntegration:
     @pytest.fixture
     async def setup_task_with_search_data(self, memory_database) -> dict[str, Any]:
         """Create a task with search/exploration data.
-        
+
         Returns dict with task_id, search_id, page_count, fragment_count.
         """
         db = memory_database
@@ -90,7 +90,7 @@ class TestGetStatusIntegration:
     ) -> None:
         """
         TC-I-01: get_status returns task and search information.
-        
+
         // Given: Task exists with search data in database
         // When: Calling get_status
         // Then: Returns task info with searches, metrics, budget
@@ -120,7 +120,7 @@ class TestGetStatusIntegration:
     ) -> None:
         """
         TC-I-03: Task with no exploration data returns empty searches.
-        
+
         // Given: Task exists but no exploration started
         // When: Calling get_status
         // Then: Returns minimal status with empty searches
@@ -154,7 +154,7 @@ class TestGetMaterialsIntegration:
     @pytest.fixture
     async def setup_task_with_claims(self, memory_database) -> dict[str, Any]:
         """Create a task with claims, fragments, and edges.
-        
+
         Returns dict with task_id and expected counts.
         """
         db = memory_database
@@ -227,7 +227,7 @@ class TestGetMaterialsIntegration:
     ) -> None:
         """
         TC-I-02: get_materials returns claims and fragments from DB.
-        
+
         // Given: Task with claims and fragments in database
         // When: Calling get_materials_action
         // Then: Returns claims, fragments, summary
@@ -259,7 +259,7 @@ class TestGetMaterialsIntegration:
     async def test_get_materials_empty_task(self, memory_database) -> None:
         """
         TC-I-04: Task with 0 claims/fragments returns empty lists.
-        
+
         // Given: Task exists but has no claims/fragments
         // When: Calling get_materials_action
         // Then: Returns empty claims and fragments lists
@@ -290,7 +290,7 @@ class TestGetMaterialsIntegration:
     ) -> None:
         """
         TC-I-05: get_materials with include_graph=True includes evidence_graph.
-        
+
         // Given: Task with claims, fragments, and edges
         // When: Calling get_materials_action with include_graph=True
         // Then: Response includes evidence_graph structure (nodes and edges keys)
@@ -393,7 +393,7 @@ class TestMCPToolDataConsistency:
     ) -> None:
         """
         Test that get_status and get_materials return consistent data.
-        
+
         // Given: Complete exploration with search, claims, fragments
         // When: Calling both get_status and get_materials
         // Then: Data is consistent (same task_id, related counts)

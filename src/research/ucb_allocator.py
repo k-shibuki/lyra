@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class SearchArm:
     """
     Represents a search as a bandit arm.
-    
+
     Tracks exploration history and calculates UCB1 scores.
     """
 
@@ -52,7 +52,7 @@ class SearchArm:
     def record_observation(self, is_useful: bool) -> None:
         """
         Record an observation (page fetch).
-        
+
         Args:
             is_useful: Whether the fetch yielded useful fragments.
         """
@@ -86,36 +86,36 @@ SubqueryArm = SearchArm
 class UCBAllocator:
     """
     UCB1-based dynamic budget allocator for searches.
-    
+
     Implements the UCB1 algorithm to balance exploration (trying new searches)
     and exploitation (focusing on high-yield searches).
-    
+
     UCB1 formula:
         score = average_reward + C * sqrt(ln(total_pulls) / pulls)
-    
+
     Where:
         - average_reward = useful_fragments / pages_fetched
         - C = exploration constant (default: sqrt(2) ≈ 1.41)
         - total_pulls = total pages fetched across all searches
         - pulls = pages fetched for this specific search
-    
+
     Budget is allocated proportionally to UCB1 scores, with constraints:
         - Minimum budget per search (prevents starvation)
         - Maximum budget per search (prevents monopolization)
         - Priority boost for high-priority searches
-    
+
     Example usage:
         allocator = UCBAllocator(total_budget=120)
         allocator.register_search("s_001", priority="high")
         allocator.register_search("s_002", priority="medium")
-        
+
         # Get initial allocation
         budget = allocator.get_budget("s_001")
-        
+
         # Record observations
         allocator.record_observation("s_001", is_useful=True)
         allocator.record_observation("s_001", is_useful=False)
-        
+
         # Get reallocated budget
         new_budget = allocator.reallocate_and_get_budget("s_001")
     """
@@ -132,7 +132,7 @@ class UCBAllocator:
     ):
         """
         Initialize the UCB allocator.
-        
+
         Args:
             total_budget: Total page budget for the task (§3.1: ≤120/task).
             exploration_constant: UCB1 exploration constant C. Default: sqrt(2).
@@ -174,12 +174,12 @@ class UCBAllocator:
     ) -> SearchArm:
         """
         Register a new search arm.
-        
+
         Args:
             search_id: Unique identifier for the search.
             priority: Priority level (high/medium/low).
             initial_budget: Optional initial budget allocation.
-            
+
         Returns:
             The created SearchArm.
         """
@@ -232,7 +232,7 @@ class UCBAllocator:
     ) -> None:
         """
         Record an observation for a search.
-        
+
         Args:
             search_id: The search ID.
             is_useful: Whether the fetch yielded useful fragments.
@@ -249,14 +249,14 @@ class UCBAllocator:
     def calculate_ucb_score(self, search_id: str) -> float:
         """
         Calculate UCB1 score for a search.
-        
+
         UCB1 = average_reward + C * sqrt(ln(total_pulls) / pulls) * priority_boost
-        
+
         For unplayed arms, returns infinity to encourage exploration.
-        
+
         Args:
             search_id: The search ID.
-            
+
         Returns:
             UCB1 score.
         """
@@ -285,7 +285,7 @@ class UCBAllocator:
     def get_all_ucb_scores(self) -> dict[str, float]:
         """
         Get UCB1 scores for all searches.
-        
+
         Returns:
             Dictionary mapping search_id to UCB1 score.
         """
@@ -301,13 +301,13 @@ class UCBAllocator:
     def get_budget(self, search_id: str) -> int:
         """
         Get current allocated budget for a search.
-        
+
         For unplayed arms (pulls=0) with no allocated budget, returns
         min_budget_per_search to enable initial exploration.
-        
+
         Args:
             search_id: The search ID.
-            
+
         Returns:
             Currently allocated budget (pages).
         """
@@ -326,12 +326,12 @@ class UCBAllocator:
     def reallocate_budget(self) -> dict[str, int]:
         """
         Reallocate budget based on UCB1 scores.
-        
+
         Budget is allocated proportionally to UCB1 scores, subject to:
         - Minimum budget per search
         - Maximum budget per search
         - Remaining total budget
-        
+
         Returns:
             Dictionary mapping search_id to new allocated budget.
         """
@@ -425,11 +425,11 @@ class UCBAllocator:
     def should_reallocate(self) -> bool:
         """
         Check if budget reallocation is needed.
-        
+
         Reallocation is triggered:
         - Every `reallocation_interval` pulls
         - When a played search exhausts its budget (not unplayed arms)
-        
+
         Returns:
             True if reallocation is recommended.
         """
@@ -449,12 +449,12 @@ class UCBAllocator:
     def reallocate_and_get_budget(self, search_id: str) -> int:
         """
         Optionally reallocate and return budget for a search.
-        
+
         Performs reallocation if `should_reallocate()` returns True.
-        
+
         Args:
             search_id: The search ID.
-            
+
         Returns:
             Available budget for the search.
         """
@@ -466,9 +466,9 @@ class UCBAllocator:
     def get_recommended_search(self) -> str | None:
         """
         Get the search with highest UCB score.
-        
+
         Useful for deciding which search to execute next.
-        
+
         Returns:
             Search ID with highest UCB score, or None if no searches.
         """
@@ -498,7 +498,7 @@ class UCBAllocator:
     def get_status(self) -> dict[str, Any]:
         """
         Get current allocator status.
-        
+
         Returns:
             Dictionary with allocator state and statistics.
         """

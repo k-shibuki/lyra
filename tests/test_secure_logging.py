@@ -70,7 +70,7 @@ class TestSecureLoggerNormal:
     def test_log_llm_io_normal(self, secure_logger):
         """
         TC-N-01: log_llm_io with normal input/output
-        
+
         // Given: Normal input and output text
         // When: Calling log_llm_io
         // Then: Hash, length, and preview are generated correctly
@@ -104,7 +104,7 @@ class TestSecureLoggerNormal:
     def test_log_exception_normal(self, secure_logger):
         """
         TC-N-02: log_exception with ValueError
-        
+
         // Given: A simple ValueError
         // When: Logging the exception
         // Then: Sanitized message and error_id are generated
@@ -125,7 +125,7 @@ class TestSecureLoggerNormal:
     def test_log_sensitive_operation_normal(self, secure_logger):
         """
         TC-N-03: log_sensitive_operation with normal dict
-        
+
         // Given: A dict with normal values
         // When: Logging sensitive operation
         // Then: Values are passed through (or sanitized if needed)
@@ -156,7 +156,7 @@ class TestSecureLoggerAbnormal:
     def test_log_llm_io_with_prompt_content(self, secure_logger):
         """
         TC-A-01: log_llm_io with prompt-like content
-        
+
         // Given: Input containing LANCET tag patterns
         // When: Logging LLM I/O
         // Then: Content is masked with [MASKED]
@@ -174,7 +174,7 @@ class TestSecureLoggerAbnormal:
     def test_log_llm_io_with_path_content(self, secure_logger):
         """
         TC-A-02: log_llm_io with path-like content
-        
+
         // Given: Input containing file paths
         // When: Logging LLM I/O
         // Then: Paths are masked with [PATH]
@@ -192,7 +192,7 @@ class TestSecureLoggerAbnormal:
     def test_log_exception_with_stack_trace(self, secure_logger):
         """
         TC-A-03: log_exception with stack trace
-        
+
         // Given: An exception message containing stack trace
         // When: Logging the exception
         // Then: Trace is removed from sanitized message
@@ -213,7 +213,7 @@ class TestSecureLoggerAbnormal:
     def test_log_exception_with_file_path(self, secure_logger):
         """
         TC-A-04: log_exception with file path
-        
+
         // Given: An exception containing file paths
         // When: Logging the exception
         // Then: Paths are removed/masked
@@ -236,7 +236,7 @@ class TestSecureLoggerBoundary:
     def test_log_llm_io_empty_string(self, secure_logger):
         """
         TC-B-01: log_llm_io with empty string
-        
+
         // Given: Empty input text
         // When: Logging LLM I/O
         // Then: No error, length=0
@@ -252,7 +252,7 @@ class TestSecureLoggerBoundary:
     def test_log_llm_io_very_long_text(self, secure_logger):
         """
         TC-B-02: log_llm_io with very long text (10000 chars)
-        
+
         // Given: Very long input text
         // When: Logging LLM I/O
         // Then: Preview is truncated to MAX_PREVIEW_LENGTH
@@ -272,7 +272,7 @@ class TestSecureLoggerBoundary:
     def test_log_llm_io_none_input(self, secure_logger):
         """
         TC-B-03: log_llm_io with None input
-        
+
         // Given: None as input text
         // When: Logging LLM I/O
         // Then: No 'input' key in log data
@@ -296,7 +296,7 @@ class TestAuditLoggerNormal:
     def test_log_security_event_prompt_leakage(self, audit_logger):
         """
         TC-N-04: log_security_event with PROMPT_LEAKAGE
-        
+
         // Given: A prompt leakage event
         // When: Logging security event
         // Then: Event is logged with correct severity
@@ -318,7 +318,7 @@ class TestAuditLoggerNormal:
     def test_log_prompt_leakage_helper(self, audit_logger):
         """
         TC-N-05: log_prompt_leakage helper
-        
+
         // Given: Leakage details
         // When: Using log_prompt_leakage helper
         // Then: Correct event type and fragment count
@@ -337,7 +337,7 @@ class TestAuditLoggerNormal:
     def test_log_dangerous_pattern_helper(self, audit_logger):
         """
         TC-N-06: log_dangerous_pattern helper
-        
+
         // Given: Dangerous patterns detected
         // When: Using log_dangerous_pattern helper
         // Then: Correct event type and pattern count
@@ -364,7 +364,7 @@ class TestAuditLoggerAbnormalBoundary:
     def test_log_security_event_long_details(self, audit_logger):
         """
         TC-A-05: log_security_event with long details
-        
+
         // Given: Details with very long string values
         // When: Logging security event
         // Then: Long values are sanitized (length indicator)
@@ -385,7 +385,7 @@ class TestAuditLoggerAbnormalBoundary:
     def test_log_security_event_none_details(self, audit_logger):
         """
         TC-B-04: log_security_event with None details
-        
+
         // Given: None as details
         // When: Logging security event
         // Then: No 'details' key in log
@@ -410,7 +410,7 @@ class TestStructlogProcessor:
     def test_processor_normal_text(self):
         """
         TC-N-07: Event dict with normal text field
-        
+
         // Given: Event dict with normal short text
         // When: Processing through sanitize_log_processor
         // Then: No modification
@@ -428,7 +428,7 @@ class TestStructlogProcessor:
     def test_processor_prompt_like_text(self):
         """
         TC-A-06: Event dict with prompt-like text
-        
+
         // Given: Event dict with prompt-like content in text field
         // When: Processing through sanitize_log_processor
         // Then: Content is sanitized
@@ -446,7 +446,7 @@ class TestStructlogProcessor:
     def test_processor_long_text(self):
         """
         TC-A-07: Event dict with long text (>500 chars)
-        
+
         // Given: Event dict with long text
         // When: Processing through sanitize_log_processor
         // Then: Content is truncated
@@ -475,7 +475,7 @@ class TestL7BugFix:
     def test_no_duplicate_processing(self):
         """
         TC-N-08: Response with LLM fields at multiple levels
-        
+
         // Given: A response with LLM text fields in nested arrays
         // When: Sanitizing the response
         // Then: Each field is processed exactly once (no double counting)
@@ -509,7 +509,7 @@ class TestL7BugFix:
     def test_stats_count_correctly(self):
         """
         TC-B-05: Verify stats.llm_fields_processed counts correctly
-        
+
         // Given: A response with known number of LLM fields
         // When: Sanitizing the response
         // Then: llm_fields_processed matches actual field count

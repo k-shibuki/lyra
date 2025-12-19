@@ -39,7 +39,7 @@ class BrowserHealthState(str, Enum):
 class Cookie:
     """
     Browser cookie data structure.
-    
+
     Attributes:
         name: Cookie name.
         value: Cookie value.
@@ -93,7 +93,7 @@ class Cookie:
 class BrowserOptions:
     """
     Options for browser navigation.
-    
+
     Attributes:
         mode: Browser mode (headless/headful).
         timeout: Page load timeout in seconds.
@@ -134,7 +134,7 @@ class BrowserOptions:
 class PageResult:
     """
     Result of a browser navigation operation.
-    
+
     Attributes:
         ok: Whether navigation was successful.
         url: Final URL after redirects.
@@ -243,7 +243,7 @@ class PageResult:
 class BrowserHealthStatus:
     """
     Health status of a browser provider.
-    
+
     Attributes:
         state: Current health state.
         available: Whether the provider is available.
@@ -331,23 +331,23 @@ class BrowserHealthStatus:
 class BrowserProvider(Protocol):
     """
     Protocol for browser automation providers.
-    
+
     Defines the interface that all browser providers must implement.
     Uses Python's Protocol for structural subtyping.
-    
+
     Example implementation:
         class MyProvider:
             @property
             def name(self) -> str:
                 return "my_provider"
-            
+
             async def navigate(self, url: str, options: BrowserOptions | None = None) -> PageResult:
                 # Implementation
                 ...
-            
+
             async def get_health(self) -> BrowserHealthStatus:
                 return BrowserHealthStatus.healthy()
-            
+
             async def close(self) -> None:
                 # Cleanup
                 ...
@@ -365,11 +365,11 @@ class BrowserProvider(Protocol):
     ) -> PageResult:
         """
         Navigate to a URL and return the page content.
-        
+
         Args:
             url: URL to navigate to.
             options: Navigation options.
-            
+
         Returns:
             PageResult with page content or error.
         """
@@ -382,11 +382,11 @@ class BrowserProvider(Protocol):
     ) -> Any:
         """
         Execute JavaScript on the current page.
-        
+
         Args:
             script: JavaScript code to execute.
             *args: Arguments to pass to the script.
-            
+
         Returns:
             Result of script execution.
         """
@@ -395,10 +395,10 @@ class BrowserProvider(Protocol):
     async def get_cookies(self, url: str | None = None) -> list[Cookie]:
         """
         Get cookies from the browser.
-        
+
         Args:
             url: Filter cookies by URL (optional).
-            
+
         Returns:
             List of cookies.
         """
@@ -407,7 +407,7 @@ class BrowserProvider(Protocol):
     async def set_cookies(self, cookies: list[Cookie]) -> None:
         """
         Set cookies in the browser.
-        
+
         Args:
             cookies: Cookies to set.
         """
@@ -420,11 +420,11 @@ class BrowserProvider(Protocol):
     ) -> str | None:
         """
         Take a screenshot of the current page.
-        
+
         Args:
             path: Path to save screenshot (auto-generated if None).
             full_page: Whether to capture full page or viewport only.
-            
+
         Returns:
             Path to saved screenshot or None if failed.
         """
@@ -433,7 +433,7 @@ class BrowserProvider(Protocol):
     async def get_health(self) -> BrowserHealthStatus:
         """
         Get current health status.
-        
+
         Returns:
             BrowserHealthStatus indicating provider health.
         """
@@ -442,7 +442,7 @@ class BrowserProvider(Protocol):
     async def close(self) -> None:
         """
         Close and cleanup provider resources.
-        
+
         Should be called when the provider is no longer needed.
         """
         ...
@@ -451,7 +451,7 @@ class BrowserProvider(Protocol):
 class BaseBrowserProvider(ABC):
     """
     Abstract base class for browser providers.
-    
+
     Provides common functionality and enforces the interface contract.
     Subclasses should implement the abstract methods.
     """
@@ -459,7 +459,7 @@ class BaseBrowserProvider(ABC):
     def __init__(self, provider_name: str):
         """
         Initialize base provider.
-        
+
         Args:
             provider_name: Unique name for this provider.
         """
@@ -540,18 +540,18 @@ class BaseBrowserProvider(ABC):
 class BrowserProviderRegistry:
     """
     Registry for browser providers.
-    
+
     Manages registration, retrieval, and lifecycle of browser providers.
     Supports multiple providers with automatic fallback selection.
-    
+
     Example usage:
         registry = BrowserProviderRegistry()
         registry.register(PlaywrightProvider())
         registry.register(UndetectedChromeProvider())
-        
+
         # Get specific provider
         provider = registry.get("playwright")
-        
+
         # Navigate with automatic fallback
         result = await registry.navigate_with_fallback(url)
     """
@@ -569,11 +569,11 @@ class BrowserProviderRegistry:
     ) -> None:
         """
         Register a browser provider.
-        
+
         Args:
             provider: Provider instance to register.
             set_default: Whether to set as default provider.
-        
+
         Raises:
             ValueError: If provider with same name already registered.
         """
@@ -597,10 +597,10 @@ class BrowserProviderRegistry:
     def unregister(self, name: str) -> BrowserProvider | None:
         """
         Unregister a provider by name.
-        
+
         Args:
             name: Provider name to unregister.
-            
+
         Returns:
             The unregistered provider, or None if not found.
         """
@@ -622,10 +622,10 @@ class BrowserProviderRegistry:
     def get(self, name: str) -> BrowserProvider | None:
         """
         Get a provider by name.
-        
+
         Args:
             name: Provider name.
-            
+
         Returns:
             Provider instance or None if not found.
         """
@@ -634,7 +634,7 @@ class BrowserProviderRegistry:
     def get_default(self) -> BrowserProvider | None:
         """
         Get the default provider.
-        
+
         Returns:
             Default provider or None if no providers registered.
         """
@@ -645,10 +645,10 @@ class BrowserProviderRegistry:
     def set_default(self, name: str) -> None:
         """
         Set the default provider.
-        
+
         Args:
             name: Provider name to set as default.
-            
+
         Raises:
             ValueError: If provider not found.
         """
@@ -661,10 +661,10 @@ class BrowserProviderRegistry:
     def set_fallback_order(self, order: list[str]) -> None:
         """
         Set the fallback order for providers.
-        
+
         Args:
             order: List of provider names in fallback order.
-            
+
         Raises:
             ValueError: If any provider name is not registered.
         """
@@ -678,7 +678,7 @@ class BrowserProviderRegistry:
     def list_providers(self) -> list[str]:
         """
         List all registered provider names.
-        
+
         Returns:
             List of provider names.
         """
@@ -687,7 +687,7 @@ class BrowserProviderRegistry:
     async def get_all_health(self) -> dict[str, BrowserHealthStatus]:
         """
         Get health status for all providers.
-        
+
         Returns:
             Dict mapping provider names to health status.
         """
@@ -708,20 +708,20 @@ class BrowserProviderRegistry:
     ) -> PageResult:
         """
         Navigate with automatic fallback to other providers on failure.
-        
+
         Implements the fallback strategy per §4.3:
         - Try providers in order (default: playwright -> undetected)
         - On challenge detection, try next provider
         - On persistent failure, return error with details
-        
+
         Args:
             url: URL to navigate to.
             options: Navigation options.
             provider_order: Order of providers to try.
-            
+
         Returns:
             PageResult from first successful provider.
-            
+
         Raises:
             RuntimeError: If no providers available.
         """
@@ -817,7 +817,7 @@ _registry: BrowserProviderRegistry | None = None
 def get_browser_registry() -> BrowserProviderRegistry:
     """
     Get the global browser provider registry.
-    
+
     Returns:
         The global BrowserProviderRegistry instance.
     """
@@ -830,7 +830,7 @@ def get_browser_registry() -> BrowserProviderRegistry:
 async def cleanup_browser_registry() -> None:
     """
     Cleanup the global registry.
-    
+
     Closes all providers and resets the registry.
     """
     global _registry
@@ -842,7 +842,7 @@ async def cleanup_browser_registry() -> None:
 def reset_browser_registry() -> None:
     """
     Reset the global registry without closing providers.
-    
+
     For testing purposes only.
     """
     global _registry

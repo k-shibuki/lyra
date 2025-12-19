@@ -213,7 +213,7 @@ class TestDetermineFetchSite:
 
     def test_serp_to_article_is_cross_site(self):
         """Test SERP to article is cross-site (typical search flow).
-        
+
         Per §4.3: SERP → article transitions should look like cross-site navigation.
         """
         result = _determine_fetch_site(
@@ -232,7 +232,7 @@ class TestDetermineFetchSite:
 
     def test_scheme_difference_is_cross_site(self):
         """Test different schemes (http vs https) treated as different origin.
-        
+
         Note: This is stricter than same-site but appropriate for security.
         """
         result = _determine_fetch_site(

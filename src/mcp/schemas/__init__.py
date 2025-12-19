@@ -20,10 +20,10 @@ SCHEMAS_DIR = Path(__file__).parent
 def get_schema(tool_name: str) -> dict[str, Any] | None:
     """
     Load schema for a tool.
-    
+
     Args:
         tool_name: Tool name (e.g., 'create_task', 'get_status').
-        
+
     Returns:
         Schema dict or None if not found.
     """

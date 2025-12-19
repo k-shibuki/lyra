@@ -843,7 +843,7 @@ class TestIPv6ManagerIntegration:
     @pytest.mark.asyncio
     async def test_learning_improves_preference(self, mock_settings):
         """Repeated successes should improve preference for that family (§4.3).
-        
+
         EMA calculation with alpha=0.1, initial=0.5, 5 successes:
         - After 1: 0.1*1 + 0.9*0.5 = 0.55
         - After 2: 0.1*1 + 0.9*0.55 = 0.595
