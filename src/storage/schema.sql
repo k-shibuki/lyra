@@ -1,4 +1,4 @@
--- Lancet Database Schema
+-- Lyra Database Schema
 -- SQLite with FTS5 for full-text search
 
 -- ============================================================
