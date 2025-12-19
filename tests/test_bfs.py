@@ -231,8 +231,8 @@ class TestLinkExtractor:
         )
 
         # Then: Nav links should have NAVIGATION type
-        nav_links = [l for l in links if l.link_type == LinkType.NAVIGATION]
-        nav_urls = {l.url for l in nav_links}
+        nav_links = [link for link in links if link.link_type == LinkType.NAVIGATION]
+        nav_urls = {link.url for link in nav_links}
         assert "https://example.com/home" in nav_urls
         assert "https://example.com/about" in nav_urls
         assert len(nav_links) == 2
@@ -250,8 +250,8 @@ class TestLinkExtractor:
         )
 
         # Then: TOC links should have TOC type
-        toc_links = [l for l in links if l.link_type == LinkType.TOC]
-        toc_urls = {l.url for l in toc_links}
+        toc_links = [link for link in links if link.link_type == LinkType.TOC]
+        toc_urls = {link.url for link in toc_links}
         assert "https://example.com/section1" in toc_urls
         assert "https://example.com/section2" in toc_urls
         assert len(toc_links) == 2
@@ -269,8 +269,8 @@ class TestLinkExtractor:
         )
 
         # Then: Heading links should have HEADING type
-        heading_links = [l for l in links if l.link_type == LinkType.HEADING]
-        heading_urls = {l.url for l in heading_links}
+        heading_links = [link for link in links if link.link_type == LinkType.HEADING]
+        heading_urls = {link.url for link in heading_links}
         assert "https://example.com/main-topic" in heading_urls
         assert len(heading_links) == 1
 
@@ -287,8 +287,8 @@ class TestLinkExtractor:
         )
 
         # Then: Related links should have RELATED type
-        related_links = [l for l in links if l.link_type == LinkType.RELATED]
-        related_urls = {l.url for l in related_links}
+        related_links = [link for link in links if link.link_type == LinkType.RELATED]
+        related_urls = {link.url for link in related_links}
         assert "https://example.com/related1" in related_urls
         assert "https://example.com/related2" in related_urls
         assert len(related_links) == 2
@@ -306,8 +306,8 @@ class TestLinkExtractor:
         )
 
         # Then: Sidebar links should have SIDEBAR type
-        sidebar_links = [l for l in links if l.link_type == LinkType.SIDEBAR]
-        sidebar_urls = {l.url for l in sidebar_links}
+        sidebar_links = [link for link in links if link.link_type == LinkType.SIDEBAR]
+        sidebar_urls = {link.url for link in sidebar_links}
         assert "https://example.com/sidebar-link" in sidebar_urls
         assert len(sidebar_links) == 1
 
@@ -388,7 +388,7 @@ class TestLinkExtractor:
         )
 
         # Then: Fragments should be removed from URLs
-        page_links = [l for l in links if "/page" in l.url]
+        page_links = [link for link in links if "/page" in link.url]
         for link in page_links:
             assert "#" not in link.url
 
@@ -405,7 +405,7 @@ class TestLinkExtractor:
         )
 
         # Then: Detail link should have boosted priority
-        detail_link = next((l for l in links if "詳細" in l.text), None)
+        detail_link = next((link for link in links if "詳細" in link.text), None)
         assert detail_link is not None
         assert detail_link.url == "https://example.com/detail"
         assert detail_link.priority >= 0.65
@@ -423,7 +423,7 @@ class TestLinkExtractor:
         )
 
         # Then: Official link should have boosted priority
-        official_link = next((l for l in links if "公式" in l.text), None)
+        official_link = next((link for link in links if "公式" in link.text), None)
         assert official_link is not None
         assert official_link.url == "https://example.com/official"
         assert official_link.priority >= 0.7
@@ -441,7 +441,7 @@ class TestLinkExtractor:
         )
 
         # Then: Links should be sorted by priority descending
-        priorities = [l.priority for l in links]
+        priorities = [link.priority for link in links]
         assert priorities == sorted(priorities, reverse=True)
 
     def test_deduplicate_urls(self):
@@ -464,7 +464,7 @@ class TestLinkExtractor:
         )
 
         # Then: URLs should be deduplicated
-        urls = [l.url for l in links]
+        urls = [link.url for link in links]
         assert len(urls) == len(set(urls))
 
 
@@ -740,7 +740,7 @@ class TestEdgeCases:
         )
 
         # Then: URLs should be resolved correctly
-        urls = [l.url for l in links]
+        urls = [link.url for link in links]
         assert "https://example.com/dir/page" in urls
         assert "https://example.com/absolute" in urls
 
