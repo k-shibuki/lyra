@@ -82,7 +82,7 @@ from src.crawler.human_behavior import (
 
 class HumanBehavior:
     """Legacy wrapper for human-like browser interactions.
-    
+
     Delegates to the new HumanBehaviorSimulator for enhanced functionality.
     Kept for backward compatibility with existing code.
     """
@@ -94,13 +94,13 @@ class HumanBehavior:
     @staticmethod
     def random_delay(min_seconds: float = 0.5, max_seconds: float = 2.0) -> float:
         """Generate a random delay following human-like distribution.
-        
+
         Uses log-normal distribution to better simulate human reaction times.
-        
+
         Args:
             min_seconds: Minimum delay.
             max_seconds: Maximum delay.
-            
+
         Returns:
             Delay in seconds.
         """
@@ -110,11 +110,11 @@ class HumanBehavior:
     @staticmethod
     def scroll_pattern(page_height: int, viewport_height: int) -> list[tuple[int, float]]:
         """Generate realistic scroll positions and delays.
-        
+
         Args:
             page_height: Total page height in pixels.
             viewport_height: Viewport height in pixels.
-            
+
         Returns:
             List of (scroll_position, delay) tuples.
         """
@@ -129,21 +129,23 @@ class HumanBehavior:
 
     @staticmethod
     def mouse_path(
-        start_x: int, start_y: int,
-        end_x: int, end_y: int,
+        start_x: int,
+        start_y: int,
+        end_x: int,
+        end_y: int,
         steps: int = 10,
     ) -> list[tuple[int, int]]:
         """Generate a human-like mouse movement path.
-        
+
         Uses bezier curve interpolation with slight randomness.
-        
+
         Args:
             start_x: Starting X coordinate.
             start_y: Starting Y coordinate.
             end_x: Ending X coordinate.
             end_y: Ending Y coordinate.
             steps: Number of points in the path.
-            
+
         Returns:
             List of (x, y) coordinates.
         """
@@ -157,7 +159,7 @@ class HumanBehavior:
 
     async def simulate_reading(self, page, content_length: int) -> None:
         """Simulate human reading behavior on page.
-        
+
         Args:
             page: Playwright page object.
             content_length: Approximate content length.
@@ -169,7 +171,7 @@ class HumanBehavior:
 
     async def move_mouse_to_element(self, page, selector: str) -> None:
         """Move mouse to element with human-like motion.
-        
+
         Args:
             page: Playwright page object.
             selector: CSS selector for target element.
@@ -184,9 +186,10 @@ class HumanBehavior:
 # Tor Circuit Controller
 # =============================================================================
 
+
 class TorController:
     """Controls Tor circuits via Stem library.
-    
+
     Provides circuit renewal and exit node management.
     """
 
@@ -198,7 +201,7 @@ class TorController:
 
     async def connect(self) -> bool:
         """Connect to Tor control port.
-        
+
         Returns:
             True if connected successfully.
         """
@@ -229,10 +232,10 @@ class TorController:
 
     async def renew_circuit(self, domain: str | None = None) -> bool:
         """Request a new Tor circuit.
-        
+
         Args:
             domain: Optional domain for sticky circuit tracking.
-            
+
         Returns:
             True if circuit renewed successfully.
         """
@@ -272,9 +275,9 @@ class TorController:
 
     async def get_exit_ip(self) -> str | None:
         """Get current Tor exit node IP.
-        
+
         Uses socks5h:// to ensure DNS is resolved through Tor.
-        
+
         Returns:
             Exit IP address or None.
         """
@@ -314,7 +317,7 @@ _tor_controller: TorController | None = None
 
 async def get_tor_controller() -> TorController:
     """Get or create Tor controller instance.
-    
+
     Returns:
         TorController instance.
     """
@@ -326,12 +329,12 @@ async def get_tor_controller() -> TorController:
 
 async def _can_use_tor(domain: str | None = None) -> bool:
     """Check if Tor can be used based on daily limits.
-    
+
     Per §4.3 and §7: Check both global daily limit (20%) and domain-specific limit.
-    
+
     Args:
         domain: Optional domain for domain-specific check.
-        
+
     Returns:
         True if Tor can be used, False if limit reached.
     """
@@ -397,7 +400,7 @@ async def _can_use_tor(domain: str | None = None) -> bool:
 
 class FetchResult:
     """Result of a fetch operation.
-    
+
     Includes detailed authentication information, IPv6 connection information,
     and archive/Wayback fallback information.
     """
@@ -508,7 +511,7 @@ class FetchResult:
 
 class RateLimiter:
     """Per-domain rate limiter.
-    
+
     Uses DomainPolicyManager for per-domain QPS configuration.
     """
 
@@ -524,9 +527,9 @@ class RateLimiter:
 
     async def acquire(self, url: str) -> None:
         """Acquire rate limit slot for a domain.
-        
+
         Uses DomainPolicyManager to get per-domain QPS limits.
-        
+
         Args:
             url: URL to fetch.
         """
@@ -561,7 +564,7 @@ class RateLimiter:
 
 class HTTPFetcher:
     """HTTP client fetcher using curl_cffi.
-    
+
     Features:
     - Chrome impersonation for fingerprint consistency
     - IPv6-first with automatic IPv4 fallback (Happy Eyeballs-style)
@@ -585,13 +588,13 @@ class HTTPFetcher:
         cached_last_modified: str | None = None,
     ) -> FetchResult:
         """Fetch URL using HTTP client with conditional request support.
-        
+
         Implements sec-fetch-* header requirements:
         - Sec-Fetch-Site: Relationship between initiator and target
         - Sec-Fetch-Mode: Request mode (navigate for document fetch)
         - Sec-Fetch-Dest: Request destination (document for pages)
         - Sec-Fetch-User: ?1 for user-initiated navigation
-        
+
         Args:
             url: URL to fetch.
             referer: Referer header.
@@ -599,7 +602,7 @@ class HTTPFetcher:
             use_tor: Whether to use Tor.
             cached_etag: ETag from cache for conditional request.
             cached_last_modified: Last-Modified from cache for conditional request.
-            
+
         Returns:
             FetchResult instance.
         """
@@ -641,6 +644,7 @@ class HTTPFetcher:
             # to prevent session-level ETag/Last-Modified from overwriting URL-specific values
             try:
                 from src.crawler.session_transfer import get_transfer_headers
+
                 include_conditional = not (cached_etag or cached_last_modified)
                 transfer_result = get_transfer_headers(url, include_conditional=include_conditional)
 
@@ -683,7 +687,9 @@ class HTTPFetcher:
 
             # Extract ETag and Last-Modified from response
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
-            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get(
+                "Last-Modified"
+            )
 
             # Handle 304 Not Modified response
             if response.status_code == 304:
@@ -730,14 +736,16 @@ class HTTPFetcher:
             # HTTP client uses HTTP/2 by default, not HTTP/3
             domain = urlparse(url).netloc.lower()
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="http_client",
-                success=True,
-                protocol=ProtocolVersion.HTTP_2,  # curl_cffi uses HTTP/2
-                status_code=response.status_code,
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="http_client",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_2,  # curl_cffi uses HTTP/2
+                    status_code=response.status_code,
+                )
+            )
 
             logger.info(
                 "HTTP fetch success",
@@ -769,14 +777,16 @@ class HTTPFetcher:
             # Record failed HTTP client request for HTTP/3 policy tracking
             domain = urlparse(url).netloc.lower()
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="http_client",
-                success=False,
-                protocol=ProtocolVersion.UNKNOWN,
-                error=str(e),
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="http_client",
+                    success=False,
+                    protocol=ProtocolVersion.UNKNOWN,
+                    error=str(e),
+                )
+            )
 
             return FetchResult(
                 ok=False,
@@ -788,7 +798,7 @@ class HTTPFetcher:
 
 class BrowserFetcher:
     """Browser-based fetcher using Playwright with headless/headful auto-switching.
-    
+
     Features:
     - Automatic headless/headful mode switching based on domain policy
     - Human-like behavior simulation (scrolling, mouse movement)
@@ -815,14 +825,14 @@ class BrowserFetcher:
         task_id: str | None = None,
     ) -> tuple:
         """Ensure browser connection is established.
-        
+
         Browser instances are tracked for lifecycle management
         and can be cleaned up after task completion.
-        
+
         Args:
             headful: Whether to ensure headful browser.
             task_id: Associated task ID for lifecycle tracking.
-            
+
         Returns:
             Tuple of (browser, context).
         """
@@ -858,7 +868,7 @@ class BrowserFetcher:
                     # Add timeout to prevent hanging
                     self._headful_browser = await asyncio.wait_for(
                         self._playwright.chromium.connect_over_cdp(cdp_url),
-                        timeout=5.0  # 5 second timeout for CDP connection
+                        timeout=5.0,  # 5 second timeout for CDP connection
                     )
                     logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
                     cdp_connected = True
@@ -868,7 +878,7 @@ class BrowserFetcher:
                     # Fall through to auto-start logic
                 except Exception as e:
                     logger.info("CDP connection failed, attempting auto-start", error=str(e))
-                
+
                 # Auto-start Chrome per docs/REQUIREMENTS.md §3.2.1 (if CDP connection failed)
                 if not cdp_connected:
                     logger.debug("Calling _auto_start_chrome()")
@@ -881,20 +891,32 @@ class BrowserFetcher:
                         timeout = 15.0
                         poll_interval = 0.5
 
-                        logger.debug("Waiting for CDP connection after auto-start", timeout=timeout, poll_interval=poll_interval)
+                        logger.debug(
+                            "Waiting for CDP connection after auto-start",
+                            timeout=timeout,
+                            poll_interval=poll_interval,
+                        )
                         while time.monotonic() - start_time < timeout:
                             try:
                                 self._headful_browser = await asyncio.wait_for(
                                     self._playwright.chromium.connect_over_cdp(cdp_url),
-                                    timeout=2.0  # 2 second timeout per attempt
+                                    timeout=2.0,  # 2 second timeout per attempt
                                 )
                                 elapsed = time.monotonic() - start_time
-                                logger.info("Connected to Chrome via CDP after auto-start", url=cdp_url, elapsed_seconds=round(elapsed, 1))
+                                logger.info(
+                                    "Connected to Chrome via CDP after auto-start",
+                                    url=cdp_url,
+                                    elapsed_seconds=round(elapsed, 1),
+                                )
                                 cdp_connected = True
                                 break
                             except Exception as poll_error:
                                 elapsed = time.monotonic() - start_time
-                                logger.debug("CDP connection attempt failed, retrying", elapsed=round(elapsed, 1), error=str(poll_error))
+                                logger.debug(
+                                    "CDP connection attempt failed, retrying",
+                                    elapsed=round(elapsed, 1),
+                                    error=str(poll_error),
+                                )
                                 await asyncio.sleep(poll_interval)
 
                     if not cdp_connected:
@@ -902,7 +924,9 @@ class BrowserFetcher:
                             "CDP connection failed after auto-start, launching local headful browser",
                             error=str(e),
                         )
-                        self._headful_browser = await self._playwright.chromium.launch(headless=False)
+                        self._headful_browser = await self._playwright.chromium.launch(
+                            headless=False
+                        )
 
                 # Register browser for lifecycle management
                 if task_id:
@@ -999,10 +1023,10 @@ class BrowserFetcher:
         task_id: str | None = None,
     ) -> None:
         """Perform profile health audit on browser session initialization.
-        
+
         Per high-frequency check requirement: Execute audit at browser session
         initialization to detect drift in UA, fonts, language, timezone, canvas, audio.
-        
+
         Args:
             context: Browser context to audit.
             task_id: Associated task ID for logging.
@@ -1053,10 +1077,10 @@ class BrowserFetcher:
 
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
-        
+
         Per docs/REQUIREMENTS.md §3.2.1: CDP未接続を検知した場合、Lancetは
         ./scripts/chrome.sh start を自動実行する。
-        
+
         Returns:
             True if chrome.sh start succeeded, False otherwise.
         """
@@ -1096,7 +1120,10 @@ class BrowserFetcher:
             stderr_text = stderr.decode() if stderr else ""
 
             if process.returncode == 0:
-                logger.info("Chrome auto-start script completed", stdout=stdout_text[:200] if stdout_text else "")
+                logger.info(
+                    "Chrome auto-start script completed",
+                    stdout=stdout_text[:200] if stdout_text else "",
+                )
                 return True
             else:
                 logger.warning(
@@ -1111,7 +1138,7 @@ class BrowserFetcher:
 
     async def _setup_blocking(self, context) -> None:
         """Setup resource blocking rules.
-        
+
         Args:
             context: Playwright browser context.
         """
@@ -1120,30 +1147,36 @@ class BrowserFetcher:
         block_patterns = []
 
         if browser_settings.block_ads:
-            block_patterns.extend([
-                "*googlesyndication.com*",
-                "*doubleclick.net*",
-                "*googleadservices.com*",
-                "*adnxs.com*",
-                "*criteo.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*googlesyndication.com*",
+                    "*doubleclick.net*",
+                    "*googleadservices.com*",
+                    "*adnxs.com*",
+                    "*criteo.com*",
+                ]
+            )
 
         if browser_settings.block_trackers:
-            block_patterns.extend([
-                "*google-analytics.com*",
-                "*googletagmanager.com*",
-                "*facebook.com/tr*",
-                "*hotjar.com*",
-                "*mixpanel.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*google-analytics.com*",
+                    "*googletagmanager.com*",
+                    "*facebook.com/tr*",
+                    "*hotjar.com*",
+                    "*mixpanel.com*",
+                ]
+            )
 
         if browser_settings.block_large_media:
-            block_patterns.extend([
-                "*.mp4",
-                "*.webm",
-                "*.avi",
-                "*.mov",
-            ])
+            block_patterns.extend(
+                [
+                    "*.mp4",
+                    "*.webm",
+                    "*.avi",
+                    "*.mov",
+                ]
+            )
 
         async def block_route(route):
             await route.abort()
@@ -1153,13 +1186,13 @@ class BrowserFetcher:
 
     async def _should_use_headful(self, domain: str) -> bool:
         """Determine if headful mode should be used for domain.
-        
+
         Based on domain policy's headful_ratio, past failure history,
         and HTTP/3 policy.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             True if headful mode should be used.
         """
@@ -1202,7 +1235,7 @@ class BrowserFetcher:
         auth_priority: str = "medium",
     ) -> FetchResult:
         """Fetch URL using browser with automatic mode selection.
-        
+
         Args:
             url: URL to fetch.
             referer: Referer header.
@@ -1213,7 +1246,7 @@ class BrowserFetcher:
             simulate_human: Whether to simulate human behavior.
             task_id: Associated task ID for intervention tracking.
             allow_intervention: Whether to allow manual intervention on challenge.
-            
+
         Returns:
             FetchResult instance.
         """
@@ -1225,6 +1258,7 @@ class BrowserFetcher:
         # Domain-based authentication: one authentication applies to multiple tasks/URLs for the same domain
         existing_session = None
         from src.utils.notification import get_intervention_queue
+
         queue = get_intervention_queue()
         # task_id is optional (domain-based lookup)
         existing_session = await queue.get_session_for_domain(domain, task_id=task_id)
@@ -1339,6 +1373,7 @@ class BrowserFetcher:
                     if allow_intervention and queue_auth and task_id:
                         # Queue authentication for batch processing (semi-auto mode)
                         from src.utils.notification import get_intervention_queue
+
                         queue = get_intervention_queue()
                         queue_id = await queue.enqueue(
                             task_id=task_id,
@@ -1377,7 +1412,10 @@ class BrowserFetcher:
                             challenge_type=challenge_type,
                         )
 
-                        if intervention_result and intervention_result.status == InterventionStatus.SUCCESS:
+                        if (
+                            intervention_result
+                            and intervention_result.status == InterventionStatus.SUCCESS
+                        ):
                             # Re-check page content after intervention
                             content = await page.content()
                             if not _is_challenge_page(content, {}):
@@ -1434,7 +1472,9 @@ class BrowserFetcher:
                 # Apply mouse trajectory to page elements
                 try:
                     # Find interactive elements (links, buttons, inputs)
-                    elements = await page.query_selector_all("a, button, input[type='text'], input[type='search']")
+                    elements = await page.query_selector_all(
+                        "a, button, input[type='text'], input[type='search']"
+                    )
                     if elements:
                         # Select random element from first 5 elements
                         target_element = random.choice(elements[:5])
@@ -1473,21 +1513,25 @@ class BrowserFetcher:
 
             # Extract ETag and Last-Modified from response headers
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
-            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get(
+                "Last-Modified"
+            )
 
             # Detect HTTP/3 protocol usage
             protocol = await detect_protocol_from_playwright_response(response)
 
             # Record HTTP/3 usage for policy tracking
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="browser",
-                success=True,
-                protocol=protocol,
-                status_code=response.status,
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="browser",
+                    success=True,
+                    protocol=protocol,
+                    status_code=response.status,
+                )
+            )
 
             logger.info(
                 "Browser fetch success",
@@ -1503,6 +1547,7 @@ class BrowserFetcher:
             # Capture browser session for transfer to HTTP client
             try:
                 from src.crawler.session_transfer import capture_browser_session
+
                 session_id = await capture_browser_session(
                     context,
                     url,
@@ -1542,14 +1587,16 @@ class BrowserFetcher:
 
             # Record failed request for HTTP/3 policy tracking
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="browser",
-                success=False,
-                protocol=ProtocolVersion.UNKNOWN,
-                error=str(e),
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="browser",
+                    success=False,
+                    protocol=ProtocolVersion.UNKNOWN,
+                    error=str(e),
+                )
+            )
 
             return FetchResult(
                 ok=False,
@@ -1570,21 +1617,21 @@ class BrowserFetcher:
         challenge_type: str,
     ):
         """Request manual intervention for challenge bypass.
-        
+
         Safe Operation Policy:
         - Sends toast notification
         - Brings window to front via OS API
         - Returns PENDING status immediately
         - User finds and resolves challenge themselves
         - NO DOM operations (scroll, highlight, focus)
-        
+
         Args:
             url: Target URL.
             domain: Domain name.
             page: Playwright page object.
             task_id: Associated task ID.
             challenge_type: Type of challenge detected.
-            
+
         Returns:
             InterventionResult or None.
         """
@@ -1641,11 +1688,11 @@ class BrowserFetcher:
 
 def _is_challenge_page(content: str, headers: dict) -> bool:
     """Check if page is a challenge/captcha page.
-    
+
     Args:
         content: Page content.
         headers: Response headers.
-        
+
     Returns:
         True if challenge detected.
     """
@@ -1699,10 +1746,10 @@ def _is_challenge_page(content: str, headers: dict) -> bool:
 
 def _detect_challenge_type(content: str) -> str:
     """Detect the specific type of challenge from page content.
-    
+
     Args:
         content: Page HTML content.
-        
+
     Returns:
         Challenge type string.
     """
@@ -1744,12 +1791,12 @@ def _detect_challenge_type(content: str) -> str:
 
 def _estimate_auth_effort(challenge_type: str) -> str:
     """Estimate the effort required to complete authentication.
-    
+
     Provides estimated_effort for auth challenges.
-    
+
     Args:
         challenge_type: Type of challenge detected.
-        
+
     Returns:
         Effort level: "low", "medium", or "high".
     """
@@ -1758,10 +1805,8 @@ def _estimate_auth_effort(challenge_type: str) -> str:
         # Low: Usually auto-resolves or simple click
         "js_challenge": "low",
         "cloudflare": "low",  # Basic Cloudflare often auto-resolves
-
         # Medium: Requires simple user interaction
         "turnstile": "medium",  # Usually just a click/checkbox
-
         # High: Requires significant user effort
         "captcha": "high",
         "recaptcha": "high",
@@ -1774,12 +1819,12 @@ def _estimate_auth_effort(challenge_type: str) -> str:
 
 async def _save_content(url: str, content: bytes, headers: dict) -> Path | None:
     """Save fetched content to file.
-    
+
     Args:
         url: Source URL.
         content: Content bytes.
         headers: Response headers.
-        
+
     Returns:
         Path to saved file.
     """
@@ -1816,9 +1861,9 @@ async def _save_warc(
     method: str = "GET",
 ) -> Path | None:
     """Save HTTP response as WARC file.
-    
+
     Creates a WARC file containing the request and response records.
-    
+
     Args:
         url: Request URL.
         content: Response body bytes.
@@ -1826,7 +1871,7 @@ async def _save_warc(
         response_headers: Response headers.
         request_headers: Request headers (optional).
         method: HTTP method (default: GET).
-        
+
     Returns:
         Path to saved WARC file.
     """
@@ -1891,10 +1936,10 @@ async def _save_warc(
 
 def _get_http_status_text(status_code: int) -> str:
     """Get HTTP status text for status code.
-    
+
     Args:
         status_code: HTTP status code.
-        
+
     Returns:
         Status text (e.g., "OK", "Not Found").
     """
@@ -1925,11 +1970,11 @@ def _get_http_status_text(status_code: int) -> str:
 
 async def _save_screenshot(page, url: str) -> Path | None:
     """Save page screenshot.
-    
+
     Args:
         page: Playwright page.
         url: Source URL.
-        
+
     Returns:
         Path to screenshot file.
     """
@@ -1960,20 +2005,20 @@ async def fetch_url(
     task_id: str | None = None,
 ) -> dict[str, Any]:
     """Fetch URL with automatic method selection, escalation, and cache support.
-    
+
     Implements multi-stage fetch strategy:
     1. HTTP client (fastest, with 304 cache support)
     2. Browser headless (for JS-rendered pages)
     3. Browser headful (for challenge bypass)
     4. Tor circuit renewal on 403/429
     5. Wayback fallback (for persistent blocks)
-    
+
     Supports conditional requests (If-None-Match/If-Modified-Since) for
     efficient re-validation and 304 Not Modified responses.
-    
+
     Cumulative timeout (max_fetch_time) ensures the entire fetch operation
     completes within a reasonable time, preventing exploration stalls.
-    
+
     Args:
         url: URL to fetch.
         context: Context information (referer, etc.).
@@ -1988,7 +2033,7 @@ async def fetch_url(
             - provider_name: Specific provider to use (e.g., "playwright", "undetected_chrome").
             - max_fetch_time: Override cumulative timeout (default: from config).
         task_id: Associated task ID.
-        
+
     Returns:
         Fetch result dictionary with additional 'from_cache' field.
     """
@@ -2027,7 +2072,7 @@ async def _fetch_url_impl(
     task_id: str | None,
 ) -> dict[str, Any]:
     """Internal implementation of fetch_url with multi-stage escalation.
-    
+
     This function contains the actual fetch logic. It is wrapped by fetch_url
     with a cumulative timeout to prevent indefinite blocking.
     """
@@ -2050,6 +2095,7 @@ async def _fetch_url_impl(
 
         # Check domain daily budget (§4.3 - IP block prevention, Problem 11)
         from src.scheduler.domain_budget import get_domain_budget_manager
+
         budget_manager = get_domain_budget_manager()
         budget_check = budget_manager.can_request_to_domain(domain)
 
@@ -2069,6 +2115,7 @@ async def _fetch_url_impl(
         # Record request for Tor daily limit tracking (Problem 10)
         # Must be after cooldown check to only count actual fetches
         from src.utils.metrics import get_metrics_collector
+
         collector = get_metrics_collector()
         collector.record_request(domain)
 
@@ -2077,7 +2124,7 @@ async def _fetch_url_impl(
         force_headful = policy.get("force_headful", False)
         use_tor = policy.get("use_tor", False)
         skip_cache = policy.get("skip_cache", False)
-        max_retries = policy.get("max_retries", settings.crawler.max_retries)
+        policy.get("max_retries", settings.crawler.max_retries)
         use_provider = policy.get("use_provider", False)
         provider_name = policy.get("provider_name", None)
 
@@ -2135,6 +2182,7 @@ async def _fetch_url_impl(
             # Record Tor usage when explicitly requested (Problem 10)
             if use_tor:
                 from src.utils.metrics import get_metrics_collector
+
                 collector = get_metrics_collector()
                 collector.record_tor_usage(domain)
 
@@ -2175,6 +2223,7 @@ async def _fetch_url_impl(
 
                         # Record Tor usage for daily limit tracking
                         from src.utils.metrics import get_metrics_collector
+
                         collector = get_metrics_collector()
                         collector.record_tor_usage(domain)
                 else:
@@ -2386,16 +2435,13 @@ async def _fetch_url_impl(
         # 1. Fallback is enabled, AND
         # 2. All previous stages failed with 403/CAPTCHA/blocking
         if use_wayback_fallback and result and not result.ok:
-            should_try_wayback = (
-                result.status in (403, 429, 451, 503) or
-                result.reason in (
-                    "challenge_detected",
-                    "challenge_detected_after_intervention",
-                    "challenge_detected_escalate_headful",
-                    "intervention_timeout",
-                    "intervention_failed",
-                    "auth_required",
-                )
+            should_try_wayback = result.status in (403, 429, 451, 503) or result.reason in (
+                "challenge_detected",
+                "challenge_detected_after_intervention",
+                "challenge_detected_escalate_headful",
+                "intervention_timeout",
+                "intervention_failed",
+                "auth_required",
             )
 
             if should_try_wayback:
@@ -2427,8 +2473,12 @@ async def _fetch_url_impl(
                             from_cache=False,
                             # Archive-specific fields
                             is_archived=True,
-                            archive_date=fallback_result.snapshot.timestamp if fallback_result.snapshot else None,
-                            archive_url=fallback_result.snapshot.wayback_url if fallback_result.snapshot else None,
+                            archive_date=fallback_result.snapshot.timestamp
+                            if fallback_result.snapshot
+                            else None,
+                            archive_url=fallback_result.snapshot.wayback_url
+                            if fallback_result.snapshot
+                            else None,
                             freshness_penalty=fallback_result.freshness_penalty,
                         )
                         escalation_path.append("wayback_fallback")
@@ -2436,7 +2486,9 @@ async def _fetch_url_impl(
                         logger.info(
                             "Wayback fallback successful",
                             url=url[:80],
-                            archive_date=result.archive_date.isoformat() if result.archive_date else None,
+                            archive_date=result.archive_date.isoformat()
+                            if result.archive_date
+                            else None,
                             freshness_penalty=result.freshness_penalty,
                         )
 
@@ -2506,21 +2558,25 @@ async def _fetch_url_impl(
         # Store page record and update cache if successful
         if result.ok:
             # Update pages table and capture page_id for fragment linking
-            page_id = await db.insert("pages", {
-                "url": url,
-                "final_url": result.final_url,
-                "domain": domain,
-                "fetch_method": result.method,
-                "http_status": result.status,
-                "content_hash": result.content_hash,
-                "html_path": result.html_path,
-                "warc_path": result.warc_path,
-                "screenshot_path": result.screenshot_path,
-                "etag": result.etag,
-                "last_modified": result.last_modified,
-                "headers_json": json.dumps(result.headers) if result.headers else None,
-                "cause_id": trace.id,
-            }, or_replace=True)
+            page_id = await db.insert(
+                "pages",
+                {
+                    "url": url,
+                    "final_url": result.final_url,
+                    "domain": domain,
+                    "fetch_method": result.method,
+                    "http_status": result.status,
+                    "content_hash": result.content_hash,
+                    "html_path": result.html_path,
+                    "warc_path": result.warc_path,
+                    "screenshot_path": result.screenshot_path,
+                    "etag": result.etag,
+                    "last_modified": result.last_modified,
+                    "headers_json": json.dumps(result.headers) if result.headers else None,
+                    "cause_id": trace.id,
+                },
+                or_replace=True,
+            )
             result.page_id = page_id
 
             # Update fetch cache for future conditional requests
@@ -2559,7 +2615,9 @@ async def _fetch_url_impl(
         # Add archive details if content is from Wayback
         if result.is_archived:
             event_details["is_archived"] = True
-            event_details["archive_date"] = result.archive_date.isoformat() if result.archive_date else None
+            event_details["archive_date"] = (
+                result.archive_date.isoformat() if result.archive_date else None
+            )
             event_details["freshness_penalty"] = result.freshness_penalty
 
         await db.log_event(
@@ -2581,7 +2639,7 @@ async def _fetch_url_impl(
 
 async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -> None:
     """Update domain's headful ratio based on fetch outcomes.
-    
+
     Args:
         db: Database instance.
         domain: Domain name.
@@ -2594,10 +2652,14 @@ async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -
 
     if current is None:
         # Create domain record with elevated headful ratio
-        await db.insert("domains", {
-            "domain": domain,
-            "headful_ratio": 0.3 if increase else 0.1,
-        }, auto_id=False)
+        await db.insert(
+            "domains",
+            {
+                "domain": domain,
+                "headful_ratio": 0.3 if increase else 0.1,
+            },
+            auto_id=False,
+        )
     else:
         ratio = current.get("headful_ratio", 0.1)
         if increase:
@@ -2622,9 +2684,9 @@ async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -
 
 async def _update_domain_wayback_success(db, domain: str, success: bool) -> None:
     """Update domain's Wayback fallback success rate.
-    
+
     Track Wayback fallback success to inform future fallback decisions.
-    
+
     Args:
         db: Database instance.
         domain: Domain name.
@@ -2637,11 +2699,15 @@ async def _update_domain_wayback_success(db, domain: str, success: bool) -> None
 
     if current is None:
         # Create domain record with initial Wayback stats
-        await db.insert("domains", {
-            "domain": domain,
-            "wayback_success_count": 1 if success else 0,
-            "wayback_failure_count": 0 if success else 1,
-        }, auto_id=False)
+        await db.insert(
+            "domains",
+            {
+                "domain": domain,
+                "wayback_success_count": 1 if success else 0,
+                "wayback_failure_count": 0 if success else 1,
+            },
+            auto_id=False,
+        )
     else:
         success_count = current.get("wayback_success_count", 0) or 0
         failure_count = current.get("wayback_failure_count", 0) or 0
@@ -2676,4 +2742,3 @@ async def _update_domain_wayback_success(db, domain: str, success: bool) -> None
 
 # Need to import json for the db.insert call
 import json
-

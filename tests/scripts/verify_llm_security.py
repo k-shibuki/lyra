@@ -44,6 +44,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     layer: str  # L1, L2, etc.
     spec_ref: str
@@ -58,7 +59,7 @@ class VerificationResult:
 class SecurityE2EVerifier:
     """
     Verifier for N.2-3 Security E2E.
-    
+
     Tests all security layers (L1-L8) defined in Phase K.3.
     """
 
@@ -85,10 +86,7 @@ class SecurityE2EVerifier:
             from src.utils.config import get_settings
 
             settings = get_settings()
-            ollama_host = os.environ.get(
-                "LANCET_LLM__OLLAMA_HOST",
-                settings.llm.ollama_host
-            )
+            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             provider = OllamaProvider(host=ollama_host)
             health = await provider.get_health()
@@ -114,6 +112,7 @@ class SecurityE2EVerifier:
         # Check MCP server
         try:
             from src.mcp.server import TOOLS
+
             print(f"  ✓ MCP server module loaded ({len(TOOLS)} tools)")
         except Exception as e:
             print(f"  ✗ MCP server import failed: {e}")
@@ -128,10 +127,10 @@ class SecurityE2EVerifier:
     async def verify_l1_network_isolation(self) -> VerificationResult:
         """
         Verify L1: Network Isolation.
-        
+
         Tests that Ollama container cannot access external networks.
         This is configured via podman-compose.yml (internal: true network).
-        
+
         Method: Execute curl from Ollama container to external URL.
         Expected: Connection should fail/timeout.
         """
@@ -143,12 +142,7 @@ class SecurityE2EVerifier:
 
             # First, check podman availability
             check_cmd = ["podman", "ps", "--filter", "name=lancet-ollama", "--format", "{{.Names}}"]
-            result = subprocess.run(
-                check_cmd,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
 
             if "lancet-ollama" not in result.stdout:
                 return VerificationResult(
@@ -163,18 +157,20 @@ class SecurityE2EVerifier:
             # Try to access external URL from ollama container
             # Use wget since curl may not be installed
             test_cmd = [
-                "podman", "exec", "lancet-ollama",
-                "timeout", "5",
-                "wget", "-q", "-O-", "--timeout=3", "http://example.com"
+                "podman",
+                "exec",
+                "lancet-ollama",
+                "timeout",
+                "5",
+                "wget",
+                "-q",
+                "-O-",
+                "--timeout=3",
+                "http://example.com",
             ]
 
             try:
-                result = subprocess.run(
-                    test_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=15
-                )
+                result = subprocess.run(test_cmd, capture_output=True, text=True, timeout=15)
 
                 # If command succeeds (exit code 0), network isolation FAILED
                 if result.returncode == 0:
@@ -241,12 +237,12 @@ class SecurityE2EVerifier:
     async def verify_l2_l4_sanitization(self) -> VerificationResult:
         """
         Verify L2/L3/L4: Sanitization and LLM integration.
-        
+
         Tests that:
         - L2: Dangerous patterns are detected and sanitized
         - L3: Session tags are properly generated and used
         - L4: Output is validated for suspicious content
-        
+
         Method: Build secure prompt with malicious content, call LLM.
         Expected: Prompt sanitized, LLM responds normally, leakage detected if any.
         """
@@ -273,10 +269,7 @@ class SecurityE2EVerifier:
             from src.utils.config import get_settings
 
             settings = get_settings()
-            ollama_host = os.environ.get(
-                "LANCET_LLM__OLLAMA_HOST",
-                settings.llm.ollama_host
-            )
+            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             # Test L2: Input sanitization with malicious content
             malicious_input = """
@@ -290,11 +283,14 @@ class SecurityE2EVerifier:
 
             l2_checks = {
                 "tag_patterns_removed": sanitization_result.removed_tags > 0,
-                "dangerous_patterns_detected": len(sanitization_result.dangerous_patterns_found) > 0,
+                "dangerous_patterns_detected": len(sanitization_result.dangerous_patterns_found)
+                > 0,
             }
 
             print(f"    L2: Tags removed: {sanitization_result.removed_tags}")
-            print(f"    L2: Dangerous patterns: {len(sanitization_result.dangerous_patterns_found)}")
+            print(
+                f"    L2: Dangerous patterns: {len(sanitization_result.dangerous_patterns_found)}"
+            )
 
             # Test L3: Session tag generation
             tag = generate_session_tag()
@@ -307,7 +303,9 @@ class SecurityE2EVerifier:
             print(f"    L3: Tag generated (id: {tag.tag_id})")
 
             # Test L4: Build secure prompt and call LLM
-            system_instructions = "Extract the main topic from the following text. Respond with only the topic."
+            system_instructions = (
+                "Extract the main topic from the following text. Respond with only the topic."
+            )
 
             prompt, _ = build_secure_prompt(
                 system_instructions=system_instructions,
@@ -325,6 +323,7 @@ class SecurityE2EVerifier:
 
                 print(f"    Calling LLM ({model})...")
                 from src.filter.provider import LLMOptions
+
                 response = await provider.generate(
                     prompt=prompt,
                     options=LLMOptions(max_tokens=100),
@@ -361,9 +360,7 @@ class SecurityE2EVerifier:
 
             # All checks must pass
             all_passed = (
-                all(l2_checks.values()) and
-                all(l3_checks.values()) and
-                all(l4_checks.values())
+                all(l2_checks.values()) and all(l3_checks.values()) and all(l4_checks.values())
             )
 
             details = {
@@ -406,9 +403,9 @@ class SecurityE2EVerifier:
     async def verify_l5_mcp_metadata(self) -> VerificationResult:
         """
         Verify L5: MCP Response Metadata.
-        
+
         Tests that MCP responses include _lancet_meta with verification info.
-        
+
         Method: Call create_task and get_status, check for _lancet_meta.
         Expected: Responses contain _lancet_meta with timestamp.
         """
@@ -459,10 +456,10 @@ class SecurityE2EVerifier:
 
             # Both responses should have _lancet_meta
             all_passed = (
-                create_has_meta and
-                create_has_timestamp and
-                status_has_meta and
-                status_has_timestamp
+                create_has_meta
+                and create_has_timestamp
+                and status_has_meta
+                and status_has_timestamp
             )
 
             details = {
@@ -502,9 +499,9 @@ class SecurityE2EVerifier:
     async def verify_l6_source_verification(self) -> VerificationResult:
         """
         Verify L6: Source Verification Flow.
-        
+
         Tests that source verification logic works correctly.
-        
+
         Method: Create verification context, test promotion/demotion logic.
         Expected: Verification states are tracked and returned correctly.
         """
@@ -538,12 +535,14 @@ class SecurityE2EVerifier:
 
             updated_state = verifier.get_domain_state("example-test-domain.com")
             state_updated_ok = (
-                updated_state is not None and
-                updated_state.total_claims == 3 and
-                len(updated_state.verified_claims) == 2
+                updated_state is not None
+                and updated_state.total_claims == 3
+                and len(updated_state.verified_claims) == 2
             )
 
-            print(f"    Updated domain state: total_claims={updated_state.total_claims if updated_state else 0}")
+            print(
+                f"    Updated domain state: total_claims={updated_state.total_claims if updated_state else 0}"
+            )
 
             # Test 3: Build response meta (requires verification_results)
             # Create mock verification result with correct structure
@@ -565,9 +564,7 @@ class SecurityE2EVerifier:
             )
             response_meta_builder = verifier.build_response_meta([mock_result])
             response_meta = response_meta_builder.build()
-            meta_structure_ok = (
-                "timestamp" in response_meta
-            )
+            meta_structure_ok = "timestamp" in response_meta
 
             print(f"    Response meta structure valid: {meta_structure_ok}")
 
@@ -609,9 +606,9 @@ class SecurityE2EVerifier:
     async def verify_l7_response_sanitization(self) -> VerificationResult:
         """
         Verify L7: MCP Response Sanitization.
-        
+
         Tests that unknown fields are stripped and LLM content is sanitized.
-        
+
         Method: Create response with unknown fields, pass through sanitizer.
         Expected: Unknown fields removed, LLM fields sanitized.
         """
@@ -638,14 +635,12 @@ class SecurityE2EVerifier:
 
             # Check that unknown fields are removed
             unknown_removed = (
-                "secret_internal_data" not in sanitized and
-                "debug_info" not in sanitized
+                "secret_internal_data" not in sanitized and "debug_info" not in sanitized
             )
 
             # Check that known fields are preserved
             known_preserved = (
-                sanitized.get("ok") == True and
-                sanitized.get("task_id") == "test-task-123"
+                sanitized.get("ok") and sanitized.get("task_id") == "test-task-123"
             )
 
             print(f"    Unknown fields removed: {unknown_removed}")
@@ -660,8 +655,12 @@ class SecurityE2EVerifier:
             test_text_clean = "Normal text without issues"
             test_text_leaked = "This contains LANCET-abc123 leaked content"
 
-            clean_result, clean_had_issues = sanitizer_with_prompt._validate_llm_content(test_text_clean)
-            leaked_result, leaked_had_issues = sanitizer_with_prompt._validate_llm_content(test_text_leaked)
+            clean_result, clean_had_issues = sanitizer_with_prompt._validate_llm_content(
+                test_text_clean
+            )
+            leaked_result, leaked_had_issues = sanitizer_with_prompt._validate_llm_content(
+                test_text_leaked
+            )
 
             # Clean text should not have issues
             clean_ok = not clean_had_issues
@@ -712,16 +711,15 @@ class SecurityE2EVerifier:
     async def verify_l8_log_security(self) -> VerificationResult:
         """
         Verify L8: Log Security.
-        
+
         Tests that prompt content is not logged, only hash/preview.
-        
+
         Method: Use SecureLogger, capture log output, verify no prompt content.
         Expected: Logs contain hash/length/preview, not full prompt.
         """
         print("\n[6/6] Verifying L8: Log Security (§4.4.1 L8)...")
 
         try:
-
             import structlog
 
             from src.utils.secure_logging import (
@@ -751,7 +749,7 @@ class SecurityE2EVerifier:
                 return event_dict
 
             # Create a test logger with capture
-            old_processors = structlog.get_config().get("processors", [])
+            structlog.get_config().get("processors", [])
 
             # Log LLM I/O through SecureLogger
             secure_log.log_llm_io(
@@ -767,7 +765,7 @@ class SecurityE2EVerifier:
 
             has_hash = len(summary.content_hash) == 16  # 16 chars of SHA256
             has_length = summary.length == len(test_prompt)
-            has_preview = len(summary.preview) <= 100 + 3  # MAX_PREVIEW_LENGTH + "..."
+            len(summary.preview) <= 100 + 3  # MAX_PREVIEW_LENGTH + "..."
             preview_not_full = len(summary.preview) < len(test_prompt)
 
             print(f"    Summary has hash: {has_hash}")
@@ -797,12 +795,12 @@ class SecurityE2EVerifier:
             print(f"    Exception path sanitized: {path_sanitized}")
 
             all_passed = (
-                has_hash and
-                has_length and
-                preview_not_full and
-                sensitive_masked and
-                audit_event_ok and
-                path_sanitized
+                has_hash
+                and has_length
+                and preview_not_full
+                and sensitive_masked
+                and audit_event_ok
+                and path_sanitized
             )
 
             details = {
@@ -844,7 +842,7 @@ class SecurityE2EVerifier:
     async def run_all(self) -> int:
         """
         Run all security verifications.
-        
+
         Returns:
             Exit code: 0 (all passed), 1 (some failed), 2 (critical failure)
         """
@@ -903,7 +901,9 @@ class SecurityE2EVerifier:
                 print(f"         Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         # Determine exit code
@@ -929,4 +929,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

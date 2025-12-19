@@ -52,6 +52,7 @@ from src.storage.entity_kb import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def name_normalizer():
     """Create NameNormalizer instance."""
@@ -116,6 +117,7 @@ async def entity_kb(tmp_path):
 
         async def insert(self, table, data, auto_id=True):
             import uuid
+
             if auto_id and "id" not in data:
                 data = data.copy()
                 data["id"] = str(uuid.uuid4())
@@ -148,6 +150,7 @@ async def entity_kb(tmp_path):
 # =============================================================================
 # Name Normalizer Tests
 # =============================================================================
+
 
 class TestNameNormalizer:
     """Tests for NameNormalizer class."""
@@ -350,6 +353,7 @@ class TestNameNormalizer:
 # Address Normalizer Tests
 # =============================================================================
 
+
 class TestAddressNormalizer:
     """Tests for AddressNormalizer class."""
 
@@ -441,6 +445,7 @@ class TestAddressNormalizer:
 # Identifier Normalizer Tests
 # =============================================================================
 
+
 class TestIdentifierNormalizer:
     """Tests for IdentifierNormalizer class."""
 
@@ -520,6 +525,7 @@ class TestIdentifierNormalizer:
 # =============================================================================
 # EntityKB Integration Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 class TestEntityKB:
@@ -796,6 +802,7 @@ class TestEntityKB:
 # Edge Cases and Error Handling
 # =============================================================================
 
+
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
@@ -868,6 +875,7 @@ class TestEdgeCases:
 # =============================================================================
 # Boundary Condition Tests
 # =============================================================================
+
 
 class TestBoundaryConditions:
     """Tests for boundary conditions per §7.1.2."""
@@ -948,4 +956,3 @@ class TestBoundaryConditions:
 
         # Assert
         assert aliases == []
-

@@ -24,15 +24,29 @@ logger = get_logger(__name__)
 # Primary source domain patterns
 PRIMARY_SOURCE_DOMAINS = {
     # Government
-    "go.jp", "gov.uk", "gov", "gouv.fr", "bund.de",
+    "go.jp",
+    "gov.uk",
+    "gov",
+    "gouv.fr",
+    "bund.de",
     # Academic
-    "edu", "ac.jp", "ac.uk", "edu.cn",
+    "edu",
+    "ac.jp",
+    "ac.uk",
+    "edu.cn",
     # Standards
-    "iso.org", "ietf.org", "w3.org",
+    "iso.org",
+    "ietf.org",
+    "w3.org",
     # Official organizations
-    "who.int", "un.org", "oecd.org",
+    "who.int",
+    "un.org",
+    "oecd.org",
     # Academic publishers/repositories
-    "arxiv.org", "pubmed.gov", "jstage.jst.go.jp", "doi.org",
+    "arxiv.org",
+    "pubmed.gov",
+    "jstage.jst.go.jp",
+    "doi.org",
 }
 
 # Mechanical refutation suffixes (§3.1.7.5)
@@ -52,7 +66,7 @@ REFUTATION_SUFFIXES = [
 @dataclass
 class SearchResult:
     """Result of search execution.
-    
+
     Per §16.7.4: Includes authentication queue information.
     """
 
@@ -117,12 +131,12 @@ SubqueryResult = SearchResult
 class SearchExecutor:
     """
     Executes search queries designed by Cursor AI.
-    
+
     Responsibilities (§2.1.3):
     - Mechanical expansion of queries (synonyms, mirror queries, operators)
     - Search → Fetch → Extract → Evaluate pipeline
     - Metrics calculation (harvest rate, novelty, satisfaction)
-    
+
     Does NOT:
     - Design search queries (Cursor AI's responsibility)
     - Make strategic decisions about what to search next
@@ -130,7 +144,7 @@ class SearchExecutor:
 
     def __init__(self, task_id: str, state: ExplorationState):
         """Initialize executor.
-        
+
         Args:
             task_id: The task ID.
             state: The exploration state manager.
@@ -158,13 +172,13 @@ class SearchExecutor:
     ) -> SearchResult:
         """
         Execute a search query designed by Cursor AI.
-        
+
         Args:
             query: The search query text (designed by Cursor AI).
             priority: Execution priority (high/medium/low).
             budget_pages: Optional page budget for this search.
             budget_time_seconds: Optional time budget for this search.
-            
+
         Returns:
             SearchResult with execution results.
         """
@@ -271,7 +285,9 @@ class SearchExecutor:
                 # Check for ALL_FETCHES_FAILED condition
                 # If we attempted fetches but got no successful pages
                 search_state = self.state.get_search(search_id)
-                all_fetches_failed = fetch_attempted > 0 and search_state and search_state.pages_fetched == 0
+                all_fetches_failed = (
+                    fetch_attempted > 0 and search_state and search_state.pages_fetched == 0
+                )
                 if all_fetches_failed:
                     result.status = "failed"
                     result.error_code = "ALL_FETCHES_FAILED"
@@ -302,8 +318,10 @@ class SearchExecutor:
                 # Calculate remaining budget
                 overall_status = await self.state.get_status()
                 result.budget_remaining = {
-                    "pages": overall_status["budget"]["pages_limit"] - overall_status["budget"]["pages_used"],
-                    "time_seconds": overall_status["budget"]["time_limit_seconds"] - overall_status["budget"]["time_used_seconds"],
+                    "pages": overall_status["budget"]["pages_limit"]
+                    - overall_status["budget"]["pages_used"],
+                    "time_seconds": overall_status["budget"]["time_limit_seconds"]
+                    - overall_status["budget"]["time_used_seconds"],
                 }
 
             except Exception as e:
@@ -316,12 +334,12 @@ class SearchExecutor:
     def _expand_query(self, query: str) -> list[str]:
         """
         Mechanically expand a query (§2.1.3).
-        
+
         Only performs mechanical expansions:
         - Original query
         - With common operators
         - Mirror queries (if applicable)
-        
+
         Does NOT generate new query ideas (that's Cursor AI's job).
         """
         expanded = [query]
@@ -330,22 +348,26 @@ class SearchExecutor:
         if "site:" not in query.lower():
             # Academic
             if any(kw in query.lower() for kw in ["研究", "論文", "paper", "study"]):
-                expanded.append(f'{query} site:arxiv.org OR site:jstage.jst.go.jp')
+                expanded.append(f"{query} site:arxiv.org OR site:jstage.jst.go.jp")
 
             # Government
             if any(kw in query.lower() for kw in ["政府", "省", "gov", "official"]):
-                expanded.append(f'{query} site:go.jp')
+                expanded.append(f"{query} site:go.jp")
 
         # Add filetype:pdf for document-heavy queries
         if "filetype:" not in query.lower():
-            if any(kw in query.lower() for kw in ["仕様", "報告書", "白書", "specification", "report"]):
-                expanded.append(f'{query} filetype:pdf')
+            if any(
+                kw in query.lower() for kw in ["仕様", "報告書", "白書", "specification", "report"]
+            ):
+                expanded.append(f"{query} filetype:pdf")
 
         return expanded
 
-    async def _execute_search(self, query: str) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
+    async def _execute_search(
+        self, query: str
+    ) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
         """Execute search via search provider.
-        
+
         Returns:
             Tuple of (results, error_code, error_details).
             error_code is None if successful.
@@ -363,7 +385,7 @@ class SearchExecutor:
                 query=query,
                 limit=10,
                 task_id=self.task_id,
-                engines=getattr(self, '_engines', None),
+                engines=getattr(self, "_engines", None),
             )
             return results, None, {}
         except ParserNotAvailableSearchError as e:
@@ -373,20 +395,28 @@ class SearchExecutor:
                 engine=e.engine,
                 available=e.available_engines,
             )
-            return [], "PARSER_NOT_AVAILABLE", {
-                "engine": e.engine,
-                "available_engines": e.available_engines,
-            }
+            return (
+                [],
+                "PARSER_NOT_AVAILABLE",
+                {
+                    "engine": e.engine,
+                    "available_engines": e.available_engines,
+                },
+            )
         except SerpSearchError as e:
             logger.error(
                 "Search failed: SERP error",
                 query=query[:50],
                 error=e.message,
             )
-            return [], "SERP_SEARCH_FAILED", {
-                "query": e.query,
-                "provider_error": e.provider_error,
-            }
+            return (
+                [],
+                "SERP_SEARCH_FAILED",
+                {
+                    "query": e.query,
+                    "provider_error": e.provider_error,
+                },
+            )
         except SearchError as e:
             logger.error(
                 "Search failed: generic error",
@@ -405,7 +435,7 @@ class SearchExecutor:
         result: SearchResult,
     ) -> None:
         """Fetch URL and extract content.
-        
+
         Per §16.7.4: Tracks authentication blocks and queued items.
         """
         from src.crawler.fetcher import fetch_url
@@ -418,6 +448,7 @@ class SearchExecutor:
         # Extract domain
         try:
             from urllib.parse import urlparse
+
             parsed = urlparse(url)
             domain = parsed.netloc.lower()
             # Get TLD+1
@@ -431,10 +462,7 @@ class SearchExecutor:
             domain_short = url
 
         # Check if this is a primary source
-        is_primary = any(
-            primary in domain.lower()
-            for primary in PRIMARY_SOURCE_DOMAINS
-        )
+        is_primary = any(primary in domain.lower() for primary in PRIMARY_SOURCE_DOMAINS)
 
         # Check if this is an independent source (new domain)
         is_independent = domain_short not in self._seen_domains
@@ -543,11 +571,13 @@ class SearchExecutor:
                         if not extracted_claims:
                             self.state.record_claim(search_id)
                             snippet = extract_result.get("text", "")[:200]
-                            result.new_claims.append({
-                                "source_url": url,
-                                "title": serp_item.get("title", ""),
-                                "snippet": snippet,
-                            })
+                            result.new_claims.append(
+                                {
+                                    "source_url": url,
+                                    "title": serp_item.get("title", ""),
+                                    "snippet": snippet,
+                                }
+                            )
 
                             # Persist snippet as claim for get_materials() (O.7 fix)
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
@@ -571,16 +601,16 @@ class SearchExecutor:
     ) -> list[dict[str, Any]]:
         """
         Extract claims from text using LLM (§2.1.4, §3.3).
-        
+
         LLM extraction is only applied to primary sources to control
         LLM processing time ratio (≤30% per §3.1).
-        
+
         Args:
             text: The text to extract claims from.
             source_url: URL of the source.
             title: Title of the source.
             is_primary: Whether this is a primary source.
-            
+
         Returns:
             List of extracted claims.
         """
@@ -588,7 +618,7 @@ class SearchExecutor:
         if not is_primary:
             return []
 
-        settings = get_settings()
+        get_settings()
 
         try:
             from src.filter.llm import llm_extract
@@ -611,14 +641,16 @@ class SearchExecutor:
                 claims = []
                 for claim in result["claims"]:
                     if isinstance(claim, dict):
-                        claims.append({
-                            "source_url": source_url,
-                            "title": title,
-                            "claim": claim.get("claim", ""),
-                            "claim_type": claim.get("type", "fact"),
-                            "confidence": claim.get("confidence", 0.5),
-                            "snippet": text[:200],
-                        })
+                        claims.append(
+                            {
+                                "source_url": source_url,
+                                "title": title,
+                                "claim": claim.get("claim", ""),
+                                "claim_type": claim.get("type", "fact"),
+                                "confidence": claim.get("confidence", 0.5),
+                                "snippet": text[:200],
+                            }
+                        )
                 return claims
 
         except Exception as e:
@@ -642,10 +674,10 @@ class SearchExecutor:
     ) -> None:
         """
         Persist fragment to database for get_materials() retrieval.
-        
+
         O.7 fix: fragments were only tracked in memory, causing get_materials()
         to return empty results.
-        
+
         Args:
             fragment_id: Unique fragment identifier.
             page_id: Associated page identifier.
@@ -664,8 +696,8 @@ class SearchExecutor:
 
             await db.execute(
                 """
-                INSERT OR IGNORE INTO fragments 
-                (id, page_id, fragment_type, text_content, heading_context, text_hash, 
+                INSERT OR IGNORE INTO fragments
+                (id, page_id, fragment_type, text_content, heading_context, text_hash,
                  is_relevant, relevance_reason, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
@@ -697,10 +729,10 @@ class SearchExecutor:
     ) -> None:
         """
         Persist claim to database for get_materials() retrieval.
-        
+
         O.7 fix: claims were only tracked in memory, causing get_materials()
         to return empty results.
-        
+
         Args:
             claim_id: Unique claim identifier.
             claim_text: The claim text.
@@ -716,8 +748,8 @@ class SearchExecutor:
             # Insert claim (using schema-valid columns)
             await db.execute(
                 """
-                INSERT OR IGNORE INTO claims 
-                (id, task_id, claim_text, claim_type, confidence_score, 
+                INSERT OR IGNORE INTO claims
+                (id, task_id, claim_text, claim_type, confidence_score,
                  source_fragment_ids, verification_notes, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
@@ -759,13 +791,13 @@ class SearchExecutor:
     def generate_refutation_queries(self, base_query: str) -> list[str]:
         """
         Generate refutation queries using mechanical patterns only.
-        
+
         This applies predefined suffixes to the base query.
         Does NOT use LLM for query design (§2.1.4).
-        
+
         Args:
             base_query: The base query to generate refutations for.
-            
+
         Returns:
             List of refutation queries.
         """
@@ -779,4 +811,3 @@ class SearchExecutor:
 
 # Backward compatibility alias (deprecated, will be removed)
 SubqueryExecutor = SearchExecutor
-

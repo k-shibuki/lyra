@@ -141,9 +141,15 @@ class UCBAllocator:
             reallocation_interval: Pages between budget reallocations.
         """
         self.total_budget = total_budget
-        self.exploration_constant = exploration_constant if exploration_constant is not None else math.sqrt(2)
+        self.exploration_constant = (
+            exploration_constant if exploration_constant is not None else math.sqrt(2)
+        )
         # Support deprecated parameter
-        self.min_budget_per_search = min_budget_per_subquery if min_budget_per_subquery is not None else min_budget_per_search
+        self.min_budget_per_search = (
+            min_budget_per_subquery
+            if min_budget_per_subquery is not None
+            else min_budget_per_search
+        )
         self.max_budget_ratio = max_budget_ratio
         self.reallocation_interval = reallocation_interval
 
@@ -289,10 +295,7 @@ class UCBAllocator:
         Returns:
             Dictionary mapping search_id to UCB1 score.
         """
-        return {
-            search_id: self.calculate_ucb_score(search_id)
-            for search_id in self._arms
-        }
+        return {search_id: self.calculate_ucb_score(search_id) for search_id in self._arms}
 
     def _get_max_budget(self) -> int:
         """Get maximum budget per search."""
@@ -358,16 +361,15 @@ class UCBAllocator:
 
         # Handle infinite scores (unplayed arms)
         inf_arms = [(sid, arm, score) for sid, arm, score in active_arms if math.isinf(score)]
-        finite_arms = [(sid, arm, score) for sid, arm, score in active_arms if not math.isinf(score)]
+        finite_arms = [
+            (sid, arm, score) for sid, arm, score in active_arms if not math.isinf(score)
+        ]
 
         allocations: dict[str, int] = {}
 
         # First, ensure minimum budget for all unplayed arms
         if inf_arms:
-            budget_for_inf = min(
-                remaining_budget,
-                len(inf_arms) * self.min_budget_per_search
-            )
+            budget_for_inf = min(remaining_budget, len(inf_arms) * self.min_budget_per_search)
             per_arm = budget_for_inf // len(inf_arms)
 
             for sid, arm, _ in inf_arms:
@@ -388,10 +390,7 @@ class UCBAllocator:
 
                     # Apply min/max constraints
                     max_additional = self._get_max_budget() - arm.consumed_budget
-                    new_alloc = max(
-                        self.min_budget_per_search,
-                        min(raw_alloc, max_additional)
-                    )
+                    new_alloc = max(self.min_budget_per_search, min(raw_alloc, max_additional))
 
                     arm.allocated_budget = arm.consumed_budget + new_alloc
                     allocations[sid] = arm.remaining_budget()
@@ -410,9 +409,7 @@ class UCBAllocator:
                 allocations[sid] = arm.remaining_budget()
 
         self._pulls_since_reallocation = 0
-        self._allocated_budget = sum(
-            arm.allocated_budget for arm in self._arms.values()
-        )
+        self._allocated_budget = sum(arm.allocated_budget for arm in self._arms.values())
 
         logger.debug(
             "Budget reallocated",
@@ -439,9 +436,11 @@ class UCBAllocator:
         # Check if any played search has exhausted its budget
         # Note: Unplayed arms (consumed_budget=0) with no allocation are NOT considered exhausted
         for arm in self._arms.values():
-            if (arm.consumed_budget > 0 and
-                arm.remaining_budget() <= 0 and
-                arm.consumed_budget < self._get_max_budget()):
+            if (
+                arm.consumed_budget > 0
+                and arm.remaining_budget() <= 0
+                and arm.consumed_budget < self._get_max_budget()
+            ):
                 return True
 
         return False
@@ -481,8 +480,7 @@ class UCBAllocator:
         available = [
             (sid, score)
             for sid, score in scores.items()
-            if self._arms[sid].remaining_budget() > 0
-            or self._arms[sid].pulls == 0  # Unplayed arms
+            if self._arms[sid].remaining_budget() > 0 or self._arms[sid].pulls == 0  # Unplayed arms
         ]
 
         if not available:
@@ -564,4 +562,3 @@ class UCBAllocator:
             allocator._arms[sid] = arm
 
         return allocator
-

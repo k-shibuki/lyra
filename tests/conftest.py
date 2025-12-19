@@ -86,6 +86,7 @@ os.environ["LANCET_GENERAL__LOG_LEVEL"] = "DEBUG"
 # Pytest Hooks for Test Classification
 # =============================================================================
 
+
 def pytest_configure(config):
     """Register custom markers for test classification per §7.1.7 and §16.10.1."""
     # Primary classification markers
@@ -117,15 +118,14 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(config, items):
     """
     Auto-apply 'unit' marker to tests without explicit classification.
-    
+
     Per §7.1.7, tests should be classified as unit/integration/e2e.
     Tests without explicit markers are assumed to be unit tests.
     """
     for item in items:
         # Check if test already has a classification marker
         has_classification = any(
-            marker.name in ("unit", "integration", "e2e")
-            for marker in item.iter_markers()
+            marker.name in ("unit", "integration", "e2e") for marker in item.iter_markers()
         )
 
         # Default to unit test if no classification
@@ -149,7 +149,7 @@ def temp_db_path(temp_dir: Path) -> Path:
 @pytest_asyncio.fixture
 async def test_database(temp_db_path: Path):
     """Create a temporary test database.
-    
+
     Guards against global database singleton interference by saving
     and restoring the global state around the test.
     """
@@ -276,8 +276,10 @@ class MockResponse:
 @pytest.fixture
 def make_mock_response():
     """Factory for creating mock responses."""
+
     def _make(json_data: dict, status: int = 200):
         return MockResponse(json_data, status)
+
     return _make
 
 
@@ -285,29 +287,32 @@ def make_mock_response():
 # Provider Reset Fixtures
 # =============================================================================
 
+
 @pytest.fixture(autouse=True)
 def reset_search_provider():
     """Reset search provider singletons between tests.
-    
+
     Ensures that each test starts with a fresh provider state.
     This prevents 'Event loop is closed' errors from provider reuse.
     """
     yield
     # Reset after each test
     from src.search.provider import reset_registry
+
     reset_registry()
 
 
 @pytest.fixture(autouse=True)
 def reset_global_database():
     """Reset global database singleton between tests.
-    
+
     Prevents asyncio.Lock() from being bound to a stale event loop,
     which can cause intermittent hangs when running multiple tests.
     """
     yield
     # Reset global database after each test
     from src.storage import database as db_module
+
     if db_module._db is not None:
         # Force reset without awaiting (connection should already be closed
         # by the test_database fixture if it was used)
@@ -318,23 +323,22 @@ def reset_global_database():
 # Mock Fixtures for External Services (§7.1.7 Mock Strategy)
 # =============================================================================
 
+
 @pytest.fixture
 def mock_ollama():
     """Mock Ollama client for unit tests.
-    
+
     Per §7.1.7: External services (Ollama) should be mocked in unit/integration tests.
     """
     with patch("src.filter.llm_extract.ollama") as mock_ollama:
-        mock_ollama.chat = AsyncMock(return_value={
-            "message": {"content": "{}"}
-        })
+        mock_ollama.chat = AsyncMock(return_value={"message": {"content": "{}"}})
         yield mock_ollama
 
 
 @pytest.fixture
 def mock_browser():
     """Mock Playwright browser for unit tests.
-    
+
     Per §7.1.7: External services (Chrome) should be mocked in unit/integration tests.
     """
     with patch("src.crawler.browser.playwright") as mock_pw:
@@ -352,10 +356,11 @@ def mock_browser():
 # Database Fixtures (§7.1.7 Mock Strategy)
 # =============================================================================
 
+
 @pytest_asyncio.fixture
 async def memory_database():
     """Create an in-memory database for fast unit tests.
-    
+
     Per §7.1.7: Database should use in-memory SQLite for unit tests.
     """
     from src.storage.database import Database
@@ -373,19 +378,24 @@ async def memory_database():
 # Utility Functions for Tests
 # =============================================================================
 
+
 def assert_dict_contains(actual: dict, expected: dict) -> None:
     """Assert that actual dict contains all key-value pairs from expected.
-    
+
     Provides clear error messages per §7.1.2 (Diagnosability).
     """
     for key, value in expected.items():
-        assert key in actual, f"Key '{key}' not found in actual dict. Keys present: {list(actual.keys())}"
-        assert actual[key] == value, f"Value mismatch for key '{key}': expected {value!r}, got {actual[key]!r}"
+        assert key in actual, (
+            f"Key '{key}' not found in actual dict. Keys present: {list(actual.keys())}"
+        )
+        assert actual[key] == value, (
+            f"Value mismatch for key '{key}': expected {value!r}, got {actual[key]!r}"
+        )
 
 
 def assert_async_called_with(mock: AsyncMock, *args, **kwargs) -> None:
     """Assert that async mock was called with specific arguments.
-    
+
     Provides clear error messages per §7.1.2 (Diagnosability).
     """
     mock.assert_called()
@@ -398,7 +408,7 @@ def assert_async_called_with(mock: AsyncMock, *args, **kwargs) -> None:
 
 def assert_in_range(value: float, min_val: float, max_val: float, name: str = "value") -> None:
     """Assert that a value is within a specified range.
-    
+
     Per §7.1.2: Range checks should be explicit with tolerance.
     """
     assert min_val <= value <= max_val, (
@@ -410,12 +420,14 @@ def assert_in_range(value: float, min_val: float, max_val: float, name: str = "v
 # Test Data Factories (§7.1.3 Test Data Requirements)
 # =============================================================================
 
+
 @pytest.fixture
 def make_fragment():
     """Factory for creating test fragments with realistic data.
-    
+
     Per §7.1.3: Test data should be realistic and diverse.
     """
+
     def _make(
         fragment_id: str,
         text: str,
@@ -429,15 +441,17 @@ def make_fragment():
             "source_tag": source_tag,
             "extracted_at": "2024-01-01T00:00:00Z",
         }
+
     return _make
 
 
 @pytest.fixture
 def make_claim():
     """Factory for creating test claims with realistic data.
-    
+
     Per §7.1.3: Test data should be realistic and diverse.
     """
+
     def _make(
         claim_id: str,
         text: str,
@@ -451,6 +465,7 @@ def make_claim():
             "verdict": verdict,
             "created_at": "2024-01-01T00:00:00Z",
         }
+
     return _make
 
 
@@ -458,13 +473,14 @@ def make_claim():
 # Session-scoped Cleanup Fixtures
 # =============================================================================
 
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_aiohttp_sessions(request):
     """Cleanup global aiohttp client sessions after all tests complete.
-    
+
     This prevents 'Unclosed client session' warnings by ensuring all
     singleton clients are properly closed at the end of the test session.
-    
+
     Note: We use synchronous reset instead of async cleanup to avoid
     creating a new event loop, which can interfere with pytest-asyncio's
     event loop management and cause intermittent hangs.
@@ -475,14 +491,14 @@ def cleanup_aiohttp_sessions(request):
     # This avoids event loop conflicts with pytest-asyncio
     try:
         from src.filter import llm
+
         llm._client = None
     except ImportError:
         pass
 
     try:
         from src.storage import database as db_module
+
         db_module._db = None
     except ImportError:
         pass
-
-

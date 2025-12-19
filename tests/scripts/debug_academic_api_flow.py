@@ -7,7 +7,7 @@ This script verifies the complete flow of J.2 Academic API Integration:
 1. Academic query detection
 2. AcademicSearchProvider initialization
 3. Semantic Scholar API search
-4. OpenAlex API search  
+4. OpenAlex API search
 5. Result deduplication via CanonicalPaperIndex
 6. Citation graph retrieval
 7. Evidence graph integration
@@ -77,8 +77,9 @@ async def test_academic_provider_initialization():
     provider = AcademicSearchProvider()
 
     # Verify default APIs
-    assert provider._default_apis == ["semantic_scholar", "openalex"], \
+    assert provider._default_apis == ["semantic_scholar", "openalex"], (
         f"Expected default APIs: semantic_scholar, openalex, got: {provider._default_apis}"
+    )
     print(f"  ✓ Default APIs: {provider._default_apis}")
 
     # Verify API priority
@@ -89,9 +90,12 @@ async def test_academic_provider_initialization():
         "arxiv": 4,
         "unpaywall": 5,
     }
-    assert provider.API_PRIORITY == expected_priority, \
+    assert provider.API_PRIORITY == expected_priority, (
         f"API priority mismatch: {provider.API_PRIORITY}"
-    print("  ✓ API priority order: semantic_scholar(1) > openalex(2) > crossref(3) > arxiv(4) > unpaywall(5)")
+    )
+    print(
+        "  ✓ API priority order: semantic_scholar(1) > openalex(2) > crossref(3) > arxiv(4) > unpaywall(5)"
+    )
 
     # Verify lazy initialization
     assert provider._clients == {}, "Clients should be empty (lazy init)"
@@ -239,7 +243,9 @@ async def test_semantic_scholar_client():
 
     for input_id, expected in test_ids:
         normalized = client._normalize_paper_id(input_id)
-        assert normalized == expected, f"ID normalization failed: {input_id} -> {normalized}, expected {expected}"
+        assert normalized == expected, (
+            f"ID normalization failed: {input_id} -> {normalized}, expected {expected}"
+        )
         print(f"  ✓ ID normalization: '{input_id}' -> '{normalized}'")
 
     await client.close()
@@ -261,7 +267,7 @@ async def test_evidence_graph_academic_edges():
     graph.add_node(NodeType.PAGE, "page2")
 
     # Add academic CITES edge
-    edge_id = graph.add_edge(
+    graph.add_edge(
         source_type=NodeType.PAGE,
         source_id="page1",
         target_type=NodeType.PAGE,
@@ -314,7 +320,7 @@ async def test_live_api_search(live: bool = False):
         if response.ok:
             print(f"  ✓ Search successful: {len(response.results)} results")
             for i, result in enumerate(response.results[:3]):
-                print(f"    [{i+1}] {result.title[:50]}...")
+                print(f"    [{i + 1}] {result.title[:50]}...")
         else:
             print(f"  ⚠ Search failed: {response.error}")
 
@@ -407,6 +413,7 @@ async def main():
     except Exception as e:
         print(f"\n✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         all_passed = False
 

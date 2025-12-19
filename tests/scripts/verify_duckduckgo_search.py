@@ -31,7 +31,7 @@ Exit codes:
 Note:
     This script accesses real DuckDuckGo search.
     Run in a low-risk IP environment to avoid blocks.
-    
+
 Related scripts:
     - verify_ecosia_search.py
     - verify_metager_search.py
@@ -67,6 +67,7 @@ def _get_captcha_type(result) -> str | None:
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -90,6 +91,7 @@ class BrowserSearchVerifier:
         # Check browser connectivity via BrowserSearchProvider
         try:
             from src.search.browser_search_provider import BrowserSearchProvider
+
             provider = BrowserSearchProvider()
             # Try to initialize browser connection
             await provider._ensure_browser()
@@ -134,13 +136,13 @@ class BrowserSearchVerifier:
             # Get browser info
             browser_info = {}
             browser = provider._browser
-            browser_info['connected'] = browser.is_connected()
+            browser_info["connected"] = browser.is_connected()
             contexts = browser.contexts
-            browser_info['contexts'] = len(contexts)
+            browser_info["contexts"] = len(contexts)
 
             if contexts:
                 pages = contexts[0].pages
-                browser_info['pages'] = len(pages)
+                browser_info["pages"] = len(pages)
 
             print(f"    ✓ Browser connected: {browser_info.get('connected', False)}")
             print(f"    ✓ Contexts: {browser_info.get('contexts', 0)}")
@@ -299,7 +301,7 @@ class BrowserSearchVerifier:
 
             for r in result.results:
                 has_title = bool(r.title and len(r.title) > 0)
-                has_url = bool(r.url and r.url.startswith('http'))
+                has_url = bool(r.url and r.url.startswith("http"))
                 has_engine = r.engine == "duckduckgo"
                 has_rank = r.rank > 0
 
@@ -384,7 +386,7 @@ class BrowserSearchVerifier:
             # Check stealth indicators
             stealth_checks = {
                 "page_loaded": result.ok,
-                "no_challenge": not getattr(result, 'auth_queued', False),
+                "no_challenge": not getattr(result, "auth_queued", False),
                 "content_received": bool(result.html_path or result.content_hash),
             }
 
@@ -433,12 +435,12 @@ class BrowserSearchVerifier:
         try:
             # Get initial session count
             initial_stats = manager.get_session_stats()
-            initial_count = initial_stats['total_sessions']
+            initial_count = initial_stats["total_sessions"]
             print(f"    Initial sessions: {initial_count}")
 
             # Perform a search to create session
             options = SearchOptions(engines=["duckduckgo"], limit=3)
-            result = await provider.search("test query", options)
+            await provider.search("test query", options)
 
             # Check search session
             search_session = provider.get_session("duckduckgo")
@@ -451,12 +453,12 @@ class BrowserSearchVerifier:
 
             # Check session transfer manager
             final_stats = manager.get_session_stats()
-            final_count = final_stats['total_sessions']
+            final_count = final_stats["total_sessions"]
             print(f"    Final sessions: {final_count}")
 
-            if final_stats['domains']:
+            if final_stats["domains"]:
                 print("    Session domains:")
-                for domain, count in list(final_stats['domains'].items())[:3]:
+                for domain, count in list(final_stats["domains"].items())[:3]:
                     print(f"      - {domain}: {count}")
 
             # Session management is working if we can track sessions
@@ -468,7 +470,7 @@ class BrowserSearchVerifier:
                     "initial_sessions": initial_count,
                     "final_sessions": final_count,
                     "has_search_session": search_session is not None,
-                    "domains": list(final_stats.get('domains', {}).keys()),
+                    "domains": list(final_stats.get("domains", {}).keys()),
                 },
             )
 
@@ -531,7 +533,9 @@ class BrowserSearchVerifier:
                 print(f"      Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if failed > 0:

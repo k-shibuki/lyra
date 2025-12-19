@@ -67,6 +67,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
 
         try:
             import undetected_chromedriver as uc  # noqa: F401
+
             self._available = True
             logger.debug("undetected-chromedriver is available")
         except ImportError:
@@ -160,12 +161,8 @@ class UndetectedChromeProvider(BaseBrowserProvider):
             return
 
         try:
-            page_height = self._driver.execute_script(
-                "return document.body.scrollHeight"
-            )
-            viewport_height = self._driver.execute_script(
-                "return window.innerHeight"
-            )
+            page_height = self._driver.execute_script("return document.body.scrollHeight")
+            viewport_height = self._driver.execute_script("return window.innerHeight")
 
             current_position = 0
             max_scrolls = 3
@@ -183,9 +180,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
                     page_height - viewport_height,
                 )
 
-                self._driver.execute_script(
-                    f"window.scrollTo(0, {current_position})"
-                )
+                self._driver.execute_script(f"window.scrollTo(0, {current_position})")
 
                 time.sleep(random.uniform(0.3, 1.0))
 
@@ -508,9 +503,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
     async def get_health(self) -> BrowserHealthStatus:
         """Get current health status."""
         if not self._check_available():
-            return BrowserHealthStatus.unavailable(
-                "undetected-chromedriver not installed"
-            )
+            return BrowserHealthStatus.unavailable("undetected-chromedriver not installed")
 
         if self._is_closed:
             return BrowserHealthStatus.unhealthy("Provider is closed")
@@ -571,4 +564,3 @@ def reset_undetected_provider() -> None:
     """Reset the global provider without closing. For testing only."""
     global _undetected_provider
     _undetected_provider = None
-

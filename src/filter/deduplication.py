@@ -49,6 +49,7 @@ class ShingleTokenizer:
         if self._sudachi_tokenizer is None:
             try:
                 from sudachipy import dictionary, tokenizer
+
                 self._sudachi_tokenizer = dictionary.Dictionary().create()
                 self._tokenize_mode = tokenizer.Tokenizer.SplitMode.A
             except ImportError:
@@ -89,7 +90,7 @@ class ShingleTokenizer:
 
             shingles = set()
             for i in range(len(tokens) - self.shingle_size + 1):
-                shingle = " ".join(tokens[i:i + self.shingle_size])
+                shingle = " ".join(tokens[i : i + self.shingle_size])
                 shingles.add(shingle)
             return shingles
         else:
@@ -99,8 +100,7 @@ class ShingleTokenizer:
                 return {text} if text else set()
 
             return {
-                text[i:i + self.shingle_size]
-                for i in range(len(text) - self.shingle_size + 1)
+                text[i : i + self.shingle_size] for i in range(len(text) - self.shingle_size + 1)
             }
 
 
@@ -280,7 +280,7 @@ class MinHashDeduplicator:
                 total_sim = 0.0
                 count = 0
                 for i, m1 in enumerate(members):
-                    for m2 in members[i+1:]:
+                    for m2 in members[i + 1 :]:
                         total_sim += self.get_similarity(m1, m2)
                         count += 1
                 avg_sim = total_sim / count if count > 0 else 1.0
@@ -414,7 +414,7 @@ class SimHash:
         result = 0
         for i in range(self.bit_size):
             if weights[i] > 0:
-                result |= (1 << i)
+                result |= 1 << i
 
         return result
 
@@ -618,7 +618,7 @@ def get_deduplicator() -> MinHashDeduplicator:
     global _deduplicator
 
     if _deduplicator is None:
-        settings = get_settings()
+        get_settings()
         _deduplicator = MinHashDeduplicator(
             num_perm=128,
             threshold=0.5,
@@ -672,11 +672,3 @@ async def deduplicate_fragments(
         "original_count": len(fragments),
         "deduplicated_count": len(deduped),
     }
-
-
-
-
-
-
-
-

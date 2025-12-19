@@ -206,7 +206,9 @@ class OllamaProvider(BaseLLMProvider):
                 if "eval_count" in data:
                     usage["completion_tokens"] = data["eval_count"]
                 if usage:
-                    usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+                    usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get(
+                        "completion_tokens", 0
+                    )
 
                 return LLMResponse.success(
                     text=text,
@@ -325,7 +327,9 @@ class OllamaProvider(BaseLLMProvider):
                 if "eval_count" in data:
                     usage["completion_tokens"] = data["eval_count"]
                 if usage:
-                    usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+                    usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get(
+                        "completion_tokens", 0
+                    )
 
                 return LLMResponse.success(
                     text=text,
@@ -517,14 +521,16 @@ class OllamaProvider(BaseLLMProvider):
                         except (ValueError, AttributeError):
                             pass
 
-                    models.append(ModelInfo(
-                        name=name,
-                        size=details.get("parameter_size", ""),
-                        capabilities=[ModelCapability.TEXT_GENERATION, ModelCapability.CHAT],
-                        quantization=details.get("quantization_level"),
-                        modified_at=modified_at,
-                        details=details,
-                    ))
+                    models.append(
+                        ModelInfo(
+                            name=name,
+                            size=details.get("parameter_size", ""),
+                            capabilities=[ModelCapability.TEXT_GENERATION, ModelCapability.CHAT],
+                            quantization=details.get("quantization_level"),
+                            modified_at=modified_at,
+                            details=details,
+                        )
+                    )
 
                 return models
 
@@ -664,4 +670,3 @@ def create_ollama_provider(
         host=host,
         model=model,
     )
-

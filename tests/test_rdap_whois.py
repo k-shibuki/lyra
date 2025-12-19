@@ -508,4 +508,3 @@ class TestGetRDAPClient:
         # Then: Client is created with None fetcher
         assert client is not None
         assert client._fetcher is None
-

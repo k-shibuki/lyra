@@ -49,6 +49,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     tool: str
     spec_ref: str
@@ -63,14 +64,14 @@ class VerificationResult:
 class MCPIntegrationVerifier:
     """
     Verifier for N.2-2 MCP Tool Integration.
-    
+
     Tests all 11 MCP tools defined in Phase M.
     """
 
     def __init__(self, basic_mode: bool = False):
         """
         Initialize verifier.
-        
+
         Args:
             basic_mode: If True, skip tests requiring Chrome CDP.
         """
@@ -86,7 +87,8 @@ class MCPIntegrationVerifier:
         # Check database
         try:
             from src.storage.database import get_database
-            db = await get_database()
+
+            await get_database()
             print("  ✓ Database available")
         except Exception as e:
             print(f"  ✗ Database unavailable: {e}")
@@ -95,6 +97,7 @@ class MCPIntegrationVerifier:
         # Check MCP server module
         try:
             from src.mcp.server import TOOLS
+
             print(f"  ✓ MCP server module loaded ({len(TOOLS)} tools)")
         except Exception as e:
             print(f"  ✗ MCP server import failed: {e}")
@@ -104,6 +107,7 @@ class MCPIntegrationVerifier:
         if not self.basic_mode:
             try:
                 from src.search.browser_search_provider import BrowserSearchProvider
+
                 provider = BrowserSearchProvider()
                 await asyncio.wait_for(provider._ensure_browser(), timeout=10.0)
                 if provider._browser and provider._browser.is_connected():
@@ -128,7 +132,7 @@ class MCPIntegrationVerifier:
     async def verify_create_task(self) -> VerificationResult:
         """
         Verify create_task tool.
-        
+
         Tests:
         - Task is created with valid task_id
         - Task is stored in database
@@ -179,6 +183,7 @@ class MCPIntegrationVerifier:
 
             # Verify DB persistence
             from src.storage.database import get_database
+
             db = await get_database()
             task = await db.fetch_one(
                 "SELECT * FROM tasks WHERE id = ?",
@@ -222,7 +227,7 @@ class MCPIntegrationVerifier:
     async def verify_get_status(self) -> VerificationResult:
         """
         Verify get_status tool.
-        
+
         Tests:
         - Returns status for existing task
         - Contains required fields (searches, metrics, budget)
@@ -315,12 +320,12 @@ class MCPIntegrationVerifier:
     async def verify_search(self) -> VerificationResult:
         """
         Verify search tool.
-        
+
         Tests:
         - Search pipeline executes
         - Returns correct response structure
         - Budget tracking works
-        
+
         Requires Chrome CDP connection.
         """
         print("\n[3/11] Verifying search...")
@@ -447,7 +452,7 @@ class MCPIntegrationVerifier:
     async def verify_stop_task(self) -> VerificationResult:
         """
         Verify stop_task tool.
-        
+
         Tests:
         - Task is finalized
         - Summary is returned
@@ -499,6 +504,7 @@ class MCPIntegrationVerifier:
 
             # Verify DB update
             from src.storage.database import get_database
+
             db = await get_database()
             task = await db.fetch_one(
                 "SELECT status FROM tasks WHERE id = ?",
@@ -537,7 +543,7 @@ class MCPIntegrationVerifier:
     async def verify_get_materials(self) -> VerificationResult:
         """
         Verify get_materials tool.
-        
+
         Tests:
         - Returns claims and fragments
         - Evidence graph can be included
@@ -635,7 +641,7 @@ class MCPIntegrationVerifier:
     async def verify_calibrate(self) -> VerificationResult:
         """
         Verify calibrate tool (5 actions).
-        
+
         Tests:
         - get_stats: Returns calibration statistics
         - add_sample: Adds calibration sample
@@ -728,7 +734,7 @@ class MCPIntegrationVerifier:
     async def verify_calibrate_rollback(self) -> VerificationResult:
         """
         Verify calibrate_rollback tool.
-        
+
         Tests:
         - Rollback fails gracefully when no version exists
         - Error messages are informative
@@ -793,7 +799,7 @@ class MCPIntegrationVerifier:
     async def verify_get_auth_queue(self) -> VerificationResult:
         """
         Verify get_auth_queue tool.
-        
+
         Tests:
         - Returns empty queue when no pending items
         - Supports grouping options
@@ -855,7 +861,7 @@ class MCPIntegrationVerifier:
     async def verify_resolve_auth(self) -> VerificationResult:
         """
         Verify resolve_auth tool.
-        
+
         Tests:
         - Handles non-existent queue_id gracefully
         - Validates required parameters
@@ -926,7 +932,7 @@ class MCPIntegrationVerifier:
     async def verify_notify_user(self) -> VerificationResult:
         """
         Verify notify_user tool.
-        
+
         Tests:
         - Notification is sent (or fails gracefully if no notification system)
         - Event types are validated
@@ -1015,7 +1021,7 @@ class MCPIntegrationVerifier:
     async def verify_wait_for_user(self) -> VerificationResult:
         """
         Verify wait_for_user tool.
-        
+
         Tests:
         - Returns immediately with notification_sent status
         - Validates required parameters
@@ -1114,6 +1120,7 @@ class MCPIntegrationVerifier:
         if self.test_task_id:
             try:
                 from src.storage.database import get_database
+
                 db = await get_database()
 
                 # Delete test task and related data
@@ -1129,7 +1136,7 @@ class MCPIntegrationVerifier:
     async def run_all(self) -> int:
         """
         Run all verifications and return exit code.
-        
+
         Returns:
             0: All passed
             1: Some failed
@@ -1212,7 +1219,9 @@ class MCPIntegrationVerifier:
                 print(f"         Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if critical_failure:
@@ -1240,4 +1249,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

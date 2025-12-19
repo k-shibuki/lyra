@@ -24,6 +24,7 @@ logger = get_logger(__name__)
 
 class SourceTag(str, Enum):
     """Classification of source type."""
+
     ACADEMIC = "academic"
     GOVERNMENT = "government"
     STANDARDS = "standards"
@@ -37,7 +38,7 @@ class SourceTag(str, Enum):
 class SearchResult(BaseModel):
     """
     Normalized search result from any provider.
-    
+
     Implements the standard SERP schema defined in docs/REQUIREMENTS.md §3.2.1:
     - title, url, snippet, date, engine, rank, source_tag
     """
@@ -50,8 +51,12 @@ class SearchResult(BaseModel):
     engine: str = Field(..., description="Search engine that returned this result")
     rank: int = Field(..., ge=0, description="Rank position in search results")
     date: str | None = Field(default=None, description="Publication date if available")
-    source_tag: SourceTag = Field(default=SourceTag.UNKNOWN, description="Classification of source type")
-    raw_data: dict[str, Any] | None = Field(default=None, description="Optional raw data from provider")
+    source_tag: SourceTag = Field(
+        default=SourceTag.UNKNOWN, description="Classification of source type"
+    )
+    raw_data: dict[str, Any] | None = Field(
+        default=None, description="Optional raw data from provider"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -91,7 +96,9 @@ class SearchResponse(BaseModel):
     provider: str = Field(..., description="Provider name that returned this response")
     total_count: int = Field(default=0, ge=0, description="Total number of results")
     error: str | None = Field(default=None, description="Error message if search failed")
-    elapsed_ms: float = Field(default=0.0, ge=0.0, description="Time taken for search in milliseconds")
+    elapsed_ms: float = Field(
+        default=0.0, ge=0.0, description="Time taken for search in milliseconds"
+    )
     connection_mode: str | None = Field(default=None, description="Browser connection mode used")
 
     @property
@@ -146,6 +153,7 @@ class SearchOptions(BaseModel):
 
 class HealthState(str, Enum):
     """Provider health states."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -217,24 +225,24 @@ class HealthStatus(BaseModel):
 class SearchProvider(Protocol):
     """
     Protocol for search providers.
-    
+
     Defines the interface that all search providers must implement.
     Uses Python's Protocol for structural subtyping, allowing duck typing
     while maintaining type safety.
-    
+
     Example implementation:
         class MyProvider:
             @property
             def name(self) -> str:
                 return "my_provider"
-            
+
             async def search(self, query: str, options: SearchOptions | None = None) -> SearchResponse:
                 # Implementation
                 ...
-            
+
             async def get_health(self) -> HealthStatus:
                 return HealthStatus.healthy()
-            
+
             async def close(self) -> None:
                 # Cleanup
                 ...
@@ -252,11 +260,11 @@ class SearchProvider(Protocol):
     ) -> SearchResponse:
         """
         Execute a search query.
-        
+
         Args:
             query: Search query text.
             options: Search options (engines, language, etc.).
-            
+
         Returns:
             SearchResponse with results or error.
         """
@@ -265,7 +273,7 @@ class SearchProvider(Protocol):
     async def get_health(self) -> HealthStatus:
         """
         Get current health status.
-        
+
         Returns:
             HealthStatus indicating provider health.
         """
@@ -274,7 +282,7 @@ class SearchProvider(Protocol):
     async def close(self) -> None:
         """
         Close and cleanup provider resources.
-        
+
         Should be called when the provider is no longer needed.
         """
         ...
@@ -283,7 +291,7 @@ class SearchProvider(Protocol):
 class BaseSearchProvider(ABC):
     """
     Abstract base class for search providers.
-    
+
     Provides common functionality and enforces the interface contract.
     Subclasses should implement the abstract methods.
     """
@@ -291,7 +299,7 @@ class BaseSearchProvider(ABC):
     def __init__(self, provider_name: str):
         """
         Initialize base provider.
-        
+
         Args:
             provider_name: Unique name for this provider.
         """
@@ -341,20 +349,20 @@ class BaseSearchProvider(ABC):
 class SearchProviderRegistry:
     """
     Registry for search providers.
-    
+
     Manages registration, retrieval, and lifecycle of search providers.
     Supports multiple providers with fallback selection.
-    
+
     Example usage:
         registry = SearchProviderRegistry()
         registry.register(BrowserSearchProvider())
-        
+
         # Get specific provider
         provider = registry.get("browser_search")
-        
+
         # Get default provider
         provider = registry.get_default()
-        
+
         # Search with fallback
         response = await registry.search_with_fallback(query)
     """
@@ -371,11 +379,11 @@ class SearchProviderRegistry:
     ) -> None:
         """
         Register a search provider.
-        
+
         Args:
             provider: Provider instance to register.
             set_default: Whether to set as default provider.
-        
+
         Raises:
             ValueError: If provider with same name already registered.
         """
@@ -398,10 +406,10 @@ class SearchProviderRegistry:
     def unregister(self, name: str) -> SearchProvider | None:
         """
         Unregister a provider by name.
-        
+
         Args:
             name: Provider name to unregister.
-            
+
         Returns:
             The unregistered provider, or None if not found.
         """
@@ -419,10 +427,10 @@ class SearchProviderRegistry:
     def get(self, name: str) -> SearchProvider | None:
         """
         Get a provider by name.
-        
+
         Args:
             name: Provider name.
-            
+
         Returns:
             Provider instance or None if not found.
         """
@@ -431,7 +439,7 @@ class SearchProviderRegistry:
     def get_default(self) -> SearchProvider | None:
         """
         Get the default provider.
-        
+
         Returns:
             Default provider or None if no providers registered.
         """
@@ -442,10 +450,10 @@ class SearchProviderRegistry:
     def set_default(self, name: str) -> None:
         """
         Set the default provider.
-        
+
         Args:
             name: Provider name to set as default.
-            
+
         Raises:
             ValueError: If provider not found.
         """
@@ -458,7 +466,7 @@ class SearchProviderRegistry:
     def list_providers(self) -> list[str]:
         """
         List all registered provider names.
-        
+
         Returns:
             List of provider names.
         """
@@ -467,7 +475,7 @@ class SearchProviderRegistry:
     async def get_all_health(self) -> dict[str, HealthStatus]:
         """
         Get health status for all providers.
-        
+
         Returns:
             Dict mapping provider names to health status.
         """
@@ -488,15 +496,15 @@ class SearchProviderRegistry:
     ) -> SearchResponse:
         """
         Search with automatic fallback to other providers on failure.
-        
+
         Args:
             query: Search query.
             options: Search options.
             provider_order: Order of providers to try (default: default first, then others).
-            
+
         Returns:
             SearchResponse from first successful provider.
-            
+
         Raises:
             RuntimeError: If no providers available or all fail.
         """
@@ -578,7 +586,7 @@ _registry: SearchProviderRegistry | None = None
 def get_registry() -> SearchProviderRegistry:
     """
     Get the global search provider registry.
-    
+
     Returns:
         The global SearchProviderRegistry instance.
     """
@@ -591,7 +599,7 @@ def get_registry() -> SearchProviderRegistry:
 async def cleanup_registry() -> None:
     """
     Cleanup the global registry.
-    
+
     Closes all providers and resets the registry.
     """
     global _registry
@@ -603,9 +611,8 @@ async def cleanup_registry() -> None:
 def reset_registry() -> None:
     """
     Reset the global registry without closing providers.
-    
+
     For testing purposes only.
     """
     global _registry
     _registry = None
-

@@ -41,7 +41,7 @@ async def main():
         )
 
         # 型チェック
-        assert hasattr(browser_result, 'ok'), "FetchResult should have 'ok' attribute"
+        assert hasattr(browser_result, "ok"), "FetchResult should have 'ok' attribute"
         print(f"  ✓ BrowserFetcher returned: ok={browser_result.ok}")
 
         if not browser_result.ok:
@@ -55,6 +55,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -63,11 +64,13 @@ async def main():
         transfer_result = get_transfer_headers(test_url, include_conditional=True)
 
         # 型チェック
-        assert hasattr(transfer_result, 'ok'), "TransferResult should have 'ok' attribute"
-        assert hasattr(transfer_result, 'headers'), "TransferResult should have 'headers' attribute"
+        assert hasattr(transfer_result, "ok"), "TransferResult should have 'ok' attribute"
+        assert hasattr(transfer_result, "headers"), "TransferResult should have 'headers' attribute"
         assert isinstance(transfer_result.headers, dict), "headers should be dict"
 
-        print(f"  ✓ SessionTransfer returned: ok={transfer_result.ok}, headers={len(transfer_result.headers)}")
+        print(
+            f"  ✓ SessionTransfer returned: ok={transfer_result.ok}, headers={len(transfer_result.headers)}"
+        )
 
         if transfer_result.ok:
             print("  ✓ Transfer headers available:")
@@ -80,6 +83,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -99,11 +103,11 @@ async def main():
         )
 
         # 型チェック
-        assert hasattr(http_result, 'ok'), "FetchResult should have 'ok' attribute"
+        assert hasattr(http_result, "ok"), "FetchResult should have 'ok' attribute"
         print(f"  ✓ HTTPFetcher returned: ok={http_result.ok}")
 
         if http_result.ok:
-            status = getattr(http_result, 'status_code', 'N/A')
+            status = getattr(http_result, "status_code", "N/A")
             print(f"  ✓ HTTP fetch successful: status={status}")
             if status == 304:
                 print("  ✓ 304 Not Modified - cache hit!")
@@ -113,6 +117,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -123,10 +128,10 @@ async def main():
         # Get ETag from first fetch if available
         cached_etag = None
         cached_last_modified = None
-        if http_result.ok and hasattr(http_result, 'etag') and http_result.etag:
+        if http_result.ok and hasattr(http_result, "etag") and http_result.etag:
             cached_etag = http_result.etag
             print(f"  → Using cached ETag from first fetch: {cached_etag}")
-        if http_result.ok and hasattr(http_result, 'last_modified') and http_result.last_modified:
+        if http_result.ok and hasattr(http_result, "last_modified") and http_result.last_modified:
             cached_last_modified = http_result.last_modified
             print(f"  → Using cached Last-Modified from first fetch: {cached_last_modified}")
 
@@ -139,11 +144,11 @@ async def main():
             cached_last_modified=cached_last_modified,
         )
 
-        assert hasattr(http_result2, 'ok'), "FetchResult should have 'ok' attribute"
+        assert hasattr(http_result2, "ok"), "FetchResult should have 'ok' attribute"
         print(f"  ✓ HTTPFetcher returned: ok={http_result2.ok}")
 
         if http_result2.ok:
-            status2 = getattr(http_result2, 'status_code', 'N/A')
+            status2 = getattr(http_result2, "status_code", "N/A")
             print(f"  ✓ HTTP fetch successful: status={status2}")
             if status2 == 304:
                 print("  ✓ 304 Not Modified - URL-specific ETag worked correctly!")
@@ -155,6 +160,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -167,4 +173,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

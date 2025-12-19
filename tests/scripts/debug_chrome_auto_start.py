@@ -33,8 +33,7 @@ async def main():
 
         # Add timeout to prevent hanging
         browser, context = await asyncio.wait_for(
-            browser_fetcher._ensure_browser(headful=True, task_id="debug_chrome_001"),
-            timeout=45.0
+            browser_fetcher._ensure_browser(headful=True, task_id="debug_chrome_001"), timeout=45.0
         )
 
         print("  ✓ _ensure_browser() returned")
@@ -53,6 +52,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -65,4 +65,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

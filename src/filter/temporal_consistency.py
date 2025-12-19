@@ -39,31 +39,50 @@ TEMPORAL_IMPOSSIBILITY_THRESHOLD_DAYS = 7  # Allow 7 days buffer for timezone is
 # Date extraction patterns
 DATE_PATTERNS = [
     # ISO format: 2024-01-15, 2024/01/15
-    r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})',
+    r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})",
     # Japanese format: 2024年1月15日
-    r'(\d{4})年(\d{1,2})月(\d{1,2})日',
+    r"(\d{4})年(\d{1,2})月(\d{1,2})日",
     # Month name format: January 15, 2024 or 15 January 2024
-    r'(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})',
-    r'(\d{1,2})\s+(?:January|February|March|April|May|June|July|August|September|October|November|December),?\s+(\d{4})',
+    r"(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})",
+    r"(\d{1,2})\s+(?:January|February|March|April|May|June|July|August|September|October|November|December),?\s+(\d{4})",
     # Abbreviated month: Jan 15, 2024
-    r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})',
+    r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})",
     # Year only: 2024, 令和6年
-    r'\b(20\d{2})\b',
-    r'令和(\d+)年',
-    r'平成(\d+)年',
+    r"\b(20\d{2})\b",
+    r"令和(\d+)年",
+    r"平成(\d+)年",
 ]
 
 MONTH_MAP = {
-    'january': 1, 'february': 2, 'march': 3, 'april': 4,
-    'may': 5, 'june': 6, 'july': 7, 'august': 8,
-    'september': 9, 'october': 10, 'november': 11, 'december': 12,
-    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4,
-    'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
 }
 
 
 class ConsistencyLevel(str, Enum):
     """Temporal consistency level."""
+
     CONSISTENT = "consistent"  # Claim timestamp <= page date
     UNCERTAIN = "uncertain"  # Cannot determine (missing dates)
     STALE = "stale"  # Claim is significantly older than current date
@@ -73,6 +92,7 @@ class ConsistencyLevel(str, Enum):
 @dataclass
 class DateExtraction:
     """Extracted date information."""
+
     year: int | None = None
     month: int | None = None
     day: int | None = None
@@ -81,7 +101,7 @@ class DateExtraction:
 
     def to_datetime(self) -> datetime | None:
         """Convert to datetime object.
-        
+
         Returns:
             datetime object or None if insufficient data.
         """
@@ -100,7 +120,7 @@ class DateExtraction:
 
     def is_complete(self) -> bool:
         """Check if date has year, month, and day.
-        
+
         Returns:
             True if all components are present.
         """
@@ -108,7 +128,7 @@ class DateExtraction:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.
-        
+
         Returns:
             Dictionary representation.
         """
@@ -125,6 +145,7 @@ class DateExtraction:
 @dataclass
 class ConsistencyResult:
     """Result of temporal consistency check."""
+
     level: ConsistencyLevel
     claim_date: DateExtraction | None = None
     page_date: DateExtraction | None = None
@@ -135,7 +156,7 @@ class ConsistencyResult:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.
-        
+
         Returns:
             Dictionary representation.
         """
@@ -154,22 +175,22 @@ class ConsistencyResult:
 # Date Extraction
 # =============================================================================
 
+
 class DateExtractor:
     """Extracts dates from text and metadata."""
 
     def __init__(self):
         """Initialize date extractor."""
         self._compiled_patterns = [
-            (re.compile(pattern, re.IGNORECASE), pattern)
-            for pattern in DATE_PATTERNS
+            (re.compile(pattern, re.IGNORECASE), pattern) for pattern in DATE_PATTERNS
         ]
 
     def extract_from_text(self, text: str) -> list[DateExtraction]:
         """Extract dates from text content.
-        
+
         Args:
             text: Text to extract dates from.
-            
+
         Returns:
             List of extracted dates, ordered by confidence.
         """
@@ -201,11 +222,11 @@ class DateExtractor:
         pattern: str,
     ) -> DateExtraction | None:
         """Parse a regex match into DateExtraction.
-        
+
         Args:
             match: Regex match object.
             pattern: Original pattern string.
-            
+
         Returns:
             DateExtraction or None.
         """
@@ -213,7 +234,7 @@ class DateExtractor:
 
         try:
             # ISO format: YYYY-MM-DD
-            if 'YYYY' in pattern or r'(\d{4})[/-]' in pattern:
+            if "YYYY" in pattern or r"(\d{4})[/-]" in pattern:
                 if len(groups) >= 3:
                     return DateExtraction(
                         year=int(groups[0]),
@@ -224,7 +245,7 @@ class DateExtractor:
                     )
 
             # Japanese format: YYYY年MM月DD日
-            if '年' in pattern and '月' in pattern:
+            if "年" in pattern and "月" in pattern:
                 if len(groups) >= 3:
                     return DateExtraction(
                         year=int(groups[0]),
@@ -235,7 +256,7 @@ class DateExtractor:
                     )
 
             # Month name formats
-            if 'January|February' in pattern or 'Jan|Feb' in pattern:
+            if "January|February" in pattern or "Jan|Feb" in pattern:
                 matched_text = match.group(0).lower()
                 for month_name, month_num in MONTH_MAP.items():
                     if month_name in matched_text:
@@ -255,7 +276,7 @@ class DateExtractor:
                         break
 
             # Year only
-            if r'\b(20\d{2})\b' in pattern:
+            if r"\b(20\d{2})\b" in pattern:
                 if groups:
                     year = int(groups[0])
                     if 2000 <= year <= 2100:
@@ -266,7 +287,7 @@ class DateExtractor:
                         )
 
             # Japanese era: 令和, 平成
-            if '令和' in pattern:
+            if "令和" in pattern:
                 era_year = int(groups[0])
                 # 令和1年 = 2019年
                 return DateExtraction(
@@ -275,7 +296,7 @@ class DateExtractor:
                     confidence=0.8,
                 )
 
-            if '平成' in pattern:
+            if "平成" in pattern:
                 era_year = int(groups[0])
                 # 平成1年 = 1989年
                 return DateExtraction(
@@ -294,10 +315,10 @@ class DateExtractor:
         metadata: dict[str, Any],
     ) -> DateExtraction | None:
         """Extract date from page metadata.
-        
+
         Args:
             metadata: Page metadata dictionary.
-            
+
         Returns:
             DateExtraction or None.
         """
@@ -333,11 +354,11 @@ class DateExtractor:
         source: str,
     ) -> DateExtraction | None:
         """Parse a date string.
-        
+
         Args:
             date_str: Date string to parse.
             source: Source field name.
-            
+
         Returns:
             DateExtraction or None.
         """
@@ -346,7 +367,7 @@ class DateExtractor:
 
         # Try ISO format first
         try:
-            dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             return DateExtraction(
                 year=dt.year,
                 month=dt.month,
@@ -371,9 +392,10 @@ class DateExtractor:
 # Temporal Consistency Checker
 # =============================================================================
 
+
 class TemporalConsistencyChecker:
     """Checks temporal consistency between claims and sources.
-    
+
     Implements §3.3.3 requirements:
     - Detect claims that reference events after the source was published
     - Apply trust decay for stale claims
@@ -387,7 +409,7 @@ class TemporalConsistencyChecker:
         impossibility_threshold_days: int = TEMPORAL_IMPOSSIBILITY_THRESHOLD_DAYS,
     ):
         """Initialize temporal consistency checker.
-        
+
         Args:
             decay_rate_per_year: Trust decay rate per year.
             max_age_years: Maximum age before significant decay.
@@ -405,12 +427,12 @@ class TemporalConsistencyChecker:
         current_time: datetime | None = None,
     ) -> ConsistencyResult:
         """Check temporal consistency of a claim against its source.
-        
+
         Args:
             claim_text: The claim text to check.
             page_metadata: Metadata of the source page.
             current_time: Current time for staleness check (default: now).
-            
+
         Returns:
             ConsistencyResult with consistency level and details.
         """
@@ -502,10 +524,10 @@ class TemporalConsistencyChecker:
         age_days: int,
     ) -> float:
         """Calculate trust decay factor based on age.
-        
+
         Args:
             age_days: Age in days.
-            
+
         Returns:
             Trust decay factor (0.0 to 1.0).
         """
@@ -523,12 +545,12 @@ class TemporalConsistencyChecker:
         current_time: datetime | None = None,
     ) -> list[ConsistencyResult]:
         """Check temporal consistency for multiple claims.
-        
+
         Args:
             claims: List of claim dictionaries with 'text' key.
             page_metadata: Source page metadata.
             current_time: Current time for staleness check.
-            
+
         Returns:
             List of ConsistencyResult for each claim.
         """
@@ -546,10 +568,10 @@ class TemporalConsistencyChecker:
         results: list[ConsistencyResult],
     ) -> dict[str, Any]:
         """Calculate statistics from consistency results.
-        
+
         Args:
             results: List of ConsistencyResult.
-            
+
         Returns:
             Statistics dictionary.
         """
@@ -597,7 +619,7 @@ _checker: TemporalConsistencyChecker | None = None
 
 def get_temporal_checker() -> TemporalConsistencyChecker:
     """Get or create the global temporal consistency checker.
-    
+
     Returns:
         TemporalConsistencyChecker instance.
     """
@@ -612,11 +634,11 @@ def check_claim_consistency(
     page_metadata: dict[str, Any],
 ) -> ConsistencyResult:
     """Check temporal consistency of a claim.
-    
+
     Args:
         claim_text: The claim text.
         page_metadata: Source page metadata.
-        
+
     Returns:
         ConsistencyResult.
     """
@@ -630,12 +652,12 @@ def apply_temporal_decay(
     page_metadata: dict[str, Any],
 ) -> tuple[float, ConsistencyResult]:
     """Apply temporal decay to a confidence score.
-    
+
     Args:
         confidence: Original confidence score.
         claim_text: The claim text.
         page_metadata: Source page metadata.
-        
+
     Returns:
         Tuple of (adjusted_confidence, consistency_result).
     """
@@ -656,17 +678,12 @@ def apply_temporal_decay(
 
 def extract_dates_from_text(text: str) -> list[DateExtraction]:
     """Extract dates from text.
-    
+
     Args:
         text: Text to extract dates from.
-        
+
     Returns:
         List of DateExtraction objects.
     """
     extractor = DateExtractor()
     return extractor.extract_from_text(text)
-
-
-
-
-

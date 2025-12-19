@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 
 class ModelCapability(str, Enum):
     """Model capabilities."""
+
     TEXT_GENERATION = "text_generation"
     CHAT = "chat"
     EMBEDDING = "embedding"
@@ -32,6 +33,7 @@ class ModelCapability(str, Enum):
 
 class LLMResponseStatus(str, Enum):
     """Response status."""
+
     SUCCESS = "success"
     ERROR = "error"
     TIMEOUT = "timeout"
@@ -53,6 +55,7 @@ class LLMOptions:
         system: System prompt.
         timeout: Request timeout in seconds.
     """
+
     model: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
@@ -64,16 +67,20 @@ class LLMOptions:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
-        return {k: v for k, v in {
-            "model": self.model,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "top_p": self.top_p,
-            "top_k": self.top_k,
-            "stop": self.stop,
-            "system": self.system,
-            "timeout": self.timeout,
-        }.items() if v is not None}
+        return {
+            k: v
+            for k, v in {
+                "model": self.model,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "top_p": self.top_p,
+                "top_k": self.top_k,
+                "stop": self.stop,
+                "system": self.system,
+                "timeout": self.timeout,
+            }.items()
+            if v is not None
+        }
 
 
 @dataclass
@@ -86,6 +93,7 @@ class ChatMessage:
         content: Message content.
         name: Optional name for the message author.
     """
+
     role: str
     content: str
     name: str | None = None
@@ -122,6 +130,7 @@ class LLMResponse:
         error_message: Error message if generation failed.
         raw_response: Optional raw response from provider.
     """
+
     text: str
     status: LLMResponseStatus
     model: str
@@ -204,6 +213,7 @@ class EmbeddingResponse:
         elapsed_ms: Time taken for embedding in milliseconds.
         error: Error message if embedding failed.
     """
+
     embeddings: list[list[float]]
     status: LLMResponseStatus
     model: str
@@ -281,6 +291,7 @@ class ModelInfo:
         modified_at: Last modification time.
         details: Additional model details.
     """
+
     name: str
     size: str = ""
     capabilities: list[ModelCapability] = field(default_factory=list)
@@ -304,6 +315,7 @@ class ModelInfo:
 
 class LLMHealthState(str, Enum):
     """Provider health states."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -325,6 +337,7 @@ class LLMHealthStatus:
         message: Optional status message.
         details: Additional health details.
     """
+
     state: LLMHealthState
     available_models: list[str] = field(default_factory=list)
     loaded_models: list[str] = field(default_factory=list)
@@ -960,4 +973,3 @@ def reset_llm_registry() -> None:
     """
     global _registry
     _registry = None
-

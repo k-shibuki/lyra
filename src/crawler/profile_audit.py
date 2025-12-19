@@ -29,8 +29,10 @@ logger = get_logger(__name__)
 # Enums and Pydantic Models
 # =============================================================================
 
+
 class AuditStatus(str, Enum):
     """Audit check result status."""
+
     PASS = "pass"
     DRIFT = "drift"
     FAIL = "fail"
@@ -39,6 +41,7 @@ class AuditStatus(str, Enum):
 
 class RepairAction(str, Enum):
     """Profile repair action types."""
+
     NONE = "none"
     RESTART_BROWSER = "restart_browser"
     RESYNC_FONTS = "resync_fonts"
@@ -47,6 +50,7 @@ class RepairAction(str, Enum):
 
 class RepairStatus(str, Enum):
     """Repair operation status."""
+
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -59,6 +63,7 @@ class FingerprintData(BaseModel):
     Per high-frequency check requirement: Captures UA, fonts, language,
     timezone, canvas, audio fingerprint for drift detection.
     """
+
     user_agent: str = Field(default="", description="Full UA string")
     ua_major_version: str = Field(default="", description="Major browser version (e.g., '120')")
     fonts: set[str] = Field(default_factory=set, description="Set of detected font names")
@@ -66,11 +71,15 @@ class FingerprintData(BaseModel):
     timezone: str = Field(default="", description="Timezone ID")
     canvas_hash: str = Field(default="", description="Canvas fingerprint hash")
     audio_hash: str = Field(default="", description="Audio fingerprint hash")
-    screen_resolution: str = Field(default="", description="Screen resolution string (e.g., '1920x1080')")
+    screen_resolution: str = Field(
+        default="", description="Screen resolution string (e.g., '1920x1080')"
+    )
     color_depth: int = Field(default=0, ge=0, description="Color depth")
     platform: str = Field(default="", description="Platform string")
     plugins_count: int = Field(default=0, ge=0, description="Number of plugins")
-    timestamp: float = Field(default=0.0, ge=0.0, description="When the fingerprint was captured (Unix timestamp)")
+    timestamp: float = Field(
+        default=0.0, ge=0.0, description="When the fingerprint was captured (Unix timestamp)"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -95,6 +104,7 @@ class DriftInfo(BaseModel):
     Per drift detection: Identifies which attribute drifted and provides
     baseline vs current value comparison.
     """
+
     attribute: str = Field(..., description="Attribute name that drifted")
     baseline_value: Any = Field(..., description="Original/baseline value")
     current_value: Any = Field(..., description="Current detected value")
@@ -111,6 +121,7 @@ class AuditResult(BaseModel):
     Per high-frequency check requirement: Returns audit status, detected drifts,
     and repair actions for browser session initialization.
     """
+
     status: AuditStatus = Field(..., description="Overall audit status")
     baseline: FingerprintData | None = Field(
         None,
@@ -135,7 +146,9 @@ class AuditResult(BaseModel):
     error: str | None = Field(None, description="Error message if audit failed")
     duration_ms: float = Field(default=0.0, ge=0.0, description="Audit duration in milliseconds")
     retry_count: int = Field(default=0, ge=0, description="Number of retries attempted")
-    timestamp: float = Field(default=0.0, ge=0.0, description="When the audit was performed (Unix timestamp)")
+    timestamp: float = Field(
+        default=0.0, ge=0.0, description="When the audit was performed (Unix timestamp)"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging."""
@@ -159,7 +172,11 @@ class AuditResult(BaseModel):
                 if "current_value" in drift:
                     drift["current_value"] = str(drift["current_value"])[:100]
                 if "repair_action" in drift:
-                    drift["repair_action"] = drift["repair_action"].value if isinstance(drift["repair_action"], RepairAction) else drift["repair_action"]
+                    drift["repair_action"] = (
+                        drift["repair_action"].value
+                        if isinstance(drift["repair_action"], RepairAction)
+                        else drift["repair_action"]
+                    )
         return data
 
 
@@ -297,6 +314,7 @@ FINGERPRINT_JS = """
 # =============================================================================
 # Profile Auditor Class
 # =============================================================================
+
 
 class ProfileAuditor:
     """Profile health auditor for browser fingerprint consistency.
@@ -490,13 +508,15 @@ class ProfileAuditor:
         # Check UA major version
         if baseline.ua_major_version != current.ua_major_version:
             severity, repair_action = self.SEVERITY_CONFIG["ua_major_version"]
-            drifts.append(DriftInfo(
-                attribute="ua_major_version",
-                baseline_value=baseline.ua_major_version,
-                current_value=current.ua_major_version,
-                severity=severity,
-                repair_action=repair_action,
-            ))
+            drifts.append(
+                DriftInfo(
+                    attribute="ua_major_version",
+                    baseline_value=baseline.ua_major_version,
+                    current_value=current.ua_major_version,
+                    severity=severity,
+                    repair_action=repair_action,
+                )
+            )
 
         # Check fonts (allow some drift)
         if baseline.fonts and current.fonts:
@@ -513,61 +533,77 @@ class ProfileAuditor:
                     missing = baseline_fonts - current_fonts
                     added = current_fonts - baseline_fonts
                     severity, repair_action = self.SEVERITY_CONFIG["fonts"]
-                    drifts.append(DriftInfo(
-                        attribute="fonts",
-                        baseline_value=f"missing={list(missing)[:5]}",
-                        current_value=f"added={list(added)[:5]}",
-                        severity=severity,
-                        repair_action=repair_action,
-                    ))
+                    drifts.append(
+                        DriftInfo(
+                            attribute="fonts",
+                            baseline_value=f"missing={list(missing)[:5]}",
+                            current_value=f"added={list(added)[:5]}",
+                            severity=severity,
+                            repair_action=repair_action,
+                        )
+                    )
 
         # Check language
         if baseline.language != current.language:
             severity, repair_action = self.SEVERITY_CONFIG["language"]
-            drifts.append(DriftInfo(
-                attribute="language",
-                baseline_value=baseline.language,
-                current_value=current.language,
-                severity=severity,
-                repair_action=repair_action,
-            ))
+            drifts.append(
+                DriftInfo(
+                    attribute="language",
+                    baseline_value=baseline.language,
+                    current_value=current.language,
+                    severity=severity,
+                    repair_action=repair_action,
+                )
+            )
 
         # Check timezone
         if baseline.timezone != current.timezone:
             severity, repair_action = self.SEVERITY_CONFIG["timezone"]
-            drifts.append(DriftInfo(
-                attribute="timezone",
-                baseline_value=baseline.timezone,
-                current_value=current.timezone,
-                severity=severity,
-                repair_action=repair_action,
-            ))
+            drifts.append(
+                DriftInfo(
+                    attribute="timezone",
+                    baseline_value=baseline.timezone,
+                    current_value=current.timezone,
+                    severity=severity,
+                    repair_action=repair_action,
+                )
+            )
 
         # Check canvas fingerprint (allow for minor variations)
         if baseline.canvas_hash and current.canvas_hash:
-            if baseline.canvas_hash != current.canvas_hash and \
-               baseline.canvas_hash != "error" and current.canvas_hash != "error":
+            if (
+                baseline.canvas_hash != current.canvas_hash
+                and baseline.canvas_hash != "error"
+                and current.canvas_hash != "error"
+            ):
                 severity, repair_action = self.SEVERITY_CONFIG["canvas_hash"]
-                drifts.append(DriftInfo(
-                    attribute="canvas_hash",
-                    baseline_value=baseline.canvas_hash[:20],
-                    current_value=current.canvas_hash[:20],
-                    severity=severity,
-                    repair_action=repair_action,
-                ))
+                drifts.append(
+                    DriftInfo(
+                        attribute="canvas_hash",
+                        baseline_value=baseline.canvas_hash[:20],
+                        current_value=current.canvas_hash[:20],
+                        severity=severity,
+                        repair_action=repair_action,
+                    )
+                )
 
         # Check audio fingerprint
         if baseline.audio_hash and current.audio_hash:
-            if baseline.audio_hash != current.audio_hash and \
-               baseline.audio_hash != "error" and current.audio_hash != "error":
+            if (
+                baseline.audio_hash != current.audio_hash
+                and baseline.audio_hash != "error"
+                and current.audio_hash != "error"
+            ):
                 severity, repair_action = self.SEVERITY_CONFIG["audio_hash"]
-                drifts.append(DriftInfo(
-                    attribute="audio_hash",
-                    baseline_value=baseline.audio_hash,
-                    current_value=current.audio_hash,
-                    severity=severity,
-                    repair_action=repair_action,
-                ))
+                drifts.append(
+                    DriftInfo(
+                        attribute="audio_hash",
+                        baseline_value=baseline.audio_hash,
+                        current_value=current.audio_hash,
+                        severity=severity,
+                        repair_action=repair_action,
+                    )
+                )
 
         return drifts
 
@@ -760,9 +796,7 @@ class ProfileAuditor:
                 repair_success = await self._attempt_profile_restore()
 
         # Update repair status
-        audit_result.repair_status = (
-            RepairStatus.SUCCESS if repair_success else RepairStatus.FAILED
-        )
+        audit_result.repair_status = RepairStatus.SUCCESS if repair_success else RepairStatus.FAILED
         audit_result.retry_count = self._repair_count
 
         # Log the repair attempt
@@ -820,8 +854,7 @@ class ProfileAuditor:
             "repair_count": self._repair_count,
             "has_baseline": self._baseline is not None,
             "baseline_age_hours": (
-                (time.time() - self._baseline.timestamp) / 3600
-                if self._baseline else None
+                (time.time() - self._baseline.timestamp) / 3600 if self._baseline else None
             ),
             "last_audit_time": self._last_audit_time,
         }
@@ -876,8 +909,3 @@ async def perform_health_check(
         result = await auditor.attempt_repair(result, browser_manager)
 
     return result
-
-
-
-
-

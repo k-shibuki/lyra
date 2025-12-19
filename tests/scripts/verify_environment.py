@@ -51,6 +51,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -64,7 +65,7 @@ class VerificationResult:
 class EnvironmentVerifier:
     """
     Verifier for N.2-1 E2E execution environment.
-    
+
     Checks all prerequisites for running E2E tests:
     - Container status
     - Browser connectivity
@@ -79,7 +80,7 @@ class EnvironmentVerifier:
     async def verify_container_status(self) -> VerificationResult:
         """
         Verify Podman container status.
-        
+
         Checks:
         - lancet container is running (current container)
         - Environment variables are set correctly
@@ -142,7 +143,7 @@ class EnvironmentVerifier:
     async def verify_chrome_cdp(self) -> VerificationResult:
         """
         Verify Chrome CDP connection.
-        
+
         Checks:
         - Can connect to Chrome remote debugging port
         - Browser is responsive
@@ -159,7 +160,7 @@ class EnvironmentVerifier:
                 try:
                     await asyncio.wait_for(
                         provider._ensure_browser(),
-                        timeout=15.0  # 15 second timeout
+                        timeout=15.0,  # 15 second timeout
                     )
                 except TimeoutError:
                     return VerificationResult(
@@ -221,7 +222,7 @@ class EnvironmentVerifier:
     async def verify_ollama_llm(self) -> VerificationResult:
         """
         Verify Ollama LLM availability.
-        
+
         Checks:
         - Ollama service is reachable
         - Required models are available
@@ -236,16 +237,14 @@ class EnvironmentVerifier:
 
             # Create provider with configured host
             # In container, Ollama is accessible via internal network
-            ollama_host = os.environ.get(
-                "LANCET_LLM__OLLAMA_HOST",
-                settings.llm.ollama_host
-            )
+            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             provider = OllamaProvider(host=ollama_host)
 
             try:
                 # Check health
                 from src.filter.provider import LLMHealthState
+
                 health = await provider.get_health()
 
                 if health.state == LLMHealthState.UNHEALTHY:
@@ -276,7 +275,9 @@ class EnvironmentVerifier:
 
                 print(f"    ✓ Ollama reachable at {ollama_host}")
                 print(f"    ✓ Available models: {len(model_names)}")
-                print(f"    {'✓' if has_model else '!'} Model ({model}): {'available' if has_model else 'not found'}")
+                print(
+                    f"    {'✓' if has_model else '!'} Model ({model}): {'available' if has_model else 'not found'}"
+                )
 
                 # Pass if Ollama is reachable (models can be pulled later)
                 passed = health.state != LLMHealthState.UNHEALTHY
@@ -303,7 +304,7 @@ class EnvironmentVerifier:
     async def verify_container_network(self) -> VerificationResult:
         """
         Verify container network connectivity.
-        
+
         Checks:
         - lancet can reach ollama via internal network
         - DNS resolution works
@@ -316,30 +317,25 @@ class EnvironmentVerifier:
             from src.utils.config import get_settings
 
             settings = get_settings()
-            ollama_host = os.environ.get(
-                "LANCET_LLM__OLLAMA_HOST",
-                settings.llm.ollama_host
-            )
+            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             # Try to connect to Ollama API
             async with aiohttp.ClientSession() as session:
                 try:
                     async with session.get(
-                        f"{ollama_host}/api/tags",
-                        timeout=aiohttp.ClientTimeout(total=5)
+                        f"{ollama_host}/api/tags", timeout=aiohttp.ClientTimeout(total=5)
                     ) as response:
                         internal_ok = response.status == 200
                 except Exception as e:
                     internal_ok = False
-                    internal_error = str(e)
+                    str(e)
 
             # Check external connectivity (should work for search)
             external_ok = False
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        "https://example.com",
-                        timeout=aiohttp.ClientTimeout(total=5)
+                        "https://example.com", timeout=aiohttp.ClientTimeout(total=5)
                     ) as response:
                         external_ok = response.status == 200
             except Exception:
@@ -351,8 +347,12 @@ class EnvironmentVerifier:
                 "ollama_host": ollama_host,
             }
 
-            print(f"    {'✓' if internal_ok else '✗'} Ollama internal network: {'connected' if internal_ok else 'failed'}")
-            print(f"    {'✓' if external_ok else '!'} External network: {'connected' if external_ok else 'blocked/failed'}")
+            print(
+                f"    {'✓' if internal_ok else '✗'} Ollama internal network: {'connected' if internal_ok else 'failed'}"
+            )
+            print(
+                f"    {'✓' if external_ok else '!'} External network: {'connected' if external_ok else 'blocked/failed'}"
+            )
 
             # Pass if internal network works
             passed = internal_ok
@@ -377,7 +377,7 @@ class EnvironmentVerifier:
     async def verify_search_engine(self) -> VerificationResult:
         """
         Verify search engine connectivity.
-        
+
         Checks:
         - Can perform a search via BrowserSearchProvider
         - Parser works correctly
@@ -412,7 +412,7 @@ class EnvironmentVerifier:
                 try:
                     result = await asyncio.wait_for(
                         provider.search("test query", options),
-                        timeout=30.0  # 30 second timeout
+                        timeout=30.0,  # 30 second timeout
                     )
                 except TimeoutError:
                     return VerificationResult(
@@ -482,7 +482,7 @@ class EnvironmentVerifier:
     async def verify_notification_system(self) -> VerificationResult:
         """
         Verify notification system.
-        
+
         Checks:
         - Notification provider is available
         - Can send test notification (optional)
@@ -555,7 +555,7 @@ class EnvironmentVerifier:
     async def run_all(self) -> int:
         """
         Run all verifications and output results.
-        
+
         Returns:
             Exit code: 0 (all passed), 1 (some failed), 2 (critical failure)
         """
@@ -617,7 +617,9 @@ class EnvironmentVerifier:
                 print(f"         Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         # Determine exit code
@@ -645,4 +647,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

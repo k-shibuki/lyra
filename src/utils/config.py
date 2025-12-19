@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 class TaskLimitsConfig(BaseModel):
     """Task limits configuration."""
+
     max_pages_per_task: int = 120
     max_time_minutes_gpu: int = 60
     max_time_minutes_cpu: int = 75
@@ -24,6 +25,7 @@ class TaskLimitsConfig(BaseModel):
 
 class SearchConfig(BaseModel):
     """Search configuration."""
+
     # BrowserSearchProvider is used for all searches
     use_browser: bool = True
     default_engine: str = "duckduckgo"  # Default search engine for browser provider
@@ -41,6 +43,7 @@ class SearchConfig(BaseModel):
 
 class CrawlerConfig(BaseModel):
     """Crawler configuration."""
+
     engine_qps: float = 0.25
     domain_qps: float = 0.2
     domain_concurrent: int = 1
@@ -59,6 +62,7 @@ class CrawlerConfig(BaseModel):
 
 class DNSPolicyConfig(BaseModel):
     """DNS policy configuration (§4.3)."""
+
     # Resolve DNS through Tor SOCKS proxy (socks5h://) when using Tor route
     resolve_through_tor: bool = True
     # Disable EDNS Client Subnet (ECS) to prevent location leakage
@@ -75,6 +79,7 @@ class DNSPolicyConfig(BaseModel):
 
 class TorConfig(BaseModel):
     """Tor configuration."""
+
     enabled: bool = True
     socks_host: str = "127.0.0.1"
     socks_port: int = 9050
@@ -87,6 +92,7 @@ class TorConfig(BaseModel):
 
 class UndetectedChromeDriverConfig(BaseModel):
     """Undetected ChromeDriver configuration (§4.3 fallback)."""
+
     enabled: bool = True
     auto_escalate_captcha_rate: float = 0.5
     auto_escalate_block_score: int = 5
@@ -96,6 +102,7 @@ class UndetectedChromeDriverConfig(BaseModel):
 
 class BrowserConfig(BaseModel):
     """Browser configuration."""
+
     chrome_host: str = "localhost"
     chrome_port: int = 9222
     profile_name: str = "Profile-Research"
@@ -117,6 +124,7 @@ class LLMConfig(BaseModel):
     Per §K.1: Single 3B model for all LLM tasks.
     VRAM budget (8GB) accommodates 3B (~2.5GB) + embedding (~1GB) + reranker (~1GB) + NLI (~0.5GB).
     """
+
     ollama_host: str = "http://localhost:11434"
     model: str = "qwen2.5:3b"  # Single model for all tasks
     model_context: int = 4096
@@ -127,6 +135,7 @@ class LLMConfig(BaseModel):
 
 class EmbeddingConfig(BaseModel):
     """Embedding configuration."""
+
     model_name: str = "BAAI/bge-m3"
     onnx_path: str = "models/bge-m3"
     use_gpu: bool = True
@@ -136,6 +145,7 @@ class EmbeddingConfig(BaseModel):
 
 class RerankerConfig(BaseModel):
     """Reranker configuration."""
+
     model_name: str = "BAAI/bge-reranker-v2-m3"
     onnx_path: str = "models/bge-reranker-v2-m3"
     use_gpu: bool = True
@@ -145,6 +155,7 @@ class RerankerConfig(BaseModel):
 
 class NLIConfig(BaseModel):
     """NLI configuration."""
+
     fast_model: str = "cross-encoder/nli-deberta-v3-xsmall"
     slow_model: str = "cross-encoder/nli-deberta-v3-small"
     use_gpu_for_slow: bool = True
@@ -156,6 +167,7 @@ class MLServerConfig(BaseModel):
     ML models (embedding, reranker, NLI) run in a separate container
     on the internal network (lancet-internal) for security isolation.
     """
+
     server_url: str = "http://lancet-ml:8100"
     timeout: int = 120  # seconds
     use_remote: bool = True  # When True, use ML server; when False, use local models
@@ -166,6 +178,7 @@ class MLServerConfig(BaseModel):
 
 class StorageConfig(BaseModel):
     """Storage configuration."""
+
     database_path: str = "data/lancet.db"
     warc_dir: str = "data/warc"
     screenshots_dir: str = "data/screenshots"
@@ -179,28 +192,33 @@ class StorageConfig(BaseModel):
 
 class NotificationConfig(BaseModel):
     """Notification configuration."""
+
     windows_toast_enabled: bool = True
     linux_notify_enabled: bool = True
 
 
 class QualityConfig(BaseModel):
     """Quality thresholds configuration."""
+
     min_confidence_score: float = 0.70
     min_independent_sources: int = 3
     min_primary_sources: int = 1
     min_secondary_sources: int = 1
-    source_weights: dict[str, float] = Field(default_factory=lambda: {
-        "primary": 1.0,
-        "government": 0.95,
-        "academic": 0.90,
-        "trusted_media": 0.75,
-        "blog": 0.50,
-        "unknown": 0.30,
-    })
+    source_weights: dict[str, float] = Field(
+        default_factory=lambda: {
+            "primary": 1.0,
+            "government": 0.95,
+            "academic": 0.90,
+            "trusted_media": 0.75,
+            "blog": 0.50,
+            "unknown": 0.30,
+        }
+    )
 
 
 class CircuitBreakerConfig(BaseModel):
     """Circuit breaker configuration."""
+
     failure_threshold: int = 2
     cooldown_min: int = 30
     cooldown_max: int = 120
@@ -209,6 +227,7 @@ class CircuitBreakerConfig(BaseModel):
 
 class MetricsConfig(BaseModel):
     """Metrics and adaptation configuration."""
+
     ema_update_interval: int = 60
     ema_short_alpha: float = 0.1
     ema_long_alpha: float = 0.01
@@ -217,6 +236,7 @@ class MetricsConfig(BaseModel):
 
 class AcademicAPIRateLimitConfig(BaseModel):
     """Academic API rate limit configuration."""
+
     requests_per_interval: int | None = None
     interval_seconds: int | None = None
     requests_per_day: int | None = None
@@ -226,6 +246,7 @@ class AcademicAPIRateLimitConfig(BaseModel):
 
 class AcademicAPIConfig(BaseModel):
     """Configuration for a single academic API."""
+
     enabled: bool = True
     base_url: str
     timeout_seconds: int = 30
@@ -237,6 +258,7 @@ class AcademicAPIConfig(BaseModel):
 
 class AcademicAPIsDefaultsConfig(BaseModel):
     """Default settings for academic APIs."""
+
     search_apis: list[str] = Field(default_factory=lambda: ["semantic_scholar", "openalex"])
     citation_graph_api: str = "semantic_scholar"
     max_citation_depth: int = 2
@@ -245,12 +267,14 @@ class AcademicAPIsDefaultsConfig(BaseModel):
 
 class AcademicAPIsConfig(BaseModel):
     """Academic APIs configuration."""
+
     apis: dict[str, AcademicAPIConfig] = Field(default_factory=dict)
     defaults: AcademicAPIsDefaultsConfig = Field(default_factory=AcademicAPIsDefaultsConfig)
 
 
 class GeneralConfig(BaseModel):
     """General configuration."""
+
     project_name: str = "lancet"
     version: str = "0.1.0"
     log_level: str = "INFO"
@@ -264,6 +288,7 @@ class GeneralConfig(BaseModel):
 
 class Settings(BaseModel):
     """Main settings container."""
+
     general: GeneralConfig = Field(default_factory=GeneralConfig)
     task_limits: TaskLimitsConfig = Field(default_factory=TaskLimitsConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
@@ -358,7 +383,9 @@ def get_academic_apis_config() -> AcademicAPIsConfig:
     config_data = _load_academic_apis_config(config_dir)
 
     # Apply environment overrides
-    config_data = _apply_env_overrides({"academic_apis": config_data}).get("academic_apis", config_data)
+    config_data = _apply_env_overrides({"academic_apis": config_data}).get(
+        "academic_apis", config_data
+    )
 
     # Parse API configurations
     apis_dict = {}
@@ -406,7 +433,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
             continue
 
         # Remove prefix and split by double underscore
-        key_path = key[len(prefix):].lower().split("__")
+        key_path = key[len(prefix) :].lower().split("__")
 
         # Navigate to the correct nested location
         current = config
@@ -483,4 +510,3 @@ def ensure_directories() -> None:
 
     for dir_path in dirs:
         dir_path.mkdir(parents=True, exist_ok=True)
-

@@ -39,7 +39,7 @@ logger = get_logger(__name__)
 
 class SearchError(Exception):
     """Base exception for search operations.
-    
+
     Carries error details for proper MCP error response generation.
     """
 
@@ -101,6 +101,7 @@ class SerpSearchError(SearchError):
 @dataclass
 class ParsedOperator:
     """Parsed search operator."""
+
     operator_type: str  # site, filetype, intitle, exact, exclude, date_after, required
     value: str  # The value (e.g., domain for site:, type for filetype:)
     raw_text: str  # Original text in query
@@ -109,6 +110,7 @@ class ParsedOperator:
 @dataclass
 class ParsedQuery:
     """Query with parsed operators and base text."""
+
     base_query: str  # Query without operators
     operators: list[ParsedOperator] = field(default_factory=list)
 
@@ -124,7 +126,7 @@ class ParsedQuery:
 class QueryOperatorProcessor:
     """
     Parse and transform search operators for different engines.
-    
+
     Supports:
     - site:domain.com  - Restrict to specific domain
     - filetype:pdf     - Restrict to file type
@@ -133,7 +135,7 @@ class QueryOperatorProcessor:
     - -term            - Exclude term
     - +term            - Required term
     - after:YYYY-MM-DD - Date filter
-    
+
     Implements engine-specific mapping from config/engines.yaml (§3.1.4).
     Uses SearchEngineConfigManager for centralized configuration.
     """
@@ -141,24 +143,24 @@ class QueryOperatorProcessor:
     # Regex patterns for operator detection
     PATTERNS = {
         # site:domain.com
-        "site": re.compile(r'\bsite:([^\s]+)', re.IGNORECASE),
+        "site": re.compile(r"\bsite:([^\s]+)", re.IGNORECASE),
         # filetype:pdf
-        "filetype": re.compile(r'\bfiletype:(\w+)', re.IGNORECASE),
+        "filetype": re.compile(r"\bfiletype:(\w+)", re.IGNORECASE),
         # intitle:word or intitle:"phrase"
         "intitle": re.compile(r'\bintitle:(?:"([^"]+)"|([^\s]+))', re.IGNORECASE),
         # "exact phrase"
         "exact": re.compile(r'"([^"]+)"'),
         # -excluded (but not negative numbers like -123)
-        "exclude": re.compile(r'(?<![:\w])-([a-zA-Z\u3040-\u9fff][^\s]*)', re.IGNORECASE),
+        "exclude": re.compile(r"(?<![:\w])-([a-zA-Z\u3040-\u9fff][^\s]*)", re.IGNORECASE),
         # +required
-        "required": re.compile(r'(?<![:\w])\+([a-zA-Z\u3040-\u9fff][^\s]*)', re.IGNORECASE),
+        "required": re.compile(r"(?<![:\w])\+([a-zA-Z\u3040-\u9fff][^\s]*)", re.IGNORECASE),
         # after:2024-01-01 or after:2024
-        "date_after": re.compile(r'\bafter:(\d{4}(?:-\d{2}(?:-\d{2})?)?)', re.IGNORECASE),
+        "date_after": re.compile(r"\bafter:(\d{4}(?:-\d{2}(?:-\d{2})?)?)", re.IGNORECASE),
     }
 
     def __init__(self, config_path: str | None = None):
         """Initialize with optional custom config path.
-        
+
         Args:
             config_path: Optional path to engines.yaml. If None, uses
                          SearchEngineConfigManager singleton.
@@ -169,7 +171,7 @@ class QueryOperatorProcessor:
 
     def _load_config(self, config_path: str | None = None) -> None:
         """Load operator mapping from SearchEngineConfigManager or config file.
-        
+
         Uses SearchEngineConfigManager by default for centralized config.
         Falls back to direct file loading for custom paths or testing.
         """
@@ -201,12 +203,17 @@ class QueryOperatorProcessor:
 
             if config and "operator_mapping" in config:
                 self._operator_mapping = config["operator_mapping"]
-                logger.debug("Loaded operator mapping from file", operators=list(self._operator_mapping.keys()))
+                logger.debug(
+                    "Loaded operator mapping from file",
+                    operators=list(self._operator_mapping.keys()),
+                )
             else:
                 logger.warning("No operator_mapping found in config, using defaults")
                 self._init_default_mapping()
         except FileNotFoundError:
-            logger.warning("Config file not found, using default operator mapping", path=config_path)
+            logger.warning(
+                "Config file not found, using default operator mapping", path=config_path
+            )
             self._init_default_mapping()
         except Exception as e:
             logger.error("Failed to load operator config", error=str(e))
@@ -257,7 +264,7 @@ class QueryOperatorProcessor:
 
     def reload_config(self) -> None:
         """Reload operator mappings from SearchEngineConfigManager.
-        
+
         Useful for hot-reload scenarios where config has changed.
         """
         if self._config_manager is not None:
@@ -268,10 +275,10 @@ class QueryOperatorProcessor:
     def parse(self, query: str) -> ParsedQuery:
         """
         Parse a query string and extract operators.
-        
+
         Args:
             query: Raw query string with operators.
-            
+
         Returns:
             ParsedQuery with base query and list of operators.
         """
@@ -279,7 +286,15 @@ class QueryOperatorProcessor:
         remaining_query = query
 
         # Extract operators in specific order (more specific first)
-        extraction_order = ["site", "filetype", "intitle", "date_after", "exact", "exclude", "required"]
+        extraction_order = [
+            "site",
+            "filetype",
+            "intitle",
+            "date_after",
+            "exact",
+            "exclude",
+            "required",
+        ]
 
         for op_type in extraction_order:
             pattern = self.PATTERNS.get(op_type)
@@ -297,14 +312,16 @@ class QueryOperatorProcessor:
                 else:
                     value = match.group(1)
 
-                operators.append(ParsedOperator(
-                    operator_type=op_type,
-                    value=value,
-                    raw_text=raw_text,
-                ))
+                operators.append(
+                    ParsedOperator(
+                        operator_type=op_type,
+                        value=value,
+                        raw_text=raw_text,
+                    )
+                )
 
                 # Remove from query
-                remaining_query = remaining_query[:match.start()] + remaining_query[match.end():]
+                remaining_query = remaining_query[: match.start()] + remaining_query[match.end() :]
 
         # Clean up base query
         base_query = " ".join(remaining_query.split())
@@ -318,11 +335,11 @@ class QueryOperatorProcessor:
     ) -> str:
         """
         Transform parsed query for a specific engine.
-        
+
         Args:
             parsed: Parsed query with operators.
             engine: Target engine name.
-            
+
         Returns:
             Query string formatted for the engine.
         """
@@ -377,11 +394,11 @@ class QueryOperatorProcessor:
     ) -> str:
         """
         Parse and transform query in one step.
-        
+
         Args:
             query: Raw query with operators.
             engine: Target engine (None for default format).
-            
+
         Returns:
             Processed query string.
         """
@@ -413,7 +430,7 @@ class QueryOperatorProcessor:
     ) -> str:
         """
         Build a query with operators programmatically.
-        
+
         Args:
             base_query: Base search terms.
             site: Domain restriction.
@@ -424,7 +441,7 @@ class QueryOperatorProcessor:
             required_terms: Required terms.
             date_after: Date filter (YYYY-MM-DD or YYYY).
             engine: Target engine.
-            
+
         Returns:
             Formatted query string.
         """
@@ -473,10 +490,10 @@ def _get_operator_processor() -> QueryOperatorProcessor:
 def parse_query_operators(query: str) -> ParsedQuery:
     """
     Parse operators from a query string.
-    
+
     Args:
         query: Raw query with operators.
-        
+
     Returns:
         ParsedQuery with base query and operators.
     """
@@ -487,11 +504,11 @@ def parse_query_operators(query: str) -> ParsedQuery:
 def transform_query_for_engine(query: str, engine: str) -> str:
     """
     Transform a query for a specific search engine.
-    
+
     Args:
         query: Raw query with operators.
         engine: Target engine name.
-        
+
     Returns:
         Query formatted for the engine.
     """
@@ -512,9 +529,9 @@ def build_search_query(
 ) -> str:
     """
     Build a search query with operators.
-    
+
     Convenience function for programmatically building queries.
-    
+
     Args:
         base_query: Base search terms.
         site: Domain restriction (e.g., "go.jp").
@@ -525,10 +542,10 @@ def build_search_query(
         required_terms: Required terms.
         date_after: Date filter (YYYY-MM-DD or YYYY).
         engine: Target engine for formatting.
-        
+
     Returns:
         Formatted query string.
-        
+
     Example:
         >>> build_search_query(
         ...     "AI規制",
@@ -565,15 +582,15 @@ async def _search_with_provider(
 ) -> list[dict[str, Any]]:
     """
     Execute search using the provider abstraction layer.
-    
+
     Uses BrowserSearchProvider for direct browser-based search.
-    
+
     Args:
         query: Search query.
         engines: Engines to use.
         limit: Maximum results.
         time_range: Time filter.
-        
+
     Returns:
         List of normalized result dicts.
     """
@@ -585,6 +602,7 @@ async def _search_with_provider(
     # Use BrowserSearchProvider
     if registry.get("browser_search") is None:
         from src.search.browser_search_provider import get_browser_search_provider
+
         provider = get_browser_search_provider()
         registry.register(provider, set_default=True)
 
@@ -615,8 +633,11 @@ async def _search_with_provider(
         # Determine specific error type and raise appropriate exception
         if "No parser available" in error_msg:
             # Extract engine name from error message
-            engine_match = error_msg.split("engine:")[-1].strip() if "engine:" in error_msg else None
+            engine_match = (
+                error_msg.split("engine:")[-1].strip() if "engine:" in error_msg else None
+            )
             from src.search.search_parsers import get_available_parsers
+
             raise ParserNotAvailableSearchError(
                 engine=engine_match or "unknown",
                 available_engines=get_available_parsers(),
@@ -635,10 +656,10 @@ async def _search_with_provider(
 
 def _normalize_query(query: str) -> str:
     """Normalize query for caching.
-    
+
     Args:
         query: Search query.
-        
+
     Returns:
         Normalized query string.
     """
@@ -648,12 +669,12 @@ def _normalize_query(query: str) -> str:
 
 def _get_cache_key(query: str, engines: list[str] | None, time_range: str) -> str:
     """Generate cache key for SERP results.
-    
+
     Args:
         query: Normalized query.
         engines: Engine list.
         time_range: Time range.
-        
+
     Returns:
         Cache key hash.
     """
@@ -676,9 +697,9 @@ async def search_serp(
     transform_operators: bool = True,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
-    
+
     Uses provider abstraction (BrowserSearchProvider by default).
-    
+
     Args:
         query: Search query (may contain operators like site:, filetype:, etc.).
         engines: List of engines to use.
@@ -687,10 +708,10 @@ async def search_serp(
         task_id: Associated task ID.
         use_cache: Whether to use cache.
         transform_operators: Whether to transform query operators for engines.
-        
+
     Returns:
         List of normalized SERP result dicts.
-        
+
     Raises:
         ParserNotAvailableSearchError: When selected engine has no parser.
         SerpSearchError: When SERP search fails for other reasons.
@@ -707,7 +728,7 @@ async def search_serp(
         if use_cache:
             cached = await db.fetch_one(
                 """
-                SELECT result_json FROM cache_serp 
+                SELECT result_json FROM cache_serp
                 WHERE cache_key = ? AND expires_at > ?
                 """,
                 (cache_key, datetime.now(UTC).isoformat()),
@@ -747,42 +768,53 @@ async def search_serp(
 
         # Store in database
         if task_id:
-            query_id = await db.insert("queries", {
-                "task_id": task_id,
-                "query_text": query,
-                "query_type": "initial",
-                "engines_used": json.dumps(engines) if engines else None,
-                "result_count": len(results),
-                "cause_id": trace.id,
-            })
+            query_id = await db.insert(
+                "queries",
+                {
+                    "task_id": task_id,
+                    "query_text": query,
+                    "query_type": "initial",
+                    "engines_used": json.dumps(engines) if engines else None,
+                    "result_count": len(results),
+                    "cause_id": trace.id,
+                },
+            )
 
             # Store SERP items
             for result in results:
-                await db.insert("serp_items", {
-                    "query_id": query_id,
-                    "engine": result["engine"],
-                    "rank": result["rank"],
-                    "url": result["url"],
-                    "title": result["title"],
-                    "snippet": result["snippet"],
-                    "published_date": result.get("date"),
-                    "source_tag": result["source_tag"],
-                    "cause_id": trace.id,
-                })
+                await db.insert(
+                    "serp_items",
+                    {
+                        "query_id": query_id,
+                        "engine": result["engine"],
+                        "rank": result["rank"],
+                        "url": result["url"],
+                        "title": result["title"],
+                        "snippet": result["snippet"],
+                        "published_date": result.get("date"),
+                        "source_tag": result["source_tag"],
+                        "cause_id": trace.id,
+                    },
+                )
 
         # Cache results
         if use_cache and results:
             settings = get_settings()
             expires_at = datetime.now(UTC) + timedelta(hours=settings.storage.serp_cache_ttl)
 
-            await db.insert("cache_serp", {
-                "cache_key": cache_key,
-                "query_normalized": _normalize_query(query),
-                "engines_json": json.dumps(engines) if engines else "[]",
-                "time_range": time_range,
-                "result_json": json.dumps(results, ensure_ascii=False),
-                "expires_at": expires_at.isoformat(),
-            }, or_replace=True, auto_id=False)
+            await db.insert(
+                "cache_serp",
+                {
+                    "cache_key": cache_key,
+                    "query_normalized": _normalize_query(query),
+                    "engines_json": json.dumps(engines) if engines else "[]",
+                    "time_range": time_range,
+                    "result_json": json.dumps(results, ensure_ascii=False),
+                    "expires_at": expires_at.isoformat(),
+                },
+                or_replace=True,
+                auto_id=False,
+            )
 
         logger.info(
             "SERP search completed",
@@ -797,10 +829,10 @@ async def search_serp(
 
 def _classify_source(url: str) -> str:
     """Classify source type based on URL.
-    
+
     Args:
         url: Source URL.
-        
+
     Returns:
         Source tag (academic, government, news, blog, etc.).
     """
@@ -808,9 +840,16 @@ def _classify_source(url: str) -> str:
 
     # Academic
     academic_domains = [
-        "arxiv.org", "pubmed", "ncbi.nlm.nih.gov", "jstage.jst.go.jp",
-        "cir.nii.ac.jp", "scholar.google", "researchgate.net",
-        "academia.edu", "sciencedirect.com", "springer.com",
+        "arxiv.org",
+        "pubmed",
+        "ncbi.nlm.nih.gov",
+        "jstage.jst.go.jp",
+        "cir.nii.ac.jp",
+        "scholar.google",
+        "researchgate.net",
+        "academia.edu",
+        "sciencedirect.com",
+        "springer.com",
     ]
     if any(d in url_lower for d in academic_domains):
         return "academic"
@@ -831,16 +870,25 @@ def _classify_source(url: str) -> str:
 
     # News (major outlets)
     news_domains = [
-        "reuters.com", "bbc.com", "nytimes.com", "theguardian.com",
-        "nhk.or.jp", "asahi.com", "nikkei.com",
+        "reuters.com",
+        "bbc.com",
+        "nytimes.com",
+        "theguardian.com",
+        "nhk.or.jp",
+        "asahi.com",
+        "nikkei.com",
     ]
     if any(d in url_lower for d in news_domains):
         return "news"
 
     # Tech / Documentation
     tech_domains = [
-        "github.com", "gitlab.com", "stackoverflow.com", "docs.",
-        "developer.", "documentation",
+        "github.com",
+        "gitlab.com",
+        "stackoverflow.com",
+        "docs.",
+        "developer.",
+        "documentation",
     ]
     if any(d in url_lower for d in tech_domains):
         return "technical"
@@ -921,35 +969,36 @@ class QueryExpander:
 
     def tokenize(self, text: str) -> list[dict[str, Any]]:
         """Tokenize text and extract token information.
-        
+
         Args:
             text: Input text.
-            
+
         Returns:
             List of token info dicts.
         """
         if not self._ensure_initialized():
             # Fallback: simple space-based tokenization
-            return [{"surface": w, "normalized": w, "pos": "unknown"}
-                    for w in text.split()]
+            return [{"surface": w, "normalized": w, "pos": "unknown"} for w in text.split()]
 
         tokens = []
         for m in self._tokenizer.tokenize(text, self._tokenize_mode):
-            tokens.append({
-                "surface": m.surface(),
-                "normalized": m.normalized_form(),
-                "reading": m.reading_form(),
-                "pos": m.part_of_speech()[0] if m.part_of_speech() else "unknown",
-                "pos_detail": m.part_of_speech(),
-            })
+            tokens.append(
+                {
+                    "surface": m.surface(),
+                    "normalized": m.normalized_form(),
+                    "reading": m.reading_form(),
+                    "pos": m.part_of_speech()[0] if m.part_of_speech() else "unknown",
+                    "pos_detail": m.part_of_speech(),
+                }
+            )
         return tokens
 
     def get_synonyms(self, word: str) -> list[str]:
         """Get synonyms for a word.
-        
+
         Args:
             word: Input word.
-            
+
         Returns:
             List of synonym words.
         """
@@ -969,10 +1018,10 @@ class QueryExpander:
 
     def expand_with_normalized_forms(self, query: str) -> list[str]:
         """Expand query using normalized forms.
-        
+
         Args:
             query: Original query.
-            
+
         Returns:
             List of expanded queries with normalized forms.
         """
@@ -1000,11 +1049,11 @@ class QueryExpander:
 
     def expand_with_synonyms(self, query: str, max_expansions: int = 3) -> list[str]:
         """Expand query using synonyms.
-        
+
         Args:
             query: Original query.
             max_expansions: Maximum number of synonym expansions.
-            
+
         Returns:
             List of expanded queries.
         """
@@ -1042,7 +1091,7 @@ class QueryExpander:
                 if variant != query and variant not in expanded:
                     expanded.append(variant)
 
-        return expanded[:max_expansions + 1]  # Limit total expansions
+        return expanded[: max_expansions + 1]  # Limit total expansions
 
     def generate_variants(
         self,
@@ -1052,13 +1101,13 @@ class QueryExpander:
         max_results: int = 5,
     ) -> list[str]:
         """Generate query variants using multiple strategies.
-        
+
         Args:
             query: Original query.
             include_normalized: Include normalized form variants.
             include_synonyms: Include synonym variants.
             max_results: Maximum number of results.
-            
+
         Returns:
             List of query variants (including original).
         """
@@ -1098,10 +1147,10 @@ async def expand_query(
     max_results: int = 5,
 ) -> list[str]:
     """Expand a query with related terms.
-    
+
     Uses SudachiPy for Japanese text analysis to generate query variations
     through synonym expansion and normalized form conversion.
-    
+
     Args:
         base_query: Original query.
         expansion_type: Type of expansion:
@@ -1110,7 +1159,7 @@ async def expand_query(
             - "all": Both synonym and normalized expansion
         language: Query language (currently supports "ja").
         max_results: Maximum number of expanded queries.
-        
+
     Returns:
         List of expanded queries (including original).
     """
@@ -1150,15 +1199,15 @@ async def generate_mirror_query(
     target_lang: str = "en",
 ) -> str | None:
     """Generate a mirror query in another language using local LLM.
-    
+
     Implements §3.1.1: Cross-language (JA↔EN) mirror query auto-generation.
     Uses Ollama for translation to maintain Zero OpEx requirement.
-    
+
     Args:
         query: Original query.
         source_lang: Source language code (ja, en, de, fr, zh).
         target_lang: Target language code.
-        
+
     Returns:
         Translated query or None if translation fails.
     """
@@ -1260,12 +1309,12 @@ async def generate_mirror_queries(
     target_langs: list[str] | None = None,
 ) -> dict[str, str]:
     """Generate mirror queries in multiple languages.
-    
+
     Args:
         query: Original query.
         source_lang: Source language code.
         target_langs: Target language codes (default: ["en"] for ja, ["ja"] for others).
-        
+
     Returns:
         Dict mapping language codes to translated queries.
     """
@@ -1282,4 +1331,3 @@ async def generate_mirror_queries(
                 results[target_lang] = translated
 
     return results
-

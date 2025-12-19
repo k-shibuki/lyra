@@ -33,25 +33,25 @@ class ClaimPolarity(str, Enum):
 
     POSITIVE = "positive"  # Claim asserts something is true
     NEGATIVE = "negative"  # Claim asserts something is false
-    NEUTRAL = "neutral"    # Claim is a question or neutral statement
+    NEUTRAL = "neutral"  # Claim is a question or neutral statement
 
 
 class ClaimGranularity(str, Enum):
     """Granularity level of a claim."""
 
-    ATOMIC = "atomic"      # Cannot be further decomposed
+    ATOMIC = "atomic"  # Cannot be further decomposed
     COMPOSITE = "composite"  # Can be decomposed into sub-claims
-    META = "meta"          # Meta-level claim about the research itself
+    META = "meta"  # Meta-level claim about the research itself
 
 
 class ClaimType(str, Enum):
     """Type of claim based on content."""
 
-    FACTUAL = "factual"        # Verifiable fact
-    CAUSAL = "causal"          # Cause-effect relationship
+    FACTUAL = "factual"  # Verifiable fact
+    CAUSAL = "causal"  # Cause-effect relationship
     COMPARATIVE = "comparative"  # Comparison between entities
     DEFINITIONAL = "definitional"  # Definition or classification
-    TEMPORAL = "temporal"      # Time-related claim
+    TEMPORAL = "temporal"  # Time-related claim
     QUANTITATIVE = "quantitative"  # Numerical/statistical claim
 
 
@@ -336,17 +336,19 @@ class ClaimDecomposer:
 
         # If no claims were generated, create a single claim from the question
         if not claims:
-            claims.append(AtomicClaim(
-                claim_id=f"claim_{uuid.uuid4().hex[:8]}",
-                text=question,
-                expected_polarity=ClaimPolarity.NEUTRAL,
-                granularity=ClaimGranularity.COMPOSITE,
-                claim_type=ClaimType.FACTUAL,
-                source_question=question,
-                confidence=0.5,
-                keywords=self._extract_keywords(question),
-                verification_hints=["一般的な検索で調査"],
-            ))
+            claims.append(
+                AtomicClaim(
+                    claim_id=f"claim_{uuid.uuid4().hex[:8]}",
+                    text=question,
+                    expected_polarity=ClaimPolarity.NEUTRAL,
+                    granularity=ClaimGranularity.COMPOSITE,
+                    claim_type=ClaimType.FACTUAL,
+                    source_question=question,
+                    confidence=0.5,
+                    keywords=self._extract_keywords(question),
+                    verification_hints=["一般的な検索で調査"],
+                )
+            )
 
         return DecompositionResult(
             original_question=question,
@@ -359,10 +361,10 @@ class ClaimDecomposer:
         """Split text by conjunctions and delimiters."""
         # Japanese and English conjunctions
         patterns = [
-            r"[、。]",           # Japanese punctuation
+            r"[、。]",  # Japanese punctuation
             r"(?:および|かつ|また|そして|さらに)",  # Japanese conjunctions
             r"(?:and|or|but|also|moreover)",  # English conjunctions
-            r"[,;]",            # English punctuation
+            r"[,;]",  # English punctuation
         ]
 
         result = [text]
@@ -382,10 +384,21 @@ class ClaimDecomposer:
 
         # Negative indicators
         negative_patterns = [
-            r"ない", r"しない", r"できない", r"不可能",
-            r"否定", r"反対", r"誤り", r"間違い",
-            r"not", r"never", r"cannot", r"impossible",
-            r"false", r"incorrect", r"wrong",
+            r"ない",
+            r"しない",
+            r"できない",
+            r"不可能",
+            r"否定",
+            r"反対",
+            r"誤り",
+            r"間違い",
+            r"not",
+            r"never",
+            r"cannot",
+            r"impossible",
+            r"false",
+            r"incorrect",
+            r"wrong",
         ]
 
         for pattern in negative_patterns:
@@ -394,7 +407,8 @@ class ClaimDecomposer:
 
         # Question indicators
         question_patterns = [
-            r"\?$", r"？$",
+            r"\?$",
+            r"？$",
             r"^(what|who|when|where|why|how|which)",
             r"^(何|誰|いつ|どこ|なぜ|どう|どの)",
             r"(か|のか|でしょうか)$",
@@ -412,7 +426,8 @@ class ClaimDecomposer:
 
         # Temporal patterns
         temporal_patterns = [
-            r"\d{4}年", r"\d{4}/\d{1,2}",
+            r"\d{4}年",
+            r"\d{4}/\d{1,2}",
             r"(いつ|when|年|月|日|時)",
             r"(以前|以後|before|after|during)",
         ]
@@ -422,7 +437,9 @@ class ClaimDecomposer:
 
         # Quantitative patterns
         quant_patterns = [
-            r"\d+%", r"\d+億", r"\d+万",
+            r"\d+%",
+            r"\d+億",
+            r"\d+万",
             r"(数|量|率|比率|割合)",
             r"(how many|how much|percentage|ratio)",
         ]
@@ -464,16 +481,78 @@ class ClaimDecomposer:
         # Remove common stopwords and extract significant terms
         stopwords = {
             # Japanese
-            "の", "は", "が", "を", "に", "で", "と", "も", "や", "か",
-            "です", "ます", "した", "する", "される", "ている", "いる",
-            "こと", "もの", "ため", "よう", "など", "これ", "それ",
+            "の",
+            "は",
+            "が",
+            "を",
+            "に",
+            "で",
+            "と",
+            "も",
+            "や",
+            "か",
+            "です",
+            "ます",
+            "した",
+            "する",
+            "される",
+            "ている",
+            "いる",
+            "こと",
+            "もの",
+            "ため",
+            "よう",
+            "など",
+            "これ",
+            "それ",
             # English
-            "the", "a", "an", "is", "are", "was", "were", "be", "been",
-            "have", "has", "had", "do", "does", "did", "will", "would",
-            "could", "should", "may", "might", "can", "this", "that",
-            "these", "those", "what", "which", "who", "whom", "whose",
-            "where", "when", "why", "how", "and", "or", "but", "if",
-            "then", "else", "for", "of", "to", "from", "by", "with",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "can",
+            "this",
+            "that",
+            "these",
+            "those",
+            "what",
+            "which",
+            "who",
+            "whom",
+            "whose",
+            "where",
+            "when",
+            "why",
+            "how",
+            "and",
+            "or",
+            "but",
+            "if",
+            "then",
+            "else",
+            "for",
+            "of",
+            "to",
+            "from",
+            "by",
+            "with",
         }
 
         # Split by whitespace and common delimiters
@@ -544,8 +623,3 @@ async def decompose_question(
     """
     decomposer = ClaimDecomposer(use_llm=use_llm)
     return await decomposer.decompose(question)
-
-
-
-
-

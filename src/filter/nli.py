@@ -74,10 +74,10 @@ class NLIModel:
 
     def _map_label(self, label: str) -> str:
         """Map model label to standard format.
-        
+
         Args:
             label: Raw model label.
-            
+
         Returns:
             Standard label (supports/refutes/neutral).
         """
@@ -97,12 +97,12 @@ class NLIModel:
         use_slow: bool = False,
     ) -> dict[str, Any]:
         """Predict stance relationship.
-        
+
         Args:
             premise: Premise text.
             hypothesis: Hypothesis text.
             use_slow: Whether to use slow model.
-            
+
         Returns:
             Prediction result with label and confidence.
         """
@@ -142,11 +142,11 @@ class NLIModel:
         use_slow: bool = False,
     ) -> list[dict[str, Any]]:
         """Predict stance for multiple pairs.
-        
+
         Args:
             pairs: List of (premise, hypothesis) tuples.
             use_slow: Whether to use slow model.
-            
+
         Returns:
             List of prediction results.
         """
@@ -164,11 +164,13 @@ class NLIModel:
 
             predictions = []
             for result in results:
-                predictions.append({
-                    "label": self._map_label(result["label"]),
-                    "confidence": result["score"],
-                    "raw_label": result["label"],
-                })
+                predictions.append(
+                    {
+                        "label": self._map_label(result["label"]),
+                        "confidence": result["score"],
+                        "raw_label": result["label"],
+                    }
+                )
 
             return predictions
 
@@ -193,10 +195,10 @@ async def nli_judge(
     pairs: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Judge stance relationships for claim pairs.
-    
+
     Args:
         pairs: List of pair dicts with 'pair_id', 'premise', 'hypothesis'.
-        
+
     Returns:
         List of result dicts with 'pair_id', 'stance', 'confidence'.
     """
@@ -227,7 +229,7 @@ async def _nli_judge_remote(
     low_confidence_pairs = []
     low_confidence_indices = []
 
-    for idx, (pair, result) in enumerate(zip(pairs, results)):
+    for idx, (pair, result) in enumerate(zip(pairs, results, strict=False)):
         if result.get("confidence", 0) < 0.7:
             low_confidence_pairs.append(pair)
             low_confidence_indices.append(idx)
@@ -235,19 +237,21 @@ async def _nli_judge_remote(
     # Second pass with slow model for low confidence pairs
     if low_confidence_pairs:
         slow_results = await client.nli(low_confidence_pairs, use_slow=True)
-        for idx, result in zip(low_confidence_indices, slow_results):
+        for idx, result in zip(low_confidence_indices, slow_results, strict=False):
             result["used_slow_model"] = True
             results[idx] = result
 
     # Map result format
     final_results = []
     for idx, result in enumerate(results):
-        final_results.append({
-            "pair_id": result.get("pair_id", pairs[idx].get("pair_id", "unknown")),
-            "stance": result.get("label", "neutral"),
-            "confidence": result.get("confidence", 0.0),
-            "used_slow_model": result.get("used_slow_model", False),
-        })
+        final_results.append(
+            {
+                "pair_id": result.get("pair_id", pairs[idx].get("pair_id", "unknown")),
+                "stance": result.get("label", "neutral"),
+                "confidence": result.get("confidence", 0.0),
+                "used_slow_model": result.get("used_slow_model", False),
+            }
+        )
 
     logger.info(
         "NLI judgment completed (remote)",
@@ -280,12 +284,14 @@ async def _nli_judge_local(
         if need_slow:
             prediction = await model.predict(premise, hypothesis, use_slow=True)
 
-        results.append({
-            "pair_id": pair_id,
-            "stance": prediction["label"],
-            "confidence": prediction["confidence"],
-            "used_slow_model": need_slow,
-        })
+        results.append(
+            {
+                "pair_id": pair_id,
+                "stance": prediction["label"],
+                "confidence": prediction["confidence"],
+                "used_slow_model": need_slow,
+            }
+        )
 
     logger.info(
         "NLI judgment completed (local)",
@@ -300,10 +306,10 @@ async def detect_contradictions(
     claims: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Detect contradictions among a set of claims.
-    
+
     Args:
         claims: List of claim dicts with 'id' and 'text'.
-        
+
     Returns:
         List of contradiction dicts.
     """
@@ -313,7 +319,7 @@ async def detect_contradictions(
 
     # Compare all pairs
     for i, claim1 in enumerate(claims):
-        for claim2 in claims[i + 1:]:
+        for claim2 in claims[i + 1 :]:
             # Check both directions
             pred1 = await model.predict(
                 claim1["text"],
@@ -330,13 +336,15 @@ async def detect_contradictions(
                 )
 
                 if pred_slow["label"] == "refutes" and pred_slow["confidence"] > 0.6:
-                    contradictions.append({
-                        "claim1_id": claim1["id"],
-                        "claim2_id": claim2["id"],
-                        "claim1_text": claim1["text"],
-                        "claim2_text": claim2["text"],
-                        "confidence": pred_slow["confidence"],
-                    })
+                    contradictions.append(
+                        {
+                            "claim1_id": claim1["id"],
+                            "claim2_id": claim2["id"],
+                            "claim1_text": claim1["text"],
+                            "claim2_text": claim2["text"],
+                            "confidence": pred_slow["confidence"],
+                        }
+                    )
 
     logger.info(
         "Contradiction detection completed",
@@ -345,4 +353,3 @@ async def detect_contradictions(
     )
 
     return contradictions
-

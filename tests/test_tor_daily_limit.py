@@ -35,6 +35,7 @@ pytestmark = pytest.mark.unit
 # TorUsageMetrics Tests
 # =============================================================================
 
+
 class TestTorUsageMetrics:
     """Tests for TorUsageMetrics Pydantic model."""
 
@@ -98,6 +99,7 @@ class TestTorUsageMetrics:
 # DomainTorMetrics Tests
 # =============================================================================
 
+
 class TestDomainTorMetrics:
     """Tests for DomainTorMetrics Pydantic model."""
 
@@ -126,6 +128,7 @@ class TestDomainTorMetrics:
 # MetricsCollector Tor Tracking Tests
 # =============================================================================
 
+
 class TestMetricsCollectorTorTracking:
     """Tests for MetricsCollector Tor tracking methods."""
 
@@ -133,6 +136,7 @@ class TestMetricsCollectorTorTracking:
     def fresh_collector(self):
         """Create a fresh MetricsCollector for each test."""
         from src.utils.metrics import MetricsCollector
+
         return MetricsCollector()
 
     def test_get_today_tor_metrics_initial(self, fresh_collector):
@@ -237,6 +241,7 @@ class TestMetricsCollectorTorTracking:
 # _can_use_tor() Tests
 # =============================================================================
 
+
 class TestCanUseTor:
     """Tests for _can_use_tor() function."""
 
@@ -254,7 +259,7 @@ class TestCanUseTor:
 
         mock_collector = MetricsCollector()
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=mock_collector):
             result = await _can_use_tor()
 
         assert result is True
@@ -275,7 +280,7 @@ class TestCanUseTor:
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 19
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=mock_collector):
             result = await _can_use_tor()
 
         assert result is True
@@ -296,7 +301,7 @@ class TestCanUseTor:
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 20
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=mock_collector):
             result = await _can_use_tor()
 
         assert result is False
@@ -317,7 +322,7 @@ class TestCanUseTor:
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 25
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=mock_collector):
             result = await _can_use_tor()
 
         assert result is False
@@ -344,8 +349,8 @@ class TestCanUseTor:
         mock_policy.tor_allowed = False
         mock_policy.tor_blocked = True
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
-            with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=mock_collector):
+            with patch("src.utils.domain_policy.get_domain_policy", return_value=mock_policy):
                 result = await _can_use_tor("cloudflare-site.com")
 
         assert result is False
@@ -374,8 +379,8 @@ class TestCanUseTor:
         mock_policy.tor_allowed = True
         mock_policy.tor_blocked = False
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
-            with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=mock_collector):
+            with patch("src.utils.domain_policy.get_domain_policy", return_value=mock_policy):
                 result = await _can_use_tor("example.com")
 
         assert result is False
@@ -391,7 +396,7 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
 
-        with patch('src.utils.metrics.get_metrics_collector', side_effect=Exception("test error")):
+        with patch("src.utils.metrics.get_metrics_collector", side_effect=Exception("test error")):
             result = await _can_use_tor()
 
         assert result is True
@@ -411,7 +416,7 @@ class TestCanUseTor:
         mock_collector = MetricsCollector()
         # Fresh collector has 0 requests
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=mock_collector):
             result = await _can_use_tor()
 
         assert result is True
@@ -420,6 +425,7 @@ class TestCanUseTor:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestTorLimitIntegration:
     """Integration tests for Tor daily limit."""
@@ -451,8 +457,8 @@ class TestTorLimitIntegration:
         mock_policy.tor_allowed = True
         mock_policy.tor_blocked = False
 
-        with patch('src.utils.metrics.get_metrics_collector', return_value=collector):
-            with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy):
+        with patch("src.utils.metrics.get_metrics_collector", return_value=collector):
+            with patch("src.utils.domain_policy.get_domain_policy", return_value=mock_policy):
                 # Should be allowed (19% < 20%)
                 result = await _can_use_tor("example.com")
                 assert result is True

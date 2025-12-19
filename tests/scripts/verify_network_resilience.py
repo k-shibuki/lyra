@@ -46,6 +46,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -68,7 +69,8 @@ class NetworkResilienceVerifier:
         # Check database
         try:
             from src.storage.database import get_database
-            db = await get_database()
+
+            await get_database()
             print("  ✓ Database available")
         except Exception as e:
             print(f"  ✗ Database failed: {e}")
@@ -77,6 +79,7 @@ class NetworkResilienceVerifier:
         # Check HTTP fetcher
         try:
             from src.crawler.fetcher import HTTPFetcher
+
             fetcher = HTTPFetcher()
             print("  ✓ HTTP fetcher available")
             await fetcher.close()
@@ -142,7 +145,9 @@ class NetworkResilienceVerifier:
             recovery_rate = recovery_successes / recovery_attempts
             threshold = 0.70
 
-            print(f"\n    Recovery rate: {recovery_rate:.0%} ({recovery_successes}/{recovery_attempts})")
+            print(
+                f"\n    Recovery rate: {recovery_rate:.0%} ({recovery_successes}/{recovery_attempts})"
+            )
 
             if recovery_rate >= threshold:
                 return VerificationResult(
@@ -380,7 +385,7 @@ class NetworkResilienceVerifier:
         from src.crawler.session_transfer import get_session_transfer_manager
 
         fetcher = HTTPFetcher()
-        manager = get_session_transfer_manager()
+        get_session_transfer_manager()
 
         # Test URLs that support ETag/Last-Modified
         test_urls = [
@@ -454,7 +459,9 @@ class NetworkResilienceVerifier:
             utilization_rate = got_304 / total_revisits
             threshold = 0.70
 
-            print(f"\n    304 utilization rate: {utilization_rate:.0%} ({got_304}/{total_revisits})")
+            print(
+                f"\n    304 utilization rate: {utilization_rate:.0%} ({got_304}/{total_revisits})"
+            )
 
             if utilization_rate >= threshold:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
@@ -536,7 +543,9 @@ class NetworkResilienceVerifier:
                 print(f"      Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if failed > 0:
@@ -560,4 +569,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

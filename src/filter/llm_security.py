@@ -32,25 +32,27 @@ logger = get_logger(__name__)
 TAG_PREFIX = "LANCET-"
 
 # Zero-width characters to remove (§4.4.1 L2)
-ZERO_WIDTH_CHARS = frozenset([
-    "\u200b",  # Zero Width Space
-    "\u200c",  # Zero Width Non-Joiner
-    "\u200d",  # Zero Width Joiner
-    "\ufeff",  # Zero Width No-Break Space (BOM)
-    "\u2060",  # Word Joiner
-    "\u180e",  # Mongolian Vowel Separator
-    "\u200e",  # Left-to-Right Mark
-    "\u200f",  # Right-to-Left Mark
-    "\u202a",  # Left-to-Right Embedding
-    "\u202b",  # Right-to-Left Embedding
-    "\u202c",  # Pop Directional Formatting
-    "\u202d",  # Left-to-Right Override
-    "\u202e",  # Right-to-Left Override
-    "\u2066",  # Left-to-Right Isolate
-    "\u2067",  # Right-to-Left Isolate
-    "\u2068",  # First Strong Isolate
-    "\u2069",  # Pop Directional Isolate
-])
+ZERO_WIDTH_CHARS = frozenset(
+    [
+        "\u200b",  # Zero Width Space
+        "\u200c",  # Zero Width Non-Joiner
+        "\u200d",  # Zero Width Joiner
+        "\ufeff",  # Zero Width No-Break Space (BOM)
+        "\u2060",  # Word Joiner
+        "\u180e",  # Mongolian Vowel Separator
+        "\u200e",  # Left-to-Right Mark
+        "\u200f",  # Right-to-Left Mark
+        "\u202a",  # Left-to-Right Embedding
+        "\u202b",  # Right-to-Left Embedding
+        "\u202c",  # Pop Directional Formatting
+        "\u202d",  # Left-to-Right Override
+        "\u202e",  # Right-to-Left Override
+        "\u2066",  # Left-to-Right Isolate
+        "\u2067",  # Right-to-Left Isolate
+        "\u2068",  # First Strong Isolate
+        "\u2069",  # Pop Directional Isolate
+    ]
+)
 
 # Dangerous patterns to detect and warn (§4.4.1 L2)
 DANGEROUS_PATTERNS = [
@@ -72,22 +74,13 @@ DANGEROUS_PATTERNS = [
 ]
 
 # Compiled dangerous pattern regex
-_DANGEROUS_REGEX = re.compile(
-    "|".join(DANGEROUS_PATTERNS),
-    re.IGNORECASE
-)
+_DANGEROUS_REGEX = re.compile("|".join(DANGEROUS_PATTERNS), re.IGNORECASE)
 
 # Tag pattern regex (matches LANCET-xxxx style tags)
-_TAG_PATTERN = re.compile(
-    r"</?(?:LANCET|lancet|Lancet)[\s_-]*[A-Za-z0-9_-]*>",
-    re.IGNORECASE
-)
+_TAG_PATTERN = re.compile(r"</?(?:LANCET|lancet|Lancet)[\s_-]*[A-Za-z0-9_-]*>", re.IGNORECASE)
 
 # URL patterns for output validation (§4.4.1 L4)
-_URL_PATTERN = re.compile(
-    r"https?://[^\s<>\"']+|ftp://[^\s<>\"']+",
-    re.IGNORECASE
-)
+_URL_PATTERN = re.compile(r"https?://[^\s<>\"']+|ftp://[^\s<>\"']+", re.IGNORECASE)
 
 # IPv4 pattern
 _IPV4_PATTERN = re.compile(
@@ -112,15 +105,13 @@ DEFAULT_MAX_OUTPUT_MULTIPLIER = 10
 DEFAULT_LEAKAGE_NGRAM_LENGTH = 20
 
 # Tag pattern for leakage detection (matches LANCET-xxx anywhere)
-_LEAKAGE_TAG_PATTERN = re.compile(
-    r"LANCET[\s_-]*[A-Za-z0-9_-]{4,}",
-    re.IGNORECASE
-)
+_LEAKAGE_TAG_PATTERN = re.compile(r"LANCET[\s_-]*[A-Za-z0-9_-]{4,}", re.IGNORECASE)
 
 
 # ============================================================================
 # Data Classes
 # ============================================================================
+
 
 @dataclass
 class SanitizationResult:
@@ -171,11 +162,7 @@ class OutputValidationResult:
     @property
     def had_suspicious_content(self) -> bool:
         """Check if suspicious content was found."""
-        return (
-            len(self.urls_found) > 0
-            or len(self.ips_found) > 0
-            or self.leakage_detected
-        )
+        return len(self.urls_found) > 0 or len(self.ips_found) > 0 or self.leakage_detected
 
 
 @dataclass
@@ -200,13 +187,14 @@ class SystemTag:
 # Tag Generation (L3)
 # ============================================================================
 
+
 def generate_session_tag() -> SystemTag:
     """
     Generate a random tag for this session.
-    
+
     Per §4.4.1 L3: Tag name is randomly generated per session (task)
     to prevent attackers from predicting the tag name.
-    
+
     Returns:
         SystemTag with random tag name and safe tag_id for logging.
     """
@@ -228,10 +216,10 @@ def generate_session_tag() -> SystemTag:
 def get_tag_id(tag: SystemTag | str) -> str:
     """
     Get a safe identifier for logging (hash prefix).
-    
+
     Args:
         tag: SystemTag or tag name string.
-        
+
     Returns:
         First 8 characters of SHA256 hash.
     """
@@ -244,6 +232,7 @@ def get_tag_id(tag: SystemTag | str) -> str:
 # Input Sanitization (L2)
 # ============================================================================
 
+
 def sanitize_llm_input(
     text: str,
     max_length: int = DEFAULT_MAX_INPUT_LENGTH,
@@ -251,7 +240,7 @@ def sanitize_llm_input(
 ) -> SanitizationResult:
     """
     Sanitize input text before sending to LLM.
-    
+
     Per §4.4.1 L2:
     1. Unicode NFKC normalization
     2. HTML entity decoding
@@ -260,12 +249,12 @@ def sanitize_llm_input(
     5. Tag pattern removal
     6. Dangerous pattern detection (warning)
     7. Length limiting
-    
+
     Args:
         text: Input text to sanitize.
         max_length: Maximum allowed length (default: 4000).
         warn_on_dangerous: Whether to log warnings for dangerous patterns.
-        
+
     Returns:
         SanitizationResult with sanitized text and metadata.
     """
@@ -289,8 +278,7 @@ def sanitize_llm_input(
 
     # Step 4: Remove control characters (except newline, tab, carriage return)
     text = "".join(
-        c for c in text
-        if c in "\n\t\r" or (ord(c) >= 0x20 and ord(c) not in range(0x7f, 0xa0))
+        c for c in text if c in "\n\t\r" or (ord(c) >= 0x20 and ord(c) not in range(0x7F, 0xA0))
     )
 
     # Step 5: Remove LANCET-style tag patterns
@@ -338,12 +326,12 @@ def sanitize_llm_input(
 def remove_tag_patterns(text: str) -> str:
     """
     Remove LANCET-style tag patterns from text.
-    
+
     This is a simpler version of sanitize_llm_input that only removes tags.
-    
+
     Args:
         text: Input text.
-        
+
     Returns:
         Text with tag patterns removed.
     """
@@ -362,16 +350,16 @@ def detect_prompt_leakage(
 ) -> LeakageDetectionResult:
     """
     Detect system prompt fragments in LLM output.
-    
+
     Per §4.4.1 L4 enhancement:
     - n-gram match detection (20+ consecutive characters)
     - Tag name pattern detection (LANCET- prefix)
-    
+
     Args:
         output: LLM output text to check.
         system_prompt: System prompt to check against (can be None).
         ngram_length: Minimum length for n-gram match (default: 20).
-        
+
     Returns:
         LeakageDetectionResult with detected fragments.
     """
@@ -408,7 +396,7 @@ def detect_prompt_leakage(
         # Use a set of n-grams from the system prompt
         prompt_ngrams: set[str] = set()
         for i in range(len(prompt_lower) - ngram_length + 1):
-            ngram = prompt_lower[i:i + ngram_length]
+            ngram = prompt_lower[i : i + ngram_length]
             # Skip n-grams that are just whitespace or common patterns
             if ngram.strip() and not ngram.isspace():
                 prompt_ngrams.add(ngram)
@@ -416,7 +404,7 @@ def detect_prompt_leakage(
         # Check each position in output for matches
         found_positions: set[tuple[int, int]] = set()
         for i in range(len(output_lower) - ngram_length + 1):
-            ngram = output_lower[i:i + ngram_length]
+            ngram = output_lower[i : i + ngram_length]
             if ngram in prompt_ngrams:
                 # Extend the match to find the longest matching substring
                 start = i
@@ -426,7 +414,7 @@ def detect_prompt_leakage(
                 while (
                     end < len(output_lower)
                     and end - start < len(prompt_lower)
-                    and output_lower[start:end + 1] in prompt_lower
+                    and output_lower[start : end + 1] in prompt_lower
                 ):
                     end += 1
 
@@ -470,14 +458,14 @@ def mask_prompt_fragments(
 ) -> str:
     """
     Mask detected prompt fragments in text.
-    
+
     Per §4.4.1 L4: Replace detected fragments with [REDACTED].
-    
+
     Args:
         text: Text containing potential leakage.
         leakage_result: Result from detect_prompt_leakage().
         mask_text: Replacement text (default: "[REDACTED]").
-        
+
     Returns:
         Text with leaked fragments masked.
     """
@@ -507,7 +495,7 @@ def mask_prompt_fragments(
                 if pos == -1:
                     break
                 # Replace at this position
-                result = result[:pos] + mask_text + result[pos + len(fragment):]
+                result = result[:pos] + mask_text + result[pos + len(fragment) :]
                 # Update lower_result for next iteration
                 lower_result = result.lower()
                 # Move start past the mask
@@ -532,24 +520,24 @@ def validate_llm_output(
 ) -> OutputValidationResult:
     """
     Validate LLM output for suspicious content.
-    
+
     Per §4.4.1 L4:
     - Detect URLs (http://, https://, ftp://)
     - Detect IP addresses (IPv4/IPv6)
     - Truncate abnormally long output
     - Detect system prompt fragments (L4 enhancement)
     - Mask leaked fragments with [REDACTED]
-    
+
     Note: L1 (network isolation) prevents actual data exfiltration,
     but this validation detects attack attempts for logging/monitoring.
-    
+
     Args:
         text: LLM output text.
         expected_max_length: Expected maximum length (output > 10x this is truncated).
         warn_on_suspicious: Whether to log warnings for suspicious content.
         system_prompt: System prompt for leakage detection (optional).
         mask_leakage: Whether to mask detected leakage (default: True).
-        
+
     Returns:
         OutputValidationResult with validated text and metadata.
     """
@@ -622,6 +610,7 @@ def validate_llm_output(
 # Prompt Building (L3)
 # ============================================================================
 
+
 def build_secure_prompt(
     system_instructions: str,
     user_input: str,
@@ -631,19 +620,19 @@ def build_secure_prompt(
 ) -> tuple[str, SanitizationResult | None]:
     """
     Build a secure prompt with system instruction separation.
-    
+
     Per §4.4.1 L3:
     - Wraps system instructions in random session tag
     - Includes rules for tag priority
     - Sanitizes user input if requested
-    
+
     Args:
         system_instructions: The actual task instructions.
         user_input: User-provided text (potentially malicious).
         tag: Session tag from generate_session_tag().
         sanitize_input: Whether to sanitize user_input.
         max_input_length: Maximum length for user input.
-        
+
     Returns:
         Tuple of (complete prompt, sanitization result or None).
     """
@@ -676,16 +665,17 @@ def build_secure_prompt(
 # Security Context Manager
 # ============================================================================
 
+
 class LLMSecurityContext:
     """
     Context manager for LLM security within a session/task.
-    
+
     Provides:
     - Session-scoped random tag
     - Input sanitization
     - Output validation
     - Security metrics tracking
-    
+
     Example:
         async with LLMSecurityContext() as ctx:
             prompt, _ = ctx.build_prompt(
@@ -766,11 +756,11 @@ class LLMSecurityContext:
     ) -> SanitizationResult:
         """
         Sanitize input text.
-        
+
         Args:
             text: Input text to sanitize.
             max_length: Maximum allowed length.
-            
+
         Returns:
             SanitizationResult.
         """
@@ -789,13 +779,13 @@ class LLMSecurityContext:
     ) -> OutputValidationResult:
         """
         Validate LLM output.
-        
+
         Args:
             text: LLM output text.
             expected_max_length: Expected maximum length.
             system_prompt: System prompt for leakage detection (optional).
             mask_leakage: Whether to mask detected leakage (default: True).
-            
+
         Returns:
             OutputValidationResult.
         """
@@ -820,12 +810,12 @@ class LLMSecurityContext:
     ) -> tuple[str, SanitizationResult | None]:
         """
         Build a secure prompt with system instruction separation.
-        
+
         Args:
             system_instructions: The actual task instructions.
             user_input: User-provided text.
             max_input_length: Maximum length for user input.
-            
+
         Returns:
             Tuple of (complete prompt, sanitization result).
         """
@@ -841,4 +831,3 @@ class LLMSecurityContext:
             if result.dangerous_patterns_found:
                 self._dangerous_pattern_count += len(result.dangerous_patterns_found)
         return prompt, result
-

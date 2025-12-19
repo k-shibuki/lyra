@@ -55,12 +55,14 @@ _RUN_ML_API_TESTS = os.environ.get("LANCET_RUN_ML_API_TESTS", "0") == "1"
 
 try:
     import sentence_transformers  # noqa: F401
+
     _HAS_SENTENCE_TRANSFORMERS = True
 except ImportError:
     pass
 
 try:
     import transformers  # noqa: F401
+
     _HAS_TRANSFORMERS = True
 except ImportError:
     pass
@@ -69,6 +71,7 @@ except ImportError:
 _HAS_FASTAPI = False
 try:
     import fastapi  # noqa: F401
+
     _HAS_FASTAPI = True
 except ImportError:
     pass
@@ -88,8 +91,7 @@ _SKIP_MSG_TRANSFORMERS = (
 )
 
 _SKIP_MSG_ML_CONTAINER = (
-    "Requires ML container environment (FastAPI). "
-    "Use E2E tests (test_ml_server_e2e.py) instead."
+    "Requires ML container environment (FastAPI). Use E2E tests (test_ml_server_e2e.py) instead."
 )
 
 # Decorators for skipping tests based on ML dependencies
@@ -148,10 +150,21 @@ class TestModelPaths:
 
         # Then
         assert result is not None
-        assert result["embedding"] == "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test"
-        assert result["reranker"] == "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test"
-        assert result["nli_fast"] == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test"
-        assert result["nli_slow"] == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test"
+        assert (
+            result["embedding"] == "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test"
+        )
+        assert (
+            result["reranker"]
+            == "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test"
+        )
+        assert (
+            result["nli_fast"]
+            == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test"
+        )
+        assert (
+            result["nli_slow"]
+            == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test"
+        )
 
     def test_get_model_paths_file_not_found(self, tmp_path: Path):
         """
@@ -163,9 +176,7 @@ class TestModelPaths:
         non_existent_file = tmp_path / "non_existent.json"
 
         # When
-        with patch.dict(
-            os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(non_existent_file)}
-        ):
+        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(non_existent_file)}):
             from src.ml_server.model_paths import get_model_paths
 
             result = get_model_paths()
@@ -510,16 +521,12 @@ class TestEmbeddingService:
         # Mock to() to return self to workaround of GPU move
         mock_model.to = MagicMock(return_value=mock_model)
 
-        with patch(
-            "sentence_transformers.SentenceTransformer", return_value=mock_model
-        ) as mock_st:
+        with patch("sentence_transformers.SentenceTransformer", return_value=mock_model) as mock_st:
             with patch(
                 "src.ml_server.embedding.get_embedding_path",
                 return_value="/mock/path",
             ):
-                with patch(
-                    "src.ml_server.embedding.is_using_local_paths", return_value=True
-                ):
+                with patch("src.ml_server.embedding.is_using_local_paths", return_value=True):
                     # When
                     result = await service.encode(["text1", "text2"])
 
@@ -552,9 +559,7 @@ class TestEmbeddingService:
                 "src.ml_server.embedding.get_embedding_path",
                 return_value="/nonexistent/path",
             ):
-                with patch(
-                    "src.ml_server.embedding.is_using_local_paths", return_value=True
-                ):
+                with patch("src.ml_server.embedding.is_using_local_paths", return_value=True):
                     # When/Then
                     with pytest.raises(RuntimeError) as exc_info:
                         await service.encode(["test text"])
@@ -623,12 +628,8 @@ class TestRerankerService:
         service = RerankerService()
 
         with patch("sentence_transformers.CrossEncoder", return_value=mock_model):
-            with patch(
-                "src.ml_server.reranker.get_reranker_path", return_value="/mock/path"
-            ):
-                with patch(
-                    "src.ml_server.reranker.is_using_local_paths", return_value=True
-                ):
+            with patch("src.ml_server.reranker.get_reranker_path", return_value="/mock/path"):
+                with patch("src.ml_server.reranker.is_using_local_paths", return_value=True):
                     # When
                     result = await service.rerank(
                         query="query", documents=["doc1", "doc2", "doc3"], top_k=2
@@ -663,9 +664,7 @@ class TestRerankerService:
                 "src.ml_server.reranker.get_reranker_path",
                 return_value="/nonexistent/path",
             ):
-                with patch(
-                    "src.ml_server.reranker.is_using_local_paths", return_value=True
-                ):
+                with patch("src.ml_server.reranker.is_using_local_paths", return_value=True):
                     # When/Then
                     with pytest.raises(RuntimeError) as exc_info:
                         await service.rerank(query="test", documents=["doc1"])
@@ -761,9 +760,7 @@ class TestNLIService:
         service = NLIService()
 
         with patch("transformers.pipeline", return_value=mock_pipeline):
-            with patch(
-                "src.ml_server.nli.get_nli_fast_path", return_value="/mock/path"
-            ):
+            with patch("src.ml_server.nli.get_nli_fast_path", return_value="/mock/path"):
                 with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
                     # When
                     result = await service.predict(
@@ -798,9 +795,7 @@ class TestNLIService:
         service = NLIService()
 
         with patch("transformers.pipeline", return_value=mock_pipeline):
-            with patch(
-                "src.ml_server.nli.get_nli_fast_path", return_value="/mock/path"
-            ):
+            with patch("src.ml_server.nli.get_nli_fast_path", return_value="/mock/path"):
                 with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
                     # When
                     pairs = [
@@ -835,9 +830,7 @@ class TestNLIService:
         service = NLIService()
 
         with patch("transformers.pipeline", return_value=mock_pipeline) as mock_pl:
-            with patch(
-                "src.ml_server.nli.get_nli_slow_path", return_value="/mock/slow/path"
-            ):
+            with patch("src.ml_server.nli.get_nli_slow_path", return_value="/mock/slow/path"):
                 with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
                     with patch.object(torch.cuda, "is_available", return_value=False):
                         # When
@@ -870,9 +863,7 @@ class TestNLIService:
             "transformers.pipeline",
             side_effect=RuntimeError("NLI model loading failed"),
         ):
-            with patch(
-                "src.ml_server.nli.get_nli_fast_path", return_value="/nonexistent/path"
-            ):
+            with patch("src.ml_server.nli.get_nli_fast_path", return_value="/nonexistent/path"):
                 with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
                     # When/Then
                     with pytest.raises(RuntimeError) as exc_info:
@@ -963,4 +954,3 @@ class TestMLServerAPI:
 
         # Then
         assert response.status_code == 422  # Validation error
-

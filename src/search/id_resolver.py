@@ -26,16 +26,16 @@ class IDResolver:
         if self._session is None:
             self._session = httpx.AsyncClient(
                 timeout=30.0,
-                headers={"User-Agent": "Lancet/1.0 (research tool; mailto:lancet@example.com)"}
+                headers={"User-Agent": "Lancet/1.0 (research tool; mailto:lancet@example.com)"},
             )
         return self._session
 
     async def resolve_pmid_to_doi(self, pmid: str) -> str | None:
         """Get DOI from PMID (via Crossref API).
-        
+
         Args:
             pmid: PubMed ID
-            
+
         Returns:
             DOI string or None
         """
@@ -44,8 +44,7 @@ class IDResolver:
 
             async def _fetch():
                 response = await session.get(
-                    "https://api.crossref.org/works",
-                    params={"filter": f"pmid:{pmid}", "rows": 1}
+                    "https://api.crossref.org/works", params={"filter": f"pmid:{pmid}", "rows": 1}
                 )
                 response.raise_for_status()
                 return response.json()
@@ -67,10 +66,10 @@ class IDResolver:
 
     async def resolve_arxiv_to_doi(self, arxiv_id: str) -> str | None:
         """Get DOI from arXiv ID (via Semantic Scholar).
-        
+
         Args:
             arxiv_id: arXiv ID (e.g., "2301.12345")
-            
+
         Returns:
             DOI string or None
         """
@@ -80,7 +79,7 @@ class IDResolver:
             async def _fetch():
                 response = await session.get(
                     f"https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}",
-                    params={"fields": "externalIds"}
+                    params={"fields": "externalIds"},
                 )
                 response.raise_for_status()
                 return response.json()
@@ -102,12 +101,12 @@ class IDResolver:
 
     async def resolve_crid_to_doi(self, crid: str) -> str | None:
         """Get DOI from CiNii CRID (via CiNii API).
-        
+
         Note: CiNii API may not return DOI directly, future extension planned.
-        
+
         Args:
             crid: CiNii Research ID
-            
+
         Returns:
             DOI string or None
         """
@@ -117,10 +116,10 @@ class IDResolver:
 
     async def resolve_to_doi(self, identifier: PaperIdentifier) -> str | None:
         """Resolve DOI from PaperIdentifier.
-        
+
         Args:
             identifier: PaperIdentifier
-            
+
         Returns:
             DOI string or None
         """

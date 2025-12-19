@@ -48,7 +48,7 @@ class TestSearchValidation:
     async def test_missing_task_id_raises_error(self) -> None:
         """
         TC-A-01: Missing task_id parameter.
-        
+
         // Given: No task_id provided
         // When: Calling search with only query
         // Then: Raises InvalidParamsError
@@ -65,7 +65,7 @@ class TestSearchValidation:
     async def test_missing_query_raises_error(self) -> None:
         """
         TC-A-02: Missing query parameter.
-        
+
         // Given: No query provided
         // When: Calling search with only task_id
         // Then: Raises InvalidParamsError
@@ -82,7 +82,7 @@ class TestSearchValidation:
     async def test_nonexistent_task_raises_error(self) -> None:
         """
         TC-A-03: Non-existent task_id.
-        
+
         // Given: task_id not in database
         // When: Calling search
         // Then: Raises TaskNotFoundError
@@ -96,10 +96,12 @@ class TestSearchValidation:
         with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with pytest.raises(TaskNotFoundError) as exc_info:
-                    await _handle_search({
-                        "task_id": "nonexistent_task",
-                        "query": "test query",
-                    })
+                    await _handle_search(
+                        {
+                            "task_id": "nonexistent_task",
+                            "query": "test query",
+                        }
+                    )
 
         assert exc_info.value.details.get("task_id") == "nonexistent_task"
 
@@ -107,7 +109,7 @@ class TestSearchValidation:
     async def test_empty_query_raises_error(self) -> None:
         """
         TC-A-06: Empty query string.
-        
+
         // Given: Empty string as query
         // When: Calling search
         // Then: Raises InvalidParamsError
@@ -116,10 +118,12 @@ class TestSearchValidation:
         from src.mcp.server import _handle_search
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_search({
-                "task_id": "task_123",
-                "query": "",
-            })
+            await _handle_search(
+                {
+                    "task_id": "task_123",
+                    "query": "",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "query"
 
@@ -127,7 +131,7 @@ class TestSearchValidation:
     async def test_whitespace_query_raises_error(self) -> None:
         """
         TC-A-07: Whitespace-only query.
-        
+
         // Given: Whitespace-only string as query
         // When: Calling search
         // Then: Raises InvalidParamsError
@@ -136,10 +140,12 @@ class TestSearchValidation:
         from src.mcp.server import _handle_search
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_search({
-                "task_id": "task_123",
-                "query": "   \t\n  ",
-            })
+            await _handle_search(
+                {
+                    "task_id": "task_123",
+                    "query": "   \t\n  ",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "query"
 
@@ -175,7 +181,7 @@ class TestSearchBoundaryValues:
     ) -> None:
         """
         TC-B-01: max_pages=0 boundary.
-        
+
         // Given: max_pages=0
         // When: Calling search
         // Then: Accepts and passes 0 to action (immediate return)
@@ -196,11 +202,13 @@ class TestSearchBoundaryValues:
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch("src.research.pipeline.search_action", side_effect=capture_action):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test",
-                            "options": {"max_pages": 0},
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test",
+                                "options": {"max_pages": 0},
+                            }
+                        )
 
         assert result["ok"] is True
         assert captured_options.get("max_pages") == 0
@@ -211,7 +219,7 @@ class TestSearchBoundaryValues:
     ) -> None:
         """
         TC-B-02: max_pages=1 boundary (minimum practical value).
-        
+
         // Given: max_pages=1
         // When: Calling search
         // Then: Accepts minimal page count
@@ -232,11 +240,13 @@ class TestSearchBoundaryValues:
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch("src.research.pipeline.search_action", side_effect=capture_action):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test",
-                            "options": {"max_pages": 1},
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test",
+                                "options": {"max_pages": 1},
+                            }
+                        )
 
         assert result["ok"] is True
         assert captured_options.get("max_pages") == 1
@@ -247,7 +257,7 @@ class TestSearchBoundaryValues:
     ) -> None:
         """
         TC-B-03: Very long query at input limit (4000 chars per §4.4.1).
-        
+
         // Given: Query of 4000 characters
         // When: Calling search
         // Then: Accepts the query
@@ -267,10 +277,12 @@ class TestSearchBoundaryValues:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": long_query,
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": long_query,
+                            }
+                        )
 
         assert result["ok"] is True
 
@@ -314,7 +326,7 @@ class TestSearchExecution:
     ) -> None:
         """
         TC-N-01: Normal search execution.
-        
+
         // Given: Valid task and query
         // When: Calling search without refute option
         // Then: Executes normal search pipeline
@@ -333,10 +345,12 @@ class TestSearchExecution:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test search query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test search query",
+                            }
+                        )
 
         assert result["ok"] is True
         assert result["search_id"] == "s_001"
@@ -344,12 +358,10 @@ class TestSearchExecution:
         assert len(result["claims_found"]) == 1
 
     @pytest.mark.asyncio
-    async def test_refutation_search_execution(
-        self, mock_task: dict[str, Any]
-    ) -> None:
+    async def test_refutation_search_execution(self, mock_task: dict[str, Any]) -> None:
         """
         TC-N-02: Refutation search execution.
-        
+
         // Given: Valid task and query with refute=true
         // When: Calling search
         // Then: Executes refutation search mode
@@ -384,11 +396,13 @@ class TestSearchExecution:
                         "src.research.pipeline.search_action",
                         return_value=refutation_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test claim",
-                            "options": {"refute": True},
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test claim",
+                                "options": {"refute": True},
+                            }
+                        )
 
         assert result["ok"] is True
         assert result.get("refutations_found") == 2
@@ -397,7 +411,7 @@ class TestSearchExecution:
     async def test_search_with_options(self, mock_task: dict[str, Any]) -> None:
         """
         TC-N-03: Search with custom options.
-        
+
         // Given: Search with max_pages and seek_primary options
         // When: Calling search
         // Then: Options passed to search_action
@@ -434,14 +448,16 @@ class TestSearchExecution:
                         "src.research.pipeline.search_action",
                         side_effect=capture_search_action,
                     ):
-                        await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test query",
-                            "options": {
-                                "max_pages": 20,
-                                "seek_primary": True,
-                            },
-                        })
+                        await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test query",
+                                "options": {
+                                    "max_pages": 20,
+                                    "seek_primary": True,
+                                },
+                            }
+                        )
 
         assert captured_options.get("max_pages") == 20
         assert captured_options.get("seek_primary") is True
@@ -454,7 +470,7 @@ class TestStopTaskValidation:
     async def test_missing_task_id_raises_error(self) -> None:
         """
         TC-A-04: Missing task_id for stop_task.
-        
+
         // Given: No task_id provided
         // When: Calling stop_task
         // Then: Raises InvalidParamsError
@@ -471,7 +487,7 @@ class TestStopTaskValidation:
     async def test_nonexistent_task_raises_error(self) -> None:
         """
         TC-A-05: Non-existent task_id for stop_task.
-        
+
         // Given: task_id not in database
         // When: Calling stop_task
         // Then: Raises TaskNotFoundError
@@ -516,7 +532,7 @@ class TestStopTaskExecution:
     ) -> None:
         """
         TC-N-04: Stop task with default reason.
-        
+
         // Given: Valid task_id
         // When: Calling stop_task without reason
         // Then: Uses "completed" as default reason
@@ -553,7 +569,7 @@ class TestStopTaskExecution:
     ) -> None:
         """
         TC-N-05: Stop task with custom reason.
-        
+
         // Given: Valid task_id with reason="budget_exhausted"
         // When: Calling stop_task
         // Then: Uses provided reason
@@ -579,10 +595,12 @@ class TestStopTaskExecution:
                     "src.research.pipeline.stop_task_action",
                     side_effect=capture_stop_action,
                 ):
-                    await _handle_stop_task({
-                        "task_id": "task_abc123",
-                        "reason": "budget_exhausted",
-                    })
+                    await _handle_stop_task(
+                        {
+                            "task_id": "task_abc123",
+                            "reason": "budget_exhausted",
+                        }
+                    )
 
         assert captured_reason == "budget_exhausted"
 
@@ -592,7 +610,7 @@ class TestStopTaskExecution:
     ) -> None:
         """
         TC-N-06: Stop task returns summary.
-        
+
         // Given: Completed task
         // When: Calling stop_task
         // Then: Returns summary with stats
@@ -626,7 +644,7 @@ class TestSearchToolDefinition:
     def test_search_in_tools(self) -> None:
         """
         Test that search is defined in TOOLS.
-        
+
         // Given: TOOLS list
         // When: Searching for search
         // Then: Found with correct schema
@@ -644,7 +662,7 @@ class TestSearchToolDefinition:
     def test_stop_task_in_tools(self) -> None:
         """
         Test that stop_task is defined in TOOLS.
-        
+
         // Given: TOOLS list
         // When: Searching for stop_task
         // Then: Found with correct schema
@@ -666,7 +684,7 @@ class TestChromeCDPCheck:
     async def test_check_chrome_cdp_ready_success(self) -> None:
         """
         TC-CDP-01: CDP responds 200.
-        
+
         // Given: CDP endpoint responds with 200
         // When: Calling _check_chrome_cdp_ready
         // Then: Returns True
@@ -697,7 +715,7 @@ class TestChromeCDPCheck:
     async def test_check_chrome_cdp_ready_failure(self) -> None:
         """
         TC-CDP-02: CDP connection error.
-        
+
         // Given: CDP endpoint is not accessible
         // When: Calling _check_chrome_cdp_ready
         // Then: Returns False
@@ -725,7 +743,7 @@ class TestChromeCDPCheck:
     async def test_check_chrome_cdp_ready_non_200_status(self) -> None:
         """
         TC-CDP-03: CDP returns non-200 status code.
-        
+
         // Given: CDP endpoint responds with non-200 status (e.g., 500)
         // When: Calling _check_chrome_cdp_ready
         // Then: Returns False
@@ -760,7 +778,7 @@ class TestChromeAutoStart:
     async def test_auto_start_chrome_success(self) -> None:
         """
         TC-AUTO-04 (partial): chrome.sh executes successfully.
-        
+
         // Given: chrome.sh exists and executes successfully
         // When: Calling _auto_start_chrome
         // Then: Returns True
@@ -772,10 +790,12 @@ class TestChromeAutoStart:
         # Mock subprocess that returns success
         mock_process = MagicMock()
         mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(
-            b"READY\nHost: localhost:9222",
-            b"",
-        ))
+        mock_process.communicate = AsyncMock(
+            return_value=(
+                b"READY\nHost: localhost:9222",
+                b"",
+            )
+        )
 
         with patch("pathlib.Path.exists", return_value=True):
             with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)):
@@ -787,7 +807,7 @@ class TestChromeAutoStart:
     async def test_auto_start_chrome_script_not_found(self) -> None:
         """
         TC-AUTO-04: chrome.sh not found.
-        
+
         // Given: chrome.sh does not exist
         // When: Calling _auto_start_chrome
         // Then: Returns False
@@ -803,7 +823,7 @@ class TestChromeAutoStart:
     async def test_auto_start_chrome_script_fails(self) -> None:
         """
         TC-AUTO-04 (variant): chrome.sh fails.
-        
+
         // Given: chrome.sh exists but returns non-zero exit code
         // When: Calling _auto_start_chrome
         // Then: Returns False
@@ -815,10 +835,12 @@ class TestChromeAutoStart:
         # Mock subprocess that returns failure
         mock_process = MagicMock()
         mock_process.returncode = 1
-        mock_process.communicate = AsyncMock(return_value=(
-            b"",
-            b"ERROR: Chrome failed to start",
-        ))
+        mock_process.communicate = AsyncMock(
+            return_value=(
+                b"",
+                b"ERROR: Chrome failed to start",
+            )
+        )
 
         with patch("pathlib.Path.exists", return_value=True):
             with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)):
@@ -830,7 +852,7 @@ class TestChromeAutoStart:
     async def test_auto_start_chrome_timeout(self) -> None:
         """
         TC-AUTO-05: chrome.sh timeout.
-        
+
         // Given: chrome.sh runs longer than 30 seconds
         // When: Calling _auto_start_chrome
         // Then: Returns False (timeout handled)
@@ -858,14 +880,16 @@ class TestEnsureChromeReady:
     async def test_ensure_chrome_ready_already_connected(self) -> None:
         """
         TC-AUTO-01: CDP already ready.
-        
+
         // Given: CDP is already connected
         // When: Calling _ensure_chrome_ready
         // Then: Returns True immediately without auto-start
         """
         from src.mcp.server import _ensure_chrome_ready
 
-        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)) as mock_check:
+        with patch(
+            "src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)
+        ) as mock_check:
             with patch("src.mcp.server._auto_start_chrome") as mock_auto_start:
                 result = await _ensure_chrome_ready()
 
@@ -877,7 +901,7 @@ class TestEnsureChromeReady:
     async def test_ensure_chrome_ready_auto_start_success(self) -> None:
         """
         TC-AUTO-02: CDP not ready, auto-start succeeds.
-        
+
         // Given: CDP not connected initially, but connects after auto-start
         // When: Calling _ensure_chrome_ready
         // Then: Auto-starts Chrome and returns True
@@ -902,7 +926,7 @@ class TestEnsureChromeReady:
     async def test_ensure_chrome_ready_timeout(self) -> None:
         """
         TC-AUTO-03: CDP not ready, timeout.
-        
+
         // Given: CDP never connects (auto-start fails or Chrome doesn't respond)
         // When: Calling _ensure_chrome_ready with short timeout
         // Then: Raises ChromeNotReadyError after timeout
@@ -954,7 +978,7 @@ class TestSearchWithAutoStart:
     ) -> None:
         """
         TC-SEARCH-01: Search with CDP ready.
-        
+
         // Given: Chrome CDP is already connected
         // When: Calling _handle_search
         // Then: Search proceeds without auto-start
@@ -972,10 +996,12 @@ class TestSearchWithAutoStart:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test query",
+                            }
+                        )
 
         assert result["ok"] is True
         assert result["search_id"] == "s_001"
@@ -986,7 +1012,7 @@ class TestSearchWithAutoStart:
     ) -> None:
         """
         TC-SEARCH-02: Search with auto-start success.
-        
+
         // Given: Chrome CDP not connected, but auto-start succeeds
         // When: Calling _handle_search
         // Then: Auto-starts Chrome then proceeds with search
@@ -1011,10 +1037,12 @@ class TestSearchWithAutoStart:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test query",
+                            }
+                        )
 
         assert ensure_called is True
         assert result["ok"] is True
@@ -1023,7 +1051,7 @@ class TestSearchWithAutoStart:
     async def test_search_with_auto_start_failure(self) -> None:
         """
         TC-SEARCH-03: Search with auto-start failure.
-        
+
         // Given: Chrome CDP not connected and auto-start fails
         // When: Calling _handle_search
         // Then: Raises ChromeNotReadyError
@@ -1033,10 +1061,12 @@ class TestSearchWithAutoStart:
 
         with patch("src.mcp.server._ensure_chrome_ready", side_effect=ChromeNotReadyError()):
             with pytest.raises(ChromeNotReadyError) as exc_info:
-                await _handle_search({
-                    "task_id": "task_123",
-                    "query": "test query",
-                })
+                await _handle_search(
+                    {
+                        "task_id": "task_123",
+                        "query": "test query",
+                    }
+                )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "CHROME_NOT_READY"
@@ -1044,9 +1074,9 @@ class TestSearchWithAutoStart:
 
 class TestSearchErrorHandling:
     """Tests for search error code handling.
-    
+
     ## Test Perspectives Table (Error Handling)
-    
+
     | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
     |---------|---------------------|---------------------------------------|-----------------|-------|
     | TC-ERR-01 | Search returns PARSER_NOT_AVAILABLE | Equivalence - error | ParserNotAvailableError raised | Engine has no parser |
@@ -1066,7 +1096,7 @@ class TestSearchErrorHandling:
     async def test_parser_not_available_error(self, mock_task: dict[str, Any]) -> None:
         """
         TC-ERR-01: Search returns PARSER_NOT_AVAILABLE error code.
-        
+
         // Given: Search pipeline returns result with error_code=PARSER_NOT_AVAILABLE
         // When: _handle_search processes the result
         // Then: Raises ParserNotAvailableError with proper details
@@ -1097,10 +1127,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(ParserNotAvailableError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "PARSER_NOT_AVAILABLE"
@@ -1111,7 +1143,7 @@ class TestSearchErrorHandling:
     async def test_serp_search_failed_error(self, mock_task: dict[str, Any]) -> None:
         """
         TC-ERR-02: Search returns SERP_SEARCH_FAILED error code.
-        
+
         // Given: Search pipeline returns result with error_code=SERP_SEARCH_FAILED
         // When: _handle_search processes the result
         // Then: Raises SerpSearchFailedError
@@ -1142,10 +1174,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(SerpSearchFailedError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "SERP_SEARCH_FAILED"
@@ -1154,7 +1188,7 @@ class TestSearchErrorHandling:
     async def test_all_fetches_failed_error(self, mock_task: dict[str, Any]) -> None:
         """
         TC-ERR-03: Search returns ALL_FETCHES_FAILED error code.
-        
+
         // Given: Search pipeline returns result with error_code=ALL_FETCHES_FAILED
         // When: _handle_search processes the result
         // Then: Raises AllFetchesFailedError with proper details
@@ -1185,10 +1219,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(AllFetchesFailedError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "ALL_FETCHES_FAILED"
@@ -1199,7 +1235,7 @@ class TestSearchErrorHandling:
     async def test_unknown_error_code_fallback(self, mock_task: dict[str, Any]) -> None:
         """
         TC-ERR-04: Search returns unknown error code.
-        
+
         // Given: Search pipeline returns result with unknown error_code
         // When: _handle_search processes the result
         // Then: Raises PipelineError as fallback
@@ -1227,10 +1263,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(PipelineError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "PIPELINE_ERROR"
@@ -1240,7 +1278,7 @@ class TestSearchErrorHandling:
     async def test_successful_search_no_error(self, mock_task: dict[str, Any]) -> None:
         """
         TC-ERR-05: Successful search returns no error.
-        
+
         // Given: Search pipeline returns successful result (no error_code)
         // When: _handle_search processes the result
         // Then: Returns result without raising exception
@@ -1266,10 +1304,12 @@ class TestSearchErrorHandling:
                         "src.research.pipeline.search_action",
                         return_value=success_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_err_test",
-                            "query": "test query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_err_test",
+                                "query": "test query",
+                            }
+                        )
 
         assert result["ok"] is True
         assert result["search_id"] == "s_success"
@@ -1278,9 +1318,9 @@ class TestSearchErrorHandling:
 
 class TestSearchResultErrorCodes:
     """Tests for SearchResult error code propagation.
-    
+
     ## Test Perspectives Table (Result Error Codes)
-    
+
     | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
     |---------|---------------------|---------------------------------------|-----------------|-------|
     | TC-RES-01 | SearchResult with error_code | Equivalence - normal | to_dict includes error_code | Propagation |
@@ -1291,7 +1331,7 @@ class TestSearchResultErrorCodes:
     def test_executor_search_result_with_error_code(self) -> None:
         """
         TC-RES-01: SearchResult with error_code set.
-        
+
         // Given: SearchResult has error_code and error_details
         // When: to_dict() is called
         // Then: Dictionary includes error_code and error_details, ok=False
@@ -1314,7 +1354,7 @@ class TestSearchResultErrorCodes:
     def test_executor_search_result_without_error(self) -> None:
         """
         TC-RES-02: SearchResult without error_code.
-        
+
         // Given: SearchResult has no error_code and no errors
         // When: to_dict() is called
         // Then: Dictionary has ok=True, no error_code
@@ -1336,7 +1376,7 @@ class TestSearchResultErrorCodes:
     def test_executor_search_result_with_errors_list_only(self) -> None:
         """
         TC-RES-03: SearchResult with errors list but no error_code.
-        
+
         // Given: SearchResult has errors list but no error_code
         // When: to_dict() is called
         // Then: Dictionary has ok=False, errors present, no error_code
@@ -1358,7 +1398,7 @@ class TestSearchResultErrorCodes:
     def test_pipeline_search_result_with_error_code(self) -> None:
         """
         TC-RES-04: Pipeline SearchResult with error_code set.
-        
+
         // Given: Pipeline SearchResult has error_code and error_details
         // When: to_dict() is called
         // Then: Dictionary includes error_code and error_details
@@ -1382,9 +1422,9 @@ class TestSearchResultErrorCodes:
 
 class TestSearchApiExceptions:
     """Tests for search_api.py exception raising.
-    
+
     ## Test Perspectives Table (Search API Exceptions)
-    
+
     | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
     |---------|---------------------|---------------------------------------|-----------------|-------|
     | TC-API-01 | Provider returns parser error | Equivalence - error | ParserNotAvailableSearchError | Exception type |
@@ -1395,7 +1435,7 @@ class TestSearchApiExceptions:
     def test_parser_not_available_search_error(self) -> None:
         """
         TC-API-01: ParserNotAvailableSearchError attributes.
-        
+
         // Given: Creating ParserNotAvailableSearchError
         // When: Accessing attributes
         // Then: Has correct error_type, engine, and available_engines
@@ -1415,7 +1455,7 @@ class TestSearchApiExceptions:
     def test_serp_search_error_attributes(self) -> None:
         """
         TC-API-02: SerpSearchError attributes.
-        
+
         // Given: Creating SerpSearchError
         // When: Accessing attributes
         // Then: Has correct error_type, query, and provider_error
@@ -1435,7 +1475,7 @@ class TestSearchApiExceptions:
     def test_base_search_error(self) -> None:
         """
         TC-API-03: Base SearchError attributes.
-        
+
         // Given: Creating base SearchError
         // When: Accessing attributes
         // Then: Has correct message, error_type, and details
@@ -1459,9 +1499,9 @@ class TestSearchApiExceptions:
 
 class TestMCPErrorClasses:
     """Tests for new MCP error classes.
-    
+
     ## Test Perspectives Table (MCP Error Classes)
-    
+
     | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
     |---------|---------------------|---------------------------------------|-----------------|-------|
     | TC-MCP-01 | ParserNotAvailableError | Equivalence - normal | Correct code and details | Error class |
@@ -1473,7 +1513,7 @@ class TestMCPErrorClasses:
     def test_parser_not_available_error(self) -> None:
         """
         TC-MCP-01: ParserNotAvailableError structure.
-        
+
         // Given: Creating ParserNotAvailableError
         // When: Converting to dict
         // Then: Has correct error_code, message, and details
@@ -1496,7 +1536,7 @@ class TestMCPErrorClasses:
     def test_serp_search_failed_error(self) -> None:
         """
         TC-MCP-02: SerpSearchFailedError structure.
-        
+
         // Given: Creating SerpSearchFailedError
         // When: Converting to dict
         // Then: Has correct error_code, message, and details
@@ -1521,7 +1561,7 @@ class TestMCPErrorClasses:
     def test_all_fetches_failed_error(self) -> None:
         """
         TC-MCP-03: AllFetchesFailedError structure.
-        
+
         // Given: Creating AllFetchesFailedError
         // When: Converting to dict
         // Then: Has correct error_code, message, and details
@@ -1547,7 +1587,7 @@ class TestMCPErrorClasses:
     def test_error_codes_defined_in_enum(self) -> None:
         """
         TC-MCP-04: All new error codes defined in MCPErrorCode enum.
-        
+
         // Given: MCPErrorCode enum
         // When: Checking for new error codes
         // Then: All new codes are defined
@@ -1563,4 +1603,3 @@ class TestMCPErrorClasses:
         assert MCPErrorCode.PARSER_NOT_AVAILABLE.value == "PARSER_NOT_AVAILABLE"
         assert MCPErrorCode.SERP_SEARCH_FAILED.value == "SERP_SEARCH_FAILED"
         assert MCPErrorCode.ALL_FETCHES_FAILED.value == "ALL_FETCHES_FAILED"
-

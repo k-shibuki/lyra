@@ -154,6 +154,7 @@ CDP_STEALTH_JS = """
 # Viewport Jitter with Hysteresis
 # =============================================================================
 
+
 @dataclass
 class ViewportJitterConfig:
     """Configuration for viewport jitter.
@@ -166,6 +167,7 @@ class ViewportJitterConfig:
         hysteresis_seconds: Minimum time between jitter changes (per §4.3).
         enabled: Whether jitter is enabled.
     """
+
     base_width: int = 1920
     base_height: int = 1080
     max_width_jitter: int = 20  # Narrow jitter per §4.3
@@ -183,6 +185,7 @@ class ViewportState:
         current_height: Current viewport height.
         last_change_time: Timestamp of last jitter change.
     """
+
     current_width: int = 1920
     current_height: int = 1080
     last_change_time: float = 0.0
@@ -282,6 +285,7 @@ class ViewportJitter:
 # Stealth Application
 # =============================================================================
 
+
 async def apply_stealth_to_page(page, is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright page.
 
@@ -339,28 +343,20 @@ def get_stealth_args() -> list[str]:
     return [
         # Disable automation-controlled flag
         "--disable-blink-features=AutomationControlled",
-
         # Disable infobars (e.g., "Chrome is being controlled by automated software")
         "--disable-infobars",
-
         # Use /dev/shm for faster operation
         "--disable-dev-shm-usage",
-
         # Disable extensions that might be detected
         "--disable-extensions",
-
         # Disable background networking
         "--disable-background-networking",
-
         # Disable sync
         "--disable-sync",
-
         # Disable translate
         "--disable-translate",
-
         # Disable various Chrome features that can be fingerprinted
         "--disable-features=IsolateOrigins,site-per-process",
-
         # Set window size explicitly (can be overridden by viewport)
         "--window-size=1920,1080",
     ]
@@ -381,7 +377,8 @@ def verify_stealth(page_content: str) -> dict[str, bool]:
 
     results = {
         # Check for automation detection markers
-        "no_webdriver_detected": "webdriver" not in content_lower or "bot detected" not in content_lower,
+        "no_webdriver_detected": "webdriver" not in content_lower
+        or "bot detected" not in content_lower,
         "no_automation_detected": "automation" not in content_lower or "bot" not in content_lower,
         "no_headless_detected": "headless" not in content_lower,
     }
@@ -408,8 +405,3 @@ def get_viewport_jitter(config: ViewportJitterConfig | None = None) -> ViewportJ
         _viewport_jitter = ViewportJitter(config)
 
     return _viewport_jitter
-
-
-
-
-

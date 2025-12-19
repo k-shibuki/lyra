@@ -492,6 +492,7 @@ class TestHeaderConsistency:
 # Sec-CH-UA-* (Client Hints) Header Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestPlatformEnum:
     """Tests for Platform enum values."""
@@ -888,4 +889,3 @@ class TestSecCHUAHeadersIntegration:
 
         assert result["Sec-CH-UA-Platform"] == '"iOS"'
         assert result["Sec-CH-UA-Mobile"] == "?1"
-

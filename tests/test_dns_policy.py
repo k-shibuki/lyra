@@ -37,7 +37,6 @@ Tests cover:
 | TC-EC-02 | Resolve with network error | Abnormal – error | Handles gracefully | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -598,6 +597,7 @@ class TestGlobalFunctions:
         """get_dns_policy_manager should return singleton instance."""
         # Reset global state
         import src.crawler.dns_policy as dns_module
+
         dns_module._dns_policy_manager = None
 
         manager1 = get_dns_policy_manager()
@@ -609,6 +609,7 @@ class TestGlobalFunctions:
     async def test_get_socks_proxy_for_request(self, mock_settings):
         """get_socks_proxy_for_request should return proper proxy dict."""
         import src.crawler.dns_policy as dns_module
+
         dns_module._dns_policy_manager = None
 
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
@@ -625,6 +626,7 @@ class TestGlobalFunctions:
     async def test_get_socks_proxy_for_request_none_when_not_using_tor(self, mock_settings):
         """get_socks_proxy_for_request should return None when not using Tor."""
         import src.crawler.dns_policy as dns_module
+
         dns_module._dns_policy_manager = None
 
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
@@ -694,10 +696,6 @@ class TestDNSPolicyIntegration:
 
             # socks5h:// ensures DNS is resolved through the SOCKS proxy
             # This is the key mechanism for preventing DNS leaks
-            assert "socks5h://" in proxy_url, \
+            assert "socks5h://" in proxy_url, (
                 "SOCKS proxy URL must use socks5h:// protocol to prevent DNS leaks"
-
-
-
-
-
+            )

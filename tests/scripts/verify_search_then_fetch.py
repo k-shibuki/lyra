@@ -49,6 +49,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -74,6 +75,7 @@ class SearchFetchVerifier:
         # Check browser connectivity
         try:
             from src.crawler.browser_provider import get_browser_provider
+
             provider = await get_browser_provider()
             if provider:
                 self.browser_available = True
@@ -90,6 +92,7 @@ class SearchFetchVerifier:
         # Check search provider
         try:
             from src.search.browser_search_provider import BrowserSearchProvider
+
             provider = BrowserSearchProvider()
             engines = provider.get_available_engines()
             print(f"  ✓ Search provider available (engines: {engines})")
@@ -165,11 +168,13 @@ class SearchFetchVerifier:
 
             # Store results for later use
             for r in result.results[:3]:
-                self.search_results.append({
-                    "url": r.url,
-                    "title": r.title,
-                    "engine": r.engine,
-                })
+                self.search_results.append(
+                    {
+                        "url": r.url,
+                        "title": r.title,
+                        "engine": r.engine,
+                    }
+                )
                 title = r.title[:45] + "..." if len(r.title) > 45 else r.title
                 print(f"      - {title}")
                 print(f"        {r.url[:60]}...")
@@ -246,7 +251,7 @@ class SearchFetchVerifier:
                     # Capture session
                     if fetcher._browser and fetcher._context:
                         response_headers = {}
-                        if hasattr(fetch_result, 'headers') and fetch_result.headers:
+                        if hasattr(fetch_result, "headers") and fetch_result.headers:
                             response_headers = dict(fetch_result.headers)
 
                         session_id = await manager.capture_from_browser(
@@ -267,7 +272,9 @@ class SearchFetchVerifier:
             success_rate = successful_fetches / total_fetches
             threshold = 0.95  # §7: スクレイピング成功率≥95%
 
-            print(f"\n    Fetch success rate: {success_rate:.0%} ({successful_fetches}/{total_fetches})")
+            print(
+                f"\n    Fetch success rate: {success_rate:.0%} ({successful_fetches}/{total_fetches})"
+            )
 
             if success_rate >= threshold:
                 return VerificationResult(
@@ -311,7 +318,7 @@ class SearchFetchVerifier:
             stats = manager.get_session_stats()
             print(f"    Total sessions: {stats['total_sessions']}")
 
-            if stats['total_sessions'] == 0:
+            if stats["total_sessions"] == 0:
                 print("    ! No sessions to verify")
                 print("      (This may be normal if no fetches completed successfully)")
                 return VerificationResult(
@@ -326,7 +333,7 @@ class SearchFetchVerifier:
             verified_count = 0
             total_count = 0
 
-            for domain, count in stats['domains'].items():
+            for domain, count in stats["domains"].items():
                 total_count += 1
                 print(f"      - {domain}: {count} session(s)")
 
@@ -405,7 +412,7 @@ class SearchFetchVerifier:
         try:
             stats = manager.get_session_stats()
 
-            if len(stats['domains']) < 2:
+            if len(stats["domains"]) < 2:
                 print("    ! Only one domain in sessions, skipping isolation test")
                 return VerificationResult(
                     name="Cross-Domain Isolation",
@@ -415,7 +422,7 @@ class SearchFetchVerifier:
                     skip_reason="Need 2+ domains to test isolation",
                 )
 
-            domains = list(stats['domains'].keys())
+            domains = list(stats["domains"].keys())
             domain_a = domains[0]
             domain_b = domains[1]
 
@@ -501,9 +508,9 @@ class SearchFetchVerifier:
             result = await fetcher.fetch("https://example.com", policy=policy)
 
             # Verify the result has challenge detection fields
-            has_challenge_field = hasattr(result, 'challenge_detected')
-            has_challenge_type = hasattr(result, 'challenge_type')
-            has_queue_auth = hasattr(result, 'auth_queued')
+            has_challenge_field = hasattr(result, "challenge_detected")
+            has_challenge_type = hasattr(result, "challenge_type")
+            has_queue_auth = hasattr(result, "auth_queued")
 
             print(f"    ✓ challenge_detected field: {has_challenge_field}")
             print(f"    ✓ challenge_type field: {has_challenge_type}")
@@ -711,7 +718,9 @@ class SearchFetchVerifier:
                 print(f"      Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if failed > 0:

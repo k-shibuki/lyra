@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 
 class BudgetExceededReason(str, Enum):
     """Reasons for budget rejection."""
+
     PAGE_LIMIT = "page_limit_exceeded"
     TIME_LIMIT = "time_limit_exceeded"
     LLM_RATIO = "llm_ratio_exceeded"
@@ -31,6 +32,7 @@ class TaskBudget:
     Budget tracker for a single task.
     Tracks pages fetched, time elapsed, and LLM processing time.
     """
+
     task_id: str
     created_at: float = field(default_factory=time.time)
 
@@ -231,6 +233,7 @@ class BudgetManager:
         """Check if GPU is available."""
         try:
             import torch
+
             return torch.cuda.is_available()
         except ImportError:
             return False
@@ -413,11 +416,7 @@ class BudgetManager:
         Returns:
             List of budget dictionaries.
         """
-        return [
-            budget.to_dict()
-            for budget in self._budgets.values()
-            if budget.is_active
-        ]
+        return [budget.to_dict() for budget in self._budgets.values() if budget.is_active]
 
     async def enforce_limits(self, task_id: str) -> dict[str, Any]:
         """
@@ -475,6 +474,7 @@ async def get_budget_manager() -> BudgetManager:
 
 # Convenience functions for use in other modules
 
+
 async def create_task_budget(task_id: str) -> TaskBudget:
     """Create a budget for a new task."""
     manager = await get_budget_manager()
@@ -515,4 +515,3 @@ async def stop_task_budget(
     """Stop a task's budget."""
     manager = await get_budget_manager()
     await manager.stop_budget(task_id, reason)
-

@@ -42,9 +42,10 @@ logger = get_logger(__name__)
 # Enums and Constants
 # =============================================================================
 
+
 class TrustLevel(str, Enum):
     """Trust level for domain classification (§3.3 Trust Scoring, §4.4.1 L6).
-    
+
     Levels (high to low trust):
     - PRIMARY: Public institutions, standards bodies (iso.org, ietf.org)
     - GOVERNMENT: Government agencies (go.jp, gov)
@@ -54,17 +55,19 @@ class TrustLevel(str, Enum):
     - UNVERIFIED: Unknown domains (provisional use, pending verification)
     - BLOCKED: Excluded (contradiction detected, dangerous patterns)
     """
+
     PRIMARY = "primary"
     GOVERNMENT = "government"
     ACADEMIC = "academic"
     TRUSTED = "trusted"
-    LOW = "low"                # Verified low-trust (promoted via L6)
+    LOW = "low"  # Verified low-trust (promoted via L6)
     UNVERIFIED = "unverified"  # Unknown, pending verification
-    BLOCKED = "blocked"        # Excluded (dynamic block)
+    BLOCKED = "blocked"  # Excluded (dynamic block)
 
 
 class SkipReason(str, Enum):
     """Reasons for skipping a domain."""
+
     SOCIAL_MEDIA = "social_media"
     LOW_QUALITY_AGGREGATOR = "low_quality_aggregator"
     AD_HEAVY = "ad_heavy"
@@ -79,15 +82,16 @@ DEFAULT_TRUST_WEIGHTS: dict[TrustLevel, float] = {
     TrustLevel.GOVERNMENT: 0.95,
     TrustLevel.ACADEMIC: 0.90,
     TrustLevel.TRUSTED: 0.75,
-    TrustLevel.LOW: 0.40,       # Verified but low trust
+    TrustLevel.LOW: 0.40,  # Verified but low trust
     TrustLevel.UNVERIFIED: 0.30,  # Provisional use
-    TrustLevel.BLOCKED: 0.0,   # Excluded from scoring
+    TrustLevel.BLOCKED: 0.0,  # Excluded from scoring
 }
 
 
 # =============================================================================
 # Pydantic Schema Models
 # =============================================================================
+
 
 class DefaultPolicySchema(BaseModel):
     """Schema for default domain policy (config/domains.yaml: default_policy)."""
@@ -96,11 +100,15 @@ class DefaultPolicySchema(BaseModel):
     concurrent: int = Field(default=1, ge=1, le=10, description="Max concurrent requests")
     headful_ratio: float = Field(default=0.1, ge=0.0, le=1.0, description="Headful browser ratio")
     tor_allowed: bool = Field(default=True, description="Whether Tor routing is allowed")
-    cooldown_minutes: int = Field(default=60, ge=1, le=1440, description="Cooldown after failure (min)")
+    cooldown_minutes: int = Field(
+        default=60, ge=1, le=1440, description="Cooldown after failure (min)"
+    )
     max_retries: int = Field(default=3, ge=0, le=10, description="Max retry attempts")
     trust_level: TrustLevel = Field(default=TrustLevel.UNVERIFIED, description="Trust level")
     # Daily budget limits (§4.3 - IP block prevention)
-    max_requests_per_day: int = Field(default=200, ge=0, description="Max requests per day (0=unlimited)")
+    max_requests_per_day: int = Field(
+        default=200, ge=0, description="Max requests per day (0=unlimited)"
+    )
     max_pages_per_day: int = Field(default=100, ge=0, description="Max pages per day (0=unlimited)")
 
 
@@ -117,8 +125,12 @@ class AllowlistEntrySchema(BaseModel):
     cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
     max_retries: int | None = Field(default=None, ge=0, le=10)
     # Daily budget limits (§4.3 - IP block prevention)
-    max_requests_per_day: int | None = Field(default=None, ge=0, description="Max requests per day (0=unlimited)")
-    max_pages_per_day: int | None = Field(default=None, ge=0, description="Max pages per day (0=unlimited)")
+    max_requests_per_day: int | None = Field(
+        default=None, ge=0, description="Max requests per day (0=unlimited)"
+    )
+    max_pages_per_day: int | None = Field(
+        default=None, ge=0, description="Max pages per day (0=unlimited)"
+    )
 
     @field_validator("domain")
     @classmethod
@@ -202,11 +214,17 @@ class LearningStateDomainSchema(BaseModel):
 class SearchEnginePolicySchema(BaseModel):
     """Schema for search engine policy settings (§3.1.4, §4.3)."""
 
-    default_qps: float = Field(default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines")
-    site_search_qps: float = Field(default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit")
+    default_qps: float = Field(
+        default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines"
+    )
+    site_search_qps: float = Field(
+        default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit"
+    )
     cooldown_min: int = Field(default=30, ge=1, le=1440, description="Minimum cooldown in minutes")
     cooldown_max: int = Field(default=120, ge=1, le=1440, description="Maximum cooldown in minutes")
-    failure_threshold: int = Field(default=2, ge=1, le=10, description="Failures before circuit open")
+    failure_threshold: int = Field(
+        default=2, ge=1, le=10, description="Failures before circuit open"
+    )
 
     @property
     def default_min_interval(self) -> float:
@@ -232,27 +250,41 @@ class PolicyBoundsEntrySchema(BaseModel):
 class PolicyBoundsSchema(BaseModel):
     """Schema for policy auto-update bounds (§4.6)."""
 
-    engine_weight: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
-    ))
-    engine_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.1, max=0.5, default=0.25, step_up=0.05, step_down=0.1
-    ))
-    domain_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.05, max=0.3, default=0.2, step_up=0.02, step_down=0.05
-    ))
-    domain_cooldown: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=30.0, max=240.0, default=60.0, step_up=30.0, step_down=15.0
-    ))
-    headful_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.0, max=0.5, default=0.1, step_up=0.05, step_down=0.05
-    ))
-    tor_usage_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.0, max=0.2, default=0.0, step_up=0.02, step_down=0.05
-    ))
-    browser_route_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.1, max=0.5, default=0.3, step_up=0.05, step_down=0.05
-    ))
+    engine_weight: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
+        )
+    )
+    engine_qps: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.1, max=0.5, default=0.25, step_up=0.05, step_down=0.1
+        )
+    )
+    domain_qps: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.05, max=0.3, default=0.2, step_up=0.02, step_down=0.05
+        )
+    )
+    domain_cooldown: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=30.0, max=240.0, default=60.0, step_up=30.0, step_down=15.0
+        )
+    )
+    headful_ratio: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.0, max=0.5, default=0.1, step_up=0.05, step_down=0.05
+        )
+    )
+    tor_usage_ratio: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.0, max=0.2, default=0.0, step_up=0.02, step_down=0.05
+        )
+    )
+    browser_route_ratio: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.1, max=0.5, default=0.3, step_up=0.05, step_down=0.05
+        )
+    )
 
 
 class DomainPolicyConfigSchema(BaseModel):
@@ -282,11 +314,12 @@ class DomainPolicyConfigSchema(BaseModel):
 # Domain Policy Data Classes
 # =============================================================================
 
+
 @dataclass
 class DomainPolicy:
     """
     Resolved domain policy for a specific domain.
-    
+
     This combines:
     - Default policy values
     - Allowlist/graylist overrides
@@ -350,7 +383,9 @@ class DomainPolicy:
             "tor_allowed": self.tor_allowed,
             "cooldown_minutes": self.cooldown_minutes,
             "max_retries": self.max_retries,
-            "trust_level": self.trust_level.value if isinstance(self.trust_level, TrustLevel) else self.trust_level,
+            "trust_level": self.trust_level.value
+            if isinstance(self.trust_level, TrustLevel)
+            else self.trust_level,
             "internal_search": self.internal_search,
             "skip": self.skip,
             "skip_reason": self.skip_reason,
@@ -386,23 +421,24 @@ class InternalSearchTemplate:
 # Domain Policy Manager
 # =============================================================================
 
+
 class DomainPolicyManager:
     """
     Centralized manager for domain policies.
-    
+
     Features:
     - Loads all policies from config/domains.yaml
     - Provides efficient lookups with caching
     - Supports hot-reload of configuration
     - Thread-safe for concurrent access
-    
+
     Usage:
         manager = get_domain_policy_manager()
         policy = manager.get_policy("example.com")
-        
+
         # Force reload
         manager.reload()
-        
+
         # Check if domain should be skipped
         if manager.should_skip("spam-site.com"):
             ...
@@ -419,7 +455,7 @@ class DomainPolicyManager:
     ):
         """
         Initialize domain policy manager.
-        
+
         Args:
             config_path: Path to domains.yaml. Defaults to config/domains.yaml.
             watch_interval: Interval (seconds) for checking file changes.
@@ -474,7 +510,9 @@ class DomainPolicyManager:
                 data = yaml.safe_load(f) or {}
 
             # Parse internal_search_templates specially
-            if "internal_search_templates" in data and isinstance(data["internal_search_templates"], dict):
+            if "internal_search_templates" in data and isinstance(
+                data["internal_search_templates"], dict
+            ):
                 templates = {}
                 for name, template_data in data["internal_search_templates"].items():
                     if isinstance(template_data, dict):
@@ -579,7 +617,7 @@ class DomainPolicyManager:
     def _match_pattern(self, domain: str, pattern: str) -> bool:
         """
         Check if domain matches pattern.
-        
+
         Supports:
         - Exact match: "example.com"
         - Glob wildcards: "*.example.com"
@@ -617,17 +655,17 @@ class DomainPolicyManager:
     def get_policy(self, domain: str) -> DomainPolicy:
         """
         Get resolved policy for a domain.
-        
+
         Resolution order:
         1. Denylist (skip=True)
         2. Cloudflare sites (headful_required=True)
         3. Allowlist (specific overrides)
         4. Graylist (pattern-based overrides)
         5. Default policy
-        
+
         Args:
             domain: Domain name to look up.
-            
+
         Returns:
             DomainPolicy with resolved values.
         """
@@ -661,7 +699,9 @@ class DomainPolicyManager:
         for entry in config.denylist:
             if self._match_pattern(domain, entry.domain_pattern):
                 policy.skip = True
-                policy.skip_reason = entry.reason if isinstance(entry.reason, str) else entry.reason.value
+                policy.skip_reason = (
+                    entry.reason if isinstance(entry.reason, str) else entry.reason.value
+                )
                 policy.source = "denylist"
                 with self._cache_lock:
                     self._policy_cache[domain] = policy
@@ -720,7 +760,11 @@ class DomainPolicyManager:
 
                     if entry.skip:
                         policy.skip = True
-                        policy.skip_reason = entry.reason if isinstance(entry.reason, str) else (entry.reason.value if entry.reason else None)
+                        policy.skip_reason = (
+                            entry.reason
+                            if isinstance(entry.reason, str)
+                            else (entry.reason.value if entry.reason else None)
+                        )
 
                     policy.source = "graylist"
                     break
@@ -751,7 +795,7 @@ class DomainPolicyManager:
         """Get internal search template for domain if available."""
         domain = self._normalize_domain(domain)
 
-        for name, template in self.config.internal_search_templates.items():
+        for _name, template in self.config.internal_search_templates.items():
             if self._match_pattern(domain, template.domain):
                 return InternalSearchTemplate(
                     domain=template.domain,
@@ -775,19 +819,15 @@ class DomainPolicyManager:
 
     def get_domains_by_trust_level(self, trust_level: TrustLevel) -> list[str]:
         """Get domains with specific trust level from allowlist."""
-        return [
-            entry.domain
-            for entry in self.config.allowlist
-            if entry.trust_level == trust_level
-        ]
+        return [entry.domain for entry in self.config.allowlist if entry.trust_level == trust_level]
 
     def update_learning_state(self, domain: str, state: dict[str, Any]) -> None:
         """
         Update learning state for a domain (runtime only, not persisted to YAML).
-        
+
         This updates the cached policy with runtime learning data.
         For persistence, use the database.
-        
+
         Args:
             domain: Domain name.
             state: Learning state fields to update.
@@ -838,7 +878,7 @@ class DomainPolicyManager:
 
     def get_search_engine_policy(self) -> SearchEnginePolicySchema:
         """Get search engine policy configuration.
-        
+
         Returns:
             SearchEnginePolicySchema with search engine settings.
         """
@@ -846,7 +886,7 @@ class DomainPolicyManager:
 
     def get_search_engine_qps(self) -> float:
         """Get default QPS for search engines.
-        
+
         Returns:
             Default QPS (requests per second).
         """
@@ -854,7 +894,7 @@ class DomainPolicyManager:
 
     def get_search_engine_min_interval(self) -> float:
         """Get minimum interval between search engine requests in seconds.
-        
+
         Returns:
             Minimum interval in seconds.
         """
@@ -862,7 +902,7 @@ class DomainPolicyManager:
 
     def get_site_search_qps(self) -> float:
         """Get QPS for site-internal search (§3.1.5).
-        
+
         Returns:
             Site search QPS.
         """
@@ -870,7 +910,7 @@ class DomainPolicyManager:
 
     def get_site_search_min_interval(self) -> float:
         """Get minimum interval for site-internal search in seconds.
-        
+
         Returns:
             Minimum interval in seconds.
         """
@@ -878,7 +918,7 @@ class DomainPolicyManager:
 
     def get_circuit_breaker_cooldown_min(self) -> int:
         """Get minimum cooldown time for circuit breaker in minutes.
-        
+
         Returns:
             Minimum cooldown in minutes.
         """
@@ -886,7 +926,7 @@ class DomainPolicyManager:
 
     def get_circuit_breaker_cooldown_max(self) -> int:
         """Get maximum cooldown time for circuit breaker in minutes.
-        
+
         Returns:
             Maximum cooldown in minutes.
         """
@@ -894,7 +934,7 @@ class DomainPolicyManager:
 
     def get_circuit_breaker_failure_threshold(self) -> int:
         """Get failure threshold for circuit breaker.
-        
+
         Returns:
             Failure threshold.
         """
@@ -906,7 +946,7 @@ class DomainPolicyManager:
 
     def get_policy_bounds(self) -> PolicyBoundsSchema:
         """Get policy bounds configuration for auto-adjustment.
-        
+
         Returns:
             PolicyBoundsSchema with all bounds.
         """
@@ -914,10 +954,10 @@ class DomainPolicyManager:
 
     def get_bounds_for_parameter(self, param_name: str) -> PolicyBoundsEntrySchema | None:
         """Get bounds for a specific parameter.
-        
+
         Args:
             param_name: Parameter name (e.g., "engine_weight", "domain_qps").
-            
+
         Returns:
             PolicyBoundsEntrySchema or None if not found.
         """
@@ -936,7 +976,7 @@ _manager_lock = threading.Lock()
 def get_domain_policy_manager(**kwargs) -> DomainPolicyManager:
     """
     Get the singleton DomainPolicyManager instance.
-    
+
     Usage:
         manager = get_domain_policy_manager()
         policy = manager.get_policy("example.com")
@@ -964,6 +1004,7 @@ def reset_domain_policy_manager() -> None:
 # Convenience functions for common operations
 # =============================================================================
 
+
 def get_domain_policy(domain: str) -> DomainPolicy:
     """Get policy for a domain (convenience function)."""
     return get_domain_policy_manager().get_policy(domain)
@@ -982,4 +1023,3 @@ def get_domain_trust_level(domain: str) -> TrustLevel:
 def get_domain_qps(domain: str) -> float:
     """Get QPS limit for domain (convenience function)."""
     return get_domain_policy_manager().get_qps_limit(domain)
-

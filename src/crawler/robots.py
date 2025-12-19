@@ -32,6 +32,7 @@ logger = get_logger(__name__)
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class RobotsRule:
     """Parsed robots.txt rules for a domain."""
@@ -113,9 +114,7 @@ class SitemapResult:
             List of (url, score) tuples, sorted by score descending.
         """
         scored = [
-            (entry.loc, entry.score())
-            for entry in self.entries
-            if entry.score() >= min_score
+            (entry.loc, entry.score()) for entry in self.entries if entry.score() >= min_score
         ]
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:limit]
@@ -124,6 +123,7 @@ class SitemapResult:
 # =============================================================================
 # Robots.txt Parser
 # =============================================================================
+
 
 class RobotsChecker:
     """Check URL compliance with robots.txt rules.
@@ -304,7 +304,6 @@ class RobotsChecker:
         """
         rules = RobotsRule(domain=domain, raw_content=content)
 
-        current_agents: list[str] = []
         applies_to_us = False
 
         for line in content.split("\n"):
@@ -332,7 +331,6 @@ class RobotsChecker:
                     applies_to_us = True
                 else:
                     applies_to_us = False
-                current_agents = [value]
 
             elif directive == "disallow" and applies_to_us:
                 if value:
@@ -402,6 +400,7 @@ class RobotsChecker:
 # =============================================================================
 # Sitemap Parser
 # =============================================================================
+
 
 class SitemapParser:
     """Parse sitemap.xml and sitemap index files.
@@ -675,7 +674,7 @@ class SitemapParser:
                 if loc is not None and loc.text:
                     urls.append(loc.text.strip())
 
-        return urls[:self.MAX_URLS_PER_SITEMAP]
+        return urls[: self.MAX_URLS_PER_SITEMAP]
 
     def _extract_url_entries(self, root: ET.Element) -> list[SitemapEntry]:
         """Extract URL entries from sitemap.
@@ -695,7 +694,7 @@ class SitemapParser:
         if not url_elements:
             url_elements = root.findall(".//url")
 
-        for url_elem in url_elements[:self.MAX_URLS_PER_SITEMAP]:
+        for url_elem in url_elements[: self.MAX_URLS_PER_SITEMAP]:
             entry = self._parse_url_element(url_elem)
             if entry:
                 entries.append(entry)
@@ -783,6 +782,7 @@ class SitemapParser:
 # =============================================================================
 # Integration with Fetcher
 # =============================================================================
+
 
 class RobotsManager:
     """Manages robots.txt and sitemap integration with crawler.
@@ -888,7 +888,7 @@ class RobotsManager:
         filtered = []
         keywords_lower = [k.lower() for k in keywords]
 
-        for url, score in urls:
+        for url, _score in urls:
             url_lower = url.lower()
             if any(kw in url_lower for kw in keywords_lower):
                 filtered.append(url)
@@ -950,6 +950,7 @@ def get_robots_manager() -> RobotsManager:
 # MCP Tool Integration
 # =============================================================================
 
+
 async def check_robots_compliance(url: str) -> dict[str, Any]:
     """Check URL compliance with robots.txt (for MCP tool use).
 
@@ -1000,7 +1001,8 @@ async def get_sitemap_urls(
     if keywords:
         keywords_lower = [k.lower() for k in keywords]
         priority_urls = [
-            (url, score) for url, score in priority_urls
+            (url, score)
+            for url, score in priority_urls
             if any(kw in url.lower() for kw in keywords_lower)
         ]
 
@@ -1009,4 +1011,3 @@ async def get_sitemap_urls(
         "urls": [{"url": url, "score": score} for url, score in priority_urls],
         "total": len(priority_urls),
     }
-

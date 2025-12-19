@@ -50,6 +50,7 @@ from src.crawler.session_transfer import (
 # CookieData Tests
 # =============================================================================
 
+
 class TestCookieData:
     """Tests for CookieData class."""
 
@@ -147,6 +148,7 @@ class TestCookieData:
 # =============================================================================
 # SessionData Tests
 # =============================================================================
+
 
 class TestSessionData:
     """Tests for SessionData class."""
@@ -272,6 +274,7 @@ class TestSessionData:
 # =============================================================================
 # SessionTransferManager Tests
 # =============================================================================
+
 
 class TestSessionTransferManager:
     """Tests for SessionTransferManager class."""
@@ -465,6 +468,7 @@ class TestSessionTransferManager:
 # Browser Session Capture Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 class TestBrowserSessionCapture:
     """Tests for browser session capture functionality."""
@@ -541,6 +545,7 @@ class TestBrowserSessionCapture:
 # Convenience Function Tests
 # =============================================================================
 
+
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
@@ -609,6 +614,7 @@ class TestConvenienceFunctions:
 # =============================================================================
 # Sec-Fetch Header Consistency Tests
 # =============================================================================
+
 
 class TestSecFetchHeaderConsistency:
     """Tests for sec-fetch-* header consistency in transfers."""
@@ -684,6 +690,7 @@ class TestSecFetchHeaderConsistency:
 # =============================================================================
 # Pydantic Validation Tests
 # =============================================================================
+
 
 class TestPydanticValidation:
     """Tests for Pydantic model validation after migration from dataclass."""
@@ -832,6 +839,3 @@ class TestPydanticValidation:
         assert dump["domain"] == "example.com"
         assert len(dump["cookies"]) == 1
         assert dump["cookies"][0]["name"] == "c1"
-
-
-

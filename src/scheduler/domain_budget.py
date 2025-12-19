@@ -30,16 +30,16 @@ DEFAULT_MAX_PAGES_PER_DAY = 100
 class DomainDailyBudgetManager:
     """
     Manages daily request and page budgets per domain.
-    
+
     Features:
     - Per-domain daily request and page limits
     - Automatic counter reset on date change
     - Thread-safe operations
     - Fail-open on errors (allows requests if budget check fails)
-    
+
     Usage:
         manager = get_domain_budget_manager()
-        
+
         # Check if request is allowed
         result = manager.can_request_to_domain("example.com")
         if result.allowed:
@@ -103,10 +103,10 @@ class DomainDailyBudgetManager:
     def _get_domain_limits(self, domain: str) -> tuple[int, int]:
         """
         Get daily limits for a domain from policy.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             Tuple of (max_requests_per_day, max_pages_per_day).
         """
@@ -136,10 +136,10 @@ class DomainDailyBudgetManager:
     def _get_or_create_budget(self, domain: str) -> DomainDailyBudget:
         """
         Get or create budget for a domain.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             DomainDailyBudget instance.
         """
@@ -173,13 +173,13 @@ class DomainDailyBudgetManager:
     def can_request_to_domain(self, domain: str) -> DomainBudgetCheckResult:
         """
         Check if a request to domain is allowed within budget.
-        
+
         Implements fail-open: if an error occurs during check,
         the request is allowed to prevent blocking due to bugs.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             DomainBudgetCheckResult with allowed status and details.
         """
@@ -243,7 +243,7 @@ class DomainDailyBudgetManager:
     def record_domain_request(self, domain: str, is_page: bool = False) -> None:
         """
         Record a request to a domain.
-        
+
         Args:
             domain: Domain name.
             is_page: Whether this request is a page fetch (vs. API/resource).
@@ -275,10 +275,10 @@ class DomainDailyBudgetManager:
     def get_domain_budget(self, domain: str) -> DomainDailyBudget:
         """
         Get current budget state for a domain.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             DomainDailyBudget instance.
         """
@@ -287,7 +287,7 @@ class DomainDailyBudgetManager:
     def get_all_budgets(self) -> dict[str, DomainDailyBudget]:
         """
         Get all domain budgets.
-        
+
         Returns:
             Dictionary of domain -> DomainDailyBudget.
         """
@@ -299,7 +299,7 @@ class DomainDailyBudgetManager:
     def get_stats(self) -> dict[str, Any]:
         """
         Get budget manager statistics.
-        
+
         Returns:
             Dictionary with stats.
         """
@@ -311,7 +311,10 @@ class DomainDailyBudgetManager:
             exceeded_domains = [
                 domain
                 for domain, budget in self._budgets.items()
-                if (budget.max_requests_per_day > 0 and budget.requests_today >= budget.max_requests_per_day)
+                if (
+                    budget.max_requests_per_day > 0
+                    and budget.requests_today >= budget.max_requests_per_day
+                )
                 or (budget.max_pages_per_day > 0 and budget.pages_today >= budget.max_pages_per_day)
             ]
 
@@ -341,7 +344,7 @@ _manager_lock = threading.Lock()
 def get_domain_budget_manager() -> DomainDailyBudgetManager:
     """
     Get the singleton DomainDailyBudgetManager instance.
-    
+
     Usage:
         manager = get_domain_budget_manager()
         result = manager.can_request_to_domain("example.com")

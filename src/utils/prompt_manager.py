@@ -22,16 +22,19 @@ logger = get_logger(__name__)
 
 class PromptTemplateError(Exception):
     """Base exception for prompt template errors."""
+
     pass
 
 
 class TemplateNotFoundError(PromptTemplateError):
     """Raised when a template file is not found."""
+
     pass
 
 
 class TemplateRenderError(PromptTemplateError):
     """Raised when template rendering fails."""
+
     pass
 
 
@@ -52,7 +55,7 @@ class PromptManager:
         Initialize the prompt manager.
 
         Args:
-            prompts_dir: Path to prompts directory. 
+            prompts_dir: Path to prompts directory.
                         Defaults to config/prompts/ relative to project root.
         """
         if prompts_dir is None:
@@ -60,6 +63,7 @@ class PromptManager:
             config_dir = Path(os.environ.get("LANCET_CONFIG_DIR", "config"))
             if not config_dir.is_absolute():
                 from src.utils.config import get_project_root
+
                 config_dir = get_project_root() / config_dir
             prompts_dir = config_dir / "prompts"
 
@@ -88,9 +92,7 @@ class PromptManager:
         """
         if self._env is None:
             if not self._prompts_dir.exists():
-                raise TemplateNotFoundError(
-                    f"Prompts directory not found: {self._prompts_dir}"
-                )
+                raise TemplateNotFoundError(f"Prompts directory not found: {self._prompts_dir}")
 
             self._env = Environment(
                 loader=FileSystemLoader(str(self._prompts_dir)),
@@ -144,9 +146,7 @@ class PromptManager:
         if not self._prompts_dir.exists():
             return []
 
-        return [
-            p.stem for p in self._prompts_dir.glob("*.j2")
-        ]
+        return [p.stem for p in self._prompts_dir.glob("*.j2")]
 
     def render(self, template_name: str, **kwargs: Any) -> str:
         """
@@ -180,20 +180,15 @@ class PromptManager:
 
         except TemplateNotFound:
             raise TemplateNotFoundError(
-                f"Template not found: {template_name}.j2 "
-                f"(searched in {self._prompts_dir})"
+                f"Template not found: {template_name}.j2 (searched in {self._prompts_dir})"
             )
         except TemplateNotFoundError:
             # Re-raise our own TemplateNotFoundError (from _get_environment)
             raise
         except UndefinedError as e:
-            raise TemplateRenderError(
-                f"Template '{template_name}' rendering failed: {e}"
-            )
+            raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}")
         except Exception as e:
-            raise TemplateRenderError(
-                f"Template '{template_name}' rendering failed: {e}"
-            )
+            raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}")
 
     def clear_cache(self) -> None:
         """Clear the template cache."""
@@ -232,6 +227,7 @@ def reset_prompt_manager() -> None:
 # ============================================================================
 # Convenience function
 # ============================================================================
+
 
 def render_prompt(template_name: str, **kwargs: Any) -> str:
     """

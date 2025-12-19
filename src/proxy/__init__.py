@@ -9,5 +9,3 @@ This enables the hybrid architecture where:
 - LLM/ML inference runs in containers on internal network (for security)
 - Proxy bridges the gap via HTTP
 """
-
-

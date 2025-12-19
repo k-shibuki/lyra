@@ -34,10 +34,11 @@ logger = get_logger(__name__)
 # Resource Types and Data Classes
 # =============================================================================
 
+
 @dataclass
 class ResourceInfo:
     """Information about a fetched resource.
-    
+
     Attributes:
         url: Resource URL.
         method: HTTP method used.
@@ -52,6 +53,7 @@ class ResourceInfo:
         from_cache: Whether served from cache.
         initiator_type: Type of initiator (script, parser, etc.).
     """
+
     url: str
     method: str = "GET"
     status: int | None = None
@@ -76,7 +78,7 @@ class ResourceInfo:
 @dataclass
 class CDXJEntry:
     """A CDXJ (Crawl Index JSON) entry.
-    
+
     Attributes:
         url: Original URL.
         surt: SURT (Sort-friendly URI Reordering Transform) format URL.
@@ -86,6 +88,7 @@ class CDXJEntry:
         status: HTTP status code.
         extra: Additional metadata.
     """
+
     url: str
     surt: str
     timestamp: str
@@ -108,13 +111,13 @@ class CDXJEntry:
 
 def url_to_surt(url: str) -> str:
     """Convert URL to SURT (Sort-friendly URI Reordering Transform) format.
-    
+
     SURT reverses domain components and normalizes the URL for sorting.
     Example: https://www.example.com/path → com,example,www)/path
-    
+
     Args:
         url: Original URL.
-        
+
     Returns:
         SURT formatted string.
     """
@@ -141,9 +144,10 @@ def url_to_surt(url: str) -> str:
 # Network Event Collector
 # =============================================================================
 
+
 class NetworkEventCollector:
     """Collects network events from CDP for HAR generation.
-    
+
     Listens to Playwright page network events and accumulates
     resource information for later HAR/CDXJ generation.
     """
@@ -156,7 +160,7 @@ class NetworkEventCollector:
 
     def start_collection(self, main_url: str) -> None:
         """Start collecting network events for a page load.
-        
+
         Args:
             main_url: The main frame URL being loaded.
         """
@@ -175,7 +179,7 @@ class NetworkEventCollector:
         is_main_frame: bool = False,
     ) -> None:
         """Record a network request event.
-        
+
         Args:
             url: Request URL.
             method: HTTP method.
@@ -199,7 +203,7 @@ class NetworkEventCollector:
         from_cache: bool = False,
     ) -> None:
         """Record a network response event.
-        
+
         Args:
             url: Request URL.
             status: HTTP status code.
@@ -230,7 +234,7 @@ class NetworkEventCollector:
         encoded_size: int = 0,
     ) -> None:
         """Record request completion.
-        
+
         Args:
             url: Request URL.
             size: Decoded content size.
@@ -243,7 +247,7 @@ class NetworkEventCollector:
 
     def add_content_hash(self, url: str, content: bytes) -> None:
         """Add content hash for a resource.
-        
+
         Args:
             url: Resource URL.
             content: Resource content bytes.
@@ -259,14 +263,21 @@ class NetworkEventCollector:
     @property
     def main_resources(self) -> list[ResourceInfo]:
         """Get main resources (documents, scripts, stylesheets).
-        
+
         Filters out images, fonts, and other non-essential resources
         for CDXJ index generation.
         """
         main_types = {
-            "document", "script", "stylesheet", "xhr", "fetch",
-            "text/html", "text/javascript", "application/javascript",
-            "text/css", "application/json",
+            "document",
+            "script",
+            "stylesheet",
+            "xhr",
+            "fetch",
+            "text/html",
+            "text/javascript",
+            "application/javascript",
+            "text/css",
+            "application/json",
         }
 
         result = []
@@ -293,9 +304,11 @@ class NetworkEventCollector:
 # HAR Generator
 # =============================================================================
 
+
 @dataclass
 class HAREntry:
     """A single entry in the HAR log."""
+
     request: dict[str, Any]
     response: dict[str, Any]
     started_datetime: str
@@ -314,7 +327,7 @@ class HAREntry:
 
 class HARGenerator:
     """Generates simplified HAR files from collected network events.
-    
+
     Creates a minimal HAR 1.2 format file suitable for debugging
     and reproducibility per §4.3.2 requirements.
     """
@@ -327,7 +340,7 @@ class HARGenerator:
 
     def add_resource(self, resource: ResourceInfo) -> None:
         """Add a resource to the HAR.
-        
+
         Args:
             resource: Resource information.
         """
@@ -349,10 +362,7 @@ class HARGenerator:
             "statusText": self._get_status_text(resource.status or 0),
             "httpVersion": "HTTP/1.1",
             "cookies": [],
-            "headers": [
-                {"name": k, "value": v}
-                for k, v in resource.headers.items()
-            ],
+            "headers": [{"name": k, "value": v} for k, v in resource.headers.items()],
             "content": {
                 "size": resource.size,
                 "mimeType": resource.mime_type,
@@ -364,10 +374,14 @@ class HARGenerator:
         }
 
         # Calculate timing
-        started = datetime.fromtimestamp(
-            resource.start_time,
-            tz=UTC,
-        ).isoformat() if resource.start_time else self._started_datetime
+        started = (
+            datetime.fromtimestamp(
+                resource.start_time,
+                tz=UTC,
+            ).isoformat()
+            if resource.start_time
+            else self._started_datetime
+        )
 
         duration = resource.duration_ms or 0
 
@@ -382,7 +396,7 @@ class HARGenerator:
 
     def generate(self) -> dict[str, Any]:
         """Generate the complete HAR structure.
-        
+
         Returns:
             HAR 1.2 format dictionary.
         """
@@ -410,10 +424,10 @@ class HARGenerator:
 
     def to_json(self, indent: int = 2) -> str:
         """Generate HAR as JSON string.
-        
+
         Args:
             indent: JSON indentation level.
-            
+
         Returns:
             JSON string.
         """
@@ -445,9 +459,10 @@ class HARGenerator:
 # CDXJ Generator
 # =============================================================================
 
+
 class CDXJGenerator:
     """Generates CDXJ (Crawl Index JSON) files from collected resources.
-    
+
     Creates a line-based index of resources with their digests,
     suitable for archive verification and lookup.
     """
@@ -462,7 +477,7 @@ class CDXJGenerator:
         content: bytes | None = None,
     ) -> None:
         """Add a resource to the CDXJ index.
-        
+
         Args:
             resource: Resource information.
             content: Optional content bytes for hash calculation.
@@ -498,7 +513,7 @@ class CDXJGenerator:
 
     def generate(self) -> list[str]:
         """Generate CDXJ lines sorted by SURT.
-        
+
         Returns:
             List of CDXJ formatted lines.
         """
@@ -508,7 +523,7 @@ class CDXJGenerator:
 
     def to_string(self) -> str:
         """Generate CDXJ as multi-line string.
-        
+
         Returns:
             CDXJ formatted string with newline-separated entries.
         """
@@ -519,9 +534,10 @@ class CDXJGenerator:
 # Browser Archiver
 # =============================================================================
 
+
 class BrowserArchiver:
     """Archives browser-fetched pages with CDXJ metadata and HAR.
-    
+
     Implements §4.3.2 requirements for browser path archive preservation:
     - Captures main page content with page.content()
     - Records resource URLs and hashes in CDXJ format
@@ -531,7 +547,7 @@ class BrowserArchiver:
 
     def __init__(self, output_dir: Path | None = None):
         """Initialize browser archiver.
-        
+
         Args:
             output_dir: Directory for archive output.
                        Uses settings.storage.archive_dir if not provided.
@@ -544,7 +560,7 @@ class BrowserArchiver:
 
     def create_collector(self) -> NetworkEventCollector:
         """Create a network event collector for a page load.
-        
+
         Returns:
             NetworkEventCollector instance to use with page events.
         """
@@ -553,14 +569,14 @@ class BrowserArchiver:
 
     async def attach_to_page(self, page, main_url: str) -> NetworkEventCollector:
         """Attach network event listeners to a Playwright page.
-        
+
         This sets up event handlers to automatically collect network
         information during page navigation.
-        
+
         Args:
             page: Playwright page object.
             main_url: Main URL being loaded.
-            
+
         Returns:
             NetworkEventCollector with attached handlers.
         """
@@ -605,7 +621,8 @@ class BrowserArchiver:
                 collector.on_request_finished(
                     url=request.url,
                     size=sizes.get("responseBodySize", 0),
-                    encoded_size=sizes.get("responseHeadersSize", 0) + sizes.get("responseBodySize", 0),
+                    encoded_size=sizes.get("responseHeadersSize", 0)
+                    + sizes.get("responseBodySize", 0),
                 )
             except Exception as e:
                 logger.debug("Error handling request_finished event", error=str(e))
@@ -628,14 +645,14 @@ class BrowserArchiver:
         warc_path: str | None = None,
     ) -> dict[str, str | None]:
         """Save browser archive (CDXJ + HAR).
-        
+
         Args:
             url: Page URL.
             content: Page HTML content.
             title: Page title.
             collector: Network event collector (optional).
             warc_path: Associated WARC file path for cross-reference.
-            
+
         Returns:
             Dict with paths: cdxj_path, har_path, and status.
         """
@@ -729,7 +746,7 @@ class BrowserArchiver:
 
     def _add_warc_reference(self, cdxj_path: str, warc_path: str) -> None:
         """Add WARC reference to CDXJ file header.
-        
+
         Args:
             cdxj_path: Path to CDXJ file.
             warc_path: Path to associated WARC file.
@@ -755,7 +772,7 @@ _archiver: BrowserArchiver | None = None
 
 def get_browser_archiver() -> BrowserArchiver:
     """Get or create browser archiver instance.
-    
+
     Returns:
         BrowserArchiver instance.
     """
@@ -772,15 +789,15 @@ async def archive_browser_page(
     warc_path: str | None = None,
 ) -> dict[str, str | None]:
     """Convenience function to archive a browser page.
-    
+
     Creates CDXJ and HAR archives for a Playwright page.
-    
+
     Args:
         page: Playwright page object.
         url: Page URL.
         content: Page content (will be fetched if not provided).
         warc_path: Associated WARC path for cross-reference.
-        
+
     Returns:
         Dict with archive paths.
     """
@@ -804,8 +821,3 @@ async def archive_browser_page(
         title=title,
         warc_path=warc_path,
     )
-
-
-
-
-

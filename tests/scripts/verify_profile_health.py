@@ -42,6 +42,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -65,6 +66,7 @@ class ProfileHealthVerifier:
         # Check browser connectivity
         try:
             from src.crawler.browser_provider import get_browser_provider
+
             provider = await get_browser_provider()
             if provider:
                 self.browser_available = True
@@ -81,6 +83,7 @@ class ProfileHealthVerifier:
         # Check profile auditor
         try:
             from src.crawler.profile_audit import ProfileAuditor
+
             print("  ✓ Profile auditor available")
         except ImportError as e:
             print(f"  ✗ Profile auditor not available: {e}")
@@ -127,7 +130,9 @@ class ProfileHealthVerifier:
             success_rate = success_count / check_count
             threshold = 0.99
 
-            print(f"\n    Health check success rate: {success_rate:.0%} ({success_count}/{check_count})")
+            print(
+                f"\n    Health check success rate: {success_rate:.0%} ({success_count}/{check_count})"
+            )
 
             # Note: With only 5 checks, we can't truly verify 99%
             # In production, this would be tracked over many task starts
@@ -196,7 +201,11 @@ class ProfileHealthVerifier:
 
                 if result.fingerprint:
                     fp = result.fingerprint
-                    print(f"      - User-Agent: {fp.user_agent[:50]}..." if fp.user_agent else "      - User-Agent: N/A")
+                    print(
+                        f"      - User-Agent: {fp.user_agent[:50]}..."
+                        if fp.user_agent
+                        else "      - User-Agent: N/A"
+                    )
                     print(f"      - Language: {fp.language}")
                     print(f"      - Timezone: {fp.timezone}")
                     print(f"      - Screen: {fp.screen_width}x{fp.screen_height}")
@@ -275,7 +284,9 @@ class ProfileHealthVerifier:
             repair_rate = repair_successes / repair_attempts
             threshold = 0.90
 
-            print(f"\n    Repair action coverage: {repair_rate:.0%} ({repair_successes}/{repair_attempts})")
+            print(
+                f"\n    Repair action coverage: {repair_rate:.0%} ({repair_successes}/{repair_attempts})"
+            )
 
             # Note: This tests repair action generation, not actual repair execution
             # Actual repair would require triggering deviations and fixing them
@@ -320,7 +331,7 @@ class ProfileHealthVerifier:
 
         try:
             # Create temporary log file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
                 log_path = Path(f.name)
 
             provider = await get_browser_provider()
@@ -334,7 +345,7 @@ class ProfileHealthVerifier:
 
             try:
                 auditor = ProfileAuditor(audit_log_path=log_path)
-                result = await auditor.audit(provider)
+                await auditor.audit(provider)
 
                 # Check if log was written
                 if log_path.exists():
@@ -450,7 +461,9 @@ class ProfileHealthVerifier:
                 print(f"      Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if failed > 0:
@@ -474,4 +487,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

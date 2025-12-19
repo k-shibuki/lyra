@@ -40,12 +40,14 @@ logger = structlog.get_logger(__name__)
 
 class DNSRoute(Enum):
     """DNS resolution route."""
+
     DIRECT = "direct"  # OS resolver
     TOR = "tor"  # Through Tor SOCKS proxy
 
 
 class DNSLeakType(Enum):
     """Types of DNS leaks that can be detected."""
+
     NONE = "none"
     LOCAL_RESOLUTION_DURING_TOR = "local_resolution_during_tor"
     ECS_ENABLED = "ecs_enabled"
@@ -54,6 +56,7 @@ class DNSLeakType(Enum):
 @dataclass
 class DNSCacheEntry:
     """Cached DNS resolution result."""
+
     hostname: str
     addresses: list[str]  # IPv4 and/or IPv6 addresses
     resolved_at: float
@@ -68,6 +71,7 @@ class DNSCacheEntry:
 @dataclass
 class DNSResolutionResult:
     """Result of DNS resolution."""
+
     hostname: str
     addresses: list[str]
     route: DNSRoute
@@ -84,6 +88,7 @@ class DNSResolutionResult:
 @dataclass
 class DNSMetrics:
     """Metrics for DNS operations."""
+
     total_resolutions: int = 0
     cache_hits: int = 0
     cache_misses: int = 0
@@ -144,7 +149,7 @@ class DNSMetrics:
 
 class DNSPolicyManager:
     """Manages DNS resolution policies per §4.3.
-    
+
     Key responsibilities:
     - Select appropriate DNS route (direct vs Tor)
     - Generate correct SOCKS proxy URL (socks5:// vs socks5h://)
@@ -169,18 +174,18 @@ class DNSPolicyManager:
         resolve_dns_through_proxy: bool | None = None,
     ) -> str | None:
         """Get the appropriate SOCKS proxy URL.
-        
+
         This is the critical method for preventing DNS leaks.
-        
+
         When using Tor:
         - socks5h:// = DNS resolved through proxy (SAFE, no DNS leak)
         - socks5:// = DNS resolved locally (UNSAFE, DNS leak!)
-        
+
         Args:
             use_tor: Whether to use Tor proxy.
             resolve_dns_through_proxy: Override DNS resolution setting.
                 If None, uses config setting.
-        
+
         Returns:
             Proxy URL or None if not using proxy.
         """
@@ -217,11 +222,11 @@ class DNSPolicyManager:
         resolve_dns_through_proxy: bool | None = None,
     ) -> dict[str, str] | None:
         """Get proxy dictionary for requests/curl_cffi.
-        
+
         Args:
             use_tor: Whether to use Tor proxy.
             resolve_dns_through_proxy: Override DNS resolution setting.
-        
+
         Returns:
             Proxy dictionary or None.
         """
@@ -238,16 +243,16 @@ class DNSPolicyManager:
         use_cache: bool = True,
     ) -> DNSResolutionResult:
         """Resolve hostname with caching and leak detection.
-        
+
         Note: When route is TOR, actual DNS resolution should be done
         by the SOCKS proxy (socks5h://). This method is primarily for
         caching and metrics purposes with direct routes.
-        
+
         Args:
             hostname: Hostname to resolve.
             route: DNS resolution route.
             use_cache: Whether to use cache.
-        
+
         Returns:
             Resolution result.
         """
@@ -370,10 +375,10 @@ class DNSPolicyManager:
 
     def extract_hostname(self, url: str) -> str:
         """Extract hostname from URL.
-        
+
         Args:
             url: URL to parse.
-        
+
         Returns:
             Hostname.
         """
@@ -382,10 +387,10 @@ class DNSPolicyManager:
 
     def should_use_tor_dns(self, use_tor: bool) -> bool:
         """Check if DNS should be resolved through Tor.
-        
+
         Args:
             use_tor: Whether Tor is being used for the request.
-        
+
         Returns:
             True if DNS should go through Tor.
         """
@@ -397,7 +402,7 @@ class DNSPolicyManager:
 
     async def clear_cache(self) -> int:
         """Clear DNS cache.
-        
+
         Returns:
             Number of entries cleared.
         """
@@ -408,23 +413,20 @@ class DNSPolicyManager:
 
     async def prune_expired_cache(self) -> int:
         """Remove expired cache entries.
-        
+
         Returns:
             Number of entries pruned.
         """
         async with self._cache_lock:
-            now = time.time()
-            expired_keys = [
-                key for key, entry in self._cache.items()
-                if entry.is_expired()
-            ]
+            time.time()
+            expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
             for key in expired_keys:
                 del self._cache[key]
             return len(expired_keys)
 
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics.
-        
+
         Returns:
             Cache statistics dictionary.
         """
@@ -445,12 +447,12 @@ class DNSPolicyManager:
         local_resolution_attempted: bool,
     ) -> DNSLeakType:
         """Detect potential DNS leak.
-        
+
         Args:
             url: URL being accessed.
             use_tor: Whether Tor is being used.
             local_resolution_attempted: Whether local DNS was attempted.
-        
+
         Returns:
             Type of DNS leak detected, if any.
         """
@@ -479,14 +481,14 @@ class DNSPolicyManager:
         domain: str | None = None,
     ) -> list["IPv6Address"]:
         """Resolve hostname with IPv6 preference.
-        
+
         Integrates with IPv6ConnectionManager for Happy Eyeballs-style
         address resolution with learned preferences.
-        
+
         Args:
             hostname: Hostname to resolve.
             domain: Domain for per-domain preference lookup.
-            
+
         Returns:
             List of addresses sorted by preference.
         """
@@ -500,10 +502,10 @@ class DNSPolicyManager:
         domain: str | None = None,
     ) -> "AddressFamily":
         """Get preferred address family for a domain.
-        
+
         Args:
             domain: Domain to check (optional).
-            
+
         Returns:
             Preferred address family.
         """
@@ -544,10 +546,10 @@ class DNSPolicyManager:
         domain: str,
     ) -> "AddressFamily":
         """Get preferred address family for a domain (async version).
-        
+
         Args:
             domain: Domain to check.
-            
+
         Returns:
             Preferred address family based on learned stats.
         """
@@ -585,7 +587,7 @@ _dns_policy_manager: DNSPolicyManager | None = None
 
 def get_dns_policy_manager() -> DNSPolicyManager:
     """Get the global DNS policy manager instance.
-    
+
     Returns:
         DNSPolicyManager instance.
     """
@@ -597,20 +599,15 @@ def get_dns_policy_manager() -> DNSPolicyManager:
 
 async def get_socks_proxy_for_request(use_tor: bool) -> dict[str, str] | None:
     """Convenience function to get proxy dict for a request.
-    
+
     Uses the global DNS policy manager to ensure DNS is resolved
     through Tor when using Tor route (socks5h://).
-    
+
     Args:
         use_tor: Whether to use Tor.
-    
+
     Returns:
         Proxy dictionary or None.
     """
     manager = get_dns_policy_manager()
     return manager.get_proxy_dict(use_tor)
-
-
-
-
-

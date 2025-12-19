@@ -195,6 +195,7 @@ class CausalTrace:
             cause_id: Parent cause ID. If None, this is a root cause.
         """
         import uuid
+
         self.trace_id = str(uuid.uuid4())
         self.parent_id = cause_id
 
@@ -226,4 +227,3 @@ def ensure_logging_configured() -> None:
     if not _logging_configured:
         configure_logging()
         _logging_configured = True
-

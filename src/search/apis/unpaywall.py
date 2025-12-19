@@ -24,9 +24,12 @@ class UnpaywallClient(BaseAcademicClient):
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
+
             config = get_academic_apis_config()
             api_config = config.apis.get("unpaywall", {})
-            base_url = api_config.base_url if api_config.base_url else "https://api.unpaywall.org/v2"
+            base_url = (
+                api_config.base_url if api_config.base_url else "https://api.unpaywall.org/v2"
+            )
             timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
             headers = api_config.headers if api_config.headers else None
 
@@ -34,23 +37,27 @@ class UnpaywallClient(BaseAcademicClient):
             self.email = api_config.email if api_config.email else None
             if not self.email:
                 # Try environment variable
-                self.email = os.environ.get("LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com")
+                self.email = os.environ.get(
+                    "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com"
+                )
         except Exception as e:
             logger.warning("Failed to load Unpaywall config", error=str(e))
             # Fallback to defaults if config loading fails
             base_url = "https://api.unpaywall.org/v2"
             timeout = 30.0
             headers = None
-            self.email = os.environ.get("LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com")
+            self.email = os.environ.get(
+                "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com"
+            )
 
         super().__init__("unpaywall", base_url=base_url, timeout=timeout, headers=headers)
 
     async def resolve_oa_url(self, doi: str) -> str | None:
         """Resolve Open Access URL from DOI.
-        
+
         Args:
             doi: DOI string (with or without https://doi.org/ prefix)
-            
+
         Returns:
             OA URL if available, None otherwise
         """
@@ -66,8 +73,7 @@ class UnpaywallClient(BaseAcademicClient):
 
         async def _fetch():
             response = await session.get(
-                f"{self.base_url}/{normalized_doi}",
-                params={"email": self.email}
+                f"{self.base_url}/{normalized_doi}", params={"email": self.email}
             )
             response.raise_for_status()
             return response.json()
@@ -83,7 +89,9 @@ class UnpaywallClient(BaseAcademicClient):
             # Get best OA URL (prefer PDF, fallback to landing page)
             best_oa_location = data.get("best_oa_location")
             if best_oa_location:
-                oa_url = best_oa_location.get("url_for_pdf") or best_oa_location.get("url_for_landing_page")
+                oa_url = best_oa_location.get("url_for_pdf") or best_oa_location.get(
+                    "url_for_landing_page"
+                )
                 if oa_url:
                     return oa_url
 
@@ -105,15 +113,11 @@ class UnpaywallClient(BaseAcademicClient):
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search is not supported by Unpaywall API."""
         logger.debug("Unpaywall does not support search", query=query)
-        return AcademicSearchResult(
-            papers=[],
-            total_count=0,
-            source_api="unpaywall"
-        )
+        return AcademicSearchResult(papers=[], total_count=0, source_api="unpaywall")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper is not supported by Unpaywall API.
-        
+
         Use resolve_oa_url() instead for DOI-based OA URL resolution.
         """
         logger.debug("Unpaywall does not support get_paper", paper_id=paper_id)

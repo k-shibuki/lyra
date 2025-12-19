@@ -22,6 +22,7 @@ class CrossrefClient(BaseAcademicClient):
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
+
             config = get_academic_apis_config()
             api_config = config.apis.get("crossref", {})
             base_url = api_config.base_url if api_config.base_url else "https://api.crossref.org"
@@ -41,8 +42,7 @@ class CrossrefClient(BaseAcademicClient):
 
         async def _search():
             response = await session.get(
-                f"{self.base_url}/works",
-                params={"query": query, "rows": limit}
+                f"{self.base_url}/works", params={"query": query, "rows": limit}
             )
             response.raise_for_status()
             return response.json()
@@ -55,15 +55,11 @@ class CrossrefClient(BaseAcademicClient):
             return AcademicSearchResult(
                 papers=papers,
                 total_count=data.get("message", {}).get("total-results", 0),
-                source_api="crossref"
+                source_api="crossref",
             )
         except Exception as e:
             logger.error("Crossref search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[],
-                total_count=0,
-                source_api="crossref"
-            )
+            return AcademicSearchResult(papers=[], total_count=0, source_api="crossref")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata by DOI."""
@@ -110,11 +106,7 @@ class CrossrefClient(BaseAcademicClient):
             family = author_data.get("family", "")
             name = f"{given} {family}".strip() if given or family else ""
             if name:
-                authors.append(Author(
-                    name=name,
-                    affiliation=None,
-                    orcid=author_data.get("ORCID")
-                ))
+                authors.append(Author(name=name, affiliation=None, orcid=author_data.get("ORCID")))
 
         doi = data.get("DOI", "")
         if doi and doi.startswith("https://doi.org/"):
@@ -122,7 +114,9 @@ class CrossrefClient(BaseAcademicClient):
 
         # Extract year from publication date
         year = None
-        published = data.get("published-print") or data.get("published-online") or data.get("published")
+        published = (
+            data.get("published-print") or data.get("published-online") or data.get("published")
+        )
         if published and "date-parts" in published:
             date_parts = published["date-parts"][0]
             if date_parts:
@@ -136,15 +130,19 @@ class CrossrefClient(BaseAcademicClient):
 
         return Paper(
             id=f"crossref:{doi}" if doi else f"crossref:{data.get('URL', '').split('/')[-1]}",
-            title=data.get("title", [""])[0] if isinstance(data.get("title"), list) else data.get("title", ""),
+            title=data.get("title", [""])[0]
+            if isinstance(data.get("title"), list)
+            else data.get("title", ""),
             abstract=None,  # Crossref API often does not have abstract
             authors=authors,
             year=year,
             doi=doi if doi else None,
-            venue=data.get("container-title", [""])[0] if isinstance(data.get("container-title"), list) else data.get("container-title"),
+            venue=data.get("container-title", [""])[0]
+            if isinstance(data.get("container-title"), list)
+            else data.get("container-title"),
             citation_count=0,  # Crossref API does not have citation count
             reference_count=len(data.get("reference", [])) if data.get("reference") else 0,
             is_open_access=False,  # Crossref API does not have OA info
             oa_url=None,
-            source_api="crossref"
+            source_api="crossref",
         )

@@ -235,6 +235,7 @@ class TestHTTP3PolicyManager:
     async def test_get_stats_creates_new(self, manager):
         """get_stats should create new stats for unknown domain."""
         import uuid
+
         unique_domain = f"new-domain-{uuid.uuid4().hex[:8]}.test"
 
         stats = await manager.get_stats(unique_domain)
@@ -247,6 +248,7 @@ class TestHTTP3PolicyManager:
     async def test_get_stats_returns_cached(self, manager):
         """get_stats should return cached stats for known domain."""
         import uuid
+
         unique_domain = f"cached-domain-{uuid.uuid4().hex[:8]}.test"
 
         stats1 = await manager.get_stats(unique_domain)
@@ -261,6 +263,7 @@ class TestHTTP3PolicyManager:
     async def test_record_browser_request_success(self, manager):
         """Recording browser success should update stats."""
         import uuid
+
         unique_domain = f"browser-success-{uuid.uuid4().hex[:8]}.test"
 
         result = HTTP3RequestResult(
@@ -284,6 +287,7 @@ class TestHTTP3PolicyManager:
     async def test_record_browser_http3_request(self, manager):
         """Recording HTTP/3 browser request should detect HTTP/3."""
         import uuid
+
         unique_domain = f"h3-browser-{uuid.uuid4().hex[:8]}.test"
 
         result = HTTP3RequestResult(
@@ -308,6 +312,7 @@ class TestHTTP3PolicyManager:
     async def test_record_http_client_request(self, manager):
         """Recording HTTP client request should update stats."""
         import uuid
+
         unique_domain = f"http-cli-{uuid.uuid4().hex[:8]}.test"
 
         result = HTTP3RequestResult(
@@ -330,6 +335,7 @@ class TestHTTP3PolicyManager:
     async def test_record_failed_request(self, manager):
         """Recording failed request should increment count but not success."""
         import uuid
+
         unique_domain = f"failed-{uuid.uuid4().hex[:8]}.test"
 
         result = HTTP3RequestResult(
@@ -351,17 +357,20 @@ class TestHTTP3PolicyManager:
     async def test_behavioral_difference_not_calculated_without_samples(self, manager):
         """Behavioral difference should not be calculated without enough samples."""
         import uuid
+
         unique_domain = f"no-samples-{uuid.uuid4().hex[:8]}.test"
 
         # Only 3 browser requests (below min_samples=5)
         for _ in range(3):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="browser",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         stats = await manager.get_stats(unique_domain)
         assert stats.behavioral_difference_ema == 0.0
@@ -379,27 +388,32 @@ class TestHTTP3PolicyManager:
         This test verifies EMA calculation is working, not boost application.
         """
         import uuid
+
         unique_domain = f"with-samples-{uuid.uuid4().hex[:8]}.test"
 
         # Add browser requests (90% success with HTTP/3)
         for i in range(10):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="browser",
-                success=(i < 9),  # 9 successes, 1 failure
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="browser",
+                    success=(i < 9),  # 9 successes, 1 failure
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         # Add HTTP client requests (60% success)
         for i in range(10):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="http_client",
-                success=(i < 6),  # 6 successes, 4 failures
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="http_client",
+                    success=(i < 6),  # 6 successes, 4 failures
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         stats = await manager.get_stats(unique_domain)
 
@@ -433,6 +447,7 @@ class TestHTTP3PolicyManager:
         This test uses more samples to ensure EMA exceeds threshold.
         """
         import uuid
+
         unique_domain = f"boost-threshold-{uuid.uuid4().hex[:8]}.test"
 
         # Need many samples to push EMA above threshold (0.15)
@@ -440,23 +455,27 @@ class TestHTTP3PolicyManager:
 
         # Add 50 browser requests (100% success with HTTP/3)
         for _ in range(50):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="browser",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         # Add 50 HTTP client requests (40% success = 60% difference)
         for i in range(50):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="http_client",
-                success=(i % 5 < 2),  # 40% success (2 out of every 5)
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="http_client",
+                    success=(i % 5 < 2),  # 40% success (2 out of every 5)
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         stats = await manager.get_stats(unique_domain)
 
@@ -481,27 +500,32 @@ class TestHTTP3PolicyManager:
         Tests boundary: 4 samples = no calculation, 5 samples = calculation starts.
         """
         import uuid
+
         unique_domain = f"boundary-{uuid.uuid4().hex[:8]}.test"
 
         # Add exactly 4 browser requests (below min_samples=5)
-        for i in range(4):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+        for _i in range(4):
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="browser",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         # Add exactly 4 HTTP client requests (below min_samples=5)
-        for i in range(4):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="http_client",
-                success=False,  # 0% success to create max difference
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+        for _i in range(4):
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="http_client",
+                    success=False,  # 0% success to create max difference
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         stats = await manager.get_stats(unique_domain)
 
@@ -511,22 +535,26 @@ class TestHTTP3PolicyManager:
         )
 
         # Add 5th browser request
-        await manager.record_request(HTTP3RequestResult(
-            domain=unique_domain,
-            url=f"https://{unique_domain}/page",
-            route="browser",
-            success=True,
-            protocol=ProtocolVersion.HTTP_3,
-        ))
+        await manager.record_request(
+            HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            )
+        )
 
         # Add 5th HTTP client request (failure)
-        await manager.record_request(HTTP3RequestResult(
-            domain=unique_domain,
-            url=f"https://{unique_domain}/page",
-            route="http_client",
-            success=False,
-            protocol=ProtocolVersion.HTTP_2,
-        ))
+        await manager.record_request(
+            HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="http_client",
+                success=False,
+                protocol=ProtocolVersion.HTTP_2,
+            )
+        )
 
         stats = await manager.get_stats(unique_domain)
 
@@ -550,13 +578,15 @@ class TestHTTP3PolicyManager:
     async def test_get_policy_decision_http3_no_difference(self, manager):
         """Policy decision should not boost when HTTP/3 but no behavioral difference."""
         # Record HTTP/3 detection
-        await manager.record_request(HTTP3RequestResult(
-            domain="http3-no-diff.com",
-            url="https://http3-no-diff.com/page",
-            route="browser",
-            success=True,
-            protocol=ProtocolVersion.HTTP_3,
-        ))
+        await manager.record_request(
+            HTTP3RequestResult(
+                domain="http3-no-diff.com",
+                url="https://http3-no-diff.com/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            )
+        )
 
         decision = await manager.get_policy_decision("http3-no-diff.com")
 
@@ -601,6 +631,7 @@ class TestHTTP3PolicyManager:
     async def test_get_all_stats_with_data(self):
         """get_all_stats should return all cached stats."""
         import uuid
+
         fresh_manager = HTTP3PolicyManager()
 
         domain1 = f"stats-test-1-{uuid.uuid4().hex[:8]}.test"
@@ -632,13 +663,15 @@ class TestHTTP3PolicyManagerDBIntegration:
             manager = HTTP3PolicyManager()
 
             # Record a request - this will try to save to DB
-            await manager.record_request(HTTP3RequestResult(
-                domain="db-test.com",
-                url="https://db-test.com/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain="db-test.com",
+                    url="https://db-test.com/page",
+                    route="browser",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
             # Stats should be created and cached
             stats = await manager.get_stats("db-test.com")
@@ -738,27 +771,32 @@ class TestEMACalculation:
         First update from 0: ema = 0.1 * difference + 0.9 * 0 = 0.1 * difference
         """
         import uuid
+
         unique_domain = f"ema-single-{uuid.uuid4().hex[:8]}.test"
 
         # Setup: 5 browser requests (100% success, all HTTP/3)
         for _ in range(5):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="browser",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         # 5 HTTP client requests (0% success)
         for _ in range(5):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="http_client",
-                success=False,
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="http_client",
+                    success=False,
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         stats = await manager.get_stats(unique_domain)
 
@@ -777,26 +815,31 @@ class TestEMACalculation:
         Per §4.3: Decay formula when no advantage detected.
         """
         import uuid
+
         unique_domain = f"ema-decay-{uuid.uuid4().hex[:8]}.test"
 
         # First: establish high EMA with browser advantage
         for _ in range(10):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="browser",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         for _ in range(10):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="http_client",
-                success=False,  # 0% success
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="http_client",
+                    success=False,  # 0% success
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         stats = await manager.get_stats(unique_domain)
         high_ema = stats.behavioral_difference_ema
@@ -804,13 +847,15 @@ class TestEMACalculation:
 
         # Now: HTTP client starts succeeding (no more advantage)
         for _ in range(20):
-            await manager.record_request(HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="http_client",
-                success=True,  # 100% success now
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain=unique_domain,
+                    url=f"https://{unique_domain}/page",
+                    route="http_client",
+                    success=True,  # 100% success now
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         stats = await manager.get_stats(unique_domain)
 
@@ -841,23 +886,27 @@ class TestHTTP3PolicyIntegration:
         # Browser requests: 20 total, 18 success (90%), all HTTP/3
         # Need more samples for EMA to converge
         for i in range(20):
-            await manager.record_request(HTTP3RequestResult(
-                domain="http3advantage.com",
-                url="https://http3advantage.com/page",
-                route="browser",
-                success=(i < 18),
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain="http3advantage.com",
+                    url="https://http3advantage.com/page",
+                    route="browser",
+                    success=(i < 18),
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         # HTTP client requests: 20 total, 10 success (50%), HTTP/2
         for i in range(20):
-            await manager.record_request(HTTP3RequestResult(
-                domain="http3advantage.com",
-                url="https://http3advantage.com/page",
-                route="http_client",
-                success=(i < 10),
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain="http3advantage.com",
+                    url="https://http3advantage.com/page",
+                    route="http_client",
+                    success=(i < 10),
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         # Get policy decision
         decision = await manager.get_policy_decision("http3advantage.com")
@@ -881,22 +930,26 @@ class TestHTTP3PolicyIntegration:
         """
         # Both routes perform equally well (90% success)
         for i in range(10):
-            await manager.record_request(HTTP3RequestResult(
-                domain="equalsite.com",
-                url="https://equalsite.com/page",
-                route="browser",
-                success=(i < 9),
-                protocol=ProtocolVersion.HTTP_3,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain="equalsite.com",
+                    url="https://equalsite.com/page",
+                    route="browser",
+                    success=(i < 9),
+                    protocol=ProtocolVersion.HTTP_3,
+                )
+            )
 
         for i in range(10):
-            await manager.record_request(HTTP3RequestResult(
-                domain="equalsite.com",
-                url="https://equalsite.com/page",
-                route="http_client",
-                success=(i < 9),
-                protocol=ProtocolVersion.HTTP_2,
-            ))
+            await manager.record_request(
+                HTTP3RequestResult(
+                    domain="equalsite.com",
+                    url="https://equalsite.com/page",
+                    route="http_client",
+                    success=(i < 9),
+                    protocol=ProtocolVersion.HTTP_2,
+                )
+            )
 
         decision = await manager.get_policy_decision("equalsite.com")
 
@@ -904,4 +957,3 @@ class TestHTTP3PolicyIntegration:
         assert decision.http3_available is True
         assert decision.prefer_browser is False
         assert decision.browser_ratio_boost == 0.0
-

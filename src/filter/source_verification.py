@@ -35,9 +35,9 @@ logger = get_logger(__name__)
 class PromotionResult(str, Enum):
     """Result of trust level promotion/demotion check."""
 
-    PROMOTED = "promoted"      # Promoted to LOW from UNVERIFIED
-    DEMOTED = "demoted"        # Demoted to BLOCKED
-    UNCHANGED = "unchanged"    # No change in trust level
+    PROMOTED = "promoted"  # Promoted to LOW from UNVERIFIED
+    DEMOTED = "demoted"  # Demoted to BLOCKED
+    UNCHANGED = "unchanged"  # No change in trust level
 
 
 @dataclass
@@ -76,9 +76,7 @@ class DomainVerificationState:
     verified_claims: list[str] = field(default_factory=list)
     rejected_claims: list[str] = field(default_factory=list)
     pending_claims: list[str] = field(default_factory=list)
-    last_updated: str = field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    last_updated: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     @property
     def total_claims(self) -> int:
@@ -102,7 +100,7 @@ class DomainVerificationState:
 
 class SourceVerifier:
     """Verifies sources and manages trust level changes (§4.4.1 L6).
-    
+
     This class coordinates:
     1. EvidenceGraph queries for claim confidence
     2. Contradiction detection
@@ -120,7 +118,9 @@ class SourceVerifier:
         self._domain_states: dict[str, DomainVerificationState] = {}
         self._blocked_domains: set[str] = set()
         # K.3-8: Pending blocked notifications (processed via send_pending_notifications)
-        self._pending_blocked_notifications: list[tuple[str, str, str | None]] = []  # (domain, reason, task_id)
+        self._pending_blocked_notifications: list[
+            tuple[str, str, str | None]
+        ] = []  # (domain, reason, task_id)
 
     def verify_claim(
         self,
@@ -130,13 +130,13 @@ class SourceVerifier:
         has_dangerous_pattern: bool = False,
     ) -> VerificationResult:
         """Verify a claim using EvidenceGraph.
-        
+
         Args:
             claim_id: ID of the claim to verify.
             domain: Source domain of the claim.
             evidence_graph: EvidenceGraph instance for querying.
             has_dangerous_pattern: Whether L2/L4 detected dangerous patterns.
-            
+
         Returns:
             VerificationResult with status and trust level changes.
         """
@@ -188,7 +188,8 @@ class SourceVerifier:
         # Check for contradictions
         contradictions = evidence_graph.find_contradictions()
         claim_contradictions = [
-            c for c in contradictions
+            c
+            for c in contradictions
             if c.get("claim1_id") == claim_id or c.get("claim2_id") == claim_id
         ]
 
@@ -224,10 +225,7 @@ class SourceVerifier:
         )
 
         # K.3-8: If demoted to BLOCKED via contradictions, queue notification
-        if (
-            promotion_result == PromotionResult.DEMOTED
-            and new_trust_level == TrustLevel.BLOCKED
-        ):
+        if promotion_result == PromotionResult.DEMOTED and new_trust_level == TrustLevel.BLOCKED:
             self._blocked_domains.add(domain)
             self._queue_blocked_notification(domain, reason, task_id=None)
 
@@ -279,17 +277,17 @@ class SourceVerifier:
         has_contradictions: bool,
     ) -> tuple[VerificationStatus, TrustLevel, PromotionResult, str]:
         """Determine verification outcome based on evidence.
-        
+
         Args:
             original_trust_level: Current trust level of domain.
             confidence_info: Confidence assessment from EvidenceGraph.
             has_contradictions: Whether contradictions were found.
-            
+
         Returns:
             Tuple of (status, new_trust_level, promotion_result, reason).
         """
         independent_sources = confidence_info.get("independent_sources", 0)
-        verdict = confidence_info.get("verdict", "unverified")
+        confidence_info.get("verdict", "unverified")
         refuting_count = confidence_info.get("refuting_count", 0)
 
         # Case 1: Contradiction detected → REJECTED, possibly BLOCKED
@@ -342,7 +340,7 @@ class SourceVerifier:
         status: VerificationStatus,
     ) -> None:
         """Update domain verification state.
-        
+
         Args:
             domain: Domain to update.
             claim_id: Claim ID being verified.
@@ -374,10 +372,10 @@ class SourceVerifier:
 
     def get_domain_state(self, domain: str) -> DomainVerificationState | None:
         """Get verification state for a domain.
-        
+
         Args:
             domain: Domain to look up.
-            
+
         Returns:
             Domain state or None if not tracked.
         """
@@ -385,10 +383,10 @@ class SourceVerifier:
 
     def is_domain_blocked(self, domain: str) -> bool:
         """Check if a domain is blocked.
-        
+
         Args:
             domain: Domain to check.
-            
+
         Returns:
             True if domain is blocked.
         """
@@ -398,7 +396,7 @@ class SourceVerifier:
 
     def get_blocked_domains(self) -> list[str]:
         """Get list of blocked domains.
-        
+
         Returns:
             List of blocked domain names.
         """
@@ -411,9 +409,9 @@ class SourceVerifier:
         task_id: str | None = None,
     ) -> None:
         """Queue a blocked domain notification (K.3-8).
-        
+
         Notifications are queued and sent asynchronously via send_pending_notifications().
-        
+
         Args:
             domain: Domain that was blocked.
             reason: Reason for blocking.
@@ -432,13 +430,13 @@ class SourceVerifier:
 
     async def send_pending_notifications(self, task_id: str | None = None) -> list[dict]:
         """Send pending blocked domain notifications (K.3-8).
-        
+
         Call this method after batch verification to send notifications.
         The notifications inform Cursor AI that domains have been blocked.
-        
+
         Args:
             task_id: Override task_id for all notifications (optional).
-            
+
         Returns:
             List of notification results.
         """
@@ -465,17 +463,19 @@ class SourceVerifier:
                     domain=domain,
                     error=str(e),
                 )
-                results.append({
-                    "error": str(e),
-                    "domain": domain,
-                    "reason": reason,
-                })
+                results.append(
+                    {
+                        "error": str(e),
+                        "domain": domain,
+                        "reason": reason,
+                    }
+                )
 
         return results
 
     def get_pending_notification_count(self) -> int:
         """Get count of pending blocked notifications.
-        
+
         Returns:
             Number of pending notifications.
         """
@@ -486,10 +486,10 @@ class SourceVerifier:
         verification_results: list[VerificationResult],
     ) -> ResponseMetaBuilder:
         """Build response metadata from verification results.
-        
+
         Args:
             verification_results: List of verification results.
-            
+
         Returns:
             ResponseMetaBuilder with claim metadata attached.
         """
@@ -536,7 +536,7 @@ _verifier: SourceVerifier | None = None
 
 def get_source_verifier() -> SourceVerifier:
     """Get global source verifier instance.
-    
+
     Returns:
         SourceVerifier instance.
     """
@@ -550,4 +550,3 @@ def reset_source_verifier() -> None:
     """Reset global source verifier (for testing)."""
     global _verifier
     _verifier = None
-

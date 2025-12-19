@@ -47,6 +47,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -70,6 +71,7 @@ class CAPTCHAFlowVerifier:
         # Check browser connectivity
         try:
             from src.crawler.browser_provider import get_browser_provider
+
             provider = await get_browser_provider()
             if provider:
                 self.browser_available = True
@@ -87,7 +89,8 @@ class CAPTCHAFlowVerifier:
         # Check notification system
         try:
             from src.utils.notification import InterventionManager
-            manager = InterventionManager()
+
+            InterventionManager()
             print("  ✓ Notification system available")
         except Exception as e:
             print(f"  ✗ Notification system failed: {e}")
@@ -96,7 +99,8 @@ class CAPTCHAFlowVerifier:
         # Check database
         try:
             from src.storage.database import get_database
-            db = await get_database()
+
+            await get_database()
             print("  ✓ Database available")
         except Exception as e:
             print(f"  ✗ Database failed: {e}")
@@ -113,7 +117,7 @@ class CAPTCHAFlowVerifier:
         from src.utils.notification import get_intervention_queue
 
         queue = get_intervention_queue()
-        db = await get_database()
+        await get_database()
 
         # Test data - multiple URLs for same domain and different domains
         test_cases = [
@@ -137,7 +141,7 @@ class CAPTCHAFlowVerifier:
 
             # Verify all items are in queue
             pending = await queue.get_pending()
-            pending_ids = {item['id'] for item in pending}
+            pending_ids = {item["id"] for item in pending}
 
             all_queued = all(qid in pending_ids for qid in queue_ids)
 
@@ -318,7 +322,7 @@ class CAPTCHAFlowVerifier:
 
                     # Verify the blocked item is still pending
                     pending = await queue.get_pending()
-                    still_pending = any(item['id'] == queue_id for item in pending)
+                    still_pending = any(item["id"] == queue_id for item in pending)
 
                     if still_pending:
                         print("    ✓ Blocked item still in queue (parallel processing works)")
@@ -403,7 +407,9 @@ class CAPTCHAFlowVerifier:
                     details={"expected": expected_order, "actual": actual_order},
                 )
             else:
-                print(f"    ✗ Priority order incorrect: expected {expected_order}, got {actual_order}")
+                print(
+                    f"    ✗ Priority order incorrect: expected {expected_order}, got {actual_order}"
+                )
                 return VerificationResult(
                     name="Priority Ordering",
                     spec_ref="§3.6.1 優先度管理",
@@ -442,8 +448,8 @@ class CAPTCHAFlowVerifier:
 
             for i in range(notification_count):
                 sent = await manager.send_toast(
-                    title=f"Lancet: Test Notification {i+1}",
-                    message=f"This is test notification {i+1}/{notification_count}.\nVerifying notification system.",
+                    title=f"Lancet: Test Notification {i + 1}",
+                    message=f"This is test notification {i + 1}/{notification_count}.\nVerifying notification system.",
                     timeout_seconds=2,
                 )
                 if sent:
@@ -453,7 +459,9 @@ class CAPTCHAFlowVerifier:
             success_rate = success_count / notification_count
             threshold = 0.99  # §7: ≥99%
 
-            print(f"    Notification success rate: {success_rate:.1%} ({success_count}/{notification_count})")
+            print(
+                f"    Notification success rate: {success_rate:.1%} ({success_count}/{notification_count})"
+            )
 
             if success_rate >= threshold:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
@@ -511,7 +519,7 @@ class CAPTCHAFlowVerifier:
             for i in range(foreground_count):
                 success = await manager.bring_to_front(
                     url="https://example.com",
-                    reason=f"Test foreground {i+1}",
+                    reason=f"Test foreground {i + 1}",
                 )
                 if success:
                     success_count += 1
@@ -520,7 +528,9 @@ class CAPTCHAFlowVerifier:
             success_rate = success_count / foreground_count
             threshold = 0.95  # §7: ≥95%
 
-            print(f"    Foreground success rate: {success_rate:.1%} ({success_count}/{foreground_count})")
+            print(
+                f"    Foreground success rate: {success_rate:.1%} ({success_count}/{foreground_count})"
+            )
 
             if success_rate >= threshold:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
@@ -691,7 +701,9 @@ class CAPTCHAFlowVerifier:
                 print(f"      Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if failed > 0:

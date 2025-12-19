@@ -44,6 +44,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -68,6 +69,7 @@ class SessionTransferVerifier:
         # Check browser connectivity
         try:
             from src.crawler.browser_provider import get_browser_provider
+
             provider = await get_browser_provider()
             if provider:
                 self.browser_available = True
@@ -84,7 +86,8 @@ class SessionTransferVerifier:
         # Check session transfer manager
         try:
             from src.crawler.session_transfer import get_session_transfer_manager
-            manager = get_session_transfer_manager()
+
+            get_session_transfer_manager()
             print("  ✓ Session transfer manager available")
         except Exception as e:
             print(f"  ✗ Session transfer manager failed: {e}")
@@ -130,7 +133,7 @@ class SessionTransferVerifier:
             # Capture session
             if fetcher._browser and fetcher._context:
                 response_headers = {}
-                if hasattr(result, 'headers') and result.headers:
+                if hasattr(result, "headers") and result.headers:
                     response_headers = dict(result.headers)
 
                 session_id = await manager.capture_from_browser(
@@ -599,11 +602,15 @@ class SessionTransferVerifier:
             # Capture session with response headers
             if browser_fetcher._browser and browser_fetcher._context:
                 response_headers = {}
-                if hasattr(result1, 'headers') and result1.headers:
+                if hasattr(result1, "headers") and result1.headers:
                     response_headers = dict(result1.headers)
-                    etag = response_headers.get('etag') or response_headers.get('ETag')
-                    last_mod = response_headers.get('last-modified') or response_headers.get('Last-Modified')
-                    print(f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})")
+                    etag = response_headers.get("etag") or response_headers.get("ETag")
+                    last_mod = response_headers.get("last-modified") or response_headers.get(
+                        "Last-Modified"
+                    )
+                    print(
+                        f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})"
+                    )
 
                 session_id = await manager.capture_from_browser(
                     browser_fetcher._context,
@@ -647,8 +654,8 @@ class SessionTransferVerifier:
 
             # Check if conditional headers are present
             has_conditional = (
-                "If-None-Match" in transfer_result.headers or
-                "If-Modified-Since" in transfer_result.headers
+                "If-None-Match" in transfer_result.headers
+                or "If-Modified-Since" in transfer_result.headers
             )
 
             if not has_conditional:
@@ -661,7 +668,9 @@ class SessionTransferVerifier:
                     skip_reason="Target site does not provide ETag/Last-Modified",
                 )
 
-            print(f"    ✓ Conditional headers: If-None-Match={transfer_result.headers.get('If-None-Match', 'N/A')}")
+            print(
+                f"    ✓ Conditional headers: If-None-Match={transfer_result.headers.get('If-None-Match', 'N/A')}"
+            )
 
             # Make HTTP request with conditional headers
             policy = FetchPolicy(
@@ -752,7 +761,7 @@ class SessionTransferVerifier:
                 await asyncio.sleep(0.1)  # Small delay for ordering
 
             stats = test_manager.get_session_stats()
-            if stats['total_sessions'] > 3:
+            if stats["total_sessions"] > 3:
                 return VerificationResult(
                     name="Session Lifecycle",
                     spec_ref="Session management",
@@ -768,8 +777,10 @@ class SessionTransferVerifier:
             test_manager._cleanup_expired_sessions()
             stats = test_manager.get_session_stats()
 
-            if stats['total_sessions'] > 0:
-                print(f"    ! {stats['total_sessions']} session(s) still active (may be recently accessed)")
+            if stats["total_sessions"] > 0:
+                print(
+                    f"    ! {stats['total_sessions']} session(s) still active (may be recently accessed)"
+                )
             else:
                 print("    ✓ All sessions expired")
 
@@ -784,7 +795,7 @@ class SessionTransferVerifier:
             print(f"    ✓ Invalidated {count} session(s) for invalidate1.com")
 
             stats = test_manager.get_session_stats()
-            if "invalidate1.com" in stats.get('domains', {}):
+            if "invalidate1.com" in stats.get("domains", {}):
                 return VerificationResult(
                     name="Session Lifecycle",
                     spec_ref="Session management",
@@ -861,7 +872,9 @@ class SessionTransferVerifier:
                 print(f"      Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if failed > 0:

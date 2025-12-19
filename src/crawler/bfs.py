@@ -33,16 +33,17 @@ logger = get_logger(__name__)
 # Enums and Data Classes
 # =============================================================================
 
+
 class LinkType(Enum):
     """Type of link based on context."""
 
-    NAVIGATION = "navigation"       # Header/footer navigation
-    TOC = "toc"                     # Table of contents
-    HEADING = "heading"             # Links within headings
-    RELATED = "related"             # Related articles section
-    BODY = "body"                   # General body content
-    SIDEBAR = "sidebar"             # Sidebar links
-    PAGINATION = "pagination"       # Pagination links
+    NAVIGATION = "navigation"  # Header/footer navigation
+    TOC = "toc"  # Table of contents
+    HEADING = "heading"  # Links within headings
+    RELATED = "related"  # Related articles section
+    BODY = "body"  # General body content
+    SIDEBAR = "sidebar"  # Sidebar links
+    PAGINATION = "pagination"  # Pagination links
     UNKNOWN = "unknown"
 
 
@@ -102,9 +103,10 @@ class BFSResult:
 # Link Extractor
 # =============================================================================
 
+
 class LinkExtractor:
     """Extract and classify links from HTML content.
-    
+
     Identifies link types based on:
     - Container element (nav, aside, main, article)
     - CSS classes/IDs (toc, related, pagination)
@@ -114,47 +116,71 @@ class LinkExtractor:
 
     # CSS selectors for different link types
     NAV_SELECTORS = [
-        "nav", "header nav", "footer nav",
-        "[role='navigation']", ".navigation", ".nav",
+        "nav",
+        "header nav",
+        "footer nav",
+        "[role='navigation']",
+        ".navigation",
+        ".nav",
     ]
 
     TOC_SELECTORS = [
-        ".toc", ".table-of-contents", "#toc",
-        "[class*='toc']", "[id*='toc']",
-        ".contents", "#contents",
+        ".toc",
+        ".table-of-contents",
+        "#toc",
+        "[class*='toc']",
+        "[id*='toc']",
+        ".contents",
+        "#contents",
     ]
 
     RELATED_SELECTORS = [
-        ".related", ".related-articles", ".related-posts",
-        "[class*='related']", ".see-also", ".also-read",
-        ".recommended", ".suggestions",
+        ".related",
+        ".related-articles",
+        ".related-posts",
+        "[class*='related']",
+        ".see-also",
+        ".also-read",
+        ".recommended",
+        ".suggestions",
     ]
 
     SIDEBAR_SELECTORS = [
-        "aside", ".sidebar", "#sidebar",
+        "aside",
+        ".sidebar",
+        "#sidebar",
         "[role='complementary']",
     ]
 
     PAGINATION_SELECTORS = [
-        ".pagination", ".pager", ".page-numbers",
-        "[class*='pagination']", "nav.pagination",
+        ".pagination",
+        ".pager",
+        ".page-numbers",
+        "[class*='pagination']",
+        "nav.pagination",
     ]
 
     # Patterns to identify low-value links
     SKIP_PATTERNS = [
-        r"^#",                          # Anchor only
-        r"^javascript:",                 # JavaScript links
-        r"^mailto:",                     # Email links
-        r"^tel:",                        # Phone links
+        r"^#",  # Anchor only
+        r"^javascript:",  # JavaScript links
+        r"^mailto:",  # Email links
+        r"^tel:",  # Phone links
         r"\.(jpg|jpeg|png|gif|svg|pdf|zip|exe|mp3|mp4|avi)$",  # Media files
-        r"/tag/", r"/tags/",            # Tag pages
-        r"/category/", r"/categories/", # Category pages
-        r"/author/", r"/authors/",      # Author pages
-        r"/page/\d+",                   # Pagination
-        r"/feed/", r"/rss",             # RSS feeds
-        r"/search",                     # Search pages
-        r"/login", r"/register",        # Auth pages
-        r"/cart", r"/checkout",         # E-commerce
+        r"/tag/",
+        r"/tags/",  # Tag pages
+        r"/category/",
+        r"/categories/",  # Category pages
+        r"/author/",
+        r"/authors/",  # Author pages
+        r"/page/\d+",  # Pagination
+        r"/feed/",
+        r"/rss",  # RSS feeds
+        r"/search",  # Search pages
+        r"/login",
+        r"/register",  # Auth pages
+        r"/cart",
+        r"/checkout",  # E-commerce
     ]
 
     def __init__(self):
@@ -168,12 +194,12 @@ class LinkExtractor:
         target_domain: str,
     ) -> list[ExtractedLink]:
         """Extract links from HTML content.
-        
+
         Args:
             html: HTML content.
             base_url: Base URL for resolving relative links.
             target_domain: Target domain to filter same-domain links.
-            
+
         Returns:
             List of ExtractedLink objects.
         """
@@ -216,14 +242,16 @@ class LinkExtractor:
             text = anchor.get_text(strip=True)[:200]
             context = self._get_context(anchor)
 
-            links.append(ExtractedLink(
-                url=absolute_url,
-                text=text,
-                link_type=link_type,
-                priority=priority,
-                source_url=base_url,
-                context=context,
-            ))
+            links.append(
+                ExtractedLink(
+                    url=absolute_url,
+                    text=text,
+                    link_type=link_type,
+                    priority=priority,
+                    source_url=base_url,
+                    context=context,
+                )
+            )
 
         # Sort by priority
         links.sort(key=lambda x: x.priority, reverse=True)
@@ -239,11 +267,11 @@ class LinkExtractor:
 
     def _classify_link(self, anchor, soup: BeautifulSoup) -> LinkType:
         """Classify link type based on context.
-        
+
         Args:
             anchor: BeautifulSoup anchor element.
             soup: Full BeautifulSoup document.
-            
+
         Returns:
             LinkType enum value.
         """
@@ -284,23 +312,23 @@ class LinkExtractor:
 
     def _calculate_priority(self, anchor, link_type: LinkType) -> float:
         """Calculate link priority score.
-        
+
         Args:
             anchor: BeautifulSoup anchor element.
             link_type: Classified link type.
-            
+
         Returns:
             Priority score (0.0 - 1.0).
         """
         # Base priority by type (per §3.1.2)
         type_priority = {
-            LinkType.HEADING: 0.9,      # High value - linked from headings
-            LinkType.TOC: 0.85,         # Table of contents - structured
-            LinkType.RELATED: 0.8,      # Related articles - editorial choice
-            LinkType.BODY: 0.6,         # General body links
-            LinkType.SIDEBAR: 0.4,      # Sidebar - often secondary
-            LinkType.NAVIGATION: 0.3,   # Navigation - structural
-            LinkType.PAGINATION: 0.2,   # Pagination - low priority
+            LinkType.HEADING: 0.9,  # High value - linked from headings
+            LinkType.TOC: 0.85,  # Table of contents - structured
+            LinkType.RELATED: 0.8,  # Related articles - editorial choice
+            LinkType.BODY: 0.6,  # General body links
+            LinkType.SIDEBAR: 0.4,  # Sidebar - often secondary
+            LinkType.NAVIGATION: 0.3,  # Navigation - structural
+            LinkType.PAGINATION: 0.2,  # Pagination - low priority
             LinkType.UNKNOWN: 0.5,
         }
 
@@ -325,11 +353,11 @@ class LinkExtractor:
 
     def _get_context(self, anchor, chars: int = 100) -> str:
         """Get surrounding text context for link.
-        
+
         Args:
             anchor: BeautifulSoup anchor element.
             chars: Characters of context to extract.
-            
+
         Returns:
             Context string.
         """
@@ -347,9 +375,10 @@ class LinkExtractor:
 # BFS Crawler
 # =============================================================================
 
+
 class DomainBFSCrawler:
     """Breadth-first search crawler within a single domain.
-    
+
     Implements §3.1.2 requirements:
     - Maximum depth of 2 from seed URL
     - Heading/TOC/related article link prioritization
@@ -375,14 +404,14 @@ class DomainBFSCrawler:
         task_id: str | None = None,
     ) -> BFSResult:
         """Perform BFS crawl from seed URL within domain.
-        
+
         Args:
             seed_url: Starting URL for crawl.
             max_depth: Maximum depth (default: 2).
             max_urls: Maximum URLs to discover.
             fetch_content: Async function to fetch URL content.
             task_id: Associated task ID for logging.
-            
+
         Returns:
             BFSResult with discovered URLs.
         """
@@ -401,7 +430,7 @@ class DomainBFSCrawler:
         visited: set[str] = set()
         discovered: list[ExtractedLink] = []
 
-        with CausalTrace() as trace:
+        with CausalTrace():
             logger.info(
                 "Starting domain BFS",
                 domain=domain,
@@ -481,11 +510,11 @@ class DomainBFSCrawler:
         fetch_content: Callable[[str], Any] | None,
     ) -> str | None:
         """Fetch HTML content from URL.
-        
+
         Args:
             url: URL to fetch.
             fetch_content: Custom fetch function, or use default.
-            
+
         Returns:
             HTML content or None.
         """
@@ -499,6 +528,7 @@ class DomainBFSCrawler:
                     html_path = result.get("html_path")
                     if html_path:
                         from pathlib import Path
+
                         return Path(html_path).read_text(errors="replace")
                 return None
 
@@ -531,14 +561,14 @@ class DomainBFSCrawler:
         limit: int = 20,
     ) -> list[tuple[str, float, str]]:
         """Get high-priority links from a single page.
-        
+
         Useful for targeted link extraction without full BFS.
-        
+
         Args:
             html: HTML content.
             base_url: Base URL for resolving.
             limit: Maximum links to return.
-            
+
         Returns:
             List of (url, priority, link_type) tuples.
         """
@@ -549,16 +579,13 @@ class DomainBFSCrawler:
 
         # Filter by robots.txt
         allowed_links = []
-        for link in links[:limit * 2]:  # Check more than needed
+        for link in links[: limit * 2]:  # Check more than needed
             if await self._robots_manager.can_fetch(link.url):
                 allowed_links.append(link)
             if len(allowed_links) >= limit:
                 break
 
-        return [
-            (link.url, link.priority, link.link_type.value)
-            for link in allowed_links[:limit]
-        ]
+        return [(link.url, link.priority, link.link_type.value) for link in allowed_links[:limit]]
 
 
 # =============================================================================
@@ -570,7 +597,7 @@ _bfs_crawler: DomainBFSCrawler | None = None
 
 def get_bfs_crawler() -> DomainBFSCrawler:
     """Get or create global BFS crawler instance.
-    
+
     Returns:
         DomainBFSCrawler instance.
     """
@@ -584,6 +611,7 @@ def get_bfs_crawler() -> DomainBFSCrawler:
 # MCP Tool Integration
 # =============================================================================
 
+
 async def explore_domain(
     seed_url: str,
     max_depth: int = 2,
@@ -591,13 +619,13 @@ async def explore_domain(
     task_id: str | None = None,
 ) -> dict[str, Any]:
     """Explore domain via BFS from seed URL (for MCP tool use).
-    
+
     Args:
         seed_url: Starting URL.
         max_depth: Maximum crawl depth.
         max_urls: Maximum URLs to discover.
         task_id: Associated task ID.
-        
+
     Returns:
         BFS exploration result.
     """
@@ -617,12 +645,12 @@ async def extract_page_links(
     limit: int = 20,
 ) -> dict[str, Any]:
     """Extract priority links from a page (for MCP tool use).
-    
+
     Args:
         html: HTML content.
         base_url: Page URL.
         limit: Maximum links.
-        
+
     Returns:
         Extracted links with priorities.
     """
@@ -640,11 +668,3 @@ async def extract_page_links(
         ],
         "total": len(links),
     }
-
-
-
-
-
-
-
-

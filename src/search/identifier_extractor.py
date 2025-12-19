@@ -26,7 +26,9 @@ class IdentifierExtractor:
         "jstage_doi": re.compile(r"jstage\.jst\.go\.jp/.*/(10\.\d+/[^/?#]+)", re.IGNORECASE),
         "cinii_crid": re.compile(r"cir\.nii\.ac\.jp/crid/(\d+)", re.IGNORECASE),
         "nature_doi": re.compile(r"nature\.com/articles/(s\d+-\d+-\d+-\w+)", re.IGNORECASE),
-        "sciencedirect_doi": re.compile(r"sciencedirect\.com/science/article/pii/([A-Z0-9]+)", re.IGNORECASE),
+        "sciencedirect_doi": re.compile(
+            r"sciencedirect\.com/science/article/pii/([A-Z0-9]+)", re.IGNORECASE
+        ),
     }
 
     def extract(self, url: str) -> PaperIdentifier:
@@ -114,7 +116,9 @@ class IdentifierExtractor:
         domain_lower = parsed.netloc.lower()
         if any(academic_domain in domain_lower for academic_domain in academic_domains):
             identifier.needs_meta_extraction = True
-            logger.debug("Detected academic domain, needs meta extraction", domain=domain_lower, url=url)
+            logger.debug(
+                "Detected academic domain, needs meta extraction", domain=domain_lower, url=url
+            )
 
         return identifier
 

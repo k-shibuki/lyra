@@ -42,6 +42,7 @@ from src.mcp.schemas import clear_cache, get_schema
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def sanitizer():
     """Create a fresh sanitizer instance."""
@@ -67,6 +68,7 @@ def clear_schema_cache():
 # ============================================================================
 # Normal Cases (TC-N-*)
 # ============================================================================
+
 
 class TestNormalCases:
     """Test normal/expected use cases."""
@@ -229,6 +231,7 @@ class TestNormalCases:
 # Abnormal Cases (TC-A-*)
 # ============================================================================
 
+
 class TestAbnormalCases:
     """Test error and edge cases."""
 
@@ -283,7 +286,7 @@ class TestAbnormalCases:
             ],
         }
 
-        with patch("src.mcp.response_sanitizer.logger") as mock_logger:
+        with patch("src.mcp.response_sanitizer.logger"):
             result = sanitizer.sanitize_response(response, "search")
 
             # URL should still be present (L4 detects but doesn't remove URLs)
@@ -328,7 +331,9 @@ class TestAbnormalCases:
         // Then: Stack trace is removed
         """
         try:
-            raise ValueError("Test error\nTraceback (most recent call last):\n  File \"/home/user/test.py\", line 10, in test\n    raise ValueError")
+            raise ValueError(
+                'Test error\nTraceback (most recent call last):\n  File "/home/user/test.py", line 10, in test\n    raise ValueError'
+            )
         except Exception as e:
             result = sanitizer.sanitize_error(e)
 
@@ -431,6 +436,7 @@ class TestAbnormalCases:
 # ============================================================================
 # Boundary Cases (TC-B-*)
 # ============================================================================
+
 
 class TestBoundaryCases:
     """Test boundary and limit cases."""
@@ -547,6 +553,7 @@ class TestBoundaryCases:
 # Helper Function Tests
 # ============================================================================
 
+
 class TestHelperFunctions:
     """Test helper functions."""
 
@@ -578,6 +585,7 @@ class TestHelperFunctions:
 # ============================================================================
 # Convenience Function Tests
 # ============================================================================
+
 
 class TestConvenienceFunctions:
     """Test module-level convenience functions."""
@@ -629,6 +637,7 @@ class TestConvenienceFunctions:
 # Schema Tests
 # ============================================================================
 
+
 class TestSchemas:
     """Test schema loading and validation."""
 
@@ -673,6 +682,7 @@ class TestSchemas:
 # Integration Tests
 # ============================================================================
 
+
 class TestIntegration:
     """Integration tests with actual MCP server flow."""
 
@@ -709,6 +719,7 @@ class TestIntegration:
 # ============================================================================
 # Security-focused Tests
 # ============================================================================
+
 
 class TestSecurityCases:
     """Security-focused test cases for L7."""
@@ -850,4 +861,3 @@ class TestSecurityCases:
         assert "query" in LLM_CONTENT_FIELDS, (
             "query field must be in LLM_CONTENT_FIELDS for defensive sanitization"
         )
-

@@ -37,16 +37,16 @@ logger = get_logger(__name__)
 class QualityIssue(Enum):
     """Types of quality issues detected."""
 
-    AGGREGATOR = "aggregator"          # Content aggregator/curation site
-    AI_GENERATED = "ai_generated"      # AI-generated content suspected
-    SEO_SPAM = "seo_spam"              # SEO spam patterns
-    THIN_CONTENT = "thin_content"      # Very little actual content
-    AD_HEAVY = "ad_heavy"              # High advertisement density
+    AGGREGATOR = "aggregator"  # Content aggregator/curation site
+    AI_GENERATED = "ai_generated"  # AI-generated content suspected
+    SEO_SPAM = "seo_spam"  # SEO spam patterns
+    THIN_CONTENT = "thin_content"  # Very little actual content
+    AD_HEAVY = "ad_heavy"  # High advertisement density
     TEMPLATE_HEAVY = "template_heavy"  # High boilerplate/template ratio
-    REPETITIVE = "repetitive"          # Repetitive text patterns
+    REPETITIVE = "repetitive"  # Repetitive text patterns
     KEYWORD_STUFFING = "keyword_stuffing"  # Excessive keyword repetition
-    CLICKBAIT = "clickbait"            # Clickbait patterns
-    SCRAPER = "scraper"                # Content scraper/copy site
+    CLICKBAIT = "clickbait"  # Clickbait patterns
+    SCRAPER = "scraper"  # Content scraper/copy site
 
 
 @dataclass
@@ -178,186 +178,322 @@ Respond in JSON format:
 
 class ContentQualityAnalyzer:
     """Analyzer for detecting low-quality and AI-generated content.
-    
+
     Supports two modes:
     1. Rule-based analysis (fast, no external dependencies)
     2. LLM-assisted analysis (more accurate for difficult cases)
-    
+
     LLM analysis is optional and triggered when:
     - Explicitly requested via use_llm=True
     - Rule-based analysis is ambiguous (score between 0.4 and 0.6)
     """
 
     # Common stopwords (English + Japanese)
-    STOPWORDS_EN = frozenset([
-        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-        "of", "with", "by", "from", "as", "is", "was", "are", "were", "been",
-        "be", "have", "has", "had", "do", "does", "did", "will", "would",
-        "could", "should", "may", "might", "must", "shall", "can", "need",
-        "this", "that", "these", "those", "it", "its", "they", "them", "their",
-        "we", "us", "our", "you", "your", "he", "she", "him", "her", "his",
-        "i", "me", "my", "not", "no", "yes", "so", "if", "then", "than",
-        "when", "where", "what", "which", "who", "whom", "how", "why",
-        "all", "each", "every", "both", "few", "more", "most", "other",
-        "some", "such", "only", "own", "same", "just", "also", "very",
-    ])
+    STOPWORDS_EN = frozenset(
+        [
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "from",
+            "as",
+            "is",
+            "was",
+            "are",
+            "were",
+            "been",
+            "be",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "this",
+            "that",
+            "these",
+            "those",
+            "it",
+            "its",
+            "they",
+            "them",
+            "their",
+            "we",
+            "us",
+            "our",
+            "you",
+            "your",
+            "he",
+            "she",
+            "him",
+            "her",
+            "his",
+            "i",
+            "me",
+            "my",
+            "not",
+            "no",
+            "yes",
+            "so",
+            "if",
+            "then",
+            "than",
+            "when",
+            "where",
+            "what",
+            "which",
+            "who",
+            "whom",
+            "how",
+            "why",
+            "all",
+            "each",
+            "every",
+            "both",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "only",
+            "own",
+            "same",
+            "just",
+            "also",
+            "very",
+        ]
+    )
 
-    STOPWORDS_JA = frozenset([
-        "の", "に", "は", "を", "た", "が", "で", "て", "と", "し", "れ", "さ",
-        "ある", "いる", "も", "する", "から", "な", "こと", "として", "い", "や",
-        "れる", "など", "なっ", "ない", "この", "ため", "その", "あっ", "よう",
-        "また", "もの", "という", "あり", "まで", "られ", "なる", "へ", "か",
-        "だ", "これ", "によって", "により", "おり", "より", "による", "ず",
-        "なり", "られる", "において", "ば", "なかっ", "なく", "しかし", "について",
-        "せ", "だっ", "その後", "できる", "それ", "う", "ので", "なお", "のみ",
-        "でき", "き", "つ", "における", "および", "いう", "さらに", "でも",
-    ])
+    STOPWORDS_JA = frozenset(
+        [
+            "の",
+            "に",
+            "は",
+            "を",
+            "た",
+            "が",
+            "で",
+            "て",
+            "と",
+            "し",
+            "れ",
+            "さ",
+            "ある",
+            "いる",
+            "も",
+            "する",
+            "から",
+            "な",
+            "こと",
+            "として",
+            "い",
+            "や",
+            "れる",
+            "など",
+            "なっ",
+            "ない",
+            "この",
+            "ため",
+            "その",
+            "あっ",
+            "よう",
+            "また",
+            "もの",
+            "という",
+            "あり",
+            "まで",
+            "られ",
+            "なる",
+            "へ",
+            "か",
+            "だ",
+            "これ",
+            "によって",
+            "により",
+            "おり",
+            "より",
+            "による",
+            "ず",
+            "なり",
+            "られる",
+            "において",
+            "ば",
+            "なかっ",
+            "なく",
+            "しかし",
+            "について",
+            "せ",
+            "だっ",
+            "その後",
+            "できる",
+            "それ",
+            "う",
+            "ので",
+            "なお",
+            "のみ",
+            "でき",
+            "き",
+            "つ",
+            "における",
+            "および",
+            "いう",
+            "さらに",
+            "でも",
+        ]
+    )
 
     # Ad-related patterns
     AD_PATTERNS = [
         r'class=["\'][^"\']*\b(ad|ads|advert|advertisement|banner|sponsor)\b',
         r'id=["\'][^"\']*\b(ad|ads|advert|advertisement|banner|sponsor)\b',
-        r'data-ad-',
-        r'googlesyndication',
-        r'doubleclick',
-        r'adsense',
-        r'adsbygoogle',
+        r"data-ad-",
+        r"googlesyndication",
+        r"doubleclick",
+        r"adsense",
+        r"adsbygoogle",
         r'class=["\'][^"\']*\b(pr|sponsored|promotion)\b',
     ]
 
     # Affiliate link patterns
     AFFILIATE_PATTERNS = [
-        r'amazon\.[^/]+/.*[?&]tag=',
-        r'amzn\.to/',
-        r'a]\.co/',
-        r'linksynergy\.com',
-        r'shareasale\.com',
-        r'awin1\.com',
-        r'commission-junction',
-        r'clickbank\.net',
-        r'rakuten\.co\.jp/.*\?scid=',
-        r'valuecommerce\.com',
-        r'accesstrade\.net',
-        r'a8\.net',
+        r"amazon\.[^/]+/.*[?&]tag=",
+        r"amzn\.to/",
+        r"a]\.co/",
+        r"linksynergy\.com",
+        r"shareasale\.com",
+        r"awin1\.com",
+        r"commission-junction",
+        r"clickbank\.net",
+        r"rakuten\.co\.jp/.*\?scid=",
+        r"valuecommerce\.com",
+        r"accesstrade\.net",
+        r"a8\.net",
     ]
 
     # Call-to-action patterns
     CTA_PATTERNS = [
-        r'click\s+here',
-        r'buy\s+now',
-        r'sign\s+up',
-        r'subscribe\s+now',
-        r'get\s+started',
-        r'learn\s+more',
-        r'try\s+free',
-        r'download\s+now',
-        r'今すぐ',
-        r'申し込む',
-        r'購入する',
-        r'登録する',
-        r'無料で',
-        r'詳しくはこちら',
+        r"click\s+here",
+        r"buy\s+now",
+        r"sign\s+up",
+        r"subscribe\s+now",
+        r"get\s+started",
+        r"learn\s+more",
+        r"try\s+free",
+        r"download\s+now",
+        r"今すぐ",
+        r"申し込む",
+        r"購入する",
+        r"登録する",
+        r"無料で",
+        r"詳しくはこちら",
     ]
 
     # Aggregator/curation patterns
     AGGREGATOR_PATTERNS = [
-        r'(source|出典|引用元|via|from)\s*[:：]\s*',
-        r'(according\s+to|によると|によれば)',
-        r'(originally\s+published|元記事)',
-        r'(top\s+\d+|best\s+\d+|まとめ|\d+選)',
-        r'(roundup|curated|collection|compilation)',
-        r'(この記事は.*から|from\s+.*\s+article)',
+        r"(source|出典|引用元|via|from)\s*[:：]\s*",
+        r"(according\s+to|によると|によれば)",
+        r"(originally\s+published|元記事)",
+        r"(top\s+\d+|best\s+\d+|まとめ|\d+選)",
+        r"(roundup|curated|collection|compilation)",
+        r"(この記事は.*から|from\s+.*\s+article)",
     ]
 
     # Clickbait patterns
     CLICKBAIT_PATTERNS = [
-        r'you\s+won\'?t\s+believe',
-        r'shocking',
-        r'amazing',
-        r'incredible',
-        r'unbelievable',
-        r'mind-?blowing',
-        r'jaw-?dropping',
-        r'this\s+one\s+trick',
-        r'doctors\s+hate',
-        r'what\s+happened\s+next',
-        r'number\s+\d+\s+will\s+shock',
-        r'驚きの',
-        r'衝撃の',
-        r'まさかの',
-        r'ヤバい',
-        r'信じられない',
+        r"you\s+won\'?t\s+believe",
+        r"shocking",
+        r"amazing",
+        r"incredible",
+        r"unbelievable",
+        r"mind-?blowing",
+        r"jaw-?dropping",
+        r"this\s+one\s+trick",
+        r"doctors\s+hate",
+        r"what\s+happened\s+next",
+        r"number\s+\d+\s+will\s+shock",
+        r"驚きの",
+        r"衝撃の",
+        r"まさかの",
+        r"ヤバい",
+        r"信じられない",
     ]
 
     # SEO spam patterns
     SEO_SPAM_PATTERNS = [
-        r'<h\d[^>]*>.*keyword.*</h\d>',  # Keywords in headings
-        r'(best|top|cheap|free|buy)\s+([\w\s]+\s+){0,3}(online|near\s+me|2024|2025)',
-        r'(\w+\s+){0,2}(review|reviews|guide|tips|tricks)\s+2024',
-        r'<a[^>]*>\s*click\s+here\s*</a>',  # Generic anchor text
+        r"<h\d[^>]*>.*keyword.*</h\d>",  # Keywords in headings
+        r"(best|top|cheap|free|buy)\s+([\w\s]+\s+){0,3}(online|near\s+me|2024|2025)",
+        r"(\w+\s+){0,2}(review|reviews|guide|tips|tricks)\s+2024",
+        r"<a[^>]*>\s*click\s+here\s*</a>",  # Generic anchor text
     ]
 
     # AI-generated content patterns
     AI_PATTERNS = [
         # Common AI phrases (use non-capturing groups to ensure findall returns full matches)
-        r'as\s+an\s+ai',
-        r'i\s+cannot\s+provide',
-        r'it\'?s\s+important\s+to\s+note',
-        r'it\'?s\s+worth\s+noting',
-        r'in\s+conclusion',
-        r'in\s+summary',
-        r'to\s+summarize',
-        r'firstly.*secondly.*thirdly',
-        r'on\s+the\s+other\s+hand',
-        r'having\s+said\s+that',
-        r'with\s+that\s+being\s+said',
-        r'it\s+is\s+important\s+to\s+understand',
-        r'there\s+are\s+several\s+(?:factors|reasons|ways)',  # Non-capturing group
-        r'let\'?s\s+delve\s+into',
-        r'let\'?s\s+explore',
-        r'delve\s+into',
-        r'dive\s+into',
-        r'landscape',  # "the X landscape"
-        r'leverage',   # Overused in AI text
-        r'utilize',    # Overused in AI text
-        r'facilitate', # Overused in AI text
-        r'comprehensive\s+(?:guide|overview|analysis)',  # Non-capturing group
+        r"as\s+an\s+ai",
+        r"i\s+cannot\s+provide",
+        r"it\'?s\s+important\s+to\s+note",
+        r"it\'?s\s+worth\s+noting",
+        r"in\s+conclusion",
+        r"in\s+summary",
+        r"to\s+summarize",
+        r"firstly.*secondly.*thirdly",
+        r"on\s+the\s+other\s+hand",
+        r"having\s+said\s+that",
+        r"with\s+that\s+being\s+said",
+        r"it\s+is\s+important\s+to\s+understand",
+        r"there\s+are\s+several\s+(?:factors|reasons|ways)",  # Non-capturing group
+        r"let\'?s\s+delve\s+into",
+        r"let\'?s\s+explore",
+        r"delve\s+into",
+        r"dive\s+into",
+        r"landscape",  # "the X landscape"
+        r"leverage",  # Overused in AI text
+        r"utilize",  # Overused in AI text
+        r"facilitate",  # Overused in AI text
+        r"comprehensive\s+(?:guide|overview|analysis)",  # Non-capturing group
     ]
 
     def __init__(self, ollama_client: OllamaClient | None = None):
         """Initialize the quality analyzer.
-        
+
         Args:
             ollama_client: Optional OllamaClient for LLM-based assessment.
         """
         self._ollama_client = ollama_client
 
         # Compile patterns
-        self._ad_pattern = re.compile(
-            "|".join(self.AD_PATTERNS), re.IGNORECASE
-        )
-        self._affiliate_pattern = re.compile(
-            "|".join(self.AFFILIATE_PATTERNS), re.IGNORECASE
-        )
-        self._cta_pattern = re.compile(
-            "|".join(self.CTA_PATTERNS), re.IGNORECASE
-        )
-        self._aggregator_pattern = re.compile(
-            "|".join(self.AGGREGATOR_PATTERNS), re.IGNORECASE
-        )
-        self._clickbait_pattern = re.compile(
-            "|".join(self.CLICKBAIT_PATTERNS), re.IGNORECASE
-        )
-        self._seo_spam_pattern = re.compile(
-            "|".join(self.SEO_SPAM_PATTERNS), re.IGNORECASE
-        )
-        self._ai_pattern = re.compile(
-            "|".join(self.AI_PATTERNS), re.IGNORECASE
-        )
+        self._ad_pattern = re.compile("|".join(self.AD_PATTERNS), re.IGNORECASE)
+        self._affiliate_pattern = re.compile("|".join(self.AFFILIATE_PATTERNS), re.IGNORECASE)
+        self._cta_pattern = re.compile("|".join(self.CTA_PATTERNS), re.IGNORECASE)
+        self._aggregator_pattern = re.compile("|".join(self.AGGREGATOR_PATTERNS), re.IGNORECASE)
+        self._clickbait_pattern = re.compile("|".join(self.CLICKBAIT_PATTERNS), re.IGNORECASE)
+        self._seo_spam_pattern = re.compile("|".join(self.SEO_SPAM_PATTERNS), re.IGNORECASE)
+        self._ai_pattern = re.compile("|".join(self.AI_PATTERNS), re.IGNORECASE)
 
     def set_ollama_client(self, client: OllamaClient) -> None:
         """Set the Ollama client for LLM-based assessment.
-        
+
         Args:
             client: OllamaClient instance.
         """
@@ -372,34 +508,32 @@ class ContentQualityAnalyzer:
         use_llm_on_ambiguous: bool = True,
     ) -> QualityResult:
         """Analyze content quality (synchronous version).
-        
+
         Args:
             html: Raw HTML content.
             text: Extracted plain text (optional, will extract if not provided).
             url: Page URL (optional, for additional context).
             use_llm: Force LLM-based assessment.
             use_llm_on_ambiguous: Use LLM if rule-based score is ambiguous (0.4-0.6).
-            
+
         Returns:
             QualityResult with quality score and detected issues.
         """
         # For sync API, run the async version
         try:
             # Check if we're already in an async context
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we get here, we're in an async context - use thread pool
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
-                    asyncio.run,
-                    self.analyze_async(html, text, url, use_llm, use_llm_on_ambiguous)
+                    asyncio.run, self.analyze_async(html, text, url, use_llm, use_llm_on_ambiguous)
                 )
                 return future.result()
         except RuntimeError:
             # No running event loop, safe to use asyncio.run()
-            return asyncio.run(
-                self.analyze_async(html, text, url, use_llm, use_llm_on_ambiguous)
-            )
+            return asyncio.run(self.analyze_async(html, text, url, use_llm, use_llm_on_ambiguous))
 
     async def analyze_async(
         self,
@@ -410,14 +544,14 @@ class ContentQualityAnalyzer:
         use_llm_on_ambiguous: bool = True,
     ) -> QualityResult:
         """Analyze content quality (async version).
-        
+
         Args:
             html: Raw HTML content.
             text: Extracted plain text (optional, will extract if not provided).
             url: Page URL (optional, for additional context).
             use_llm: Force LLM-based assessment.
             use_llm_on_ambiguous: Use LLM if rule-based score is ambiguous (0.4-0.6).
-            
+
         Returns:
             QualityResult with quality score and detected issues.
         """
@@ -450,10 +584,7 @@ class ContentQualityAnalyzer:
                     # Incorporate LLM score into final score
                     if features.llm_quality_score is not None:
                         # Weight: 60% LLM, 40% rule-based
-                        quality_score = (
-                            0.6 * features.llm_quality_score +
-                            0.4 * quality_score
-                        )
+                        quality_score = 0.6 * features.llm_quality_score + 0.4 * quality_score
 
                     # Add LLM-detected issues
                     if features.llm_is_ai_generated:
@@ -508,10 +639,10 @@ class ContentQualityAnalyzer:
 
     async def _llm_assess_quality(self, text: str) -> dict[str, Any] | None:
         """Use LLM to assess content quality.
-        
+
         Args:
             text: Plain text content.
-            
+
         Returns:
             Assessment dict or None if LLM unavailable/failed.
         """
@@ -521,7 +652,9 @@ class ContentQualityAnalyzer:
         try:
             # Detect language and use appropriate prompt
             is_japanese = self._is_japanese_text(text)
-            prompt = LLM_QUALITY_ASSESSMENT_PROMPT if is_japanese else LLM_QUALITY_ASSESSMENT_PROMPT_EN
+            prompt = (
+                LLM_QUALITY_ASSESSMENT_PROMPT if is_japanese else LLM_QUALITY_ASSESSMENT_PROMPT_EN
+            )
 
             # Truncate text to first 2000 chars
             truncated_text = text[:2000]
@@ -535,7 +668,7 @@ class ContentQualityAnalyzer:
             )
 
             # Parse JSON response
-            json_match = re.search(r'\{[^{}]*\}', response, re.DOTALL)
+            json_match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
             if json_match:
                 result = json.loads(json_match.group())
 
@@ -560,10 +693,10 @@ class ContentQualityAnalyzer:
 
     def _is_japanese_text(self, text: str) -> bool:
         """Check if text is primarily Japanese.
-        
+
         Args:
             text: Text to check.
-            
+
         Returns:
             True if text appears to be Japanese.
         """
@@ -572,10 +705,11 @@ class ContentQualityAnalyzer:
 
         # Count Japanese characters (hiragana, katakana, kanji)
         japanese_chars = sum(
-            1 for c in text
-            if '\u3040' <= c <= '\u309f'  # Hiragana
-            or '\u30a0' <= c <= '\u30ff'  # Katakana
-            or '\u4e00' <= c <= '\u9fff'  # CJK Unified Ideographs
+            1
+            for c in text
+            if "\u3040" <= c <= "\u309f"  # Hiragana
+            or "\u30a0" <= c <= "\u30ff"  # Katakana
+            or "\u4e00" <= c <= "\u9fff"  # CJK Unified Ideographs
         )
 
         # If more than 10% Japanese characters, consider it Japanese
@@ -584,12 +718,12 @@ class ContentQualityAnalyzer:
     def _extract_text(self, html: str) -> str:
         """Extract plain text from HTML."""
         # Remove script and style elements
-        text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
         # Remove HTML tags
-        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r"<[^>]+>", " ", text)
         # Normalize whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
         return text
 
     def _extract_features(self, html: str, text: str) -> QualityFeatures:
@@ -603,26 +737,26 @@ class ContentQualityAnalyzer:
         features.html_length = len(html)
 
         # Word count (simple tokenization)
-        words = re.findall(r'\b\w+\b', text.lower())
+        words = re.findall(r"\b\w+\b", text.lower())
         features.word_count = len(words)
 
         # Sentence count
-        sentences = re.split(r'[.!?。！？]+', text)
+        sentences = re.split(r"[.!?。！？]+", text)
         sentences = [s.strip() for s in sentences if s.strip()]
         features.sentence_count = len(sentences)
 
         # Paragraph count - count HTML block elements and text paragraphs
         # Count various block-level elements that indicate paragraph/content breaks
-        p_tags = len(re.findall(r'<p\b[^>]*>', html, re.IGNORECASE))
-        li_tags = len(re.findall(r'<li\b[^>]*>', html, re.IGNORECASE))
+        p_tags = len(re.findall(r"<p\b[^>]*>", html, re.IGNORECASE))
+        li_tags = len(re.findall(r"<li\b[^>]*>", html, re.IGNORECASE))
         # <br> tags (count consecutive <br> as single break, <br><br> = paragraph break)
-        br_breaks = len(re.findall(r'(?:<br\s*/?>[\s\n]*){2,}', html, re.IGNORECASE))
+        br_breaks = len(re.findall(r"(?:<br\s*/?>[\s\n]*){2,}", html, re.IGNORECASE))
         # <div> with substantial content (not just wrappers)
-        div_tags = len(re.findall(r'<div\b[^>]*>', html, re.IGNORECASE))
+        len(re.findall(r"<div\b[^>]*>", html, re.IGNORECASE))
         # Blockquote, article, section also indicate content blocks
-        blockquote_tags = len(re.findall(r'<blockquote\b[^>]*>', html, re.IGNORECASE))
-        article_tags = len(re.findall(r'<article\b[^>]*>', html, re.IGNORECASE))
-        section_tags = len(re.findall(r'<section\b[^>]*>', html, re.IGNORECASE))
+        blockquote_tags = len(re.findall(r"<blockquote\b[^>]*>", html, re.IGNORECASE))
+        len(re.findall(r"<article\b[^>]*>", html, re.IGNORECASE))
+        len(re.findall(r"<section\b[^>]*>", html, re.IGNORECASE))
 
         # HTML-based paragraph count: prioritize semantic elements
         # p and li are primary content blocks, others are structural
@@ -632,7 +766,7 @@ class ContentQualityAnalyzer:
             html_paragraph_count += br_breaks
 
         # Also count text paragraphs (double newlines) as fallback
-        text_paragraphs = re.split(r'\n\s*\n', text)
+        text_paragraphs = re.split(r"\n\s*\n", text)
         text_paragraphs = [p.strip() for p in text_paragraphs if p.strip()]
         text_paragraph_count = len(text_paragraphs)
 
@@ -650,10 +784,10 @@ class ContentQualityAnalyzer:
             features.text_to_html_ratio = features.total_text_length / features.html_length
 
         # Structural features
-        features.heading_count = len(re.findall(r'<h[1-6][^>]*>', html_lower))
-        features.link_count = len(re.findall(r'<a[^>]*href', html_lower))
-        features.image_count = len(re.findall(r'<img[^>]*>', html_lower))
-        features.script_count = len(re.findall(r'<script[^>]*>', html_lower))
+        features.heading_count = len(re.findall(r"<h[1-6][^>]*>", html_lower))
+        features.link_count = len(re.findall(r"<a[^>]*href", html_lower))
+        features.image_count = len(re.findall(r"<img[^>]*>", html_lower))
+        features.script_count = len(re.findall(r"<script[^>]*>", html_lower))
 
         # Link density
         if features.total_text_length > 0:
@@ -670,7 +804,9 @@ class ContentQualityAnalyzer:
 
         # Stopword ratio
         if features.word_count > 0:
-            stopword_count = sum(1 for w in words if w in self.STOPWORDS_EN or w in self.STOPWORDS_JA)
+            stopword_count = sum(
+                1 for w in words if w in self.STOPWORDS_EN or w in self.STOPWORDS_JA
+            )
             features.stopword_ratio = stopword_count / features.word_count
 
         # Capitalization ratio (for English text)
@@ -680,7 +816,7 @@ class ContentQualityAnalyzer:
 
         # Punctuation density
         if features.total_text_length > 0:
-            punct_count = sum(1 for c in text if c in '.,!?;:()[]{}"\'-')
+            punct_count = sum(1 for c in text if c in ".,!?;:()[]{}\"'-")
             features.punctuation_density = punct_count / features.total_text_length
 
         # N-gram repetition
@@ -724,10 +860,9 @@ class ContentQualityAnalyzer:
         features.source_mention_count = len(aggregator_matches)
 
         # Curated list pattern
-        features.has_curated_list_pattern = bool(re.search(
-            r'(top\s+\d+|best\s+\d+|\d+\s+(best|top)|まとめ|\d+選)',
-            text.lower()
-        ))
+        features.has_curated_list_pattern = bool(
+            re.search(r"(top\s+\d+|best\s+\d+|\d+\s+(best|top)|まとめ|\d+選)", text.lower())
+        )
 
         return features
 
@@ -798,9 +933,7 @@ class ContentQualityAnalyzer:
 
         # SEO spam
         seo_matches = self._seo_spam_pattern.findall(html.lower())
-        if len(seo_matches) >= 2 or (
-            len(seo_matches) >= 1 and features.keyword_density > 0.03
-        ):
+        if len(seo_matches) >= 2 or (len(seo_matches) >= 1 and features.keyword_density > 0.03):
             issues.append(QualityIssue.SEO_SPAM)
             details["seo_spam"] = {
                 "pattern_matches": len(seo_matches),
@@ -947,10 +1080,10 @@ class ContentQualityAnalyzer:
 
     def _extract_link_text_length(self, html: str) -> int:
         """Extract total length of link text."""
-        link_pattern = re.compile(r'<a[^>]*>(.*?)</a>', re.DOTALL | re.IGNORECASE)
+        link_pattern = re.compile(r"<a[^>]*>(.*?)</a>", re.DOTALL | re.IGNORECASE)
         total_length = 0
         for match in link_pattern.finditer(html):
-            link_text = re.sub(r'<[^>]+>', '', match.group(1))
+            link_text = re.sub(r"<[^>]+>", "", match.group(1))
             total_length += len(link_text.strip())
         return total_length
 
@@ -961,7 +1094,7 @@ class ContentQualityAnalyzer:
 
         ngrams = []
         for i in range(len(words) - n + 1):
-            ngram = tuple(words[i:i+n])
+            ngram = tuple(words[i : i + n])
             ngrams.append(ngram)
 
         if not ngrams:
@@ -980,7 +1113,7 @@ class ContentQualityAnalyzer:
 
         for length in range(4, 9):
             for i in range(len(words) - length + 1):
-                phrase = " ".join(words[i:i+length])
+                phrase = " ".join(words[i : i + length])
                 phrases.append(phrase)
 
         counter = Counter(phrases)
@@ -994,7 +1127,7 @@ class ContentQualityAnalyzer:
         similarities = []
         for i in range(len(sentences) - 1):
             words1 = set(sentences[i].lower().split())
-            words2 = set(sentences[i+1].lower().split())
+            words2 = set(sentences[i + 1].lower().split())
 
             if not words1 or not words2:
                 continue
@@ -1009,7 +1142,7 @@ class ContentQualityAnalyzer:
 
     def _calculate_burstiness(self, sentences: list[str]) -> float:
         """Calculate burstiness (variation in sentence length).
-        
+
         Higher burstiness = more natural (human) text.
         Lower burstiness = more uniform (AI-like) text.
         """
@@ -1033,7 +1166,7 @@ class ContentQualityAnalyzer:
 
     def _calculate_uniformity(self, sentences: list[str]) -> float:
         """Calculate uniformity score (how uniform the text structure is).
-        
+
         Higher uniformity = more AI-like.
         """
         if len(sentences) < 3:
@@ -1047,10 +1180,7 @@ class ContentQualityAnalyzer:
             return 0.0
 
         # Calculate how many sentences are within 20% of mean length
-        within_range = sum(
-            1 for l in lengths
-            if abs(l - mean_length) / mean_length < 0.2
-        )
+        within_range = sum(1 for l in lengths if abs(l - mean_length) / mean_length < 0.2)
 
         return within_range / len(lengths)
 
@@ -1061,9 +1191,9 @@ class ContentQualityAnalyzer:
 
         # Filter out stopwords
         content_words = [
-            w for w in words
-            if w not in self.STOPWORDS_EN and w not in self.STOPWORDS_JA
-            and len(w) > 2
+            w
+            for w in words
+            if w not in self.STOPWORDS_EN and w not in self.STOPWORDS_JA and len(w) > 2
         ]
 
         if not content_words:
@@ -1086,7 +1216,7 @@ class ContentQualityAnalyzer:
             return 0.0
 
         # Count external links (starting with http/https)
-        external = sum(1 for link in all_links if link.startswith(('http://', 'https://')))
+        external = sum(1 for link in all_links if link.startswith(("http://", "https://")))
 
         return external / len(all_links)
 
@@ -1096,10 +1226,10 @@ class ContentQualityAnalyzer:
 
         # Common boilerplate patterns
         boilerplate_patterns = [
-            r'<header[^>]*>.*?</header>',
-            r'<footer[^>]*>.*?</footer>',
-            r'<nav[^>]*>.*?</nav>',
-            r'<aside[^>]*>.*?</aside>',
+            r"<header[^>]*>.*?</header>",
+            r"<footer[^>]*>.*?</footer>",
+            r"<nav[^>]*>.*?</nav>",
+            r"<aside[^>]*>.*?</aside>",
             r'class=["\'][^"\']*sidebar',
             r'class=["\'][^"\']*widget',
             r'class=["\'][^"\']*menu',
@@ -1120,10 +1250,12 @@ class ContentQualityAnalyzer:
         html_lower = html.lower()
 
         nav_length = 0
-        nav_matches = re.findall(r'<nav[^>]*>.*?</nav>', html_lower, re.DOTALL)
+        nav_matches = re.findall(r"<nav[^>]*>.*?</nav>", html_lower, re.DOTALL)
         nav_length += sum(len(m) for m in nav_matches)
 
-        menu_matches = re.findall(r'class=["\'][^"\']*menu[^"\']*["\'][^>]*>.*?</\w+>', html_lower, re.DOTALL)
+        menu_matches = re.findall(
+            r'class=["\'][^"\']*menu[^"\']*["\'][^>]*>.*?</\w+>', html_lower, re.DOTALL
+        )
         nav_length += sum(len(m) for m in menu_matches)
 
         if not html:
@@ -1136,7 +1268,7 @@ class ContentQualityAnalyzer:
         html_lower = html.lower()
 
         footer_length = 0
-        footer_matches = re.findall(r'<footer[^>]*>.*?</footer>', html_lower, re.DOTALL)
+        footer_matches = re.findall(r"<footer[^>]*>.*?</footer>", html_lower, re.DOTALL)
         footer_length += sum(len(m) for m in footer_matches)
 
         if not html:
@@ -1152,7 +1284,7 @@ class ContentQualityAnalyzer:
         if pattern_matches >= 10:
             score += 0.65  # Very strong signal - almost certainly AI
         elif pattern_matches >= 5:
-            score += 0.5   # Strong signal
+            score += 0.5  # Strong signal
         elif pattern_matches >= 3:
             score += 0.3
         elif pattern_matches >= 1:
@@ -1209,9 +1341,9 @@ class ContentQualityAnalyzer:
 
         # Check for common scraper patterns in HTML
         scraper_patterns = [
-            r'(scraped|crawled|aggregated)\s+from',
-            r'(original|source)\s+(article|content)\s*:',
-            r'content\s+(from|via)\s+',
+            r"(scraped|crawled|aggregated)\s+from",
+            r"(original|source)\s+(article|content)\s*:",
+            r"content\s+(from|via)\s+",
         ]
 
         html_lower = html.lower()
@@ -1259,17 +1391,16 @@ def analyze_content_quality(
     url: str | None = None,
 ) -> QualityResult:
     """Analyze content quality.
-    
+
     Convenience function that uses the singleton analyzer.
-    
+
     Args:
         html: Raw HTML content.
         text: Extracted plain text (optional).
         url: Page URL (optional).
-        
+
     Returns:
         QualityResult with quality score and detected issues.
     """
     analyzer = get_quality_analyzer()
     return analyzer.analyze(html, text, url)
-

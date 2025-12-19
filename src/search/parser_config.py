@@ -137,8 +137,7 @@ class SearchParsersConfigSchema(BaseModel):
         """Get list of configured engine names."""
         engines = []
         # All supported engines
-        for name in ["duckduckgo", "mojeek", "google", "brave",
-                     "ecosia", "startpage", "bing"]:
+        for name in ["duckduckgo", "mojeek", "google", "brave", "ecosia", "startpage", "bing"]:
             if getattr(self, name, None) is not None:
                 engines.append(name)
         return engines
@@ -217,7 +216,7 @@ class EngineParserConfig:
     def detect_captcha(self, html: str) -> tuple[bool, str | None]:
         """
         Check if HTML contains CAPTCHA/challenge.
-        
+
         Returns:
             Tuple of (is_captcha, captcha_type)
         """
@@ -250,22 +249,22 @@ class ParserSettings:
 class ParserConfigManager:
     """
     Centralized manager for search parser configurations.
-    
+
     Features:
     - Loads parser configs from config/search_parsers.yaml
     - Provides efficient lookups with caching
     - Supports hot-reload of configuration
     - Thread-safe for concurrent access
-    
+
     Usage:
         manager = get_parser_config_manager()
-        
+
         # Get parser config for an engine
         config = manager.get_engine_config("duckduckgo")
-        
+
         # Get selector
         selector = config.get_selector("results_container")
-        
+
         # Build search URL
         url = config.build_search_url("AI regulations", time_range="week")
     """
@@ -281,7 +280,7 @@ class ParserConfigManager:
     ):
         """
         Initialize parser config manager.
-        
+
         Args:
             config_path: Path to search_parsers.yaml. Defaults to config/search_parsers.yaml.
             watch_interval: Interval (seconds) for checking file changes.
@@ -337,8 +336,15 @@ class ParserConfigManager:
                 data = yaml.safe_load(f) or {}
 
             # Parse engine sections
-            for engine_name in ["duckduckgo", "mojeek", "google", "brave",
-                                "ecosia", "startpage", "bing"]:
+            for engine_name in [
+                "duckduckgo",
+                "mojeek",
+                "google",
+                "brave",
+                "ecosia",
+                "startpage",
+                "bing",
+            ]:
                 if engine_name in data and isinstance(data[engine_name], dict):
                     data[engine_name] = EngineParserSchema(**data[engine_name])
 
@@ -437,10 +443,10 @@ class ParserConfigManager:
     def get_engine_config(self, name: str) -> EngineParserConfig | None:
         """
         Get parser configuration for a search engine.
-        
+
         Args:
             name: Engine name (case-insensitive).
-            
+
         Returns:
             EngineParserConfig or None if not configured.
         """
@@ -504,13 +510,13 @@ class ParserConfigManager:
     ) -> Path | None:
         """
         Save HTML content for debugging when parsing fails.
-        
+
         Args:
             html: HTML content that failed to parse.
             engine: Engine name.
             query: Search query.
             error: Error message.
-            
+
         Returns:
             Path to saved file or None if saving disabled.
         """
@@ -579,7 +585,7 @@ _manager_lock = threading.Lock()
 def get_parser_config_manager(**kwargs) -> ParserConfigManager:
     """
     Get the singleton ParserConfigManager instance.
-    
+
     Usage:
         manager = get_parser_config_manager()
         config = manager.get_engine_config("duckduckgo")
@@ -621,4 +627,3 @@ def get_available_parser_engines() -> list[str]:
 def save_debug_html(html: str, engine: str, query: str, error: str) -> Path | None:
     """Save failed HTML for debugging (convenience function)."""
     return get_parser_config_manager().save_failed_html(html, engine, query, error)
-

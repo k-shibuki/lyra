@@ -56,9 +56,11 @@ async def main():
 
     # Test get_stats
     try:
-        result = await _handle_calibrate({
-            "action": "get_stats",
-        })
+        result = await _handle_calibrate(
+            {
+                "action": "get_stats",
+            }
+        )
         print(f"  - get_stats: ok={result.get('ok')}")
         print(f"    - total_samples: {result.get('total_samples', 'N/A')}")
         print(f"    - last_evaluation: {result.get('last_evaluation', 'N/A')}")
@@ -67,23 +69,27 @@ async def main():
 
     # Test add_sample (with mock data)
     try:
-        result = await _handle_calibrate({
-            "action": "add_sample",
-            "sample": {
-                "claim_id": f"c_{uuid.uuid4().hex[:8]}",
-                "predicted_confidence": 0.8,
-                "actual_outcome": 1,
-            },
-        })
+        result = await _handle_calibrate(
+            {
+                "action": "add_sample",
+                "sample": {
+                    "claim_id": f"c_{uuid.uuid4().hex[:8]}",
+                    "predicted_confidence": 0.8,
+                    "actual_outcome": 1,
+                },
+            }
+        )
         print(f"  - add_sample: ok={result.get('ok')}")
     except Exception as e:
         print(f"  ⚠ add_sample failed: {e}")
 
     # Test get_diagram_data
     try:
-        result = await _handle_calibrate({
-            "action": "get_diagram_data",
-        })
+        result = await _handle_calibrate(
+            {
+                "action": "get_diagram_data",
+            }
+        )
         print(f"  - get_diagram_data: ok={result.get('ok')}")
         print(f"    - bin_count: {len(result.get('bins', []))}")
     except Exception as e:
@@ -99,13 +105,15 @@ async def main():
     from src.mcp.server import _handle_notify_user
 
     try:
-        result = await _handle_notify_user({
-            "event": "info",
-            "payload": {
-                "task_id": task_id,
-                "message": "Test notification from debug script",
-            },
-        })
+        result = await _handle_notify_user(
+            {
+                "event": "info",
+                "payload": {
+                    "task_id": task_id,
+                    "message": "Test notification from debug script",
+                },
+            }
+        )
         print(f"  - ok: {result.get('ok')}")
         print(f"  - notification_id: {result.get('notification_id', 'N/A')}")
     except Exception as e:
@@ -122,6 +130,7 @@ async def main():
     import inspect
 
     from src.mcp.server import _handle_wait_for_user
+
     sig = inspect.signature(_handle_wait_for_user)
     print(f"  - Handler signature: _handle_wait_for_user{sig}")
     print("  - (Skipping actual call - would block waiting for user input)")
@@ -136,10 +145,12 @@ async def main():
     from src.mcp.server import _handle_stop_task
 
     try:
-        result = await _handle_stop_task({
-            "task_id": task_id,
-            "reason": "debug_script_test",
-        })
+        result = await _handle_stop_task(
+            {
+                "task_id": task_id,
+                "reason": "debug_script_test",
+            }
+        )
         print(f"  - ok: {result.get('ok')}")
         print(f"  - final_status: {result.get('final_status')}")
     except Exception as e:

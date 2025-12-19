@@ -23,7 +23,7 @@ class Database:
 
     def __init__(self, db_path: str | Path | None = None):
         """Initialize database manager.
-        
+
         Args:
             db_path: Path to SQLite database file. If None, uses settings.
         """
@@ -84,7 +84,7 @@ class Database:
 
     async def run_migrations(self) -> None:
         """Run pending database migrations.
-        
+
         Looks for .sql files in the migrations/ directory and applies
         any that haven't been recorded in schema_migrations table.
         """
@@ -98,9 +98,7 @@ class Database:
             return
 
         # Get applied migrations
-        cursor = await self.execute(
-            "SELECT version FROM schema_migrations ORDER BY version"
-        )
+        cursor = await self.execute("SELECT version FROM schema_migrations ORDER BY version")
         applied = {row["version"] for row in await cursor.fetchall()}
 
         # Find pending migrations
@@ -152,11 +150,11 @@ class Database:
         parameters: tuple | dict | None = None,
     ) -> aiosqlite.Cursor:
         """Execute a SQL statement.
-        
+
         Args:
             sql: SQL statement to execute.
             parameters: Optional parameters for the statement.
-            
+
         Returns:
             Cursor with results.
         """
@@ -173,7 +171,7 @@ class Database:
         parameters: list[tuple | dict],
     ) -> None:
         """Execute a SQL statement with multiple parameter sets.
-        
+
         Args:
             sql: SQL statement to execute.
             parameters: List of parameter sets.
@@ -187,11 +185,11 @@ class Database:
         parameters: tuple | dict | None = None,
     ) -> dict[str, Any] | None:
         """Fetch a single row.
-        
+
         Args:
             sql: SQL query.
             parameters: Optional parameters.
-            
+
         Returns:
             Row as dict or None.
         """
@@ -205,11 +203,11 @@ class Database:
         parameters: tuple | dict | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch all rows.
-        
+
         Args:
             sql: SQL query.
             parameters: Optional parameters.
-            
+
         Returns:
             List of rows as dicts.
         """
@@ -226,13 +224,13 @@ class Database:
         auto_id: bool = True,
     ) -> str | None:
         """Insert a row into a table.
-        
+
         Args:
             table: Table name.
             data: Column-value mapping.
             or_replace: Use INSERT OR REPLACE.
             auto_id: Auto-generate UUID for 'id' column if missing.
-            
+
         Returns:
             The ID of the inserted row, or None if no id column.
         """
@@ -258,13 +256,13 @@ class Database:
         where_params: tuple | dict | None = None,
     ) -> int:
         """Update rows in a table.
-        
+
         Args:
             table: Table name.
             data: Column-value mapping to update.
             where: WHERE clause.
             where_params: Parameters for WHERE clause.
-            
+
         Returns:
             Number of affected rows.
         """
@@ -291,21 +289,24 @@ class Database:
         config: dict[str, Any] | None = None,
     ) -> str:
         """Create a new research task.
-        
+
         Args:
             query: Research query.
             config: Optional task configuration.
-            
+
         Returns:
             Task ID.
         """
         task_id = str(uuid.uuid4())
-        await self.insert("tasks", {
-            "id": task_id,
-            "query": query,
-            "status": "pending",
-            "config_json": json.dumps(config) if config else None,
-        })
+        await self.insert(
+            "tasks",
+            {
+                "id": task_id,
+                "query": query,
+                "status": "pending",
+                "config_json": json.dumps(config) if config else None,
+            },
+        )
         logger.info("Task created", task_id=task_id, query=query[:50])
         return task_id
 
@@ -316,7 +317,7 @@ class Database:
         error_message: str | None = None,
     ) -> None:
         """Update task status.
-        
+
         Args:
             task_id: Task ID.
             status: New status.
@@ -348,7 +349,7 @@ class Database:
         details: dict[str, Any] | None = None,
     ) -> None:
         """Log an event to the database.
-        
+
         Args:
             event_type: Type of event.
             message: Event message.
@@ -361,7 +362,7 @@ class Database:
         """
         await self.execute(
             """
-            INSERT INTO event_log 
+            INSERT INTO event_log
             (event_type, level, task_id, job_id, cause_id, component, message, details_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -386,7 +387,7 @@ class Database:
         is_http_error: bool = False,
     ) -> None:
         """Update domain metrics after a request.
-        
+
         Args:
             domain: Domain name.
             success: Whether the request succeeded.
@@ -394,9 +395,7 @@ class Database:
             is_http_error: Whether an HTTP error occurred.
         """
         # Get or create domain record
-        existing = await self.fetch_one(
-            "SELECT * FROM domains WHERE domain = ?", (domain,)
-        )
+        existing = await self.fetch_one("SELECT * FROM domains WHERE domain = ?", (domain,))
 
         if existing is None:
             await self.insert("domains", {"domain": domain}, auto_id=False)
@@ -441,7 +440,7 @@ class Database:
         reason: str | None = None,
     ) -> None:
         """Set cooldown for a domain.
-        
+
         Args:
             domain: Domain name.
             minutes: Cooldown duration in minutes.
@@ -469,10 +468,10 @@ class Database:
 
     async def is_domain_cooled_down(self, domain: str) -> bool:
         """Check if domain is in cooldown.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             True if domain is cooled down.
         """
@@ -496,16 +495,14 @@ class Database:
         is_captcha: bool = False,
     ) -> None:
         """Update engine health metrics.
-        
+
         Args:
             engine: Engine name.
             success: Whether the query succeeded.
             latency_ms: Response latency in milliseconds.
             is_captcha: Whether a CAPTCHA was encountered.
         """
-        existing = await self.fetch_one(
-            "SELECT * FROM engine_health WHERE engine = ?", (engine,)
-        )
+        existing = await self.fetch_one("SELECT * FROM engine_health WHERE engine = ?", (engine,))
 
         if existing is None:
             await self.insert("engine_health", {"engine": engine}, auto_id=False)
@@ -568,7 +565,7 @@ class Database:
 
     async def get_active_engines(self) -> list[dict[str, Any]]:
         """Get list of active (non-open) engines.
-        
+
         Returns:
             List of active engine records.
         """
@@ -585,13 +582,13 @@ class Database:
 
     async def get_engine_health_metrics(self, engine: str) -> dict[str, Any] | None:
         """Get engine health metrics for dynamic weight calculation.
-        
+
         Per §3.1.4: Retrieve EMA metrics from engine_health table for
         calculating dynamic engine weights.
-        
+
         Args:
             engine: Engine name (case-insensitive).
-            
+
         Returns:
             Dictionary with keys:
             - success_rate_1h: 1-hour EMA success rate
@@ -604,7 +601,7 @@ class Database:
         """
         result = await self.fetch_one(
             """
-            SELECT 
+            SELECT
                 engine,
                 success_rate_1h,
                 success_rate_24h,
@@ -612,7 +609,7 @@ class Database:
                 median_latency_ms,
                 http_error_rate,
                 updated_at
-            FROM engine_health 
+            FROM engine_health
             WHERE engine = ?
             """,
             (engine.lower(),),
@@ -642,10 +639,10 @@ class Database:
         url: str,
     ) -> dict[str, Any] | None:
         """Get cached fetch data for a URL.
-        
+
         Args:
             url: URL to look up (will be normalized).
-            
+
         Returns:
             Cache record or None if not found/expired.
         """
@@ -653,7 +650,7 @@ class Database:
 
         result = await self.fetch_one(
             """
-            SELECT * FROM cache_fetch 
+            SELECT * FROM cache_fetch
             WHERE url_normalized = ?
               AND (expires_at IS NULL OR expires_at > ?)
             """,
@@ -664,7 +661,7 @@ class Database:
             # Update hit statistics
             await self.execute(
                 """
-                UPDATE cache_fetch 
+                UPDATE cache_fetch
                 SET last_validated_at = ?
                 WHERE url_normalized = ?
                 """,
@@ -684,7 +681,7 @@ class Database:
         ttl_hours: int = 24,
     ) -> None:
         """Store or update fetch cache for a URL.
-        
+
         Args:
             url: URL (will be normalized).
             etag: ETag header value.
@@ -698,8 +695,8 @@ class Database:
 
         await self.execute(
             """
-            INSERT OR REPLACE INTO cache_fetch 
-            (url_normalized, etag, last_modified, content_hash, content_path, 
+            INSERT OR REPLACE INTO cache_fetch
+            (url_normalized, etag, last_modified, content_hash, content_path,
              created_at, last_validated_at, expires_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -717,7 +714,7 @@ class Database:
 
     async def invalidate_fetch_cache(self, url: str) -> None:
         """Invalidate fetch cache for a URL.
-        
+
         Args:
             url: URL to invalidate.
         """
@@ -736,7 +733,7 @@ class Database:
         ttl_hours: int = 24,
     ) -> None:
         """Update cache validation timestamp (for 304 responses).
-        
+
         Args:
             url: URL (will be normalized).
             etag: New ETag if provided.
@@ -770,13 +767,13 @@ class Database:
 
     async def get_fetch_cache_stats(self) -> dict[str, Any]:
         """Get fetch cache statistics.
-        
+
         Returns:
             Statistics dict with cache hit rate, total entries, etc.
         """
         result = await self.fetch_one(
             """
-            SELECT 
+            SELECT
                 COUNT(*) as total_entries,
                 COUNT(CASE WHEN expires_at > ? THEN 1 END) as valid_entries,
                 COUNT(CASE WHEN etag IS NOT NULL THEN 1 END) as with_etag,
@@ -789,7 +786,7 @@ class Database:
 
     async def cleanup_expired_fetch_cache(self) -> int:
         """Remove expired fetch cache entries.
-        
+
         Returns:
             Number of entries removed.
         """
@@ -809,11 +806,11 @@ class Database:
         full_snapshot: dict[str, Any] | None = None,
     ) -> int:
         """Save a global metrics snapshot.
-        
+
         Args:
             metrics: Dictionary of metric name to value.
             full_snapshot: Optional full snapshot JSON.
-            
+
         Returns:
             Row ID of inserted snapshot.
         """
@@ -861,7 +858,7 @@ class Database:
         metrics_data: dict[str, Any],
     ) -> None:
         """Save metrics for a completed task.
-        
+
         Args:
             task_id: Task identifier.
             metrics_data: Full metrics data from TaskMetrics.to_dict().
@@ -929,7 +926,7 @@ class Database:
         metrics_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """Save a policy update record.
-        
+
         Args:
             target_type: "engine" or "domain".
             target_id: Engine or domain name.
@@ -941,7 +938,7 @@ class Database:
         """
         await self.execute(
             """
-            INSERT INTO policy_updates 
+            INSERT INTO policy_updates
             (target_type, target_id, parameter, old_value, new_value, reason, metrics_snapshot_json)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
@@ -968,7 +965,7 @@ class Database:
         duration_ms: int = 0,
     ) -> None:
         """Save a decision for replay.
-        
+
         Args:
             decision_id: Unique decision identifier.
             task_id: Task identifier.
@@ -981,7 +978,7 @@ class Database:
         """
         await self.execute(
             """
-            INSERT INTO decisions 
+            INSERT INTO decisions
             (id, task_id, decision_type, cause_id, input_json, output_json, context_json, duration_ms)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -999,7 +996,7 @@ class Database:
 
     async def get_latest_metrics_snapshot(self) -> dict[str, Any] | None:
         """Get the most recent metrics snapshot.
-        
+
         Returns:
             Latest snapshot or None.
         """
@@ -1009,10 +1006,10 @@ class Database:
 
     async def get_task_metrics(self, task_id: str) -> dict[str, Any] | None:
         """Get metrics for a specific task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             Task metrics or None.
         """
@@ -1028,12 +1025,12 @@ class Database:
         target_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get policy update history.
-        
+
         Args:
             limit: Maximum records to return.
             target_type: Filter by target type.
             target_id: Filter by target ID.
-            
+
         Returns:
             List of policy update records.
         """
@@ -1055,10 +1052,10 @@ class Database:
 
     async def get_decisions_for_task(self, task_id: str) -> list[dict[str, Any]]:
         """Get all decisions for a task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             List of decision records.
         """
@@ -1070,12 +1067,12 @@ class Database:
     @staticmethod
     def _normalize_url(url: str) -> str:
         """Normalize URL for cache key.
-        
+
         Removes fragment, sorts query parameters, lowercases scheme and host.
-        
+
         Args:
             url: URL to normalize.
-            
+
         Returns:
             Normalized URL string.
         """
@@ -1104,7 +1101,7 @@ _db: Database | None = None
 
 async def get_database() -> Database:
     """Get the global database instance.
-    
+
     Returns:
         Database instance.
     """
@@ -1122,4 +1119,3 @@ async def close_database() -> None:
     if _db is not None:
         await _db.close()
         _db = None
-

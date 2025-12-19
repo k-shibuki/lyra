@@ -28,6 +28,7 @@ from src.utils.prompt_manager import (
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def temp_prompts_dir():
     """Create a temporary prompts directory with test templates."""
@@ -67,6 +68,7 @@ def reset_singleton():
 # ============================================================================
 # Basic Functionality Tests
 # ============================================================================
+
 
 class TestPromptManagerInit:
     """Tests for PromptManager initialization."""
@@ -127,6 +129,7 @@ class TestTemplateLoading:
 # Rendering Tests
 # ============================================================================
 
+
 class TestRendering:
     """Tests for template rendering."""
 
@@ -160,6 +163,7 @@ class TestRendering:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestErrorHandling:
     """Tests for error handling."""
 
@@ -188,6 +192,7 @@ class TestErrorHandling:
 # Cache Tests
 # ============================================================================
 
+
 class TestCaching:
     """Tests for template caching."""
 
@@ -210,6 +215,7 @@ class TestCaching:
 # ============================================================================
 # Singleton Tests
 # ============================================================================
+
 
 class TestSingleton:
     """Tests for singleton pattern."""
@@ -240,6 +246,7 @@ class TestSingleton:
 # ============================================================================
 # Real Template Tests (Regression)
 # ============================================================================
+
 
 class TestRealTemplates:
     """Tests for actual prompt templates in config/prompts/."""
@@ -273,9 +280,7 @@ class TestRealTemplates:
     def test_extract_claims_renders(self, real_manager):
         """Test extract_claims template renders correctly."""
         result = real_manager.render(
-            "extract_claims",
-            text="Sample text",
-            context="Research question"
+            "extract_claims", text="Sample text", context="Research question"
         )
         assert "Sample text" in result
         assert "Research question" in result
@@ -503,8 +508,8 @@ class TestTemplateValidation:
         # When: Checking the JSON example format
         # Then: Should use single braces {, not double {{
         # The decompose template has JSON in a multi-line example
-        assert '  {' in result, "JSON example should use single braces"
-        assert '  {{' not in result, "JSON example should NOT use double braces"
+        assert "  {" in result, "JSON example should use single braces"
+        assert "  {{" not in result, "JSON example should NOT use double braces"
         # Verify specific JSON structure
         assert '"text":' in result
         assert '"polarity":' in result

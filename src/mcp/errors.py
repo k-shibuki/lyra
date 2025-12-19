@@ -464,4 +464,3 @@ def create_error_response(
         Dictionary suitable for MCP error response.
     """
     return MCPError(code, message, details=details, error_id=error_id).to_dict()
-

@@ -266,4 +266,3 @@ async def close_ml_client() -> None:
     if _ml_client is not None:
         await _ml_client.close()
         _ml_client = None
-

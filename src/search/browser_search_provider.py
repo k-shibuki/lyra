@@ -55,10 +55,11 @@ logger = get_logger(__name__)
 class CDPConnectionError(Exception):
     """
     Raised when CDP connection to Chrome fails.
-    
+
     This indicates Chrome is not running with remote debugging enabled.
     Per spec (§4.3.3), headless fallback is not supported.
     """
+
     pass
 
 
@@ -100,17 +101,17 @@ class BrowserSearchSession:
 class BrowserSearchProvider(BaseSearchProvider):
     """
     Browser-based search provider using Playwright.
-    
+
     Executes searches directly in browser, maintaining consistent
     fingerprint and session across search and fetch stages.
-    
+
     Features:
     - Direct browser search via Playwright
     - Cookie/fingerprint consistency
     - CAPTCHA detection and intervention queue integration
     - Session preservation across searches
     - Multiple search engine support (DuckDuckGo, Mojeek, etc.)
-    
+
     Example:
         provider = BrowserSearchProvider()
         response = await provider.search("AI regulations", SearchOptions(language="ja"))
@@ -132,7 +133,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     ):
         """
         Initialize browser search provider.
-        
+
         Args:
             default_engine: Default search engine to use.
             timeout: Search timeout in seconds.
@@ -175,10 +176,10 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def _ensure_browser(self) -> None:
         """
         Ensure browser is initialized via CDP connection.
-        
+
         Per spec (§3.2, §4.3.3), CDP connection to real Chrome profile is required.
         Headless fallback is not supported as it violates the "real profile consistency" principle.
-        
+
         Raises:
             CDPConnectionError: If CDP connection fails (Chrome not running or not accessible).
         """
@@ -205,8 +206,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                     self._playwright = None
 
                     raise CDPConnectionError(
-                        f"CDP connection failed: {e}. "
-                        f"Start Chrome with: ./scripts/chrome.sh start"
+                        f"CDP connection failed: {e}. Start Chrome with: ./scripts/chrome.sh start"
                     ) from e
 
                 # Reuse existing context if available (preserves profile cookies per §3.6.1)
@@ -254,7 +254,7 @@ class BrowserSearchProvider(BaseSearchProvider):
 
     async def _perform_health_audit(self) -> None:
         """Perform profile health audit on browser session initialization.
-        
+
         Per high-frequency check requirement: Execute audit at browser session
         initialization to detect drift in UA, fonts, language, timezone, canvas, audio.
         """
@@ -309,10 +309,10 @@ class BrowserSearchProvider(BaseSearchProvider):
 
     async def _rate_limit(self, engine: str | None = None) -> None:
         """Apply rate limiting between searches (per-engine QPS).
-        
+
         Per spec §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
         Per spec §4.3: "Engine QPS≤0.25, concurrency=1"
-        
+
         Args:
             engine: Engine name for per-engine rate limiting.
                    If None, uses default interval for backward compatibility.
@@ -340,17 +340,17 @@ class BrowserSearchProvider(BaseSearchProvider):
 
     def _detect_category(self, query: str) -> str:
         """Detect query category based on keywords.
-        
+
         Simple keyword-based category detection. Categories:
         - academic: research papers, academic sources
         - news: current events, news articles
         - government: government sources, official documents
         - technical: technical documentation, code, APIs
         - general: default category
-        
+
         Args:
             query: Search query text.
-            
+
         Returns:
             Category name: "general", "academic", "news", "government", or "technical".
         """
@@ -358,35 +358,80 @@ class BrowserSearchProvider(BaseSearchProvider):
 
         # Academic keywords
         academic_keywords = [
-            "論文", "research", "study", "studies", "arxiv", "pubmed",
-            "scholar", "academic", "journal", "publication", "paper",
-            "dissertation", "thesis", "peer-reviewed", "peer reviewed",
+            "論文",
+            "research",
+            "study",
+            "studies",
+            "arxiv",
+            "pubmed",
+            "scholar",
+            "academic",
+            "journal",
+            "publication",
+            "paper",
+            "dissertation",
+            "thesis",
+            "peer-reviewed",
+            "peer reviewed",
         ]
         if any(keyword in query_lower for keyword in academic_keywords):
             return "academic"
 
         # News keywords
         news_keywords = [
-            "ニュース", "news", "最新", "today", "recent", "breaking",
-            "headline", "article", "report", "報道", "速報",
+            "ニュース",
+            "news",
+            "最新",
+            "today",
+            "recent",
+            "breaking",
+            "headline",
+            "article",
+            "report",
+            "報道",
+            "速報",
         ]
         if any(keyword in query_lower for keyword in news_keywords):
             return "news"
 
         # Government keywords
         government_keywords = [
-            "政府", "government", "官公庁", ".gov", "official", "ministry",
-            "department", "agency", "regulation", "law", "legal",
-            "policy", "legislation", "法令", "条例",
+            "政府",
+            "government",
+            "官公庁",
+            ".gov",
+            "official",
+            "ministry",
+            "department",
+            "agency",
+            "regulation",
+            "law",
+            "legal",
+            "policy",
+            "legislation",
+            "法令",
+            "条例",
         ]
         if any(keyword in query_lower for keyword in government_keywords):
             return "government"
 
         # Technical keywords
         technical_keywords = [
-            "技術", "technical", "api", "code", "github", "documentation",
-            "tutorial", "guide", "reference", "implementation", "algorithm",
-            "programming", "software", "開発", "実装",
+            "技術",
+            "technical",
+            "api",
+            "code",
+            "github",
+            "documentation",
+            "tutorial",
+            "guide",
+            "reference",
+            "implementation",
+            "algorithm",
+            "programming",
+            "software",
+            "開発",
+            "実装",
         ]
         if any(keyword in query_lower for keyword in technical_keywords):
             return "technical"
@@ -405,14 +450,14 @@ class BrowserSearchProvider(BaseSearchProvider):
     ) -> LastmileCheckResult:
         """
         Check if lastmile engine should be used based on harvest rate.
-        
+
         Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
         Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
-        
+
         Args:
             harvest_rate: Current harvest rate (0.0-1.0).
             threshold: Threshold for lastmile activation (default 0.9).
-            
+
         Returns:
             LastmileCheckResult with decision and reason.
         """
@@ -433,11 +478,11 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def _select_lastmile_engine(self) -> str | None:
         """
         Select a lastmile engine with strict QPS/daily limit checks.
-        
+
         Per §3.1.1: Lastmile engines (Google/Brave/Bing) have strict limits:
         - Daily limits (google: 10, brave: 50, bing: 10)
         - Stricter QPS (google: 0.05, brave: 0.1, bing: 0.05)
-        
+
         Returns:
             Engine name if available, None if all engines exhausted.
         """
@@ -503,10 +548,10 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def _get_daily_usage(self, engine: str) -> int:
         """
         Get today's usage count for an engine.
-        
+
         Args:
             engine: Engine name.
-            
+
         Returns:
             Number of searches today.
         """
@@ -538,7 +583,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def _record_lastmile_usage(self, engine: str) -> None:
         """
         Record usage of a lastmile engine.
-        
+
         Args:
             engine: Engine name.
         """
@@ -580,13 +625,13 @@ class BrowserSearchProvider(BaseSearchProvider):
     ) -> SearchResponse:
         """
         Execute a search using browser.
-        
+
         Args:
             query: Search query text.
             options: Search options.
             harvest_rate: Current harvest rate (0.0-1.0) for lastmile decision.
                          If provided and >= 0.9, lastmile engines may be used.
-            
+
         Returns:
             SearchResponse with results or error.
         """
@@ -755,7 +800,7 @@ class BrowserSearchProvider(BaseSearchProvider):
             page = await self._get_page()
 
             # Navigate to search page
-            response = await page.goto(
+            await page.goto(
                 search_url,
                 timeout=self._timeout * 1000,
                 wait_until="domcontentloaded",
@@ -780,7 +825,9 @@ class BrowserSearchProvider(BaseSearchProvider):
                 # Apply mouse trajectory to search result links
                 try:
                     # Find search result links
-                    result_links = await page.query_selector_all("a[href*='http'], a[href*='https']")
+                    result_links = await page.query_selector_all(
+                        "a[href*='http'], a[href*='https']"
+                    )
                     if result_links:
                         # Select random link from first 5 results
                         target_link = random.choice(result_links[:5])
@@ -892,10 +939,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 )
 
             # Convert results
-            results = [
-                r.to_search_result(engine)
-                for r in parse_result.results[:options.limit]
-            ]
+            results = [r.to_search_result(engine) for r in parse_result.results[: options.limit]]
 
             # Save session cookies
             await self._save_session(engine, page)
@@ -1004,7 +1048,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     ) -> bool:
         """
         Request manual intervention for CAPTCHA.
-        
+
         Returns True if intervention succeeded.
         """
         try:
@@ -1080,7 +1124,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def get_health(self) -> HealthStatus:
         """
         Get current health status.
-        
+
         Returns:
             HealthStatus based on recent metrics.
         """
@@ -1180,7 +1224,7 @@ _default_provider: BrowserSearchProvider | None = None
 def get_browser_search_provider() -> BrowserSearchProvider:
     """
     Get or create the default BrowserSearchProvider instance.
-    
+
     Returns:
         BrowserSearchProvider singleton instance.
     """
@@ -1193,7 +1237,7 @@ def get_browser_search_provider() -> BrowserSearchProvider:
 async def cleanup_browser_search_provider() -> None:
     """
     Close and cleanup the default BrowserSearchProvider.
-    
+
     Used for testing cleanup and graceful shutdown.
     """
     global _default_provider
@@ -1208,4 +1252,3 @@ def reset_browser_search_provider() -> None:
     """
     global _default_provider
     _default_provider = None
-

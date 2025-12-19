@@ -223,8 +223,8 @@ class TestUCBAllocator:
         """Test UCB score is multiplied by priority boost."""
         allocator = UCBAllocator(total_budget=100, exploration_constant=0)  # No exploration
 
-        high_arm = allocator.register_search("sq_high", priority="high")
-        low_arm = allocator.register_search("sq_low", priority="low")
+        allocator.register_search("sq_high", priority="high")
+        allocator.register_search("sq_low", priority="low")
 
         # Same harvest rate for both
         for _ in range(5):
@@ -616,4 +616,3 @@ class TestUCBAllocatorEdgeCases:
 
         # Should not divide by zero, exploration term is 0
         assert score == pytest.approx(0.5, rel=0.01)
-

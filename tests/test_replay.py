@@ -255,7 +255,9 @@ class TestReplayEngine:
         # Mock database (patching at source since lazy import)
         mock_db_instance = AsyncMock()
         mock_db_instance.fetch_all = AsyncMock(return_value=[])
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db_instance)):
+        with patch(
+            "src.storage.database.get_database", new=AsyncMock(return_value=mock_db_instance)
+        ):
             session = await engine.create_replay_session("original-task-1")
 
             assert session.original_task_id == "original-task-1"
@@ -326,7 +328,9 @@ class TestReplayEngine:
         result = await engine.compare_decisions(original, replayed)
 
         assert result["diverged"] is True, "Decisions with different output should diverge"
-        assert len(result["differences"]) == 1, f"Expected 1 difference (output_data), got {len(result['differences'])}"
+        assert len(result["differences"]) == 1, (
+            f"Expected 1 difference (output_data), got {len(result['differences'])}"
+        )
         assert result["differences"][0]["field"] == "output_data", (
             f"Difference should be in output_data, got {result['differences'][0]['field']}"
         )
@@ -422,6 +426,7 @@ def test_get_decision_logger():
     """Test get_decision_logger helper function."""
     # Reset global state
     import src.utils.replay as replay
+
     replay._loggers.clear()
 
     logger1 = get_decision_logger("task-1")
@@ -436,6 +441,7 @@ def test_get_replay_engine_singleton():
     """Test get_replay_engine returns singleton."""
     # Reset global state
     import src.utils.replay as replay
+
     replay._replay_engine = None
 
     engine1 = get_replay_engine()
@@ -451,6 +457,7 @@ def test_get_replay_engine_singleton():
 async def test_cleanup_decision_logger():
     """Test cleanup_decision_logger helper."""
     import src.utils.replay as replay
+
     replay._loggers.clear()
 
     logger = get_decision_logger("cleanup-task")
@@ -468,4 +475,3 @@ async def test_cleanup_decision_logger():
             await cleanup_decision_logger("cleanup-task", save=True)
 
     assert "cleanup-task" not in replay._loggers
-

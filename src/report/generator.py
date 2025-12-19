@@ -21,16 +21,16 @@ logger = get_logger(__name__)
 
 def generate_anchor_slug(heading: str) -> str:
     """Generate URL anchor slug from heading text.
-    
+
     Uses GitHub-style slug generation:
     - Lowercase
     - Replace spaces with hyphens
     - Remove special characters
     - Handle Japanese text (keep as-is, replace spaces)
-    
+
     Args:
         heading: Heading text.
-        
+
     Returns:
         URL-safe anchor slug.
     """
@@ -61,11 +61,11 @@ def generate_anchor_slug(heading: str) -> str:
 
 def generate_deep_link(url: str, heading_context: str | None) -> str:
     """Generate a deep link URL with anchor.
-    
+
     Args:
         url: Base URL.
         heading_context: Heading context for anchor.
-        
+
     Returns:
         URL with anchor fragment if heading is available.
     """
@@ -84,21 +84,23 @@ def generate_deep_link(url: str, heading_context: str | None) -> str:
         return url
 
     # Add anchor fragment
-    new_url = urlunparse((
-        parsed.scheme,
-        parsed.netloc,
-        parsed.path,
-        parsed.params,
-        parsed.query,
-        anchor,
-    ))
+    new_url = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            anchor,
+        )
+    )
 
     return new_url
 
 
 class Citation:
     """Represents a citation with deep link support.
-    
+
     Per §3.4: All citations should have deep links to the relevant section.
     """
 
@@ -132,11 +134,11 @@ class Citation:
 
     def to_markdown(self, index: int, include_excerpt: bool = True) -> str:
         """Format citation as Markdown.
-        
+
         Args:
             index: Citation number.
             include_excerpt: Include excerpt text.
-            
+
         Returns:
             Markdown formatted citation.
         """
@@ -197,12 +199,12 @@ class ReportGenerator:
         include_evidence_graph: bool = True,
     ) -> dict[str, Any]:
         """Generate a research report.
-        
+
         Args:
             task_id: Task ID to generate report for.
             format_type: Output format (markdown, json).
             include_evidence_graph: Include evidence graph.
-            
+
         Returns:
             Report generation result.
         """
@@ -305,13 +307,13 @@ class ReportGenerator:
         edges: list[dict[str, Any]],
     ) -> str:
         """Generate markdown report.
-        
+
         Args:
             task: Task record.
             claims: List of claims.
             fragments: List of relevant fragments.
             edges: Evidence graph edges.
-            
+
         Returns:
             Markdown content.
         """
@@ -359,7 +361,7 @@ class ReportGenerator:
             # Group by type
             fact_claims = [c for c in claims if c.get("claim_type") == "fact"]
             opinion_claims = [c for c in claims if c.get("claim_type") == "opinion"]
-            other_claims = [c for c in claims if c.get("claim_type") not in ("fact", "opinion")]
+            [c for c in claims if c.get("claim_type") not in ("fact", "opinion")]
 
             if fact_claims:
                 lines.append("### 事実")
@@ -390,10 +392,18 @@ class ReportGenerator:
 
         if fragments:
             # Separate primary and secondary sources
-            primary_frags = [f for f in fragments if f.get("source_tag") in
-                           ("government", "academic", "official", "standard", "registry")]
-            secondary_frags = [f for f in fragments if f.get("source_tag") not in
-                             ("government", "academic", "official", "standard", "registry")]
+            primary_frags = [
+                f
+                for f in fragments
+                if f.get("source_tag")
+                in ("government", "academic", "official", "standard", "registry")
+            ]
+            secondary_frags = [
+                f
+                for f in fragments
+                if f.get("source_tag")
+                not in ("government", "academic", "official", "standard", "registry")
+            ]
 
             # Primary sources first (§3.4)
             if primary_frags:
@@ -468,7 +478,9 @@ class ReportGenerator:
                     url=url,
                     title=frag.get("page_title", url),
                     heading_context=frag.get("heading_context"),
-                    excerpt=frag.get("text_content", "")[:200] if frag.get("text_content") else None,
+                    excerpt=frag.get("text_content", "")[:200]
+                    if frag.get("text_content")
+                    else None,
                     discovered_at=frag.get("created_at"),
                     source_tag=frag.get("source_tag"),
                 )
@@ -507,7 +519,9 @@ class ReportGenerator:
         lines.append("")
         lines.append("- 本レポートは自動生成されたものであり、人間による検証を推奨します")
         lines.append("- 情報の鮮度は収集時点のものです")
-        lines.append("- 商用APIを使用していないため、一部の情報源にアクセスできていない可能性があります")
+        lines.append(
+            "- 商用APIを使用していないため、一部の情報源にアクセスできていない可能性があります"
+        )
         lines.append("")
 
         # Metadata
@@ -522,10 +536,10 @@ class ReportGenerator:
         claims: list[dict[str, Any]],
     ) -> list[str]:
         """Generate timeline section for report (§3.4).
-        
+
         Args:
             claims: List of claims with timeline data.
-            
+
         Returns:
             List of markdown lines for timeline section.
         """
@@ -566,14 +580,16 @@ class ReportGenerator:
                 lines.append(f"- ~~{claim.get('claim_text', '')}~~")
                 retraction = next(
                     (e for e in timeline.events if e.event_type == TimelineEventType.RETRACTED),
-                    None
+                    None,
                 )
                 if retraction:
                     lines.append(f"  - 撤回日: {retraction.timestamp.strftime('%Y年%m月%d日')}")
                     if retraction.notes:
                         lines.append(f"  - 理由: {retraction.notes}")
                     if retraction.source_url:
-                        lines.append(f"  - 出典: [{retraction.source_url[:60]}...]({retraction.source_url})")
+                        lines.append(
+                            f"  - 出典: [{retraction.source_url[:60]}...]({retraction.source_url})"
+                        )
             lines.append("")
 
         if corrected_claims:
@@ -583,7 +599,7 @@ class ReportGenerator:
                 lines.append(f"- {claim.get('claim_text', '')}")
                 correction = next(
                     (e for e in timeline.events if e.event_type == TimelineEventType.CORRECTED),
-                    None
+                    None,
                 )
                 if correction:
                     lines.append(f"  - 訂正日: {correction.timestamp.strftime('%Y年%m月%d日')}")
@@ -593,9 +609,9 @@ class ReportGenerator:
 
         # Show timeline for high-confidence claims
         high_confidence_with_timeline = [
-            (c, t) for c, t in claims_with_timeline
-            if (c.get("confidence_score") or 0) >= 0.7
-            and not t.is_retracted
+            (c, t)
+            for c, t in claims_with_timeline
+            if (c.get("confidence_score") or 0) >= 0.7 and not t.is_retracted
         ][:10]  # Limit to 10
 
         if high_confidence_with_timeline:
@@ -624,7 +640,11 @@ class ReportGenerator:
 
                     lines.append(f"- {label} {date_str}")
                     if event.source_url:
-                        url_display = event.source_url[:50] + "..." if len(event.source_url) > 50 else event.source_url
+                        url_display = (
+                            event.source_url[:50] + "..."
+                            if len(event.source_url) > 50
+                            else event.source_url
+                        )
                         lines.append(f"  - [{url_display}]({event.source_url})")
                     if event.wayback_snapshot_url:
                         lines.append(f"  - [📜 アーカイブ]({event.wayback_snapshot_url})")
@@ -641,13 +661,13 @@ class ReportGenerator:
         edges: list[dict[str, Any]],
     ) -> str:
         """Generate JSON report.
-        
+
         Args:
             task: Task record.
             claims: List of claims.
             fragments: List of relevant fragments.
             edges: Evidence graph edges.
-            
+
         Returns:
             JSON content.
         """
@@ -711,12 +731,12 @@ async def generate_report(
     include_evidence_graph: bool = True,
 ) -> dict[str, Any]:
     """Generate a research report (MCP tool handler).
-    
+
     Args:
         task_id: Task ID.
         format_type: Output format.
         include_evidence_graph: Include evidence graph.
-        
+
     Returns:
         Generation result.
     """
@@ -737,15 +757,15 @@ async def get_report_materials(
     include_fragments: bool = True,
 ) -> dict[str, Any]:
     """Get report materials for Cursor AI to compose a report (§2.1 compliant).
-    
+
     Returns structured data (claims, fragments, evidence graph) without
     generating the actual report. Report composition is Cursor AI's responsibility.
-    
+
     Args:
         task_id: Task ID.
         include_evidence_graph: Include evidence graph structure.
         include_fragments: Include source fragments.
-        
+
     Returns:
         Report materials as structured data.
     """
@@ -763,11 +783,11 @@ async def get_report_materials(
     # Get claims with supporting/refuting counts
     claims = await db.fetch_all(
         """
-        SELECT 
+        SELECT
             c.*,
-            (SELECT COUNT(*) FROM edges e 
+            (SELECT COUNT(*) FROM edges e
              WHERE e.target_id = c.id AND e.relation = 'supports') as support_count,
-            (SELECT COUNT(*) FROM edges e 
+            (SELECT COUNT(*) FROM edges e
              WHERE e.target_id = c.id AND e.relation = 'refutes') as refute_count
         FROM claims c
         WHERE c.task_id = ?
@@ -800,13 +820,15 @@ async def get_report_materials(
         # Classify by source type (§3.4: Source Priority Order)
         for frag in fragments:
             frag["is_primary_source"] = frag.get("source_tag") in (
-                "government", "academic", "official", "standard", "registry"
+                "government",
+                "academic",
+                "official",
+                "standard",
+                "registry",
             )
             # Add deep link
             if frag.get("url") and frag.get("heading_context"):
-                frag["deep_link"] = generate_deep_link(
-                    frag["url"], frag["heading_context"]
-                )
+                frag["deep_link"] = generate_deep_link(frag["url"], frag["heading_context"])
 
     # Get evidence graph if requested
     evidence_graph = None
@@ -901,15 +923,15 @@ async def get_evidence_graph(
     include_fragments: bool = True,
 ) -> dict[str, Any]:
     """Get evidence graph structure for a task.
-    
+
     Returns nodes (claims, fragments) and edges (supports, refutes, cites)
     as structured data for Cursor AI to interpret.
-    
+
     Args:
         task_id: Task ID.
         claim_ids: Optional filter by specific claim IDs.
         include_fragments: Include linked fragments.
-        
+
     Returns:
         Evidence graph as structured data.
     """
@@ -937,7 +959,7 @@ async def get_evidence_graph(
             (task_id,),
         )
 
-    claim_id_set = {c["id"] for c in claims}
+    {c["id"] for c in claims}
 
     # Get edges involving these claims
     if claim_ids:
@@ -1049,4 +1071,3 @@ async def get_evidence_graph(
             "relations": relations,
         },
     }
-

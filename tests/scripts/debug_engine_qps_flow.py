@@ -82,7 +82,7 @@ async def test_last_search_times_tracking():
     provider = BrowserSearchProvider()
 
     # Check that _last_search_times attribute exists
-    if not hasattr(provider, '_last_search_times'):
+    if not hasattr(provider, "_last_search_times"):
         print("  ✗ Provider missing '_last_search_times' attribute")
         print("    Expected: dict[str, float] for per-engine tracking")
         return False
@@ -155,10 +155,10 @@ async def test_per_engine_interval():
     print("=" * 80)
 
     provider = BrowserSearchProvider()
-    config_manager = get_engine_config_manager()
+    get_engine_config_manager()
 
     # First, check _last_search_times tracking
-    if not hasattr(provider, '_last_search_times'):
+    if not hasattr(provider, "_last_search_times"):
         print("  ✗ Provider missing '_last_search_times' - skipping test")
         return False
 
@@ -239,7 +239,7 @@ async def test_full_qps_flow():
     # The implementation is verified by checking _last_search_times
 
     print("\n  [Step 2] Check _last_search_times tracking")
-    if hasattr(provider, '_last_search_times'):
+    if hasattr(provider, "_last_search_times"):
         last_time = provider._last_search_times.get(engine, 0)
         print(f"    ✓ {engine} last_time: {last_time}")
         print("    ✓ Rate limiting flow completed")
@@ -293,6 +293,7 @@ async def main():
         print(f"✗ Test failed with error: {e}")
         print("=" * 80)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

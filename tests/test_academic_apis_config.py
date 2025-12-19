@@ -59,13 +59,13 @@ apis:
     base_url: "https://api.semanticscholar.org/graph/v1"
     timeout_seconds: 30
     priority: 1
-    
+
   openalex:
     enabled: true
     base_url: "https://api.openalex.org"
     timeout_seconds: 30
     priority: 2
-    
+
   unpaywall:
     enabled: true
     base_url: "https://api.unpaywall.org/v2"
@@ -186,7 +186,9 @@ class TestConfigLoading:
         """TC-CFG-B-04: Empty defaults section."""
         # Given: Config file with empty defaults
         config_file = temp_config_dir / "academic_apis.yaml"
-        config_file.write_text("apis:\n  semantic_scholar:\n    base_url: 'https://api.example.com'\ndefaults: {}")
+        config_file.write_text(
+            "apis:\n  semantic_scholar:\n    base_url: 'https://api.example.com'\ndefaults: {}"
+        )
 
         # When: Loading configuration
         with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_config_dir)}):
@@ -241,8 +243,8 @@ class TestEnvironmentVariableOverride:
             os.environ,
             {
                 "LANCET_CONFIG_DIR": str(temp_config_dir),
-                "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL": "override@example.com"
-            }
+                "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL": "override@example.com",
+            },
         ):
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()

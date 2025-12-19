@@ -339,7 +339,7 @@ async def test_pydantic_models():
     print("\n  Test 6.3: Pydantic validation")
     try:
         # This should raise validation error
-        invalid = EngineHealthMetrics(
+        EngineHealthMetrics(
             engine="test",
             success_rate_1h=1.5,  # Invalid: > 1.0
         )

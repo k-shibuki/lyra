@@ -33,7 +33,6 @@ Per §7.1 test quality standards:
 | TC-CF-01 | get_ipv6_manager | Equivalence – singleton | Returns manager | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -538,9 +537,9 @@ class TestIPv6ConnectionManager:
     async def test_resolve_addresses_with_mock(self, mock_settings):
         """resolve_addresses should return IPv6 and IPv4 addresses."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.2', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.2", 0)),
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -560,8 +559,8 @@ class TestIPv6ConnectionManager:
     async def test_get_preferred_addresses_ipv6_first(self, mock_settings):
         """get_preferred_addresses should return IPv6 first when preferred."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -579,8 +578,8 @@ class TestIPv6ConnectionManager:
         """get_preferred_addresses should return IPv4 first when preferred."""
         mock_settings.ipv6.preference = "ipv4_first"
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -663,8 +662,8 @@ class TestIPv6ConnectionManager:
     async def test_try_connect_with_fallback_success_primary(self, mock_settings):
         """try_connect_with_fallback should succeed on primary family."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
         async def mock_connect(address, family):
@@ -687,11 +686,12 @@ class TestIPv6ConnectionManager:
     async def test_try_connect_with_fallback_to_secondary(self, mock_settings):
         """try_connect_with_fallback should fallback when primary fails."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
         call_count = 0
+
         async def mock_connect(address, family):
             nonlocal call_count
             call_count += 1
@@ -718,8 +718,8 @@ class TestIPv6ConnectionManager:
     async def test_try_connect_with_fallback_all_fail(self, mock_settings):
         """try_connect_with_fallback should fail when all attempts fail."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
         async def mock_connect(address, family):
@@ -742,6 +742,7 @@ class TestIPv6ConnectionManager:
     @pytest.mark.asyncio
     async def test_try_connect_no_addresses(self, mock_settings):
         """try_connect_with_fallback should handle no resolved addresses."""
+
         async def mock_connect(address, family):
             return True, None
 
@@ -800,6 +801,7 @@ class TestGlobalFunctions:
     def test_get_ipv6_manager_singleton(self, mock_settings):
         """get_ipv6_manager should return singleton."""
         import src.crawler.ipv6_manager as ipv6_module
+
         ipv6_module._ipv6_manager = None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -815,10 +817,11 @@ class TestGlobalFunctions:
     async def test_resolve_with_ipv6_preference(self, mock_settings):
         """resolve_with_ipv6_preference should use manager."""
         import src.crawler.ipv6_manager as ipv6_module
+
         ipv6_module._ipv6_manager = None
 
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -874,8 +877,9 @@ class TestIPv6ManagerIntegration:
 
             # EMA after 5 successes: 0.704755 (calculated above)
             expected_rate = 0.704755
-            assert stats.ipv6_success_rate == pytest.approx(expected_rate, rel=0.01), \
+            assert stats.ipv6_success_rate == pytest.approx(expected_rate, rel=0.01), (
                 f"Expected IPv6 success rate ~{expected_rate}, got {stats.ipv6_success_rate}"
+            )
             assert stats.ipv6_enabled is True, "IPv6 should remain enabled after successes"
 
     @pytest.mark.asyncio
@@ -919,10 +923,10 @@ class TestIPv6ManagerIntegration:
     async def test_happy_eyeballs_interleaving(self, mock_settings):
         """Addresses should be interleaved for Happy Eyeballs (§4.3)."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::2', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.2', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::2", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.2", 0)),
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -961,13 +965,15 @@ class TestIPv6BoundaryConditions:
     async def test_single_ipv6_address_only(self, mock_settings):
         """Single IPv6-only resolution should work correctly."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             with patch("socket.getaddrinfo", return_value=mock_addr_info):
                 manager = IPv6ConnectionManager()
-                addresses = await manager.get_preferred_addresses("ipv6only.example.com", "ipv6only.example.com")
+                addresses = await manager.get_preferred_addresses(
+                    "ipv6only.example.com", "ipv6only.example.com"
+                )
 
         assert len(addresses) == 1, "Should have exactly 1 address"
         assert addresses[0].family == AddressFamily.IPV6, "Address should be IPv6"
@@ -977,13 +983,15 @@ class TestIPv6BoundaryConditions:
     async def test_single_ipv4_address_only(self, mock_settings):
         """Single IPv4-only resolution should work correctly."""
         mock_addr_info = [
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             with patch("socket.getaddrinfo", return_value=mock_addr_info):
                 manager = IPv6ConnectionManager()
-                addresses = await manager.get_preferred_addresses("ipv4only.example.com", "ipv4only.example.com")
+                addresses = await manager.get_preferred_addresses(
+                    "ipv4only.example.com", "ipv4only.example.com"
+                )
 
         assert len(addresses) == 1, "Should have exactly 1 address"
         assert addresses[0].family == AddressFamily.IPV4, "Address should be IPv4"
@@ -994,7 +1002,7 @@ class TestIPv6BoundaryConditions:
         """IPv6-only host with IPv6-first preference should succeed without fallback."""
         mock_settings.ipv6.preference = "ipv6_first"
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
         ]
 
         async def mock_connect(address, family):
@@ -1018,7 +1026,7 @@ class TestIPv6BoundaryConditions:
         """IPv4-only host with IPv6-first preference should succeed with IPv4."""
         mock_settings.ipv6.preference = "ipv6_first"
         mock_addr_info = [
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
         async def mock_connect(address, family):
@@ -1058,10 +1066,10 @@ class TestIPv6BoundaryConditions:
     async def test_duplicate_address_deduplication(self, mock_settings):
         """Duplicate addresses should be deduplicated."""
         mock_addr_info = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),
-            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('2001:db8::1', 0)),  # Duplicate
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),
-            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0)),  # Duplicate
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),  # Duplicate
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),  # Duplicate
         ]
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -1092,6 +1100,6 @@ class TestIPv6BoundaryConditions:
 
         # Only last 100 should be kept (50-149)
         expected_avg = sum(range(50, 150)) / 100  # Average of 50-149 = 99.5
-        assert metrics.avg_latency_ms == pytest.approx(expected_avg), \
+        assert metrics.avg_latency_ms == pytest.approx(expected_avg), (
             f"Expected avg latency {expected_avg}, got {metrics.avg_latency_ms}"
-
+        )

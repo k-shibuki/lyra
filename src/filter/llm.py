@@ -353,7 +353,9 @@ EXTRACT_CLAIMS_INSTRUCTION = """あなたは情報分析の専門家です。以
 抽出した主張をJSON配列形式で出力してください。各主張は以下の形式で:
 {"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}"""
 
-SUMMARIZE_INSTRUCTION = """以下のテキストを要約してください。重要なポイントを簡潔にまとめてください。"""
+SUMMARIZE_INSTRUCTION = (
+    """以下のテキストを要約してください。重要なポイントを簡潔にまとめてください。"""
+)
 
 TRANSLATE_INSTRUCTION = """以下のテキストを翻訳してください。"""
 
@@ -409,7 +411,7 @@ async def llm_extract(
 
         # Use single model (per §K.1)
         model = None
-        if hasattr(default_provider, 'model'):
+        if hasattr(default_provider, "model"):
             model = default_provider.model
 
         results = []
@@ -445,10 +447,12 @@ async def llm_extract(
                 response = await default_provider.generate(prompt, options)
 
                 if not response.ok:
-                    results.append({
-                        "id": passage_id,
-                        "error": response.error,
-                    })
+                    results.append(
+                        {
+                            "id": passage_id,
+                            "error": response.error,
+                        }
+                    )
                     continue
 
                 response_text = response.text
@@ -464,7 +468,9 @@ async def llm_extract(
                     # L8: Use audit logger for security events
                     audit_logger.log_prompt_leakage(
                         source="llm_extract",
-                        fragment_count=validation_result.leakage_result.total_leaks if validation_result.leakage_result else 1,
+                        fragment_count=validation_result.leakage_result.total_leaks
+                        if validation_result.leakage_result
+                        else 1,
                     )
                 response_text = validation_result.validated_text
 
@@ -479,17 +485,21 @@ async def llm_extract(
                     except json.JSONDecodeError:
                         extracted = [{"raw_response": response_text}]
 
-                    results.append({
-                        "id": passage_id,
-                        "source_url": source_url,
-                        "extracted": extracted,
-                    })
+                    results.append(
+                        {
+                            "id": passage_id,
+                            "source_url": source_url,
+                            "extracted": extracted,
+                        }
+                    )
                 else:
-                    results.append({
-                        "id": passage_id,
-                        "source_url": source_url,
-                        "result": response_text.strip(),
-                    })
+                    results.append(
+                        {
+                            "id": passage_id,
+                            "source_url": source_url,
+                            "result": response_text.strip(),
+                        }
+                    )
 
             except Exception as e:
                 # L8: Use secure logger for exception handling
@@ -497,10 +507,12 @@ async def llm_extract(
                     e,
                     context={"passage_id": passage_id, "task": task},
                 )
-                results.append({
-                    "id": passage_id,
-                    "error": sanitized.sanitized_message,
-                })
+                results.append(
+                    {
+                        "id": passage_id,
+                        "error": sanitized.sanitized_message,
+                    }
+                )
     else:
         # Legacy path using OllamaClient
         client = _get_client()
@@ -548,7 +560,9 @@ async def llm_extract(
                     # L8: Use audit logger for security events (legacy path)
                     audit_logger.log_prompt_leakage(
                         source="llm_extract_legacy",
-                        fragment_count=validation_result.leakage_result.total_leaks if validation_result.leakage_result else 1,
+                        fragment_count=validation_result.leakage_result.total_leaks
+                        if validation_result.leakage_result
+                        else 1,
                     )
                 response_text = validation_result.validated_text
 
@@ -562,17 +576,21 @@ async def llm_extract(
                     except json.JSONDecodeError:
                         extracted = [{"raw_response": response_text}]
 
-                    results.append({
-                        "id": passage_id,
-                        "source_url": source_url,
-                        "extracted": extracted,
-                    })
+                    results.append(
+                        {
+                            "id": passage_id,
+                            "source_url": source_url,
+                            "extracted": extracted,
+                        }
+                    )
                 else:
-                    results.append({
-                        "id": passage_id,
-                        "source_url": source_url,
-                        "result": response_text.strip(),
-                    })
+                    results.append(
+                        {
+                            "id": passage_id,
+                            "source_url": source_url,
+                            "result": response_text.strip(),
+                        }
+                    )
 
             except Exception as e:
                 # L8: Use secure logger for exception handling
@@ -580,10 +598,12 @@ async def llm_extract(
                     e,
                     context={"passage_id": passage_id, "task": task},
                 )
-                results.append({
-                    "id": passage_id,
-                    "error": sanitized.sanitized_message,
-                })
+                results.append(
+                    {
+                        "id": passage_id,
+                        "error": sanitized.sanitized_message,
+                    }
+                )
 
     # Aggregate results
     if task == "extract_facts":
@@ -642,6 +662,7 @@ async def cleanup_all_providers() -> None:
 
     # Cleanup registry
     from src.filter.provider import cleanup_llm_registry
+
     await cleanup_llm_registry()
 
 

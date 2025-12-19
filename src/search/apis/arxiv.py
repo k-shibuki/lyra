@@ -25,9 +25,12 @@ class ArxivClient(BaseAcademicClient):
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
+
             config = get_academic_apis_config()
             api_config = config.apis.get("arxiv", {})
-            base_url = api_config.base_url if api_config.base_url else "http://export.arxiv.org/api/query"
+            base_url = (
+                api_config.base_url if api_config.base_url else "http://export.arxiv.org/api/query"
+            )
             timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
             headers = api_config.headers if api_config.headers else None
         except Exception:
@@ -50,8 +53,8 @@ class ArxivClient(BaseAcademicClient):
                     "start": 0,
                     "max_results": limit,
                     "sortBy": "relevance",
-                    "sortOrder": "descending"
-                }
+                    "sortOrder": "descending",
+                },
             )
             response.raise_for_status()
             return response.text
@@ -60,18 +63,10 @@ class ArxivClient(BaseAcademicClient):
             xml_text = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
             papers = self._parse_atom_feed(xml_text)
 
-            return AcademicSearchResult(
-                papers=papers,
-                total_count=len(papers),
-                source_api="arxiv"
-            )
+            return AcademicSearchResult(papers=papers, total_count=len(papers), source_api="arxiv")
         except Exception as e:
             logger.error("arXiv search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[],
-                total_count=0,
-                source_api="arxiv"
-            )
+            return AcademicSearchResult(papers=[], total_count=0, source_api="arxiv")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata from arXiv ID."""
@@ -80,10 +75,7 @@ class ArxivClient(BaseAcademicClient):
         async def _fetch():
             # paper_id is "2301.12345" format or "arXiv:2301.12345"
             arxiv_id = paper_id.replace("arXiv:", "").replace("arxiv:", "")
-            response = await session.get(
-                self.base_url,
-                params={"id_list": arxiv_id}
-            )
+            response = await session.get(self.base_url, params={"id_list": arxiv_id})
             response.raise_for_status()
             return response.text
 
@@ -133,7 +125,11 @@ class ArxivClient(BaseAcademicClient):
                 return None
 
             arxiv_url = id_elem.text
-            arxiv_id = arxiv_url.split("/")[-1] if "/" in arxiv_url else arxiv_url.replace("http://arxiv.org/abs/", "")
+            arxiv_id = (
+                arxiv_url.split("/")[-1]
+                if "/" in arxiv_url
+                else arxiv_url.replace("http://arxiv.org/abs/", "")
+            )
 
             # Title
             title_elem = entry.find("atom:title", ns)
@@ -141,18 +137,20 @@ class ArxivClient(BaseAcademicClient):
 
             # Abstract
             summary_elem = entry.find("atom:summary", ns)
-            abstract = summary_elem.text.strip() if summary_elem is not None and summary_elem.text else None
+            abstract = (
+                summary_elem.text.strip()
+                if summary_elem is not None and summary_elem.text
+                else None
+            )
 
             # Authors
             authors = []
             for author_elem in entry.findall("atom:author", ns):
                 name_elem = author_elem.find("atom:name", ns)
                 if name_elem is not None and name_elem.text:
-                    authors.append(Author(
-                        name=name_elem.text.strip(),
-                        affiliation=None,
-                        orcid=None
-                    ))
+                    authors.append(
+                        Author(name=name_elem.text.strip(), affiliation=None, orcid=None)
+                    )
 
             # Publication year
             published_elem = entry.find("atom:published", ns)
@@ -184,7 +182,7 @@ class ArxivClient(BaseAcademicClient):
                 is_open_access=True,  # arXiv is all open access
                 oa_url=pdf_url or f"https://arxiv.org/abs/{arxiv_id}",
                 pdf_url=pdf_url,
-                source_api="arxiv"
+                source_api="arxiv",
             )
         except Exception as e:
             logger.warning("Failed to parse arXiv entry", error=str(e))

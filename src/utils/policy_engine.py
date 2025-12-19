@@ -29,6 +29,7 @@ logger = get_logger(__name__)
 
 class PolicyParameter(str, Enum):
     """Parameters that can be auto-adjusted."""
+
     ENGINE_WEIGHT = "engine_weight"
     ENGINE_QPS = "engine_qps"
     DOMAIN_QPS = "domain_qps"
@@ -41,11 +42,12 @@ class PolicyParameter(str, Enum):
 @dataclass
 class ParameterBounds:
     """Bounds for a controllable parameter."""
+
     min_value: float
     max_value: float
     default_value: float
-    step_up: float     # Amount to increase per adjustment
-    step_down: float   # Amount to decrease per adjustment
+    step_up: float  # Amount to increase per adjustment
+    step_down: float  # Amount to decrease per adjustment
 
 
 def _get_default_bounds() -> dict["PolicyParameter", ParameterBounds]:
@@ -120,32 +122,53 @@ def _get_default_bounds() -> dict["PolicyParameter", ParameterBounds]:
         # Fallback to hardcoded defaults
         return {
             PolicyParameter.ENGINE_WEIGHT: ParameterBounds(
-                min_value=0.1, max_value=2.0, default_value=1.0,
-                step_up=0.1, step_down=0.2,
+                min_value=0.1,
+                max_value=2.0,
+                default_value=1.0,
+                step_up=0.1,
+                step_down=0.2,
             ),
             PolicyParameter.ENGINE_QPS: ParameterBounds(
-                min_value=0.1, max_value=0.5, default_value=0.25,
-                step_up=0.05, step_down=0.1,
+                min_value=0.1,
+                max_value=0.5,
+                default_value=0.25,
+                step_up=0.05,
+                step_down=0.1,
             ),
             PolicyParameter.DOMAIN_QPS: ParameterBounds(
-                min_value=0.05, max_value=0.3, default_value=0.2,
-                step_up=0.02, step_down=0.05,
+                min_value=0.05,
+                max_value=0.3,
+                default_value=0.2,
+                step_up=0.02,
+                step_down=0.05,
             ),
             PolicyParameter.DOMAIN_COOLDOWN: ParameterBounds(
-                min_value=30.0, max_value=240.0, default_value=60.0,
-                step_up=30.0, step_down=15.0,
+                min_value=30.0,
+                max_value=240.0,
+                default_value=60.0,
+                step_up=30.0,
+                step_down=15.0,
             ),
             PolicyParameter.HEADFUL_RATIO: ParameterBounds(
-                min_value=0.0, max_value=0.5, default_value=0.1,
-                step_up=0.05, step_down=0.05,
+                min_value=0.0,
+                max_value=0.5,
+                default_value=0.1,
+                step_up=0.05,
+                step_down=0.05,
             ),
             PolicyParameter.TOR_USAGE_RATIO: ParameterBounds(
-                min_value=0.0, max_value=0.2, default_value=0.0,
-                step_up=0.02, step_down=0.05,
+                min_value=0.0,
+                max_value=0.2,
+                default_value=0.0,
+                step_up=0.02,
+                step_down=0.05,
             ),
             PolicyParameter.BROWSER_ROUTE_RATIO: ParameterBounds(
-                min_value=0.1, max_value=0.5, default_value=0.3,
-                step_up=0.05, step_down=0.05,
+                min_value=0.1,
+                max_value=0.5,
+                default_value=0.3,
+                step_up=0.05,
+                step_down=0.05,
             ),
         }
 
@@ -178,7 +201,9 @@ class _DefaultBoundsProxy:
     def __getitem__(self, key: PolicyParameter) -> ParameterBounds:
         return get_default_bounds()[key]
 
-    def get(self, key: PolicyParameter, default: ParameterBounds | None = None) -> ParameterBounds | None:
+    def get(
+        self, key: PolicyParameter, default: ParameterBounds | None = None
+    ) -> ParameterBounds | None:
         return get_default_bounds().get(key, default)
 
     def keys(self):
@@ -204,6 +229,7 @@ DEFAULT_BOUNDS = _DefaultBoundsProxy()
 @dataclass
 class ParameterState:
     """Current state of a parameter with change tracking."""
+
     current_value: float
     last_changed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     last_direction: str = "none"  # "up", "down", "none"
@@ -251,6 +277,7 @@ class ParameterState:
 @dataclass
 class PolicyUpdate:
     """Record of a policy update."""
+
     timestamp: datetime
     target_type: str  # "engine", "domain"
     target_id: str
@@ -286,11 +313,13 @@ class PolicyEngine:
         self._collector = metrics_collector or get_metrics_collector()
 
         self._update_interval = (
-            update_interval if update_interval is not None
+            update_interval
+            if update_interval is not None
             else self._settings.metrics.ema_update_interval
         )
         self._hysteresis_interval = (
-            hysteresis_interval if hysteresis_interval is not None
+            hysteresis_interval
+            if hysteresis_interval is not None
             else self._settings.metrics.hysteresis_min_interval
         )
 
@@ -375,32 +404,36 @@ class PolicyEngine:
                 if new_weight < weight_state.current_value:
                     old_value = weight_state.current_value
                     actual = weight_state.apply_change(new_weight, "down", weight_bounds)
-                    updates.append(PolicyUpdate(
-                        timestamp=datetime.now(UTC),
-                        target_type="engine",
-                        target_id=engine,
-                        parameter=PolicyParameter.ENGINE_WEIGHT.value,
-                        old_value=old_value,
-                        new_value=actual,
-                        reason=f"Low success rate: {success_rate:.2f}",
-                        metrics_snapshot={"success_rate": success_rate, "latency_ms": latency},
-                    ))
+                    updates.append(
+                        PolicyUpdate(
+                            timestamp=datetime.now(UTC),
+                            target_type="engine",
+                            target_id=engine,
+                            parameter=PolicyParameter.ENGINE_WEIGHT.value,
+                            old_value=old_value,
+                            new_value=actual,
+                            reason=f"Low success rate: {success_rate:.2f}",
+                            metrics_snapshot={"success_rate": success_rate, "latency_ms": latency},
+                        )
+                    )
             elif success_rate > 0.9:
                 # High success rate -> increase weight
                 new_weight = weight_state.current_value + weight_bounds.step_up
                 if new_weight > weight_state.current_value:
                     old_value = weight_state.current_value
                     actual = weight_state.apply_change(new_weight, "up", weight_bounds)
-                    updates.append(PolicyUpdate(
-                        timestamp=datetime.now(UTC),
-                        target_type="engine",
-                        target_id=engine,
-                        parameter=PolicyParameter.ENGINE_WEIGHT.value,
-                        old_value=old_value,
-                        new_value=actual,
-                        reason=f"High success rate: {success_rate:.2f}",
-                        metrics_snapshot={"success_rate": success_rate, "latency_ms": latency},
-                    ))
+                    updates.append(
+                        PolicyUpdate(
+                            timestamp=datetime.now(UTC),
+                            target_type="engine",
+                            target_id=engine,
+                            parameter=PolicyParameter.ENGINE_WEIGHT.value,
+                            old_value=old_value,
+                            new_value=actual,
+                            reason=f"High success rate: {success_rate:.2f}",
+                            metrics_snapshot={"success_rate": success_rate, "latency_ms": latency},
+                        )
+                    )
 
         # Adjust QPS based on error patterns
         qps_state = self._get_or_create_state("engine", engine, PolicyParameter.ENGINE_QPS)
@@ -413,16 +446,18 @@ class PolicyEngine:
                 old_value = qps_state.current_value
                 actual = qps_state.apply_change(new_qps, "down", qps_bounds)
                 if actual != old_value:
-                    updates.append(PolicyUpdate(
-                        timestamp=datetime.now(UTC),
-                        target_type="engine",
-                        target_id=engine,
-                        parameter=PolicyParameter.ENGINE_QPS.value,
-                        old_value=old_value,
-                        new_value=actual,
-                        reason=f"Reducing QPS due to low success rate: {success_rate:.2f}",
-                        metrics_snapshot={"success_rate": success_rate},
-                    ))
+                    updates.append(
+                        PolicyUpdate(
+                            timestamp=datetime.now(UTC),
+                            target_type="engine",
+                            target_id=engine,
+                            parameter=PolicyParameter.ENGINE_QPS.value,
+                            old_value=old_value,
+                            new_value=actual,
+                            reason=f"Reducing QPS due to low success rate: {success_rate:.2f}",
+                            metrics_snapshot={"success_rate": success_rate},
+                        )
+                    )
 
         return updates
 
@@ -445,7 +480,7 @@ class PolicyEngine:
         captcha_rate = domain_metrics.get("captcha_rate", {}).get("ema_short", 0.0)
         error_403_rate = domain_metrics.get("error_403_rate", {}).get("ema_short", 0.0)
         error_429_rate = domain_metrics.get("error_429_rate", {}).get("ema_short", 0.0)
-        tor_usage = domain_metrics.get("tor_usage", {}).get("ema_short", 0.0)
+        domain_metrics.get("tor_usage", {}).get("ema_short", 0.0)
 
         combined_error_rate = captcha_rate + error_403_rate + error_429_rate
 
@@ -460,36 +495,43 @@ class PolicyEngine:
                 old_value = headful_state.current_value
                 actual = headful_state.apply_change(new_ratio, "up", headful_bounds)
                 if actual != old_value:
-                    updates.append(PolicyUpdate(
-                        timestamp=datetime.now(UTC),
-                        target_type="domain",
-                        target_id=domain,
-                        parameter=PolicyParameter.HEADFUL_RATIO.value,
-                        old_value=old_value,
-                        new_value=actual,
-                        reason=f"High error rate: {combined_error_rate:.2f}",
-                        metrics_snapshot={
-                            "captcha_rate": captcha_rate,
-                            "error_403_rate": error_403_rate,
-                            "error_429_rate": error_429_rate,
-                        },
-                    ))
-            elif combined_error_rate < 0.05 and headful_state.current_value > headful_bounds.default_value:
+                    updates.append(
+                        PolicyUpdate(
+                            timestamp=datetime.now(UTC),
+                            target_type="domain",
+                            target_id=domain,
+                            parameter=PolicyParameter.HEADFUL_RATIO.value,
+                            old_value=old_value,
+                            new_value=actual,
+                            reason=f"High error rate: {combined_error_rate:.2f}",
+                            metrics_snapshot={
+                                "captcha_rate": captcha_rate,
+                                "error_403_rate": error_403_rate,
+                                "error_429_rate": error_429_rate,
+                            },
+                        )
+                    )
+            elif (
+                combined_error_rate < 0.05
+                and headful_state.current_value > headful_bounds.default_value
+            ):
                 # Low error rate -> can reduce headful usage
                 new_ratio = headful_state.current_value - headful_bounds.step_down
                 old_value = headful_state.current_value
                 actual = headful_state.apply_change(new_ratio, "down", headful_bounds)
                 if actual != old_value:
-                    updates.append(PolicyUpdate(
-                        timestamp=datetime.now(UTC),
-                        target_type="domain",
-                        target_id=domain,
-                        parameter=PolicyParameter.HEADFUL_RATIO.value,
-                        old_value=old_value,
-                        new_value=actual,
-                        reason=f"Low error rate: {combined_error_rate:.2f}",
-                        metrics_snapshot={"combined_error_rate": combined_error_rate},
-                    ))
+                    updates.append(
+                        PolicyUpdate(
+                            timestamp=datetime.now(UTC),
+                            target_type="domain",
+                            target_id=domain,
+                            parameter=PolicyParameter.HEADFUL_RATIO.value,
+                            old_value=old_value,
+                            new_value=actual,
+                            reason=f"Low error rate: {combined_error_rate:.2f}",
+                            metrics_snapshot={"combined_error_rate": combined_error_rate},
+                        )
+                    )
 
         # Adjust Tor usage based on 403/429 rates
         tor_state = self._get_or_create_state("domain", domain, PolicyParameter.TOR_USAGE_RATIO)
@@ -502,22 +544,26 @@ class PolicyEngine:
                 old_value = tor_state.current_value
                 actual = tor_state.apply_change(new_ratio, "up", tor_bounds)
                 if actual != old_value:
-                    updates.append(PolicyUpdate(
-                        timestamp=datetime.now(UTC),
-                        target_type="domain",
-                        target_id=domain,
-                        parameter=PolicyParameter.TOR_USAGE_RATIO.value,
-                        old_value=old_value,
-                        new_value=actual,
-                        reason=f"High block rate - considering Tor: 403={error_403_rate:.2f}, 429={error_429_rate:.2f}",
-                        metrics_snapshot={
-                            "error_403_rate": error_403_rate,
-                            "error_429_rate": error_429_rate,
-                        },
-                    ))
+                    updates.append(
+                        PolicyUpdate(
+                            timestamp=datetime.now(UTC),
+                            target_type="domain",
+                            target_id=domain,
+                            parameter=PolicyParameter.TOR_USAGE_RATIO.value,
+                            old_value=old_value,
+                            new_value=actual,
+                            reason=f"High block rate - considering Tor: 403={error_403_rate:.2f}, 429={error_429_rate:.2f}",
+                            metrics_snapshot={
+                                "error_403_rate": error_403_rate,
+                                "error_429_rate": error_429_rate,
+                            },
+                        )
+                    )
 
         # Adjust cooldown based on persistent errors
-        cooldown_state = self._get_or_create_state("domain", domain, PolicyParameter.DOMAIN_COOLDOWN)
+        cooldown_state = self._get_or_create_state(
+            "domain", domain, PolicyParameter.DOMAIN_COOLDOWN
+        )
         cooldown_bounds = DEFAULT_BOUNDS[PolicyParameter.DOMAIN_COOLDOWN]
 
         if cooldown_state.can_change(self._hysteresis_interval):
@@ -527,16 +573,18 @@ class PolicyEngine:
                 old_value = cooldown_state.current_value
                 actual = cooldown_state.apply_change(new_cooldown, "up", cooldown_bounds)
                 if actual != old_value:
-                    updates.append(PolicyUpdate(
-                        timestamp=datetime.now(UTC),
-                        target_type="domain",
-                        target_id=domain,
-                        parameter=PolicyParameter.DOMAIN_COOLDOWN.value,
-                        old_value=old_value,
-                        new_value=actual,
-                        reason=f"High CAPTCHA rate: {captcha_rate:.2f}",
-                        metrics_snapshot={"captcha_rate": captcha_rate},
-                    ))
+                    updates.append(
+                        PolicyUpdate(
+                            timestamp=datetime.now(UTC),
+                            target_type="domain",
+                            target_id=domain,
+                            parameter=PolicyParameter.DOMAIN_COOLDOWN.value,
+                            old_value=old_value,
+                            new_value=actual,
+                            reason=f"High CAPTCHA rate: {captcha_rate:.2f}",
+                            metrics_snapshot={"captcha_rate": captcha_rate},
+                        )
+                    )
 
         return updates
 
@@ -551,6 +599,7 @@ class PolicyEngine:
 
         # Lazy import to avoid circular dependency
         from src.storage.database import get_database
+
         db = await get_database()
 
         for update in updates:
@@ -623,13 +672,17 @@ class PolicyEngine:
                 # Store in history
                 self._update_history.extend(all_updates)
                 if len(self._update_history) > self._max_history:
-                    self._update_history = self._update_history[-self._max_history:]
+                    self._update_history = self._update_history[-self._max_history :]
 
                 logger.info(
                     "Policy updates applied",
                     update_count=len(all_updates),
-                    engines_updated=len(set(u.target_id for u in all_updates if u.target_type == "engine")),
-                    domains_updated=len(set(u.target_id for u in all_updates if u.target_type == "domain")),
+                    engines_updated=len(
+                        {u.target_id for u in all_updates if u.target_type == "engine"}
+                    ),
+                    domains_updated=len(
+                        {u.target_id for u in all_updates if u.target_type == "domain"}
+                    ),
                 )
 
     async def _update_loop(self) -> None:
@@ -817,9 +870,7 @@ class PolicyEngine:
         # 1. Calculate metrics confidence (time decay)
         # Per plan: 48 hours for 90% decay to default
         if last_used_at:
-            hours_since_use = (
-                datetime.now(UTC) - last_used_at
-            ).total_seconds() / 3600
+            hours_since_use = (datetime.now(UTC) - last_used_at).total_seconds() / 3600
             confidence = max(0.1, 1.0 - (hours_since_use / 48))
         else:
             confidence = 0.1  # Never used = almost default
@@ -972,4 +1023,3 @@ async def stop_policy_engine() -> None:
     if _engine:
         await _engine.stop()
         _engine = None
-

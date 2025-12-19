@@ -219,10 +219,13 @@ class TestApplyEnvOverrides:
 
         config = {}
 
-        with patch.dict(os.environ, {
-            "LANCET_TOR__ENABLED": "false",
-            "LANCET_BROWSER__BLOCK_ADS": "true",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "LANCET_TOR__ENABLED": "false",
+                "LANCET_BROWSER__BLOCK_ADS": "true",
+            },
+        ):
             result = _apply_env_overrides(config)
 
         assert result["tor"]["enabled"] is False
@@ -256,10 +259,13 @@ class TestApplyEnvOverrides:
 
         config = {}
 
-        with patch.dict(os.environ, {
-            "OTHER_VAR": "value",
-            "HOME": "/home/user",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "OTHER_VAR": "value",
+                "HOME": "/home/user",
+            },
+        ):
             result = _apply_env_overrides(config)
 
         assert "other_var" not in result
@@ -292,6 +298,7 @@ class TestEnsureDirectories:
 
         settings = get_settings()
         from src.utils.config import get_project_root
+
         root = get_project_root()
 
         assert (root / settings.general.data_dir).is_dir()
@@ -437,4 +444,3 @@ class TestBindUnbindContext:
 
         ctx = structlog.contextvars.get_contextvars()
         assert ctx == {}
-

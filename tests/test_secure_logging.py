@@ -48,6 +48,7 @@ from src.utils.secure_logging import (
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def secure_logger():
     """Create a SecureLogger instance."""
@@ -64,6 +65,7 @@ def audit_logger():
 # SecureLogger Normal Cases (TC-N-01 to TC-N-03)
 # ============================================================================
 
+
 class TestSecureLoggerNormal:
     """Test SecureLogger normal cases."""
 
@@ -78,7 +80,7 @@ class TestSecureLoggerNormal:
         input_text = "What is Python programming language?"
         output_text = "Python is a high-level programming language."
 
-        with patch.object(secure_logger, '_logger') as mock_logger:
+        with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_llm_io(
                 "extract_facts",
                 input_text=input_text,
@@ -112,7 +114,7 @@ class TestSecureLoggerNormal:
         try:
             raise ValueError("Invalid input value")
         except Exception as e:
-            with patch.object(secure_logger, '_logger') as mock_logger:
+            with patch.object(secure_logger, "_logger") as mock_logger:
                 result = secure_logger.log_exception(e)
 
                 mock_logger.error.assert_called_once()
@@ -136,7 +138,7 @@ class TestSecureLoggerNormal:
             "status": "success",
         }
 
-        with patch.object(secure_logger, '_logger') as mock_logger:
+        with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_sensitive_operation("test_op", details)
 
             mock_logger.info.assert_called_once()
@@ -149,6 +151,7 @@ class TestSecureLoggerNormal:
 # ============================================================================
 # SecureLogger Abnormal Cases (TC-A-01 to TC-A-04)
 # ============================================================================
+
 
 class TestSecureLoggerAbnormal:
     """Test SecureLogger abnormal/error cases."""
@@ -163,7 +166,7 @@ class TestSecureLoggerAbnormal:
         """
         input_text = "This is <LANCET-abc123> system instruction text"
 
-        with patch.object(secure_logger, '_logger') as mock_logger:
+        with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_llm_io("test", input_text=input_text)
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -181,7 +184,7 @@ class TestSecureLoggerAbnormal:
         """
         input_text = "Error in file /home/user/secret/config.py"
 
-        with patch.object(secure_logger, '_logger') as mock_logger:
+        with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_llm_io("test", input_text=input_text)
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -201,7 +204,7 @@ class TestSecureLoggerAbnormal:
             raise ValueError(
                 "Error occurred\n"
                 "Traceback (most recent call last):\n"
-                "  File \"/home/user/test.py\", line 10, in test_func\n"
+                '  File "/home/user/test.py", line 10, in test_func\n'
                 "    raise ValueError"
             )
         except Exception as e:
@@ -230,6 +233,7 @@ class TestSecureLoggerAbnormal:
 # SecureLogger Boundary Cases (TC-B-01 to TC-B-03)
 # ============================================================================
 
+
 class TestSecureLoggerBoundary:
     """Test SecureLogger boundary cases."""
 
@@ -241,7 +245,7 @@ class TestSecureLoggerBoundary:
         // When: Logging LLM I/O
         // Then: No error, length=0
         """
-        with patch.object(secure_logger, '_logger') as mock_logger:
+        with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_llm_io("test", input_text="", output_text="")
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -259,7 +263,7 @@ class TestSecureLoggerBoundary:
         """
         long_text = "A" * 10000
 
-        with patch.object(secure_logger, '_logger') as mock_logger:
+        with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_llm_io("test", input_text=long_text)
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -277,7 +281,7 @@ class TestSecureLoggerBoundary:
         // When: Logging LLM I/O
         // Then: No 'input' key in log data
         """
-        with patch.object(secure_logger, '_logger') as mock_logger:
+        with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_llm_io("test", input_text=None, output_text="response")
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -290,6 +294,7 @@ class TestSecureLoggerBoundary:
 # AuditLogger Normal Cases (TC-N-04 to TC-N-06)
 # ============================================================================
 
+
 class TestAuditLoggerNormal:
     """Test AuditLogger normal cases."""
 
@@ -301,7 +306,7 @@ class TestAuditLoggerNormal:
         // When: Logging security event
         // Then: Event is logged with correct severity
         """
-        with patch.object(audit_logger, '_logger') as mock_logger:
+        with patch.object(audit_logger, "_logger") as mock_logger:
             event_id = audit_logger.log_security_event(
                 SecurityEventType.PROMPT_LEAKAGE_DETECTED,
                 severity="high",
@@ -323,7 +328,7 @@ class TestAuditLoggerNormal:
         // When: Using log_prompt_leakage helper
         // Then: Correct event type and fragment count
         """
-        with patch.object(audit_logger, '_logger') as mock_logger:
+        with patch.object(audit_logger, "_logger") as mock_logger:
             event_id = audit_logger.log_prompt_leakage(
                 source="llm_extract",
                 fragment_count=3,
@@ -342,7 +347,7 @@ class TestAuditLoggerNormal:
         // When: Using log_dangerous_pattern helper
         // Then: Correct event type and pattern count
         """
-        with patch.object(audit_logger, '_logger') as mock_logger:
+        with patch.object(audit_logger, "_logger") as mock_logger:
             event_id = audit_logger.log_dangerous_pattern(
                 patterns=["ignore previous", "system prompt"],
                 source="user_input",
@@ -358,6 +363,7 @@ class TestAuditLoggerNormal:
 # AuditLogger Abnormal and Boundary Cases (TC-A-05, TC-B-04)
 # ============================================================================
 
+
 class TestAuditLoggerAbnormalBoundary:
     """Test AuditLogger abnormal and boundary cases."""
 
@@ -371,7 +377,7 @@ class TestAuditLoggerAbnormalBoundary:
         """
         long_value = "A" * 100
 
-        with patch.object(audit_logger, '_logger') as mock_logger:
+        with patch.object(audit_logger, "_logger") as mock_logger:
             audit_logger.log_security_event(
                 SecurityEventType.UNKNOWN_FIELD_REMOVED,
                 details={"long_field": long_value},
@@ -390,7 +396,7 @@ class TestAuditLoggerAbnormalBoundary:
         // When: Logging security event
         // Then: No 'details' key in log
         """
-        with patch.object(audit_logger, '_logger') as mock_logger:
+        with patch.object(audit_logger, "_logger") as mock_logger:
             audit_logger.log_security_event(
                 SecurityEventType.OUTPUT_TRUNCATED,
                 details=None,
@@ -403,6 +409,7 @@ class TestAuditLoggerAbnormalBoundary:
 # ============================================================================
 # Structlog Processor Tests (TC-N-07, TC-A-06, TC-A-07)
 # ============================================================================
+
 
 class TestStructlogProcessor:
     """Test structlog sanitization processor."""
@@ -468,6 +475,7 @@ class TestStructlogProcessor:
 # ============================================================================
 # L7 Bug Fix Test (TC-N-08, TC-B-05)
 # ============================================================================
+
 
 class TestL7BugFix:
     """Test L7 duplicate processing bug fix."""
@@ -540,6 +548,7 @@ class TestL7BugFix:
 # Data Class Tests
 # ============================================================================
 
+
 class TestDataClasses:
     """Test data class functionality."""
 
@@ -578,6 +587,7 @@ class TestDataClasses:
 # Module-level Function Tests
 # ============================================================================
 
+
 class TestModuleFunctions:
     """Test module-level convenience functions."""
 
@@ -609,6 +619,7 @@ class TestModuleFunctions:
 # Security Event Type Tests
 # ============================================================================
 
+
 class TestSecurityEventType:
     """Test SecurityEventType enum."""
 
@@ -622,4 +633,3 @@ class TestSecurityEventType:
         """Test all event type values are unique."""
         values = [e.value for e in SecurityEventType]
         assert len(values) == len(set(values))
-

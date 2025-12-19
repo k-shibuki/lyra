@@ -39,6 +39,7 @@ logger = get_logger(__name__)
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -62,6 +63,7 @@ class MCPToolsVerifier:
         # Check browser connectivity via BrowserSearchProvider
         try:
             from src.search.browser_search_provider import BrowserSearchProvider
+
             provider = BrowserSearchProvider()
             await provider._ensure_browser()
             if provider._browser and provider._browser.is_connected():
@@ -79,7 +81,8 @@ class MCPToolsVerifier:
         # Check database
         try:
             from src.storage.database import get_database
-            db = await get_database()
+
+            await get_database()
             print("  ✓ Database available")
         except Exception as e:
             print(f"  ✗ Database unavailable: {e}")
@@ -90,7 +93,7 @@ class MCPToolsVerifier:
     async def verify_search_serp_handler(self) -> VerificationResult:
         """
         Verify search_serp MCP tool handler.
-        
+
         Tests:
         - Handler returns expected structure
         - Results contain required fields
@@ -177,9 +180,7 @@ class MCPToolsVerifier:
             # Verify result item structure
             first_result = results[0]
             result_required_fields = ["title", "url", "snippet", "engine", "rank"]
-            missing_result_fields = [
-                f for f in result_required_fields if f not in first_result
-            ]
+            missing_result_fields = [f for f in result_required_fields if f not in first_result]
 
             if missing_result_fields:
                 return VerificationResult(
@@ -216,7 +217,7 @@ class MCPToolsVerifier:
     async def verify_tool_dispatch(self) -> VerificationResult:
         """
         Verify MCP tool dispatch mechanism.
-        
+
         Tests:
         - Known tools are routed correctly
         - Unknown tools raise appropriate error
@@ -295,7 +296,7 @@ class MCPToolsVerifier:
     async def verify_error_response_format(self) -> VerificationResult:
         """
         Verify MCP error response format.
-        
+
         Tests:
         - Error responses have correct structure
         - Error type and message are included
@@ -385,7 +386,7 @@ class MCPToolsVerifier:
     async def verify_mcp_server_startup(self) -> VerificationResult:
         """
         Verify MCP server can be imported and TOOLS are defined.
-        
+
         Tests:
         - Server module imports without error
         - TOOLS list is properly defined
@@ -399,6 +400,7 @@ class MCPToolsVerifier:
             # Verify app is a Server instance
             from mcp.server import Server
             from src.mcp.server import TOOLS, app
+
             if not isinstance(app, Server):
                 return VerificationResult(
                     name="MCP server structure",
@@ -558,4 +560,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

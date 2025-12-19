@@ -376,7 +376,7 @@ class TestCitationChain:
 
     def test_citation_chain(self):
         """Test tracing citation chain.
-        
+
         Validates §3.3.3 citation chain tracing for source verification.
         Chain follows CITES edges from source to primary sources.
         """
@@ -396,10 +396,18 @@ class TestCitationChain:
         # STRICT: Chain must include the starting node (frag-1) and follow to cited page
         # get_citation_chain follows outgoing CITES edges, so chain = [frag-1, page-1]
         assert len(chain) == 2, f"Expected chain of 2 (frag->page), got {len(chain)}"
-        assert chain[0]["node_type"] == "fragment", f"First node should be fragment, got {chain[0]['node_type']}"
-        assert chain[0]["obj_id"] == "frag-1", f"First node should be frag-1, got {chain[0]['obj_id']}"
-        assert chain[1]["node_type"] == "page", f"Second node should be page, got {chain[1]['node_type']}"
-        assert chain[1]["obj_id"] == "page-1", f"Second node should be page-1, got {chain[1]['obj_id']}"
+        assert chain[0]["node_type"] == "fragment", (
+            f"First node should be fragment, got {chain[0]['node_type']}"
+        )
+        assert chain[0]["obj_id"] == "frag-1", (
+            f"First node should be frag-1, got {chain[0]['obj_id']}"
+        )
+        assert chain[1]["node_type"] == "page", (
+            f"Second node should be page, got {chain[1]['node_type']}"
+        )
+        assert chain[1]["obj_id"] == "page-1", (
+            f"Second node should be page-1, got {chain[1]['obj_id']}"
+        )
 
     def test_citation_chain_empty(self):
         """Test citation chain for unknown node."""
@@ -437,7 +445,10 @@ class TestContradictionDetection:
 
         # Then: The contradiction pair is found
         assert len(contradictions) == 1
-        assert {contradictions[0]["claim1_id"], contradictions[0]["claim2_id"]} == {"claim-1", "claim-2"}
+        assert {contradictions[0]["claim1_id"], contradictions[0]["claim2_id"]} == {
+            "claim-1",
+            "claim-2",
+        }
 
     def test_find_contradictions_none(self):
         """Test finding no contradictions."""
@@ -479,13 +490,17 @@ class TestGraphStats:
         graph.add_node(NodeType.PAGE, "p1")
 
         graph.add_edge(
-            NodeType.FRAGMENT, "f1",
-            NodeType.CLAIM, "c1",
+            NodeType.FRAGMENT,
+            "f1",
+            NodeType.CLAIM,
+            "c1",
             RelationType.SUPPORTS,
         )
         graph.add_edge(
-            NodeType.FRAGMENT, "f1",
-            NodeType.PAGE, "p1",
+            NodeType.FRAGMENT,
+            "f1",
+            NodeType.PAGE,
+            "p1",
             RelationType.CITES,
         )
 
@@ -512,8 +527,10 @@ class TestGraphExport:
 
         graph.add_node(NodeType.CLAIM, "c1", text="Test")
         graph.add_edge(
-            NodeType.FRAGMENT, "f1",
-            NodeType.CLAIM, "c1",
+            NodeType.FRAGMENT,
+            "f1",
+            NodeType.CLAIM,
+            "c1",
             RelationType.SUPPORTS,
             confidence=0.9,
         )
@@ -535,7 +552,7 @@ class TestCitationLoopDetection:
 
     def test_detect_simple_citation_loop(self):
         """Test detecting a simple citation loop (A -> B -> C -> A).
-        
+
         §3.3.3 requirement: detect circular citations
         §7 requirement: citation loop detection rate ≥80%
         """
@@ -543,18 +560,24 @@ class TestCitationLoopDetection:
 
         # Create exactly one 3-node loop: page-1 -> page-2 -> page-3 -> page-1
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
         graph.add_edge(
-            NodeType.PAGE, "page-2",
-            NodeType.PAGE, "page-3",
+            NodeType.PAGE,
+            "page-2",
+            NodeType.PAGE,
+            "page-3",
             RelationType.CITES,
         )
         graph.add_edge(
-            NodeType.PAGE, "page-3",
-            NodeType.PAGE, "page-1",
+            NodeType.PAGE,
+            "page-3",
+            NodeType.PAGE,
+            "page-1",
             RelationType.CITES,
         )
 
@@ -574,13 +597,17 @@ class TestCitationLoopDetection:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
         graph.add_edge(
-            NodeType.PAGE, "page-2",
-            NodeType.PAGE, "page-3",
+            NodeType.PAGE,
+            "page-2",
+            NodeType.PAGE,
+            "page-3",
             RelationType.CITES,
         )
 
@@ -596,13 +623,17 @@ class TestCitationLoopDetection:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.FRAGMENT, "frag-1",
-            NodeType.CLAIM, "claim-1",
+            NodeType.FRAGMENT,
+            "frag-1",
+            NodeType.CLAIM,
+            "claim-1",
             RelationType.SUPPORTS,
         )
         graph.add_edge(
-            NodeType.CLAIM, "claim-1",
-            NodeType.FRAGMENT, "frag-1",
+            NodeType.CLAIM,
+            "claim-1",
+            NodeType.FRAGMENT,
+            "frag-1",
             RelationType.SUPPORTS,
         )
 
@@ -622,13 +653,17 @@ class TestRoundTripDetection:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
         graph.add_edge(
-            NodeType.PAGE, "page-2",
-            NodeType.PAGE, "page-1",
+            NodeType.PAGE,
+            "page-2",
+            NodeType.PAGE,
+            "page-1",
             RelationType.CITES,
         )
 
@@ -646,8 +681,10 @@ class TestRoundTripDetection:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
 
@@ -667,8 +704,10 @@ class TestSelfReferenceDetection:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-1",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-1",
             RelationType.CITES,
         )
 
@@ -689,8 +728,10 @@ class TestSelfReferenceDetection:
         graph.add_node(NodeType.PAGE, "page-2", domain="example.com")
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
 
@@ -711,8 +752,10 @@ class TestSelfReferenceDetection:
         graph.add_node(NodeType.PAGE, "page-2", domain="other.com")
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
 
@@ -732,13 +775,17 @@ class TestCitationPenalties:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
         graph.add_edge(
-            NodeType.PAGE, "page-2",
-            NodeType.PAGE, "page-1",
+            NodeType.PAGE,
+            "page-2",
+            NodeType.PAGE,
+            "page-1",
             RelationType.CITES,
         )
 
@@ -755,8 +802,10 @@ class TestCitationPenalties:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
 
@@ -777,8 +826,10 @@ class TestCitationIntegrityReport:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
 
@@ -797,13 +848,17 @@ class TestCitationIntegrityReport:
         graph = EvidenceGraph()
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
         graph.add_edge(
-            NodeType.PAGE, "page-2",
-            NodeType.PAGE, "page-1",
+            NodeType.PAGE,
+            "page-2",
+            NodeType.PAGE,
+            "page-1",
             RelationType.CITES,
         )
 
@@ -840,8 +895,10 @@ class TestPrimarySourceRatio:
         graph.add_node(NodeType.PAGE, "page-2")
 
         graph.add_edge(
-            NodeType.FRAGMENT, "frag-1",
-            NodeType.PAGE, "page-1",
+            NodeType.FRAGMENT,
+            "frag-1",
+            NodeType.PAGE,
+            "page-1",
             RelationType.CITES,
         )
 
@@ -864,8 +921,10 @@ class TestPrimarySourceRatio:
         graph.add_node(NodeType.PAGE, "page-3")
 
         graph.add_edge(
-            NodeType.PAGE, "page-1",
-            NodeType.PAGE, "page-2",
+            NodeType.PAGE,
+            "page-1",
+            NodeType.PAGE,
+            "page-2",
             RelationType.CITES,
         )
 
@@ -909,7 +968,7 @@ class TestLoopSeverity:
 @pytest.mark.integration
 class TestDatabaseIntegration:
     """Tests for database persistence.
-    
+
     Integration tests per §7.1.7 - uses temporary database.
     """
 
@@ -976,14 +1035,14 @@ class TestDatabaseIntegration:
 
 class TestAcademicCitationAttributes:
     """Tests for academic citation attributes (J2).
-    
+
     Tests for is_academic, is_influential, citation_context attributes
     added to CITES edges.
     """
 
     def test_add_edge_with_academic_attributes(self):
         """Test adding edge with academic citation attributes.
-        
+
         // Given: Academic citation with is_academic, is_influential
         // When: Adding edge
         // Then: Attributes stored correctly
@@ -992,7 +1051,7 @@ class TestAcademicCitationAttributes:
         graph = EvidenceGraph()
 
         # When: Adding edge with academic attributes
-        edge_id = graph.add_edge(
+        graph.add_edge(
             source_type=NodeType.FRAGMENT,
             source_id="frag-1",
             target_type=NodeType.PAGE,
@@ -1012,7 +1071,7 @@ class TestAcademicCitationAttributes:
 
     def test_add_citation_with_academic_attributes(self):
         """Test add_citation() with academic attributes.
-        
+
         // Given: Academic citation attributes
         // When: Calling add_citation()
         // Then: Citation added with attributes
@@ -1046,7 +1105,7 @@ class TestAcademicCitationAttributes:
 
     def test_load_from_db_with_academic_attributes(self):
         """Test loading edges with academic attributes from DB.
-        
+
         // Given: Edge with academic attributes in DB
         // When: Loading from DB
         // Then: Attributes loaded correctly
@@ -1077,7 +1136,7 @@ class TestAcademicCitationAttributes:
     @pytest.mark.asyncio
     async def test_save_to_db_with_academic_attributes(self, test_database):
         """Test saving edges with academic attributes to DB.
-        
+
         // Given: Edge with academic attributes
         // When: Saving to DB
         // Then: Attributes persisted correctly
@@ -1110,4 +1169,3 @@ class TestAcademicCitationAttributes:
         assert edges[0]["is_academic"] == 1
         assert edges[0]["is_influential"] == 1
         assert edges[0]["citation_context"] == "Academic citation context"
-

@@ -77,6 +77,7 @@ from src.filter.claim_timeline import (
 # TimelineEvent Tests
 # =============================================================================
 
+
 class TestTimelineEvent:
     """Tests for TimelineEvent dataclass."""
 
@@ -176,6 +177,7 @@ class TestTimelineEvent:
 # ClaimTimeline Tests
 # =============================================================================
 
+
 class TestClaimTimeline:
     """Tests for ClaimTimeline class."""
 
@@ -201,7 +203,7 @@ class TestClaimTimeline:
         timestamp = datetime(2024, 1, 15, tzinfo=UTC)
 
         # When:
-        event = timeline.add_event(
+        timeline.add_event(
             event_type=TimelineEventType.FIRST_APPEARED,
             timestamp=timestamp,
             source_url="https://source.example.com",
@@ -464,16 +466,18 @@ class TestClaimTimeline:
     def test_from_json_deserialization(self):
         """Verify timeline deserializes from JSON correctly."""
         # Given:
-        json_str = json.dumps({
-            "claim_id": "claim_003",
-            "events": [
-                {
-                    "event_type": "first_appeared",
-                    "timestamp": "2024-01-15T10:00:00+00:00",
-                    "source_url": "https://example.com",
-                },
-            ],
-        })
+        json_str = json.dumps(
+            {
+                "claim_id": "claim_003",
+                "events": [
+                    {
+                        "event_type": "first_appeared",
+                        "timestamp": "2024-01-15T10:00:00+00:00",
+                        "source_url": "https://example.com",
+                    },
+                ],
+            }
+        )
 
         # When:
         timeline = ClaimTimeline.from_json(json_str)
@@ -506,6 +510,7 @@ class TestClaimTimeline:
 # =============================================================================
 # ClaimTimelineManager Tests
 # =============================================================================
+
 
 class TestClaimTimelineManager:
     """Tests for ClaimTimelineManager class."""
@@ -555,9 +560,9 @@ class TestClaimTimelineManager:
         }
 
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
-            mock_db.fetch_one = AsyncMock(return_value={
-                "timeline_json": json.dumps(existing_timeline)
-            })
+            mock_db.fetch_one = AsyncMock(
+                return_value={"timeline_json": json.dumps(existing_timeline)}
+            )
 
             # When:
             timeline = await manager.get_timeline("claim_existing")
@@ -630,17 +635,17 @@ class TestClaimTimelineManager:
         # Given:
         existing = {
             "claim_id": "claim_dup",
-            "events": [{
-                "event_type": "first_appeared",
-                "timestamp": "2024-01-01T00:00:00+00:00",
-                "source_url": "https://original.example.com",
-            }],
+            "events": [
+                {
+                    "event_type": "first_appeared",
+                    "timestamp": "2024-01-01T00:00:00+00:00",
+                    "source_url": "https://original.example.com",
+                }
+            ],
         }
 
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
-            mock_db.fetch_one = AsyncMock(return_value={
-                "timeline_json": json.dumps(existing)
-            })
+            mock_db.fetch_one = AsyncMock(return_value={"timeline_json": json.dumps(existing)})
 
             # When:
             event = await manager.add_first_appeared(
@@ -676,10 +681,12 @@ class TestClaimTimelineManager:
         """Verify add_retraction creates event and updates confidence."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
-            mock_db.fetch_one = AsyncMock(side_effect=[
-                {"timeline_json": None},  # First call for get_timeline
-                {"confidence_score": 0.9},  # Second call for confidence adjustment
-            ])
+            mock_db.fetch_one = AsyncMock(
+                side_effect=[
+                    {"timeline_json": None},  # First call for get_timeline
+                    {"confidence_score": 0.9},  # Second call for confidence adjustment
+                ]
+            )
 
             # When:
             event = await manager.add_retraction(
@@ -732,15 +739,37 @@ class TestClaimTimelineManager:
         # Given:
         claims = [
             # Claim with timeline
-            {"id": "c1", "timeline_json": json.dumps({
-                "claim_id": "c1",
-                "events": [{"event_type": "first_appeared", "timestamp": "2024-01-01T00:00:00+00:00", "source_url": "url1"}],
-            })},
+            {
+                "id": "c1",
+                "timeline_json": json.dumps(
+                    {
+                        "claim_id": "c1",
+                        "events": [
+                            {
+                                "event_type": "first_appeared",
+                                "timestamp": "2024-01-01T00:00:00+00:00",
+                                "source_url": "url1",
+                            }
+                        ],
+                    }
+                ),
+            },
             # Claim with retraction
-            {"id": "c2", "timeline_json": json.dumps({
-                "claim_id": "c2",
-                "events": [{"event_type": "retracted", "timestamp": "2024-01-02T00:00:00+00:00", "source_url": "url2"}],
-            })},
+            {
+                "id": "c2",
+                "timeline_json": json.dumps(
+                    {
+                        "claim_id": "c2",
+                        "events": [
+                            {
+                                "event_type": "retracted",
+                                "timestamp": "2024-01-02T00:00:00+00:00",
+                                "source_url": "url2",
+                            }
+                        ],
+                    }
+                ),
+            },
             # Claim without timeline
             {"id": "c3", "timeline_json": None},
         ]
@@ -754,7 +783,7 @@ class TestClaimTimelineManager:
             # Then:
             assert coverage["total_claims"] == 3
             assert coverage["claims_with_timeline"] == 2
-            assert coverage["coverage_rate"] == pytest.approx(2/3, abs=0.001)
+            assert coverage["coverage_rate"] == pytest.approx(2 / 3, abs=0.001)
             assert coverage["claims_retracted"] == 1
 
     def test_clear_cache(self, manager):
@@ -772,6 +801,7 @@ class TestClaimTimelineManager:
 # =============================================================================
 # Convenience Function Tests
 # =============================================================================
+
 
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
@@ -828,10 +858,12 @@ class TestConvenienceFunctions:
         """Verify record_retraction delegates to manager."""
         # Given:
         mock_db = MagicMock()
-        mock_db.fetch_one = AsyncMock(side_effect=[
-            {"timeline_json": None},
-            {"confidence_score": 0.8},
-        ])
+        mock_db.fetch_one = AsyncMock(
+            side_effect=[
+                {"timeline_json": None},
+                {"confidence_score": 0.8},
+            ]
+        )
         mock_db.update = AsyncMock()
 
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -850,6 +882,7 @@ class TestConvenienceFunctions:
 # =============================================================================
 # Edge Cases and Boundary Tests
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -957,4 +990,3 @@ class TestEdgeCases:
 
         # Then:
         assert len(result) == 0
-

@@ -31,54 +31,58 @@ logger = get_logger(__name__)
 
 class SecFetchSite(str, Enum):
     """Sec-Fetch-Site header values.
-    
+
     Indicates the relationship between origin of request initiator and target.
     """
-    NONE = "none"           # User-initiated (address bar, bookmark)
+
+    NONE = "none"  # User-initiated (address bar, bookmark)
     SAME_ORIGIN = "same-origin"  # Same scheme + host + port
-    SAME_SITE = "same-site"      # Same registrable domain (e.g., a.example.com -> b.example.com)
-    CROSS_SITE = "cross-site"    # Different registrable domain
+    SAME_SITE = "same-site"  # Same registrable domain (e.g., a.example.com -> b.example.com)
+    CROSS_SITE = "cross-site"  # Different registrable domain
 
 
 class SecFetchMode(str, Enum):
     """Sec-Fetch-Mode header values.
-    
+
     Indicates the mode of the request.
     """
-    NAVIGATE = "navigate"     # Navigation request (document load)
-    CORS = "cors"             # CORS request
-    NO_CORS = "no-cors"       # no-cors request
+
+    NAVIGATE = "navigate"  # Navigation request (document load)
+    CORS = "cors"  # CORS request
+    NO_CORS = "no-cors"  # no-cors request
     SAME_ORIGIN = "same-origin"  # Same-origin request
-    WEBSOCKET = "websocket"   # WebSocket connection
+    WEBSOCKET = "websocket"  # WebSocket connection
 
 
 class SecFetchDest(str, Enum):
     """Sec-Fetch-Dest header values.
-    
+
     Indicates the destination of the request.
     """
-    DOCUMENT = "document"     # Main frame document
-    IFRAME = "iframe"         # iframe
-    EMBED = "embed"           # <embed>
-    OBJECT = "object"         # <object>
-    IMAGE = "image"           # Image resource
-    SCRIPT = "script"         # Script resource
-    STYLE = "style"           # Stylesheet
-    FONT = "font"             # Font resource
-    AUDIO = "audio"           # Audio resource
-    VIDEO = "video"           # Video resource
-    WORKER = "worker"         # Web Worker
-    MANIFEST = "manifest"     # Web Manifest
-    EMPTY = "empty"           # Fetch/XHR
+
+    DOCUMENT = "document"  # Main frame document
+    IFRAME = "iframe"  # iframe
+    EMBED = "embed"  # <embed>
+    OBJECT = "object"  # <object>
+    IMAGE = "image"  # Image resource
+    SCRIPT = "script"  # Script resource
+    STYLE = "style"  # Stylesheet
+    FONT = "font"  # Font resource
+    AUDIO = "audio"  # Audio resource
+    VIDEO = "video"  # Video resource
+    WORKER = "worker"  # Web Worker
+    MANIFEST = "manifest"  # Web Manifest
+    EMPTY = "empty"  # Fetch/XHR
 
 
 @dataclass
 class NavigationContext:
     """Context information for navigation.
-    
+
     Used to determine appropriate Sec-Fetch-* headers based on the
     navigation scenario (SERP -> article, direct navigation, etc.).
     """
+
     target_url: str
     referer_url: str | None = None
     is_user_initiated: bool = True
@@ -89,10 +93,11 @@ class NavigationContext:
 @dataclass
 class SecFetchHeaders:
     """Generated Sec-Fetch-* headers for a request.
-    
+
     Implements §4.3 requirement:
     Align `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin with navigation context.
     """
+
     site: SecFetchSite
     mode: SecFetchMode
     dest: SecFetchDest
@@ -100,7 +105,7 @@ class SecFetchHeaders:
 
     def to_dict(self) -> dict[str, str]:
         """Convert to header dictionary for HTTP requests.
-        
+
         Returns:
             Dictionary with Sec-Fetch-* headers.
         """
@@ -121,8 +126,10 @@ class SecFetchHeaders:
 # Sec-CH-UA-* (Client Hints) Headers
 # =============================================================================
 
+
 class Platform(str, Enum):
     """Platform values for Sec-CH-UA-Platform header."""
+
     WINDOWS = "Windows"
     MACOS = "macOS"
     LINUX = "Linux"
@@ -135,24 +142,27 @@ class Platform(str, Enum):
 @dataclass
 class BrandVersion:
     """Browser brand with version information.
-    
+
     Used to construct the Sec-CH-UA header which contains a list of
     browser brands with their major versions.
     """
+
     brand: str
     major_version: str
     full_version: str | None = None
 
     def to_ua_item(self, include_full_version: bool = False) -> str:
         """Format as Sec-CH-UA item.
-        
+
         Args:
             include_full_version: If True, use full version instead of major.
-            
+
         Returns:
             Formatted string like '"Chromium";v="120"'.
         """
-        version = self.full_version if include_full_version and self.full_version else self.major_version
+        version = (
+            self.full_version if include_full_version and self.full_version else self.major_version
+        )
         # Properly escape the brand name (quotes need escaping)
         escaped_brand = self.brand.replace('"', '\\"')
         return f'"{escaped_brand}";v="{version}"'
@@ -161,9 +171,10 @@ class BrandVersion:
 @dataclass
 class SecCHUAConfig:
     """Configuration for Sec-CH-UA-* header generation.
-    
+
     Provides realistic Chrome browser identifiers for stealth purposes.
     """
+
     # Chrome major version (e.g., "120", "121")
     chrome_major_version: str = "120"
 
@@ -187,12 +198,12 @@ class SecCHUAConfig:
     @property
     def brands(self) -> list[BrandVersion]:
         """Get the list of browser brands.
-        
+
         Chrome sends three brands:
         1. GREASE brand (to prevent fingerprinting)
         2. Chromium (the engine)
         3. Google Chrome (the browser)
-        
+
         Returns:
             List of BrandVersion objects.
         """
@@ -218,16 +229,17 @@ class SecCHUAConfig:
 @dataclass
 class SecCHUAHeaders:
     """Generated Sec-CH-UA-* headers for a request.
-    
+
     Implements §4.3 requirement for Client Hints headers:
     - Sec-CH-UA: Browser brand and version list
     - Sec-CH-UA-Mobile: Mobile device indicator
     - Sec-CH-UA-Platform: Operating system platform
-    
+
     Optional headers (only sent when server requests them via Accept-CH):
     - Sec-CH-UA-Platform-Version: OS version
     - Sec-CH-UA-Full-Version-List: Full browser versions
     """
+
     brands: list[BrandVersion] = field(default_factory=list)
     is_mobile: bool = False
     platform: Platform = Platform.WINDOWS
@@ -238,11 +250,11 @@ class SecCHUAHeaders:
         include_optional: bool = False,
     ) -> dict[str, str]:
         """Convert to header dictionary for HTTP requests.
-        
+
         Args:
             include_optional: Include optional headers that are normally
                              only sent on server request.
-        
+
         Returns:
             Dictionary with Sec-CH-UA-* headers.
         """
@@ -261,8 +273,7 @@ class SecCHUAHeaders:
 
             # Full version list
             full_list = ", ".join(
-                brand.to_ua_item(include_full_version=True)
-                for brand in self.brands
+                brand.to_ua_item(include_full_version=True) for brand in self.brands
             )
             headers["Sec-CH-UA-Full-Version-List"] = full_list
 
@@ -278,14 +289,14 @@ def generate_sec_ch_ua_headers(
     include_optional: bool = False,
 ) -> SecCHUAHeaders:
     """Generate Sec-CH-UA-* headers with realistic Chrome values.
-    
+
     Per §4.3: sec-ch-ua* headers should match the browser impersonation
     settings used by curl_cffi to maintain consistency.
-    
+
     Args:
         config: Configuration for header generation. Uses defaults if None.
         include_optional: Include optional headers (platform version, full versions).
-        
+
     Returns:
         SecCHUAHeaders with appropriate values.
     """
@@ -306,10 +317,10 @@ def update_default_sec_ch_ua_config(
     is_mobile: bool | None = None,
 ) -> None:
     """Update the default Sec-CH-UA configuration.
-    
+
     This can be called to keep the headers in sync with the actual
     Chrome version being used for browser automation.
-    
+
     Args:
         chrome_version: Chrome full version string (e.g., "121.0.6167.85").
         platform: Target platform.
@@ -366,14 +377,14 @@ def update_default_sec_ch_ua_config(
 
 def _get_registrable_domain(hostname: str) -> str:
     """Extract the registrable domain (eTLD+1) from a hostname.
-    
+
     For proper same-site detection, we need to compare registrable domains.
     This is a simplified implementation - a full implementation would use
     the Public Suffix List.
-    
+
     Args:
         hostname: The hostname to extract domain from.
-        
+
     Returns:
         Registrable domain (simplified: last two parts of hostname).
     """
@@ -392,9 +403,19 @@ def _get_registrable_domain(hostname: str) -> str:
 
     # Common multi-part TLDs
     multi_part_tlds = {
-        "co.uk", "co.jp", "com.au", "com.br", "co.nz",
-        "go.jp", "or.jp", "ne.jp", "ac.jp", "ed.jp",
-        "org.uk", "gov.uk", "ac.uk",
+        "co.uk",
+        "co.jp",
+        "com.au",
+        "com.br",
+        "co.nz",
+        "go.jp",
+        "or.jp",
+        "ne.jp",
+        "ac.jp",
+        "ed.jp",
+        "org.uk",
+        "gov.uk",
+        "ac.uk",
     }
 
     # Check for multi-part TLD
@@ -414,11 +435,11 @@ def _determine_fetch_site(
     referer_url: str | None,
 ) -> SecFetchSite:
     """Determine the Sec-Fetch-Site value based on URLs.
-    
+
     Args:
         target_url: The URL being fetched.
         referer_url: The referer URL (if any).
-        
+
     Returns:
         Appropriate SecFetchSite value.
     """
@@ -436,8 +457,7 @@ def _determine_fetch_site(
         referer_scheme = referer_parsed.scheme.lower()
 
         # Same-origin: same scheme + host + port
-        if (target_scheme == referer_scheme and
-            target_host == referer_host):
+        if target_scheme == referer_scheme and target_host == referer_host:
             return SecFetchSite.SAME_ORIGIN
 
         # Same-site: same registrable domain
@@ -460,15 +480,15 @@ def generate_sec_fetch_headers(
     context: NavigationContext,
 ) -> SecFetchHeaders:
     """Generate Sec-Fetch-* headers for a navigation.
-    
+
     Implements natural header generation per §4.3:
     - SERP → article transitions should look like cross-site navigation
     - Same-domain navigation should look like same-origin/same-site
     - Direct URL access should have Sec-Fetch-Site: none
-    
+
     Args:
         context: Navigation context with target URL, referer, etc.
-        
+
     Returns:
         SecFetchHeaders with appropriate values.
     """
@@ -478,8 +498,12 @@ def generate_sec_fetch_headers(
     # Determine Sec-Fetch-Mode (document navigation = navigate)
     if context.destination == SecFetchDest.DOCUMENT:
         mode = SecFetchMode.NAVIGATE
-    elif context.destination in (SecFetchDest.IMAGE, SecFetchDest.SCRIPT,
-                                  SecFetchDest.STYLE, SecFetchDest.FONT):
+    elif context.destination in (
+        SecFetchDest.IMAGE,
+        SecFetchDest.SCRIPT,
+        SecFetchDest.STYLE,
+        SecFetchDest.FONT,
+    ):
         mode = SecFetchMode.NO_CORS
     else:
         mode = SecFetchMode.NAVIGATE
@@ -497,13 +521,13 @@ def generate_headers_for_serp_click(
     serp_url: str,
 ) -> dict[str, str]:
     """Generate headers for clicking a SERP result.
-    
+
     Per §4.3: SERP → article transitions should maintain natural header flow.
-    
+
     Args:
         target_url: The article URL being clicked.
         serp_url: The SERP page URL (referer).
-        
+
     Returns:
         Dictionary with all navigation headers including Sec-Fetch-*.
     """
@@ -529,12 +553,12 @@ def generate_headers_for_direct_navigation(
     target_url: str,
 ) -> dict[str, str]:
     """Generate headers for direct URL navigation.
-    
+
     Simulates user typing URL in address bar or opening from bookmark.
-    
+
     Args:
         target_url: The URL being navigated to directly.
-        
+
     Returns:
         Dictionary with Sec-Fetch-* headers for direct navigation.
     """
@@ -554,13 +578,13 @@ def generate_headers_for_internal_link(
     source_url: str,
 ) -> dict[str, str]:
     """Generate headers for following an internal link.
-    
+
     Used when navigating within the same site (e.g., article -> related article).
-    
+
     Args:
         target_url: The target page URL.
         source_url: The current page URL (referer).
-        
+
     Returns:
         Dictionary with Sec-Fetch-* headers for internal navigation.
     """
@@ -582,22 +606,23 @@ def generate_headers_for_internal_link(
 # Combined Header Generation
 # =============================================================================
 
+
 def generate_all_security_headers(
     context: NavigationContext,
     sec_ch_ua_config: SecCHUAConfig | None = None,
     include_optional_ch_ua: bool = False,
 ) -> dict[str, str]:
     """Generate all security headers for a navigation.
-    
+
     Combines Sec-Fetch-* and Sec-CH-UA-* headers for complete stealth.
     Implements §4.3 requirement:
     Align `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin with navigation context.
-    
+
     Args:
         context: Navigation context with target URL, referer, etc.
         sec_ch_ua_config: Configuration for Client Hints headers.
         include_optional_ch_ua: Include optional Client Hints headers.
-        
+
     Returns:
         Dictionary with all security headers.
     """
@@ -627,15 +652,15 @@ def generate_complete_navigation_headers(
     is_user_initiated: bool = True,
 ) -> dict[str, str]:
     """Convenience function to generate complete headers for document navigation.
-    
+
     This is the recommended function for most fetch operations as it
     generates all required security headers in one call.
-    
+
     Args:
         target_url: The URL being navigated to.
         referer_url: The referer URL (if any).
         is_user_initiated: Whether this is a user-initiated navigation.
-        
+
     Returns:
         Dictionary with all security headers for navigation.
     """
@@ -647,4 +672,3 @@ def generate_complete_navigation_headers(
     )
 
     return generate_all_security_headers(context)
-

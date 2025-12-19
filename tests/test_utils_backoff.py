@@ -199,7 +199,9 @@ class TestCalculateBackoff:
         max_expected = base_value * 1.1
 
         for delay in delays:
-            assert min_expected <= delay <= max_expected, f"Delay {delay} outside ±10% of {base_value}"
+            assert min_expected <= delay <= max_expected, (
+                f"Delay {delay} outside ±10% of {base_value}"
+            )
 
     def test_custom_config(self):
         """Test backoff with custom configuration."""
@@ -415,8 +417,8 @@ class TestSpecCompliance:
         """Test §4.3.5 formula: cooldown = min(base * (2 ^ (failures // 3)), max)."""
         # Given: Various failure counts
         # When/Then: Formula is correctly applied
-        assert calculate_cooldown_minutes(0) == 30   # 30 * 2^0 = 30
-        assert calculate_cooldown_minutes(3) == 60   # 30 * 2^1 = 60
+        assert calculate_cooldown_minutes(0) == 30  # 30 * 2^0 = 30
+        assert calculate_cooldown_minutes(3) == 60  # 30 * 2^1 = 60
         assert calculate_cooldown_minutes(6) == 120  # 30 * 2^2 = 120
         assert calculate_cooldown_minutes(9) == 120  # capped at 4x (factor limit)
 
@@ -448,6 +450,5 @@ class TestSpecCompliance:
         delays = [calculate_backoff(3, config, add_jitter=True) for _ in range(50)]
 
         # Then: Delays vary (not all identical) - prevents thundering herd
-        unique_delays = set(round(d, 6) for d in delays)
+        unique_delays = {round(d, 6) for d in delays}
         assert len(unique_delays) > 1, "Jitter should provide variation"
-

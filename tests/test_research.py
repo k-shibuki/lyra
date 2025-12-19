@@ -78,10 +78,11 @@ from src.research.state import (
 # ResearchContext Tests (§3.1.7.1)
 # =============================================================================
 
+
 class TestResearchContext:
     """
     Tests for ResearchContext design support information provider.
-    
+
     Per §2.1.4: ResearchContext provides support information but does NOT
     generate subquery candidates. That is Cursor AI's responsibility.
     """
@@ -90,7 +91,7 @@ class TestResearchContext:
     async def test_get_context_returns_entities(self, test_database):
         """
         Verify that get_context extracts and returns entities from the query.
-        
+
         §3.1.7.1: ResearchContext extracts entities (person/organization/location/etc.)
         """
         # Given: A task with a query containing organization entity
@@ -107,14 +108,14 @@ class TestResearchContext:
         assert result["ok"] is True
         assert result["task_id"] == task_id
         assert result["original_query"] == "株式会社トヨタ自動車の2024年決算情報"
-        entity_types = [e["type"] for e in result["extracted_entities"]]
+        [e["type"] for e in result["extracted_entities"]]
         assert isinstance(result["extracted_entities"], list)
 
     @pytest.mark.asyncio
     async def test_get_context_returns_applicable_templates(self, test_database):
         """
         Verify that get_context returns applicable vertical templates.
-        
+
         §3.1.7.1: Templates include academic/government/corporate/technical.
         """
         # Given: A task with research-related query
@@ -138,7 +139,7 @@ class TestResearchContext:
     async def test_get_context_does_not_return_subquery_candidates(self, test_database):
         """
         Verify that get_context does NOT return subquery candidates.
-        
+
         §2.1.1: Subquery design is Cursor AI's exclusive responsibility.
         §2.1.4: Lancet must NOT generate subquery candidates.
         """
@@ -200,10 +201,11 @@ class TestResearchContext:
 # SubqueryState Tests (§3.1.7.2, §3.1.7.3)
 # =============================================================================
 
+
 class TestSubqueryState:
     """
     Tests for SubqueryState satisfaction and novelty calculations.
-    
+
     §3.1.7.3: Satisfaction score = min(1.0, (sources/3)*0.7 + (primary?0.3:0))
     §3.1.7.4: Novelty score = novel fragments / recent fragments
     """
@@ -211,7 +213,7 @@ class TestSubqueryState:
     def test_satisfaction_score_with_three_sources(self):
         """
         Verify satisfaction score is 0.7 with exactly 3 independent sources.
-        
+
         §3.1.7.3: Score = (3/3)*0.7 + 0 = 0.7
         """
         # Given: A subquery with 3 independent sources, no primary
@@ -228,7 +230,7 @@ class TestSubqueryState:
     def test_satisfaction_score_with_primary_source(self):
         """
         Verify satisfaction score includes 0.3 bonus for primary source.
-        
+
         §3.1.7.3: Score = (2/3)*0.7 + 0.3 ≈ 0.767
         """
         # Given: A subquery with 2 sources and primary source
@@ -240,13 +242,13 @@ class TestSubqueryState:
         score = sq.calculate_satisfaction_score()
 
         # Then: Score includes primary bonus
-        expected = (2/3) * 0.7 + 0.3
+        expected = (2 / 3) * 0.7 + 0.3
         assert abs(score - expected) < 0.01
 
     def test_is_satisfied_threshold(self):
         """
         Verify is_satisfied returns True when score >= 0.8.
-        
+
         §3.1.7.3: Satisfied when score >= 0.8.
         """
         # Given: Two subqueries with different satisfaction levels
@@ -265,7 +267,7 @@ class TestSubqueryState:
     def test_novelty_score_calculation(self):
         """
         Verify novelty score is calculated from recent fragments.
-        
+
         §3.1.7.4: Novelty = novel fragments / total recent fragments.
         """
         # Given: A subquery with 10 fragments, 7 novel
@@ -320,14 +322,14 @@ class TestSubqueryState:
 class TestSearchStatePydanticValidation:
     """
     Tests for SearchState Pydantic validation after migration.
-    
+
     Per test-strategy.mdc: Validation tests ensure type safety
     and proper error messages for invalid inputs.
     """
 
     def test_valid_creation_with_required_fields_only(self):
         """TC-SS-N-01: Create SearchState with only required fields.
-        
+
         // Given: Only id and text provided
         // When: Creating SearchState
         // Then: All optional fields use defaults
@@ -348,7 +350,7 @@ class TestSearchStatePydanticValidation:
 
     def test_invalid_priority_raises_validation_error(self):
         """TC-SS-A-01: Invalid priority value raises ValidationError.
-        
+
         // Given: Invalid priority value 'critical'
         // When: Creating SearchState
         // Then: ValidationError with message about allowed values
@@ -366,7 +368,7 @@ class TestSearchStatePydanticValidation:
 
     def test_negative_pages_fetched_raises_validation_error(self):
         """TC-SS-A-02: Negative pages_fetched raises ValidationError.
-        
+
         // Given: Negative pages_fetched value
         // When: Creating SearchState
         // Then: ValidationError with message about constraint
@@ -384,7 +386,7 @@ class TestSearchStatePydanticValidation:
 
     def test_invalid_refutation_status_raises_validation_error(self):
         """TC-SS-A-03: Invalid refutation_status raises ValidationError.
-        
+
         // Given: Invalid refutation_status value
         // When: Creating SearchState
         // Then: ValidationError with message about allowed values
@@ -402,7 +404,7 @@ class TestSearchStatePydanticValidation:
 
     def test_negative_independent_sources_raises_validation_error(self):
         """TC-SS-A-04: Negative independent_sources raises ValidationError.
-        
+
         // Given: Negative independent_sources value
         // When: Creating SearchState
         // Then: ValidationError raised
@@ -454,13 +456,13 @@ class TestSearchStatePydanticValidation:
 class TestSearchStateBoundaryValues:
     """
     Boundary value tests for SearchState.
-    
+
     Per test-strategy.mdc: Tests for 0, min, max, ±1, empty, NULL.
     """
 
     def test_satisfaction_score_with_zero_sources(self):
         """TC-SS-B-01: Score is 0.0 with zero independent sources.
-        
+
         // Given: independent_sources = 0, no primary source
         // When: Calculate satisfaction score
         // Then: Score = 0.0
@@ -478,7 +480,7 @@ class TestSearchStateBoundaryValues:
 
     def test_satisfaction_score_capped_with_many_sources(self):
         """TC-SS-B-02: Score is capped at 1.0 with many sources.
-        
+
         // Given: independent_sources = 10, primary source
         // When: Calculate satisfaction score
         // Then: Score = 1.0 (capped)
@@ -496,7 +498,7 @@ class TestSearchStateBoundaryValues:
 
     def test_novelty_score_zero_boundary(self):
         """TC-SS-B-03: novelty_score = 0.0 is valid.
-        
+
         // Given: novelty_score = 0.0
         // When: Creating SearchState
         // Then: Valid state with novelty_score = 0.0
@@ -509,7 +511,7 @@ class TestSearchStateBoundaryValues:
 
     def test_novelty_score_max_boundary(self):
         """TC-SS-B-04: novelty_score = 1.0 is valid.
-        
+
         // Given: novelty_score = 1.0
         // When: Creating SearchState
         // Then: Valid state with novelty_score = 1.0
@@ -522,7 +524,7 @@ class TestSearchStateBoundaryValues:
 
     def test_satisfaction_threshold_exactly_0_8(self):
         """TC-SS-B-05: Exact threshold 0.8 satisfies condition.
-        
+
         // Given: Exact score of 0.8 (3 sources + no primary = 0.7, so need adjustment)
         // When: Check is_satisfied()
         // Then: Returns True
@@ -541,7 +543,7 @@ class TestSearchStateBoundaryValues:
 
     def test_satisfaction_threshold_just_below_0_8(self):
         """TC-SS-B-06: Score just below 0.8 does not satisfy.
-        
+
         // Given: Score of 0.7 (3 sources, no primary)
         // When: Check is_satisfied()
         // Then: Returns False
@@ -560,7 +562,7 @@ class TestSearchStateBoundaryValues:
 
     def test_empty_source_domains_list(self):
         """TC-SS-B-07: Empty source_domains list is valid.
-        
+
         // Given: Default source_domains (empty list)
         // When: Creating SearchState
         // Then: source_domains is empty list
@@ -574,7 +576,7 @@ class TestSearchStateBoundaryValues:
 
     def test_budget_pages_none_is_valid(self):
         """TC-SS-B-08: budget_pages = None is valid.
-        
+
         // Given: budget_pages not specified
         // When: Creating SearchState
         // Then: budget_pages is None
@@ -587,7 +589,7 @@ class TestSearchStateBoundaryValues:
 
     def test_budget_pages_zero_is_valid(self):
         """TC-SS-B-09: budget_pages = 0 is valid (boundary).
-        
+
         // Given: budget_pages = 0
         // When: Creating SearchState
         // Then: Valid state with budget_pages = 0
@@ -602,6 +604,7 @@ class TestSearchStateBoundaryValues:
 # =============================================================================
 # ExplorationState Tests (§3.1.7.2)
 # =============================================================================
+
 
 class TestExplorationState:
     """
@@ -643,7 +646,7 @@ class TestExplorationState:
         state._db = test_database
         state._pages_limit = 10
 
-        sq = state.register_subquery("sq_001", "test")
+        state.register_subquery("sq_001", "test")
 
         # When: Fetch pages up to limit
         for i in range(10):
@@ -686,7 +689,7 @@ class TestExplorationState:
     async def test_get_status_includes_authentication_queue(self, test_database):
         """
         Verify get_status includes authentication_queue when pending items exist.
-        
+
         Per §16.7.1: authentication_queue should contain summary information.
         """
 
@@ -704,7 +707,8 @@ class TestExplorationState:
         }
 
         with patch.object(
-            state, "_get_authentication_queue_summary",
+            state,
+            "_get_authentication_queue_summary",
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
@@ -730,7 +734,7 @@ class TestExplorationState:
     async def test_auth_queue_warning_threshold(self, test_database):
         """
         Verify warning alert is generated when pending >= 3.
-        
+
         Per §16.7.3: [warning] when pending >= 3.
         """
 
@@ -748,7 +752,8 @@ class TestExplorationState:
         }
 
         with patch.object(
-            state, "_get_authentication_queue_summary",
+            state,
+            "_get_authentication_queue_summary",
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
@@ -768,7 +773,7 @@ class TestExplorationState:
     async def test_auth_queue_critical_threshold_by_count(self, test_database):
         """
         Verify critical alert is generated when pending >= 5.
-        
+
         Per §16.7.3: [critical] when pending >= 5.
         """
 
@@ -780,13 +785,20 @@ class TestExplorationState:
         mock_summary = {
             "pending_count": 5,
             "high_priority_count": 0,
-            "domains": ["example0.com", "example1.com", "example2.com", "example3.com", "example4.com"],
+            "domains": [
+                "example0.com",
+                "example1.com",
+                "example2.com",
+                "example3.com",
+                "example4.com",
+            ],
             "oldest_queued_at": "2024-01-01T00:00:00+00:00",
             "by_auth_type": {"cloudflare": 5},
         }
 
         with patch.object(
-            state, "_get_authentication_queue_summary",
+            state,
+            "_get_authentication_queue_summary",
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
@@ -806,7 +818,7 @@ class TestExplorationState:
     async def test_auth_queue_critical_threshold_by_high_priority(self, test_database):
         """
         Verify critical alert is generated when high_priority >= 2.
-        
+
         Per §16.7.3: [critical] when high_priority >= 2.
         """
 
@@ -824,7 +836,8 @@ class TestExplorationState:
         }
 
         with patch.object(
-            state, "_get_authentication_queue_summary",
+            state,
+            "_get_authentication_queue_summary",
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
@@ -855,7 +868,7 @@ class TestExplorationState:
         sq1.has_primary_source = True
         sq1.update_status()
 
-        sq2 = state.register_subquery("sq_002", "unsatisfied query")
+        state.register_subquery("sq_002", "unsatisfied query")
 
         # When: Finalize exploration
         result = await state.finalize()
@@ -878,14 +891,14 @@ class TestExplorationState:
 class TestExplorationStateBoundaryValues:
     """
     Boundary value tests for ExplorationState.
-    
+
     Per test-strategy.mdc: Tests for 0, min, max, ±1 for budget limits.
     """
 
     @pytest.mark.asyncio
     async def test_zero_pages_limit_immediately_exceeded(self, test_database):
         """TC-ES-B-01: Zero pages_limit is immediately exceeded.
-        
+
         // Given: pages_limit = 0
         // When: Check budget
         // Then: Budget exceeded immediately
@@ -906,7 +919,7 @@ class TestExplorationStateBoundaryValues:
     @pytest.mark.asyncio
     async def test_pages_limit_exactly_at_boundary(self, test_database):
         """TC-ES-B-02: Exactly at pages_limit triggers exceeded.
-        
+
         // Given: pages_limit = 5, pages_used = 5
         // When: Check budget
         // Then: Budget exceeded
@@ -927,7 +940,7 @@ class TestExplorationStateBoundaryValues:
     @pytest.mark.asyncio
     async def test_pages_limit_one_below_boundary(self, test_database):
         """TC-ES-B-03: One below pages_limit is within budget.
-        
+
         // Given: pages_limit = 5, pages_used = 4
         // When: Check budget
         // Then: Within budget
@@ -948,7 +961,7 @@ class TestExplorationStateBoundaryValues:
     @pytest.mark.asyncio
     async def test_budget_warning_at_80_percent(self, test_database):
         """TC-ES-B-04: Warning at 80% budget usage.
-        
+
         // Given: pages_limit = 100, pages_used = 81 (81% usage)
         // When: Check budget
         // Then: Within budget with warning
@@ -973,10 +986,11 @@ class TestExplorationStateBoundaryValues:
 # SubqueryExecutor Tests (§2.1.3)
 # =============================================================================
 
+
 class TestSubqueryExecutor:
     """
     Tests for SubqueryExecutor mechanical operations.
-    
+
     §2.1.3: Lancet only performs mechanical expansions, not query design.
     """
 
@@ -994,7 +1008,7 @@ class TestSubqueryExecutor:
     async def test_expand_query_mechanical_only(self, test_database):
         """
         Verify query expansion is mechanical (operators, not new ideas).
-        
+
         §2.1.3: Lancet only adds operators, does not design new queries.
         """
         # Given: A SubqueryExecutor and original query
@@ -1015,7 +1029,7 @@ class TestSubqueryExecutor:
     def test_generate_refutation_queries_mechanical(self):
         """
         Verify refutation queries use mechanical suffix patterns only.
-        
+
         §2.1.4: No LLM-based query generation for refutations.
         """
         # Given: A SubqueryExecutor and base query
@@ -1027,7 +1041,9 @@ class TestSubqueryExecutor:
         refutation_queries = executor.generate_refutation_queries(base_query)
 
         # Then: Queries use mechanical suffixes only
-        assert len(refutation_queries) >= 1, f"Expected >=1 refutation queries, got {len(refutation_queries)}"
+        assert len(refutation_queries) >= 1, (
+            f"Expected >=1 refutation queries, got {len(refutation_queries)}"
+        )
         for rq in refutation_queries:
             assert base_query in rq
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)
@@ -1038,10 +1054,11 @@ class TestSubqueryExecutor:
 # RefutationExecutor Tests (§3.1.7.5)
 # =============================================================================
 
+
 class TestRefutationExecutor:
     """
     Tests for RefutationExecutor mechanical pattern application.
-    
+
     §3.1.7.5: Lancet applies mechanical patterns only (suffixes).
     §2.1.4: No LLM-based reverse query design.
     """
@@ -1049,7 +1066,7 @@ class TestRefutationExecutor:
     def test_refutation_suffixes_defined(self):
         """
         Verify all required refutation suffixes are defined.
-        
+
         §3.1.7.5: Suffixes include issues/criticism/problems/limitations etc.
         """
         # Given/When/Then: Required suffixes exist
@@ -1075,7 +1092,9 @@ class TestRefutationExecutor:
         reverse_queries = executor._generate_reverse_queries(claim_text)
 
         # Then: Queries use mechanical suffixes
-        assert len(reverse_queries) >= 1, f"Expected >=1 reverse queries, got {len(reverse_queries)}"
+        assert len(reverse_queries) >= 1, (
+            f"Expected >=1 reverse queries, got {len(reverse_queries)}"
+        )
         for rq in reverse_queries:
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)
             assert has_suffix, f"Query '{rq}' doesn't use mechanical suffix"
@@ -1109,6 +1128,7 @@ class TestRefutationExecutor:
 # Integration Tests
 # =============================================================================
 
+
 class TestExplorationIntegration:
     """
     Integration tests for the exploration control workflow.
@@ -1119,7 +1139,7 @@ class TestExplorationIntegration:
     async def test_full_exploration_workflow(self, test_database):
         """
         Verify complete exploration workflow: context → execute → status → finalize.
-        
+
         This tests the Cursor AI-driven workflow per §2.1.2.
         Note: This test uses state simulation rather than actual search/fetch
         to avoid external dependencies in integration tests.
@@ -1142,7 +1162,7 @@ class TestExplorationIntegration:
         state = ExplorationState(task_id)
         state._db = test_database
 
-        sq = state.register_subquery(
+        state.register_subquery(
             subquery_id="sq_001",
             text="量子コンピュータ 基礎原理",
             priority="high",
@@ -1173,10 +1193,11 @@ class TestExplorationIntegration:
 # Responsibility Boundary Tests (§2.1)
 # =============================================================================
 
+
 class TestResponsibilityBoundary:
     """
     Tests verifying the Cursor AI / Lancet responsibility boundary.
-    
+
     These tests ensure Lancet does NOT exceed its responsibilities
     as defined in §2.1.
     """
@@ -1184,27 +1205,27 @@ class TestResponsibilityBoundary:
     def test_lancet_does_not_design_queries(self):
         """
         Verify Lancet components don't have query design capabilities.
-        
+
         §2.1.1: Query design is Cursor AI's exclusive responsibility.
         """
         # Given/When/Then: ResearchContext has no design methods
-        assert not hasattr(ResearchContext, 'design_subqueries')
-        assert not hasattr(ResearchContext, 'generate_subqueries')
-        assert not hasattr(ResearchContext, 'suggest_queries')
+        assert not hasattr(ResearchContext, "design_subqueries")
+        assert not hasattr(ResearchContext, "generate_subqueries")
+        assert not hasattr(ResearchContext, "suggest_queries")
 
         # Given/When/Then: SubqueryExecutor has no design methods
-        assert not hasattr(SubqueryExecutor, 'design_query')
-        assert not hasattr(SubqueryExecutor, 'generate_query')
+        assert not hasattr(SubqueryExecutor, "design_query")
+        assert not hasattr(SubqueryExecutor, "generate_query")
 
     def test_refutation_uses_only_mechanical_patterns(self):
         """
         Verify refutation only uses predefined suffixes, not LLM.
-        
+
         §2.1.4: LLM must NOT be used for reverse query design.
         """
         # Given/When/Then: RefutationExecutor has no LLM methods
-        assert not hasattr(RefutationExecutor, 'generate_hypothesis')
-        assert not hasattr(RefutationExecutor, 'llm_reverse_query')
+        assert not hasattr(RefutationExecutor, "generate_hypothesis")
+        assert not hasattr(RefutationExecutor, "llm_reverse_query")
 
         # Given/When/Then: REFUTATION_SUFFIXES are predefined constants
         assert isinstance(REFUTATION_SUFFIXES, list)
@@ -1214,7 +1235,7 @@ class TestResponsibilityBoundary:
     async def test_context_notes_are_informational_only(self, test_database):
         """
         Verify context notes are hints, not directives.
-        
+
         §2.1.1: Lancet provides support information, Cursor AI decides.
         """
         # Given: A ResearchContext
@@ -1236,10 +1257,11 @@ class TestResponsibilityBoundary:
 # Pipeline Tests (§3.2.1)
 # =============================================================================
 
+
 class TestStopTaskAction:
     """
     Tests for stop_task_action defensive access patterns.
-    
+
     Bug fix verification: stop_task_action should use safe .get() access
     for all nested dictionary keys to handle potential missing keys gracefully.
     """
@@ -1248,7 +1270,7 @@ class TestStopTaskAction:
     async def test_stop_task_handles_missing_summary(self, test_database):
         """
         TC-PIPE-A-01: stop_task_action handles missing summary key.
-        
+
         // Given: finalize_result with missing summary key
         // When: Calling stop_task_action
         // Then: Returns with default values, no KeyError
@@ -1283,7 +1305,7 @@ class TestStopTaskAction:
     async def test_stop_task_handles_empty_nested_dicts(self, test_database):
         """
         TC-PIPE-A-02: stop_task_action handles empty nested dicts.
-        
+
         // Given: finalize_result with empty summary and evidence_graph_summary
         // When: Calling stop_task_action
         // Then: Returns with default values
@@ -1320,7 +1342,7 @@ class TestStopTaskAction:
     async def test_stop_task_normal_finalize(self, test_database):
         """
         TC-PIPE-N-01: stop_task_action works with complete finalize_result.
-        
+
         // Given: finalize_result with all expected keys
         // When: Calling stop_task_action
         // Then: Returns values from finalize_result
@@ -1371,12 +1393,12 @@ class TestStopTaskAction:
 class TestGetOverallHarvestRate:
     """
     Tests for ExplorationState.get_overall_harvest_rate method.
-    
+
     Per §3.1.1: Used to determine if lastmile engines should be used
     when harvest rate >= 0.9.
-    
+
     ## Test Perspectives Table
-    
+
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
     |---------|---------------------|-------------|-----------------|-------|
     | TC-HR-B-01 | No searches | Boundary - empty | Returns 0.0 | - |
@@ -1405,7 +1427,7 @@ class TestGetOverallHarvestRate:
         from src.research.state import ExplorationState
 
         state = ExplorationState("test_task", enable_ucb_allocation=False)
-        search = state.register_search("search_1", "test query")
+        state.register_search("search_1", "test query")
         # pages_fetched is 0 by default
 
         # When: Getting overall harvest rate
@@ -1483,12 +1505,12 @@ class TestGetOverallHarvestRate:
 
 class TestAcademicQueryDetection:
     """Tests for academic query detection and complementary search (J2).
-    
+
     Tests for _is_academic_query() and _expand_academic_query() methods
     in SearchPipeline.
-    
+
     ## Test Perspectives Table
-    
+
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
     |---------|---------------------|-------------|-----------------|-------|
     | TC-AQ-N-01 | Query with academic keyword | Equivalence – normal | Returns True | - |
@@ -1502,7 +1524,7 @@ class TestAcademicQueryDetection:
 
     def test_is_academic_query_with_keyword(self):
         """TC-AQ-N-01: Test query with academic keyword.
-        
+
         // Given: Query containing academic keyword
         // When: Checking if academic query
         // Then: Returns True
@@ -1523,7 +1545,7 @@ class TestAcademicQueryDetection:
 
     def test_is_academic_query_with_site_operator(self):
         """TC-AQ-N-02: Test query with site:arxiv.org.
-        
+
         // Given: Query with site:arxiv.org operator
         // When: Checking if academic query
         // Then: Returns True
@@ -1544,7 +1566,7 @@ class TestAcademicQueryDetection:
 
     def test_is_academic_query_with_doi_pattern(self):
         """TC-AQ-N-03: Test query with DOI pattern.
-        
+
         // Given: Query containing DOI pattern
         // When: Checking if academic query
         // Then: Returns True
@@ -1565,7 +1587,7 @@ class TestAcademicQueryDetection:
 
     def test_is_academic_query_empty(self):
         """TC-AQ-B-01: Test empty query string.
-        
+
         // Given: Empty query string
         // When: Checking if academic query
         // Then: Returns False
@@ -1585,7 +1607,7 @@ class TestAcademicQueryDetection:
 
     def test_is_academic_query_general(self):
         """TC-AQ-B-02: Test query without academic indicators.
-        
+
         // Given: General query without academic indicators
         // When: Checking if academic query
         // Then: Returns False
@@ -1606,7 +1628,7 @@ class TestAcademicQueryDetection:
 
     def test_expand_academic_query(self):
         """TC-AQ-N-04: Test expanding academic query.
-        
+
         // Given: Academic query
         // When: Expanding query
         // Then: Returns expanded queries with site operators
@@ -1630,7 +1652,7 @@ class TestAcademicQueryDetection:
 
     def test_expand_academic_query_empty(self):
         """TC-AQ-B-03: Test expanding empty query.
-        
+
         // Given: Empty query
         // When: Expanding query
         // Then: Returns list with empty query

@@ -91,7 +91,7 @@ def calculate_backoff(
     # Calculate exponential delay with cap
     # Per §4.3.5: delay = min(base_delay * (2 ^ attempt), max_delay)
     delay = min(
-        config.base_delay * (config.exponential_base ** attempt),
+        config.base_delay * (config.exponential_base**attempt),
         config.max_delay,
     )
 
@@ -190,4 +190,3 @@ def calculate_total_delay(
         total += calculate_backoff(attempt, config, add_jitter=False)
 
     return total
-

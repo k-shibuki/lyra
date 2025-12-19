@@ -319,9 +319,7 @@ class TestDomainDailyBudgetManager:
     def test_tc_db_e_01_exception_failopen(self, manager):
         """TC-DB-E-01: Exception during check results in fail-open."""
         # Given: Manager that will raise exception
-        with patch.object(
-            manager, "_get_or_create_budget", side_effect=RuntimeError("Test error")
-        ):
+        with patch.object(manager, "_get_or_create_budget", side_effect=RuntimeError("Test error")):
             # When: Checking budget
             result = manager.can_request_to_domain("error.com")
 
@@ -587,9 +585,7 @@ class TestExceptionHandling:
     def test_record_exception_is_silent(self, manager):
         """Test that exceptions during recording don't propagate."""
         # Given: Manager with exception in budget access
-        with patch.object(
-            manager, "_get_or_create_budget", side_effect=RuntimeError("Test error")
-        ):
+        with patch.object(manager, "_get_or_create_budget", side_effect=RuntimeError("Test error")):
             # When: Recording (should not raise)
             manager.record_domain_request("error.com")
 

@@ -30,18 +30,18 @@ logger = get_logger(__name__)
 class PageType(Enum):
     """Enumeration of page types for classification."""
 
-    ARTICLE = "article"        # News articles, blog posts
-    KNOWLEDGE = "knowledge"    # Wiki pages, documentation, FAQs
-    NOTICE = "notice"          # Official announcements, press releases
-    FORUM = "forum"            # Discussion boards, Q&A, comments
+    ARTICLE = "article"  # News articles, blog posts
+    KNOWLEDGE = "knowledge"  # Wiki pages, documentation, FAQs
+    NOTICE = "notice"  # Official announcements, press releases
+    FORUM = "forum"  # Discussion boards, Q&A, comments
     LOGIN_WALL = "login_wall"  # Pages requiring authentication
-    INDEX = "index"            # Category pages, search results, listings
-    ACADEMIC = "academic"      # Research papers, academic journals
-    REPORT = "report"          # Corporate reports, government reports, white papers
-    LEGAL = "legal"            # Laws, regulations, court cases
-    PRODUCT = "product"        # Product pages, specifications, manuals
-    PROFILE = "profile"        # Person/company profiles
-    OTHER = "other"            # Pages not fitting other categories
+    INDEX = "index"  # Category pages, search results, listings
+    ACADEMIC = "academic"  # Research papers, academic journals
+    REPORT = "report"  # Corporate reports, government reports, white papers
+    LEGAL = "legal"  # Laws, regulations, court cases
+    PRODUCT = "product"  # Product pages, specifications, manuals
+    PROFILE = "profile"  # Person/company profiles
+    OTHER = "other"  # Pages not fitting other categories
 
 
 @dataclass
@@ -145,147 +145,272 @@ class PageClassifier:
     # URL patterns that hint at page types
     URL_PATTERNS = {
         PageType.ARTICLE: [
-            r"/news/", r"/article/", r"/blog/", r"/post/",
-            r"/story/", r"/entry/", r"\d{4}/\d{2}/\d{2}/",
+            r"/news/",
+            r"/article/",
+            r"/blog/",
+            r"/post/",
+            r"/story/",
+            r"/entry/",
+            r"\d{4}/\d{2}/\d{2}/",
         ],
         PageType.KNOWLEDGE: [
-            r"/wiki/", r"/docs/", r"/documentation/",
-            r"/manual/", r"/faq/", r"/help/", r"/guide/",
-            r"/reference/", r"/how-to/", r"/tutorial/",
+            r"/wiki/",
+            r"/docs/",
+            r"/documentation/",
+            r"/manual/",
+            r"/faq/",
+            r"/help/",
+            r"/guide/",
+            r"/reference/",
+            r"/how-to/",
+            r"/tutorial/",
         ],
         PageType.NOTICE: [
-            r"/news/", r"/press/", r"/announcement/",
-            r"/notice/", r"/release/", r"/update/",
-            r"/info/", r"/oshirase/", r"/topics/",
+            r"/news/",
+            r"/press/",
+            r"/announcement/",
+            r"/notice/",
+            r"/release/",
+            r"/update/",
+            r"/info/",
+            r"/oshirase/",
+            r"/topics/",
         ],
         PageType.FORUM: [
-            r"/forum/", r"/thread/", r"/topic/",
-            r"/discussion/", r"/community/", r"/board/",
-            r"/questions/", r"/answers/", r"/qa/",
+            r"/forum/",
+            r"/thread/",
+            r"/topic/",
+            r"/discussion/",
+            r"/community/",
+            r"/board/",
+            r"/questions/",
+            r"/answers/",
+            r"/qa/",
         ],
         PageType.LOGIN_WALL: [
-            r"/login", r"/signin", r"/auth/",
-            r"/register", r"/signup", r"/member/",
+            r"/login",
+            r"/signin",
+            r"/auth/",
+            r"/register",
+            r"/signup",
+            r"/member/",
         ],
         PageType.INDEX: [
-            r"/category/", r"/tag/", r"/archive/",
-            r"/search", r"/list/", r"/index",
-            r"/page/\d+", r"\?page=",
+            r"/category/",
+            r"/tag/",
+            r"/archive/",
+            r"/search",
+            r"/list/",
+            r"/index",
+            r"/page/\d+",
+            r"\?page=",
         ],
         PageType.ACADEMIC: [
-            r"arxiv\.org", r"pubmed", r"scholar\.google",
-            r"/paper/", r"/publication/", r"/abstract/",
-            r"jstage\.jst\.go\.jp", r"cinii\.ac\.jp",
-            r"doi\.org", r"/journal/", r"/proceedings/",
+            r"arxiv\.org",
+            r"pubmed",
+            r"scholar\.google",
+            r"/paper/",
+            r"/publication/",
+            r"/abstract/",
+            r"jstage\.jst\.go\.jp",
+            r"cinii\.ac\.jp",
+            r"doi\.org",
+            r"/journal/",
+            r"/proceedings/",
         ],
         PageType.REPORT: [
-            r"/report/", r"/ir/", r"/investor/",
-            r"/annual-report", r"/whitepaper/", r"/white-paper/",
-            r"edinet", r"/disclosure/", r"/yuho/",
-            r"/policy/", r"/statistics/",
+            r"/report/",
+            r"/ir/",
+            r"/investor/",
+            r"/annual-report",
+            r"/whitepaper/",
+            r"/white-paper/",
+            r"edinet",
+            r"/disclosure/",
+            r"/yuho/",
+            r"/policy/",
+            r"/statistics/",
         ],
         PageType.LEGAL: [
-            r"/law/", r"/legal/", r"/regulation/",
-            r"/statute/", r"/ordinance/", r"/judgment/",
-            r"e-gov\.go\.jp", r"courts\.go\.jp",
-            r"/act/", r"/code/", r"/rule/",
+            r"/law/",
+            r"/legal/",
+            r"/regulation/",
+            r"/statute/",
+            r"/ordinance/",
+            r"/judgment/",
+            r"e-gov\.go\.jp",
+            r"courts\.go\.jp",
+            r"/act/",
+            r"/code/",
+            r"/rule/",
         ],
         PageType.PRODUCT: [
-            r"/product/", r"/products/", r"/item/",
-            r"/spec/", r"/specification/", r"/datasheet/",
-            r"/catalog/", r"/shop/", r"/store/",
+            r"/product/",
+            r"/products/",
+            r"/item/",
+            r"/spec/",
+            r"/specification/",
+            r"/datasheet/",
+            r"/catalog/",
+            r"/shop/",
+            r"/store/",
         ],
         PageType.PROFILE: [
-            r"/about/", r"/company/", r"/profile/",
-            r"/team/", r"/staff/", r"/people/",
-            r"/corporate/", r"/organization/",
+            r"/about/",
+            r"/company/",
+            r"/profile/",
+            r"/team/",
+            r"/staff/",
+            r"/people/",
+            r"/corporate/",
+            r"/organization/",
         ],
     }
 
     # Class/ID patterns for detection
     LOGIN_PATTERNS = [
-        r"login", r"signin", r"sign-in", r"auth",
-        r"paywall", r"subscribe", r"premium",
-        r"members?-only", r"restricted",
+        r"login",
+        r"signin",
+        r"sign-in",
+        r"auth",
+        r"paywall",
+        r"subscribe",
+        r"premium",
+        r"members?-only",
+        r"restricted",
     ]
 
     FORUM_PATTERNS = [
-        r"thread", r"post-\d+", r"reply", r"comment",
-        r"discussion", r"forum", r"topic", r"answer",
-        r"vote", r"upvote", r"downvote", r"score",
+        r"thread",
+        r"post-\d+",
+        r"reply",
+        r"comment",
+        r"discussion",
+        r"forum",
+        r"topic",
+        r"answer",
+        r"vote",
+        r"upvote",
+        r"downvote",
+        r"score",
     ]
 
     WIKI_PATTERNS = [
-        r"wiki", r"toc", r"table-of-contents",
-        r"mw-", r"infobox", r"navbox", r"sidebar",
-        r"edit-section", r"editsection", r"references?",
+        r"wiki",
+        r"toc",
+        r"table-of-contents",
+        r"mw-",
+        r"infobox",
+        r"navbox",
+        r"sidebar",
+        r"edit-section",
+        r"editsection",
+        r"references?",
     ]
 
     ARTICLE_PATTERNS = [
-        r"article", r"entry", r"post-content",
-        r"blog-post", r"story", r"main-content",
-        r"byline", r"author", r"published",
+        r"article",
+        r"entry",
+        r"post-content",
+        r"blog-post",
+        r"story",
+        r"main-content",
+        r"byline",
+        r"author",
+        r"published",
     ]
 
     INDEX_PATTERNS = [
-        r"listing", r"list-item", r"card",
-        r"grid", r"gallery", r"pagination",
-        r"results?", r"archive", r"category",
+        r"listing",
+        r"list-item",
+        r"card",
+        r"grid",
+        r"gallery",
+        r"pagination",
+        r"results?",
+        r"archive",
+        r"category",
     ]
 
     ACADEMIC_PATTERNS = [
-        r"abstract", r"citation", r"references?",
-        r"doi", r"issn", r"isbn", r"arxiv",
-        r"author-?affiliation", r"peer-review",
-        r"journal", r"volume", r"issue",
+        r"abstract",
+        r"citation",
+        r"references?",
+        r"doi",
+        r"issn",
+        r"isbn",
+        r"arxiv",
+        r"author-?affiliation",
+        r"peer-review",
+        r"journal",
+        r"volume",
+        r"issue",
     ]
 
     REPORT_PATTERNS = [
-        r"annual-?report", r"quarterly", r"fiscal",
-        r"investor", r"disclosure", r"financial",
-        r"executive-?summary", r"whitepaper",
-        r"statistics", r"survey-?result",
+        r"annual-?report",
+        r"quarterly",
+        r"fiscal",
+        r"investor",
+        r"disclosure",
+        r"financial",
+        r"executive-?summary",
+        r"whitepaper",
+        r"statistics",
+        r"survey-?result",
     ]
 
     LEGAL_PATTERNS = [
-        r"statute", r"regulation", r"ordinance",
-        r"judgment", r"ruling", r"verdict",
-        r"article-?\d+", r"section-?\d+", r"clause",
-        r"enacted", r"effective-?date", r"法令",
+        r"statute",
+        r"regulation",
+        r"ordinance",
+        r"judgment",
+        r"ruling",
+        r"verdict",
+        r"article-?\d+",
+        r"section-?\d+",
+        r"clause",
+        r"enacted",
+        r"effective-?date",
+        r"法令",
     ]
 
     PRODUCT_PATTERNS = [
-        r"product-?detail", r"specification",
-        r"price", r"add-to-cart", r"buy-now",
-        r"sku", r"model-?number", r"datasheet",
-        r"features?", r"compatibility",
+        r"product-?detail",
+        r"specification",
+        r"price",
+        r"add-to-cart",
+        r"buy-now",
+        r"sku",
+        r"model-?number",
+        r"datasheet",
+        r"features?",
+        r"compatibility",
     ]
 
     PROFILE_PATTERNS = [
-        r"about-?us", r"company-?profile", r"overview",
-        r"history", r"mission", r"vision", r"ceo",
-        r"executive", r"leadership", r"biography",
-        r"corporate-?info", r"会社概要",
+        r"about-?us",
+        r"company-?profile",
+        r"overview",
+        r"history",
+        r"mission",
+        r"vision",
+        r"ceo",
+        r"executive",
+        r"leadership",
+        r"biography",
+        r"corporate-?info",
+        r"会社概要",
     ]
 
     def __init__(self):
         """Initialize the page classifier."""
         # Compile patterns for efficiency
-        self._login_pattern = re.compile(
-            "|".join(self.LOGIN_PATTERNS), re.IGNORECASE
-        )
-        self._forum_pattern = re.compile(
-            "|".join(self.FORUM_PATTERNS), re.IGNORECASE
-        )
-        self._wiki_pattern = re.compile(
-            "|".join(self.WIKI_PATTERNS), re.IGNORECASE
-        )
-        self._article_pattern = re.compile(
-            "|".join(self.ARTICLE_PATTERNS), re.IGNORECASE
-        )
-        self._index_pattern = re.compile(
-            "|".join(self.INDEX_PATTERNS), re.IGNORECASE
-        )
+        self._login_pattern = re.compile("|".join(self.LOGIN_PATTERNS), re.IGNORECASE)
+        self._forum_pattern = re.compile("|".join(self.FORUM_PATTERNS), re.IGNORECASE)
+        self._wiki_pattern = re.compile("|".join(self.WIKI_PATTERNS), re.IGNORECASE)
+        self._article_pattern = re.compile("|".join(self.ARTICLE_PATTERNS), re.IGNORECASE)
+        self._index_pattern = re.compile("|".join(self.INDEX_PATTERNS), re.IGNORECASE)
 
     def classify(
         self,
@@ -368,9 +493,7 @@ class PageClassifier:
         # Text ratios
         text_content = re.sub(r"<[^>]+>", "", html)
         text_content = re.sub(r"\s+", " ", text_content).strip()
-        features.text_to_html_ratio = (
-            len(text_content) / len(html) if html else 0.0
-        )
+        features.text_to_html_ratio = len(text_content) / len(html) if html else 0.0
 
         # Link density
         total_text_len = len(text_content)
@@ -387,7 +510,9 @@ class PageClassifier:
 
         # Login/Auth indicators
         features.has_login_form = self._has_login_form(html_lower)
-        features.has_password_field = 'type="password"' in html_lower or "type='password'" in html_lower
+        features.has_password_field = (
+            'type="password"' in html_lower or "type='password'" in html_lower
+        )
         features.has_paywall_indicator = self._has_paywall_indicator(html_lower)
 
         # Forum indicators
@@ -515,8 +640,9 @@ class PageClassifier:
             scores[PageType.NOTICE] += 1.5
         if features.paragraph_count >= 2 and features.paragraph_count <= 10:
             scores[PageType.NOTICE] += 0.5
-        if any("news" in hint or "notice" in hint or "press" in hint
-               for hint in features.url_hints):
+        if any(
+            "news" in hint or "notice" in hint or "press" in hint for hint in features.url_hints
+        ):
             scores[PageType.NOTICE] += 2.0
 
         # INDEX indicators
@@ -531,8 +657,9 @@ class PageClassifier:
             scores[PageType.ARTICLE] += 0.5  # Articles also have breadcrumbs
         if features.paragraph_count < 3 and features.link_count > 20:
             scores[PageType.INDEX] += 2.0
-        if any("category" in hint or "archive" in hint or "list" in hint
-               for hint in features.url_hints):
+        if any(
+            "category" in hint or "archive" in hint or "list" in hint for hint in features.url_hints
+        ):
             scores[PageType.INDEX] += 2.0
 
         # ACADEMIC indicators
@@ -544,8 +671,9 @@ class PageClassifier:
             scores[PageType.ACADEMIC] += 2.0
         if features.has_academic_structure:
             scores[PageType.ACADEMIC] += 2.0
-        if any("academic" in hint or "paper" in hint or "arxiv" in hint
-               for hint in features.url_hints):
+        if any(
+            "academic" in hint or "paper" in hint or "arxiv" in hint for hint in features.url_hints
+        ):
             scores[PageType.ACADEMIC] += 2.5
 
         # REPORT indicators
@@ -557,8 +685,9 @@ class PageClassifier:
             scores[PageType.REPORT] += 2.0
         if features.has_charts_tables:
             scores[PageType.REPORT] += 1.5
-        if any("report" in hint or "ir" in hint or "investor" in hint
-               for hint in features.url_hints):
+        if any(
+            "report" in hint or "ir" in hint or "investor" in hint for hint in features.url_hints
+        ):
             scores[PageType.REPORT] += 2.5
 
         # LEGAL indicators
@@ -568,8 +697,9 @@ class PageClassifier:
             scores[PageType.LEGAL] += 2.5
         if features.has_legal_citations:
             scores[PageType.LEGAL] += 2.0
-        if any("legal" in hint or "law" in hint or "regulation" in hint
-               for hint in features.url_hints):
+        if any(
+            "legal" in hint or "law" in hint or "regulation" in hint for hint in features.url_hints
+        ):
             scores[PageType.LEGAL] += 2.5
 
         # PRODUCT indicators
@@ -581,8 +711,9 @@ class PageClassifier:
             scores[PageType.PRODUCT] += 2.0
         if features.has_product_gallery:
             scores[PageType.PRODUCT] += 1.5
-        if any("product" in hint or "shop" in hint or "store" in hint
-               for hint in features.url_hints):
+        if any(
+            "product" in hint or "shop" in hint or "store" in hint for hint in features.url_hints
+        ):
             scores[PageType.PRODUCT] += 2.0
 
         # PROFILE indicators
@@ -594,8 +725,9 @@ class PageClassifier:
             scores[PageType.PROFILE] += 2.0
         if features.has_contact_info:
             scores[PageType.PROFILE] += 1.5
-        if any("profile" in hint or "about" in hint or "company" in hint
-               for hint in features.url_hints):
+        if any(
+            "profile" in hint or "about" in hint or "company" in hint for hint in features.url_hints
+        ):
             scores[PageType.PROFILE] += 2.0
 
         # Ensure minimum score of 0.1 for each type (to avoid division by zero)
@@ -733,7 +865,7 @@ class PageClassifier:
             r'id=["\']comments["\']',
             r'class=["\'][^"\']*comment',
             r'class=["\'][^"\']*disqus',
-            r'<div[^>]*data-comments',
+            r"<div[^>]*data-comments",
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -803,9 +935,9 @@ class PageClassifier:
     def _has_login_form(self, html: str) -> bool:
         """Check for login form indicators."""
         patterns = [
-            r'<form[^>]*login',
-            r'<form[^>]*signin',
-            r'<form[^>]*auth',
+            r"<form[^>]*login",
+            r"<form[^>]*signin",
+            r"<form[^>]*auth",
             r'id=["\']login',
             r'class=["\'][^"\']*login-form',
         ]
@@ -818,21 +950,21 @@ class PageClassifier:
             r'class=["\'][^"\']*subscribe',
             r'class=["\'][^"\']*premium',
             r'class=["\'][^"\']*members-only',
-            r'data-paywall',
-            r'登録が必要',  # Japanese: registration required
-            r'有料会員',  # Japanese: paid member
+            r"data-paywall",
+            r"登録が必要",  # Japanese: registration required
+            r"有料会員",  # Japanese: paid member
         ]
         return any(re.search(p, html) for p in patterns)
 
     def _has_reply_form(self, html: str) -> bool:
         """Check for reply/comment form."""
         patterns = [
-            r'<form[^>]*reply',
-            r'<form[^>]*comment',
+            r"<form[^>]*reply",
+            r"<form[^>]*comment",
             r'id=["\']reply',
             r'class=["\'][^"\']*reply-form',
             r'class=["\'][^"\']*comment-form',
-            r'<textarea[^>]*comment',
+            r"<textarea[^>]*comment",
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -877,7 +1009,7 @@ class PageClassifier:
             r'id=["\']toc["\']',
             r'id=["\']table-of-contents',
             r'class=["\'][^"\']*mw-toc',  # MediaWiki TOC
-            r'目次',  # Japanese: table of contents
+            r"目次",  # Japanese: table of contents
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -898,9 +1030,9 @@ class PageClassifier:
             r'class=["\'][^"\']*mw-editsection',  # MediaWiki edit section
             r'class=["\'][^"\']*edit-link',
             r'title=["\'][^"\']*edit',
-            r'>編集<',  # Japanese: edit
-            r'action=edit',
-            r'\[edit\]',  # Plain text edit link
+            r">編集<",  # Japanese: edit
+            r"action=edit",
+            r"\[edit\]",  # Plain text edit link
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -921,9 +1053,9 @@ class PageClassifier:
         patterns = [
             r'class=["\'][^"\']*abstract',
             r'id=["\']abstract',
-            r'<h[1-6][^>]*>abstract</h',
-            r'<h[1-6][^>]*>要旨</h',  # Japanese
-            r'<h[1-6][^>]*>概要</h',  # Japanese
+            r"<h[1-6][^>]*>abstract</h",
+            r"<h[1-6][^>]*>要旨</h",  # Japanese
+            r"<h[1-6][^>]*>概要</h",  # Japanese
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -933,17 +1065,17 @@ class PageClassifier:
             r'class=["\'][^"\']*citation',
             r'class=["\'][^"\']*reference',
             r'id=["\']references',
-            r'<h[1-6][^>]*>references</h',
-            r'<h[1-6][^>]*>参考文献</h',  # Japanese
-            r'<h[1-6][^>]*>引用</h',  # Japanese
+            r"<h[1-6][^>]*>references</h",
+            r"<h[1-6][^>]*>参考文献</h",  # Japanese
+            r"<h[1-6][^>]*>引用</h",  # Japanese
         ]
         return any(re.search(p, html) for p in patterns)
 
     def _has_doi(self, html: str) -> bool:
         """Check for DOI (Digital Object Identifier)."""
         patterns = [
-            r'doi\.org/',
-            r'doi:\s*10\.',
+            r"doi\.org/",
+            r"doi:\s*10\.",
             r'class=["\'][^"\']*doi',
             r'10\.\d{4,}/[^\s"\'<>]+',  # DOI pattern
         ]
@@ -955,9 +1087,9 @@ class PageClassifier:
             r'class=["\'][^"\']*author-affiliation',
             r'class=["\'][^"\']*journal',
             r'class=["\'][^"\']*volume',
-            r'issn|isbn',
-            r'peer-review',
-            r'<meta[^>]*citation',
+            r"issn|isbn",
+            r"peer-review",
+            r"<meta[^>]*citation",
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -967,9 +1099,9 @@ class PageClassifier:
         """Check for executive summary section."""
         patterns = [
             r'class=["\'][^"\']*executive-summary',
-            r'<h[1-6][^>]*>executive summary</h',
-            r'<h[1-6][^>]*>エグゼクティブサマリー</h',
-            r'<h[1-6][^>]*>要約</h',
+            r"<h[1-6][^>]*>executive summary</h",
+            r"<h[1-6][^>]*>エグゼクティブサマリー</h",
+            r"<h[1-6][^>]*>要約</h",
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -979,18 +1111,18 @@ class PageClassifier:
             r'class=["\'][^"\']*financial',
             r'class=["\'][^"\']*revenue',
             r'class=["\'][^"\']*earnings',
-            r'決算|売上|利益|財務',  # Japanese financial terms
-            r'quarter|fiscal|fy\d{2,4}',
+            r"決算|売上|利益|財務",  # Japanese financial terms
+            r"quarter|fiscal|fy\d{2,4}",
         ]
         return any(re.search(p, html) for p in patterns)
 
     def _has_charts_tables(self, html: str) -> bool:
         """Check for charts/tables (report indicator)."""
-        table_count = len(re.findall(r'<table[^>]*>', html))
+        table_count = len(re.findall(r"<table[^>]*>", html))
         chart_patterns = [
             r'class=["\'][^"\']*chart',
             r'class=["\'][^"\']*graph',
-            r'<canvas',
+            r"<canvas",
             r'<svg[^>]*class=["\'][^"\']*chart',
         ]
         has_charts = any(re.search(p, html) for p in chart_patterns)
@@ -1002,7 +1134,7 @@ class PageClassifier:
             r'class=["\'][^"\']*report',
             r'class=["\'][^"\']*whitepaper',
             r'class=["\'][^"\']*disclosure',
-            r'有価証券報告書|決算短信|年次報告',  # Japanese report types
+            r"有価証券報告書|決算短信|年次報告",  # Japanese report types
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1015,26 +1147,26 @@ class PageClassifier:
             r'class=["\'][^"\']*regulation',
             r'class=["\'][^"\']*law-text',
             r'class=["\'][^"\']*legal-doc',
-            r'法令|条例|規則|判例',  # Japanese legal terms
+            r"法令|条例|規則|判例",  # Japanese legal terms
         ]
         return any(re.search(p, html) for p in patterns)
 
     def _has_article_numbers(self, html: str) -> bool:
         """Check for article/section numbering (legal docs)."""
         patterns = [
-            r'第[一二三四五六七八九十百千]+条',  # Japanese article numbers
-            r'article\s+\d+',
-            r'section\s+\d+',
-            r'§\s*\d+',
+            r"第[一二三四五六七八九十百千]+条",  # Japanese article numbers
+            r"article\s+\d+",
+            r"section\s+\d+",
+            r"§\s*\d+",
         ]
         return any(re.search(p, html) for p in patterns)
 
     def _has_legal_citations(self, html: str) -> bool:
         """Check for legal citations."""
         patterns = [
-            r'\d+\s+u\.?s\.?\s+\d+',  # US case citations
-            r'平成\d+年.*判決',  # Japanese court decisions
-            r'令和\d+年.*判決',
+            r"\d+\s+u\.?s\.?\s+\d+",  # US case citations
+            r"平成\d+年.*判決",  # Japanese court decisions
+            r"令和\d+年.*判決",
             r'class=["\'][^"\']*case-citation',
         ]
         return any(re.search(p, html) for p in patterns)
@@ -1045,9 +1177,9 @@ class PageClassifier:
         """Check for price information."""
         patterns = [
             r'class=["\'][^"\']*price',
-            r'¥\s*[\d,]+',  # Japanese Yen
-            r'\$\s*[\d,]+\.?\d*',  # US Dollar
-            r'€\s*[\d,]+',  # Euro
+            r"¥\s*[\d,]+",  # Japanese Yen
+            r"\$\s*[\d,]+\.?\d*",  # US Dollar
+            r"€\s*[\d,]+",  # Euro
             r'itemprop=["\']price',
         ]
         return any(re.search(p, html) for p in patterns)
@@ -1055,12 +1187,12 @@ class PageClassifier:
     def _has_add_to_cart(self, html: str) -> bool:
         """Check for add-to-cart functionality."""
         patterns = [
-            r'add-to-cart',
-            r'add_to_cart',
+            r"add-to-cart",
+            r"add_to_cart",
             r'class=["\'][^"\']*cart',
             r'class=["\'][^"\']*buy-now',
-            r'カートに入れる',  # Japanese
-            r'購入する',  # Japanese
+            r"カートに入れる",  # Japanese
+            r"購入する",  # Japanese
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1070,7 +1202,7 @@ class PageClassifier:
             r'class=["\'][^"\']*spec',
             r'class=["\'][^"\']*specification',
             r'class=["\'][^"\']*product-detail',
-            r'仕様|スペック',  # Japanese
+            r"仕様|スペック",  # Japanese
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1080,7 +1212,7 @@ class PageClassifier:
             r'class=["\'][^"\']*product-gallery',
             r'class=["\'][^"\']*product-image',
             r'class=["\'][^"\']*gallery-thumb',
-            r'data-zoom-image',
+            r"data-zoom-image",
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1091,8 +1223,8 @@ class PageClassifier:
         patterns = [
             r'class=["\'][^"\']*company-info',
             r'class=["\'][^"\']*corporate',
-            r'会社概要|企業情報|会社情報',  # Japanese
-            r'founded|established|since\s+\d{4}',
+            r"会社概要|企業情報|会社情報",  # Japanese
+            r"founded|established|since\s+\d{4}",
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1101,8 +1233,8 @@ class PageClassifier:
         patterns = [
             r'class=["\'][^"\']*contact',
             r'class=["\'][^"\']*address',
-            r'お問い合わせ|連絡先',  # Japanese
-            r'tel:|phone:|fax:',
+            r"お問い合わせ|連絡先",  # Japanese
+            r"tel:|phone:|fax:",
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1112,7 +1244,7 @@ class PageClassifier:
             r'class=["\'][^"\']*team',
             r'class=["\'][^"\']*leadership',
             r'class=["\'][^"\']*executive',
-            r'経営陣|役員|チーム',  # Japanese
+            r"経営陣|役員|チーム",  # Japanese
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1121,8 +1253,8 @@ class PageClassifier:
         patterns = [
             r'class=["\'][^"\']*about',
             r'id=["\']about',
-            r'<h[1-6][^>]*>about\s*(us)?</h',
-            r'私たちについて|当社について',  # Japanese
+            r"<h[1-6][^>]*>about\s*(us)?</h",
+            r"私たちについて|当社について",  # Japanese
         ]
         return any(re.search(p, html) for p in patterns)
 
@@ -1153,17 +1285,38 @@ class PageClassifier:
             # Check for common path segments
             segments = path.split("/")
             for seg in segments:
-                if seg in ["news", "blog", "article", "wiki", "docs",
-                          "forum", "thread", "category", "tag", "archive",
-                          "press", "notice", "announcement", "release"]:
+                if seg in [
+                    "news",
+                    "blog",
+                    "article",
+                    "wiki",
+                    "docs",
+                    "forum",
+                    "thread",
+                    "category",
+                    "tag",
+                    "archive",
+                    "press",
+                    "notice",
+                    "announcement",
+                    "release",
+                ]:
                     hints.append(seg)
 
             # Check hostname for subdomains like docs., blog., forum.
             hostname_parts = hostname.split(".")
             if hostname_parts:
                 subdomain = hostname_parts[0]
-                if subdomain in ["docs", "blog", "forum", "wiki", "help",
-                                "support", "community", "news"]:
+                if subdomain in [
+                    "docs",
+                    "blog",
+                    "forum",
+                    "wiki",
+                    "help",
+                    "support",
+                    "community",
+                    "news",
+                ]:
                     hints.append(subdomain)
         except Exception as e:
             logger.debug("URL hint extraction failed", error=str(e))
@@ -1292,4 +1445,3 @@ def classify_page(
     """
     classifier = get_classifier()
     return classifier.classify(html, url)
-
