@@ -235,15 +235,13 @@ cmd_check() {
     result_content=$(tail -10 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "")
     last_line=$(tail -1 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "waiting...")
 
-    # Check if test result contains completion keywords
-    # pytest output format: "===== X passed, Y failed, Z skipped, W deselected ====="
-    if echo "$result_content" | grep -qE "(passed|failed|skipped|deselected|error|ERROR)"; then
-        # Check if it's a summary line (contains "passed" or "failed" with numbers)
-        if echo "$result_content" | grep -qE "=====.*[0-9]+ (passed|failed|skipped|deselected)"; then
-            echo "DONE"
-            tail -5 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "No output"
-            return 0
-        fi
+    # Check if test result contains pytest summary line
+    # pytest output format: "==== X passed, Y failed, Z skipped, W deselected ... ===="
+    # Match: equals signs + number + (passed|failed|skipped|deselected)
+    if echo "$result_content" | grep -qE "={3,}.*[0-9]+ (passed|failed|skipped|deselected)"; then
+        echo "DONE"
+        tail -5 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "No output"
+        return 0
     fi
 
     # Fallback: Check file modification time
