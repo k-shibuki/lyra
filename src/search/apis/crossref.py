@@ -4,7 +4,7 @@ Crossref API client.
 DOI resolution and metadata normalization (priority=3).
 """
 
-from __future__ import annotations
+
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -59,7 +59,11 @@ class CrossrefClient(BaseAcademicClient):
             )
         except Exception as e:
             logger.error("Crossref search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, source_api="crossref")
+            return AcademicSearchResult(
+                papers=[],
+                total_count=0,
+                source_api="crossref"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata by DOI."""
@@ -106,7 +110,11 @@ class CrossrefClient(BaseAcademicClient):
             family = author_data.get("family", "")
             name = f"{given} {family}".strip() if given or family else ""
             if name:
-                authors.append(Author(name=name, affiliation=None, orcid=author_data.get("ORCID")))
+                authors.append(Author(
+                    name=name,
+                    affiliation=None,
+                    orcid=author_data.get("ORCID")
+                ))
 
         doi = data.get("DOI", "")
         if doi and doi.startswith("https://doi.org/"):

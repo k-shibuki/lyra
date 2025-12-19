@@ -216,7 +216,9 @@ class TestPolicyEngine:
         engine = PolicyEngine(metrics_collector=collector)
 
         # When: Getting a parameter value that hasn't been set
-        value = engine.get_parameter_value("engine", "test", PolicyParameter.ENGINE_WEIGHT)
+        value = engine.get_parameter_value(
+            "engine", "test", PolicyParameter.ENGINE_WEIGHT
+        )
 
         # Then: Returns the default value from bounds
         assert value == DEFAULT_BOUNDS[PolicyParameter.ENGINE_WEIGHT].default_value
@@ -352,7 +354,9 @@ class TestPolicyEngine:
         )
 
         # And: A state that was just changed
-        state = engine._get_or_create_state("engine", "test", PolicyParameter.ENGINE_WEIGHT)
+        state = engine._get_or_create_state(
+            "engine", "test", PolicyParameter.ENGINE_WEIGHT
+        )
         state.last_changed_at = datetime.now(UTC)
 
         # When: Checking if change is allowed
@@ -490,12 +494,11 @@ class TestDynamicWeightCalculation:
             last_used_at=recent_time,
         )
 
-        assert degraded_weight < ideal_weight, (
+        assert degraded_weight < ideal_weight, \
             f"Degraded weight {degraded_weight} should be < ideal weight {ideal_weight}"
         )
         assert 0.1 <= degraded_weight <= 1.0, (
             f"Degraded weight {degraded_weight} not in valid range"
-        )
 
     def test_minimum_weight_clamp(self):
         """TC-DW-B-01: Minimum weight clamping.
@@ -569,9 +572,8 @@ class TestDynamicWeightCalculation:
             last_used_at=recent_time,
         )
 
-        assert high_captcha_weight < no_captcha_weight, (
+        assert high_captcha_weight < no_captcha_weight, \
             f"High CAPTCHA weight {high_captcha_weight} should be < no CAPTCHA weight {no_captcha_weight}"
-        )
 
     def test_high_latency_penalty(self):
         """TC-DW-B-04: High latency penalty.
@@ -603,9 +605,8 @@ class TestDynamicWeightCalculation:
             last_used_at=recent_time,
         )
 
-        assert high_latency_weight < low_latency_weight, (
+        assert high_latency_weight < low_latency_weight, \
             f"High latency weight {high_latency_weight} should be < low latency weight {low_latency_weight}"
-        )
 
     def test_time_decay_24h(self):
         """TC-DW-B-05: Time decay at 24 hours.
@@ -642,7 +643,8 @@ class TestDynamicWeightCalculation:
             f"24h old weight {old_weight} should be > recent weight {recent_weight}"
         )
         # Confidence should be around 0.5 for 24h
-        assert 0.4 <= old_conf <= 0.6, f"Confidence {old_conf} should be ~0.5 for 24h old metrics"
+        assert 0.4 <= old_conf <= 0.6, \
+            f"Confidence {old_conf} should be ~0.5 for 24h old metrics"
 
     def test_time_decay_48h(self):
         """TC-DW-B-06: Time decay at 48 hours.
@@ -673,7 +675,6 @@ class TestDynamicWeightCalculation:
         # Weight should be close to base_weight
         assert abs(weight - base_weight) < 0.2, (
             f"Weight {weight} should be close to base_weight {base_weight}"
-        )
 
     def test_time_decay_never_used(self):
         """TC-DW-B-07: Never used engine.
@@ -699,7 +700,6 @@ class TestDynamicWeightCalculation:
         # Weight should be close to base_weight
         assert abs(weight - base_weight) < 0.15, (
             f"Weight {weight} should be close to base_weight {base_weight}"
-        )
 
     @pytest.mark.asyncio
     async def test_get_dynamic_weight_fallback(self):
@@ -717,7 +717,8 @@ class TestDynamicWeightCalculation:
         )
 
         # Should return default weight for unknown engine
-        assert weight == 1.0, f"Non-existent engine should return default weight 1.0, got {weight}"
+        assert weight == 1.0, \
+            f"Non-existent engine should return default weight 1.0, got {weight}"
 
     def test_confidence_calculation(self):
         """Test confidence calculation based on time since last use.
@@ -751,6 +752,10 @@ class TestDynamicWeightCalculation:
                 last_used_at=last_used,
                 **good_metrics,
             )
+
+            # Allow some tolerance
+            assert abs(confidence - expected_conf) < 0.05, \
+                f"Confidence for {time_delta} should be ~{expected_conf}, got {confidence}"
 
             # Allow some tolerance
             assert abs(confidence - expected_conf) < 0.05, (

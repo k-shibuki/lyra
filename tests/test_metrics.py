@@ -215,7 +215,7 @@ class TestTaskMetrics:
         # Given: TaskMetrics with 15s LLM time out of 60s total
         tm = TaskMetrics(task_id="test")
         tm.total_time_ms = 60000  # 60 seconds
-        tm.llm_time_ms = 15000  # 15 seconds
+        tm.llm_time_ms = 15000   # 15 seconds
 
         # When: Computing metrics
         metrics = tm.compute_metrics()
@@ -412,9 +412,7 @@ class TestMetricsCollector:
             "fetch_count should be 1 after single fetch"
         )
         assert "error_403_rate" in domain_metrics, "error_403_rate should be tracked for domain"
-        assert 0.0 <= domain_metrics["error_403_rate"]["ema_short"] <= 1.0, (
-            "error_403_rate EMA should be in [0, 1]"
-        )
+        assert 0.0 <= domain_metrics["error_403_rate"]["ema_short"] <= 1.0, "error_403_rate EMA should be in [0, 1]"
 
     async def test_export_snapshot(self):
         """Test exporting full metrics snapshot."""

@@ -130,7 +130,6 @@ async def main():
     import inspect
 
     from src.mcp.server import _handle_wait_for_user
-
     sig = inspect.signature(_handle_wait_for_user)
     print(f"  - Handler signature: _handle_wait_for_user{sig}")
     print("  - (Skipping actual call - would block waiting for user input)")

@@ -4,7 +4,7 @@ Semantic Scholar API client.
 Primary API for citation graphs (priority=1).
 """
 
-from __future__ import annotations
+
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -71,7 +71,11 @@ class SemanticScholarClient(BaseAcademicClient):
             )
         except Exception as e:
             logger.error("Semantic Scholar search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, source_api="semantic_scholar")
+            return AcademicSearchResult(
+                papers=[],
+                total_count=0,
+                source_api="semantic_scholar"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
@@ -185,13 +189,11 @@ class SemanticScholarClient(BaseAcademicClient):
 
         authors = []
         for author_data in data.get("authors", []):
-            authors.append(
-                Author(
-                    name=author_data.get("name", ""),
-                    affiliation=None,  # Semantic Scholar API does not provide affiliation
-                    orcid=None,
-                )
-            )
+            authors.append(Author(
+                name=author_data.get("name", ""),
+                affiliation=None,  # Semantic Scholar API does not provide affiliation
+                orcid=None
+            ))
 
         return Paper(
             id=f"s2:{data['paperId']}",

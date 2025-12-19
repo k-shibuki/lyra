@@ -406,7 +406,9 @@ class WHOISParser:
                         record.registrant.organization = value
                     elif "name server" in key or "nameserver" in key:
                         if value and "." in value:
-                            record.nameservers.append(NameserverInfo(hostname=value.lower()))
+                            record.nameservers.append(
+                                NameserverInfo(hostname=value.lower())
+                            )
 
     def _parse_rdap_json(self, soup: BeautifulSoup, record: WHOISRecord) -> None:
         """Parse RDAP JSON-LD data if present.

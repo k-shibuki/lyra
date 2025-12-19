@@ -93,15 +93,9 @@ async def main():
     await db.execute(
         """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant, relevance_reason, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (
-            fragment_id,
-            page_id,
-            "paragraph",
-            "Caffeine is a stimulant that affects the central nervous system.",
-            "Effects of Caffeine",
-            1,
-            "primary_source=True; url=https://example.gov/caffeine",
-        ),
+        (fragment_id, page_id, "paragraph",
+         "Caffeine is a stimulant that affects the central nervous system.",
+         "Effects of Caffeine", 1, "primary_source=True; url=https://example.gov/caffeine"),
     )
 
     # Create claim
@@ -110,15 +104,9 @@ async def main():
     await db.execute(
         """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (
-            claim_id,
-            task_id,
-            "Caffeine acts as a central nervous system stimulant.",
-            "fact",
-            0.85,
-            json.dumps([fragment_id]),
-            "source_url=https://example.gov/caffeine",
-        ),
+        (claim_id, task_id,
+         "Caffeine acts as a central nervous system stimulant.",
+         "fact", 0.85, json.dumps([fragment_id]), "source_url=https://example.gov/caffeine"),
     )
 
     # Create edge

@@ -385,13 +385,11 @@ class ResearchContext:
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                results.append(
-                    PastQueryInfo(
-                        query=query_text,
-                        harvest_rate=pq.get("harvest_rate", 0),
-                        success_engines=engines,
-                    )
-                )
+                results.append(PastQueryInfo(
+                    query=query_text,
+                    harvest_rate=pq.get("harvest_rate", 0),
+                    success_engines=engines,
+                ))
 
         return results[:5]  # Limit to top 5
 
@@ -618,23 +616,21 @@ class ResearchContext:
 
             # Only include if we got some data
             if info.registrar or info.discovered_domains:
-                results.append(
-                    {
-                        "domain": info.domain,
-                        "registrar": info.registrar,
-                        "registrant_org": info.registrant_org,
-                        "registrant_country": info.registrant_country,
-                        "nameservers": info.nameservers,
-                        "created_date": info.created_date,
-                        "updated_date": info.updated_date,
-                        "expiry_date": info.expiry_date,
-                        "discovered_domains": info.discovered_domains,
-                        "discovered_issuers": info.discovered_issuers,
-                        "cert_timeline_start": info.cert_timeline_start,
-                        "cert_timeline_end": info.cert_timeline_end,
-                        "source": info.source,
-                    }
-                )
+                results.append({
+                    "domain": info.domain,
+                    "registrar": info.registrar,
+                    "registrant_org": info.registrant_org,
+                    "registrant_country": info.registrant_country,
+                    "nameservers": info.nameservers,
+                    "created_date": info.created_date,
+                    "updated_date": info.updated_date,
+                    "expiry_date": info.expiry_date,
+                    "discovered_domains": info.discovered_domains,
+                    "discovered_issuers": info.discovered_issuers,
+                    "cert_timeline_start": info.cert_timeline_start,
+                    "cert_timeline_end": info.cert_timeline_end,
+                    "source": info.source,
+                })
 
         return results
 

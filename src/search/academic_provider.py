@@ -8,8 +8,6 @@ Provides unified interface for searching academic papers from:
 - arXiv (priority=4, preprints)
 """
 
-from __future__ import annotations
-
 import asyncio
 
 from src.search.apis.arxiv import ArxivClient
@@ -123,7 +121,10 @@ class AcademicSearchProvider(BaseSearchProvider):
         apis_to_use = options.engines if options.engines else self._default_apis
 
         # Sort by priority
-        apis_to_use = sorted(apis_to_use, key=lambda api: self.API_PRIORITY.get(api, 999))
+        apis_to_use = sorted(
+            apis_to_use,
+            key=lambda api: self.API_PRIORITY.get(api, 999)
+        )
 
         # Parallel search
         tasks = []

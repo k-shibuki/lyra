@@ -258,21 +258,18 @@ class TestCitation:
 class TestCitationSourcePriority:
     """Tests for source priority classification per §3.4."""
 
-    @pytest.mark.parametrize(
-        "source_tag,expected",
-        [
-            ("government", True),
-            ("academic", True),
-            ("official", True),
-            ("standard", True),
-            ("registry", True),
-            ("news", False),
-            ("blog", False),
-            ("forum", False),
-            ("unknown", False),
-            (None, False),
-        ],
-    )
+    @pytest.mark.parametrize("source_tag,expected", [
+        ("government", True),
+        ("academic", True),
+        ("official", True),
+        ("standard", True),
+        ("registry", True),
+        ("news", False),
+        ("blog", False),
+        ("forum", False),
+        ("unknown", False),
+        (None, False),
+    ])
     def test_primary_source_classification(self, source_tag, expected):
         """Test all source types are classified correctly."""
         citation = Citation(

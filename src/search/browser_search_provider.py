@@ -939,7 +939,10 @@ class BrowserSearchProvider(BaseSearchProvider):
                 )
 
             # Convert results
-            results = [r.to_search_result(engine) for r in parse_result.results[: options.limit]]
+            results = [
+                r.to_search_result(engine)
+                for r in parse_result.results[:options.limit]
+            ]
 
             # Save session cookies
             await self._save_session(engine, page)

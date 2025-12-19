@@ -57,6 +57,7 @@ BrowserSearchProvider tests are in test_browser_search_provider.py.
 | TC-RG-A-05 | All providers fail | Abnormal – all fail | Error response | - |
 """
 
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -1021,12 +1022,10 @@ class TestSearchProviderRegistry:
         registry = SearchProviderRegistry()
 
         registry.register(MockSearchProvider("p1", health=HealthStatus.healthy()))
-        registry.register(
-            MockSearchProvider(
-                "p2",
-                health=HealthStatus.degraded(0.8),
-            )
-        )
+        registry.register(MockSearchProvider(
+            "p2",
+            health=HealthStatus.degraded(0.8),
+        ))
 
         # When: Getting all health
         health = await registry.get_all_health()

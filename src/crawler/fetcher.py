@@ -14,7 +14,6 @@ Features:
 import asyncio
 import hashlib
 import io
-import json
 import random
 import time
 from datetime import UTC, datetime
@@ -38,9 +37,6 @@ from src.crawler.http3_policy import (
     ProtocolVersion,
     detect_protocol_from_playwright_response,
     get_http3_policy_manager,
-)
-from src.crawler.human_behavior import (
-    get_human_behavior_simulator,
 )
 from src.crawler.ipv6_manager import (
     AddressFamily,
@@ -77,6 +73,11 @@ logger = get_logger(__name__)
 # =============================================================================
 # Human-like Behavior Simulation (delegated to human_behavior module)
 # =============================================================================
+
+# Import from dedicated module for advanced human-like behavior
+from src.crawler.human_behavior import (
+    get_human_behavior_simulator,
+)
 
 
 class HumanBehavior:
@@ -686,9 +687,7 @@ class HTTPFetcher:
 
             # Extract ETag and Last-Modified from response
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
-            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get(
-                "Last-Modified"
-            )
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
 
             # Handle 304 Not Modified response
             if response.status_code == 304:
@@ -735,16 +734,14 @@ class HTTPFetcher:
             # HTTP client uses HTTP/2 by default, not HTTP/3
             domain = urlparse(url).netloc.lower()
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(
-                HTTP3RequestResult(
-                    domain=domain,
-                    url=url,
-                    route="http_client",
-                    success=True,
-                    protocol=ProtocolVersion.HTTP_2,  # curl_cffi uses HTTP/2
-                    status_code=response.status_code,
-                )
-            )
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="http_client",
+                success=True,
+                protocol=ProtocolVersion.HTTP_2,  # curl_cffi uses HTTP/2
+                status_code=response.status_code,
+            ))
 
             logger.info(
                 "HTTP fetch success",
@@ -776,16 +773,14 @@ class HTTPFetcher:
             # Record failed HTTP client request for HTTP/3 policy tracking
             domain = urlparse(url).netloc.lower()
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(
-                HTTP3RequestResult(
-                    domain=domain,
-                    url=url,
-                    route="http_client",
-                    success=False,
-                    protocol=ProtocolVersion.UNKNOWN,
-                    error=str(e),
-                )
-            )
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="http_client",
+                success=False,
+                protocol=ProtocolVersion.UNKNOWN,
+                error=str(e),
+            ))
 
             return FetchResult(
                 ok=False,
@@ -878,7 +873,7 @@ class BrowserFetcher:
                 except Exception as e:
                     logger.info("CDP connection failed, attempting auto-start", error=str(e))
 
-                # Auto-start Chrome per docs/REQUIREMENTS.md §3.2.1 (if CDP connection failed)
+                # Auto-start Chrome per docs/requirements.md §3.2.1 (if CDP connection failed)
                 if not cdp_connected:
                     logger.debug("Calling _auto_start_chrome()")
                     auto_start_success = await self._auto_start_chrome()
@@ -890,11 +885,7 @@ class BrowserFetcher:
                         timeout = 15.0
                         poll_interval = 0.5
 
-                        logger.debug(
-                            "Waiting for CDP connection after auto-start",
-                            timeout=timeout,
-                            poll_interval=poll_interval,
-                        )
+                        logger.debug("Waiting for CDP connection after auto-start", timeout=timeout, poll_interval=poll_interval)
                         while time.monotonic() - start_time < timeout:
                             try:
                                 self._headful_browser = await asyncio.wait_for(
@@ -923,9 +914,7 @@ class BrowserFetcher:
                             "CDP connection failed after auto-start, launching local headful browser",
                             error=str(e),
                         )
-                        self._headful_browser = await self._playwright.chromium.launch(
-                            headless=False
-                        )
+                        self._headful_browser = await self._playwright.chromium.launch(headless=False)
 
                 # Register browser for lifecycle management
                 if task_id:
@@ -1077,7 +1066,7 @@ class BrowserFetcher:
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
 
-        Per docs/REQUIREMENTS.md §3.2.1: CDP未接続を検知した場合、Lancetは
+        Per docs/requirements.md §3.2.1: CDP未接続を検知した場合、Lancetは
         ./scripts/chrome.sh start を自動実行する。
 
         Returns:
@@ -1146,36 +1135,30 @@ class BrowserFetcher:
         block_patterns = []
 
         if browser_settings.block_ads:
-            block_patterns.extend(
-                [
-                    "*googlesyndication.com*",
-                    "*doubleclick.net*",
-                    "*googleadservices.com*",
-                    "*adnxs.com*",
-                    "*criteo.com*",
-                ]
-            )
+            block_patterns.extend([
+                "*googlesyndication.com*",
+                "*doubleclick.net*",
+                "*googleadservices.com*",
+                "*adnxs.com*",
+                "*criteo.com*",
+            ])
 
         if browser_settings.block_trackers:
-            block_patterns.extend(
-                [
-                    "*google-analytics.com*",
-                    "*googletagmanager.com*",
-                    "*facebook.com/tr*",
-                    "*hotjar.com*",
-                    "*mixpanel.com*",
-                ]
-            )
+            block_patterns.extend([
+                "*google-analytics.com*",
+                "*googletagmanager.com*",
+                "*facebook.com/tr*",
+                "*hotjar.com*",
+                "*mixpanel.com*",
+            ])
 
         if browser_settings.block_large_media:
-            block_patterns.extend(
-                [
-                    "*.mp4",
-                    "*.webm",
-                    "*.avi",
-                    "*.mov",
-                ]
-            )
+            block_patterns.extend([
+                "*.mp4",
+                "*.webm",
+                "*.avi",
+                "*.mov",
+            ])
 
         async def block_route(route):
             await route.abort()
@@ -1411,10 +1394,7 @@ class BrowserFetcher:
                             challenge_type=challenge_type,
                         )
 
-                        if (
-                            intervention_result
-                            and intervention_result.status == InterventionStatus.SUCCESS
-                        ):
+                        if intervention_result and intervention_result.status == InterventionStatus.SUCCESS:
                             # Re-check page content after intervention
                             content = await page.content()
                             if not _is_challenge_page(content, {}):
@@ -1512,25 +1492,21 @@ class BrowserFetcher:
 
             # Extract ETag and Last-Modified from response headers
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
-            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get(
-                "Last-Modified"
-            )
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
 
             # Detect HTTP/3 protocol usage
             protocol = await detect_protocol_from_playwright_response(response)
 
             # Record HTTP/3 usage for policy tracking
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(
-                HTTP3RequestResult(
-                    domain=domain,
-                    url=url,
-                    route="browser",
-                    success=True,
-                    protocol=protocol,
-                    status_code=response.status,
-                )
-            )
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="browser",
+                success=True,
+                protocol=protocol,
+                status_code=response.status,
+            ))
 
             logger.info(
                 "Browser fetch success",
@@ -1586,16 +1562,14 @@ class BrowserFetcher:
 
             # Record failed request for HTTP/3 policy tracking
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(
-                HTTP3RequestResult(
-                    domain=domain,
-                    url=url,
-                    route="browser",
-                    success=False,
-                    protocol=ProtocolVersion.UNKNOWN,
-                    error=str(e),
-                )
-            )
+            await http3_manager.record_request(HTTP3RequestResult(
+                domain=domain,
+                url=url,
+                route="browser",
+                success=False,
+                protocol=ProtocolVersion.UNKNOWN,
+                error=str(e),
+            ))
 
             return FetchResult(
                 ok=False,
@@ -1804,8 +1778,10 @@ def _estimate_auth_effort(challenge_type: str) -> str:
         # Low: Usually auto-resolves or simple click
         "js_challenge": "low",
         "cloudflare": "low",  # Basic Cloudflare often auto-resolves
+
         # Medium: Requires simple user interaction
         "turnstile": "medium",  # Usually just a click/checkbox
+
         # High: Requires significant user effort
         "captcha": "high",
         "recaptcha": "high",

@@ -314,13 +314,11 @@ class RefutationExecutor:
 
         try:
             # Use NLI to check stance
-            pairs = [
-                {
-                    "pair_id": "refutation_check",
-                    "premise": passage,
-                    "hypothesis": claim_text,
-                }
-            ]
+            pairs = [{
+                "pair_id": "refutation_check",
+                "premise": passage,
+                "hypothesis": claim_text,
+            }]
 
             results = await nli_judge(pairs=pairs)
 

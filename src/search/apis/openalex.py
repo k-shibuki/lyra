@@ -4,7 +4,7 @@ OpenAlex API client.
 Large-scale search API (priority=2).
 """
 
-from __future__ import annotations
+
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -63,7 +63,11 @@ class OpenAlexClient(BaseAcademicClient):
             )
         except Exception as e:
             logger.error("OpenAlex search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, source_api="openalex")
+            return AcademicSearchResult(
+                papers=[],
+                total_count=0,
+                source_api="openalex"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
@@ -113,13 +117,11 @@ class OpenAlexClient(BaseAcademicClient):
         authors = []
         for authorship in data.get("authorships", []):
             author_data = authorship.get("author", {})
-            authors.append(
-                Author(
-                    name=author_data.get("display_name", ""),
-                    affiliation=None,  # OpenAlex does not provide detailed affiliation
-                    orcid=author_data.get("orcid"),
-                )
-            )
+            authors.append(Author(
+                name=author_data.get("display_name", ""),
+                affiliation=None,  # OpenAlex does not provide detailed affiliation
+                orcid=author_data.get("orcid")
+            ))
 
         doi = data.get("doi", "")
         if doi and doi.startswith("https://doi.org/"):

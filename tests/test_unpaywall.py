@@ -245,7 +245,11 @@ class TestUnpaywallClient:
         """TC-UP-A-07: Paper OA but no location URLs."""
         # Given: Unpaywall client and OA paper but no location URLs
         client = UnpaywallClient()
-        mock_response = {"is_oa": True, "best_oa_location": {}, "oa_locations": []}
+        mock_response = {
+            "is_oa": True,
+            "best_oa_location": {},
+            "oa_locations": []
+        }
 
         # When: Resolving OA URL
         with patch.object(client, "_get_session") as mock_get_session:

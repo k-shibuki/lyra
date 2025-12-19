@@ -382,27 +382,23 @@ def expected_calibration_error(
 
             ece += (count / n) * abs(accuracy - confidence)
 
-            bins_data.append(
-                {
-                    "bin_lower": float(lower),
-                    "bin_upper": float(upper),
-                    "count": int(count),
-                    "accuracy": float(accuracy),
-                    "confidence": float(confidence),
-                    "gap": float(abs(accuracy - confidence)),
-                }
-            )
+            bins_data.append({
+                "bin_lower": float(lower),
+                "bin_upper": float(upper),
+                "count": int(count),
+                "accuracy": float(accuracy),
+                "confidence": float(confidence),
+                "gap": float(abs(accuracy - confidence)),
+            })
         else:
-            bins_data.append(
-                {
-                    "bin_lower": float(lower),
-                    "bin_upper": float(upper),
-                    "count": 0,
-                    "accuracy": 0.0,
-                    "confidence": 0.0,
-                    "gap": 0.0,
-                }
-            )
+            bins_data.append({
+                "bin_lower": float(lower),
+                "bin_upper": float(upper),
+                "count": 0,
+                "accuracy": 0.0,
+                "confidence": 0.0,
+                "gap": 0.0,
+            })
 
     return float(ece), bins_data
 
@@ -456,7 +452,9 @@ class CalibrationHistory:
                     data = json.load(f)
 
                 for source, params_list in data.items():
-                    self._history[source] = [CalibrationParams.from_dict(p) for p in params_list]
+                    self._history[source] = [
+                        CalibrationParams.from_dict(p) for p in params_list
+                    ]
 
                 logger.debug(
                     "Loaded calibration history",
@@ -523,7 +521,7 @@ class CalibrationHistory:
 
         # Trim history to max size
         if len(self._history[source]) > self._max_history:
-            self._history[source] = self._history[source][-self._max_history :]
+            self._history[source] = self._history[source][-self._max_history:]
 
         self._save_history()
 
@@ -849,7 +847,10 @@ class Calibrator:
         path = self._get_params_path()
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = {source: params.to_dict() for source, params in self._params.items()}
+        data = {
+            source: params.to_dict()
+            for source, params in self._params.items()
+        }
 
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
@@ -1037,7 +1038,9 @@ class Calibrator:
         params.brier_after = brier_after
 
         # Check for degradation before saving
-        is_degraded, degradation_ratio = self._history.check_degradation(source, brier_after)
+        is_degraded, degradation_ratio = self._history.check_degradation(
+            source, brier_after
+        )
 
         if is_degraded and self._enable_auto_rollback:
             # Rollback to previous parameters
@@ -1160,7 +1163,10 @@ class Calibrator:
 
         # Evaluate with calibration if available
         if source in self._params:
-            calibrated = [self.calibrate(s.predicted_prob, source, s.logit) for s in samples]
+            calibrated = [
+                self.calibrate(s.predicted_prob, source, s.logit)
+                for s in samples
+            ]
 
             brier_after = brier_score(calibrated, labels)
             result.brier_score_calibrated = brier_after

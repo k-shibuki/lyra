@@ -374,14 +374,10 @@ class HARGenerator:
         }
 
         # Calculate timing
-        started = (
-            datetime.fromtimestamp(
-                resource.start_time,
-                tz=UTC,
-            ).isoformat()
-            if resource.start_time
-            else self._started_datetime
-        )
+        started = datetime.fromtimestamp(
+            resource.start_time,
+            tz=UTC,
+        ).isoformat() if resource.start_time else self._started_datetime
 
         duration = resource.duration_ms or 0
 
@@ -601,8 +597,8 @@ class BrowserArchiver:
                 headers = {}
                 try:
                     headers = await response.all_headers()
-                except Exception as e:
-                    logger.debug("Failed to get response headers", url=response.url, error=str(e))
+                except Exception:
+                    pass
 
                 collector.on_response(
                     url=response.url,
@@ -812,8 +808,8 @@ async def archive_browser_page(
     title = ""
     try:
         title = await page.title()
-    except Exception as e:
-        logger.debug("Failed to get page title", url=url, error=str(e))
+    except Exception:
+        pass
 
     return await archiver.save_archive(
         url=url,

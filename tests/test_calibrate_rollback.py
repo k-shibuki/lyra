@@ -50,11 +50,9 @@ class TestCalibrateRollbackHandler:
         from src.mcp.server import _handle_calibrate_rollback
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback(
-                {
-                    "source": "llm_extract",
-                }
-            )
+            result = await _handle_calibrate_rollback({
+                "source": "llm_extract",
+            })
 
         assert result["ok"] is True
         assert result["source"] == "llm_extract"
@@ -87,12 +85,10 @@ class TestCalibrateRollbackHandler:
         mock_calibrator.rollback_to_version.return_value = rollback_params
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback(
-                {
-                    "source": "llm_extract",
-                    "version": 1,
-                }
-            )
+            result = await _handle_calibrate_rollback({
+                "source": "llm_extract",
+                "version": 1,
+            })
 
         assert result["ok"] is True
         assert result["rolled_back_to"] == 1
@@ -116,12 +112,10 @@ class TestCalibrateRollbackHandler:
         from src.mcp.server import _handle_calibrate_rollback
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback(
-                {
-                    "source": "nli_judge",
-                    "reason": "Brier score degradation detected",
-                }
-            )
+            result = await _handle_calibrate_rollback({
+                "source": "nli_judge",
+                "reason": "Brier score degradation detected",
+            })
 
         assert result["ok"] is True
         assert result["reason"] == "Brier score degradation detected"
@@ -225,12 +219,10 @@ class TestCalibrateRollbackHandler:
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
-                await _handle_calibrate_rollback(
-                    {
-                        "source": "llm_extract",
-                        "version": 999,
-                    }
-                )
+                await _handle_calibrate_rollback({
+                    "source": "llm_extract",
+                    "version": 999,
+                })
 
         assert exc_info.value.code.value == "CALIBRATION_ERROR"
 
@@ -249,12 +241,10 @@ class TestCalibrateRollbackHandler:
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
-                await _handle_calibrate_rollback(
-                    {
-                        "source": "llm_extract",
-                        "version": 1,
-                    }
-                )
+                await _handle_calibrate_rollback({
+                    "source": "llm_extract",
+                    "version": 1,
+                })
 
         assert exc_info.value.code.value == "CALIBRATION_ERROR"
         assert "not found" in exc_info.value.message
@@ -271,11 +261,9 @@ class TestCalibrateRollbackHandler:
         from src.mcp.server import _handle_calibrate_rollback
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback(
-                {
-                    "source": "llm_extract",
-                }
-            )
+            result = await _handle_calibrate_rollback({
+                "source": "llm_extract",
+            })
 
         assert "brier_after" in result
         assert "method" in result

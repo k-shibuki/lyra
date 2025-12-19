@@ -104,6 +104,7 @@ Test design follows §7.1 Test Code Quality Standards:
 | TC-FB-N-02 | Missing bounds | Equivalence – normal | Defaults used | - |
 """
 
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -866,13 +867,10 @@ class TestDomainPolicyManagerLearningState:
         assert policy.block_score == 0.0
 
         # When
-        policy_manager.update_learning_state(
-            "example.com",
-            {
-                "block_score": 5.0,
-                "captcha_rate": 0.3,
-            },
-        )
+        policy_manager.update_learning_state("example.com", {
+            "block_score": 5.0,
+            "captcha_rate": 0.3,
+        })
 
         # Then - get policy again from cache
         updated_policy = policy_manager.get_policy("example.com")
@@ -887,12 +885,9 @@ class TestDomainPolicyManagerLearningState:
 
         # When
         future_time = datetime.now(UTC) + timedelta(hours=1)
-        policy_manager.update_learning_state(
-            "example.com",
-            {
-                "cooldown_until": future_time,
-            },
-        )
+        policy_manager.update_learning_state("example.com", {
+            "cooldown_until": future_time,
+        })
 
         # Then
         updated_policy = policy_manager.get_policy("example.com")

@@ -218,20 +218,17 @@ class JobScheduler:
 
         # Store job in database
         db = await get_database()
-        await db.insert(
-            "jobs",
-            {
-                "id": job_id,
-                "task_id": task_id,
-                "kind": kind.value,
-                "priority": priority,
-                "slot": slot.value,
-                "state": JobState.QUEUED.value,
-                "input_json": str(input_data),
-                "queued_at": datetime.now(UTC).isoformat(),
-                "cause_id": cause_id,
-            },
-        )
+        await db.insert("jobs", {
+            "id": job_id,
+            "task_id": task_id,
+            "kind": kind.value,
+            "priority": priority,
+            "slot": slot.value,
+            "state": JobState.QUEUED.value,
+            "input_json": str(input_data),
+            "queued_at": datetime.now(UTC).isoformat(),
+            "cause_id": cause_id,
+        })
 
         # Add to queue
         await self._queues[slot].put((priority, job_id, input_data, kind, task_id, cause_id))
@@ -426,7 +423,9 @@ class JobScheduler:
                         result = await self._execute_job(kind, input_data, task_id, trace.id)
 
                     # Record budget consumption
-                    await self._record_budget_consumption(task_id, kind, job_start_time)
+                    await self._record_budget_consumption(
+                        task_id, kind, job_start_time
+                    )
 
                     # Mark as completed
                     await db.update(
@@ -508,8 +507,7 @@ class JobScheduler:
             return await extract_content(**input_data)
 
         elif kind == JobKind.EMBED:
-            from src.filter.ranking import EmbeddingRanker
-
+            from src.filter.ranking import EmbeddingRanker, _embedding_ranker
             global _embedding_ranker
             if _embedding_ranker is None:
                 _embedding_ranker = EmbeddingRanker()

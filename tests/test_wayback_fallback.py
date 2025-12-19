@@ -223,18 +223,19 @@ class TestWaybackFallback:
         # Create content longer than 500 chars to pass validity check
         long_content = "<html><body>" + "Archived content. " * 50 + "</body></html>"
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = [snapshot]
             mock_fetch.return_value = long_content
 
-            result = await wayback_fallback.get_fallback_content("https://example.com/page")
+            result = await wayback_fallback.get_fallback_content(
+                "https://example.com/page"
+            )
 
             assert result.ok is True
             # Verify HTML content is present and contains expected text
@@ -253,7 +254,9 @@ class TestWaybackFallback:
         ) as mock_get:
             mock_get.return_value = []
 
-            result = await wayback_fallback.get_fallback_content("https://example.com/new-page")
+            result = await wayback_fallback.get_fallback_content(
+                "https://example.com/new-page"
+            )
 
             assert result.ok is False
             assert result.error == "no_snapshots_available"
@@ -271,14 +274,13 @@ class TestWaybackFallback:
             for i in range(3)
         ]
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = snapshots
             mock_fetch.return_value = None  # All fetches fail
 
@@ -310,14 +312,13 @@ class TestWaybackFallback:
         # Create content longer than 500 chars to pass validity check
         long_content = "<html><body>" + "Second attempt content. " * 40 + "</body></html>"
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = snapshots
             # First fetch fails, second succeeds
             mock_fetch.side_effect = [
@@ -325,7 +326,9 @@ class TestWaybackFallback:
                 long_content,
             ]
 
-            result = await wayback_fallback.get_fallback_content("https://example.com/page")
+            result = await wayback_fallback.get_fallback_content(
+                "https://example.com/page"
+            )
 
             assert result.ok is True
             assert result.attempts == 2
@@ -340,14 +343,13 @@ class TestWaybackFallback:
             timestamp=datetime.now(UTC) - timedelta(days=10),
         )
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = [snapshot]
             # Return a Wayback error page
             mock_fetch.return_value = """
@@ -358,7 +360,9 @@ class TestWaybackFallback:
                 </html>
             """
 
-            result = await wayback_fallback.get_fallback_content("https://example.com/page")
+            result = await wayback_fallback.get_fallback_content(
+                "https://example.com/page"
+            )
 
             # Should fail because it's an error page
             assert result.ok is False
@@ -372,19 +376,20 @@ class TestWaybackFallback:
             timestamp=datetime.now(UTC) - timedelta(days=10),
         )
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = [snapshot]
             # Return very short content (less than 500 chars)
             mock_fetch.return_value = "<html>short</html>"
 
-            result = await wayback_fallback.get_fallback_content("https://example.com/page")
+            result = await wayback_fallback.get_fallback_content(
+                "https://example.com/page"
+            )
 
             # Should fail because content is too short
             assert result.ok is False
@@ -396,12 +401,20 @@ class TestWaybackFallback:
         assert wayback_fallback._is_error_page(
             "This URL has been excluded from the Wayback Machine"
         )
-        assert wayback_fallback._is_error_page("Snapshot cannot be displayed")
-        assert wayback_fallback._is_error_page("Access denied to this resource")
+        assert wayback_fallback._is_error_page(
+            "Snapshot cannot be displayed"
+        )
+        assert wayback_fallback._is_error_page(
+            "Access denied to this resource"
+        )
 
         # Should NOT detect as error page
-        assert not wayback_fallback._is_error_page("<html><body>Normal content here</body></html>")
-        assert not wayback_fallback._is_error_page("This is a regular article about web archives")
+        assert not wayback_fallback._is_error_page(
+            "<html><body>Normal content here</body></html>"
+        )
+        assert not wayback_fallback._is_error_page(
+            "This is a regular article about web archives"
+        )
 
     @pytest.mark.asyncio
     async def test_get_best_snapshot_content_success(self, wayback_fallback):
@@ -415,14 +428,13 @@ class TestWaybackFallback:
         # Create content longer than 500 chars to pass validity check
         long_content = "<html><body>" + "Content from archive. " * 40 + "</body></html>"
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = [snapshot]
             mock_fetch.return_value = long_content
 
@@ -710,14 +722,13 @@ class TestCompareWithCurrent:
         current_html = "<html><body><h1>Title</h1><p>Some content here.</p></body></html>"
         archived_html = "<html><body><h1>Title</h1><p>Some content here.</p></body></html>"
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = [snapshot]
             mock_fetch.return_value = archived_html
 
@@ -754,14 +765,13 @@ class TestCompareWithCurrent:
         </body></html>
         """
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = [snapshot]
             mock_fetch.return_value = archived_html
 
@@ -787,14 +797,13 @@ class TestCompareWithCurrent:
         current_html = "<html><body><h1>Content</h1></body></html>"
         archived_html = "<html><body><h1>Content</h1></body></html>"
 
-        with (
-            patch.object(
-                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
-            ) as mock_get,
-            patch.object(
-                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
-            ) as mock_fetch,
-        ):
+        with patch.object(
+            wayback_fallback._client, 'get_snapshots',
+            new_callable=AsyncMock
+        ) as mock_get, patch.object(
+            wayback_fallback._client, 'fetch_snapshot',
+            new_callable=AsyncMock
+        ) as mock_fetch:
             mock_get.return_value = [snapshot]
             mock_fetch.return_value = archived_html
 

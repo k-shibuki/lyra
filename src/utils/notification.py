@@ -300,8 +300,8 @@ class InterventionManager:
             # Also try OS-level window activation for better visibility
             try:
                 await self._platform_activate_window()
-            except Exception as e:
-                logger.debug("OS-level window activation failed (best effort)", error=str(e))
+            except Exception:
+                pass  # Best effort
 
             return True
 
@@ -495,8 +495,8 @@ class InterventionManager:
                 )
                 if datetime.now(UTC) < cooldown_until:
                     return True
-            except Exception as e:
-                logger.debug("Failed to parse cooldown_until timestamp", error=str(e))
+            except Exception:
+                pass
 
         return False
 
@@ -683,14 +683,7 @@ async def notify_user(
     """
     manager = _get_manager()
 
-    intervention_types = {
-        "captcha",
-        "login_required",
-        "cookie_banner",
-        "cloudflare",
-        "turnstile",
-        "js_challenge",
-    }
+    intervention_types = {"captcha", "login_required", "cookie_banner", "cloudflare", "turnstile", "js_challenge"}
 
     if event in intervention_types:
         # These require intervention flow (safe mode)
@@ -961,9 +954,7 @@ class InterventionQueue:
             query += " AND priority = ?"
             params.append(priority)
 
-        query += (
-            " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
-        )
+        query += " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
         query += f" LIMIT {limit}"
 
         rows = await self._db.fetch_all(query, params)
@@ -1187,14 +1178,8 @@ class InterventionQueue:
 
                 browser_fetcher = BrowserFetcher()
                 logger.debug("Calling BrowserFetcher._ensure_browser(headful=True)")
-                browser, context = await browser_fetcher._ensure_browser(
-                    headful=True, task_id=task_id
-                )
-                logger.debug(
-                    "BrowserFetcher._ensure_browser() returned",
-                    has_browser=browser is not None,
-                    has_context=context is not None,
-                )
+                browser, context = await browser_fetcher._ensure_browser(headful=True, task_id=task_id)
+                logger.debug("BrowserFetcher._ensure_browser() returned", has_browser=browser is not None, has_context=context is not None)
 
                 if context:
                     # Open first URL in browser
@@ -1292,16 +1277,14 @@ class InterventionQueue:
         # Convert sets to lists for JSON serialization
         domains = []
         for info in domain_map.values():
-            domains.append(
-                {
-                    "domain": info["domain"],
-                    "pending_count": info["pending_count"],
-                    "high_priority_count": info["high_priority_count"],
-                    "affected_tasks": list(info["affected_tasks"]),
-                    "auth_types": list(info["auth_types"]),
-                    "urls": info["urls"],
-                }
-            )
+            domains.append({
+                "domain": info["domain"],
+                "pending_count": info["pending_count"],
+                "high_priority_count": info["high_priority_count"],
+                "affected_tasks": list(info["affected_tasks"]),
+                "auth_types": list(info["auth_types"]),
+                "urls": info["urls"],
+            })
 
         # Sort by high priority count desc, then pending count desc
         domains.sort(key=lambda d: (-d["high_priority_count"], -d["pending_count"]))

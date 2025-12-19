@@ -395,7 +395,9 @@ class Database:
             is_http_error: Whether an HTTP error occurred.
         """
         # Get or create domain record
-        existing = await self.fetch_one("SELECT * FROM domains WHERE domain = ?", (domain,))
+        existing = await self.fetch_one(
+            "SELECT * FROM domains WHERE domain = ?", (domain,)
+        )
 
         if existing is None:
             await self.insert("domains", {"domain": domain}, auto_id=False)
@@ -502,7 +504,9 @@ class Database:
             latency_ms: Response latency in milliseconds.
             is_captcha: Whether a CAPTCHA was encountered.
         """
-        existing = await self.fetch_one("SELECT * FROM engine_health WHERE engine = ?", (engine,))
+        existing = await self.fetch_one(
+            "SELECT * FROM engine_health WHERE engine = ?", (engine,)
+        )
 
         if existing is None:
             await self.insert("engine_health", {"engine": engine}, auto_id=False)

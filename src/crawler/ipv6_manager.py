@@ -192,7 +192,9 @@ class DomainIPv6Stats:
                 self.last_ipv4_failure_at = now
 
             # Update EMA
-            self.ipv4_success_rate = ema_alpha * value + (1 - ema_alpha) * self.ipv4_success_rate
+            self.ipv4_success_rate = (
+                ema_alpha * value + (1 - ema_alpha) * self.ipv4_success_rate
+            )
 
     def record_switch(self, success: bool) -> None:
         """Record a family switch event.
@@ -267,8 +269,7 @@ class IPv6Metrics:
     total_ipv4_successes: int = 0
     total_switches: int = 0
     total_switch_successes: int = 0
-    # Use deque with maxlen for O(1) sliding window operations
-    _latencies: deque[float] = field(default_factory=lambda: deque(maxlen=100))
+    _latencies: list[float] = field(default_factory=list)
 
     def record_attempt(
         self,
@@ -301,8 +302,10 @@ class IPv6Metrics:
             if switch_success:
                 self.total_switch_successes += 1
 
-        # Append to deque - automatically discards oldest when maxlen reached (O(1))
+        # Track latencies (keep last 100)
         self._latencies.append(latency_ms)
+        if len(self._latencies) > 100:
+            self._latencies.pop(0)
 
     @property
     def ipv6_success_rate(self) -> float:
@@ -473,12 +476,10 @@ class IPv6ConnectionManager:
                         )
                     )
                 elif family == socket.AF_INET:
-                    ipv4_addresses.append(
-                        IPv6Address(
-                            address=addr,
-                            family=AddressFamily.IPV4,
-                        )
-                    )
+                    ipv4_addresses.append(IPv6Address(
+                        address=addr,
+                        family=AddressFamily.IPV4,
+                    ))
 
         except socket.gaierror as e:
             logger.debug("DNS resolution failed", hostname=hostname, error=str(e))

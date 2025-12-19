@@ -181,21 +181,17 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.add_calibration_sample", new_callable=AsyncMock
-        ) as mock_add:
+        with patch("src.utils.calibration.add_calibration_sample", new_callable=AsyncMock) as mock_add:
             mock_add.return_value = mock_calibration_sample_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "add_sample",
-                    "data": {
-                        "source": "llm_extract",
-                        "prediction": 0.85,
-                        "actual": 1,
-                    },
+            result = await _handle_calibrate({
+                "action": "add_sample",
+                "data": {
+                    "source": "llm_extract",
+                    "prediction": 0.85,
+                    "actual": 1,
                 }
-            )
+            })
 
         assert result["ok"] is True
         assert result["sample_added"] is True
@@ -220,22 +216,18 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.add_calibration_sample", new_callable=AsyncMock
-        ) as mock_add:
+        with patch("src.utils.calibration.add_calibration_sample", new_callable=AsyncMock) as mock_add:
             mock_add.return_value = mock_calibration_sample_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "add_sample",
-                    "data": {
-                        "source": "llm_extract",
-                        "prediction": 0.85,
-                        "actual": 1,
-                        "logit": 1.5,
-                    },
+            result = await _handle_calibrate({
+                "action": "add_sample",
+                "data": {
+                    "source": "llm_extract",
+                    "prediction": 0.85,
+                    "actual": 1,
+                    "logit": 1.5,
                 }
-            )
+            })
 
         assert result["ok"] is True
         mock_add.assert_called_once_with(
@@ -256,16 +248,12 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock
-        ) as mock_stats:
+        with patch("src.utils.calibration.get_calibration_stats", new_callable=AsyncMock) as mock_stats:
             mock_stats.return_value = mock_calibration_stats
 
-            result = await _handle_calibrate(
-                {
-                    "action": "get_stats",
-                }
-            )
+            result = await _handle_calibrate({
+                "action": "get_stats",
+            })
 
         assert result["ok"] is True
         assert "current_params" in result
@@ -283,17 +271,13 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock
-        ) as mock_stats:
+        with patch("src.utils.calibration.get_calibration_stats", new_callable=AsyncMock) as mock_stats:
             mock_stats.return_value = mock_calibration_stats
 
-            result = await _handle_calibrate(
-                {
-                    "action": "get_stats",
-                    # No "data" field
-                }
-            )
+            result = await _handle_calibrate({
+                "action": "get_stats",
+                # No "data" field
+            })
 
         assert result["ok"] is True
 
@@ -308,21 +292,17 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.save_calibration_evaluation", new_callable=AsyncMock
-        ) as mock_eval:
+        with patch("src.utils.calibration.save_calibration_evaluation", new_callable=AsyncMock) as mock_eval:
             mock_eval.return_value = mock_evaluation_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "evaluate",
-                    "data": {
-                        "source": "llm_extract",
-                        "predictions": [0.8, 0.6, 0.9],
-                        "labels": [1, 0, 1],
-                    },
+            result = await _handle_calibrate({
+                "action": "evaluate",
+                "data": {
+                    "source": "llm_extract",
+                    "predictions": [0.8, 0.6, 0.9],
+                    "labels": [1, 0, 1],
                 }
-            )
+            })
 
         assert result["ok"] is True
         assert "evaluation_id" in result
@@ -343,20 +323,16 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock
-        ) as mock_get:
+        with patch("src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_evaluations_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "get_evaluations",
-                    "data": {
-                        "source": "llm_extract",
-                        "limit": 10,
-                    },
+            result = await _handle_calibrate({
+                "action": "get_evaluations",
+                "data": {
+                    "source": "llm_extract",
+                    "limit": 10,
                 }
-            )
+            })
 
         assert result["ok"] is True
         assert "evaluations" in result
@@ -379,20 +355,16 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock
-        ) as mock_get:
+        with patch("src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_evaluations_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "get_evaluations",
-                    "data": {
-                        "source": "llm_extract",
-                        "since": "2024-01-01T00:00:00Z",
-                    },
+            result = await _handle_calibrate({
+                "action": "get_evaluations",
+                "data": {
+                    "source": "llm_extract",
+                    "since": "2024-01-01T00:00:00Z",
                 }
-            )
+            })
 
         assert result["ok"] is True
         mock_get.assert_called_once_with(
@@ -412,19 +384,15 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.get_reliability_diagram_data", new_callable=AsyncMock
-        ) as mock_diag:
+        with patch("src.utils.calibration.get_reliability_diagram_data", new_callable=AsyncMock) as mock_diag:
             mock_diag.return_value = mock_diagram_data
 
-            result = await _handle_calibrate(
-                {
-                    "action": "get_diagram_data",
-                    "data": {
-                        "source": "llm_extract",
-                    },
+            result = await _handle_calibrate({
+                "action": "get_diagram_data",
+                "data": {
+                    "source": "llm_extract",
                 }
-            )
+            })
 
         assert result["ok"] is True
         assert "bins" in result
@@ -446,20 +414,16 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.get_reliability_diagram_data", new_callable=AsyncMock
-        ) as mock_diag:
+        with patch("src.utils.calibration.get_reliability_diagram_data", new_callable=AsyncMock) as mock_diag:
             mock_diag.return_value = mock_diagram_data
 
-            result = await _handle_calibrate(
-                {
-                    "action": "get_diagram_data",
-                    "data": {
-                        "source": "llm_extract",
-                        "evaluation_id": "eval_abc123",
-                    },
+            result = await _handle_calibrate({
+                "action": "get_diagram_data",
+                "data": {
+                    "source": "llm_extract",
+                    "evaluation_id": "eval_abc123",
                 }
-            )
+            })
 
         assert result["ok"] is True
         mock_diag.assert_called_once_with(
@@ -514,11 +478,9 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate(
-            {
-                "action": "invalid_action",
-            }
-        )
+        result = await _handle_calibrate({
+            "action": "invalid_action",
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -535,15 +497,13 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate(
-            {
-                "action": "add_sample",
-                "data": {
-                    "prediction": 0.85,
-                    "actual": 1,
-                },
+        result = await _handle_calibrate({
+            "action": "add_sample",
+            "data": {
+                "prediction": 0.85,
+                "actual": 1,
             }
-        )
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -560,15 +520,13 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate(
-            {
-                "action": "add_sample",
-                "data": {
-                    "source": "llm_extract",
-                    "actual": 1,
-                },
+        result = await _handle_calibrate({
+            "action": "add_sample",
+            "data": {
+                "source": "llm_extract",
+                "actual": 1,
             }
-        )
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -585,15 +543,13 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate(
-            {
-                "action": "add_sample",
-                "data": {
-                    "source": "llm_extract",
-                    "prediction": 0.85,
-                },
+        result = await _handle_calibrate({
+            "action": "add_sample",
+            "data": {
+                "source": "llm_extract",
+                "prediction": 0.85,
             }
-        )
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -610,15 +566,13 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate(
-            {
-                "action": "evaluate",
-                "data": {
-                    "predictions": [0.8, 0.6],
-                    "labels": [1, 0],
-                },
+        result = await _handle_calibrate({
+            "action": "evaluate",
+            "data": {
+                "predictions": [0.8, 0.6],
+                "labels": [1, 0],
             }
-        )
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -635,15 +589,13 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate(
-            {
-                "action": "evaluate",
-                "data": {
-                    "source": "llm_extract",
-                    "labels": [1, 0],
-                },
+        result = await _handle_calibrate({
+            "action": "evaluate",
+            "data": {
+                "source": "llm_extract",
+                "labels": [1, 0],
             }
-        )
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -660,15 +612,13 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate(
-            {
-                "action": "evaluate",
-                "data": {
-                    "source": "llm_extract",
-                    "predictions": [0.8, 0.6],
-                },
+        result = await _handle_calibrate({
+            "action": "evaluate",
+            "data": {
+                "source": "llm_extract",
+                "predictions": [0.8, 0.6],
             }
-        )
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -685,7 +635,10 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        result = await _handle_calibrate({"action": "get_diagram_data", "data": {}})
+        result = await _handle_calibrate({
+            "action": "get_diagram_data",
+            "data": {}
+        })
 
         assert result["ok"] is False
         assert result["error"] == "INVALID_PARAMS"
@@ -708,21 +661,17 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.add_calibration_sample", new_callable=AsyncMock
-        ) as mock_add:
+        with patch("src.utils.calibration.add_calibration_sample", new_callable=AsyncMock) as mock_add:
             mock_add.return_value = mock_calibration_sample_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "add_sample",
-                    "data": {
-                        "source": "llm_extract",
-                        "prediction": 0.0,
-                        "actual": 0,
-                    },
+            result = await _handle_calibrate({
+                "action": "add_sample",
+                "data": {
+                    "source": "llm_extract",
+                    "prediction": 0.0,
+                    "actual": 0,
                 }
-            )
+            })
 
         assert result["ok"] is True
         mock_add.assert_called_once_with(
@@ -745,21 +694,17 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.add_calibration_sample", new_callable=AsyncMock
-        ) as mock_add:
+        with patch("src.utils.calibration.add_calibration_sample", new_callable=AsyncMock) as mock_add:
             mock_add.return_value = mock_calibration_sample_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "add_sample",
-                    "data": {
-                        "source": "llm_extract",
-                        "prediction": 1.0,
-                        "actual": 1,
-                    },
+            result = await _handle_calibrate({
+                "action": "add_sample",
+                "data": {
+                    "source": "llm_extract",
+                    "prediction": 1.0,
+                    "actual": 1,
                 }
-            )
+            })
 
         assert result["ok"] is True
         mock_add.assert_called_once_with(
@@ -782,21 +727,17 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.add_calibration_sample", new_callable=AsyncMock
-        ) as mock_add:
+        with patch("src.utils.calibration.add_calibration_sample", new_callable=AsyncMock) as mock_add:
             mock_add.return_value = mock_calibration_sample_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "add_sample",
-                    "data": {
-                        "source": "llm_extract",
-                        "prediction": 0.2,
-                        "actual": 0,
-                    },
+            result = await _handle_calibrate({
+                "action": "add_sample",
+                "data": {
+                    "source": "llm_extract",
+                    "prediction": 0.2,
+                    "actual": 0,
                 }
-            )
+            })
 
         assert result["ok"] is True
         mock_add.assert_called_once_with(
@@ -819,21 +760,17 @@ class TestCalibrateHandler:
         """
         from src.mcp.server import _handle_calibrate
 
-        with patch(
-            "src.utils.calibration.add_calibration_sample", new_callable=AsyncMock
-        ) as mock_add:
+        with patch("src.utils.calibration.add_calibration_sample", new_callable=AsyncMock) as mock_add:
             mock_add.return_value = mock_calibration_sample_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "add_sample",
-                    "data": {
-                        "source": "llm_extract",
-                        "prediction": 0.9,
-                        "actual": 1,
-                    },
+            result = await _handle_calibrate({
+                "action": "add_sample",
+                "data": {
+                    "source": "llm_extract",
+                    "prediction": 0.9,
+                    "actual": 1,
                 }
-            )
+            })
 
         assert result["ok"] is True
         mock_add.assert_called_once_with(
@@ -863,19 +800,15 @@ class TestCalibrateHandler:
             "returned_count": 0,
         }
 
-        with patch(
-            "src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock
-        ) as mock_get:
+        with patch("src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = empty_result
 
-            result = await _handle_calibrate(
-                {
-                    "action": "get_evaluations",
-                    "data": {
-                        "limit": 0,
-                    },
+            result = await _handle_calibrate({
+                "action": "get_evaluations",
+                "data": {
+                    "limit": 0,
                 }
-            )
+            })
 
         assert result["ok"] is True
         assert result["evaluations"] == []
@@ -895,9 +828,7 @@ class TestCalibrateActionDirectly:
         """
         from src.utils.calibration import calibrate_action
 
-        with patch(
-            "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock
-        ) as mock_stats:
+        with patch("src.utils.calibration.get_calibration_stats", new_callable=AsyncMock) as mock_stats:
             mock_stats.side_effect = RuntimeError("Database connection failed")
 
             result = await calibrate_action("get_stats", {})
@@ -916,6 +847,13 @@ class TestCalibrateActionDirectly:
         // Then: Handled gracefully (uses empty dict)
         """
         from src.utils.calibration import calibrate_action
+
+        with patch("src.utils.calibration.get_calibration_stats", new_callable=AsyncMock) as mock_stats:
+            mock_stats.return_value = {"current_params": {}, "history": {}}
+
+            result = await calibrate_action("get_stats", None)
+
+        assert result["ok"] is True
 
         with patch(
             "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock

@@ -348,24 +348,20 @@ class SearchExecutor:
         if "site:" not in query.lower():
             # Academic
             if any(kw in query.lower() for kw in ["研究", "論文", "paper", "study"]):
-                expanded.append(f"{query} site:arxiv.org OR site:jstage.jst.go.jp")
+                expanded.append(f'{query} site:arxiv.org OR site:jstage.jst.go.jp')
 
             # Government
             if any(kw in query.lower() for kw in ["政府", "省", "gov", "official"]):
-                expanded.append(f"{query} site:go.jp")
+                expanded.append(f'{query} site:go.jp')
 
         # Add filetype:pdf for document-heavy queries
         if "filetype:" not in query.lower():
-            if any(
-                kw in query.lower() for kw in ["仕様", "報告書", "白書", "specification", "report"]
-            ):
-                expanded.append(f"{query} filetype:pdf")
+            if any(kw in query.lower() for kw in ["仕様", "報告書", "白書", "specification", "report"]):
+                expanded.append(f'{query} filetype:pdf')
 
         return expanded
 
-    async def _execute_search(
-        self, query: str
-    ) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
+    async def _execute_search(self, query: str) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
         """Execute search via search provider.
 
         Returns:
@@ -462,7 +458,10 @@ class SearchExecutor:
             domain_short = url
 
         # Check if this is a primary source
-        is_primary = any(primary in domain.lower() for primary in PRIMARY_SOURCE_DOMAINS)
+        is_primary = any(
+            primary in domain.lower()
+            for primary in PRIMARY_SOURCE_DOMAINS
+        )
 
         # Check if this is an independent source (new domain)
         is_independent = domain_short not in self._seen_domains
@@ -571,13 +570,11 @@ class SearchExecutor:
                         if not extracted_claims:
                             self.state.record_claim(search_id)
                             snippet = extract_result.get("text", "")[:200]
-                            result.new_claims.append(
-                                {
-                                    "source_url": url,
-                                    "title": serp_item.get("title", ""),
-                                    "snippet": snippet,
-                                }
-                            )
+                            result.new_claims.append({
+                                "source_url": url,
+                                "title": serp_item.get("title", ""),
+                                "snippet": snippet,
+                            })
 
                             # Persist snippet as claim for get_materials() (O.7 fix)
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"

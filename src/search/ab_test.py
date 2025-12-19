@@ -165,9 +165,7 @@ class QueryVariantGenerator:
             from sudachipy import dictionary, tokenizer
 
             self._tokenizer = dictionary.Dictionary().create()
-            self._tokenize_mode = (
-                tokenizer.Tokenizer.SplitMode.B
-            )  # Use B mode for better segmentation
+            self._tokenize_mode = tokenizer.Tokenizer.SplitMode.B  # Use B mode for better segmentation
 
             logger.debug("SudachiPy initialized for query variant generation")
             return True
@@ -213,13 +211,11 @@ class QueryVariantGenerator:
                 for replacement in replacements[:1]:  # Limit to first replacement
                     variant_text = query.replace(original, replacement, 1)
                     if variant_text != query:
-                        variants.append(
-                            QueryVariant(
-                                query_text=variant_text,
-                                variant_type=VariantType.NOTATION,
-                                transformation=f"{original}→{replacement}",
-                            )
-                        )
+                        variants.append(QueryVariant(
+                            query_text=variant_text,
+                            variant_type=VariantType.NOTATION,
+                            transformation=f"{original}→{replacement}",
+                        ))
 
                         if len(variants) >= max_variants:
                             return variants
@@ -243,13 +239,11 @@ class QueryVariantGenerator:
             if re.search(pattern, query):
                 variant_text = re.sub(pattern, replacement, query, count=1)
                 if variant_text != query:
-                    variants.append(
-                        QueryVariant(
-                            query_text=variant_text,
-                            variant_type=VariantType.PARTICLE,
-                            transformation=f"pattern:{pattern[:20]}",
-                        )
-                    )
+                    variants.append(QueryVariant(
+                        query_text=variant_text,
+                        variant_type=VariantType.PARTICLE,
+                        transformation=f"pattern:{pattern[:20]}",
+                    ))
 
                     if len(variants) >= max_variants:
                         return variants
@@ -302,13 +296,11 @@ class QueryVariantGenerator:
                     variant_text = " ".join(swapped)
 
                     if variant_text != query:
-                        variants.append(
-                            QueryVariant(
-                                query_text=variant_text,
-                                variant_type=VariantType.ORDER,
-                                transformation=f"swap:{parts[0]}↔{parts[-1]}",
-                            )
-                        )
+                        variants.append(QueryVariant(
+                            query_text=variant_text,
+                            variant_type=VariantType.ORDER,
+                            transformation=f"swap:{parts[0]}↔{parts[-1]}",
+                        ))
 
         # Also try moving the last word to the front
         words = query.split()
@@ -316,13 +308,11 @@ class QueryVariantGenerator:
             reordered = [words[-1]] + words[:-1]
             variant_text = " ".join(reordered)
             if variant_text != query:
-                variants.append(
-                    QueryVariant(
-                        query_text=variant_text,
-                        variant_type=VariantType.ORDER,
-                        transformation="rotate-last-to-front",
-                    )
-                )
+                variants.append(QueryVariant(
+                    query_text=variant_text,
+                    variant_type=VariantType.ORDER,
+                    transformation="rotate-last-to-front",
+                ))
 
         return variants[:max_variants]
 
@@ -484,12 +474,10 @@ class ABTestExecutor:
                         variant=variant.query_text[:50],
                         error=str(e),
                     )
-                    results.append(
-                        ABTestResult(
-                            variant=variant,
-                            harvest_rate=0.0,
-                        )
-                    )
+                    results.append(ABTestResult(
+                        variant=variant,
+                        harvest_rate=0.0,
+                    ))
 
             # Find winner (highest harvest rate)
             if results:
@@ -581,9 +569,7 @@ class ABTestExecutor:
         if not original_result or original_result.harvest_rate <= 0:
             return
 
-        improvement = (
-            session.winner.harvest_rate - original_result.harvest_rate
-        ) / original_result.harvest_rate
+        improvement = (session.winner.harvest_rate - original_result.harvest_rate) / original_result.harvest_rate
 
         # Only cache if significant improvement (>10%)
         if improvement < 0.1:

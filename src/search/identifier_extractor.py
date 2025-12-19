@@ -116,9 +116,7 @@ class IdentifierExtractor:
         domain_lower = parsed.netloc.lower()
         if any(academic_domain in domain_lower for academic_domain in academic_domains):
             identifier.needs_meta_extraction = True
-            logger.debug(
-                "Detected academic domain, needs meta extraction", domain=domain_lower, url=url
-            )
+            logger.debug("Detected academic domain, needs meta extraction", domain=domain_lower, url=url)
 
         return identifier
 

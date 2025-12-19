@@ -4,8 +4,6 @@ arXiv API client.
 Preprint search (priority=4).
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from xml.etree import ElementTree as ET
 
@@ -63,10 +61,18 @@ class ArxivClient(BaseAcademicClient):
             xml_text = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
             papers = self._parse_atom_feed(xml_text)
 
-            return AcademicSearchResult(papers=papers, total_count=len(papers), source_api="arxiv")
+            return AcademicSearchResult(
+                papers=papers,
+                total_count=len(papers),
+                source_api="arxiv"
+            )
         except Exception as e:
             logger.error("arXiv search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, source_api="arxiv")
+            return AcademicSearchResult(
+                papers=[],
+                total_count=0,
+                source_api="arxiv"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata from arXiv ID."""
@@ -125,11 +131,7 @@ class ArxivClient(BaseAcademicClient):
                 return None
 
             arxiv_url = id_elem.text
-            arxiv_id = (
-                arxiv_url.split("/")[-1]
-                if "/" in arxiv_url
-                else arxiv_url.replace("http://arxiv.org/abs/", "")
-            )
+            arxiv_id = arxiv_url.split("/")[-1] if "/" in arxiv_url else arxiv_url.replace("http://arxiv.org/abs/", "")
 
             # Title
             title_elem = entry.find("atom:title", ns)
@@ -137,20 +139,18 @@ class ArxivClient(BaseAcademicClient):
 
             # Abstract
             summary_elem = entry.find("atom:summary", ns)
-            abstract = (
-                summary_elem.text.strip()
-                if summary_elem is not None and summary_elem.text
-                else None
-            )
+            abstract = summary_elem.text.strip() if summary_elem is not None and summary_elem.text else None
 
             # Authors
             authors = []
             for author_elem in entry.findall("atom:author", ns):
                 name_elem = author_elem.find("atom:name", ns)
                 if name_elem is not None and name_elem.text:
-                    authors.append(
-                        Author(name=name_elem.text.strip(), affiliation=None, orcid=None)
-                    )
+                    authors.append(Author(
+                        name=name_elem.text.strip(),
+                        affiliation=None,
+                        orcid=None
+                    ))
 
             # Publication year
             published_elem = entry.find("atom:published", ns)

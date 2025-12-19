@@ -145,9 +145,7 @@ class SessionData(BaseModel):
     etag: str | None = Field(default=None, description="ETag header value")
     last_modified: str | None = Field(default=None, description="Last-Modified header value")
     user_agent: str | None = Field(default=None, description="User-Agent string")
-    accept_language: str = Field(
-        default="ja,en-US;q=0.9,en;q=0.8", description="Accept-Language header"
-    )
+    accept_language: str = Field(default="ja,en-US;q=0.9,en;q=0.8", description="Accept-Language header")
     last_url: str | None = Field(default=None, description="Last visited URL for Referer header")
     created_at: float = Field(default_factory=time.time, description="Session creation timestamp")
     last_used_at: float = Field(default_factory=time.time, description="Last usage timestamp")

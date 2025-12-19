@@ -86,7 +86,10 @@ class SecurityE2EVerifier:
             from src.utils.config import get_settings
 
             settings = get_settings()
-            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
+            ollama_host = os.environ.get(
+                "LANCET_LLM__OLLAMA_HOST",
+                settings.llm.ollama_host
+            )
 
             provider = OllamaProvider(host=ollama_host)
             health = await provider.get_health()
@@ -112,7 +115,6 @@ class SecurityE2EVerifier:
         # Check MCP server
         try:
             from src.mcp.server import TOOLS
-
             print(f"  ✓ MCP server module loaded ({len(TOOLS)} tools)")
         except Exception as e:
             print(f"  ✗ MCP server import failed: {e}")
@@ -142,7 +144,12 @@ class SecurityE2EVerifier:
 
             # First, check podman availability
             check_cmd = ["podman", "ps", "--filter", "name=lancet-ollama", "--format", "{{.Names}}"]
-            result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                check_cmd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
 
             if "lancet-ollama" not in result.stdout:
                 return VerificationResult(
@@ -170,7 +177,12 @@ class SecurityE2EVerifier:
             ]
 
             try:
-                result = subprocess.run(test_cmd, capture_output=True, text=True, timeout=15)
+                result = subprocess.run(
+                    test_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=15
+                )
 
                 # If command succeeds (exit code 0), network isolation FAILED
                 if result.returncode == 0:
@@ -269,7 +281,10 @@ class SecurityE2EVerifier:
             from src.utils.config import get_settings
 
             settings = get_settings()
-            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
+            ollama_host = os.environ.get(
+                "LANCET_LLM__OLLAMA_HOST",
+                settings.llm.ollama_host
+            )
 
             # Test L2: Input sanitization with malicious content
             malicious_input = """
@@ -288,9 +303,7 @@ class SecurityE2EVerifier:
             }
 
             print(f"    L2: Tags removed: {sanitization_result.removed_tags}")
-            print(
-                f"    L2: Dangerous patterns: {len(sanitization_result.dangerous_patterns_found)}"
-            )
+            print(f"    L2: Dangerous patterns: {len(sanitization_result.dangerous_patterns_found)}")
 
             # Test L3: Session tag generation
             tag = generate_session_tag()
@@ -303,9 +316,7 @@ class SecurityE2EVerifier:
             print(f"    L3: Tag generated (id: {tag.tag_id})")
 
             # Test L4: Build secure prompt and call LLM
-            system_instructions = (
-                "Extract the main topic from the following text. Respond with only the topic."
-            )
+            system_instructions = "Extract the main topic from the following text. Respond with only the topic."
 
             prompt, _ = build_secure_prompt(
                 system_instructions=system_instructions,
@@ -540,9 +551,7 @@ class SecurityE2EVerifier:
                 and len(updated_state.verified_claims) == 2
             )
 
-            print(
-                f"    Updated domain state: total_claims={updated_state.total_claims if updated_state else 0}"
-            )
+            print(f"    Updated domain state: total_claims={updated_state.total_claims if updated_state else 0}")
 
             # Test 3: Build response meta (requires verification_results)
             # Create mock verification result with correct structure
@@ -564,7 +573,9 @@ class SecurityE2EVerifier:
             )
             response_meta_builder = verifier.build_response_meta([mock_result])
             response_meta = response_meta_builder.build()
-            meta_structure_ok = "timestamp" in response_meta
+            meta_structure_ok = (
+                "timestamp" in response_meta
+            )
 
             print(f"    Response meta structure valid: {meta_structure_ok}")
 
@@ -640,7 +651,8 @@ class SecurityE2EVerifier:
 
             # Check that known fields are preserved
             known_preserved = (
-                sanitized.get("ok") and sanitized.get("task_id") == "test-task-123"
+                sanitized.get("ok") and
+                sanitized.get("task_id") == "test-task-123"
             )
 
             print(f"    Unknown fields removed: {unknown_removed}")
@@ -655,12 +667,8 @@ class SecurityE2EVerifier:
             test_text_clean = "Normal text without issues"
             test_text_leaked = "This contains LANCET-abc123 leaked content"
 
-            clean_result, clean_had_issues = sanitizer_with_prompt._validate_llm_content(
-                test_text_clean
-            )
-            leaked_result, leaked_had_issues = sanitizer_with_prompt._validate_llm_content(
-                test_text_leaked
-            )
+            clean_result, clean_had_issues = sanitizer_with_prompt._validate_llm_content(test_text_clean)
+            leaked_result, leaked_had_issues = sanitizer_with_prompt._validate_llm_content(test_text_leaked)
 
             # Clean text should not have issues
             clean_ok = not clean_had_issues
@@ -720,6 +728,7 @@ class SecurityE2EVerifier:
         print("\n[6/6] Verifying L8: Log Security (§4.4.1 L8)...")
 
         try:
+
             import structlog
 
             from src.utils.secure_logging import (
@@ -765,7 +774,7 @@ class SecurityE2EVerifier:
 
             has_hash = len(summary.content_hash) == 16  # 16 chars of SHA256
             has_length = summary.length == len(test_prompt)
-            assert len(summary.preview) <= 100 + 3  # MAX_PREVIEW_LENGTH + "..."
+            len(summary.preview) <= 100 + 3  # MAX_PREVIEW_LENGTH + "..."
             preview_not_full = len(summary.preview) < len(test_prompt)
 
             print(f"    Summary has hash: {has_hash}")

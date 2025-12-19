@@ -222,9 +222,7 @@ class TestContentQualityAnalyzer:
                 </footer>
             </body>
         </html>
-        """
-            * 10
-        )  # Repeat to make it large enough
+        """ * 10  # Repeat to make it large enough
 
         result = analyzer.analyze(html)
 

@@ -75,11 +75,9 @@ async def main():
         )
 
         # 型チェック
-        assert hasattr(result, "ok"), "FetchResult should have 'ok' attribute"
-        assert hasattr(result, "url"), "FetchResult should have 'url' attribute"
-        print(
-            f"  ✓ BrowserFetcher returned: ok={result.ok}, reason={getattr(result, 'reason', None)}"
-        )
+        assert hasattr(result, 'ok'), "FetchResult should have 'ok' attribute"
+        assert hasattr(result, 'url'), "FetchResult should have 'url' attribute"
+        print(f"  ✓ BrowserFetcher returned: ok={result.ok}, reason={getattr(result, 'reason', None)}")
 
         if result.ok:
             print(f"  ✓ Fetch successful: status={getattr(result, 'status_code', 'N/A')}")

@@ -383,16 +383,14 @@ class HTMLAnalyzer:
                 # Higher confidence if multiple occurrences (search results repeat)
                 confidence = min(0.9, 0.3 + (count * 0.1))
 
-                candidates.append(
-                    CandidateElement(
-                        tag=elem.name,
-                        selector=selector,
-                        sample_text=self._get_sample_text(elem),
-                        occurrence_count=count,
-                        confidence=confidence,
-                        reason=f"Class matches result pattern: {class_str}",
-                    )
-                )
+                candidates.append(CandidateElement(
+                    tag=elem.name,
+                    selector=selector,
+                    sample_text=self._get_sample_text(elem),
+                    occurrence_count=count,
+                    confidence=confidence,
+                    reason=f"Class matches result pattern: {class_str}",
+                ))
 
         # Look for data-testid attributes (modern React/Vue apps)
         for elem in self.soup.find_all(attrs={"data-testid": True}):
@@ -402,16 +400,14 @@ class HTMLAnalyzer:
                 selector = f"[data-testid={escaped_testid}]"
                 similar = self._safe_select(selector)
 
-                candidates.append(
-                    CandidateElement(
-                        tag=elem.name,
-                        selector=selector,
-                        sample_text=self._get_sample_text(elem),
-                        occurrence_count=len(similar),
-                        confidence=0.8,
-                        reason=f"data-testid matches result pattern: {test_id}",
-                    )
-                )
+                candidates.append(CandidateElement(
+                    tag=elem.name,
+                    selector=selector,
+                    sample_text=self._get_sample_text(elem),
+                    occurrence_count=len(similar),
+                    confidence=0.8,
+                    reason=f"data-testid matches result pattern: {test_id}",
+                ))
 
         # Look for li elements within ul/ol (common list structure)
         for ul in self.soup.find_all(["ul", "ol"]):
@@ -423,16 +419,14 @@ class HTMLAnalyzer:
                     parent_selector = self._build_selector(ul)
                     selector = f"{parent_selector} li" if parent_selector else "li"
 
-                    candidates.append(
-                        CandidateElement(
-                            tag="li",
-                            selector=selector,
-                            sample_text=self._get_sample_text(li_items[0]) if li_items else "",
-                            occurrence_count=len(li_items),
-                            confidence=0.7,
-                            reason="List items with links (common result pattern)",
-                        )
-                    )
+                    candidates.append(CandidateElement(
+                        tag="li",
+                        selector=selector,
+                        sample_text=self._get_sample_text(li_items[0]) if li_items else "",
+                        occurrence_count=len(li_items),
+                        confidence=0.7,
+                        reason="List items with links (common result pattern)",
+                    ))
 
         # Deduplicate and sort by confidence
         seen_selectors = set()
@@ -464,16 +458,14 @@ class HTMLAnalyzer:
                 if link and link.get("href"):
                     selector = f"h{level} a"
 
-                    candidates.append(
-                        CandidateElement(
-                            tag=f"h{level}",
-                            selector=selector,
-                            sample_text=self._get_sample_text(h),
-                            occurrence_count=len(context.find_all(f"h{level}")),
-                            confidence=0.8 - (level * 0.05),  # h2 > h3 > h4
-                            reason=f"Heading with link (h{level})",
-                        )
-                    )
+                    candidates.append(CandidateElement(
+                        tag=f"h{level}",
+                        selector=selector,
+                        sample_text=self._get_sample_text(h),
+                        occurrence_count=len(context.find_all(f"h{level}")),
+                        confidence=0.8 - (level * 0.05),  # h2 > h3 > h4
+                        reason=f"Heading with link (h{level})",
+                    ))
 
         # Look for elements with title-like classes
         for elem in context.find_all(True):
@@ -483,16 +475,14 @@ class HTMLAnalyzer:
             if self._matches_patterns(class_str, self.TITLE_PATTERNS):
                 selector = self._build_selector(elem)
 
-                candidates.append(
-                    CandidateElement(
-                        tag=elem.name,
-                        selector=selector,
-                        sample_text=self._get_sample_text(elem),
-                        occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.7,
-                        reason=f"Class matches title pattern: {class_str}",
-                    )
-                )
+                candidates.append(CandidateElement(
+                    tag=elem.name,
+                    selector=selector,
+                    sample_text=self._get_sample_text(elem),
+                    occurrence_count=len(self._safe_select(selector, context)),
+                    confidence=0.7,
+                    reason=f"Class matches title pattern: {class_str}",
+                ))
 
         # Deduplicate and sort
         seen = set()
@@ -504,9 +494,7 @@ class HTMLAnalyzer:
 
         return unique[:5]
 
-    def find_snippet_elements(
-        self, container_selector: str | None = None
-    ) -> list[CandidateElement]:
+    def find_snippet_elements(self, container_selector: str | None = None) -> list[CandidateElement]:
         """Find potential snippet/description elements."""
         candidates = []
 
@@ -523,16 +511,14 @@ class HTMLAnalyzer:
             if 30 <= len(text) <= 500:  # Reasonable snippet length
                 selector = self._build_selector(p)
 
-                candidates.append(
-                    CandidateElement(
-                        tag="p",
-                        selector=selector,
-                        sample_text=text[:100],
-                        occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.6,
-                        reason="Paragraph with snippet-length text",
-                    )
-                )
+                candidates.append(CandidateElement(
+                    tag="p",
+                    selector=selector,
+                    sample_text=text[:100],
+                    occurrence_count=len(self._safe_select(selector, context)),
+                    confidence=0.6,
+                    reason="Paragraph with snippet-length text",
+                ))
 
         # Look for elements with snippet-like classes
         for elem in context.find_all(True):
@@ -544,16 +530,14 @@ class HTMLAnalyzer:
                 text = self._get_sample_text(elem)
 
                 if len(text) >= 20:  # Has meaningful content
-                    candidates.append(
-                        CandidateElement(
-                            tag=elem.name,
-                            selector=selector,
-                            sample_text=text,
-                            occurrence_count=len(self._safe_select(selector, context)),
-                            confidence=0.75,
-                            reason=f"Class matches snippet pattern: {class_str}",
-                        )
-                    )
+                    candidates.append(CandidateElement(
+                        tag=elem.name,
+                        selector=selector,
+                        sample_text=text,
+                        occurrence_count=len(self._safe_select(selector, context)),
+                        confidence=0.75,
+                        reason=f"Class matches snippet pattern: {class_str}",
+                    ))
 
         # Deduplicate and sort
         seen = set()
@@ -582,16 +566,14 @@ class HTMLAnalyzer:
             if href.startswith(("http://", "https://")):
                 selector = self._build_selector(link)
 
-                candidates.append(
-                    CandidateElement(
-                        tag="a",
-                        selector=selector,
-                        sample_text=href[:100],
-                        occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.7,
-                        reason="Link with external URL",
-                    )
-                )
+                candidates.append(CandidateElement(
+                    tag="a",
+                    selector=selector,
+                    sample_text=href[:100],
+                    occurrence_count=len(self._safe_select(selector, context)),
+                    confidence=0.7,
+                    reason="Link with external URL",
+                ))
 
         # Elements with URL-like classes
         for elem in context.find_all(True):
@@ -601,16 +583,14 @@ class HTMLAnalyzer:
             if self._matches_patterns(class_str, self.URL_PATTERNS):
                 selector = self._build_selector(elem)
 
-                candidates.append(
-                    CandidateElement(
-                        tag=elem.name,
-                        selector=selector,
-                        sample_text=self._get_sample_text(elem),
-                        occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.65,
-                        reason=f"Class matches URL pattern: {class_str}",
-                    )
-                )
+                candidates.append(CandidateElement(
+                    tag=elem.name,
+                    selector=selector,
+                    sample_text=self._get_sample_text(elem),
+                    occurrence_count=len(self._safe_select(selector, context)),
+                    confidence=0.65,
+                    reason=f"Class matches URL pattern: {class_str}",
+                ))
 
         # Deduplicate and sort
         seen = set()
@@ -646,7 +626,7 @@ def generate_yaml_fix(
     """
     # Escape special characters in selector for YAML double-quoted string
     # Must escape backslashes first, then quotes
-    escaped_selector = candidate.selector.replace("\\", "\\\\").replace('"', '\\"')
+    escaped_selector = candidate.selector.replace('\\', '\\\\').replace('"', '\\"')
 
     # Sanitize text fields for YAML comments (avoid # and newlines breaking syntax)
     sanitized_reason = _sanitize_for_yaml_comment(candidate.reason, 80)

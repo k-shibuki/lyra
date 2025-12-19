@@ -174,7 +174,7 @@ def main():
         date="2025-12-15",
     )
     assert tor_metrics.usage_ratio == 0.15
-    print(f"    OK: ratio={tor_metrics.usage_ratio * 100:.1f}%")
+    print(f"    OK: ratio={tor_metrics.usage_ratio*100:.1f}%")
 
     # Test TorUsageMetrics with zero
     print("  - Testing zero division handling...")
@@ -195,7 +195,7 @@ def main():
         date="2025-12-15",
     )
     assert domain_metrics.usage_ratio == 0.2
-    print(f"    OK: domain={domain_metrics.domain}, ratio={domain_metrics.usage_ratio * 100:.1f}%")
+    print(f"    OK: domain={domain_metrics.domain}, ratio={domain_metrics.usage_ratio*100:.1f}%")
 
     print("[3] schemas.py Tor models: PASSED ✓")
 

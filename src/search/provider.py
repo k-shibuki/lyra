@@ -39,7 +39,7 @@ class SearchResult(BaseModel):
     """
     Normalized search result from any provider.
 
-    Implements the standard SERP schema defined in docs/REQUIREMENTS.md §3.2.1:
+    Implements the standard SERP schema defined in docs/requirements.md §3.2.1:
     - title, url, snippet, date, engine, rank, source_tag
     """
 
@@ -51,12 +51,8 @@ class SearchResult(BaseModel):
     engine: str = Field(..., description="Search engine that returned this result")
     rank: int = Field(..., ge=0, description="Rank position in search results")
     date: str | None = Field(default=None, description="Publication date if available")
-    source_tag: SourceTag = Field(
-        default=SourceTag.UNKNOWN, description="Classification of source type"
-    )
-    raw_data: dict[str, Any] | None = Field(
-        default=None, description="Optional raw data from provider"
-    )
+    source_tag: SourceTag = Field(default=SourceTag.UNKNOWN, description="Classification of source type")
+    raw_data: dict[str, Any] | None = Field(default=None, description="Optional raw data from provider")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""

@@ -20,9 +20,9 @@ from typing import Any
 class VerificationStatus(str, Enum):
     """Verification status for claims/sources (§4.4.1 L6)."""
 
-    PENDING = "pending"  # Not yet verified
-    VERIFIED = "verified"  # Corroborated by independent sources
-    REJECTED = "rejected"  # Contradiction detected or dangerous pattern
+    PENDING = "pending"      # Not yet verified
+    VERIFIED = "verified"    # Corroborated by independent sources
+    REJECTED = "rejected"    # Contradiction detected or dangerous pattern
 
 
 @dataclass

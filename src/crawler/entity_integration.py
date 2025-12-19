@@ -174,7 +174,9 @@ class EntityExtractor:
             result.relationships.append((domain_entity.id, ns_entity.id, "uses_nameserver"))
             result.relationships_created += 1
 
-        logger.info(f"Extracted {result.entities_created} entities from WHOIS for {record.domain}")
+        logger.info(
+            f"Extracted {result.entities_created} entities from WHOIS for {record.domain}"
+        )
         return result
 
     async def extract_from_cert(

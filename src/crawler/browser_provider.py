@@ -502,13 +502,14 @@ class BaseBrowserProvider(ABC):
         *args: Any,
     ) -> Any:
         """Execute JavaScript (default: not supported)."""
-        raise NotImplementedError(f"Provider '{self._name}' does not support script execution")
+        raise NotImplementedError(
+            f"Provider '{self._name}' does not support script execution"
+        )
 
     async def get_cookies(self, url: str | None = None) -> list[Cookie]:
         """Get cookies (default: empty list)."""
         return []
 
-    @abstractmethod
     async def set_cookies(self, cookies: list[Cookie]) -> None:
         """Set cookies (default: no-op)."""
         pass

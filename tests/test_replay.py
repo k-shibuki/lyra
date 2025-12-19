@@ -475,3 +475,5 @@ async def test_cleanup_decision_logger():
             await cleanup_decision_logger("cleanup-task", save=True)
 
     assert "cleanup-task" not in replay._loggers
+
+    assert "cleanup-task" not in replay._loggers

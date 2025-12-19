@@ -57,18 +57,14 @@ async def main():
     assert metrics.total_requests == 10
     assert metrics.tor_requests == 2
     assert metrics.usage_ratio == 0.2
-    print(
-        f"    OK: total={metrics.total_requests}, tor={metrics.tor_requests}, ratio={metrics.usage_ratio * 100:.1f}%"
-    )
+    print(f"    OK: total={metrics.total_requests}, tor={metrics.tor_requests}, ratio={metrics.usage_ratio*100:.1f}%")
 
     # Check domain metrics
     print("  - Checking domain metrics...")
     domain_metrics = collector.get_domain_tor_metrics("example.com")
     assert domain_metrics.total_requests == 10
     assert domain_metrics.tor_requests == 2
-    print(
-        f"    OK: domain={domain_metrics.domain}, total={domain_metrics.total_requests}, tor={domain_metrics.tor_requests}"
-    )
+    print(f"    OK: domain={domain_metrics.domain}, total={domain_metrics.total_requests}, tor={domain_metrics.tor_requests}")
 
     print("[1] MetricsCollector Tor tracking: PASSED ✓")
 
@@ -83,7 +79,7 @@ async def main():
     print("  - Testing with 0% usage...")
     fresh_collector = MetricsCollector()
 
-    with patch("src.utils.metrics.get_metrics_collector", return_value=fresh_collector):
+    with patch('src.utils.metrics.get_metrics_collector', return_value=fresh_collector):
         result = await _can_use_tor()
         assert result is True
         print(f"    OK: _can_use_tor() returned {result} (0% < 20%)")
@@ -94,7 +90,7 @@ async def main():
     collector_19pct._tor_daily_total_requests = 100
     collector_19pct._tor_daily_tor_requests = 19
 
-    with patch("src.utils.metrics.get_metrics_collector", return_value=collector_19pct):
+    with patch('src.utils.metrics.get_metrics_collector', return_value=collector_19pct):
         result = await _can_use_tor()
         assert result is True
         print(f"    OK: _can_use_tor() returned {result} (19% < 20%)")
@@ -105,7 +101,7 @@ async def main():
     collector_20pct._tor_daily_total_requests = 100
     collector_20pct._tor_daily_tor_requests = 20
 
-    with patch("src.utils.metrics.get_metrics_collector", return_value=collector_20pct):
+    with patch('src.utils.metrics.get_metrics_collector', return_value=collector_20pct):
         result = await _can_use_tor()
         assert result is False
         print(f"    OK: _can_use_tor() returned {result} (20% >= 20%)")
@@ -116,7 +112,7 @@ async def main():
     collector_25pct._tor_daily_total_requests = 100
     collector_25pct._tor_daily_tor_requests = 25
 
-    with patch("src.utils.metrics.get_metrics_collector", return_value=collector_25pct):
+    with patch('src.utils.metrics.get_metrics_collector', return_value=collector_25pct):
         result = await _can_use_tor()
         assert result is False
         print(f"    OK: _can_use_tor() returned {result} (25% >= 20%)")
@@ -138,8 +134,8 @@ async def main():
     mock_policy_blocked.tor_allowed = False
     mock_policy_blocked.tor_blocked = True
 
-    with patch("src.utils.metrics.get_metrics_collector", return_value=collector_ok):
-        with patch("src.utils.domain_policy.get_domain_policy", return_value=mock_policy_blocked):
+    with patch('src.utils.metrics.get_metrics_collector', return_value=collector_ok):
+        with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy_blocked):
             result = await _can_use_tor("cloudflare-site.com")
             assert result is False
             print(f"    OK: _can_use_tor('cloudflare-site.com') returned {result} (Tor blocked)")
@@ -150,8 +146,8 @@ async def main():
     mock_policy_allowed.tor_allowed = True
     mock_policy_allowed.tor_blocked = False
 
-    with patch("src.utils.metrics.get_metrics_collector", return_value=collector_ok):
-        with patch("src.utils.domain_policy.get_domain_policy", return_value=mock_policy_allowed):
+    with patch('src.utils.metrics.get_metrics_collector', return_value=collector_ok):
+        with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy_allowed):
             result = await _can_use_tor("friendly-site.com")
             assert result is True
             print(f"    OK: _can_use_tor('friendly-site.com') returned {result} (Tor allowed)")
@@ -168,9 +164,7 @@ async def main():
     old_collector._tor_daily_total_requests = 1000
     old_collector._tor_daily_tor_requests = 500
 
-    print(
-        f"  - Before reset: date={old_collector._tor_daily_date}, total={old_collector._tor_daily_total_requests}"
-    )
+    print(f"  - Before reset: date={old_collector._tor_daily_date}, total={old_collector._tor_daily_total_requests}")
 
     # Getting metrics should trigger reset
     metrics = old_collector.get_today_tor_metrics()
@@ -188,7 +182,7 @@ async def main():
     # =========================================================================
     print("\n[5] Testing fail-open behavior...")
 
-    with patch("src.utils.metrics.get_metrics_collector", side_effect=Exception("Test error")):
+    with patch('src.utils.metrics.get_metrics_collector', side_effect=Exception("Test error")):
         result = await _can_use_tor()
         assert result is True
         print(f"    OK: _can_use_tor() returned {result} on error (fail-open)")

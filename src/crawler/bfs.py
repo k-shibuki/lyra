@@ -37,13 +37,13 @@ logger = get_logger(__name__)
 class LinkType(Enum):
     """Type of link based on context."""
 
-    NAVIGATION = "navigation"  # Header/footer navigation
-    TOC = "toc"  # Table of contents
-    HEADING = "heading"  # Links within headings
-    RELATED = "related"  # Related articles section
-    BODY = "body"  # General body content
-    SIDEBAR = "sidebar"  # Sidebar links
-    PAGINATION = "pagination"  # Pagination links
+    NAVIGATION = "navigation"       # Header/footer navigation
+    TOC = "toc"                     # Table of contents
+    HEADING = "heading"             # Links within headings
+    RELATED = "related"             # Related articles section
+    BODY = "body"                   # General body content
+    SIDEBAR = "sidebar"             # Sidebar links
+    PAGINATION = "pagination"       # Pagination links
     UNKNOWN = "unknown"
 
 
@@ -242,16 +242,14 @@ class LinkExtractor:
             text = anchor.get_text(strip=True)[:200]
             context = self._get_context(anchor)
 
-            links.append(
-                ExtractedLink(
-                    url=absolute_url,
-                    text=text,
-                    link_type=link_type,
-                    priority=priority,
-                    source_url=base_url,
-                    context=context,
-                )
-            )
+            links.append(ExtractedLink(
+                url=absolute_url,
+                text=text,
+                link_type=link_type,
+                priority=priority,
+                source_url=base_url,
+                context=context,
+            ))
 
         # Sort by priority
         links.sort(key=lambda x: x.priority, reverse=True)
@@ -585,7 +583,10 @@ class DomainBFSCrawler:
             if len(allowed_links) >= limit:
                 break
 
-        return [(link.url, link.priority, link.link_type.value) for link in allowed_links[:limit]]
+        return [
+            (link.url, link.priority, link.link_type.value)
+            for link in allowed_links[:limit]
+        ]
 
 
 # =============================================================================

@@ -250,12 +250,8 @@ Disallow: /admin/  # inline comment
 
         assert rules.domain == "example.com"
         # Inline comment should be stripped, leaving just /admin/
-        assert "/admin/" in rules.disallowed_paths, (
-            "Expected /admin/ to be parsed with inline comment stripped"
-        )
-        assert len(rules.disallowed_paths) == 1, (
-            f"Expected exactly 1 disallowed path, got {len(rules.disallowed_paths)}"
-        )
+        assert "/admin/" in rules.disallowed_paths, "Expected /admin/ to be parsed with inline comment stripped"
+        assert len(rules.disallowed_paths) == 1, f"Expected exactly 1 disallowed path, got {len(rules.disallowed_paths)}"
 
     @pytest.mark.asyncio
     async def test_can_fetch_allowed(self):
@@ -551,12 +547,8 @@ Sitemap: https://example.com/sitemap.xml
         # Without User-agent, rules may not apply to disallow
         assert rules.domain == "example.com"
         # Sitemap should be extracted (it's a global directive)
-        assert "https://example.com/sitemap.xml" in rules.sitemap_urls, (
-            "Expected sitemap URL to be extracted"
-        )
-        assert len(rules.sitemap_urls) == 1, (
-            f"Expected exactly 1 sitemap URL, got {len(rules.sitemap_urls)}"
-        )
+        assert "https://example.com/sitemap.xml" in rules.sitemap_urls, "Expected sitemap URL to be extracted"
+        assert len(rules.sitemap_urls) == 1, f"Expected exactly 1 sitemap URL, got {len(rules.sitemap_urls)}"
 
     def test_sitemap_entry_score_old_content(self):
         """Old content should not get recency boost."""
