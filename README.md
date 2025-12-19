@@ -10,7 +10,9 @@
 
 ## Summary
 
-Lyra is an open-source MCP (Model Context Protocol) toolkit that collaborates with [Cursor AI](https://cursor.sh/) for desktop research. It implements **thinking-working separation**: Cursor AI handles strategic decisions (query design, report composition), while Lyra handles mechanical execution (search, extraction, metrics calculation). This separation minimizes context pollution in the AI's reasoning while offloading compute-intensive ML tasks to dedicated local components.
+Lyra is an open-source MCP (Model Context Protocol) toolkit for AI-collaborative desktop research. It implements **thinking-working separation**: the MCP client (AI) handles strategic decisions (query design, report composition), while Lyra handles mechanical execution (search, extraction, metrics calculation). This separation minimizes context pollution in the AI's reasoning while offloading compute-intensive ML tasks to dedicated local components.
+
+**MCP Compatibility**: Lyra is protocol-compliant and works with any MCP-compatible client—[Cursor AI](https://cursor.sh/), Claude Desktop, or other MCP-enabled tools. The "thinking" side requires Claude/GPT-4-class reasoning capability.
 
 **Embedded ML Components:**
 
@@ -24,7 +26,7 @@ Lyra is an open-source MCP (Model Context Protocol) toolkit that collaborates wi
 **Core Design Principles:**
 
 1. **Complete Local Processing**: All data remains on the user's machine. Search queries and collected information are never transmitted to external servers.
-2. **Thinking-Working Separation**: Cursor AI decides *what* to search; Lyra executes *how* to search. Lyra never proposes queries or makes strategic decisions.
+2. **Thinking-Working Separation**: The MCP client decides *what* to search; Lyra executes *how* to search. Lyra never proposes queries or makes strategic decisions.
 3. **Evidence Graph Construction**: Every claim is linked to source fragments with provenance tracking, enabling verification and reproducibility.
 
 ---
@@ -70,8 +72,8 @@ Unlike browser automation tools (Selenium, Playwright scripts) that require cust
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Windows 11 Host                             │
 │  ┌──────────────┐                                                   │
-│  │  Cursor AI   │  ◄── User designs queries, composes reports       │
-│  │  (Thinking)  │                                                   │
+│  │ MCP Client   │  ◄── User designs queries, composes reports       │
+│  │  (Thinking)  │      (Cursor AI, Claude Desktop, etc.)            │
 │  └──────┬───────┘                                                   │
 │         │ MCP Protocol (stdio)                                      │
 │  ┌──────▼───────────────────────────────────────────────────────┐   │
@@ -107,22 +109,22 @@ Unlike browser automation tools (Selenium, Playwright scripts) that require cust
 
 ### Data Flow
 
-1. **Task Creation**: User provides a research question via Cursor AI → `create_task` MCP tool
-2. **Query Execution**: Cursor AI designs search queries → `search` tool executes pipeline:
+1. **Task Creation**: User provides a research question via MCP client → `create_task` MCP tool
+2. **Query Execution**: MCP client designs search queries → `search` tool executes pipeline:
    - Search engine query (Playwright browser automation)
    - URL fetching with rate limiting and block detection
    - Content extraction (trafilatura)
    - LLM-based fact/claim extraction (Ollama)
    - NLI stance detection (supports/refutes/neutral)
    - Evidence graph construction
-3. **Iterative Refinement**: Cursor AI reviews metrics via `get_status`, designs follow-up queries
+3. **Iterative Refinement**: MCP client reviews metrics via `get_status`, designs follow-up queries
 4. **Materials Export**: `get_materials` returns claims, fragments, and evidence graph for report composition
 
 ### Key Modules
 
 | Module | Location | Responsibility |
 |--------|----------|----------------|
-| **MCP Server** | `src/mcp/` | 11 tools for Cursor AI integration |
+| **MCP Server** | `src/mcp/` | 11 tools for MCP client integration |
 | **Search Providers** | `src/search/` | Multi-engine search, academic APIs |
 | **Crawler** | `src/crawler/` | Browser automation, HTTP fetching, session management |
 | **Filter** | `src/filter/` | LLM extraction, NLI analysis, ranking |
@@ -240,10 +242,24 @@ For WSL2 to communicate with Windows Chrome via CDP:
    ```
 2. Restart WSL: `wsl.exe --shutdown`
 
-### Cursor AI Integration
+### MCP Client Configuration
 
-Add to Cursor's MCP configuration (`.cursor/mcp.json`):
+Lyra works with any MCP-compatible client. Example configurations:
 
+**Cursor AI** (`.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "lyra": {
+      "command": "/path/to/lyra/.venv/bin/python",
+      "args": ["-m", "src.main", "mcp"],
+      "cwd": "/path/to/lyra"
+    }
+  }
+}
+```
+
+**Claude Desktop** (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
@@ -262,7 +278,7 @@ Add to Cursor's MCP configuration (`.cursor/mcp.json`):
 
 ### MCP Tools (11 Tools)
 
-Lyra exposes the following tools to Cursor AI:
+Lyra exposes the following tools to MCP clients:
 
 | Category | Tool | Description |
 |----------|------|-------------|
@@ -285,7 +301,7 @@ Lyra exposes the following tools to Cursor AI:
 create_task(query="Liraglutide cardiovascular safety profile")
 # Returns: {"task_id": "task_abc123", "budget": {"max_pages": 120}}
 
-# 2. Execute search queries (designed by Cursor AI)
+# 2. Execute search queries (designed by MCP client)
 search(task_id="task_abc123", query="liraglutide FDA cardiovascular warning")
 # Returns: {"claims_found": [...], "harvest_rate": 0.53, "satisfaction_score": 0.85}
 
