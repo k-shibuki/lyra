@@ -765,7 +765,7 @@ class SecurityE2EVerifier:
 
             has_hash = len(summary.content_hash) == 16  # 16 chars of SHA256
             has_length = summary.length == len(test_prompt)
-            len(summary.preview) <= 100 + 3  # MAX_PREVIEW_LENGTH + "..."
+            assert len(summary.preview) <= 100 + 3  # MAX_PREVIEW_LENGTH + "..."
             preview_not_full = len(summary.preview) < len(test_prompt)
 
             print(f"    Summary has hash: {has_hash}")

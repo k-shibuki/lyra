@@ -836,7 +836,7 @@ class TestBudgetIntegrationScenarios:
             )
 
             # When: Fetching more pages
-            for i in range(4):
+            for _i in range(4):
                 await manager.check_and_update(
                     "task-1",
                     record_page=True,
