@@ -4,7 +4,6 @@ Manages relationships between claims, fragments, and sources.
 Uses NetworkX for in-memory graph operations and SQLite for persistence.
 """
 
-import json
 import uuid
 from enum import Enum
 from typing import Any
@@ -12,7 +11,7 @@ from typing import Any
 import networkx as nx
 
 from src.storage.database import get_database
-from src.utils.logging import get_logger, CausalTrace
+from src.utils.logging import CausalTrace, get_logger
 
 logger = get_logger(__name__)
 
@@ -41,7 +40,7 @@ class EvidenceGraph:
     
     The graph is backed by SQLite for persistence.
     """
-    
+
     def __init__(self, task_id: str | None = None):
         """Initialize evidence graph.
         
@@ -50,7 +49,7 @@ class EvidenceGraph:
         """
         self.task_id = task_id
         self._graph = nx.DiGraph()
-    
+
     def _make_node_id(self, node_type: NodeType, obj_id: str) -> str:
         """Create composite node ID.
         
@@ -62,7 +61,7 @@ class EvidenceGraph:
             Composite node ID.
         """
         return f"{node_type.value}:{obj_id}"
-    
+
     def _parse_node_id(self, node_id: str) -> tuple[NodeType, str]:
         """Parse composite node ID.
         
@@ -74,7 +73,7 @@ class EvidenceGraph:
         """
         node_type_str, obj_id = node_id.split(":", 1)
         return NodeType(node_type_str), obj_id
-    
+
     def add_node(
         self,
         node_type: NodeType,
@@ -92,16 +91,16 @@ class EvidenceGraph:
             Node ID.
         """
         node_id = self._make_node_id(node_type, obj_id)
-        
+
         self._graph.add_node(
             node_id,
             node_type=node_type.value,
             obj_id=obj_id,
             **attributes,
         )
-        
+
         return node_id
-    
+
     def add_edge(
         self,
         source_type: NodeType,
@@ -132,15 +131,15 @@ class EvidenceGraph:
         """
         source_node = self._make_node_id(source_type, source_id)
         target_node = self._make_node_id(target_type, target_id)
-        
+
         # Ensure nodes exist
         if source_node not in self._graph:
             self.add_node(source_type, source_id)
         if target_node not in self._graph:
             self.add_node(target_type, target_id)
-        
+
         edge_id = str(uuid.uuid4())
-        
+
         self._graph.add_edge(
             source_node,
             target_node,
@@ -151,9 +150,9 @@ class EvidenceGraph:
             nli_confidence=nli_confidence,
             **attributes,
         )
-        
+
         return edge_id
-    
+
     def get_supporting_evidence(
         self,
         claim_id: str,
@@ -167,20 +166,20 @@ class EvidenceGraph:
             List of supporting evidence dicts.
         """
         claim_node = self._make_node_id(NodeType.CLAIM, claim_id)
-        
+
         if claim_node not in self._graph:
             return []
-        
+
         evidence = []
-        
+
         # Get incoming edges with 'supports' relation
         for predecessor in self._graph.predecessors(claim_node):
             edge_data = self._graph.edges[predecessor, claim_node]
-            
+
             if edge_data.get("relation") == RelationType.SUPPORTS.value:
                 node_type, obj_id = self._parse_node_id(predecessor)
                 node_data = self._graph.nodes[predecessor]
-                
+
                 evidence.append({
                     "node_type": node_type.value,
                     "obj_id": obj_id,
@@ -189,9 +188,9 @@ class EvidenceGraph:
                     "nli_confidence": edge_data.get("nli_confidence"),
                     **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
                 })
-        
+
         return evidence
-    
+
     def get_refuting_evidence(
         self,
         claim_id: str,
@@ -205,19 +204,19 @@ class EvidenceGraph:
             List of refuting evidence dicts.
         """
         claim_node = self._make_node_id(NodeType.CLAIM, claim_id)
-        
+
         if claim_node not in self._graph:
             return []
-        
+
         evidence = []
-        
+
         for predecessor in self._graph.predecessors(claim_node):
             edge_data = self._graph.edges[predecessor, claim_node]
-            
+
             if edge_data.get("relation") == RelationType.REFUTES.value:
                 node_type, obj_id = self._parse_node_id(predecessor)
                 node_data = self._graph.nodes[predecessor]
-                
+
                 evidence.append({
                     "node_type": node_type.value,
                     "obj_id": obj_id,
@@ -226,9 +225,9 @@ class EvidenceGraph:
                     "nli_confidence": edge_data.get("nli_confidence"),
                     **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
                 })
-        
+
         return evidence
-    
+
     def get_all_evidence(
         self,
         claim_id: str,
@@ -242,23 +241,23 @@ class EvidenceGraph:
             Dict with 'supports', 'refutes', 'neutral' lists.
         """
         claim_node = self._make_node_id(NodeType.CLAIM, claim_id)
-        
+
         result = {
             "supports": [],
             "refutes": [],
             "neutral": [],
         }
-        
+
         if claim_node not in self._graph:
             return result
-        
+
         for predecessor in self._graph.predecessors(claim_node):
             edge_data = self._graph.edges[predecessor, claim_node]
             relation = edge_data.get("relation", "neutral")
-            
+
             node_type, obj_id = self._parse_node_id(predecessor)
             node_data = self._graph.nodes[predecessor]
-            
+
             evidence = {
                 "node_type": node_type.value,
                 "obj_id": obj_id,
@@ -267,12 +266,12 @@ class EvidenceGraph:
                 "nli_confidence": edge_data.get("nli_confidence"),
                 **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
             }
-            
+
             if relation in result:
                 result[relation].append(evidence)
-        
+
         return result
-    
+
     def get_citation_chain(
         self,
         node_type: NodeType,
@@ -290,30 +289,30 @@ class EvidenceGraph:
             List of nodes in citation chain.
         """
         start_node = self._make_node_id(node_type, obj_id)
-        
+
         if start_node not in self._graph:
             return []
-        
+
         chain = []
         visited = set()
         current = start_node
         depth = 0
-        
+
         while current and depth < max_depth:
             if current in visited:
                 break
             visited.add(current)
-            
+
             node_type_current, obj_id_current = self._parse_node_id(current)
             node_data = self._graph.nodes[current]
-            
+
             chain.append({
                 "depth": depth,
                 "node_type": node_type_current.value,
                 "obj_id": obj_id_current,
                 **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
             })
-            
+
             # Find next citation
             next_node = None
             for successor in self._graph.successors(current):
@@ -321,12 +320,12 @@ class EvidenceGraph:
                 if edge_data.get("relation") == RelationType.CITES.value:
                     next_node = successor
                     break
-            
+
             current = next_node
             depth += 1
-        
+
         return chain
-    
+
     def calculate_claim_confidence(
         self,
         claim_id: str,
@@ -340,12 +339,12 @@ class EvidenceGraph:
             Confidence assessment dict.
         """
         evidence = self.get_all_evidence(claim_id)
-        
+
         supporting_count = len(evidence["supports"])
         refuting_count = len(evidence["refutes"])
         neutral_count = len(evidence["neutral"])
         total_count = supporting_count + refuting_count + neutral_count
-        
+
         if total_count == 0:
             return {
                 "confidence": 0.0,
@@ -355,7 +354,7 @@ class EvidenceGraph:
                 "verdict": "unverified",
                 "independent_sources": 0,
             }
-        
+
         # Calculate average confidence from supporting evidence
         support_confidences = [
             e.get("confidence", 0.5) for e in evidence["supports"]
@@ -364,7 +363,7 @@ class EvidenceGraph:
             sum(support_confidences) / len(support_confidences)
             if support_confidences else 0.0
         )
-        
+
         # Count unique sources (pages)
         unique_sources = set()
         for category in evidence.values():
@@ -372,7 +371,7 @@ class EvidenceGraph:
                 if e.get("node_type") == NodeType.PAGE.value:
                     unique_sources.add(e.get("obj_id"))
                 # Also count fragments' parent pages if available
-        
+
         # Calculate overall confidence
         if refuting_count > 0:
             # Presence of refutation lowers confidence
@@ -387,7 +386,7 @@ class EvidenceGraph:
         else:
             confidence = 0.3
             verdict = "unverified"
-        
+
         return {
             "confidence": round(confidence, 3),
             "supporting_count": supporting_count,
@@ -396,7 +395,7 @@ class EvidenceGraph:
             "verdict": verdict,
             "independent_sources": len(unique_sources),
         }
-    
+
     def find_contradictions(self) -> list[dict[str, Any]]:
         """Find contradicting claims in the graph.
         
@@ -404,26 +403,26 @@ class EvidenceGraph:
             List of contradiction pairs.
         """
         contradictions = []
-        
+
         # Get all claim nodes
         claim_nodes = [
             n for n in self._graph.nodes()
             if self._graph.nodes[n].get("node_type") == NodeType.CLAIM.value
         ]
-        
+
         # Check for mutual refutation
         for i, claim1 in enumerate(claim_nodes):
             for claim2 in claim_nodes[i + 1:]:
                 # Check if claim1 refutes claim2 or vice versa
                 edge1 = self._graph.edges.get((claim1, claim2), {})
                 edge2 = self._graph.edges.get((claim2, claim1), {})
-                
+
                 if (edge1.get("relation") == RelationType.REFUTES.value or
                     edge2.get("relation") == RelationType.REFUTES.value):
-                    
+
                     _, id1 = self._parse_node_id(claim1)
                     _, id2 = self._parse_node_id(claim2)
-                    
+
                     contradictions.append({
                         "claim1_id": id1,
                         "claim2_id": id2,
@@ -434,9 +433,9 @@ class EvidenceGraph:
                             edge2.get("confidence", 0),
                         ),
                     })
-        
+
         return contradictions
-    
+
     def detect_citation_loops(self) -> list[dict[str, Any]]:
         """Detect citation loops (cycles) in the graph.
         
@@ -447,26 +446,26 @@ class EvidenceGraph:
             List of detected loops with metadata.
         """
         loops = []
-        
+
         # Build subgraph with only citation edges
         citation_edges = [
             (u, v) for u, v, d in self._graph.edges(data=True)
             if d.get("relation") == RelationType.CITES.value
         ]
-        
+
         if not citation_edges:
             return loops
-        
+
         citation_graph = nx.DiGraph()
         citation_graph.add_edges_from(citation_edges)
-        
+
         # Find all simple cycles
         try:
             cycles = list(nx.simple_cycles(citation_graph))
         except Exception as e:
             logger.warning("Error detecting cycles", error=str(e))
             return loops
-        
+
         for cycle in cycles:
             # Parse node information
             cycle_info = []
@@ -478,7 +477,7 @@ class EvidenceGraph:
                         "node_type": node_type.value,
                         "obj_id": obj_id,
                     })
-            
+
             if cycle_info:
                 loops.append({
                     "type": "citation_loop",
@@ -486,9 +485,9 @@ class EvidenceGraph:
                     "nodes": cycle_info,
                     "severity": self._calculate_loop_severity(len(cycle)),
                 })
-        
+
         return loops
-    
+
     def detect_round_trips(self) -> list[dict[str, Any]]:
         """Detect round-trip citations (A cites B, B cites A).
         
@@ -499,20 +498,20 @@ class EvidenceGraph:
             List of round-trip pairs.
         """
         round_trips = []
-        
+
         # Check for bidirectional citation edges
         checked_pairs = set()
-        
+
         for u, v, data in self._graph.edges(data=True):
             if data.get("relation") != RelationType.CITES.value:
                 continue
-            
+
             # Create canonical pair ID to avoid duplicates
             pair_id = tuple(sorted([u, v]))
             if pair_id in checked_pairs:
                 continue
             checked_pairs.add(pair_id)
-            
+
             # Check if reverse edge exists
             if self._graph.has_edge(v, u):
                 reverse_data = self._graph.edges[v, u]
@@ -520,7 +519,7 @@ class EvidenceGraph:
                     # Found round-trip
                     type_u, id_u = self._parse_node_id(u)
                     type_v, id_v = self._parse_node_id(v)
-                    
+
                     round_trips.append({
                         "type": "round_trip",
                         "node_a": {
@@ -535,9 +534,9 @@ class EvidenceGraph:
                         },
                         "severity": "high",  # Round-trips are always high severity
                     })
-        
+
         return round_trips
-    
+
     def detect_self_references(self) -> list[dict[str, Any]]:
         """Detect self-references (node citing itself or same-domain citations).
         
@@ -549,11 +548,11 @@ class EvidenceGraph:
             List of self-reference issues.
         """
         self_refs = []
-        
+
         for u, v, data in self._graph.edges(data=True):
             if data.get("relation") != RelationType.CITES.value:
                 continue
-            
+
             # Check for direct self-loop
             if u == v:
                 node_type, obj_id = self._parse_node_id(u)
@@ -565,18 +564,18 @@ class EvidenceGraph:
                     "severity": "critical",
                 })
                 continue
-            
+
             # Check for same-domain citation (if domain info available)
             u_data = self._graph.nodes.get(u, {})
             v_data = self._graph.nodes.get(v, {})
-            
+
             u_domain = u_data.get("domain")
             v_domain = v_data.get("domain")
-            
+
             if u_domain and v_domain and u_domain == v_domain:
                 type_u, id_u = self._parse_node_id(u)
                 type_v, id_v = self._parse_node_id(v)
-                
+
                 self_refs.append({
                     "type": "same_domain_citation",
                     "source": {
@@ -592,9 +591,9 @@ class EvidenceGraph:
                     "domain": u_domain,
                     "severity": "medium",
                 })
-        
+
         return self_refs
-    
+
     def _calculate_loop_severity(self, loop_length: int) -> str:
         """Calculate severity of a citation loop based on length.
         
@@ -612,7 +611,7 @@ class EvidenceGraph:
             return "medium"
         else:
             return "low"
-    
+
     def calculate_citation_penalties(self) -> dict[str, float]:
         """Calculate citation-based penalties for nodes.
         
@@ -623,11 +622,11 @@ class EvidenceGraph:
             Dict mapping node_id to penalty score (0.0 to 1.0, where 1.0 = no penalty).
         """
         penalties: dict[str, float] = {}
-        
+
         # Initialize all nodes with no penalty
         for node in self._graph.nodes():
             penalties[node] = 1.0
-        
+
         # Apply penalties for citation loops
         loops = self.detect_citation_loops()
         for loop in loops:
@@ -638,19 +637,19 @@ class EvidenceGraph:
                 "medium": 0.6,
                 "low": 0.8,
             }.get(severity, 0.8)
-            
+
             for node_info in loop["nodes"]:
                 node_id = node_info["node_id"]
                 # Multiply penalties (cumulative for multiple issues)
                 penalties[node_id] *= penalty_factor
-        
+
         # Apply penalties for round-trips
         round_trips = self.detect_round_trips()
         for rt in round_trips:
             # Round-trips get 0.3 penalty multiplier
             penalties[rt["node_a"]["node_id"]] *= 0.3
             penalties[rt["node_b"]["node_id"]] *= 0.3
-        
+
         # Apply penalties for self-references
         self_refs = self.detect_self_references()
         for sr in self_refs:
@@ -661,19 +660,19 @@ class EvidenceGraph:
                 "medium": 0.5,
                 "low": 0.7,
             }.get(severity, 0.7)
-            
+
             if sr["type"] == "direct_self_reference":
                 penalties[sr["node_id"]] *= penalty_factor
             else:
                 penalties[sr["source"]["node_id"]] *= penalty_factor
                 penalties[sr["target"]["node_id"]] *= penalty_factor * 1.2  # Target less penalized
-        
+
         # Clamp to [0.0, 1.0]
         for node_id in penalties:
             penalties[node_id] = max(0.0, min(1.0, penalties[node_id]))
-        
+
         return penalties
-    
+
     def get_citation_integrity_report(self) -> dict[str, Any]:
         """Generate comprehensive citation integrity report.
         
@@ -684,13 +683,13 @@ class EvidenceGraph:
         round_trips = self.detect_round_trips()
         self_refs = self.detect_self_references()
         penalties = self.calculate_citation_penalties()
-        
+
         # Calculate metrics
         total_citation_edges = sum(
             1 for _, _, d in self._graph.edges(data=True)
             if d.get("relation") == RelationType.CITES.value
         )
-        
+
         # Count problematic citations
         problematic_nodes = set()
         for loop in loops:
@@ -704,21 +703,21 @@ class EvidenceGraph:
                 problematic_nodes.add(sr["node_id"])
             else:
                 problematic_nodes.add(sr["source"]["node_id"])
-        
+
         # Calculate integrity score
         if total_citation_edges > 0:
             clean_ratio = 1.0 - (len(problematic_nodes) / max(len(penalties), 1))
             integrity_score = max(0.0, min(1.0, clean_ratio))
         else:
             integrity_score = 1.0  # No citations = no issues
-        
+
         # Nodes with significant penalties
         penalized_nodes = [
             {"node_id": k, "penalty_factor": v}
             for k, v in penalties.items()
             if v < 0.9
         ]
-        
+
         return {
             "integrity_score": round(integrity_score, 3),
             "total_citation_edges": total_citation_edges,
@@ -731,7 +730,7 @@ class EvidenceGraph:
             "self_references": self_refs,
             "penalized_nodes": sorted(penalized_nodes, key=lambda x: x["penalty_factor"]),
         }
-    
+
     def get_primary_source_ratio(self) -> dict[str, Any]:
         """Calculate the ratio of primary vs secondary source citations.
         
@@ -745,10 +744,10 @@ class EvidenceGraph:
             n for n in self._graph.nodes()
             if self._graph.nodes[n].get("node_type") == NodeType.PAGE.value
         ]
-        
+
         primary_count = 0
         secondary_count = 0
-        
+
         for page_node in page_nodes:
             # Check if this page cites other pages
             has_outgoing_citation = False
@@ -758,15 +757,15 @@ class EvidenceGraph:
                     if target_type == NodeType.PAGE.value:
                         has_outgoing_citation = True
                         break
-            
+
             if has_outgoing_citation:
                 secondary_count += 1
             else:
                 primary_count += 1
-        
+
         total = primary_count + secondary_count
         primary_ratio = primary_count / total if total > 0 else 0.0
-        
+
         return {
             "primary_count": primary_count,
             "secondary_count": secondary_count,
@@ -774,7 +773,7 @@ class EvidenceGraph:
             "primary_ratio": round(primary_ratio, 3),
             "meets_threshold": primary_ratio >= 0.6,  # §7 requirement
         }
-    
+
     def get_stats(self) -> dict[str, Any]:
         """Get graph statistics.
         
@@ -786,27 +785,27 @@ class EvidenceGraph:
             NodeType.FRAGMENT.value: 0,
             NodeType.PAGE.value: 0,
         }
-        
+
         for node in self._graph.nodes():
             node_type = self._graph.nodes[node].get("node_type")
             if node_type in node_counts:
                 node_counts[node_type] += 1
-        
+
         edge_counts = {
             RelationType.SUPPORTS.value: 0,
             RelationType.REFUTES.value: 0,
             RelationType.CITES.value: 0,
             RelationType.NEUTRAL.value: 0,
         }
-        
+
         for _, _, data in self._graph.edges(data=True):
             relation = data.get("relation")
             if relation in edge_counts:
                 edge_counts[relation] += 1
-        
+
         # Include citation integrity metrics
         integrity = self.get_citation_integrity_report()
-        
+
         return {
             "total_nodes": self._graph.number_of_nodes(),
             "total_edges": self._graph.number_of_edges(),
@@ -816,16 +815,16 @@ class EvidenceGraph:
             "citation_loop_count": integrity["loop_count"],
             "round_trip_count": integrity["round_trip_count"],
         }
-    
+
     async def save_to_db(self) -> None:
         """Persist graph edges to database."""
         db = await get_database()
-        
+
         with CausalTrace() as trace:
             for source, target, data in self._graph.edges(data=True):
                 source_type, source_id = self._parse_node_id(source)
                 target_type, target_id = self._parse_node_id(target)
-                
+
                 await db.insert("edges", {
                     "id": data.get("edge_id", str(uuid.uuid4())),
                     "source_type": source_type.value,
@@ -841,13 +840,13 @@ class EvidenceGraph:
                     "citation_context": data.get("citation_context"),
                     "cause_id": trace.id,
                 }, or_replace=True)
-        
+
         logger.info(
             "Evidence graph saved",
             edge_count=self._graph.number_of_edges(),
             task_id=self.task_id,
         )
-    
+
     async def load_from_db(self, task_id: str | None = None) -> None:
         """Load graph edges from database.
         
@@ -855,7 +854,7 @@ class EvidenceGraph:
             task_id: Optional task ID to filter by.
         """
         db = await get_database()
-        
+
         # Load edges
         if task_id:
             # Filter by task via claims
@@ -873,14 +872,14 @@ class EvidenceGraph:
             )
         else:
             edges = await db.fetch_all("SELECT * FROM edges")
-        
+
         # Rebuild graph
         self._graph.clear()
-        
+
         for edge in edges:
             source_type = NodeType(edge["source_type"])
             target_type = NodeType(edge["target_type"])
-            
+
             self.add_edge(
                 source_type=source_type,
                 source_id=edge["source_id"],
@@ -891,13 +890,13 @@ class EvidenceGraph:
                 nli_label=edge.get("nli_label"),
                 nli_confidence=edge.get("nli_confidence"),
             )
-        
+
         logger.info(
             "Evidence graph loaded",
             edge_count=len(edges),
             task_id=task_id,
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Export graph as dict.
         
@@ -909,7 +908,7 @@ class EvidenceGraph:
             node_data = dict(self._graph.nodes[node_id])
             node_data["id"] = node_id
             nodes.append(node_data)
-        
+
         edges = []
         for source, target, data in self._graph.edges(data=True):
             edges.append({
@@ -917,7 +916,7 @@ class EvidenceGraph:
                 "target": target,
                 **data,
             })
-        
+
         return {
             "nodes": nodes,
             "edges": edges,
@@ -939,12 +938,12 @@ async def get_evidence_graph(task_id: str | None = None) -> EvidenceGraph:
         EvidenceGraph instance.
     """
     global _graph
-    
+
     if _graph is None or _graph.task_id != task_id:
         _graph = EvidenceGraph(task_id=task_id)
         if task_id:
             await _graph.load_from_db(task_id)
-    
+
     return _graph
 
 
@@ -972,7 +971,7 @@ async def add_claim_evidence(
         Edge ID.
     """
     graph = await get_evidence_graph(task_id)
-    
+
     edge_id = graph.add_edge(
         source_type=NodeType.FRAGMENT,
         source_id=fragment_id,
@@ -983,7 +982,7 @@ async def add_claim_evidence(
         nli_label=nli_label,
         nli_confidence=nli_confidence,
     )
-    
+
     # Persist immediately
     db = await get_database()
     await db.insert("edges", {
@@ -997,14 +996,14 @@ async def add_claim_evidence(
         "nli_label": nli_label,
         "nli_confidence": nli_confidence,
     }, or_replace=True)
-    
+
     logger.debug(
         "Claim evidence added",
         claim_id=claim_id,
         fragment_id=fragment_id,
         relation=relation,
     )
-    
+
     return edge_id
 
 
@@ -1032,7 +1031,7 @@ async def add_citation(
         Edge ID.
     """
     graph = await get_evidence_graph(task_id)
-    
+
     edge_id = graph.add_edge(
         source_type=NodeType(source_type),
         source_id=source_id,
@@ -1044,7 +1043,7 @@ async def add_citation(
         is_influential=is_influential,
         citation_context=citation_context,
     )
-    
+
     # Persist
     db = await get_database()
     await db.insert("edges", {
@@ -1059,7 +1058,7 @@ async def add_citation(
         "is_influential": 1 if is_influential else 0,
         "citation_context": citation_context,
     }, or_replace=True)
-    
+
     return edge_id
 
 
@@ -1084,15 +1083,15 @@ async def add_academic_page_with_citations(
                           will be skipped.
     """
     from src.utils.schemas import Citation
-    
+
     graph = await get_evidence_graph(task_id)
     db = await get_database()
-    
+
     # Ensure PAGE node exists
     page_node = graph._make_node_id(NodeType.PAGE, page_id)
     if not graph._graph.has_node(page_node):
         graph.add_node(NodeType.PAGE, page_id)
-    
+
     # Add academic metadata to node
     graph._graph.nodes[page_node].update({
         "is_academic": True,
@@ -1102,22 +1101,22 @@ async def add_academic_page_with_citations(
         "venue": paper_metadata.get("venue"),
         "source_api": paper_metadata.get("source_api"),
     })
-    
+
     # Add citation edges
     if paper_to_page_map is None:
         paper_to_page_map = {}
-    
+
     edges_created = 0
     edges_skipped = 0
-    
+
     for citation in citations:
         if not isinstance(citation, Citation):
             continue
-        
+
         # Map cited_paper_id (paper ID) to cited_page_id (page ID)
         cited_paper_id = citation.cited_paper_id
         cited_page_id = paper_to_page_map.get(cited_paper_id)
-        
+
         # Skip citations where the cited paper doesn't have a corresponding page
         # (e.g., papers that weren't persisted because they had no abstract)
         if not cited_page_id:
@@ -1128,12 +1127,12 @@ async def add_academic_page_with_citations(
             )
             edges_skipped += 1
             continue
-        
+
         # Ensure cited PAGE node exists
         cited_node = graph._make_node_id(NodeType.PAGE, cited_page_id)
         if not graph._graph.has_node(cited_node):
             graph.add_node(NodeType.PAGE, cited_page_id)
-        
+
         # Add CITES edge with academic attributes
         edge_id = graph.add_edge(
             source_type=NodeType.PAGE,
@@ -1146,7 +1145,7 @@ async def add_academic_page_with_citations(
             is_influential=citation.is_influential,
             citation_context=citation.context,
         )
-        
+
         # Persist edge to database
         await db.insert("edges", {
             "id": edge_id,
@@ -1160,9 +1159,9 @@ async def add_academic_page_with_citations(
             "is_influential": 1 if citation.is_influential else 0,
             "citation_context": citation.context,
         }, or_replace=True)
-        
+
         edges_created += 1
-    
+
     logger.debug(
         "Added academic page with citations",
         page_id=page_id,
@@ -1186,10 +1185,10 @@ async def get_claim_assessment(
         Assessment dict with evidence and confidence.
     """
     graph = await get_evidence_graph(task_id)
-    
+
     evidence = graph.get_all_evidence(claim_id)
     confidence = graph.calculate_claim_confidence(claim_id)
-    
+
     return {
         "claim_id": claim_id,
         "evidence": evidence,

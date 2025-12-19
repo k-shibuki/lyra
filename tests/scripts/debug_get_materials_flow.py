@@ -17,7 +17,7 @@ import asyncio
 import json
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Add project root to path
 sys.path.insert(0, "/home/statuser/lancet")
@@ -45,7 +45,7 @@ async def main():
     await db.execute(
         """INSERT INTO tasks (id, query, status, created_at)
            VALUES (?, ?, ?, ?)""",
-        (task_id, query, "exploring", datetime.now(timezone.utc).isoformat()),
+        (task_id, query, "exploring", datetime.now(UTC).isoformat()),
     )
     print(f"  - Created test task: {task_id}")
 
@@ -62,39 +62,39 @@ async def main():
     # Create test fragments (as the search pipeline would)
     fragment1_id = f"f_{uuid.uuid4().hex[:8]}"
     fragment2_id = f"f_{uuid.uuid4().hex[:8]}"
-    
+
     await db.execute(
         """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant, relevance_reason, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (fragment1_id, page_id, "paragraph", "This is test fragment 1 with important content.", "Test Heading", 1, f"primary_source=True; url=https://example.gov/test"),
+        (fragment1_id, page_id, "paragraph", "This is test fragment 1 with important content.", "Test Heading", 1, "primary_source=True; url=https://example.gov/test"),
     )
     await db.execute(
         """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant, relevance_reason, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (fragment2_id, page_id, "paragraph", "This is test fragment 2 with secondary content.", "Another Heading", 1, f"primary_source=False; url=https://example.com/article"),
+        (fragment2_id, page_id, "paragraph", "This is test fragment 2 with secondary content.", "Another Heading", 1, "primary_source=False; url=https://example.com/article"),
     )
     print(f"  - Created test fragments: {fragment1_id}, {fragment2_id}")
 
     # Create test claims (as the search pipeline would)
     claim1_id = f"c_{uuid.uuid4().hex[:8]}"
     claim2_id = f"c_{uuid.uuid4().hex[:8]}"
-    
+
     await db.execute(
         """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (claim1_id, task_id, "Test claim 1: Important fact from primary source", "fact", 0.85, json.dumps([fragment1_id]), f"source_url=https://example.gov/test"),
+        (claim1_id, task_id, "Test claim 1: Important fact from primary source", "fact", 0.85, json.dumps([fragment1_id]), "source_url=https://example.gov/test"),
     )
     await db.execute(
         """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (claim2_id, task_id, "Test claim 2: Secondary information", "fact", 0.5, json.dumps([fragment2_id]), f"source_url=https://example.com/article"),
+        (claim2_id, task_id, "Test claim 2: Secondary information", "fact", 0.5, json.dumps([fragment2_id]), "source_url=https://example.com/article"),
     )
     print(f"  - Created test claims: {claim1_id}, {claim2_id}")
 
     # Create test edges (fragment -> claim relationship)
     edge1_id = f"e_{uuid.uuid4().hex[:8]}"
     edge2_id = f"e_{uuid.uuid4().hex[:8]}"
-    
+
     await db.execute(
         """INSERT INTO edges (id, source_type, source_id, target_type, target_id, relation, created_at)
            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
@@ -124,7 +124,7 @@ async def main():
     print(f"  - query: {result.get('query')}")
     print(f"  - claims count: {len(result.get('claims', []))}")
     print(f"  - fragments count: {len(result.get('fragments', []))}")
-    
+
     evidence_graph = result.get("evidence_graph", {})
     print(f"  - evidence_graph.nodes count: {len(evidence_graph.get('nodes', []))}")
     print(f"  - evidence_graph.edges count: {len(evidence_graph.get('edges', []))}")
@@ -240,7 +240,7 @@ async def main():
 
     if len(claims) < 2:
         issues.append(f"Expected >= 2 claims, got {len(claims)}")
-    
+
     if len(evidence_graph.get("nodes", [])) == 0:
         issues.append("evidence_graph.nodes is empty")
 

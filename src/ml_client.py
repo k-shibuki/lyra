@@ -56,11 +56,11 @@ class MLClient:
         """Get base URL for ML server (always via proxy in hybrid mode)."""
         if self._base_url is not None:
             return self._base_url
-        
+
         # Hybrid mode: always use proxy URL
         self._base_url = f"{self._settings.general.proxy_url}/ml"
         logger.debug("Using proxy for ML Server", proxy_url=self._base_url)
-        
+
         return self._base_url
 
     async def _get_client(self) -> httpx.AsyncClient:

@@ -14,9 +14,9 @@ outdated relative to current knowledge.
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from src.utils.logging import get_logger
 
@@ -73,13 +73,13 @@ class ConsistencyLevel(str, Enum):
 @dataclass
 class DateExtraction:
     """Extracted date information."""
-    year: Optional[int] = None
-    month: Optional[int] = None
-    day: Optional[int] = None
+    year: int | None = None
+    month: int | None = None
+    day: int | None = None
     source: str = ""  # Where the date was extracted from
     confidence: float = 0.5  # Confidence in extraction
-    
-    def to_datetime(self) -> Optional[datetime]:
+
+    def to_datetime(self) -> datetime | None:
         """Convert to datetime object.
         
         Returns:
@@ -87,17 +87,17 @@ class DateExtraction:
         """
         if self.year is None:
             return None
-        
+
         try:
             return datetime(
                 year=self.year,
                 month=self.month or 1,
                 day=self.day or 1,
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
         except (ValueError, OverflowError):
             return None
-    
+
     def is_complete(self) -> bool:
         """Check if date has year, month, and day.
         
@@ -105,7 +105,7 @@ class DateExtraction:
             True if all components are present.
         """
         return all([self.year, self.month, self.day])
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.
         
@@ -126,13 +126,13 @@ class DateExtraction:
 class ConsistencyResult:
     """Result of temporal consistency check."""
     level: ConsistencyLevel
-    claim_date: Optional[DateExtraction] = None
-    page_date: Optional[DateExtraction] = None
-    age_days: Optional[int] = None  # Age of claim in days
+    claim_date: DateExtraction | None = None
+    page_date: DateExtraction | None = None
+    age_days: int | None = None  # Age of claim in days
     trust_decay: float = 1.0  # Trust decay factor (1.0 = no decay)
     reason: str = ""
     details: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.
         
@@ -156,14 +156,14 @@ class ConsistencyResult:
 
 class DateExtractor:
     """Extracts dates from text and metadata."""
-    
+
     def __init__(self):
         """Initialize date extractor."""
         self._compiled_patterns = [
             (re.compile(pattern, re.IGNORECASE), pattern)
             for pattern in DATE_PATTERNS
         ]
-    
+
     def extract_from_text(self, text: str) -> list[DateExtraction]:
         """Extract dates from text content.
         
@@ -175,15 +175,15 @@ class DateExtractor:
         """
         if not text:
             return []
-        
+
         extractions = []
-        
+
         for compiled, pattern in self._compiled_patterns:
             for match in compiled.finditer(text):
                 extraction = self._parse_match(match, pattern)
                 if extraction and extraction.year:
                     extractions.append(extraction)
-        
+
         # Remove duplicates and sort by confidence
         seen = set()
         unique = []
@@ -192,14 +192,14 @@ class DateExtractor:
             if key not in seen:
                 seen.add(key)
                 unique.append(e)
-        
+
         return sorted(unique, key=lambda x: x.confidence, reverse=True)
-    
+
     def _parse_match(
         self,
         match: re.Match,
         pattern: str,
-    ) -> Optional[DateExtraction]:
+    ) -> DateExtraction | None:
         """Parse a regex match into DateExtraction.
         
         Args:
@@ -210,7 +210,7 @@ class DateExtractor:
             DateExtraction or None.
         """
         groups = match.groups()
-        
+
         try:
             # ISO format: YYYY-MM-DD
             if 'YYYY' in pattern or r'(\d{4})[/-]' in pattern:
@@ -222,7 +222,7 @@ class DateExtractor:
                         source="iso_format",
                         confidence=0.95,
                     )
-            
+
             # Japanese format: YYYY年MM月DD日
             if '年' in pattern and '月' in pattern:
                 if len(groups) >= 3:
@@ -233,7 +233,7 @@ class DateExtractor:
                         source="japanese_format",
                         confidence=0.95,
                     )
-            
+
             # Month name formats
             if 'January|February' in pattern or 'Jan|Feb' in pattern:
                 matched_text = match.group(0).lower()
@@ -253,7 +253,7 @@ class DateExtractor:
                                     confidence=0.85,
                                 )
                         break
-            
+
             # Year only
             if r'\b(20\d{2})\b' in pattern:
                 if groups:
@@ -264,7 +264,7 @@ class DateExtractor:
                             source="year_only",
                             confidence=0.5,
                         )
-            
+
             # Japanese era: 令和, 平成
             if '令和' in pattern:
                 era_year = int(groups[0])
@@ -274,7 +274,7 @@ class DateExtractor:
                     source="reiwa_era",
                     confidence=0.8,
                 )
-            
+
             if '平成' in pattern:
                 era_year = int(groups[0])
                 # 平成1年 = 1989年
@@ -283,16 +283,16 @@ class DateExtractor:
                     source="heisei_era",
                     confidence=0.8,
                 )
-                
+
         except (ValueError, IndexError, TypeError):
             pass
-        
+
         return None
-    
+
     def extract_from_metadata(
         self,
         metadata: dict[str, Any],
-    ) -> Optional[DateExtraction]:
+    ) -> DateExtraction | None:
         """Extract date from page metadata.
         
         Args:
@@ -317,21 +317,21 @@ class DateExtractor:
             "lastModified",
             "fetched_at",
         ]
-        
+
         for field_name in date_fields:
             value = metadata.get(field_name)
             if value:
                 extraction = self._parse_date_string(str(value), field_name)
                 if extraction:
                     return extraction
-        
+
         return None
-    
+
     def _parse_date_string(
         self,
         date_str: str,
         source: str,
-    ) -> Optional[DateExtraction]:
+    ) -> DateExtraction | None:
         """Parse a date string.
         
         Args:
@@ -343,7 +343,7 @@ class DateExtractor:
         """
         if not date_str:
             return None
-        
+
         # Try ISO format first
         try:
             dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
@@ -356,14 +356,14 @@ class DateExtractor:
             )
         except (ValueError, TypeError):
             pass
-        
+
         # Try extracting from text
         extractions = self.extract_from_text(date_str)
         if extractions:
             result = extractions[0]
             result.source = source
             return result
-        
+
         return None
 
 
@@ -379,7 +379,7 @@ class TemporalConsistencyChecker:
     - Apply trust decay for stale claims
     - Validate timestamp integrity
     """
-    
+
     def __init__(
         self,
         decay_rate_per_year: float = DEFAULT_DECAY_RATE_PER_YEAR,
@@ -397,12 +397,12 @@ class TemporalConsistencyChecker:
         self._decay_rate = decay_rate_per_year
         self._max_age_years = max_age_years
         self._impossibility_threshold = timedelta(days=impossibility_threshold_days)
-    
+
     def check_consistency(
         self,
         claim_text: str,
         page_metadata: dict[str, Any],
-        current_time: Optional[datetime] = None,
+        current_time: datetime | None = None,
     ) -> ConsistencyResult:
         """Check temporal consistency of a claim against its source.
         
@@ -415,26 +415,26 @@ class TemporalConsistencyChecker:
             ConsistencyResult with consistency level and details.
         """
         if current_time is None:
-            current_time = datetime.now(timezone.utc)
-        
+            current_time = datetime.now(UTC)
+
         # Extract dates from claim text
         claim_dates = self._extractor.extract_from_text(claim_text)
         claim_date = claim_dates[0] if claim_dates else None
-        
+
         # Extract date from page metadata
         page_date = self._extractor.extract_from_metadata(page_metadata)
-        
+
         # If we can't extract any dates, return uncertain
         if not claim_date and not page_date:
             return ConsistencyResult(
                 level=ConsistencyLevel.UNCERTAIN,
                 reason="No dates could be extracted from claim or page",
             )
-        
+
         # Convert to datetime for comparison
         claim_dt = claim_date.to_datetime() if claim_date else None
         page_dt = page_date.to_datetime() if page_date else None
-        
+
         # Check for temporal impossibility
         if claim_dt and page_dt:
             if claim_dt > page_dt + self._impossibility_threshold:
@@ -449,13 +449,13 @@ class TemporalConsistencyChecker:
                         "difference_days": (claim_dt - page_dt).days,
                     },
                 )
-        
+
         # Calculate age and staleness
         reference_date = page_dt or claim_dt
         if reference_date:
             age_days = (current_time - reference_date).days
             age_years = age_days / 365.25
-            
+
             # Calculate trust decay
             if age_years > 0:
                 # Exponential decay: trust = e^(-rate * years)
@@ -463,7 +463,7 @@ class TemporalConsistencyChecker:
                 decay = max(0.0, 1.0 - (self._decay_rate * min(age_years, self._max_age_years)))
             else:
                 decay = 1.0
-            
+
             # Determine if stale
             if age_years > self._max_age_years:
                 return ConsistencyResult(
@@ -478,7 +478,7 @@ class TemporalConsistencyChecker:
                         "max_age_years": self._max_age_years,
                     },
                 )
-            
+
             # Consistent
             return ConsistencyResult(
                 level=ConsistencyLevel.CONSISTENT,
@@ -488,7 +488,7 @@ class TemporalConsistencyChecker:
                 trust_decay=decay,
                 reason="Claim is temporally consistent with source",
             )
-        
+
         # Uncertain (couldn't determine dates properly)
         return ConsistencyResult(
             level=ConsistencyLevel.UNCERTAIN,
@@ -496,7 +496,7 @@ class TemporalConsistencyChecker:
             page_date=page_date,
             reason="Could not determine temporal relationship",
         )
-    
+
     def calculate_trust_decay(
         self,
         age_days: int,
@@ -511,16 +511,16 @@ class TemporalConsistencyChecker:
         """
         if age_days <= 0:
             return 1.0
-        
+
         age_years = age_days / 365.25
         decay = max(0.0, 1.0 - (self._decay_rate * min(age_years, self._max_age_years)))
         return decay
-    
+
     def batch_check(
         self,
         claims: list[dict[str, Any]],
         page_metadata: dict[str, Any],
-        current_time: Optional[datetime] = None,
+        current_time: datetime | None = None,
     ) -> list[ConsistencyResult]:
         """Check temporal consistency for multiple claims.
         
@@ -533,14 +533,14 @@ class TemporalConsistencyChecker:
             List of ConsistencyResult for each claim.
         """
         results = []
-        
+
         for claim in claims:
             claim_text = claim.get("text", claim.get("claim_text", ""))
             result = self.check_consistency(claim_text, page_metadata, current_time)
             results.append(result)
-        
+
         return results
-    
+
     def get_consistency_stats(
         self,
         results: list[ConsistencyResult],
@@ -563,20 +563,20 @@ class TemporalConsistencyChecker:
                 "consistency_rate": 0.0,
                 "average_decay": 1.0,
             }
-        
-        counts = {level: 0 for level in ConsistencyLevel}
+
+        counts = dict.fromkeys(ConsistencyLevel, 0)
         total_decay = 0.0
         decay_count = 0
-        
+
         for result in results:
             counts[result.level] += 1
             if result.trust_decay < 1.0:
                 total_decay += result.trust_decay
                 decay_count += 1
-        
+
         total = len(results)
         consistent = counts[ConsistencyLevel.CONSISTENT]
-        
+
         return {
             "total": total,
             "consistent": consistent,
@@ -592,7 +592,7 @@ class TemporalConsistencyChecker:
 # Convenience Functions
 # =============================================================================
 
-_checker: Optional[TemporalConsistencyChecker] = None
+_checker: TemporalConsistencyChecker | None = None
 
 
 def get_temporal_checker() -> TemporalConsistencyChecker:
@@ -641,16 +641,16 @@ def apply_temporal_decay(
     """
     checker = get_temporal_checker()
     result = checker.check_consistency(claim_text, page_metadata)
-    
+
     # Apply decay to confidence
     adjusted = confidence * result.trust_decay
-    
+
     # Additional penalty for inconsistent claims
     if result.level == ConsistencyLevel.INCONSISTENT:
         adjusted *= 0.3  # 70% additional penalty
     elif result.level == ConsistencyLevel.STALE:
         adjusted *= 0.8  # 20% additional penalty
-    
+
     return adjusted, result
 
 
