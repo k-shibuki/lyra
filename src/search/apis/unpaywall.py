@@ -4,6 +4,8 @@ Unpaywall API client.
 Open Access URL resolution (priority=5).
 """
 
+from __future__ import annotations
+
 import os
 
 from src.search.apis.base import BaseAcademicClient

@@ -21,6 +21,7 @@ from urllib.parse import quote_plus, urljoin, urlparse
 import yaml
 
 from src.crawler.bfs import LinkExtractor
+from src.crawler.playwright_provider import BrowserMode, get_playwright_provider
 from src.storage.database import get_database
 from src.utils.config import get_project_root, get_settings
 from src.utils.logging import get_logger
@@ -723,20 +724,22 @@ async def site_search(
     """
     manager = get_site_search_manager()
 
-    # Note: Browser-based site search requires a Playwright context to be passed
-    # from the caller. This MCP tool entry point doesn't have direct access to
-    # the browser context, so we always use HTTP-based search with site: fallback.
+    # Get browser context if browser automation is requested
+    browser_context = None
     if use_browser:
-        logger.warning(
-            "Browser-based site search requested but no context available, "
-            "falling back to HTTP-based search",
-            domain=domain,
-        )
+        try:
+            provider = get_playwright_provider()
+            _, browser_context = await provider._ensure_browser(BrowserMode.HEADLESS)
+        except Exception as e:
+            logger.warning(
+                "Failed to get browser context for site search, falling back to HTTP",
+                error=str(e),
+            )
 
     result = await manager.search(
         domain,
         query,
-        browser_context=None,  # Browser context must be passed by caller with browser access
+        browser_context=browser_context,
         fallback_to_site=fallback,
     )
 

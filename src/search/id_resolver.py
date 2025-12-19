@@ -4,6 +4,7 @@ ID resolver for converting between different paper identifier formats.
 Converts PMID, arXiv ID, etc. to DOI using external APIs.
 """
 
+from __future__ import annotations
 
 import httpx
 
@@ -114,7 +115,7 @@ class IDResolver:
         logger.debug("CRID to DOI conversion not yet implemented", crid=crid)
         return None
 
-    async def resolve_to_doi(self, identifier: "PaperIdentifier") -> str | None:
+    async def resolve_to_doi(self, identifier: PaperIdentifier) -> str | None:
         """Resolve DOI from PaperIdentifier.
         
         Args:

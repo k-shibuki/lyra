@@ -4,6 +4,8 @@ Canonical paper index for unified deduplication.
 Manages unique papers across Browser Search (SERP) and Academic API results.
 """
 
+from __future__ import annotations
+
 import hashlib
 import re
 
@@ -202,7 +204,7 @@ class CanonicalPaperIndex:
 
     def register_serp_result(
         self,
-        serp_result: "SearchResult",
+        serp_result: SearchResult,
         identifier: PaperIdentifier | None = None,
     ) -> str:
         """Register a SERP result.

@@ -2,6 +2,8 @@
 Base class for academic API clients.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 import httpx
