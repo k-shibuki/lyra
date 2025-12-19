@@ -47,12 +47,12 @@ class IPv6Address:
     """Resolved IP address with family information."""
     address: str
     family: AddressFamily
-    
+
     @property
     def is_ipv6(self) -> bool:
         """Check if this is an IPv6 address."""
         return self.family == AddressFamily.IPV6
-    
+
     @property
     def is_ipv4(self) -> bool:
         """Check if this is an IPv4 address."""
@@ -71,7 +71,7 @@ class IPv6ConnectionResult:
     latency_ms: float
     error: str | None = None
     addresses_resolved: list[IPv6Address] = field(default_factory=list)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -108,7 +108,7 @@ class DomainIPv6Stats:
     last_ipv6_failure_at: float | None = None
     last_ipv4_success_at: float | None = None
     last_ipv4_failure_at: float | None = None
-    
+
     def get_preferred_family(self, global_preference: IPv6Preference) -> AddressFamily:
         """Determine preferred address family based on stats and settings.
         
@@ -121,14 +121,14 @@ class DomainIPv6Stats:
         # If IPv6 is disabled for this domain, always use IPv4
         if not self.ipv6_enabled:
             return AddressFamily.IPV4
-        
+
         # Use explicit preference if set
         preference = self.ipv6_preference
         if preference == IPv6Preference.IPV6_FIRST:
             return AddressFamily.IPV6
         elif preference == IPv6Preference.IPV4_FIRST:
             return AddressFamily.IPV4
-        
+
         # Auto mode - use learned success rates
         if preference == IPv6Preference.AUTO or global_preference == IPv6Preference.AUTO:
             # Need minimum samples for reliable comparison
@@ -138,7 +138,7 @@ class DomainIPv6Stats:
                 if global_preference == IPv6Preference.IPV4_FIRST:
                     return AddressFamily.IPV4
                 return AddressFamily.IPV6  # Default to IPv6
-            
+
             # Compare success rates with some margin
             if self.ipv6_success_rate > self.ipv4_success_rate + 0.1:
                 return AddressFamily.IPV6
@@ -147,12 +147,12 @@ class DomainIPv6Stats:
             else:
                 # Similar rates - prefer IPv6
                 return AddressFamily.IPV6
-        
+
         # Default based on global preference
         if global_preference == IPv6Preference.IPV4_FIRST:
             return AddressFamily.IPV4
         return AddressFamily.IPV6
-    
+
     def update_success_rate(
         self,
         family: AddressFamily,
@@ -168,7 +168,7 @@ class DomainIPv6Stats:
         """
         now = time.time()
         value = 1.0 if success else 0.0
-        
+
         if family == AddressFamily.IPV6:
             self.ipv6_attempts += 1
             if success:
@@ -176,7 +176,7 @@ class DomainIPv6Stats:
                 self.last_ipv6_success_at = now
             else:
                 self.last_ipv6_failure_at = now
-            
+
             # Update EMA
             self.ipv6_success_rate = (
                 ema_alpha * value + (1 - ema_alpha) * self.ipv6_success_rate
@@ -188,12 +188,12 @@ class DomainIPv6Stats:
                 self.last_ipv4_success_at = now
             else:
                 self.last_ipv4_failure_at = now
-            
+
             # Update EMA
             self.ipv4_success_rate = (
                 ema_alpha * value + (1 - ema_alpha) * self.ipv4_success_rate
             )
-    
+
     def record_switch(self, success: bool) -> None:
         """Record a family switch event.
         
@@ -203,14 +203,14 @@ class DomainIPv6Stats:
         self.switch_count += 1
         if success:
             self.switch_success_count += 1
-    
+
     @property
     def switch_success_rate(self) -> float:
         """Calculate switch success rate."""
         if self.switch_count == 0:
             return 0.0
         return self.switch_success_count / self.switch_count
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for database storage."""
         return {
@@ -230,14 +230,14 @@ class DomainIPv6Stats:
             "last_ipv4_success_at": self.last_ipv4_success_at,
             "last_ipv4_failure_at": self.last_ipv4_failure_at,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DomainIPv6Stats":
         """Create from dictionary."""
         preference = data.get("ipv6_preference", "auto")
         if isinstance(preference, str):
             preference = IPv6Preference(preference)
-        
+
         return cls(
             domain=data["domain"],
             ipv6_enabled=data.get("ipv6_enabled", True),
@@ -302,35 +302,35 @@ class IPv6Metrics:
 
         # Append to deque - automatically discards oldest when maxlen reached (O(1))
         self._latencies.append(latency_ms)
-    
+
     @property
     def ipv6_success_rate(self) -> float:
         """Global IPv6 success rate."""
         if self.total_ipv6_attempts == 0:
             return 0.0
         return self.total_ipv6_successes / self.total_ipv6_attempts
-    
+
     @property
     def ipv4_success_rate(self) -> float:
         """Global IPv4 success rate."""
         if self.total_ipv4_attempts == 0:
             return 0.0
         return self.total_ipv4_successes / self.total_ipv4_attempts
-    
+
     @property
     def switch_success_rate(self) -> float:
         """Global switch success rate (acceptance criteria: ≥80%)."""
         if self.total_switches == 0:
             return 0.0
         return self.total_switch_successes / self.total_switches
-    
+
     @property
     def avg_latency_ms(self) -> float:
         """Average connection latency."""
         if not self._latencies:
             return 0.0
         return sum(self._latencies) / len(self._latencies)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -356,18 +356,18 @@ class IPv6ConnectionManager:
     3. Fall back to alternative family on failure
     4. Learn success rates per domain and adjust preferences
     """
-    
+
     def __init__(self):
         self._settings = get_settings()
         self._domain_stats: dict[str, DomainIPv6Stats] = {}
         self._metrics = IPv6Metrics()
         self._lock = asyncio.Lock()
-    
+
     @property
     def metrics(self) -> IPv6Metrics:
         """Get global IPv6 metrics."""
         return self._metrics
-    
+
     def _get_ipv6_settings(self) -> dict[str, Any]:
         """Get IPv6 settings with defaults."""
         # Handle case where ipv6 settings might not exist
@@ -387,7 +387,7 @@ class IPv6ConnectionManager:
             "learning_threshold": 0.3,
             "min_samples": 5,
         }
-    
+
     def _get_global_preference(self) -> IPv6Preference:
         """Get global IPv6 preference from settings."""
         settings = self._get_ipv6_settings()
@@ -396,7 +396,7 @@ class IPv6ConnectionManager:
             return IPv6Preference(preference_str)
         except ValueError:
             return IPv6Preference.IPV6_FIRST
-    
+
     async def get_domain_stats(self, domain: str) -> DomainIPv6Stats:
         """Get or create domain stats.
         
@@ -410,7 +410,7 @@ class IPv6ConnectionManager:
             if domain not in self._domain_stats:
                 self._domain_stats[domain] = DomainIPv6Stats(domain=domain)
             return self._domain_stats[domain]
-    
+
     async def update_domain_stats(
         self,
         domain: str,
@@ -424,7 +424,7 @@ class IPv6ConnectionManager:
         """
         async with self._lock:
             self._domain_stats[domain] = stats
-    
+
     async def resolve_addresses(
         self,
         hostname: str,
@@ -454,16 +454,16 @@ class IPv6ConnectionManager:
                     socket.SOCK_STREAM,
                 ),
             )
-            
+
             seen = set()
             for info in addr_info:
                 family = info[0]
                 addr = info[4][0]
-                
+
                 if addr in seen:
                     continue
                 seen.add(addr)
-                
+
                 if family == socket.AF_INET6:
                     ipv6_addresses.append(IPv6Address(
                         address=addr,
@@ -474,14 +474,14 @@ class IPv6ConnectionManager:
                         address=addr,
                         family=AddressFamily.IPV4,
                     ))
-                    
+
         except socket.gaierror as e:
             logger.debug("DNS resolution failed", hostname=hostname, error=str(e))
         except Exception as e:
             logger.warning("Unexpected DNS error", hostname=hostname, error=str(e))
-        
+
         return ipv6_addresses, ipv4_addresses
-    
+
     async def get_preferred_addresses(
         self,
         hostname: str,
@@ -501,10 +501,10 @@ class IPv6ConnectionManager:
             List of addresses sorted by preference.
         """
         ipv6_addrs, ipv4_addrs = await self.resolve_addresses(hostname)
-        
+
         if not ipv6_addrs and not ipv4_addrs:
             return []
-        
+
         # Get domain stats if available
         if domain:
             stats = await self.get_domain_stats(domain)
@@ -515,16 +515,16 @@ class IPv6ConnectionManager:
                 preferred = AddressFamily.IPV4
             else:
                 preferred = AddressFamily.IPV6
-        
+
         # Sort addresses by preference
         # Interleave for Happy Eyeballs-style parallel attempts
         result: list[IPv6Address] = []
-        
+
         if preferred == AddressFamily.IPV6:
             primary, secondary = ipv6_addrs, ipv4_addrs
         else:
             primary, secondary = ipv4_addrs, ipv6_addrs
-        
+
         # Interleave: primary[0], secondary[0], primary[1], secondary[1], ...
         max_len = max(len(primary), len(secondary))
         for i in range(max_len):
@@ -532,9 +532,9 @@ class IPv6ConnectionManager:
                 result.append(primary[i])
             if i < len(secondary):
                 result.append(secondary[i])
-        
+
         return result
-    
+
     async def record_connection_result(
         self,
         domain: str,
@@ -547,14 +547,14 @@ class IPv6ConnectionManager:
             result: Connection result.
         """
         stats = await self.get_domain_stats(domain)
-        
+
         # Update success rate for the family used
         stats.update_success_rate(result.family_used, result.success)
-        
+
         # Record switch if applicable
         if result.switched:
             stats.record_switch(result.switch_success)
-        
+
         # Update global metrics
         self._metrics.record_attempt(
             family=result.family_used,
@@ -563,12 +563,12 @@ class IPv6ConnectionManager:
             switch_success=result.switch_success,
             latency_ms=result.latency_ms,
         )
-        
+
         # Check if we should disable IPv6 for this domain
         settings = self._get_ipv6_settings()
         threshold = settings.get("learning_threshold", 0.3)
         min_samples = settings.get("min_samples", 5)
-        
+
         if stats.ipv6_attempts >= min_samples:
             if stats.ipv6_success_rate < threshold:
                 # Disable IPv6 for this domain due to poor performance
@@ -579,9 +579,9 @@ class IPv6ConnectionManager:
                     ipv6_success_rate=stats.ipv6_success_rate,
                     threshold=threshold,
                 )
-        
+
         await self.update_domain_stats(domain, stats)
-        
+
         logger.debug(
             "Recorded IPv6 connection result",
             domain=domain,
@@ -591,7 +591,7 @@ class IPv6ConnectionManager:
             ipv6_success_rate=stats.ipv6_success_rate,
             ipv4_success_rate=stats.ipv4_success_rate,
         )
-    
+
     async def try_connect_with_fallback(
         self,
         hostname: str,
@@ -618,10 +618,10 @@ class IPv6ConnectionManager:
         settings = self._get_ipv6_settings()
         if timeout is None:
             timeout = settings.get("fallback_timeout", 5.0)
-        
+
         # Get addresses sorted by preference
         addresses = await self.get_preferred_addresses(hostname, domain)
-        
+
         if not addresses:
             return IPv6ConnectionResult(
                 hostname=hostname,
@@ -634,29 +634,29 @@ class IPv6ConnectionManager:
                 error="No addresses resolved",
                 addresses_resolved=[],
             )
-        
+
         # Determine primary family
         stats = await self.get_domain_stats(domain)
         primary_family = stats.get_preferred_family(self._get_global_preference())
-        
+
         start_time = time.time()
         last_error: str | None = None
         switched = False
-        
+
         for i, addr in enumerate(addresses):
             try:
                 # Check if we're switching family
                 if i > 0 and addr.family != addresses[0].family:
                     switched = True
-                
+
                 # Try connection with timeout
                 success, error = await asyncio.wait_for(
                     connect_func(addr.address, addr.family),
                     timeout=timeout,
                 )
-                
+
                 latency_ms = (time.time() - start_time) * 1000
-                
+
                 if success:
                     result = IPv6ConnectionResult(
                         hostname=hostname,
@@ -670,10 +670,10 @@ class IPv6ConnectionManager:
                     )
                     await self.record_connection_result(domain, result)
                     return result
-                
+
                 last_error = error
-                
-            except asyncio.TimeoutError:
+
+            except TimeoutError:
                 last_error = f"Timeout ({timeout}s)"
                 logger.debug(
                     "Connection timeout",
@@ -690,10 +690,10 @@ class IPv6ConnectionManager:
                     family=addr.family.value,
                     error=str(e),
                 )
-        
+
         # All attempts failed
         latency_ms = (time.time() - start_time) * 1000
-        
+
         # Record failure for primary family
         result = IPv6ConnectionResult(
             hostname=hostname,
@@ -708,7 +708,7 @@ class IPv6ConnectionManager:
         )
         await self.record_connection_result(domain, result)
         return result
-    
+
     def is_ipv6_enabled(self) -> bool:
         """Check if IPv6 is globally enabled.
         
@@ -717,7 +717,7 @@ class IPv6ConnectionManager:
         """
         settings = self._get_ipv6_settings()
         return settings.get("enabled", True)
-    
+
     async def is_ipv6_enabled_for_domain(self, domain: str) -> bool:
         """Check if IPv6 is enabled for a specific domain.
         
@@ -729,10 +729,10 @@ class IPv6ConnectionManager:
         """
         if not self.is_ipv6_enabled():
             return False
-        
+
         stats = await self.get_domain_stats(domain)
         return stats.ipv6_enabled
-    
+
     async def set_domain_preference(
         self,
         domain: str,
@@ -747,13 +747,13 @@ class IPv6ConnectionManager:
         stats = await self.get_domain_stats(domain)
         stats.ipv6_preference = preference
         await self.update_domain_stats(domain, stats)
-        
+
         logger.info(
             "Set domain IPv6 preference",
             domain=domain,
             preference=preference.value,
         )
-    
+
     async def enable_ipv6_for_domain(self, domain: str, enabled: bool = True) -> None:
         """Enable or disable IPv6 for a domain.
         
@@ -764,13 +764,13 @@ class IPv6ConnectionManager:
         stats = await self.get_domain_stats(domain)
         stats.ipv6_enabled = enabled
         await self.update_domain_stats(domain, stats)
-        
+
         logger.info(
             "Set domain IPv6 enabled",
             domain=domain,
             enabled=enabled,
         )
-    
+
     def get_all_domain_stats(self) -> dict[str, DomainIPv6Stats]:
         """Get all domain statistics.
         
@@ -778,7 +778,7 @@ class IPv6ConnectionManager:
             Dictionary of domain -> stats.
         """
         return self._domain_stats.copy()
-    
+
     async def load_domain_stats_from_db(self, db) -> int:
         """Load domain stats from database.
         
@@ -800,17 +800,17 @@ class IPv6ConnectionManager:
                 WHERE ipv6_enabled IS NOT NULL
                 """
             )
-            
+
             async with self._lock:
                 for row in rows:
                     stats = DomainIPv6Stats.from_dict(dict(row))
                     self._domain_stats[stats.domain] = stats
-            
+
             return len(rows)
         except Exception as e:
             logger.warning("Failed to load domain IPv6 stats from DB", error=str(e))
             return 0
-    
+
     async def save_domain_stats_to_db(self, db, domain: str) -> bool:
         """Save domain stats to database.
         
@@ -824,7 +824,7 @@ class IPv6ConnectionManager:
         try:
             stats = await self.get_domain_stats(domain)
             data = stats.to_dict()
-            
+
             # Update or insert into domains table
             await db.execute(
                 """
