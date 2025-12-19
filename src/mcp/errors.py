@@ -62,6 +62,11 @@ class MCPErrorCode(str, Enum):
     """Operation timed out.
     Action: Retry with smaller scope or longer timeout."""
 
+    PIPELINE_TIMEOUT = "PIPELINE_TIMEOUT"
+    """Search pipeline timed out (§2.1.5 safe stop).
+    Partial results may be available. Pipeline state has been saved.
+    Action: Call get_status for partial results, decide to resume or stop."""
+
     # Infrastructure errors
     CHROME_NOT_READY = "CHROME_NOT_READY"
     """Chrome CDP is not connected (auto-start failed).

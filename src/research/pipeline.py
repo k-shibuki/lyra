@@ -35,7 +35,7 @@ class SearchResult:
 
     search_id: str
     query: str
-    status: str = "running"  # satisfied|partial|exhausted|running|failed
+    status: str = "running"  # satisfied|partial|exhausted|running|failed|timeout
     pages_fetched: int = 0
     useful_fragments: int = 0
     harvest_rate: float = 0.0
@@ -48,6 +48,9 @@ class SearchResult:
     # Refutation mode results
     is_refutation: bool = False
     refutations_found: int = 0
+
+    # Timeout flag (§2.1.5)
+    is_partial: bool = False  # True if result is partial due to timeout
 
     # Auth tracking
     auth_blocked_urls: int = 0
@@ -90,6 +93,10 @@ class SearchResult:
         if self.auth_blocked_urls > 0 or self.auth_queued_count > 0:
             result["auth_blocked_urls"] = self.auth_blocked_urls
             result["auth_queued_count"] = self.auth_queued_count
+
+        # Include partial flag for timeout (§2.1.5)
+        if self.is_partial:
+            result["is_partial"] = True
 
         return result
 
@@ -148,6 +155,8 @@ class SearchPipeline:
         """
         Execute a search designed by Cursor AI.
 
+        Applies §2.1.5 pipeline timeout for safe stop on Cursor AI idle.
+
         Args:
             query: The search query (designed by Cursor AI).
             options: Search options.
@@ -163,11 +172,18 @@ class SearchPipeline:
         # Generate search ID
         search_id = f"s_{uuid.uuid4().hex[:8]}"
 
+        # Get timeout from config (§2.1.5)
+        from src.utils.config import get_settings
+
+        settings = get_settings()
+        timeout_seconds = settings.task_limits.cursor_idle_timeout_seconds
+
         with LogContext(task_id=self.task_id, search_id=search_id):
             logger.info(
                 "Executing search",
                 query=query[:100],
                 refute=options.refute,
+                timeout=timeout_seconds,
             )
 
             result = SearchResult(
@@ -177,36 +193,86 @@ class SearchPipeline:
             )
 
             try:
-                if options.refute:
-                    # Refutation mode: use mechanical suffix patterns
-                    result = await self._execute_refutation_search(
-                        search_id, query, options, result
-                    )
-                else:
-                    # Normal search mode
-                    result = await self._execute_normal_search(search_id, query, options, result)
+                # Wrap execution with timeout (§2.1.5)
+                result = await asyncio.wait_for(
+                    self._execute_impl(search_id, query, options, result),
+                    timeout=float(timeout_seconds),
+                )
+            except TimeoutError:
+                # Pipeline timeout - return partial result
+                logger.warning(
+                    "Pipeline timeout - safe stop",
+                    search_id=search_id,
+                    query=query[:50],
+                    timeout=timeout_seconds,
+                )
+                result.status = "timeout"
+                result.is_partial = True
+                result.errors.append(
+                    f"Pipeline timeout after {timeout_seconds}s (§2.1.5 safe stop)"
+                )
 
-                # Calculate remaining budget
-                overall_status = await self.state.get_status()
-                result.budget_remaining = {
-                    "pages": overall_status["budget"]["pages_limit"]
-                    - overall_status["budget"]["pages_used"],
-                    "percent": int(
-                        (
-                            1
-                            - overall_status["budget"]["pages_used"]
-                            / overall_status["budget"]["pages_limit"]
-                        )
-                        * 100
-                    ),
-                }
-
+                # Try to get partial budget info
+                try:
+                    overall_status = await self.state.get_status()
+                    result.budget_remaining = {
+                        "pages": overall_status["budget"]["pages_limit"]
+                        - overall_status["budget"]["pages_used"],
+                        "percent": int(
+                            (
+                                1
+                                - overall_status["budget"]["pages_used"]
+                                / overall_status["budget"]["pages_limit"]
+                            )
+                            * 100
+                        ),
+                    }
+                except Exception:
+                    pass  # Ignore errors when getting partial info
             except Exception as e:
                 logger.error("Search execution failed", error=str(e), exc_info=True)
                 result.status = "failed"
                 result.errors.append(str(e))
 
             return result
+
+    async def _execute_impl(
+        self,
+        search_id: str,
+        query: str,
+        options: SearchOptions,
+        result: SearchResult,
+    ) -> SearchResult:
+        """
+        Internal implementation of search execution.
+
+        Separated from execute() for timeout wrapping (§2.1.5).
+        """
+        if options.refute:
+            # Refutation mode: use mechanical suffix patterns
+            result = await self._execute_refutation_search(
+                search_id, query, options, result
+            )
+        else:
+            # Normal search mode
+            result = await self._execute_normal_search(search_id, query, options, result)
+
+        # Calculate remaining budget
+        overall_status = await self.state.get_status()
+        result.budget_remaining = {
+            "pages": overall_status["budget"]["pages_limit"]
+            - overall_status["budget"]["pages_used"],
+            "percent": int(
+                (
+                    1
+                    - overall_status["budget"]["pages_used"]
+                    / overall_status["budget"]["pages_limit"]
+                )
+                * 100
+            ),
+        }
+
+        return result
 
     async def _execute_normal_search(
         self,

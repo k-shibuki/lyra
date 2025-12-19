@@ -21,6 +21,7 @@ class TaskLimitsConfig(BaseModel):
     llm_time_ratio_max: float = 0.30
     max_manual_interventions: int = 3
     max_manual_intervention_time_minutes: int = 5
+    cursor_idle_timeout_seconds: int = 60  # §2.1.5: Cursor AI idle timeout
 
 
 class SearchConfig(BaseModel):

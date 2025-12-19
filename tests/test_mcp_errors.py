@@ -63,13 +63,13 @@ class TestMCPErrorCode:
 
     def test_error_code_count(self) -> None:
         """
-        Test that exactly 10 error codes are defined.
+        Test that error codes are defined.
 
         // Given: MCPErrorCode enum
         // When: Counting all codes
-        // Then: Count equals 10
+        // Then: Count equals 14 (including PIPELINE_TIMEOUT)
         """
-        assert len(MCPErrorCode) == 13
+        assert len(MCPErrorCode) == 14
 
 
 class TestMCPError:

@@ -275,6 +275,9 @@ class ExplorationState:
         # Novelty tracking (last 2 cycles)
         self._novelty_history: list[float] = []
 
+        # Activity tracking for §2.1.5 Cursor AI idle timeout
+        self._last_activity_at: float = time.time()
+
     def _init_ucb_allocator(self) -> None:
         """Initialize the UCB allocator."""
         from src.research.ucb_allocator import UCBAllocator
@@ -291,6 +294,18 @@ class ExplorationState:
             task_id=self.task_id,
             total_budget=self._pages_limit,
         )
+
+    def record_activity(self) -> None:
+        """Record activity timestamp for §2.1.5 idle timeout tracking."""
+        self._last_activity_at = time.time()
+
+    def get_idle_seconds(self) -> float:
+        """Get seconds since last activity.
+
+        Returns:
+            Seconds elapsed since last activity (search, status check, etc.).
+        """
+        return time.time() - self._last_activity_at
 
     async def _ensure_db(self) -> None:
         """Ensure database connection is available."""
@@ -703,6 +718,18 @@ class ExplorationState:
         auth_warnings = self._generate_auth_queue_alerts(authentication_queue)
         warnings.extend(auth_warnings)
 
+        # Add idle time warning (§2.1.5)
+        idle_seconds = self.get_idle_seconds()
+        from src.utils.config import get_settings
+
+        settings = get_settings()
+        idle_timeout = settings.task_limits.cursor_idle_timeout_seconds
+        if idle_seconds >= idle_timeout:
+            warnings.append(
+                f"Task idle for {int(idle_seconds)} seconds (timeout: {idle_timeout}s). "
+                "Consider resuming or stopping."
+            )
+
         # UCB scores (raw data only, no "recommended_next")
         ucb_scores = None
         if self._ucb_allocator:
@@ -742,6 +769,7 @@ class ExplorationState:
             "ucb_scores": ucb_scores,
             "authentication_queue": authentication_queue,
             "warnings": warnings,
+            "idle_seconds": int(idle_seconds),  # §2.1.5: Cursor AI idle timeout tracking
         }
 
     async def _get_authentication_queue_summary(self) -> dict[str, Any] | None:

@@ -17,6 +17,7 @@ task_limits:
   llm_time_ratio_max: 0.30  # LLM処理≤30%
   max_manual_interventions: 3
   max_manual_intervention_time_minutes: 5
+  cursor_idle_timeout_seconds: 60  # §2.1.5: Cursor AI idle timeout for safe pipeline stop
 
 # === Search Settings ===
 search:
