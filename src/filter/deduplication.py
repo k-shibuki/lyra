@@ -35,7 +35,7 @@ class ShingleTokenizer:
 
     def __init__(self, shingle_size: int = 3, use_words: bool = True):
         """Initialize shingle tokenizer.
-        
+
         Args:
             shingle_size: Size of shingles (n-gram length).
             use_words: If True, use word-level shingles; if False, use character-level.
@@ -74,10 +74,10 @@ class ShingleTokenizer:
 
     def get_shingles(self, text: str) -> set[str]:
         """Extract shingles from text.
-        
+
         Args:
             text: Input text.
-            
+
         Returns:
             Set of shingle strings.
         """
@@ -115,7 +115,7 @@ class MinHashDeduplicator:
         use_word_shingles: bool = True,
     ):
         """Initialize MinHash deduplicator.
-        
+
         Args:
             num_perm: Number of permutations for MinHash.
             threshold: Jaccard similarity threshold for considering duplicates.
@@ -133,10 +133,10 @@ class MinHashDeduplicator:
 
     def _create_minhash(self, text: str) -> MinHash:
         """Create MinHash signature for text.
-        
+
         Args:
             text: Input text.
-            
+
         Returns:
             MinHash object.
         """
@@ -150,7 +150,7 @@ class MinHashDeduplicator:
 
     def add(self, fragment_id: str, text: str) -> None:
         """Add a fragment to the index.
-        
+
         Args:
             fragment_id: Unique identifier for the fragment.
             text: Fragment text content.
@@ -171,7 +171,7 @@ class MinHashDeduplicator:
 
     def add_batch(self, fragments: list[dict[str, Any]]) -> None:
         """Add multiple fragments to the index.
-        
+
         Args:
             fragments: List of dicts with 'id' and 'text' keys.
         """
@@ -180,11 +180,11 @@ class MinHashDeduplicator:
 
     def query(self, text: str, exclude_id: str | None = None) -> list[str]:
         """Find similar fragments to given text.
-        
+
         Args:
             text: Query text.
             exclude_id: Fragment ID to exclude from results.
-            
+
         Returns:
             List of similar fragment IDs.
         """
@@ -198,10 +198,10 @@ class MinHashDeduplicator:
 
     def find_duplicates(self, fragment_id: str) -> list[tuple[str, float]]:
         """Find duplicates of a specific fragment.
-        
+
         Args:
             fragment_id: Fragment ID to find duplicates for.
-            
+
         Returns:
             List of (fragment_id, similarity) tuples.
         """
@@ -221,11 +221,11 @@ class MinHashDeduplicator:
 
     def get_similarity(self, id1: str, id2: str) -> float:
         """Get Jaccard similarity between two indexed fragments.
-        
+
         Args:
             id1: First fragment ID.
             id2: Second fragment ID.
-            
+
         Returns:
             Jaccard similarity score (0.0 to 1.0).
         """
@@ -236,9 +236,9 @@ class MinHashDeduplicator:
 
     def get_clusters(self) -> list[DuplicateCluster]:
         """Get all duplicate clusters.
-        
+
         Uses Union-Find to group fragments into clusters.
-        
+
         Returns:
             List of DuplicateCluster objects.
         """
@@ -297,7 +297,7 @@ class MinHashDeduplicator:
 
     def get_duplicate_ratio(self) -> float:
         """Calculate the ratio of duplicate fragments.
-        
+
         Returns:
             Ratio of fragments in duplicate clusters to total fragments.
         """
@@ -315,11 +315,11 @@ class MinHashDeduplicator:
         keep: str = "first",
     ) -> list[dict[str, Any]]:
         """Remove duplicate fragments, keeping only canonical versions.
-        
+
         Args:
             fragments: List of fragment dicts with 'id' and 'text' keys.
             keep: Strategy for choosing canonical: 'first', 'longest', 'shortest'.
-            
+
         Returns:
             Deduplicated list of fragments.
         """
@@ -360,14 +360,14 @@ class MinHashDeduplicator:
 
 class SimHash:
     """SimHash implementation for near-duplicate detection.
-    
+
     SimHash is better for detecting documents with small changes,
     while MinHash is better for set similarity (shared shingles).
     """
 
     def __init__(self, bit_size: int = 64, shingle_size: int = 3):
         """Initialize SimHash.
-        
+
         Args:
             bit_size: Number of bits in the hash (64 or 128).
             shingle_size: Size of shingles for tokenization.
@@ -385,10 +385,10 @@ class SimHash:
 
     def compute(self, text: str) -> int:
         """Compute SimHash for text.
-        
+
         Args:
             text: Input text.
-            
+
         Returns:
             SimHash value as integer.
         """
@@ -420,11 +420,11 @@ class SimHash:
 
     def add(self, fragment_id: str, text: str) -> int:
         """Add a fragment and return its SimHash.
-        
+
         Args:
             fragment_id: Unique identifier.
             text: Fragment text.
-            
+
         Returns:
             Computed SimHash value.
         """
@@ -435,11 +435,11 @@ class SimHash:
     @staticmethod
     def hamming_distance(hash1: int, hash2: int) -> int:
         """Calculate Hamming distance between two hashes.
-        
+
         Args:
             hash1: First hash.
             hash2: Second hash.
-            
+
         Returns:
             Number of differing bits.
         """
@@ -448,11 +448,11 @@ class SimHash:
 
     def get_distance(self, id1: str, id2: str) -> int:
         """Get Hamming distance between two indexed fragments.
-        
+
         Args:
             id1: First fragment ID.
             id2: Second fragment ID.
-            
+
         Returns:
             Hamming distance (0 = identical).
         """
@@ -463,12 +463,12 @@ class SimHash:
 
     def is_similar(self, id1: str, id2: str, max_distance: int = 3) -> bool:
         """Check if two fragments are similar (within Hamming distance threshold).
-        
+
         Args:
             id1: First fragment ID.
             id2: Second fragment ID.
             max_distance: Maximum Hamming distance to consider similar.
-            
+
         Returns:
             True if similar.
         """
@@ -480,11 +480,11 @@ class SimHash:
         max_distance: int = 3,
     ) -> list[tuple[str, int]]:
         """Find similar fragments to a given one.
-        
+
         Args:
             fragment_id: Fragment ID to search for.
             max_distance: Maximum Hamming distance.
-            
+
         Returns:
             List of (fragment_id, distance) tuples.
         """
@@ -509,7 +509,7 @@ class SimHash:
 
 class HybridDeduplicator:
     """Combines MinHash and SimHash for robust deduplication.
-    
+
     Uses MinHash for initial candidate detection (high recall),
     then SimHash for verification (high precision).
     """
@@ -523,7 +523,7 @@ class HybridDeduplicator:
         shingle_size: int = 3,
     ):
         """Initialize hybrid deduplicator.
-        
+
         Args:
             minhash_threshold: MinHash similarity threshold.
             simhash_max_distance: SimHash maximum Hamming distance.
@@ -541,7 +541,7 @@ class HybridDeduplicator:
 
     def add(self, fragment_id: str, text: str) -> None:
         """Add a fragment to both indexes.
-        
+
         Args:
             fragment_id: Unique identifier.
             text: Fragment text.
@@ -551,7 +551,7 @@ class HybridDeduplicator:
 
     def add_batch(self, fragments: list[dict[str, Any]]) -> None:
         """Add multiple fragments.
-        
+
         Args:
             fragments: List of dicts with 'id' and 'text' keys.
         """
@@ -560,10 +560,10 @@ class HybridDeduplicator:
 
     def find_duplicates(self, fragment_id: str) -> list[tuple[str, float, int]]:
         """Find duplicates using both methods.
-        
+
         Args:
             fragment_id: Fragment ID to search for.
-            
+
         Returns:
             List of (fragment_id, minhash_similarity, simhash_distance) tuples.
         """
@@ -589,11 +589,11 @@ class HybridDeduplicator:
         keep: str = "first",
     ) -> list[dict[str, Any]]:
         """Remove duplicates using hybrid verification.
-        
+
         Args:
             fragments: List of fragment dicts.
             keep: Strategy for choosing canonical.
-            
+
         Returns:
             Deduplicated list.
         """
@@ -611,7 +611,7 @@ _deduplicator: MinHashDeduplicator | None = None
 
 def get_deduplicator() -> MinHashDeduplicator:
     """Get or create the global deduplicator instance.
-    
+
     Returns:
         MinHashDeduplicator instance.
     """
@@ -634,11 +634,11 @@ async def deduplicate_fragments(
     keep: str = "first",
 ) -> dict[str, Any]:
     """Deduplicate a list of text fragments.
-    
+
     Args:
         fragments: List of dicts with 'id' and 'text' keys.
         keep: Strategy: 'first', 'longest', 'shortest'.
-        
+
     Returns:
         Dict with 'fragments' (deduplicated), 'clusters', and 'duplicate_ratio'.
     """

@@ -33,17 +33,17 @@ class RelationType(str, Enum):
 
 class EvidenceGraph:
     """Evidence graph for tracking claim-evidence relationships.
-    
+
     Uses a directed graph where:
     - Nodes represent claims, fragments, or pages
     - Edges represent relationships (supports, refutes, cites, neutral)
-    
+
     The graph is backed by SQLite for persistence.
     """
 
     def __init__(self, task_id: str | None = None):
         """Initialize evidence graph.
-        
+
         Args:
             task_id: Associated task ID for scoping.
         """
@@ -52,11 +52,11 @@ class EvidenceGraph:
 
     def _make_node_id(self, node_type: NodeType, obj_id: str) -> str:
         """Create composite node ID.
-        
+
         Args:
             node_type: Type of node.
             obj_id: Object ID.
-            
+
         Returns:
             Composite node ID.
         """
@@ -64,10 +64,10 @@ class EvidenceGraph:
 
     def _parse_node_id(self, node_id: str) -> tuple[NodeType, str]:
         """Parse composite node ID.
-        
+
         Args:
             node_id: Composite node ID.
-            
+
         Returns:
             Tuple of (NodeType, object_id).
         """
@@ -81,12 +81,12 @@ class EvidenceGraph:
         **attributes: Any,
     ) -> str:
         """Add a node to the graph.
-        
+
         Args:
             node_type: Type of node (claim, fragment, page).
             obj_id: Object ID.
             **attributes: Additional node attributes.
-            
+
         Returns:
             Node ID.
         """
@@ -114,7 +114,7 @@ class EvidenceGraph:
         **attributes: Any,
     ) -> str:
         """Add an edge (relationship) to the graph.
-        
+
         Args:
             source_type: Type of source node.
             source_id: Source object ID.
@@ -125,7 +125,7 @@ class EvidenceGraph:
             nli_label: NLI model label.
             nli_confidence: NLI model confidence.
             **attributes: Additional edge attributes.
-            
+
         Returns:
             Edge ID.
         """
@@ -158,10 +158,10 @@ class EvidenceGraph:
         claim_id: str,
     ) -> list[dict[str, Any]]:
         """Get all evidence supporting a claim.
-        
+
         Args:
             claim_id: Claim object ID.
-            
+
         Returns:
             List of supporting evidence dicts.
         """
@@ -196,10 +196,10 @@ class EvidenceGraph:
         claim_id: str,
     ) -> list[dict[str, Any]]:
         """Get all evidence refuting a claim.
-        
+
         Args:
             claim_id: Claim object ID.
-            
+
         Returns:
             List of refuting evidence dicts.
         """
@@ -233,10 +233,10 @@ class EvidenceGraph:
         claim_id: str,
     ) -> dict[str, list[dict[str, Any]]]:
         """Get all evidence for a claim, categorized by relation.
-        
+
         Args:
             claim_id: Claim object ID.
-            
+
         Returns:
             Dict with 'supports', 'refutes', 'neutral' lists.
         """
@@ -279,12 +279,12 @@ class EvidenceGraph:
         max_depth: int = 5,
     ) -> list[dict[str, Any]]:
         """Trace citation chain from a node to primary sources.
-        
+
         Args:
             node_type: Starting node type.
             obj_id: Starting object ID.
             max_depth: Maximum chain depth.
-            
+
         Returns:
             List of nodes in citation chain.
         """
@@ -331,10 +331,10 @@ class EvidenceGraph:
         claim_id: str,
     ) -> dict[str, Any]:
         """Calculate overall confidence for a claim based on evidence.
-        
+
         Args:
             claim_id: Claim object ID.
-            
+
         Returns:
             Confidence assessment dict.
         """
@@ -398,7 +398,7 @@ class EvidenceGraph:
 
     def find_contradictions(self) -> list[dict[str, Any]]:
         """Find contradicting claims in the graph.
-        
+
         Returns:
             List of contradiction pairs.
         """
@@ -438,10 +438,10 @@ class EvidenceGraph:
 
     def detect_citation_loops(self) -> list[dict[str, Any]]:
         """Detect citation loops (cycles) in the graph.
-        
+
         Citation loops occur when sources cite each other in a circular pattern,
         e.g., A cites B, B cites C, C cites A.
-        
+
         Returns:
             List of detected loops with metadata.
         """
@@ -490,10 +490,10 @@ class EvidenceGraph:
 
     def detect_round_trips(self) -> list[dict[str, Any]]:
         """Detect round-trip citations (A cites B, B cites A).
-        
+
         Round-trips are a special case of citation loops with length 2,
         indicating mutual citation which may be problematic for credibility.
-        
+
         Returns:
             List of round-trip pairs.
         """
@@ -539,11 +539,11 @@ class EvidenceGraph:
 
     def detect_self_references(self) -> list[dict[str, Any]]:
         """Detect self-references (node citing itself or same-domain citations).
-        
+
         Self-references include:
         - Direct self-loops (A cites A)
         - Same-domain citations (detected by domain attribute if available)
-        
+
         Returns:
             List of self-reference issues.
         """
@@ -596,10 +596,10 @@ class EvidenceGraph:
 
     def _calculate_loop_severity(self, loop_length: int) -> str:
         """Calculate severity of a citation loop based on length.
-        
+
         Args:
             loop_length: Number of nodes in the loop.
-            
+
         Returns:
             Severity level (critical/high/medium/low).
         """
@@ -614,10 +614,10 @@ class EvidenceGraph:
 
     def calculate_citation_penalties(self) -> dict[str, float]:
         """Calculate citation-based penalties for nodes.
-        
+
         Nodes involved in loops, round-trips, or self-references
         receive penalty scores that reduce their credibility weight.
-        
+
         Returns:
             Dict mapping node_id to penalty score (0.0 to 1.0, where 1.0 = no penalty).
         """
@@ -675,7 +675,7 @@ class EvidenceGraph:
 
     def get_citation_integrity_report(self) -> dict[str, Any]:
         """Generate comprehensive citation integrity report.
-        
+
         Returns:
             Report dict with loops, round-trips, self-refs, and metrics.
         """
@@ -733,10 +733,10 @@ class EvidenceGraph:
 
     def get_primary_source_ratio(self) -> dict[str, Any]:
         """Calculate the ratio of primary vs secondary source citations.
-        
+
         Primary sources are pages with depth 0 in citation chains.
         Secondary sources cite other sources.
-        
+
         Returns:
             Ratio information dict.
         """
@@ -776,7 +776,7 @@ class EvidenceGraph:
 
     def get_stats(self) -> dict[str, Any]:
         """Get graph statistics.
-        
+
         Returns:
             Statistics dict.
         """
@@ -849,7 +849,7 @@ class EvidenceGraph:
 
     async def load_from_db(self, task_id: str | None = None) -> None:
         """Load graph edges from database.
-        
+
         Args:
             task_id: Optional task ID to filter by.
         """
@@ -899,7 +899,7 @@ class EvidenceGraph:
 
     def to_dict(self) -> dict[str, Any]:
         """Export graph as dict.
-        
+
         Returns:
             Graph data as dict.
         """
@@ -930,10 +930,10 @@ _graph: EvidenceGraph | None = None
 
 async def get_evidence_graph(task_id: str | None = None) -> EvidenceGraph:
     """Get or create evidence graph for a task.
-    
+
     Args:
         task_id: Task ID.
-        
+
     Returns:
         EvidenceGraph instance.
     """
@@ -957,7 +957,7 @@ async def add_claim_evidence(
     task_id: str | None = None,
 ) -> str:
     """Add evidence relationship for a claim.
-    
+
     Args:
         claim_id: Claim ID.
         fragment_id: Fragment ID providing evidence.
@@ -966,7 +966,7 @@ async def add_claim_evidence(
         nli_label: NLI model label.
         nli_confidence: NLI model confidence.
         task_id: Task ID.
-        
+
     Returns:
         Edge ID.
     """
@@ -1017,7 +1017,7 @@ async def add_citation(
     citation_context: str | None = None,
 ) -> str:
     """Add citation relationship.
-    
+
     Args:
         source_type: Source node type (fragment/claim).
         source_id: Source object ID.
@@ -1026,7 +1026,7 @@ async def add_citation(
         is_academic: Whether this is an academic citation.
         is_influential: Whether this is an influential citation (Semantic Scholar).
         citation_context: Citation context text.
-        
+
     Returns:
         Edge ID.
     """
@@ -1070,9 +1070,9 @@ async def add_academic_page_with_citations(
     paper_to_page_map: dict[str, str] | None = None,
 ) -> None:
     """Add academic paper and its citations to evidence graph.
-    
+
     Adds PAGE node with academic metadata and CITES edges for citation relationships.
-    
+
     Args:
         page_id: Page ID (from pages table)
         paper_metadata: Paper metadata dict (from paper_metadata JSON column)
@@ -1176,11 +1176,11 @@ async def get_claim_assessment(
     task_id: str | None = None,
 ) -> dict[str, Any]:
     """Get comprehensive assessment for a claim.
-    
+
     Args:
         claim_id: Claim ID.
         task_id: Task ID.
-        
+
     Returns:
         Assessment dict with evidence and confidence.
     """

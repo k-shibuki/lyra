@@ -122,10 +122,10 @@ class HumanBehaviorConfig:
     @classmethod
     def from_yaml(cls, path: str | Path) -> "HumanBehaviorConfig":
         """Load configuration from YAML file.
-        
+
         Args:
             path: Path to YAML configuration file.
-            
+
         Returns:
             HumanBehaviorConfig instance.
         """
@@ -174,14 +174,14 @@ class Point:
 
 class MouseTrajectory:
     """Generates human-like mouse movement trajectories.
-    
+
     Uses Bezier curves with natural acceleration/deceleration patterns
     to create realistic mouse paths.
     """
 
     def __init__(self, config: MouseConfig | None = None):
         """Initialize mouse trajectory generator.
-        
+
         Args:
             config: Mouse configuration. Uses defaults if not provided.
         """
@@ -193,11 +193,11 @@ class MouseTrajectory:
         end: tuple[float, float],
     ) -> list[tuple[float, float, float]]:
         """Generate a human-like mouse movement path.
-        
+
         Args:
             start: Starting (x, y) coordinates.
             end: Ending (x, y) coordinates.
-            
+
         Returns:
             List of (x, y, delay_ms) tuples representing the path.
         """
@@ -251,11 +251,11 @@ class MouseTrajectory:
         end: Point,
     ) -> list[Point]:
         """Generate Bezier control points.
-        
+
         Args:
             start: Starting point.
             end: Ending point.
-            
+
         Returns:
             List of control points including start and end.
         """
@@ -288,13 +288,13 @@ class MouseTrajectory:
         control_points: list[Point],
     ) -> tuple[float, float]:
         """Calculate point on Bezier curve.
-        
+
         Uses de Casteljau's algorithm for arbitrary-order Bezier curves.
-        
+
         Args:
             t: Parameter (0 to 1).
             control_points: Control points of the curve.
-            
+
         Returns:
             (x, y) coordinates at parameter t.
         """
@@ -312,13 +312,13 @@ class MouseTrajectory:
 
     def _get_speed_factor(self, t: float) -> float:
         """Calculate speed factor for acceleration/deceleration.
-        
+
         Creates natural movement where mouse accelerates at start
         and decelerates at end.
-        
+
         Args:
             t: Parameter (0 to 1).
-            
+
         Returns:
             Speed multiplier (>1 = faster, <1 = slower).
         """
@@ -357,7 +357,7 @@ class TypingEvent:
 
 class HumanTyping:
     """Simulates human-like typing patterns.
-    
+
     Features:
     - Gaussian-distributed key delays
     - Longer pauses after punctuation
@@ -366,7 +366,7 @@ class HumanTyping:
 
     def __init__(self, config: TypingConfig | None = None):
         """Initialize human typing simulator.
-        
+
         Args:
             config: Typing configuration. Uses defaults if not provided.
         """
@@ -374,10 +374,10 @@ class HumanTyping:
 
     def generate_keystrokes(self, text: str) -> list[TypingEvent]:
         """Generate typing events for a text string.
-        
+
         Args:
             text: Text to type.
-            
+
         Returns:
             List of TypingEvent objects representing keystrokes.
         """
@@ -403,11 +403,11 @@ class HumanTyping:
 
     def _get_key_delay(self, char: str, prev_char: str | None) -> float:
         """Calculate delay before typing a character.
-        
+
         Args:
             char: Character to type.
             prev_char: Previous character (for context).
-            
+
         Returns:
             Delay in milliseconds.
         """
@@ -428,10 +428,10 @@ class HumanTyping:
 
     def _generate_typo(self, intended_char: str) -> list[TypingEvent]:
         """Generate a typo and its correction.
-        
+
         Args:
             intended_char: The character user intended to type.
-            
+
         Returns:
             List of events: typo + pause + backspace + correct char.
         """
@@ -498,7 +498,7 @@ class ScrollStep:
 
 class InertialScroll:
     """Simulates human-like scrolling with inertia.
-    
+
     Features:
     - Ease-out animation (fast start, slow end)
     - Variable scroll amounts
@@ -508,7 +508,7 @@ class InertialScroll:
 
     def __init__(self, config: ScrollConfig | None = None):
         """Initialize inertial scroll simulator.
-        
+
         Args:
             config: Scroll configuration. Uses defaults if not provided.
         """
@@ -521,12 +521,12 @@ class InertialScroll:
         viewport_height: int,
     ) -> list[ScrollStep]:
         """Generate a sequence of scroll steps to read a page.
-        
+
         Args:
             current_position: Current scroll position.
             page_height: Total page height.
             viewport_height: Viewport height.
-            
+
         Returns:
             List of ScrollStep objects representing the scroll sequence.
         """
@@ -576,12 +576,12 @@ class InertialScroll:
         num_steps: int = 10,
     ) -> list[ScrollStep]:
         """Generate scroll animation with ease-out effect.
-        
+
         Args:
             start: Starting scroll position.
             end: Ending scroll position.
             num_steps: Number of animation steps.
-            
+
         Returns:
             List of ScrollStep objects for the animation.
         """
@@ -606,11 +606,11 @@ class InertialScroll:
         intensity: float = 1.0,
     ) -> list[ScrollStep]:
         """Generate a single scroll gesture.
-        
+
         Args:
             direction: Scroll direction (1 = down, -1 = up).
             intensity: Scroll intensity multiplier.
-            
+
         Returns:
             List of ScrollStep objects for the scroll animation.
         """
@@ -638,14 +638,14 @@ class InertialScroll:
 
 class HumanBehaviorSimulator:
     """Unified interface for human-like browser interactions.
-    
+
     Combines mouse, typing, and scroll behaviors with a convenient API
     for use with Playwright pages.
     """
 
     def __init__(self, config: HumanBehaviorConfig | None = None):
         """Initialize human behavior simulator.
-        
+
         Args:
             config: Complete behavior configuration. Uses defaults if not provided.
         """
@@ -657,10 +657,10 @@ class HumanBehaviorSimulator:
     @classmethod
     def from_config_file(cls, path: str | Path) -> "HumanBehaviorSimulator":
         """Create simulator from YAML configuration file.
-        
+
         Args:
             path: Path to YAML configuration file.
-            
+
         Returns:
             HumanBehaviorSimulator instance.
         """
@@ -674,7 +674,7 @@ class HumanBehaviorSimulator:
         end: tuple[float, float],
     ) -> None:
         """Move mouse from start to end with human-like trajectory.
-        
+
         Args:
             page: Playwright page object.
             start: Starting (x, y) coordinates.
@@ -689,11 +689,11 @@ class HumanBehaviorSimulator:
 
     async def move_to_element(self, page, selector: str) -> bool:
         """Move mouse to element with human-like trajectory.
-        
+
         Args:
             page: Playwright page object.
             selector: CSS selector for target element.
-            
+
         Returns:
             True if element found and mouse moved successfully.
         """
@@ -730,7 +730,7 @@ class HumanBehaviorSimulator:
         selector: str | None = None,
     ) -> None:
         """Type text with human-like rhythm.
-        
+
         Args:
             page: Playwright page object.
             text: Text to type.
@@ -759,7 +759,7 @@ class HumanBehaviorSimulator:
         direction: int = 1,
     ) -> None:
         """Scroll page with human-like inertia.
-        
+
         Args:
             page: Playwright page object.
             amount: Scroll amount in pixels (None for default).
@@ -781,7 +781,7 @@ class HumanBehaviorSimulator:
         max_scrolls: int = 5,
     ) -> None:
         """Simulate reading a page with natural scrolling.
-        
+
         Args:
             page: Playwright page object.
             max_scrolls: Maximum number of scroll actions.
@@ -828,13 +828,13 @@ class HumanBehaviorSimulator:
         max_seconds: float = 2.0,
     ) -> float:
         """Generate a random delay following human-like distribution.
-        
+
         Uses log-normal distribution to better simulate human reaction times.
-        
+
         Args:
             min_seconds: Minimum delay.
             max_seconds: Maximum delay.
-            
+
         Returns:
             Delay in seconds.
         """
@@ -858,11 +858,11 @@ def get_human_behavior_simulator(
     config_path: str | Path | None = None,
 ) -> HumanBehaviorSimulator:
     """Get or create the global human behavior simulator.
-    
+
     Args:
         config_path: Optional path to YAML configuration file.
             If provided and different from current, reloads config.
-            
+
     Returns:
         HumanBehaviorSimulator instance.
     """

@@ -63,7 +63,7 @@ class PivotType(Enum):
 @dataclass
 class PivotSuggestion:
     """A suggested pivot query for exploration.
-    
+
     Attributes:
         pivot_type: Type of pivot expansion.
         query_template: Query template with placeholders.
@@ -280,7 +280,7 @@ PERSON_PIVOT_TEMPLATES = {
 class PivotExpander:
     """
     Generates pivot queries for OSINT entity expansion.
-    
+
     Implements §3.1.1 pivot exploration patterns. This class generates
     query suggestions for Cursor AI to consider when designing subqueries.
     It does NOT decide which pivots to execute - that remains Cursor AI's
@@ -302,13 +302,13 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """
         Generate pivot suggestions for an entity.
-        
+
         Args:
             entity_text: The entity text to expand.
             entity_type: Type of entity (organization, domain, person, etc.).
             context: Additional context about the entity.
             include_low_priority: Whether to include low-priority pivots.
-            
+
         Returns:
             List of pivot suggestions ordered by priority.
         """
@@ -464,11 +464,11 @@ class PivotExpander:
     ) -> dict[str, list[PivotSuggestion]]:
         """
         Generate pivot suggestions for multiple entities.
-        
+
         Args:
             entities: List of entity dictionaries with 'text' and 'type' keys.
             include_low_priority: Whether to include low-priority pivots.
-            
+
         Returns:
             Dictionary mapping entity text to list of suggestions.
         """
@@ -498,11 +498,11 @@ class PivotExpander:
     ) -> list[PivotSuggestion]:
         """
         Get highest priority pivots across all entities.
-        
+
         Args:
             entities: List of entity dictionaries.
             max_per_entity: Maximum pivots per entity.
-            
+
         Returns:
             List of top priority pivot suggestions.
         """
@@ -533,16 +533,16 @@ class PivotExpander:
 def detect_entity_type(text: str) -> EntityType | None:
     """
     Attempt to detect the type of an entity from its text.
-    
+
     Detection order is important - more specific patterns first:
     1. Organization (has distinctive suffixes)
     2. Domain (has distinctive TLD patterns)
     3. Location (check before person to avoid false positives)
     4. Person (most general pattern)
-    
+
     Args:
         text: Entity text to analyze.
-        
+
     Returns:
         Detected EntityType or None if unknown.
     """

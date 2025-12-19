@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 
 class HumanBehaviorSimulator:
     """Simulates human-like browser interactions.
-    
+
     Implements realistic delays, mouse movements, and scrolling patterns
     to reduce bot detection per §4.3 (stealth requirements).
     """
@@ -44,7 +44,7 @@ class HumanBehaviorSimulator:
     @staticmethod
     def random_delay(min_seconds: float = 0.5, max_seconds: float = 2.0) -> float:
         """Generate a random delay following human-like distribution.
-        
+
         Uses log-normal distribution to better simulate human reaction times.
         """
         mu = 0.0
@@ -96,7 +96,7 @@ class HumanBehaviorSimulator:
 class PlaywrightProvider(BaseBrowserProvider):
     """
     Browser provider implementation using Playwright.
-    
+
     Supports:
     - Headless and headful browser modes
     - CDP connection to Windows Chrome
@@ -132,10 +132,10 @@ class PlaywrightProvider(BaseBrowserProvider):
         mode: BrowserMode,
     ) -> tuple[Any, Any]:
         """Get or create browser and context for the specified mode.
-        
+
         Args:
             mode: Browser mode (headless/headful).
-            
+
         Returns:
             Tuple of (browser, context).
         """
@@ -250,7 +250,7 @@ class PlaywrightProvider(BaseBrowserProvider):
 
     def _is_challenge_page(self, content: str) -> tuple[bool, str | None]:
         """Check if page is a challenge/captcha page.
-        
+
         Returns:
             Tuple of (is_challenge, challenge_type).
         """
@@ -582,7 +582,7 @@ _playwright_provider: PlaywrightProvider | None = None
 def get_playwright_provider() -> PlaywrightProvider:
     """
     Get or create the global PlaywrightProvider instance.
-    
+
     Returns:
         PlaywrightProvider instance.
     """

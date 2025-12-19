@@ -40,7 +40,7 @@ class ResourceType(Enum):
 @dataclass
 class ResourceInfo:
     """Information about a tracked resource.
-    
+
     Attributes:
         resource_type: Type of the resource.
         resource: The actual resource object.
@@ -61,13 +61,13 @@ class ResourceInfo:
 
 class ProcessLifecycleManager:
     """Manages lifecycle of browser and LLM processes.
-    
+
     Provides centralized cleanup for:
     - Browser instances (Playwright browsers and contexts)
     - Ollama sessions and model context
     - HTTP sessions
     - Tor controller connections
-    
+
     Per §4.2 requirements:
     - Resources are tracked per task
     - Automatic cleanup on task completion
@@ -91,7 +91,7 @@ class ProcessLifecycleManager:
         task_id: str | None = None,
     ) -> None:
         """Register a resource for lifecycle management.
-        
+
         Args:
             resource_id: Unique identifier for the resource.
             resource_type: Type of the resource.
@@ -119,7 +119,7 @@ class ProcessLifecycleManager:
 
     async def unregister_resource(self, resource_id: str) -> None:
         """Unregister a resource without cleanup.
-        
+
         Args:
             resource_id: Resource identifier.
         """
@@ -139,10 +139,10 @@ class ProcessLifecycleManager:
 
     async def cleanup_resource(self, resource_id: str) -> bool:
         """Cleanup and unregister a specific resource.
-        
+
         Args:
             resource_id: Resource identifier.
-            
+
         Returns:
             True if cleanup was successful.
         """
@@ -166,13 +166,13 @@ class ProcessLifecycleManager:
 
     async def cleanup_task_resources(self, task_id: str) -> dict[str, bool]:
         """Cleanup all resources associated with a task.
-        
+
         Per §4.2: Browser instances and LLM processes are destroyed
         after task completion to prevent memory leaks.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             Dict mapping resource_id to cleanup success status.
         """
@@ -209,7 +209,7 @@ class ProcessLifecycleManager:
 
     async def cleanup_all(self) -> dict[str, bool]:
         """Cleanup all registered resources.
-        
+
         Returns:
             Dict mapping resource_id to cleanup success status.
         """
@@ -239,11 +239,11 @@ class ProcessLifecycleManager:
         max_idle_seconds: float = 600,
     ) -> dict[str, bool]:
         """Cleanup resources that are too old or have been idle too long.
-        
+
         Args:
             max_age_seconds: Maximum age in seconds (default: 1 hour).
             max_idle_seconds: Maximum idle time in seconds (default: 10 minutes).
-            
+
         Returns:
             Dict mapping resource_id to cleanup success status.
         """
@@ -274,9 +274,9 @@ class ProcessLifecycleManager:
         callback: Callable[[], Coroutine[Any, Any, None]],
     ) -> None:
         """Register an additional cleanup callback.
-        
+
         Callbacks are run during cleanup_all().
-        
+
         Args:
             callback: Async function to call during cleanup.
         """
@@ -284,7 +284,7 @@ class ProcessLifecycleManager:
 
     def touch_resource(self, resource_id: str) -> None:
         """Update last used timestamp for a resource.
-        
+
         Args:
             resource_id: Resource identifier.
         """
@@ -297,11 +297,11 @@ class ProcessLifecycleManager:
         task_id: str | None = None,
     ) -> int:
         """Get count of registered resources.
-        
+
         Args:
             resource_type: Filter by resource type.
             task_id: Filter by task ID.
-            
+
         Returns:
             Number of matching resources.
         """
@@ -316,10 +316,10 @@ class ProcessLifecycleManager:
 
     async def _cleanup_single_resource(self, info: ResourceInfo) -> bool:
         """Cleanup a single resource based on its type.
-        
+
         Args:
             info: Resource information.
-            
+
         Returns:
             True if cleanup was successful.
         """
@@ -363,7 +363,7 @@ class ProcessLifecycleManager:
 
     async def _cleanup_browser(self, browser) -> None:
         """Cleanup Playwright browser instance.
-        
+
         Args:
             browser: Playwright browser object.
         """
@@ -374,7 +374,7 @@ class ProcessLifecycleManager:
 
     async def _cleanup_browser_context(self, context) -> None:
         """Cleanup Playwright browser context.
-        
+
         Args:
             context: Playwright context object.
         """
@@ -385,7 +385,7 @@ class ProcessLifecycleManager:
 
     async def _cleanup_playwright(self, playwright) -> None:
         """Cleanup Playwright instance.
-        
+
         Args:
             playwright: Playwright instance.
         """
@@ -396,9 +396,9 @@ class ProcessLifecycleManager:
 
     async def _cleanup_ollama_session(self, session_info: dict) -> None:
         """Cleanup Ollama session and release model context.
-        
+
         Per §4.2: LLM process context should be released after task completion.
-        
+
         Args:
             session_info: Dict with 'session' and optionally 'model' keys.
         """
@@ -419,7 +419,7 @@ class ProcessLifecycleManager:
 
     async def _unload_ollama_model(self, host: str, model: str) -> None:
         """Unload Ollama model to free VRAM.
-        
+
         Args:
             host: Ollama host URL.
             model: Model name to unload.
@@ -456,7 +456,7 @@ class ProcessLifecycleManager:
 
     async def _cleanup_http_session(self, session: aiohttp.ClientSession) -> None:
         """Cleanup aiohttp session.
-        
+
         Args:
             session: aiohttp ClientSession.
         """
@@ -468,7 +468,7 @@ class ProcessLifecycleManager:
 
     async def _cleanup_tor_controller(self, controller) -> None:
         """Cleanup Tor controller connection.
-        
+
         Args:
             controller: Tor controller object.
         """
@@ -484,7 +484,7 @@ _lifecycle_manager: ProcessLifecycleManager | None = None
 
 def get_lifecycle_manager() -> ProcessLifecycleManager:
     """Get or create the global lifecycle manager.
-    
+
     Returns:
         ProcessLifecycleManager instance.
     """
@@ -496,12 +496,12 @@ def get_lifecycle_manager() -> ProcessLifecycleManager:
 
 async def cleanup_task(task_id: str) -> dict[str, bool]:
     """Cleanup all resources for a completed task.
-    
+
     Convenience function for task completion cleanup.
-    
+
     Args:
         task_id: Task identifier.
-        
+
     Returns:
         Dict mapping resource_id to cleanup success status.
     """
@@ -511,9 +511,9 @@ async def cleanup_task(task_id: str) -> dict[str, bool]:
 
 async def cleanup_all_resources() -> dict[str, bool]:
     """Cleanup all registered resources.
-    
+
     Convenience function for shutdown cleanup.
-    
+
     Returns:
         Dict mapping resource_id to cleanup success status.
     """
@@ -528,13 +528,13 @@ async def register_browser_for_task(
     playwright=None,
 ) -> list[str]:
     """Register browser resources for task-scoped lifecycle management.
-    
+
     Args:
         task_id: Task identifier.
         browser: Playwright browser object.
         context: Playwright browser context (optional).
         playwright: Playwright instance (optional).
-        
+
     Returns:
         List of registered resource IDs.
     """
@@ -582,12 +582,12 @@ async def register_ollama_session_for_task(
     model: str | None = None,
 ) -> str:
     """Register Ollama session for task-scoped lifecycle management.
-    
+
     Args:
         task_id: Task identifier.
         session: aiohttp ClientSession for Ollama.
         model: Currently loaded model name (optional).
-        
+
     Returns:
         Registered resource ID.
     """

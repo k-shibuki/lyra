@@ -144,20 +144,20 @@ class SanitizedExceptionInfo:
 class SecureLogger:
     """
     Secure logger that prevents sensitive information leakage.
-    
+
     Provides methods for logging LLM I/O, exceptions, and other
     potentially sensitive information in a safe manner.
-    
+
     Usage:
         secure_log = SecureLogger("my_module")
-        
+
         # Log LLM input/output
         secure_log.log_llm_io(
             "llm_extract",
             input_text=user_content,
             output_text=llm_response,
         )
-        
+
         # Log exception safely
         try:
             dangerous_operation()
@@ -168,7 +168,7 @@ class SecureLogger:
     def __init__(self, name: str | None = None):
         """
         Initialize secure logger.
-        
+
         Args:
             name: Logger name (usually __name__).
         """
@@ -185,10 +185,10 @@ class SecureLogger:
     ) -> None:
         """
         Log LLM input/output as safe summaries.
-        
+
         Per §4.4.1 L8: Never log full prompt text.
         Instead, log hash, length, and masked preview.
-        
+
         Args:
             operation: Name of LLM operation (e.g., "llm_extract").
             input_text: Input text sent to LLM (optional).
@@ -223,16 +223,16 @@ class SecureLogger:
     ) -> SanitizedExceptionInfo:
         """
         Log an exception with sanitized information.
-        
+
         Per §4.4.1 L8: Sanitize exception messages before logging.
         Internal trace is logged separately at DEBUG level only if requested.
-        
+
         Args:
             exception: Exception to log.
             context: Additional context dict.
             level: Log level for sanitized message.
             include_internal_trace: Whether to log full trace at DEBUG.
-            
+
         Returns:
             SanitizedExceptionInfo for potential response use.
         """
@@ -270,9 +270,9 @@ class SecureLogger:
     ) -> None:
         """
         Log a sensitive operation with sanitized details.
-        
+
         Automatically masks any values that look like prompts or paths.
-        
+
         Args:
             operation: Operation name.
             details: Details dict (values will be sanitized).
@@ -309,11 +309,11 @@ class SecureLogger:
     ) -> tuple[str, bool]:
         """
         Create a safe preview of text for logging.
-        
+
         Args:
             text: Original text.
             max_length: Maximum preview length.
-            
+
         Returns:
             Tuple of (preview, had_sensitive_content).
         """
@@ -400,9 +400,9 @@ class SecureLogger:
 class AuditLogger:
     """
     Security audit logger for recording detection events.
-    
+
     Per §4.4.1: Records security-relevant events for monitoring and review.
-    
+
     Usage:
         audit = AuditLogger()
         audit.log_security_event(
@@ -425,13 +425,13 @@ class AuditLogger:
     ) -> str:
         """
         Log a security event.
-        
+
         Args:
             event_type: Type of security event.
             severity: Event severity (low, medium, high, critical).
             details: Additional details (will be sanitized).
             task_id: Associated task ID if applicable.
-            
+
         Returns:
             Event ID for reference.
         """
@@ -469,12 +469,12 @@ class AuditLogger:
     ) -> str:
         """
         Log a prompt leakage detection event.
-        
+
         Args:
             source: Source of leakage (e.g., "llm_extract", "mcp_response").
             fragment_count: Number of leaked fragments detected.
             task_id: Associated task ID.
-            
+
         Returns:
             Event ID.
         """
@@ -496,12 +496,12 @@ class AuditLogger:
     ) -> str:
         """
         Log dangerous pattern detection.
-        
+
         Args:
             patterns: List of detected pattern names (not content).
             source: Source of input.
             task_id: Associated task ID.
-            
+
         Returns:
             Event ID.
         """
@@ -555,9 +555,9 @@ def sanitize_log_processor(
 ) -> dict[str, Any]:
     """
     Structlog processor that sanitizes sensitive content in logs.
-    
+
     Per §4.4.1 L8: Automatically detect and mask prompt content in logs.
-    
+
     Add to structlog processors:
         processors = [
             ...,
@@ -594,10 +594,10 @@ _default_audit_logger: AuditLogger | None = None
 def get_secure_logger(name: str | None = None) -> SecureLogger:
     """
     Get a SecureLogger instance.
-    
+
     Args:
         name: Logger name.
-        
+
     Returns:
         SecureLogger instance.
     """
@@ -615,7 +615,7 @@ def get_secure_logger(name: str | None = None) -> SecureLogger:
 def get_audit_logger() -> AuditLogger:
     """
     Get the AuditLogger instance.
-    
+
     Returns:
         AuditLogger singleton.
     """

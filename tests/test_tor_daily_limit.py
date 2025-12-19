@@ -41,7 +41,7 @@ class TestTorUsageMetrics:
     def test_usage_ratio_zero_requests(self):
         """
         Usage ratio should be 0.0 when no requests have been made.
-        
+
         // Given: TorUsageMetrics with 0 total requests
         // When: Accessing usage_ratio property
         // Then: Returns 0.0 (not division by zero)
@@ -59,7 +59,7 @@ class TestTorUsageMetrics:
     def test_usage_ratio_calculation(self):
         """
         Usage ratio should be correctly calculated.
-        
+
         // Given: TorUsageMetrics with 100 total, 20 tor requests
         // When: Accessing usage_ratio property
         // Then: Returns 0.2 (20%)
@@ -77,7 +77,7 @@ class TestTorUsageMetrics:
     def test_validation_non_negative(self):
         """
         TorUsageMetrics should reject negative values.
-        
+
         // Given: Negative request counts
         // When: Creating TorUsageMetrics
         // Then: ValidationError is raised
@@ -104,7 +104,7 @@ class TestDomainTorMetrics:
     def test_domain_usage_ratio(self):
         """
         Domain usage ratio should be correctly calculated.
-        
+
         // Given: DomainTorMetrics with 50 total, 10 tor requests
         // When: Accessing usage_ratio property
         // Then: Returns 0.2 (20%)
@@ -138,7 +138,7 @@ class TestMetricsCollectorTorTracking:
     def test_get_today_tor_metrics_initial(self, fresh_collector):
         """
         Initial Tor metrics should have zero counts.
-        
+
         // Given: Fresh MetricsCollector
         // When: Getting today's Tor metrics
         // Then: Both counts are 0
@@ -152,7 +152,7 @@ class TestMetricsCollectorTorTracking:
     def test_record_request_increments_total(self, fresh_collector):
         """
         record_request should increment total_requests.
-        
+
         // Given: Fresh MetricsCollector
         // When: Recording a request
         // Then: total_requests incremented by 1
@@ -166,7 +166,7 @@ class TestMetricsCollectorTorTracking:
     def test_record_tor_usage_increments_tor(self, fresh_collector):
         """
         record_tor_usage should increment tor_requests.
-        
+
         // Given: Fresh MetricsCollector
         // When: Recording a Tor usage
         // Then: tor_requests incremented by 1
@@ -179,7 +179,7 @@ class TestMetricsCollectorTorTracking:
     def test_domain_metrics_tracking(self, fresh_collector):
         """
         Domain-specific metrics should be tracked separately.
-        
+
         // Given: Fresh MetricsCollector
         // When: Recording requests for different domains
         // Then: Each domain has separate counts
@@ -200,7 +200,7 @@ class TestMetricsCollectorTorTracking:
     def test_domain_case_insensitive(self, fresh_collector):
         """
         Domain metrics should be case-insensitive.
-        
+
         // Given: Fresh MetricsCollector
         // When: Recording with different case domains
         // Then: Same domain is used (lowercase)
@@ -215,7 +215,7 @@ class TestMetricsCollectorTorTracking:
     def test_date_reset_on_new_day(self, fresh_collector):
         """
         Metrics should reset when date changes.
-        
+
         // Given: Collector with old date
         // When: Getting metrics on new day
         // Then: Counters are reset to 0
@@ -244,7 +244,7 @@ class TestCanUseTor:
     async def test_can_use_tor_zero_usage(self):
         """
         _can_use_tor should return True when no Tor has been used.
-        
+
         // Given: 0% Tor usage
         // When: Calling _can_use_tor()
         // Then: Returns True
@@ -263,7 +263,7 @@ class TestCanUseTor:
     async def test_can_use_tor_below_limit(self):
         """
         _can_use_tor should return True when usage is below 20%.
-        
+
         // Given: 19% Tor usage (19 tor / 100 total)
         // When: Calling _can_use_tor()
         // Then: Returns True
@@ -284,7 +284,7 @@ class TestCanUseTor:
     async def test_can_use_tor_at_limit(self):
         """
         _can_use_tor should return False when usage is at 20%.
-        
+
         // Given: 20% Tor usage (20 tor / 100 total)
         // When: Calling _can_use_tor()
         // Then: Returns False (limit reached)
@@ -305,7 +305,7 @@ class TestCanUseTor:
     async def test_can_use_tor_above_limit(self):
         """
         _can_use_tor should return False when usage exceeds 20%.
-        
+
         // Given: 25% Tor usage (25 tor / 100 total)
         // When: Calling _can_use_tor()
         // Then: Returns False
@@ -326,7 +326,7 @@ class TestCanUseTor:
     async def test_can_use_tor_domain_blocked(self):
         """
         _can_use_tor should return False when domain has Tor blocked.
-        
+
         // Given: Global OK but domain has tor_blocked=True
         // When: Calling _can_use_tor(domain)
         // Then: Returns False due to domain policy
@@ -354,7 +354,7 @@ class TestCanUseTor:
     async def test_can_use_tor_domain_usage_limit(self):
         """
         _can_use_tor should check domain-specific usage limit.
-        
+
         // Given: Global OK but domain usage at limit
         // When: Calling _can_use_tor(domain)
         // Then: Returns False due to domain usage limit
@@ -384,7 +384,7 @@ class TestCanUseTor:
     async def test_can_use_tor_fail_open(self):
         """
         _can_use_tor should return True on error (fail-open).
-        
+
         // Given: Exception during limit check
         // When: Calling _can_use_tor()
         // Then: Returns True (fail-open behavior)
@@ -400,7 +400,7 @@ class TestCanUseTor:
     async def test_can_use_tor_first_request(self):
         """
         _can_use_tor should return True for first request of day.
-        
+
         // Given: No requests yet today
         // When: Calling _can_use_tor()
         // Then: Returns True
@@ -428,7 +428,7 @@ class TestTorLimitIntegration:
     async def test_can_use_tor_with_real_collector(self):
         """
         Full flow: _can_use_tor with real MetricsCollector.
-        
+
         // Given: Real MetricsCollector with recorded requests
         // When: Checking Tor availability
         // Then: Correct result based on usage ratio
@@ -467,7 +467,7 @@ class TestTorLimitIntegration:
     def test_metrics_collector_global_singleton(self):
         """
         Global MetricsCollector maintains state across calls.
-        
+
         // Given: Global MetricsCollector
         // When: Recording requests
         // Then: State persists

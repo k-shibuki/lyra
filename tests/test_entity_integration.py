@@ -162,7 +162,7 @@ class TestEntityExtractor:
         sample_whois_record,
     ):
         """Test that WHOIS extraction creates domain entity.
-        
+
         Verifies that the domain itself is registered as an entity.
         """
         # Arrange

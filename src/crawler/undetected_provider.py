@@ -39,16 +39,16 @@ logger = get_logger(__name__)
 class UndetectedChromeProvider(BaseBrowserProvider):
     """
     Browser provider implementation using undetected-chromedriver.
-    
+
     This is a fallback provider for cases where Playwright fails due to
     strong anti-bot protection like Cloudflare or Turnstile (§4.3).
-    
+
     Features:
     - Automatic ChromeDriver patching to avoid detection
     - Human-like behavior simulation
     - Support for headless and headful modes
     - Integration with existing cookie/session management
-    
+
     Note: Uses Selenium under the hood (synchronous). Methods are wrapped
     for async compatibility.
     """
@@ -222,7 +222,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
 
     def _wait_for_cloudflare(self, timeout: int = 30) -> bool:
         """Wait for Cloudflare challenge to complete.
-        
+
         Returns:
             True if challenge was bypassed.
         """
@@ -300,7 +300,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
         options: BrowserOptions,
     ) -> PageResult:
         """Synchronously navigate to a URL.
-        
+
         This is the core navigation method that runs in a synchronous context.
         """
         start_time = time.time()
@@ -400,7 +400,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
         options: BrowserOptions | None = None,
     ) -> PageResult:
         """Navigate to a URL and return the page content.
-        
+
         Wraps the synchronous navigation method for async compatibility.
         """
         self._check_closed()
@@ -546,7 +546,7 @@ _undetected_provider: UndetectedChromeProvider | None = None
 def get_undetected_provider() -> UndetectedChromeProvider:
     """
     Get or create the global UndetectedChromeProvider instance.
-    
+
     Returns:
         UndetectedChromeProvider instance.
     """

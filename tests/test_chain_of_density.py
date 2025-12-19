@@ -143,7 +143,7 @@ class TestCitationInfo:
 
     def test_from_fragment_with_complete_data(self, sample_fragment):
         """Test creating CitationInfo from a complete fragment.
-        
+
         Verifies that all required fields (§3.3.1) are populated:
         - deep_link
         - discovered_at
@@ -206,7 +206,7 @@ class TestCitationInfo:
 
     def test_primary_source_detection(self):
         """Test detection of primary sources.
-        
+
         Per §3.4: Primary sources include government, academic, official,
         standard, registry.
         """
@@ -308,7 +308,7 @@ class TestDenseClaim:
 
     def test_validation_fails_without_citations(self):
         """Test validation fails when citations are missing.
-        
+
         Per §3.3.1: All claims must have citations.
         """
         # Given: DenseClaim without citations
@@ -601,7 +601,7 @@ class TestChainOfDensityIntegration:
     @pytest.mark.asyncio
     async def test_citation_mandatory_fields_enforced(self):
         """Test that all mandatory citation fields are enforced.
-        
+
         Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
         """
         # Given: Claim with matching fragment

@@ -13,7 +13,7 @@ class TestShingleTokenizer:
 
     def test_word_shingles_basic(self):
         """Test basic word shingle extraction.
-        
+
         Validates shingle generation for §3.3.3 MinHash deduplication.
         With shingle_size=2 and "the quick brown fox", expected shingles are:
         - "the quick"
@@ -72,7 +72,7 @@ class TestMinHashDeduplicator:
 
     def test_add_and_query(self):
         """Test adding fragments and querying.
-        
+
         Requirements: §3.3.3 - MinHash/SimHash for duplicate detection
         Threshold 0.5 is the production default per docs/REQUIREMENTS.md
         """
@@ -93,7 +93,7 @@ class TestMinHashDeduplicator:
 
     def test_find_duplicates(self):
         """Test finding duplicates of a fragment.
-        
+
         Validates that near-duplicates are detected at production threshold.
         """
         from src.filter.deduplication import MinHashDeduplicator
@@ -130,7 +130,7 @@ class TestMinHashDeduplicator:
 
     def test_get_clusters(self):
         """Test cluster generation.
-        
+
         Validates that identical texts are clustered together.
         """
         from src.filter.deduplication import MinHashDeduplicator
@@ -154,7 +154,7 @@ class TestMinHashDeduplicator:
 
     def test_get_duplicate_ratio(self):
         """Test duplicate ratio calculation.
-        
+
         §7 requirement: duplicate cluster ratio ≤20%
         This test validates the ratio calculation is accurate.
         """

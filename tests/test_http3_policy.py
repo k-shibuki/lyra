@@ -370,11 +370,11 @@ class TestHTTP3PolicyManager:
     @pytest.mark.asyncio
     async def test_behavioral_difference_calculated_with_samples(self, manager):
         """Behavioral difference should be calculated with enough samples.
-        
+
         Per §4.3: Behavioral difference tracking to inform route selection.
         EMA calculation: new_ema = alpha * difference + (1-alpha) * old_ema
         With alpha=0.1, first update from 0: ema = 0.1 * 0.3 = 0.03
-        
+
         Note: EMA converges slowly, so 10 samples won't reach threshold (0.15).
         This test verifies EMA calculation is working, not boost application.
         """
@@ -426,10 +426,10 @@ class TestHTTP3PolicyManager:
     @pytest.mark.asyncio
     async def test_browser_ratio_boost_when_ema_exceeds_threshold(self, manager):
         """Browser ratio boost should be applied when EMA exceeds threshold.
-        
+
         Per §4.3: Auto-increase browser route ratio when HTTP/3 sites show
         behavioral differences exceeding the threshold (default=0.15).
-        
+
         This test uses more samples to ensure EMA exceeds threshold.
         """
         import uuid
@@ -476,7 +476,7 @@ class TestHTTP3PolicyManager:
     @pytest.mark.asyncio
     async def test_behavioral_difference_boundary_at_min_samples(self, manager):
         """Behavioral difference should only be calculated at min_samples boundary.
-        
+
         Per §4.3: Need minimum samples (default=5) before calculating difference.
         Tests boundary: 4 samples = no calculation, 5 samples = calculation starts.
         """
@@ -720,7 +720,7 @@ class TestGlobalManager:
 
 class TestEMACalculation:
     """Tests for EMA (Exponential Moving Average) calculation accuracy.
-    
+
     Per §4.3: EMA tracks behavioral differences for adaptive policy.
     EMA formula: new_ema = alpha * value + (1 - alpha) * old_ema
     Default alpha = 0.1
@@ -734,7 +734,7 @@ class TestEMACalculation:
     @pytest.mark.asyncio
     async def test_ema_calculation_single_update(self, manager):
         """EMA should be calculated correctly for single update.
-        
+
         First update from 0: ema = 0.1 * difference + 0.9 * 0 = 0.1 * difference
         """
         import uuid
@@ -773,7 +773,7 @@ class TestEMACalculation:
     @pytest.mark.asyncio
     async def test_ema_decay_when_no_advantage(self, manager):
         """EMA should decay toward zero when browser has no advantage.
-        
+
         Per §4.3: Decay formula when no advantage detected.
         """
         import uuid
@@ -831,7 +831,7 @@ class TestHTTP3PolicyIntegration:
     @pytest.mark.asyncio
     async def test_browser_ratio_increases_with_http3_advantage(self, manager):
         """Browser ratio should increase when HTTP/3 provides advantage.
-        
+
         Per §4.3: Auto-increase browser route ratio when HTTP/3 sites
         show behavioral differences between browser and HTTP client routes.
         """
@@ -876,7 +876,7 @@ class TestHTTP3PolicyIntegration:
     @pytest.mark.asyncio
     async def test_no_boost_when_http_client_performs_well(self, manager):
         """Browser ratio should not increase when HTTP client performs equally.
-        
+
         Per §4.3: Only increase browser ratio when there's behavioral difference.
         """
         # Both routes perform equally well (90% success)

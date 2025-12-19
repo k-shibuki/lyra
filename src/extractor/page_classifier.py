@@ -293,11 +293,11 @@ class PageClassifier:
         url: str | None = None,
     ) -> ClassificationResult:
         """Classify a web page by type.
-        
+
         Args:
             html: HTML content of the page.
             url: URL of the page (optional, provides hints).
-            
+
         Returns:
             ClassificationResult with type, confidence, and reasoning.
         """
@@ -337,11 +337,11 @@ class PageClassifier:
         url: str | None,
     ) -> PageFeatures:
         """Extract classification features from HTML.
-        
+
         Args:
             html: HTML content.
             url: Page URL.
-            
+
         Returns:
             PageFeatures instance.
         """
@@ -447,10 +447,10 @@ class PageClassifier:
 
     def _calculate_scores(self, features: PageFeatures) -> dict[PageType, float]:
         """Calculate classification scores for each page type.
-        
+
         Args:
             features: Extracted page features.
-            
+
         Returns:
             Dictionary mapping page types to scores.
         """
@@ -617,12 +617,12 @@ class PageClassifier:
         score: float,
     ) -> str:
         """Generate human-readable classification reason.
-        
+
         Args:
             page_type: Determined page type.
             features: Extracted features.
             score: Classification score.
-            
+
         Returns:
             Reason string.
         """
@@ -1128,10 +1128,10 @@ class PageClassifier:
 
     def _extract_url_hints(self, url: str) -> list[str]:
         """Extract classification hints from URL.
-        
+
         Args:
             url: Page URL.
-            
+
         Returns:
             List of hint strings.
         """
@@ -1172,10 +1172,10 @@ class PageClassifier:
 
     def _features_to_dict(self, features: PageFeatures) -> dict[str, Any]:
         """Convert PageFeatures to dictionary for serialization.
-        
+
         Args:
             features: PageFeatures instance.
-            
+
         Returns:
             Dictionary representation.
         """
@@ -1265,7 +1265,7 @@ _classifier: PageClassifier | None = None
 
 def get_classifier() -> PageClassifier:
     """Get or create the singleton PageClassifier instance.
-    
+
     Returns:
         PageClassifier instance.
     """
@@ -1280,13 +1280,13 @@ def classify_page(
     url: str | None = None,
 ) -> ClassificationResult:
     """Classify a web page by type.
-    
+
     Convenience function that uses the singleton classifier.
-    
+
     Args:
         html: HTML content of the page.
         url: URL of the page (optional).
-        
+
     Returns:
         ClassificationResult with type, confidence, and features.
     """

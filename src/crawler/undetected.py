@@ -54,16 +54,16 @@ class UndetectedFetchResult:
 
 class UndetectedChromeFetcher:
     """Browser-based fetcher using undetected-chromedriver.
-    
+
     This is a fallback for cases where Playwright fails due to strong
     anti-bot protection like Cloudflare or Turnstile (§4.3).
-    
+
     Features:
     - Automatic ChromeDriver patching to avoid detection
     - Human-like behavior simulation
     - Support for headless and headful modes
     - Integration with existing cookie/session management
-    
+
     Note: This uses Selenium under the hood, which is synchronous.
     Methods are wrapped to work with async code.
     """
@@ -75,7 +75,7 @@ class UndetectedChromeFetcher:
 
     def is_available(self) -> bool:
         """Check if undetected-chromedriver is available.
-        
+
         Returns:
             True if the library is installed and importable.
         """
@@ -101,11 +101,11 @@ class UndetectedChromeFetcher:
         user_data_dir: str | None = None,
     ):
         """Create Chrome options for undetected-chromedriver.
-        
+
         Args:
             headless: Whether to run in headless mode.
             user_data_dir: Path to user data directory for profile persistence.
-            
+
         Returns:
             Chrome options object.
         """
@@ -155,7 +155,7 @@ class UndetectedChromeFetcher:
         user_data_dir: str | None = None,
     ):
         """Initialize the undetected-chromedriver instance.
-        
+
         Args:
             headless: Whether to run in headless mode.
             user_data_dir: Path to user data directory.
@@ -194,7 +194,7 @@ class UndetectedChromeFetcher:
 
     def _simulate_human_delay(self, min_seconds: float = 0.5, max_seconds: float = 2.0):
         """Add human-like delay between actions.
-        
+
         Args:
             min_seconds: Minimum delay.
             max_seconds: Maximum delay.
@@ -249,10 +249,10 @@ class UndetectedChromeFetcher:
 
     def _wait_for_cloudflare(self, timeout: int = 30) -> bool:
         """Wait for Cloudflare challenge to complete.
-        
+
         Args:
             timeout: Maximum seconds to wait.
-            
+
         Returns:
             True if challenge was bypassed.
         """
@@ -293,11 +293,11 @@ class UndetectedChromeFetcher:
 
     def _save_content(self, url: str, content: str) -> Path | None:
         """Save page content to file.
-        
+
         Args:
             url: Source URL.
             content: HTML content.
-            
+
         Returns:
             Path to saved file.
         """
@@ -317,10 +317,10 @@ class UndetectedChromeFetcher:
 
     def _save_screenshot(self, url: str) -> Path | None:
         """Save page screenshot.
-        
+
         Args:
             url: Source URL.
-            
+
         Returns:
             Path to screenshot file.
         """
@@ -355,9 +355,9 @@ class UndetectedChromeFetcher:
         simulate_human: bool = True,
     ) -> UndetectedFetchResult:
         """Synchronously fetch a URL using undetected-chromedriver.
-        
+
         This is the core fetch method that runs in a synchronous context.
-        
+
         Args:
             url: URL to fetch.
             headless: Whether to run in headless mode (less effective for bypass).
@@ -365,7 +365,7 @@ class UndetectedChromeFetcher:
             cloudflare_timeout: Timeout for Cloudflare bypass.
             take_screenshot: Whether to capture screenshot.
             simulate_human: Whether to simulate human behavior.
-            
+
         Returns:
             UndetectedFetchResult instance.
         """
@@ -458,9 +458,9 @@ class UndetectedChromeFetcher:
         simulate_human: bool = True,
     ) -> UndetectedFetchResult:
         """Asynchronously fetch a URL using undetected-chromedriver.
-        
+
         Wraps the synchronous fetch method to work with async code.
-        
+
         Args:
             url: URL to fetch.
             headless: Whether to run in headless mode.
@@ -468,7 +468,7 @@ class UndetectedChromeFetcher:
             cloudflare_timeout: Timeout for Cloudflare bypass.
             take_screenshot: Whether to capture screenshot.
             simulate_human: Whether to simulate human behavior.
-            
+
         Returns:
             UndetectedFetchResult instance.
         """
@@ -491,7 +491,7 @@ class UndetectedChromeFetcher:
 
     def get_cookies(self) -> list[dict[str, Any]]:
         """Get all cookies from the current session.
-        
+
         Returns:
             List of cookie dictionaries.
         """
@@ -506,7 +506,7 @@ class UndetectedChromeFetcher:
 
     def add_cookies(self, cookies: list[dict[str, Any]]) -> None:
         """Add cookies to the current session.
-        
+
         Args:
             cookies: List of cookie dictionaries.
         """
@@ -555,7 +555,7 @@ _undetected_fetcher: UndetectedChromeFetcher | None = None
 
 def get_undetected_fetcher() -> UndetectedChromeFetcher:
     """Get or create the global UndetectedChromeFetcher instance.
-    
+
     Returns:
         UndetectedChromeFetcher instance.
     """

@@ -39,7 +39,7 @@ class TestMCPErrorCode:
     def test_all_error_codes_defined(self) -> None:
         """
         Test that all 10 error codes from §3.2.1 are defined.
-        
+
         // Given: MCPErrorCode enum
         // When: Checking all expected codes
         // Then: All 10 codes exist with correct values
@@ -64,7 +64,7 @@ class TestMCPErrorCode:
     def test_error_code_count(self) -> None:
         """
         Test that exactly 10 error codes are defined.
-        
+
         // Given: MCPErrorCode enum
         // When: Counting all codes
         // Then: Count equals 10
@@ -78,7 +78,7 @@ class TestMCPError:
     def test_basic_error_creation(self) -> None:
         """
         TC-N-01: MCPError with valid code and message.
-        
+
         // Given: Valid error code and message
         // When: Creating MCPError
         // Then: Error dict has ok=False, error_code, error
@@ -95,7 +95,7 @@ class TestMCPError:
     def test_error_with_details_and_error_id(self) -> None:
         """
         TC-N-02: MCPError with details and error_id.
-        
+
         // Given: Error with all optional fields
         // When: Creating MCPError
         // Then: Dict includes details and error_id
@@ -117,7 +117,7 @@ class TestMCPError:
     def test_error_with_none_details(self) -> None:
         """
         TC-A-01: MCPError with None details.
-        
+
         // Given: Error with details=None
         // When: Converting to dict
         // Then: details key not included
@@ -130,7 +130,7 @@ class TestMCPError:
     def test_error_with_empty_details(self) -> None:
         """
         TC-A-02: MCPError with empty details dict.
-        
+
         // Given: Error with details={}
         // When: Converting to dict
         // Then: details key not included (empty is filtered)
@@ -144,7 +144,7 @@ class TestMCPError:
     def test_error_is_exception(self) -> None:
         """
         Test MCPError is a proper Exception.
-        
+
         // Given: MCPError instance
         // When: Raising as exception
         // Then: Can be caught as Exception
@@ -164,7 +164,7 @@ class TestInvalidParamsError:
     def test_with_all_params(self) -> None:
         """
         TC-N-03: InvalidParamsError with param_name.
-        
+
         // Given: Invalid parameter details
         // When: Creating InvalidParamsError
         // Then: Error has INVALID_PARAMS code with details
@@ -186,7 +186,7 @@ class TestInvalidParamsError:
     def test_with_minimal_params(self) -> None:
         """
         TC-A-03: InvalidParamsError without optional params.
-        
+
         // Given: Only message
         // When: Creating InvalidParamsError
         // Then: No details included
@@ -204,7 +204,7 @@ class TestTaskNotFoundError:
     def test_task_not_found(self) -> None:
         """
         TC-N-04: TaskNotFoundError with task_id.
-        
+
         // Given: Task ID that doesn't exist
         // When: Creating TaskNotFoundError
         // Then: Error has TASK_NOT_FOUND code with task_id
@@ -223,7 +223,7 @@ class TestBudgetExhaustedError:
     def test_with_full_details(self) -> None:
         """
         TC-N-05: BudgetExhaustedError with full details.
-        
+
         // Given: Budget exhaustion details
         // When: Creating BudgetExhaustedError
         // Then: Error includes limit and used counts
@@ -249,7 +249,7 @@ class TestAuthRequiredError:
     def test_with_domains(self) -> None:
         """
         TC-N-06: AuthRequiredError with domains list.
-        
+
         // Given: Auth required with domain list
         // When: Creating AuthRequiredError
         // Then: Error includes domains in details
@@ -273,7 +273,7 @@ class TestAllEnginesBlockedError:
     def test_all_engines_blocked(self) -> None:
         """
         TC-N-07: AllEnginesBlockedError.
-        
+
         // Given: All engines in cooldown
         // When: Creating AllEnginesBlockedError
         // Then: Error has ALL_ENGINES_BLOCKED code
@@ -295,7 +295,7 @@ class TestPipelineError:
     def test_with_stage(self) -> None:
         """
         TC-N-08: PipelineError with stage.
-        
+
         // Given: Pipeline error at specific stage
         // When: Creating PipelineError
         // Then: Error includes stage in details
@@ -319,7 +319,7 @@ class TestCalibrationError:
     def test_with_source(self) -> None:
         """
         TC-N-09: CalibrationError with source.
-        
+
         // Given: Calibration error for source
         // When: Creating CalibrationError
         // Then: Error includes source in details
@@ -342,7 +342,7 @@ class TestTimeoutError:
     def test_with_operation(self) -> None:
         """
         TC-N-10: TimeoutError with operation.
-        
+
         // Given: Timeout for specific operation
         // When: Creating TimeoutError
         // Then: Error includes operation details
@@ -366,7 +366,7 @@ class TestInternalError:
     def test_with_error_id(self) -> None:
         """
         TC-N-11: InternalError with error_id.
-        
+
         // Given: Internal error with correlation ID
         // When: Creating InternalError
         // Then: Error includes error_id
@@ -384,7 +384,7 @@ class TestInternalError:
     def test_default_message(self) -> None:
         """
         Test InternalError default message.
-        
+
         // Given: No message provided
         // When: Creating InternalError
         // Then: Uses default message
@@ -401,7 +401,7 @@ class TestChromeNotReadyError:
     def test_default_message(self) -> None:
         """
         TC-N-14: ChromeNotReadyError with default message.
-        
+
         // Given: No parameters
         // When: Creating ChromeNotReadyError
         // Then: Error has CHROME_NOT_READY code with startup instructions
@@ -417,7 +417,7 @@ class TestChromeNotReadyError:
     def test_custom_message(self) -> None:
         """
         TC-N-16: ChromeNotReadyError with custom message.
-        
+
         // Given: Custom message
         // When: Creating ChromeNotReadyError
         // Then: Uses custom message
@@ -432,7 +432,7 @@ class TestChromeNotReadyError:
     def test_error_response_format_matches_spec(self) -> None:
         """
         TC-N-17: Error response format matches §3.2.1 spec.
-        
+
         // Given: ChromeNotReadyError
         // When: Converting to dict
         // Then: Format matches docs/REQUIREMENTS.md §3.2.1 CHROME_NOT_READY spec
@@ -450,7 +450,7 @@ class TestChromeNotReadyError:
     def test_empty_message(self) -> None:
         """
         TC-B-02: ChromeNotReadyError with empty message.
-        
+
         // Given: Empty string message
         // When: Creating ChromeNotReadyError
         // Then: Error accepts empty message (edge case)
@@ -469,7 +469,7 @@ class TestGenerateErrorId:
     def test_format(self) -> None:
         """
         TC-N-12: generate_error_id() returns proper format.
-        
+
         // Given: Calling generate_error_id
         // When: Generating ID
         // Then: Returns "err_" prefixed unique ID
@@ -482,7 +482,7 @@ class TestGenerateErrorId:
     def test_uniqueness(self) -> None:
         """
         Test generate_error_id produces unique IDs.
-        
+
         // Given: Generating multiple IDs
         // When: Comparing them
         // Then: All IDs are unique
@@ -498,7 +498,7 @@ class TestCreateErrorResponse:
     def test_creates_same_as_mcp_error(self) -> None:
         """
         TC-N-13: create_error_response() utility.
-        
+
         // Given: Error parameters
         // When: Using utility function
         // Then: Returns dict same as MCPError.to_dict()

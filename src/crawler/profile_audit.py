@@ -55,7 +55,7 @@ class RepairStatus(str, Enum):
 
 class FingerprintData(BaseModel):
     """Browser fingerprint data for comparison.
-    
+
     Per high-frequency check requirement: Captures UA, fonts, language,
     timezone, canvas, audio fingerprint for drift detection.
     """
@@ -91,7 +91,7 @@ class FingerprintData(BaseModel):
 
 class DriftInfo(BaseModel):
     """Information about detected drift in a specific attribute.
-    
+
     Per drift detection: Identifies which attribute drifted and provides
     baseline vs current value comparison.
     """
@@ -107,7 +107,7 @@ class DriftInfo(BaseModel):
 
 class AuditResult(BaseModel):
     """Result of a profile health audit.
-    
+
     Per high-frequency check requirement: Returns audit status, detected drifts,
     and repair actions for browser session initialization.
     """
@@ -170,30 +170,30 @@ class AuditResult(BaseModel):
 FINGERPRINT_JS = """
 () => {
     const fingerprint = {};
-    
+
     // User Agent
     fingerprint.user_agent = navigator.userAgent || '';
-    
+
     // Extract major version from Chrome UA
     const chromeMatch = fingerprint.user_agent.match(/Chrome\\/([0-9]+)/);
     fingerprint.ua_major_version = chromeMatch ? chromeMatch[1] : '';
-    
+
     // Language
     fingerprint.language = navigator.language || navigator.userLanguage || '';
-    
+
     // Timezone
     fingerprint.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    
+
     // Platform
     fingerprint.platform = navigator.platform || '';
-    
+
     // Screen
     fingerprint.screen_resolution = `${screen.width}x${screen.height}`;
     fingerprint.color_depth = screen.colorDepth || 0;
-    
+
     // Plugins count
     fingerprint.plugins_count = navigator.plugins ? navigator.plugins.length : 0;
-    
+
     // Fonts detection (limited set for performance)
     const testFonts = [
         'Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Georgia',
@@ -201,21 +201,21 @@ FINGERPRINT_JS = """
         'MS Gothic', 'Meiryo', 'Yu Gothic', 'Hiragino Kaku Gothic Pro',
         'Roboto', 'Open Sans', 'Noto Sans CJK JP', 'Source Han Sans'
     ];
-    
+
     const detectedFonts = [];
     const testString = 'mmmmmmmmmmlli';
     const testSize = '72px';
     const baseFonts = ['monospace', 'sans-serif', 'serif'];
-    
+
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
-    
+
     const baseFontWidths = {};
     for (const baseFont of baseFonts) {
         context.font = testSize + ' ' + baseFont;
         baseFontWidths[baseFont] = context.measureText(testString).width;
     }
-    
+
     for (const font of testFonts) {
         let detected = false;
         for (const baseFont of baseFonts) {
@@ -231,14 +231,14 @@ FINGERPRINT_JS = """
         }
     }
     fingerprint.fonts = detectedFonts;
-    
+
     // Canvas fingerprint
     try {
         const canvasElement = document.createElement('canvas');
         canvasElement.width = 200;
         canvasElement.height = 50;
         const ctx = canvasElement.getContext('2d');
-        
+
         ctx.textBaseline = 'alphabetic';
         ctx.font = '14px Arial';
         ctx.fillStyle = '#f60';
@@ -247,35 +247,35 @@ FINGERPRINT_JS = """
         ctx.fillText('Canvas FP', 2, 15);
         ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
         ctx.fillText('Test', 4, 45);
-        
+
         fingerprint.canvas_hash = canvasElement.toDataURL().slice(-50);
     } catch (e) {
         fingerprint.canvas_hash = 'error';
     }
-    
+
     // Audio fingerprint (simplified)
     try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const analyser = audioContext.createAnalyser();
         const gainNode = audioContext.createGain();
-        
+
         oscillator.type = 'triangle';
         oscillator.frequency.setValueAtTime(10000, audioContext.currentTime);
         gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        
+
         oscillator.connect(analyser);
         analyser.connect(gainNode);
         gainNode.connect(audioContext.destination);
-        
+
         oscillator.start(0);
-        
+
         const frequencyData = new Float32Array(analyser.frequencyBinCount);
         analyser.getFloatFrequencyData(frequencyData);
-        
+
         oscillator.stop();
         audioContext.close();
-        
+
         // Create hash from frequency data
         let hash = 0;
         for (let i = 0; i < Math.min(50, frequencyData.length); i++) {
@@ -286,9 +286,9 @@ FINGERPRINT_JS = """
     } catch (e) {
         fingerprint.audio_hash = 'error';
     }
-    
+
     fingerprint.timestamp = Date.now() / 1000;
-    
+
     return fingerprint;
 }
 """
@@ -300,14 +300,14 @@ FINGERPRINT_JS = """
 
 class ProfileAuditor:
     """Profile health auditor for browser fingerprint consistency.
-    
+
     Implements §4.3.1 profile health audit:
     - Captures baseline fingerprint on first initialization
     - Compares current fingerprint against baseline
     - Detects drift in UA, fonts, language, timezone, canvas, audio
     - Triggers automatic repair actions when drift is detected
     - Logs all audit results for monitoring
-    
+
     Safety: Only operates on Profile-Research profile.
     """
 
@@ -326,7 +326,7 @@ class ProfileAuditor:
 
     def __init__(self, profile_dir: Path | None = None):
         """Initialize profile auditor.
-        
+
         Args:
             profile_dir: Directory for storing profile data. Defaults to data/profiles.
         """
@@ -384,7 +384,7 @@ class ProfileAuditor:
 
     def _save_baseline(self, fingerprint: FingerprintData) -> None:
         """Save baseline fingerprint to file.
-        
+
         Args:
             fingerprint: Fingerprint data to save as baseline.
         """
@@ -410,7 +410,7 @@ class ProfileAuditor:
 
     def _log_audit(self, result: AuditResult) -> None:
         """Append audit result to log file.
-        
+
         Args:
             result: Audit result to log.
         """
@@ -432,10 +432,10 @@ class ProfileAuditor:
 
     async def collect_fingerprint(self, page) -> FingerprintData:
         """Collect current browser fingerprint from page.
-        
+
         Args:
             page: Playwright page object.
-            
+
         Returns:
             FingerprintData with current browser fingerprint.
         """
@@ -477,11 +477,11 @@ class ProfileAuditor:
         current: FingerprintData,
     ) -> list[DriftInfo]:
         """Compare two fingerprints and detect drifts.
-        
+
         Args:
             baseline: Baseline fingerprint.
             current: Current fingerprint.
-            
+
         Returns:
             List of detected drifts.
         """
@@ -573,10 +573,10 @@ class ProfileAuditor:
 
     def determine_repair_actions(self, drifts: list[DriftInfo]) -> list[RepairAction]:
         """Determine repair actions based on detected drifts.
-        
+
         Args:
             drifts: List of detected drifts.
-            
+
         Returns:
             Ordered list of repair actions to take.
         """
@@ -607,12 +607,12 @@ class ProfileAuditor:
         update_baseline: bool = False,
     ) -> AuditResult:
         """Perform profile health audit.
-        
+
         Args:
             page: Playwright page object.
             force: Force audit even if within minimum interval.
             update_baseline: Update baseline with current fingerprint.
-            
+
         Returns:
             AuditResult with audit outcome.
         """
@@ -718,11 +718,11 @@ class ProfileAuditor:
         browser_manager: Any = None,
     ) -> AuditResult:
         """Attempt to repair profile based on audit result.
-        
+
         Args:
             audit_result: Result from a previous audit.
             browser_manager: Browser manager for restart operations.
-            
+
         Returns:
             Updated audit result with repair status.
         """
@@ -772,7 +772,7 @@ class ProfileAuditor:
 
     async def _attempt_profile_restore(self) -> bool:
         """Attempt to restore profile from backup.
-        
+
         Returns:
             True if restore was successful or backup doesn't exist.
         """
@@ -811,7 +811,7 @@ class ProfileAuditor:
 
     def get_stats(self) -> dict[str, Any]:
         """Get auditor statistics.
-        
+
         Returns:
             Dictionary with audit statistics.
         """
@@ -836,10 +836,10 @@ _profile_auditor: ProfileAuditor | None = None
 
 def get_profile_auditor(profile_dir: Path | None = None) -> ProfileAuditor:
     """Get or create profile auditor instance.
-    
+
     Args:
         profile_dir: Optional profile directory override.
-        
+
     Returns:
         ProfileAuditor instance.
     """
@@ -858,13 +858,13 @@ async def perform_health_check(
     browser_manager: Any = None,
 ) -> AuditResult:
     """Convenience function to perform profile health check.
-    
+
     Args:
         page: Playwright page object.
         force: Force check even if within minimum interval.
         auto_repair: Automatically attempt repair on drift.
         browser_manager: Browser manager for restart operations.
-        
+
     Returns:
         AuditResult with check outcome.
     """

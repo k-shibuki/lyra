@@ -295,7 +295,7 @@ class TestReplayEngine:
 
     async def test_compare_decisions_diverged(self):
         """Test comparing diverged decisions.
-        
+
         When output_data differs between original and replayed decisions,
         the comparison should indicate divergence and list the specific differences.
         """

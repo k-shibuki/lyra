@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 @dataclass
 class CitationInfo:
     """Citation information required for each claim.
-    
+
     Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
     """
 
@@ -42,7 +42,7 @@ class CitationInfo:
     @property
     def is_primary(self) -> bool:
         """Check if this is a primary source based on source_tag.
-        
+
         Per §3.4: Primary sources include government, academic, official,
         standard, registry.
         """
@@ -116,7 +116,7 @@ class CitationInfo:
 @dataclass
 class DenseClaim:
     """A claim with mandatory citation information.
-    
+
     Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
     """
 
@@ -144,7 +144,7 @@ class DenseClaim:
 
     def validate(self) -> tuple[bool, list[str]]:
         """Validate that claim has all required citation info.
-        
+
         Returns:
             Tuple of (is_valid, list of missing items).
         """
@@ -169,7 +169,7 @@ class DenseClaim:
 @dataclass
 class DenseSummary:
     """A dense summary with increasing information density.
-    
+
     Per §3.3.1: Increase summary density using Chain-of-Density approach.
     """
 
@@ -256,12 +256,12 @@ JSON出力のみを返してください:"""
 class ChainOfDensityCompressor:
     """
     Implements Chain-of-Density compression.
-    
+
     Chain-of-Density is an iterative summarization technique that:
     1. Starts with an initial summary
     2. Iteratively adds missing entities while maintaining length
     3. Increases information density with each iteration
-    
+
     Per §3.3.1: Increase summary density using Chain-of-Density approach,
     requiring deep links, discovery timestamps, and excerpts for all claims.
     """
@@ -274,7 +274,7 @@ class ChainOfDensityCompressor:
     ):
         """
         Initialize compressor.
-        
+
         Args:
             max_iterations: Maximum densification iterations.
             target_density: Target entity density (entities/words).
@@ -293,12 +293,12 @@ class ChainOfDensityCompressor:
     ) -> dict[str, Any]:
         """
         Compress claims and fragments into a dense summary.
-        
+
         Args:
             claims: List of claim records.
             fragments: List of fragment records with citation info.
             task_query: Original research query.
-            
+
         Returns:
             Compression result with dense summary and validated claims.
         """
@@ -788,18 +788,18 @@ async def compress_with_chain_of_density(
 ) -> dict[str, Any]:
     """
     Compress claims and fragments using Chain-of-Density.
-    
+
     Per §3.3.1: Compression and Citation Strictness
     - Increase summary density using Chain-of-Density approach
     - Require deep links, discovery timestamps, and excerpts for all claims
-    
+
     Args:
         claims: List of claim records.
         fragments: List of fragment records.
         task_query: Original research query.
         max_iterations: Maximum densification iterations.
         use_llm: Whether to use LLM for compression.
-        
+
     Returns:
         Compression result with dense summary and validated claims.
     """

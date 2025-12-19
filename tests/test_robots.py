@@ -234,7 +234,7 @@ Disallow: /general-blocked/
 
     def test_parse_robots_txt_comments(self):
         """Comments should be ignored per RFC 9309.
-        
+
         Both standalone comments and inline comments (# ...) should be stripped.
         """
         checker = RobotsChecker()
@@ -521,7 +521,7 @@ class TestEdgeCases:
 
     def test_robots_txt_without_user_agent(self):
         """robots.txt without User-agent should be handled.
-        
+
         Sitemap directives are global and should be extracted regardless.
         """
         checker = RobotsChecker()

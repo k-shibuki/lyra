@@ -663,7 +663,7 @@ class TestWSLBridgeProvider:
     @pytest.mark.asyncio
     async def test_send_success(self):
         """Test successful notification send from WSL.
-        
+
         Note: WSL bridge doesn't wait for completion, so success is returned
         immediately after process creation.
         """

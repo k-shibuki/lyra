@@ -691,7 +691,7 @@ class TestPydanticValidation:
     def test_cookie_data_missing_required_fields(self):
         """
         CookieData should raise ValidationError when required fields are missing.
-        
+
         // Given: No arguments provided
         // When: Creating CookieData without required fields
         // Then: ValidationError is raised with field info
@@ -710,7 +710,7 @@ class TestPydanticValidation:
     def test_session_data_missing_required_field(self):
         """
         SessionData should raise ValidationError when domain is missing.
-        
+
         // Given: No domain provided
         // When: Creating SessionData without domain
         // Then: ValidationError is raised
@@ -726,7 +726,7 @@ class TestPydanticValidation:
     def test_transfer_result_missing_required_field(self):
         """
         TransferResult should raise ValidationError when ok is missing.
-        
+
         // Given: No ok field provided
         // When: Creating TransferResult without ok
         // Then: ValidationError is raised
@@ -742,7 +742,7 @@ class TestPydanticValidation:
     def test_cookie_data_default_values(self):
         """
         CookieData should apply default values for optional fields.
-        
+
         // Given: Only required fields provided
         // When: Creating CookieData with minimal arguments
         // Then: Defaults are applied correctly
@@ -758,7 +758,7 @@ class TestPydanticValidation:
     def test_session_data_default_values(self):
         """
         SessionData should apply default values for optional fields.
-        
+
         // Given: Only domain provided
         // When: Creating SessionData with minimal arguments
         // Then: Defaults are applied correctly
@@ -777,7 +777,7 @@ class TestPydanticValidation:
     def test_transfer_result_default_values(self):
         """
         TransferResult should apply default values for optional fields.
-        
+
         // Given: Only ok field provided
         // When: Creating TransferResult with ok=True
         // Then: Defaults are applied correctly
@@ -791,7 +791,7 @@ class TestPydanticValidation:
     def test_cookie_data_model_dump(self):
         """
         CookieData should support Pydantic model_dump method.
-        
+
         // Given: Valid CookieData instance
         // When: Calling model_dump()
         // Then: Dictionary with all fields is returned
@@ -815,7 +815,7 @@ class TestPydanticValidation:
     def test_session_data_model_dump_with_cookies(self):
         """
         SessionData should correctly serialize nested CookieData.
-        
+
         // Given: SessionData with cookies
         // When: Calling model_dump()
         // Then: Nested cookies are also serialized

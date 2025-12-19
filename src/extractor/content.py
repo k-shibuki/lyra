@@ -77,13 +77,13 @@ async def extract_content(
     page_id: str | None = None,
 ) -> dict[str, Any]:
     """Extract content from HTML or PDF.
-    
+
     Args:
         input_path: Path to HTML or PDF file.
         html: Raw HTML content.
         content_type: Content type (html, pdf, auto).
         page_id: Associated page ID in database.
-        
+
     Returns:
         Extraction result dictionary.
     """
@@ -117,12 +117,12 @@ async def _extract_html(
     page_id: str | None,
 ) -> dict[str, Any]:
     """Extract content from HTML.
-    
+
     Args:
         input_path: Path to HTML file.
         html: Raw HTML content.
         page_id: Associated page ID.
-        
+
     Returns:
         Extraction result.
     """
@@ -244,10 +244,10 @@ async def _extract_html(
 
 async def _fallback_extract_html(html: str) -> str | None:
     """Fallback extraction using alternative methods.
-    
+
     Args:
         html: HTML content.
-        
+
     Returns:
         Extracted text or None.
     """
@@ -287,16 +287,16 @@ async def _extract_pdf(
     force_ocr: bool = False,
 ) -> dict[str, Any]:
     """Extract content from PDF with OCR support.
-    
+
     OCR is applied when:
     - force_ocr is True, or
     - Extracted text per page is below ocr_threshold characters (scanned PDF detection)
-    
+
     Args:
         input_path: Path to PDF file.
         ocr_threshold: Minimum chars per page before OCR is triggered (default: 100).
         force_ocr: Force OCR even if text is extractable.
-        
+
     Returns:
         Extraction result.
     """
@@ -391,13 +391,13 @@ async def _extract_pdf(
 
 async def _ocr_pdf_page(page, page_num: int) -> str | None:
     """Apply OCR to a PDF page.
-    
+
     Tries PaddleOCR first (GPU-capable), falls back to Tesseract.
-    
+
     Args:
         page: PyMuPDF page object.
         page_num: Page number (0-indexed) for logging.
-        
+
     Returns:
         OCR extracted text or None if OCR failed.
     """
@@ -435,10 +435,10 @@ async def _ocr_pdf_page(page, page_num: int) -> str | None:
 
 async def _ocr_with_paddleocr(img_data: bytes) -> str | None:
     """Perform OCR using PaddleOCR.
-    
+
     Args:
         img_data: PNG image data.
-        
+
     Returns:
         Extracted text or None.
     """
@@ -481,10 +481,10 @@ async def _ocr_with_paddleocr(img_data: bytes) -> str | None:
 
 async def _ocr_with_tesseract(img_data: bytes) -> str | None:
     """Perform OCR using Tesseract (fallback).
-    
+
     Args:
         img_data: PNG image data.
-        
+
     Returns:
         Extracted text or None.
     """
@@ -516,13 +516,13 @@ async def ocr_image(
     image_data: bytes | None = None,
 ) -> dict[str, Any]:
     """Extract text from an image using OCR.
-    
+
     Standalone function for image OCR (not embedded in PDF).
-    
+
     Args:
         image_path: Path to image file.
         image_data: Raw image bytes.
-        
+
     Returns:
         OCR result dictionary.
     """
@@ -569,10 +569,10 @@ async def ocr_image(
 
 def _extract_headings(html: str) -> list[dict[str, Any]]:
     """Extract headings from HTML with position information.
-    
+
     Args:
         html: HTML content.
-        
+
     Returns:
         List of heading dictionaries with level, text, and position.
     """
@@ -607,10 +607,10 @@ def _extract_headings(html: str) -> list[dict[str, Any]]:
 
 def _extract_tables(html: str) -> list[dict[str, Any]]:
     """Extract tables from HTML.
-    
+
     Args:
         html: HTML content.
-        
+
     Returns:
         List of table dictionaries.
     """
@@ -646,10 +646,10 @@ def _extract_tables(html: str) -> list[dict[str, Any]]:
 
 def _split_into_paragraphs(text: str) -> list[str]:
     """Split text into paragraphs.
-    
+
     Args:
         text: Full text content.
-        
+
     Returns:
         List of paragraph strings.
     """
@@ -671,14 +671,14 @@ def _build_heading_hierarchy(
     paragraph_idx: int,
 ) -> list[dict]:
     """Build heading hierarchy for a paragraph position.
-    
+
     Constructs a list of headings from h1 to the most specific level
     that applies to the given paragraph position.
-    
+
     Args:
         headings: List of heading dicts with 'level', 'text', 'position'.
         paragraph_idx: Index of the paragraph.
-        
+
     Returns:
         List of heading dicts representing the hierarchy.
         Example: [{"level": 1, "text": "Title"}, {"level": 2, "text": "Section"}]
@@ -715,12 +715,12 @@ def _find_heading_context(
     paragraphs: list[str],
 ) -> str | None:
     """Find the most recent heading for a paragraph.
-    
+
     Args:
         paragraph_idx: Index of the paragraph.
         headings: List of headings.
         paragraphs: List of paragraphs.
-        
+
     Returns:
         Heading text or None (the deepest/most specific heading).
     """
@@ -736,11 +736,11 @@ def _calculate_element_index(
     headings: list[dict],
 ) -> int:
     """Calculate element index within the current heading section.
-    
+
     Args:
         paragraph_idx: Index of the paragraph in the document.
         headings: List of headings with positions.
-        
+
     Returns:
         Index within the current section (0-based).
     """

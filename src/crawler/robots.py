@@ -61,7 +61,7 @@ class SitemapEntry:
 
     def score(self) -> float:
         """Calculate priority score for URL selection.
-        
+
         Higher score = higher priority for crawling.
         """
         score = self.priority
@@ -104,11 +104,11 @@ class SitemapResult:
         min_score: float = 0.5,
     ) -> list[tuple[str, float]]:
         """Get high-priority URLs for crawling.
-        
+
         Args:
             limit: Maximum number of URLs to return.
             min_score: Minimum score threshold.
-            
+
         Returns:
             List of (url, score) tuples, sorted by score descending.
         """
@@ -127,7 +127,7 @@ class SitemapResult:
 
 class RobotsChecker:
     """Check URL compliance with robots.txt rules.
-    
+
     Features:
     - Async fetching with caching
     - Crawl-delay extraction and enforcement
@@ -149,11 +149,11 @@ class RobotsChecker:
         user_agent: str | None = None,
     ) -> bool:
         """Check if URL can be fetched according to robots.txt.
-        
+
         Args:
             url: URL to check.
             user_agent: User agent to check for (default: Lancet or *).
-            
+
         Returns:
             True if URL is allowed, False otherwise.
         """
@@ -182,10 +182,10 @@ class RobotsChecker:
 
     async def get_crawl_delay(self, domain: str) -> float | None:
         """Get crawl-delay for domain from robots.txt.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             Crawl delay in seconds, or None if not specified.
         """
@@ -196,10 +196,10 @@ class RobotsChecker:
 
     async def get_sitemaps(self, domain: str) -> list[str]:
         """Get sitemap URLs from robots.txt.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             List of sitemap URLs declared in robots.txt.
         """
@@ -210,10 +210,10 @@ class RobotsChecker:
 
     async def _get_robots_rules(self, domain: str) -> RobotsRule | None:
         """Get robots.txt rules for domain, fetching if needed.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             RobotsRule object or None if unavailable.
         """
@@ -234,10 +234,10 @@ class RobotsChecker:
 
     async def _fetch_robots_txt(self, domain: str) -> RobotsRule | None:
         """Fetch and parse robots.txt for domain.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             RobotsRule object or None on failure.
         """
@@ -292,13 +292,13 @@ class RobotsChecker:
 
     def _parse_robots_txt(self, domain: str, content: str) -> RobotsRule:
         """Parse robots.txt content.
-        
+
         Extracts rules for our user agent (Lancet) or *.
-        
+
         Args:
             domain: Domain name.
             content: robots.txt content.
-            
+
         Returns:
             Parsed RobotsRule object.
         """
@@ -358,15 +358,15 @@ class RobotsChecker:
     @staticmethod
     def _path_matches(path: str, pattern: str) -> bool:
         """Check if path matches robots.txt pattern.
-        
+
         Supports:
         - * wildcard (any characters)
         - $ end anchor
-        
+
         Args:
             path: URL path to check.
             pattern: robots.txt pattern.
-            
+
         Returns:
             True if path matches pattern.
         """
@@ -405,7 +405,7 @@ class RobotsChecker:
 
 class SitemapParser:
     """Parse sitemap.xml and sitemap index files.
-    
+
     Features:
     - Handles sitemap index files (recursive parsing)
     - Supports gzipped sitemaps
@@ -431,13 +431,13 @@ class SitemapParser:
         depth: int = 0,
     ) -> SitemapResult:
         """Parse sitemap from URL.
-        
+
         Handles both regular sitemaps and sitemap index files.
-        
+
         Args:
             sitemap_url: URL of sitemap.
             depth: Current nesting depth (for index files).
-            
+
         Returns:
             SitemapResult with extracted entries.
         """
@@ -501,15 +501,15 @@ class SitemapParser:
 
     async def discover_sitemaps(self, domain: str) -> list[str]:
         """Discover sitemap URLs for domain.
-        
+
         Checks:
         1. robots.txt Sitemap directives
         2. Standard /sitemap.xml location
         3. Common sitemap patterns
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             List of discovered sitemap URLs.
         """
@@ -548,12 +548,12 @@ class SitemapParser:
         min_score: float = 0.5,
     ) -> list[tuple[str, float]]:
         """Get high-priority URLs from domain's sitemaps.
-        
+
         Args:
             domain: Domain name.
             limit: Maximum URLs to return.
             min_score: Minimum priority score.
-            
+
         Returns:
             List of (url, score) tuples.
         """
@@ -582,12 +582,12 @@ class SitemapParser:
 
     async def _fetch_sitemap(self, url: str) -> str | None:
         """Fetch sitemap content.
-        
+
         Handles gzipped sitemaps automatically.
-        
+
         Args:
             url: Sitemap URL.
-            
+
         Returns:
             Sitemap content as string, or None on failure.
         """
@@ -629,10 +629,10 @@ class SitemapParser:
 
     async def _sitemap_exists(self, url: str) -> bool:
         """Check if sitemap exists via HEAD request.
-        
+
         Args:
             url: Sitemap URL.
-            
+
         Returns:
             True if sitemap exists.
         """
@@ -653,10 +653,10 @@ class SitemapParser:
 
     def _extract_sitemap_urls(self, root: ET.Element) -> list[str]:
         """Extract sitemap URLs from sitemap index.
-        
+
         Args:
             root: XML root element.
-            
+
         Returns:
             List of sitemap URLs.
         """
@@ -679,10 +679,10 @@ class SitemapParser:
 
     def _extract_url_entries(self, root: ET.Element) -> list[SitemapEntry]:
         """Extract URL entries from sitemap.
-        
+
         Args:
             root: XML root element.
-            
+
         Returns:
             List of SitemapEntry objects.
         """
@@ -704,10 +704,10 @@ class SitemapParser:
 
     def _parse_url_element(self, url_elem: ET.Element) -> SitemapEntry | None:
         """Parse single URL element from sitemap.
-        
+
         Args:
             url_elem: XML url element.
-            
+
         Returns:
             SitemapEntry or None if invalid.
         """
@@ -748,12 +748,12 @@ class SitemapParser:
     @staticmethod
     def _parse_datetime(date_str: str) -> datetime | None:
         """Parse datetime from sitemap lastmod.
-        
+
         Supports various ISO 8601 formats.
-        
+
         Args:
             date_str: Date string.
-            
+
         Returns:
             Parsed datetime or None.
         """
@@ -786,7 +786,7 @@ class SitemapParser:
 
 class RobotsManager:
     """Manages robots.txt and sitemap integration with crawler.
-    
+
     Provides unified interface for:
     - URL compliance checking
     - Crawl delay enforcement
@@ -800,10 +800,10 @@ class RobotsManager:
 
     async def can_fetch(self, url: str) -> bool:
         """Check if URL can be fetched (robots.txt compliance).
-        
+
         Args:
             url: URL to check.
-            
+
         Returns:
             True if allowed.
         """
@@ -811,15 +811,15 @@ class RobotsManager:
 
     async def get_effective_delay(self, domain: str) -> float:
         """Get effective crawl delay for domain.
-        
+
         Returns the maximum of:
         - robots.txt Crawl-delay
         - Domain policy QPS
         - Global minimum delay
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             Delay in seconds.
         """
@@ -853,11 +853,11 @@ class RobotsManager:
         limit: int = 50,
     ) -> list[tuple[str, float]]:
         """Get priority URLs from sitemap for crawling.
-        
+
         Args:
             domain: Domain name.
             limit: Maximum URLs to return.
-            
+
         Returns:
             List of (url, score) tuples.
         """
@@ -869,13 +869,13 @@ class RobotsManager:
         keywords: list[str] | None = None,
     ) -> list[str]:
         """Discover relevant URLs from sitemap.
-        
+
         Filters sitemap URLs by keywords if provided.
-        
+
         Args:
             domain: Domain name.
             keywords: Optional keywords to filter URLs.
-            
+
         Returns:
             List of relevant URLs.
         """
@@ -897,10 +897,10 @@ class RobotsManager:
 
     async def get_robots_info(self, domain: str) -> dict[str, Any]:
         """Get robots.txt information for domain.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             Dictionary with robots.txt info.
         """
@@ -936,7 +936,7 @@ _robots_manager: RobotsManager | None = None
 
 def get_robots_manager() -> RobotsManager:
     """Get or create global RobotsManager instance.
-    
+
     Returns:
         RobotsManager instance.
     """
@@ -952,10 +952,10 @@ def get_robots_manager() -> RobotsManager:
 
 async def check_robots_compliance(url: str) -> dict[str, Any]:
     """Check URL compliance with robots.txt (for MCP tool use).
-    
+
     Args:
         url: URL to check.
-        
+
     Returns:
         Compliance check result.
     """
@@ -983,12 +983,12 @@ async def get_sitemap_urls(
     keywords: list[str] | None = None,
 ) -> dict[str, Any]:
     """Get URLs from domain sitemap (for MCP tool use).
-    
+
     Args:
         domain: Domain name.
         limit: Maximum URLs.
         keywords: Optional filter keywords.
-        
+
     Returns:
         Sitemap extraction result.
     """

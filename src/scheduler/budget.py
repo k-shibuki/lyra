@@ -91,7 +91,7 @@ class TaskBudget:
     def can_continue(self) -> tuple[bool, BudgetExceededReason | None]:
         """
         Check if task can continue execution.
-        
+
         Returns:
             Tuple of (can_continue, reason if not)
         """
@@ -111,10 +111,10 @@ class TaskBudget:
     def can_run_llm(self, estimated_seconds: float = 10.0) -> bool:
         """
         Check if LLM job can run within ratio limit.
-        
+
         Args:
             estimated_seconds: Estimated LLM processing time.
-            
+
         Returns:
             True if LLM can run within budget.
         """
@@ -147,7 +147,7 @@ class TaskBudget:
     def record_llm_time(self, seconds: float) -> None:
         """
         Record LLM processing time.
-        
+
         Args:
             seconds: LLM processing time in seconds.
         """
@@ -163,7 +163,7 @@ class TaskBudget:
     def stop(self, reason: BudgetExceededReason | None = None) -> None:
         """
         Stop the task budget.
-        
+
         Args:
             reason: Reason for stopping (if budget exceeded).
         """
@@ -238,10 +238,10 @@ class BudgetManager:
     async def create_budget(self, task_id: str) -> TaskBudget:
         """
         Create a new budget for a task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             New TaskBudget instance.
         """
@@ -270,10 +270,10 @@ class BudgetManager:
     async def get_budget(self, task_id: str) -> TaskBudget | None:
         """
         Get budget for a task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             TaskBudget or None if not found.
         """
@@ -288,12 +288,12 @@ class BudgetManager:
     ) -> tuple[bool, BudgetExceededReason | None]:
         """
         Check budget and optionally update counters.
-        
+
         Args:
             task_id: Task identifier.
             record_page: Whether to record a page fetch.
             llm_time_seconds: LLM time to record.
-            
+
         Returns:
             Tuple of (can_continue, exceeded_reason)
         """
@@ -321,10 +321,10 @@ class BudgetManager:
     async def can_fetch_page(self, task_id: str) -> bool:
         """
         Check if a page can be fetched.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             True if page fetch is within budget.
         """
@@ -340,11 +340,11 @@ class BudgetManager:
     ) -> bool:
         """
         Check if LLM can run within ratio limit.
-        
+
         Args:
             task_id: Task identifier.
             estimated_seconds: Estimated LLM processing time.
-            
+
         Returns:
             True if LLM can run within budget.
         """
@@ -359,10 +359,10 @@ class BudgetManager:
     ) -> dict[str, Any] | None:
         """
         Get remaining budget for a task.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             Dictionary with remaining budget info.
         """
@@ -384,7 +384,7 @@ class BudgetManager:
     ) -> None:
         """
         Stop a task's budget.
-        
+
         Args:
             task_id: Task identifier.
             reason: Reason for stopping.
@@ -397,7 +397,7 @@ class BudgetManager:
     async def remove_budget(self, task_id: str) -> None:
         """
         Remove a task's budget.
-        
+
         Args:
             task_id: Task identifier.
         """
@@ -409,7 +409,7 @@ class BudgetManager:
     async def get_all_active_budgets(self) -> list[dict[str, Any]]:
         """
         Get all active task budgets.
-        
+
         Returns:
             List of budget dictionaries.
         """
@@ -423,10 +423,10 @@ class BudgetManager:
         """
         Enforce budget limits and return status.
         Called periodically to check and stop tasks that exceed limits.
-        
+
         Args:
             task_id: Task identifier.
-            
+
         Returns:
             Status dict with enforcement results.
         """

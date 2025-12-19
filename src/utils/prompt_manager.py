@@ -38,10 +38,10 @@ class TemplateRenderError(PromptTemplateError):
 class PromptManager:
     """
     Manager for LLM prompt templates.
-    
+
     Loads Jinja2 templates from config/prompts/ and provides
     a simple API for rendering prompts with variables.
-    
+
     Usage:
         manager = get_prompt_manager()
         prompt = manager.render("extract_facts", text="...")
@@ -50,7 +50,7 @@ class PromptManager:
     def __init__(self, prompts_dir: Path | None = None):
         """
         Initialize the prompt manager.
-        
+
         Args:
             prompts_dir: Path to prompts directory. 
                         Defaults to config/prompts/ relative to project root.
@@ -79,10 +79,10 @@ class PromptManager:
     def _get_environment(self) -> Environment:
         """
         Get or create the Jinja2 environment.
-        
+
         Returns:
             Configured Jinja2 Environment.
-            
+
         Raises:
             TemplateNotFoundError: If prompts directory doesn't exist.
         """
@@ -113,10 +113,10 @@ class PromptManager:
     def get_template_path(self, template_name: str) -> Path:
         """
         Get the path to a template file.
-        
+
         Args:
             template_name: Template name (without .j2 extension).
-            
+
         Returns:
             Full path to the template file.
         """
@@ -125,10 +125,10 @@ class PromptManager:
     def template_exists(self, template_name: str) -> bool:
         """
         Check if a template exists.
-        
+
         Args:
             template_name: Template name (without .j2 extension).
-            
+
         Returns:
             True if template exists, False otherwise.
         """
@@ -137,7 +137,7 @@ class PromptManager:
     def list_templates(self) -> list[str]:
         """
         List all available templates.
-        
+
         Returns:
             List of template names (without .j2 extension).
         """
@@ -151,14 +151,14 @@ class PromptManager:
     def render(self, template_name: str, **kwargs: Any) -> str:
         """
         Render a prompt template with given variables.
-        
+
         Args:
             template_name: Template name (without .j2 extension).
             **kwargs: Variables to inject into the template.
-            
+
         Returns:
             Rendered prompt string.
-            
+
         Raises:
             TemplateNotFoundError: If template doesn't exist.
             TemplateRenderError: If rendering fails (e.g., missing variables).
@@ -213,7 +213,7 @@ _prompt_manager: PromptManager | None = None
 def get_prompt_manager() -> PromptManager:
     """
     Get the global PromptManager instance.
-    
+
     Returns:
         PromptManager singleton instance.
     """
@@ -236,17 +236,17 @@ def reset_prompt_manager() -> None:
 def render_prompt(template_name: str, **kwargs: Any) -> str:
     """
     Render a prompt template using the global PromptManager.
-    
+
     Convenience function equivalent to:
         get_prompt_manager().render(template_name, **kwargs)
-    
+
     Args:
         template_name: Template name (without .j2 extension).
         **kwargs: Variables to inject into the template.
-        
+
     Returns:
         Rendered prompt string.
-        
+
     Raises:
         TemplateNotFoundError: If template doesn't exist.
         TemplateRenderError: If rendering fails.

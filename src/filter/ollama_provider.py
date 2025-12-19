@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 class OllamaProvider(BaseLLMProvider):
     """
     Ollama LLM provider.
-    
+
     Implements the LLMProvider interface for local Ollama models.
     Supports:
     - Text generation (generate)
@@ -40,20 +40,20 @@ class OllamaProvider(BaseLLMProvider):
     - Embeddings (embed)
     - Model listing and info
     - Model unloading for VRAM management
-    
+
     Per §4.2: Supports task-scoped lifecycle management with model unloading.
     Per §K.1: Uses single 3B model for all LLM tasks.
-    
+
     Example:
         provider = OllamaProvider()
-        
+
         # Generate text
         response = await provider.generate("Hello, world!")
-        
+
         # Chat
         messages = [ChatMessage(role="user", content="Hi")]
         response = await provider.chat(messages)
-        
+
         # Cleanup
         await provider.unload_model()
         await provider.close()
@@ -71,7 +71,7 @@ class OllamaProvider(BaseLLMProvider):
     ):
         """
         Initialize Ollama provider.
-        
+
         Args:
             host: Ollama API host URL (default: from settings, respects execution_mode).
             model: Model name for all tasks (default: from settings).
@@ -130,11 +130,11 @@ class OllamaProvider(BaseLLMProvider):
     ) -> LLMResponse:
         """
         Generate text completion.
-        
+
         Args:
             prompt: Input prompt text.
             options: Generation options.
-            
+
         Returns:
             LLMResponse with generated text or error.
         """
@@ -252,11 +252,11 @@ class OllamaProvider(BaseLLMProvider):
     ) -> LLMResponse:
         """
         Generate chat completion.
-        
+
         Args:
             messages: List of chat messages.
             options: Generation options.
-            
+
         Returns:
             LLMResponse with assistant response or error.
         """
@@ -368,11 +368,11 @@ class OllamaProvider(BaseLLMProvider):
     ) -> EmbeddingResponse:
         """
         Generate embeddings for texts.
-        
+
         Args:
             texts: List of texts to embed.
             model: Model name for embedding.
-            
+
         Returns:
             EmbeddingResponse with embedding vectors or error.
         """
@@ -427,10 +427,10 @@ class OllamaProvider(BaseLLMProvider):
     async def get_model_info(self, model: str) -> ModelInfo | None:
         """
         Get information about a specific model.
-        
+
         Args:
             model: Model name.
-            
+
         Returns:
             ModelInfo or None if model not found.
         """
@@ -486,7 +486,7 @@ class OllamaProvider(BaseLLMProvider):
     async def list_models(self) -> list[ModelInfo]:
         """
         List all available models.
-        
+
         Returns:
             List of ModelInfo for available models.
         """
@@ -535,7 +535,7 @@ class OllamaProvider(BaseLLMProvider):
     async def get_health(self) -> LLMHealthStatus:
         """
         Get current health status.
-        
+
         Returns:
             LLMHealthStatus indicating provider health.
         """
@@ -582,12 +582,12 @@ class OllamaProvider(BaseLLMProvider):
     async def unload_model(self, model: str | None = None) -> bool:
         """
         Unload model to free VRAM.
-        
+
         Per §4.2: LLM process context should be released after task completion.
-        
+
         Args:
             model: Model name to unload (uses current model if not specified).
-            
+
         Returns:
             True if unload was successful.
         """
@@ -652,11 +652,11 @@ def create_ollama_provider(
 ) -> OllamaProvider:
     """
     Create an Ollama provider instance.
-    
+
     Args:
         host: Ollama API host URL.
         model: Model name for all tasks.
-        
+
     Returns:
         Configured OllamaProvider instance.
     """

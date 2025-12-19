@@ -50,10 +50,10 @@ class ParameterBounds:
 
 def _get_default_bounds() -> dict["PolicyParameter", ParameterBounds]:
     """Get default parameter bounds from DomainPolicyManager.
-    
+
     Loads bounds from config/domains.yaml via DomainPolicyManager.
     Falls back to hardcoded defaults if config not available.
-    
+
     Returns:
         Dictionary mapping PolicyParameter to ParameterBounds.
     """
@@ -156,7 +156,7 @@ _default_bounds: dict[PolicyParameter, ParameterBounds] | None = None
 
 def get_default_bounds() -> dict[PolicyParameter, ParameterBounds]:
     """Get default parameter bounds (lazy-loaded singleton).
-    
+
     Returns:
         Dictionary mapping PolicyParameter to ParameterBounds.
     """
@@ -211,10 +211,10 @@ class ParameterState:
 
     def can_change(self, min_interval_seconds: int = 300) -> bool:
         """Check if enough time has passed since last change.
-        
+
         Args:
             min_interval_seconds: Minimum seconds between changes.
-            
+
         Returns:
             True if change is allowed.
         """
@@ -228,12 +228,12 @@ class ParameterState:
         bounds: ParameterBounds,
     ) -> float:
         """Apply a parameter change with bounds checking.
-        
+
         Args:
             new_value: Proposed new value.
             direction: "up" or "down".
             bounds: Parameter bounds.
-            
+
         Returns:
             Actual new value after bounds clamping.
         """
@@ -263,7 +263,7 @@ class PolicyUpdate:
 
 class PolicyEngine:
     """Engine for automatic policy adjustments.
-    
+
     Runs periodic updates based on collected metrics, adjusting
     system parameters to maintain optimal performance while
     avoiding blocks and errors.
@@ -276,7 +276,7 @@ class PolicyEngine:
         hysteresis_interval: int | None = None,
     ):
         """Initialize policy engine.
-        
+
         Args:
             metrics_collector: Metrics collector to use.
             update_interval: Seconds between policy updates.
@@ -322,12 +322,12 @@ class PolicyEngine:
         param: PolicyParameter,
     ) -> ParameterState:
         """Get or create parameter state.
-        
+
         Args:
             target_type: "engine" or "domain".
             target_id: Engine or domain name.
             param: Parameter type.
-            
+
         Returns:
             ParameterState instance.
         """
@@ -347,10 +347,10 @@ class PolicyEngine:
 
     async def _adjust_engine_policy(self, engine: str) -> list[PolicyUpdate]:
         """Adjust policy for a search engine based on metrics.
-        
+
         Args:
             engine: Engine name.
-            
+
         Returns:
             List of policy updates made.
         """
@@ -428,10 +428,10 @@ class PolicyEngine:
 
     async def _adjust_domain_policy(self, domain: str) -> list[PolicyUpdate]:
         """Adjust policy for a domain based on metrics.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             List of policy updates made.
         """
@@ -542,7 +542,7 @@ class PolicyEngine:
 
     async def _apply_updates_to_db(self, updates: list[PolicyUpdate]) -> None:
         """Persist policy updates to database.
-        
+
         Args:
             updates: List of policy updates to persist.
         """
@@ -676,7 +676,7 @@ class PolicyEngine:
 
     async def force_update(self) -> list[PolicyUpdate]:
         """Force an immediate policy update cycle.
-        
+
         Returns:
             List of updates made.
         """
@@ -690,12 +690,12 @@ class PolicyEngine:
         param: PolicyParameter,
     ) -> float:
         """Get current value of a parameter.
-        
+
         Args:
             target_type: "engine" or "domain".
             target_id: Engine or domain name.
             param: Parameter type.
-            
+
         Returns:
             Current parameter value.
         """
@@ -711,14 +711,14 @@ class PolicyEngine:
         reason: str = "Manual override",
     ) -> PolicyUpdate:
         """Manually set a parameter value.
-        
+
         Args:
             target_type: "engine" or "domain".
             target_id: Engine or domain name.
             param: Parameter type.
             value: New value.
             reason: Reason for change.
-            
+
         Returns:
             PolicyUpdate record.
         """
@@ -753,12 +753,12 @@ class PolicyEngine:
         target_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get policy update history.
-        
+
         Args:
             limit: Maximum number of updates to return.
             target_type: Filter by target type.
             target_id: Filter by target ID.
-            
+
         Returns:
             List of update records.
         """
@@ -796,11 +796,11 @@ class PolicyEngine:
         last_used_at: datetime | None,
     ) -> tuple[float, float]:
         """Calculate dynamic weight based on engine health metrics.
-        
+
         Per §3.1.1, §3.1.4, §4.6: Calculates engine weight adjustment based on
         past accuracy, failure rate, and block rate. Uses time decay to
         handle stale metrics from infrequently used engines.
-        
+
         Args:
             base_weight: Base weight from config/engines.yaml (0.0-2.0).
             success_rate_1h: 1-hour EMA success rate (0.0-1.0).
@@ -808,7 +808,7 @@ class PolicyEngine:
             captcha_rate: CAPTCHA encounter rate (0.0-1.0).
             median_latency_ms: Median latency in milliseconds.
             last_used_at: Last usage timestamp for time decay calculation.
-            
+
         Returns:
             Tuple of (dynamic_weight, confidence):
             - dynamic_weight: Adjusted weight (0.1-1.0)
@@ -852,15 +852,15 @@ class PolicyEngine:
         category: str | None = None,
     ) -> float:
         """Get dynamic weight for an engine.
-        
+
         Per §3.1.1, §3.1.4: Retrieves engine health metrics from database
         and calculates dynamic weight with time decay.
-        
+
         Args:
             engine: Engine name (case-insensitive).
             category: Optional query category for future category-specific
                      weight adjustments.
-            
+
         Returns:
             Dynamic weight (0.1-1.0). Returns base weight from config
             if engine not found in database or on error.
@@ -950,7 +950,7 @@ _engine: PolicyEngine | None = None
 
 async def get_policy_engine() -> PolicyEngine:
     """Get the global policy engine instance.
-    
+
     Returns:
         PolicyEngine instance.
     """

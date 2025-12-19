@@ -29,7 +29,7 @@ class TestVerificationDetails:
     def test_to_dict_default_values(self):
         """
         TC-N-01: VerificationDetails with default values.
-        
+
         // Given: Default VerificationDetails
         // When: Converting to dict
         // Then: All fields present with defaults
@@ -45,7 +45,7 @@ class TestVerificationDetails:
     def test_to_dict_with_values(self):
         """
         TC-N-02: VerificationDetails with populated values.
-        
+
         // Given: VerificationDetails with all fields set
         // When: Converting to dict
         // Then: All values serialized correctly
@@ -70,7 +70,7 @@ class TestSecurityWarning:
     def test_to_dict_default_severity(self):
         """
         TC-N-03: SecurityWarning with default severity.
-        
+
         // Given: SecurityWarning without explicit severity
         // When: Converting to dict
         // Then: Default severity is "warning"
@@ -88,7 +88,7 @@ class TestSecurityWarning:
     def test_to_dict_custom_severity(self):
         """
         TC-N-04: SecurityWarning with custom severity.
-        
+
         // Given: SecurityWarning with critical severity
         // When: Converting to dict
         // Then: Custom severity preserved
@@ -109,7 +109,7 @@ class TestLancetMeta:
     def test_to_dict_minimal(self):
         """
         TC-N-05: LancetMeta with minimal fields (empty lists).
-        
+
         // Given: LancetMeta with default (empty) lists
         // When: Converting to dict
         // Then: Empty lists are excluded from output
@@ -127,7 +127,7 @@ class TestLancetMeta:
     def test_to_dict_with_warnings(self):
         """
         TC-N-06: LancetMeta with security warnings.
-        
+
         // Given: LancetMeta with security warnings
         // When: Converting to dict
         // Then: Warnings serialized as list of dicts
@@ -146,7 +146,7 @@ class TestLancetMeta:
     def test_to_dict_with_domains(self):
         """
         TC-N-07: LancetMeta with blocked and unverified domains.
-        
+
         // Given: LancetMeta with domain lists
         // When: Converting to dict
         // Then: Domain lists included in output
@@ -163,7 +163,7 @@ class TestLancetMeta:
     def test_timestamp_is_iso_format(self):
         """
         TC-N-08: Timestamp is in ISO format.
-        
+
         // Given: Default LancetMeta
         // When: Checking timestamp
         // Then: Timestamp is valid ISO format
@@ -179,7 +179,7 @@ class TestClaimMeta:
     def test_to_dict_minimal(self):
         """
         TC-N-09: ClaimMeta with minimal required fields.
-        
+
         // Given: ClaimMeta with only required fields
         // When: Converting to dict
         // Then: Required fields present, optional excluded
@@ -199,7 +199,7 @@ class TestClaimMeta:
     def test_to_dict_with_all_fields(self):
         """
         TC-N-10: ClaimMeta with all fields populated.
-        
+
         // Given: ClaimMeta with all optional fields
         // When: Converting to dict
         // Then: All fields serialized
@@ -225,7 +225,7 @@ class TestResponseMetaBuilder:
     def test_builder_chain_methods(self):
         """
         TC-N-11: Builder methods return self for chaining.
-        
+
         // Given: New ResponseMetaBuilder
         // When: Calling chain methods
         // Then: Each method returns self
@@ -247,7 +247,7 @@ class TestResponseMetaBuilder:
     def test_build_empty(self):
         """
         TC-A-01: Build with no additions.
-        
+
         // Given: Empty ResponseMetaBuilder
         // When: Building
         // Then: Minimal meta returned
@@ -261,7 +261,7 @@ class TestResponseMetaBuilder:
     def test_build_with_warnings(self):
         """
         TC-N-12: Build with multiple security warnings.
-        
+
         // Given: Builder with multiple warnings added
         // When: Building
         // Then: All warnings in output
@@ -278,7 +278,7 @@ class TestResponseMetaBuilder:
     def test_build_with_claims(self):
         """
         TC-N-13: Build with claim metadata.
-        
+
         // Given: Builder with claim metas added
         // When: Building
         // Then: Claims array in output
@@ -302,7 +302,7 @@ class TestResponseMetaBuilder:
     def test_add_blocked_domain_deduplication(self):
         """
         TC-A-02: Duplicate blocked domains are deduplicated.
-        
+
         // Given: Builder with same domain added twice
         // When: Building
         // Then: Domain appears only once
@@ -318,7 +318,7 @@ class TestResponseMetaBuilder:
     def test_add_unverified_domain_deduplication(self):
         """
         TC-A-03: Duplicate unverified domains are deduplicated.
-        
+
         // Given: Builder with same domain added twice
         // When: Building
         // Then: Domain appears only once
@@ -338,7 +338,7 @@ class TestHelperFunctions:
     def test_create_response_meta_returns_builder(self):
         """
         TC-N-14: create_response_meta returns new builder.
-        
+
         // Given: Calling create_response_meta
         // When: Function called
         // Then: Returns ResponseMetaBuilder instance
@@ -349,7 +349,7 @@ class TestHelperFunctions:
     def test_attach_meta_adds_key(self):
         """
         TC-B-01: attach_meta adds _lancet_meta key.
-        
+
         // Given: Response dict and meta dict
         // When: Calling attach_meta
         // Then: Response has _lancet_meta key
@@ -366,7 +366,7 @@ class TestHelperFunctions:
     def test_create_minimal_meta_structure(self):
         """
         TC-B-02: create_minimal_meta returns minimal structure.
-        
+
         // Given: Calling create_minimal_meta
         // When: Function called
         // Then: Returns dict with timestamp and data_quality only
@@ -384,7 +384,7 @@ class TestVerificationStatusEnum:
     def test_enum_values(self):
         """
         TC-N-15: VerificationStatus enum values.
-        
+
         // Given: VerificationStatus enum
         // When: Accessing values
         // Then: All expected values present
@@ -396,7 +396,7 @@ class TestVerificationStatusEnum:
     def test_enum_is_str(self):
         """
         TC-N-16: VerificationStatus is string enum.
-        
+
         // Given: VerificationStatus enum member
         // When: Accessing value
         // Then: Value is string
@@ -412,7 +412,7 @@ class TestBoundaryAndEdgeCases:
     def test_claim_meta_empty_claim_id(self):
         """
         TC-A-04: ClaimMeta with empty claim_id.
-        
+
         // Given: ClaimMeta with empty string claim_id
         // When: Creating and serializing
         // Then: Empty string preserved (no validation error)
@@ -428,7 +428,7 @@ class TestBoundaryAndEdgeCases:
     def test_security_warning_empty_fields(self):
         """
         TC-A-05: SecurityWarning with empty type and message.
-        
+
         // Given: SecurityWarning with empty strings
         // When: Creating and serializing
         // Then: Empty strings preserved
@@ -442,7 +442,7 @@ class TestBoundaryAndEdgeCases:
     def test_verification_details_negative_sources(self):
         """
         TC-A-06: VerificationDetails with negative independent_sources.
-        
+
         // Given: VerificationDetails with negative value
         // When: Creating and serializing
         // Then: Value preserved (no validation at dataclass level)
@@ -455,7 +455,7 @@ class TestBoundaryAndEdgeCases:
     def test_lancet_meta_many_warnings(self):
         """
         TC-B-03: LancetMeta with many security warnings.
-        
+
         // Given: LancetMeta with 100 warnings
         // When: Converting to dict
         // Then: All warnings serialized
@@ -472,7 +472,7 @@ class TestBoundaryAndEdgeCases:
     def test_attach_meta_modifies_response_in_place(self):
         """
         TC-B-04: attach_meta modifies response in place.
-        
+
         // Given: Response dict
         // When: Attaching meta
         // Then: Original dict modified, returned same reference
@@ -488,7 +488,7 @@ class TestBoundaryAndEdgeCases:
     def test_builder_add_claim_meta_returns_self(self):
         """
         TC-N-17: add_claim_meta returns self for chaining.
-        
+
         // Given: Builder
         // When: Adding claim meta
         // Then: Returns self
@@ -503,7 +503,7 @@ class TestBoundaryAndEdgeCases:
     def test_verification_details_empty_lists(self):
         """
         TC-A-07: VerificationDetails with explicitly empty lists.
-        
+
         // Given: VerificationDetails with empty collections
         // When: Serializing
         // Then: Empty collections in output
@@ -523,7 +523,7 @@ class TestBoundaryAndEdgeCases:
     def test_claim_meta_all_verification_statuses(self):
         """
         TC-A-08: ClaimMeta with each verification status.
-        
+
         // Given: ClaimMeta with each status
         // When: Serializing
         // Then: Status value correct
@@ -540,7 +540,7 @@ class TestBoundaryAndEdgeCases:
     def test_data_quality_values(self):
         """
         TC-A-09: LancetMeta with different data_quality values.
-        
+
         // Given: LancetMeta with various quality values
         // When: Serializing
         // Then: Values preserved

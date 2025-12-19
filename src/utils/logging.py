@@ -53,7 +53,7 @@ def configure_logging(
     json_format: bool = True,
 ) -> None:
     """Configure structured logging.
-    
+
     Args:
         log_level: Log level (DEBUG, INFO, WARNING, ERROR). Uses settings if None.
         log_file: Path to log file. Uses settings if None.
@@ -117,10 +117,10 @@ def configure_logging(
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """Get a logger instance.
-    
+
     Args:
         name: Logger name (usually __name__).
-        
+
     Returns:
         Configured logger instance.
     """
@@ -129,10 +129,10 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
 
 def bind_context(**kwargs: Any) -> None:
     """Bind context variables to all subsequent log calls.
-    
+
     Useful for adding task_id, job_id, cause_id to all logs
     within a context.
-    
+
     Args:
         **kwargs: Context variables to bind.
     """
@@ -141,7 +141,7 @@ def bind_context(**kwargs: Any) -> None:
 
 def unbind_context(*keys: str) -> None:
     """Unbind context variables.
-    
+
     Args:
         *keys: Context variable keys to unbind.
     """
@@ -155,7 +155,7 @@ def clear_context() -> None:
 
 class LogContext:
     """Context manager for scoped logging context.
-    
+
     Example:
         with LogContext(task_id="123", job_id="456"):
             logger.info("Processing task")
@@ -164,7 +164,7 @@ class LogContext:
 
     def __init__(self, **kwargs: Any):
         """Initialize with context variables.
-        
+
         Args:
             **kwargs: Context variables to bind.
         """
@@ -183,14 +183,14 @@ class LogContext:
 
 class CausalTrace:
     """Helper for managing causal trace IDs.
-    
+
     Ensures all operations within a trace share the same cause_id,
     enabling reconstruction of decision chains.
     """
 
     def __init__(self, cause_id: str | None = None):
         """Initialize causal trace.
-        
+
         Args:
             cause_id: Parent cause ID. If None, this is a root cause.
         """

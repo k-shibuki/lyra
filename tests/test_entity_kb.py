@@ -175,7 +175,7 @@ class TestNameNormalizer:
 
     def test_normalize_japanese_corporation(self, name_normalizer):
         """Test Japanese corporation name normalization.
-        
+
         Verifies that Japanese corporate suffixes (株式会社) are
         properly extracted and normalized.
         """
@@ -193,7 +193,7 @@ class TestNameNormalizer:
 
     def test_normalize_with_parenthetical_suffix(self, name_normalizer):
         """Test organization name with parenthetical suffix.
-        
+
         Verifies that (株) and similar formats are handled.
         """
         # Arrange
@@ -208,7 +208,7 @@ class TestNameNormalizer:
 
     def test_normalize_english_variations(self, name_normalizer):
         """Test various English corporate suffix variations.
-        
+
         Verifies that Inc., Ltd., LLC etc. are all normalized consistently.
         """
         # Arrange
@@ -230,7 +230,7 @@ class TestNameNormalizer:
 
     def test_normalize_fullwidth_characters(self, name_normalizer):
         """Test full-width to half-width ASCII conversion.
-        
+
         Verifies that full-width characters are converted to half-width.
         """
         # Arrange
@@ -244,7 +244,7 @@ class TestNameNormalizer:
 
     def test_normalize_person_name(self, name_normalizer):
         """Test person name normalization (no suffix extraction).
-        
+
         Verifies that person names don't have corporate suffixes extracted.
         """
         # Arrange
@@ -293,7 +293,7 @@ class TestNameNormalizer:
 
     def test_compute_similarity_partial_match(self, name_normalizer):
         """Test similarity computation for partial matches.
-        
+
         Verifies that partially matching names have similarity < 1.0.
         """
         # Arrange
@@ -308,7 +308,7 @@ class TestNameNormalizer:
 
     def test_compute_similarity_no_match(self, name_normalizer):
         """Test similarity computation for completely different names.
-        
+
         Verifies that unrelated names have low similarity.
         """
         # Arrange
@@ -367,7 +367,7 @@ class TestAddressNormalizer:
 
     def test_normalize_japanese_postal_code(self, address_normalizer):
         """Test Japanese postal code extraction.
-        
+
         Verifies that 〒123-4567 format is correctly extracted.
         """
         # Arrange
@@ -381,7 +381,7 @@ class TestAddressNormalizer:
 
     def test_normalize_us_postal_code(self, address_normalizer):
         """Test US postal code extraction.
-        
+
         Verifies that 5-digit and 5+4 ZIP codes are extracted.
         """
         # Arrange
@@ -407,7 +407,7 @@ class TestAddressNormalizer:
 
     def test_normalize_country_variations(self, address_normalizer):
         """Test various country name formats.
-        
+
         Verifies that different country representations are normalized.
         """
         # Arrange
@@ -527,7 +527,7 @@ class TestEntityKB:
 
     async def test_add_entity_basic(self, entity_kb):
         """Test adding a basic entity.
-        
+
         Verifies that entities can be added and retrieved.
         """
         # Arrange
@@ -669,7 +669,7 @@ class TestEntityKB:
 
     async def test_deduplication_by_name(self, entity_kb):
         """Test entity deduplication by name.
-        
+
         Verifies that adding the same entity twice returns the existing one.
         """
         # Arrange
@@ -692,7 +692,7 @@ class TestEntityKB:
 
     async def test_deduplication_by_identifier(self, entity_kb):
         """Test entity deduplication by identifier.
-        
+
         Verifies that adding entity with same identifier returns existing one.
         """
         # Arrange
@@ -886,7 +886,7 @@ class TestBoundaryConditions:
 
     def test_similarity_many_tokens(self, name_normalizer):
         """Test similarity with many-token names.
-        
+
         Long names with the same core content but different suffixes
         should have high similarity but not necessarily 1.0 due to
         token-based Jaccard calculation.

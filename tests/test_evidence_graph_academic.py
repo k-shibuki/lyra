@@ -101,7 +101,7 @@ class TestEvidenceGraphAcademicEdges:
     def test_add_edge_with_is_academic_attribute(self, evidence_graph):
         """
         Test: add_edge() accepts is_academic attribute.
-        
+
         Given: Source and target PAGE nodes
         When: Adding CITES edge with is_academic=True
         Then: Edge is created with is_academic attribute
@@ -136,7 +136,7 @@ class TestEvidenceGraphAcademicEdges:
     def test_add_edge_with_is_influential_attribute(self, evidence_graph):
         """
         Test: add_edge() accepts is_influential attribute.
-        
+
         Given: Source and target PAGE nodes
         When: Adding CITES edge with is_influential=True
         Then: Edge is created with is_influential attribute
@@ -167,7 +167,7 @@ class TestEvidenceGraphAcademicEdges:
     def test_add_edge_with_citation_context(self, evidence_graph):
         """
         Test: add_edge() accepts citation_context attribute.
-        
+
         Given: Source and target PAGE nodes
         When: Adding CITES edge with citation_context
         Then: Edge is created with citation_context attribute
@@ -209,7 +209,7 @@ class TestAddAcademicPageWithCitations:
     async def test_adds_page_node_with_metadata(self, sample_paper_metadata):
         """
         Test: Function adds PAGE node with academic metadata.
-        
+
         Given: page_id and paper_metadata
         When: add_academic_page_with_citations() is called
         Then: PAGE node is created with is_academic=True and metadata
@@ -247,7 +247,7 @@ class TestAddAcademicPageWithCitations:
     async def test_adds_citation_edges(self, sample_paper_metadata, sample_citations):
         """
         Test: Function adds CITES edges for citations.
-        
+
         Given: page_id, paper_metadata, citations list, and paper_to_page_map
         When: add_academic_page_with_citations() is called
         Then: CITES edges are created for each citation with mapped page_id
@@ -295,7 +295,7 @@ class TestAddAcademicPageWithCitations:
     async def test_preserves_is_influential_flag(self, sample_paper_metadata, sample_citations):
         """
         Test: Function preserves is_influential from Citation objects.
-        
+
         Given: Citations with varying is_influential values
         When: add_academic_page_with_citations() is called
         Then: is_influential is correctly set on edges
@@ -337,7 +337,7 @@ class TestAddAcademicPageWithCitations:
     async def test_handles_empty_citations_list(self, sample_paper_metadata):
         """
         Test: Function handles empty citations list gracefully.
-        
+
         Given: Empty citations list
         When: add_academic_page_with_citations() is called
         Then: No edges are created, no errors
@@ -376,7 +376,7 @@ class TestAcademicEdgeQuery:
     def test_filter_academic_citations(self, evidence_graph):
         """
         Test: Can filter edges by is_academic attribute.
-        
+
         Given: Graph with both academic and non-academic edges
         When: Filtering for academic edges
         Then: Only academic edges are returned
@@ -409,7 +409,7 @@ class TestAcademicEdgeQuery:
     def test_filter_influential_citations(self, evidence_graph):
         """
         Test: Can filter edges by is_influential attribute.
-        
+
         Given: Graph with influential and non-influential edges
         When: Filtering for influential edges
         Then: Only influential edges are returned
@@ -453,7 +453,7 @@ class TestBoundaryValues:
     async def test_citation_context_none(self, sample_paper_metadata):
         """
         TC-EG-B-02: citation_context=None is handled correctly.
-        
+
         Given: Citation with context=None
         When: Adding citation edge
         Then: Edge is created with None context
@@ -487,7 +487,7 @@ class TestBoundaryValues:
     async def test_empty_paper_metadata(self):
         """
         TC-EG-B-03: Empty paper_metadata dict is handled correctly.
-        
+
         Given: Empty paper_metadata dict
         When: add_academic_page_with_citations() is called
         Then: Node created with default values
@@ -532,7 +532,7 @@ class TestExceptionHandlingEvidenceGraph:
     async def test_invalid_citation_object_skipped(self, sample_paper_metadata):
         """
         TC-EG-A-01: Invalid Citation object in list is skipped.
-        
+
         Given: Citations list with invalid object
         When: add_academic_page_with_citations() is called
         Then: Invalid citation is skipped, processing continues
@@ -583,7 +583,7 @@ class TestExceptionHandlingEvidenceGraph:
     async def test_db_insert_failure_handled(self, sample_paper_metadata, sample_citations):
         """
         TC-EG-A-02: DB insert failure is handled gracefully.
-        
+
         Given: DB insert raises exception
         When: add_academic_page_with_citations() is called
         Then: Exception is raised (caller should handle it)
@@ -618,7 +618,7 @@ class TestExceptionHandlingEvidenceGraph:
     async def test_cited_paper_id_empty_string_handled(self, sample_paper_metadata):
         """
         TC-EG-A-03: cited_paper_id is empty string is handled.
-        
+
         Given: Citation with cited_paper_id=""
         When: Adding citation edge
         Then: Edge creation proceeds (empty string is valid)
@@ -653,7 +653,7 @@ class TestExceptionHandlingEvidenceGraph:
     async def test_skips_citations_without_page_mapping(self, sample_paper_metadata):
         """
         TC-EG-N-11: Citations without page_id mapping are skipped.
-        
+
         Given: Citations with cited_paper_id not in paper_to_page_map
         When: add_academic_page_with_citations() is called
         Then: Citations are skipped, no edges created
@@ -699,7 +699,7 @@ class TestExceptionHandlingEvidenceGraph:
     async def test_maps_cited_paper_id_to_page_id(self, sample_paper_metadata):
         """
         TC-EG-N-12: cited_paper_id is correctly mapped to page_id.
-        
+
         Given: Citations with cited_paper_id in paper_to_page_map
         When: add_academic_page_with_citations() is called
         Then: Edges use mapped page_id, not paper_id

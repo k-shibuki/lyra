@@ -163,7 +163,7 @@ def reset_provider():
 @pytest.fixture
 def browser_search_provider(mock_human_behavior_simulator):
     """Create a properly managed BrowserSearchProvider for tests.
-    
+
     Ensures the provider is properly closed after each test to prevent
     ResourceWarning: unclosed event loop warnings.
     """
@@ -274,7 +274,7 @@ class TestBrowserSearchProvider:
         mock_parse_result,
     ):
         """Test successful search execution.
-        
+
         Given: Valid query, engine available, parser exists
         When: search() is called
         Then: SearchResponse with results is returned
@@ -345,7 +345,7 @@ class TestBrowserSearchProvider:
     @pytest.mark.asyncio
     async def test_search_captcha_detection(self, mock_playwright):
         """Test CAPTCHA detection during search.
-        
+
         Given: CAPTCHA detected in parse result
         When: search() processes result
         Then: SearchResponse with CAPTCHA error is returned
@@ -427,7 +427,7 @@ class TestBrowserSearchProvider:
     @pytest.mark.asyncio
     async def test_search_no_parser(self):
         """Test search with unavailable parser.
-        
+
         Given: Parser not found for engine
         When: search() tries to get parser
         Then: SearchResponse(error="No parser available") is returned
@@ -468,7 +468,7 @@ class TestBrowserSearchProvider:
     @pytest.mark.asyncio
     async def test_search_timeout(self, mock_playwright, mock_context):
         """Test search timeout handling.
-        
+
         Given: Page navigation times out
         When: search() executes
         Then: SearchResponse(error="Timeout") is returned
@@ -656,7 +656,7 @@ class TestFactoryFunctions:
 class TestCDPConnection:
     """
     Tests for CDP connection handling.
-    
+
     Per spec (§3.2, §4.3.3), CDP connection is required and headless
     fallback is not supported.
     """
@@ -665,7 +665,7 @@ class TestCDPConnection:
     async def test_cdp_connection_failure_returns_clear_error(self):
         """
         Test that CDP connection failure returns a clear error message.
-        
+
         Validates:
         - No headless fallback (per §4.3.3)
         - Error message includes chrome.sh guidance
@@ -1018,7 +1018,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_search_applies_human_behavior(self, mock_playwright, mock_parse_result):
         """Test BrowserSearchProvider.search() applies human behavior to results page.
-        
+
         Given: Search executed, results page has links
         When: search() is called
         Then: simulate_reading() and move_mouse_to_element() are called
@@ -1070,7 +1070,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_search_with_no_links(self, mock_playwright, mock_parse_result):
         """Test BrowserSearchProvider.search() handles pages with no result links.
-        
+
         Given: Search executed, results page has no links
         When: search() is called
         Then: simulate_reading() is called but move_mouse_to_element() is skipped
@@ -1120,7 +1120,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_search_with_link_search_exception(self, mock_playwright, mock_parse_result):
         """Test BrowserSearchProvider.search() handles exceptions during link search gracefully.
-        
+
         Given: Search executed, query_selector_all raises exception
         When: search() is called
         Then: Exception is caught, logged, and normal flow continues
@@ -1170,7 +1170,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_search_with_simulate_reading_exception(self, mock_playwright, mock_parse_result):
         """Test BrowserSearchProvider.search() handles exceptions during simulate_reading gracefully.
-        
+
         Given: Search executed, simulate_reading raises exception
         When: search() is called
         Then: Exception is caught, logged, and normal flow continues
@@ -1222,7 +1222,7 @@ class TestBrowserSearchProviderHumanBehavior:
 
     def test_category_detection(self):
         """Test category detection logic.
-        
+
         Given: Various query strings
         When: _detect_category() is called
         Then: Correct category is returned
@@ -1265,7 +1265,7 @@ class TestBrowserSearchProviderHumanBehavior:
 
     def test_category_detection_boundary_cases(self):
         """Test category detection with boundary cases.
-        
+
         Given: Edge case query strings
         When: _detect_category() is called
         Then: Handles edge cases correctly
@@ -1296,7 +1296,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_selection_with_category(self):
         """Test engine selection based on category.
-        
+
         Given: Query with academic category, engines available for category
         When: search() is called
         Then: Engines for category are selected
@@ -1336,7 +1336,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_selection_with_circuit_breaker(self):
         """Test engine selection with circuit breaker filtering.
-        
+
         Given: Multiple engines, one is OPEN (unavailable) in circuit breaker
         When: search() filters engines
         Then: Only available engines are selected
@@ -1396,7 +1396,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_selection_weighted(self):
         """Test weighted engine selection.
-        
+
         Given: Multiple engines with different weights
         When: search() selects engine
         Then: Engine with highest weight is selected
@@ -1457,7 +1457,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_selection_same_weight(self):
         """Test engine selection when weights are equal.
-        
+
         Given: Multiple engines with same weight
         When: search() selects engine
         Then: First engine in sorted list is selected (stable sort)
@@ -1521,7 +1521,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_health_recording_success(self):
         """Test engine health recording on success.
-        
+
         Given: Search succeeds
         When: search() completes successfully
         Then: record_engine_result(success=True) is called
@@ -1606,7 +1606,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_health_recording_failure(self):
         """Test engine health recording on parse failure.
-        
+
         Given: Parse fails
         When: search() encounters parse failure
         Then: record_engine_result(success=False) is called
@@ -1686,7 +1686,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_health_recording_captcha(self):
         """Test engine health recording on CAPTCHA detection.
-        
+
         Given: CAPTCHA detected
         When: search() detects CAPTCHA
         Then: record_engine_result(is_captcha=True) is called
@@ -1772,7 +1772,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_health_recording_exception(self):
         """Test engine health recording handles exceptions gracefully.
-        
+
         Given: record_engine_result() raises exception
         When: search() tries to record health
         Then: Exception is caught, logged, and search result is returned normally
@@ -1854,7 +1854,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_no_available_engines(self):
         """Test error handling when no engines are available.
-        
+
         Given: No engines available (all filtered out by circuit breaker)
         When: search() tries to select engine
         Then: SearchResponse(error="No available engines") is returned
@@ -1891,7 +1891,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_no_available_engines_empty_list(self):
         """Test error handling when options.engines is empty list.
-        
+
         Given: options.engines=[]
         When: search() tries to select engine
         Then: SearchResponse(error="No available engines") is returned
@@ -1923,7 +1923,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_check_engine_available_exception(self):
         """Test engine selection handles check_engine_available() exception.
-        
+
         Given: check_engine_available() raises exception
         When: search() filters engines
         Then: Exception is caught, engine is skipped, search continues
@@ -1966,7 +1966,7 @@ class TestBrowserSearchProviderHumanBehavior:
     @pytest.mark.asyncio
     async def test_engine_config_none(self):
         """Test engine selection handles engine_config=None.
-        
+
         Given: get_engine() returns None
         When: search() filters engines
         Then: Engine is skipped, search continues
@@ -2006,10 +2006,10 @@ class TestBrowserSearchProviderHumanBehavior:
 
 class TestPerEngineQPSRateLimiting:
     """Tests for per-engine QPS rate limiting.
-    
+
     Per spec §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
     Per spec §4.3: "Engine QPS≤0.25 (1 request/4s), concurrency=1"
-    
+
     Validates:
     - _last_search_times attribute exists for per-engine tracking
     - _rate_limit() accepts engine parameter
@@ -2020,7 +2020,7 @@ class TestPerEngineQPSRateLimiting:
 
     def test_last_search_times_attribute_exists(self):
         """Test _last_search_times attribute is initialized.
-        
+
         Given: New BrowserSearchProvider instance
         When: Provider is created
         Then: _last_search_times dict exists and is empty
@@ -2036,7 +2036,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_accepts_engine_parameter(self):
         """Test _rate_limit() accepts engine parameter.
-        
+
         Given: BrowserSearchProvider instance
         When: _rate_limit(engine="duckduckgo") is called
         Then: Method completes without TypeError
@@ -2062,7 +2062,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_backward_compatibility_no_engine(self):
         """Test _rate_limit() works without engine parameter (backward compatibility).
-        
+
         Given: BrowserSearchProvider instance
         When: _rate_limit() is called without engine parameter
         Then: Method completes successfully using default interval
@@ -2079,7 +2079,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_with_none_engine(self):
         """Test _rate_limit(engine=None) uses default interval.
-        
+
         Given: BrowserSearchProvider instance
         When: _rate_limit(engine=None) is called
         Then: Method uses default interval and tracks under "default" key
@@ -2095,7 +2095,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_per_engine_tracking_separate_keys(self):
         """Test different engines are tracked separately.
-        
+
         Given: BrowserSearchProvider instance
         When: _rate_limit() is called for different engines
         Then: Each engine has its own tracking entry in _last_search_times
@@ -2127,7 +2127,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_uses_engine_specific_interval(self):
         """Test _rate_limit() uses engine-specific min_interval.
-        
+
         Given: Engine config with specific QPS (interval)
         When: _rate_limit() is called twice in quick succession
         Then: Sleep is applied based on engine's min_interval
@@ -2161,7 +2161,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_unknown_engine_fallback(self):
         """Test _rate_limit() with unknown engine falls back to default interval.
-        
+
         Given: Unknown engine name (not in config)
         When: _rate_limit(engine="unknown_engine") is called
         Then: Method uses default _min_interval
@@ -2185,7 +2185,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_updates_shared_last_search_time(self):
         """Test _rate_limit() also updates shared _last_search_time for compatibility.
-        
+
         Given: BrowserSearchProvider with initial _last_search_time=0
         When: _rate_limit(engine="duckduckgo") is called
         Then: Both _last_search_times[engine] and _last_search_time are updated
@@ -2216,7 +2216,7 @@ class TestPerEngineQPSRateLimiting:
     @pytest.mark.asyncio
     async def test_search_calls_rate_limit_with_engine(self):
         """Test search() calls _rate_limit() with selected engine.
-        
+
         Given: Mock setup for search execution
         When: search() is called
         Then: _rate_limit() is called with the selected engine name
@@ -2309,10 +2309,10 @@ class TestPerEngineQPSRateLimiting:
 
 class TestQueryNormalization:
     """Tests for query operator normalization in BrowserSearchProvider.search().
-    
+
     Per spec §3.1.1: "Query operators (site:, filetype:, intitle:, "...", +/-, after:)"
     Per spec §3.1.4: "Engine normalization (transform operators to engine-specific syntax)"
-    
+
     Test Perspectives Table:
     | Case ID   | Input / Precondition                    | Perspective              | Expected Result                          | Notes                     |
     |-----------|----------------------------------------|--------------------------|------------------------------------------|---------------------------|
@@ -2327,7 +2327,7 @@ class TestQueryNormalization:
     @pytest.mark.asyncio
     async def test_search_calls_transform_query_for_engine(self):
         """Test search() calls transform_query_for_engine().
-        
+
         Given: BrowserSearchProvider instance and mock setup
         When: search() is called with a query containing operators
         Then: transform_query_for_engine() is called with query and engine
@@ -2412,7 +2412,7 @@ class TestQueryNormalization:
     @pytest.mark.asyncio
     async def test_search_normalizes_site_operator(self):
         """Test search() normalizes site: operator (TC-QN-01).
-        
+
         Given: Query with site: operator, engine=duckduckgo
         When: search() is called
         Then: normalized_query contains site:go.jp
@@ -2495,7 +2495,7 @@ class TestQueryNormalization:
     @pytest.mark.asyncio
     async def test_search_removes_unsupported_after_operator_duckduckgo(self):
         """Test search() removes unsupported after: operator for DuckDuckGo (TC-QN-02).
-        
+
         Given: Query with after: operator, engine=duckduckgo
         When: search() is called
         Then: normalized_query does NOT contain after:
@@ -2579,7 +2579,7 @@ class TestQueryNormalization:
     @pytest.mark.asyncio
     async def test_search_preserves_after_operator_google(self):
         """Test search() preserves after: operator for Google (TC-QN-03).
-        
+
         Given: Query with after: operator, engine=google
         When: search() is called
         Then: normalized_query contains after:2024-01-01
@@ -2663,7 +2663,7 @@ class TestQueryNormalization:
     @pytest.mark.asyncio
     async def test_search_plain_query_unchanged(self):
         """Test search() leaves plain query unchanged (TC-QN-04).
-        
+
         Given: Plain query without operators, engine=duckduckgo
         When: search() is called
         Then: normalized_query == "plain query"
@@ -2745,7 +2745,7 @@ class TestQueryNormalization:
     @pytest.mark.asyncio
     async def test_search_empty_query(self):
         """Test search() handles empty query (TC-QN-05).
-        
+
         Given: Empty query, engine=duckduckgo
         When: search() is called
         Then: normalized_query == ""
@@ -2821,7 +2821,7 @@ class TestQueryNormalization:
     @pytest.mark.asyncio
     async def test_search_multiple_operators(self):
         """Test search() handles multiple operators (TC-QN-06).
-        
+
         Given: Query with multiple operators
         When: search() is called
         Then: All supported operators are transformed correctly
@@ -2916,12 +2916,12 @@ class TestQueryNormalization:
 
 class TestDynamicWeightUsage:
     """Tests for dynamic weight usage in BrowserSearchProvider.
-    
+
     Per §3.1.1, §3.1.4, §4.6: Dynamic weight adjustment based on
     past accuracy/failure/block rates.
-    
+
     ## Test Perspectives Table
-    
+
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
     |---------|---------------------|-------------|-----------------|-------|
     | TC-DWU-N-01 | Search with available engines | Equivalence - normal | Uses dynamic weight | Normal flow |
@@ -2932,7 +2932,7 @@ class TestDynamicWeightUsage:
     @pytest.mark.asyncio
     async def test_search_calls_policy_engine_for_dynamic_weight(self):
         """TC-DWU-N-01: Search uses PolicyEngine for dynamic weights.
-        
+
         Given: BrowserSearchProvider with available engines
         When: search() is called
         Then: PolicyEngine.get_dynamic_engine_weight() is called for each engine
@@ -3038,7 +3038,7 @@ class TestDynamicWeightUsage:
     @pytest.mark.asyncio
     async def test_search_uses_dynamic_weight_for_engine_selection(self):
         """TC-DWU-N-02: Search uses dynamic weight for engine selection.
-        
+
         Given: Multiple engines with different dynamic weights
         When: search() is called
         Then: Engine with highest dynamic weight is selected
@@ -3171,7 +3171,7 @@ class TestDynamicWeightUsage:
     @pytest.mark.asyncio
     async def test_search_falls_back_on_policy_engine_error(self):
         """TC-DWU-A-01: Search falls back gracefully on PolicyEngine error.
-        
+
         Given: PolicyEngine.get_dynamic_engine_weight() raises exception
         When: search() is called
         Then: Search continues (doesn't crash), using fallback behavior
@@ -3281,12 +3281,12 @@ class TestDynamicWeightUsage:
 class TestLastmileSlotSelection:
     """
     Tests for lastmile slot selection feature.
-    
+
     Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
     Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
-    
+
     ## Test Perspectives Table
-    
+
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
     |---------|---------------------|-------------|-----------------|-------|
     | TC-LM-N-01 | harvest_rate=0.95 | Equivalence - above threshold | should_use_lastmile=True | - |

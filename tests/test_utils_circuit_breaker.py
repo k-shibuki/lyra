@@ -80,7 +80,7 @@ class TestCircuitBreakerNormalCases:
     def test_initial_state_is_closed(self, breaker: CircuitBreaker) -> None:
         """
         TC-N-01: Verify initial state is CLOSED.
-        
+
         Given: A newly created circuit breaker
         When: Checking state
         Then: State should be CLOSED and available
@@ -95,7 +95,7 @@ class TestCircuitBreakerNormalCases:
     def test_record_success_resets_failures(self, breaker: CircuitBreaker) -> None:
         """
         TC-N-01: Success resets consecutive failure count.
-        
+
         Given: A circuit breaker with some failures
         When: Recording a success
         Then: Failure count should reset to 0
@@ -116,7 +116,7 @@ class TestCircuitBreakerNormalCases:
     ) -> None:
         """
         TC-N-02: Failures below threshold keep circuit CLOSED.
-        
+
         Given: A circuit breaker with threshold=2
         When: Recording 1 failure
         Then: Circuit stays CLOSED
@@ -136,7 +136,7 @@ class TestCircuitBreakerNormalCases:
     ) -> None:
         """
         TC-N-03: Failures reaching threshold opens circuit.
-        
+
         Given: A circuit breaker with threshold=2
         When: Recording 2 consecutive failures
         Then: Circuit transitions to OPEN
@@ -157,7 +157,7 @@ class TestCircuitBreakerNormalCases:
     ) -> None:
         """
         TC-N-04: After cooldown, OPEN transitions to HALF_OPEN.
-        
+
         Given: A circuit breaker in OPEN state
         When: Cooldown period elapses
         Then: State transitions to HALF_OPEN on next check
@@ -178,7 +178,7 @@ class TestCircuitBreakerNormalCases:
     ) -> None:
         """
         TC-N-05: Success in HALF_OPEN state closes circuit.
-        
+
         Given: A circuit breaker in HALF_OPEN state
         When: Recording a success
         Then: Circuit transitions to CLOSED
@@ -200,7 +200,7 @@ class TestCircuitBreakerNormalCases:
     ) -> None:
         """
         TC-N-06: Failure in HALF_OPEN state reopens circuit.
-        
+
         Given: A circuit breaker in HALF_OPEN state
         When: Recording a failure
         Then: Circuit transitions back to OPEN
@@ -229,7 +229,7 @@ class TestCircuitBreakerInvalidConfig:
     def test_failure_threshold_zero_raises(self) -> None:
         """
         TC-A-01: failure_threshold=0 should raise ValueError.
-        
+
         Given: Creating a circuit breaker with failure_threshold=0
         When: Initialization
         Then: ValueError is raised
@@ -241,7 +241,7 @@ class TestCircuitBreakerInvalidConfig:
     def test_cooldown_zero_raises(self) -> None:
         """
         TC-A-02: cooldown_seconds=0 should raise ValueError.
-        
+
         Given: Creating a circuit breaker with cooldown_seconds=0
         When: Initialization
         Then: ValueError is raised
@@ -253,7 +253,7 @@ class TestCircuitBreakerInvalidConfig:
     def test_cooldown_negative_raises(self) -> None:
         """
         TC-A-02: Negative cooldown should raise ValueError.
-        
+
         Given: Creating a circuit breaker with negative cooldown
         When: Initialization
         Then: ValueError is raised
@@ -265,7 +265,7 @@ class TestCircuitBreakerInvalidConfig:
     def test_half_open_max_calls_zero_raises(self) -> None:
         """
         TC-A-03: half_open_max_calls=0 should raise ValueError.
-        
+
         Given: Creating a circuit breaker with half_open_max_calls=0
         When: Initialization
         Then: ValueError is raised
@@ -286,7 +286,7 @@ class TestCircuitBreakerBoundaryValues:
     def test_failure_threshold_one(self) -> None:
         """
         TC-B-01: Single failure opens circuit with threshold=1.
-        
+
         Given: A circuit breaker with failure_threshold=1
         When: Recording one failure
         Then: Circuit immediately opens
@@ -303,7 +303,7 @@ class TestCircuitBreakerBoundaryValues:
     def test_minimal_cooldown(self) -> None:
         """
         TC-B-02: Very short cooldown works correctly.
-        
+
         Given: A circuit breaker with cooldown_seconds=0.001
         When: Opening and waiting
         Then: Transitions to HALF_OPEN almost immediately
@@ -325,7 +325,7 @@ class TestCircuitBreakerBoundaryValues:
     def test_half_open_requires_multiple_successes(self) -> None:
         """
         TC-B-03: half_open_max_calls=2 requires 2 successes.
-        
+
         Given: A circuit breaker with half_open_max_calls=2
         When: In HALF_OPEN state
         Then: Needs 2 successes to close
@@ -365,7 +365,7 @@ class TestCircuitBreakerForceOperations:
     def test_force_open(self, breaker: CircuitBreaker) -> None:
         """
         TC-F-01: force_open() sets state to OPEN.
-        
+
         Given: A circuit breaker in CLOSED state
         When: Calling force_open()
         Then: State becomes OPEN
@@ -383,7 +383,7 @@ class TestCircuitBreakerForceOperations:
     def test_force_close(self, breaker: CircuitBreaker) -> None:
         """
         TC-F-02: force_close() resets to CLOSED state.
-        
+
         Given: A circuit breaker in OPEN state with failures
         When: Calling force_close()
         Then: State becomes CLOSED, counters reset
@@ -404,7 +404,7 @@ class TestCircuitBreakerForceOperations:
     def test_reset(self, breaker: CircuitBreaker) -> None:
         """
         TC-F-03: reset() returns to initial state.
-        
+
         Given: A circuit breaker with modified state
         When: Calling reset()
         Then: All state returns to initial values
@@ -435,7 +435,7 @@ class TestCircuitBreakerCallbacks:
     ) -> None:
         """
         TC-C-01: Callback is invoked when state changes.
-        
+
         Given: A circuit breaker with callback registered
         When: State transitions
         Then: Callback receives old and new state
@@ -461,7 +461,7 @@ class TestCircuitBreakerCallbacks:
     ) -> None:
         """
         TC-C-02: Exception in callback doesn't crash circuit breaker.
-        
+
         Given: A circuit breaker with callback that raises
         When: State transitions
         Then: Circuit breaker continues to function
@@ -490,7 +490,7 @@ class TestCircuitBreakerStats:
     def test_stats_closed_state(self, breaker: CircuitBreaker) -> None:
         """
         TC-S-01: get_stats() in CLOSED state returns correct data.
-        
+
         Given: A circuit breaker in CLOSED state
         When: Calling get_stats()
         Then: Returns dict with correct values
@@ -513,7 +513,7 @@ class TestCircuitBreakerStats:
     def test_stats_open_state(self, breaker: CircuitBreaker) -> None:
         """
         TC-S-02: get_stats() in OPEN state includes time_until_half_open.
-        
+
         Given: A circuit breaker in OPEN state
         When: Calling get_stats()
         Then: Returns stats with time_until_half_open > 0
@@ -544,7 +544,7 @@ class TestCircuitBreakerThreadSafety:
     def test_concurrent_access(self, breaker: CircuitBreaker) -> None:
         """
         TC-T-01: Concurrent access doesn't cause race conditions.
-        
+
         Given: A circuit breaker
         When: Multiple threads access simultaneously
         Then: No race conditions or crashes
@@ -589,7 +589,7 @@ class TestAsyncCircuitBreaker:
     ) -> None:
         """
         TC-AS-01: Successful operation records success.
-        
+
         Given: An async circuit breaker
         When: Using context manager without exception
         Then: Success is recorded
@@ -611,7 +611,7 @@ class TestAsyncCircuitBreaker:
     ) -> None:
         """
         TC-AS-02: Exception records failure and re-raises.
-        
+
         Given: An async circuit breaker
         When: Using context manager with exception
         Then: Failure is recorded and exception is re-raised
@@ -632,7 +632,7 @@ class TestAsyncCircuitBreaker:
     ) -> None:
         """
         TC-AS-03: CircuitBreakerError raised when OPEN.
-        
+
         Given: An async circuit breaker in OPEN state
         When: Entering context manager
         Then: CircuitBreakerError is raised
@@ -654,7 +654,7 @@ class TestAsyncCircuitBreaker:
     async def test_guard_manual_record(self, breaker: CircuitBreaker) -> None:
         """
         TC-AS-04: guard() with manual recording works.
-        
+
         Given: An async circuit breaker with guard()
         When: Manually recording success
         Then: Success is recorded, no auto-record on exit
@@ -677,7 +677,7 @@ class TestAsyncCircuitBreaker:
     ) -> None:
         """
         TC-AS-04: guard(auto_record=False) doesn't auto-record on exception.
-        
+
         Given: An async circuit breaker with guard(auto_record=False)
         When: Exception raised without manual record
         Then: No failure recorded (auto_record=False)
@@ -707,7 +707,7 @@ class TestCircuitBreakerError:
     ) -> None:
         """
         Verify error contains breaker and state info.
-        
+
         Given: A circuit breaker in OPEN state
         When: Creating CircuitBreakerError
         Then: Error contains breaker reference and state
@@ -727,7 +727,7 @@ class TestCircuitBreakerError:
     def test_error_custom_message(self, breaker: CircuitBreaker) -> None:
         """
         Verify custom message is used.
-        
+
         Given: A circuit breaker
         When: Creating error with custom message
         Then: Custom message is used
@@ -750,7 +750,7 @@ class TestTimeUntilHalfOpen:
     def test_none_when_closed(self, breaker: CircuitBreaker) -> None:
         """
         time_until_half_open is None when CLOSED.
-        
+
         Given: A circuit breaker in CLOSED state
         When: Accessing time_until_half_open
         Then: Returns None
@@ -761,7 +761,7 @@ class TestTimeUntilHalfOpen:
     def test_positive_when_open(self, breaker: CircuitBreaker) -> None:
         """
         time_until_half_open is positive when OPEN.
-        
+
         Given: A circuit breaker in OPEN state
         When: Accessing time_until_half_open
         Then: Returns positive value
@@ -781,7 +781,7 @@ class TestTimeUntilHalfOpen:
     def test_decreases_over_time(self, breaker: CircuitBreaker) -> None:
         """
         time_until_half_open decreases as time passes.
-        
+
         Given: A circuit breaker in OPEN state
         When: Time passes
         Then: Remaining time decreases

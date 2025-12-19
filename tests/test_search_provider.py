@@ -181,7 +181,7 @@ class TestSearchResult:
 
     def test_create_minimal_result(self):
         """TC-SR-N-01: Test creating a result with required fields only.
-        
+
         // Given: Required fields only (title, url, snippet, engine, rank)
         // When: Creating SearchResult
         // Then: Result created with defaults for optional fields
@@ -207,7 +207,7 @@ class TestSearchResult:
 
     def test_create_full_result(self):
         """TC-SR-N-02: Test creating a result with all fields.
-        
+
         // Given: All fields provided
         // When: Creating SearchResult
         // Then: All fields stored correctly
@@ -233,7 +233,7 @@ class TestSearchResult:
 
     def test_to_dict_serialization(self):
         """TC-SR-N-03: Test serialization to dictionary.
-        
+
         // Given: SearchResult with all fields
         // When: Calling to_dict()
         // Then: Dictionary with all fields returned
@@ -263,7 +263,7 @@ class TestSearchResult:
 
     def test_from_dict_deserialization(self):
         """TC-SR-N-04: Test deserialization from dictionary.
-        
+
         // Given: Complete dictionary data
         // When: Calling from_dict()
         // Then: SearchResult object created
@@ -291,7 +291,7 @@ class TestSearchResult:
 
     def test_from_dict_with_missing_fields(self):
         """TC-SR-A-01: Test deserialization handles missing optional fields.
-        
+
         // Given: Dictionary with only required fields
         // When: Calling from_dict()
         // Then: Default values used for missing fields
@@ -315,7 +315,7 @@ class TestSearchResult:
 
     def test_empty_title(self):
         """TC-SR-B-01: Test empty title string.
-        
+
         // Given: Empty title string
         // When: Creating SearchResult
         // Then: Empty string accepted (or validation error)
@@ -335,7 +335,7 @@ class TestSearchResult:
 
     def test_empty_url(self):
         """TC-SR-B-02: Test empty URL string.
-        
+
         // Given: Empty URL string
         // When: Creating SearchResult
         // Then: Empty string accepted (or validation error)
@@ -355,7 +355,7 @@ class TestSearchResult:
 
     def test_rank_zero(self):
         """TC-SR-B-03: Test rank = 0 (minimum valid value).
-        
+
         // Given: rank = 0
         // When: Creating SearchResult
         // Then: Valid result created
@@ -375,7 +375,7 @@ class TestSearchResult:
 
     def test_rank_negative_raises_error(self):
         """TC-SR-B-04: Test rank = -1 raises validation error.
-        
+
         // Given: rank = -1 (negative)
         // When: Creating SearchResult
         // Then: ValidationError raised
@@ -399,7 +399,7 @@ class TestSearchResult:
 
     def test_invalid_source_tag_raises_error(self):
         """TC-SR-A-02: Test invalid source_tag value raises error.
-        
+
         // Given: Invalid source_tag value
         // When: Creating SearchResult
         // Then: ValidationError raised
@@ -429,7 +429,7 @@ class TestSearchResponse:
 
     def test_successful_response(self, sample_results):
         """TC-SP-N-01: Test creating a successful response.
-        
+
         // Given: Valid results and query
         // When: Creating SearchResponse
         // Then: ok=True, error=None
@@ -455,7 +455,7 @@ class TestSearchResponse:
 
     def test_error_response(self):
         """TC-SP-A-01: Test creating an error response.
-        
+
         // Given: Error message provided
         // When: Creating SearchResponse with error
         // Then: ok=False, error set
@@ -476,7 +476,7 @@ class TestSearchResponse:
 
     def test_empty_results_list(self):
         """TC-SP-B-01: Test empty results list.
-        
+
         // Given: Empty results list
         // When: Creating SearchResponse
         // Then: Valid response with empty results
@@ -497,7 +497,7 @@ class TestSearchResponse:
 
     def test_total_count_zero(self):
         """TC-SP-B-02: Test total_count = 0.
-        
+
         // Given: total_count = 0
         // When: Creating SearchResponse
         // Then: Valid response
@@ -516,7 +516,7 @@ class TestSearchResponse:
 
     def test_to_dict_includes_ok(self, sample_results):
         """TC-SP-N-02: Test that to_dict includes the ok property.
-        
+
         // Given: SearchResponse with results
         // When: Calling to_dict()
         // Then: Dictionary includes ok property
@@ -548,7 +548,7 @@ class TestSearchOptions:
 
     def test_default_options(self):
         """TC-SO-N-01: Test default option values.
-        
+
         // Given: No parameters provided
         // When: Creating SearchOptions
         // Then: Default values set
@@ -567,7 +567,7 @@ class TestSearchOptions:
 
     def test_custom_options(self):
         """TC-SO-N-02: Test custom option values.
-        
+
         // Given: Custom values provided
         // When: Creating SearchOptions
         // Then: Custom values stored
@@ -593,7 +593,7 @@ class TestSearchOptions:
 
     def test_limit_zero_raises_error(self):
         """TC-SO-B-01: Test limit = 0 raises validation error.
-        
+
         // Given: limit = 0
         // When: Creating SearchOptions
         // Then: ValidationError raised
@@ -611,7 +611,7 @@ class TestSearchOptions:
 
     def test_limit_negative_raises_error(self):
         """TC-SO-B-02: Test limit = -1 raises validation error.
-        
+
         // Given: limit = -1
         // When: Creating SearchOptions
         // Then: ValidationError raised
@@ -625,7 +625,7 @@ class TestSearchOptions:
 
     def test_page_zero_raises_error(self):
         """TC-SO-B-03: Test page = 0 raises validation error.
-        
+
         // Given: page = 0
         // When: Creating SearchOptions
         // Then: ValidationError raised
@@ -648,7 +648,7 @@ class TestHealthStatus:
 
     def test_healthy_status(self):
         """TC-HS-N-01: Test creating healthy status.
-        
+
         // Given: Healthy provider
         // When: Creating HealthStatus.healthy()
         // Then: HEALTHY state with success_rate=1.0
@@ -665,7 +665,7 @@ class TestHealthStatus:
 
     def test_degraded_status(self):
         """TC-HS-N-02: Test creating degraded status.
-        
+
         // Given: Degraded provider (success_rate < 1.0)
         // When: Creating HealthStatus.degraded()
         // Then: DEGRADED state with success_rate set
@@ -684,7 +684,7 @@ class TestHealthStatus:
 
     def test_unhealthy_status(self):
         """TC-HS-N-03: Test creating unhealthy status.
-        
+
         // Given: Unhealthy provider
         // When: Creating HealthStatus.unhealthy()
         // Then: UNHEALTHY state with success_rate=0.0
@@ -700,7 +700,7 @@ class TestHealthStatus:
 
     def test_success_rate_zero(self):
         """TC-HS-B-01: Test success_rate = 0.0 is valid.
-        
+
         // Given: success_rate = 0.0
         // When: Creating degraded status
         // Then: Valid status created
@@ -714,7 +714,7 @@ class TestHealthStatus:
 
     def test_success_rate_max(self):
         """TC-HS-B-02: Test success_rate = 1.0 is valid.
-        
+
         // Given: success_rate = 1.0
         // When: Creating healthy status
         // Then: Valid status created
@@ -728,7 +728,7 @@ class TestHealthStatus:
 
     def test_success_rate_negative_raises_error(self):
         """TC-HS-B-03: Test success_rate = -0.1 raises validation error.
-        
+
         // Given: success_rate = -0.1 (negative)
         // When: Creating degraded status
         // Then: ValidationError raised
@@ -746,7 +746,7 @@ class TestHealthStatus:
 
     def test_success_rate_above_max_raises_error(self):
         """TC-HS-B-04: Test success_rate = 1.1 raises validation error.
-        
+
         // Given: success_rate = 1.1 (above max)
         // When: Creating degraded status
         // Then: ValidationError raised
@@ -773,7 +773,7 @@ class TestSearchProviderRegistry:
 
     def test_register_provider(self, mock_provider):
         """TC-RG-N-01: Test registering a provider.
-        
+
         // Given: A provider instance
         // When: Registering provider
         // Then: Provider registered and accessible
@@ -790,7 +790,7 @@ class TestSearchProviderRegistry:
 
     def test_register_sets_default(self, mock_provider):
         """TC-RG-N-02: Test that first provider becomes default.
-        
+
         // Given: Empty registry
         // When: Registering first provider
         // Then: First provider becomes default
@@ -806,7 +806,7 @@ class TestSearchProviderRegistry:
 
     def test_register_duplicate_raises(self, mock_provider):
         """TC-RG-A-01: Test that duplicate registration raises error.
-        
+
         // Given: Provider already registered
         // When: Registering same provider again
         // Then: ValueError raised with message
@@ -824,7 +824,7 @@ class TestSearchProviderRegistry:
 
     def test_unregister_provider(self, mock_provider):
         """TC-RG-N-03: Test unregistering a provider.
-        
+
         // Given: Registered provider
         // When: Unregistering provider
         // Then: Provider removed from registry
@@ -842,7 +842,7 @@ class TestSearchProviderRegistry:
 
     def test_unregister_nonexistent(self):
         """TC-RG-A-02: Test unregistering non-existent provider returns None.
-        
+
         // Given: Provider not registered
         // When: Unregistering nonexistent provider
         // Then: Returns None
@@ -858,7 +858,7 @@ class TestSearchProviderRegistry:
 
     def test_set_default(self):
         """TC-RG-N-04: Test changing default provider.
-        
+
         // Given: Multiple providers registered
         // When: Setting different default
         // Then: Default changed
@@ -881,7 +881,7 @@ class TestSearchProviderRegistry:
 
     def test_set_default_nonexistent_raises(self):
         """TC-RG-A-03: Test setting non-existent provider as default raises error.
-        
+
         // Given: Provider not registered
         // When: Setting as default
         // Then: ValueError raised with message
@@ -899,7 +899,7 @@ class TestSearchProviderRegistry:
     @pytest.mark.asyncio
     async def test_search_with_fallback_success(self, mock_provider):
         """TC-RG-N-05: Test successful search with fallback mechanism.
-        
+
         // Given: Registered provider
         // When: Searching with fallback
         // Then: Uses primary provider successfully
@@ -919,7 +919,7 @@ class TestSearchProviderRegistry:
     @pytest.mark.asyncio
     async def test_search_with_fallback_uses_fallback(self, sample_results):
         """TC-RG-N-06: Test that fallback is used when primary fails.
-        
+
         // Given: Primary provider fails, backup provider available
         // When: Searching with fallback
         // Then: Falls back to backup provider
@@ -944,7 +944,7 @@ class TestSearchProviderRegistry:
     @pytest.mark.asyncio
     async def test_search_with_fallback_skips_unhealthy(self, sample_results):
         """TC-RG-N-07: Test that unhealthy providers are skipped.
-        
+
         // Given: Unhealthy primary provider, healthy backup
         // When: Searching with fallback
         // Then: Skips unhealthy, uses healthy provider
@@ -974,7 +974,7 @@ class TestSearchProviderRegistry:
     @pytest.mark.asyncio
     async def test_search_with_fallback_all_fail(self):
         """TC-RG-A-05: Test error response when all providers fail.
-        
+
         // Given: All providers fail
         // When: Searching with fallback
         // Then: Error response with message
@@ -995,7 +995,7 @@ class TestSearchProviderRegistry:
     @pytest.mark.asyncio
     async def test_search_with_fallback_no_providers(self):
         """TC-RG-A-04: Test error when no providers registered.
-        
+
         // Given: Empty registry
         // When: Searching with fallback
         // Then: RuntimeError raised with message
@@ -1013,7 +1013,7 @@ class TestSearchProviderRegistry:
     @pytest.mark.asyncio
     async def test_get_all_health(self):
         """TC-RG-N-08: Test getting health from all providers.
-        
+
         // Given: Multiple providers with different health states
         // When: Getting all health
         // Then: Health status for all providers returned
@@ -1039,7 +1039,7 @@ class TestSearchProviderRegistry:
     @pytest.mark.asyncio
     async def test_close_all(self, mock_provider):
         """TC-RG-N-09: Test closing all providers.
-        
+
         // Given: Registered providers
         // When: Closing all providers
         // Then: All providers closed and removed
@@ -1070,7 +1070,7 @@ class TestGlobalRegistry:
 
     def test_get_registry_singleton(self):
         """TC-RG-N-10: Test that get_registry returns singleton.
-        
+
         // Given: Global registry
         // When: Calling get_registry() multiple times
         // Then: Same instance returned
@@ -1085,7 +1085,7 @@ class TestGlobalRegistry:
 
     def test_reset_registry(self):
         """TC-RG-N-11: Test that reset creates new instance.
-        
+
         // Given: Registry with registered provider
         // When: Resetting registry
         // Then: New instance created, providers cleared

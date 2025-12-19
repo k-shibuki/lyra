@@ -72,28 +72,28 @@ SAMPLE_HTML = """
         <a href="/home">Home</a>
         <a href="/about">About</a>
     </nav>
-    
+
     <article>
         <h1><a href="/main-topic">Main Topic Link</a></h1>
-        
+
         <div class="toc">
             <a href="/section1">Section 1</a>
             <a href="/section2">Section 2</a>
         </div>
-        
+
         <p>This is the main content with a <a href="/detail">詳細ページ</a> link.</p>
         <p>Also see the <a href="/official">公式ドキュメント</a> for more.</p>
         <p>External link to <a href="https://external.com/page">external site</a>.</p>
-        
+
         <aside class="sidebar">
             <a href="/sidebar-link">Sidebar Item</a>
         </aside>
-        
+
         <div class="related-articles">
             <a href="/related1">Related Article 1</a>
             <a href="/related2">Related Article 2</a>
         </div>
-        
+
         <div class="pagination">
             <a href="/page/1">1</a>
             <a href="/page/2">2</a>

@@ -35,16 +35,16 @@ logger = get_logger(__name__)
 def _sanitize_for_yaml_comment(text: str, max_length: int = 50) -> str:
     """
     Sanitize text for use in YAML comments.
-    
+
     Removes/replaces characters that could break YAML comment syntax:
     - '#' characters (would start new comment)
     - Newlines (would break comment line)
     - Control characters
-    
+
     Args:
         text: Text to sanitize.
         max_length: Maximum length of output.
-        
+
     Returns:
         Sanitized text safe for YAML comments.
     """
@@ -63,15 +63,15 @@ def _sanitize_for_yaml_comment(text: str, max_length: int = 50) -> str:
 def _escape_css_attribute_value(value: str) -> str:
     """
     Escape a value for use in CSS attribute selector.
-    
+
     CSS attribute selector rules:
     - If value contains single quotes, use double quotes and escape double quotes
     - If value contains double quotes, use single quotes and escape single quotes
     - If value contains both, escape appropriately and use double quotes
-    
+
     Args:
         value: Attribute value to escape.
-        
+
     Returns:
         Escaped value safe for CSS attribute selector (with quotes).
     """
@@ -96,14 +96,14 @@ def _escape_css_attribute_value(value: str) -> str:
 def _escape_css_id(id_value: str) -> str:
     """
     Escape an ID value for use in CSS ID selector (#id).
-    
+
     CSS ID selector rules:
     - Special characters need to be escaped with backslash
     - Common special chars: space, ., #, :, [, ], (, ), etc.
-    
+
     Args:
         id_value: ID value to escape.
-        
+
     Returns:
         Escaped ID safe for CSS ID selector.
     """
@@ -174,7 +174,7 @@ class CandidateElement:
 class ParserDiagnosticReport:
     """
     Comprehensive diagnostic report for parser failure.
-    
+
     Contains all information needed for AI-assisted repair:
     - What failed (selectors)
     - What exists in HTML (candidates)
@@ -221,7 +221,7 @@ class ParserDiagnosticReport:
 class HTMLAnalyzer:
     """
     Analyzes HTML to find candidate elements for search result selectors.
-    
+
     Uses heuristics to identify:
     - Result containers (lists, repeating divs)
     - Title elements (h2, h3, links with certain patterns)
@@ -300,11 +300,11 @@ class HTMLAnalyzer:
     def _safe_select(self, selector: str, context: BeautifulSoup | Tag | None = None) -> list[Tag]:
         """
         Safely execute select() with exception handling.
-        
+
         Args:
             selector: CSS selector string.
             context: Element to search within (defaults to self.soup).
-            
+
         Returns:
             List of matching elements, or empty list on error.
         """
@@ -613,12 +613,12 @@ def generate_yaml_fix(
 ) -> str:
     """
     Generate a YAML fix suggestion for a selector.
-    
+
     Args:
         selector_name: Name of the selector to fix.
         candidate: Candidate element to use.
         engine: Search engine name.
-        
+
     Returns:
         YAML fragment string.
     """
@@ -655,12 +655,12 @@ def generate_multiple_yaml_fixes(
 ) -> list[str]:
     """
     Generate YAML fixes for multiple failed selectors.
-    
+
     Args:
         failed_selectors: List of selectors that failed.
         candidates_by_type: Dict mapping selector type to candidate elements.
         engine: Search engine name.
-        
+
     Returns:
         List of YAML fix strings.
     """
@@ -702,14 +702,14 @@ def create_diagnostic_report(
 ) -> ParserDiagnosticReport:
     """
     Create a comprehensive diagnostic report for parser failure.
-    
+
     Args:
         engine: Search engine name.
         query: Search query that was used.
         html: HTML content that failed to parse.
         failed_selectors: List of selectors that failed.
         html_path: Path where HTML was saved for debugging.
-        
+
     Returns:
         ParserDiagnosticReport with analysis and suggestions.
         Returns a minimal report with error info if analysis fails.
@@ -795,10 +795,10 @@ def create_diagnostic_report(
 def get_latest_debug_html(engine: str | None = None) -> Path | None:
     """
     Get the most recent debug HTML file.
-    
+
     Args:
         engine: Optional engine filter.
-        
+
     Returns:
         Path to latest debug HTML or None.
     """
@@ -829,10 +829,10 @@ def get_latest_debug_html(engine: str | None = None) -> Path | None:
 def analyze_debug_html(html_path: Path) -> ParserDiagnosticReport | None:
     """
     Analyze a debug HTML file and create diagnostic report.
-    
+
     Args:
         html_path: Path to debug HTML file.
-        
+
     Returns:
         ParserDiagnosticReport or None if file cannot be read.
     """

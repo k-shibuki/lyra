@@ -33,7 +33,7 @@ class TestPaperIdentityResolver:
 
     def test_resolve_identity_with_doi(self):
         """Test resolving identity with DOI.
-        
+
         // Given: Paper with DOI
         // When: Resolving identity
         // Then: Returns doi: prefix canonical_id
@@ -56,7 +56,7 @@ class TestPaperIdentityResolver:
 
     def test_resolve_identity_with_title_author_year(self):
         """Test resolving identity with title + author + year.
-        
+
         // Given: Paper without DOI, with title/author/year
         // When: Resolving identity
         // Then: Returns meta: prefix canonical_id
@@ -79,7 +79,7 @@ class TestPaperIdentityResolver:
 
     def test_resolve_identity_from_identifier(self):
         """Test resolving identity from PaperIdentifier.
-        
+
         // Given: PaperIdentifier with DOI
         // When: Resolving identity
         // Then: Returns canonical_id using identifier.get_canonical_id()
@@ -96,7 +96,7 @@ class TestPaperIdentityResolver:
 
     def test_normalize_title(self):
         """Test title normalization.
-        
+
         // Given: Title with punctuation and articles
         // When: Normalizing title
         // Then: Punctuation removed, articles removed, lowercase
@@ -115,7 +115,7 @@ class TestPaperIdentityResolver:
 
     def test_extract_first_author_surname_first_last_format(self):
         """Test extracting surname from 'First Last' format.
-        
+
         // Given: Author name in "First Last" format
         // When: Extracting surname
         // Then: Returns last name (lowercased)
@@ -132,7 +132,7 @@ class TestPaperIdentityResolver:
 
     def test_extract_first_author_surname_last_first_format(self):
         """Test extracting surname from 'Last, First' format.
-        
+
         // Given: Author name in "Last, First" format
         // When: Extracting surname
         // Then: Returns last name (lowercased)
@@ -149,7 +149,7 @@ class TestPaperIdentityResolver:
 
     def test_extract_first_author_surname_single_name(self):
         """Test extracting surname from single name.
-        
+
         // Given: Single name author
         // When: Extracting surname
         // Then: Returns the name (lowercased)
@@ -166,7 +166,7 @@ class TestPaperIdentityResolver:
 
     def test_extract_first_author_surname_empty(self):
         """Test extracting surname from empty authors list.
-        
+
         // Given: Empty authors list
         // When: Extracting surname
         // Then: Returns None
@@ -187,7 +187,7 @@ class TestCanonicalPaperIndex:
 
     def test_register_paper(self):
         """TC-CI-N-01: Test registering a paper.
-        
+
         // Given: Paper with DOI
         // When: Registering paper
         // Then: Paper registered with canonical_id
@@ -213,7 +213,7 @@ class TestCanonicalPaperIndex:
 
     def test_register_duplicate_paper(self):
         """TC-CI-N-02: Test registering duplicate paper (same DOI).
-        
+
         // Given: Paper already registered
         // When: Registering same paper again
         // Then: Duplicate skipped, sources tracked
@@ -246,7 +246,7 @@ class TestCanonicalPaperIndex:
 
     def test_register_serp_result(self):
         """TC-CI-N-03: Test registering SERP result.
-        
+
         // Given: SERP SearchResult
         // When: Registering SERP result
         // Then: SERP result registered
@@ -274,7 +274,7 @@ class TestCanonicalPaperIndex:
 
     def test_register_serp_matching_existing_paper(self):
         """TC-CI-N-04: Test registering SERP matching existing paper.
-        
+
         // Given: Paper already registered, SERP result with same DOI
         // When: Registering SERP result
         // Then: SERP linked to existing paper, source="both"
@@ -309,7 +309,7 @@ class TestCanonicalPaperIndex:
 
     def test_find_by_title_similarity(self):
         """TC-CI-N-05: Test finding by title similarity.
-        
+
         // Given: Paper registered, similar title
         // When: Finding by title similarity
         // Then: Matching entry found
@@ -333,7 +333,7 @@ class TestCanonicalPaperIndex:
 
     def test_empty_index(self):
         """TC-CI-B-01: Test empty index stats.
-        
+
         // Given: Empty index
         // When: Getting stats
         // Then: Stats show zero counts
@@ -352,7 +352,7 @@ class TestCanonicalPaperIndex:
 
     def test_clear_index(self):
         """TC-CI-B-02: Test clearing index.
-        
+
         // Given: Index with entries
         // When: Clearing index
         // Then: Index cleared
@@ -376,7 +376,7 @@ class TestCanonicalPaperIndex:
 
     def test_register_paper_without_doi_or_title(self):
         """TC-CI-A-01: Test registering paper without DOI or title.
-        
+
         // Given: Paper without DOI or title
         // When: Registering paper
         // Then: Fallback canonical_id generated
@@ -397,7 +397,7 @@ class TestCanonicalPaperIndex:
 
     def test_get_stats(self):
         """TC-CI-N-06: Test getting stats.
-        
+
         // Given: Index with mixed entries
         // When: Getting stats
         // Then: Correct counts returned
@@ -442,7 +442,7 @@ class TestCanonicalPaperIndex:
 
     def test_multiple_sources_tracking(self):
         """TC-CI-N-07: Test multiple sources tracking.
-        
+
         // Given: Same paper from multiple APIs
         // When: Registering from different sources
         // Then: Sources tracked correctly

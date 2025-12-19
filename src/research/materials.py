@@ -22,15 +22,15 @@ async def get_materials_action(
 ) -> dict[str, Any]:
     """
     Unified API for get_materials action (Phase M architecture).
-    
+
     Collects report materials including claims, fragments, and optionally
     the evidence graph.
-    
+
     Args:
         task_id: The task ID.
         include_graph: Whether to include evidence graph (default: False).
         format: Output format - "structured" or "narrative" (default: "structured").
-        
+
     Returns:
         Materials conforming to §3.2.1 schema.
     """
@@ -91,7 +91,7 @@ async def get_materials_action(
 
 async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
     """Collect claims for a task.
-    
+
     O.7 fix: Updated to match actual DB schema.
     - claims table has verification_notes (stores source_url) not source_url
     - fragments table has relevance_reason (stores source metadata) not source_url
@@ -169,7 +169,7 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
 
 async def _collect_fragments(db, task_id: str) -> list[dict[str, Any]]:
     """Collect fragments for a task.
-    
+
     O.7 fix: Updated to match actual DB schema.
     - fragments table has text_content not text
     - fragments table has no task_id, need to join via claims

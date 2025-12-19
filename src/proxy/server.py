@@ -45,12 +45,12 @@ async def proxy_request(
 ) -> web.Response:
     """
     Proxy a request to target service.
-    
+
     Args:
         request: Incoming aiohttp request.
         target_base_url: Base URL of target service.
         path_prefix: Prefix to strip from path (e.g., "/ollama").
-        
+
     Returns:
         Proxied response.
     """

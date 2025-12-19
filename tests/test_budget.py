@@ -88,7 +88,7 @@ class TestTaskBudget:
 
     def test_init_defaults(self):
         """Test default initialization matches §3.1 requirements.
-        
+
         Verifies default values:
         - max_pages=120 (§3.1: Total pages ≤120/task)
         - max_llm_ratio=0.30 (§3.1: LLM processing ≤30%)
@@ -230,7 +230,7 @@ class TestTaskBudget:
 
     def test_can_run_llm(self):
         """Test LLM execution check.
-        
+
         Note: LLM ratio check only applies after MIN_ELAPSED_FOR_RATIO_CHECK (30s).
         """
         # Given: TaskBudget with 30% LLM ratio, 100 seconds elapsed
@@ -790,7 +790,7 @@ class TestBudgetIntegrationScenarios:
     @pytest.fixture
     def mock_settings(self):
         """Settings for integration tests.
-        
+
         Uses reduced limits for faster test execution while
         maintaining realistic proportions.
         """
@@ -806,13 +806,13 @@ class TestBudgetIntegrationScenarios:
     @pytest.mark.asyncio
     async def test_typical_task_lifecycle(self, mock_settings):
         """Test a typical task budget lifecycle.
-        
+
         Simulates a research task that:
         1. Creates budget
         2. Fetches pages progressively
         3. Records LLM processing time
         4. Hits page limit and stops
-        
+
         Verifies §3.1 requirement: Total pages ≤max_pages.
         """
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
@@ -866,7 +866,7 @@ class TestBudgetIntegrationScenarios:
     @pytest.mark.asyncio
     async def test_llm_ratio_enforcement(self, mock_settings):
         """Test LLM ratio enforcement scenario.
-        
+
         Note: LLM ratio check only applies after MIN_ELAPSED_FOR_RATIO_CHECK (30s).
         """
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
