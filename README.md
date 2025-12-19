@@ -8,11 +8,26 @@
 
 ---
 
+## Terminology
+
+| Term | Meaning |
+|------|---------|
+| **MCP** | [Model Context Protocol](https://modelcontextprotocol.io/) — a standard for AI models to invoke external tools with structured input/output |
+| **CDP** | [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) — interface for browser automation via remote debugging |
+| **NLI** | Natural Language Inference — ML task to determine if one text supports, refutes, or is neutral to another |
+| **LLM** | Large Language Model — AI model for text understanding/generation (e.g., GPT-4, Claude, Qwen) |
+
+---
+
 ## Summary
 
-Lyra is an open-source MCP (Model Context Protocol) toolkit for AI-collaborative desktop research. It implements **thinking-working separation**: the MCP client (AI) handles strategic decisions (query design, report composition), while Lyra handles mechanical execution (search, extraction, metrics calculation). This separation minimizes context pollution in the AI's reasoning while offloading compute-intensive ML tasks to dedicated local components.
+Lyra is an open-source toolkit for AI-collaborative desktop research. It exposes research capabilities (search, content extraction, claim verification) as tools that AI assistants can directly invoke via **MCP (Model Context Protocol)**—a standard interface that lets AI models call external functions.
 
-**MCP Compatibility**: Lyra is protocol-compliant and works with any MCP-compatible client—[Cursor AI](https://cursor.sh/), Claude Desktop, or other MCP-enabled tools. The "thinking" side requires Claude/GPT-4-class reasoning capability.
+**What this means in practice**: When you ask Cursor AI or Claude Desktop to "research drug X safety", the AI decides *what* to search and designs queries—then calls Lyra's `search` tool to execute them. Lyra fetches pages, extracts claims, detects supporting/refuting evidence, and returns structured results. The AI never sees raw HTML or manages rate limits; Lyra handles mechanical execution while the AI focuses on reasoning.
+
+This **thinking-working separation** keeps the AI's context clean for strategic decisions while offloading compute-intensive ML tasks (embedding, NLI, reranking) to Lyra's local runtime.
+
+**MCP Compatibility**: Lyra is protocol-compliant and works with any MCP client—[Cursor AI](https://cursor.sh/), [Claude Desktop](https://claude.ai/desktop), [Zed Editor](https://zed.dev/), or other MCP-enabled tools. The "thinking" side requires Claude/GPT-4-class reasoning capability.
 
 **Embedded ML Components:**
 
@@ -61,6 +76,41 @@ Unlike browser automation tools (Selenium, Playwright scripts) that require cust
 3. **AI-Assisted Filtering**: Local LLM (Ollama) extracts facts and assesses source quality
 4. **Multi-Engine Search**: Aggregates results from DuckDuckGo, Mojeek, Brave, academic APIs, and more
 5. **Human-in-the-Loop**: Graceful handling of CAPTCHAs and authentication via intervention queues
+
+---
+
+## Why This Design
+
+### Why Thinking-Working Separation?
+
+Research requires both strategic reasoning ("what should I search next?") and mechanical execution ("fetch this URL, parse that HTML"). Mixing these in one context creates problems:
+
+- **Context pollution**: Raw HTML, rate-limit errors, and parsing details crowd out strategic thinking
+- **Inference cost**: Large AI models process every token; mechanical work wastes expensive reasoning capacity
+- **Reproducibility**: Interleaved logic makes it hard to replay or audit a research session
+
+Lyra delegates mechanical work to a local runtime while the AI focuses purely on strategy. The AI never sees raw page content—only structured claims with provenance metadata.
+
+### Why MCP (Not CLI)?
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **CLI scripts** | Simple to build, no protocol overhead | AI must parse stdout, no structured typing, hard to iterate |
+| **REST API** | Familiar, language-agnostic | Requires server lifecycle management, authentication complexity |
+| **MCP** | Structured tool calls, native AI integration, bidirectional communication | Protocol learning curve |
+
+MCP was designed specifically for AI-tool communication. It provides typed tool schemas, progress notifications, and error handling that map directly to how AI assistants work. Since Lyra exists to be called by AI, MCP is the natural fit.
+
+### Why Local LLM?
+
+Commercial APIs (GPT-4, Claude) would provide better extraction quality but violate Lyra's core principle: **no data leaves the machine**. Research queries and collected evidence may be sensitive; transmitting them to external APIs defeats the purpose.
+
+The embedded Qwen2.5-3B handles fact extraction and quality assessment. It's not as capable as frontier models, but:
+- Runs entirely on local GPU (8GB VRAM)
+- Zero API cost, zero data transmission
+- Consistent behavior across sessions
+
+The MCP client (Cursor AI, Claude Desktop) provides frontier reasoning for strategy; Lyra's local LLM handles only mechanical extraction tasks where 3B performance is sufficient.
 
 ---
 
@@ -202,10 +252,19 @@ Sources are classified by institutional authority:
 ### Prerequisites
 
 - **OS**: Windows 11 + WSL2 (Ubuntu 22.04 or 24.04)
+- **RAM**: 64GB host (32GB allocated to WSL2 recommended)
 - **Python**: 3.12+
 - **Browser**: Google Chrome (for CDP remote debugging)
 - **Container Runtime**: Podman (recommended) or Docker
-- **GPU**: NVIDIA RTX 4060 or equivalent (8GB VRAM recommended; CPU fallback available)
+
+**GPU Requirements:**
+
+| Mode | Hardware | Performance |
+|------|----------|-------------|
+| **GPU (recommended)** | NVIDIA RTX 4060 or equivalent (8GB VRAM) | ~20 min per research task (120 pages) |
+| **CPU fallback** | Any modern CPU | ~25 min per task; code supports CPU mode but container config requires modification |
+
+The default `podman-compose.yml` expects GPU access via CDI. For CPU-only operation, remove `devices: nvidia.com/gpu=all` from the compose file and set `LYRA_ML__USE_GPU=false` in `.env`.
 
 ### Quick Start
 
