@@ -15,7 +15,7 @@ Lancet開発で使用するCursorカスタムコマンドの体系。
 ┌─────────────────────────────────────────────────────────┐
 │ task-select → implement → test-create → test-review    │
 │ → quality-check → regression-test → commit             │
-│ → merge-complete                                       │
+│ → merge-complete → push                                │
 └─────────────────────────────────────────────────────────┘
 
 /wf-debug   デバッグワークフロー
@@ -25,13 +25,16 @@ Lancet開発で使用するCursorカスタムコマンドの体系。
 │ parser-repair       (パーサー修正)           check →    │
 │                                              regression-│
 │                                              test →     │
-│                                              commit     │
+│                                              commit →   │
+│                                              merge-     │
+│                                              complete → │
+│                                              push       │
 └─────────────────────────────────────────────────────────┘
 
 /wf-pr      PRレビューワークフロー
 ┌─────────────────────────────────────────────────────────┐
 │ PR取得 → コードレビュー → quality-check →              │
-│ regression-test → マージ判断 → マージ実行              │
+│ regression-test → マージ判断 → マージ実行 → push      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -49,6 +52,7 @@ Lancet開発で使用するCursorカスタムコマンドの体系。
 | `/regression-test` | 全テスト実行 |
 | `/commit` | コミットメッセージ作成・コミット |
 | `/merge-complete` | mainマージ・完了報告 |
+| `/push` | mainブランチをリモートにプッシュ |
 | `/suspend` | 作業中断・WIPコミット |
 
 ### デバッグ（/wf-debug で使用）
