@@ -1,6 +1,6 @@
 # Lyra
 
-> **L**ocal **Y**ielding **R**esearch **A**ide — A Privacy-Preserving Agent for Autonomous Desktop Research with Evidence Verification
+> **L**ocal **Y**ielding **R**esearch **A**ide — An MCP Toolkit with Embedded ML for AI-Collaborative Desktop Research
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -10,13 +10,22 @@
 
 ## Summary
 
-Lyra is an open-source, local-first AI agent that automates desktop research tasks while preserving user privacy. It integrates with [Cursor AI](https://cursor.sh/) via the Model Context Protocol (MCP) to execute comprehensive search→fetch→extract→evaluate pipelines, building an **evidence graph** that tracks claim-source relationships with confidence scores.
+Lyra is an open-source MCP (Model Context Protocol) toolkit that collaborates with [Cursor AI](https://cursor.sh/) for desktop research. It implements **thinking-working separation**: Cursor AI handles strategic decisions (query design, report composition), while Lyra handles mechanical execution (search, extraction, metrics calculation). This separation minimizes context pollution in the AI's reasoning while offloading compute-intensive ML tasks to dedicated local components.
+
+**Embedded ML Components:**
+
+| Component | Model | Purpose |
+|-----------|-------|---------|
+| Local LLM | Qwen2.5-3B (Ollama) | Fact/claim extraction, quality assessment |
+| Embedding | bge-m3 | Semantic similarity for candidate ranking |
+| Reranker | bge-reranker-v2-m3 | Cross-encoder reranking of search results |
+| NLI | DeBERTa-v3 | Stance detection (supports/refutes/neutral) |
 
 **Core Design Principles:**
 
 1. **Complete Local Processing**: All data remains on the user's machine. Search queries and collected information are never transmitted to external servers.
-2. **Responsibility Separation**: Cursor AI handles strategic decisions (query design, report composition), while Lyra handles mechanical execution (search, extraction, metrics calculation).
-3. **Evidence-Based Research**: Every claim is linked to source fragments with provenance tracking, enabling verification and reproducibility.
+2. **Thinking-Working Separation**: Cursor AI decides *what* to search; Lyra executes *how* to search. Lyra never proposes queries or makes strategic decisions.
+3. **Evidence Graph Construction**: Every claim is linked to source fragments with provenance tracking, enabling verification and reproducibility.
 
 ---
 
