@@ -438,10 +438,7 @@ git merge --no-edit <pr-branch>
 
 **重要**: マージ後は必ずリモートにプッシュする
 
-```bash
-# マージ後、リモートにプッシュ
-git push origin main
-```
+`/push` コマンドを実行してリモートにプッシュする。
 
 **理由**:
 - リモートが常に最新状態を反映する
@@ -457,35 +454,7 @@ git push origin main
 
 既にローカルのmainにマージ済みのPRをorigin/mainにプッシュする場合。
 
-### 6B.1. プッシュ前の確認
-
-**重要**: プッシュ前に必ず以下を確認・実行する：
-
-1. **警告の解消**: `ruff check` や `mypy` の警告が全て解消されていること
-2. **trailing whitespaceの解消**: `git diff --check` で警告がないことを確認
-3. **品質確認・テスト完了**: `/quality-check` と `/regression-test` がパスしていること
-
-```bash
-# mainブランチにいることを確認
-git checkout main
-
-# 警告確認
-podman exec lancet ruff check src/ tests/
-podman exec lancet mypy src/ tests/
-
-# trailing whitespace確認
-git diff origin/main..main --check
-
-# 警告がある場合は自動修正を試みる
-podman exec lancet ruff check --fix src/ tests/
-```
-
-### 6B.2. プッシュ実行
-
-```bash
-# origin/mainにプッシュ
-git push origin main
-```
+`/push` コマンドを実行してリモートにプッシュする。
 
 **注意**:
 - **警告が残っている場合はプッシュを実行しない**（必ず解消してからプッシュ）
