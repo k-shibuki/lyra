@@ -222,7 +222,7 @@ class TestGetMaterialsIntegration:
             )
 
         # Create edges (fragment -> claim)
-        for i, (frag_id, claim_id) in enumerate(zip(frag_ids, claim_ids, strict=False)):
+        for _i, (frag_id, claim_id) in enumerate(zip(frag_ids, claim_ids, strict=False)):
             edge_id = f"e_{uuid.uuid4().hex[:8]}"
             await db.execute(
                 """INSERT INTO edges (id, source_type, source_id, target_type,

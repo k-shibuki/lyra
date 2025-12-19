@@ -125,7 +125,7 @@ class TestBackoffConfig:
         config = BackoffConfig()
 
         # When/Then: Attempting to modify raises FrozenInstanceError
-        with pytest.raises(Exception):  # FrozenInstanceError in dataclasses
+        with pytest.raises(dataclasses.FrozenInstanceError):
             config.base_delay = 5.0
 
 
