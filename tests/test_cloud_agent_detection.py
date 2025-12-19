@@ -202,55 +202,99 @@ class TestDependencyChecking:
     
     def test_minimal_safe_files_include_this_file(self):
         """Test that test_cloud_agent_detection.py is in minimal safe files."""
-        # Given: We're testing the minimal safe files logic
-        # When: We mock missing dependencies and check this file
-        from unittest.mock import patch, MagicMock
+        # Given: Cloud agent environment with missing dependencies
+        from unittest.mock import MagicMock
         import tests.conftest as conftest_module
+        from tests.conftest import EnvironmentInfo, CloudAgentType
         
-        # Create a mock path object
         mock_path = MagicMock()
         mock_path.name = "test_cloud_agent_detection.py"
         
-        # Temporarily set deps as unavailable to test the logic
-        original_deps_available = conftest_module._deps_available
+        original_deps = conftest_module._deps_available
+        original_env = conftest_module._env_info
         try:
+            # Simulate cloud agent with missing deps
             conftest_module._deps_available = False
+            conftest_module._env_info = EnvironmentInfo(
+                is_cloud_agent=True,
+                cloud_agent_type=CloudAgentType.CURSOR,
+                is_e2e_capable=False, is_wsl=False,
+                is_container=False, has_display=False,
+            )
             
             # Then: This file should NOT be skipped (returns None)
             result = conftest_module.pytest_ignore_collect(mock_path, None)
             assert result is None
         finally:
-            conftest_module._deps_available = original_deps_available
+            conftest_module._deps_available = original_deps
+            conftest_module._env_info = original_env
     
-    def test_other_test_files_skipped_when_deps_missing(self):
-        """Test that other test files are skipped when dependencies are missing."""
-        # Given: Missing dependencies
+    def test_other_test_files_skipped_in_cloud_agent_when_deps_missing(self):
+        """Test that other test files are skipped in cloud agent when deps missing."""
+        # Given: Cloud agent with missing dependencies
         from unittest.mock import MagicMock
         import tests.conftest as conftest_module
+        from tests.conftest import EnvironmentInfo, CloudAgentType
         
         mock_path = MagicMock()
         mock_path.name = "test_some_other_file.py"
         
-        original_deps_available = conftest_module._deps_available
+        original_deps = conftest_module._deps_available
+        original_env = conftest_module._env_info
         try:
             conftest_module._deps_available = False
+            conftest_module._env_info = EnvironmentInfo(
+                is_cloud_agent=True,
+                cloud_agent_type=CloudAgentType.CURSOR,
+                is_e2e_capable=False, is_wsl=False,
+                is_container=False, has_display=False,
+            )
             
             # When/Then: Other test files should be skipped
             result = conftest_module.pytest_ignore_collect(mock_path, None)
             assert result is True
         finally:
-            conftest_module._deps_available = original_deps_available
+            conftest_module._deps_available = original_deps
+            conftest_module._env_info = original_env
+    
+    def test_files_not_skipped_in_local_even_with_missing_deps(self):
+        """Test that files are NOT skipped in local env even with missing deps."""
+        # Given: Local environment (not cloud agent) with missing deps
+        from unittest.mock import MagicMock
+        import tests.conftest as conftest_module
+        from tests.conftest import EnvironmentInfo, CloudAgentType
+        
+        mock_path = MagicMock()
+        mock_path.name = "test_any_file.py"
+        
+        original_deps = conftest_module._deps_available
+        original_env = conftest_module._env_info
+        try:
+            conftest_module._deps_available = False
+            conftest_module._env_info = EnvironmentInfo(
+                is_cloud_agent=False,  # LOCAL environment
+                cloud_agent_type=CloudAgentType.NONE,
+                is_e2e_capable=True, is_wsl=True,
+                is_container=False, has_display=True,
+            )
+            
+            # When/Then: Should NOT skip (show normal import errors)
+            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            assert result is None
+        finally:
+            conftest_module._deps_available = original_deps
+            conftest_module._env_info = original_env
     
     def test_files_not_skipped_when_deps_available(self):
         """Test that no files are skipped when all dependencies are available."""
-        # Given: All dependencies available
+        # Given: All dependencies available (any environment)
         from unittest.mock import MagicMock
         import tests.conftest as conftest_module
         
         mock_path = MagicMock()
         mock_path.name = "test_any_file.py"
         
-        original_deps_available = conftest_module._deps_available
+        original_deps = conftest_module._deps_available
         try:
             conftest_module._deps_available = True
             
@@ -258,4 +302,4 @@ class TestDependencyChecking:
             result = conftest_module.pytest_ignore_collect(mock_path, None)
             assert result is None
         finally:
-            conftest_module._deps_available = original_deps_available
+            conftest_module._deps_available = original_deps
