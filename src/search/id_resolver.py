@@ -10,6 +10,7 @@ import httpx
 
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
 from src.utils.logging import get_logger
+from src.utils.schemas import PaperIdentifier
 
 logger = get_logger(__name__)
 

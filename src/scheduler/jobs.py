@@ -508,7 +508,7 @@ class JobScheduler:
             return await extract_content(**input_data)
 
         elif kind == JobKind.EMBED:
-            from src.filter.ranking import EmbeddingRanker, _embedding_ranker
+            from src.filter.ranking import EmbeddingRanker
 
             global _embedding_ranker
             if _embedding_ranker is None:

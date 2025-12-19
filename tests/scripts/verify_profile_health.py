@@ -82,7 +82,7 @@ class ProfileHealthVerifier:
 
         # Check profile auditor
         try:
-            from src.crawler.profile_audit import ProfileAuditor
+            import src.crawler.profile_audit  # noqa: F401
 
             print("  ✓ Profile auditor available")
         except ImportError as e:
