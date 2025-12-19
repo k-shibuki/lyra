@@ -14,6 +14,7 @@ Features:
 import asyncio
 import hashlib
 import io
+import json
 import random
 import time
 from datetime import UTC, datetime
@@ -66,6 +67,9 @@ from src.utils.notification import (
     InterventionType,
     get_intervention_manager,
 )
+from src.crawler.human_behavior import (
+    get_human_behavior_simulator,
+)
 
 logger = get_logger(__name__)
 
@@ -73,11 +77,6 @@ logger = get_logger(__name__)
 # =============================================================================
 # Human-like Behavior Simulation (delegated to human_behavior module)
 # =============================================================================
-
-# Import from dedicated module for advanced human-like behavior
-from src.crawler.human_behavior import (
-    get_human_behavior_simulator,
-)
 
 
 class HumanBehavior:
@@ -2740,5 +2739,3 @@ async def _update_domain_wayback_success(db, domain: str, success: bool) -> None
         )
 
 
-# Need to import json for the db.insert call
-import json
