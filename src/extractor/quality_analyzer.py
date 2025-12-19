@@ -1110,7 +1110,7 @@ class ContentQualityAnalyzer:
             matches = re.findall(pattern, html_lower, re.DOTALL)
             boilerplate_length += sum(len(m) for m in matches)
 
-        if len(html) == 0:
+        if not html:
             return 0.0
 
         return boilerplate_length / len(html)
@@ -1126,7 +1126,7 @@ class ContentQualityAnalyzer:
         menu_matches = re.findall(r'class=["\'][^"\']*menu[^"\']*["\'][^>]*>.*?</\w+>', html_lower, re.DOTALL)
         nav_length += sum(len(m) for m in menu_matches)
 
-        if len(html) == 0:
+        if not html:
             return 0.0
 
         return nav_length / len(html)
@@ -1139,7 +1139,7 @@ class ContentQualityAnalyzer:
         footer_matches = re.findall(r'<footer[^>]*>.*?</footer>', html_lower, re.DOTALL)
         footer_length += sum(len(m) for m in footer_matches)
 
-        if len(html) == 0:
+        if not html:
             return 0.0
 
         return footer_length / len(html)
