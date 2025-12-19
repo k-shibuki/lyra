@@ -227,17 +227,26 @@ Lyra maintains a directed graph linking claims to supporting evidence:
 
 ### Trust Levels
 
-Sources are classified by institutional authority (see `src/utils/domain_policy.py`):
+Sources are classified by institutional authority:
 
-| Level | Description | Examples |
-|-------|-------------|----------|
-| `PRIMARY` | Standards bodies, registries | iso.org, ietf.org |
-| `GOVERNMENT` | Government agencies | .go.jp, .gov |
-| `ACADEMIC` | Academic/research institutions | arxiv.org, pubmed.gov |
-| `TRUSTED` | Trusted media, knowledge bases | wikipedia.org |
-| `LOW` | Promoted from UNVERIFIED via L6 verification | Verified low-trust sources |
-| `UNVERIFIED` | Unknown domains, pending verification | Default for new domains |
-| `BLOCKED` | Excluded (contradiction detected, dangerous patterns) | Dynamically blocked |
+| Level | Description |
+|-------|-------------|
+| `PRIMARY` | Standards bodies, registries (iso.org, ietf.org) |
+| `GOVERNMENT` | Government agencies (.go.jp, .gov) |
+| `ACADEMIC` | Academic/research institutions (arxiv.org, pubmed.gov) |
+| `TRUSTED` | Trusted media, knowledge bases (wikipedia.org) |
+| `LOW` | Verified through L6 (promoted from UNVERIFIED) |
+| `UNVERIFIED` | Unknown domains (default) |
+| `BLOCKED` | Excluded (contradiction detected) |
+
+**How trust levels are assigned:**
+
+1. **Pre-assigned (allowlist)**: Known domains in `config/domains.yaml` have fixed trust levels
+2. **Unknown domains**: Start as `UNVERIFIED`
+3. **L6 verification** promotes/demotes `UNVERIFIED` domains based on evidence:
+   - Corroborated by ≥3 independent sources → promoted to `LOW`
+   - Contradiction detected → demoted to `BLOCKED`
+   - Higher trust levels (PRIMARY–TRUSTED) are not auto-demoted
 
 ### Security Architecture (8 Layers)
 
