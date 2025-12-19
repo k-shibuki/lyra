@@ -263,7 +263,7 @@ class TestEmbeddingResponse:
 
     def test_error_embedding(self):
         """error() should create an error embedding response."""
-        response = EmbeddingResponse.error(
+        response = EmbeddingResponse.error_response(
             error="Embedding failed",
             model="embed-model",
             provider="test-provider",
