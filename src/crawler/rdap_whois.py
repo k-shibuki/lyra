@@ -266,8 +266,8 @@ class WHOISParser:
 
     def _compile_patterns(self) -> None:
         """Pre-compile regex patterns."""
-        for field, patterns in self.FIELD_PATTERNS.items():
-            self._compiled_patterns[field] = [
+        for field_name, patterns in self.FIELD_PATTERNS.items():
+            self._compiled_patterns[field_name] = [
                 re.compile(p, re.IGNORECASE | re.MULTILINE) for p in patterns
             ]
 

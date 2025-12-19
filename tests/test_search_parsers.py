@@ -408,7 +408,7 @@ class TestParserRegistry:
 
         assert parser1 is not None
         assert parser2 is not None
-        assert type(parser1) == type(parser2)
+        assert isinstance(parser1, type(parser2))
 
     def test_get_nonexistent_parser(self):
         """Test getting nonexistent parser returns None."""

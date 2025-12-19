@@ -59,8 +59,8 @@ def _validate_and_sanitize_path(path: str, path_name: str) -> str:
         # Check if path is within MODELS_BASE_DIR
         try:
             path_obj.relative_to(MODELS_BASE_DIR.resolve())
-        except ValueError:
-            raise ValueError(f"Path {path_name} is outside allowed directory: {path}")
+        except ValueError as err:
+            raise ValueError(f"Path {path_name} is outside allowed directory: {path}") from err
 
         # Check for path traversal attempts (should be caught by relative_to, but double-check)
         if ".." in str(path_obj):

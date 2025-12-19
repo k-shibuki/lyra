@@ -1083,7 +1083,7 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
             reason=reason,
         )
     except ValueError as e:
-        raise CalibrationError(str(e), source=source)
+        raise CalibrationError(str(e), source=source) from e
 
     if rolled_back_params is None:
         raise CalibrationError(

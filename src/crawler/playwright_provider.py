@@ -123,8 +123,8 @@ class PlaywrightProvider(BaseBrowserProvider):
 
                 self._playwright = await async_playwright().start()
                 logger.info("Playwright initialized")
-            except ImportError:
-                raise RuntimeError("Playwright not installed")
+            except ImportError as err:
+                raise RuntimeError("Playwright not installed") from err
 
     async def _get_browser_and_context(
         self,

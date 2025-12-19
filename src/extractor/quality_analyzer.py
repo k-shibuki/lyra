@@ -1155,7 +1155,7 @@ class ContentQualityAnalyzer:
         if mean_length == 0:
             return 0.0
 
-        variance = sum((l - mean_length) ** 2 for l in lengths) / len(lengths)
+        variance = sum((length - mean_length) ** 2 for length in lengths) / len(lengths)
         std_dev = math.sqrt(variance)
 
         # Coefficient of variation
@@ -1180,7 +1180,7 @@ class ContentQualityAnalyzer:
             return 0.0
 
         # Calculate how many sentences are within 20% of mean length
-        within_range = sum(1 for l in lengths if abs(l - mean_length) / mean_length < 0.2)
+        within_range = sum(1 for length in lengths if abs(length - mean_length) / mean_length < 0.2)
 
         return within_range / len(lengths)
 
