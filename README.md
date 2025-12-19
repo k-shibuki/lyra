@@ -50,15 +50,20 @@ This **thinking-working separation** keeps the AI's context clean for strategic 
 
 ### The Problem
 
-Commercial research tools (Perplexity, ChatGPT with browsing, etc.) present significant challenges for privacy-sensitive research:
+AI-assisted web research faces a fundamental tension: powerful reasoning models (GPT-4, Claude) are cloud-based, but transmitting research queries and collected evidence to external servers is unacceptable for sensitive domains. Existing approaches force a choice:
 
-| Challenge | Commercial Tools | Lyra's Approach |
-|-----------|-----------------|-----------------|
-| **Privacy** | Queries and data transmitted to external servers | All processing occurs locally |
-| **Transparency** | Proprietary algorithms | Fully open-source, auditable code |
-| **Cost** | API fees, subscription costs | Zero operational expense |
-| **Reproducibility** | Non-deterministic, changing models | Consistent local environment |
-| **Customization** | Limited domain adaptation | Configurable via YAML policies |
+- **Use cloud AI with web access**: Queries and findings leave the machine
+- **Use local tools only**: Lose frontier reasoning capability
+
+Lyra resolves this by **separating concerns**: the MCP client (cloud AI) handles reasoning; Lyra handles data collection locally. Research data never leaves the machine.
+
+### Why Auditability Matters
+
+In domains like healthcare research, a hallucinated claim can be fatal. Lyra constructs an **evidence graph** where every claim links to source fragments with provenance metadata. This enables:
+
+- **Verification**: Trace any claim back to its source URL and extracted text
+- **Reproducibility**: Replay research sessions with identical results
+- **Accountability**: Full audit trail from question to conclusion
 
 ### Target Use Cases
 
@@ -66,6 +71,8 @@ Commercial research tools (Perplexity, ChatGPT with browsing, etc.) present sign
 - **Legal & Compliance Teams**: Research requiring strict confidentiality
 - **Independent Researchers & Journalists**: Cost-effective alternative to commercial tools
 - **Security-Conscious Organizations**: Auditable, deployable within controlled environments
+
+> **Status**: Lyra is a working prototype. Core functionality is implemented and tested, but APIs may change.
 
 ### Differentiation from Existing Tools
 
@@ -269,26 +276,35 @@ The default `podman-compose.yml` expects GPU access via CDI. For CPU-only operat
 ### Quick Start
 
 ```bash
-# 1. Clone the repository
+# 1. Clone and setup Python environment
 git clone https://github.com/k-shibuki/lyra.git
 cd lyra
-
-# 2. Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-mcp.txt
-playwright install chromium
 
-# 3. Configure environment
+# 2. Configure and start services
 cp .env.example .env
-# Edit .env as needed (ports, paths, model selection)
+./scripts/dev.sh up      # Start Ollama, ML Server, Tor containers
+./scripts/chrome.sh start # Start Chrome with CDP
 
-# 4. Start containers (Ollama, ML Server, Tor proxy)
-./scripts/dev.sh up
-
-# 5. Start Chrome with remote debugging
-./scripts/chrome.sh start
+# 3. Configure MCP client (see below)
 ```
+
+### Helper Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `./scripts/dev.sh up` | Start all containers (Ollama, ML Server, Tor) |
+| `./scripts/dev.sh down` | Stop all containers |
+| `./scripts/dev.sh shell` | Enter development shell with network access |
+| `./scripts/dev.sh logs [service]` | View container logs |
+| `./scripts/dev.sh clean` | Remove containers and images |
+| `./scripts/chrome.sh start` | Start Chrome with CDP on port 9222 |
+| `./scripts/chrome.sh stop` | Stop Chrome |
+| `./scripts/test.sh` | Run test suite with appropriate markers |
+
+The scripts auto-detect environment (WSL/Linux) and handle container networking.
 
 ### WSL2 Network Configuration
 
