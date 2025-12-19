@@ -155,7 +155,8 @@ def calculate_cooldown_minutes(
     factor = min(2 ** (failure_count // 3), 4)
 
     # Apply factor and cap at max
-    return min(base_minutes * factor, max_minutes)
+    result: int = min(base_minutes * factor, max_minutes)
+    return result
 
 
 def calculate_total_delay(

@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 import aiohttp
+from aiohttp import ClientTimeout
 
 from src.filter.provider import (
     BaseLLMProvider,
@@ -403,7 +404,7 @@ class OllamaProvider(BaseLLMProvider):
                 if response.status != 200:
                     self._error_count += 1
                     error_text = await response.text()
-                    return EmbeddingResponse.error(
+                    return EmbeddingResponse.error_response(
                         error=f"Ollama embed error {response.status}: {error_text}",
                         model=embed_model,
                         provider=self._name,
@@ -422,7 +423,7 @@ class OllamaProvider(BaseLLMProvider):
         except Exception as e:
             self._error_count += 1
             logger.error("Ollama embed request failed", error=str(e))
-            return EmbeddingResponse.error(
+            return EmbeddingResponse.error_response(
                 error=str(e),
                 model=embed_model,
                 provider=self._name,
@@ -553,7 +554,7 @@ class OllamaProvider(BaseLLMProvider):
 
             # Check if Ollama is reachable
             start_time = time.perf_counter()
-            async with session.get(f"{self._host}/api/tags", timeout=5) as response:
+            async with session.get(f"{self._host}/api/tags", timeout=ClientTimeout(total=5)) as response:
                 latency_ms = (time.perf_counter() - start_time) * 1000
 
                 if response.status != 200:
@@ -612,7 +613,7 @@ class OllamaProvider(BaseLLMProvider):
                 "keep_alive": 0,  # Unload immediately
             }
 
-            async with session.post(url, json=payload, timeout=10) as response:
+            async with session.post(url, json=payload, timeout=ClientTimeout(total=10)) as response:
                 if response.status == 200:
                     logger.info("Ollama model unloaded", model=model)
                     self._current_model = None

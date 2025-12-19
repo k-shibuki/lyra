@@ -19,7 +19,7 @@ import random
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
 from warcio.statusandheaders import StatusAndHeaders
@@ -299,12 +299,12 @@ class TorController:
 
             response = curl_requests.get(
                 "https://check.torproject.org/api/ip",
-                proxies=proxies,
+                proxies=cast(Any, proxies),
                 timeout=10,
             )
 
             data = response.json()
-            return data.get("IP")
+            return cast(str | None, data.get("IP"))
 
         except Exception as e:
             logger.debug("Failed to get Tor exit IP", error=str(e))
@@ -685,7 +685,7 @@ class HTTPFetcher:
             response = curl_requests.get(
                 url,
                 headers=req_headers,
-                proxies=proxies,
+                proxies=cast(Any, proxies),
                 impersonate="chrome",
                 timeout=self._settings.crawler.request_timeout,
                 allow_redirects=True,
@@ -886,10 +886,11 @@ class BrowserFetcher:
                     cdp_connected = True
                 except TimeoutError:
                     logger.info("CDP connection timed out, attempting auto-start", url=cdp_url)
-                    e = Exception("CDP connection timeout")
+                    cdp_error: Exception = Exception("CDP connection timeout")
                     # Fall through to auto-start logic
-                except Exception as e:
-                    logger.info("CDP connection failed, attempting auto-start", error=str(e))
+                except Exception as exc:
+                    logger.info("CDP connection failed, attempting auto-start", error=str(exc))
+                    cdp_error = exc
 
                 # Auto-start Chrome per docs/requirements.md §3.2.1 (if CDP connection failed)
                 if not cdp_connected:
@@ -934,7 +935,7 @@ class BrowserFetcher:
                     if not cdp_connected:
                         logger.warning(
                             "CDP connection failed after auto-start, launching local headful browser",
-                            error=str(e),
+                            error=str(cdp_error),
                         )
                         self._headful_browser = await self._playwright.chromium.launch(
                             headless=False
@@ -982,7 +983,8 @@ class BrowserFetcher:
                     )
 
                 # Perform profile health audit on browser session initialization
-                await self._perform_health_audit(self._headful_context, task_id)
+                if self._headful_context is not None:
+                    await self._perform_health_audit(self._headful_context, task_id)
 
             return self._headful_browser, self._headful_context
         else:
@@ -2532,8 +2534,8 @@ async def _fetch_url_impl(
             await db.update_domain_metrics(
                 domain,
                 success=result.ok,
-                is_captcha=result.reason and "challenge" in result.reason,
-                is_http_error=result.status and result.status >= 400,
+                is_captcha=bool(result.reason and "challenge" in result.reason),
+                is_http_error=bool(result.status and result.status >= 400),
             )
 
         # Update IPv6 metrics

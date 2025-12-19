@@ -7,7 +7,7 @@ import hashlib
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from datasketch import MinHash, MinHashLSH
 
@@ -42,7 +42,7 @@ class ShingleTokenizer:
         """
         self.shingle_size = shingle_size
         self.use_words = use_words
-        self._sudachi_tokenizer = None
+        self._sudachi_tokenizer: Any = None
 
     def _get_sudachi(self) -> Any:
         """Get or create SudachiPy tokenizer."""
@@ -232,7 +232,7 @@ class MinHashDeduplicator:
         if id1 not in self._minhashes or id2 not in self._minhashes:
             return 0.0
 
-        return self._minhashes[id1].jaccard(self._minhashes[id2])
+        return cast(float, self._minhashes[id1].jaccard(self._minhashes[id2]))
 
     def get_clusters(self) -> list[DuplicateCluster]:
         """Get all duplicate clusters.

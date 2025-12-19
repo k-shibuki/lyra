@@ -1046,7 +1046,7 @@ async def get_evidence_graph(
     ]
 
     # Summary statistics
-    relations = {}
+    relations: dict[str, int] = {}
     for e in edges:
         rel = e.get("relation", "unknown")
         relations[rel] = relations.get(rel, 0) + 1

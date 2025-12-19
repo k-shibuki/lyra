@@ -19,6 +19,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
+from aiohttp import ClientTimeout
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Playwright
@@ -439,7 +440,7 @@ class ProcessLifecycleManager:
                     "keep_alive": 0,  # Unload immediately
                 }
 
-                async with session.post(url, json=payload, timeout=10) as response:
+                async with session.post(url, json=payload, timeout=ClientTimeout(total=10)) as response:
                     if response.status == 200:
                         logger.info(
                             "Ollama model unloaded",

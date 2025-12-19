@@ -21,7 +21,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
@@ -745,7 +745,7 @@ async def search_serp(
                     "UPDATE cache_serp SET hit_count = hit_count + 1 WHERE cache_key = ?",
                     (cache_key,),
                 )
-                return json.loads(cached["result_json"])
+                return cast(list[dict[str, Any]], json.loads(cached["result_json"]))
 
         # Transform query operators to engine-specific format
         # Uses default format which works across most search engines

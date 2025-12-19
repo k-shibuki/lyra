@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 # Cache for loaded schemas
 _schema_cache: dict[str, dict[str, Any]] = {}
@@ -35,7 +35,7 @@ def get_schema(tool_name: str) -> dict[str, Any] | None:
         return None
 
     with open(schema_path, encoding="utf-8") as f:
-        schema = json.load(f)
+        schema = cast(dict[str, Any], json.load(f))
 
     _schema_cache[tool_name] = schema
     return schema

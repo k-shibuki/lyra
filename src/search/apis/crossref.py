@@ -4,7 +4,7 @@ Crossref API client.
 DOI resolution and metadata normalization (priority=3).
 """
 
-from typing import Any
+from typing import Any, cast
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -45,7 +45,7 @@ class CrossrefClient(BaseAcademicClient):
                 f"{self.base_url}/works", params={"query": query, "rows": limit}
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
@@ -75,7 +75,7 @@ class CrossrefClient(BaseAcademicClient):
             if response.status_code == 404:
                 return None
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)

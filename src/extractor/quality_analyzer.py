@@ -874,8 +874,8 @@ class ContentQualityAnalyzer:
         url: str | None,
     ) -> tuple[list[QualityIssue], dict[str, Any]]:
         """Detect quality issues in content."""
-        issues = []
-        details = {}
+        issues: list[QualityIssue] = []
+        details: dict[str, Any] = {}
 
         text_lower = text.lower()
 

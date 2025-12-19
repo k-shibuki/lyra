@@ -861,7 +861,7 @@ class Database:
                 json.dumps(full_snapshot) if full_snapshot else None,
             ),
         )
-        return cursor.lastrowid
+        return cursor.lastrowid or 0
 
     async def save_task_metrics(
         self,

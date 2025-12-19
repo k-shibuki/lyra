@@ -18,7 +18,7 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from src.storage.database import get_database
@@ -621,7 +621,7 @@ class SitemapParser:
                 except gzip.BadGzipFile:
                     pass  # Not actually gzipped
 
-            return content.decode("utf-8", errors="replace")
+            return cast(str, content.decode("utf-8", errors="replace"))
 
         except Exception as e:
             logger.debug("Sitemap fetch error", url=url[:80], error=str(e))
@@ -645,7 +645,7 @@ class SitemapParser:
                 impersonate="chrome",
             )
 
-            return response.status_code == 200
+            return cast(bool, response.status_code == 200)
 
         except Exception as e:
             logger.debug("Sitemap HEAD request failed", url=url, error=str(e))

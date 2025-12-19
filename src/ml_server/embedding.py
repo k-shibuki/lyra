@@ -15,7 +15,9 @@ class EmbeddingService:
     """Embedding model service using sentence-transformers."""
 
     def __init__(self) -> None:
-        self._model = None
+        from typing import Any
+
+        self._model: Any = None
         self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
 
     @property

@@ -18,10 +18,11 @@ import random
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Page, Playwright, Route
+    from playwright.async_api._generated import SetCookieParam
 
 from src.crawler.browser_provider import (
     BaseBrowserProvider,
@@ -482,7 +483,7 @@ class PlaywrightProvider(BaseBrowserProvider):
                         raw_cookies = await context.cookies([url])
                     else:
                         raw_cookies = await context.cookies()
-                    cookies.extend([Cookie.from_dict(c) for c in raw_cookies])
+                    cookies.extend([Cookie.from_dict(cast(dict[str, Any], c)) for c in raw_cookies])
                 except Exception as e:
                     logger.debug("Failed to get cookies", error=str(e))
 
@@ -492,7 +493,7 @@ class PlaywrightProvider(BaseBrowserProvider):
         """Set cookies in the browser."""
         self._check_closed()
 
-        cookie_dicts = [c.to_dict() for c in cookies]
+        cookie_dicts = cast("list[SetCookieParam]", [c.to_dict() for c in cookies])
 
         for context in [self._headless_context, self._headful_context]:
             if context is not None:

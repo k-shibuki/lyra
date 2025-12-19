@@ -4,7 +4,7 @@ ID resolver for converting between different paper identifier formats.
 Converts PMID, arXiv ID, etc. to DOI using external APIs.
 """
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -48,13 +48,13 @@ class IDResolver:
                     "https://api.crossref.org/works", params={"filter": f"pmid:{pmid}", "rows": 1}
                 )
                 response.raise_for_status()
-                return response.json()
+                return cast(dict[str, Any], response.json())
 
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
             items = data.get("message", {}).get("items", [])
 
             if items and "DOI" in items[0]:
-                doi = items[0]["DOI"]
+                doi = cast(str, items[0]["DOI"])
                 logger.debug("Resolved PMID to DOI", pmid=pmid, doi=doi)
                 return doi
 
@@ -83,7 +83,7 @@ class IDResolver:
                     params={"fields": "externalIds"},
                 )
                 response.raise_for_status()
-                return response.json()
+                return cast(dict[str, Any], response.json())
 
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
             external_ids = data.get("externalIds", {})
@@ -91,7 +91,7 @@ class IDResolver:
 
             if doi:
                 logger.debug("Resolved arXiv ID to DOI", arxiv_id=arxiv_id, doi=doi)
-                return doi
+                return cast(str, doi)
 
             logger.debug("No DOI found for arXiv ID", arxiv_id=arxiv_id)
             return None

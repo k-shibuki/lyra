@@ -384,7 +384,7 @@ class PolicyEngine:
         Returns:
             List of policy updates made.
         """
-        updates = []
+        updates: list[PolicyUpdate] = []
         engine_metrics = self._collector.get_engine_metrics(engine)
 
         if not engine_metrics:
@@ -471,7 +471,7 @@ class PolicyEngine:
         Returns:
             List of policy updates made.
         """
-        updates = []
+        updates: list[PolicyUpdate] = []
         domain_metrics = self._collector.get_domain_metrics(domain)
 
         if not domain_metrics:

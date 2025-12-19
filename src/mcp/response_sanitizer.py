@@ -275,7 +275,7 @@ class ResponseSanitizer:
             # No properties defined - return as-is
             return obj, 0
 
-        result = {}
+        result: dict[str, Any] = {}
 
         for key, value in obj.items():
             if key not in properties:

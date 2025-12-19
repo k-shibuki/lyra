@@ -419,6 +419,8 @@ class WHOISParser:
 
         for script in soup.find_all("script", type="application/ld+json"):
             try:
+                if script.string is None:
+                    continue
                 data = json.loads(script.string)
                 if isinstance(data, dict):
                     # Extract RDAP fields

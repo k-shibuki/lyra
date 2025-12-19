@@ -18,12 +18,15 @@ Registry integration support per §3.1.2, §3.1.3:
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.research.pivot import (
     get_pivot_expander,
 )
 from src.storage.database import get_database
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 from src.utils.logging import CausalTrace, get_logger
 
 logger = get_logger(__name__)
@@ -155,8 +158,8 @@ class ResearchContext:
             fetcher: Optional URL fetcher for registry lookups.
         """
         self.task_id = task_id
-        self._db = None
-        self._task = None
+        self._db: Database | None = None
+        self._task: dict[str, Any] | None = None
         self._original_query: str = ""
         self._fetcher = fetcher  # For RDAP/WHOIS/crt.sh lookups
 

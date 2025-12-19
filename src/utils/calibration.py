@@ -275,15 +275,15 @@ class TemperatureScaling:
         Returns:
             Optimal temperature.
         """
-        logits = np.array(logits, dtype=np.float64)
-        labels = np.array(labels, dtype=np.float64)
+        logits_arr: np.ndarray = np.array(logits, dtype=np.float64)
+        labels_arr: np.ndarray = np.array(labels, dtype=np.float64)
 
         # Start with T=1
-        T = 1.0
+        T: float = 1.0
 
         for _ in range(max_iter):
             # Scaled logits
-            scaled = logits / T
+            scaled = logits_arr / T
 
             # Probabilities (binary case)
             p = 1.0 / (1.0 + np.exp(-scaled))
@@ -291,16 +291,16 @@ class TemperatureScaling:
 
             # Gradient of NLL w.r.t. T
             # d/dT sigmoid(x/T) = sigmoid(x/T) * (1 - sigmoid(x/T)) * (-x/T^2)
-            sigmoid_grad = p * (1 - p) * (-logits / (T * T))
+            sigmoid_grad = p * (1 - p) * (-logits_arr / (T * T))
 
             # NLL gradient
-            grad = np.mean(-(labels / p - (1 - labels) / (1 - p)) * sigmoid_grad)
+            grad = float(np.mean(-(labels_arr / p - (1 - labels_arr) / (1 - p)) * sigmoid_grad))
 
             # Update
             T -= lr * grad
             T = max(0.1, min(T, 10.0))  # Clip to reasonable range
 
-        return float(T)
+        return T
 
     @staticmethod
     def transform(logit: float, temperature: float) -> float:

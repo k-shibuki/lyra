@@ -5,7 +5,7 @@ Open Access URL resolution (priority=5).
 """
 
 import os
-from typing import Any
+from typing import Any, cast
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -73,7 +73,7 @@ class UnpaywallClient(BaseAcademicClient):
                 f"{self.base_url}/{normalized_doi}", params={"email": self.email}
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
@@ -90,14 +90,14 @@ class UnpaywallClient(BaseAcademicClient):
                     "url_for_landing_page"
                 )
                 if oa_url:
-                    return oa_url
+                    return cast(str, oa_url)
 
             # Fallback: check all OA locations
             oa_locations = data.get("oa_locations", [])
             for location in oa_locations:
                 url = location.get("url_for_pdf") or location.get("url_for_landing_page")
                 if url:
-                    return url
+                    return cast(str, url)
 
             return None
         except Exception as e:

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from undetected_chromedriver import ChromeOptions
@@ -550,7 +550,7 @@ class UndetectedChromeFetcher:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         """Context manager exit - cleanup driver."""
         self.close()
         return False

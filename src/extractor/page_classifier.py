@@ -578,7 +578,7 @@ class PageClassifier:
         Returns:
             Dictionary mapping page types to scores.
         """
-        scores = {pt: 0.0 for pt in PageType if pt != PageType.OTHER}
+        scores: dict[PageType, float] = {pt: 0.0 for pt in PageType if pt != PageType.OTHER}
 
         # LOGIN_WALL - highest priority checks
         if features.has_login_form and features.has_password_field:

@@ -4,7 +4,7 @@ Semantic Scholar API client.
 Primary API for citation graphs (priority=1).
 """
 
-from typing import Any
+from typing import Any, cast
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -48,7 +48,7 @@ class SemanticScholarClient(BaseAcademicClient):
                 params={"query": query, "limit": limit, "fields": self.FIELDS},
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
@@ -81,7 +81,7 @@ class SemanticScholarClient(BaseAcademicClient):
                 f"{self.base_url}/paper/{normalized_id}", params={"fields": self.FIELDS}
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
@@ -131,7 +131,7 @@ class SemanticScholarClient(BaseAcademicClient):
                 params={"fields": self.FIELDS + ",isInfluential"},
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
@@ -159,7 +159,7 @@ class SemanticScholarClient(BaseAcademicClient):
                 params={"fields": self.FIELDS + ",isInfluential"},
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)

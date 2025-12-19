@@ -1242,7 +1242,7 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
 
             domain_cookies = []
             for cookie in all_cookies:
-                cookie_data = CookieData.from_playwright_cookie(cookie)
+                cookie_data = CookieData.from_playwright_cookie(dict(cookie))
                 # Use CookieData.matches_domain() which correctly implements HTTP cookie domain matching
                 # - Exact match: cookie.domain == target_domain
                 # - Parent -> subdomain: cookie.domain="example.com" matches "sub.example.com"

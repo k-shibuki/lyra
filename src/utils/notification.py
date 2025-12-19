@@ -23,7 +23,7 @@ import asyncio
 import platform
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from playwright.async_api import Page
@@ -1632,7 +1632,7 @@ class InterventionQueue:
         row = await self._db.fetch_one(query, params)
 
         if row and row["session_data"]:
-            return json.loads(row["session_data"])
+            return cast(dict[Any, Any], json.loads(row["session_data"]))
 
         return None
 

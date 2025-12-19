@@ -248,7 +248,7 @@ class EvidenceGraph:
         """
         claim_node = self._make_node_id(NodeType.CLAIM, claim_id)
 
-        result = {
+        result: dict[str, list[dict[str, Any]]] = {
             "supports": [],
             "refutes": [],
             "neutral": [],
@@ -299,9 +299,9 @@ class EvidenceGraph:
         if start_node not in self._graph:
             return []
 
-        chain = []
-        visited = set()
-        current = start_node
+        chain: list[dict[str, Any]] = []
+        visited: set[str] = set()
+        current: str | None = start_node
         depth = 0
 
         while current and depth < max_depth:
@@ -456,7 +456,7 @@ class EvidenceGraph:
         Returns:
             List of detected loops with metadata.
         """
-        loops = []
+        loops: list[dict[str, Any]] = []
 
         # Build subgraph with only citation edges
         citation_edges = [

@@ -5,7 +5,7 @@ ML models run in a separate container on internal network for security isolation
 """
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -98,7 +98,7 @@ class MLClient:
             Exception: If all retries fail.
         """
         client = await self._get_client()
-        last_error = None
+        last_error: Exception | None = None
 
         for attempt in range(self._settings.ml.max_retries):
             try:
@@ -108,7 +108,7 @@ class MLClient:
                     response = await client.post(endpoint, json=json)
 
                 response.raise_for_status()
-                return response.json()
+                return cast(dict[str, Any], response.json())
 
             except httpx.HTTPStatusError as e:
                 last_error = e
@@ -174,7 +174,7 @@ class MLClient:
             logger.error("Embedding failed", error=error)
             raise EmbeddingError(f"Embedding failed: {error}")
 
-        return response.get("embeddings", [])
+        return cast(list[list[float]], response.get("embeddings", []))
 
     async def rerank(
         self,
@@ -237,7 +237,7 @@ class MLClient:
             logger.error("NLI failed", error=error)
             raise NLIError(f"NLI failed: {error}")
 
-        return response.get("results", [])
+        return cast(list[dict[str, Any]], response.get("results", []))
 
     async def warmup(self) -> None:
         """Warmup ML server by preloading models."""

@@ -130,30 +130,30 @@ async def handle_ml(request: web.Request) -> web.Response:
 async def handle_health(request: web.Request) -> web.Response:
     """Health check endpoint."""
     # Check connectivity to backend services
-    health = {
-        "status": "ok",
-        "ollama": {"url": OLLAMA_URL, "status": "unknown"},
-        "ml_server": {"url": ML_SERVER_URL, "status": "unknown"},
-    }
+    ollama_health: dict[str, str] = {"url": OLLAMA_URL, "status": "unknown"}
+    ml_health: dict[str, str] = {"url": ML_SERVER_URL, "status": "unknown"}
 
     async with httpx.AsyncClient(timeout=5.0) as client:
         # Check Ollama
         try:
             resp = await client.get(f"{OLLAMA_URL}/api/tags")
-            health["ollama"]["status"] = "ok" if resp.status_code == 200 else "error"
+            ollama_health["status"] = "ok" if resp.status_code == 200 else "error"
         except Exception as e:
-            health["ollama"]["status"] = f"error: {e}"
+            ollama_health["status"] = f"error: {e}"
 
         # Check ML Server
         try:
             resp = await client.get(f"{ML_SERVER_URL}/health")
-            health["ml_server"]["status"] = "ok" if resp.status_code == 200 else "error"
+            ml_health["status"] = "ok" if resp.status_code == 200 else "error"
         except Exception as e:
-            health["ml_server"]["status"] = f"error: {e}"
+            ml_health["status"] = f"error: {e}"
 
     # Overall status
-    if "error" in health["ollama"]["status"] or "error" in health["ml_server"]["status"]:
-        health["status"] = "degraded"
+    status = "ok"
+    if "error" in ollama_health["status"] or "error" in ml_health["status"]:
+        status = "degraded"
+
+    health = {"status": status, "ollama": ollama_health, "ml_server": ml_health}
 
     return web.json_response(health)
 
@@ -201,9 +201,10 @@ async def main() -> None:
         logger.info("Received shutdown signal", signal=sig)
         stop_event.set()
 
+    import functools
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda s=sig: handle_signal(s))
+        loop.add_signal_handler(sig, functools.partial(handle_signal, sig))
 
     await stop_event.wait()
 

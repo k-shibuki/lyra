@@ -702,7 +702,7 @@ class SessionTransferManager:
         """
         self._cleanup_expired_sessions()
 
-        domains = {}
+        domains: dict[str, int] = {}
         for session in self._sessions.values():
             domains[session.domain] = domains.get(session.domain, 0) + 1
 
