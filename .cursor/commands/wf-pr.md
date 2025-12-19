@@ -43,6 +43,8 @@ git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)"
 
 PRをレビューする順序を以下の優先順位で決定する：
 
+**重要**: ローカルでマージ済みのPRもチェック対象に含める（`main`ブランチとの差分も確認）
+
 #### 優先順位1: 変更量（小→大）
 - **理由**: 小さな変更からレビューすることで、コンフリクトリスクを低減
 - **判断方法**: `git diff main..<branch> --stat` で変更ファイル数・差分行数を確認
@@ -50,7 +52,7 @@ PRをレビューする順序を以下の優先順位で決定する：
 
 #### 優先順位2: コミット日時（古→新）
 - **理由**: 古いPRは先にマージすべき（依存関係の観点）
-- **判断方法**: `git log origin/main..<branch> --format="%ci %s" | head -1` で最初のコミット日時を確認
+- **判断方法**: `git log main..<branch> --format="%ci %s" | head -1` で最初のコミット日時を確認
 - **優先**: 古いコミットから
 
 #### 優先順位3: 変更内容の種類
@@ -69,28 +71,37 @@ PRをレビューする順序を以下の優先順位で決定する：
 # PR候補を技術的最適順序でソート
 
 # 1. 変更量でソート（小→大）
+# ローカルでマージ済みのPRもチェック対象に含める（mainブランチとの差分も確認）
 get_pr_by_changes() {
     for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD"); do
-        # 既にマージ済みのブランチはスキップ
-        # git log origin/main..$branch が空なら、ブランチは既にmainにマージ済み
-        if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
-            continue
+        # ローカルのmainブランチとの差分を確認（ローカルでマージ済みのPRもチェック）
+        # git log main..$branch が空なら、ブランチは既にローカルのmainにマージ済み
+        if ! git log main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+            # ローカルでマージ済みの場合、origin/mainとの差分を確認
+            if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+                continue  # origin/mainにもマージ済みの場合はスキップ
+            fi
+            # origin/mainには未マージの場合は、プッシュが必要なPRとして扱う
         fi
         
-        # 追加チェック: merge-baseでマージ済みか確認
-        # ブランチの最新コミットがmainの祖先なら、既にマージ済み
+        # 追加チェック: merge-baseでマージ済みか確認（origin/mainに対して）
         branch_commit=$(git rev-parse $branch 2>/dev/null)
-        main_commit=$(git rev-parse origin/main 2>/dev/null)
-        if [ -n "$branch_commit" ] && [ -n "$main_commit" ]; then
-            if git merge-base --is-ancestor $branch_commit $main_commit 2>/dev/null; then
+        origin_main_commit=$(git rev-parse origin/main 2>/dev/null)
+        if [ -n "$branch_commit" ] && [ -n "$origin_main_commit" ]; then
+            if git merge-base --is-ancestor $branch_commit $origin_main_commit 2>/dev/null; then
+                # origin/mainにマージ済みの場合はスキップ
                 continue
             fi
         fi
         
-        # 変更ファイル数と差分行数を取得
-        stat=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1)
+        # 変更ファイル数と差分行数を取得（mainブランチとの差分）
+        stat=$(git diff main..$branch --stat 2>/dev/null | tail -1)
         if [ -z "$stat" ]; then
-            continue
+            # mainとの差分がない場合、origin/mainとの差分を確認
+            stat=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1)
+            if [ -z "$stat" ]; then
+                continue
+            fi
         fi
         
         # 変更行数を抽出（追加+削除）
@@ -99,14 +110,22 @@ get_pr_by_changes() {
             changes=0
         fi
         
-        # コミット日時を取得（ISO形式）
-        date=$(git log origin/main..$branch --format="%ci" 2>/dev/null | tail -1)
+        # コミット日時を取得（ISO形式、mainブランチとの差分）
+        date=$(git log main..$branch --format="%ci" 2>/dev/null | tail -1)
         if [ -z "$date" ]; then
-            date="9999-12-31 00:00:00 +0000"
+            # mainとの差分がない場合、origin/mainとの差分を確認
+            date=$(git log origin/main..$branch --format="%ci" 2>/dev/null | tail -1)
+            if [ -z "$date" ]; then
+                date="9999-12-31 00:00:00 +0000"
+            fi
         fi
         
-        # コミットメッセージのプレフィックスを取得
-        prefix=$(git log origin/main..$branch --format="%s" 2>/dev/null | head -1 | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
+        # コミットメッセージのプレフィックスを取得（mainブランチとの差分）
+        prefix=$(git log main..$branch --format="%s" 2>/dev/null | head -1 | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
+        if [ -z "$prefix" ]; then
+            # mainとの差分がない場合、origin/mainとの差分を確認
+            prefix=$(git log origin/main..$branch --format="%s" 2>/dev/null | head -1 | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
+        fi
         case "$prefix" in
             fix) priority=1 ;;
             refactor) priority=2 ;;
@@ -127,22 +146,32 @@ get_pr_by_changes
 
 ```bash
 # PR候補を変更量でソート（最もシンプル）
+# ローカルでマージ済みのPRもチェック対象に含める
 for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD"); do
-    # 既にマージ済みのブランチはスキップ
-    if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
-        continue
+    # ローカルのmainブランチとの差分を確認（ローカルでマージ済みのPRもチェック）
+    if ! git log main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+        # ローカルでマージ済みの場合、origin/mainとの差分を確認
+        if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+            continue  # origin/mainにもマージ済みの場合はスキップ
+        fi
+        # origin/mainには未マージの場合は、プッシュが必要なPRとして扱う
     fi
     
-    # 追加チェック: merge-baseでマージ済みか確認
+    # 追加チェック: merge-baseでマージ済みか確認（origin/mainに対して）
     branch_commit=$(git rev-parse $branch 2>/dev/null)
-    main_commit=$(git rev-parse origin/main 2>/dev/null)
-    if [ -n "$branch_commit" ] && [ -n "$main_commit" ]; then
-        if git merge-base --is-ancestor $branch_commit $main_commit 2>/dev/null; then
-            continue
+    origin_main_commit=$(git rev-parse origin/main 2>/dev/null)
+    if [ -n "$branch_commit" ] && [ -n "$origin_main_commit" ]; then
+        if git merge-base --is-ancestor $branch_commit $origin_main_commit 2>/dev/null; then
+            continue  # origin/mainにマージ済みの場合はスキップ
         fi
     fi
     
-    changes=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1 | awk '{print $4+$6}' | sed 's/[^0-9]//g')
+    # 変更量を取得（mainブランチとの差分）
+    changes=$(git diff main..$branch --stat 2>/dev/null | tail -1 | awk '{print $4+$6}' | sed 's/[^0-9]//g')
+    if [ -z "$changes" ]; then
+        # mainとの差分がない場合、origin/mainとの差分を確認
+        changes=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1 | awk '{print $4+$6}' | sed 's/[^0-9]//g')
+    fi
     echo "${changes:-0} $branch"
 done | sort -n | awk '{print $2}'
 ```
@@ -159,20 +188,22 @@ git checkout -b <pr-branch> origin/<pr-branch>
 実際のワークフローでは以下の手順で実行：
 
 1. **PR候補の列挙**: `git branch -r` でリモートブランチを確認
-2. **マージ済みブランチの除外**: 
-   - `git log origin/main..<branch>` が空の場合はスキップ
-   - `git merge-base --is-ancestor <branch> origin/main` でマージ済みか確認
-3. **各PRの変更量を確認**: `git diff origin/main..<branch> --stat` で変更ファイル数・行数を確認
-4. **コミット日時を確認**: `git log origin/main..<branch> --format="%ci" | tail -1` で最初のコミット日時を確認
-5. **変更内容の種類を確認**: `git log origin/main..<branch> --format="%s" | head -1` でコミットメッセージのプレフィックスを確認
+2. **マージ済みブランチの判定**: 
+   - **ローカルでマージ済みのPRもチェック対象に含める**（`main`ブランチとの差分も確認）
+   - `git log main..<branch>` が空の場合、`origin/main`との差分を確認
+   - `git log origin/main..<branch>` が空の場合はスキップ（両方にマージ済み）
+   - `git merge-base --is-ancestor <branch> origin/main` でorigin/mainにマージ済みか確認
+3. **各PRの変更量を確認**: `git diff main..<branch> --stat` で変更ファイル数・行数を確認（ローカルmainとの差分）
+4. **コミット日時を確認**: `git log main..<branch> --format="%ci" | tail -1` で最初のコミット日時を確認
+5. **変更内容の種類を確認**: `git log main..<branch> --format="%s" | head -1` でコミットメッセージのプレフィックスを確認
 6. **優先順位でソート**: 変更量（小→大）→ コミット日時（古→新）→ 変更種類の順でソート
 7. **順番にレビュー**: ソートされた順序でPRをレビュー
 
 **注意**: 
-- mainとの差分がないブランチはスキップ
-- 既にマージ済みのブランチは自動的に除外される
-  - `git log origin/main..<branch>` が空の場合
-  - `git merge-base --is-ancestor <branch> origin/main` がtrueの場合（ブランチの最新コミットがmainの祖先）
+- ローカルでマージ済みでも`origin/main`に未プッシュのPRはレビュー対象に含める
+- 両方（`main`と`origin/main`）にマージ済みのブランチは自動的に除外される
+  - `git log main..<branch>` と `git log origin/main..<branch>` が両方空の場合
+  - `git merge-base --is-ancestor <branch> origin/main` がtrueの場合
 
 ## 2. コードレビュー
 
@@ -270,6 +301,25 @@ git merge --no-edit <pr-branch>
 **注意**: 
 - `--no-edit` オプションで対話を避ける
 - **警告が残っている場合はマージを実行しない**（必ず解消してからマージ）
+
+### 6.3. リモートへのプッシュ
+
+**重要**: マージ後は必ずリモートにプッシュする
+
+```bash
+# マージ後、リモートにプッシュ
+git push origin main
+```
+
+**理由**:
+- リモートが常に最新状態を反映する
+- チーム間での同期が取れる
+- CI/CDが動作する
+- バックアップになる
+
+**注意**: 
+- プッシュ前に必ずマージが成功していることを確認
+- コンフリクトが発生した場合は解決してからプッシュ
 
 ## 出力
 
