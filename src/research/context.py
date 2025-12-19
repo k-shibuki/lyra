@@ -4,7 +4,7 @@ Research context provider for Lancet.
 Provides design support information to Cursor AI for subquery design.
 Does NOT generate subquery candidates - that is Cursor AI's responsibility.
 
-See docs/requirements.md §2.1.4 and §3.1.7.1.
+See docs/REQUIREMENTS.md §2.1.4 and §3.1.7.1.
 
 Includes pivot exploration support per §3.1.1:
 - Organization → subsidiaries, officers, location, domain

@@ -874,7 +874,7 @@ class BrowserFetcher:
                 except Exception as e:
                     logger.info("CDP connection failed, attempting auto-start", error=str(e))
                 
-                # Auto-start Chrome per docs/requirements.md §3.2.1 (if CDP connection failed)
+                # Auto-start Chrome per docs/REQUIREMENTS.md §3.2.1 (if CDP connection failed)
                 if not cdp_connected:
                     logger.debug("Calling _auto_start_chrome()")
                     auto_start_success = await self._auto_start_chrome()
@@ -1059,7 +1059,7 @@ class BrowserFetcher:
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
         
-        Per docs/requirements.md §3.2.1: CDP未接続を検知した場合、Lancetは
+        Per docs/REQUIREMENTS.md §3.2.1: CDP未接続を検知した場合、Lancetは
         ./scripts/chrome.sh start を自動実行する。
         
         Returns:

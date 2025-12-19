@@ -4,7 +4,7 @@ Search execution engine for Lancet.
 Executes Cursor AI-designed search queries through the search/fetch/extract pipeline.
 Handles mechanical expansions (synonyms, mirror queries, operators) only.
 
-See docs/requirements.md §2.1.3 and §3.1.7.
+See docs/REQUIREMENTS.md §2.1.3 and §3.1.7.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
