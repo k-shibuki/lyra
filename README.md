@@ -295,16 +295,20 @@ cp .env.example .env
 
 | Script | Purpose |
 |--------|---------|
-| `./scripts/dev.sh up` | Start all containers (Ollama, ML Server, Tor) |
-| `./scripts/dev.sh down` | Stop all containers |
-| `./scripts/dev.sh shell` | Enter development shell with network access |
-| `./scripts/dev.sh logs [service]` | View container logs |
+| `./scripts/dev.sh up` | Start containers (Ollama, ML Server, Tor) |
+| `./scripts/dev.sh down` | Stop containers |
+| `./scripts/dev.sh shell` | Enter development shell with container network access |
 | `./scripts/dev.sh clean` | Remove containers and images |
 | `./scripts/chrome.sh start` | Start Chrome with CDP on port 9222 |
 | `./scripts/chrome.sh stop` | Stop Chrome |
-| `./scripts/test.sh` | Run test suite with appropriate markers |
+| `./scripts/test.sh run` | Run tests in venv (auto-detects environment) |
+| `./scripts/test.sh check` | Check test completion status |
+| `./scripts/test.sh env` | Show environment detection info |
 
-The scripts auto-detect environment (WSL/Linux) and handle container networking.
+**Test execution**: Tests run in WSL venv (`.venv/`) by default. The script auto-detects:
+- Cloud agents (Cursor, Claude Code) → unit + integration only
+- Container environment → enables ML/extractor tests
+- Local WSL → unit + integration (add `LYRA_TEST_LAYER=e2e` for E2E)
 
 ### WSL2 Network Configuration
 
@@ -440,15 +444,15 @@ crawler:
 Lyra includes 3000+ tests across three layers:
 
 ```bash
-# Run unit and integration tests
-pytest tests/ -m 'not e2e' --tb=short -q
+# Run tests via test.sh (recommended - handles venv and environment detection)
+./scripts/test.sh run                    # Unit + integration tests
+./scripts/test.sh check                  # Check completion
+LYRA_TEST_LAYER=e2e ./scripts/test.sh run  # Include E2E tests
 
-# Run specific test file
-pytest tests/test_evidence_graph.py -v
-
-# Run E2E tests (requires Chrome CDP and containers)
-./scripts/chrome.sh start
-pytest tests/ -m 'e2e'
+# Or run pytest directly in venv
+source .venv/bin/activate
+pytest tests/ -m 'not e2e' --tb=short -q  # Unit + integration
+pytest tests/ -m 'e2e'                    # E2E (requires Chrome CDP + containers)
 ```
 
 ### Test Markers
