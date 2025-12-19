@@ -21,19 +21,18 @@ from src.filter.claim_decomposition import (
     DecompositionResult,
     decompose_question,
 )
-
 from src.filter.claim_timeline import (
     ClaimTimeline,
     ClaimTimelineManager,
     TimelineEvent,
     TimelineEventType,
-    get_timeline_manager,
-    record_first_appeared,
-    record_confirmation,
-    record_retraction,
     get_claim_timeline,
     get_timeline_coverage,
+    get_timeline_manager,
     integrate_wayback_into_timeline,
+    record_confirmation,
+    record_first_appeared,
+    record_retraction,
 )
 
 __all__ = [

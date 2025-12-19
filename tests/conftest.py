@@ -68,11 +68,10 @@ Mock Strategy (§7.1.7)
 - Network: Prohibited in unit tests (use responses/aioresponses library)
 """
 
-import asyncio
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -102,7 +101,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: Tests that take more than 5 seconds (excluded by default)"
     )
-    
+
     # Risk-based sub-markers for E2E tests (§16.10.1)
     config.addinivalue_line(
         "markers", "external: E2E using external services with moderate block risk (Mojeek, Qwant)"
@@ -128,7 +127,7 @@ def pytest_collection_modifyitems(config, items):
             marker.name in ("unit", "integration", "e2e")
             for marker in item.iter_markers()
         )
-        
+
         # Default to unit test if no classification
         if not has_classification:
             item.add_marker(pytest.mark.unit)
@@ -154,21 +153,21 @@ async def test_database(temp_db_path: Path):
     Guards against global database singleton interference by saving
     and restoring the global state around the test.
     """
-    from src.storage.database import Database
     from src.storage import database as db_module
-    
+    from src.storage.database import Database
+
     # Save and clear global to prevent interference from previous tests
     saved_global = db_module._db
     db_module._db = None
-    
+
     db = Database(temp_db_path)
     await db.connect()
     await db.initialize_schema()
-    
+
     yield db
-    
+
     await db.close()
-    
+
     # Restore global (should be None anyway, but be defensive)
     db_module._db = saved_global
 
@@ -176,12 +175,25 @@ async def test_database(temp_db_path: Path):
 @pytest.fixture
 def mock_settings():
     """Create mock settings for testing."""
-    from src.utils.config import Settings, GeneralConfig, StorageConfig, SearchConfig
-    from src.utils.config import CrawlerConfig, LLMConfig, EmbeddingConfig, RerankerConfig
-    from src.utils.config import TaskLimitsConfig, TorConfig, BrowserConfig
-    from src.utils.config import NLIConfig, NotificationConfig, QualityConfig
-    from src.utils.config import CircuitBreakerConfig, MetricsConfig
-    
+    from src.utils.config import (
+        BrowserConfig,
+        CircuitBreakerConfig,
+        CrawlerConfig,
+        EmbeddingConfig,
+        GeneralConfig,
+        LLMConfig,
+        MetricsConfig,
+        NLIConfig,
+        NotificationConfig,
+        QualityConfig,
+        RerankerConfig,
+        SearchConfig,
+        Settings,
+        StorageConfig,
+        TaskLimitsConfig,
+        TorConfig,
+    )
+
     return Settings(
         general=GeneralConfig(log_level="DEBUG"),
         storage=StorageConfig(
@@ -219,7 +231,7 @@ def sample_passages():
             "text": "Artificial intelligence is transforming healthcare through machine learning applications.",
         },
         {
-            "id": "p2", 
+            "id": "p2",
             "text": "The weather forecast predicts rain tomorrow in Tokyo.",
         },
         {
@@ -246,17 +258,17 @@ def mock_aiohttp_session():
 
 class MockResponse:
     """Mock aiohttp response."""
-    
+
     def __init__(self, json_data: dict, status: int = 200):
         self._json_data = json_data
         self.status = status
-    
+
     async def json(self):
         return self._json_data
-    
+
     async def __aenter__(self):
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
@@ -347,13 +359,13 @@ async def memory_database():
     Per §7.1.7: Database should use in-memory SQLite for unit tests.
     """
     from src.storage.database import Database
-    
+
     db = Database(":memory:")
     await db.connect()
     await db.initialize_schema()
-    
+
     yield db
-    
+
     await db.close()
 
 
@@ -458,7 +470,7 @@ def cleanup_aiohttp_sessions(request):
     event loop management and cause intermittent hangs.
     """
     yield  # Run all tests first
-    
+
     # Synchronous cleanup - just reset globals without async operations
     # This avoids event loop conflicts with pytest-asyncio
     try:
@@ -466,7 +478,7 @@ def cleanup_aiohttp_sessions(request):
         llm._client = None
     except ImportError:
         pass
-    
+
     try:
         from src.storage import database as db_module
         db_module._db = None

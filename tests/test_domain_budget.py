@@ -38,7 +38,6 @@ Test design follows §7.1 Test Code Quality Standards:
 | TC-CV-N-03 | get_domain_daily_budget | Equivalence – normal | returns budget | - |
 """
 
-from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -54,7 +53,6 @@ from src.scheduler.domain_budget import (
     reset_domain_budget_manager,
 )
 from src.utils.schemas import DomainBudgetCheckResult, DomainDailyBudget
-
 
 # =============================================================================
 # Fixtures

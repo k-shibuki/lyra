@@ -6,7 +6,7 @@ as integration tests per §7.1.7.
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -21,12 +21,12 @@ class TestDatabase:
     async def test_connect_creates_database_file(self, temp_db_path):
         """Test that connect creates the database file."""
         from src.storage.database import Database
-        
+
         db = Database(temp_db_path)
         await db.connect()
-        
+
         assert temp_db_path.exists()
-        
+
         await db.close()
 
     @pytest.mark.asyncio
@@ -36,14 +36,14 @@ class TestDatabase:
             "SELECT name FROM sqlite_master WHERE type='table'"
         )
         table_names = {t["name"] for t in tables}
-        
+
         expected_tables = {
             "tasks", "queries", "serp_items", "pages", "fragments",
             "claims", "edges", "domains", "engine_health", "jobs",
             "cache_serp", "cache_fetch", "cache_embed",
             "event_log", "intervention_log",
         }
-        
+
         for table in expected_tables:
             assert table in table_names, f"Table '{table}' not found"
 
@@ -54,13 +54,13 @@ class TestDatabase:
             "query": "test query",
             "status": "pending",
         })
-        
+
         assert task_id is not None
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM tasks WHERE id = ?", (task_id,)
         )
-        
+
         assert result is not None
         assert result["query"] == "test query"
         assert result["status"] == "pending"
@@ -73,11 +73,11 @@ class TestDatabase:
             {"domain": "example.com"},
             auto_id=False,
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("example.com",)
         )
-        
+
         assert result is not None
         assert result["domain"] == "example.com"
 
@@ -89,18 +89,18 @@ class TestDatabase:
             {"domain": "test.com", "qps_limit": 0.2},
             auto_id=False,
         )
-        
+
         await test_database.insert(
             "domains",
             {"domain": "test.com", "qps_limit": 0.5},
             auto_id=False,
             or_replace=True,
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
-        
+
         assert result["qps_limit"] == 0.5
 
     @pytest.mark.asyncio
@@ -111,11 +111,11 @@ class TestDatabase:
                 "query": f"query {i}",
                 "status": "pending",
             })
-        
+
         results = await test_database.fetch_all(
             "SELECT * FROM tasks WHERE status = ?", ("pending",)
         )
-        
+
         assert len(results) == 3
 
     @pytest.mark.asyncio
@@ -125,16 +125,16 @@ class TestDatabase:
             "query": "original query",
             "status": "pending",
         })
-        
+
         rows_affected = await test_database.update(
             "tasks",
             {"status": "running"},
             "id = ?",
             (task_id,),
         )
-        
+
         assert rows_affected == 1
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM tasks WHERE id = ?", (task_id,)
         )
@@ -151,7 +151,7 @@ class TestDatabase:
                 ("domain3.com", 0.3),
             ],
         )
-        
+
         results = await test_database.fetch_all("SELECT * FROM domains")
         assert len(results) == 3
 
@@ -166,13 +166,13 @@ class TestTaskOperations:
             query="What is AI?",
             config={"depth": 3},
         )
-        
+
         assert task_id is not None
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM tasks WHERE id = ?", (task_id,)
         )
-        
+
         assert result["query"] == "What is AI?"
         assert result["status"] == "pending"
         assert json.loads(result["config_json"]) == {"depth": 3}
@@ -181,13 +181,13 @@ class TestTaskOperations:
     async def test_update_task_status_to_running(self, test_database):
         """Test updating task status to running sets started_at."""
         task_id = await test_database.create_task("test query")
-        
+
         await test_database.update_task_status(task_id, "running")
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM tasks WHERE id = ?", (task_id,)
         )
-        
+
         assert result["status"] == "running"
         assert result["started_at"] is not None
 
@@ -195,13 +195,13 @@ class TestTaskOperations:
     async def test_update_task_status_to_completed(self, test_database):
         """Test updating task status to completed sets completed_at."""
         task_id = await test_database.create_task("test query")
-        
+
         await test_database.update_task_status(task_id, "completed")
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM tasks WHERE id = ?", (task_id,)
         )
-        
+
         assert result["status"] == "completed"
         assert result["completed_at"] is not None
 
@@ -209,15 +209,15 @@ class TestTaskOperations:
     async def test_update_task_status_with_error(self, test_database):
         """Test updating task status with error message."""
         task_id = await test_database.create_task("test query")
-        
+
         await test_database.update_task_status(
             task_id, "failed", error_message="Connection timeout"
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM tasks WHERE id = ?", (task_id,)
         )
-        
+
         assert result["status"] == "failed"
         assert result["error_message"] == "Connection timeout"
 
@@ -229,7 +229,7 @@ class TestEventLogging:
     async def test_log_event(self, test_database):
         """Test logging an event."""
         task_id = await test_database.create_task("test query")
-        
+
         await test_database.log_event(
             event_type="fetch",
             message="Started fetching URL",
@@ -237,11 +237,11 @@ class TestEventLogging:
             component="crawler",
             details={"url": "https://example.com"},
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM event_log WHERE task_id = ?", (task_id,)
         )
-        
+
         assert result is not None
         assert result["event_type"] == "fetch"
         assert result["message"] == "Started fetching URL"
@@ -259,11 +259,11 @@ class TestDomainMetrics:
             domain="newdomain.com",
             success=True,
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("newdomain.com",)
         )
-        
+
         assert result is not None
         assert result["total_requests"] == 1
         assert result["total_success"] == 1
@@ -276,13 +276,13 @@ class TestDomainMetrics:
             {"domain": "test.com", "success_rate_1h": 0.5},
             auto_id=False,
         )
-        
+
         await test_database.update_domain_metrics("test.com", success=True)
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
-        
+
         # EMA should increase: 0.1 * 1.0 + 0.9 * 0.5 = 0.55
         assert result["success_rate_1h"] == pytest.approx(0.55, rel=0.01)
 
@@ -294,13 +294,13 @@ class TestDomainMetrics:
             {"domain": "test.com", "success_rate_1h": 1.0},
             auto_id=False,
         )
-        
+
         await test_database.update_domain_metrics("test.com", success=False)
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
-        
+
         # EMA should decrease: 0.1 * 0.0 + 0.9 * 1.0 = 0.9
         assert result["success_rate_1h"] == pytest.approx(0.9, rel=0.01)
         assert result["total_failures"] == 1
@@ -313,15 +313,15 @@ class TestDomainMetrics:
             {"domain": "test.com", "captcha_rate": 0.0},
             auto_id=False,
         )
-        
+
         await test_database.update_domain_metrics(
             "test.com", success=False, is_captcha=True
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
-        
+
         # Captcha rate should increase: 0.1 * 1.0 + 0.9 * 0.0 = 0.1
         assert result["captcha_rate"] == pytest.approx(0.1, rel=0.01)
         assert result["total_captchas"] == 1
@@ -338,17 +338,17 @@ class TestDomainCooldown:
             {"domain": "test.com"},
             auto_id=False,
         )
-        
+
         await test_database.set_domain_cooldown(
             "test.com",
             minutes=60,
             reason="Rate limited",
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
-        
+
         assert result["cooldown_until"] is not None
         assert result["skip_reason"] == "Rate limited"
 
@@ -361,24 +361,24 @@ class TestDomainCooldown:
             auto_id=False,
         )
         await test_database.set_domain_cooldown("test.com", minutes=60)
-        
+
         is_cooled = await test_database.is_domain_cooled_down("test.com")
-        
+
         assert is_cooled is True
 
     @pytest.mark.asyncio
     async def test_is_domain_cooled_down_expired(self, test_database):
         """Test is_domain_cooled_down returns False when cooldown expired."""
-        past_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-        
+        past_time = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+
         await test_database.insert(
             "domains",
             {"domain": "test.com", "cooldown_until": past_time},
             auto_id=False,
         )
-        
+
         is_cooled = await test_database.is_domain_cooled_down("test.com")
-        
+
         assert is_cooled is False
 
     @pytest.mark.asyncio
@@ -389,16 +389,16 @@ class TestDomainCooldown:
             {"domain": "test.com"},
             auto_id=False,
         )
-        
+
         is_cooled = await test_database.is_domain_cooled_down("test.com")
-        
+
         assert is_cooled is False
 
     @pytest.mark.asyncio
     async def test_is_domain_cooled_down_unknown_domain(self, test_database):
         """Test is_domain_cooled_down returns False for unknown domain."""
         is_cooled = await test_database.is_domain_cooled_down("unknown.com")
-        
+
         assert is_cooled is False
 
 
@@ -413,11 +413,11 @@ class TestEngineHealth:
             success=True,
             latency_ms=500.0,
         )
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM engine_health WHERE engine = ?", ("google",)
         )
-        
+
         assert result is not None
         assert result["total_queries"] == 1
         assert result["status"] == "closed"
@@ -430,14 +430,14 @@ class TestEngineHealth:
             {"engine": "test_engine", "consecutive_failures": 1, "status": "closed"},
             auto_id=False,
         )
-        
+
         # Second failure should open the circuit
         await test_database.update_engine_health("test_engine", success=False)
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM engine_health WHERE engine = ?", ("test_engine",)
         )
-        
+
         assert result["status"] == "open"
         assert result["consecutive_failures"] == 2
         assert result["cooldown_until"] is not None
@@ -450,13 +450,13 @@ class TestEngineHealth:
             {"engine": "test_engine", "consecutive_failures": 1, "status": "half-open"},
             auto_id=False,
         )
-        
+
         await test_database.update_engine_health("test_engine", success=True)
-        
+
         result = await test_database.fetch_one(
             "SELECT * FROM engine_health WHERE engine = ?", ("test_engine",)
         )
-        
+
         assert result["status"] == "closed"
         assert result["consecutive_failures"] == 0
 
@@ -479,9 +479,9 @@ class TestEngineHealth:
             {"engine": "inactive", "status": "open", "weight": 0.5},
             auto_id=False,
         )
-        
+
         active = await test_database.get_active_engines()
-        
+
         engine_names = {e["engine"] for e in active}
         assert "active1" in engine_names
         assert "active2" in engine_names

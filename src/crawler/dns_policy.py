@@ -21,7 +21,7 @@ import socket
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import structlog
@@ -30,7 +30,6 @@ from src.utils.config import get_settings
 
 if TYPE_CHECKING:
     from src.crawler.ipv6_manager import (
-        IPv6ConnectionManager,
         AddressFamily,
         IPv6Address,
     )
@@ -59,7 +58,7 @@ class DNSCacheEntry:
     resolved_at: float
     ttl: int  # TTL in seconds
     route: DNSRoute  # How it was resolved
-    
+
     def is_expired(self) -> bool:
         """Check if cache entry has expired."""
         return time.time() > self.resolved_at + self.ttl
@@ -74,7 +73,7 @@ class DNSResolutionResult:
     from_cache: bool
     resolution_time_ms: float
     leak_detected: DNSLeakType = DNSLeakType.NONE
-    
+
     @property
     def success(self) -> bool:
         """Check if resolution was successful."""
@@ -93,7 +92,7 @@ class DNSMetrics:
     resolution_errors: int = 0
     avg_resolution_time_ms: float = 0.0
     _resolution_times: list[float] = field(default_factory=list)
-    
+
     def record_resolution(
         self,
         route: DNSRoute,
@@ -104,29 +103,29 @@ class DNSMetrics:
     ) -> None:
         """Record a DNS resolution event."""
         self.total_resolutions += 1
-        
+
         if from_cache:
             self.cache_hits += 1
         else:
             self.cache_misses += 1
-            
+
         if route == DNSRoute.TOR:
             self.tor_resolutions += 1
         else:
             self.direct_resolutions += 1
-            
+
         if leak_detected:
             self.leaks_detected += 1
-            
+
         if error:
             self.resolution_errors += 1
-            
+
         # Update average resolution time (keep last 100)
         self._resolution_times.append(time_ms)
         if len(self._resolution_times) > 100:
             self._resolution_times.pop(0)
         self.avg_resolution_time_ms = sum(self._resolution_times) / len(self._resolution_times)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert metrics to dictionary."""
         return {
@@ -152,18 +151,18 @@ class DNSPolicyManager:
     - Cache DNS results respecting TTL
     - Detect potential DNS leaks
     """
-    
+
     def __init__(self):
         self._settings = get_settings()
         self._cache: dict[str, DNSCacheEntry] = {}
         self._cache_lock = asyncio.Lock()
         self._metrics = DNSMetrics()
-        
+
     @property
     def metrics(self) -> DNSMetrics:
         """Get DNS metrics."""
         return self._metrics
-    
+
     def get_socks_proxy_url(
         self,
         use_tor: bool,
@@ -187,31 +186,31 @@ class DNSPolicyManager:
         """
         if not use_tor or not self._settings.tor.enabled:
             return None
-        
+
         tor_settings = self._settings.tor
         dns_settings = tor_settings.dns
-        
+
         # Determine if DNS should be resolved through proxy
         resolve_through = resolve_dns_through_proxy
         if resolve_through is None:
             resolve_through = dns_settings.resolve_through_tor
-        
+
         # Choose protocol based on DNS resolution preference
         # socks5h = DNS resolution through SOCKS (h = hostname)
         # socks5 = local DNS resolution (potential leak!)
         protocol = "socks5h" if resolve_through else "socks5"
-        
+
         proxy_url = f"{protocol}://{tor_settings.socks_host}:{tor_settings.socks_port}"
-        
+
         logger.debug(
             "Generated SOCKS proxy URL",
             protocol=protocol,
             resolve_dns_through_proxy=resolve_through,
             proxy_url=proxy_url,
         )
-        
+
         return proxy_url
-    
+
     def get_proxy_dict(
         self,
         use_tor: bool,
@@ -229,9 +228,9 @@ class DNSPolicyManager:
         proxy_url = self.get_socks_proxy_url(use_tor, resolve_dns_through_proxy)
         if proxy_url is None:
             return None
-        
+
         return {"http": proxy_url, "https": proxy_url}
-    
+
     async def resolve_hostname(
         self,
         hostname: str,
@@ -254,7 +253,7 @@ class DNSPolicyManager:
         """
         start_time = time.time()
         dns_settings = self._settings.tor.dns
-        
+
         # Check cache first
         async with self._cache_lock:
             cache_key = f"{hostname}:{route.value}"
@@ -274,12 +273,12 @@ class DNSPolicyManager:
                         from_cache=True,
                         resolution_time_ms=resolution_time_ms,
                     )
-        
+
         # Resolve hostname
         addresses: list[str] = []
         leak_detected = DNSLeakType.NONE
         error = False
-        
+
         try:
             if route == DNSRoute.TOR:
                 # For Tor route, we shouldn't resolve locally at all!
@@ -317,7 +316,7 @@ class DNSPolicyManager:
                         socket.SOCK_STREAM,
                     ),
                 )
-                
+
                 # Extract unique addresses
                 seen = set()
                 for info in addr_info:
@@ -325,23 +324,23 @@ class DNSPolicyManager:
                     if addr not in seen:
                         addresses.append(addr)
                         seen.add(addr)
-                        
+
         except socket.gaierror as e:
             logger.debug("DNS resolution failed", hostname=hostname, error=str(e))
             error = True
         except Exception as e:
             logger.warning("Unexpected DNS error", hostname=hostname, error=str(e))
             error = True
-        
+
         resolution_time_ms = (time.time() - start_time) * 1000
-        
+
         # Cache the result if successful
         if addresses and dns_settings.respect_cache_ttl:
             # Use a reasonable default TTL (we can't get actual TTL from getaddrinfo)
             # In a full implementation, we'd use dnspython to get TTL
             default_ttl = 300  # 5 minutes
             ttl = max(dns_settings.min_cache_ttl, min(default_ttl, dns_settings.max_cache_ttl))
-            
+
             async with self._cache_lock:
                 self._cache[cache_key] = DNSCacheEntry(
                     hostname=hostname,
@@ -350,7 +349,7 @@ class DNSPolicyManager:
                     ttl=ttl,
                     route=route,
                 )
-        
+
         # Record metrics
         self._metrics.record_resolution(
             route=route,
@@ -359,7 +358,7 @@ class DNSPolicyManager:
             leak_detected=leak_detected != DNSLeakType.NONE,
             error=error,
         )
-        
+
         return DNSResolutionResult(
             hostname=hostname,
             addresses=addresses,
@@ -368,7 +367,7 @@ class DNSPolicyManager:
             resolution_time_ms=resolution_time_ms,
             leak_detected=leak_detected,
         )
-    
+
     def extract_hostname(self, url: str) -> str:
         """Extract hostname from URL.
         
@@ -380,7 +379,7 @@ class DNSPolicyManager:
         """
         parsed = urlparse(url)
         return parsed.hostname or ""
-    
+
     def should_use_tor_dns(self, use_tor: bool) -> bool:
         """Check if DNS should be resolved through Tor.
         
@@ -392,10 +391,10 @@ class DNSPolicyManager:
         """
         if not use_tor:
             return False
-        
+
         dns_settings = self._settings.tor.dns
         return dns_settings.resolve_through_tor
-    
+
     async def clear_cache(self) -> int:
         """Clear DNS cache.
         
@@ -406,7 +405,7 @@ class DNSPolicyManager:
             count = len(self._cache)
             self._cache.clear()
             return count
-    
+
     async def prune_expired_cache(self) -> int:
         """Remove expired cache entries.
         
@@ -422,7 +421,7 @@ class DNSPolicyManager:
             for key in expired_keys:
                 del self._cache[key]
             return len(expired_keys)
-    
+
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics.
         
@@ -432,13 +431,13 @@ class DNSPolicyManager:
         total_entries = len(self._cache)
         expired_entries = sum(1 for e in self._cache.values() if e.is_expired())
         active_entries = total_entries - expired_entries
-        
+
         return {
             "total_entries": total_entries,
             "active_entries": active_entries,
             "expired_entries": expired_entries,
         }
-    
+
     def detect_dns_leak(
         self,
         url: str,
@@ -457,7 +456,7 @@ class DNSPolicyManager:
         """
         if not self._settings.tor.dns.leak_detection_enabled:
             return DNSLeakType.NONE
-        
+
         # If using Tor but local DNS was attempted, that's a leak
         if use_tor and local_resolution_attempted:
             hostname = self.extract_hostname(url)
@@ -467,13 +466,13 @@ class DNSPolicyManager:
                 url=url,
             )
             return DNSLeakType.LOCAL_RESOLUTION_DURING_TOR
-        
+
         return DNSLeakType.NONE
-    
+
     # =========================================================================
     # IPv6 Integration (§4.3)
     # =========================================================================
-    
+
     async def resolve_with_ipv6_preference(
         self,
         hostname: str,
@@ -492,10 +491,10 @@ class DNSPolicyManager:
             List of addresses sorted by preference.
         """
         from src.crawler.ipv6_manager import get_ipv6_manager
-        
+
         manager = get_ipv6_manager()
         return await manager.get_preferred_addresses(hostname, domain)
-    
+
     def get_preferred_address_family(
         self,
         domain: str | None = None,
@@ -509,37 +508,37 @@ class DNSPolicyManager:
             Preferred address family.
         """
         from src.crawler.ipv6_manager import (
-            get_ipv6_manager,
             AddressFamily,
             IPv6Preference,
+            get_ipv6_manager,
         )
-        
+
         manager = get_ipv6_manager()
-        
+
         if not manager.is_ipv6_enabled():
             return AddressFamily.IPV4
-        
+
         # Get global preference from settings
         ipv6_settings = manager._get_ipv6_settings()
         preference_str = ipv6_settings.get("preference", "ipv6_first")
-        
+
         try:
             global_preference = IPv6Preference(preference_str)
         except ValueError:
             global_preference = IPv6Preference.IPV6_FIRST
-        
+
         # Without domain info, use global preference
         if not domain:
             if global_preference == IPv6Preference.IPV4_FIRST:
                 return AddressFamily.IPV4
             return AddressFamily.IPV6
-        
+
         # With domain, use manager's logic (will be async in actual usage)
         # This is a synchronous approximation for simple cases
         if global_preference == IPv6Preference.IPV4_FIRST:
             return AddressFamily.IPV4
         return AddressFamily.IPV6
-    
+
     async def get_preferred_address_family_async(
         self,
         domain: str,
@@ -553,28 +552,28 @@ class DNSPolicyManager:
             Preferred address family based on learned stats.
         """
         from src.crawler.ipv6_manager import (
-            get_ipv6_manager,
             AddressFamily,
             IPv6Preference,
+            get_ipv6_manager,
         )
-        
+
         manager = get_ipv6_manager()
-        
+
         if not manager.is_ipv6_enabled():
             return AddressFamily.IPV4
-        
+
         if not await manager.is_ipv6_enabled_for_domain(domain):
             return AddressFamily.IPV4
-        
+
         # Get global preference
         ipv6_settings = manager._get_ipv6_settings()
         preference_str = ipv6_settings.get("preference", "ipv6_first")
-        
+
         try:
             global_preference = IPv6Preference(preference_str)
         except ValueError:
             global_preference = IPv6Preference.IPV6_FIRST
-        
+
         # Get domain stats and determine preference
         stats = await manager.get_domain_stats(domain)
         return stats.get_preferred_family(global_preference)

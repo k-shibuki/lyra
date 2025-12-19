@@ -4,10 +4,9 @@ Handles SQLite connection, migrations, and common operations.
 """
 
 import asyncio
-import hashlib
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -31,58 +30,58 @@ class Database:
         if db_path is None:
             settings = get_settings()
             db_path = settings.storage.database_path
-        
+
         self.db_path = Path(db_path)
         self._connection: aiosqlite.Connection | None = None
         self._lock = asyncio.Lock()
-    
+
     async def connect(self) -> None:
         """Connect to the database and initialize schema."""
         if self._connection is not None:
             return
-        
+
         # Ensure parent directory exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         self._connection = await aiosqlite.connect(
             self.db_path,
             isolation_level=None,  # Auto-commit mode
         )
-        
+
         # Enable foreign keys and WAL mode for performance
         await self._connection.execute("PRAGMA foreign_keys = ON")
         await self._connection.execute("PRAGMA journal_mode = WAL")
         await self._connection.execute("PRAGMA synchronous = NORMAL")
-        
+
         # Row factory for dict-like access
         self._connection.row_factory = aiosqlite.Row
-        
+
         logger.info("Database connected", path=str(self.db_path))
-    
+
     async def close(self) -> None:
         """Close the database connection."""
         if self._connection is not None:
             await self._connection.close()
             self._connection = None
             logger.info("Database connection closed")
-    
+
     async def initialize_schema(self) -> None:
         """Initialize database schema from SQL file."""
         schema_path = Path(__file__).parent / "schema.sql"
-        
+
         if not schema_path.exists():
             raise FileNotFoundError(f"Schema file not found: {schema_path}")
-        
+
         schema_sql = schema_path.read_text(encoding="utf-8")
-        
+
         async with self._lock:
             await self._connection.executescript(schema_sql)
-        
+
         logger.info("Database schema initialized")
-        
+
         # Apply any pending migrations
         await self.run_migrations()
-    
+
     async def run_migrations(self) -> None:
         """Run pending database migrations.
         
@@ -90,24 +89,24 @@ class Database:
         any that haven't been recorded in schema_migrations table.
         """
         import re
-        
+
         # Get project root (storage -> src -> project_root)
         migrations_dir = Path(__file__).parent.parent.parent / "migrations"
-        
+
         if not migrations_dir.exists():
             logger.debug("No migrations directory found")
             return
-        
+
         # Get applied migrations
         cursor = await self.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
         )
         applied = {row["version"] for row in await cursor.fetchall()}
-        
+
         # Find pending migrations
         pattern = re.compile(r"^(\d{3})_(.+)\.sql$")
         pending = []
-        
+
         for sql_file in sorted(migrations_dir.glob("*.sql")):
             match = pattern.match(sql_file.name)
             if match:
@@ -115,21 +114,21 @@ class Database:
                 name = match.group(2)
                 if version not in applied:
                     pending.append((version, name, sql_file))
-        
+
         if not pending:
             return
-        
+
         logger.info(f"Applying {len(pending)} pending migration(s)")
-        
+
         for version, name, path in pending:
             sql_content = path.read_text(encoding="utf-8")
             statements = [s.strip() for s in sql_content.split(";") if s.strip()]
-            
+
             for statement in statements:
                 # Skip comments-only statements
                 if statement.startswith("--") and "\n" not in statement:
                     continue
-                
+
                 try:
                     await self.execute(statement)
                 except Exception as e:
@@ -139,14 +138,14 @@ class Database:
                         logger.debug(f"Column already exists, skipping: {statement[:50]}...")
                     else:
                         raise
-            
+
             # Record migration as applied
             await self.execute(
                 "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
                 (version, name),
             )
             logger.info(f"Applied migration [{version:03d}] {name}")
-    
+
     async def execute(
         self,
         sql: str,
@@ -167,7 +166,7 @@ class Database:
             else:
                 cursor = await self._connection.execute(sql)
             return cursor
-    
+
     async def execute_many(
         self,
         sql: str,
@@ -181,7 +180,7 @@ class Database:
         """
         async with self._lock:
             await self._connection.executemany(sql, parameters)
-    
+
     async def fetch_one(
         self,
         sql: str,
@@ -199,7 +198,7 @@ class Database:
         cursor = await self.execute(sql, parameters)
         row = await cursor.fetchone()
         return dict(row) if row else None
-    
+
     async def fetch_all(
         self,
         sql: str,
@@ -217,7 +216,7 @@ class Database:
         cursor = await self.execute(sql, parameters)
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
-    
+
     async def insert(
         self,
         table: str,
@@ -241,16 +240,16 @@ class Database:
         if auto_id and "id" not in data:
             data = data.copy()
             data["id"] = str(uuid.uuid4())
-        
+
         columns = ", ".join(data.keys())
         placeholders = ", ".join(["?" for _ in data])
-        
+
         verb = "INSERT OR REPLACE" if or_replace else "INSERT"
         sql = f"{verb} INTO {table} ({columns}) VALUES ({placeholders})"
-        
+
         await self.execute(sql, tuple(data.values()))
         return data.get("id")
-    
+
     async def update(
         self,
         table: str,
@@ -271,21 +270,21 @@ class Database:
         """
         set_clause = ", ".join([f"{k} = ?" for k in data.keys()])
         sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
-        
+
         params = list(data.values())
         if where_params:
             if isinstance(where_params, dict):
                 params.extend(where_params.values())
             else:
                 params.extend(where_params)
-        
+
         cursor = await self.execute(sql, tuple(params))
         return cursor.rowcount
-    
+
     # ============================================================
     # Domain-specific operations
     # ============================================================
-    
+
     async def create_task(
         self,
         query: str,
@@ -309,7 +308,7 @@ class Database:
         })
         logger.info("Task created", task_id=task_id, query=query[:50])
         return task_id
-    
+
     async def update_task_status(
         self,
         task_id: str,
@@ -324,18 +323,18 @@ class Database:
             error_message: Optional error message.
         """
         data = {"status": status}
-        
+
         if status == "running":
-            data["started_at"] = datetime.now(timezone.utc).isoformat()
+            data["started_at"] = datetime.now(UTC).isoformat()
         elif status in ("completed", "failed", "cancelled"):
-            data["completed_at"] = datetime.now(timezone.utc).isoformat()
-        
+            data["completed_at"] = datetime.now(UTC).isoformat()
+
         if error_message:
             data["error_message"] = error_message
-        
+
         await self.update("tasks", data, "id = ?", (task_id,))
         logger.info("Task status updated", task_id=task_id, status=status)
-    
+
     async def log_event(
         self,
         event_type: str,
@@ -377,7 +376,7 @@ class Database:
                 json.dumps(details) if details else None,
             ),
         )
-    
+
     async def update_domain_metrics(
         self,
         domain: str,
@@ -398,43 +397,43 @@ class Database:
         existing = await self.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", (domain,)
         )
-        
+
         if existing is None:
             await self.insert("domains", {"domain": domain}, auto_id=False)
             existing = {"success_rate_1h": 1.0, "captcha_rate": 0.0, "http_error_rate": 0.0}
-        
+
         # Calculate EMA updates (alpha = 0.1 for 1h)
         alpha = 0.1
         success_rate = existing["success_rate_1h"]
         captcha_rate = existing["captcha_rate"]
         http_error_rate = existing["http_error_rate"]
-        
+
         success_rate = alpha * (1.0 if success else 0.0) + (1 - alpha) * success_rate
         captcha_rate = alpha * (1.0 if is_captcha else 0.0) + (1 - alpha) * captcha_rate
         http_error_rate = alpha * (1.0 if is_http_error else 0.0) + (1 - alpha) * http_error_rate
-        
+
         # Update
         update_data = {
             "success_rate_1h": success_rate,
             "captcha_rate": captcha_rate,
             "http_error_rate": http_error_rate,
             "total_requests": existing.get("total_requests", 0) + 1,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
-        
+
         if success:
             update_data["total_success"] = existing.get("total_success", 0) + 1
-            update_data["last_success_at"] = datetime.now(timezone.utc).isoformat()
+            update_data["last_success_at"] = datetime.now(UTC).isoformat()
         else:
             update_data["total_failures"] = existing.get("total_failures", 0) + 1
-            update_data["last_failure_at"] = datetime.now(timezone.utc).isoformat()
-        
+            update_data["last_failure_at"] = datetime.now(UTC).isoformat()
+
         if is_captcha:
             update_data["total_captchas"] = existing.get("total_captchas", 0) + 1
-            update_data["last_captcha_at"] = datetime.now(timezone.utc).isoformat()
-        
+            update_data["last_captcha_at"] = datetime.now(UTC).isoformat()
+
         await self.update("domains", update_data, "domain = ?", (domain,))
-    
+
     async def set_domain_cooldown(
         self,
         domain: str,
@@ -448,26 +447,26 @@ class Database:
             minutes: Cooldown duration in minutes.
             reason: Optional reason for cooldown.
         """
-        cooldown_until = datetime.now(timezone.utc) + timedelta(minutes=minutes)
-        
+        cooldown_until = datetime.now(UTC) + timedelta(minutes=minutes)
+
         await self.update(
             "domains",
             {
                 "cooldown_until": cooldown_until.isoformat(),
                 "skip_reason": reason,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
             },
             "domain = ?",
             (domain,),
         )
-        
+
         logger.info(
             "Domain cooldown set",
             domain=domain,
             minutes=minutes,
             reason=reason,
         )
-    
+
     async def is_domain_cooled_down(self, domain: str) -> bool:
         """Check if domain is in cooldown.
         
@@ -481,13 +480,13 @@ class Database:
             "SELECT cooldown_until FROM domains WHERE domain = ?",
             (domain,),
         )
-        
+
         if result is None or result["cooldown_until"] is None:
             return False
-        
+
         cooldown_until = datetime.fromisoformat(result["cooldown_until"])
-        return datetime.now(timezone.utc) < cooldown_until
-    
+        return datetime.now(UTC) < cooldown_until
+
     async def update_engine_health(
         self,
         engine: str,
@@ -507,7 +506,7 @@ class Database:
         existing = await self.fetch_one(
             "SELECT * FROM engine_health WHERE engine = ?", (engine,)
         )
-        
+
         if existing is None:
             await self.insert("engine_health", {"engine": engine}, auto_id=False)
             existing = {
@@ -517,24 +516,24 @@ class Database:
                 "consecutive_failures": 0,
                 "status": "closed",
             }
-        
+
         # Calculate EMA updates
         alpha = 0.1
         success_rate = existing["success_rate_1h"]
         captcha_rate = existing["captcha_rate"]
-        
+
         success_rate = alpha * (1.0 if success else 0.0) + (1 - alpha) * success_rate
         captcha_rate = alpha * (1.0 if is_captcha else 0.0) + (1 - alpha) * captcha_rate
-        
+
         # Update latency if provided
         median_latency = existing["median_latency_ms"]
         if latency_ms is not None:
             median_latency = alpha * latency_ms + (1 - alpha) * median_latency
-        
+
         # Circuit breaker logic
         consecutive_failures = existing["consecutive_failures"]
         status = existing["status"]
-        
+
         if success:
             consecutive_failures = 0
             if status == "half-open":
@@ -543,7 +542,7 @@ class Database:
             consecutive_failures += 1
             if consecutive_failures >= 2 and status == "closed":
                 status = "open"
-        
+
         update_data = {
             "success_rate_1h": success_rate,
             "captcha_rate": captcha_rate,
@@ -552,21 +551,21 @@ class Database:
             "status": status,
             "total_queries": existing.get("total_queries", 0) + 1,
             "daily_usage": existing.get("daily_usage", 0) + 1,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
-        
+
         if success:
             update_data["total_success"] = existing.get("total_success", 0) + 1
         else:
             update_data["total_failures"] = existing.get("total_failures", 0) + 1
-            update_data["last_failure_at"] = datetime.now(timezone.utc).isoformat()
-        
+            update_data["last_failure_at"] = datetime.now(UTC).isoformat()
+
         if status == "open":
-            cooldown_until = datetime.now(timezone.utc) + timedelta(minutes=30)
+            cooldown_until = datetime.now(UTC) + timedelta(minutes=30)
             update_data["cooldown_until"] = cooldown_until.isoformat()
-        
+
         await self.update("engine_health", update_data, "engine = ?", (engine,))
-    
+
     async def get_active_engines(self) -> list[dict[str, Any]]:
         """Get list of active (non-open) engines.
         
@@ -581,9 +580,9 @@ class Database:
               AND (daily_limit IS NULL OR daily_usage < daily_limit)
             ORDER BY weight DESC
             """,
-            (datetime.now(timezone.utc).isoformat(),),
+            (datetime.now(UTC).isoformat(),),
         )
-    
+
     async def get_engine_health_metrics(self, engine: str) -> dict[str, Any] | None:
         """Get engine health metrics for dynamic weight calculation.
         
@@ -618,10 +617,10 @@ class Database:
             """,
             (engine.lower(),),
         )
-        
+
         if result is None:
             return None
-        
+
         # Use explicit None checks to preserve valid 0.0 values
         # (e.g., 0% success rate should not be treated as 100%)
         return {
@@ -633,11 +632,11 @@ class Database:
             "http_error_rate": 0.0 if (v := result.get("http_error_rate")) is None else v,
             "updated_at": result.get("updated_at"),
         }
-    
+
     # ============================================================
     # Fetch Cache Operations (304 support)
     # ============================================================
-    
+
     async def get_fetch_cache(
         self,
         url: str,
@@ -651,16 +650,16 @@ class Database:
             Cache record or None if not found/expired.
         """
         url_normalized = self._normalize_url(url)
-        
+
         result = await self.fetch_one(
             """
             SELECT * FROM cache_fetch 
             WHERE url_normalized = ?
               AND (expires_at IS NULL OR expires_at > ?)
             """,
-            (url_normalized, datetime.now(timezone.utc).isoformat()),
+            (url_normalized, datetime.now(UTC).isoformat()),
         )
-        
+
         if result:
             # Update hit statistics
             await self.execute(
@@ -669,11 +668,11 @@ class Database:
                 SET last_validated_at = ?
                 WHERE url_normalized = ?
                 """,
-                (datetime.now(timezone.utc).isoformat(), url_normalized),
+                (datetime.now(UTC).isoformat(), url_normalized),
             )
-        
+
         return result
-    
+
     async def set_fetch_cache(
         self,
         url: str,
@@ -695,8 +694,8 @@ class Database:
             ttl_hours: Cache TTL in hours.
         """
         url_normalized = self._normalize_url(url)
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
-        
+        expires_at = datetime.now(UTC) + timedelta(hours=ttl_hours)
+
         await self.execute(
             """
             INSERT OR REPLACE INTO cache_fetch 
@@ -710,12 +709,12 @@ class Database:
                 last_modified,
                 content_hash,
                 content_path,
-                datetime.now(timezone.utc).isoformat(),
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
+                datetime.now(UTC).isoformat(),
                 expires_at.isoformat(),
             ),
         )
-    
+
     async def invalidate_fetch_cache(self, url: str) -> None:
         """Invalidate fetch cache for a URL.
         
@@ -727,7 +726,7 @@ class Database:
             "DELETE FROM cache_fetch WHERE url_normalized = ?",
             (url_normalized,),
         )
-    
+
     async def update_fetch_cache_validation(
         self,
         url: str,
@@ -745,30 +744,30 @@ class Database:
             ttl_hours: Cache TTL extension in hours.
         """
         url_normalized = self._normalize_url(url)
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
-        
+        expires_at = datetime.now(UTC) + timedelta(hours=ttl_hours)
+
         # Build dynamic update
         updates = ["last_validated_at = ?", "expires_at = ?"]
         params: list[Any] = [
-            datetime.now(timezone.utc).isoformat(),
+            datetime.now(UTC).isoformat(),
             expires_at.isoformat(),
         ]
-        
+
         if etag is not None:
             updates.append("etag = ?")
             params.append(etag)
-        
+
         if last_modified is not None:
             updates.append("last_modified = ?")
             params.append(last_modified)
-        
+
         params.append(url_normalized)
-        
+
         await self.execute(
             f"UPDATE cache_fetch SET {', '.join(updates)} WHERE url_normalized = ?",
             tuple(params),
         )
-    
+
     async def get_fetch_cache_stats(self) -> dict[str, Any]:
         """Get fetch cache statistics.
         
@@ -784,10 +783,10 @@ class Database:
                 COUNT(CASE WHEN last_modified IS NOT NULL THEN 1 END) as with_last_modified
             FROM cache_fetch
             """,
-            (datetime.now(timezone.utc).isoformat(),),
+            (datetime.now(UTC).isoformat(),),
         )
         return result or {}
-    
+
     async def cleanup_expired_fetch_cache(self) -> int:
         """Remove expired fetch cache entries.
         
@@ -796,14 +795,14 @@ class Database:
         """
         cursor = await self.execute(
             "DELETE FROM cache_fetch WHERE expires_at < ?",
-            (datetime.now(timezone.utc).isoformat(),),
+            (datetime.now(UTC).isoformat(),),
         )
         return cursor.rowcount
-    
+
     # ============================================================
     # Metrics & Policy Operations
     # ============================================================
-    
+
     async def save_metrics_snapshot(
         self,
         metrics: dict[str, float],
@@ -855,7 +854,7 @@ class Database:
             ),
         )
         return cursor.lastrowid
-    
+
     async def save_task_metrics(
         self,
         task_id: str,
@@ -872,7 +871,7 @@ class Database:
         quality = metrics_data.get("quality", {})
         timing = metrics_data.get("timing", {})
         computed = metrics_data.get("computed_metrics", {})
-        
+
         await self.execute(
             """
             INSERT INTO task_metrics (
@@ -916,9 +915,9 @@ class Database:
                 json.dumps(computed) if computed else None,
             ),
         )
-        
+
         logger.info("Task metrics saved", task_id=task_id)
-    
+
     async def save_policy_update(
         self,
         target_type: str,
@@ -956,7 +955,7 @@ class Database:
                 json.dumps(metrics_snapshot) if metrics_snapshot else None,
             ),
         )
-    
+
     async def save_decision(
         self,
         decision_id: str,
@@ -997,7 +996,7 @@ class Database:
                 duration_ms,
             ),
         )
-    
+
     async def get_latest_metrics_snapshot(self) -> dict[str, Any] | None:
         """Get the most recent metrics snapshot.
         
@@ -1007,7 +1006,7 @@ class Database:
         return await self.fetch_one(
             "SELECT * FROM metrics_snapshot ORDER BY timestamp DESC LIMIT 1"
         )
-    
+
     async def get_task_metrics(self, task_id: str) -> dict[str, Any] | None:
         """Get metrics for a specific task.
         
@@ -1021,7 +1020,7 @@ class Database:
             "SELECT * FROM task_metrics WHERE task_id = ?",
             (task_id,),
         )
-    
+
     async def get_policy_update_history(
         self,
         limit: int = 100,
@@ -1040,20 +1039,20 @@ class Database:
         """
         query = "SELECT * FROM policy_updates WHERE 1=1"
         params: list[Any] = []
-        
+
         if target_type:
             query += " AND target_type = ?"
             params.append(target_type)
-        
+
         if target_id:
             query += " AND target_id = ?"
             params.append(target_id)
-        
+
         query += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
-        
+
         return await self.fetch_all(query, tuple(params))
-    
+
     async def get_decisions_for_task(self, task_id: str) -> list[dict[str, Any]]:
         """Get all decisions for a task.
         
@@ -1067,7 +1066,7 @@ class Database:
             "SELECT * FROM decisions WHERE task_id = ? ORDER BY timestamp ASC",
             (task_id,),
         )
-    
+
     @staticmethod
     def _normalize_url(url: str) -> str:
         """Normalize URL for cache key.
@@ -1080,22 +1079,22 @@ class Database:
         Returns:
             Normalized URL string.
         """
-        from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
-        
+        from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
         parsed = urlparse(url)
-        
+
         # Lowercase scheme and host
         scheme = parsed.scheme.lower()
         netloc = parsed.netloc.lower()
-        
+
         # Sort query parameters
         query_params = parse_qsl(parsed.query, keep_blank_values=True)
         query_params.sort()
         query = urlencode(query_params)
-        
+
         # Remove fragment
         normalized = urlunparse((scheme, netloc, parsed.path, parsed.params, query, ""))
-        
+
         return normalized
 
 

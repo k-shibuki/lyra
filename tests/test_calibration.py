@@ -87,35 +87,35 @@ Covers:
 """
 
 import math
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, AsyncMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.utils.calibration import (
-    CalibrationSample,
+    CalibrationEvaluation,
+    CalibrationEvaluator,
+    CalibrationHistory,
     CalibrationParams,
     CalibrationResult,
-    CalibrationEvaluation,
-    RollbackEvent,
-    CalibrationHistory,
-    CalibrationEvaluator,
-    PlattScaling,
-    TemperatureScaling,
-    brier_score,
-    expected_calibration_error,
+    CalibrationSample,
     Calibrator,
+    PlattScaling,
+    RollbackEvent,
+    TemperatureScaling,
+    add_calibration_sample,
+    brier_score,
     calibrate_confidence,
     evaluate_calibration,
+    expected_calibration_error,
     fit_calibration,
-    add_calibration_sample,
-    rollback_calibration,
-    get_calibration_history,
-    get_rollback_events,
-    get_calibration_stats,
-    save_calibration_evaluation,
     get_calibration_evaluations,
+    get_calibration_history,
+    get_calibration_stats,
     get_reliability_diagram_data,
+    get_rollback_events,
+    rollback_calibration,
+    save_calibration_evaluation,
 )
 
 # All tests in this module are unit tests (no external dependencies)
@@ -141,7 +141,7 @@ OVERCONFIDENT_LABELS = [0, 1, 0, 1, 1, 0, 0, 1, 1, 0]
 
 class TestCalibrationSample:
     """Tests for CalibrationSample dataclass."""
-    
+
     def test_create_sample(self):
         """Should create sample with all fields."""
         sample = CalibrationSample(
@@ -150,19 +150,19 @@ class TestCalibrationSample:
             logit=1.5,
             source="llm_extract",
         )
-        
+
         assert sample.predicted_prob == 0.8
         assert sample.actual_label == 1
         assert sample.logit == 1.5
         assert sample.source == "llm_extract"
-    
+
     def test_default_values(self):
         """Should have sensible defaults."""
         sample = CalibrationSample(
             predicted_prob=0.5,
             actual_label=0,
         )
-        
+
         assert sample.logit is None
         assert sample.source == ""
         assert sample.timestamp is not None
@@ -174,7 +174,7 @@ class TestCalibrationSample:
 
 class TestCalibrationParams:
     """Tests for CalibrationParams dataclass."""
-    
+
     def test_to_dict(self):
         """Should convert to serializable dict."""
         params = CalibrationParams(
@@ -183,14 +183,14 @@ class TestCalibrationParams:
             source="test",
             samples_used=100,
         )
-        
+
         d = params.to_dict()
-        
+
         assert d["method"] == "temperature"
         assert d["temperature"] == 1.5
         assert d["source"] == "test"
         assert "fitted_at" in d
-    
+
     def test_from_dict(self):
         """Should create from dict."""
         data = {
@@ -201,9 +201,9 @@ class TestCalibrationParams:
             "samples_used": 50,
             "fitted_at": "2024-01-15T10:00:00+00:00",
         }
-        
+
         params = CalibrationParams.from_dict(data)
-        
+
         assert params.method == "platt"
         assert params.platt_a == 1.2
         assert params.platt_b == -0.3
@@ -216,29 +216,29 @@ class TestCalibrationParams:
 
 class TestPlattScaling:
     """Tests for PlattScaling calibration."""
-    
+
     def test_fit_improves_calibration(self):
         """Fitting should improve calibration on overconfident data."""
         # Convert probs to logits
         logits = [math.log(p / (1 - p + 1e-10)) for p in OVERCONFIDENT_PREDICTIONS]
-        
+
         A, B = PlattScaling.fit(logits, OVERCONFIDENT_LABELS)
-        
+
         # A and B should be non-trivial (not both at default values)
         is_default = (A == 1.0 and B == 0.0)
         assert not is_default, f"Expected non-default parameters, got A={A}, B={B}"
-    
+
     def test_transform_valid_range(self):
         """Transform should output valid probabilities."""
         for logit in [-5, -1, 0, 1, 5]:
             prob = PlattScaling.transform(logit, 1.0, 0.0)
             assert 0.0 <= prob <= 1.0
-    
+
     def test_transform_identity_when_no_scaling(self):
         """With A=1, B=0, should be identity sigmoid."""
         logit = 0.0
         prob = PlattScaling.transform(logit, 1.0, 0.0)
-        
+
         assert abs(prob - 0.5) < 0.001
 
 
@@ -248,25 +248,25 @@ class TestPlattScaling:
 
 class TestTemperatureScaling:
     """Tests for TemperatureScaling calibration."""
-    
+
     def test_fit_returns_positive_temperature(self):
         """Temperature should be positive."""
         logits = [math.log(p / (1 - p + 1e-10)) for p in OVERCONFIDENT_PREDICTIONS]
-        
+
         T = TemperatureScaling.fit(logits, OVERCONFIDENT_LABELS)
-        
+
         assert T > 0
-    
+
     def test_high_temperature_reduces_confidence(self):
         """Higher temperature should reduce extreme probabilities."""
         logit = 2.0  # High confidence
-        
+
         prob_t1 = TemperatureScaling.transform(logit, 1.0)
         prob_t2 = TemperatureScaling.transform(logit, 2.0)
-        
+
         # With higher temp, probability should be closer to 0.5
         assert abs(prob_t2 - 0.5) < abs(prob_t1 - 0.5)
-    
+
     def test_transform_valid_range(self):
         """Transform should output valid probabilities."""
         for logit in [-5, -1, 0, 1, 5]:
@@ -281,55 +281,55 @@ class TestTemperatureScaling:
 
 class TestBrierScore:
     """Tests for Brier score calculation."""
-    
+
     def test_perfect_predictions(self):
         """Perfect predictions should have Brier score 0."""
         predictions = [0.0, 0.0, 1.0, 1.0]
         labels = [0, 0, 1, 1]
-        
+
         score = brier_score(predictions, labels)
-        
+
         assert score == 0.0
-    
+
     def test_worst_predictions(self):
         """Completely wrong predictions should have high Brier score."""
         predictions = [1.0, 1.0, 0.0, 0.0]
         labels = [0, 0, 1, 1]
-        
+
         score = brier_score(predictions, labels)
-        
+
         assert score == 1.0
-    
+
     def test_uncertain_predictions(self):
         """50% predictions should give Brier score 0.25."""
         predictions = [0.5, 0.5, 0.5, 0.5]
         labels = [0, 0, 1, 1]
-        
+
         score = brier_score(predictions, labels)
-        
+
         assert abs(score - 0.25) < 0.001
-    
+
     def test_calibrated_lower_than_overconfident(self):
         """Well-calibrated predictions should have lower Brier score."""
         brier_calibrated = brier_score(CALIBRATED_PREDICTIONS, CALIBRATED_LABELS)
         brier_overconfident = brier_score(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
-        
+
         assert brier_calibrated < brier_overconfident
 
 
 class TestExpectedCalibrationError:
     """Tests for ECE calculation."""
-    
+
     def test_perfect_calibration(self):
         """Perfect calibration should have ECE 0."""
         # Predictions exactly match bin accuracy
         predictions = [0.5] * 10
         labels = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
-        
+
         ece, bins = expected_calibration_error(predictions, labels)
-        
+
         assert ece < 0.1  # Allow small numerical error
-    
+
     def test_returns_bin_data(self):
         """Should return bin data for reliability diagram."""
         ece, bins = expected_calibration_error(
@@ -337,7 +337,7 @@ class TestExpectedCalibrationError:
             OVERCONFIDENT_LABELS,
             n_bins=5,
         )
-        
+
         assert len(bins) == 5
         assert all("accuracy" in b for b in bins)
         assert all("confidence" in b for b in bins)
@@ -349,39 +349,39 @@ class TestExpectedCalibrationError:
 
 class TestCalibrator:
     """Tests for Calibrator class."""
-    
+
     @pytest.fixture
     def calibrator(self, tmp_path):
         """Create calibrator with temp storage."""
         with patch("src.utils.calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             return Calibrator()
-    
+
     def test_fit_temperature(self, calibrator):
         """Should fit temperature scaling."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         params = calibrator.fit(samples, "test", method="temperature")
-        
+
         assert params.method == "temperature"
         assert params.temperature != 1.0  # Should have adjusted
         assert params.samples_used == len(samples)
-    
+
     def test_fit_platt(self, calibrator):
         """Should fit Platt scaling."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         params = calibrator.fit(samples, "test", method="platt")
-        
+
         assert params.method == "platt"
         assert params.samples_used == len(samples)
-    
+
     def test_calibrate_returns_valid_prob(self, calibrator):
         """Calibrated probability should be valid."""
         samples = [
@@ -389,42 +389,42 @@ class TestCalibrator:
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         calibrator.fit(samples, "test")
-        
+
         for prob in [0.1, 0.5, 0.9]:
             calibrated = calibrator.calibrate(prob, "test")
             assert 0.0 <= calibrated <= 1.0
-    
+
     def test_calibrate_without_params(self, calibrator):
         """Should return original prob if no calibration."""
         prob = calibrator.calibrate(0.8, "unknown_source")
-        
+
         assert prob == 0.8
-    
+
     def test_evaluate_returns_metrics(self, calibrator):
         """Should return evaluation metrics."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         result = calibrator.evaluate(samples, "test")
-        
+
         assert result.brier_score >= 0
         assert result.expected_calibration_error >= 0
         assert result.samples_evaluated == len(samples)
-    
+
     def test_needs_recalibration_new_source(self, calibrator):
         """New sources without samples don't need calibration (can't calibrate yet)."""
         # No samples yet - can't calibrate
         assert calibrator.needs_recalibration("new_source") is False
-        
+
         # Add enough samples - now needs calibration
         for _ in range(Calibrator.RECALIBRATION_THRESHOLD):
             calibrator._pending_samples.setdefault("new_source", []).append(
                 CalibrationSample(predicted_prob=0.5, actual_label=1, source="new_source")
             )
         assert calibrator.needs_recalibration("new_source") is True
-    
+
     def test_needs_recalibration_with_pending_samples(self, calibrator):
         """Should trigger recalibration when enough samples pending."""
         # Initially calibrated
@@ -433,36 +433,36 @@ class TestCalibrator:
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
         calibrator.fit(samples, "test")
-        
+
         # No pending samples yet
         assert calibrator.needs_recalibration("test") is False
-        
+
         # Add samples up to threshold
         for i in range(Calibrator.RECALIBRATION_THRESHOLD):
             calibrator._pending_samples.setdefault("test", []).append(
                 CalibrationSample(predicted_prob=0.5, actual_label=1, source="test")
             )
-        
+
         assert calibrator.needs_recalibration("test") is True
-    
+
     def test_add_sample_accumulates(self, calibrator):
         """add_sample should accumulate pending samples."""
         calibrator.add_sample(0.8, 1, "test")
         calibrator.add_sample(0.6, 0, "test")
-        
+
         assert calibrator.get_pending_sample_count("test") == 2
-    
+
     def test_add_sample_triggers_recalibration(self, calibrator):
         """add_sample should trigger recalibration at threshold."""
         # Add samples up to threshold - 1
         for i in range(Calibrator.RECALIBRATION_THRESHOLD - 1):
             result = calibrator.add_sample(0.8, 1, "test")
             assert result is False  # Not yet
-        
+
         # Add one more to trigger
         result = calibrator.add_sample(0.8, 1, "test")
         assert result is True  # Triggered
-        
+
         # Pending should be cleared after recalibration
         assert calibrator.get_pending_sample_count("test") == 0
 
@@ -473,7 +473,7 @@ class TestCalibrator:
 
 class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
-    
+
     @pytest.mark.asyncio
     async def test_calibrate_confidence(self):
         """calibrate_confidence should return result."""
@@ -485,13 +485,13 @@ class TestMCPToolFunctions:
                 temperature=1.2,
             )
             mock_get.return_value = mock_calibrator
-            
+
             result = await calibrate_confidence(0.8, "test")
-            
+
             assert result["original"] == 0.8
             assert result["calibrated"] == 0.75
             assert result["has_calibration"] is True
-    
+
     @pytest.mark.asyncio
     async def test_evaluate_calibration(self):
         """evaluate_calibration should return metrics."""
@@ -503,15 +503,15 @@ class TestMCPToolFunctions:
                 samples_evaluated=100,
             )
             mock_get.return_value = mock_calibrator
-            
+
             result = await evaluate_calibration(
                 "test",
                 [0.5, 0.6],
                 [1, 0],
             )
-            
+
             assert result["brier_score"] == 0.15
-    
+
     @pytest.mark.asyncio
     async def test_fit_calibration(self):
         """fit_calibration should return params."""
@@ -523,16 +523,16 @@ class TestMCPToolFunctions:
                 samples_used=50,
             )
             mock_get.return_value = mock_calibrator
-            
+
             result = await fit_calibration(
                 "test",
                 [0.5, 0.6],
                 [1, 0],
             )
-            
+
             assert result["method"] == "temperature"
             assert result["temperature"] == 1.3
-    
+
     @pytest.mark.asyncio
     async def test_add_calibration_sample(self):
         """add_calibration_sample should add sample and return status."""
@@ -541,9 +541,9 @@ class TestMCPToolFunctions:
             mock_calibrator.add_sample.return_value = False
             mock_calibrator.get_pending_sample_count.return_value = 5
             mock_get.return_value = mock_calibrator
-            
+
             result = await add_calibration_sample(0.8, 1, "test")
-            
+
             assert result["sample_added"] is True
             assert result["pending_samples"] == 5
             assert result["recalibrated"] is False
@@ -555,37 +555,37 @@ class TestMCPToolFunctions:
 
 class TestEdgeCases:
     """Edge case tests."""
-    
+
     def test_brier_score_empty(self):
         """Should handle empty lists by returning NaN without warnings."""
         score = brier_score([], [])
         assert math.isnan(score)
-    
+
     def test_fit_insufficient_samples(self, tmp_path):
         """Should handle insufficient samples gracefully."""
         with patch("src.utils.calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             calibrator = Calibrator()
-            
+
             samples = [
                 CalibrationSample(predicted_prob=0.5, actual_label=1, source="test")
             ]
-            
+
             params = calibrator.fit(samples, "test")
-            
+
             # Should return default params
             assert params.temperature == 1.0
-    
+
     def test_prob_to_logit_extreme_values(self, tmp_path):
         """Should handle extreme probabilities."""
         with patch("src.utils.calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             calibrator = Calibrator()
-            
+
             # Should not raise
             logit_low = calibrator._prob_to_logit(0.0)
             logit_high = calibrator._prob_to_logit(1.0)
-            
+
             assert logit_low < 0
             assert logit_high > 0
 
@@ -596,7 +596,7 @@ class TestEdgeCases:
 
 class TestRollbackEvent:
     """Tests for RollbackEvent dataclass."""
-    
+
     def test_create_rollback_event(self):
         """Should create rollback event with all fields."""
         event = RollbackEvent(
@@ -607,12 +607,12 @@ class TestRollbackEvent:
             brier_before_rollback=0.25,
             brier_after_rollback=0.15,
         )
-        
+
         assert event.source == "test"
         assert event.from_version == 2
         assert event.to_version == 1
         assert event.reason == "degradation"
-    
+
     def test_to_dict(self):
         """Should serialize to dict."""
         event = RollbackEvent(
@@ -623,14 +623,14 @@ class TestRollbackEvent:
             brier_before_rollback=0.30,
             brier_after_rollback=0.20,
         )
-        
+
         d = event.to_dict()
-        
+
         assert d["source"] == "test"
         assert d["from_version"] == 3
         assert d["to_version"] == 2
         assert "timestamp" in d
-    
+
     def test_from_dict(self):
         """Should deserialize from dict."""
         data = {
@@ -642,9 +642,9 @@ class TestRollbackEvent:
             "brier_after_rollback": 0.18,
             "timestamp": "2024-01-15T12:00:00+00:00",
         }
-        
+
         event = RollbackEvent.from_dict(data)
-        
+
         assert event.source == "nli_judge"
         assert event.from_version == 5
         assert event.to_version == 4
@@ -656,97 +656,97 @@ class TestRollbackEvent:
 
 class TestCalibrationHistory:
     """Tests for CalibrationHistory class (§4.6.1)."""
-    
+
     @pytest.fixture
     def history(self, tmp_path):
         """Create history with temp storage."""
         with patch("src.utils.calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             return CalibrationHistory(max_history=5)
-    
+
     def test_add_params_creates_version(self, history):
         """add_params should assign incrementing version numbers."""
         params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
         params2 = CalibrationParams(method="temperature", source="test", temperature=1.2)
-        
+
         history.add_params(params1)
         history.add_params(params2)
-        
+
         hist = history.get_history("test")
         assert len(hist) == 2
         assert hist[0].version == 1
         assert hist[1].version == 2
-    
+
     def test_get_latest(self, history):
         """get_latest should return most recent params."""
         params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
         params2 = CalibrationParams(method="temperature", source="test", temperature=1.5)
-        
+
         history.add_params(params1)
         history.add_params(params2)
-        
+
         latest = history.get_latest("test")
         assert latest is not None
         assert latest.temperature == 1.5
-    
+
     def test_get_previous(self, history):
         """get_previous should return second-most recent params."""
         params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
         params2 = CalibrationParams(method="temperature", source="test", temperature=1.5)
-        
+
         history.add_params(params1)
         history.add_params(params2)
-        
+
         previous = history.get_previous("test")
         assert previous is not None
         assert previous.temperature == 1.0
-    
+
     def test_get_by_version(self, history):
         """get_by_version should find specific version."""
         params1 = CalibrationParams(method="temperature", source="test", temperature=1.0)
         params2 = CalibrationParams(method="temperature", source="test", temperature=1.5)
-        
+
         history.add_params(params1)
         history.add_params(params2)
-        
+
         found = history.get_by_version("test", 1)
         assert found is not None
         assert found.temperature == 1.0
-    
+
     def test_max_history_enforced(self, history):
         """Should enforce max history limit."""
         for i in range(10):
             params = CalibrationParams(
-                method="temperature", 
-                source="test", 
+                method="temperature",
+                source="test",
                 temperature=1.0 + i * 0.1
             )
             history.add_params(params)
-        
+
         hist = history.get_history("test")
         assert len(hist) == 5  # max_history=5
-    
+
     def test_check_degradation_detects_worsening(self, history):
         """check_degradation should detect Brier score increase."""
         params1 = CalibrationParams(
-            method="temperature", source="test", 
+            method="temperature", source="test",
             brier_before=0.20, brier_after=0.15
         )
         params2 = CalibrationParams(
             method="temperature", source="test",
             brier_before=0.20, brier_after=0.20  # Worse
         )
-        
+
         history.add_params(params1)
         history.add_params(params2)
-        
+
         # Check degradation for a hypothetical new value that's worse
         is_degraded, ratio = history.check_degradation("test", 0.25)
-        
+
         # 0.25 is 25% worse than 0.20 (previous), which exceeds 5% threshold
         assert is_degraded is True
         assert ratio > 0.05
-    
+
     def test_check_degradation_accepts_improvement(self, history):
         """check_degradation should not flag improvements."""
         params1 = CalibrationParams(
@@ -757,16 +757,16 @@ class TestCalibrationHistory:
             method="temperature", source="test",
             brier_before=0.15, brier_after=0.12
         )
-        
+
         history.add_params(params1)
         history.add_params(params2)
-        
+
         # Check with better value
         is_degraded, ratio = history.check_degradation("test", 0.10)
-        
+
         assert is_degraded is False
         assert ratio < 0
-    
+
     def test_rollback_removes_current(self, history):
         """rollback should remove current params and return previous."""
         params1 = CalibrationParams(
@@ -777,16 +777,16 @@ class TestCalibrationHistory:
             method="temperature", source="test", temperature=1.5,
             brier_after=0.25
         )
-        
+
         history.add_params(params1)
         history.add_params(params2)
-        
+
         rolled_back = history.rollback("test", reason="degradation")
-        
+
         assert rolled_back is not None
         assert rolled_back.temperature == 1.0
         assert len(history.get_history("test")) == 1
-    
+
     def test_rollback_logs_event(self, history):
         """rollback should log a RollbackEvent."""
         params1 = CalibrationParams(
@@ -797,17 +797,17 @@ class TestCalibrationHistory:
             method="temperature", source="test", temperature=1.5,
             brier_after=0.25
         )
-        
+
         history.add_params(params1)
         history.add_params(params2)
         history.rollback("test", reason="degradation")
-        
+
         events = history.get_rollback_log("test")
         assert len(events) == 1
         assert events[0].reason == "degradation"
         assert events[0].from_version == 2
         assert events[0].to_version == 1
-    
+
     def test_rollback_to_version(self, history):
         """rollback_to_version should go to specific version."""
         for i in range(5):
@@ -817,14 +817,14 @@ class TestCalibrationHistory:
                 brier_after=0.20 - i * 0.01
             )
             history.add_params(params)
-        
+
         # Rollback to version 2
         rolled_back = history.rollback_to_version("test", 2, reason="manual")
-        
+
         assert rolled_back is not None
         assert rolled_back.version == 2
         assert len(history.get_history("test")) == 2
-    
+
     def test_get_stats(self, history):
         """get_stats should return history statistics."""
         params = CalibrationParams(
@@ -832,9 +832,9 @@ class TestCalibrationHistory:
             brier_after=0.15
         )
         history.add_params(params)
-        
+
         stats = history.get_stats()
-        
+
         assert "sources" in stats
         assert "test" in stats["sources"]
         assert stats["sources"]["test"]["history_size"] == 1
@@ -846,96 +846,96 @@ class TestCalibrationHistory:
 
 class TestCalibratorRollback:
     """Tests for Calibrator rollback functionality (§4.6.1)."""
-    
+
     @pytest.fixture
     def calibrator(self, tmp_path):
         """Create calibrator with temp storage."""
         with patch("src.utils.calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             return Calibrator(enable_auto_rollback=True)
-    
+
     def test_fit_stores_history(self, calibrator):
         """fit should add params to history."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         calibrator.fit(samples, "test")
         calibrator.fit(samples, "test")
-        
+
         history = calibrator.get_history("test")
         assert len(history) >= 2
-    
+
     def test_manual_rollback(self, calibrator):
         """rollback should restore previous params."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         calibrator.fit(samples, "test")
         _first_temp = calibrator.get_params("test").temperature  # noqa: F841
-        
+
         # Fit again (may have different params)
         calibrator.fit(samples, "test")
-        
+
         # Rollback
         rolled_back = calibrator.rollback("test", reason="manual")
-        
+
         assert rolled_back is not None
         assert calibrator.get_params("test").version == rolled_back.version
-    
+
     def test_rollback_to_version(self, calibrator):
         """rollback_to_version should go to specific version."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         # Create multiple versions
         for _ in range(3):
             calibrator.fit(samples, "test")
-        
+
         # Rollback to version 1
         rolled_back = calibrator.rollback_to_version("test", 1)
-        
+
         assert rolled_back is not None
         assert rolled_back.version == 1
-    
+
     def test_get_rollback_log(self, calibrator):
         """get_rollback_log should return events."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         calibrator.fit(samples, "test")
         calibrator.fit(samples, "test")
         calibrator.rollback("test")
-        
+
         events = calibrator.get_rollback_log("test")
         assert len(events) == 1
-    
+
     def test_get_history_stats(self, calibrator):
         """get_history_stats should return statistics."""
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source="test")
             for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS)
         ]
-        
+
         calibrator.fit(samples, "test")
-        
+
         stats = calibrator.get_history_stats()
-        
+
         assert "sources" in stats
         assert "total_rollbacks" in stats
-    
+
     def test_set_auto_rollback(self, calibrator):
         """set_auto_rollback should toggle setting."""
         calibrator.set_auto_rollback(False)
         assert calibrator._enable_auto_rollback is False
-        
+
         calibrator.set_auto_rollback(True)
         assert calibrator._enable_auto_rollback is True
 
@@ -946,7 +946,7 @@ class TestCalibratorRollback:
 
 class TestMCPRollbackTools:
     """Tests for MCP rollback tool functions."""
-    
+
     @pytest.mark.asyncio
     async def test_rollback_calibration_success(self):
         """rollback_calibration should rollback and return result."""
@@ -959,12 +959,12 @@ class TestMCPRollbackTools:
                 version=1,
             )
             mock_get.return_value = mock_calibrator
-            
+
             result = await rollback_calibration("test", reason="manual")
-            
+
             assert result["ok"] is True
             assert result["rolled_back_to_version"] == 1
-    
+
     @pytest.mark.asyncio
     async def test_rollback_calibration_no_previous(self):
         """rollback_calibration should handle no previous version."""
@@ -972,12 +972,12 @@ class TestMCPRollbackTools:
             mock_calibrator = MagicMock()
             mock_calibrator.rollback.return_value = None
             mock_get.return_value = mock_calibrator
-            
+
             result = await rollback_calibration("test")
-            
+
             assert result["ok"] is False
             assert result["reason"] == "no_previous_version"
-    
+
     @pytest.mark.asyncio
     async def test_get_calibration_history(self):
         """get_calibration_history should return version list."""
@@ -1002,13 +1002,13 @@ class TestMCPRollbackTools:
                 ),
             ]
             mock_get.return_value = mock_calibrator
-            
+
             result = await get_calibration_history("test")
-            
+
             assert result["source"] == "test"
             assert result["total_versions"] == 2
             assert len(result["versions"]) == 2
-    
+
     @pytest.mark.asyncio
     async def test_get_rollback_events(self):
         """get_rollback_events should return event list."""
@@ -1025,12 +1025,12 @@ class TestMCPRollbackTools:
                 ),
             ]
             mock_get.return_value = mock_calibrator
-            
+
             result = await get_rollback_events("test")
-            
+
             assert result["total_events"] == 1
             assert result["events"][0]["reason"] == "degradation"
-    
+
     @pytest.mark.asyncio
     async def test_get_calibration_stats(self):
         """get_calibration_stats should return comprehensive stats."""
@@ -1049,9 +1049,9 @@ class TestMCPRollbackTools:
                 "total_rollbacks": 1,
             }
             mock_get.return_value = mock_calibrator
-            
+
             result = await get_calibration_stats()
-            
+
             assert "current_params" in result
             assert "history" in result
             assert "recalibration_threshold" in result
@@ -1063,7 +1063,7 @@ class TestMCPRollbackTools:
 
 class TestCalibrationEvaluation:
     """Tests for CalibrationEvaluation dataclass."""
-    
+
     def test_create_evaluation(self):
         """Should create evaluation with all fields."""
         evaluation = CalibrationEvaluation(
@@ -1076,14 +1076,14 @@ class TestCalibrationEvaluation:
             samples_evaluated=100,
             bins=[{"bin_lower": 0.0, "bin_upper": 0.1, "count": 10}],
             calibration_version=2,
-            evaluated_at=datetime.now(timezone.utc),
+            evaluated_at=datetime.now(UTC),
         )
-        
+
         assert evaluation.id == "eval_001"
         assert evaluation.source == "llm_extract"
         assert evaluation.brier_score == 0.15
         assert evaluation.improvement_ratio == 0.20
-    
+
     def test_to_dict(self):
         """Should convert to serializable dict."""
         evaluation = CalibrationEvaluation(
@@ -1096,11 +1096,11 @@ class TestCalibrationEvaluation:
             samples_evaluated=50,
             bins=[],
             calibration_version=1,
-            evaluated_at=datetime.now(timezone.utc),
+            evaluated_at=datetime.now(UTC),
         )
-        
+
         d = evaluation.to_dict()
-        
+
         assert d["evaluation_id"] == "eval_002"
         assert d["source"] == "nli_judge"
         assert "evaluated_at" in d
@@ -1112,7 +1112,7 @@ class TestCalibrationEvaluation:
 
 class TestCalibrationEvaluator:
     """Tests for CalibrationEvaluator class (§4.6.1)."""
-    
+
     @pytest.fixture
     def mock_db(self):
         """Create mock database with async methods."""
@@ -1123,7 +1123,7 @@ class TestCalibrationEvaluator:
         mock_cursor.fetchone = AsyncMock(return_value=None)
         db.execute = AsyncMock(return_value=mock_cursor)
         return db
-    
+
     @pytest.fixture
     def evaluator(self, mock_db, tmp_path):
         """Create evaluator with mock database."""
@@ -1131,73 +1131,73 @@ class TestCalibrationEvaluator:
             mock_root.return_value = tmp_path
             with patch("src.utils.calibration.get_database", new=AsyncMock(return_value=mock_db)):
                 return CalibrationEvaluator(db=mock_db)
-    
+
     @pytest.mark.asyncio
     async def test_save_evaluation(self, evaluator, mock_db):
         """save_evaluation should calculate metrics and save to DB."""
         predictions = [0.1, 0.4, 0.6, 0.9, 0.2, 0.8, 0.3, 0.7, 0.5, 0.95]
         labels = [0, 0, 1, 1, 0, 1, 0, 1, 0, 1]
-        
+
         evaluation = await evaluator.save_evaluation("test_source", predictions, labels)
-        
+
         assert evaluation.source == "test_source"
         assert evaluation.samples_evaluated == 10
         assert 0 <= evaluation.brier_score <= 1
         # Should have at least 1 calibration bin
         assert len(evaluation.bins) >= 1, f"Expected >=1 bins, got {len(evaluation.bins)}"
         mock_db.execute.assert_called()
-    
+
     @pytest.mark.asyncio
     async def test_save_evaluation_stores_correct_brier(self, evaluator, mock_db):
         """save_evaluation should calculate correct Brier score."""
         # Perfect predictions
         predictions = [0.0, 0.0, 1.0, 1.0]
         labels = [0, 0, 1, 1]
-        
+
         evaluation = await evaluator.save_evaluation("test", predictions, labels)
-        
+
         assert evaluation.brier_score == 0.0
-    
+
     def test_generate_id(self, evaluator):
         """_generate_id should create unique IDs."""
         id1 = evaluator._generate_id()
         id2 = evaluator._generate_id()
-        
+
         assert id1 != id2
         assert id1.startswith("eval_")
-    
+
     @pytest.mark.asyncio
     async def test_get_evaluations_empty(self, evaluator, mock_db):
         """get_evaluations should return empty list when no data."""
         mock_cursor = MagicMock()
         mock_cursor.fetchall = AsyncMock(return_value=[])
         mock_db.execute = AsyncMock(return_value=mock_cursor)
-        
+
         evaluations = await evaluator.get_evaluations(source="test")
-        
+
         assert evaluations == []
-    
+
     @pytest.mark.asyncio
     async def test_get_reliability_diagram_data_no_evaluation(self, evaluator, mock_db):
         """get_reliability_diagram_data should return error when no evaluation."""
         mock_cursor = MagicMock()
         mock_cursor.fetchall = AsyncMock(return_value=[])
         mock_db.execute = AsyncMock(return_value=mock_cursor)
-        
+
         result = await evaluator.get_reliability_diagram_data("nonexistent")
-        
+
         assert result["ok"] is False
         assert result["reason"] == "no_evaluation_found"
-    
+
     @pytest.mark.asyncio
     async def test_count_evaluations(self, evaluator, mock_db):
         """count_evaluations should return count."""
         mock_cursor = MagicMock()
         mock_cursor.fetchone = AsyncMock(return_value=(5,))
         mock_db.execute = AsyncMock(return_value=mock_cursor)
-        
+
         count = await evaluator.count_evaluations("test")
-        
+
         assert count == 5
 
 
@@ -1207,7 +1207,7 @@ class TestCalibrationEvaluator:
 
 class TestMCPCalibrationEvaluationTools:
     """Tests for MCP calibration evaluation tool functions (§4.6.1)."""
-    
+
     @pytest.mark.asyncio
     async def test_save_calibration_evaluation(self):
         """save_calibration_evaluation should save and return result."""
@@ -1223,20 +1223,20 @@ class TestMCPCalibrationEvaluationTools:
                 samples_evaluated=100,
                 bins=[],
                 calibration_version=1,
-                evaluated_at=datetime.now(timezone.utc),
+                evaluated_at=datetime.now(UTC),
             ))
             mock_get.return_value = mock_evaluator
-            
+
             result = await save_calibration_evaluation(
                 source="test",
                 predictions=[0.5, 0.6],
                 labels=[1, 0],
             )
-            
+
             assert result["ok"] is True
             assert result["evaluation_id"] == "eval_test"
             assert result["source"] == "test"
-    
+
     @pytest.mark.asyncio
     async def test_get_calibration_evaluations(self):
         """get_calibration_evaluations should return evaluation history."""
@@ -1253,18 +1253,18 @@ class TestMCPCalibrationEvaluationTools:
                     samples_evaluated=100,
                     bins=[],
                     calibration_version=1,
-                    evaluated_at=datetime.now(timezone.utc),
+                    evaluated_at=datetime.now(UTC),
                 ),
             ])
             mock_evaluator.count_evaluations = AsyncMock(return_value=1)
             mock_get.return_value = mock_evaluator
-            
+
             result = await get_calibration_evaluations(source="test", limit=10)
-            
+
             assert result["ok"] is True
             assert len(result["evaluations"]) == 1
             assert result["total_count"] == 1
-    
+
     @pytest.mark.asyncio
     async def test_get_reliability_diagram_data(self):
         """get_reliability_diagram_data should return bin data."""
@@ -1279,9 +1279,9 @@ class TestMCPCalibrationEvaluationTools:
                 "overall_ece": 0.08,
             })
             mock_get.return_value = mock_evaluator
-            
+
             result = await get_reliability_diagram_data(source="test")
-            
+
             assert result["ok"] is True
             assert result["source"] == "test"
             assert len(result["bins"]) == 1

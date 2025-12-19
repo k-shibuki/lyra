@@ -22,7 +22,6 @@ References:
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 from urllib.parse import urlparse
 
 from src.utils.logging import get_logger
@@ -98,7 +97,7 @@ class SecFetchHeaders:
     mode: SecFetchMode
     dest: SecFetchDest
     user: bool = True  # ?1 for user-initiated
-    
+
     def to_dict(self) -> dict[str, str]:
         """Convert to header dictionary for HTTP requests.
         
@@ -110,11 +109,11 @@ class SecFetchHeaders:
             "Sec-Fetch-Mode": self.mode.value,
             "Sec-Fetch-Dest": self.dest.value,
         }
-        
+
         # Sec-Fetch-User is only set for user-initiated navigations
         if self.user and self.mode == SecFetchMode.NAVIGATE:
             headers["Sec-Fetch-User"] = "?1"
-        
+
         return headers
 
 
@@ -142,8 +141,8 @@ class BrandVersion:
     """
     brand: str
     major_version: str
-    full_version: Optional[str] = None
-    
+    full_version: str | None = None
+
     def to_ua_item(self, include_full_version: bool = False) -> str:
         """Format as Sec-CH-UA item.
         
@@ -167,24 +166,24 @@ class SecCHUAConfig:
     """
     # Chrome major version (e.g., "120", "121")
     chrome_major_version: str = "120"
-    
+
     # Chrome full version (e.g., "120.0.6099.130")
     chrome_full_version: str = "120.0.6099.130"
-    
+
     # Platform
     platform: Platform = Platform.WINDOWS
-    
+
     # Platform version (e.g., "15.0.0" for Windows 11)
     platform_version: str = "15.0.0"
-    
+
     # Is mobile device
     is_mobile: bool = False
-    
+
     # Additional brands (for GREASE mechanism)
     # Chrome uses "Not_A Brand" as a GREASE brand to prevent fingerprinting
     grease_brand: str = "Not_A Brand"
     grease_version: str = "8"
-    
+
     @property
     def brands(self) -> list[BrandVersion]:
         """Get the list of browser brands.
@@ -232,8 +231,8 @@ class SecCHUAHeaders:
     brands: list[BrandVersion] = field(default_factory=list)
     is_mobile: bool = False
     platform: Platform = Platform.WINDOWS
-    platform_version: Optional[str] = None
-    
+    platform_version: str | None = None
+
     def to_dict(
         self,
         include_optional: bool = False,
@@ -249,24 +248,24 @@ class SecCHUAHeaders:
         """
         # Format brands list: "Brand1";v="Ver1", "Brand2";v="Ver2", ...
         ua_list = ", ".join(brand.to_ua_item() for brand in self.brands)
-        
+
         headers = {
             "Sec-CH-UA": ua_list,
             "Sec-CH-UA-Mobile": "?1" if self.is_mobile else "?0",
             "Sec-CH-UA-Platform": f'"{self.platform.value}"',
         }
-        
+
         if include_optional:
             if self.platform_version:
                 headers["Sec-CH-UA-Platform-Version"] = f'"{self.platform_version}"'
-            
+
             # Full version list
             full_list = ", ".join(
-                brand.to_ua_item(include_full_version=True) 
+                brand.to_ua_item(include_full_version=True)
                 for brand in self.brands
             )
             headers["Sec-CH-UA-Full-Version-List"] = full_list
-        
+
         return headers
 
 
@@ -275,7 +274,7 @@ _DEFAULT_SEC_CH_UA_CONFIG = SecCHUAConfig()
 
 
 def generate_sec_ch_ua_headers(
-    config: Optional[SecCHUAConfig] = None,
+    config: SecCHUAConfig | None = None,
     include_optional: bool = False,
 ) -> SecCHUAHeaders:
     """Generate Sec-CH-UA-* headers with realistic Chrome values.
@@ -292,7 +291,7 @@ def generate_sec_ch_ua_headers(
     """
     if config is None:
         config = _DEFAULT_SEC_CH_UA_CONFIG
-    
+
     return SecCHUAHeaders(
         brands=config.brands,
         is_mobile=config.is_mobile,
@@ -302,9 +301,9 @@ def generate_sec_ch_ua_headers(
 
 
 def update_default_sec_ch_ua_config(
-    chrome_version: Optional[str] = None,
-    platform: Optional[Platform] = None,
-    is_mobile: Optional[bool] = None,
+    chrome_version: str | None = None,
+    platform: Platform | None = None,
+    is_mobile: bool | None = None,
 ) -> None:
     """Update the default Sec-CH-UA configuration.
     
@@ -317,7 +316,7 @@ def update_default_sec_ch_ua_config(
         is_mobile: Mobile device flag.
     """
     global _DEFAULT_SEC_CH_UA_CONFIG
-    
+
     new_config = SecCHUAConfig(
         chrome_major_version=_DEFAULT_SEC_CH_UA_CONFIG.chrome_major_version,
         chrome_full_version=_DEFAULT_SEC_CH_UA_CONFIG.chrome_full_version,
@@ -325,7 +324,7 @@ def update_default_sec_ch_ua_config(
         platform_version=_DEFAULT_SEC_CH_UA_CONFIG.platform_version,
         is_mobile=_DEFAULT_SEC_CH_UA_CONFIG.is_mobile,
     )
-    
+
     if chrome_version:
         # Extract major version from full version
         match = re.match(r"^(\d+)", chrome_version)
@@ -337,7 +336,7 @@ def update_default_sec_ch_ua_config(
                 platform_version=new_config.platform_version,
                 is_mobile=new_config.is_mobile,
             )
-    
+
     if platform is not None:
         new_config = SecCHUAConfig(
             chrome_major_version=new_config.chrome_major_version,
@@ -346,7 +345,7 @@ def update_default_sec_ch_ua_config(
             platform_version=new_config.platform_version,
             is_mobile=new_config.is_mobile,
         )
-    
+
     if is_mobile is not None:
         new_config = SecCHUAConfig(
             chrome_major_version=new_config.chrome_major_version,
@@ -355,7 +354,7 @@ def update_default_sec_ch_ua_config(
             platform_version=new_config.platform_version,
             is_mobile=is_mobile,
         )
-    
+
     _DEFAULT_SEC_CH_UA_CONFIG = new_config
     logger.debug(
         "Updated default Sec-CH-UA config",
@@ -381,23 +380,23 @@ def _get_registrable_domain(hostname: str) -> str:
     # Remove port if present
     if ":" in hostname:
         hostname = hostname.split(":")[0]
-    
+
     # Remove trailing dot (FQDN notation)
     hostname = hostname.rstrip(".")
-    
+
     parts = hostname.lower().split(".")
-    
+
     # Handle special cases
     if len(parts) <= 2:
         return hostname.lower()
-    
+
     # Common multi-part TLDs
     multi_part_tlds = {
         "co.uk", "co.jp", "com.au", "com.br", "co.nz",
         "go.jp", "or.jp", "ne.jp", "ac.jp", "ed.jp",
         "org.uk", "gov.uk", "ac.uk",
     }
-    
+
     # Check for multi-part TLD
     last_two = ".".join(parts[-2:])
     if last_two in multi_part_tlds:
@@ -405,7 +404,7 @@ def _get_registrable_domain(hostname: str) -> str:
         if len(parts) >= 3:
             return ".".join(parts[-3:])
         return hostname.lower()
-    
+
     # Standard TLD: return domain.tld
     return ".".join(parts[-2:])
 
@@ -426,31 +425,31 @@ def _determine_fetch_site(
     # No referer = direct navigation (address bar, bookmark, etc.)
     if not referer_url:
         return SecFetchSite.NONE
-    
+
     try:
         target_parsed = urlparse(target_url)
         referer_parsed = urlparse(referer_url)
-        
+
         target_host = target_parsed.netloc.lower()
         referer_host = referer_parsed.netloc.lower()
         target_scheme = target_parsed.scheme.lower()
         referer_scheme = referer_parsed.scheme.lower()
-        
+
         # Same-origin: same scheme + host + port
-        if (target_scheme == referer_scheme and 
+        if (target_scheme == referer_scheme and
             target_host == referer_host):
             return SecFetchSite.SAME_ORIGIN
-        
+
         # Same-site: same registrable domain
         target_domain = _get_registrable_domain(target_host)
         referer_domain = _get_registrable_domain(referer_host)
-        
+
         if target_domain == referer_domain:
             return SecFetchSite.SAME_SITE
-        
+
         # Cross-site: different registrable domains
         return SecFetchSite.CROSS_SITE
-        
+
     except Exception as e:
         logger.debug("Error determining fetch site", error=str(e))
         # Default to cross-site for safety
@@ -475,16 +474,16 @@ def generate_sec_fetch_headers(
     """
     # Determine Sec-Fetch-Site
     site = _determine_fetch_site(context.target_url, context.referer_url)
-    
+
     # Determine Sec-Fetch-Mode (document navigation = navigate)
     if context.destination == SecFetchDest.DOCUMENT:
         mode = SecFetchMode.NAVIGATE
-    elif context.destination in (SecFetchDest.IMAGE, SecFetchDest.SCRIPT, 
+    elif context.destination in (SecFetchDest.IMAGE, SecFetchDest.SCRIPT,
                                   SecFetchDest.STYLE, SecFetchDest.FONT):
         mode = SecFetchMode.NO_CORS
     else:
         mode = SecFetchMode.NAVIGATE
-    
+
     return SecFetchHeaders(
         site=site,
         mode=mode,
@@ -514,15 +513,15 @@ def generate_headers_for_serp_click(
         is_user_initiated=True,
         destination=SecFetchDest.DOCUMENT,
     )
-    
+
     sec_fetch = generate_sec_fetch_headers(context)
     headers = sec_fetch.to_dict()
-    
+
     # Add Referer header (already handled by caller in most cases)
     # but we include it here for completeness
     if serp_url:
         headers["Referer"] = serp_url
-    
+
     return headers
 
 
@@ -545,7 +544,7 @@ def generate_headers_for_direct_navigation(
         is_user_initiated=True,
         destination=SecFetchDest.DOCUMENT,
     )
-    
+
     sec_fetch = generate_sec_fetch_headers(context)
     return sec_fetch.to_dict()
 
@@ -571,11 +570,11 @@ def generate_headers_for_internal_link(
         is_user_initiated=True,
         destination=SecFetchDest.DOCUMENT,
     )
-    
+
     sec_fetch = generate_sec_fetch_headers(context)
     headers = sec_fetch.to_dict()
     headers["Referer"] = source_url
-    
+
     return headers
 
 
@@ -585,7 +584,7 @@ def generate_headers_for_internal_link(
 
 def generate_all_security_headers(
     context: NavigationContext,
-    sec_ch_ua_config: Optional[SecCHUAConfig] = None,
+    sec_ch_ua_config: SecCHUAConfig | None = None,
     include_optional_ch_ua: bool = False,
 ) -> dict[str, str]:
     """Generate all security headers for a navigation.
@@ -603,28 +602,28 @@ def generate_all_security_headers(
         Dictionary with all security headers.
     """
     headers: dict[str, str] = {}
-    
+
     # Add Sec-Fetch-* headers
     sec_fetch = generate_sec_fetch_headers(context)
     headers.update(sec_fetch.to_dict())
-    
+
     # Add Sec-CH-UA-* headers
     sec_ch_ua = generate_sec_ch_ua_headers(
         config=sec_ch_ua_config,
         include_optional=include_optional_ch_ua,
     )
     headers.update(sec_ch_ua.to_dict(include_optional=include_optional_ch_ua))
-    
+
     # Add Referer if provided
     if context.referer_url:
         headers["Referer"] = context.referer_url
-    
+
     return headers
 
 
 def generate_complete_navigation_headers(
     target_url: str,
-    referer_url: Optional[str] = None,
+    referer_url: str | None = None,
     is_user_initiated: bool = True,
 ) -> dict[str, str]:
     """Convenience function to generate complete headers for document navigation.
@@ -646,6 +645,6 @@ def generate_complete_navigation_headers(
         is_user_initiated=is_user_initiated,
         destination=SecFetchDest.DOCUMENT,
     )
-    
+
     return generate_all_security_headers(context)
 

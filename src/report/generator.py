@@ -6,15 +6,15 @@ Creates research reports from collected evidence.
 import json
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
+from src.filter.claim_timeline import ClaimTimeline, TimelineEventType
+from src.storage.database import get_database
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
-from src.storage.database import get_database
-from src.filter.claim_timeline import ClaimTimeline, TimelineEventType
 
 logger = get_logger(__name__)
 
@@ -36,26 +36,26 @@ def generate_anchor_slug(heading: str) -> str:
     """
     if not heading:
         return ""
-    
+
     # Normalize unicode
     text = unicodedata.normalize("NFKC", heading)
-    
+
     # Lowercase
     text = text.lower()
-    
+
     # Replace spaces and underscores with hyphens
     text = re.sub(r"[\s_]+", "-", text)
-    
+
     # Remove characters that aren't alphanumeric, hyphens, or Japanese/CJK
     # Keep: a-z, 0-9, -, Japanese hiragana/katakana/kanji
     text = re.sub(r"[^\w\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff-]", "", text)
-    
+
     # Remove leading/trailing hyphens
     text = text.strip("-")
-    
+
     # Collapse multiple hyphens
     text = re.sub(r"-+", "-", text)
-    
+
     return text
 
 
@@ -71,18 +71,18 @@ def generate_deep_link(url: str, heading_context: str | None) -> str:
     """
     if not heading_context:
         return url
-    
+
     anchor = generate_anchor_slug(heading_context)
     if not anchor:
         return url
-    
+
     # Parse URL and add fragment
     parsed = urlparse(url)
-    
+
     # Don't override existing fragment
     if parsed.fragment:
         return url
-    
+
     # Add anchor fragment
     new_url = urlunparse((
         parsed.scheme,
@@ -92,7 +92,7 @@ def generate_deep_link(url: str, heading_context: str | None) -> str:
         parsed.query,
         anchor,
     ))
-    
+
     return new_url
 
 
@@ -101,7 +101,7 @@ class Citation:
     
     Per §3.4: All citations should have deep links to the relevant section.
     """
-    
+
     def __init__(
         self,
         url: str,
@@ -117,19 +117,19 @@ class Citation:
         self.excerpt = excerpt
         self.discovered_at = discovered_at
         self.source_tag = source_tag
-    
+
     @property
     def deep_link(self) -> str:
         """Get URL with anchor fragment."""
         return generate_deep_link(self.url, self.heading_context)
-    
+
     @property
     def is_primary_source(self) -> bool:
         """Check if this is a primary source (§3.4: Source Priority Order)."""
         if not self.source_tag:
             return False
         return self.source_tag in ("government", "academic", "official", "standard", "registry")
-    
+
     def to_markdown(self, index: int, include_excerpt: bool = True) -> str:
         """Format citation as Markdown.
         
@@ -141,15 +141,15 @@ class Citation:
             Markdown formatted citation.
         """
         lines = []
-        
+
         # Main citation line with deep link
         link = self.deep_link
         lines.append(f"{index}. [{self.title}]({link})")
-        
+
         # Add section reference if available
         if self.heading_context:
             lines.append(f"   - セクション: {self.heading_context}")
-        
+
         # Add source type indicator
         if self.source_tag:
             source_labels = {
@@ -164,14 +164,14 @@ class Citation:
             }
             label = source_labels.get(self.source_tag, self.source_tag)
             lines.append(f"   - 種別: {label}")
-        
+
         # Add excerpt if requested
         if include_excerpt and self.excerpt:
             excerpt_text = self.excerpt[:150]
             if len(self.excerpt) > 150:
                 excerpt_text += "..."
             lines.append(f"   > {excerpt_text}")
-        
+
         # Add discovery timestamp
         if self.discovered_at:
             try:
@@ -180,16 +180,16 @@ class Citation:
                 lines.append(f"   - 取得日: {formatted}")
             except (ValueError, AttributeError):
                 pass
-        
+
         return "\n".join(lines)
 
 
 class ReportGenerator:
     """Generates research reports from evidence."""
-    
+
     def __init__(self):
         self._settings = get_settings()
-    
+
     async def generate(
         self,
         task_id: str,
@@ -207,22 +207,22 @@ class ReportGenerator:
             Report generation result.
         """
         db = await get_database()
-        
+
         # Get task
         task = await db.fetch_one(
             "SELECT * FROM tasks WHERE id = ?",
             (task_id,),
         )
-        
+
         if task is None:
             return {"ok": False, "error": f"Task not found: {task_id}"}
-        
+
         # Get claims
         claims = await db.fetch_all(
             "SELECT * FROM claims WHERE task_id = ? ORDER BY confidence_score DESC",
             (task_id,),
         )
-        
+
         # Get evidence (fragments with high scores)
         # Include source_tag for primary/secondary classification (§3.4)
         fragments = await db.fetch_all(
@@ -239,7 +239,7 @@ class ReportGenerator:
             """,
             (task_id,),
         )
-        
+
         # Get evidence graph edges
         edges = []
         if include_evidence_graph:
@@ -251,43 +251,43 @@ class ReportGenerator:
                 """,
                 (task_id, task_id),
             )
-        
+
         # Generate report
         if format_type == "markdown":
             report_content = await self._generate_markdown(task, claims, fragments, edges)
         else:
             report_content = await self._generate_json(task, claims, fragments, edges)
-        
+
         # Save report
         reports_dir = Path(self._settings.storage.reports_dir)
         reports_dir.mkdir(parents=True, exist_ok=True)
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         ext = ".md" if format_type == "markdown" else ".json"
         filename = f"report_{task_id[:8]}_{timestamp}{ext}"
         filepath = reports_dir / filename
-        
+
         filepath.write_text(report_content, encoding="utf-8")
-        
+
         # Update task
         await db.update(
             "tasks",
             {
                 "status": "completed",
                 "result_summary": f"Report generated: {filename}",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "completed_at": datetime.now(UTC).isoformat(),
             },
             "id = ?",
             (task_id,),
         )
-        
+
         logger.info(
             "Report generated",
             task_id=task_id,
             format=format_type,
             filepath=str(filepath),
         )
-        
+
         return {
             "ok": True,
             "task_id": task_id,
@@ -296,7 +296,7 @@ class ReportGenerator:
             "claim_count": len(claims),
             "fragment_count": len(fragments),
         }
-    
+
     async def _generate_markdown(
         self,
         task: dict[str, Any],
@@ -316,19 +316,19 @@ class ReportGenerator:
             Markdown content.
         """
         lines = []
-        
+
         # Title
-        lines.append(f"# リサーチレポート")
+        lines.append("# リサーチレポート")
         lines.append("")
         lines.append(f"**調査テーマ:** {task['query']}")
         lines.append(f"**生成日時:** {datetime.now().strftime('%Y年%m月%d日 %H:%M')}")
         lines.append(f"**タスクID:** {task['id']}")
         lines.append("")
-        
+
         # Executive Summary
         lines.append("## エグゼクティブサマリー")
         lines.append("")
-        
+
         if claims:
             # Top claims
             top_claims = [c for c in claims if c.get("confidence_score", 0) >= 0.7][:5]
@@ -339,7 +339,7 @@ class ReportGenerator:
                     confidence = claim.get("confidence_score", 0)
                     lines.append(f"{i}. {claim['claim_text']} (信頼度: {confidence:.2f})")
                 lines.append("")
-        
+
         # Methodology
         lines.append("## 調査方法")
         lines.append("")
@@ -350,17 +350,17 @@ class ReportGenerator:
         lines.append("3. ローカルLLMによる事実・主張の抽出")
         lines.append("4. NLIモデルによる立場の判定と矛盾検出")
         lines.append("")
-        
+
         # Main Findings
         lines.append("## 主要な発見")
         lines.append("")
-        
+
         if claims:
             # Group by type
             fact_claims = [c for c in claims if c.get("claim_type") == "fact"]
             opinion_claims = [c for c in claims if c.get("claim_type") == "opinion"]
             other_claims = [c for c in claims if c.get("claim_type") not in ("fact", "opinion")]
-            
+
             if fact_claims:
                 lines.append("### 事実")
                 lines.append("")
@@ -368,12 +368,12 @@ class ReportGenerator:
                     confidence = claim.get("confidence_score", 0)
                     supporting = claim.get("supporting_count", 0)
                     refuting = claim.get("refuting_count", 0)
-                    
+
                     lines.append(f"- {claim['claim_text']}")
                     lines.append(f"  - 信頼度: {confidence:.2f}")
                     lines.append(f"  - 支持ソース: {supporting}件, 反証ソース: {refuting}件")
                     lines.append("")
-            
+
             if opinion_claims:
                 lines.append("### 意見・見解")
                 lines.append("")
@@ -383,44 +383,44 @@ class ReportGenerator:
         else:
             lines.append("*主張の抽出結果がありません*")
             lines.append("")
-        
+
         # Evidence with deep links (§3.4: Source Priority Order)
         lines.append("## エビデンス")
         lines.append("")
-        
+
         if fragments:
             # Separate primary and secondary sources
-            primary_frags = [f for f in fragments if f.get("source_tag") in 
+            primary_frags = [f for f in fragments if f.get("source_tag") in
                            ("government", "academic", "official", "standard", "registry")]
-            secondary_frags = [f for f in fragments if f.get("source_tag") not in 
+            secondary_frags = [f for f in fragments if f.get("source_tag") not in
                              ("government", "academic", "official", "standard", "registry")]
-            
+
             # Primary sources first (§3.4)
             if primary_frags:
                 lines.append("### 一次資料")
                 lines.append("")
-                
+
                 for frag in primary_frags[:10]:
                     title = frag.get("page_title", "")
                     url = frag.get("url", "")
                     heading = frag.get("heading_context", "")
                     text = frag.get("text_content", "")[:200]
-                    
+
                     # Generate deep link
                     deep_url = generate_deep_link(url, heading)
-                    
+
                     lines.append(f"**[{title}]({deep_url})**")
                     if heading:
                         lines.append(f"📍 セクション: {heading}")
                     lines.append("")
                     lines.append(f"> {text}...")
                     lines.append("")
-            
+
             # Secondary sources
             if secondary_frags:
                 lines.append("### 二次資料")
                 lines.append("")
-                
+
                 # Group by domain
                 by_domain: dict[str, list] = {}
                 for frag in secondary_frags:
@@ -428,20 +428,20 @@ class ReportGenerator:
                     if domain not in by_domain:
                         by_domain[domain] = []
                     by_domain[domain].append(frag)
-                
+
                 for domain, frags in list(by_domain.items())[:8]:
                     lines.append(f"#### {domain}")
                     lines.append("")
-                    
+
                     for frag in frags[:2]:
                         title = frag.get("page_title", "")
                         url = frag.get("url", "")
                         heading = frag.get("heading_context", "")
                         text = frag.get("text_content", "")[:150]
-                        
+
                         # Generate deep link
                         deep_url = generate_deep_link(url, heading)
-                        
+
                         lines.append(f"**[{title}]({deep_url})**")
                         if heading:
                             lines.append(f"📍 セクション: {heading}")
@@ -451,15 +451,15 @@ class ReportGenerator:
         else:
             lines.append("*エビデンスがありません*")
             lines.append("")
-        
+
         # Sources with full citations (§3.4: Deep Link Generation)
         lines.append("## 出典一覧")
         lines.append("")
-        
+
         # Build citations list
         citations: list[Citation] = []
         seen_urls = set()
-        
+
         for frag in fragments:
             url = frag.get("url", "")
             if url and url not in seen_urls:
@@ -473,35 +473,35 @@ class ReportGenerator:
                     source_tag=frag.get("source_tag"),
                 )
                 citations.append(citation)
-        
+
         # Sort: primary sources first
         citations.sort(key=lambda c: (0 if c.is_primary_source else 1, c.title))
-        
+
         # Primary sources section
         primary_citations = [c for c in citations if c.is_primary_source]
         secondary_citations = [c for c in citations if not c.is_primary_source]
-        
+
         if primary_citations:
             lines.append("### 一次資料")
             lines.append("")
             for i, citation in enumerate(primary_citations, 1):
                 lines.append(citation.to_markdown(i, include_excerpt=False))
                 lines.append("")
-        
+
         if secondary_citations:
             lines.append("### 二次資料・その他")
             lines.append("")
             for i, citation in enumerate(secondary_citations, len(primary_citations) + 1):
                 lines.append(citation.to_markdown(i, include_excerpt=False))
                 lines.append("")
-        
+
         lines.append("")
-        
+
         # Timeline section (§3.4)
         timeline_lines = self._generate_timeline_section(claims)
         if timeline_lines:
             lines.extend(timeline_lines)
-        
+
         # Limitations
         lines.append("## 制約事項")
         lines.append("")
@@ -509,14 +509,14 @@ class ReportGenerator:
         lines.append("- 情報の鮮度は収集時点のものです")
         lines.append("- 商用APIを使用していないため、一部の情報源にアクセスできていない可能性があります")
         lines.append("")
-        
+
         # Metadata
         lines.append("---")
         lines.append("")
         lines.append("*Generated by Lancet - Local Autonomous Deep Research Agent*")
-        
+
         return "\n".join(lines)
-    
+
     def _generate_timeline_section(
         self,
         claims: list[dict[str, Any]],
@@ -530,34 +530,34 @@ class ReportGenerator:
             List of markdown lines for timeline section.
         """
         lines = []
-        
+
         # Count claims with timelines
         claims_with_timeline = []
         retracted_claims = []
         corrected_claims = []
-        
+
         for claim in claims:
             timeline_json = claim.get("timeline_json")
             if not timeline_json:
                 continue
-            
+
             timeline = ClaimTimeline.from_json(timeline_json)
             if timeline and timeline.has_timeline:
                 claims_with_timeline.append((claim, timeline))
-                
+
                 if timeline.is_retracted:
                     retracted_claims.append((claim, timeline))
                 if timeline.is_corrected:
                     corrected_claims.append((claim, timeline))
-        
+
         if not claims_with_timeline:
             return []
-        
+
         lines.append("## タイムライン")
         lines.append("")
         lines.append(f"タイムライン付与済み主張: {len(claims_with_timeline)}件 / {len(claims)}件")
         lines.append("")
-        
+
         # Alert for retracted or corrected claims
         if retracted_claims:
             lines.append("### ⚠️ 撤回された主張")
@@ -575,7 +575,7 @@ class ReportGenerator:
                     if retraction.source_url:
                         lines.append(f"  - 出典: [{retraction.source_url[:60]}...]({retraction.source_url})")
             lines.append("")
-        
+
         if corrected_claims:
             lines.append("### 📝 訂正された主張")
             lines.append("")
@@ -590,26 +590,26 @@ class ReportGenerator:
                     if correction.notes:
                         lines.append(f"  - 内容: {correction.notes}")
             lines.append("")
-        
+
         # Show timeline for high-confidence claims
         high_confidence_with_timeline = [
             (c, t) for c, t in claims_with_timeline
             if (c.get("confidence_score") or 0) >= 0.7
             and not t.is_retracted
         ][:10]  # Limit to 10
-        
+
         if high_confidence_with_timeline:
             lines.append("### 主要な主張のタイムライン")
             lines.append("")
-            
+
             for claim, timeline in high_confidence_with_timeline:
                 claim_text = claim.get("claim_text", "")
                 if len(claim_text) > 80:
                     claim_text = claim_text[:77] + "..."
-                
+
                 lines.append(f"**{claim_text}**")
                 lines.append("")
-                
+
                 # Show events
                 for event in timeline.events[:5]:  # Limit events per claim
                     event_labels = {
@@ -621,18 +621,18 @@ class ReportGenerator:
                     }
                     label = event_labels.get(event.event_type, "📌")
                     date_str = event.timestamp.strftime("%Y年%m月%d日")
-                    
+
                     lines.append(f"- {label} {date_str}")
                     if event.source_url:
                         url_display = event.source_url[:50] + "..." if len(event.source_url) > 50 else event.source_url
                         lines.append(f"  - [{url_display}]({event.source_url})")
                     if event.wayback_snapshot_url:
                         lines.append(f"  - [📜 アーカイブ]({event.wayback_snapshot_url})")
-                
+
                 lines.append("")
-        
+
         return lines
-    
+
     async def _generate_json(
         self,
         task: dict[str, Any],
@@ -659,11 +659,11 @@ class ReportGenerator:
             "corrected": 0,
             "confirmed": 0,
         }
-        
+
         for claim in claims:
             claim_copy = dict(claim)
             timeline_json = claim.get("timeline_json")
-            
+
             if timeline_json:
                 timeline = ClaimTimeline.from_json(timeline_json)
                 if timeline and timeline.has_timeline:
@@ -675,14 +675,14 @@ class ReportGenerator:
                         timeline_stats["corrected"] += 1
                     if timeline.confirmation_count > 0:
                         timeline_stats["confirmed"] += 1
-            
+
             claims_with_parsed_timeline.append(claim_copy)
-        
+
         report = {
             "meta": {
                 "task_id": task["id"],
                 "query": task["query"],
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "generator": "Lancet",
             },
             "summary": {
@@ -697,7 +697,7 @@ class ReportGenerator:
                 "edges": edges,
             },
         }
-        
+
         return json.dumps(report, ensure_ascii=False, indent=2)
 
 
@@ -723,7 +723,7 @@ async def generate_report(
     global _generator
     if _generator is None:
         _generator = ReportGenerator()
-    
+
     return await _generator.generate(
         task_id=task_id,
         format_type=format_type,
@@ -750,16 +750,16 @@ async def get_report_materials(
         Report materials as structured data.
     """
     db = await get_database()
-    
+
     # Get task
     task = await db.fetch_one(
         "SELECT * FROM tasks WHERE id = ?",
         (task_id,),
     )
-    
+
     if task is None:
         return {"ok": False, "error": f"Task not found: {task_id}"}
-    
+
     # Get claims with supporting/refuting counts
     claims = await db.fetch_all(
         """
@@ -775,11 +775,11 @@ async def get_report_materials(
         """,
         (task_id,),
     )
-    
+
     # Classify claims by confidence threshold (§4.5)
     high_confidence = [c for c in claims if (c.get("confidence_score") or 0) >= 0.7]
     low_confidence = [c for c in claims if (c.get("confidence_score") or 0) < 0.7]
-    
+
     # Get fragments if requested
     fragments = []
     if include_fragments:
@@ -796,7 +796,7 @@ async def get_report_materials(
             """,
             (task_id,),
         )
-        
+
         # Classify by source type (§3.4: Source Priority Order)
         for frag in fragments:
             frag["is_primary_source"] = frag.get("source_tag") in (
@@ -807,7 +807,7 @@ async def get_report_materials(
                 frag["deep_link"] = generate_deep_link(
                     frag["url"], frag["heading_context"]
                 )
-    
+
     # Get evidence graph if requested
     evidence_graph = None
     if include_evidence_graph:
@@ -819,12 +819,12 @@ async def get_report_materials(
             """,
             (task_id, task_id),
         )
-        
+
         # Build graph summary
         supports = [e for e in edges if e.get("relation") == "supports"]
         refutes = [e for e in edges if e.get("relation") == "refutes"]
         cites = [e for e in edges if e.get("relation") == "cites"]
-        
+
         evidence_graph = {
             "edges": edges,
             "summary": {
@@ -834,10 +834,10 @@ async def get_report_materials(
                 "cites_count": len(cites),
             },
         }
-    
+
     # Build summary
     primary_sources = len([f for f in fragments if f.get("is_primary_source")])
-    
+
     # Calculate timeline statistics (§3.4)
     timeline_stats = {
         "claims_with_timeline": 0,
@@ -846,7 +846,7 @@ async def get_report_materials(
         "claims_confirmed": 0,
         "coverage_rate": 0.0,
     }
-    
+
     for claim in claims:
         timeline_json = claim.get("timeline_json")
         if timeline_json:
@@ -859,10 +859,10 @@ async def get_report_materials(
                     timeline_stats["claims_corrected"] += 1
                 if timeline.confirmation_count > 0:
                     timeline_stats["claims_confirmed"] += 1
-    
+
     if len(claims) > 0:
         timeline_stats["coverage_rate"] = timeline_stats["claims_with_timeline"] / len(claims)
-    
+
     logger.info(
         "Report materials retrieved",
         task_id=task_id,
@@ -870,7 +870,7 @@ async def get_report_materials(
         fragments_count=len(fragments),
         timeline_coverage=timeline_stats["coverage_rate"],
     )
-    
+
     return {
         "ok": True,
         "task_id": task_id,
@@ -914,16 +914,16 @@ async def get_evidence_graph(
         Evidence graph as structured data.
     """
     db = await get_database()
-    
+
     # Get task
     task = await db.fetch_one(
         "SELECT * FROM tasks WHERE id = ?",
         (task_id,),
     )
-    
+
     if task is None:
         return {"ok": False, "error": f"Task not found: {task_id}"}
-    
+
     # Get claims
     if claim_ids:
         placeholders = ",".join("?" for _ in claim_ids)
@@ -936,9 +936,9 @@ async def get_evidence_graph(
             "SELECT * FROM claims WHERE task_id = ?",
             (task_id,),
         )
-    
+
     claim_id_set = {c["id"] for c in claims}
-    
+
     # Get edges involving these claims
     if claim_ids:
         placeholders = ",".join("?" for _ in claim_ids)
@@ -959,7 +959,7 @@ async def get_evidence_graph(
             """,
             (task_id, task_id),
         )
-    
+
     # Get linked fragments if requested
     fragments = []
     if include_fragments:
@@ -970,7 +970,7 @@ async def get_evidence_graph(
                 fragment_ids.add(edge["source_id"])
             if edge.get("target_type") == "fragment":
                 fragment_ids.add(edge["target_id"])
-        
+
         if fragment_ids:
             placeholders = ",".join("?" for _ in fragment_ids)
             fragments = await db.fetch_all(
@@ -982,7 +982,7 @@ async def get_evidence_graph(
                 """,
                 list(fragment_ids),
             )
-    
+
     # Build graph structure
     nodes = {
         "claims": [
@@ -1008,7 +1008,7 @@ async def get_evidence_graph(
             for f in fragments
         ],
     }
-    
+
     # Classify edges
     edge_list = [
         {
@@ -1022,13 +1022,13 @@ async def get_evidence_graph(
         }
         for e in edges
     ]
-    
+
     # Summary statistics
     relations = {}
     for e in edges:
         rel = e.get("relation", "unknown")
         relations[rel] = relations.get(rel, 0) + 1
-    
+
     logger.info(
         "Evidence graph retrieved",
         task_id=task_id,
@@ -1036,7 +1036,7 @@ async def get_evidence_graph(
         fragments=len(fragments),
         edges=len(edges),
     )
-    
+
     return {
         "ok": True,
         "task_id": task_id,

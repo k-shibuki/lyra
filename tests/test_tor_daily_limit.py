@@ -22,9 +22,10 @@ Tests the Tor daily usage limit functionality per §4.3 and §7:
 | TC-TOR-N-08 | Domain metrics tracking | Equivalence – domain | Domain counters updated | Per-domain |
 """
 
-import pytest
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
@@ -36,7 +37,7 @@ pytestmark = pytest.mark.unit
 
 class TestTorUsageMetrics:
     """Tests for TorUsageMetrics Pydantic model."""
-    
+
     def test_usage_ratio_zero_requests(self):
         """
         Usage ratio should be 0.0 when no requests have been made.
@@ -46,15 +47,15 @@ class TestTorUsageMetrics:
         // Then: Returns 0.0 (not division by zero)
         """
         from src.utils.schemas import TorUsageMetrics
-        
+
         metrics = TorUsageMetrics(
             total_requests=0,
             tor_requests=0,
             date="2025-12-15",
         )
-        
+
         assert metrics.usage_ratio == 0.0
-    
+
     def test_usage_ratio_calculation(self):
         """
         Usage ratio should be correctly calculated.
@@ -64,15 +65,15 @@ class TestTorUsageMetrics:
         // Then: Returns 0.2 (20%)
         """
         from src.utils.schemas import TorUsageMetrics
-        
+
         metrics = TorUsageMetrics(
             total_requests=100,
             tor_requests=20,
             date="2025-12-15",
         )
-        
+
         assert metrics.usage_ratio == 0.2
-    
+
     def test_validation_non_negative(self):
         """
         TorUsageMetrics should reject negative values.
@@ -82,8 +83,9 @@ class TestTorUsageMetrics:
         // Then: ValidationError is raised
         """
         from pydantic import ValidationError
+
         from src.utils.schemas import TorUsageMetrics
-        
+
         with pytest.raises(ValidationError):
             TorUsageMetrics(
                 total_requests=-1,
@@ -98,7 +100,7 @@ class TestTorUsageMetrics:
 
 class TestDomainTorMetrics:
     """Tests for DomainTorMetrics Pydantic model."""
-    
+
     def test_domain_usage_ratio(self):
         """
         Domain usage ratio should be correctly calculated.
@@ -108,14 +110,14 @@ class TestDomainTorMetrics:
         // Then: Returns 0.2 (20%)
         """
         from src.utils.schemas import DomainTorMetrics
-        
+
         metrics = DomainTorMetrics(
             domain="example.com",
             total_requests=50,
             tor_requests=10,
             date="2025-12-15",
         )
-        
+
         assert metrics.usage_ratio == 0.2
         assert metrics.domain == "example.com"
 
@@ -126,13 +128,13 @@ class TestDomainTorMetrics:
 
 class TestMetricsCollectorTorTracking:
     """Tests for MetricsCollector Tor tracking methods."""
-    
+
     @pytest.fixture
     def fresh_collector(self):
         """Create a fresh MetricsCollector for each test."""
         from src.utils.metrics import MetricsCollector
         return MetricsCollector()
-    
+
     def test_get_today_tor_metrics_initial(self, fresh_collector):
         """
         Initial Tor metrics should have zero counts.
@@ -142,11 +144,11 @@ class TestMetricsCollectorTorTracking:
         // Then: Both counts are 0
         """
         metrics = fresh_collector.get_today_tor_metrics()
-        
+
         assert metrics.total_requests == 0
         assert metrics.tor_requests == 0
         assert metrics.date == date.today().isoformat()
-    
+
     def test_record_request_increments_total(self, fresh_collector):
         """
         record_request should increment total_requests.
@@ -156,11 +158,11 @@ class TestMetricsCollectorTorTracking:
         // Then: total_requests incremented by 1
         """
         fresh_collector.record_request("example.com")
-        
+
         metrics = fresh_collector.get_today_tor_metrics()
         assert metrics.total_requests == 1
         assert metrics.tor_requests == 0
-    
+
     def test_record_tor_usage_increments_tor(self, fresh_collector):
         """
         record_tor_usage should increment tor_requests.
@@ -170,10 +172,10 @@ class TestMetricsCollectorTorTracking:
         // Then: tor_requests incremented by 1
         """
         fresh_collector.record_tor_usage("example.com")
-        
+
         metrics = fresh_collector.get_today_tor_metrics()
         assert metrics.tor_requests == 1
-    
+
     def test_domain_metrics_tracking(self, fresh_collector):
         """
         Domain-specific metrics should be tracked separately.
@@ -186,15 +188,15 @@ class TestMetricsCollectorTorTracking:
         fresh_collector.record_request("example.com")
         fresh_collector.record_tor_usage("example.com")
         fresh_collector.record_request("other.com")
-        
+
         example_metrics = fresh_collector.get_domain_tor_metrics("example.com")
         other_metrics = fresh_collector.get_domain_tor_metrics("other.com")
-        
+
         assert example_metrics.total_requests == 2
         assert example_metrics.tor_requests == 1
         assert other_metrics.total_requests == 1
         assert other_metrics.tor_requests == 0
-    
+
     def test_domain_case_insensitive(self, fresh_collector):
         """
         Domain metrics should be case-insensitive.
@@ -205,11 +207,11 @@ class TestMetricsCollectorTorTracking:
         """
         fresh_collector.record_request("Example.COM")
         fresh_collector.record_request("example.com")
-        
+
         metrics = fresh_collector.get_domain_tor_metrics("EXAMPLE.com")
         assert metrics.total_requests == 2
         assert metrics.domain == "example.com"
-    
+
     def test_date_reset_on_new_day(self, fresh_collector):
         """
         Metrics should reset when date changes.
@@ -222,10 +224,10 @@ class TestMetricsCollectorTorTracking:
         fresh_collector._tor_daily_date = "2025-01-01"
         fresh_collector._tor_daily_total_requests = 100
         fresh_collector._tor_daily_tor_requests = 20
-        
+
         # Get metrics (triggers date check)
         metrics = fresh_collector.get_today_tor_metrics()
-        
+
         assert metrics.total_requests == 0
         assert metrics.tor_requests == 0
         assert metrics.date == date.today().isoformat()
@@ -237,7 +239,7 @@ class TestMetricsCollectorTorTracking:
 
 class TestCanUseTor:
     """Tests for _can_use_tor() function."""
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_zero_usage(self):
         """
@@ -249,14 +251,14 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         mock_collector = MetricsCollector()
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
             result = await _can_use_tor()
-        
+
         assert result is True
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_below_limit(self):
         """
@@ -268,16 +270,16 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         mock_collector = MetricsCollector()
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 19
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
             result = await _can_use_tor()
-        
+
         assert result is True
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_at_limit(self):
         """
@@ -289,16 +291,16 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         mock_collector = MetricsCollector()
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 20
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
             result = await _can_use_tor()
-        
+
         assert result is False
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_above_limit(self):
         """
@@ -310,16 +312,16 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         mock_collector = MetricsCollector()
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 25
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
             result = await _can_use_tor()
-        
+
         assert result is False
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_domain_blocked(self):
         """
@@ -331,23 +333,23 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         mock_collector = MetricsCollector()
         # Global is OK (15%)
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 15
-        
+
         # Mock domain policy to have Tor blocked
         mock_policy = MagicMock()
         mock_policy.tor_allowed = False
         mock_policy.tor_blocked = True
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
             with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy):
                 result = await _can_use_tor("cloudflare-site.com")
-        
+
         assert result is False
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_domain_usage_limit(self):
         """
@@ -359,25 +361,25 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         mock_collector = MetricsCollector()
         # Global is OK (10%)
         mock_collector._tor_daily_total_requests = 100
         mock_collector._tor_daily_tor_requests = 10
         # Domain is at limit (20%)
         mock_collector._tor_domain_metrics["example.com"] = {"total": 100, "tor": 20}
-        
+
         # Mock domain policy to allow Tor
         mock_policy = MagicMock()
         mock_policy.tor_allowed = True
         mock_policy.tor_blocked = False
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
             with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy):
                 result = await _can_use_tor("example.com")
-        
+
         assert result is False
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_fail_open(self):
         """
@@ -388,12 +390,12 @@ class TestCanUseTor:
         // Then: Returns True (fail-open behavior)
         """
         from src.crawler.fetcher import _can_use_tor
-        
+
         with patch('src.utils.metrics.get_metrics_collector', side_effect=Exception("test error")):
             result = await _can_use_tor()
-        
+
         assert result is True
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_first_request(self):
         """
@@ -405,13 +407,13 @@ class TestCanUseTor:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         mock_collector = MetricsCollector()
         # Fresh collector has 0 requests
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=mock_collector):
             result = await _can_use_tor()
-        
+
         assert result is True
 
 
@@ -421,7 +423,7 @@ class TestCanUseTor:
 
 class TestTorLimitIntegration:
     """Integration tests for Tor daily limit."""
-    
+
     @pytest.mark.asyncio
     async def test_can_use_tor_with_real_collector(self):
         """
@@ -433,35 +435,35 @@ class TestTorLimitIntegration:
         """
         from src.crawler.fetcher import _can_use_tor
         from src.utils.metrics import MetricsCollector
-        
+
         # Use a fresh collector for isolation
         collector = MetricsCollector()
-        
+
         # Simulate 100 requests with 19 Tor (19% - under limit)
         # Note: record_request and record_tor_usage are separate counters
         for _ in range(100):
             collector.record_request("example.com")
         for _ in range(19):
             collector.record_tor_usage("example.com")
-        
+
         # Mock domain policy to allow Tor
         mock_policy = MagicMock()
         mock_policy.tor_allowed = True
         mock_policy.tor_blocked = False
-        
+
         with patch('src.utils.metrics.get_metrics_collector', return_value=collector):
             with patch('src.utils.domain_policy.get_domain_policy', return_value=mock_policy):
                 # Should be allowed (19% < 20%)
                 result = await _can_use_tor("example.com")
                 assert result is True
-                
+
                 # Add one more Tor request to hit 20% (20/100 = 20%)
                 collector.record_tor_usage("example.com")
-                
+
                 # Now should be blocked (20% >= 20%)
                 result = await _can_use_tor("example.com")
                 assert result is False
-    
+
     def test_metrics_collector_global_singleton(self):
         """
         Global MetricsCollector maintains state across calls.
@@ -471,16 +473,16 @@ class TestTorLimitIntegration:
         // Then: State persists
         """
         from src.utils.metrics import get_metrics_collector
-        
+
         # Get the global collector
         collector1 = get_metrics_collector()
         initial_requests = collector1.get_today_tor_metrics().total_requests
-        
+
         # Record a request
         collector1.record_request("test.com")
-        
+
         # Get collector again - should be same instance
         collector2 = get_metrics_collector()
-        
+
         # Should see the recorded request
         assert collector2.get_today_tor_metrics().total_requests == initial_requests + 1

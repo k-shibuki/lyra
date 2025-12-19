@@ -20,35 +20,32 @@ See scripts/migrate.py for the migration runner implementation.
 | TC-B-03 | Empty migration file | Boundary - empty | No-op, recorded as applied | - |
 """
 
-import os
 import sqlite3
-import tempfile
+
+# Import the migration module
+# Note: We import functions directly to test them
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-
-# Import the migration module
-# Note: We import functions directly to test them
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from migrate import (
-    get_connection,
+    apply_migration,
+    cmd_create,
+    cmd_status,
+    cmd_up,
     ensure_migrations_table,
     get_applied_migrations,
+    get_connection,
     get_pending_migrations,
-    apply_migration,
-    cmd_up,
-    cmd_status,
-    cmd_create,
-    MIGRATIONS_DIR,
 )
 
 
 class TestMigrationInfrastructure:
     """Tests for migration infrastructure components."""
-    
+
     def test_get_connection_creates_db(self, tmp_path: Path):
         """
         TC-A-01: Test DB creation for non-existent path.
@@ -60,18 +57,18 @@ class TestMigrationInfrastructure:
         # Given: Non-existent DB path
         db_path = tmp_path / "subdir" / "test.db"
         assert not db_path.exists()
-        
+
         # When: Get connection (parent dir needs to exist for sqlite)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = get_connection(db_path)
-        
+
         # Then: Connection is valid
         assert conn is not None
         cursor = conn.execute("SELECT 1")
         assert cursor.fetchone()[0] == 1
         conn.close()
         assert db_path.exists()
-    
+
     def test_ensure_migrations_table_creates_table(self, tmp_path: Path):
         """
         TC-N-01 (setup): Test schema_migrations table creation.
@@ -83,21 +80,21 @@ class TestMigrationInfrastructure:
         # Given: Fresh DB
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
-        
+
         # When: Ensure table
         ensure_migrations_table(conn)
-        
+
         # Then: Table exists with correct schema
         cursor = conn.execute("PRAGMA table_info(schema_migrations)")
         columns = {row[1]: row[2] for row in cursor.fetchall()}
-        
+
         assert "version" in columns
         assert "name" in columns
         assert "applied_at" in columns
         assert columns["version"] == "INTEGER"
-        
+
         conn.close()
-    
+
     def test_get_applied_migrations_empty(self, tmp_path: Path):
         """
         TC-A-03: Test empty migrations.
@@ -110,14 +107,14 @@ class TestMigrationInfrastructure:
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Get applied
         applied = get_applied_migrations(conn)
-        
+
         # Then: Empty set
         assert applied == set()
         conn.close()
-    
+
     def test_get_applied_migrations_with_data(self, tmp_path: Path):
         """
         TC-N-02: Test with existing applied migrations.
@@ -133,10 +130,10 @@ class TestMigrationInfrastructure:
         conn.execute("INSERT INTO schema_migrations (version, name) VALUES (1, 'first')")
         conn.execute("INSERT INTO schema_migrations (version, name) VALUES (2, 'second')")
         conn.commit()
-        
+
         # When: Get applied
         applied = get_applied_migrations(conn)
-        
+
         # Then: Returns versions
         assert applied == {1, 2}
         conn.close()
@@ -144,7 +141,7 @@ class TestMigrationInfrastructure:
 
 class TestMigrationDiscovery:
     """Tests for migration file discovery."""
-    
+
     def test_get_pending_migrations_no_dir(self, tmp_path: Path):
         """
         TC-A-03: Test with non-existent migrations directory.
@@ -157,15 +154,15 @@ class TestMigrationDiscovery:
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Get pending (with patched MIGRATIONS_DIR)
         with patch("migrate.MIGRATIONS_DIR", tmp_path / "nonexistent"):
             pending = get_pending_migrations(conn)
-        
+
         # Then: Empty list
         assert pending == []
         conn.close()
-    
+
     def test_get_pending_migrations_finds_files(self, tmp_path: Path):
         """
         TC-N-01: Test migration file discovery.
@@ -180,15 +177,15 @@ class TestMigrationDiscovery:
         (migrations_dir / "001_first.sql").write_text("-- first")
         (migrations_dir / "002_second.sql").write_text("-- second")
         (migrations_dir / "not_a_migration.txt").write_text("-- ignored")
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Get pending
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             pending = get_pending_migrations(conn)
-        
+
         # Then: Returns ordered list
         assert len(pending) == 2
         assert pending[0][0] == 1  # version
@@ -196,7 +193,7 @@ class TestMigrationDiscovery:
         assert pending[1][0] == 2
         assert pending[1][1] == "second"
         conn.close()
-    
+
     def test_get_pending_excludes_applied(self, tmp_path: Path):
         """
         TC-N-02: Test that applied migrations are excluded.
@@ -210,17 +207,17 @@ class TestMigrationDiscovery:
         migrations_dir.mkdir()
         (migrations_dir / "001_first.sql").write_text("-- first")
         (migrations_dir / "002_second.sql").write_text("-- second")
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
         conn.execute("INSERT INTO schema_migrations (version, name) VALUES (1, 'first')")
         conn.commit()
-        
+
         # When: Get pending
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             pending = get_pending_migrations(conn)
-        
+
         # Then: Only second migration pending
         assert len(pending) == 1
         assert pending[0][0] == 2
@@ -229,7 +226,7 @@ class TestMigrationDiscovery:
 
 class TestMigrationExecution:
     """Tests for migration execution."""
-    
+
     def test_apply_migration_simple(self, tmp_path: Path):
         """
         TC-N-01: Test applying a simple migration.
@@ -248,22 +245,22 @@ class TestMigrationExecution:
                 name TEXT
             );
         """)
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Apply migration
         apply_migration(conn, 1, "create_test", migration_file)
-        
+
         # Then: Table exists and migration recorded
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'")
         assert cursor.fetchone() is not None
-        
+
         applied = get_applied_migrations(conn)
         assert 1 in applied
         conn.close()
-    
+
     def test_apply_migration_alter_table(self, tmp_path: Path):
         """
         TC-N-04: Test migration with ALTER TABLE.
@@ -278,7 +275,7 @@ class TestMigrationExecution:
         ensure_migrations_table(conn)
         conn.execute("CREATE TABLE domains (domain TEXT PRIMARY KEY)")
         conn.commit()
-        
+
         # Given: ALTER TABLE migration
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
@@ -286,16 +283,16 @@ class TestMigrationExecution:
         migration_file.write_text("""
             ALTER TABLE domains ADD COLUMN new_column INTEGER DEFAULT 0;
         """)
-        
+
         # When: Apply migration
         apply_migration(conn, 1, "add_column", migration_file)
-        
+
         # Then: Column exists
         cursor = conn.execute("PRAGMA table_info(domains)")
         columns = [row[1] for row in cursor.fetchall()]
         assert "new_column" in columns
         conn.close()
-    
+
     def test_apply_migration_duplicate_column_graceful(self, tmp_path: Path):
         """
         TC-A-04: Test idempotent handling of duplicate column.
@@ -310,7 +307,7 @@ class TestMigrationExecution:
         ensure_migrations_table(conn)
         conn.execute("CREATE TABLE domains (domain TEXT PRIMARY KEY, existing_col INTEGER)")
         conn.commit()
-        
+
         # Given: Migration adding same column
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
@@ -318,15 +315,15 @@ class TestMigrationExecution:
         migration_file.write_text("""
             ALTER TABLE domains ADD COLUMN existing_col INTEGER DEFAULT 0;
         """)
-        
+
         # When: Apply migration - should not raise
         apply_migration(conn, 1, "add_existing", migration_file)
-        
+
         # Then: Migration recorded
         applied = get_applied_migrations(conn)
         assert 1 in applied
         conn.close()
-    
+
     def test_apply_migration_empty_file(self, tmp_path: Path):
         """
         TC-B-03: Test empty migration file.
@@ -340,19 +337,19 @@ class TestMigrationExecution:
         migrations_dir.mkdir()
         migration_file = migrations_dir / "001_empty.sql"
         migration_file.write_text("-- This migration is intentionally empty")
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Apply migration
         apply_migration(conn, 1, "empty", migration_file)
-        
+
         # Then: Recorded as applied
         applied = get_applied_migrations(conn)
         assert 1 in applied
         conn.close()
-    
+
     def test_apply_migration_malformed_sql(self, tmp_path: Path):
         """
         TC-A-02: Test malformed SQL migration.
@@ -366,21 +363,21 @@ class TestMigrationExecution:
         migrations_dir.mkdir()
         migration_file = migrations_dir / "001_bad.sql"
         migration_file.write_text("THIS IS NOT VALID SQL AT ALL;")
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When/Then: Raises exception
         with pytest.raises(sqlite3.OperationalError):
             apply_migration(conn, 1, "bad", migration_file)
-        
+
         conn.close()
 
 
 class TestMigrationCommands:
     """Tests for CLI commands."""
-    
+
     def test_cmd_up_applies_pending(self, tmp_path: Path):
         """
         TC-N-01: Test cmd_up applies pending migrations.
@@ -394,13 +391,13 @@ class TestMigrationCommands:
         migrations_dir.mkdir()
         (migrations_dir / "001_first.sql").write_text("CREATE TABLE t1 (id INTEGER);")
         (migrations_dir / "002_second.sql").write_text("CREATE TABLE t2 (id INTEGER);")
-        
+
         db_path = tmp_path / "test.db"
-        
+
         # When: Run cmd_up
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             result = cmd_up(db_path)
-        
+
         # Then: Success and tables exist
         assert result == 0
         conn = get_connection(db_path)
@@ -410,7 +407,7 @@ class TestMigrationCommands:
         assert "t2" in tables
         assert "schema_migrations" in tables
         conn.close()
-    
+
     def test_cmd_up_no_pending(self, tmp_path: Path):
         """
         TC-N-02: Test cmd_up with no pending migrations.
@@ -423,14 +420,14 @@ class TestMigrationCommands:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         db_path = tmp_path / "test.db"
-        
+
         # When: Run cmd_up
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             result = cmd_up(db_path)
-        
+
         # Then: Success
         assert result == 0
-    
+
     def test_cmd_status_shows_applied(self, tmp_path: Path, capsys):
         """
         TC-N-02: Test cmd_status shows applied migrations.
@@ -443,24 +440,24 @@ class TestMigrationCommands:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         (migrations_dir / "001_first.sql").write_text("SELECT 1;")
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
         conn.execute("INSERT INTO schema_migrations (version, name) VALUES (1, 'first')")
         conn.commit()
         conn.close()
-        
+
         # When: Run cmd_status
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             result = cmd_status(db_path)
-        
+
         # Then: Success and output contains info
         assert result == 0
         captured = capsys.readouterr()
         assert "Applied: 1" in captured.out
         assert "Pending: 0" in captured.out
-    
+
     def test_cmd_create_new_migration(self, tmp_path: Path, capsys):
         """
         TC-N-01: Test cmd_create creates new migration file.
@@ -472,20 +469,20 @@ class TestMigrationCommands:
         # Given: Empty migrations dir
         migrations_dir = tmp_path / "migrations"
         # Note: cmd_create creates the directory
-        
+
         # When: Create migration
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             result = cmd_create("add_test_column")
-        
+
         # Then: File created
         assert result == 0
         files = list(migrations_dir.glob("*.sql"))
         assert len(files) == 1
         assert "001_add_test_column.sql" in files[0].name
-        
+
         content = files[0].read_text()
         assert "add_test_column" in content
-    
+
     def test_cmd_create_increments_version(self, tmp_path: Path):
         """
         TC-N-03: Test cmd_create increments version number.
@@ -499,11 +496,11 @@ class TestMigrationCommands:
         migrations_dir.mkdir()
         (migrations_dir / "001_first.sql").write_text("-- first")
         (migrations_dir / "002_second.sql").write_text("-- second")
-        
+
         # When: Create new migration
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             result = cmd_create("third")
-        
+
         # Then: Version 003
         assert result == 0
         assert (migrations_dir / "003_third.sql").exists()
@@ -511,7 +508,7 @@ class TestMigrationCommands:
 
 class TestBoundaryConditions:
     """Tests for boundary conditions."""
-    
+
     def test_migration_version_zero(self, tmp_path: Path):
         """
         TC-B-01: Test migration version 0.
@@ -524,20 +521,20 @@ class TestBoundaryConditions:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         (migrations_dir / "000_init.sql").write_text("CREATE TABLE init (id INTEGER);")
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Get pending
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             pending = get_pending_migrations(conn)
-        
+
         # Then: Version 0 is included
         assert len(pending) == 1
         assert pending[0][0] == 0
         conn.close()
-    
+
     def test_migration_version_large(self, tmp_path: Path):
         """
         TC-B-02: Test large migration version number.
@@ -550,20 +547,20 @@ class TestBoundaryConditions:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         (migrations_dir / "999_large.sql").write_text("SELECT 1;")
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Get pending
         with patch("migrate.MIGRATIONS_DIR", migrations_dir):
             pending = get_pending_migrations(conn)
-        
+
         # Then: Version 999 is included
         assert len(pending) == 1
         assert pending[0][0] == 999
         conn.close()
-    
+
     def test_multiple_statements_in_migration(self, tmp_path: Path):
         """
         TC-N-03: Test migration with multiple SQL statements.
@@ -581,20 +578,20 @@ class TestBoundaryConditions:
             CREATE TABLE table2 (id INTEGER);
             CREATE INDEX idx_t1 ON table1(id);
         """)
-        
+
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
         ensure_migrations_table(conn)
-        
+
         # When: Apply
         apply_migration(conn, 1, "multi", migration_file)
-        
+
         # Then: All objects exist
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [row[0] for row in cursor.fetchall()]
         assert "table1" in tables
         assert "table2" in tables
-        
+
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_t1'")
         assert cursor.fetchone() is not None
         conn.close()
