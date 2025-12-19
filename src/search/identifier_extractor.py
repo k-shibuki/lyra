@@ -5,18 +5,17 @@ Extracts DOI, PMID, arXiv ID, CiNii CRID, etc. from SERP result URLs.
 """
 
 import re
-from typing import Optional
 from urllib.parse import urlparse
 
-from src.utils.schemas import PaperIdentifier
 from src.utils.logging import get_logger
+from src.utils.schemas import PaperIdentifier
 
 logger = get_logger(__name__)
 
 
 class IdentifierExtractor:
     """Extract paper identifiers from URLs."""
-    
+
     # Regex patterns for academic sites
     PATTERNS = {
         "doi": re.compile(r"doi\.org/(10\.\d{4,}/[^\s?#]+)", re.IGNORECASE),
@@ -27,7 +26,7 @@ class IdentifierExtractor:
         "nature_doi": re.compile(r"nature\.com/articles/(s\d+-\d+-\d+-\w+)", re.IGNORECASE),
         "sciencedirect_doi": re.compile(r"sciencedirect\.com/science/article/pii/([A-Z0-9]+)", re.IGNORECASE),
     }
-    
+
     def extract(self, url: str) -> PaperIdentifier:
         """Extract identifiers from URL.
         
@@ -39,16 +38,16 @@ class IdentifierExtractor:
         """
         if not url:
             return PaperIdentifier(url=url)
-        
+
         identifier = PaperIdentifier(url=url)
-        
+
         # 1. DOI (doi.org)
         doi_match = self.PATTERNS["doi"].search(url)
         if doi_match:
             identifier.doi = doi_match.group(1)
             logger.debug("Extracted DOI from URL", doi=identifier.doi, url=url)
             return identifier
-        
+
         # 2. PMID (PubMed)
         pmid_match = self.PATTERNS["pmid"].search(url)
         if pmid_match:
@@ -56,7 +55,7 @@ class IdentifierExtractor:
             identifier.needs_meta_extraction = True  # DOI conversion needed
             logger.debug("Extracted PMID from URL", pmid=identifier.pmid, url=url)
             return identifier
-        
+
         # 3. arXiv ID
         arxiv_match = self.PATTERNS["arxiv"].search(url)
         if arxiv_match:
@@ -64,14 +63,14 @@ class IdentifierExtractor:
             identifier.needs_meta_extraction = True  # DOI conversion needed
             logger.debug("Extracted arXiv ID from URL", arxiv_id=identifier.arxiv_id, url=url)
             return identifier
-        
+
         # 4. J-Stage DOI
         jstage_match = self.PATTERNS["jstage_doi"].search(url)
         if jstage_match:
             identifier.doi = jstage_match.group(1)
             logger.debug("Extracted DOI from J-Stage URL", doi=identifier.doi, url=url)
             return identifier
-        
+
         # 5. CiNii CRID
         cinii_match = self.PATTERNS["cinii_crid"].search(url)
         if cinii_match:
@@ -79,21 +78,21 @@ class IdentifierExtractor:
             identifier.needs_meta_extraction = True  # DOI conversion needed
             logger.debug("Extracted CRID from URL", crid=identifier.crid, url=url)
             return identifier
-        
+
         # 6. Nature article ID (may contain DOI in meta tags)
         nature_match = self.PATTERNS["nature_doi"].search(url)
         if nature_match:
             identifier.needs_meta_extraction = True  # Need to extract DOI from meta tags
             logger.debug("Detected Nature article URL", url=url)
             return identifier
-        
+
         # 7. ScienceDirect (may contain DOI in meta tags)
         sciencedirect_match = self.PATTERNS["sciencedirect_doi"].search(url)
         if sciencedirect_match:
             identifier.needs_meta_extraction = True  # Need to extract DOI from meta tags
             logger.debug("Detected ScienceDirect URL", url=url)
             return identifier
-        
+
         # 8. Other academic domains (need meta tag extraction)
         parsed = urlparse(url)
         academic_domains = [
@@ -109,16 +108,16 @@ class IdentifierExtractor:
             "springer.com",
             "wiley.com",
         ]
-        
+
         domain_lower = parsed.netloc.lower()
         if any(academic_domain in domain_lower for academic_domain in academic_domains):
             identifier.needs_meta_extraction = True
             logger.debug("Detected academic domain, needs meta extraction", domain=domain_lower, url=url)
-        
+
         return identifier
-    
+
     @staticmethod
-    def extract_doi_from_text(text: str) -> Optional[str]:
+    def extract_doi_from_text(text: str) -> str | None:
         """Extract DOI from text (meta tags, etc.).
         
         Args:

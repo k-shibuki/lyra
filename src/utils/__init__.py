@@ -2,23 +2,23 @@
 Lancet utilities module.
 """
 
-from src.utils.config import get_settings, get_project_root, ensure_directories
+from src.utils.config import ensure_directories, get_project_root, get_settings
 from src.utils.logging import (
-    get_logger,
-    configure_logging,
-    bind_context,
-    unbind_context,
-    clear_context,
-    LogContext,
     CausalTrace,
+    LogContext,
+    bind_context,
+    clear_context,
+    configure_logging,
+    get_logger,
+    unbind_context,
 )
 from src.utils.metrics import (
     MetricsCollector,
-    get_metrics_collector,
-    TaskMetrics,
     MetricType,
-    record_fetch,
+    TaskMetrics,
+    get_metrics_collector,
     record_error,
+    record_fetch,
 )
 from src.utils.policy_engine import (
     PolicyEngine,
@@ -29,11 +29,11 @@ from src.utils.policy_engine import (
 )
 from src.utils.replay import (
     DecisionLogger,
-    ReplayEngine,
     DecisionType,
+    ReplayEngine,
+    cleanup_decision_logger,
     get_decision_logger,
     get_replay_engine,
-    cleanup_decision_logger,
 )
 
 __all__ = [

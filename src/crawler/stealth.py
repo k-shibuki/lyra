@@ -11,8 +11,7 @@ Note: Excessive fingerprint manipulation is avoided to maintain consistency.
 
 import random
 import time
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 from src.utils.logging import get_logger
 
@@ -195,7 +194,7 @@ class ViewportJitter:
     Per §4.3, viewport jitter is applied with narrow limits and hysteresis
     to prevent oscillation while still providing some randomization.
     """
-    
+
     def __init__(self, config: ViewportJitterConfig | None = None):
         """Initialize viewport jitter.
         
@@ -207,7 +206,7 @@ class ViewportJitter:
             current_width=self._config.base_width,
             current_height=self._config.base_height,
         )
-    
+
     def get_viewport(self, force_update: bool = False) -> dict[str, int]:
         """Get viewport dimensions with jitter applied.
         
@@ -224,10 +223,10 @@ class ViewportJitter:
                 "width": self._config.base_width,
                 "height": self._config.base_height,
             }
-        
+
         current_time = time.time()
         time_since_last = current_time - self._state.last_change_time
-        
+
         # Check hysteresis
         if not force_update and time_since_last < self._config.hysteresis_seconds:
             logger.debug(
@@ -239,7 +238,7 @@ class ViewportJitter:
                 "width": self._state.current_width,
                 "height": self._state.current_height,
             }
-        
+
         # Apply narrow jitter
         width_jitter = random.randint(
             -self._config.max_width_jitter,
@@ -249,15 +248,15 @@ class ViewportJitter:
             -self._config.max_height_jitter,
             self._config.max_height_jitter,
         )
-        
+
         new_width = self._config.base_width + width_jitter
         new_height = self._config.base_height + height_jitter
-        
+
         # Update state
         self._state.current_width = new_width
         self._state.current_height = new_height
         self._state.last_change_time = current_time
-        
+
         logger.debug(
             "Viewport jitter applied",
             width=new_width,
@@ -265,12 +264,12 @@ class ViewportJitter:
             width_jitter=width_jitter,
             height_jitter=height_jitter,
         )
-        
+
         return {
             "width": new_width,
             "height": new_height,
         }
-    
+
     def reset(self) -> None:
         """Reset viewport state to base dimensions."""
         self._state = ViewportState(
@@ -296,13 +295,13 @@ async def apply_stealth_to_page(page, is_cdp: bool = False) -> None:
     try:
         # Inject main stealth script
         await page.add_init_script(STEALTH_JS)
-        
+
         # For CDP connections, add additional overrides
         if is_cdp:
             await page.add_init_script(CDP_STEALTH_JS)
-        
+
         logger.debug("Stealth scripts applied to page", is_cdp=is_cdp)
-        
+
     except Exception as e:
         logger.warning("Failed to apply stealth scripts", error=str(e))
 
@@ -319,12 +318,12 @@ async def apply_stealth_to_context(context, is_cdp: bool = False) -> None:
     try:
         # Add init script to context so all new pages get it
         await context.add_init_script(STEALTH_JS)
-        
+
         if is_cdp:
             await context.add_init_script(CDP_STEALTH_JS)
-        
+
         logger.info("Stealth scripts applied to context", is_cdp=is_cdp)
-        
+
     except Exception as e:
         logger.warning("Failed to apply stealth to context", error=str(e))
 
@@ -340,28 +339,28 @@ def get_stealth_args() -> list[str]:
     return [
         # Disable automation-controlled flag
         "--disable-blink-features=AutomationControlled",
-        
+
         # Disable infobars (e.g., "Chrome is being controlled by automated software")
         "--disable-infobars",
-        
+
         # Use /dev/shm for faster operation
         "--disable-dev-shm-usage",
-        
+
         # Disable extensions that might be detected
         "--disable-extensions",
-        
+
         # Disable background networking
         "--disable-background-networking",
-        
+
         # Disable sync
         "--disable-sync",
-        
+
         # Disable translate
         "--disable-translate",
-        
+
         # Disable various Chrome features that can be fingerprinted
         "--disable-features=IsolateOrigins,site-per-process",
-        
+
         # Set window size explicitly (can be overridden by viewport)
         "--window-size=1920,1080",
     ]
@@ -379,14 +378,14 @@ def verify_stealth(page_content: str) -> dict[str, bool]:
         Dict with verification results.
     """
     content_lower = page_content.lower()
-    
+
     results = {
         # Check for automation detection markers
         "no_webdriver_detected": "webdriver" not in content_lower or "bot detected" not in content_lower,
         "no_automation_detected": "automation" not in content_lower or "bot" not in content_lower,
         "no_headless_detected": "headless" not in content_lower,
     }
-    
+
     return results
 
 
@@ -404,10 +403,10 @@ def get_viewport_jitter(config: ViewportJitterConfig | None = None) -> ViewportJ
         ViewportJitter instance.
     """
     global _viewport_jitter
-    
+
     if _viewport_jitter is None or config is not None:
         _viewport_jitter = ViewportJitter(config)
-    
+
     return _viewport_jitter
 
 

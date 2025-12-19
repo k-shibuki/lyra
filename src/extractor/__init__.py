@@ -7,18 +7,18 @@ page type classification, and content quality analysis.
 
 from src.extractor.content import extract_content, ocr_image
 from src.extractor.page_classifier import (
-    PageType,
-    PageFeatures,
     ClassificationResult,
     PageClassifier,
+    PageFeatures,
+    PageType,
     classify_page,
     get_classifier,
 )
 from src.extractor.quality_analyzer import (
-    QualityIssue,
-    QualityFeatures,
-    QualityResult,
     ContentQualityAnalyzer,
+    QualityFeatures,
+    QualityIssue,
+    QualityResult,
     analyze_content_quality,
     get_quality_analyzer,
 )

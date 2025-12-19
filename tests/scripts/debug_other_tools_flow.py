@@ -17,7 +17,7 @@ Usage:
 import asyncio
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Add project root to path
 sys.path.insert(0, "/home/statuser/lancet")
@@ -37,12 +37,12 @@ async def main():
     from src.storage.database import get_database
 
     db = await get_database()
-    
+
     task_id = f"task_debug_{uuid.uuid4().hex[:8]}"
     await db.execute(
         """INSERT INTO tasks (id, query, status, created_at)
            VALUES (?, ?, ?, ?)""",
-        (task_id, "test query", "exploring", datetime.now(timezone.utc).isoformat()),
+        (task_id, "test query", "exploring", datetime.now(UTC).isoformat()),
     )
     print(f"  - Created test task: {task_id}")
     print("[0] Setup: PASSED ✓")
@@ -118,10 +118,10 @@ async def main():
     # =========================================================================
     print("\n[3] Testing wait_for_user schema...")
 
-    from src.mcp.server import _handle_wait_for_user
-
     # This is a blocking call, so we just verify the handler exists and has correct signature
     import inspect
+
+    from src.mcp.server import _handle_wait_for_user
     sig = inspect.signature(_handle_wait_for_user)
     print(f"  - Handler signature: _handle_wait_for_user{sig}")
     print("  - (Skipping actual call - would block waiting for user input)")
