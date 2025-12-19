@@ -227,17 +227,17 @@ Lyra maintains a directed graph linking claims to supporting evidence:
 
 ### Trust Levels
 
-Sources are classified by institutional authority:
+Sources are classified by institutional authority (see `src/utils/domain_policy.py`):
 
 | Level | Description | Examples |
 |-------|-------------|----------|
 | `PRIMARY` | Standards bodies, registries | iso.org, ietf.org |
 | `GOVERNMENT` | Government agencies | .go.jp, .gov |
 | `ACADEMIC` | Academic/research institutions | arxiv.org, pubmed.gov |
-| `TRUSTED` | Established knowledge bases | wikipedia.org |
-| `LOW` | Verified low-trust sources | User-promoted sources |
-| `UNVERIFIED` | Not yet verified | Default for unknown domains |
-| `BLOCKED` | Excluded sources | Demoted via contradiction detection |
+| `TRUSTED` | Trusted media, knowledge bases | wikipedia.org |
+| `LOW` | Promoted from UNVERIFIED via L6 verification | Verified low-trust sources |
+| `UNVERIFIED` | Unknown domains, pending verification | Default for new domains |
+| `BLOCKED` | Excluded (contradiction detected, dangerous patterns) | Dynamically blocked |
 
 ### Security Architecture (8 Layers)
 
@@ -453,12 +453,17 @@ pytest tests/ -m 'e2e'
 
 ### Test Markers
 
-| Marker | Scope | Environment |
-|--------|-------|-------------|
-| `unit` | Pure functions, no I/O | Any |
-| `integration` | Mocked dependencies | Local |
-| `e2e` | Full system (Chrome, Ollama) | Local with containers |
-| `external` | External services | Local with network |
+See [TEST_LAYERS.md](docs/TEST_LAYERS.md) for detailed test execution guide.
+
+| Marker | Description | CI/Cloud | Local | Full |
+|--------|-------------|:--------:|:-----:|:----:|
+| `unit` | No external dependencies, fast | ✅ | ✅ | ✅ |
+| `integration` | Mocked external dependencies | ✅ | ✅ | ✅ |
+| `e2e` | Real environment required | ❌ | ⚠️ | ✅ |
+| `slow` | Tests taking >5 seconds | ❌ | ⚠️ | ✅ |
+| `external` | E2E + moderate block risk (Mojeek, Qwant) | ❌ | ❌ | ✅ |
+| `rate_limited` | E2E + high block risk (DuckDuckGo) | ❌ | ❌ | ✅ |
+| `manual` | Requires human interaction (CAPTCHA) | ❌ | ❌ | ✅ |
 
 ### Code Quality
 
