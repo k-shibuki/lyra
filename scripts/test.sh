@@ -65,23 +65,23 @@ ensure_venv() {
 #   0: Test execution started
 cmd_run() {
     local target="$1"
-    
+
     ensure_venv
-    
+
     echo "=== Cleanup ==="
     pkill -9 -f "pytest" 2>/dev/null || true
     sleep 1
-    
+
     echo "=== Running: $target ==="
     rm -f "$TEST_RESULT_FILE" "$TEST_PID_FILE"
-    
+
     # Activate venv and run pytest in background
     (
         # shellcheck source=/dev/null
         source "${VENV_DIR}/bin/activate"
         cd "${PROJECT_ROOT}"
         export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
-        
+
         # Set environment variables for container-specific tests
         # - lancet-ml container: Has FastAPI and ML libs (enable all ML tests)
         # - lancet container: May have ML libs but no FastAPI (enable ML lib tests only)
@@ -102,16 +102,16 @@ cmd_run() {
             # Extractor tests (PDF/OCR - typically in ML container but may be in lancet)
             export LANCET_RUN_EXTRACTOR_TESTS="${LANCET_RUN_EXTRACTOR_TESTS:-1}"
         fi
-        
+
         # Export container detection flags (default to 0 if not set and not in container)
         export LANCET_RUN_ML_TESTS="${LANCET_RUN_ML_TESTS:-0}"
         export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-0}"
         export LANCET_RUN_EXTRACTOR_TESTS="${LANCET_RUN_EXTRACTOR_TESTS:-0}"
-        
+
         PYTHONUNBUFFERED=1 pytest "$target" -m 'not e2e' --tb=short -q > "$TEST_RESULT_FILE" 2>&1 &
         echo $! > "$TEST_PID_FILE"
     )
-    
+
     echo "Started. Run: ./scripts/test.sh check"
 }
 
@@ -129,17 +129,17 @@ cmd_check() {
         log_error "Test result file not found"
         return 1
     fi
-    
+
     local mtime
     local now
     local age
     local last_line
     local result_content
-    
+
     # Read last few lines to check for test completion keywords
     result_content=$(tail -10 "$TEST_RESULT_FILE" 2>/dev/null || echo "")
     last_line=$(tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
-    
+
     # Check if test result contains completion keywords
     # pytest output format: "===== X passed, Y failed, Z skipped, W deselected ====="
     if echo "$result_content" | grep -qE "(passed|failed|skipped|deselected|error|ERROR)"; then
@@ -150,12 +150,12 @@ cmd_check() {
             return 0
         fi
     fi
-    
+
     # Fallback: Check file modification time
     mtime=$(stat -c %Y "$TEST_RESULT_FILE" 2>/dev/null || echo 0)
     now=$(date +%s)
     age=$((now - mtime))
-    
+
     if [ "$age" -gt "$COMPLETION_THRESHOLD" ]; then
         echo "DONE (${age}s ago)"
         tail -5 "$TEST_RESULT_FILE" 2>/dev/null || echo "No output"
@@ -171,14 +171,14 @@ cmd_check() {
 #   1: Result file not found
 cmd_get() {
     echo "=== Result ==="
-    
+
     # Check if result file exists
     if [[ ! -f "$TEST_RESULT_FILE" ]]; then
         log_error "Test result file not found"
         echo "No result - file not found"
         return 1
     fi
-    
+
     tail -20 "$TEST_RESULT_FILE" 2>/dev/null || {
         log_error "Failed to read test result file"
         echo "No result - read error"
@@ -245,23 +245,23 @@ case "$ACTION" in
     run)
         cmd_run "$TARGET"
         ;;
-    
+
     check)
         cmd_check
         ;;
-    
+
     get)
         cmd_get
         ;;
-    
+
     kill)
         cmd_kill
         ;;
-    
+
     help|--help|-h)
         show_help
         ;;
-    
+
     *)
         echo "Usage: $0 {run|check|get|kill} [target]"
         exit 1
