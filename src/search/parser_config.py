@@ -34,14 +34,14 @@ logger = get_logger(__name__)
 
 class SelectorSchema(BaseModel):
     """Schema for a single CSS selector configuration."""
-    
+
     selector: str = Field(..., description="CSS selector string")
     required: bool = Field(default=False, description="Whether selector is required")
     diagnostic_message: str = Field(
         default="",
         description="AI-friendly diagnostic message for debugging",
     )
-    
+
     @field_validator("selector")
     @classmethod
     def validate_selector(cls, v: str) -> str:
@@ -53,11 +53,11 @@ class SelectorSchema(BaseModel):
 
 class CaptchaPatternSchema(BaseModel):
     """Schema for CAPTCHA detection pattern."""
-    
+
     pattern: str = Field(..., description="Pattern to match in HTML")
     type: str = Field(..., description="CAPTCHA type identifier")
     case_insensitive: bool = Field(default=False, description="Case-insensitive matching")
-    
+
     def matches(self, html: str) -> bool:
         """Check if pattern matches HTML content."""
         if self.case_insensitive:
@@ -67,21 +67,21 @@ class CaptchaPatternSchema(BaseModel):
 
 class EngineParserSchema(BaseModel):
     """Schema for a search engine parser configuration."""
-    
+
     search_url: str = Field(..., description="URL template for search")
     default_region: str | None = Field(default=None)
     default_language: str | None = Field(default=None)
     time_ranges: dict[str, str] = Field(default_factory=dict)
     selectors: dict[str, SelectorSchema] = Field(default_factory=dict)
     captcha_patterns: list[CaptchaPatternSchema] = Field(default_factory=list)
-    
+
     @field_validator("selectors", mode="before")
     @classmethod
     def parse_selectors(cls, v: Any) -> dict[str, SelectorSchema]:
         """Parse selector configurations."""
         if not isinstance(v, dict):
             return {}
-        
+
         result = {}
         for name, config in v.items():
             if isinstance(config, dict):
@@ -89,14 +89,14 @@ class EngineParserSchema(BaseModel):
             elif isinstance(config, SelectorSchema):
                 result[name] = config
         return result
-    
+
     @field_validator("captcha_patterns", mode="before")
     @classmethod
     def parse_captcha_patterns(cls, v: Any) -> list[CaptchaPatternSchema]:
         """Parse CAPTCHA patterns."""
         if not isinstance(v, list):
             return []
-        
+
         result = []
         for item in v:
             if isinstance(item, dict):
@@ -108,7 +108,7 @@ class EngineParserSchema(BaseModel):
 
 class ParserSettingsSchema(BaseModel):
     """Schema for global parser settings."""
-    
+
     debug_html_dir: str = Field(default="debug/search_html")
     save_failed_html: bool = Field(default=True)
     max_results_per_page: int = Field(default=20, ge=1, le=100)
@@ -117,7 +117,7 @@ class ParserSettingsSchema(BaseModel):
 
 class SearchParsersConfigSchema(BaseModel):
     """Root schema for search_parsers.yaml configuration."""
-    
+
     settings: ParserSettingsSchema = Field(default_factory=ParserSettingsSchema)
     duckduckgo: EngineParserSchema | None = None
     mojeek: EngineParserSchema | None = None
@@ -127,12 +127,12 @@ class SearchParsersConfigSchema(BaseModel):
     ecosia: EngineParserSchema | None = None
     startpage: EngineParserSchema | None = None
     bing: EngineParserSchema | None = None
-    
+
     def get_engine(self, name: str) -> EngineParserSchema | None:
         """Get parser config for an engine by name."""
         name_lower = name.lower()
         return getattr(self, name_lower, None)
-    
+
     def get_available_engines(self) -> list[str]:
         """Get list of configured engine names."""
         engines = []
@@ -152,12 +152,12 @@ class SearchParsersConfigSchema(BaseModel):
 @dataclass
 class SelectorConfig:
     """Resolved selector configuration for runtime use."""
-    
+
     name: str
     selector: str
     required: bool = False
     diagnostic_message: str = ""
-    
+
     def get_error_message(self, context: str = "") -> str:
         """Get formatted error message for selector failure."""
         base = f"Selector '{self.name}' ({self.selector}) not found"
@@ -171,7 +171,7 @@ class SelectorConfig:
 @dataclass
 class EngineParserConfig:
     """Resolved parser configuration for a search engine."""
-    
+
     name: str
     search_url: str
     default_region: str | None = None
@@ -179,19 +179,19 @@ class EngineParserConfig:
     time_ranges: dict[str, str] = field(default_factory=dict)
     selectors: dict[str, SelectorConfig] = field(default_factory=dict)
     captcha_patterns: list[CaptchaPatternSchema] = field(default_factory=list)
-    
+
     def get_selector(self, name: str) -> SelectorConfig | None:
         """Get selector config by name."""
         return self.selectors.get(name)
-    
+
     def get_required_selectors(self) -> list[SelectorConfig]:
         """Get all required selectors."""
         return [s for s in self.selectors.values() if s.required]
-    
+
     def get_time_range(self, key: str) -> str:
         """Get time range parameter value."""
         return self.time_ranges.get(key, "")
-    
+
     def build_search_url(
         self,
         query: str,
@@ -201,19 +201,19 @@ class EngineParserConfig:
     ) -> str:
         """Build search URL from template."""
         url = self.search_url
-        
+
         # Replace placeholders
         url = url.replace("{query}", query)
         url = url.replace("{time_range}", self.get_time_range(time_range))
         url = url.replace("{region}", region or self.default_region or "")
         url = url.replace("{language}", language or self.default_language or "")
-        
+
         # Clean up empty parameters
         url = re.sub(r"[&?][a-z_]+=(?=&|$)", "", url)
         url = url.rstrip("&?")
-        
+
         return url
-    
+
     def detect_captcha(self, html: str) -> tuple[bool, str | None]:
         """
         Check if HTML contains CAPTCHA/challenge.
@@ -230,12 +230,12 @@ class EngineParserConfig:
 @dataclass
 class ParserSettings:
     """Resolved global parser settings."""
-    
+
     debug_html_dir: Path
     save_failed_html: bool = True
     max_results_per_page: int = 20
     search_timeout: int = 30
-    
+
     def ensure_debug_dir(self) -> None:
         """Ensure debug HTML directory exists."""
         if self.save_failed_html:
@@ -269,10 +269,10 @@ class ParserConfigManager:
         # Build search URL
         url = config.build_search_url("AI regulations", time_range="week")
     """
-    
-    _instance: "ParserConfigManager | None" = None
+
+    _instance: ParserConfigManager | None = None
     _lock = threading.Lock()
-    
+
     def __init__(
         self,
         config_path: Path | str | None = None,
@@ -292,7 +292,7 @@ class ParserConfigManager:
         self._config_path = Path(config_path)
         self._watch_interval = watch_interval
         self._enable_hot_reload = enable_hot_reload
-        
+
         # Internal state
         self._config: SearchParsersConfigSchema | None = None
         self._settings: ParserSettings | None = None
@@ -300,25 +300,25 @@ class ParserConfigManager:
         self._last_check: float = 0.0
         self._engine_cache: dict[str, EngineParserConfig] = {}
         self._cache_lock = threading.RLock()
-        
+
         # Initial load
         self._load_config()
-    
+
     @classmethod
-    def get_instance(cls, **kwargs) -> "ParserConfigManager":
+    def get_instance(cls, **kwargs) -> ParserConfigManager:
         """Get singleton instance of parser config manager."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = cls(**kwargs)
         return cls._instance
-    
+
     @classmethod
     def reset_instance(cls) -> None:
         """Reset singleton instance (for testing)."""
         with cls._lock:
             cls._instance = None
-    
+
     def _load_config(self) -> None:
         """Load configuration from YAML file."""
         if not self._config_path.exists():
@@ -331,24 +331,24 @@ class ParserConfigManager:
                 debug_html_dir=Path("debug/search_html"),
             )
             return
-        
+
         try:
             with open(self._config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
-            
+
             # Parse engine sections
             for engine_name in ["duckduckgo", "mojeek", "google", "brave",
                                 "ecosia", "startpage", "bing"]:
                 if engine_name in data and isinstance(data[engine_name], dict):
                     data[engine_name] = EngineParserSchema(**data[engine_name])
-            
+
             # Parse settings
             if "settings" in data and isinstance(data["settings"], dict):
                 data["settings"] = ParserSettingsSchema(**data["settings"])
-            
+
             self._config = SearchParsersConfigSchema(**data)
             self._last_mtime = self._config_path.stat().st_mtime
-            
+
             # Build settings
             self._settings = ParserSettings(
                 debug_html_dir=Path(self._config.settings.debug_html_dir),
@@ -356,17 +356,17 @@ class ParserConfigManager:
                 max_results_per_page=self._config.settings.max_results_per_page,
                 search_timeout=self._config.settings.search_timeout,
             )
-            
+
             # Clear cache on reload
             with self._cache_lock:
                 self._engine_cache.clear()
-            
+
             logger.info(
                 "Parser config loaded",
                 path=str(self._config_path),
                 engines=self._config.get_available_engines(),
             )
-            
+
         except yaml.YAMLError as e:
             logger.error(
                 "Failed to parse parser config YAML",
@@ -385,21 +385,21 @@ class ParserConfigManager:
             if self._config is None:
                 self._config = SearchParsersConfigSchema()
                 self._settings = ParserSettings(debug_html_dir=Path("debug/search_html"))
-    
+
     def _check_reload(self) -> None:
         """Check if config file has changed and reload if needed."""
         if not self._enable_hot_reload:
             return
-        
+
         now = time.time()
         if now - self._last_check < self._watch_interval:
             return
-        
+
         self._last_check = now
-        
+
         if not self._config_path.exists():
             return
-        
+
         try:
             current_mtime = self._config_path.stat().st_mtime
             if current_mtime > self._last_mtime:
@@ -407,11 +407,11 @@ class ParserConfigManager:
                 self._load_config()
         except OSError as e:
             logger.warning("Failed to check config file mtime", error=str(e))
-    
+
     def reload(self) -> None:
         """Force reload configuration."""
         self._load_config()
-    
+
     @property
     def config(self) -> SearchParsersConfigSchema:
         """Get current configuration (with hot-reload check)."""
@@ -419,7 +419,7 @@ class ParserConfigManager:
         if self._config is None:
             self._load_config()
         return self._config  # type: ignore
-    
+
     @property
     def settings(self) -> ParserSettings:
         """Get parser settings."""
@@ -427,11 +427,11 @@ class ParserConfigManager:
         if self._settings is None:
             self._load_config()
         return self._settings  # type: ignore
-    
+
     # =========================================================================
     # Engine Configuration
     # =========================================================================
-    
+
     def get_engine_config(self, name: str) -> EngineParserConfig | None:
         """
         Get parser configuration for a search engine.
@@ -444,17 +444,17 @@ class ParserConfigManager:
         """
         self._check_reload()
         name_lower = name.lower()
-        
+
         # Check cache first
         with self._cache_lock:
             if name_lower in self._engine_cache:
                 return self._engine_cache[name_lower]
-        
+
         # Look up in config
         engine_schema = self.config.get_engine(name_lower)
         if engine_schema is None:
             return None
-        
+
         # Build resolved config
         selectors = {}
         for sel_name, sel_schema in engine_schema.selectors.items():
@@ -464,7 +464,7 @@ class ParserConfigManager:
                 required=sel_schema.required,
                 diagnostic_message=sel_schema.diagnostic_message,
             )
-        
+
         engine_config = EngineParserConfig(
             name=name_lower,
             search_url=engine_schema.search_url,
@@ -474,25 +474,25 @@ class ParserConfigManager:
             selectors=selectors,
             captcha_patterns=list(engine_schema.captcha_patterns),
         )
-        
+
         # Cache and return
         with self._cache_lock:
             self._engine_cache[name_lower] = engine_config
-        
+
         return engine_config
-    
+
     def get_available_engines(self) -> list[str]:
         """Get list of configured engine names."""
         return self.config.get_available_engines()
-    
+
     def is_engine_configured(self, name: str) -> bool:
         """Check if an engine has parser configuration."""
         return self.get_engine_config(name) is not None
-    
+
     # =========================================================================
     # Debug HTML Saving
     # =========================================================================
-    
+
     def save_failed_html(
         self,
         html: str,
@@ -514,47 +514,47 @@ class ParserConfigManager:
         """
         if not self.settings.save_failed_html:
             return None
-        
+
         try:
             self.settings.ensure_debug_dir()
-            
+
             # Generate filename
             timestamp = int(time.time())
             safe_query = re.sub(r"[^\w\s-]", "", query)[:30].strip()
             filename = f"{engine}_{timestamp}_{safe_query}.html"
             filepath = self.settings.debug_html_dir / filename
-            
+
             # Write HTML with metadata header
             with open(filepath, "w", encoding="utf-8") as f:
-                f.write(f"<!-- Parser Debug Info\n")
+                f.write("<!-- Parser Debug Info\n")
                 f.write(f"Engine: {engine}\n")
                 f.write(f"Query: {query}\n")
                 f.write(f"Timestamp: {timestamp}\n")
                 f.write(f"Error: {error}\n")
-                f.write(f"-->\n\n")
+                f.write("-->\n\n")
                 f.write(html)
-            
+
             logger.info(
                 "Saved failed HTML for debugging",
                 engine=engine,
                 path=str(filepath),
             )
-            
+
             return filepath
-            
+
         except Exception as e:
             logger.warning("Failed to save debug HTML", error=str(e))
             return None
-    
+
     # =========================================================================
     # Cache Management
     # =========================================================================
-    
+
     def clear_cache(self) -> None:
         """Clear engine config cache."""
         with self._cache_lock:
             self._engine_cache.clear()
-    
+
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         with self._cache_lock:
@@ -583,19 +583,19 @@ def get_parser_config_manager(**kwargs) -> ParserConfigManager:
         config = manager.get_engine_config("duckduckgo")
     """
     global _manager_instance
-    
+
     if _manager_instance is None:
         with _manager_lock:
             if _manager_instance is None:
                 _manager_instance = ParserConfigManager(**kwargs)
-    
+
     return _manager_instance
 
 
 def reset_parser_config_manager() -> None:
     """Reset the singleton instance (for testing)."""
     global _manager_instance
-    
+
     with _manager_lock:
         _manager_instance = None
         ParserConfigManager.reset_instance()

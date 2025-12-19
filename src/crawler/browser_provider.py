@@ -7,7 +7,7 @@ switching between different backends (Playwright, undetected-chromedriver).
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
@@ -58,7 +58,7 @@ class Cookie:
     http_only: bool = False
     secure: bool = False
     same_site: str = "Lax"
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for Playwright/Selenium compatibility."""
         result = {
@@ -73,7 +73,7 @@ class Cookie:
         if self.expires is not None:
             result["expires"] = self.expires
         return result
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Cookie":
         """Create from dictionary."""
@@ -114,7 +114,7 @@ class BrowserOptions:
     simulate_human: bool = True
     take_screenshot: bool = True
     block_resources: bool = True
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -165,7 +165,7 @@ class PageResult:
     elapsed_ms: float = 0.0
     challenge_detected: bool = False
     challenge_type: str | None = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -183,7 +183,7 @@ class PageResult:
             "challenge_detected": self.challenge_detected,
             "challenge_type": self.challenge_type,
         }
-    
+
     @classmethod
     def success(
         cls,
@@ -213,7 +213,7 @@ class PageResult:
             mode=mode,
             elapsed_ms=elapsed_ms,
         )
-    
+
     @classmethod
     def failure(
         cls,
@@ -260,7 +260,7 @@ class BrowserHealthStatus:
     last_check: datetime | None = None
     message: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
-    
+
     @classmethod
     def healthy(cls, latency_ms: float = 0.0) -> "BrowserHealthStatus":
         """Create a healthy status."""
@@ -269,9 +269,9 @@ class BrowserHealthStatus:
             available=True,
             success_rate=1.0,
             latency_ms=latency_ms,
-            last_check=datetime.now(timezone.utc),
+            last_check=datetime.now(UTC),
         )
-    
+
     @classmethod
     def degraded(
         cls,
@@ -284,9 +284,9 @@ class BrowserHealthStatus:
             available=True,
             success_rate=success_rate,
             message=message,
-            last_check=datetime.now(timezone.utc),
+            last_check=datetime.now(UTC),
         )
-    
+
     @classmethod
     def unhealthy(cls, message: str | None = None) -> "BrowserHealthStatus":
         """Create an unhealthy status."""
@@ -295,9 +295,9 @@ class BrowserHealthStatus:
             available=False,
             success_rate=0.0,
             message=message,
-            last_check=datetime.now(timezone.utc),
+            last_check=datetime.now(UTC),
         )
-    
+
     @classmethod
     def unavailable(cls, message: str | None = None) -> "BrowserHealthStatus":
         """Create an unavailable status (dependency not installed)."""
@@ -306,9 +306,9 @@ class BrowserHealthStatus:
             available=False,
             success_rate=0.0,
             message=message or "Provider not available",
-            last_check=datetime.now(timezone.utc),
+            last_check=datetime.now(UTC),
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -352,12 +352,12 @@ class BrowserProvider(Protocol):
                 # Cleanup
                 ...
     """
-    
+
     @property
     def name(self) -> str:
         """Unique name of the provider."""
         ...
-    
+
     async def navigate(
         self,
         url: str,
@@ -374,7 +374,7 @@ class BrowserProvider(Protocol):
             PageResult with page content or error.
         """
         ...
-    
+
     async def execute_script(
         self,
         script: str,
@@ -391,7 +391,7 @@ class BrowserProvider(Protocol):
             Result of script execution.
         """
         ...
-    
+
     async def get_cookies(self, url: str | None = None) -> list[Cookie]:
         """
         Get cookies from the browser.
@@ -403,7 +403,7 @@ class BrowserProvider(Protocol):
             List of cookies.
         """
         ...
-    
+
     async def set_cookies(self, cookies: list[Cookie]) -> None:
         """
         Set cookies in the browser.
@@ -412,7 +412,7 @@ class BrowserProvider(Protocol):
             cookies: Cookies to set.
         """
         ...
-    
+
     async def take_screenshot(
         self,
         path: str | None = None,
@@ -429,7 +429,7 @@ class BrowserProvider(Protocol):
             Path to saved screenshot or None if failed.
         """
         ...
-    
+
     async def get_health(self) -> BrowserHealthStatus:
         """
         Get current health status.
@@ -438,7 +438,7 @@ class BrowserProvider(Protocol):
             BrowserHealthStatus indicating provider health.
         """
         ...
-    
+
     async def close(self) -> None:
         """
         Close and cleanup provider resources.
@@ -455,7 +455,7 @@ class BaseBrowserProvider(ABC):
     Provides common functionality and enforces the interface contract.
     Subclasses should implement the abstract methods.
     """
-    
+
     def __init__(self, provider_name: str):
         """
         Initialize base provider.
@@ -466,21 +466,21 @@ class BaseBrowserProvider(ABC):
         self._name = provider_name
         self._is_closed = False
         self._current_task_id: str | None = None
-    
+
     @property
     def name(self) -> str:
         """Unique name of the provider."""
         return self._name
-    
+
     @property
     def is_closed(self) -> bool:
         """Check if provider is closed."""
         return self._is_closed
-    
+
     def set_task_id(self, task_id: str | None) -> None:
         """Set current task ID for lifecycle tracking."""
         self._current_task_id = task_id
-    
+
     @abstractmethod
     async def navigate(
         self,
@@ -489,7 +489,7 @@ class BaseBrowserProvider(ABC):
     ) -> PageResult:
         """Navigate to a URL and return the page content."""
         pass
-    
+
     async def execute_script(
         self,
         script: str,
@@ -499,15 +499,15 @@ class BaseBrowserProvider(ABC):
         raise NotImplementedError(
             f"Provider '{self._name}' does not support script execution"
         )
-    
+
     async def get_cookies(self, url: str | None = None) -> list[Cookie]:
         """Get cookies (default: empty list)."""
         return []
-    
+
     async def set_cookies(self, cookies: list[Cookie]) -> None:
         """Set cookies (default: no-op)."""
         pass
-    
+
     async def take_screenshot(
         self,
         path: str | None = None,
@@ -515,17 +515,17 @@ class BaseBrowserProvider(ABC):
     ) -> str | None:
         """Take screenshot (default: not supported)."""
         return None
-    
+
     @abstractmethod
     async def get_health(self) -> BrowserHealthStatus:
         """Get current health status."""
         pass
-    
+
     async def close(self) -> None:
         """Close and cleanup provider resources."""
         self._is_closed = True
         logger.debug("Browser provider closed", provider=self._name)
-    
+
     def _check_closed(self) -> None:
         """Raise error if provider is closed."""
         if self._is_closed:
@@ -555,13 +555,13 @@ class BrowserProviderRegistry:
         # Navigate with automatic fallback
         result = await registry.navigate_with_fallback(url)
     """
-    
+
     def __init__(self):
         """Initialize empty registry."""
         self._providers: dict[str, BrowserProvider] = {}
         self._default_name: str | None = None
         self._fallback_order: list[str] = []
-    
+
     def register(
         self,
         provider: BrowserProvider,
@@ -578,22 +578,22 @@ class BrowserProviderRegistry:
             ValueError: If provider with same name already registered.
         """
         name = provider.name
-        
+
         if name in self._providers:
             raise ValueError(f"Provider '{name}' already registered")
-        
+
         self._providers[name] = provider
         self._fallback_order.append(name)
-        
+
         if set_default or self._default_name is None:
             self._default_name = name
-        
+
         logger.info(
             "Browser provider registered",
             provider=name,
             is_default=set_default or self._default_name == name,
         )
-    
+
     def unregister(self, name: str) -> BrowserProvider | None:
         """
         Unregister a provider by name.
@@ -605,20 +605,20 @@ class BrowserProviderRegistry:
             The unregistered provider, or None if not found.
         """
         provider = self._providers.pop(name, None)
-        
+
         if provider is not None:
             logger.info("Browser provider unregistered", provider=name)
-            
+
             # Update fallback order
             if name in self._fallback_order:
                 self._fallback_order.remove(name)
-            
+
             # Update default if needed
             if self._default_name == name:
                 self._default_name = next(iter(self._providers), None)
-        
+
         return provider
-    
+
     def get(self, name: str) -> BrowserProvider | None:
         """
         Get a provider by name.
@@ -630,7 +630,7 @@ class BrowserProviderRegistry:
             Provider instance or None if not found.
         """
         return self._providers.get(name)
-    
+
     def get_default(self) -> BrowserProvider | None:
         """
         Get the default provider.
@@ -641,7 +641,7 @@ class BrowserProviderRegistry:
         if self._default_name is None:
             return None
         return self._providers.get(self._default_name)
-    
+
     def set_default(self, name: str) -> None:
         """
         Set the default provider.
@@ -654,10 +654,10 @@ class BrowserProviderRegistry:
         """
         if name not in self._providers:
             raise ValueError(f"Provider '{name}' not registered")
-        
+
         self._default_name = name
         logger.info("Default browser provider changed", provider=name)
-    
+
     def set_fallback_order(self, order: list[str]) -> None:
         """
         Set the fallback order for providers.
@@ -671,10 +671,10 @@ class BrowserProviderRegistry:
         for name in order:
             if name not in self._providers:
                 raise ValueError(f"Provider '{name}' not registered")
-        
+
         self._fallback_order = order.copy()
         logger.info("Fallback order updated", order=self._fallback_order)
-    
+
     def list_providers(self) -> list[str]:
         """
         List all registered provider names.
@@ -683,7 +683,7 @@ class BrowserProviderRegistry:
             List of provider names.
         """
         return list(self._providers.keys())
-    
+
     async def get_all_health(self) -> dict[str, BrowserHealthStatus]:
         """
         Get health status for all providers.
@@ -699,7 +699,7 @@ class BrowserProviderRegistry:
                 logger.error("Failed to get health", provider=name, error=str(e))
                 health[name] = BrowserHealthStatus.unhealthy(str(e))
         return health
-    
+
     async def navigate_with_fallback(
         self,
         url: str,
@@ -727,21 +727,21 @@ class BrowserProviderRegistry:
         """
         if not self._providers:
             raise RuntimeError("No browser providers registered")
-        
+
         # Determine provider order
         if provider_order is None:
             provider_order = self._fallback_order.copy()
             # Ensure default is first if not already in order
             if self._default_name and self._default_name not in provider_order:
                 provider_order.insert(0, self._default_name)
-        
+
         errors = []
-        
+
         for name in provider_order:
             provider = self._providers.get(name)
             if provider is None:
                 continue
-            
+
             try:
                 # Check health first
                 health = await provider.get_health()
@@ -753,16 +753,16 @@ class BrowserProviderRegistry:
                     )
                     errors.append(f"{name}: unhealthy ({health.message})")
                     continue
-                
+
                 # Execute navigation
                 result = await provider.navigate(url, options)
-                
+
                 if result.ok:
                     return result
-                
+
                 # Navigation failed
                 errors.append(f"{name}: {result.error}")
-                
+
                 # If challenge detected, try next provider with headful mode
                 if result.challenge_detected and options:
                     logger.info(
@@ -774,17 +774,17 @@ class BrowserProviderRegistry:
                         **{**options.to_dict(), "mode": BrowserMode.HEADFUL}
                     )
                     continue
-                
+
                 logger.warning(
                     "Browser provider navigation failed",
                     provider=name,
                     error=result.error,
                 )
-                
+
             except Exception as e:
                 errors.append(f"{name}: {str(e)}")
                 logger.error("Browser provider error", provider=name, error=str(e))
-        
+
         # All providers failed
         error_msg = "; ".join(errors) if errors else "No providers available"
         return PageResult.failure(
@@ -792,7 +792,7 @@ class BrowserProviderRegistry:
             error=f"All providers failed: {error_msg}",
             provider="none",
         )
-    
+
     async def close_all(self) -> None:
         """Close all registered providers."""
         for name, provider in self._providers.items():
@@ -800,7 +800,7 @@ class BrowserProviderRegistry:
                 await provider.close()
             except Exception as e:
                 logger.error("Failed to close provider", provider=name, error=str(e))
-        
+
         self._providers.clear()
         self._default_name = None
         self._fallback_order.clear()

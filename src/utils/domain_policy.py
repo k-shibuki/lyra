@@ -20,15 +20,15 @@ References:
 
 from __future__ import annotations
 
-import fnmatch
 import re
 import threading
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -91,7 +91,7 @@ DEFAULT_TRUST_WEIGHTS: dict[TrustLevel, float] = {
 
 class DefaultPolicySchema(BaseModel):
     """Schema for default domain policy (config/domains.yaml: default_policy)."""
-    
+
     qps: float = Field(default=0.2, ge=0.01, le=2.0, description="Requests per second limit")
     concurrent: int = Field(default=1, ge=1, le=10, description="Max concurrent requests")
     headful_ratio: float = Field(default=0.1, ge=0.0, le=1.0, description="Headful browser ratio")
@@ -106,7 +106,7 @@ class DefaultPolicySchema(BaseModel):
 
 class AllowlistEntrySchema(BaseModel):
     """Schema for allowlist domain entries."""
-    
+
     domain: str = Field(..., description="Domain name (exact or suffix match)")
     trust_level: TrustLevel = Field(default=TrustLevel.UNVERIFIED)
     internal_search: bool = Field(default=False, description="Has usable internal search UI")
@@ -119,7 +119,7 @@ class AllowlistEntrySchema(BaseModel):
     # Daily budget limits (§4.3 - IP block prevention)
     max_requests_per_day: int | None = Field(default=None, ge=0, description="Max requests per day (0=unlimited)")
     max_pages_per_day: int | None = Field(default=None, ge=0, description="Max pages per day (0=unlimited)")
-    
+
     @field_validator("domain")
     @classmethod
     def validate_domain(cls, v: str) -> str:
@@ -131,7 +131,7 @@ class AllowlistEntrySchema(BaseModel):
 
 class GraylistEntrySchema(BaseModel):
     """Schema for graylist domain entries (pattern-based)."""
-    
+
     domain_pattern: str = Field(..., description="Domain pattern (supports glob wildcards)")
     trust_level: TrustLevel | None = Field(default=None)
     headful_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -139,7 +139,7 @@ class GraylistEntrySchema(BaseModel):
     qps: float | None = Field(default=None, ge=0.01, le=2.0)
     skip: bool = Field(default=False)
     reason: SkipReason | str | None = Field(default=None)
-    
+
     @field_validator("domain_pattern")
     @classmethod
     def validate_pattern(cls, v: str) -> str:
@@ -151,10 +151,10 @@ class GraylistEntrySchema(BaseModel):
 
 class DenylistEntrySchema(BaseModel):
     """Schema for denylist domain entries (always skip)."""
-    
+
     domain_pattern: str = Field(..., description="Domain pattern (supports glob wildcards)")
     reason: SkipReason | str = Field(default=SkipReason.LOW_QUALITY_AGGREGATOR)
-    
+
     @field_validator("domain_pattern")
     @classmethod
     def validate_pattern(cls, v: str) -> str:
@@ -166,7 +166,7 @@ class DenylistEntrySchema(BaseModel):
 
 class CloudflareSiteSchema(BaseModel):
     """Schema for known Cloudflare/challenge sites."""
-    
+
     domain_pattern: str = Field(..., description="Domain pattern")
     headful_required: bool = Field(default=True)
     tor_blocked: bool = Field(default=True)
@@ -174,12 +174,12 @@ class CloudflareSiteSchema(BaseModel):
 
 class InternalSearchTemplateSchema(BaseModel):
     """Schema for internal search UI templates (§3.1.5)."""
-    
+
     domain: str = Field(..., description="Target domain")
     search_input: str = Field(..., description="CSS selector for search input")
     search_button: str = Field(..., description="CSS selector for search button")
     results_selector: str = Field(..., description="CSS selector for results")
-    
+
     @field_validator("domain")
     @classmethod
     def validate_domain(cls, v: str) -> str:
@@ -188,7 +188,7 @@ class InternalSearchTemplateSchema(BaseModel):
 
 class LearningStateDomainSchema(BaseModel):
     """Schema for per-domain learning state."""
-    
+
     block_score: float = Field(default=0.0, ge=0.0, le=100.0)
     captcha_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     success_rate_1h: float = Field(default=1.0, ge=0.0, le=1.0)
@@ -201,18 +201,18 @@ class LearningStateDomainSchema(BaseModel):
 
 class SearchEnginePolicySchema(BaseModel):
     """Schema for search engine policy settings (§3.1.4, §4.3)."""
-    
+
     default_qps: float = Field(default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines")
     site_search_qps: float = Field(default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit")
     cooldown_min: int = Field(default=30, ge=1, le=1440, description="Minimum cooldown in minutes")
     cooldown_max: int = Field(default=120, ge=1, le=1440, description="Maximum cooldown in minutes")
     failure_threshold: int = Field(default=2, ge=1, le=10, description="Failures before circuit open")
-    
+
     @property
     def default_min_interval(self) -> float:
         """Get default minimum interval between requests in seconds."""
         return 1.0 / self.default_qps if self.default_qps > 0 else 4.0
-    
+
     @property
     def site_search_min_interval(self) -> float:
         """Get site search minimum interval in seconds."""
@@ -221,7 +221,7 @@ class SearchEnginePolicySchema(BaseModel):
 
 class PolicyBoundsEntrySchema(BaseModel):
     """Schema for a single policy bounds entry (§4.6)."""
-    
+
     min: float = Field(default=0.0, description="Minimum value")
     max: float = Field(default=1.0, description="Maximum value")
     default: float = Field(default=0.5, description="Default value")
@@ -231,7 +231,7 @@ class PolicyBoundsEntrySchema(BaseModel):
 
 class PolicyBoundsSchema(BaseModel):
     """Schema for policy auto-update bounds (§4.6)."""
-    
+
     engine_weight: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
         min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
     ))
@@ -257,7 +257,7 @@ class PolicyBoundsSchema(BaseModel):
 
 class DomainPolicyConfigSchema(BaseModel):
     """Root schema for domains.yaml configuration file."""
-    
+
     default_policy: DefaultPolicySchema = Field(default_factory=DefaultPolicySchema)
     search_engine_policy: SearchEnginePolicySchema = Field(default_factory=SearchEnginePolicySchema)
     policy_bounds: PolicyBoundsSchema = Field(default_factory=PolicyBoundsSchema)
@@ -267,9 +267,9 @@ class DomainPolicyConfigSchema(BaseModel):
     cloudflare_sites: list[CloudflareSiteSchema] = Field(default_factory=list)
     internal_search_templates: dict[str, InternalSearchTemplateSchema] = Field(default_factory=dict)
     learning_state: dict[str, Any] = Field(default_factory=dict)
-    
+
     @model_validator(mode="after")
-    def validate_config(self) -> "DomainPolicyConfigSchema":
+    def validate_config(self) -> DomainPolicyConfigSchema:
         """Validate configuration consistency."""
         # Check for duplicate domains in allowlist
         domains = [e.domain for e in self.allowlist]
@@ -292,7 +292,7 @@ class DomainPolicy:
     - Allowlist/graylist overrides
     - Runtime learning state (from DB)
     """
-    
+
     domain: str
     qps: float = 0.2
     concurrent: int = 1
@@ -306,11 +306,11 @@ class DomainPolicy:
     skip_reason: str | None = None
     headful_required: bool = False
     tor_blocked: bool = False
-    
+
     # Daily budget limits (§4.3 - IP block prevention)
     max_requests_per_day: int = 200
     max_pages_per_day: int = 100
-    
+
     # Learning state (populated from DB)
     block_score: float = 0.0
     captcha_rate: float = 0.0
@@ -319,27 +319,27 @@ class DomainPolicy:
     tor_success_rate: float = 0.5
     last_captcha_at: datetime | None = None
     cooldown_until: datetime | None = None
-    
+
     # Source information
     source: str = "default"  # "allowlist", "graylist", "denylist", "cloudflare", "default"
-    
+
     @property
     def trust_weight(self) -> float:
         """Get trust weight for this domain (§3.3)."""
         return DEFAULT_TRUST_WEIGHTS.get(self.trust_level, 0.3)
-    
+
     @property
     def min_request_interval(self) -> float:
         """Get minimum interval between requests in seconds."""
         return 1.0 / self.qps if self.qps > 0 else 5.0
-    
+
     @property
     def is_in_cooldown(self) -> bool:
         """Check if domain is currently in cooldown."""
         if self.cooldown_until is None:
             return False
-        return datetime.now(timezone.utc) < self.cooldown_until
-    
+        return datetime.now(UTC) < self.cooldown_until
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -375,7 +375,7 @@ class DomainPolicy:
 @dataclass
 class InternalSearchTemplate:
     """Resolved internal search template."""
-    
+
     domain: str
     search_input: str
     search_button: str
@@ -407,10 +407,10 @@ class DomainPolicyManager:
         if manager.should_skip("spam-site.com"):
             ...
     """
-    
-    _instance: "DomainPolicyManager | None" = None
+
+    _instance: DomainPolicyManager | None = None
     _lock = threading.Lock()
-    
+
     def __init__(
         self,
         config_path: Path | str | None = None,
@@ -430,35 +430,35 @@ class DomainPolicyManager:
         self._config_path = Path(config_path)
         self._watch_interval = watch_interval
         self._enable_hot_reload = enable_hot_reload
-        
+
         # Internal state
         self._config: DomainPolicyConfigSchema | None = None
         self._last_mtime: float = 0.0
         self._last_check: float = 0.0
         self._policy_cache: dict[str, DomainPolicy] = {}
         self._cache_lock = threading.RLock()
-        
+
         # Callbacks for reload events
         self._reload_callbacks: list[Callable[[DomainPolicyConfigSchema], None]] = []
-        
+
         # Initial load
         self._load_config()
-    
+
     @classmethod
-    def get_instance(cls, **kwargs) -> "DomainPolicyManager":
+    def get_instance(cls, **kwargs) -> DomainPolicyManager:
         """Get singleton instance of domain policy manager."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = cls(**kwargs)
         return cls._instance
-    
+
     @classmethod
     def reset_instance(cls) -> None:
         """Reset singleton instance (for testing)."""
         with cls._lock:
             cls._instance = None
-    
+
     def _load_config(self) -> None:
         """Load configuration from YAML file."""
         if not self._config_path.exists():
@@ -468,11 +468,11 @@ class DomainPolicyManager:
             )
             self._config = DomainPolicyConfigSchema()
             return
-        
+
         try:
             with open(self._config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
-            
+
             # Parse internal_search_templates specially
             if "internal_search_templates" in data and isinstance(data["internal_search_templates"], dict):
                 templates = {}
@@ -480,14 +480,14 @@ class DomainPolicyManager:
                     if isinstance(template_data, dict):
                         templates[name] = InternalSearchTemplateSchema(**template_data)
                 data["internal_search_templates"] = templates
-            
+
             self._config = DomainPolicyConfigSchema(**data)
             self._last_mtime = self._config_path.stat().st_mtime
-            
+
             # Clear cache on reload
             with self._cache_lock:
                 self._policy_cache.clear()
-            
+
             logger.info(
                 "Domain policy config loaded",
                 path=str(self._config_path),
@@ -495,14 +495,14 @@ class DomainPolicyManager:
                 graylist_count=len(self._config.graylist),
                 denylist_count=len(self._config.denylist),
             )
-            
+
             # Notify callbacks
             for callback in self._reload_callbacks:
                 try:
                     callback(self._config)
                 except Exception as e:
                     logger.error("Reload callback failed", error=str(e))
-                    
+
         except yaml.YAMLError as e:
             logger.error(
                 "Failed to parse domain policy YAML",
@@ -519,21 +519,21 @@ class DomainPolicyManager:
             )
             if self._config is None:
                 self._config = DomainPolicyConfigSchema()
-    
+
     def _check_reload(self) -> None:
         """Check if config file has changed and reload if needed."""
         if not self._enable_hot_reload:
             return
-        
+
         now = time.time()
         if now - self._last_check < self._watch_interval:
             return
-        
+
         self._last_check = now
-        
+
         if not self._config_path.exists():
             return
-        
+
         try:
             current_mtime = self._config_path.stat().st_mtime
             if current_mtime > self._last_mtime:
@@ -541,20 +541,20 @@ class DomainPolicyManager:
                 self._load_config()
         except OSError as e:
             logger.warning("Failed to check config file mtime", error=str(e))
-    
+
     def reload(self) -> None:
         """Force reload configuration."""
         self._load_config()
-    
+
     def add_reload_callback(self, callback: Callable[[DomainPolicyConfigSchema], None]) -> None:
         """Add callback to be called on config reload."""
         self._reload_callbacks.append(callback)
-    
+
     def remove_reload_callback(self, callback: Callable[[DomainPolicyConfigSchema], None]) -> None:
         """Remove reload callback."""
         if callback in self._reload_callbacks:
             self._reload_callbacks.remove(callback)
-    
+
     @property
     def config(self) -> DomainPolicyConfigSchema:
         """Get current configuration (with hot-reload check)."""
@@ -562,11 +562,11 @@ class DomainPolicyManager:
         if self._config is None:
             self._load_config()
         return self._config  # type: ignore
-    
+
     def get_default_policy(self) -> DefaultPolicySchema:
         """Get default policy configuration."""
         return self.config.default_policy
-    
+
     def _normalize_domain(self, domain: str) -> str:
         """Normalize domain name for matching."""
         domain = domain.lower().strip()
@@ -574,7 +574,7 @@ class DomainPolicyManager:
         if domain.startswith("www."):
             domain = domain[4:]
         return domain
-    
+
     def _match_pattern(self, domain: str, pattern: str) -> bool:
         """
         Check if domain matches pattern.
@@ -586,11 +586,11 @@ class DomainPolicyManager:
         """
         domain = self._normalize_domain(domain)
         pattern = pattern.lower().strip()
-        
+
         # Exact match
         if domain == pattern:
             return True
-        
+
         # Glob pattern match
         if "*" in pattern:
             # Convert glob to regex for more precise matching
@@ -602,17 +602,17 @@ class DomainPolicyManager:
                 if domain == base_domain or domain.endswith("." + base_domain):
                     return True
             return bool(re.match(f"^{regex_pattern}$", domain))
-        
+
         # Suffix match (e.g., ".go.jp" matches "example.go.jp")
         if pattern.startswith("."):
             return domain.endswith(pattern) or domain == pattern[1:]
-        
+
         # Suffix match for exact domain (e.g., "go.jp" matches "example.go.jp")
         if domain.endswith("." + pattern):
             return True
-        
+
         return False
-    
+
     def get_policy(self, domain: str) -> DomainPolicy:
         """
         Get resolved policy for a domain.
@@ -632,15 +632,15 @@ class DomainPolicyManager:
         """
         self._check_reload()
         domain = self._normalize_domain(domain)
-        
+
         # Check cache first
         with self._cache_lock:
             if domain in self._policy_cache:
                 return self._policy_cache[domain]
-        
+
         config = self.config
         default = config.default_policy
-        
+
         # Start with default policy
         policy = DomainPolicy(
             domain=domain,
@@ -655,7 +655,7 @@ class DomainPolicyManager:
             max_pages_per_day=default.max_pages_per_day,
             source="default",
         )
-        
+
         # Check denylist first (highest priority for skipping)
         for entry in config.denylist:
             if self._match_pattern(domain, entry.domain_pattern):
@@ -665,7 +665,7 @@ class DomainPolicyManager:
                 with self._cache_lock:
                     self._policy_cache[domain] = policy
                 return policy
-        
+
         # Check cloudflare sites
         for entry in config.cloudflare_sites:
             if self._match_pattern(domain, entry.domain_pattern):
@@ -675,7 +675,7 @@ class DomainPolicyManager:
                     policy.tor_allowed = False
                 policy.source = "cloudflare"
                 break
-        
+
         # Check allowlist (exact and suffix match)
         for entry in config.allowlist:
             if self._match_pattern(domain, entry.domain):
@@ -697,12 +697,12 @@ class DomainPolicyManager:
                     policy.max_requests_per_day = entry.max_requests_per_day
                 if entry.max_pages_per_day is not None:
                     policy.max_pages_per_day = entry.max_pages_per_day
-                
+
                 policy.trust_level = entry.trust_level
                 policy.internal_search = entry.internal_search
                 policy.source = "allowlist"
                 break
-        
+
         # Check graylist if not in allowlist
         if policy.source not in ("allowlist", "cloudflare"):
             for entry in config.graylist:
@@ -716,40 +716,40 @@ class DomainPolicyManager:
                         policy.cooldown_minutes = entry.cooldown_minutes
                     if entry.qps is not None:
                         policy.qps = entry.qps
-                    
+
                     if entry.skip:
                         policy.skip = True
                         policy.skip_reason = entry.reason if isinstance(entry.reason, str) else (entry.reason.value if entry.reason else None)
-                    
+
                     policy.source = "graylist"
                     break
-        
+
         # Cache and return
         with self._cache_lock:
             self._policy_cache[domain] = policy
-        
+
         return policy
-    
+
     def should_skip(self, domain: str) -> bool:
         """Check if domain should be skipped."""
         return self.get_policy(domain).skip
-    
+
     def get_trust_level(self, domain: str) -> TrustLevel:
         """Get trust level for domain."""
         return self.get_policy(domain).trust_level
-    
+
     def get_trust_weight(self, domain: str) -> float:
         """Get trust weight for domain (§3.3)."""
         return self.get_policy(domain).trust_weight
-    
+
     def get_qps_limit(self, domain: str) -> float:
         """Get QPS limit for domain."""
         return self.get_policy(domain).qps
-    
+
     def get_internal_search_template(self, domain: str) -> InternalSearchTemplate | None:
         """Get internal search template for domain if available."""
         domain = self._normalize_domain(domain)
-        
+
         for name, template in self.config.internal_search_templates.items():
             if self._match_pattern(domain, template.domain):
                 return InternalSearchTemplate(
@@ -758,20 +758,20 @@ class DomainPolicyManager:
                     search_button=template.search_button,
                     results_selector=template.results_selector,
                 )
-        
+
         return None
-    
+
     def has_internal_search(self, domain: str) -> bool:
         """Check if domain has internal search capability."""
         policy = self.get_policy(domain)
         if policy.internal_search:
             return True
         return self.get_internal_search_template(domain) is not None
-    
+
     def get_all_allowlist_domains(self) -> list[str]:
         """Get list of all allowlist domains."""
         return [entry.domain for entry in self.config.allowlist]
-    
+
     def get_domains_by_trust_level(self, trust_level: TrustLevel) -> list[str]:
         """Get domains with specific trust level from allowlist."""
         return [
@@ -779,7 +779,7 @@ class DomainPolicyManager:
             for entry in self.config.allowlist
             if entry.trust_level == trust_level
         ]
-    
+
     def update_learning_state(self, domain: str, state: dict[str, Any]) -> None:
         """
         Update learning state for a domain (runtime only, not persisted to YAML).
@@ -792,11 +792,11 @@ class DomainPolicyManager:
             state: Learning state fields to update.
         """
         domain = self._normalize_domain(domain)
-        
+
         with self._cache_lock:
             if domain in self._policy_cache:
                 policy = self._policy_cache[domain]
-                
+
                 if "block_score" in state:
                     policy.block_score = state["block_score"]
                 if "captcha_rate" in state:
@@ -813,12 +813,12 @@ class DomainPolicyManager:
                     policy.last_captcha_at = state["last_captcha_at"]
                 if "cooldown_until" in state:
                     policy.cooldown_until = state["cooldown_until"]
-    
+
     def clear_cache(self) -> None:
         """Clear policy cache."""
         with self._cache_lock:
             self._policy_cache.clear()
-    
+
     def get_cache_stats(self) -> dict[str, int]:
         """Get cache statistics."""
         with self._cache_lock:
@@ -830,11 +830,11 @@ class DomainPolicyManager:
                 "cloudflare_count": len(self.config.cloudflare_sites),
                 "search_templates_count": len(self.config.internal_search_templates),
             }
-    
+
     # =========================================================================
     # Search Engine Policy Access (§3.1.4, §4.3)
     # =========================================================================
-    
+
     def get_search_engine_policy(self) -> SearchEnginePolicySchema:
         """Get search engine policy configuration.
         
@@ -842,7 +842,7 @@ class DomainPolicyManager:
             SearchEnginePolicySchema with search engine settings.
         """
         return self.config.search_engine_policy
-    
+
     def get_search_engine_qps(self) -> float:
         """Get default QPS for search engines.
         
@@ -850,7 +850,7 @@ class DomainPolicyManager:
             Default QPS (requests per second).
         """
         return self.config.search_engine_policy.default_qps
-    
+
     def get_search_engine_min_interval(self) -> float:
         """Get minimum interval between search engine requests in seconds.
         
@@ -858,7 +858,7 @@ class DomainPolicyManager:
             Minimum interval in seconds.
         """
         return self.config.search_engine_policy.default_min_interval
-    
+
     def get_site_search_qps(self) -> float:
         """Get QPS for site-internal search (§3.1.5).
         
@@ -866,7 +866,7 @@ class DomainPolicyManager:
             Site search QPS.
         """
         return self.config.search_engine_policy.site_search_qps
-    
+
     def get_site_search_min_interval(self) -> float:
         """Get minimum interval for site-internal search in seconds.
         
@@ -874,7 +874,7 @@ class DomainPolicyManager:
             Minimum interval in seconds.
         """
         return self.config.search_engine_policy.site_search_min_interval
-    
+
     def get_circuit_breaker_cooldown_min(self) -> int:
         """Get minimum cooldown time for circuit breaker in minutes.
         
@@ -882,7 +882,7 @@ class DomainPolicyManager:
             Minimum cooldown in minutes.
         """
         return self.config.search_engine_policy.cooldown_min
-    
+
     def get_circuit_breaker_cooldown_max(self) -> int:
         """Get maximum cooldown time for circuit breaker in minutes.
         
@@ -890,7 +890,7 @@ class DomainPolicyManager:
             Maximum cooldown in minutes.
         """
         return self.config.search_engine_policy.cooldown_max
-    
+
     def get_circuit_breaker_failure_threshold(self) -> int:
         """Get failure threshold for circuit breaker.
         
@@ -898,11 +898,11 @@ class DomainPolicyManager:
             Failure threshold.
         """
         return self.config.search_engine_policy.failure_threshold
-    
+
     # =========================================================================
     # Policy Bounds Access (§4.6)
     # =========================================================================
-    
+
     def get_policy_bounds(self) -> PolicyBoundsSchema:
         """Get policy bounds configuration for auto-adjustment.
         
@@ -910,7 +910,7 @@ class DomainPolicyManager:
             PolicyBoundsSchema with all bounds.
         """
         return self.config.policy_bounds
-    
+
     def get_bounds_for_parameter(self, param_name: str) -> PolicyBoundsEntrySchema | None:
         """Get bounds for a specific parameter.
         
@@ -941,19 +941,19 @@ def get_domain_policy_manager(**kwargs) -> DomainPolicyManager:
         policy = manager.get_policy("example.com")
     """
     global _manager_instance
-    
+
     if _manager_instance is None:
         with _manager_lock:
             if _manager_instance is None:
                 _manager_instance = DomainPolicyManager(**kwargs)
-    
+
     return _manager_instance
 
 
 def reset_domain_policy_manager() -> None:
     """Reset the singleton instance (for testing)."""
     global _manager_instance
-    
+
     with _manager_lock:
         _manager_instance = None
         DomainPolicyManager.reset_instance()

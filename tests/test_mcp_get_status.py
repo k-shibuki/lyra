@@ -4,7 +4,7 @@ Tests the unified task and exploration status endpoint per §3.2.1.
 """
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -21,12 +21,12 @@ class TestGetStatusValidation:
         // When: Calling get_status with empty args
         // Then: Raises InvalidParamsError
         """
-        from src.mcp.server import _handle_get_status
         from src.mcp.errors import InvalidParamsError
-        
+        from src.mcp.server import _handle_get_status
+
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_get_status({})
-        
+
         assert exc_info.value.details.get("param_name") == "task_id"
 
     @pytest.mark.asyncio
@@ -38,12 +38,12 @@ class TestGetStatusValidation:
         // When: Calling get_status
         // Then: Raises InvalidParamsError
         """
-        from src.mcp.server import _handle_get_status
         from src.mcp.errors import InvalidParamsError
-        
+        from src.mcp.server import _handle_get_status
+
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_get_status({"task_id": ""})
-        
+
         assert exc_info.value.details.get("param_name") == "task_id"
 
     @pytest.mark.asyncio
@@ -55,16 +55,16 @@ class TestGetStatusValidation:
         // When: Calling get_status
         // Then: Raises TaskNotFoundError
         """
-        from src.mcp.server import _handle_get_status
         from src.mcp.errors import TaskNotFoundError
-        
+        from src.mcp.server import _handle_get_status
+
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = None
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with pytest.raises(TaskNotFoundError) as exc_info:
                 await _handle_get_status({"task_id": "nonexistent_task"})
-        
+
         assert exc_info.value.details.get("task_id") == "nonexistent_task"
 
 
@@ -143,17 +143,17 @@ class TestGetStatusWithExplorationState:
         // Then: Returns unified status with searches, metrics, budget
         """
         from src.mcp.server import _handle_get_status
-        
+
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
-        
+
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
-        
+
         assert result["ok"] is True
         assert result["task_id"] == "task_abc123"
         assert result["status"] == "exploring"
@@ -175,17 +175,17 @@ class TestGetStatusWithExplorationState:
         // Then: Fields correctly mapped to §3.2.1 schema
         """
         from src.mcp.server import _handle_get_status
-        
+
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
-        
+
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
-        
+
         # Verify search structure per §3.2.1
         search = result["searches"][0]
         assert "id" in search
@@ -196,7 +196,7 @@ class TestGetStatusWithExplorationState:
         assert "harvest_rate" in search
         assert "satisfaction_score" in search
         assert "has_primary_source" in search
-        
+
         # Verify values
         assert search["id"] == "sq_001"
         assert search["query"] == "Search query 1"
@@ -216,7 +216,7 @@ class TestGetStatusWithExplorationState:
         // Then: Includes auth_queue in response
         """
         from src.mcp.server import _handle_get_status
-        
+
         # Add auth queue to exploration status
         mock_exploration_status["authentication_queue"] = {
             "pending_count": 3,
@@ -224,17 +224,17 @@ class TestGetStatusWithExplorationState:
             "domains": ["example.com", "test.org"],
             "oldest_queued_at": "2024-01-15T10:20:00Z",
         }
-        
+
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
-        
+
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
-        
+
         assert result["auth_queue"] is not None
         assert result["auth_queue"]["pending_count"] == 3
         assert result["auth_queue"]["high_priority_count"] == 1
@@ -251,23 +251,23 @@ class TestGetStatusWithExplorationState:
         // Then: Includes warnings array
         """
         from src.mcp.server import _handle_get_status
-        
+
         # Add warnings to exploration status
         mock_exploration_status["warnings"] = [
             "Budget limit approaching: 80% pages used",
             "2件のサブクエリが収穫逓減で停止",
         ]
-        
+
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
-        
+
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration_status
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
-        
+
         assert len(result["warnings"]) == 2
         assert "Budget limit" in result["warnings"][0]
 
@@ -296,10 +296,10 @@ class TestGetStatusWithoutExplorationState:
         // Then: Returns minimal status with empty searches
         """
         from src.mcp.server import _handle_get_status
-        
+
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
-        
+
         # Simulate no exploration state
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
@@ -307,7 +307,7 @@ class TestGetStatusWithoutExplorationState:
                 side_effect=KeyError("No state"),
             ):
                 result = await _handle_get_status({"task_id": "task_xyz789"})
-        
+
         assert result["ok"] is True
         assert result["task_id"] == "task_xyz789"
         assert result["status"] == "pending"  # DB status is returned when no exploration state
@@ -361,7 +361,7 @@ class TestGetStatusStatusMapping:
         // Then: Status is correctly mapped per §3.2.1
         """
         from src.mcp.server import _handle_get_status
-        
+
         mock_task = {**mock_task_base, "status": task_status}
         mock_exploration = {
             "ok": True,
@@ -373,17 +373,17 @@ class TestGetStatusStatusMapping:
             "authentication_queue": None,
             "warnings": [],
         }
-        
+
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
-        
+
         mock_state = AsyncMock()
         mock_state.get_status.return_value = mock_exploration
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_test"})
-        
+
         assert result["status"] == expected_status
 
 
@@ -399,9 +399,9 @@ class TestGetStatusToolDefinition:
         // Then: Found with correct schema
         """
         from src.mcp.server import TOOLS
-        
+
         tool = next((t for t in TOOLS if t.name == "get_status"), None)
-        
+
         assert tool is not None
         assert "task_id" in tool.inputSchema["properties"]
         assert tool.inputSchema["required"] == ["task_id"]
@@ -415,9 +415,9 @@ class TestGetStatusToolDefinition:
         // Then: Contains §3.2.1 reference
         """
         from src.mcp.server import TOOLS
-        
+
         tool = next((t for t in TOOLS if t.name == "get_status"), None)
-        
+
         assert tool is not None
         assert "§3.2.1" in tool.description
 

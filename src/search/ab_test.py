@@ -9,17 +9,15 @@ This module generates query variants, executes them in parallel,
 and tracks which variants produce the highest harvest rates.
 """
 
-import asyncio
 import hashlib
-import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
 from src.storage.database import get_database
-from src.utils.logging import get_logger, CausalTrace
+from src.utils.logging import CausalTrace, get_logger
 
 logger = get_logger(__name__)
 
@@ -44,10 +42,10 @@ class QueryVariant:
     query_text: str
     variant_type: VariantType
     transformation: str = ""  # Description of transformation applied
-    
+
     def __hash__(self):
         return hash((self.query_text, self.variant_type))
-    
+
     def __eq__(self, other):
         if not isinstance(other, QueryVariant):
             return False
@@ -75,7 +73,7 @@ class ABTestSession:
     results: list[ABTestResult] = field(default_factory=list)
     winner: ABTestResult | None = None
     status: str = "pending"  # pending, running, completed
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -104,12 +102,12 @@ class QueryVariantGenerator:
     2. Particle: Japanese particle substitutions
     3. Order: Reordering of query terms
     """
-    
+
     def __init__(self):
         """Initialize the variant generator."""
         self._tokenizer = None
         self._initialized = False
-        
+
         # Particle substitution rules (Japanese)
         self._particle_rules = [
             # の ↔ における (more formal)
@@ -125,7 +123,7 @@ class QueryVariantGenerator:
             # まで ↔ に至る
             (r"まで", r"に至る"),
         ]
-        
+
         # Notation substitution rules
         self._notation_rules = {
             # Long vowel variations
@@ -151,32 +149,32 @@ class QueryVariantGenerator:
             "企業": ["会社", "事業者"],
             "顧客": ["お客様", "クライアント"],
         }
-    
+
     def _ensure_initialized(self) -> bool:
         """Ensure SudachiPy is initialized for tokenization."""
         if self._initialized:
             return self._tokenizer is not None
-        
+
         self._initialized = True
         try:
             from sudachipy import dictionary, tokenizer
-            
+
             self._tokenizer = dictionary.Dictionary().create()
             self._tokenize_mode = tokenizer.Tokenizer.SplitMode.B  # Use B mode for better segmentation
-            
+
             logger.debug("SudachiPy initialized for query variant generation")
             return True
         except ImportError:
             logger.warning("SudachiPy not available for query variant generation")
             return False
-    
+
     def _tokenize(self, text: str) -> list[dict[str, Any]]:
         """Tokenize text into morphemes."""
         if not self._ensure_initialized() or not self._tokenizer:
             # Fallback: simple space/punctuation-based tokenization
             words = re.findall(r'[\w]+', text, re.UNICODE)
             return [{"surface": w, "pos": "unknown"} for w in words]
-        
+
         tokens = []
         for m in self._tokenizer.tokenize(text, self._tokenize_mode):
             tokens.append({
@@ -186,7 +184,7 @@ class QueryVariantGenerator:
                 "reading": m.reading_form(),
             })
         return tokens
-    
+
     def generate_notation_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
         Generate notation variants.
@@ -199,7 +197,7 @@ class QueryVariantGenerator:
             List of notation variants.
         """
         variants = []
-        
+
         # Check each notation rule
         for original, replacements in self._notation_rules.items():
             if original in query:
@@ -211,12 +209,12 @@ class QueryVariantGenerator:
                             variant_type=VariantType.NOTATION,
                             transformation=f"{original}→{replacement}",
                         ))
-                        
+
                         if len(variants) >= max_variants:
                             return variants
-        
+
         return variants
-    
+
     def generate_particle_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
         Generate particle variants.
@@ -229,7 +227,7 @@ class QueryVariantGenerator:
             List of particle variants.
         """
         variants = []
-        
+
         for pattern, replacement in self._particle_rules:
             if re.search(pattern, query):
                 variant_text = re.sub(pattern, replacement, query, count=1)
@@ -239,12 +237,12 @@ class QueryVariantGenerator:
                         variant_type=VariantType.PARTICLE,
                         transformation=f"pattern:{pattern[:20]}",
                     ))
-                    
+
                     if len(variants) >= max_variants:
                         return variants
-        
+
         return variants
-    
+
     def generate_order_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
         """
         Generate word order variants.
@@ -257,30 +255,30 @@ class QueryVariantGenerator:
             List of order variants.
         """
         variants = []
-        
+
         # Tokenize to get content words
         tokens = self._tokenize(query)
-        
+
         # Extract content words (nouns, verbs)
         content_words = [
             t["surface"] for t in tokens
             if t["pos"] in ["名詞", "動詞", "形容詞", "unknown"] and len(t["surface"]) > 1
         ]
-        
+
         # Only reorder if we have 2+ content words
         if len(content_words) >= 2:
             # Swap first two content words
             words_copy = content_words.copy()
             words_copy[0], words_copy[1] = words_copy[1], words_copy[0]
-            
+
             # Reconstruct query with swapped order
             variant_text = query
             for orig, new in zip(content_words[:2], words_copy[:2]):
                 if orig != new:
                     variant_text = variant_text.replace(orig, f"__TEMP_{new}__", 1)
-            
+
             variant_text = variant_text.replace("__TEMP_", "").replace("__", "")
-            
+
             if variant_text != query and len(variant_text) > 0:
                 # More robust approach: just swap the order
                 parts = query.split()
@@ -288,14 +286,14 @@ class QueryVariantGenerator:
                     swapped = parts.copy()
                     swapped[0], swapped[-1] = swapped[-1], swapped[0]
                     variant_text = " ".join(swapped)
-                    
+
                     if variant_text != query:
                         variants.append(QueryVariant(
                             query_text=variant_text,
                             variant_type=VariantType.ORDER,
                             transformation=f"swap:{parts[0]}↔{parts[-1]}",
                         ))
-        
+
         # Also try moving the last word to the front
         words = query.split()
         if len(words) >= 2 and len(variants) < max_variants:
@@ -307,9 +305,9 @@ class QueryVariantGenerator:
                     variant_type=VariantType.ORDER,
                     transformation="rotate-last-to-front",
                 ))
-        
+
         return variants[:max_variants]
-    
+
     def generate_all_variants(
         self,
         query: str,
@@ -334,26 +332,26 @@ class QueryVariantGenerator:
                 transformation="none",
             )
         ]
-        
+
         # Generate each type
         notation_variants = self.generate_notation_variants(query, max_per_type)
         particle_variants = self.generate_particle_variants(query, max_per_type)
         order_variants = self.generate_order_variants(query, max_per_type)
-        
+
         # Add in priority order (notation > particle > order)
         for v in notation_variants + particle_variants + order_variants:
             if v not in all_variants:
                 all_variants.append(v)
                 if len(all_variants) > max_total:
                     break
-        
+
         logger.debug(
             "Generated query variants",
             original=query,
             variant_count=len(all_variants),
             types=[v.variant_type.value for v in all_variants],
         )
-        
+
         return all_variants
 
 
@@ -369,11 +367,11 @@ class ABTestExecutor:
     Runs multiple query variants, measures harvest rates,
     and identifies the best-performing variant.
     """
-    
+
     def __init__(self):
         """Initialize the A/B test executor."""
         self._generator = QueryVariantGenerator()
-    
+
     async def run_ab_test(
         self,
         task_id: str,
@@ -398,15 +396,15 @@ class ABTestExecutor:
             ABTestSession with results.
         """
         from src.search import search_serp
-        
+
         session_id = self._generate_session_id(task_id, base_query)
-        
+
         # Generate variants
         variants = self._generator.generate_all_variants(
             base_query,
             max_total=max_variants,
         )
-        
+
         session = ABTestSession(
             id=session_id,
             task_id=task_id,
@@ -414,18 +412,18 @@ class ABTestExecutor:
             variants=variants,
             status="running",
         )
-        
+
         # Save session start
         await self._save_session(session)
-        
+
         with CausalTrace() as trace:
             # Execute searches for each variant
             results = []
-            
+
             for variant in variants:
                 try:
                     start_time = datetime.now()
-                    
+
                     # Execute search
                     serp_results = await search_serp(
                         query=variant.query_text,
@@ -435,16 +433,16 @@ class ABTestExecutor:
                         task_id=task_id,
                         use_cache=True,
                     )
-                    
+
                     execution_time = int((datetime.now() - start_time).total_seconds() * 1000)
-                    
+
                     # Calculate metrics (simplified: count results as proxy for usefulness)
                     result_count = len(serp_results)
                     # In a real scenario, we'd need to fetch and evaluate content
                     # For now, use result count as proxy
                     useful_estimate = min(result_count, limit)
                     harvest_rate = useful_estimate / limit if limit > 0 else 0
-                    
+
                     result = ABTestResult(
                         variant=variant,
                         result_count=result_count,
@@ -453,7 +451,7 @@ class ABTestExecutor:
                         execution_time_ms=execution_time,
                     )
                     results.append(result)
-                    
+
                     logger.debug(
                         "A/B test variant executed",
                         variant_type=variant.variant_type.value,
@@ -461,7 +459,7 @@ class ABTestExecutor:
                         result_count=result_count,
                         harvest_rate=harvest_rate,
                     )
-                    
+
                 except Exception as e:
                     logger.error(
                         "A/B test variant failed",
@@ -472,22 +470,22 @@ class ABTestExecutor:
                         variant=variant,
                         harvest_rate=0.0,
                     ))
-            
+
             # Find winner (highest harvest rate)
             if results:
                 winner = max(results, key=lambda r: r.harvest_rate)
                 session.winner = winner
-            
+
             session.results = results
             session.status = "completed"
-            
+
             # Save final session
             await self._save_session(session)
-            
+
             # Cache high-yield pattern if improvement found
             if session.winner and session.winner.variant.variant_type != VariantType.ORIGINAL:
                 await self._cache_high_yield_pattern(session)
-            
+
             logger.info(
                 "A/B test completed",
                 session_id=session_id,
@@ -497,18 +495,18 @@ class ABTestExecutor:
                 winner_harvest_rate=session.winner.harvest_rate if session.winner else 0,
                 cause_id=trace.id,
             )
-        
+
         return session
-    
+
     def _generate_session_id(self, task_id: str, query: str) -> str:
         """Generate a unique session ID."""
-        content = f"{task_id}:{query}:{datetime.now(timezone.utc).isoformat()}"
+        content = f"{task_id}:{query}:{datetime.now(UTC).isoformat()}"
         return f"ab_{hashlib.sha256(content.encode()).hexdigest()[:16]}"
-    
+
     async def _save_session(self, session: ABTestSession) -> None:
         """Save A/B test session to database."""
         db = await get_database()
-        
+
         # Save main session
         await db.execute(
             """
@@ -527,7 +525,7 @@ class ABTestExecutor:
                 session.status,
             ),
         )
-        
+
         # Save variants
         for result in session.results:
             await db.execute(
@@ -549,39 +547,39 @@ class ABTestExecutor:
                     result.execution_time_ms,
                 ),
             )
-    
+
     async def _cache_high_yield_pattern(self, session: ABTestSession) -> None:
         """Cache a high-yield pattern for reuse."""
         if not session.winner or session.winner.variant.variant_type == VariantType.ORIGINAL:
             return
-        
+
         # Find original result
         original_result = next(
             (r for r in session.results if r.variant.variant_type == VariantType.ORIGINAL),
             None
         )
-        
+
         if not original_result or original_result.harvest_rate <= 0:
             return
-        
+
         improvement = (session.winner.harvest_rate - original_result.harvest_rate) / original_result.harvest_rate
-        
+
         # Only cache if significant improvement (>10%)
         if improvement < 0.1:
             return
-        
+
         db = await get_database()
-        
+
         pattern_id = hashlib.sha256(
             f"{session.winner.variant.transformation}:{session.base_query}".encode()
         ).hexdigest()[:16]
-        
+
         # Check if pattern exists
         existing = await db.fetch_one(
             "SELECT sample_count, improvement_ratio FROM high_yield_queries WHERE id = ?",
             (pattern_id,),
         )
-        
+
         if existing:
             # Update with exponential moving average
             new_count = existing["sample_count"] + 1
@@ -589,7 +587,7 @@ class ABTestExecutor:
                 existing["improvement_ratio"] * 0.7 + improvement * 0.3
             )
             confidence = min(0.95, 0.5 + 0.1 * new_count)
-            
+
             await db.execute(
                 """
                 UPDATE high_yield_queries 
@@ -617,7 +615,7 @@ class ABTestExecutor:
                     0.5,
                 ),
             )
-        
+
         logger.info(
             "High-yield pattern cached",
             pattern_type=session.winner.variant.variant_type.value,
@@ -636,7 +634,7 @@ class HighYieldQueryCache:
     
     Implements §3.1.1: Cache and reuse high-yield queries.
     """
-    
+
     async def get_improved_query(
         self,
         query: str,
@@ -653,7 +651,7 @@ class HighYieldQueryCache:
             Improved query or None if no suitable pattern found.
         """
         db = await get_database()
-        
+
         # Look for similar patterns
         patterns = await db.fetch_all(
             """
@@ -666,11 +664,11 @@ class HighYieldQueryCache:
             """,
             (min_confidence,),
         )
-        
+
         for pattern in patterns:
             original = pattern["original_pattern"]
             improved = pattern["improved_pattern"]
-            
+
             # Check if query matches the pattern structure
             if self._matches_pattern(query, original, improved):
                 applied = self._apply_pattern(query, original, improved)
@@ -683,36 +681,36 @@ class HighYieldQueryCache:
                         confidence=pattern["confidence"],
                     )
                     return applied
-        
+
         return None
-    
+
     def _matches_pattern(self, query: str, original: str, improved: str) -> bool:
         """Check if a query matches a cached pattern structure."""
         # Simple heuristic: check if they share common terms
         query_terms = set(query.lower().split())
         original_terms = set(original.lower().split())
-        
+
         if not query_terms or not original_terms:
             return False
-        
+
         overlap = len(query_terms & original_terms)
         similarity = overlap / max(len(query_terms), len(original_terms))
-        
+
         return similarity >= 0.5
-    
+
     def _apply_pattern(self, query: str, original: str, improved: str) -> str | None:
         """Apply a cached pattern to a new query."""
         # Find the transformation applied
         for orig_word, imp_word in zip(original.split(), improved.split()):
             if orig_word != imp_word and orig_word in query:
                 return query.replace(orig_word, imp_word, 1)
-        
+
         return None
-    
+
     async def get_stats(self) -> dict[str, Any]:
         """Get statistics about cached patterns."""
         db = await get_database()
-        
+
         stats = await db.fetch_one(
             """
             SELECT 
@@ -723,7 +721,7 @@ class HighYieldQueryCache:
             FROM high_yield_queries
             """
         )
-        
+
         return {
             "total_patterns": stats["total_patterns"] if stats else 0,
             "avg_improvement": stats["avg_improvement"] if stats else 0,

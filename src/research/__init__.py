@@ -11,44 +11,46 @@ See docs/requirements.md §3.1.1 for UCB1-based budget allocation and pivot expl
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
 
-from src.research.context import ResearchContext, EntityInfo, TemplateInfo
-from src.research.state import (
-    ExplorationState,
-    SearchState,
-    SearchStatus,
-    TaskStatus,
-    # Backward compatibility aliases (deprecated, will be removed)
-    SubqueryState,
-    SubqueryStatus,
-)
+from src.research.context import EntityInfo, ResearchContext, TemplateInfo
 from src.research.executor import (
     SearchExecutor,
-    SearchResult as ExecutorSearchResult,
     # Backward compatibility aliases (deprecated, will be removed)
     SubqueryExecutor,
     SubqueryResult,
 )
-from src.research.refutation import RefutationExecutor, RefutationResult
-from src.research.ucb_allocator import (
-    UCBAllocator,
-    SearchArm,
-    # Backward compatibility alias (deprecated, will be removed)
-    SubqueryArm,
+from src.research.executor import (
+    SearchResult as ExecutorSearchResult,
+)
+from src.research.pipeline import (
+    SearchOptions,
+    SearchPipeline,
+    SearchResult,
+    search_action,
+    stop_task_action,
 )
 from src.research.pivot import (
+    EntityType,
     PivotExpander,
     PivotSuggestion,
     PivotType,
-    EntityType,
     detect_entity_type,
     get_pivot_expander,
 )
-from src.research.pipeline import (
-    SearchPipeline,
-    SearchResult,
-    SearchOptions,
-    search_action,
-    stop_task_action,
+from src.research.refutation import RefutationExecutor, RefutationResult
+from src.research.state import (
+    ExplorationState,
+    SearchState,
+    SearchStatus,
+    # Backward compatibility aliases (deprecated, will be removed)
+    SubqueryState,
+    SubqueryStatus,
+    TaskStatus,
+)
+from src.research.ucb_allocator import (
+    SearchArm,
+    # Backward compatibility alias (deprecated, will be removed)
+    SubqueryArm,
+    UCBAllocator,
 )
 
 __all__ = [

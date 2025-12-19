@@ -14,11 +14,10 @@ References:
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
-from src.crawler.rdap_whois import WHOISRecord, RDAPClient, RegistrantInfo
-from src.crawler.crt_transparency import CertSearchResult, CertificateInfo, CertTransparencyClient
+from src.crawler.crt_transparency import CertificateInfo, CertSearchResult, CertTransparencyClient
+from src.crawler.rdap_whois import RDAPClient, RegistrantInfo, WHOISRecord
 from src.storage.entity_kb import (
     EntityKB,
     EntityRecord,
@@ -27,7 +26,7 @@ from src.storage.entity_kb import (
     SourceType,
     get_entity_kb,
 )
-from src.utils.logging import get_logger, CausalTrace
+from src.utils.logging import CausalTrace, get_logger
 
 logger = get_logger(__name__)
 
@@ -39,25 +38,25 @@ logger = get_logger(__name__)
 @dataclass
 class EntityExtractionResult:
     """Result of entity extraction from registry data."""
-    
+
     # Extracted entities
     organizations: list[EntityRecord] = field(default_factory=list)
     domains: list[EntityRecord] = field(default_factory=list)
     persons: list[EntityRecord] = field(default_factory=list)
-    
+
     # Discovered relationships
     relationships: list[tuple[str, str, str]] = field(default_factory=list)
     # (source_entity_id, target_entity_id, relationship_type)
-    
+
     # Source tracking
     source_type: str = ""
     source_url: str | None = None
-    
+
     # Statistics
     entities_created: int = 0
     entities_updated: int = 0
     relationships_created: int = 0
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -82,7 +81,7 @@ class EntityExtractionResult:
 
 class EntityExtractor:
     """Extracts and normalizes entities from registry data."""
-    
+
     def __init__(self, entity_kb: EntityKB):
         """Initialize extractor.
         
@@ -90,7 +89,7 @@ class EntityExtractor:
             entity_kb: Entity KB instance for storage.
         """
         self._kb = entity_kb
-    
+
     async def extract_from_whois(
         self,
         record: WHOISRecord,
@@ -109,7 +108,7 @@ class EntityExtractor:
             source_type="whois",
             source_url=record.source_url,
         )
-        
+
         # 1. Create domain entity
         domain_entity = await self._kb.add_entity(
             name=record.domain,
@@ -128,7 +127,7 @@ class EntityExtractor:
         )
         result.domains.append(domain_entity)
         result.entities_created += 1
-        
+
         # 2. Extract registrant organization
         if record.registrant:
             org_entity = await self._extract_registrant(
@@ -138,7 +137,7 @@ class EntityExtractor:
             if org_entity:
                 result.organizations.append(org_entity)
                 result.entities_created += 1
-                
+
                 # Create relationship: domain -> registrant
                 rel_id = await self._kb.add_relationship(
                     domain_entity.id,
@@ -150,7 +149,7 @@ class EntityExtractor:
                 )
                 result.relationships.append((domain_entity.id, org_entity.id, "registered_by"))
                 result.relationships_created += 1
-        
+
         # 3. Extract nameservers as domain entities
         for ns in record.nameservers:
             ns_entity = await self._kb.add_entity(
@@ -162,7 +161,7 @@ class EntityExtractor:
                 identifiers=[(IdentifierType.NAMESERVER, ns.hostname)],
             )
             result.domains.append(ns_entity)
-            
+
             # Create relationship: domain -> nameserver
             await self._kb.add_relationship(
                 domain_entity.id,
@@ -173,12 +172,12 @@ class EntityExtractor:
             )
             result.relationships.append((domain_entity.id, ns_entity.id, "uses_nameserver"))
             result.relationships_created += 1
-        
+
         logger.info(
             f"Extracted {result.entities_created} entities from WHOIS for {record.domain}"
         )
         return result
-    
+
     async def extract_from_cert(
         self,
         cert_result: CertSearchResult,
@@ -197,7 +196,7 @@ class EntityExtractor:
             source_type="cert_transparency",
             source_url=cert_result.source_url,
         )
-        
+
         # 1. Create domain entity for queried domain
         main_domain_entity = await self._kb.add_entity(
             name=cert_result.query_domain,
@@ -214,14 +213,14 @@ class EntityExtractor:
         )
         result.domains.append(main_domain_entity)
         result.entities_created += 1
-        
+
         # 2. Extract issuer organizations
         seen_issuers = set()
         for issuer in cert_result.discovered_issuers:
             if issuer in seen_issuers:
                 continue
             seen_issuers.add(issuer)
-            
+
             issuer_entity = await self._kb.add_entity(
                 name=issuer,
                 entity_type=EntityType.ORGANIZATION,
@@ -232,7 +231,7 @@ class EntityExtractor:
             )
             result.organizations.append(issuer_entity)
             result.entities_created += 1
-            
+
             # Create relationship: domain -> issuer
             await self._kb.add_relationship(
                 main_domain_entity.id,
@@ -243,14 +242,14 @@ class EntityExtractor:
             )
             result.relationships.append((main_domain_entity.id, issuer_entity.id, "certificate_issued_by"))
             result.relationships_created += 1
-        
+
         # 3. Extract related domains from SANs
         seen_domains = {cert_result.query_domain}
         for domain in cert_result.discovered_domains[:20]:  # Limit to prevent explosion
             if domain in seen_domains:
                 continue
             seen_domains.add(domain)
-            
+
             related_domain_entity = await self._kb.add_entity(
                 name=domain,
                 entity_type=EntityType.DOMAIN,
@@ -261,7 +260,7 @@ class EntityExtractor:
             )
             result.domains.append(related_domain_entity)
             result.entities_created += 1
-            
+
             # Create relationship: main domain -> related domain (certificate sharing)
             await self._kb.add_relationship(
                 main_domain_entity.id,
@@ -272,7 +271,7 @@ class EntityExtractor:
             )
             result.relationships.append((main_domain_entity.id, related_domain_entity.id, "shares_certificate"))
             result.relationships_created += 1
-        
+
         # 4. Extract certificate entities
         for cert in cert_result.certificates[:10]:  # Limit to most recent
             cert_entity = await self._extract_certificate(cert, cert_result.source_url)
@@ -287,12 +286,12 @@ class EntityExtractor:
                 )
                 result.relationships.append((main_domain_entity.id, cert_entity.id, "has_certificate"))
                 result.relationships_created += 1
-        
+
         logger.info(
             f"Extracted {result.entities_created} entities from CT for {cert_result.query_domain}"
         )
         return result
-    
+
     async def _extract_registrant(
         self,
         registrant: RegistrantInfo,
@@ -311,7 +310,7 @@ class EntityExtractor:
         name = registrant.organization or registrant.name
         if not name:
             return None
-        
+
         # Build address string
         address_parts = []
         if registrant.address:
@@ -322,16 +321,16 @@ class EntityExtractor:
             address_parts.append(registrant.state)
         if registrant.country:
             address_parts.append(registrant.country)
-        
+
         address = ", ".join(address_parts) if address_parts else None
-        
+
         # Build identifiers
         identifiers = []
         if registrant.email:
             identifiers.append((IdentifierType.EMAIL, registrant.email))
         if registrant.phone:
             identifiers.append((IdentifierType.PHONE, registrant.phone))
-        
+
         return await self._kb.add_entity(
             name=name,
             entity_type=EntityType.ORGANIZATION,
@@ -346,7 +345,7 @@ class EntityExtractor:
                 "registrant_org": registrant.organization,
             },
         )
-    
+
     async def _extract_certificate(
         self,
         cert: CertificateInfo,
@@ -390,7 +389,7 @@ class RegistryEntityIntegration:
     Provides high-level methods for extracting entities from
     RDAP/WHOIS and Certificate Transparency data.
     """
-    
+
     def __init__(
         self,
         entity_kb: EntityKB,
@@ -408,7 +407,7 @@ class RegistryEntityIntegration:
         self._rdap_client = rdap_client
         self._ct_client = ct_client
         self._extractor = EntityExtractor(entity_kb)
-    
+
     async def process_domain(
         self,
         domain: str,
@@ -428,27 +427,27 @@ class RegistryEntityIntegration:
             Combined EntityExtractionResult.
         """
         result = EntityExtractionResult()
-        
+
         # Process WHOIS
         if include_whois and self._rdap_client:
             whois_record = await self._rdap_client.lookup(domain, trace=trace)
             if whois_record:
                 whois_result = await self._extractor.extract_from_whois(whois_record, trace)
                 self._merge_results(result, whois_result)
-        
+
         # Process CT
         if include_ct and self._ct_client:
             ct_result = await self._ct_client.search(domain, trace=trace)
             if ct_result:
                 ct_extraction = await self._extractor.extract_from_cert(ct_result, trace)
                 self._merge_results(result, ct_extraction)
-        
+
         logger.info(
             f"Processed domain {domain}: {result.entities_created} entities, "
             f"{result.relationships_created} relationships"
         )
         return result
-    
+
     async def process_domains_batch(
         self,
         domains: list[str],
@@ -471,7 +470,7 @@ class RegistryEntityIntegration:
         """
         results = {}
         semaphore = asyncio.Semaphore(max_concurrent)
-        
+
         async def process_one(domain: str) -> tuple[str, EntityExtractionResult]:
             async with semaphore:
                 result = await self.process_domain(
@@ -483,14 +482,14 @@ class RegistryEntityIntegration:
                 # Rate limiting
                 await asyncio.sleep(1.0)
                 return (domain, result)
-        
+
         tasks = [process_one(d) for d in domains]
         for future in asyncio.as_completed(tasks):
             domain, result = await future
             results[domain] = result
-        
+
         return results
-    
+
     async def get_domain_entities(
         self,
         domain: str,
@@ -509,20 +508,20 @@ class RegistryEntityIntegration:
             entity_type=EntityType.DOMAIN,
             threshold=0.9,
         )
-        
+
         if not matches:
             return []
-        
+
         domain_entity = matches[0].entity
         entities = [domain_entity]
-        
+
         # Get related entities
         related = await self._kb.get_related_entities(domain_entity.id)
         for entity, rel_type, confidence in related:
             entities.append(entity)
-        
+
         return entities
-    
+
     async def discover_related_organizations(
         self,
         domain: str,
@@ -541,22 +540,22 @@ class RegistryEntityIntegration:
             entity_type=EntityType.DOMAIN,
             threshold=0.9,
         )
-        
+
         if not matches:
             return []
-        
+
         domain_entity = matches[0].entity
-        
+
         # Get related organizations
         related = await self._kb.get_related_entities(domain_entity.id)
-        
+
         orgs = []
         for entity, rel_type, confidence in related:
             if entity.entity_type == EntityType.ORGANIZATION:
                 orgs.append((entity, rel_type, confidence))
-        
+
         return orgs
-    
+
     def _merge_results(
         self,
         target: EntityExtractionResult,
@@ -594,13 +593,13 @@ async def get_registry_entity_integration(
     Returns:
         Configured RegistryEntityIntegration.
     """
-    from src.crawler.rdap_whois import get_rdap_client
     from src.crawler.crt_transparency import get_cert_transparency_client
-    
+    from src.crawler.rdap_whois import get_rdap_client
+
     entity_kb = await get_entity_kb(db)
     rdap_client = get_rdap_client(fetcher) if fetcher else None
     ct_client = get_cert_transparency_client(fetcher) if fetcher else None
-    
+
     return RegistryEntityIntegration(
         entity_kb=entity_kb,
         rdap_client=rdap_client,

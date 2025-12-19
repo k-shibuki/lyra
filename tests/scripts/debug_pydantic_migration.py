@@ -10,7 +10,6 @@ Usage:
 """
 
 import sys
-from datetime import datetime, timezone
 
 # Add project root to path
 sys.path.insert(0, "/home/statuser/lancet")
@@ -21,15 +20,16 @@ def main():
     print("=" * 60)
     print("Pydantic Migration Debug Script")
     print("=" * 60)
-    
+
     # =========================================================================
     # 1. Test session_transfer.py models
     # =========================================================================
     print("\n[1] Testing session_transfer.py models...")
-    
-    from src.crawler.session_transfer import CookieData, SessionData, TransferResult
+
     from pydantic import ValidationError
-    
+
+    from src.crawler.session_transfer import CookieData, SessionData, TransferResult
+
     # Test CookieData creation
     print("  - Creating CookieData...")
     cookie = CookieData(
@@ -40,7 +40,7 @@ def main():
         http_only=True,
     )
     print(f"    OK: {cookie.name}={cookie.value}")
-    
+
     # Test CookieData validation
     print("  - Testing CookieData validation...")
     try:
@@ -49,7 +49,7 @@ def main():
         sys.exit(1)
     except ValidationError as e:
         print(f"    OK: ValidationError raised ({len(e.errors())} errors)")
-    
+
     # Test CookieData methods
     print("  - Testing CookieData methods...")
     assert not cookie.is_expired()
@@ -57,7 +57,7 @@ def main():
     assert not cookie.matches_domain("other.com")
     assert cookie.to_header_value() == "session_id=abc123"
     print("    OK: All methods work")
-    
+
     # Test SessionData creation
     print("  - Creating SessionData...")
     session = SessionData(
@@ -67,7 +67,7 @@ def main():
         user_agent="TestBot/1.0",
     )
     print(f"    OK: domain={session.domain}, cookies={len(session.cookies)}")
-    
+
     # Test SessionData serialization round-trip
     print("  - Testing SessionData serialization...")
     session_dict = session.to_dict()
@@ -75,7 +75,7 @@ def main():
     assert session2.domain == session.domain
     assert len(session2.cookies) == len(session.cookies)
     print("    OK: Round-trip works")
-    
+
     # Test TransferResult
     print("  - Creating TransferResult...")
     result_ok = TransferResult(ok=True, headers={"Cookie": "test=1"})
@@ -83,19 +83,23 @@ def main():
     assert result_ok.ok is True
     assert result_fail.ok is False
     print("    OK: TransferResult works")
-    
+
     print("[1] session_transfer.py models: PASSED ✓")
-    
+
     # =========================================================================
     # 2. Test provider.py models
     # =========================================================================
     print("\n[2] Testing provider.py models...")
-    
+
     from src.search.provider import (
-        SearchResult, SearchResponse, SearchOptions, HealthStatus,
-        SourceTag, HealthState,
+        HealthState,
+        HealthStatus,
+        SearchOptions,
+        SearchResponse,
+        SearchResult,
+        SourceTag,
     )
-    
+
     # Test SearchResult
     print("  - Creating SearchResult...")
     search_result = SearchResult(
@@ -108,7 +112,7 @@ def main():
     )
     assert search_result.rank >= 0
     print(f"    OK: {search_result.title[:30]}...")
-    
+
     # Test SearchResult from_dict
     print("  - Testing SearchResult serialization...")
     result_dict = search_result.to_dict()
@@ -116,7 +120,7 @@ def main():
     assert result2.title == search_result.title
     assert result2.source_tag == SourceTag.NEWS
     print("    OK: Serialization works")
-    
+
     # Test SearchResponse
     print("  - Creating SearchResponse...")
     search_response = SearchResponse(
@@ -127,7 +131,7 @@ def main():
     )
     assert search_response.ok is True  # No error
     print(f"    OK: {len(search_response.results)} results, ok={search_response.ok}")
-    
+
     # Test SearchOptions
     print("  - Creating SearchOptions...")
     options = SearchOptions(
@@ -138,30 +142,30 @@ def main():
     assert options.limit >= 1
     assert options.page >= 1
     print(f"    OK: engines={options.engines}, limit={options.limit}")
-    
+
     # Test HealthStatus
     print("  - Creating HealthStatus...")
     health = HealthStatus.healthy(latency_ms=150.0)
     assert health.state == HealthState.HEALTHY
     assert health.success_rate == 1.0
     print(f"    OK: state={health.state.value}, latency={health.latency_ms}ms")
-    
+
     # Test HealthStatus factory methods
     degraded = HealthStatus.degraded(success_rate=0.8, message="Some issues")
     unhealthy = HealthStatus.unhealthy(message="Service down")
     assert degraded.state == HealthState.DEGRADED
     assert unhealthy.state == HealthState.UNHEALTHY
     print("    OK: Factory methods work")
-    
+
     print("[2] provider.py models: PASSED ✓")
-    
+
     # =========================================================================
     # 3. Test schemas.py Tor models
     # =========================================================================
     print("\n[3] Testing schemas.py Tor models...")
-    
-    from src.utils.schemas import TorUsageMetrics, DomainTorMetrics
-    
+
+    from src.utils.schemas import DomainTorMetrics, TorUsageMetrics
+
     # Test TorUsageMetrics
     print("  - Creating TorUsageMetrics...")
     tor_metrics = TorUsageMetrics(
@@ -171,7 +175,7 @@ def main():
     )
     assert tor_metrics.usage_ratio == 0.15
     print(f"    OK: ratio={tor_metrics.usage_ratio*100:.1f}%")
-    
+
     # Test TorUsageMetrics with zero
     print("  - Testing zero division handling...")
     zero_metrics = TorUsageMetrics(
@@ -181,7 +185,7 @@ def main():
     )
     assert zero_metrics.usage_ratio == 0.0
     print("    OK: Zero handled correctly")
-    
+
     # Test DomainTorMetrics
     print("  - Creating DomainTorMetrics...")
     domain_metrics = DomainTorMetrics(
@@ -192,16 +196,16 @@ def main():
     )
     assert domain_metrics.usage_ratio == 0.2
     print(f"    OK: domain={domain_metrics.domain}, ratio={domain_metrics.usage_ratio*100:.1f}%")
-    
+
     print("[3] schemas.py Tor models: PASSED ✓")
-    
+
     # =========================================================================
     # Summary
     # =========================================================================
     print("\n" + "=" * 60)
     print("All Pydantic Migration Tests PASSED ✓")
     print("=" * 60)
-    
+
     return 0
 
 

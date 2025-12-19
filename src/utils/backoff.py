@@ -29,12 +29,12 @@ class BackoffConfig:
     Example:
         >>> config = BackoffConfig(base_delay=2.0, max_delay=120.0)
     """
-    
+
     base_delay: float = 1.0
     max_delay: float = 60.0
     exponential_base: float = 2.0
     jitter_factor: float = 0.1  # ±10%
-    
+
     def __post_init__(self) -> None:
         """Validate configuration."""
         if self.base_delay <= 0:
@@ -84,23 +84,23 @@ def calculate_backoff(
     """
     if attempt < 0:
         raise ValueError("attempt must be non-negative")
-    
+
     if config is None:
         config = BackoffConfig()
-    
+
     # Calculate exponential delay with cap
     # Per §4.3.5: delay = min(base_delay * (2 ^ attempt), max_delay)
     delay = min(
         config.base_delay * (config.exponential_base ** attempt),
         config.max_delay,
     )
-    
+
     # Add jitter to prevent thundering herd
     # Per §4.3.5: ±10% random variation
     if add_jitter and config.jitter_factor > 0:
         jitter_range = delay * config.jitter_factor
         delay += random.uniform(-jitter_range, jitter_range)
-    
+
     return max(0.0, delay)
 
 
@@ -149,11 +149,11 @@ def calculate_cooldown_minutes(
         raise ValueError("max_minutes must be positive")
     if max_minutes < base_minutes:
         raise ValueError("max_minutes must be >= base_minutes")
-    
+
     # Calculate exponential factor based on failure tiers
     # Each 3 failures doubles the cooldown, capped at 4x
     factor = min(2 ** (failure_count // 3), 4)
-    
+
     # Apply factor and cap at max
     return min(base_minutes * factor, max_minutes)
 
@@ -181,13 +181,13 @@ def calculate_total_delay(
     """
     if max_retries < 0:
         raise ValueError("max_retries must be non-negative")
-    
+
     if config is None:
         config = BackoffConfig()
-    
+
     total = 0.0
     for attempt in range(max_retries):
         total += calculate_backoff(attempt, config, add_jitter=False)
-    
+
     return total
 
