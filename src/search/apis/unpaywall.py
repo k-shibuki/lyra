@@ -110,7 +110,9 @@ class UnpaywallClient(BaseAcademicClient):
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search is not supported by Unpaywall API."""
         logger.debug("Unpaywall does not support search", query=query)
-        return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="unpaywall")
+        return AcademicSearchResult(
+            papers=[], total_count=0, next_cursor=None, source_api="unpaywall"
+        )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper is not supported by Unpaywall API.

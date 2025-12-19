@@ -27,6 +27,7 @@ class PivotTemplateInfo(TypedDict):
     rationale: str
     operators: list[str]
 
+
 logger = get_logger(__name__)
 
 

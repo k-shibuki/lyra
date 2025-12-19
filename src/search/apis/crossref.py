@@ -60,7 +60,9 @@ class CrossrefClient(BaseAcademicClient):
             )
         except Exception as e:
             logger.error("Crossref search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="crossref")
+            return AcademicSearchResult(
+                papers=[], total_count=0, next_cursor=None, source_api="crossref"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata by DOI."""

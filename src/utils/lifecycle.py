@@ -440,7 +440,9 @@ class ProcessLifecycleManager:
                     "keep_alive": 0,  # Unload immediately
                 }
 
-                async with session.post(url, json=payload, timeout=ClientTimeout(total=10)) as response:
+                async with session.post(
+                    url, json=payload, timeout=ClientTimeout(total=10)
+                ) as response:
                     if response.status == 200:
                         logger.info(
                             "Ollama model unloaded",

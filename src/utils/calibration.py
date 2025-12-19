@@ -203,12 +203,8 @@ class PlattScaling:
         Returns:
             Tuple of (A, B) parameters.
         """
-        logits_arr: np.ndarray[Any, np.dtype[np.float64]] = np.array(
-            logits, dtype=np.float64
-        )
-        labels_arr: np.ndarray[Any, np.dtype[np.float64]] = np.array(
-            labels, dtype=np.float64
-        )
+        logits_arr: np.ndarray[Any, np.dtype[np.float64]] = np.array(logits, dtype=np.float64)
+        labels_arr: np.ndarray[Any, np.dtype[np.float64]] = np.array(labels, dtype=np.float64)
 
         # Initialize parameters
         A = 0.0

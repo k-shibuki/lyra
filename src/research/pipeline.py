@@ -250,9 +250,7 @@ class SearchPipeline:
         """
         if options.refute:
             # Refutation mode: use mechanical suffix patterns
-            result = await self._execute_refutation_search(
-                search_id, query, options, result
-            )
+            result = await self._execute_refutation_search(search_id, query, options, result)
         else:
             # Normal search mode
             result = await self._execute_normal_search(search_id, query, options, result)

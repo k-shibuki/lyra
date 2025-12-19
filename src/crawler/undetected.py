@@ -196,9 +196,7 @@ class UndetectedChromeFetcher:
             user_data_dir=user_data_dir,
         )
 
-    def _simulate_human_delay(
-        self, min_seconds: float = 0.5, max_seconds: float = 2.0
-    ) -> None:
+    def _simulate_human_delay(self, min_seconds: float = 0.5, max_seconds: float = 2.0) -> None:
         """Add human-like delay between actions.
 
         Args:

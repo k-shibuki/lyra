@@ -64,7 +64,9 @@ class OpenAlexClient(BaseAcademicClient):
             )
         except Exception as e:
             logger.error("OpenAlex search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="openalex")
+            return AcademicSearchResult(
+                papers=[], total_count=0, next_cursor=None, source_api="openalex"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""

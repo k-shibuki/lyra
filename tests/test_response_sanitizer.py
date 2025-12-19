@@ -52,9 +52,7 @@ def sanitizer():
 @pytest.fixture
 def sanitizer_with_prompt():
     """Create sanitizer with system prompt for leakage detection."""
-    return ResponseSanitizer(
-        system_prompt="This is a secret system prompt for testing LYRA-abc123"
-    )
+    return ResponseSanitizer(system_prompt="This is a secret system prompt for testing LYRA-abc123")
 
 
 @pytest.fixture(autouse=True)
