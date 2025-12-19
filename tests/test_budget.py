@@ -406,14 +406,16 @@ class TestBudgetManager:
     @pytest.fixture
     def mock_settings(self):
         """Mock settings for budget manager."""
-        return {
-            "task_limits": {
-                "max_pages_per_task": 100,
-                "max_time_minutes_gpu": 15,
-                "max_time_minutes_cpu": 20,
-                "llm_time_ratio_max": 0.25,
-            }
-        }
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            task_limits=SimpleNamespace(
+                max_pages_per_task=100,
+                max_time_minutes_gpu=15,
+                max_time_minutes_cpu=20,
+                llm_time_ratio_max=0.25,
+            )
+        )
 
     @pytest.fixture
     def budget_manager(self, mock_settings):
@@ -671,14 +673,16 @@ class TestConvenienceFunctions:
     @pytest.fixture
     def mock_settings(self):
         """Mock settings."""
-        return {
-            "task_limits": {
-                "max_pages_per_task": 50,
-                "max_time_minutes_gpu": 10,
-                "max_time_minutes_cpu": 15,
-                "llm_time_ratio_max": 0.30,
-            }
-        }
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            task_limits=SimpleNamespace(
+                max_pages_per_task=50,
+                max_time_minutes_gpu=10,
+                max_time_minutes_cpu=15,
+                llm_time_ratio_max=0.30,
+            )
+        )
 
     @pytest.mark.asyncio
     async def test_create_task_budget(self, mock_settings):
@@ -753,15 +757,17 @@ class TestBudgetManagerGPUDetection:
 
     def test_gpu_available_time_limit(self):
         """Test that GPU availability affects time limit."""
+        from types import SimpleNamespace
+
         # Given: Settings with different GPU/CPU time limits
-        settings = {
-            "task_limits": {
-                "max_pages_per_task": 100,
-                "max_time_minutes_gpu": 60,
-                "max_time_minutes_cpu": 75,
-                "llm_time_ratio_max": 0.30,
-            }
-        }
+        settings = SimpleNamespace(
+            task_limits=SimpleNamespace(
+                max_pages_per_task=100,
+                max_time_minutes_gpu=60,
+                max_time_minutes_cpu=75,
+                llm_time_ratio_max=0.30,
+            )
+        )
 
         # When: GPU is available
         with patch("src.scheduler.budget.get_settings", return_value=settings):
@@ -788,14 +794,16 @@ class TestBudgetIntegrationScenarios:
         Uses reduced limits for faster test execution while
         maintaining realistic proportions.
         """
-        return {
-            "task_limits": {
-                "max_pages_per_task": 10,
-                "max_time_minutes_gpu": 1,  # 1 minute for quick tests
-                "max_time_minutes_cpu": 1,
-                "llm_time_ratio_max": 0.30,
-            }
-        }
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            task_limits=SimpleNamespace(
+                max_pages_per_task=10,
+                max_time_minutes_gpu=1,  # 1 minute for quick tests
+                max_time_minutes_cpu=1,
+                llm_time_ratio_max=0.30,
+            )
+        )
 
     @pytest.mark.asyncio
     async def test_typical_task_lifecycle(self, mock_settings):
