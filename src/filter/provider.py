@@ -256,7 +256,7 @@ class EmbeddingResponse:
         )
 
     @classmethod
-    def error(
+    def error_response(
         cls,
         error: str,
         model: str,
@@ -604,7 +604,7 @@ class BaseLLMProvider(ABC):
         model: str | None = None,
     ) -> EmbeddingResponse:
         """Generate embeddings (default: not implemented)."""
-        return EmbeddingResponse.error(
+        return EmbeddingResponse.error_response(
             error=f"Embedding not supported by provider '{self._name}'",
             model=model or "unknown",
             provider=self._name,

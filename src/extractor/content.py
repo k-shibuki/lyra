@@ -29,7 +29,7 @@ def _check_paddleocr_available() -> bool:
     global _paddleocr_available
     if _paddleocr_available is None:
         try:
-            from paddleocr import PaddleOCR
+            import paddleocr  # noqa: F401
 
             _paddleocr_available = True
             logger.debug("PaddleOCR is available")

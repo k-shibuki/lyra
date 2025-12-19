@@ -18,6 +18,7 @@ from src.research.executor import PRIMARY_SOURCE_DOMAINS, REFUTATION_SUFFIXES, S
 from src.research.state import ExplorationState
 from src.storage.database import get_database
 from src.utils.logging import LogContext, get_logger
+from src.utils.schemas import Paper
 
 logger = get_logger(__name__)
 

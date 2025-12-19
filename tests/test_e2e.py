@@ -70,7 +70,7 @@ async def is_browser_search_available() -> bool:
             return False
 
         # Check if Playwright is available
-        from playwright.async_api import async_playwright
+        import playwright.async_api  # noqa: F401
 
         return True
     except ImportError:

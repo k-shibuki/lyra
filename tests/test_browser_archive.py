@@ -798,7 +798,7 @@ class TestBrowserArchiverIntegration:
         assert result["har_path"] is not None
 
         cdxj_content = Path(result["cdxj_path"]).read_text()
-        lines = [l for l in cdxj_content.split("\n") if l and not l.startswith("#")]
+        lines = [line for line in cdxj_content.split("\n") if line and not line.startswith("#")]
         assert len(lines) >= 3
 
         har_content = json.loads(Path(result["har_path"]).read_text())

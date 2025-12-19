@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from src.search.provider import SearchResult
 from src.utils.logging import get_logger
 from src.utils.schemas import CanonicalEntry, Paper, PaperIdentifier
 
