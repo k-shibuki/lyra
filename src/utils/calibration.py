@@ -14,16 +14,17 @@ References:
 
 import json
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
-from src.utils.config import get_settings, get_project_root
-from src.utils.logging import get_logger
 from src.storage.database import get_database
+from src.utils.config import get_project_root, get_settings
+from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -35,35 +36,35 @@ logger = get_logger(__name__)
 @dataclass
 class CalibrationSample:
     """Single sample for calibration."""
-    
+
     predicted_prob: float  # Model's predicted probability
     actual_label: int  # Ground truth (0 or 1)
     logit: float | None = None  # Raw logit if available
     source: str = ""  # Source model (e.g., "llm_extract", "nli_judge")
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class CalibrationParams:
     """Calibration parameters."""
-    
+
     method: str  # "platt" or "temperature"
-    
+
     # Platt scaling params (logistic regression)
     platt_a: float = 1.0  # Slope
     platt_b: float = 0.0  # Intercept
-    
+
     # Temperature scaling param
     temperature: float = 1.0
-    
+
     # Metadata
     source: str = ""
     samples_used: int = 0
     brier_before: float | None = None
     brier_after: float | None = None
-    fitted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    fitted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: int = 1  # Version number for history tracking
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -78,7 +79,7 @@ class CalibrationParams:
             "fitted_at": self.fitted_at.isoformat(),
             "version": self.version,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CalibrationParams":
         """Create from dictionary."""
@@ -86,8 +87,8 @@ class CalibrationParams:
         if isinstance(fitted_at, str):
             fitted_at = datetime.fromisoformat(fitted_at.replace("Z", "+00:00"))
         else:
-            fitted_at = datetime.now(timezone.utc)
-        
+            fitted_at = datetime.now(UTC)
+
         return cls(
             method=data.get("method", "temperature"),
             platt_a=data.get("platt_a", 1.0),
@@ -105,14 +106,14 @@ class CalibrationParams:
 @dataclass
 class CalibrationResult:
     """Result of calibration evaluation."""
-    
+
     brier_score: float
     brier_score_calibrated: float | None = None
     improvement_ratio: float = 0.0  # (before - after) / before
     expected_calibration_error: float = 0.0  # ECE
     samples_evaluated: int = 0
     bins: list[dict[str, float]] = field(default_factory=list)  # Reliability diagram data
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -128,15 +129,15 @@ class CalibrationResult:
 @dataclass
 class RollbackEvent:
     """Record of a calibration rollback event."""
-    
+
     source: str
     from_version: int
     to_version: int
     reason: str  # "degradation" or "manual"
     brier_before_rollback: float
     brier_after_rollback: float
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -148,7 +149,7 @@ class RollbackEvent:
             "brier_after_rollback": self.brier_after_rollback,
             "timestamp": self.timestamp.isoformat(),
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "RollbackEvent":
         """Create from dictionary."""
@@ -156,8 +157,8 @@ class RollbackEvent:
         if isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         else:
-            timestamp = datetime.now(timezone.utc)
-        
+            timestamp = datetime.now(UTC)
+
         return cls(
             source=data.get("source", ""),
             from_version=data.get("from_version", 0),
@@ -179,7 +180,7 @@ class PlattScaling:
     Fits: P(y=1|f) = 1 / (1 + exp(A*f + B))
     where f is the raw logit/score.
     """
-    
+
     @staticmethod
     def fit(
         logits: Sequence[float],
@@ -202,30 +203,30 @@ class PlattScaling:
         """
         logits = np.array(logits, dtype=np.float64)
         labels = np.array(labels, dtype=np.float64)
-        
+
         # Initialize parameters
         A = 0.0
         B = 0.0
-        
+
         for _ in range(max_iter):
             # Forward pass
             z = A * logits + B
             p = 1.0 / (1.0 + np.exp(-z))
-            
+
             # Clip for numerical stability
             p = np.clip(p, 1e-10, 1 - 1e-10)
-            
+
             # Gradients
             error = p - labels
             grad_A = np.mean(error * logits)
             grad_B = np.mean(error)
-            
+
             # Update
             A -= lr * grad_A
             B -= lr * grad_B
-        
+
         return float(A), float(B)
-    
+
     @staticmethod
     def transform(logit: float, A: float, B: float) -> float:
         """Apply Platt scaling to get calibrated probability.
@@ -247,7 +248,7 @@ class TemperatureScaling:
     
     Simple single-parameter scaling: P_calibrated = softmax(logit / T)
     """
-    
+
     @staticmethod
     def fit(
         logits: Sequence[float],
@@ -270,31 +271,31 @@ class TemperatureScaling:
         """
         logits = np.array(logits, dtype=np.float64)
         labels = np.array(labels, dtype=np.float64)
-        
+
         # Start with T=1
         T = 1.0
-        
+
         for _ in range(max_iter):
             # Scaled logits
             scaled = logits / T
-            
+
             # Probabilities (binary case)
             p = 1.0 / (1.0 + np.exp(-scaled))
             p = np.clip(p, 1e-10, 1 - 1e-10)
-            
+
             # Gradient of NLL w.r.t. T
             # d/dT sigmoid(x/T) = sigmoid(x/T) * (1 - sigmoid(x/T)) * (-x/T^2)
             sigmoid_grad = p * (1 - p) * (-logits / (T * T))
-            
+
             # NLL gradient
             grad = np.mean(-(labels / p - (1 - labels) / (1 - p)) * sigmoid_grad)
-            
+
             # Update
             T -= lr * grad
             T = max(0.1, min(T, 10.0))  # Clip to reasonable range
-        
+
         return float(T)
-    
+
     @staticmethod
     def transform(logit: float, temperature: float) -> float:
         """Apply temperature scaling.
@@ -332,10 +333,10 @@ def brier_score(
     """
     if len(predictions) == 0 or len(labels) == 0:
         return float("nan")
-    
+
     predictions = np.array(predictions)
     labels = np.array(labels)
-    
+
     return float(np.mean((predictions - labels) ** 2))
 
 
@@ -358,26 +359,26 @@ def expected_calibration_error(
     """
     predictions = np.array(predictions)
     labels = np.array(labels)
-    
+
     bin_boundaries = np.linspace(0, 1, n_bins + 1)
     bins_data = []
     ece = 0.0
     n = len(predictions)
-    
+
     for i in range(n_bins):
         lower = bin_boundaries[i]
         upper = bin_boundaries[i + 1]
-        
+
         # Find samples in this bin
         in_bin = (predictions > lower) & (predictions <= upper)
         count = np.sum(in_bin)
-        
+
         if count > 0:
             accuracy = np.mean(labels[in_bin])
             confidence = np.mean(predictions[in_bin])
-            
+
             ece += (count / n) * abs(accuracy - confidence)
-            
+
             bins_data.append({
                 "bin_lower": float(lower),
                 "bin_upper": float(upper),
@@ -395,7 +396,7 @@ def expected_calibration_error(
                 "confidence": 0.0,
                 "gap": 0.0,
             })
-    
+
     return float(ece), bins_data
 
 
@@ -411,12 +412,12 @@ class CalibrationHistory:
     - Degradation detection (Brier score worsening)
     - Automatic rollback to previous good parameters
     """
-    
+
     HISTORY_FILE = "calibration_history.json"
     ROLLBACK_LOG_FILE = "calibration_rollback_log.json"
     DEFAULT_MAX_HISTORY = 10  # Keep last N parameter sets per source
     DEGRADATION_THRESHOLD = 0.05  # 5% Brier score increase triggers rollback
-    
+
     def __init__(self, max_history: int = DEFAULT_MAX_HISTORY):
         """Initialize calibration history manager.
         
@@ -428,29 +429,29 @@ class CalibrationHistory:
         self._rollback_log: list[RollbackEvent] = []
         self._load_history()
         self._load_rollback_log()
-    
+
     def _get_history_path(self) -> Path:
         """Get path to history file."""
         return get_project_root() / "data" / self.HISTORY_FILE
-    
+
     def _get_rollback_log_path(self) -> Path:
         """Get path to rollback log file."""
         return get_project_root() / "data" / self.ROLLBACK_LOG_FILE
-    
+
     def _load_history(self) -> None:
         """Load parameter history from file."""
         path = self._get_history_path()
-        
+
         if path.exists():
             try:
                 with open(path) as f:
                     data = json.load(f)
-                
+
                 for source, params_list in data.items():
                     self._history[source] = [
                         CalibrationParams.from_dict(p) for p in params_list
                     ]
-                
+
                 logger.debug(
                     "Loaded calibration history",
                     sources=list(self._history.keys()),
@@ -458,43 +459,43 @@ class CalibrationHistory:
                 )
             except Exception as e:
                 logger.warning("Failed to load calibration history", error=str(e))
-    
+
     def _save_history(self) -> None:
         """Save parameter history to file."""
         path = self._get_history_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         data = {
             source: [p.to_dict() for p in params_list]
             for source, params_list in self._history.items()
         }
-        
+
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
-    
+
     def _load_rollback_log(self) -> None:
         """Load rollback event log from file."""
         path = self._get_rollback_log_path()
-        
+
         if path.exists():
             try:
                 with open(path) as f:
                     data = json.load(f)
-                
+
                 self._rollback_log = [RollbackEvent.from_dict(e) for e in data]
             except Exception as e:
                 logger.warning("Failed to load rollback log", error=str(e))
-    
+
     def _save_rollback_log(self) -> None:
         """Save rollback event log to file."""
         path = self._get_rollback_log_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         data = [e.to_dict() for e in self._rollback_log]
-        
+
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
-    
+
     def add_params(self, params: CalibrationParams) -> None:
         """Add new calibration parameters to history.
         
@@ -502,31 +503,31 @@ class CalibrationHistory:
             params: Calibration parameters to add.
         """
         source = params.source
-        
+
         if source not in self._history:
             self._history[source] = []
-        
+
         # Assign version number
         if self._history[source]:
             params.version = self._history[source][-1].version + 1
         else:
             params.version = 1
-        
+
         self._history[source].append(params)
-        
+
         # Trim history to max size
         if len(self._history[source]) > self._max_history:
             self._history[source] = self._history[source][-self._max_history:]
-        
+
         self._save_history()
-        
+
         logger.debug(
             "Added params to history",
             source=source,
             version=params.version,
             history_size=len(self._history[source]),
         )
-    
+
     def get_history(self, source: str) -> list[CalibrationParams]:
         """Get parameter history for a source.
         
@@ -537,7 +538,7 @@ class CalibrationHistory:
             List of historical parameter sets (oldest first).
         """
         return self._history.get(source, [])
-    
+
     def get_latest(self, source: str) -> CalibrationParams | None:
         """Get most recent parameters for a source.
         
@@ -549,7 +550,7 @@ class CalibrationHistory:
         """
         history = self._history.get(source, [])
         return history[-1] if history else None
-    
+
     def get_previous(self, source: str) -> CalibrationParams | None:
         """Get second-most recent parameters for a source.
         
@@ -561,7 +562,7 @@ class CalibrationHistory:
         """
         history = self._history.get(source, [])
         return history[-2] if len(history) >= 2 else None
-    
+
     def get_by_version(self, source: str, version: int) -> CalibrationParams | None:
         """Get parameters by version number.
         
@@ -576,7 +577,7 @@ class CalibrationHistory:
             if params.version == version:
                 return params
         return None
-    
+
     def check_degradation(
         self,
         source: str,
@@ -595,18 +596,18 @@ class CalibrationHistory:
             degradation_ratio is (new - old) / old (positive = worse).
         """
         previous = self.get_previous(source)
-        
+
         if previous is None or previous.brier_after is None:
             return False, 0.0
-        
+
         old_brier = previous.brier_after
-        
+
         if old_brier <= 0:
             return False, 0.0
-        
+
         degradation_ratio = (new_brier - old_brier) / old_brier
         is_degraded = degradation_ratio > self.DEGRADATION_THRESHOLD
-        
+
         if is_degraded:
             logger.warning(
                 "Calibration degradation detected",
@@ -615,9 +616,9 @@ class CalibrationHistory:
                 new_brier=f"{new_brier:.4f}",
                 degradation=f"{degradation_ratio*100:.1f}%",
             )
-        
+
         return is_degraded, degradation_ratio
-    
+
     def rollback(
         self,
         source: str,
@@ -635,7 +636,7 @@ class CalibrationHistory:
             Rolled-back CalibrationParams or None if no previous available.
         """
         history = self._history.get(source, [])
-        
+
         if len(history) < 2:
             logger.warning(
                 "Cannot rollback: insufficient history",
@@ -643,12 +644,12 @@ class CalibrationHistory:
                 history_size=len(history),
             )
             return None
-        
+
         # Current (to be rolled back from)
         current = history[-1]
         # Previous (to rollback to)
         previous = history[-2]
-        
+
         # Record rollback event
         event = RollbackEvent(
             source=source,
@@ -660,11 +661,11 @@ class CalibrationHistory:
         )
         self._rollback_log.append(event)
         self._save_rollback_log()
-        
+
         # Remove the current (bad) parameters from history
         self._history[source] = history[:-1]
         self._save_history()
-        
+
         logger.info(
             "Calibration rolled back",
             source=source,
@@ -672,9 +673,9 @@ class CalibrationHistory:
             to_version=previous.version,
             reason=reason,
         )
-        
+
         return previous
-    
+
     def rollback_to_version(
         self,
         source: str,
@@ -692,16 +693,16 @@ class CalibrationHistory:
             Target CalibrationParams or None if not found.
         """
         history = self._history.get(source, [])
-        
+
         if not history:
             return None
-        
+
         target_idx = None
         for i, params in enumerate(history):
             if params.version == target_version:
                 target_idx = i
                 break
-        
+
         if target_idx is None:
             logger.warning(
                 "Rollback target version not found",
@@ -709,10 +710,10 @@ class CalibrationHistory:
                 target_version=target_version,
             )
             return None
-        
+
         current = history[-1]
         target = history[target_idx]
-        
+
         # Record rollback event
         event = RollbackEvent(
             source=source,
@@ -724,11 +725,11 @@ class CalibrationHistory:
         )
         self._rollback_log.append(event)
         self._save_rollback_log()
-        
+
         # Keep only up to target version
         self._history[source] = history[:target_idx + 1]
         self._save_history()
-        
+
         logger.info(
             "Calibration rolled back to specific version",
             source=source,
@@ -736,9 +737,9 @@ class CalibrationHistory:
             to_version=target.version,
             reason=reason,
         )
-        
+
         return target
-    
+
     def get_rollback_log(
         self,
         source: str | None = None,
@@ -754,12 +755,12 @@ class CalibrationHistory:
             List of RollbackEvents (most recent first).
         """
         events = self._rollback_log
-        
+
         if source:
             events = [e for e in events if e.source == source]
-        
+
         return list(reversed(events[-limit:]))
-    
+
     def get_stats(self) -> dict[str, Any]:
         """Get calibration history statistics.
         
@@ -794,11 +795,11 @@ class Calibrator:
     - Incremental recalibration as new samples arrive
     - Degradation detection and automatic rollback (§4.6.1)
     """
-    
+
     PARAMS_FILE = "calibration_params.json"
     SAMPLES_FILE = "calibration_samples.json"
     RECALIBRATION_THRESHOLD = 10  # Recalibrate after N new samples
-    
+
     def __init__(self, enable_auto_rollback: bool = True):
         """Initialize calibrator.
         
@@ -812,56 +813,56 @@ class Calibrator:
         self._enable_auto_rollback = enable_auto_rollback
         self._load_params()
         self._load_samples()
-    
+
     def _get_params_path(self) -> Path:
         """Get path to calibration parameters file."""
         return get_project_root() / "data" / self.PARAMS_FILE
-    
+
     def _load_params(self) -> None:
         """Load saved calibration parameters."""
         path = self._get_params_path()
-        
+
         if path.exists():
             try:
                 with open(path) as f:
                     data = json.load(f)
-                
+
                 for source, params_dict in data.items():
                     self._params[source] = CalibrationParams.from_dict(params_dict)
-                
+
                 logger.info(
                     "Loaded calibration params",
                     sources=list(self._params.keys()),
                 )
             except Exception as e:
                 logger.warning("Failed to load calibration params", error=str(e))
-    
+
     def _save_params(self) -> None:
         """Save calibration parameters."""
         path = self._get_params_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         data = {
             source: params.to_dict()
             for source, params in self._params.items()
         }
-        
+
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
-    
+
     def _get_samples_path(self) -> Path:
         """Get path to pending samples file."""
         return get_project_root() / "data" / self.SAMPLES_FILE
-    
+
     def _load_samples(self) -> None:
         """Load pending calibration samples."""
         path = self._get_samples_path()
-        
+
         if path.exists():
             try:
                 with open(path) as f:
                     data = json.load(f)
-                
+
                 for source, samples_data in data.items():
                     self._pending_samples[source] = [
                         CalibrationSample(
@@ -874,12 +875,12 @@ class Calibrator:
                     ]
             except Exception as e:
                 logger.warning("Failed to load calibration samples", error=str(e))
-    
+
     def _save_samples(self) -> None:
         """Save pending calibration samples."""
         path = self._get_samples_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         data = {
             source: [
                 {
@@ -892,10 +893,10 @@ class Calibrator:
             ]
             for source, samples in self._pending_samples.items()
         }
-        
+
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
-    
+
     def add_sample(
         self,
         predicted_prob: float,
@@ -922,20 +923,20 @@ class Calibrator:
             logit=logit,
             source=source,
         )
-        
+
         if source not in self._pending_samples:
             self._pending_samples[source] = []
-        
+
         self._pending_samples[source].append(sample)
         self._save_samples()
-        
+
         # Check if recalibration needed
         if self.needs_recalibration(source):
             self._recalibrate(source)
             return True
-        
+
         return False
-    
+
     def _recalibrate(self, source: str) -> None:
         """Recalibrate using accumulated samples.
         
@@ -943,23 +944,23 @@ class Calibrator:
             source: Source model identifier.
         """
         samples = self._pending_samples.get(source, [])
-        
+
         if len(samples) < self.RECALIBRATION_THRESHOLD:
             return
-        
+
         logger.info(
             "Triggering recalibration",
             source=source,
             samples=len(samples),
         )
-        
+
         # Use temperature scaling by default
         self.fit(samples, source, method="temperature")
-        
+
         # Clear pending samples after recalibration
         self._pending_samples[source] = []
         self._save_samples()
-    
+
     def fit(
         self,
         samples: list[CalibrationSample],
@@ -983,7 +984,7 @@ class Calibrator:
                 count=len(samples),
             )
             return CalibrationParams(method=method, source=source)
-        
+
         # Extract data
         if method == "platt":
             # Need logits for Platt scaling
@@ -992,9 +993,9 @@ class Calibrator:
                 for s in samples
             ]
             labels = [s.actual_label for s in samples]
-            
+
             A, B = PlattScaling.fit(logits, labels)
-            
+
             params = CalibrationParams(
                 method="platt",
                 platt_a=A,
@@ -1009,33 +1010,33 @@ class Calibrator:
                 for s in samples
             ]
             labels = [s.actual_label for s in samples]
-            
+
             T = TemperatureScaling.fit(logits, labels)
-            
+
             params = CalibrationParams(
                 method="temperature",
                 temperature=T,
                 source=source,
                 samples_used=len(samples),
             )
-        
+
         # Evaluate improvement
         predictions = [s.predicted_prob for s in samples]
         labels = [s.actual_label for s in samples]
-        
+
         brier_before = brier_score(predictions, labels)
-        
+
         calibrated = [self._apply_params(s.predicted_prob, s.logit, params) for s in samples]
         brier_after = brier_score(calibrated, labels)
-        
+
         params.brier_before = brier_before
         params.brier_after = brier_after
-        
+
         # Check for degradation before saving
         is_degraded, degradation_ratio = self._history.check_degradation(
             source, brier_after
         )
-        
+
         if is_degraded and self._enable_auto_rollback:
             # Rollback to previous parameters
             logger.warning(
@@ -1044,26 +1045,26 @@ class Calibrator:
                 new_brier=f"{brier_after:.4f}",
                 degradation=f"{degradation_ratio*100:.1f}%",
             )
-            
+
             rollback_params = self._history.rollback(source, reason="degradation")
-            
+
             if rollback_params:
                 self._params[source] = rollback_params
                 self._save_params()
                 return rollback_params
-        
+
         # Add to history (before updating current params)
         self._history.add_params(params)
-        
+
         # Update current params
         self._params[source] = params
         self._save_params()
-        
+
         improvement_pct = (
             (brier_before - brier_after) / brier_before * 100
             if brier_before > 0 else 0.0
         )
-        
+
         logger.info(
             "Calibration fitted",
             source=source,
@@ -1073,9 +1074,9 @@ class Calibrator:
             brier_after=f"{brier_after:.4f}",
             improvement=f"{improvement_pct:.1f}%",
         )
-        
+
         return params
-    
+
     def calibrate(
         self,
         prob: float,
@@ -1094,10 +1095,10 @@ class Calibrator:
         """
         if source not in self._params:
             return prob  # No calibration available
-        
+
         params = self._params[source]
         return self._apply_params(prob, logit, params)
-    
+
     def _apply_params(
         self,
         prob: float,
@@ -1117,18 +1118,18 @@ class Calibrator:
         # Convert prob to logit if not provided
         if logit is None:
             logit = self._prob_to_logit(prob)
-        
+
         if params.method == "platt":
             return PlattScaling.transform(logit, params.platt_a, params.platt_b)
         else:
             return TemperatureScaling.transform(logit, params.temperature)
-    
+
     @staticmethod
     def _prob_to_logit(prob: float) -> float:
         """Convert probability to logit."""
         prob = max(1e-10, min(prob, 1 - 1e-10))
         return math.log(prob / (1 - prob))
-    
+
     def evaluate(
         self,
         samples: list[CalibrationSample],
@@ -1145,32 +1146,32 @@ class Calibrator:
         """
         predictions = [s.predicted_prob for s in samples]
         labels = [s.actual_label for s in samples]
-        
+
         brier_before = brier_score(predictions, labels)
         ece_before, bins = expected_calibration_error(predictions, labels)
-        
+
         result = CalibrationResult(
             brier_score=brier_before,
             expected_calibration_error=ece_before,
             samples_evaluated=len(samples),
             bins=bins,
         )
-        
+
         # Evaluate with calibration if available
         if source in self._params:
             calibrated = [
                 self.calibrate(s.predicted_prob, source, s.logit)
                 for s in samples
             ]
-            
+
             brier_after = brier_score(calibrated, labels)
             result.brier_score_calibrated = brier_after
-            
+
             if brier_before > 0:
                 result.improvement_ratio = (brier_before - brier_after) / brier_before
-        
+
         return result
-    
+
     def get_params(self, source: str) -> CalibrationParams | None:
         """Get calibration parameters for source.
         
@@ -1181,7 +1182,7 @@ class Calibrator:
             CalibrationParams or None.
         """
         return self._params.get(source)
-    
+
     def needs_recalibration(self, source: str) -> bool:
         """Check if source needs recalibration.
         
@@ -1194,14 +1195,14 @@ class Calibrator:
             True if recalibration recommended.
         """
         pending_count = len(self._pending_samples.get(source, []))
-        
+
         # If never calibrated, need at least threshold samples
         if source not in self._params:
             return pending_count >= self.RECALIBRATION_THRESHOLD
-        
+
         # If already calibrated, recalibrate when new samples accumulate
         return pending_count >= self.RECALIBRATION_THRESHOLD
-    
+
     def get_pending_sample_count(self, source: str) -> int:
         """Get number of pending samples for source.
         
@@ -1212,7 +1213,7 @@ class Calibrator:
             Number of pending samples.
         """
         return len(self._pending_samples.get(source, []))
-    
+
     def get_all_sources(self) -> list[str]:
         """Get all calibrated sources.
         
@@ -1220,11 +1221,11 @@ class Calibrator:
             List of source identifiers.
         """
         return list(self._params.keys())
-    
+
     # =========================================================================
     # Rollback Methods (§4.6.1)
     # =========================================================================
-    
+
     def rollback(
         self,
         source: str,
@@ -1240,14 +1241,14 @@ class Calibrator:
             Rolled-back CalibrationParams or None.
         """
         rollback_params = self._history.rollback(source, reason)
-        
+
         if rollback_params:
             self._params[source] = rollback_params
             self._save_params()
             return rollback_params
-        
+
         return None
-    
+
     def rollback_to_version(
         self,
         source: str,
@@ -1265,14 +1266,14 @@ class Calibrator:
             Target CalibrationParams or None.
         """
         rollback_params = self._history.rollback_to_version(source, version, reason)
-        
+
         if rollback_params:
             self._params[source] = rollback_params
             self._save_params()
             return rollback_params
-        
+
         return None
-    
+
     def get_history(self, source: str) -> list[CalibrationParams]:
         """Get calibration parameter history for a source.
         
@@ -1283,7 +1284,7 @@ class Calibrator:
             List of historical parameter sets.
         """
         return self._history.get_history(source)
-    
+
     def get_rollback_log(
         self,
         source: str | None = None,
@@ -1299,7 +1300,7 @@ class Calibrator:
             List of RollbackEvents.
         """
         return self._history.get_rollback_log(source, limit)
-    
+
     def get_history_stats(self) -> dict[str, Any]:
         """Get calibration history statistics.
         
@@ -1307,7 +1308,7 @@ class Calibrator:
             Dictionary with history statistics.
         """
         return self._history.get_stats()
-    
+
     def set_auto_rollback(self, enabled: bool) -> None:
         """Enable or disable automatic rollback.
         
@@ -1354,9 +1355,9 @@ async def calibrate_confidence(
     """
     calibrator = get_calibrator()
     calibrated = calibrator.calibrate(prob, source, logit)
-    
+
     params = calibrator.get_params(source)
-    
+
     return {
         "original": prob,
         "calibrated": calibrated,
@@ -1382,14 +1383,14 @@ async def evaluate_calibration(
         Evaluation result.
     """
     calibrator = get_calibrator()
-    
+
     samples = [
         CalibrationSample(predicted_prob=p, actual_label=label, source=source)
         for p, label in zip(predictions, labels)
     ]
-    
+
     result = calibrator.evaluate(samples, source)
-    
+
     return result.to_dict()
 
 
@@ -1411,14 +1412,14 @@ async def fit_calibration(
         Fitted parameters.
     """
     calibrator = get_calibrator()
-    
+
     samples = [
         CalibrationSample(predicted_prob=p, actual_label=label, source=source)
         for p, label in zip(predictions, labels)
     ]
-    
+
     params = calibrator.fit(samples, source, method)
-    
+
     return params.to_dict()
 
 
@@ -1443,14 +1444,14 @@ async def add_calibration_sample(
         Status including whether recalibration occurred.
     """
     calibrator = get_calibrator()
-    
+
     recalibrated = calibrator.add_sample(
         predicted_prob=predicted_prob,
         actual_label=actual_label,
         source=source,
         logit=logit,
     )
-    
+
     return {
         "sample_added": True,
         "source": source,
@@ -1478,19 +1479,19 @@ async def rollback_calibration(
         Rollback result including new active parameters.
     """
     calibrator = get_calibrator()
-    
+
     if version is not None:
         params = calibrator.rollback_to_version(source, version, reason)
     else:
         params = calibrator.rollback(source, reason)
-    
+
     if params is None:
         return {
             "ok": False,
             "source": source,
             "reason": "no_previous_version",
         }
-    
+
     return {
         "ok": True,
         "source": source,
@@ -1512,9 +1513,9 @@ async def get_calibration_history(
         History with all parameter versions.
     """
     calibrator = get_calibrator()
-    
+
     history = calibrator.get_history(source)
-    
+
     return {
         "source": source,
         "versions": [
@@ -1546,9 +1547,9 @@ async def get_rollback_events(
         List of rollback events.
     """
     calibrator = get_calibrator()
-    
+
     events = calibrator.get_rollback_log(source, limit)
-    
+
     return {
         "events": [e.to_dict() for e in events],
         "total_events": len(events),
@@ -1563,9 +1564,9 @@ async def get_calibration_stats() -> dict[str, Any]:
         Comprehensive calibration statistics.
     """
     calibrator = get_calibrator()
-    
+
     history_stats = calibrator.get_history_stats()
-    
+
     current_params = {}
     for source in calibrator.get_all_sources():
         params = calibrator.get_params(source)
@@ -1576,7 +1577,7 @@ async def get_calibration_stats() -> dict[str, Any]:
                 "brier_after": params.brier_after,
                 "samples_used": params.samples_used,
             }
-    
+
     return {
         "current_params": current_params,
         "history": history_stats,
@@ -1592,7 +1593,7 @@ async def get_calibration_stats() -> dict[str, Any]:
 @dataclass
 class CalibrationEvaluation:
     """Stored calibration evaluation result."""
-    
+
     id: str
     source: str
     brier_score: float
@@ -1603,8 +1604,8 @@ class CalibrationEvaluation:
     bins: list[dict[str, float]]
     calibration_version: int | None
     evaluated_at: datetime
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -1635,7 +1636,7 @@ class CalibrationEvaluator:
     - Interpretation of evaluation results
     - Decision on response policies
     """
-    
+
     def __init__(self, db: Any = None):
         """Initialize evaluator.
         
@@ -1644,18 +1645,18 @@ class CalibrationEvaluator:
         """
         self._db = db
         self._calibrator = get_calibrator()
-    
+
     async def _get_db(self) -> Any:
         """Get database connection."""
         if self._db is not None:
             return self._db
         return await get_database()
-    
+
     def _generate_id(self) -> str:
         """Generate unique evaluation ID."""
         import uuid
         return f"eval_{uuid.uuid4().hex[:12]}"
-    
+
     async def save_evaluation(
         self,
         source: str,
@@ -1677,31 +1678,31 @@ class CalibrationEvaluator:
             CalibrationSample(predicted_prob=p, actual_label=label, source=source)
             for p, label in zip(predictions, labels)
         ]
-        
+
         # Calculate metrics
         brier_before = brier_score(predictions, labels)
         ece, bins = expected_calibration_error(predictions, labels)
-        
+
         # Get calibration params if available
         params = self._calibrator.get_params(source)
         calibration_version = params.version if params else None
-        
+
         # Calculate calibrated metrics if calibration exists
         brier_calibrated = None
         improvement_ratio = 0.0
-        
+
         if params is not None:
             calibrated_probs = [
                 self._calibrator.calibrate(p, source)
                 for p in predictions
             ]
             brier_calibrated = brier_score(calibrated_probs, labels)
-            
+
             if brier_before > 0:
                 improvement_ratio = (brier_before - brier_calibrated) / brier_before
-        
+
         # Create evaluation record
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         evaluation = CalibrationEvaluation(
             id=self._generate_id(),
             source=source,
@@ -1715,10 +1716,10 @@ class CalibrationEvaluator:
             evaluated_at=now,
             created_at=now,
         )
-        
+
         # Save to database
         await self._save_to_db(evaluation)
-        
+
         logger.info(
             "Calibration evaluation saved",
             evaluation_id=evaluation.id,
@@ -1726,9 +1727,9 @@ class CalibrationEvaluator:
             brier_score=f"{brier_before:.4f}",
             samples=len(samples),
         )
-        
+
         return evaluation
-    
+
     async def _save_to_db(self, evaluation: CalibrationEvaluation) -> None:
         """Save evaluation to database.
         
@@ -1736,7 +1737,7 @@ class CalibrationEvaluator:
             evaluation: Evaluation to save.
         """
         db = await self._get_db()
-        
+
         await db.execute(
             """
             INSERT INTO calibration_evaluations (
@@ -1760,7 +1761,7 @@ class CalibrationEvaluator:
                 evaluation.created_at.isoformat(),
             ),
         )
-    
+
     async def get_evaluations(
         self,
         source: str | None = None,
@@ -1778,30 +1779,30 @@ class CalibrationEvaluator:
             List of CalibrationEvaluations (most recent first).
         """
         db = await self._get_db()
-        
+
         query = "SELECT * FROM calibration_evaluations WHERE 1=1"
         params: list[Any] = []
-        
+
         if source is not None:
             query += " AND source = ?"
             params.append(source)
-        
+
         if since is not None:
             query += " AND evaluated_at >= ?"
             params.append(since.isoformat())
-        
+
         query += " ORDER BY evaluated_at DESC LIMIT ?"
         params.append(limit)
-        
+
         cursor = await db.execute(query, params)
         rows = await cursor.fetchall()
-        
+
         evaluations = []
         for row in rows:
             evaluations.append(self._row_to_evaluation(row))
-        
+
         return evaluations
-    
+
     async def get_latest_evaluation(self, source: str) -> CalibrationEvaluation | None:
         """Get most recent evaluation for a source.
         
@@ -1813,7 +1814,7 @@ class CalibrationEvaluator:
         """
         evaluations = await self.get_evaluations(source=source, limit=1)
         return evaluations[0] if evaluations else None
-    
+
     async def get_evaluation_by_id(self, evaluation_id: str) -> CalibrationEvaluation | None:
         """Get evaluation by ID.
         
@@ -1824,18 +1825,18 @@ class CalibrationEvaluator:
             CalibrationEvaluation or None.
         """
         db = await self._get_db()
-        
+
         cursor = await db.execute(
             "SELECT * FROM calibration_evaluations WHERE id = ?",
             (evaluation_id,),
         )
         row = await cursor.fetchone()
-        
+
         if row is None:
             return None
-        
+
         return self._row_to_evaluation(row)
-    
+
     def _row_to_evaluation(self, row: Any) -> CalibrationEvaluation:
         """Convert database row to CalibrationEvaluation.
         
@@ -1857,19 +1858,19 @@ class CalibrationEvaluator:
                 "evaluated_at", "created_at",
             ]
             data = dict(zip(columns, row))
-        
+
         evaluated_at = data["evaluated_at"]
         if isinstance(evaluated_at, str):
             evaluated_at = datetime.fromisoformat(evaluated_at.replace("Z", "+00:00"))
-        
+
         created_at = data["created_at"]
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-        
+
         bins = data["bins_json"]
         if isinstance(bins, str):
             bins = json.loads(bins)
-        
+
         return CalibrationEvaluation(
             id=data["id"],
             source=data["source"],
@@ -1883,7 +1884,7 @@ class CalibrationEvaluator:
             evaluated_at=evaluated_at,
             created_at=created_at,
         )
-    
+
     async def get_reliability_diagram_data(
         self,
         source: str,
@@ -1902,14 +1903,14 @@ class CalibrationEvaluator:
             evaluation = await self.get_evaluation_by_id(evaluation_id)
         else:
             evaluation = await self.get_latest_evaluation(source)
-        
+
         if evaluation is None:
             return {
                 "ok": False,
                 "source": source,
                 "reason": "no_evaluation_found",
             }
-        
+
         return {
             "ok": True,
             "source": evaluation.source,
@@ -1921,7 +1922,7 @@ class CalibrationEvaluator:
             "brier_score_calibrated": evaluation.brier_score_calibrated,
             "evaluated_at": evaluation.evaluated_at.isoformat(),
         }
-    
+
     async def count_evaluations(self, source: str | None = None) -> int:
         """Count evaluations.
         
@@ -1932,7 +1933,7 @@ class CalibrationEvaluator:
             Count of evaluations.
         """
         db = await self._get_db()
-        
+
         if source is not None:
             cursor = await db.execute(
                 "SELECT COUNT(*) FROM calibration_evaluations WHERE source = ?",
@@ -1940,7 +1941,7 @@ class CalibrationEvaluator:
             )
         else:
             cursor = await db.execute("SELECT COUNT(*) FROM calibration_evaluations")
-        
+
         row = await cursor.fetchone()
         return row[0]
 
@@ -1982,9 +1983,9 @@ async def save_calibration_evaluation(
         Saved evaluation result.
     """
     evaluator = get_calibration_evaluator()
-    
+
     evaluation = await evaluator.save_evaluation(source, predictions, labels)
-    
+
     return {
         "ok": True,
         **evaluation.to_dict(),
@@ -2009,19 +2010,19 @@ async def get_calibration_evaluations(
         Evaluation history as structured data.
     """
     evaluator = get_calibration_evaluator()
-    
+
     since_dt = None
     if since is not None:
         since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-    
+
     evaluations = await evaluator.get_evaluations(
         source=source,
         limit=limit,
         since=since_dt,
     )
-    
+
     total_count = await evaluator.count_evaluations(source)
-    
+
     return {
         "ok": True,
         "evaluations": [e.to_dict() for e in evaluations],
@@ -2048,7 +2049,7 @@ async def get_reliability_diagram_data(
         Reliability diagram data.
     """
     evaluator = get_calibration_evaluator()
-    
+
     return await evaluator.get_reliability_diagram_data(source, evaluation_id)
 
 
@@ -2086,21 +2087,21 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
     """
     if data is None:
         data = {}
-    
+
     try:
         if action == "add_sample":
             # Validate required fields
             source = data.get("source")
             prediction = data.get("prediction")
             actual = data.get("actual")
-            
+
             if source is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
             if prediction is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "prediction is required"}
             if actual is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "actual is required"}
-            
+
             result = await add_calibration_sample(
                 source=source,
                 predicted_prob=float(prediction),
@@ -2108,31 +2109,31 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
                 logit=data.get("logit"),
             )
             return {"ok": True, **result}
-        
+
         elif action == "get_stats":
             result = await get_calibration_stats()
             return {"ok": True, **result}
-        
+
         elif action == "evaluate":
             # Validate required fields
             source = data.get("source")
             predictions = data.get("predictions")
             labels = data.get("labels")
-            
+
             if source is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
             if predictions is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "predictions is required"}
             if labels is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "labels is required"}
-            
+
             result = await save_calibration_evaluation(
                 source=source,
                 predictions=[float(p) for p in predictions],
                 labels=[int(lbl) for lbl in labels],
             )
             return result  # Already has ok: True
-        
+
         elif action == "get_evaluations":
             result = await get_calibration_evaluations(
                 source=data.get("source"),
@@ -2140,25 +2141,25 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
                 since=data.get("since"),
             )
             return result  # Already has ok: True
-        
+
         elif action == "get_diagram_data":
             source = data.get("source")
             if source is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
-            
+
             result = await get_reliability_diagram_data(
                 source=source,
                 evaluation_id=data.get("evaluation_id"),
             )
             return result  # Already has ok field
-        
+
         else:
             return {
                 "ok": False,
                 "error": "INVALID_PARAMS",
                 "message": f"Unknown action: {action}. Valid actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
             }
-    
+
     except Exception as e:
         logger.error("calibrate_action failed", action=action, error=str(e))
         return {

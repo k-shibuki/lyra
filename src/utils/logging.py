@@ -5,14 +5,14 @@ Uses structlog for JSON-formatted logs with causal tracing.
 
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import structlog
 from structlog.types import Processor
 
-from src.utils.config import get_settings, get_project_root
+from src.utils.config import get_project_root, get_settings
 
 
 def _add_timestamp(
@@ -21,7 +21,7 @@ def _add_timestamp(
     event_dict: dict[str, Any],
 ) -> dict[str, Any]:
     """Add ISO timestamp to log event."""
-    event_dict["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    event_dict["timestamp"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     return event_dict
 
 
@@ -60,18 +60,18 @@ def configure_logging(
         json_format: Whether to use JSON format (True) or console format (False).
     """
     settings = get_settings()
-    
+
     if log_level is None:
         log_level = settings.general.log_level
-    
+
     if log_file is None:
         log_dir = get_project_root() / settings.general.logs_dir
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"lancet_{datetime.now().strftime('%Y%m%d')}.log"
-    
+
     # Convert log level string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
-    
+
     # Configure stdlib logging
     logging.basicConfig(
         format="%(message)s",
@@ -81,7 +81,7 @@ def configure_logging(
             logging.FileHandler(log_file, encoding="utf-8"),
         ],
     )
-    
+
     # Define processors
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
@@ -93,7 +93,7 @@ def configure_logging(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
     ]
-    
+
     if json_format:
         # JSON format for file logging and production
         processors = shared_processors + [
@@ -105,7 +105,7 @@ def configure_logging(
         processors = shared_processors + [
             structlog.dev.ConsoleRenderer(colors=True),
         ]
-    
+
     structlog.configure(
         processors=processors,
         wrapper_class=structlog.stdlib.BoundLogger,
@@ -161,7 +161,7 @@ class LogContext:
             logger.info("Processing task")
             # All logs within this block will have task_id and job_id
     """
-    
+
     def __init__(self, **kwargs: Any):
         """Initialize with context variables.
         
@@ -170,12 +170,12 @@ class LogContext:
         """
         self.context = kwargs
         self._token = None
-    
+
     def __enter__(self) -> "LogContext":
         """Enter context and bind variables."""
         bind_context(**self.context)
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit context and unbind variables."""
         unbind_context(*self.context.keys())
@@ -187,7 +187,7 @@ class CausalTrace:
     Ensures all operations within a trace share the same cause_id,
     enabling reconstruction of decision chains.
     """
-    
+
     def __init__(self, cause_id: str | None = None):
         """Initialize causal trace.
         
@@ -197,7 +197,7 @@ class CausalTrace:
         import uuid
         self.trace_id = str(uuid.uuid4())
         self.parent_id = cause_id
-    
+
     def __enter__(self) -> "CausalTrace":
         """Enter trace context."""
         bind_context(
@@ -205,11 +205,11 @@ class CausalTrace:
             parent_cause_id=self.parent_id,
         )
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit trace context."""
         unbind_context("cause_id", "parent_cause_id")
-    
+
     @property
     def id(self) -> str:
         """Get the trace ID."""

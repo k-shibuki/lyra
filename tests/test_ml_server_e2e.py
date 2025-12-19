@@ -31,8 +31,6 @@ See also:
 """
 
 import pytest
-from src.utils.config import get_settings
-
 
 # =============================================================================
 # E2E Tests

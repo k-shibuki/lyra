@@ -30,8 +30,6 @@ Test Perspectives Table:
 | TC-AS-04  | AsyncCircuitBreaker.guard() manual record | Equivalence - async            | Manual recording works                       | -     |
 """
 
-import asyncio
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -43,7 +41,6 @@ from src.utils.circuit_breaker import (
     CircuitBreakerError,
     CircuitState,
 )
-
 
 # =============================================================================
 # Test Fixtures
@@ -79,7 +76,7 @@ def fast_breaker() -> CircuitBreaker:
 
 class TestCircuitBreakerNormalCases:
     """Tests for normal circuit breaker operation."""
-    
+
     def test_initial_state_is_closed(self, breaker: CircuitBreaker) -> None:
         """
         TC-N-01: Verify initial state is CLOSED.
@@ -89,12 +86,12 @@ class TestCircuitBreakerNormalCases:
         Then: State should be CLOSED and available
         """
         # Given: breaker created in fixture
-        
+
         # When/Then
         assert breaker.state == CircuitState.CLOSED
         assert breaker.is_available is True
         assert breaker.consecutive_failures == 0
-    
+
     def test_record_success_resets_failures(self, breaker: CircuitBreaker) -> None:
         """
         TC-N-01: Success resets consecutive failure count.
@@ -106,14 +103,14 @@ class TestCircuitBreakerNormalCases:
         # Given
         breaker.record_failure()
         assert breaker.consecutive_failures == 1
-        
+
         # When
         breaker.record_success()
-        
+
         # Then
         assert breaker.consecutive_failures == 0
         assert breaker.state == CircuitState.CLOSED
-    
+
     def test_failures_below_threshold_stay_closed(
         self, breaker: CircuitBreaker
     ) -> None:
@@ -125,15 +122,15 @@ class TestCircuitBreakerNormalCases:
         Then: Circuit stays CLOSED
         """
         # Given: breaker with threshold=2
-        
+
         # When
         breaker.record_failure()
-        
+
         # Then
         assert breaker.state == CircuitState.CLOSED
         assert breaker.is_available is True
         assert breaker.consecutive_failures == 1
-    
+
     def test_failures_at_threshold_opens_circuit(
         self, breaker: CircuitBreaker
     ) -> None:
@@ -145,16 +142,16 @@ class TestCircuitBreakerNormalCases:
         Then: Circuit transitions to OPEN
         """
         # Given: breaker with threshold=2
-        
+
         # When
         breaker.record_failure()
         breaker.record_failure()
-        
+
         # Then
         assert breaker.state == CircuitState.OPEN
         assert breaker.is_available is False
         assert breaker.consecutive_failures == 2
-    
+
     def test_cooldown_elapsed_transitions_to_half_open(
         self, fast_breaker: CircuitBreaker
     ) -> None:
@@ -168,14 +165,14 @@ class TestCircuitBreakerNormalCases:
         # Given
         fast_breaker.record_failure()  # Opens with threshold=1
         assert fast_breaker.state == CircuitState.OPEN
-        
+
         # When: Wait for cooldown (0.01s)
         time.sleep(0.02)
-        
+
         # Then: State should transition on property access
         assert fast_breaker.state == CircuitState.HALF_OPEN
         assert fast_breaker.is_available is True
-    
+
     def test_half_open_success_closes_circuit(
         self, fast_breaker: CircuitBreaker
     ) -> None:
@@ -190,14 +187,14 @@ class TestCircuitBreakerNormalCases:
         fast_breaker.record_failure()
         time.sleep(0.02)
         assert fast_breaker.state == CircuitState.HALF_OPEN
-        
+
         # When
         fast_breaker.record_success()
-        
+
         # Then
         assert fast_breaker.state == CircuitState.CLOSED
         assert fast_breaker.is_available is True
-    
+
     def test_half_open_failure_reopens_circuit(
         self, fast_breaker: CircuitBreaker
     ) -> None:
@@ -212,10 +209,10 @@ class TestCircuitBreakerNormalCases:
         fast_breaker.record_failure()
         time.sleep(0.02)
         assert fast_breaker.state == CircuitState.HALF_OPEN
-        
+
         # When
         fast_breaker.record_failure()
-        
+
         # Then
         assert fast_breaker.state == CircuitState.OPEN
         assert fast_breaker.is_available is False
@@ -228,7 +225,7 @@ class TestCircuitBreakerNormalCases:
 
 class TestCircuitBreakerInvalidConfig:
     """Tests for invalid configuration values."""
-    
+
     def test_failure_threshold_zero_raises(self) -> None:
         """
         TC-A-01: failure_threshold=0 should raise ValueError.
@@ -240,7 +237,7 @@ class TestCircuitBreakerInvalidConfig:
         # Given/When/Then
         with pytest.raises(ValueError, match="failure_threshold must be >= 1"):
             CircuitBreaker(name="test", failure_threshold=0)
-    
+
     def test_cooldown_zero_raises(self) -> None:
         """
         TC-A-02: cooldown_seconds=0 should raise ValueError.
@@ -252,7 +249,7 @@ class TestCircuitBreakerInvalidConfig:
         # Given/When/Then
         with pytest.raises(ValueError, match="cooldown_seconds must be > 0"):
             CircuitBreaker(name="test", cooldown_seconds=0)
-    
+
     def test_cooldown_negative_raises(self) -> None:
         """
         TC-A-02: Negative cooldown should raise ValueError.
@@ -264,7 +261,7 @@ class TestCircuitBreakerInvalidConfig:
         # Given/When/Then
         with pytest.raises(ValueError, match="cooldown_seconds must be > 0"):
             CircuitBreaker(name="test", cooldown_seconds=-1)
-    
+
     def test_half_open_max_calls_zero_raises(self) -> None:
         """
         TC-A-03: half_open_max_calls=0 should raise ValueError.
@@ -285,7 +282,7 @@ class TestCircuitBreakerInvalidConfig:
 
 class TestCircuitBreakerBoundaryValues:
     """Tests for boundary value cases."""
-    
+
     def test_failure_threshold_one(self) -> None:
         """
         TC-B-01: Single failure opens circuit with threshold=1.
@@ -296,13 +293,13 @@ class TestCircuitBreakerBoundaryValues:
         """
         # Given
         breaker = CircuitBreaker(name="test", failure_threshold=1)
-        
+
         # When
         breaker.record_failure()
-        
+
         # Then
         assert breaker.state == CircuitState.OPEN
-    
+
     def test_minimal_cooldown(self) -> None:
         """
         TC-B-02: Very short cooldown works correctly.
@@ -318,13 +315,13 @@ class TestCircuitBreakerBoundaryValues:
             cooldown_seconds=0.001,
         )
         breaker.record_failure()
-        
+
         # When
         time.sleep(0.005)
-        
+
         # Then
         assert breaker.state == CircuitState.HALF_OPEN
-    
+
     def test_half_open_requires_multiple_successes(self) -> None:
         """
         TC-B-03: half_open_max_calls=2 requires 2 successes.
@@ -343,16 +340,16 @@ class TestCircuitBreakerBoundaryValues:
         breaker.record_failure()
         time.sleep(0.005)
         assert breaker.state == CircuitState.HALF_OPEN
-        
+
         # When: First success
         breaker.record_success()
-        
+
         # Then: Still HALF_OPEN
         assert breaker.state == CircuitState.HALF_OPEN
-        
+
         # When: Second success
         breaker.record_success()
-        
+
         # Then: Now CLOSED
         assert breaker.state == CircuitState.CLOSED
 
@@ -364,7 +361,7 @@ class TestCircuitBreakerBoundaryValues:
 
 class TestCircuitBreakerForceOperations:
     """Tests for manual force operations."""
-    
+
     def test_force_open(self, breaker: CircuitBreaker) -> None:
         """
         TC-F-01: force_open() sets state to OPEN.
@@ -375,14 +372,14 @@ class TestCircuitBreakerForceOperations:
         """
         # Given
         assert breaker.state == CircuitState.CLOSED
-        
+
         # When
         breaker.force_open()
-        
+
         # Then
         assert breaker.state == CircuitState.OPEN
         assert breaker.is_available is False
-    
+
     def test_force_close(self, breaker: CircuitBreaker) -> None:
         """
         TC-F-02: force_close() resets to CLOSED state.
@@ -395,15 +392,15 @@ class TestCircuitBreakerForceOperations:
         breaker.record_failure()
         breaker.record_failure()
         assert breaker.state == CircuitState.OPEN
-        
+
         # When
         breaker.force_close()
-        
+
         # Then
         assert breaker.state == CircuitState.CLOSED
         assert breaker.consecutive_failures == 0
         assert breaker.is_available is True
-    
+
     def test_reset(self, breaker: CircuitBreaker) -> None:
         """
         TC-F-03: reset() returns to initial state.
@@ -415,10 +412,10 @@ class TestCircuitBreakerForceOperations:
         # Given
         breaker.record_failure()
         breaker.record_failure()
-        
+
         # When
         breaker.reset()
-        
+
         # Then
         assert breaker.state == CircuitState.CLOSED
         assert breaker.consecutive_failures == 0
@@ -432,7 +429,7 @@ class TestCircuitBreakerForceOperations:
 
 class TestCircuitBreakerCallbacks:
     """Tests for state change callbacks."""
-    
+
     def test_callback_invoked_on_state_change(
         self, breaker: CircuitBreaker
     ) -> None:
@@ -445,20 +442,20 @@ class TestCircuitBreakerCallbacks:
         """
         # Given
         transitions: list[tuple[CircuitState, CircuitState]] = []
-        
+
         def on_change(old: CircuitState, new: CircuitState) -> None:
             transitions.append((old, new))
-        
+
         breaker.set_on_state_change(on_change)
-        
+
         # When: Trigger CLOSED -> OPEN
         breaker.record_failure()
         breaker.record_failure()
-        
+
         # Then
         assert len(transitions) == 1
         assert transitions[0] == (CircuitState.CLOSED, CircuitState.OPEN)
-    
+
     def test_callback_exception_does_not_crash(
         self, fast_breaker: CircuitBreaker
     ) -> None:
@@ -472,12 +469,12 @@ class TestCircuitBreakerCallbacks:
         # Given
         def bad_callback(old: CircuitState, new: CircuitState) -> None:
             raise RuntimeError("Callback error!")
-        
+
         fast_breaker.set_on_state_change(bad_callback)
-        
+
         # When: Trigger state change (should not raise)
         fast_breaker.record_failure()
-        
+
         # Then: Circuit breaker still works
         assert fast_breaker.state == CircuitState.OPEN
 
@@ -489,7 +486,7 @@ class TestCircuitBreakerCallbacks:
 
 class TestCircuitBreakerStats:
     """Tests for get_stats() method."""
-    
+
     def test_stats_closed_state(self, breaker: CircuitBreaker) -> None:
         """
         TC-S-01: get_stats() in CLOSED state returns correct data.
@@ -500,10 +497,10 @@ class TestCircuitBreakerStats:
         """
         # Given
         breaker.record_failure()
-        
+
         # When
         stats = breaker.get_stats()
-        
+
         # Then
         assert stats["name"] == "test-service"
         assert stats["state"] == "closed"
@@ -512,7 +509,7 @@ class TestCircuitBreakerStats:
         assert stats["time_until_half_open"] is None
         assert stats["failure_threshold"] == 2
         assert stats["cooldown_seconds"] == 1.0
-    
+
     def test_stats_open_state(self, breaker: CircuitBreaker) -> None:
         """
         TC-S-02: get_stats() in OPEN state includes time_until_half_open.
@@ -524,10 +521,10 @@ class TestCircuitBreakerStats:
         # Given
         breaker.record_failure()
         breaker.record_failure()
-        
+
         # When
         stats = breaker.get_stats()
-        
+
         # Then
         assert stats["state"] == "open"
         assert stats["is_available"] is False
@@ -543,7 +540,7 @@ class TestCircuitBreakerStats:
 
 class TestCircuitBreakerThreadSafety:
     """Tests for thread safety."""
-    
+
     def test_concurrent_access(self, breaker: CircuitBreaker) -> None:
         """
         TC-T-01: Concurrent access doesn't cause race conditions.
@@ -554,7 +551,7 @@ class TestCircuitBreakerThreadSafety:
         """
         # Given
         errors: list[Exception] = []
-        
+
         def worker(thread_id: int) -> None:
             try:
                 for _ in range(100):
@@ -567,13 +564,13 @@ class TestCircuitBreakerThreadSafety:
                     _ = breaker.get_stats()
             except Exception as e:
                 errors.append(e)
-        
+
         # When
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = [executor.submit(worker, i) for i in range(4)]
             for f in futures:
                 f.result()
-        
+
         # Then
         assert errors == [], f"Thread errors: {errors}"
 
@@ -585,7 +582,7 @@ class TestCircuitBreakerThreadSafety:
 
 class TestAsyncCircuitBreaker:
     """Tests for AsyncCircuitBreaker wrapper."""
-    
+
     @pytest.mark.asyncio
     async def test_context_manager_success(
         self, breaker: CircuitBreaker
@@ -600,14 +597,14 @@ class TestAsyncCircuitBreaker:
         # Given
         async_breaker = AsyncCircuitBreaker(breaker)
         breaker.record_failure()  # Start with 1 failure
-        
+
         # When
         async with async_breaker:
             pass  # Simulating successful operation
-        
+
         # Then
         assert breaker.consecutive_failures == 0  # Reset by success
-    
+
     @pytest.mark.asyncio
     async def test_context_manager_failure(
         self, breaker: CircuitBreaker
@@ -621,14 +618,14 @@ class TestAsyncCircuitBreaker:
         """
         # Given
         async_breaker = AsyncCircuitBreaker(breaker)
-        
+
         # When/Then
         with pytest.raises(ValueError, match="test error"):
             async with async_breaker:
                 raise ValueError("test error")
-        
+
         assert breaker.consecutive_failures == 1
-    
+
     @pytest.mark.asyncio
     async def test_context_manager_when_open(
         self, breaker: CircuitBreaker
@@ -644,15 +641,15 @@ class TestAsyncCircuitBreaker:
         breaker.record_failure()
         breaker.record_failure()
         async_breaker = AsyncCircuitBreaker(breaker)
-        
+
         # When/Then
         with pytest.raises(CircuitBreakerError) as exc_info:
             async with async_breaker:
                 pass
-        
+
         assert exc_info.value.breaker is breaker
         assert exc_info.value.state == CircuitState.OPEN
-    
+
     @pytest.mark.asyncio
     async def test_guard_manual_record(self, breaker: CircuitBreaker) -> None:
         """
@@ -665,15 +662,15 @@ class TestAsyncCircuitBreaker:
         # Given
         async_breaker = AsyncCircuitBreaker(breaker)
         breaker.record_failure()  # Start with failure
-        
+
         # When
         async with async_breaker.guard(auto_record=False) as ctx:
             # Do some work...
             ctx.record_success()  # Manual success
-        
+
         # Then: Success was recorded
         assert breaker.consecutive_failures == 0
-    
+
     @pytest.mark.asyncio
     async def test_guard_auto_record_false_exception(
         self, breaker: CircuitBreaker
@@ -687,12 +684,12 @@ class TestAsyncCircuitBreaker:
         """
         # Given
         async_breaker = AsyncCircuitBreaker(breaker)
-        
+
         # When
         with pytest.raises(ValueError):
             async with async_breaker.guard(auto_record=False):
                 raise ValueError("error")
-        
+
         # Then: No failure recorded (auto_record was False)
         assert breaker.consecutive_failures == 0
 
@@ -704,7 +701,7 @@ class TestAsyncCircuitBreaker:
 
 class TestCircuitBreakerError:
     """Tests for CircuitBreakerError exception."""
-    
+
     def test_error_contains_breaker_info(
         self, breaker: CircuitBreaker
     ) -> None:
@@ -717,16 +714,16 @@ class TestCircuitBreakerError:
         """
         # Given
         breaker.force_open()
-        
+
         # When
         error = CircuitBreakerError(breaker)
-        
+
         # Then
         assert error.breaker is breaker
         assert error.state == CircuitState.OPEN
         assert "test-service" in str(error)
         assert "open" in str(error)
-    
+
     def test_error_custom_message(self, breaker: CircuitBreaker) -> None:
         """
         Verify custom message is used.
@@ -737,7 +734,7 @@ class TestCircuitBreakerError:
         """
         # Given/When
         error = CircuitBreakerError(breaker, "Custom error message")
-        
+
         # Then
         assert str(error) == "Custom error message"
 
@@ -749,7 +746,7 @@ class TestCircuitBreakerError:
 
 class TestTimeUntilHalfOpen:
     """Tests for time_until_half_open property."""
-    
+
     def test_none_when_closed(self, breaker: CircuitBreaker) -> None:
         """
         time_until_half_open is None when CLOSED.
@@ -760,7 +757,7 @@ class TestTimeUntilHalfOpen:
         """
         # Given/When/Then
         assert breaker.time_until_half_open is None
-    
+
     def test_positive_when_open(self, breaker: CircuitBreaker) -> None:
         """
         time_until_half_open is positive when OPEN.
@@ -772,15 +769,15 @@ class TestTimeUntilHalfOpen:
         # Given
         breaker.record_failure()
         breaker.record_failure()
-        
+
         # When
         remaining = breaker.time_until_half_open
-        
+
         # Then
         assert remaining is not None
         assert remaining > 0
         assert remaining <= breaker.cooldown_seconds
-    
+
     def test_decreases_over_time(self, breaker: CircuitBreaker) -> None:
         """
         time_until_half_open decreases as time passes.
@@ -793,11 +790,11 @@ class TestTimeUntilHalfOpen:
         breaker.record_failure()
         breaker.record_failure()
         first = breaker.time_until_half_open
-        
+
         # When
         time.sleep(0.1)
         second = breaker.time_until_half_open
-        
+
         # Then
         assert first is not None
         assert second is not None

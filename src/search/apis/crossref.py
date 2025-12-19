@@ -4,21 +4,19 @@ Crossref API client.
 DOI resolution and metadata normalization (priority=3).
 """
 
-from typing import Optional
 
-import httpx
 
 from src.search.apis.base import BaseAcademicClient
-from src.utils.schemas import Paper, Author, AcademicSearchResult
-from src.utils.api_retry import retry_api_call, ACADEMIC_API_POLICY
+from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
 from src.utils.logging import get_logger
+from src.utils.schemas import AcademicSearchResult, Author, Paper
 
 logger = get_logger(__name__)
 
 
 class CrossrefClient(BaseAcademicClient):
     """Crossref API client."""
-    
+
     def __init__(self):
         """Initialize Crossref client."""
         # Load config
@@ -29,18 +27,19 @@ class CrossrefClient(BaseAcademicClient):
             base_url = api_config.base_url if api_config.base_url else "https://api.crossref.org"
             timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
             headers = api_config.headers if api_config.headers else None
-        except Exception:
+        except Exception as e:
             # Fallback to defaults if config loading fails
+            logger.debug("Failed to load Crossref config, using defaults", error=str(e))
             base_url = "https://api.crossref.org"
             timeout = 30.0
             headers = None
-        
+
         super().__init__("crossref", base_url=base_url, timeout=timeout, headers=headers)
-    
+
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers."""
         session = await self._get_session()
-        
+
         async def _search():
             response = await session.get(
                 f"{self.base_url}/works",
@@ -48,12 +47,12 @@ class CrossrefClient(BaseAcademicClient):
             )
             response.raise_for_status()
             return response.json()
-        
+
         try:
             data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
             items = data.get("message", {}).get("items", [])
             papers = [self._parse_paper(item) for item in items]
-            
+
             return AcademicSearchResult(
                 papers=papers,
                 total_count=data.get("message", {}).get("total-results", 0),
@@ -66,22 +65,22 @@ class CrossrefClient(BaseAcademicClient):
                 total_count=0,
                 source_api="crossref"
             )
-    
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata by DOI."""
         return await self.get_paper_by_doi(paper_id)
-    
-    async def get_paper_by_doi(self, doi: str) -> Optional[Paper]:
+
+    async def get_paper_by_doi(self, doi: str) -> Paper | None:
         """Get paper metadata from DOI."""
         session = await self._get_session()
-        
+
         async def _fetch():
             response = await session.get(f"{self.base_url}/works/{doi}")
             if response.status_code == 404:
                 return None
             response.raise_for_status()
             return response.json()
-        
+
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
             if not data:
@@ -90,20 +89,20 @@ class CrossrefClient(BaseAcademicClient):
         except Exception as e:
             logger.warning("Failed to get paper by DOI", doi=doi, error=str(e))
             return None
-    
+
     async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get references (Crossref does not support detailed references)."""
         # Crossref API has a references endpoint but detailed retrieval is complex
         # Simple implementation: only referenced_works_count is available via get_paper
         logger.debug("Crossref references not fully implemented", paper_id=paper_id)
         return []
-    
+
     async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get citations (Crossref does not support citations)."""
         # Crossref API does not have citation information
         logger.debug("Crossref does not support citations", paper_id=paper_id)
         return []
-    
+
     def _parse_paper(self, data: dict) -> Paper:
         """Convert API response to Paper model."""
         authors = []
@@ -117,11 +116,11 @@ class CrossrefClient(BaseAcademicClient):
                     affiliation=None,
                     orcid=author_data.get("ORCID")
                 ))
-        
+
         doi = data.get("DOI", "")
         if doi and doi.startswith("https://doi.org/"):
             doi = doi.replace("https://doi.org/", "")
-        
+
         # Extract year from publication date
         year = None
         published = data.get("published-print") or data.get("published-online") or data.get("published")
@@ -129,13 +128,13 @@ class CrossrefClient(BaseAcademicClient):
             date_parts = published["date-parts"][0]
             if date_parts:
                 year = date_parts[0]
-        
+
         # Fallback: if year not found, try published-print directly
         if not year and data.get("published-print"):
             date_parts = data.get("published-print", {}).get("date-parts", [[None]])
             if date_parts and date_parts[0]:
                 year = date_parts[0][0]
-        
+
         return Paper(
             id=f"crossref:{doi}" if doi else f"crossref:{data.get('URL', '').split('/')[-1]}",
             title=data.get("title", [""])[0] if isinstance(data.get("title"), list) else data.get("title", ""),

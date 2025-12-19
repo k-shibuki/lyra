@@ -21,8 +21,9 @@ is_academic/is_influential edge attributes.
 | TC-EG-A-03 | cited_paper_id is None | Abnormal – invalid input | Edge creation skipped or handled | - |
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from src.filter.evidence_graph import (
     EvidenceGraph,
@@ -32,7 +33,6 @@ from src.filter.evidence_graph import (
     get_evidence_graph,
 )
 from src.utils.schemas import Citation
-
 
 # =============================================================================
 # Test Fixtures
@@ -97,7 +97,7 @@ def sample_citations():
 
 class TestEvidenceGraphAcademicEdges:
     """Tests for adding academic citations to evidence graph."""
-    
+
     def test_add_edge_with_is_academic_attribute(self, evidence_graph):
         """
         Test: add_edge() accepts is_academic attribute.
@@ -109,7 +109,7 @@ class TestEvidenceGraphAcademicEdges:
         # Given
         source_id = "page_source"
         target_id = "page_target"
-        
+
         # When
         edge_id = evidence_graph.add_edge(
             source_type=NodeType.PAGE,
@@ -120,19 +120,19 @@ class TestEvidenceGraphAcademicEdges:
             confidence=1.0,
             is_academic=True,
         )
-        
+
         # Then
         assert edge_id is not None
-        
+
         # Verify edge exists
         source_node = evidence_graph._make_node_id(NodeType.PAGE, source_id)
         target_node = evidence_graph._make_node_id(NodeType.PAGE, target_id)
-        
+
         assert evidence_graph._graph.has_edge(source_node, target_node)
-        
+
         edge_data = evidence_graph._graph.edges[source_node, target_node]
         assert edge_data.get("is_academic") is True
-    
+
     def test_add_edge_with_is_influential_attribute(self, evidence_graph):
         """
         Test: add_edge() accepts is_influential attribute.
@@ -144,7 +144,7 @@ class TestEvidenceGraphAcademicEdges:
         # Given
         source_id = "page_source"
         target_id = "page_target"
-        
+
         # When
         edge_id = evidence_graph.add_edge(
             source_type=NodeType.PAGE,
@@ -156,14 +156,14 @@ class TestEvidenceGraphAcademicEdges:
             is_academic=True,
             is_influential=True,
         )
-        
+
         # Then
         source_node = evidence_graph._make_node_id(NodeType.PAGE, source_id)
         target_node = evidence_graph._make_node_id(NodeType.PAGE, target_id)
-        
+
         edge_data = evidence_graph._graph.edges[source_node, target_node]
         assert edge_data.get("is_influential") is True
-    
+
     def test_add_edge_with_citation_context(self, evidence_graph):
         """
         Test: add_edge() accepts citation_context attribute.
@@ -176,7 +176,7 @@ class TestEvidenceGraphAcademicEdges:
         source_id = "page_source"
         target_id = "page_target"
         context = "As demonstrated in previous work..."
-        
+
         # When
         edge_id = evidence_graph.add_edge(
             source_type=NodeType.PAGE,
@@ -188,11 +188,11 @@ class TestEvidenceGraphAcademicEdges:
             is_academic=True,
             citation_context=context,
         )
-        
+
         # Then
         source_node = evidence_graph._make_node_id(NodeType.PAGE, source_id)
         target_node = evidence_graph._make_node_id(NodeType.PAGE, target_id)
-        
+
         edge_data = evidence_graph._graph.edges[source_node, target_node]
         assert edge_data.get("citation_context") == context
 
@@ -204,7 +204,7 @@ class TestEvidenceGraphAcademicEdges:
 
 class TestAddAcademicPageWithCitations:
     """Tests for add_academic_page_with_citations() function."""
-    
+
     @pytest.mark.asyncio
     async def test_adds_page_node_with_metadata(self, sample_paper_metadata):
         """
@@ -216,15 +216,15 @@ class TestAddAcademicPageWithCitations:
         """
         with patch("src.filter.evidence_graph.get_database") as mock_db, \
              patch("src.filter.evidence_graph._graph", None):
-            
+
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given
             page_id = "page_test123"
-            
+
             # When
             await add_academic_page_with_citations(
                 page_id=page_id,
@@ -232,17 +232,17 @@ class TestAddAcademicPageWithCitations:
                 citations=[],  # No citations
                 task_id="test_task",
             )
-            
+
             # Then: Verify graph was updated
             graph = await get_evidence_graph("test_task")
             page_node = graph._make_node_id(NodeType.PAGE, page_id)
-            
+
             assert graph._graph.has_node(page_node)
             node_data = graph._graph.nodes[page_node]
             assert node_data.get("is_academic") is True
             assert node_data.get("doi") == sample_paper_metadata["doi"]
             assert node_data.get("citation_count") == sample_paper_metadata["citation_count"]
-    
+
     @pytest.mark.asyncio
     async def test_adds_citation_edges(self, sample_paper_metadata, sample_citations):
         """
@@ -254,12 +254,12 @@ class TestAddAcademicPageWithCitations:
         """
         with patch("src.filter.evidence_graph.get_database") as mock_db, \
              patch("src.filter.evidence_graph._graph", None):
-            
+
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given: paper_to_page_map mapping cited_paper_id to page_id
             paper_to_page_map = {
                 "s2:ref1": "page_ref1",
@@ -267,7 +267,7 @@ class TestAddAcademicPageWithCitations:
                 "s2:ref3": "page_ref3",
             }
             page_id = "page_123"
-            
+
             # When
             await add_academic_page_with_citations(
                 page_id=page_id,
@@ -276,21 +276,21 @@ class TestAddAcademicPageWithCitations:
                 task_id="test_task",
                 paper_to_page_map=paper_to_page_map,
             )
-            
+
             # Then: Verify DB inserts (all citations should be mapped)
             assert mock_db_instance.insert.call_count == len(sample_citations)
-            
+
             # Check each edge insert
             for i, call in enumerate(mock_db_instance.insert.call_args_list):
                 table_name = call[0][0]
                 edge_data = call[0][1]
-                
+
                 assert table_name == "edges"
                 assert edge_data["source_type"] == NodeType.PAGE.value
                 assert edge_data["target_type"] == NodeType.PAGE.value
                 assert edge_data["relation"] == RelationType.CITES.value
                 assert edge_data["is_academic"] == 1
-    
+
     @pytest.mark.asyncio
     async def test_preserves_is_influential_flag(self, sample_paper_metadata, sample_citations):
         """
@@ -302,12 +302,12 @@ class TestAddAcademicPageWithCitations:
         """
         with patch("src.filter.evidence_graph.get_database") as mock_db, \
              patch("src.filter.evidence_graph._graph", None):
-            
+
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given: paper_to_page_map
             paper_to_page_map = {
                 "s2:ref1": "page_ref1",
@@ -315,7 +315,7 @@ class TestAddAcademicPageWithCitations:
                 "s2:ref3": "page_ref3",
             }
             page_id = "page_123"
-            
+
             # When
             await add_academic_page_with_citations(
                 page_id=page_id,
@@ -324,15 +324,15 @@ class TestAddAcademicPageWithCitations:
                 task_id="test_task",
                 paper_to_page_map=paper_to_page_map,
             )
-            
+
             # Then: Verify is_influential matches original citations
             calls = mock_db_instance.insert.call_args_list
-            
+
             for i, citation in enumerate(sample_citations):
                 edge_data = calls[i][0][1]
                 expected = 1 if citation.is_influential else 0
                 assert edge_data["is_influential"] == expected
-    
+
     @pytest.mark.asyncio
     async def test_handles_empty_citations_list(self, sample_paper_metadata):
         """
@@ -344,15 +344,15 @@ class TestAddAcademicPageWithCitations:
         """
         with patch("src.filter.evidence_graph.get_database") as mock_db, \
              patch("src.filter.evidence_graph._graph", None):
-            
+
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given
             page_id = "page_123"
-            
+
             # When
             await add_academic_page_with_citations(
                 page_id=page_id,
@@ -360,7 +360,7 @@ class TestAddAcademicPageWithCitations:
                 citations=[],  # Empty list
                 task_id="test_task",
             )
-            
+
             # Then: No edge inserts
             assert mock_db_instance.insert.call_count == 0
 
@@ -372,7 +372,7 @@ class TestAddAcademicPageWithCitations:
 
 class TestAcademicEdgeQuery:
     """Tests for querying academic edges."""
-    
+
     def test_filter_academic_citations(self, evidence_graph):
         """
         Test: Can filter edges by is_academic attribute.
@@ -388,24 +388,24 @@ class TestAcademicEdgeQuery:
             RelationType.CITES,
             is_academic=True,
         )
-        
+
         evidence_graph.add_edge(
             NodeType.FRAGMENT, "frag1",
             NodeType.PAGE, "page3",
             RelationType.CITES,
             is_academic=False,
         )
-        
+
         # When: Filter for academic edges
         academic_edges = [
             (u, v, d) for u, v, d in evidence_graph._graph.edges(data=True)
             if d.get("is_academic") is True
         ]
-        
+
         # Then
         assert len(academic_edges) == 1
         assert academic_edges[0][0] == evidence_graph._make_node_id(NodeType.PAGE, "page1")
-    
+
     def test_filter_influential_citations(self, evidence_graph):
         """
         Test: Can filter edges by is_influential attribute.
@@ -422,7 +422,7 @@ class TestAcademicEdgeQuery:
             is_academic=True,
             is_influential=True,
         )
-        
+
         evidence_graph.add_edge(
             NodeType.PAGE, "page1",
             NodeType.PAGE, "ref2",
@@ -430,13 +430,13 @@ class TestAcademicEdgeQuery:
             is_academic=True,
             is_influential=False,
         )
-        
+
         # When: Filter for influential edges
         influential_edges = [
             (u, v, d) for u, v, d in evidence_graph._graph.edges(data=True)
             if d.get("is_influential") is True
         ]
-        
+
         # Then
         assert len(influential_edges) == 1
 
@@ -448,7 +448,7 @@ class TestAcademicEdgeQuery:
 
 class TestBoundaryValues:
     """Tests for boundary values and edge cases."""
-    
+
     @pytest.mark.asyncio
     async def test_citation_context_none(self, sample_paper_metadata):
         """
@@ -464,9 +464,9 @@ class TestBoundaryValues:
             is_influential=False,
             context=None,  # None context
         )
-        
+
         graph = EvidenceGraph(task_id="test_task")
-        
+
         # When: Adding edge with None context
         edge_id = graph.add_edge(
             NodeType.PAGE, "page_123",
@@ -475,14 +475,14 @@ class TestBoundaryValues:
             is_academic=True,
             citation_context=None,
         )
-        
+
         # Then: Edge created with None context
         assert edge_id is not None
         source_node = graph._make_node_id(NodeType.PAGE, "page_123")
         target_node = graph._make_node_id(NodeType.PAGE, "s2:ref1")
         edge_data = graph._graph.edges[source_node, target_node]
         assert edge_data.get("citation_context") is None
-    
+
     @pytest.mark.asyncio
     async def test_empty_paper_metadata(self):
         """
@@ -497,11 +497,11 @@ class TestBoundaryValues:
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given: Empty metadata
             page_id = "page_test"
             empty_metadata = {}
-            
+
             # When: Adding page with empty metadata
             await add_academic_page_with_citations(
                 page_id=page_id,
@@ -509,12 +509,12 @@ class TestBoundaryValues:
                 citations=[],
                 task_id="test_task",
             )
-            
+
             # Then: Node should be created (default values used)
             graph = await get_evidence_graph("test_task")
             page_node = graph._make_node_id(NodeType.PAGE, page_id)
             assert graph._graph.has_node(page_node)
-            
+
             node_data = graph._graph.nodes[page_node]
             assert node_data.get("is_academic") is True
             assert node_data.get("citation_count", 0) == 0  # Default value
@@ -527,7 +527,7 @@ class TestBoundaryValues:
 
 class TestExceptionHandlingEvidenceGraph:
     """Tests for exception handling in evidence graph operations."""
-    
+
     @pytest.mark.asyncio
     async def test_invalid_citation_object_skipped(self, sample_paper_metadata):
         """
@@ -542,7 +542,7 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given: Citations list with invalid object
             invalid_citations = [
                 Citation(
@@ -558,13 +558,13 @@ class TestExceptionHandlingEvidenceGraph:
                     is_influential=False,
                 ),
             ]
-            
+
             # Given: paper_to_page_map for valid citations
             paper_to_page_map = {
                 "s2:ref1": "page_ref1",
                 "s2:ref2": "page_ref2",
             }
-            
+
             # When: Adding citations
             await add_academic_page_with_citations(
                 page_id="page_123",
@@ -573,12 +573,12 @@ class TestExceptionHandlingEvidenceGraph:
                 task_id="test_task",
                 paper_to_page_map=paper_to_page_map,
             )
-            
+
             # Then: Only valid citations should create edges
             # Should have 2 edge inserts (for 2 valid Citation objects)
             valid_citation_count = sum(1 for c in invalid_citations if isinstance(c, Citation))
             assert mock_db_instance.insert.call_count == valid_citation_count
-    
+
     @pytest.mark.asyncio
     async def test_db_insert_failure_handled(self, sample_paper_metadata, sample_citations):
         """
@@ -593,14 +593,14 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock(side_effect=Exception("DB error"))
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given: paper_to_page_map so citations are not skipped
             paper_to_page_map = {
                 "s2:ref1": "page_ref1",
                 "s2:ref2": "page_ref2",
                 "s2:ref3": "page_ref3",
             }
-            
+
             # When: Adding citations (should raise exception on DB insert)
             with pytest.raises(Exception) as exc_info:
                 await add_academic_page_with_citations(
@@ -610,10 +610,10 @@ class TestExceptionHandlingEvidenceGraph:
                     task_id="test_task",
                     paper_to_page_map=paper_to_page_map,
                 )
-            
+
             # Then: Exception is raised (caller should handle it)
             assert "DB error" in str(exc_info.value)
-    
+
     @pytest.mark.asyncio
     async def test_cited_paper_id_empty_string_handled(self, sample_paper_metadata):
         """
@@ -629,13 +629,13 @@ class TestExceptionHandlingEvidenceGraph:
             cited_paper_id="",  # Empty string (valid but edge case)
             is_influential=False,
         )
-        
+
         with patch("src.filter.evidence_graph.get_database") as mock_db:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # When: Adding citation with empty ID
             await add_academic_page_with_citations(
                 page_id="page_123",
@@ -643,12 +643,12 @@ class TestExceptionHandlingEvidenceGraph:
                 citations=[citation_with_empty],
                 task_id="test_task",
             )
-            
+
             # Then: Edge should be created (empty string is valid)
             # Note: Empty string cited_paper_id won't be in paper_to_page_map, so it will be skipped
             # This test verifies the function handles empty string gracefully
             assert mock_db_instance.insert.call_count == 0  # Skipped because not in map
-    
+
     @pytest.mark.asyncio
     async def test_skips_citations_without_page_mapping(self, sample_paper_metadata):
         """
@@ -659,15 +659,15 @@ class TestExceptionHandlingEvidenceGraph:
         Then: Citations are skipped, no edges created
         """
         from src.utils.schemas import Citation
-        
+
         with patch("src.filter.evidence_graph.get_database") as mock_db, \
              patch("src.filter.evidence_graph._graph", None):
-            
+
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given: Citations with paper IDs not in mapping
             citations = [
                 Citation(
@@ -682,7 +682,7 @@ class TestExceptionHandlingEvidenceGraph:
                 ),
             ]
             paper_to_page_map = {}  # Empty map
-            
+
             # When
             await add_academic_page_with_citations(
                 page_id="page_123",
@@ -691,10 +691,10 @@ class TestExceptionHandlingEvidenceGraph:
                 task_id="test_task",
                 paper_to_page_map=paper_to_page_map,
             )
-            
+
             # Then: No edges created (all citations skipped)
             assert mock_db_instance.insert.call_count == 0
-    
+
     @pytest.mark.asyncio
     async def test_maps_cited_paper_id_to_page_id(self, sample_paper_metadata):
         """
@@ -705,15 +705,15 @@ class TestExceptionHandlingEvidenceGraph:
         Then: Edges use mapped page_id, not paper_id
         """
         from src.utils.schemas import Citation
-        
+
         with patch("src.filter.evidence_graph.get_database") as mock_db, \
              patch("src.filter.evidence_graph._graph", None):
-            
+
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
-            
+
             # Given: Citations with paper IDs mapped to page IDs
             citations = [
                 Citation(
@@ -725,7 +725,7 @@ class TestExceptionHandlingEvidenceGraph:
             paper_to_page_map = {
                 "s2:ref1": "page_ref1",  # Mapping
             }
-            
+
             # When
             await add_academic_page_with_citations(
                 page_id="page_123",
@@ -734,7 +734,7 @@ class TestExceptionHandlingEvidenceGraph:
                 task_id="test_task",
                 paper_to_page_map=paper_to_page_map,
             )
-            
+
             # Then: Edge uses mapped page_id, not paper_id
             assert mock_db_instance.insert.call_count == 1
             edge_data = mock_db_instance.insert.call_args[0][1]

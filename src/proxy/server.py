@@ -21,8 +21,6 @@ Security:
 import asyncio
 import os
 import signal
-import sys
-from typing import Any
 
 import httpx
 import structlog
@@ -62,21 +60,21 @@ async def proxy_request(
         path = path[len(path_prefix):]
     if not path.startswith("/"):
         path = "/" + path
-    
+
     target_url = f"{target_base_url}{path}"
     if request.query_string:
         target_url = f"{target_url}?{request.query_string}"
-    
+
     # Read request body
     body = await request.read()
-    
+
     # Forward headers (excluding hop-by-hop headers)
     headers = {}
     for key, value in request.headers.items():
         key_lower = key.lower()
         if key_lower not in ("host", "connection", "transfer-encoding", "content-length"):
             headers[key] = value
-    
+
     try:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
             response = await client.request(
@@ -85,20 +83,20 @@ async def proxy_request(
                 headers=headers,
                 content=body if body else None,
             )
-            
+
             # Build response
             response_headers = {}
             for key, value in response.headers.items():
                 key_lower = key.lower()
                 if key_lower not in ("connection", "transfer-encoding", "content-encoding"):
                     response_headers[key] = value
-            
+
             return web.Response(
                 status=response.status_code,
                 headers=response_headers,
                 body=response.content,
             )
-            
+
     except httpx.ConnectError as e:
         logger.error("Proxy connection error", target=target_url, error=str(e))
         return web.json_response(
@@ -137,7 +135,7 @@ async def handle_health(request: web.Request) -> web.Response:
         "ollama": {"url": OLLAMA_URL, "status": "unknown"},
         "ml_server": {"url": ML_SERVER_URL, "status": "unknown"},
     }
-    
+
     async with httpx.AsyncClient(timeout=5.0) as client:
         # Check Ollama
         try:
@@ -145,35 +143,35 @@ async def handle_health(request: web.Request) -> web.Response:
             health["ollama"]["status"] = "ok" if resp.status_code == 200 else "error"
         except Exception as e:
             health["ollama"]["status"] = f"error: {e}"
-        
+
         # Check ML Server
         try:
             resp = await client.get(f"{ML_SERVER_URL}/health")
             health["ml_server"]["status"] = "ok" if resp.status_code == 200 else "error"
         except Exception as e:
             health["ml_server"]["status"] = f"error: {e}"
-    
+
     # Overall status
     if "error" in health["ollama"]["status"] or "error" in health["ml_server"]["status"]:
         health["status"] = "degraded"
-    
+
     return web.json_response(health)
 
 
 def create_app() -> web.Application:
     """Create aiohttp application."""
     app = web.Application()
-    
+
     # Routes
     app.router.add_route("*", "/ollama/{path:.*}", handle_ollama)
     app.router.add_route("*", "/ollama", handle_ollama)
     app.router.add_route("*", "/ml/{path:.*}", handle_ml)
     app.router.add_route("*", "/ml", handle_ml)
     app.router.add_get("/health", handle_health)
-    
+
     # Root health check
     app.router.add_get("/", handle_health)
-    
+
     return app
 
 
@@ -186,16 +184,16 @@ async def main() -> None:
         ollama_url=OLLAMA_URL,
         ml_server_url=ML_SERVER_URL,
     )
-    
+
     app = create_app()
     runner = web.AppRunner(app)
     await runner.setup()
-    
+
     site = web.TCPSite(runner, PROXY_HOST, PROXY_PORT)
     await site.start()
-    
+
     logger.info(f"Proxy server running on http://{PROXY_HOST}:{PROXY_PORT}")
-    
+
     # Wait for shutdown signal
     stop_event = asyncio.Event()
 
@@ -206,9 +204,9 @@ async def main() -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, lambda s=sig: handle_signal(s))
-    
+
     await stop_event.wait()
-    
+
     logger.info("Shutting down proxy server")
     await runner.cleanup()
 

@@ -16,20 +16,20 @@ Implements test perspectives for src/mcp/errors.py per test-strategy.mdc.
 import pytest
 
 from src.mcp.errors import (
-    MCPErrorCode,
-    MCPError,
-    InvalidParamsError,
-    TaskNotFoundError,
-    BudgetExhaustedError,
-    AuthRequiredError,
     AllEnginesBlockedError,
-    PipelineError,
+    AuthRequiredError,
+    BudgetExhaustedError,
     CalibrationError,
-    TimeoutError,
-    InternalError,
     ChromeNotReadyError,
-    generate_error_id,
+    InternalError,
+    InvalidParamsError,
+    MCPError,
+    MCPErrorCode,
+    PipelineError,
+    TaskNotFoundError,
+    TimeoutError,
     create_error_response,
+    generate_error_id,
 )
 
 
@@ -56,7 +56,7 @@ class TestMCPErrorCode:
             ("TIMEOUT", "TIMEOUT"),
             ("INTERNAL_ERROR", "INTERNAL_ERROR"),
         ]
-        
+
         for name, value in expected_codes:
             code = MCPErrorCode[name]
             assert code.value == value
@@ -85,7 +85,7 @@ class TestMCPError:
         """
         error = MCPError(MCPErrorCode.INVALID_PARAMS, "Invalid input")
         result = error.to_dict()
-        
+
         assert result["ok"] is False
         assert result["error_code"] == "INVALID_PARAMS"
         assert result["error"] == "Invalid input"
@@ -107,7 +107,7 @@ class TestMCPError:
             error_id="err_12345",
         )
         result = error.to_dict()
-        
+
         assert result["ok"] is False
         assert result["error_code"] == "PIPELINE_ERROR"
         assert result["error"] == "Processing failed"
@@ -124,7 +124,7 @@ class TestMCPError:
         """
         error = MCPError(MCPErrorCode.TIMEOUT, "Timed out", details=None)
         result = error.to_dict()
-        
+
         assert "details" not in result
 
     def test_error_with_empty_details(self) -> None:
@@ -137,7 +137,7 @@ class TestMCPError:
         """
         error = MCPError(MCPErrorCode.TIMEOUT, "Timed out", details={})
         result = error.to_dict()
-        
+
         # Empty details should not be included
         assert "details" not in result
 
@@ -150,10 +150,10 @@ class TestMCPError:
         // Then: Can be caught as Exception
         """
         error = MCPError(MCPErrorCode.INTERNAL_ERROR, "Test error")
-        
+
         with pytest.raises(MCPError) as exc_info:
             raise error
-        
+
         assert exc_info.value.code == MCPErrorCode.INTERNAL_ERROR
         assert str(exc_info.value) == "Test error"
 
@@ -176,7 +176,7 @@ class TestInvalidParamsError:
             received=-5,
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "INVALID_PARAMS"
         assert result["error"] == "Value must be positive"
         assert result["details"]["param_name"] == "count"
@@ -193,7 +193,7 @@ class TestInvalidParamsError:
         """
         error = InvalidParamsError("Invalid input")
         result = error.to_dict()
-        
+
         assert result["error_code"] == "INVALID_PARAMS"
         assert "details" not in result
 
@@ -211,7 +211,7 @@ class TestTaskNotFoundError:
         """
         error = TaskNotFoundError("task_abc123")
         result = error.to_dict()
-        
+
         assert result["error_code"] == "TASK_NOT_FOUND"
         assert result["error"] == "Task not found: task_abc123"
         assert result["details"]["task_id"] == "task_abc123"
@@ -235,7 +235,7 @@ class TestBudgetExhaustedError:
             used=100,
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "BUDGET_EXHAUSTED"
         assert result["details"]["task_id"] == "task_xyz"
         assert result["details"]["budget_type"] == "pages"
@@ -260,7 +260,7 @@ class TestAuthRequiredError:
             domains=["example.com", "test.org"],
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "AUTH_REQUIRED"
         assert result["details"]["task_id"] == "task_123"
         assert result["details"]["pending_count"] == 3
@@ -283,7 +283,7 @@ class TestAllEnginesBlockedError:
             earliest_retry="2024-01-01T12:30:00Z",
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "ALL_ENGINES_BLOCKED"
         assert result["details"]["blocked_engines"] == ["google", "duckduckgo"]
         assert result["details"]["earliest_retry"] == "2024-01-01T12:30:00Z"
@@ -306,7 +306,7 @@ class TestPipelineError:
             error_id="err_abc",
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "PIPELINE_ERROR"
         assert result["error"] == "Extraction failed"
         assert result["details"]["stage"] == "llm_extract"
@@ -330,7 +330,7 @@ class TestCalibrationError:
             reason="no_previous_version",
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "CALIBRATION_ERROR"
         assert result["details"]["source"] == "llm_extract"
         assert result["details"]["reason"] == "no_previous_version"
@@ -353,7 +353,7 @@ class TestTimeoutError:
             operation="search_serp",
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "TIMEOUT"
         assert result["error"] == "Search timed out"
         assert result["details"]["timeout_seconds"] == 30.0
@@ -376,7 +376,7 @@ class TestInternalError:
             error_id="err_xyz789",
         )
         result = error.to_dict()
-        
+
         assert result["error_code"] == "INTERNAL_ERROR"
         assert result["error"] == "Database connection failed"
         assert result["error_id"] == "err_xyz789"
@@ -391,7 +391,7 @@ class TestInternalError:
         """
         error = InternalError()
         result = error.to_dict()
-        
+
         assert result["error"] == "An unexpected internal error occurred"
 
 
@@ -408,7 +408,7 @@ class TestChromeNotReadyError:
         """
         error = ChromeNotReadyError()
         result = error.to_dict()
-        
+
         assert result["error_code"] == "CHROME_NOT_READY"
         assert "Chrome CDP is not connected" in result["error"]
         assert "./scripts/chrome.sh start" in result["error"]
@@ -425,7 +425,7 @@ class TestChromeNotReadyError:
         custom_msg = "Custom CDP error message"
         error = ChromeNotReadyError(message=custom_msg)
         result = error.to_dict()
-        
+
         assert result["error_code"] == "CHROME_NOT_READY"
         assert result["error"] == custom_msg
 
@@ -439,7 +439,7 @@ class TestChromeNotReadyError:
         """
         error = ChromeNotReadyError()
         result = error.to_dict()
-        
+
         # Required fields per §3.2.1
         assert result["ok"] is False
         assert result["error_code"] == "CHROME_NOT_READY"
@@ -457,7 +457,7 @@ class TestChromeNotReadyError:
         """
         error = ChromeNotReadyError(message="")
         result = error.to_dict()
-        
+
         assert result["error_code"] == "CHROME_NOT_READY"
         assert result["error"] == ""
         assert "details" not in result
@@ -475,7 +475,7 @@ class TestGenerateErrorId:
         // Then: Returns "err_" prefixed unique ID
         """
         error_id = generate_error_id()
-        
+
         assert error_id.startswith("err_")
         assert len(error_id) == 16  # "err_" + 12 hex chars
 
@@ -488,7 +488,7 @@ class TestGenerateErrorId:
         // Then: All IDs are unique
         """
         ids = [generate_error_id() for _ in range(100)]
-        
+
         assert len(set(ids)) == 100
 
 
@@ -509,13 +509,13 @@ class TestCreateErrorResponse:
             details={"key": "value"},
             error_id="err_test",
         )
-        
+
         expected = MCPError(
             MCPErrorCode.INVALID_PARAMS,
             "Test message",
             details={"key": "value"},
             error_id="err_test",
         ).to_dict()
-        
+
         assert result == expected
 
