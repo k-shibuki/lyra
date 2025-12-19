@@ -46,7 +46,7 @@ class TestGenerateSessionTag:
 
         # Then: Tag has LYRA- prefix and 32 hex chars
         assert tag.tag_name.startswith("LYRA-")
-        suffix = tag.tag_name[7:]  # Remove "LYRA-"
+        suffix = tag.tag_name[5:]  # Remove "LYRA-" (5 chars)
         assert len(suffix) == 32
         assert all(c in "0123456789abcdef" for c in suffix)
 
@@ -116,7 +116,7 @@ class TestSanitizeLLMInput:
     def test_unicode_normalization(self):
         """TC-N-2: Full-width characters are normalized."""
         # Given: Text with full-width characters
-        text = "ＬＡＮＣＥＴ　ＩＳ　ＧＲＥＡＴ"
+        text = "ＬＹＲＡ　ＩＳ　ＧＲＥＡＴ"
 
         # When: Sanitize
         result = sanitize_llm_input(text)
