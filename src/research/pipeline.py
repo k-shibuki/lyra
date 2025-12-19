@@ -791,7 +791,7 @@ class SearchPipeline:
         result.refutations_found = len(all_refutations)
         
         # Determine status
-        if len(all_refutations) > 0:
+        if all_refutations:
             result.status = "satisfied"
             result.satisfaction_score = min(1.0, len(all_refutations) / 3)
         elif pages_fetched >= budget:

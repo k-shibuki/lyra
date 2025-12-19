@@ -860,7 +860,7 @@ async def get_report_materials(
                 if timeline.confirmation_count > 0:
                     timeline_stats["claims_confirmed"] += 1
     
-    if len(claims) > 0:
+    if claims:
         timeline_stats["coverage_rate"] = timeline_stats["claims_with_timeline"] / len(claims)
     
     logger.info(
