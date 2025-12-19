@@ -285,7 +285,7 @@ search(task_id="task_abc123", query="liraglutide LEADER trial results")
 
 # 3. Execute refutation search
 search(task_id="task_abc123", query="liraglutide cardiovascular risk", refute=True)
-# Returns: {"refutations_found": [...]}
+# Returns: {"claims_found": [...], "refutations_found": 2, "harvest_rate": 0.45}
 
 # 4. Check progress
 get_status(task_id="task_abc123")
