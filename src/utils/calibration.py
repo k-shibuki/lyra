@@ -330,7 +330,7 @@ def brier_score(
     Returns:
         Brier score. Returns NaN for empty inputs.
     """
-    if len(predictions) == 0 or len(labels) == 0:
+    if not predictions or not labels:
         return float("nan")
     
     predictions = np.array(predictions)

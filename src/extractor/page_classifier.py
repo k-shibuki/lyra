@@ -369,7 +369,7 @@ class PageClassifier:
         text_content = re.sub(r"<[^>]+>", "", html)
         text_content = re.sub(r"\s+", " ", text_content).strip()
         features.text_to_html_ratio = (
-            len(text_content) / len(html) if len(html) > 0 else 0.0
+            len(text_content) / len(html) if html else 0.0
         )
         
         # Link density

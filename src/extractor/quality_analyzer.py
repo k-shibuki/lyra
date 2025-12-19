@@ -1110,38 +1110,38 @@ class ContentQualityAnalyzer:
             matches = re.findall(pattern, html_lower, re.DOTALL)
             boilerplate_length += sum(len(m) for m in matches)
         
-        if len(html) == 0:
+        if not html:
             return 0.0
-        
+
         return boilerplate_length / len(html)
-    
+
     def _calculate_navigation_ratio(self, html: str) -> float:
         """Calculate navigation element ratio."""
         html_lower = html.lower()
-        
+
         nav_length = 0
         nav_matches = re.findall(r'<nav[^>]*>.*?</nav>', html_lower, re.DOTALL)
         nav_length += sum(len(m) for m in nav_matches)
-        
+
         menu_matches = re.findall(r'class=["\'][^"\']*menu[^"\']*["\'][^>]*>.*?</\w+>', html_lower, re.DOTALL)
         nav_length += sum(len(m) for m in menu_matches)
-        
-        if len(html) == 0:
+
+        if not html:
             return 0.0
-        
+
         return nav_length / len(html)
-    
+
     def _calculate_footer_ratio(self, html: str) -> float:
         """Calculate footer content ratio."""
         html_lower = html.lower()
-        
+
         footer_length = 0
         footer_matches = re.findall(r'<footer[^>]*>.*?</footer>', html_lower, re.DOTALL)
         footer_length += sum(len(m) for m in footer_matches)
-        
-        if len(html) == 0:
+
+        if not html:
             return 0.0
-        
+
         return footer_length / len(html)
     
     def _calculate_ai_score(self, features: QualityFeatures, pattern_matches: int) -> float:
