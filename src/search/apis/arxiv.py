@@ -160,8 +160,8 @@ class ArxivClient(BaseAcademicClient):
                 try:
                     dt = datetime.fromisoformat(published_elem.text.replace("Z", "+00:00"))
                     year = dt.year
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Date parsing failed", date_text=published_elem.text, error=str(e))
 
             # PDF URL
             pdf_url = None
