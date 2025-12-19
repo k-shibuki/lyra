@@ -13,7 +13,7 @@ State transitions:
 
 Usage:
     breaker = CircuitBreaker("my-service", failure_threshold=3, cooldown_seconds=60)
-    
+
     if breaker.is_available:
         try:
             result = call_external_service()
@@ -42,25 +42,25 @@ from typing import Any
 class CircuitState(str, Enum):
     """Circuit breaker states."""
 
-    CLOSED = "closed"       # Normal operation, tracking failures
-    OPEN = "open"           # Blocking requests, waiting for cooldown
-    HALF_OPEN = "half-open" # Testing recovery with limited requests
+    CLOSED = "closed"  # Normal operation, tracking failures
+    OPEN = "open"  # Blocking requests, waiting for cooldown
+    HALF_OPEN = "half-open"  # Testing recovery with limited requests
 
 
 @dataclass
 class CircuitBreaker:
     """
     Thread-safe, synchronous circuit breaker.
-    
+
     Designed to be minimal and dependency-free. For persistence or
     domain-specific metrics, wrap this class (composition over inheritance).
-    
+
     Attributes:
         name: Identifier for this circuit breaker.
         failure_threshold: Number of consecutive failures before opening.
         cooldown_seconds: Time to wait before transitioning to half-open.
         half_open_max_calls: Max successful calls in half-open before closing.
-    
+
     Example:
         >>> breaker = CircuitBreaker("api", failure_threshold=2, cooldown_seconds=30)
         >>> breaker.is_available
@@ -101,7 +101,7 @@ class CircuitBreaker:
     def state(self) -> CircuitState:
         """
         Get current circuit state.
-        
+
         Automatically transitions OPEN -> HALF_OPEN when cooldown elapses.
         """
         with self._lock:
@@ -119,7 +119,7 @@ class CircuitBreaker:
     def is_available(self) -> bool:
         """
         Check if circuit allows requests.
-        
+
         Returns True for CLOSED and HALF_OPEN states.
         """
         return self.state in (CircuitState.CLOSED, CircuitState.HALF_OPEN)
@@ -134,7 +134,7 @@ class CircuitBreaker:
     def time_until_half_open(self) -> float | None:
         """
         Get seconds remaining until OPEN -> HALF_OPEN transition.
-        
+
         Returns None if not in OPEN state.
         """
         with self._lock:
@@ -147,7 +147,7 @@ class CircuitBreaker:
     def record_success(self) -> None:
         """
         Record a successful request.
-        
+
         In CLOSED state: resets consecutive failure counter.
         In HALF_OPEN state: increments success counter, may close circuit.
         """
@@ -165,7 +165,7 @@ class CircuitBreaker:
     def record_failure(self) -> None:
         """
         Record a failed request.
-        
+
         In CLOSED state: increments failure counter, may open circuit.
         In HALF_OPEN state: immediately reopens circuit.
         """
@@ -213,7 +213,7 @@ class CircuitBreaker:
     def force_open(self, cooldown_seconds: float | None = None) -> None:
         """
         Manually force circuit to OPEN state.
-        
+
         Args:
             cooldown_seconds: Custom cooldown duration. Uses default if None.
         """
@@ -244,7 +244,7 @@ class CircuitBreaker:
     ) -> None:
         """
         Set callback for state changes.
-        
+
         Args:
             callback: Function(old_state, new_state) called on transitions.
         """
@@ -254,7 +254,7 @@ class CircuitBreaker:
     def get_stats(self) -> dict[str, Any]:
         """
         Get current statistics.
-        
+
         Returns:
             Dictionary with state, failures, availability, etc.
         """
@@ -290,14 +290,14 @@ class CircuitBreakerError(Exception):
 class AsyncCircuitBreaker:
     """
     Async context manager wrapper for CircuitBreaker.
-    
+
     Usage:
         breaker = CircuitBreaker("api")
         async_breaker = AsyncCircuitBreaker(breaker)
-        
+
         async with async_breaker:
             result = await call_api()
-        
+
         # Or with auto_record=False for manual control:
         async with async_breaker.guard(auto_record=False) as ctx:
             try:
@@ -311,7 +311,7 @@ class AsyncCircuitBreaker:
     def __init__(self, breaker: CircuitBreaker):
         """
         Initialize async wrapper.
-        
+
         Args:
             breaker: The underlying CircuitBreaker instance.
         """
@@ -344,11 +344,11 @@ class AsyncCircuitBreaker:
     def guard(self, auto_record: bool = True) -> _AsyncCircuitGuard:
         """
         Create a guard context with optional manual recording.
-        
+
         Args:
             auto_record: If True, auto-record success/failure on exit.
                         If False, caller must call record_success/failure.
-        
+
         Returns:
             Context manager for guarded execution.
         """
@@ -385,4 +385,3 @@ class _AsyncCircuitGuard:
         """Manually record failure."""
         self._recorded = True
         self.breaker.record_failure()
-

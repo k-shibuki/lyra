@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 @dataclass
 class SearchResult:
     """Result of a search pipeline execution.
-    
+
     Conforms to §3.2.1 search response schema.
     """
 
@@ -103,16 +103,16 @@ class SearchOptions:
 class SearchPipeline:
     """
     Unified search pipeline for Lancet.
-    
+
     Executes Cursor AI-designed queries through the search/fetch/extract pipeline.
     Supports both normal search and refutation mode.
-    
+
     Responsibilities (§2.1.3, §3.2.1):
     - Execute search → fetch → extract → evaluate pipeline
     - Apply mechanical query expansions
     - Calculate metrics (harvest rate, novelty, satisfaction)
     - In refutation mode, apply mechanical suffix patterns and NLI detection
-    
+
     Does NOT:
     - Design queries (Cursor AI's responsibility)
     - Make strategic decisions about what to search next
@@ -120,7 +120,7 @@ class SearchPipeline:
 
     def __init__(self, task_id: str, state: ExplorationState):
         """Initialize search pipeline.
-        
+
         Args:
             task_id: The task ID.
             state: The exploration state manager.
@@ -143,11 +143,11 @@ class SearchPipeline:
     ) -> SearchResult:
         """
         Execute a search designed by Cursor AI.
-        
+
         Args:
             query: The search query (designed by Cursor AI).
             options: Search options.
-            
+
         Returns:
             SearchResult with execution results.
         """
@@ -180,16 +180,20 @@ class SearchPipeline:
                     )
                 else:
                     # Normal search mode
-                    result = await self._execute_normal_search(
-                        search_id, query, options, result
-                    )
+                    result = await self._execute_normal_search(search_id, query, options, result)
 
                 # Calculate remaining budget
                 overall_status = await self.state.get_status()
                 result.budget_remaining = {
-                    "pages": overall_status["budget"]["pages_limit"] - overall_status["budget"]["pages_used"],
+                    "pages": overall_status["budget"]["pages_limit"]
+                    - overall_status["budget"]["pages_used"],
                     "percent": int(
-                        (1 - overall_status["budget"]["pages_used"] / overall_status["budget"]["pages_limit"]) * 100
+                        (
+                            1
+                            - overall_status["budget"]["pages_used"]
+                            / overall_status["budget"]["pages_limit"]
+                        )
+                        * 100
                     ),
                 }
 
@@ -213,14 +217,10 @@ class SearchPipeline:
 
         if is_academic:
             # Complementary search: Browser + Academic API
-            return await self._execute_complementary_search(
-                search_id, query, options, result
-            )
+            return await self._execute_complementary_search(search_id, query, options, result)
         else:
             # Standard browser search only
-            return await self._execute_browser_search(
-                search_id, query, options, result
-            )
+            return await self._execute_browser_search(search_id, query, options, result)
 
     async def _execute_browser_search(
         self,
@@ -255,13 +255,15 @@ class SearchPipeline:
             result.error_details = exec_result.error_details
 
         for claim in exec_result.new_claims:
-            result.claims_found.append({
-                "id": f"c_{uuid.uuid4().hex[:8]}",
-                "text": claim.get("claim", claim.get("snippet", ""))[:200],
-                "confidence": claim.get("confidence", 0.5),
-                "source_url": claim.get("source_url", ""),
-                "is_primary_source": self._is_primary_source(claim.get("source_url", "")),
-            })
+            result.claims_found.append(
+                {
+                    "id": f"c_{uuid.uuid4().hex[:8]}",
+                    "text": claim.get("claim", claim.get("snippet", ""))[:200],
+                    "confidence": claim.get("confidence", 0.5),
+                    "source_url": claim.get("source_url", ""),
+                    "is_primary_source": self._is_primary_source(claim.get("source_url", "")),
+                }
+            )
 
         if exec_result.errors:
             result.errors.extend(exec_result.errors)
@@ -276,7 +278,7 @@ class SearchPipeline:
         result: SearchResult,
     ) -> SearchResult:
         """Execute complementary search (Browser + Academic API).
-        
+
         Performs unified deduplication across both sources.
         """
         from src.search.academic_provider import AcademicSearchProvider
@@ -308,9 +310,7 @@ class SearchPipeline:
             # Execute in parallel
             try:
                 serp_items, academic_response = await asyncio.gather(
-                    browser_task,
-                    academic_task,
-                    return_exceptions=True
+                    browser_task, academic_task, return_exceptions=True
                 )
             except Exception as e:
                 logger.error("Parallel search failed", error=str(e))
@@ -364,7 +364,9 @@ class SearchPipeline:
                         if identifier.pmid:
                             identifier.doi = await resolver.resolve_pmid_to_doi(identifier.pmid)
                         elif identifier.arxiv_id:
-                            identifier.doi = await resolver.resolve_arxiv_to_doi(identifier.arxiv_id)
+                            identifier.doi = await resolver.resolve_arxiv_to_doi(
+                                identifier.arxiv_id
+                            )
                     except Exception as e:
                         logger.debug("DOI resolution failed", url=url, error=str(e))
 
@@ -378,7 +380,7 @@ class SearchPipeline:
                     date=item.get("date"),
                 )
 
-                canonical_id = index.register_serp_result(serp_result, identifier)
+                index.register_serp_result(serp_result, identifier)
                 serp_count += 1
 
             # Phase 4: Get deduplication stats
@@ -415,13 +417,19 @@ class SearchPipeline:
                     # Try to resolve OA URL via Unpaywall if not available
                     if not entry.paper.oa_url and entry.paper.doi:
                         try:
-                            resolved_oa_url = await academic_provider.resolve_oa_url_for_paper(entry.paper)
+                            resolved_oa_url = await academic_provider.resolve_oa_url_for_paper(
+                                entry.paper
+                            )
                             if resolved_oa_url:
                                 # Update paper object with resolved OA URL
                                 entry.paper.oa_url = resolved_oa_url
                                 entry.paper.is_open_access = True
                         except Exception as e:
-                            logger.debug("Failed to resolve OA URL via Unpaywall", doi=entry.paper.doi, error=str(e))
+                            logger.debug(
+                                "Failed to resolve OA URL via Unpaywall",
+                                doi=entry.paper.doi,
+                                error=str(e),
+                            )
 
                     # Abstract Only: Skip fetch, persist abstract directly
                     try:
@@ -441,7 +449,9 @@ class SearchPipeline:
                         graph.add_node(NodeType.PAGE, page_id)
 
                     except Exception as e:
-                        logger.warning("Failed to persist abstract", error=str(e), paper_id=entry.paper.id)
+                        logger.warning(
+                            "Failed to persist abstract", error=str(e), paper_id=entry.paper.id
+                        )
                 elif entry.needs_fetch:
                     # Entry needs fetch: either no paper or paper without abstract
                     # Collect URLs for browser search fallback
@@ -455,7 +465,8 @@ class SearchPipeline:
             # Get citation graphs for top N papers with abstracts
 
             papers_with_abstracts = [
-                entry.paper for entry in unique_entries
+                entry.paper
+                for entry in unique_entries
                 if entry.paper and entry.paper.abstract and entry.paper.id in paper_to_page_map
             ][:5]  # Top 5 papers
 
@@ -476,7 +487,10 @@ class SearchPipeline:
                         paper_metadata = {
                             "doi": paper.doi,
                             "arxiv_id": paper.arxiv_id,
-                            "authors": [{"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid} for a in paper.authors],
+                            "authors": [
+                                {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
+                                for a in paper.authors
+                            ],
                             "year": paper.year,
                             "venue": paper.venue,
                             "citation_count": paper.citation_count,
@@ -515,7 +529,9 @@ class SearchPipeline:
                 fragments_before = result.useful_fragments
 
                 expanded_queries = self._expand_academic_query(query)
-                browser_result = await self._execute_browser_search(search_id, expanded_queries[0], options, result)
+                browser_result = await self._execute_browser_search(
+                    search_id, expanded_queries[0], options, result
+                )
 
                 # Accumulate stats: add browser search results to existing counts
                 # (browser_result is the same object as result, so browser_result.pages_fetched
@@ -531,10 +547,10 @@ class SearchPipeline:
 
     def _is_academic_query(self, query: str) -> bool:
         """Determine if query is academic.
-        
+
         Args:
             query: Search query
-            
+
         Returns:
             True if academic query
         """
@@ -542,17 +558,34 @@ class SearchPipeline:
 
         # Keyword detection
         academic_keywords = [
-            "論文", "paper", "研究", "study", "学術", "journal",
-            "arxiv", "pubmed", "doi:", "citation", "引用",
-            "preprint", "peer-review", "査読", "publication",
+            "論文",
+            "paper",
+            "研究",
+            "study",
+            "学術",
+            "journal",
+            "arxiv",
+            "pubmed",
+            "doi:",
+            "citation",
+            "引用",
+            "preprint",
+            "peer-review",
+            "査読",
+            "publication",
         ]
         if any(kw in query_lower for kw in academic_keywords):
             return True
 
         # Site specification detection
         academic_sites = [
-            "arxiv.org", "pubmed", "scholar.google", "jstage",
-            "doi.org", "semanticscholar.org", "crossref.org",
+            "arxiv.org",
+            "pubmed",
+            "scholar.google",
+            "jstage",
+            "doi.org",
+            "semanticscholar.org",
+            "crossref.org",
         ]
         if any(f"site:{site}" in query_lower for site in academic_sites):
             return True
@@ -565,17 +598,17 @@ class SearchPipeline:
 
     def _expand_academic_query(self, query: str) -> list[str]:
         """Expand academic query into multiple site-specific queries.
-        
+
         Args:
             query: Original query
-            
+
         Returns:
             List of expanded queries
         """
         queries = [query]  # Original query
 
         # Remove site: operator
-        base_query = re.sub(r'\bsite:\S+', '', query).strip()
+        base_query = re.sub(r"\bsite:\S+", "", query).strip()
 
         # Add academic site specifications (top 2 sites only)
         academic_sites = [
@@ -595,15 +628,15 @@ class SearchPipeline:
         search_id: str,
     ) -> tuple[str, str]:
         """Persist abstract as fragment (Abstract Only strategy).
-        
+
         Saves academic paper metadata to pages table and abstract to fragments table,
         skipping fetch/extract for papers with abstracts from academic APIs.
-        
+
         Args:
             paper: Paper object with abstract
             task_id: Task ID
             search_id: Search ID
-            
+
         Returns:
             (page_id, fragment_id) tuple
         """
@@ -621,7 +654,10 @@ class SearchPipeline:
         paper_metadata = {
             "doi": paper.doi,
             "arxiv_id": paper.arxiv_id,
-            "authors": [{"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid} for a in paper.authors],
+            "authors": [
+                {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
+                for a in paper.authors
+            ],
             "year": paper.year,
             "venue": paper.venue,
             "citation_count": paper.citation_count,
@@ -636,29 +672,37 @@ class SearchPipeline:
         page_id = f"page_{uuid.uuid4().hex[:8]}"
 
         # Insert into pages table
-        await db.insert("pages", {
-            "id": page_id,
-            "url": reference_url,
-            "final_url": reference_url,
-            "domain": self._extract_domain(reference_url),
-            "page_type": "academic_paper",
-            "fetch_method": "academic_api",
-            "title": paper.title,
-            "paper_metadata": json.dumps(paper_metadata),
-            "fetched_at": time.time(),
-        }, auto_id=False)
+        await db.insert(
+            "pages",
+            {
+                "id": page_id,
+                "url": reference_url,
+                "final_url": reference_url,
+                "domain": self._extract_domain(reference_url),
+                "page_type": "academic_paper",
+                "fetch_method": "academic_api",
+                "title": paper.title,
+                "paper_metadata": json.dumps(paper_metadata),
+                "fetched_at": time.time(),
+            },
+            auto_id=False,
+        )
 
         # Insert abstract as fragment
         fragment_id = f"frag_{uuid.uuid4().hex[:8]}"
-        await db.insert("fragments", {
-            "id": fragment_id,
-            "page_id": page_id,
-            "fragment_type": "abstract",
-            "text_content": paper.abstract or "",
-            "heading_context": "Abstract",
-            "position": 0,
-            "created_at": time.time(),
-        }, auto_id=False)
+        await db.insert(
+            "fragments",
+            {
+                "id": fragment_id,
+                "page_id": page_id,
+                "fragment_type": "abstract",
+                "text_content": paper.abstract or "",
+                "heading_context": "Abstract",
+                "position": 0,
+                "created_at": time.time(),
+            },
+            auto_id=False,
+        )
 
         logger.info(
             "Persisted abstract as fragment",
@@ -672,14 +716,15 @@ class SearchPipeline:
 
     def _extract_domain(self, url: str) -> str:
         """Extract domain from URL.
-        
+
         Args:
             url: URL string
-            
+
         Returns:
             Domain string
         """
         import re
+
         match = re.search(r"https?://([^/]+)", url)
         return match.group(1) if match else "unknown"
 
@@ -691,7 +736,7 @@ class SearchPipeline:
         result: SearchResult,
     ) -> SearchResult:
         """Execute refutation search mode.
-        
+
         Applies mechanical suffix patterns and uses NLI for refutation detection.
         """
         from src.crawler.fetcher import fetch_url
@@ -772,14 +817,16 @@ class SearchPipeline:
 
                         if refutation:
                             all_refutations.append(refutation)
-                            result.claims_found.append({
-                                "id": f"c_{uuid.uuid4().hex[:8]}",
-                                "text": refutation["refuting_passage"][:200],
-                                "confidence": refutation["nli_confidence"],
-                                "source_url": url,
-                                "is_primary_source": self._is_primary_source(url),
-                                "is_refutation": True,
-                            })
+                            result.claims_found.append(
+                                {
+                                    "id": f"c_{uuid.uuid4().hex[:8]}",
+                                    "text": refutation["refuting_passage"][:200],
+                                    "confidence": refutation["nli_confidence"],
+                                    "source_url": url,
+                                    "is_primary_source": self._is_primary_source(url),
+                                    "is_refutation": True,
+                                }
+                            )
 
                     except Exception as e:
                         logger.debug("Refutation fetch failed", url=url[:50], error=str(e))
@@ -806,13 +853,13 @@ class SearchPipeline:
     def _generate_refutation_queries(self, text: str) -> list[str]:
         """
         Generate refutation queries using mechanical patterns only.
-        
+
         Applies predefined suffixes to the text.
         Does NOT use LLM to generate hypotheses (§2.1.4).
-        
+
         Args:
             text: The claim or query text.
-            
+
         Returns:
             List of refutation queries.
         """
@@ -834,23 +881,25 @@ class SearchPipeline:
     ) -> dict[str, Any] | None:
         """
         Detect if a passage refutes a claim using NLI.
-        
+
         Args:
             claim_text: The claim text.
             passage: The passage to check.
             source_url: URL of the source.
             source_title: Title of the source.
             nli_judge: NLI judge function.
-            
+
         Returns:
             Refutation details if detected, None otherwise.
         """
         try:
-            pairs = [{
-                "pair_id": "refutation_check",
-                "premise": passage,
-                "hypothesis": claim_text,
-            }]
+            pairs = [
+                {
+                    "pair_id": "refutation_check",
+                    "premise": passage,
+                    "hypothesis": claim_text,
+                }
+            ]
 
             results = await nli_judge(pairs=pairs)
 
@@ -876,13 +925,11 @@ class SearchPipeline:
         """Check if URL is from a primary source domain."""
         try:
             from urllib.parse import urlparse
+
             parsed = urlparse(url)
             domain = parsed.netloc.lower()
 
-            return any(
-                primary in domain
-                for primary in PRIMARY_SOURCE_DOMAINS
-            )
+            return any(primary in domain for primary in PRIMARY_SOURCE_DOMAINS)
         except Exception as e:
             logger.debug("Primary source check failed", url=url[:100], error=str(e))
             return False
@@ -896,16 +943,16 @@ async def search_action(
 ) -> dict[str, Any]:
     """
     Unified API for search action (Phase M architecture).
-    
+
     This function serves as the action-based entry point for the search MCP tool,
     following the unified architecture pattern where MCP handlers are thin wrappers.
-    
+
     Args:
         task_id: The task ID.
         query: Search query designed by Cursor AI.
         state: The exploration state manager.
         options: Optional search options dict.
-        
+
     Returns:
         Search result conforming to §3.2.1 schema.
     """
@@ -930,14 +977,14 @@ async def stop_task_action(
 ) -> dict[str, Any]:
     """
     Unified API for stop_task action (Phase M architecture).
-    
+
     Finalizes exploration and returns summary.
-    
+
     Args:
         task_id: The task ID.
         state: The exploration state manager.
         reason: Stop reason ("completed", "budget_exhausted", "user_cancelled").
-        
+
     Returns:
         Finalization result conforming to §3.2.1 schema.
     """

@@ -101,58 +101,37 @@ class TestGenerateDeepLink:
 
     def test_basic_deep_link(self):
         """Test basic deep link generation."""
-        result = generate_deep_link(
-            "https://example.com/page",
-            "Introduction"
-        )
+        result = generate_deep_link("https://example.com/page", "Introduction")
         assert result == "https://example.com/page#introduction"
 
     def test_deep_link_with_japanese_heading(self):
         """Test deep link with Japanese heading."""
-        result = generate_deep_link(
-            "https://example.com/doc",
-            "はじめに"
-        )
+        result = generate_deep_link("https://example.com/doc", "はじめに")
         assert result == "https://example.com/doc#はじめに"
 
     def test_deep_link_no_heading(self):
         """Test deep link without heading returns original URL."""
-        result = generate_deep_link(
-            "https://example.com/page",
-            None
-        )
+        result = generate_deep_link("https://example.com/page", None)
         assert result == "https://example.com/page"
 
     def test_deep_link_empty_heading(self):
         """Test deep link with empty heading returns original URL."""
-        result = generate_deep_link(
-            "https://example.com/page",
-            ""
-        )
+        result = generate_deep_link("https://example.com/page", "")
         assert result == "https://example.com/page"
 
     def test_deep_link_preserves_existing_fragment(self):
         """Test existing fragment is not overwritten."""
-        result = generate_deep_link(
-            "https://example.com/page#existing",
-            "New Section"
-        )
+        result = generate_deep_link("https://example.com/page#existing", "New Section")
         assert result == "https://example.com/page#existing"
 
     def test_deep_link_with_query_params(self):
         """Test deep link preserves query parameters."""
-        result = generate_deep_link(
-            "https://example.com/page?q=test&lang=ja",
-            "Results"
-        )
+        result = generate_deep_link("https://example.com/page?q=test&lang=ja", "Results")
         assert result == "https://example.com/page?q=test&lang=ja#results"
 
     def test_deep_link_with_path(self):
         """Test deep link with complex path."""
-        result = generate_deep_link(
-            "https://example.com/docs/api/v2/reference",
-            "Authentication"
-        )
+        result = generate_deep_link("https://example.com/docs/api/v2/reference", "Authentication")
         assert result == "https://example.com/docs/api/v2/reference#authentication"
 
 
@@ -279,18 +258,21 @@ class TestCitation:
 class TestCitationSourcePriority:
     """Tests for source priority classification per §3.4."""
 
-    @pytest.mark.parametrize("source_tag,expected", [
-        ("government", True),
-        ("academic", True),
-        ("official", True),
-        ("standard", True),
-        ("registry", True),
-        ("news", False),
-        ("blog", False),
-        ("forum", False),
-        ("unknown", False),
-        (None, False),
-    ])
+    @pytest.mark.parametrize(
+        "source_tag,expected",
+        [
+            ("government", True),
+            ("academic", True),
+            ("official", True),
+            ("standard", True),
+            ("registry", True),
+            ("news", False),
+            ("blog", False),
+            ("forum", False),
+            ("unknown", False),
+            (None, False),
+        ],
+    )
     def test_primary_source_classification(self, source_tag, expected):
         """Test all source types are classified correctly."""
         citation = Citation(
@@ -301,10 +283,3 @@ class TestCitationSourcePriority:
         assert citation.is_primary_source is expected, (
             f"Source tag '{source_tag}' should be primary={expected}"
         )
-
-
-
-
-
-
-

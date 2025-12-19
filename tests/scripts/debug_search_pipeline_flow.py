@@ -124,7 +124,7 @@ async def main():
     print(f"  - Original query: {test_query}")
     print(f"  - Expanded queries ({len(expanded)}):")
     for i, eq in enumerate(expanded):
-        print(f"    {i+1}. {eq}")
+        print(f"    {i + 1}. {eq}")
 
     assert len(expanded) >= 1
     assert test_query in expanded
@@ -158,19 +158,21 @@ async def main():
 
     transformed_claims = []
     for claim in raw_claims:
-        transformed_claims.append({
-            "id": f"c_{uuid.uuid4().hex[:8]}",
-            "text": claim.get("claim", claim.get("snippet", ""))[:200],
-            "confidence": claim.get("confidence", 0.5),
-            "source_url": claim.get("source_url", ""),
-            "is_primary_source": pipeline._is_primary_source(claim.get("source_url", "")),
-        })
+        transformed_claims.append(
+            {
+                "id": f"c_{uuid.uuid4().hex[:8]}",
+                "text": claim.get("claim", claim.get("snippet", ""))[:200],
+                "confidence": claim.get("confidence", 0.5),
+                "source_url": claim.get("source_url", ""),
+                "is_primary_source": pipeline._is_primary_source(claim.get("source_url", "")),
+            }
+        )
 
     print(f"  - Raw claims count: {len(raw_claims)}")
     print(f"  - Transformed claims count: {len(transformed_claims)}")
 
     for i, tc in enumerate(transformed_claims):
-        print(f"  - Claim {i+1}:")
+        print(f"  - Claim {i + 1}:")
         print(f"      id: {tc['id']}")
         print(f"      text: {tc['text'][:50]}...")
         print(f"      confidence: {tc['confidence']}")
@@ -250,8 +252,12 @@ async def main():
 
     if has_persist_fragment:
         persist_fragment_source = inspect.getsource(SearchExecutor._persist_fragment)
-        fragments_insert = "INSERT" in persist_fragment_source and "fragments" in persist_fragment_source
-        print(f"  - _persist_fragment has fragments INSERT: {'YES ✓' if fragments_insert else 'NO ⚠'}")
+        fragments_insert = (
+            "INSERT" in persist_fragment_source and "fragments" in persist_fragment_source
+        )
+        print(
+            f"  - _persist_fragment has fragments INSERT: {'YES ✓' if fragments_insert else 'NO ⚠'}"
+        )
     else:
         fragments_insert = False
 
@@ -260,11 +266,20 @@ async def main():
     calls_persist_claim = "_persist_claim" in fetch_extract_source
     calls_persist_fragment = "_persist_fragment" in fetch_extract_source
 
-    print(f"  - _fetch_and_extract calls _persist_claim: {'YES ✓' if calls_persist_claim else 'NO ⚠'}")
-    print(f"  - _fetch_and_extract calls _persist_fragment: {'YES ✓' if calls_persist_fragment else 'NO ⚠'}")
+    print(
+        f"  - _fetch_and_extract calls _persist_claim: {'YES ✓' if calls_persist_claim else 'NO ⚠'}"
+    )
+    print(
+        f"  - _fetch_and_extract calls _persist_fragment: {'YES ✓' if calls_persist_fragment else 'NO ⚠'}"
+    )
 
     print("\n  *** Analysis Result ***")
-    if has_persist_claim and has_persist_fragment and calls_persist_claim and calls_persist_fragment:
+    if (
+        has_persist_claim
+        and has_persist_fragment
+        and calls_persist_claim
+        and calls_persist_fragment
+    ):
         print("  ✓ DB persistence methods exist and are called")
     else:
         print("  ⚠ WARNING: DB persistence may not be working")
@@ -373,14 +388,14 @@ async def main():
     print("=" * 70)
 
     all_checks_passed = (
-        has_persist_claim and
-        has_persist_fragment and
-        calls_persist_claim and
-        calls_persist_fragment and
-        claims_insert and
-        fragments_insert and
-        edges_insert and
-        hasattr(state, "original_query")
+        has_persist_claim
+        and has_persist_fragment
+        and calls_persist_claim
+        and calls_persist_fragment
+        and claims_insert
+        and fragments_insert
+        and edges_insert
+        and hasattr(state, "original_query")
     )
 
     if all_checks_passed:
@@ -412,7 +427,7 @@ async def main():
 
         print("\n⚠ Issues Found:")
         for i, issue in enumerate(issues_found):
-            print(f"  {i+1}. {issue}")
+            print(f"  {i + 1}. {issue}")
 
     # Cleanup
     print("\n[Cleanup] Removing test task...")

@@ -11,6 +11,31 @@
 
 ## ワークフロー概要
 
+**重要**: まず、ローカルのmainブランチとorigin/mainの差分を確認し、以下の2つのケースを判定する：
+
+- **ケースA**: 未マージのPRがある場合 → 個別にレビュー・マージ
+- **ケースB**: 既にローカルのmainにマージ済みだがorigin/mainに未プッシュの場合 → mainブランチ全体を確認してからプッシュ
+
+### ケース判定
+
+```bash
+# ローカルのmainブランチとorigin/mainの差分を確認
+git log origin/main..main --oneline
+
+# 未マージのPRブランチを確認
+git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD" | while read branch; do
+    if git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+        echo "$branch: Not merged to origin/main"
+    fi
+done
+```
+
+**判定基準**:
+- `git log origin/main..main` が空で、未マージのPRブランチがある → **ケースA**
+- `git log origin/main..main` にコミットがあり、すべてのPRが既にローカルのmainにマージ済み → **ケースB**
+
+### ケースA: 未マージのPRがある場合
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  1. PR取得        リモートからPRブランチを取得               │
@@ -24,10 +49,30 @@
 │  5. マージ判断    マージ可否を判断し、理由を説明             │
 │         ↓                                                    │
 │  6. マージ実行    承認後、mainにマージ                       │
+│         ↓                                                    │
+│  7. プッシュ      リモートにプッシュ                         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 1. PR取得
+### ケースB: 既にマージ済みのPRをプッシュする場合
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. 状態確認      ローカルのmainとorigin/mainの差分確認      │
+│         ↓                                                    │
+│  2. 品質確認      /quality-check を実行（mainブランチ全体）  │
+│         ↓                                                    │
+│  3. 回帰テスト    /regression-test を実行（mainブランチ全体）│
+│         ↓                                                    │
+│  4. プッシュ判断  プッシュ可否を判断し、理由を説明           │
+│         ↓                                                    │
+│  5. プッシュ実行  承認後、origin/mainにプッシュ              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**注意**: ケースBでは、既にマージ済みのPRを再度マージする必要はない。ローカルのmainブランチ全体を確認してからプッシュする。
+
+## 1. PR取得（ケースAのみ）
 
 ### 1.1. リモート情報の取得とPR候補の列挙
 
@@ -205,7 +250,30 @@ git checkout -b <pr-branch> origin/<pr-branch>
   - `git log main..<branch>` と `git log origin/main..<branch>` が両方空の場合
   - `git merge-base --is-ancestor <branch> origin/main` がtrueの場合
 
-## 2. コードレビュー
+## 1B. 既マージPRの状態確認（ケースBのみ）
+
+既にローカルのmainにマージ済みだがorigin/mainに未プッシュの場合：
+
+```bash
+# ローカルのmainブランチとorigin/mainの差分を確認
+git log origin/main..main --oneline
+git diff origin/main..main --stat
+
+# マージ済みのPRブランチを確認
+git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD" | while read branch; do
+    if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+        echo "$branch: Already merged to origin/main"
+    else
+        if ! git log main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
+            echo "$branch: Merged to local main, but not pushed to origin/main"
+        fi
+    fi
+done
+```
+
+**重要**: このケースでは、個別のPRを再度マージする必要はない。ローカルのmainブランチ全体を品質確認・テストしてから、origin/mainにプッシュする。
+
+## 2. コードレビュー（ケースAのみ）
 
 ### 確認項目
 
@@ -233,11 +301,17 @@ git diff main..HEAD
 - lint/型エラーだけでなく、**警告も必ず解消する**
 - `ruff check` で警告が出た場合は `ruff check --fix` で自動修正を試みる
 - `git diff --check` でtrailing whitespaceなどの警告を確認
-- 警告が残っている場合はマージしない
+- 警告が残っている場合はマージ/プッシュしない
+
+**ケースA（未マージPR）**: PRブランチで品質確認を実行
+**ケースB（既マージPR）**: mainブランチ全体で品質確認を実行
 
 ## 4. 回帰テスト
 
 `/regression-test` コマンドを実行。全テストがパスすることを確認。
+
+**ケースA（未マージPR）**: PRブランチでテストを実行
+**ケースB（既マージPR）**: mainブランチ全体でテストを実行
 
 ## 5. マージ判断
 
@@ -267,7 +341,7 @@ git diff main..HEAD
 3. **警告が残っている場合は必ず解消してからマージ**
 ```
 
-## 6. マージ実行
+## 6. マージ実行（ケースAのみ）
 
 ユーザー承認後にのみ実行。`/merge-complete` と同様の手順。
 
@@ -320,6 +394,44 @@ git push origin main
 **注意**: 
 - プッシュ前に必ずマージが成功していることを確認
 - コンフリクトが発生した場合は解決してからプッシュ
+
+## 6B. プッシュ実行（ケースBのみ）
+
+既にローカルのmainにマージ済みのPRをorigin/mainにプッシュする場合。
+
+### 6B.1. プッシュ前の確認
+
+**重要**: プッシュ前に必ず以下を確認・実行する：
+
+1. **警告の解消**: `ruff check` や `mypy` の警告が全て解消されていること
+2. **trailing whitespaceの解消**: `git diff --check` で警告がないことを確認
+3. **品質確認・テスト完了**: `/quality-check` と `/regression-test` がパスしていること
+
+```bash
+# mainブランチにいることを確認
+git checkout main
+
+# 警告確認
+podman exec lancet ruff check src/ tests/
+podman exec lancet mypy src/ tests/
+
+# trailing whitespace確認
+git diff origin/main..main --check
+
+# 警告がある場合は自動修正を試みる
+podman exec lancet ruff check --fix src/ tests/
+```
+
+### 6B.2. プッシュ実行
+
+```bash
+# origin/mainにプッシュ
+git push origin main
+```
+
+**注意**: 
+- **警告が残っている場合はプッシュを実行しない**（必ず解消してからプッシュ）
+- プッシュ前に必ず品質確認・テストが完了していることを確認
 
 ## 出力
 

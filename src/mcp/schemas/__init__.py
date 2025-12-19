@@ -48,13 +48,9 @@ def get_error_schema() -> dict[str, Any]:
 
 def list_available_schemas() -> list[str]:
     """List all available schema names."""
-    return [
-        p.stem for p in SCHEMAS_DIR.glob("*.json")
-        if p.stem != "common"
-    ]
+    return [p.stem for p in SCHEMAS_DIR.glob("*.json") if p.stem != "common"]
 
 
 def clear_cache() -> None:
     """Clear the schema cache (for testing)."""
     _schema_cache.clear()
-

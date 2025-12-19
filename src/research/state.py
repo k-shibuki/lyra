@@ -28,12 +28,12 @@ logger = get_logger(__name__)
 class SearchStatus(Enum):
     """Status of a search execution."""
 
-    PENDING = "pending"      # Created but not executed
-    RUNNING = "running"      # Currently executing
+    PENDING = "pending"  # Created but not executed
+    RUNNING = "running"  # Currently executing
     SATISFIED = "satisfied"  # Sufficient sources found (≥3 independent or 1 primary + 1 secondary)
-    PARTIAL = "partial"      # Some sources found (1-2 independent)
+    PARTIAL = "partial"  # Some sources found (1-2 independent)
     EXHAUSTED = "exhausted"  # Budget consumed or novelty dropped
-    SKIPPED = "skipped"      # Manually skipped by Cursor AI
+    SKIPPED = "skipped"  # Manually skipped by Cursor AI
 
 
 # Backward compatibility alias (deprecated, will be removed)
@@ -43,12 +43,12 @@ SubqueryStatus = SearchStatus
 class TaskStatus(Enum):
     """Status of a research task."""
 
-    CREATED = "created"              # Task created, Cursor AI designing searches
-    EXPLORING = "exploring"          # Exploration in progress
+    CREATED = "created"  # Task created, Cursor AI designing searches
+    EXPLORING = "exploring"  # Exploration in progress
     AWAITING_DECISION = "awaiting_decision"  # Waiting for Cursor AI decision
-    FINALIZING = "finalizing"        # Wrapping up exploration
-    COMPLETED = "completed"          # Successfully completed
-    FAILED = "failed"                # Failed with error
+    FINALIZING = "finalizing"  # Wrapping up exploration
+    COMPLETED = "completed"  # Successfully completed
+    FAILED = "failed"  # Failed with error
 
 
 class SearchState(BaseModel):
@@ -72,79 +72,60 @@ class SearchState(BaseModel):
 
     # Status and priority
     status: SearchStatus = Field(
-        default=SearchStatus.PENDING,
-        description="Current execution status"
+        default=SearchStatus.PENDING, description="Current execution status"
     )
-    priority: str = Field(
-        default="medium",
-        description="Execution priority (high/medium/low)"
-    )
+    priority: str = Field(default="medium", description="Execution priority (high/medium/low)")
 
     # Source tracking
     independent_sources: int = Field(
-        default=0, ge=0,
-        description="Count of independent sources found"
+        default=0, ge=0, description="Count of independent sources found"
     )
     has_primary_source: bool = Field(
-        default=False,
-        description="Whether a gov/academic primary source was found"
+        default=False, description="Whether a gov/academic primary source was found"
     )
     source_domains: list[str] = Field(
-        default_factory=list,
-        description="List of unique source domains"
+        default_factory=list, description="List of unique source domains"
     )
 
     # Metrics
-    pages_fetched: int = Field(
-        default=0, ge=0,
-        description="Number of pages fetched"
-    )
+    pages_fetched: int = Field(default=0, ge=0, description="Number of pages fetched")
     useful_fragments: int = Field(
-        default=0, ge=0,
-        description="Number of useful fragments extracted"
+        default=0, ge=0, description="Number of useful fragments extracted"
     )
     harvest_rate: float = Field(
-        default=0.0, ge=0.0,
-        description="Useful fragments per page (can exceed 1.0 if multiple fragments per page)"
+        default=0.0,
+        ge=0.0,
+        description="Useful fragments per page (can exceed 1.0 if multiple fragments per page)",
     )
     novelty_score: float = Field(
-        default=1.0, ge=0.0, le=1.0,
-        description="Ratio of novel fragments in recent window"
+        default=1.0, ge=0.0, le=1.0, description="Ratio of novel fragments in recent window"
     )
     satisfaction_score: float = Field(
-        default=0.0, ge=0.0, le=1.0,
-        description="Source satisfaction score"
+        default=0.0, ge=0.0, le=1.0, description="Source satisfaction score"
     )
 
     # Refutation
     refutation_status: str = Field(
-        default="pending",
-        description="Refutation status (pending/found/not_found)"
+        default="pending", description="Refutation status (pending/found/not_found)"
     )
-    refutation_count: int = Field(
-        default=0, ge=0,
-        description="Number of refutations found"
-    )
+    refutation_count: int = Field(default=0, ge=0, description="Number of refutations found")
 
     # Budget
     budget_pages: int | None = Field(
-        default=None, ge=0,
-        description="Optional page budget for this search"
+        default=None, ge=0, description="Optional page budget for this search"
     )
     budget_time_seconds: int | None = Field(
-        default=None, ge=0,
-        description="Optional time budget in seconds"
+        default=None, ge=0, description="Optional time budget in seconds"
     )
     time_started: float | None = Field(
-        default=None,
-        description="Unix timestamp when search started"
+        default=None, description="Unix timestamp when search started"
     )
 
     # Recent fragments for novelty calculation (not serialized)
     recent_fragment_hashes: deque = Field(
         default_factory=lambda: deque(maxlen=20),
         exclude=True,  # Exclude from serialization
-        description="Recent fragment hashes for novelty calculation"
+        description="Recent fragment hashes for novelty calculation",
     )
 
     @field_validator("priority")
@@ -503,7 +484,9 @@ class ExplorationState:
             if self._ucb_allocator:
                 self._ucb_allocator.record_observation(search_id, is_useful)
 
-    def record_claim(self, search_id: str, is_verified: bool = False, is_refuted: bool = False) -> None:
+    def record_claim(
+        self, search_id: str, is_verified: bool = False, is_refuted: bool = False
+    ) -> None:
         """Record a claim extraction.
 
         Args:
@@ -697,7 +680,9 @@ class ExplorationState:
         satisfied = sum(1 for s in self._searches.values() if s.status == SearchStatus.SATISFIED)
         partial = sum(1 for s in self._searches.values() if s.status == SearchStatus.PARTIAL)
         pending = sum(1 for s in self._searches.values() if s.status == SearchStatus.PENDING)
-        exhausted_count = sum(1 for s in self._searches.values() if s.status == SearchStatus.EXHAUSTED)
+        exhausted_count = sum(
+            1 for s in self._searches.values() if s.status == SearchStatus.EXHAUSTED
+        )
 
         # Generate warnings (factual alerts, not recommendations)
         warnings = []
@@ -722,8 +707,7 @@ class ExplorationState:
             ucb_scores = {
                 "enabled": True,
                 "arm_scores": {
-                    sid: arm.get("ucb_score", 0)
-                    for sid, arm in ucb_status.get("arms", {}).items()
+                    sid: arm.get("ucb_score", 0) for sid, arm in ucb_status.get("arms", {}).items()
                 },
                 "arm_budgets": {
                     sid: arm.get("remaining_budget", 0)
@@ -816,17 +800,13 @@ class ExplorationState:
                     f"一次資料アクセスがブロック中"
                 )
             else:
-                alerts.append(
-                    f"[critical] 認証待ち{pending_count}件: 探索継続に影響"
-                )
+                alerts.append(f"[critical] 認証待ち{pending_count}件: 探索継続に影響")
         # Warning level: ≥3 pending
         elif pending_count >= 3:
             domain_sample = ", ".join(domains[:3])
             if len(domains) > 3:
                 domain_sample += f" 他{len(domains) - 3}件"
-            alerts.append(
-                f"[warning] 認証待ち{pending_count}件 ({domain_sample})"
-            )
+            alerts.append(f"[warning] 認証待ち{pending_count}件 ({domain_sample})")
 
         return alerts
 
@@ -867,10 +847,13 @@ class ExplorationState:
         """
         self._task_status = TaskStatus.COMPLETED
 
-        satisfied_searches = [s for s in self._searches.values() if s.status == SearchStatus.SATISFIED]
+        satisfied_searches = [
+            s for s in self._searches.values() if s.status == SearchStatus.SATISFIED
+        ]
         partial_searches = [s for s in self._searches.values() if s.status == SearchStatus.PARTIAL]
         unsatisfied_searches = [
-            s for s in self._searches.values()
+            s
+            for s in self._searches.values()
             if s.status in (SearchStatus.PENDING, SearchStatus.EXHAUSTED)
         ]
 
@@ -890,8 +873,7 @@ class ExplorationState:
 
         # Calculate refuted claims from searches with found refutations
         refuted_from_searches = sum(
-            1 for s in self._searches.values()
-            if s.refutation_status == "found"
+            1 for s in self._searches.values() if s.refutation_status == "found"
         )
         total_refuted = max(self._refuted_claims, refuted_from_searches)
 
@@ -916,9 +898,13 @@ class ExplorationState:
             },
             "followup_suggestions": followup_suggestions,
             "evidence_graph_summary": {
-                "nodes": evidence_graph_stats.get("total_nodes", self._total_fragments + self._total_claims),
+                "nodes": evidence_graph_stats.get(
+                    "total_nodes", self._total_fragments + self._total_claims
+                ),
                 "edges": evidence_graph_stats.get("total_edges", 0),
-                "primary_source_ratio": sum(1 for s in self._searches.values() if s.has_primary_source) / max(1, len(self._searches)),
+                "primary_source_ratio": sum(
+                    1 for s in self._searches.values() if s.has_primary_source
+                )
+                / max(1, len(self._searches)),
             },
         }
-

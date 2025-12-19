@@ -61,6 +61,7 @@ from src.utils.lifecycle import (
 # Unit Tests for ResourceInfo
 # =============================================================================
 
+
 class TestResourceInfo:
     """Tests for ResourceInfo dataclass."""
 
@@ -101,6 +102,7 @@ class TestResourceInfo:
 
         initial_time = info.last_used_at
         import time
+
         time.sleep(0.01)
 
         # When: Touch the resource
@@ -113,6 +115,7 @@ class TestResourceInfo:
 # =============================================================================
 # Unit Tests for ProcessLifecycleManager
 # =============================================================================
+
 
 class TestProcessLifecycleManager:
     """Tests for ProcessLifecycleManager."""
@@ -392,15 +395,18 @@ class TestProcessLifecycleManager:
     def test_touch_resource(self, manager):
         """Test touching a resource updates timestamp."""
         # Given: A registered resource
-        asyncio.run(manager.register_resource(
-            "browser_1",
-            ResourceType.BROWSER,
-            MagicMock(),
-        ))
+        asyncio.run(
+            manager.register_resource(
+                "browser_1",
+                ResourceType.BROWSER,
+                MagicMock(),
+            )
+        )
 
         initial_time = manager._resources["browser_1"].last_used_at
 
         import time
+
         time.sleep(0.01)
 
         # When: Touch the resource
@@ -412,24 +418,30 @@ class TestProcessLifecycleManager:
     def test_get_resource_count_filters(self, manager):
         """Test get_resource_count with filters."""
         # Given: Resources of different types and tasks
-        asyncio.run(manager.register_resource(
-            "browser_1",
-            ResourceType.BROWSER,
-            MagicMock(),
-            "task_1",
-        ))
-        asyncio.run(manager.register_resource(
-            "context_1",
-            ResourceType.BROWSER_CONTEXT,
-            MagicMock(),
-            "task_1",
-        ))
-        asyncio.run(manager.register_resource(
-            "browser_2",
-            ResourceType.BROWSER,
-            MagicMock(),
-            "task_2",
-        ))
+        asyncio.run(
+            manager.register_resource(
+                "browser_1",
+                ResourceType.BROWSER,
+                MagicMock(),
+                "task_1",
+            )
+        )
+        asyncio.run(
+            manager.register_resource(
+                "context_1",
+                ResourceType.BROWSER_CONTEXT,
+                MagicMock(),
+                "task_1",
+            )
+        )
+        asyncio.run(
+            manager.register_resource(
+                "browser_2",
+                ResourceType.BROWSER,
+                MagicMock(),
+                "task_2",
+            )
+        )
 
         # When/Then: Filtered counts are correct
         assert manager.get_resource_count() == 3
@@ -443,6 +455,7 @@ class TestProcessLifecycleManager:
 # =============================================================================
 # Unit Tests for Ollama Session Cleanup
 # =============================================================================
+
 
 class TestOllamaSessionCleanup:
     """Tests for Ollama session lifecycle management."""
@@ -459,7 +472,7 @@ class TestOllamaSessionCleanup:
         mock_session = AsyncMock()
         mock_session.closed = False
 
-        with patch.object(manager, '_settings') as mock_settings:
+        with patch.object(manager, "_settings") as mock_settings:
             mock_settings.llm.unload_on_task_complete = True
             mock_settings.llm.ollama_host = "http://localhost:11434"
 
@@ -487,7 +500,7 @@ class TestOllamaSessionCleanup:
             mock_client_cm.__aenter__.return_value = mock_client_instance
 
             # When: Cleanup the Ollama session
-            with patch('aiohttp.ClientSession', return_value=mock_client_cm):
+            with patch("aiohttp.ClientSession", return_value=mock_client_cm):
                 success = await manager.cleanup_resource("ollama_1")
 
                 # Then: Session is closed
@@ -499,6 +512,7 @@ class TestOllamaSessionCleanup:
 # Integration Tests for Convenience Functions
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestConvenienceFunctions:
     """Tests for convenience functions."""
@@ -507,6 +521,7 @@ class TestConvenienceFunctions:
     def reset_global_manager(self):
         """Reset global lifecycle manager before each test."""
         import src.utils.lifecycle as lifecycle_module
+
         lifecycle_module._lifecycle_manager = None
         yield
         lifecycle_module._lifecycle_manager = None
@@ -609,6 +624,7 @@ class TestConvenienceFunctions:
 # Error Handling Tests
 # =============================================================================
 
+
 class TestErrorHandling:
     """Tests for error handling in lifecycle management."""
 
@@ -620,7 +636,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_cleanup_handles_close_exception(self, manager):
         """Test cleanup handles exceptions from close() gracefully.
-        
+
         Even if close() raises, the cleanup should:
         1. Not propagate the exception
         2. Log the error
@@ -674,6 +690,7 @@ class TestErrorHandling:
 # LLM Cleanup Tests
 # =============================================================================
 
+
 class TestLLMCleanup:
     """Tests for LLM cleanup functions."""
 
@@ -681,6 +698,7 @@ class TestLLMCleanup:
     def reset_llm_client(self):
         """Reset global LLM client before each test."""
         import src.filter.llm as llm_module
+
         llm_module._client = None
         yield
         llm_module._client = None
@@ -727,7 +745,7 @@ class TestLLMCleanup:
             return mock_session
 
         # When: Unload the model
-        with patch.object(provider, '_get_session', mock_get_session):
+        with patch.object(provider, "_get_session", mock_get_session):
             result = await client.unload_model()
 
         # Then: Model is unloaded
@@ -744,7 +762,7 @@ class TestLLMCleanup:
         client._current_model = "qwen2.5:3b"
 
         # When: Cleanup LLM for task
-        with patch.object(client, 'cleanup_for_task', new_callable=AsyncMock) as mock_cleanup:
+        with patch.object(client, "cleanup_for_task", new_callable=AsyncMock) as mock_cleanup:
             await cleanup_llm_for_task("task_123")
 
             # Then: cleanup_for_task is called
@@ -762,4 +780,3 @@ class TestLLMCleanup:
 
         # Then: task_id is stored in client
         assert client._current_task_id == "task_456"
-

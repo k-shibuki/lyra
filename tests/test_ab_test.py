@@ -260,11 +260,13 @@ class TestABTestExecutor:
     @pytest.fixture
     def mock_search(self):
         """Create mock search function."""
+
         async def _search(*args, **kwargs):
             return [
                 {"title": "Result 1", "url": "http://example.com/1", "snippet": "..."},
                 {"title": "Result 2", "url": "http://example.com/2", "snippet": "..."},
             ]
+
         return _search
 
     def test_init(self):
@@ -306,8 +308,13 @@ class TestABTestExecutor:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return [{"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(5)]
-            return [{"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(8)]
+                return [
+                    {"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."}
+                    for i in range(5)
+                ]
+            return [
+                {"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(8)
+            ]
 
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.search.search_serp", _search):
@@ -333,7 +340,7 @@ class TestABTestExecutor:
                 executor = ABTestExecutor()
 
                 # When: Running an A/B test
-                session = await executor.run_ab_test(
+                await executor.run_ab_test(
                     task_id="test_task",
                     base_query="テスト",
                     max_variants=2,
@@ -350,7 +357,7 @@ class TestABTestExecutor:
         # When: Generating session IDs
         id1 = executor._generate_session_id("task1", "query1")
         id2 = executor._generate_session_id("task1", "query2")
-        id3 = executor._generate_session_id("task1", "query1")
+        executor._generate_session_id("task1", "query1")
 
         # Then: IDs should start with ab_ prefix
         assert id1.startswith("ab_")
@@ -380,11 +387,7 @@ class TestHighYieldQueryCache:
         cache = HighYieldQueryCache()
 
         # When/Then: Similar queries should match (50% term overlap required)
-        assert cache._matches_pattern(
-            "AI 技術 問題",
-            "AI 技術 課題",
-            "人工知能 技術 課題"
-        )
+        assert cache._matches_pattern("AI 技術 問題", "AI 技術 課題", "人工知能 技術 課題")
 
     def test_matches_pattern_different(self):
         """Test pattern matching with different queries (TC-HYC-N-02)."""
@@ -392,11 +395,7 @@ class TestHighYieldQueryCache:
         cache = HighYieldQueryCache()
 
         # When/Then: Very different queries should not match
-        assert not cache._matches_pattern(
-            "完全に異なるクエリ",
-            "AI技術",
-            "人工知能"
-        )
+        assert not cache._matches_pattern("完全に異なるクエリ", "AI技術", "人工知能")
 
     def test_matches_pattern_empty(self):
         """Test pattern matching with empty strings (TC-HYC-B-01)."""
@@ -413,11 +412,7 @@ class TestHighYieldQueryCache:
         cache = HighYieldQueryCache()
 
         # When: Applying a pattern
-        result = cache._apply_pattern(
-            "AI技術の問題",
-            "AI技術の問題",
-            "人工知能技術の問題"
-        )
+        result = cache._apply_pattern("AI技術の問題", "AI技術の問題", "人工知能技術の問題")
 
         # Then: Pattern should be applied
         assert result is not None
@@ -563,8 +558,7 @@ class TestABTestIntegration:
         results_by_query = {
             "元のクエリ": [{"title": "R1", "url": "http://a.com", "snippet": "..."}],
             "default": [
-                {"title": f"R{i}", "url": f"http://b.com/{i}", "snippet": "..."}
-                for i in range(5)
+                {"title": f"R{i}", "url": f"http://b.com/{i}", "snippet": "..."} for i in range(5)
             ],
         }
 
@@ -592,6 +586,7 @@ class TestABTestIntegration:
     @pytest.mark.asyncio
     async def test_ab_test_with_real_variants(self, mock_db):
         """Test A/B test generates real variants (TC-INT-N-02)."""
+
         # Given: Mock search
         async def _search(*args, **kwargs):
             return [{"title": "Test", "url": "http://test.com", "snippet": "..."}]

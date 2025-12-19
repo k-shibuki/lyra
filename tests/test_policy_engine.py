@@ -216,9 +216,7 @@ class TestPolicyEngine:
         engine = PolicyEngine(metrics_collector=collector)
 
         # When: Getting a parameter value that hasn't been set
-        value = engine.get_parameter_value(
-            "engine", "test", PolicyParameter.ENGINE_WEIGHT
-        )
+        value = engine.get_parameter_value("engine", "test", PolicyParameter.ENGINE_WEIGHT)
 
         # Then: Returns the default value from bounds
         assert value == DEFAULT_BOUNDS[PolicyParameter.ENGINE_WEIGHT].default_value
@@ -261,7 +259,7 @@ class TestPolicyEngine:
 
     async def test_adjust_engine_policy_low_success(self):
         """Test engine policy adjustment on low success rate.
-        
+
         Related spec: §4.6 Policy Auto-update
         """
         # Given: PolicyEngine with hysteresis disabled and low success metrics
@@ -299,7 +297,7 @@ class TestPolicyEngine:
 
     async def test_adjust_domain_policy_high_error(self):
         """Test domain policy adjustment on high error rate.
-        
+
         Related spec: §4.6 Policy Auto-update, §4.3 Resilience and Stealth
         """
         # Given: PolicyEngine with hysteresis disabled and high error metrics
@@ -354,9 +352,7 @@ class TestPolicyEngine:
         )
 
         # And: A state that was just changed
-        state = engine._get_or_create_state(
-            "engine", "test", PolicyParameter.ENGINE_WEIGHT
-        )
+        state = engine._get_or_create_state("engine", "test", PolicyParameter.ENGINE_WEIGHT)
         state.last_changed_at = datetime.now(UTC)
 
         # When: Checking if change is allowed
@@ -390,6 +386,7 @@ async def test_get_policy_engine_singleton():
     """Test that get_policy_engine returns singleton."""
     # Given: Reset global engine state
     import src.utils.policy_engine as pe
+
     pe._engine = None
 
     # When: Getting policy engine twice
@@ -410,12 +407,12 @@ async def test_get_policy_engine_singleton():
 
 class TestDynamicWeightCalculation:
     """Tests for dynamic weight calculation.
-    
+
     Per §3.1.1, §3.1.4, §4.6: Dynamic weight adjustment based on
     past accuracy/failure/block rates with time decay.
-    
+
     ## Test Perspectives Table
-    
+
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
     |---------|---------------------|-------------|-----------------|-------|
     | TC-DW-N-01 | Ideal metrics, recent use | Equivalence - normal | weight ≈ base_weight | Ideal state |
@@ -432,11 +429,11 @@ class TestDynamicWeightCalculation:
 
     def test_ideal_metrics_recent_use(self):
         """TC-DW-N-01: Ideal metrics with recent use.
-        
+
         Given: Ideal metrics (success=1.0, captcha=0, low latency) and recent use
         When: Calculating dynamic weight
         Then: Weight should be calculated correctly with high confidence
-        
+
         Expected calculation:
         - success_factor = 0.6 * 1.0 + 0.4 * 1.0 = 1.0
         - captcha_penalty = 1.0 - 0.0 = 1.0
@@ -465,7 +462,7 @@ class TestDynamicWeightCalculation:
 
     def test_degraded_metrics_recent_use(self):
         """TC-DW-N-02: Degraded metrics with recent use.
-        
+
         Given: Degraded metrics (low success, high captcha, high latency) and recent use
         When: Calculating dynamic weight
         Then: Weight should be reduced below base_weight
@@ -493,14 +490,16 @@ class TestDynamicWeightCalculation:
             last_used_at=recent_time,
         )
 
-        assert degraded_weight < ideal_weight, \
+        assert degraded_weight < ideal_weight, (
             f"Degraded weight {degraded_weight} should be < ideal weight {ideal_weight}"
-        assert 0.1 <= degraded_weight <= 1.0, \
+        )
+        assert 0.1 <= degraded_weight <= 1.0, (
             f"Degraded weight {degraded_weight} not in valid range"
+        )
 
     def test_minimum_weight_clamp(self):
         """TC-DW-B-01: Minimum weight clamping.
-        
+
         Given: Worst possible metrics (success=0, high captcha, high latency)
         When: Calculating dynamic weight
         Then: Weight should be clamped to minimum (0.1)
@@ -521,7 +520,7 @@ class TestDynamicWeightCalculation:
 
     def test_maximum_weight_clamp(self):
         """TC-DW-B-02: Maximum weight clamping.
-        
+
         Given: High base weight and optimal metrics
         When: Calculating dynamic weight
         Then: Weight should be clamped to maximum (1.0)
@@ -542,7 +541,7 @@ class TestDynamicWeightCalculation:
 
     def test_high_captcha_rate_penalty(self):
         """TC-DW-B-03: High CAPTCHA rate penalty.
-        
+
         Given: High CAPTCHA rate (1.0) with otherwise good metrics
         When: Calculating dynamic weight
         Then: Weight should be significantly reduced
@@ -570,12 +569,13 @@ class TestDynamicWeightCalculation:
             last_used_at=recent_time,
         )
 
-        assert high_captcha_weight < no_captcha_weight, \
+        assert high_captcha_weight < no_captcha_weight, (
             f"High CAPTCHA weight {high_captcha_weight} should be < no CAPTCHA weight {no_captcha_weight}"
+        )
 
     def test_high_latency_penalty(self):
         """TC-DW-B-04: High latency penalty.
-        
+
         Given: High latency (10000ms) with otherwise good metrics
         When: Calculating dynamic weight
         Then: Weight should be reduced
@@ -603,12 +603,13 @@ class TestDynamicWeightCalculation:
             last_used_at=recent_time,
         )
 
-        assert high_latency_weight < low_latency_weight, \
+        assert high_latency_weight < low_latency_weight, (
             f"High latency weight {high_latency_weight} should be < low latency weight {low_latency_weight}"
+        )
 
     def test_time_decay_24h(self):
         """TC-DW-B-05: Time decay at 24 hours.
-        
+
         Given: Bad metrics and last used 24 hours ago
         When: Calculating dynamic weight
         Then: Weight should be closer to base_weight due to 50% decay
@@ -637,15 +638,15 @@ class TestDynamicWeightCalculation:
         )
 
         # Old weight should be closer to base_weight (0.7)
-        assert old_weight > recent_weight, \
+        assert old_weight > recent_weight, (
             f"24h old weight {old_weight} should be > recent weight {recent_weight}"
+        )
         # Confidence should be around 0.5 for 24h
-        assert 0.4 <= old_conf <= 0.6, \
-            f"Confidence {old_conf} should be ~0.5 for 24h old metrics"
+        assert 0.4 <= old_conf <= 0.6, f"Confidence {old_conf} should be ~0.5 for 24h old metrics"
 
     def test_time_decay_48h(self):
         """TC-DW-B-06: Time decay at 48 hours.
-        
+
         Given: Bad metrics and last used 48 hours ago
         When: Calculating dynamic weight
         Then: Weight should be approximately base_weight (90% decay)
@@ -668,15 +669,15 @@ class TestDynamicWeightCalculation:
         )
 
         # Confidence should be very low (0.1 minimum)
-        assert confidence <= 0.15, \
-            f"Confidence {confidence} should be <= 0.15 for 48h old metrics"
+        assert confidence <= 0.15, f"Confidence {confidence} should be <= 0.15 for 48h old metrics"
         # Weight should be close to base_weight
-        assert abs(weight - base_weight) < 0.2, \
+        assert abs(weight - base_weight) < 0.2, (
             f"Weight {weight} should be close to base_weight {base_weight}"
+        )
 
     def test_time_decay_never_used(self):
         """TC-DW-B-07: Never used engine.
-        
+
         Given: Bad metrics but last_used_at is None (never used)
         When: Calculating dynamic weight
         Then: Weight should be approximately base_weight
@@ -694,16 +695,16 @@ class TestDynamicWeightCalculation:
         )
 
         # Confidence should be at minimum (0.1)
-        assert confidence == 0.1, \
-            f"Confidence {confidence} should be 0.1 for never-used engine"
+        assert confidence == 0.1, f"Confidence {confidence} should be 0.1 for never-used engine"
         # Weight should be close to base_weight
-        assert abs(weight - base_weight) < 0.15, \
+        assert abs(weight - base_weight) < 0.15, (
             f"Weight {weight} should be close to base_weight {base_weight}"
+        )
 
     @pytest.mark.asyncio
     async def test_get_dynamic_weight_fallback(self):
         """TC-DW-A-01: Fallback for non-existent engine.
-        
+
         Given: Non-existent engine name
         When: Getting dynamic weight
         Then: Should return default weight (1.0)
@@ -716,12 +717,11 @@ class TestDynamicWeightCalculation:
         )
 
         # Should return default weight for unknown engine
-        assert weight == 1.0, \
-            f"Non-existent engine should return default weight 1.0, got {weight}"
+        assert weight == 1.0, f"Non-existent engine should return default weight 1.0, got {weight}"
 
     def test_confidence_calculation(self):
         """Test confidence calculation based on time since last use.
-        
+
         Given: Various time intervals since last use
         When: Calculating confidence
         Then: Confidence should decay appropriately
@@ -736,12 +736,12 @@ class TestDynamicWeightCalculation:
         }
 
         test_cases = [
-            (timedelta(hours=0), 1.0),     # Just used
-            (timedelta(hours=6), 0.875),   # 6h ago
-            (timedelta(hours=12), 0.75),   # 12h ago
-            (timedelta(hours=24), 0.5),    # 24h ago
-            (timedelta(hours=48), 0.1),    # 48h ago (minimum)
-            (timedelta(hours=72), 0.1),    # 72h ago (stays at minimum)
+            (timedelta(hours=0), 1.0),  # Just used
+            (timedelta(hours=6), 0.875),  # 6h ago
+            (timedelta(hours=12), 0.75),  # 12h ago
+            (timedelta(hours=24), 0.5),  # 24h ago
+            (timedelta(hours=48), 0.1),  # 48h ago (minimum)
+            (timedelta(hours=72), 0.1),  # 72h ago (stays at minimum)
         ]
 
         for time_delta, expected_conf in test_cases:
@@ -753,6 +753,6 @@ class TestDynamicWeightCalculation:
             )
 
             # Allow some tolerance
-            assert abs(confidence - expected_conf) < 0.05, \
+            assert abs(confidence - expected_conf) < 0.05, (
                 f"Confidence for {time_delta} should be ~{expected_conf}, got {confidence}"
-
+            )

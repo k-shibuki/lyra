@@ -46,9 +46,7 @@ class CitationInfo:
         Per §3.4: Primary sources include government, academic, official,
         standard, registry.
         """
-        return self.source_tag in (
-            "government", "academic", "official", "standard", "registry"
-        )
+        return self.source_tag in ("government", "academic", "official", "standard", "registry")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -319,9 +317,7 @@ class ChainOfDensityCompressor:
 
         if self.use_llm:
             # Perform iterative densification
-            summaries = await self._iterative_densify(
-                dense_claims, fragments, task_query
-            )
+            summaries = await self._iterative_densify(dense_claims, fragments, task_query)
         else:
             # Rule-based compression
             summaries = self._rule_based_compress(dense_claims)
@@ -377,9 +373,7 @@ class ChainOfDensityCompressor:
             # From supporting fragment IDs
             for frag_id in supporting_ids:
                 if frag_id in fragment_by_id:
-                    citations.append(
-                        CitationInfo.from_fragment(fragment_by_id[frag_id])
-                    )
+                    citations.append(CitationInfo.from_fragment(fragment_by_id[frag_id]))
 
             # From source URL
             if source_url and source_url in fragment_by_url:
@@ -392,9 +386,7 @@ class ChainOfDensityCompressor:
             # If no citations found, try to match by text similarity
             if not citations and fragments:
                 claim_text = claim.get("claim_text", claim.get("text", ""))
-                best_match = self._find_best_matching_fragment(
-                    claim_text, fragments
-                )
+                best_match = self._find_best_matching_fragment(claim_text, fragments)
                 if best_match:
                     citations.append(CitationInfo.from_fragment(best_match))
 
@@ -457,16 +449,18 @@ class ChainOfDensityCompressor:
             if not citations:
                 source_url = claim.get("source_url", "")
                 if source_url:
-                    citations = [CitationInfo(
-                        url=source_url,
-                        deep_link=source_url,
-                        title=claim.get("source_title", source_url),
-                        heading_context=None,
-                        excerpt=claim.get("claim_text", "")[:200],
-                        discovered_at=claim.get("created_at", datetime.now().isoformat()),
-                        source_tag=claim.get("source_tag"),
-                        is_primary=False,
-                    )]
+                    citations = [
+                        CitationInfo(
+                            url=source_url,
+                            deep_link=source_url,
+                            title=claim.get("source_title", source_url),
+                            heading_context=None,
+                            excerpt=claim.get("claim_text", "")[:200],
+                            discovered_at=claim.get("created_at", datetime.now().isoformat()),
+                            source_tag=claim.get("source_tag"),
+                            is_primary=False,
+                        )
+                    ]
 
             dense_claim = DenseClaim(
                 claim_id=claim_id,
@@ -496,11 +490,13 @@ class ChainOfDensityCompressor:
                 valid_count += 1
             else:
                 invalid_count += 1
-                issues.append({
-                    "claim_id": claim.claim_id,
-                    "claim_text": claim.text[:100],
-                    "missing": missing,
-                })
+                issues.append(
+                    {
+                        "claim_id": claim.claim_id,
+                        "claim_text": claim.text[:100],
+                        "missing": missing,
+                    }
+                )
 
         return {
             "valid_count": valid_count,
@@ -514,10 +510,7 @@ class ChainOfDensityCompressor:
         if not claims:
             return 0.0
 
-        with_primary = sum(
-            1 for c in claims
-            if any(cit.is_primary for cit in c.citations)
-        )
+        with_primary = sum(1 for c in claims if any(cit.is_primary for cit in c.citations))
 
         return with_primary / len(claims)
 
@@ -768,14 +761,16 @@ class ChainOfDensityCompressor:
         entities = list(set(entities))
         word_count = self._count_words(summary_text)
 
-        return [DenseSummary(
-            iteration=0,
-            text=summary_text,
-            entity_count=len(entities),
-            word_count=word_count,
-            density_score=len(entities) / max(word_count, 1),
-            claims=claims,
-        )]
+        return [
+            DenseSummary(
+                iteration=0,
+                text=summary_text,
+                entity_count=len(entities),
+                word_count=word_count,
+                density_score=len(entities) / max(word_count, 1),
+                claims=claims,
+            )
+        ]
 
 
 # Convenience function
@@ -809,4 +804,3 @@ async def compress_with_chain_of_density(
     )
 
     return await compressor.compress(claims, fragments, task_query)
-

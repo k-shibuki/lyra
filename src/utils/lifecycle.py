@@ -48,6 +48,7 @@ class ResourceInfo:
         created_at: Creation timestamp.
         last_used_at: Last usage timestamp.
     """
+
     resource_type: ResourceType
     resource: Any
     task_id: str | None = None
@@ -607,8 +608,3 @@ async def register_ollama_session_for_task(
     )
 
     return resource_id
-
-
-
-
-

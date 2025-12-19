@@ -81,9 +81,7 @@ class HumanBehaviorSimulator:
             page_height = dimensions.get("height", 2000)
             viewport_height = dimensions.get("viewportHeight", 1080)
 
-            scroll_positions = HumanBehaviorSimulator.scroll_pattern(
-                page_height, viewport_height
-            )
+            scroll_positions = HumanBehaviorSimulator.scroll_pattern(page_height, viewport_height)
 
             for scroll_y, delay in scroll_positions[:5]:  # Limit scrolls
                 await page.evaluate(f"window.scrollTo(0, {scroll_y})")
@@ -122,6 +120,7 @@ class PlaywrightProvider(BaseBrowserProvider):
         if self._playwright is None:
             try:
                 from playwright.async_api import async_playwright
+
                 self._playwright = await async_playwright().start()
                 logger.info("Playwright initialized")
             except ImportError:
@@ -147,7 +146,9 @@ class PlaywrightProvider(BaseBrowserProvider):
             if self._headful_browser is None:
                 try:
                     # Try CDP connection first (Windows Chrome)
-                    cdp_url = f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
+                    cdp_url = (
+                        f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
+                    )
                     self._headful_browser = await self._playwright.chromium.connect_over_cdp(
                         cdp_url
                     )
@@ -157,9 +158,7 @@ class PlaywrightProvider(BaseBrowserProvider):
                         "CDP connection failed, launching local headful browser",
                         error=str(e),
                     )
-                    self._headful_browser = await self._playwright.chromium.launch(
-                        headless=False
-                    )
+                    self._headful_browser = await self._playwright.chromium.launch(headless=False)
 
                 # Reuse existing context if available (preserves profile cookies per §3.6.1)
                 # This only applies when connected via CDP to real Chrome
@@ -217,30 +216,36 @@ class PlaywrightProvider(BaseBrowserProvider):
         block_patterns = []
 
         if browser_settings.block_ads:
-            block_patterns.extend([
-                "*googlesyndication.com*",
-                "*doubleclick.net*",
-                "*googleadservices.com*",
-                "*adnxs.com*",
-                "*criteo.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*googlesyndication.com*",
+                    "*doubleclick.net*",
+                    "*googleadservices.com*",
+                    "*adnxs.com*",
+                    "*criteo.com*",
+                ]
+            )
 
         if browser_settings.block_trackers:
-            block_patterns.extend([
-                "*google-analytics.com*",
-                "*googletagmanager.com*",
-                "*facebook.com/tr*",
-                "*hotjar.com*",
-                "*mixpanel.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*google-analytics.com*",
+                    "*googletagmanager.com*",
+                    "*facebook.com/tr*",
+                    "*hotjar.com*",
+                    "*mixpanel.com*",
+                ]
+            )
 
         if browser_settings.block_large_media:
-            block_patterns.extend([
-                "*.mp4",
-                "*.webm",
-                "*.avi",
-                "*.mov",
-            ])
+            block_patterns.extend(
+                [
+                    "*.mp4",
+                    "*.webm",
+                    "*.avi",
+                    "*.mov",
+                ]
+            )
 
         async def block_route(route):
             await route.abort()
@@ -607,4 +612,3 @@ def reset_playwright_provider() -> None:
     """Reset the global provider without closing. For testing only."""
     global _playwright_provider
     _playwright_provider = None
-

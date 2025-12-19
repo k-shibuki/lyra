@@ -17,9 +17,15 @@ logger = get_logger(__name__)
 class BaseAcademicClient(ABC):
     """Base class for academic API clients."""
 
-    def __init__(self, name: str, base_url: str | None = None, timeout: float | None = None, headers: dict[str, str] | None = None):
+    def __init__(
+        self,
+        name: str,
+        base_url: str | None = None,
+        timeout: float | None = None,
+        headers: dict[str, str] | None = None,
+    ):
         """Initialize client.
-        
+
         Args:
             name: Client name
             base_url: Base URL for API (if None, will try to load from config)
@@ -33,13 +39,16 @@ class BaseAcademicClient(ABC):
         if base_url is None or timeout is None:
             try:
                 from src.utils.config import get_academic_apis_config
+
                 config = get_academic_apis_config()
                 api_config = config.apis.get(name, {})
 
                 if base_url is None:
                     base_url = api_config.base_url if api_config.base_url else None
                 if timeout is None:
-                    timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
+                    timeout = (
+                        float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
+                    )
                 if headers is None and api_config.headers:
                     headers = api_config.headers.copy()
             except Exception as e:
@@ -61,20 +70,17 @@ class BaseAcademicClient(ABC):
     async def _get_session(self) -> httpx.AsyncClient:
         """Get HTTP session (lazy initialization)."""
         if self._session is None:
-            self._session = httpx.AsyncClient(
-                timeout=self.timeout,
-                headers=self.default_headers
-            )
+            self._session = httpx.AsyncClient(timeout=self.timeout, headers=self.default_headers)
         return self._session
 
     @abstractmethod
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers.
-        
+
         Args:
             query: Search query
             limit: Maximum number of results
-            
+
         Returns:
             AcademicSearchResult
         """
@@ -83,10 +89,10 @@ class BaseAcademicClient(ABC):
     @abstractmethod
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata.
-        
+
         Args:
             paper_id: Paper ID (API-specific format)
-            
+
         Returns:
             Paper object or None
         """
@@ -95,10 +101,10 @@ class BaseAcademicClient(ABC):
     @abstractmethod
     async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get references (papers cited by this paper).
-        
+
         Args:
             paper_id: Paper ID
-            
+
         Returns:
             List of (Paper, is_influential) tuples
         """
@@ -107,10 +113,10 @@ class BaseAcademicClient(ABC):
     @abstractmethod
     async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get citations (papers that cite this paper).
-        
+
         Args:
             paper_id: Paper ID
-            
+
         Returns:
             List of (Paper, is_influential) tuples
         """

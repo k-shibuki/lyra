@@ -35,6 +35,7 @@ logger = get_logger(__name__)
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class EntityExtractionResult:
     """Result of entity extraction from registry data."""
@@ -64,8 +65,7 @@ class EntityExtractionResult:
             "domains": [e.to_dict() for e in self.domains],
             "persons": [e.to_dict() for e in self.persons],
             "relationships": [
-                {"source": s, "target": t, "type": r}
-                for s, t, r in self.relationships
+                {"source": s, "target": t, "type": r} for s, t, r in self.relationships
             ],
             "source_type": self.source_type,
             "source_url": self.source_url,
@@ -79,12 +79,13 @@ class EntityExtractionResult:
 # Entity Extractor
 # =============================================================================
 
+
 class EntityExtractor:
     """Extracts and normalizes entities from registry data."""
 
     def __init__(self, entity_kb: EntityKB):
         """Initialize extractor.
-        
+
         Args:
             entity_kb: Entity KB instance for storage.
         """
@@ -96,11 +97,11 @@ class EntityExtractor:
         trace: CausalTrace | None = None,
     ) -> EntityExtractionResult:
         """Extract entities from WHOIS record.
-        
+
         Args:
             record: WHOISRecord from RDAP/WHOIS lookup.
             trace: Causal trace for logging.
-            
+
         Returns:
             EntityExtractionResult with extracted entities.
         """
@@ -139,7 +140,7 @@ class EntityExtractor:
                 result.entities_created += 1
 
                 # Create relationship: domain -> registrant
-                rel_id = await self._kb.add_relationship(
+                await self._kb.add_relationship(
                     domain_entity.id,
                     org_entity.id,
                     "registered_by",
@@ -173,9 +174,7 @@ class EntityExtractor:
             result.relationships.append((domain_entity.id, ns_entity.id, "uses_nameserver"))
             result.relationships_created += 1
 
-        logger.info(
-            f"Extracted {result.entities_created} entities from WHOIS for {record.domain}"
-        )
+        logger.info(f"Extracted {result.entities_created} entities from WHOIS for {record.domain}")
         return result
 
     async def extract_from_cert(
@@ -184,11 +183,11 @@ class EntityExtractor:
         trace: CausalTrace | None = None,
     ) -> EntityExtractionResult:
         """Extract entities from certificate transparency search.
-        
+
         Args:
             cert_result: CertSearchResult from CT search.
             trace: Causal trace for logging.
-            
+
         Returns:
             EntityExtractionResult with extracted entities.
         """
@@ -206,8 +205,12 @@ class EntityExtractor:
             confidence=0.9,
             identifiers=[(IdentifierType.DOMAIN, cert_result.query_domain)],
             extra_data={
-                "earliest_cert": cert_result.earliest_cert.isoformat() if cert_result.earliest_cert else None,
-                "latest_cert": cert_result.latest_cert.isoformat() if cert_result.latest_cert else None,
+                "earliest_cert": cert_result.earliest_cert.isoformat()
+                if cert_result.earliest_cert
+                else None,
+                "latest_cert": cert_result.latest_cert.isoformat()
+                if cert_result.latest_cert
+                else None,
                 "cert_count": len(cert_result.certificates),
             },
         )
@@ -240,7 +243,9 @@ class EntityExtractor:
                 confidence=0.8,
                 source_type=SourceType.CERT_TRANSPARENCY,
             )
-            result.relationships.append((main_domain_entity.id, issuer_entity.id, "certificate_issued_by"))
+            result.relationships.append(
+                (main_domain_entity.id, issuer_entity.id, "certificate_issued_by")
+            )
             result.relationships_created += 1
 
         # 3. Extract related domains from SANs
@@ -269,7 +274,9 @@ class EntityExtractor:
                 confidence=0.7,
                 source_type=SourceType.CERT_TRANSPARENCY,
             )
-            result.relationships.append((main_domain_entity.id, related_domain_entity.id, "shares_certificate"))
+            result.relationships.append(
+                (main_domain_entity.id, related_domain_entity.id, "shares_certificate")
+            )
             result.relationships_created += 1
 
         # 4. Extract certificate entities
@@ -284,7 +291,9 @@ class EntityExtractor:
                     confidence=0.9,
                     source_type=SourceType.CERT_TRANSPARENCY,
                 )
-                result.relationships.append((main_domain_entity.id, cert_entity.id, "has_certificate"))
+                result.relationships.append(
+                    (main_domain_entity.id, cert_entity.id, "has_certificate")
+                )
                 result.relationships_created += 1
 
         logger.info(
@@ -298,11 +307,11 @@ class EntityExtractor:
         source_url: str | None,
     ) -> EntityRecord | None:
         """Extract registrant as organization entity.
-        
+
         Args:
             registrant: RegistrantInfo from WHOIS.
             source_url: Source URL.
-            
+
         Returns:
             EntityRecord or None if no valid data.
         """
@@ -352,11 +361,11 @@ class EntityExtractor:
         source_url: str | None,
     ) -> EntityRecord | None:
         """Extract certificate as entity.
-        
+
         Args:
             cert: CertificateInfo from CT.
             source_url: Source URL.
-            
+
         Returns:
             EntityRecord or None.
         """
@@ -383,9 +392,10 @@ class EntityExtractor:
 # Integration Manager
 # =============================================================================
 
+
 class RegistryEntityIntegration:
     """Manages integration between registry data and Entity KB.
-    
+
     Provides high-level methods for extracting entities from
     RDAP/WHOIS and Certificate Transparency data.
     """
@@ -397,7 +407,7 @@ class RegistryEntityIntegration:
         ct_client: CertTransparencyClient | None = None,
     ):
         """Initialize integration manager.
-        
+
         Args:
             entity_kb: Entity KB instance.
             rdap_client: Optional RDAP client.
@@ -416,13 +426,13 @@ class RegistryEntityIntegration:
         trace: CausalTrace | None = None,
     ) -> EntityExtractionResult:
         """Process a domain and extract all related entities.
-        
+
         Args:
             domain: Domain to process.
             include_whois: Whether to include WHOIS data.
             include_ct: Whether to include CT data.
             trace: Causal trace.
-            
+
         Returns:
             Combined EntityExtractionResult.
         """
@@ -457,14 +467,14 @@ class RegistryEntityIntegration:
         trace: CausalTrace | None = None,
     ) -> dict[str, EntityExtractionResult]:
         """Process multiple domains.
-        
+
         Args:
             domains: List of domains to process.
             include_whois: Whether to include WHOIS data.
             include_ct: Whether to include CT data.
             max_concurrent: Maximum concurrent processing.
             trace: Causal trace.
-            
+
         Returns:
             Dictionary mapping domain to EntityExtractionResult.
         """
@@ -495,10 +505,10 @@ class RegistryEntityIntegration:
         domain: str,
     ) -> list[EntityRecord]:
         """Get all entities associated with a domain.
-        
+
         Args:
             domain: Domain to look up.
-            
+
         Returns:
             List of associated EntityRecord.
         """
@@ -517,7 +527,7 @@ class RegistryEntityIntegration:
 
         # Get related entities
         related = await self._kb.get_related_entities(domain_entity.id)
-        for entity, rel_type, confidence in related:
+        for entity, _rel_type, _confidence in related:
             entities.append(entity)
 
         return entities
@@ -527,10 +537,10 @@ class RegistryEntityIntegration:
         domain: str,
     ) -> list[tuple[EntityRecord, str, float]]:
         """Discover organizations related to a domain.
-        
+
         Args:
             domain: Domain to analyze.
-            
+
         Returns:
             List of (organization, relationship_type, confidence) tuples.
         """
@@ -562,7 +572,7 @@ class RegistryEntityIntegration:
         source: EntityExtractionResult,
     ) -> None:
         """Merge source result into target.
-        
+
         Args:
             target: Target result to update.
             source: Source result to merge from.
@@ -580,16 +590,17 @@ class RegistryEntityIntegration:
 # Factory Functions
 # =============================================================================
 
+
 async def get_registry_entity_integration(
     db: Any = None,
     fetcher: Any = None,
 ) -> RegistryEntityIntegration:
     """Get RegistryEntityIntegration instance.
-    
+
     Args:
         db: Database instance.
         fetcher: URL fetcher for RDAP/CT clients.
-        
+
     Returns:
         Configured RegistryEntityIntegration.
     """
@@ -605,4 +616,3 @@ async def get_registry_entity_integration(
         rdap_client=rdap_client,
         ct_client=ct_client,
     )
-

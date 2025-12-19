@@ -39,10 +39,7 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Research question or topic"
-                },
+                "query": {"type": "string", "description": "Research question or topic"},
                 "config": {
                     "type": "object",
                     "description": "Optional configuration",
@@ -51,23 +48,23 @@ TOOLS = [
                             "type": "object",
                             "properties": {
                                 "max_pages": {"type": "integer", "default": 120},
-                                "max_seconds": {"type": "integer", "default": 1200}
-                            }
+                                "max_seconds": {"type": "integer", "default": 1200},
+                            },
                         },
                         "priority_domains": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Domains to prioritize"
+                            "description": "Domains to prioritize",
                         },
                         "language": {
                             "type": "string",
-                            "description": "Primary language (ja, en, etc.)"
-                        }
-                    }
-                }
+                            "description": "Primary language (ja, en, etc.)",
+                        },
+                    },
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     ),
     Tool(
         name="get_status",
@@ -75,13 +72,10 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID to get status for"
-                }
+                "task_id": {"type": "string", "description": "Task ID to get status for"}
             },
-            "required": ["task_id"]
-        }
+            "required": ["task_id"],
+        },
     ),
     # ============================================================
     # 2. Research Execution (2 tools)
@@ -92,14 +86,8 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
-                "query": {
-                    "type": "string",
-                    "description": "Search query (designed by Cursor AI)"
-                },
+                "task_id": {"type": "string", "description": "Task ID"},
+                "query": {"type": "string", "description": "Search query (designed by Cursor AI)"},
                 "options": {
                     "type": "object",
                     "description": "Search options",
@@ -107,27 +95,27 @@ TOOLS = [
                         "engines": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Specific engines to use (optional)"
+                            "description": "Specific engines to use (optional)",
                         },
                         "max_pages": {
                             "type": "integer",
-                            "description": "Maximum pages for this search"
+                            "description": "Maximum pages for this search",
                         },
                         "seek_primary": {
                             "type": "boolean",
                             "description": "Prioritize primary sources",
-                            "default": False
+                            "default": False,
                         },
                         "refute": {
                             "type": "boolean",
                             "description": "Enable refutation mode (applies mechanical suffix patterns)",
-                            "default": False
-                        }
-                    }
-                }
+                            "default": False,
+                        },
+                    },
+                },
             },
-            "required": ["task_id", "query"]
-        }
+            "required": ["task_id", "query"],
+        },
     ),
     Tool(
         name="stop_task",
@@ -135,19 +123,16 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID to stop"
-                },
+                "task_id": {"type": "string", "description": "Task ID to stop"},
                 "reason": {
                     "type": "string",
                     "description": "Stop reason",
                     "enum": ["completed", "budget_exhausted", "user_cancelled"],
-                    "default": "completed"
-                }
+                    "default": "completed",
+                },
             },
-            "required": ["task_id"]
-        }
+            "required": ["task_id"],
+        },
     ),
     # ============================================================
     # 3. Materials (1 tool)
@@ -158,28 +143,25 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID"
-                },
+                "task_id": {"type": "string", "description": "Task ID"},
                 "options": {
                     "type": "object",
                     "properties": {
                         "include_graph": {
                             "type": "boolean",
                             "description": "Include evidence graph",
-                            "default": False
+                            "default": False,
                         },
                         "format": {
                             "type": "string",
                             "enum": ["structured", "narrative"],
-                            "default": "structured"
-                        }
-                    }
-                }
+                            "default": "structured",
+                        },
+                    },
+                },
             },
-            "required": ["task_id"]
-        }
+            "required": ["task_id"],
+        },
     ),
     # ============================================================
     # 4. Calibration (2 tools)
@@ -192,16 +174,22 @@ TOOLS = [
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add_sample", "get_stats", "evaluate", "get_evaluations", "get_diagram_data"],
-                    "description": "Action to perform"
+                    "enum": [
+                        "add_sample",
+                        "get_stats",
+                        "evaluate",
+                        "get_evaluations",
+                        "get_diagram_data",
+                    ],
+                    "description": "Action to perform",
                 },
                 "data": {
                     "type": "object",
-                    "description": "Action-specific data. add_sample: {source, prediction, actual, logit?}. evaluate: {source, predictions, labels}. get_evaluations: {source?, limit?, since?}. get_diagram_data: {source, evaluation_id?}. get_stats: no data required."
-                }
+                    "description": "Action-specific data. add_sample: {source, prediction, actual, logit?}. evaluate: {source, predictions, labels}. get_evaluations: {source?, limit?, since?}. get_diagram_data: {source, evaluation_id?}. get_stats: no data required.",
+                },
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     ),
     Tool(
         name="calibrate_rollback",
@@ -209,21 +197,15 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "source": {
-                    "type": "string",
-                    "description": "Source model identifier"
-                },
+                "source": {"type": "string", "description": "Source model identifier"},
                 "version": {
                     "type": "integer",
-                    "description": "Target version (omit for previous version)"
+                    "description": "Target version (omit for previous version)",
                 },
-                "reason": {
-                    "type": "string",
-                    "description": "Reason for rollback (audit log)"
-                }
+                "reason": {"type": "string", "description": "Reason for rollback (audit log)"},
             },
-            "required": ["source"]
-        }
+            "required": ["source"],
+        },
     ),
     # ============================================================
     # 5. Authentication Queue (2 tools)
@@ -236,22 +218,22 @@ TOOLS = [
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID (optional, omit for all tasks)"
+                    "description": "Task ID (optional, omit for all tasks)",
                 },
                 "group_by": {
                     "type": "string",
                     "enum": ["none", "domain", "type"],
                     "description": "Grouping mode",
-                    "default": "none"
+                    "default": "none",
                 },
                 "priority_filter": {
                     "type": "string",
                     "enum": ["high", "medium", "low", "all"],
                     "description": "Filter by priority",
-                    "default": "all"
-                }
-            }
-        }
+                    "default": "all",
+                },
+            },
+        },
     ),
     Tool(
         name="resolve_auth",
@@ -263,29 +245,26 @@ TOOLS = [
                     "type": "string",
                     "enum": ["item", "domain"],
                     "description": "Resolution target type",
-                    "default": "item"
+                    "default": "item",
                 },
-                "queue_id": {
-                    "type": "string",
-                    "description": "Queue item ID (when target=item)"
-                },
+                "queue_id": {"type": "string", "description": "Queue item ID (when target=item)"},
                 "domain": {
                     "type": "string",
-                    "description": "Domain to resolve (when target=domain)"
+                    "description": "Domain to resolve (when target=domain)",
                 },
                 "action": {
                     "type": "string",
                     "enum": ["complete", "skip"],
-                    "description": "Resolution action"
+                    "description": "Resolution action",
                 },
                 "success": {
                     "type": "boolean",
                     "description": "Whether auth succeeded (for complete action)",
-                    "default": True
-                }
+                    "default": True,
+                },
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     ),
     # ============================================================
     # 6. Notification (2 tools)
@@ -299,7 +278,7 @@ TOOLS = [
                 "event": {
                     "type": "string",
                     "enum": ["auth_required", "task_progress", "task_complete", "error", "info"],
-                    "description": "Notification event type"
+                    "description": "Notification event type",
                 },
                 "payload": {
                     "type": "object",
@@ -309,12 +288,12 @@ TOOLS = [
                         "domain": {"type": "string"},
                         "message": {"type": "string"},
                         "task_id": {"type": "string"},
-                        "progress_percent": {"type": "number"}
-                    }
-                }
+                        "progress_percent": {"type": "number"},
+                    },
+                },
             },
-            "required": ["event", "payload"]
-        }
+            "required": ["event", "payload"],
+        },
     ),
     Tool(
         name="wait_for_user",
@@ -322,23 +301,20 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "Message to show user"
-                },
+                "prompt": {"type": "string", "description": "Message to show user"},
                 "timeout_seconds": {
                     "type": "integer",
                     "description": "Timeout in seconds (default: 300)",
-                    "default": 300
+                    "default": 300,
                 },
                 "options": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional choices for user"
-                }
+                    "description": "Optional choices for user",
+                },
             },
-            "required": ["prompt"]
-        }
+            "required": ["prompt"],
+        },
     ),
 ]
 
@@ -352,14 +328,14 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls.
-    
+
     Args:
         name: Tool name.
         arguments: Tool arguments.
-        
+
     Returns:
         List of text content responses.
-        
+
     Note:
         All responses pass through L7 sanitization (§4.4.1)
         before being returned to Cursor AI.
@@ -375,7 +351,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         # L7: Sanitize response before returning to Cursor AI
         sanitized_result = sanitize_response(result, name)
 
-        return [TextContent(type="text", text=json.dumps(sanitized_result, ensure_ascii=False, indent=2))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(sanitized_result, ensure_ascii=False, indent=2)
+            )
+        ]
     except MCPError as e:
         # Structured MCP error with error code
         logger.warning(
@@ -387,7 +367,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         # L7: Error responses also go through sanitization
         error_dict = e.to_dict()
         sanitized_error = sanitize_response(error_dict, "error")
-        return [TextContent(type="text", text=json.dumps(sanitized_error, ensure_ascii=False, indent=2))]
+        return [
+            TextContent(type="text", text=json.dumps(sanitized_error, ensure_ascii=False, indent=2))
+        ]
     except Exception as e:
         # Unexpected error - wrap in INTERNAL_ERROR with L7 sanitization
         error_id = generate_error_id()
@@ -400,16 +382,18 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         )
         # L7: Use sanitize_error for unexpected exceptions
         error_result = sanitize_error(e, error_id)
-        return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))]
+        return [
+            TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))
+        ]
 
 
 async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Dispatch tool call to appropriate handler.
-    
+
     Args:
         name: Tool name.
         arguments: Tool arguments.
-        
+
     Returns:
         Tool result.
     """
@@ -470,10 +454,11 @@ def _clear_exploration_state(task_id: str) -> None:
 # Task Management Handlers
 # ============================================================
 
+
 async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle create_task tool call.
-    
+
     Creates a new research task and returns task_id.
     Per §3.2.1: Returns task_id, query, created_at, budget.
     """
@@ -523,10 +508,10 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_status tool call.
-    
+
     Implements §3.2.1: Unified task and exploration status.
     Returns task info, search states, metrics, budget, auth queue.
-    
+
     Note: Returns data only, no recommendations. Cursor AI decides next actions.
     """
     from src.mcp.errors import InvalidParamsError, TaskNotFoundError
@@ -572,16 +557,18 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Convert searches to §3.2.1 format (text -> query field name mapping)
             searches = []
             for sq in exploration_status.get("searches", []):
-                searches.append({
-                    "id": sq.get("id"),
-                    "query": sq.get("text"),
-                    "status": sq.get("status"),
-                    "pages_fetched": sq.get("pages_fetched", 0),
-                    "useful_fragments": sq.get("useful_fragments", 0),
-                    "harvest_rate": sq.get("harvest_rate", 0.0),
-                    "satisfaction_score": sq.get("satisfaction_score", 0.0),
-                    "has_primary_source": sq.get("has_primary_source", False),
-                })
+                searches.append(
+                    {
+                        "id": sq.get("id"),
+                        "query": sq.get("text"),
+                        "status": sq.get("status"),
+                        "pages_fetched": sq.get("pages_fetched", 0),
+                        "useful_fragments": sq.get("useful_fragments", 0),
+                        "harvest_rate": sq.get("harvest_rate", 0.0),
+                        "satisfaction_score": sq.get("satisfaction_score", 0.0),
+                        "has_primary_source": sq.get("has_primary_source", False),
+                    }
+                )
 
             # Map task_status to status field
             status_map = {
@@ -593,10 +580,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "completed": "completed",
                 "failed": "failed",
             }
-            status = status_map.get(
-                exploration_status.get("task_status", db_status),
-                "exploring"
-            )
+            status = status_map.get(exploration_status.get("task_status", db_status), "exploring")
 
             metrics = exploration_status.get("metrics", {})
             budget = exploration_status.get("budget", {})
@@ -664,13 +648,14 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 # Research Execution Handlers
 # ============================================================
 
+
 async def _check_chrome_cdp_ready() -> bool:
     """
     Check if Chrome CDP is available.
-    
+
     Performs a lightweight HTTP check to the CDP endpoint without
     initializing full Playwright.
-    
+
     Returns:
         True if CDP is available, False otherwise.
     """
@@ -696,12 +681,12 @@ async def _check_chrome_cdp_ready() -> bool:
 async def _auto_start_chrome() -> bool:
     """
     Auto-start Chrome using chrome.sh script.
-    
+
     Executes ./scripts/chrome.sh start and returns success status.
     Per N.5.3: UX-first approach - Lancet auto-starts Chrome when needed.
-    
+
     Uses asyncio.create_subprocess_exec() for non-blocking execution.
-    
+
     Returns:
         True if chrome.sh start succeeded, False otherwise.
     """
@@ -741,7 +726,10 @@ async def _auto_start_chrome() -> bool:
         stderr_text = stderr.decode() if stderr else ""
 
         if process.returncode == 0:
-            logger.info("Chrome auto-start script completed", stdout=stdout_text[:200] if stdout_text else "")
+            logger.info(
+                "Chrome auto-start script completed",
+                stdout=stdout_text[:200] if stdout_text else "",
+            )
             return True
         else:
             logger.warning(
@@ -758,20 +746,20 @@ async def _auto_start_chrome() -> bool:
 async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5) -> bool:
     """
     Ensure Chrome CDP is ready, auto-starting if needed.
-    
+
     Per N.5.3 and docs/REQUIREMENTS.md §3.2.1:
     1. Check if CDP is already connected
     2. If not, auto-start Chrome using chrome.sh
     3. Wait up to timeout seconds for CDP connection
     4. Return True if connected, raise ChromeNotReadyError if failed
-    
+
     Args:
         timeout: Maximum seconds to wait for CDP connection after auto-start.
         poll_interval: Seconds between CDP connection checks.
-        
+
     Returns:
         True if Chrome CDP is ready.
-        
+
     Raises:
         ChromeNotReadyError: If Chrome could not be started or connected.
     """
@@ -813,14 +801,14 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
 async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle search tool call.
-    
+
     Implements §3.2.1: Executes Cursor AI-designed query through
     the search→fetch→extract→evaluate pipeline.
-    
+
     Supports refute:true for refutation mode.
-    
+
     Per N.5.3: Auto-starts Chrome if not connected.
-    
+
     Raises:
         ChromeNotReadyError: If Chrome CDP is not connected after auto-start attempt.
     """
@@ -912,7 +900,7 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle stop_task tool call.
-    
+
     Implements §3.2.1: Finalizes task and returns summary.
     """
     from src.mcp.errors import InvalidParamsError, TaskNotFoundError
@@ -965,10 +953,11 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
 # Materials Handler
 # ============================================================
 
+
 async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_materials tool call.
-    
+
     Implements §3.2.1: Returns report materials for Cursor AI.
     Does NOT generate report - composition is Cursor AI's responsibility.
     """
@@ -1010,13 +999,14 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
 # Calibration Handlers (§3.2.1, §4.6.1)
 # ============================================================
 
+
 async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle calibrate tool call.
-    
+
     Implements §3.2.1: Unified calibration operations (daily operations).
     Actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data.
-    
+
     For rollback (destructive operation), use calibrate_rollback tool.
     """
     from src.mcp.errors import InvalidParamsError
@@ -1038,7 +1028,7 @@ async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle calibrate_rollback tool call.
-    
+
     Implements §3.2.1: Rollback calibration parameters (destructive operation).
     Separate tool to prevent accidental invocation.
     """
@@ -1125,10 +1115,11 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
 # Authentication Queue Handlers (§3.2.1, §3.6.1)
 # ============================================================
 
+
 async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_auth_queue tool call.
-    
+
     Implements §3.2.1: Get pending authentication queue.
     Supports grouping by domain/type and priority filtering.
     """
@@ -1188,16 +1179,16 @@ async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
 
 async def _capture_auth_session_cookies(domain: str) -> dict | None:
     """Capture cookies from browser for authentication session storage.
-    
+
     Per §3.6.1: Capture session data after authentication completion
     so subsequent requests can reuse the authenticated session.
-    
+
     This function connects to the existing Chrome browser via CDP and
     retrieves cookies from all existing contexts, filtering for the target domain.
-    
+
     Args:
         domain: Domain to capture cookies for.
-        
+
     Returns:
         Session data dict with cookies, or None if capture failed.
     """
@@ -1299,7 +1290,7 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
 async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle resolve_auth tool call.
-    
+
     Implements §3.2.1: Report authentication completion or skip.
     Per §3.6.1: Captures session cookies on completion for reuse.
     Supports single item or domain-batch operations.
@@ -1407,10 +1398,11 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
 # Notification Handlers (§3.2.1)
 # ============================================================
 
+
 async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle notify_user tool call.
-    
+
     Implements §3.2.1: Send notification to user.
     Per §3.6.1: No DOM operations during auth sessions.
     """
@@ -1456,13 +1448,12 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
         "info": "お知らせ",
     }
 
-    title = title_map.get(event, "Lancet通知")
-    message = payload.get("message", "")
+    title_map.get(event, "Lancet通知")
+    payload.get("message", "")
 
     if event == "auth_required":
-        url = payload.get("url", "")
-        domain = payload.get("domain", "")
-        message = f"認証が必要: {domain or url}"
+        payload.get("url", "")
+        payload.get("domain", "")
 
     await send_notification(
         event=event,
@@ -1479,13 +1470,13 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle wait_for_user tool call.
-    
+
     Implements §3.2.1: Wait for user input/acknowledgment.
-    
+
     Note: This is a simplified implementation that sends a notification
     and returns immediately with a "waiting" status. The actual wait
     is handled by Cursor AI polling get_status or get_auth_queue.
-    
+
     For blocking waits with timeout, the MCP protocol doesn't support
     true blocking operations - Cursor AI should poll for completion.
     """
@@ -1531,6 +1522,7 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
 # ============================================================
 # Server Entry Point
 # ============================================================
+
 
 async def run_server() -> None:
     """Run the MCP server."""

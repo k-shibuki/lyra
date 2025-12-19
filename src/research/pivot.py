@@ -167,9 +167,9 @@ ORG_PIVOT_TEMPLATES = {
 DOMAIN_PIVOT_TEMPLATES = {
     PivotType.DOMAIN_SUBDOMAIN: {
         "templates": [
-            'site:{entity}',
-            '*.{entity}',
-            'inurl:{entity}',
+            "site:{entity}",
+            "*.{entity}",
+            "inurl:{entity}",
         ],
         "priority": "medium",
         "target_type": EntityType.DOMAIN,
@@ -441,19 +441,21 @@ class PivotExpander:
         suggestions = []
 
         # Related entity search
-        suggestions.append(PivotSuggestion(
-            pivot_type=PivotType.RELATED_ENTITY,
-            query_template='"{entity}" 関連',
-            query_examples=[
-                f'"{entity}" 関連',
-                f'"{entity}" related',
-            ],
-            source_entity=entity,
-            target_entity_type=None,
-            priority="medium",
-            rationale="関連エンティティの探索",
-            operators=[],
-        ))
+        suggestions.append(
+            PivotSuggestion(
+                pivot_type=PivotType.RELATED_ENTITY,
+                query_template='"{entity}" 関連',
+                query_examples=[
+                    f'"{entity}" 関連',
+                    f'"{entity}" related',
+                ],
+                source_entity=entity,
+                target_entity_type=None,
+                priority="medium",
+                rationale="関連エンティティの探索",
+                operators=[],
+            )
+        )
 
         return suggestions
 
@@ -550,9 +552,16 @@ def detect_entity_type(text: str) -> EntityType | None:
 
     # Organization patterns (check first - most distinctive)
     org_patterns = [
-        r"株式会社", r"有限会社", r"合同会社",
-        r"Inc\.?$", r"Corp\.?$", r"Ltd\.?$", r"LLC$", r"Co\.?$",
-        r"Foundation$", r"Association$",
+        r"株式会社",
+        r"有限会社",
+        r"合同会社",
+        r"Inc\.?$",
+        r"Corp\.?$",
+        r"Ltd\.?$",
+        r"LLC$",
+        r"Co\.?$",
+        r"Foundation$",
+        r"Association$",
     ]
     for pattern in org_patterns:
         if re.search(pattern, text, re.IGNORECASE):
@@ -561,7 +570,10 @@ def detect_entity_type(text: str) -> EntityType | None:
     # Domain patterns
     domain_patterns = [
         r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z]{2,})+$",
-        r"\.com$", r"\.org$", r"\.jp$", r"\.co\.jp$",
+        r"\.com$",
+        r"\.org$",
+        r"\.jp$",
+        r"\.co\.jp$",
     ]
     for pattern in domain_patterns:
         if re.search(pattern, text_lower):
@@ -594,4 +606,3 @@ def detect_entity_type(text: str) -> EntityType | None:
 def get_pivot_expander() -> PivotExpander:
     """Get a PivotExpander instance."""
     return PivotExpander()
-

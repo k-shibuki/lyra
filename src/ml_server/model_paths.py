@@ -60,9 +60,7 @@ def _validate_and_sanitize_path(path: str, path_name: str) -> str:
         try:
             path_obj.relative_to(MODELS_BASE_DIR.resolve())
         except ValueError:
-            raise ValueError(
-                f"Path {path_name} is outside allowed directory: {path}"
-            )
+            raise ValueError(f"Path {path_name} is outside allowed directory: {path}")
 
         # Check for path traversal attempts (should be caught by relative_to, but double-check)
         if ".." in str(path_obj):
@@ -91,9 +89,7 @@ def get_model_paths() -> ModelPaths | None:
     if _model_paths is not None:
         return _model_paths
 
-    model_paths_file = os.environ.get(
-        "LANCET_ML__MODEL_PATHS_FILE", DEFAULT_MODEL_PATHS_FILE
-    )
+    model_paths_file = os.environ.get("LANCET_ML__MODEL_PATHS_FILE", DEFAULT_MODEL_PATHS_FILE)
 
     if not Path(model_paths_file).exists():
         logger.warning(
@@ -108,21 +104,13 @@ def get_model_paths() -> ModelPaths | None:
 
         # Validate and sanitize all paths
         validated_paths: ModelPaths = {
-            "embedding": _validate_and_sanitize_path(
-                raw_paths["embedding"], "embedding"
-            ),
+            "embedding": _validate_and_sanitize_path(raw_paths["embedding"], "embedding"),
             "embedding_name": raw_paths["embedding_name"],
-            "reranker": _validate_and_sanitize_path(
-                raw_paths["reranker"], "reranker"
-            ),
+            "reranker": _validate_and_sanitize_path(raw_paths["reranker"], "reranker"),
             "reranker_name": raw_paths["reranker_name"],
-            "nli_fast": _validate_and_sanitize_path(
-                raw_paths["nli_fast"], "nli_fast"
-            ),
+            "nli_fast": _validate_and_sanitize_path(raw_paths["nli_fast"], "nli_fast"),
             "nli_fast_name": raw_paths["nli_fast_name"],
-            "nli_slow": _validate_and_sanitize_path(
-                raw_paths["nli_slow"], "nli_slow"
-            ),
+            "nli_slow": _validate_and_sanitize_path(raw_paths["nli_slow"], "nli_slow"),
             "nli_slow_name": raw_paths["nli_slow_name"],
         }
 
@@ -176,9 +164,7 @@ def get_nli_fast_path() -> str:
     if paths and "nli_fast" in paths:
         # Path is already validated in get_model_paths()
         return paths["nli_fast"]
-    return os.environ.get(
-        "LANCET_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall"
-    )
+    return os.environ.get("LANCET_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall")
 
 
 def get_nli_slow_path() -> str:
@@ -191,9 +177,7 @@ def get_nli_slow_path() -> str:
     if paths and "nli_slow" in paths:
         # Path is already validated in get_model_paths()
         return paths["nli_slow"]
-    return os.environ.get(
-        "LANCET_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small"
-    )
+    return os.environ.get("LANCET_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small")
 
 
 def is_using_local_paths() -> bool:
@@ -203,4 +187,3 @@ def is_using_local_paths() -> bool:
         True if using local paths from JSON file
     """
     return get_model_paths() is not None
-

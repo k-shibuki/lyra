@@ -57,7 +57,7 @@ async def proxy_request(
     # Build target URL
     path = request.path
     if path.startswith(path_prefix):
-        path = path[len(path_prefix):]
+        path = path[len(path_prefix) :]
     if not path.startswith("/"):
         path = "/" + path
 
@@ -216,5 +216,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-
-

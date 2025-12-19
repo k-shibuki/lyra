@@ -16,7 +16,7 @@ class TestGetStatusValidation:
     async def test_missing_task_id_raises_error(self) -> None:
         """
         TC-A-01: Missing task_id parameter.
-        
+
         // Given: No task_id provided
         // When: Calling get_status with empty args
         // Then: Raises InvalidParamsError
@@ -33,7 +33,7 @@ class TestGetStatusValidation:
     async def test_empty_task_id_raises_error(self) -> None:
         """
         TC-A-02: Empty task_id parameter.
-        
+
         // Given: Empty string task_id
         // When: Calling get_status
         // Then: Raises InvalidParamsError
@@ -50,7 +50,7 @@ class TestGetStatusValidation:
     async def test_nonexistent_task_raises_error(self) -> None:
         """
         TC-A-03: Non-existent task_id.
-        
+
         // Given: task_id not in database
         // When: Calling get_status
         // Then: Raises TaskNotFoundError
@@ -137,7 +137,7 @@ class TestGetStatusWithExplorationState:
     ) -> None:
         """
         TC-N-01: Valid task_id with exploration state.
-        
+
         // Given: Task exists with active exploration
         // When: Calling get_status
         // Then: Returns unified status with searches, metrics, budget
@@ -169,7 +169,7 @@ class TestGetStatusWithExplorationState:
     ) -> None:
         """
         TC-N-05: Subquery to search field mapping.
-        
+
         // Given: Exploration status with subqueries
         // When: Calling get_status
         // Then: Fields correctly mapped to §3.2.1 schema
@@ -210,7 +210,7 @@ class TestGetStatusWithExplorationState:
     ) -> None:
         """
         TC-N-03: Task with auth_queue pending.
-        
+
         // Given: Exploration has pending authentications
         // When: Calling get_status
         // Then: Includes auth_queue in response
@@ -245,7 +245,7 @@ class TestGetStatusWithExplorationState:
     ) -> None:
         """
         TC-N-04: Task with warnings.
-        
+
         // Given: Exploration has warnings
         // When: Calling get_status
         // Then: Includes warnings array
@@ -290,7 +290,7 @@ class TestGetStatusWithoutExplorationState:
     async def test_returns_minimal_status(self, mock_task: dict[str, Any]) -> None:
         """
         TC-N-02: Valid task_id without exploration state.
-        
+
         // Given: Task exists but no exploration started
         // When: Calling get_status
         // Then: Returns minimal status with empty searches
@@ -355,7 +355,7 @@ class TestGetStatusStatusMapping:
     ) -> None:
         """
         Test status field mapping from exploration state.
-        
+
         // Given: Exploration with specific task_status
         // When: Calling get_status
         // Then: Status is correctly mapped per §3.2.1
@@ -393,7 +393,7 @@ class TestGetStatusToolDefinition:
     def test_get_status_in_tools(self) -> None:
         """
         Test that get_status is defined in TOOLS.
-        
+
         // Given: TOOLS list
         // When: Searching for get_status
         // Then: Found with correct schema
@@ -409,7 +409,7 @@ class TestGetStatusToolDefinition:
     def test_get_status_description_mentions_section(self) -> None:
         """
         Test that description references §3.2.1.
-        
+
         // Given: get_status tool definition
         // When: Reading description
         // Then: Contains §3.2.1 reference
@@ -420,4 +420,3 @@ class TestGetStatusToolDefinition:
 
         assert tool is not None
         assert "§3.2.1" in tool.description
-

@@ -51,13 +51,13 @@ class RefutationResult:
 class RefutationExecutor:
     """
     Executes refutation searches for claims/subqueries.
-    
+
     Responsibilities (§2.1.4, §3.1.7.5):
     - Apply mechanical suffix patterns to generate reverse queries
     - Execute reverse query searches
     - Detect refuting evidence using NLI
     - Update confidence scores
-    
+
     Does NOT:
     - Design reverse queries (only applies mechanical patterns)
     - Use LLM to generate refutation hypotheses
@@ -65,7 +65,7 @@ class RefutationExecutor:
 
     def __init__(self, task_id: str, state: ExplorationState):
         """Initialize refutation executor.
-        
+
         Args:
             task_id: The task ID.
             state: The exploration state manager.
@@ -82,10 +82,10 @@ class RefutationExecutor:
     async def execute_for_claim(self, claim_id: str) -> RefutationResult:
         """
         Execute refutation search for a specific claim.
-        
+
         Args:
             claim_id: The claim ID to search refutations for.
-            
+
         Returns:
             RefutationResult with search results.
         """
@@ -146,10 +146,10 @@ class RefutationExecutor:
     async def execute_for_subquery(self, subquery_id: str) -> RefutationResult:
         """
         Execute refutation search for all claims from a subquery.
-        
+
         Args:
             subquery_id: The subquery ID.
-            
+
         Returns:
             RefutationResult with search results.
         """
@@ -190,13 +190,13 @@ class RefutationExecutor:
     def _generate_reverse_queries(self, text: str) -> list[str]:
         """
         Generate reverse queries using mechanical patterns only.
-        
+
         Applies predefined suffixes to the text.
         Does NOT use LLM to generate hypotheses (§2.1.4).
-        
+
         Args:
             text: The claim or subquery text.
-            
+
         Returns:
             List of reverse queries.
         """
@@ -217,11 +217,11 @@ class RefutationExecutor:
     ) -> list[dict[str, Any]]:
         """
         Search for refuting evidence and detect refutations using NLI.
-        
+
         Args:
             query: The reverse query.
             original_text: The original claim/subquery text.
-            
+
         Returns:
             List of detected refutations.
         """
@@ -300,13 +300,13 @@ class RefutationExecutor:
     ) -> dict[str, Any] | None:
         """
         Detect if a passage refutes a claim using NLI.
-        
+
         Args:
             claim_text: The claim text.
             passage: The passage to check.
             source_url: URL of the source.
             source_title: Title of the source.
-            
+
         Returns:
             Refutation details if detected, None otherwise.
         """
@@ -314,11 +314,13 @@ class RefutationExecutor:
 
         try:
             # Use NLI to check stance
-            pairs = [{
-                "pair_id": "refutation_check",
-                "premise": passage,
-                "hypothesis": claim_text,
-            }]
+            pairs = [
+                {
+                    "pair_id": "refutation_check",
+                    "premise": passage,
+                    "hypothesis": claim_text,
+                }
+            ]
 
             results = await nli_judge(pairs=pairs)
 
@@ -372,9 +374,3 @@ class RefutationExecutor:
             claim_id=claim_id,
             source_url=refutation.get("source_url", "")[:50],
         )
-
-
-
-
-
-

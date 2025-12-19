@@ -84,6 +84,7 @@ class UndetectedChromeFetcher:
 
         try:
             import undetected_chromedriver as uc  # noqa: F401
+
             self._available = True
             logger.debug("undetected-chromedriver is available")
         except ImportError:
@@ -179,9 +180,7 @@ class UndetectedChromeFetcher:
         )
 
         # Set page load timeout
-        self._driver.set_page_load_timeout(
-            self._settings.crawler.page_load_timeout
-        )
+        self._driver.set_page_load_timeout(self._settings.crawler.page_load_timeout)
 
         # Set implicit wait
         self._driver.implicitly_wait(10)
@@ -200,6 +199,7 @@ class UndetectedChromeFetcher:
             max_seconds: Maximum delay.
         """
         import random
+
         delay = random.uniform(min_seconds, max_seconds)
         time.sleep(delay)
 
@@ -212,12 +212,8 @@ class UndetectedChromeFetcher:
 
         try:
             # Get page height
-            page_height = self._driver.execute_script(
-                "return document.body.scrollHeight"
-            )
-            viewport_height = self._driver.execute_script(
-                "return window.innerHeight"
-            )
+            page_height = self._driver.execute_script("return document.body.scrollHeight")
+            viewport_height = self._driver.execute_script("return window.innerHeight")
 
             # Scroll down in chunks
             current_position = 0
@@ -237,9 +233,7 @@ class UndetectedChromeFetcher:
                     page_height - viewport_height,
                 )
 
-                self._driver.execute_script(
-                    f"window.scrollTo(0, {current_position})"
-                )
+                self._driver.execute_script(f"window.scrollTo(0, {current_position})")
 
                 # Random delay
                 time.sleep(random.uniform(0.3, 1.0))
@@ -574,4 +568,3 @@ async def close_undetected_fetcher() -> None:
     if _undetected_fetcher is not None:
         await _undetected_fetcher.close_async()
         _undetected_fetcher = None
-

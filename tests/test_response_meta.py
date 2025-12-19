@@ -284,14 +284,18 @@ class TestResponseMetaBuilder:
         // Then: Claims array in output
         """
         builder = ResponseMetaBuilder()
-        builder.add_claim_meta(ClaimMeta(
-            claim_id="claim_1",
-            source_trust_level="trusted",
-        ))
-        builder.add_claim_meta(ClaimMeta(
-            claim_id="claim_2",
-            source_trust_level="unverified",
-        ))
+        builder.add_claim_meta(
+            ClaimMeta(
+                claim_id="claim_1",
+                source_trust_level="trusted",
+            )
+        )
+        builder.add_claim_meta(
+            ClaimMeta(
+                claim_id="claim_2",
+                source_trust_level="unverified",
+            )
+        )
 
         result = builder.build()
 
@@ -460,10 +464,7 @@ class TestBoundaryAndEdgeCases:
         // When: Converting to dict
         // Then: All warnings serialized
         """
-        warnings = [
-            SecurityWarning(type=f"type_{i}", message=f"Message {i}")
-            for i in range(100)
-        ]
+        warnings = [SecurityWarning(type=f"type_{i}", message=f"Message {i}") for i in range(100)]
         meta = LancetMeta(security_warnings=warnings)
         result = meta.to_dict()
 
@@ -549,4 +550,3 @@ class TestBoundaryAndEdgeCases:
             meta = LancetMeta(data_quality=quality)
             result = meta.to_dict()
             assert result["data_quality"] == quality
-

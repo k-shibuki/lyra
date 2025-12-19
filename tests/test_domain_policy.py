@@ -104,7 +104,6 @@ Test design follows §7.1 Test Code Quality Standards:
 | TC-FB-N-02 | Missing bounds | Equivalence – normal | Defaults used | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -137,6 +136,7 @@ from src.utils.domain_policy import (
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def sample_config_yaml() -> str:
@@ -265,6 +265,7 @@ def reset_singleton():
 # =============================================================================
 # Schema Validation Tests
 # =============================================================================
+
 
 class TestDefaultPolicySchema:
     """Tests for DefaultPolicySchema validation."""
@@ -483,6 +484,7 @@ class TestDomainPolicyConfigSchema:
 # DomainPolicy Data Class Tests
 # =============================================================================
 
+
 class TestDomainPolicy:
     """Tests for DomainPolicy data class."""
 
@@ -601,6 +603,7 @@ class TestDomainPolicy:
 # =============================================================================
 # DomainPolicyManager Tests
 # =============================================================================
+
 
 class TestDomainPolicyManagerLoading:
     """Tests for DomainPolicyManager configuration loading."""
@@ -863,10 +866,13 @@ class TestDomainPolicyManagerLearningState:
         assert policy.block_score == 0.0
 
         # When
-        policy_manager.update_learning_state("example.com", {
-            "block_score": 5.0,
-            "captcha_rate": 0.3,
-        })
+        policy_manager.update_learning_state(
+            "example.com",
+            {
+                "block_score": 5.0,
+                "captcha_rate": 0.3,
+            },
+        )
 
         # Then - get policy again from cache
         updated_policy = policy_manager.get_policy("example.com")
@@ -881,9 +887,12 @@ class TestDomainPolicyManagerLearningState:
 
         # When
         future_time = datetime.now(UTC) + timedelta(hours=1)
-        policy_manager.update_learning_state("example.com", {
-            "cooldown_until": future_time,
-        })
+        policy_manager.update_learning_state(
+            "example.com",
+            {
+                "cooldown_until": future_time,
+            },
+        )
 
         # Then
         updated_policy = policy_manager.get_policy("example.com")
@@ -1025,6 +1034,7 @@ allowlist:
 # Module-level Function Tests
 # =============================================================================
 
+
 class TestModuleLevelFunctions:
     """Tests for module-level convenience functions."""
 
@@ -1058,6 +1068,7 @@ class TestModuleLevelFunctions:
 # =============================================================================
 # Pattern Matching Edge Cases
 # =============================================================================
+
 
 class TestPatternMatching:
     """Tests for domain pattern matching edge cases."""
@@ -1101,6 +1112,7 @@ class TestPatternMatching:
 # Trust Level Priority Tests
 # =============================================================================
 
+
 class TestTrustLevelPriority:
     """Tests for trust level hierarchy and weights."""
 
@@ -1123,6 +1135,7 @@ class TestTrustLevelPriority:
 # =============================================================================
 # Resolution Priority Tests
 # =============================================================================
+
 
 class TestResolutionPriority:
     """Tests for policy resolution priority order."""
@@ -1178,6 +1191,7 @@ cloudflare_sites:
 # =============================================================================
 # Search Engine Policy Schema Tests
 # =============================================================================
+
 
 class TestSearchEnginePolicySchema:
     """Tests for SearchEnginePolicySchema (§3.1.4, §4.3)."""
@@ -1315,6 +1329,7 @@ class TestPolicyBoundsSchema:
 # Search Engine Policy Access Tests
 # =============================================================================
 
+
 class TestSearchEnginePolicyAccess:
     """Tests for DomainPolicyManager search engine policy methods."""
 
@@ -1389,6 +1404,7 @@ class TestSearchEnginePolicyAccess:
 # Policy Bounds Access Tests
 # =============================================================================
 
+
 class TestPolicyBoundsAccess:
     """Tests for DomainPolicyManager policy bounds methods."""
 
@@ -1439,6 +1455,7 @@ class TestPolicyBoundsAccess:
 # Default Config Fallback Tests
 # =============================================================================
 
+
 class TestDefaultConfigFallback:
     """Tests for fallback behavior when config sections are missing."""
 
@@ -1478,4 +1495,3 @@ default_policy:
         # Then - should use default values
         assert bounds.engine_weight.default == 1.0
         assert bounds.domain_qps.default == 0.2
-

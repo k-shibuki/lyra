@@ -101,7 +101,9 @@ class TestMinHashDeduplicator:
         # Given: A deduplicator with identical and unrelated fragments
         dedup = MinHashDeduplicator(num_perm=128, threshold=0.5)
         dedup.add("f1", "Machine learning and artificial intelligence are transforming technology")
-        dedup.add("f2", "Machine learning and artificial intelligence are transforming technology")  # Identical
+        dedup.add(
+            "f2", "Machine learning and artificial intelligence are transforming technology"
+        )  # Identical
         dedup.add("f3", "The weather forecast predicts sunny skies and warm temperatures tomorrow")
 
         # When: Finding duplicates of f1
@@ -150,7 +152,9 @@ class TestMinHashDeduplicator:
         assert "f1" in cluster.fragment_ids, "f1 not in cluster"
         assert "f2" in cluster.fragment_ids, "f2 not in cluster"
         assert "f3" not in cluster.fragment_ids, "f3 should not be in cluster"
-        assert len(cluster.fragment_ids) == 2, f"Cluster should have 2 members, got {len(cluster.fragment_ids)}"
+        assert len(cluster.fragment_ids) == 2, (
+            f"Cluster should have 2 members, got {len(cluster.fragment_ids)}"
+        )
 
     def test_get_duplicate_ratio(self):
         """Test duplicate ratio calculation.
@@ -171,7 +175,9 @@ class TestMinHashDeduplicator:
 
         # Then: Ratio is approximately 1/3 (one duplicate out of three)
         expected_ratio = 1 / 3
-        assert abs(ratio - expected_ratio) < 0.1, f"Expected ratio ~{expected_ratio:.2f}, got {ratio:.2f}"
+        assert abs(ratio - expected_ratio) < 0.1, (
+            f"Expected ratio ~{expected_ratio:.2f}, got {ratio:.2f}"
+        )
 
     def test_deduplicate_keep_first(self):
         """Test deduplication with keep='first' strategy."""
@@ -370,6 +376,7 @@ class TestDeduplicateFragments:
         """Test basic deduplication."""
         # Given: A list of fragments with duplicates
         import src.filter.deduplication as dedup_module
+
         dedup_module._deduplicator = None
 
         from src.filter.deduplication import deduplicate_fragments
@@ -394,6 +401,7 @@ class TestDeduplicateFragments:
         """Test deduplication with empty list."""
         # Given: An empty list of fragments
         import src.filter.deduplication as dedup_module
+
         dedup_module._deduplicator = None
 
         from src.filter.deduplication import deduplicate_fragments
@@ -424,4 +432,3 @@ class TestDuplicateCluster:
         # When: Getting the length of the cluster
         # Then: Length equals the number of fragment IDs
         assert len(cluster) == 3
-

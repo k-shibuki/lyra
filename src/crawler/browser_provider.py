@@ -23,12 +23,14 @@ logger = get_logger(__name__)
 
 class BrowserMode(str, Enum):
     """Browser execution mode."""
+
     HEADLESS = "headless"
     HEADFUL = "headful"
 
 
 class BrowserHealthState(str, Enum):
     """Provider health states."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -50,6 +52,7 @@ class Cookie:
         secure: Secure flag.
         same_site: SameSite attribute.
     """
+
     name: str
     value: str
     domain: str = ""
@@ -105,6 +108,7 @@ class BrowserOptions:
         take_screenshot: Whether to capture screenshot after navigation.
         block_resources: Resource types to block (ads, trackers, media).
     """
+
     mode: BrowserMode = BrowserMode.HEADLESS
     timeout: float = 30.0
     viewport_width: int = 1920
@@ -151,6 +155,7 @@ class PageResult:
         challenge_detected: Whether a challenge/CAPTCHA was detected.
         challenge_type: Type of challenge if detected.
     """
+
     ok: bool
     url: str
     status: int | None = None
@@ -253,6 +258,7 @@ class BrowserHealthStatus:
         message: Optional status message.
         details: Additional health details.
     """
+
     state: BrowserHealthState
     available: bool = True
     success_rate: float = 1.0
@@ -496,9 +502,7 @@ class BaseBrowserProvider(ABC):
         *args: Any,
     ) -> Any:
         """Execute JavaScript (default: not supported)."""
-        raise NotImplementedError(
-            f"Provider '{self._name}' does not support script execution"
-        )
+        raise NotImplementedError(f"Provider '{self._name}' does not support script execution")
 
     async def get_cookies(self, url: str | None = None) -> list[Cookie]:
         """Get cookies (default: empty list)."""
@@ -770,9 +774,7 @@ class BrowserProviderRegistry:
                         provider=name,
                         challenge_type=result.challenge_type,
                     )
-                    options = BrowserOptions(
-                        **{**options.to_dict(), "mode": BrowserMode.HEADFUL}
-                    )
+                    options = BrowserOptions(**{**options.to_dict(), "mode": BrowserMode.HEADFUL})
                     continue
 
                 logger.warning(
@@ -847,4 +849,3 @@ def reset_browser_registry() -> None:
     """
     global _registry
     _registry = None
-

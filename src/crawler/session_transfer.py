@@ -37,7 +37,7 @@ logger = get_logger(__name__)
 
 class CookieData(BaseModel):
     """Cookie data structure for transfer.
-    
+
     Represents a single cookie with its attributes.
     """
 
@@ -54,7 +54,7 @@ class CookieData(BaseModel):
 
     def is_expired(self) -> bool:
         """Check if cookie has expired.
-        
+
         Returns:
             True if cookie has expired.
         """
@@ -64,10 +64,10 @@ class CookieData(BaseModel):
 
     def matches_domain(self, target_domain: str) -> bool:
         """Check if cookie is valid for the target domain.
-        
+
         Args:
             target_domain: Domain to check against.
-            
+
         Returns:
             True if cookie is valid for the domain.
         """
@@ -86,7 +86,7 @@ class CookieData(BaseModel):
 
     def to_header_value(self) -> str:
         """Convert to HTTP Cookie header format.
-        
+
         Returns:
             Cookie as "name=value" string.
         """
@@ -94,7 +94,7 @@ class CookieData(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization.
-        
+
         Returns:
             Dictionary representation.
         """
@@ -112,10 +112,10 @@ class CookieData(BaseModel):
     @classmethod
     def from_playwright_cookie(cls, cookie: dict) -> "CookieData":
         """Create from Playwright cookie format.
-        
+
         Args:
             cookie: Playwright cookie dictionary.
-            
+
         Returns:
             CookieData instance.
         """
@@ -133,7 +133,7 @@ class CookieData(BaseModel):
 
 class SessionData(BaseModel):
     """Session data for transfer between browser and HTTP client.
-    
+
     Contains all necessary session context for maintaining a consistent
     browsing session across different fetch methods.
     """
@@ -145,19 +145,21 @@ class SessionData(BaseModel):
     etag: str | None = Field(default=None, description="ETag header value")
     last_modified: str | None = Field(default=None, description="Last-Modified header value")
     user_agent: str | None = Field(default=None, description="User-Agent string")
-    accept_language: str = Field(default="ja,en-US;q=0.9,en;q=0.8", description="Accept-Language header")
+    accept_language: str = Field(
+        default="ja,en-US;q=0.9,en;q=0.8", description="Accept-Language header"
+    )
     last_url: str | None = Field(default=None, description="Last visited URL for Referer header")
     created_at: float = Field(default_factory=time.time, description="Session creation timestamp")
     last_used_at: float = Field(default_factory=time.time, description="Last usage timestamp")
 
     def is_valid_for_url(self, url: str) -> bool:
         """Check if session is valid for the target URL.
-        
+
         Implements §3.1.2 same-domain restriction.
-        
+
         Args:
             url: Target URL to check.
-            
+
         Returns:
             True if session can be used for this URL.
         """
@@ -171,12 +173,12 @@ class SessionData(BaseModel):
 
     def get_cookies_for_url(self, url: str) -> list[CookieData]:
         """Get cookies valid for the target URL.
-        
+
         Filters cookies by domain and expiration.
-        
+
         Args:
             url: Target URL.
-            
+
         Returns:
             List of valid cookies.
         """
@@ -194,10 +196,10 @@ class SessionData(BaseModel):
 
     def get_cookie_header(self, url: str) -> str | None:
         """Get Cookie header value for the target URL.
-        
+
         Args:
             url: Target URL.
-            
+
         Returns:
             Cookie header value or None if no cookies.
         """
@@ -214,7 +216,7 @@ class SessionData(BaseModel):
         last_modified: str | None = None,
     ) -> None:
         """Update session data from response headers.
-        
+
         Args:
             url: Response URL.
             etag: ETag header value.
@@ -230,7 +232,7 @@ class SessionData(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization.
-        
+
         Returns:
             Dictionary representation.
         """
@@ -249,10 +251,10 @@ class SessionData(BaseModel):
     @classmethod
     def from_dict(cls, data: dict) -> "SessionData":
         """Create from dictionary.
-        
+
         Args:
             data: Dictionary representation.
-            
+
         Returns:
             SessionData instance.
         """
@@ -285,7 +287,7 @@ class SessionData(BaseModel):
 
 class TransferResult(BaseModel):
     """Result of session transfer operation.
-    
+
     Contains the generated headers and validation status.
     """
 
@@ -298,7 +300,7 @@ class TransferResult(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.
-        
+
         Returns:
             Dictionary representation.
         """
@@ -314,9 +316,10 @@ class TransferResult(BaseModel):
 # Session Transfer Manager
 # =============================================================================
 
+
 class SessionTransferManager:
     """Manages session transfer between browser and HTTP client.
-    
+
     Implements §3.1.2 session transfer requirements:
     - Safe cookie/header transfer from browser context
     - Same-domain restriction enforcement
@@ -330,7 +333,7 @@ class SessionTransferManager:
         max_sessions: int = 100,
     ):
         """Initialize session transfer manager.
-        
+
         Args:
             session_ttl_seconds: Session time-to-live in seconds.
             max_sessions: Maximum number of cached sessions.
@@ -342,10 +345,10 @@ class SessionTransferManager:
 
     def _generate_session_id(self, domain: str) -> str:
         """Generate unique session ID for domain.
-        
+
         Args:
             domain: Registrable domain.
-            
+
         Returns:
             Session ID string.
         """
@@ -357,7 +360,8 @@ class SessionTransferManager:
         """Remove expired sessions from cache."""
         now = time.time()
         expired = [
-            sid for sid, session in self._sessions.items()
+            sid
+            for sid, session in self._sessions.items()
             if now - session.last_used_at > self._session_ttl
         ]
         for sid in expired:
@@ -382,15 +386,15 @@ class SessionTransferManager:
         response_headers: dict[str, str] | None = None,
     ) -> str | None:
         """Capture session data from browser context.
-        
+
         Extracts cookies and headers from browser after successful fetch,
         preparing them for transfer to HTTP client.
-        
+
         Args:
             context: Playwright browser context.
             url: The URL that was fetched.
             response_headers: Response headers from the fetch.
-            
+
         Returns:
             Session ID if capture succeeded, None otherwise.
         """
@@ -420,9 +424,8 @@ class SessionTransferManager:
             last_modified = None
             if response_headers:
                 etag = response_headers.get("etag") or response_headers.get("ETag")
-                last_modified = (
-                    response_headers.get("last-modified") or
-                    response_headers.get("Last-Modified")
+                last_modified = response_headers.get("last-modified") or response_headers.get(
+                    "Last-Modified"
                 )
 
             # Get user agent from context (if available)
@@ -467,10 +470,10 @@ class SessionTransferManager:
 
     def get_session(self, session_id: str) -> SessionData | None:
         """Get session by ID.
-        
+
         Args:
             session_id: Session identifier.
-            
+
         Returns:
             SessionData if found and valid, None otherwise.
         """
@@ -488,10 +491,10 @@ class SessionTransferManager:
 
     def get_session_for_domain(self, domain: str) -> tuple[str, SessionData] | None:
         """Find a valid session for the given domain.
-        
+
         Args:
             domain: Registrable domain to find session for.
-            
+
         Returns:
             Tuple of (session_id, session_data) if found, None otherwise.
         """
@@ -500,8 +503,7 @@ class SessionTransferManager:
 
         # Find most recent session for domain
         candidates = [
-            (sid, session) for sid, session in self._sessions.items()
-            if session.domain == domain
+            (sid, session) for sid, session in self._sessions.items() if session.domain == domain
         ]
 
         if not candidates:
@@ -517,15 +519,15 @@ class SessionTransferManager:
         include_conditional: bool = True,
     ) -> TransferResult:
         """Generate HTTP headers from session data.
-        
+
         Creates headers suitable for HTTP client requests, maintaining
         Referer/sec-fetch-* consistency per §3.1.2.
-        
+
         Args:
             session_id: Session identifier.
             target_url: URL to generate headers for.
             include_conditional: Include If-None-Match/If-Modified-Since headers.
-            
+
         Returns:
             TransferResult with generated headers.
         """
@@ -617,14 +619,14 @@ class SessionTransferManager:
         response_headers: dict[str, str],
     ) -> bool:
         """Update session data from HTTP response.
-        
+
         Call after successful HTTP client fetch to keep session in sync.
-        
+
         Args:
             session_id: Session identifier.
             url: Response URL.
             response_headers: Response headers.
-            
+
         Returns:
             True if session was updated.
         """
@@ -634,9 +636,8 @@ class SessionTransferManager:
 
         # Update ETag and Last-Modified
         etag = response_headers.get("etag") or response_headers.get("ETag")
-        last_modified = (
-            response_headers.get("last-modified") or
-            response_headers.get("Last-Modified")
+        last_modified = response_headers.get("last-modified") or response_headers.get(
+            "Last-Modified"
         )
 
         session.update_from_response(url, etag, last_modified)
@@ -656,10 +657,10 @@ class SessionTransferManager:
 
     def invalidate_session(self, session_id: str) -> bool:
         """Invalidate and remove a session.
-        
+
         Args:
             session_id: Session identifier.
-            
+
         Returns:
             True if session was removed.
         """
@@ -671,19 +672,16 @@ class SessionTransferManager:
 
     def invalidate_domain_sessions(self, domain: str) -> int:
         """Invalidate all sessions for a domain.
-        
+
         Useful when domain access is blocked or needs fresh session.
-        
+
         Args:
             domain: Registrable domain.
-            
+
         Returns:
             Number of sessions invalidated.
         """
-        to_remove = [
-            sid for sid, session in self._sessions.items()
-            if session.domain == domain
-        ]
+        to_remove = [sid for sid, session in self._sessions.items() if session.domain == domain]
         for sid in to_remove:
             del self._sessions[sid]
 
@@ -698,7 +696,7 @@ class SessionTransferManager:
 
     def get_session_stats(self) -> dict[str, Any]:
         """Get statistics about cached sessions.
-        
+
         Returns:
             Dictionary with session statistics.
         """
@@ -725,7 +723,7 @@ _session_transfer_manager: SessionTransferManager | None = None
 
 def get_session_transfer_manager() -> SessionTransferManager:
     """Get or create the global session transfer manager.
-    
+
     Returns:
         SessionTransferManager instance.
     """
@@ -739,20 +737,21 @@ def get_session_transfer_manager() -> SessionTransferManager:
 # Convenience Functions
 # =============================================================================
 
+
 async def capture_browser_session(
     context,
     url: str,
     response_headers: dict[str, str] | None = None,
 ) -> str | None:
     """Capture session from browser context.
-    
+
     Convenience function for capturing session after browser fetch.
-    
+
     Args:
         context: Playwright browser context.
         url: The URL that was fetched.
         response_headers: Response headers from the fetch.
-        
+
     Returns:
         Session ID if successful.
     """
@@ -766,14 +765,14 @@ def get_transfer_headers(
     include_conditional: bool = True,
 ) -> TransferResult:
     """Get transfer headers for HTTP client request.
-    
+
     If session_id is not provided, attempts to find a session for the URL's domain.
-    
+
     Args:
         url: Target URL.
         session_id: Optional session ID to use.
         include_conditional: Include conditional request headers.
-        
+
     Returns:
         TransferResult with headers.
     """
@@ -805,12 +804,12 @@ def update_session(
     response_headers: dict[str, str],
 ) -> bool:
     """Update session from HTTP response.
-    
+
     Args:
         session_id: Session identifier.
         url: Response URL.
         response_headers: Response headers.
-        
+
     Returns:
         True if updated.
     """
@@ -820,17 +819,12 @@ def update_session(
 
 def invalidate_session(session_id: str) -> bool:
     """Invalidate a session.
-    
+
     Args:
         session_id: Session identifier.
-        
+
     Returns:
         True if removed.
     """
     manager = get_session_transfer_manager()
     return manager.invalidate_session(session_id)
-
-
-
-
-

@@ -46,6 +46,7 @@ WAYBACK_BUDGET_RATIO = 0.15
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class Snapshot:
     """A Wayback Machine snapshot."""
@@ -65,13 +66,13 @@ class Snapshot:
     @classmethod
     def from_cdx_line(cls, line: str, original_url: str) -> "Snapshot | None":
         """Parse snapshot from CDX response line.
-        
+
         CDX format: urlkey timestamp original mimetype statuscode digest length
-        
+
         Args:
             line: CDX response line.
             original_url: Original URL for reference.
-            
+
         Returns:
             Snapshot or None if parsing fails.
         """
@@ -116,17 +117,17 @@ class ContentDiff:
 
     def is_significant(self, threshold: float = 0.8) -> bool:
         """Check if diff is significant enough to note.
-        
+
         Args:
             threshold: Similarity threshold below which diff is significant.
-            
+
         Returns:
             True if significant changes detected.
         """
         return (
-            self.similarity_ratio < threshold or
-            len(self.heading_changes) > 0 or
-            abs(self.word_count_change) > 100
+            self.similarity_ratio < threshold
+            or len(self.heading_changes) > 0
+            or abs(self.word_count_change) > 100
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -187,9 +188,10 @@ class WaybackResult:
 # Wayback Client
 # =============================================================================
 
+
 class WaybackClient:
     """Client for Wayback Machine interaction.
-    
+
     Uses HTML scraping only (no API per §3.1.6).
     """
 
@@ -205,13 +207,13 @@ class WaybackClient:
         to_date: datetime | None = None,
     ) -> list[Snapshot]:
         """Get available snapshots for URL.
-        
+
         Args:
             url: Original URL.
             limit: Maximum snapshots to return.
             from_date: Start date filter.
             to_date: End date filter.
-            
+
         Returns:
             List of Snapshot objects, newest first.
         """
@@ -277,10 +279,10 @@ class WaybackClient:
 
     async def fetch_snapshot(self, snapshot: Snapshot) -> str | None:
         """Fetch content from a snapshot.
-        
+
         Args:
             snapshot: Snapshot to fetch.
-            
+
         Returns:
             HTML content or None.
         """
@@ -314,24 +316,24 @@ class WaybackClient:
 
     def _remove_wayback_toolbar(self, html: str) -> str:
         """Remove Wayback Machine toolbar from HTML.
-        
+
         Args:
             html: Raw HTML with toolbar.
-            
+
         Returns:
             Cleaned HTML.
         """
         # Remove Wayback toolbar comment/script blocks
         patterns = [
-            r'<!-- BEGIN WAYBACK TOOLBAR INSERT -->.*?<!-- END WAYBACK TOOLBAR INSERT -->',
-            r'<script[^>]*>.*?wm\.wombat\.js.*?</script>',
-            r'<script[^>]*>.*?archive_sparkline.*?</script>',
-            r'<script[^>]*>.*?wb-ext-header\.js.*?</script>',
+            r"<!-- BEGIN WAYBACK TOOLBAR INSERT -->.*?<!-- END WAYBACK TOOLBAR INSERT -->",
+            r"<script[^>]*>.*?wm\.wombat\.js.*?</script>",
+            r"<script[^>]*>.*?archive_sparkline.*?</script>",
+            r"<script[^>]*>.*?wb-ext-header\.js.*?</script>",
         ]
 
         cleaned = html
         for pattern in patterns:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+            cleaned = re.sub(pattern, "", cleaned, flags=re.DOTALL | re.IGNORECASE)
 
         return cleaned
 
@@ -340,15 +342,16 @@ class WaybackClient:
 # Content Analyzer
 # =============================================================================
 
+
 class ContentAnalyzer:
     """Analyzes and compares archived content versions."""
 
     def extract_text(self, html: str) -> str:
         """Extract main text content from HTML.
-        
+
         Args:
             html: HTML content.
-            
+
         Returns:
             Extracted text.
         """
@@ -368,10 +371,10 @@ class ContentAnalyzer:
 
     def extract_headings(self, html: str) -> list[str]:
         """Extract headings from HTML.
-        
+
         Args:
             html: HTML content.
-            
+
         Returns:
             List of heading texts.
         """
@@ -387,10 +390,10 @@ class ContentAnalyzer:
 
     def extract_dates(self, html: str) -> list[str]:
         """Extract date references from HTML.
-        
+
         Args:
             html: HTML content.
-            
+
         Returns:
             List of date strings found.
         """
@@ -399,10 +402,10 @@ class ContentAnalyzer:
 
         # Common date patterns
         patterns = [
-            r'\d{4}[-/]\d{1,2}[-/]\d{1,2}',  # 2024-01-15 or 2024/01/15
-            r'\d{1,2}[-/]\d{1,2}[-/]\d{4}',  # 15-01-2024
-            r'\d{4}年\d{1,2}月\d{1,2}日',     # 2024年1月15日
-            r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}',
+            r"\d{4}[-/]\d{1,2}[-/]\d{1,2}",  # 2024-01-15 or 2024/01/15
+            r"\d{1,2}[-/]\d{1,2}[-/]\d{4}",  # 15-01-2024
+            r"\d{4}年\d{1,2}月\d{1,2}日",  # 2024年1月15日
+            r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}",
         ]
 
         dates = []
@@ -420,13 +423,13 @@ class ContentAnalyzer:
         new_snapshot: Snapshot,
     ) -> ContentDiff:
         """Compare two HTML versions.
-        
+
         Args:
             old_html: Older version HTML.
             new_html: Newer version HTML.
             old_snapshot: Older snapshot metadata.
             new_snapshot: Newer snapshot metadata.
-            
+
         Returns:
             ContentDiff with comparison results.
         """
@@ -472,11 +475,11 @@ class ContentAnalyzer:
 
     def summarize_content(self, html: str, max_length: int = 200) -> str:
         """Generate brief summary of content.
-        
+
         Args:
             html: HTML content.
             max_length: Maximum summary length.
-            
+
         Returns:
             Summary string.
         """
@@ -492,7 +495,7 @@ class ContentAnalyzer:
                 break
 
         if len(summary) > max_length:
-            summary = summary[:max_length - 3] + "..."
+            summary = summary[: max_length - 3] + "..."
 
         return summary
 
@@ -501,9 +504,10 @@ class ContentAnalyzer:
 # Wayback Explorer
 # =============================================================================
 
+
 class WaybackExplorer:
     """Explores Wayback Machine archives for URL history.
-    
+
     Implements §3.1.6 requirements:
     - Retrieve latest + 3 prior snapshots
     - Extract heading/key point/date diffs
@@ -525,18 +529,18 @@ class WaybackExplorer:
         task_id: str | None = None,
     ) -> WaybackResult:
         """Explore URL history via Wayback Machine.
-        
+
         Args:
             url: URL to explore.
             snapshot_count: Number of snapshots to fetch.
             task_id: Associated task ID.
-            
+
         Returns:
             WaybackResult with timeline and diffs.
         """
         result = WaybackResult(url=url)
 
-        with CausalTrace() as trace:
+        with CausalTrace():
             try:
                 # Get available snapshots
                 snapshots = await self._client.get_snapshots(
@@ -589,8 +593,10 @@ class WaybackExplorer:
                     if previous_content:
                         prev_snapshot, prev_html = previous_content
                         diff = self._analyzer.compare(
-                            prev_html, html,
-                            prev_snapshot, snapshot,
+                            prev_html,
+                            html,
+                            prev_snapshot,
+                            snapshot,
                         )
                         entry.diff_from_previous = diff
 
@@ -619,11 +625,11 @@ class WaybackExplorer:
         date: datetime,
     ) -> tuple[str | None, Snapshot | None]:
         """Get content from specific date.
-        
+
         Args:
             url: URL to fetch.
             date: Target date.
-            
+
         Returns:
             Tuple of (html_content, snapshot) or (None, None).
         """
@@ -651,13 +657,13 @@ class WaybackExplorer:
         current_html: str,
     ) -> bool:
         """Check if current content differs from archived version.
-        
+
         Useful for detecting modifications/updates.
-        
+
         Args:
             url: URL to check.
             current_html: Current HTML content.
-            
+
         Returns:
             True if significant changes detected.
         """
@@ -687,6 +693,7 @@ class WaybackExplorer:
 # Budget Manager
 # =============================================================================
 
+
 class WaybackBudgetManager:
     """Manages Wayback fetch budget per task/domain."""
 
@@ -696,11 +703,11 @@ class WaybackBudgetManager:
 
     def get_task_budget(self, task_id: str, total_pages: int) -> int:
         """Get Wayback budget for task.
-        
+
         Args:
             task_id: Task ID.
             total_pages: Total pages in task.
-            
+
         Returns:
             Remaining Wayback fetches allowed.
         """
@@ -712,11 +719,11 @@ class WaybackBudgetManager:
 
     def consume_budget(self, task_id: str, count: int = 1) -> bool:
         """Consume budget for Wayback fetches.
-        
+
         Args:
             task_id: Task ID.
             count: Number of fetches to consume.
-            
+
         Returns:
             True if budget available and consumed.
         """
@@ -731,7 +738,7 @@ class WaybackBudgetManager:
 
     def reset_task_budget(self, task_id: str) -> None:
         """Reset budget for task.
-        
+
         Args:
             task_id: Task ID to reset.
         """
@@ -767,18 +774,19 @@ def get_wayback_budget_manager() -> WaybackBudgetManager:
 # MCP Tool Integration
 # =============================================================================
 
+
 async def explore_wayback(
     url: str,
     snapshot_count: int = 4,
     task_id: str | None = None,
 ) -> dict[str, Any]:
     """Explore URL history via Wayback Machine (for MCP tool use).
-    
+
     Args:
         url: URL to explore.
         snapshot_count: Number of snapshots.
         task_id: Associated task ID.
-        
+
     Returns:
         Exploration result dictionary.
     """
@@ -794,14 +802,13 @@ async def explore_wayback(
                 "summary": entry.summary,
                 "word_count": entry.word_count,
                 "is_current": entry.is_current,
-                "has_significant_change": entry.diff_from_previous.is_significant() if entry.diff_from_previous else False,
+                "has_significant_change": entry.diff_from_previous.is_significant()
+                if entry.diff_from_previous
+                else False,
             }
             for entry in result.timeline
         ],
-        "diffs": [
-            diff.to_dict()
-            for diff in result.significant_changes
-        ],
+        "diffs": [diff.to_dict() for diff in result.significant_changes],
     }
 
 
@@ -810,11 +817,11 @@ async def get_archived_content(
     date: str,
 ) -> dict[str, Any]:
     """Get archived content from specific date (for MCP tool use).
-    
+
     Args:
         url: URL to fetch.
         date: Target date (ISO format).
-        
+
     Returns:
         Archived content result.
     """
@@ -848,11 +855,11 @@ async def check_content_modified(
     current_html: str,
 ) -> dict[str, Any]:
     """Check if URL content has been modified from archive (for MCP tool use).
-    
+
     Args:
         url: URL to check.
         current_html: Current HTML content.
-        
+
     Returns:
         Modification check result.
     """
@@ -870,10 +877,11 @@ async def check_content_modified(
 # Wayback Fallback (§16.12)
 # =============================================================================
 
+
 @dataclass
 class FallbackResult:
     """Result of Wayback fallback attempt.
-    
+
     Per §16.12: Contains archived content and freshness metadata.
     """
 
@@ -901,19 +909,19 @@ class FallbackResult:
 
 def calculate_freshness_penalty(snapshot_date: datetime) -> float:
     """Calculate freshness penalty based on snapshot age.
-    
+
     Per §16.12: Older content gets higher penalty to reflect staleness.
-    
+
     Penalty scale:
     - < 7 days: 0.0 (no penalty)
     - 7-30 days: 0.0-0.2 (minor penalty)
     - 1-6 months: 0.2-0.5 (moderate penalty)
     - 6-12 months: 0.5-0.7 (significant penalty)
     - > 12 months: 0.7-1.0 (major penalty)
-    
+
     Args:
         snapshot_date: Date of the snapshot.
-        
+
     Returns:
         Freshness penalty (0.0-1.0).
     """
@@ -946,17 +954,17 @@ def apply_freshness_penalty(
     weight: float = 0.5,
 ) -> float:
     """Apply freshness penalty to a confidence score.
-    
+
     Per §16.12.2: Reduces confidence for stale archived content.
-    
+
     Formula: adjusted = confidence * (1 - weight * penalty)
-    
+
     Args:
         confidence: Original confidence score (0.0-1.0).
         freshness_penalty: Freshness penalty (0.0-1.0).
         weight: How much the penalty affects confidence (0.0-1.0).
             Default 0.5 means max 50% reduction for very old content.
-            
+
     Returns:
         Adjusted confidence score (0.0-1.0).
     """
@@ -974,7 +982,7 @@ def apply_freshness_penalty(
 @dataclass
 class ArchiveDiffResult:
     """Result of comparing archived content with current version.
-    
+
     Per §16.12.2: Contains detailed diff information for timeline integration.
     """
 
@@ -998,7 +1006,9 @@ class ArchiveDiffResult:
     adjusted_confidence: float = 1.0
 
     # Timeline event info
-    timeline_event_type: str = "content_unchanged"  # content_unchanged/content_modified/content_major_change
+    timeline_event_type: str = (
+        "content_unchanged"  # content_unchanged/content_modified/content_major_change
+    )
     timeline_notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -1020,14 +1030,16 @@ class ArchiveDiffResult:
 
     def generate_timeline_notes(self) -> str:
         """Generate human-readable timeline notes.
-        
+
         Returns:
             Notes string for timeline event.
         """
         parts = []
 
         if self.freshness_penalty > 0.5:
-            parts.append(f"Archive is significantly outdated (penalty: {self.freshness_penalty:.2f})")
+            parts.append(
+                f"Archive is significantly outdated (penalty: {self.freshness_penalty:.2f})"
+            )
         elif self.freshness_penalty > 0.2:
             parts.append(f"Archive is moderately outdated (penalty: {self.freshness_penalty:.2f})")
 
@@ -1052,7 +1064,7 @@ class ArchiveDiffResult:
 
 class WaybackFallback:
     """Provides Wayback Machine fallback for blocked URLs.
-    
+
     Per §16.12: Automatically retrieves archived content when direct
     access fails due to 403/CAPTCHA/blocking.
     """
@@ -1069,13 +1081,13 @@ class WaybackFallback:
         max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     ) -> FallbackResult:
         """Get content from Wayback Machine as fallback.
-        
+
         Tries the most recent snapshots first, up to max_attempts.
-        
+
         Args:
             url: Original URL that was blocked.
             max_attempts: Maximum number of snapshots to try.
-            
+
         Returns:
             FallbackResult with content if successful.
         """
@@ -1105,9 +1117,7 @@ class WaybackFallback:
                         result.ok = True
                         result.html = html
                         result.snapshot = snapshot
-                        result.freshness_penalty = calculate_freshness_penalty(
-                            snapshot.timestamp
-                        )
+                        result.freshness_penalty = calculate_freshness_penalty(snapshot.timestamp)
 
                         logger.info(
                             "Wayback fallback successful",
@@ -1140,10 +1150,10 @@ class WaybackFallback:
 
     def _is_error_page(self, html: str) -> bool:
         """Check if HTML is a Wayback error page.
-        
+
         Args:
             html: HTML content.
-            
+
         Returns:
             True if this appears to be an error page.
         """
@@ -1166,11 +1176,11 @@ class WaybackFallback:
         prefer_recent: bool = True,
     ) -> tuple[str | None, Snapshot | None, float]:
         """Get the best available archived content for a URL.
-        
+
         Args:
             url: Original URL.
             prefer_recent: Prefer more recent snapshots.
-            
+
         Returns:
             Tuple of (html, snapshot, freshness_penalty) or (None, None, 0.0).
         """
@@ -1188,15 +1198,15 @@ class WaybackFallback:
         base_confidence: float = 1.0,
     ) -> ArchiveDiffResult:
         """Compare current HTML with archived version.
-        
+
         Per §16.12.2: Detects heading/key point changes and generates
         timeline information for significant differences.
-        
+
         Args:
             url: URL being compared.
             current_html: Current HTML content.
             base_confidence: Base confidence score to adjust.
-            
+
         Returns:
             ArchiveDiffResult with comparison details.
         """
@@ -1284,10 +1294,10 @@ class WaybackFallback:
 
     def _generate_key_changes(self, diff: ContentDiff) -> list[str]:
         """Generate human-readable key change descriptions.
-        
+
         Args:
             diff: ContentDiff from comparison.
-            
+
         Returns:
             List of key change descriptions.
         """
@@ -1320,7 +1330,10 @@ class WaybackFallback:
         if diff.added_lines and len(changes) < 5:
             # Look for important-looking additions
             for line in diff.added_lines[:10]:
-                if any(kw in line.lower() for kw in ["important", "update", "new", "changed", "revised"]):
+                if any(
+                    kw in line.lower()
+                    for kw in ["important", "update", "new", "changed", "revised"]
+                ):
                     changes.append(f"Notable addition: {line[:100]}...")
                     break
 
@@ -1344,22 +1357,14 @@ async def get_fallback_for_blocked_url(
     max_attempts: int = 3,
 ) -> dict[str, Any]:
     """Get Wayback fallback content for a blocked URL (for integration).
-    
+
     Args:
         url: URL that was blocked.
         max_attempts: Maximum snapshots to try.
-        
+
     Returns:
         Fallback result dictionary.
     """
     fallback = get_wayback_fallback()
     result = await fallback.get_fallback_content(url, max_attempts)
     return result.to_dict()
-
-
-
-
-
-
-
-

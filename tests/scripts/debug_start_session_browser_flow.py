@@ -60,6 +60,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -79,7 +80,7 @@ async def main():
                 task_id=test_task_id,
                 priority_filter="high",
             ),
-            timeout=45.0  # 45秒タイムアウト（Chrome自動起動を含む）
+            timeout=45.0,  # 45秒タイムアウト（Chrome自動起動を含む）
         )
 
         # 型チェック
@@ -94,7 +95,9 @@ async def main():
         assert isinstance(result["count"], int), "count should be int"
         assert isinstance(result["items"], list), "items should be list"
 
-        print(f"  ✓ start_session returned: ok={result['ok']}, session_started={result['session_started']}, count={result['count']}")
+        print(
+            f"  ✓ start_session returned: ok={result['ok']}, session_started={result['session_started']}, count={result['count']}"
+        )
 
         if result["items"]:
             item = result["items"][0]
@@ -125,6 +128,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -152,4 +156,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

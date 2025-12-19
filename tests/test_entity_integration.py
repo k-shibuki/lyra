@@ -49,6 +49,7 @@ from src.storage.entity_kb import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_entity_kb():
     """Create mock EntityKB for testing."""
@@ -152,6 +153,7 @@ def sample_cert_result():
 # EntityExtractor Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 class TestEntityExtractor:
     """Tests for EntityExtractor class."""
@@ -176,7 +178,8 @@ class TestEntityExtractor:
 
         # Check domain entity was created with correct type
         domain_calls = [
-            call for call in mock_entity_kb.add_entity.call_args_list
+            call
+            for call in mock_entity_kb.add_entity.call_args_list
             if call.kwargs.get("entity_type") == EntityType.DOMAIN
         ]
         assert len(domain_calls) >= 1
@@ -198,7 +201,8 @@ class TestEntityExtractor:
 
         # Check organization entity was created
         org_calls = [
-            call for call in mock_entity_kb.add_entity.call_args_list
+            call
+            for call in mock_entity_kb.add_entity.call_args_list
             if call.kwargs.get("entity_type") == EntityType.ORGANIZATION
         ]
         assert len(org_calls) >= 1
@@ -326,6 +330,7 @@ class TestEntityExtractor:
 # =============================================================================
 # RegistryEntityIntegration Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 class TestRegistryEntityIntegration:
@@ -475,6 +480,7 @@ class TestRegistryEntityIntegration:
 # EntityExtractionResult Tests
 # =============================================================================
 
+
 class TestEntityExtractionResult:
     """Tests for EntityExtractionResult data class."""
 
@@ -522,6 +528,7 @@ class TestEntityExtractionResult:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 @pytest.mark.asyncio
 class TestEdgeCases:
@@ -584,4 +591,3 @@ class TestEdgeCases:
         # Assert
         # Should be limited (main domain + up to 20 discovered)
         assert len(result.domains) <= 21
-

@@ -29,6 +29,7 @@ logger = get_logger(__name__)
 
 class VariantType(str, Enum):
     """Type of query variant."""
+
     ORIGINAL = "original"
     NOTATION = "notation"  # Notation variation (e.g., kanji vs hiragana)
     PARTICLE = "particle"  # Particle substitution
@@ -39,6 +40,7 @@ class VariantType(str, Enum):
 @dataclass
 class QueryVariant:
     """A single query variant."""
+
     query_text: str
     variant_type: VariantType
     transformation: str = ""  # Description of transformation applied
@@ -55,6 +57,7 @@ class QueryVariant:
 @dataclass
 class ABTestResult:
     """Result of an A/B test for a single variant."""
+
     variant: QueryVariant
     query_id: str | None = None
     result_count: int = 0
@@ -66,6 +69,7 @@ class ABTestResult:
 @dataclass
 class ABTestSession:
     """A complete A/B test session."""
+
     id: str
     task_id: str
     base_query: str
@@ -79,6 +83,7 @@ class ABTestSession:
 @dataclass
 class HighYieldPattern:
     """A cached high-yield query pattern."""
+
     id: str
     pattern_type: str
     original_pattern: str
@@ -160,7 +165,9 @@ class QueryVariantGenerator:
             from sudachipy import dictionary, tokenizer
 
             self._tokenizer = dictionary.Dictionary().create()
-            self._tokenize_mode = tokenizer.Tokenizer.SplitMode.B  # Use B mode for better segmentation
+            self._tokenize_mode = (
+                tokenizer.Tokenizer.SplitMode.B
+            )  # Use B mode for better segmentation
 
             logger.debug("SudachiPy initialized for query variant generation")
             return True
@@ -172,17 +179,19 @@ class QueryVariantGenerator:
         """Tokenize text into morphemes."""
         if not self._ensure_initialized() or not self._tokenizer:
             # Fallback: simple space/punctuation-based tokenization
-            words = re.findall(r'[\w]+', text, re.UNICODE)
+            words = re.findall(r"[\w]+", text, re.UNICODE)
             return [{"surface": w, "pos": "unknown"} for w in words]
 
         tokens = []
         for m in self._tokenizer.tokenize(text, self._tokenize_mode):
-            tokens.append({
-                "surface": m.surface(),
-                "normalized": m.normalized_form(),
-                "pos": m.part_of_speech()[0] if m.part_of_speech() else "unknown",
-                "reading": m.reading_form(),
-            })
+            tokens.append(
+                {
+                    "surface": m.surface(),
+                    "normalized": m.normalized_form(),
+                    "pos": m.part_of_speech()[0] if m.part_of_speech() else "unknown",
+                    "reading": m.reading_form(),
+                }
+            )
         return tokens
 
     def generate_notation_variants(self, query: str, max_variants: int = 2) -> list[QueryVariant]:
@@ -204,11 +213,13 @@ class QueryVariantGenerator:
                 for replacement in replacements[:1]:  # Limit to first replacement
                     variant_text = query.replace(original, replacement, 1)
                     if variant_text != query:
-                        variants.append(QueryVariant(
-                            query_text=variant_text,
-                            variant_type=VariantType.NOTATION,
-                            transformation=f"{original}→{replacement}",
-                        ))
+                        variants.append(
+                            QueryVariant(
+                                query_text=variant_text,
+                                variant_type=VariantType.NOTATION,
+                                transformation=f"{original}→{replacement}",
+                            )
+                        )
 
                         if len(variants) >= max_variants:
                             return variants
@@ -232,11 +243,13 @@ class QueryVariantGenerator:
             if re.search(pattern, query):
                 variant_text = re.sub(pattern, replacement, query, count=1)
                 if variant_text != query:
-                    variants.append(QueryVariant(
-                        query_text=variant_text,
-                        variant_type=VariantType.PARTICLE,
-                        transformation=f"pattern:{pattern[:20]}",
-                    ))
+                    variants.append(
+                        QueryVariant(
+                            query_text=variant_text,
+                            variant_type=VariantType.PARTICLE,
+                            transformation=f"pattern:{pattern[:20]}",
+                        )
+                    )
 
                     if len(variants) >= max_variants:
                         return variants
@@ -261,7 +274,8 @@ class QueryVariantGenerator:
 
         # Extract content words (nouns, verbs)
         content_words = [
-            t["surface"] for t in tokens
+            t["surface"]
+            for t in tokens
             if t["pos"] in ["名詞", "動詞", "形容詞", "unknown"] and len(t["surface"]) > 1
         ]
 
@@ -273,7 +287,7 @@ class QueryVariantGenerator:
 
             # Reconstruct query with swapped order
             variant_text = query
-            for orig, new in zip(content_words[:2], words_copy[:2]):
+            for orig, new in zip(content_words[:2], words_copy[:2], strict=False):
                 if orig != new:
                     variant_text = variant_text.replace(orig, f"__TEMP_{new}__", 1)
 
@@ -288,11 +302,13 @@ class QueryVariantGenerator:
                     variant_text = " ".join(swapped)
 
                     if variant_text != query:
-                        variants.append(QueryVariant(
-                            query_text=variant_text,
-                            variant_type=VariantType.ORDER,
-                            transformation=f"swap:{parts[0]}↔{parts[-1]}",
-                        ))
+                        variants.append(
+                            QueryVariant(
+                                query_text=variant_text,
+                                variant_type=VariantType.ORDER,
+                                transformation=f"swap:{parts[0]}↔{parts[-1]}",
+                            )
+                        )
 
         # Also try moving the last word to the front
         words = query.split()
@@ -300,11 +316,13 @@ class QueryVariantGenerator:
             reordered = [words[-1]] + words[:-1]
             variant_text = " ".join(reordered)
             if variant_text != query:
-                variants.append(QueryVariant(
-                    query_text=variant_text,
-                    variant_type=VariantType.ORDER,
-                    transformation="rotate-last-to-front",
-                ))
+                variants.append(
+                    QueryVariant(
+                        query_text=variant_text,
+                        variant_type=VariantType.ORDER,
+                        transformation="rotate-last-to-front",
+                    )
+                )
 
         return variants[:max_variants]
 
@@ -466,10 +484,12 @@ class ABTestExecutor:
                         variant=variant.query_text[:50],
                         error=str(e),
                     )
-                    results.append(ABTestResult(
-                        variant=variant,
-                        harvest_rate=0.0,
-                    ))
+                    results.append(
+                        ABTestResult(
+                            variant=variant,
+                            harvest_rate=0.0,
+                        )
+                    )
 
             # Find winner (highest harvest rate)
             if results:
@@ -510,8 +530,8 @@ class ABTestExecutor:
         # Save main session
         await db.execute(
             """
-            INSERT OR REPLACE INTO query_ab_tests 
-            (id, task_id, base_query, created_at, winner_variant_type, 
+            INSERT OR REPLACE INTO query_ab_tests
+            (id, task_id, base_query, created_at, winner_variant_type,
              winner_harvest_rate, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
@@ -555,14 +575,15 @@ class ABTestExecutor:
 
         # Find original result
         original_result = next(
-            (r for r in session.results if r.variant.variant_type == VariantType.ORIGINAL),
-            None
+            (r for r in session.results if r.variant.variant_type == VariantType.ORIGINAL), None
         )
 
         if not original_result or original_result.harvest_rate <= 0:
             return
 
-        improvement = (session.winner.harvest_rate - original_result.harvest_rate) / original_result.harvest_rate
+        improvement = (
+            session.winner.harvest_rate - original_result.harvest_rate
+        ) / original_result.harvest_rate
 
         # Only cache if significant improvement (>10%)
         if improvement < 0.1:
@@ -583,14 +604,12 @@ class ABTestExecutor:
         if existing:
             # Update with exponential moving average
             new_count = existing["sample_count"] + 1
-            new_improvement = (
-                existing["improvement_ratio"] * 0.7 + improvement * 0.3
-            )
+            new_improvement = existing["improvement_ratio"] * 0.7 + improvement * 0.3
             confidence = min(0.95, 0.5 + 0.1 * new_count)
 
             await db.execute(
                 """
-                UPDATE high_yield_queries 
+                UPDATE high_yield_queries
                 SET sample_count = ?, improvement_ratio = ?, confidence = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -601,7 +620,7 @@ class ABTestExecutor:
             await db.execute(
                 """
                 INSERT INTO high_yield_queries
-                (id, pattern_type, original_pattern, improved_pattern, 
+                (id, pattern_type, original_pattern, improved_pattern,
                  improvement_ratio, sample_count, confidence)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -655,7 +674,7 @@ class HighYieldQueryCache:
         # Look for similar patterns
         patterns = await db.fetch_all(
             """
-            SELECT pattern_type, original_pattern, improved_pattern, 
+            SELECT pattern_type, original_pattern, improved_pattern,
                    improvement_ratio, confidence
             FROM high_yield_queries
             WHERE confidence >= ?
@@ -701,7 +720,7 @@ class HighYieldQueryCache:
     def _apply_pattern(self, query: str, original: str, improved: str) -> str | None:
         """Apply a cached pattern to a new query."""
         # Find the transformation applied
-        for orig_word, imp_word in zip(original.split(), improved.split()):
+        for orig_word, imp_word in zip(original.split(), improved.split(), strict=False):
             if orig_word != imp_word and orig_word in query:
                 return query.replace(orig_word, imp_word, 1)
 
@@ -713,7 +732,7 @@ class HighYieldQueryCache:
 
         stats = await db.fetch_one(
             """
-            SELECT 
+            SELECT
                 COUNT(*) as total_patterns,
                 AVG(improvement_ratio) as avg_improvement,
                 AVG(confidence) as avg_confidence,
@@ -825,4 +844,3 @@ def generate_query_variants(query: str, max_variants: int = 5) -> list[QueryVari
     """
     generator = get_variant_generator()
     return generator.generate_all_variants(query, max_total=max_variants)
-

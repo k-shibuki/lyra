@@ -299,7 +299,7 @@ class TestCanonicalPaperIndex:
         identifier = PaperIdentifier(doi="10.1234/example")
 
         # When: Registering SERP result
-        canonical_id = index.register_serp_result(serp_result, identifier)
+        index.register_serp_result(serp_result, identifier)
 
         # Then: SERP linked to existing paper
         entries = index.get_all_entries()
@@ -473,4 +473,3 @@ class TestCanonicalPaperIndex:
         assert len(entries) == 1
         # Higher priority (semantic_scholar=1) kept over openalex=2
         assert entries[0].paper.source_api == "semantic_scholar"
-

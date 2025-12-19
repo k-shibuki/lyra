@@ -25,11 +25,12 @@ logger = get_logger(__name__)
 
 class DecisionType(str, Enum):
     """Types of decisions that can be replayed."""
+
     QUERY_GENERATED = "query_generated"
     ENGINE_SELECTED = "engine_selected"
     URL_PRIORITIZED = "url_prioritized"
     FETCH_METHOD_CHOSEN = "fetch_method_chosen"
-    ROUTE_CHOSEN = "route_chosen"       # direct/tor/browser
+    ROUTE_CHOSEN = "route_chosen"  # direct/tor/browser
     FRAGMENT_EVALUATED = "fragment_evaluated"
     CLAIM_EXTRACTED = "claim_extracted"
     LLM_MODEL_SELECTED = "llm_model_selected"
@@ -40,6 +41,7 @@ class DecisionType(str, Enum):
 @dataclass
 class Decision:
     """A single decision made during task execution."""
+
     decision_id: str
     timestamp: datetime
     decision_type: DecisionType
@@ -83,6 +85,7 @@ class Decision:
 @dataclass
 class ReplaySession:
     """A replay session tracking decisions and outcomes."""
+
     session_id: str
     original_task_id: str
     replay_task_id: str | None = None
@@ -170,6 +173,7 @@ class DecisionLogger:
         """Persist decisions to database."""
         # Lazy import to avoid circular dependency
         from src.storage.database import get_database
+
         db = await get_database()
 
         async with self._lock:
@@ -261,6 +265,7 @@ class ReplayEngine:
         """
         # Lazy import to avoid circular dependency
         from src.storage.database import get_database
+
         db = await get_database()
 
         rows = await db.fetch_all(
@@ -338,20 +343,24 @@ class ReplayEngine:
         # Compare output data
         if original.output_data != replayed.output_data:
             diverged = True
-            differences.append({
-                "field": "output_data",
-                "original": original.output_data,
-                "replayed": replayed.output_data,
-            })
+            differences.append(
+                {
+                    "field": "output_data",
+                    "original": original.output_data,
+                    "replayed": replayed.output_data,
+                }
+            )
 
         # Compare decision type
         if original.decision_type != replayed.decision_type:
             diverged = True
-            differences.append({
-                "field": "decision_type",
-                "original": original.decision_type.value,
-                "replayed": replayed.decision_type.value,
-            })
+            differences.append(
+                {
+                    "field": "decision_type",
+                    "original": original.decision_type.value,
+                    "replayed": replayed.decision_type.value,
+                }
+            )
 
         return {
             "diverged": diverged,
@@ -391,7 +400,8 @@ class ReplayEngine:
                 "decisions_diverged": session.decisions_diverged,
                 "divergence_rate": (
                     session.decisions_diverged / session.decisions_replayed
-                    if session.decisions_replayed > 0 else 0
+                    if session.decisions_replayed > 0
+                    else 0
                 ),
             },
             "divergence_points": session.divergence_points,
@@ -422,15 +432,12 @@ class ReplayEngine:
         """
         # Lazy import to avoid circular dependency
         from src.storage.database import get_database
+
         db = await get_database()
 
         # Get task info
-        task_a = await db.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id_a,)
-        )
-        task_b = await db.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id_b,)
-        )
+        task_a = await db.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id_a,))
+        task_b = await db.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id_b,))
 
         if not task_a or not task_b:
             raise ValueError("One or both tasks not found")
@@ -446,7 +453,7 @@ class ReplayEngine:
         # Get page counts
         pages_a = await db.fetch_one(
             """
-            SELECT COUNT(DISTINCT p.id) as count 
+            SELECT COUNT(DISTINCT p.id) as count
             FROM pages p
             JOIN serp_items s ON s.url = p.url
             JOIN queries q ON q.id = s.query_id
@@ -456,7 +463,7 @@ class ReplayEngine:
         )
         pages_b = await db.fetch_one(
             """
-            SELECT COUNT(DISTINCT p.id) as count 
+            SELECT COUNT(DISTINCT p.id) as count
             FROM pages p
             JOIN serp_items s ON s.url = p.url
             JOIN queries q ON q.id = s.query_id
@@ -491,9 +498,12 @@ class ReplayEngine:
                 "claims": claims_b.get("count", 0) if claims_b else 0,
             },
             "differences": {
-                "queries": (queries_b.get("count", 0) if queries_b else 0) - (queries_a.get("count", 0) if queries_a else 0),
-                "pages": (pages_b.get("count", 0) if pages_b else 0) - (pages_a.get("count", 0) if pages_a else 0),
-                "claims": (claims_b.get("count", 0) if claims_b else 0) - (claims_a.get("count", 0) if claims_a else 0),
+                "queries": (queries_b.get("count", 0) if queries_b else 0)
+                - (queries_a.get("count", 0) if queries_a else 0),
+                "pages": (pages_b.get("count", 0) if pages_b else 0)
+                - (pages_a.get("count", 0) if pages_a else 0),
+                "claims": (claims_b.get("count", 0) if claims_b else 0)
+                - (claims_a.get("count", 0) if claims_a else 0),
             },
         }
 
@@ -542,4 +552,3 @@ async def cleanup_decision_logger(task_id: str, save: bool = True) -> None:
             await logger_instance.save_to_db()
             await logger_instance.save_to_file()
         del _loggers[task_id]
-

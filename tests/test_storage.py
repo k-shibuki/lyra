@@ -32,16 +32,25 @@ class TestDatabase:
     @pytest.mark.asyncio
     async def test_initialize_schema_creates_tables(self, test_database):
         """Test that initialize_schema creates all required tables."""
-        tables = await test_database.fetch_all(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        tables = await test_database.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")
         table_names = {t["name"] for t in tables}
 
         expected_tables = {
-            "tasks", "queries", "serp_items", "pages", "fragments",
-            "claims", "edges", "domains", "engine_health", "jobs",
-            "cache_serp", "cache_fetch", "cache_embed",
-            "event_log", "intervention_log",
+            "tasks",
+            "queries",
+            "serp_items",
+            "pages",
+            "fragments",
+            "claims",
+            "edges",
+            "domains",
+            "engine_health",
+            "jobs",
+            "cache_serp",
+            "cache_fetch",
+            "cache_embed",
+            "event_log",
+            "intervention_log",
         }
 
         for table in expected_tables:
@@ -50,16 +59,17 @@ class TestDatabase:
     @pytest.mark.asyncio
     async def test_insert_and_fetch_one(self, test_database):
         """Test insert and fetch_one operations."""
-        task_id = await test_database.insert("tasks", {
-            "query": "test query",
-            "status": "pending",
-        })
+        task_id = await test_database.insert(
+            "tasks",
+            {
+                "query": "test query",
+                "status": "pending",
+            },
+        )
 
         assert task_id is not None
 
-        result = await test_database.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id,)
-        )
+        result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
 
         assert result is not None
         assert result["query"] == "test query"
@@ -107,10 +117,13 @@ class TestDatabase:
     async def test_fetch_all(self, test_database):
         """Test fetch_all returns multiple rows."""
         for i in range(3):
-            await test_database.insert("tasks", {
-                "query": f"query {i}",
-                "status": "pending",
-            })
+            await test_database.insert(
+                "tasks",
+                {
+                    "query": f"query {i}",
+                    "status": "pending",
+                },
+            )
 
         results = await test_database.fetch_all(
             "SELECT * FROM tasks WHERE status = ?", ("pending",)
@@ -121,10 +134,13 @@ class TestDatabase:
     @pytest.mark.asyncio
     async def test_update(self, test_database):
         """Test update operation."""
-        task_id = await test_database.insert("tasks", {
-            "query": "original query",
-            "status": "pending",
-        })
+        task_id = await test_database.insert(
+            "tasks",
+            {
+                "query": "original query",
+                "status": "pending",
+            },
+        )
 
         rows_affected = await test_database.update(
             "tasks",
@@ -135,9 +151,7 @@ class TestDatabase:
 
         assert rows_affected == 1
 
-        result = await test_database.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id,)
-        )
+        result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
         assert result["status"] == "running"
 
     @pytest.mark.asyncio
@@ -169,9 +183,7 @@ class TestTaskOperations:
 
         assert task_id is not None
 
-        result = await test_database.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id,)
-        )
+        result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
 
         assert result["query"] == "What is AI?"
         assert result["status"] == "pending"
@@ -184,9 +196,7 @@ class TestTaskOperations:
 
         await test_database.update_task_status(task_id, "running")
 
-        result = await test_database.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id,)
-        )
+        result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
 
         assert result["status"] == "running"
         assert result["started_at"] is not None
@@ -198,9 +208,7 @@ class TestTaskOperations:
 
         await test_database.update_task_status(task_id, "completed")
 
-        result = await test_database.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id,)
-        )
+        result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
 
         assert result["status"] == "completed"
         assert result["completed_at"] is not None
@@ -214,9 +222,7 @@ class TestTaskOperations:
             task_id, "failed", error_message="Connection timeout"
         )
 
-        result = await test_database.fetch_one(
-            "SELECT * FROM tasks WHERE id = ?", (task_id,)
-        )
+        result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
 
         assert result["status"] == "failed"
         assert result["error_message"] == "Connection timeout"
@@ -314,9 +320,7 @@ class TestDomainMetrics:
             auto_id=False,
         )
 
-        await test_database.update_domain_metrics(
-            "test.com", success=False, is_captcha=True
-        )
+        await test_database.update_domain_metrics("test.com", success=False, is_captcha=True)
 
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
@@ -486,4 +490,3 @@ class TestEngineHealth:
         assert "active1" in engine_names
         assert "active2" in engine_names
         assert "inactive" not in engine_names
-

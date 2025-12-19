@@ -181,11 +181,11 @@ class TestViewportJitter:
         jitter = ViewportJitter(config)
 
         # With force_update, should always update (though values may match by chance)
-        viewport1 = jitter.get_viewport(force_update=True)
+        jitter.get_viewport(force_update=True)
 
         # Force another update
         # Note: Due to randomness, values might match, but state should update
-        viewport2 = jitter.get_viewport(force_update=True)
+        jitter.get_viewport(force_update=True)
 
         # State's last_change_time should be updated
         assert jitter._state.last_change_time > 0
@@ -327,8 +327,3 @@ class TestViewportState:
         assert state.current_width == 1280
         assert state.current_height == 720
         assert state.last_change_time == 12345.0
-
-
-
-
-

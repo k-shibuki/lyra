@@ -70,9 +70,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.ORG_SUBSIDIARY in pivot_types
 
-        subsidiary_pivot = next(
-            s for s in suggestions if s.pivot_type == PivotType.ORG_SUBSIDIARY
-        )
+        subsidiary_pivot = next(s for s in suggestions if s.pivot_type == PivotType.ORG_SUBSIDIARY)
         assert "子会社" in " ".join(subsidiary_pivot.query_examples)
 
     def test_expand_organization_includes_officer_pivot(self, expander):
@@ -85,9 +83,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.ORG_OFFICER in pivot_types
 
-        officer_pivot = next(
-            s for s in suggestions if s.pivot_type == PivotType.ORG_OFFICER
-        )
+        officer_pivot = next(s for s in suggestions if s.pivot_type == PivotType.ORG_OFFICER)
         assert officer_pivot.target_entity_type == EntityType.PERSON
 
     def test_expand_organization_includes_location_pivot(self, expander):
@@ -134,11 +130,11 @@ class TestPivotExpander:
         )
 
         # Organization should generate at least 2 pivot suggestions
-        assert len(suggestions) >= 2, f"Expected >=2 suggestions for 'Google Inc', got {len(suggestions)}"
-        # Should include English query variants
-        subsidiary_pivot = next(
-            s for s in suggestions if s.pivot_type == PivotType.ORG_SUBSIDIARY
+        assert len(suggestions) >= 2, (
+            f"Expected >=2 suggestions for 'Google Inc', got {len(suggestions)}"
         )
+        # Should include English query variants
+        subsidiary_pivot = next(s for s in suggestions if s.pivot_type == PivotType.ORG_SUBSIDIARY)
         assert "subsidiary" in " ".join(subsidiary_pivot.query_examples).lower()
 
     # ==========================================================================
@@ -166,9 +162,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.DOMAIN_CERTIFICATE in pivot_types
 
-        cert_pivot = next(
-            s for s in suggestions if s.pivot_type == PivotType.DOMAIN_CERTIFICATE
-        )
+        cert_pivot = next(s for s in suggestions if s.pivot_type == PivotType.DOMAIN_CERTIFICATE)
         assert "crt.sh" in " ".join(cert_pivot.query_examples)
 
     def test_expand_domain_includes_whois_pivot(self, expander):
@@ -191,9 +185,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.DOMAIN_ORGANIZATION in pivot_types
 
-        org_pivot = next(
-            s for s in suggestions if s.pivot_type == PivotType.DOMAIN_ORGANIZATION
-        )
+        org_pivot = next(s for s in suggestions if s.pivot_type == PivotType.DOMAIN_ORGANIZATION)
         assert org_pivot.target_entity_type == EntityType.ORGANIZATION
 
     def test_expand_domain_normalizes_url(self, expander):
@@ -393,7 +385,9 @@ class TestPivotExpander:
         )
 
         # Should still work with string type, generating suggestions
-        assert len(suggestions) >= 1, f"Expected >=1 suggestions with string type, got {len(suggestions)}"
+        assert len(suggestions) >= 1, (
+            f"Expected >=1 suggestions with string type, got {len(suggestions)}"
+        )
 
     def test_handle_unknown_string_entity_type(self, expander):
         """Should handle unknown string entity types gracefully."""
@@ -435,8 +429,7 @@ class TestPivotExpander:
                 if operator:
                     # Should either be a valid operator or a search term
                     is_valid = (
-                        any(operator.startswith(p) for p in valid_prefixes)
-                        or ":" not in operator
+                        any(operator.startswith(p) for p in valid_prefixes) or ":" not in operator
                     )
                     assert is_valid, f"Invalid operator: {operator}"
 
@@ -457,7 +450,6 @@ class TestGetPivotExpander:
             entity_type=EntityType.ORGANIZATION,
         )
         # Singleton should return valid suggestions
-        assert len(suggestions) >= 1, f"Expected >=1 suggestions from singleton, got {len(suggestions)}"
-
-
-
+        assert len(suggestions) >= 1, (
+            f"Expected >=1 suggestions from singleton, got {len(suggestions)}"
+        )

@@ -55,6 +55,7 @@ from src.crawler.profile_audit import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_fingerprint() -> FingerprintData:
     """Create a sample fingerprint for testing."""
@@ -113,6 +114,7 @@ def mock_page():
 # FingerprintData Tests
 # =============================================================================
 
+
 class TestFingerprintData:
     """Tests for FingerprintData dataclass."""
 
@@ -155,6 +157,7 @@ class TestFingerprintData:
 # =============================================================================
 # Drift Detection Tests
 # =============================================================================
+
 
 class TestDriftDetection:
     """Tests for drift detection logic."""
@@ -340,6 +343,7 @@ class TestDriftDetection:
 # Repair Action Tests
 # =============================================================================
 
+
 class TestRepairActions:
     """Tests for repair action determination."""
 
@@ -410,6 +414,7 @@ class TestRepairActions:
 # Baseline Management Tests
 # =============================================================================
 
+
 class TestBaselineManagement:
     """Tests for baseline fingerprint management."""
 
@@ -463,6 +468,7 @@ class TestBaselineManagement:
 # =============================================================================
 # Audit Execution Tests
 # =============================================================================
+
 
 class TestAuditExecution:
     """Tests for audit execution."""
@@ -581,6 +587,7 @@ class TestAuditExecution:
 # Audit Logging Tests
 # =============================================================================
 
+
 class TestAuditLogging:
     """Tests for audit log functionality."""
 
@@ -648,6 +655,7 @@ class TestAuditLogging:
 # Statistics Tests
 # =============================================================================
 
+
 class TestAuditorStats:
     """Tests for auditor statistics."""
 
@@ -687,6 +695,7 @@ class TestAuditorStats:
 # Integration Tests
 # =============================================================================
 
+
 class TestPerformHealthCheck:
     """Tests for the convenience function."""
 
@@ -720,6 +729,7 @@ class TestPerformHealthCheck:
 # AuditResult Tests
 # =============================================================================
 
+
 class TestAuditResult:
     """Tests for AuditResult serialization."""
 
@@ -752,4 +762,3 @@ class TestAuditResult:
         assert data["drifts"][0]["attribute"] == "ua_major_version"
         assert data["repair_status"] == "success"
         assert data["retry_count"] == 1
-

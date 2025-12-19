@@ -57,6 +57,3 @@ __all__ = [
     "get_timeline_coverage",
     "integrate_wayback_into_timeline",
 ]
-
-
-

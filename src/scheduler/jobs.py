@@ -25,10 +25,11 @@ logger = get_logger(__name__)
 
 class JobKind(str, Enum):
     """Job types with priority order.
-    
+
     Note:
         Per §K.1: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
     """
+
     SERP = "serp"
     FETCH = "fetch"
     EXTRACT = "extract"
@@ -40,6 +41,7 @@ class JobKind(str, Enum):
 
 class Slot(str, Enum):
     """Resource slots."""
+
     GPU = "gpu"
     BROWSER_HEADFUL = "browser_headful"
     NETWORK_CLIENT = "network_client"
@@ -48,6 +50,7 @@ class Slot(str, Enum):
 
 class JobState(str, Enum):
     """Job states."""
+
     PENDING = "pending"
     QUEUED = "queued"
     RUNNING = "running"
@@ -141,12 +144,12 @@ class JobScheduler:
         self._started = False
 
         # Cancel all workers
-        for slot, workers in self._workers.items():
+        for _slot, workers in self._workers.items():
             for task in workers:
                 task.cancel()
 
         # Wait for cancellation
-        for slot, workers in self._workers.items():
+        for _slot, workers in self._workers.items():
             for task in workers:
                 try:
                     await task
@@ -166,14 +169,14 @@ class JobScheduler:
         cause_id: str | None = None,
     ) -> dict[str, Any]:
         """Submit a job for execution.
-        
+
         Args:
             kind: Job kind.
             input_data: Job input data.
             priority: Override priority (lower = higher).
             task_id: Associated task ID.
             cause_id: Causal trace ID.
-            
+
         Returns:
             Job submission result.
         """
@@ -215,17 +218,20 @@ class JobScheduler:
 
         # Store job in database
         db = await get_database()
-        await db.insert("jobs", {
-            "id": job_id,
-            "task_id": task_id,
-            "kind": kind.value,
-            "priority": priority,
-            "slot": slot.value,
-            "state": JobState.QUEUED.value,
-            "input_json": str(input_data),
-            "queued_at": datetime.now(UTC).isoformat(),
-            "cause_id": cause_id,
-        })
+        await db.insert(
+            "jobs",
+            {
+                "id": job_id,
+                "task_id": task_id,
+                "kind": kind.value,
+                "priority": priority,
+                "slot": slot.value,
+                "state": JobState.QUEUED.value,
+                "input_json": str(input_data),
+                "queued_at": datetime.now(UTC).isoformat(),
+                "cause_id": cause_id,
+            },
+        )
 
         # Add to queue
         await self._queues[slot].put((priority, job_id, input_data, kind, task_id, cause_id))
@@ -253,11 +259,11 @@ class JobScheduler:
     ) -> tuple[bool, str | None]:
         """
         Check if job is within task budget.
-        
+
         Args:
             task_id: Task identifier.
             kind: Job kind.
-            
+
         Returns:
             Tuple of (can_proceed, reason_if_not).
         """
@@ -287,10 +293,10 @@ class JobScheduler:
 
     async def _check_exclusivity(self, slot: Slot) -> bool:
         """Check if slot can accept jobs based on exclusivity rules.
-        
+
         Args:
             slot: Target slot.
-            
+
         Returns:
             True if slot can accept jobs.
         """
@@ -305,10 +311,10 @@ class JobScheduler:
 
     async def _estimate_eta(self, slot: Slot) -> str:
         """Estimate time until job starts.
-        
+
         Args:
             slot: Target slot.
-            
+
         Returns:
             ETA string.
         """
@@ -333,7 +339,7 @@ class JobScheduler:
     ) -> None:
         """
         Record budget consumption after job completion.
-        
+
         Args:
             task_id: Task identifier.
             kind: Job kind.
@@ -371,7 +377,7 @@ class JobScheduler:
 
     async def _worker(self, slot: Slot, worker_id: int) -> None:
         """Worker coroutine for a slot.
-        
+
         Args:
             slot: Slot to work on.
             worker_id: Worker ID within slot.
@@ -420,9 +426,7 @@ class JobScheduler:
                         result = await self._execute_job(kind, input_data, task_id, trace.id)
 
                     # Record budget consumption
-                    await self._record_budget_consumption(
-                        task_id, kind, job_start_time
-                    )
+                    await self._record_budget_consumption(task_id, kind, job_start_time)
 
                     # Mark as completed
                     await db.update(
@@ -478,30 +482,34 @@ class JobScheduler:
         cause_id: str,
     ) -> dict[str, Any]:
         """Execute a job.
-        
+
         Args:
             kind: Job kind.
             input_data: Job input.
             task_id: Task ID.
             cause_id: Causal trace ID.
-            
+
         Returns:
             Job result.
         """
         if kind == JobKind.SERP:
             from src.search import search_serp
+
             return {"results": await search_serp(**input_data, task_id=task_id)}
 
         elif kind == JobKind.FETCH:
             from src.crawler.fetcher import fetch_url
+
             return await fetch_url(**input_data, task_id=task_id)
 
         elif kind == JobKind.EXTRACT:
             from src.extractor.content import extract_content
+
             return await extract_content(**input_data)
 
         elif kind == JobKind.EMBED:
             from src.filter.ranking import EmbeddingRanker, _embedding_ranker
+
             global _embedding_ranker
             if _embedding_ranker is None:
                 _embedding_ranker = EmbeddingRanker()
@@ -510,14 +518,17 @@ class JobScheduler:
 
         elif kind == JobKind.RERANK:
             from src.filter.ranking import rank_candidates
+
             return {"results": await rank_candidates(**input_data)}
 
         elif kind == JobKind.LLM:
             from src.filter.llm import llm_extract
+
             return await llm_extract(**input_data)
 
         elif kind == JobKind.NLI:
             from src.filter.nli import nli_judge
+
             return {"results": await nli_judge(**input_data)}
 
         else:
@@ -525,10 +536,10 @@ class JobScheduler:
 
     async def cancel_job(self, job_id: str) -> bool:
         """Cancel a pending job.
-        
+
         Args:
             job_id: Job ID to cancel.
-            
+
         Returns:
             True if cancelled successfully.
         """
@@ -548,10 +559,10 @@ class JobScheduler:
 
     async def get_job_status(self, job_id: str) -> dict[str, Any] | None:
         """Get job status.
-        
+
         Args:
             job_id: Job ID.
-            
+
         Returns:
             Job status dict or None.
         """
@@ -574,10 +585,10 @@ async def get_scheduler() -> JobScheduler:
 
 async def schedule_job(job: dict[str, Any]) -> dict[str, Any]:
     """Schedule a job (MCP tool handler).
-    
+
     Args:
         job: Job specification.
-        
+
     Returns:
         Scheduling result.
     """
@@ -594,4 +605,3 @@ async def schedule_job(job: dict[str, Any]) -> dict[str, Any]:
         priority=priority,
         task_id=task_id,
     )
-

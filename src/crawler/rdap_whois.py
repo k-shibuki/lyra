@@ -72,6 +72,7 @@ TLD_TO_RIR = {
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class RegistrantInfo:
     """Domain registrant information."""
@@ -100,10 +101,17 @@ class RegistrantInfo:
 
     def is_empty(self) -> bool:
         """Check if all fields are empty."""
-        return all(v is None for v in [
-            self.name, self.organization, self.email,
-            self.phone, self.address, self.country,
-        ])
+        return all(
+            v is None
+            for v in [
+                self.name,
+                self.organization,
+                self.email,
+                self.phone,
+                self.address,
+                self.country,
+            ]
+        )
 
 
 @dataclass
@@ -174,6 +182,7 @@ class WHOISRecord:
 # =============================================================================
 # WHOIS Parser
 # =============================================================================
+
 
 class WHOISParser:
     """Parser for WHOIS/RDAP HTML and text responses."""
@@ -259,18 +268,17 @@ class WHOISParser:
         """Pre-compile regex patterns."""
         for field, patterns in self.FIELD_PATTERNS.items():
             self._compiled_patterns[field] = [
-                re.compile(p, re.IGNORECASE | re.MULTILINE)
-                for p in patterns
+                re.compile(p, re.IGNORECASE | re.MULTILINE) for p in patterns
             ]
 
     def parse_text(self, domain: str, text: str, source_url: str = "") -> WHOISRecord:
         """Parse WHOIS text response.
-        
+
         Args:
             domain: Domain name being queried.
             text: Raw WHOIS text response.
             source_url: URL where data was fetched.
-            
+
         Returns:
             Parsed WHOISRecord.
         """
@@ -328,12 +336,12 @@ class WHOISParser:
 
     def parse_html(self, domain: str, html: str, source_url: str = "") -> WHOISRecord:
         """Parse WHOIS/RDAP HTML response.
-        
+
         Args:
             domain: Domain name being queried.
             html: HTML response.
             source_url: URL where data was fetched.
-            
+
         Returns:
             Parsed WHOISRecord.
         """
@@ -376,7 +384,7 @@ class WHOISParser:
 
     def _parse_tables(self, soup: BeautifulSoup, record: WHOISRecord) -> None:
         """Extract data from HTML tables.
-        
+
         Args:
             soup: BeautifulSoup object.
             record: WHOISRecord to update.
@@ -398,13 +406,11 @@ class WHOISParser:
                         record.registrant.organization = value
                     elif "name server" in key or "nameserver" in key:
                         if value and "." in value:
-                            record.nameservers.append(
-                                NameserverInfo(hostname=value.lower())
-                            )
+                            record.nameservers.append(NameserverInfo(hostname=value.lower()))
 
     def _parse_rdap_json(self, soup: BeautifulSoup, record: WHOISRecord) -> None:
         """Parse RDAP JSON-LD data if present.
-        
+
         Args:
             soup: BeautifulSoup object.
             record: WHOISRecord to update.
@@ -435,11 +441,11 @@ class WHOISParser:
 
     def _extract_field(self, text: str, field: str) -> str | None:
         """Extract a field value from text.
-        
+
         Args:
             text: Text to search.
             field: Field name to extract.
-            
+
         Returns:
             Extracted value or None.
         """
@@ -457,10 +463,10 @@ class WHOISParser:
 
     def _parse_date(self, date_str: str | None) -> datetime | None:
         """Parse date string to datetime.
-        
+
         Args:
             date_str: Date string to parse.
-            
+
         Returns:
             Parsed datetime or None.
         """
@@ -502,9 +508,10 @@ class WHOISParser:
 # RDAP/WHOIS Client
 # =============================================================================
 
+
 class RDAPClient:
     """Client for fetching domain registration via RDAP/WHOIS web interfaces.
-    
+
     Implements HTML scraping only (no API per §4.1).
     Follows rate limiting and domain policies per §4.3.
     """
@@ -515,7 +522,7 @@ class RDAPClient:
         parser: WHOISParser | None = None,
     ):
         """Initialize RDAP client.
-        
+
         Args:
             fetcher: URL fetcher to use.
             parser: WHOIS parser instance.
@@ -535,17 +542,17 @@ class RDAPClient:
         use_cache: bool = True,
     ) -> WHOISRecord | None:
         """Look up WHOIS/RDAP record for a domain.
-        
+
         Tries multiple sources in order:
         1. TLD-specific endpoint (e.g., JPRS for .jp)
         2. ICANN lookup
         3. Generic WHOIS web interface
-        
+
         Args:
             domain: Domain name to look up.
             trace: Causal trace for logging.
             use_cache: Whether to use cached results.
-            
+
         Returns:
             WHOISRecord or None if lookup fails.
         """
@@ -586,11 +593,11 @@ class RDAPClient:
         tld: str,
     ) -> list[tuple[str, str]]:
         """Get ordered list of endpoints to try for a domain.
-        
+
         Args:
             domain: Domain name.
             tld: Top-level domain.
-            
+
         Returns:
             List of (endpoint_name, url_template) tuples.
         """
@@ -620,12 +627,12 @@ class RDAPClient:
         trace: CausalTrace,
     ) -> WHOISRecord | None:
         """Fetch URL and parse WHOIS response.
-        
+
         Args:
             domain: Domain being looked up.
             url: WHOIS lookup URL.
             trace: Causal trace.
-            
+
         Returns:
             Parsed WHOISRecord or None.
         """
@@ -670,12 +677,12 @@ class RDAPClient:
         trace: CausalTrace | None = None,
     ) -> dict[str, WHOISRecord | None]:
         """Look up WHOIS records for multiple domains.
-        
+
         Args:
             domains: List of domains to look up.
             max_concurrent: Maximum concurrent lookups.
             trace: Causal trace.
-            
+
         Returns:
             Dictionary mapping domain to WHOISRecord or None.
         """
@@ -701,12 +708,13 @@ class RDAPClient:
 # Helper Functions
 # =============================================================================
 
+
 def normalize_domain(url_or_domain: str) -> str:
     """Normalize URL or domain string to base domain.
-    
+
     Args:
         url_or_domain: URL or domain string.
-        
+
     Returns:
         Normalized base domain (e.g., example.com).
     """
@@ -725,12 +733,11 @@ def normalize_domain(url_or_domain: str) -> str:
 
 def get_rdap_client(fetcher: Any = None) -> RDAPClient:
     """Get RDAP client instance.
-    
+
     Args:
         fetcher: URL fetcher to use.
-        
+
     Returns:
         RDAPClient instance.
     """
     return RDAPClient(fetcher=fetcher)
-

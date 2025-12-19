@@ -354,9 +354,7 @@ class TestClaimDecomposerRuleBased:
         """Test detection of comparative claims."""
         # Given: Question with comparison
         # When: Decomposing
-        result = await decomposer.decompose(
-            "GPT-4はGPT-3.5より優れている"
-        )
+        result = await decomposer.decompose("GPT-4はGPT-3.5より優れている")
 
         # Then: Detected as COMPARATIVE
         assert result.success is True
@@ -369,9 +367,7 @@ class TestClaimDecomposerRuleBased:
         """Test detection of causal claims."""
         # Given: Question with causal relationship
         # When: Decomposing
-        result = await decomposer.decompose(
-            "AIの発展によって雇用に影響が生じている"
-        )
+        result = await decomposer.decompose("AIの発展によって雇用に影響が生じている")
 
         # Then: Detected as CAUSAL
         assert result.success is True
@@ -384,9 +380,7 @@ class TestClaimDecomposerRuleBased:
         """Test detection of definitional claims."""
         # Given: Question asking for definition
         # When: Decomposing
-        result = await decomposer.decompose(
-            "大規模言語モデルとは何を意味するのか"
-        )
+        result = await decomposer.decompose("大規模言語モデルとは何を意味するのか")
 
         # Then: Detected as DEFINITIONAL
         assert result.success is True
@@ -399,9 +393,7 @@ class TestClaimDecomposerRuleBased:
         """Test detection of negative polarity."""
         # Given: Negative statement
         # When: Decomposing
-        result = await decomposer.decompose(
-            "AIは人間の仕事を奪うことはない"
-        )
+        result = await decomposer.decompose("AIは人間の仕事を奪うことはない")
 
         # Then: Detected as NEGATIVE
         assert result.success is True
@@ -427,9 +419,7 @@ class TestClaimDecomposerRuleBased:
         """Test keyword extraction from claims."""
         # Given: Question with specific terms
         # When: Decomposing
-        result = await decomposer.decompose(
-            "OpenAIのGPT-4はマルチモーダル機能を持つ"
-        )
+        result = await decomposer.decompose("OpenAIのGPT-4はマルチモーダル機能を持つ")
 
         # Then: Keywords extracted
         assert result.success is True
@@ -446,9 +436,7 @@ class TestClaimDecomposerRuleBased:
         """Test verification hints are generated."""
         # Given: Question mentioning official source
         # When: Decomposing
-        result = await decomposer.decompose(
-            "総務省の統計データによると人口は減少している"
-        )
+        result = await decomposer.decompose("総務省の統計データによると人口は減少している")
 
         # Then: Hints generated
         assert result.success is True
@@ -552,9 +540,7 @@ class TestClaimDecomposerLLM:
 
         # Given: Mocked LLM raising exception
         mock_client = MagicMock()
-        mock_client.generate = AsyncMock(
-            side_effect=RuntimeError("Connection error")
-        )
+        mock_client.generate = AsyncMock(side_effect=RuntimeError("Connection error"))
         monkeypatch.setattr(
             "src.filter.claim_decomposition._get_client",
             lambda: mock_client,
@@ -639,9 +625,7 @@ class TestEdgeCases:
         """Test handling of special characters in question."""
         # Given: Question with special characters
         # When: Decomposing
-        result = await decomposer.decompose(
-            "AI (人工知能) の「未来」について調べる！？"
-        )
+        result = await decomposer.decompose("AI (人工知能) の「未来」について調べる！？")
 
         # Then: Handles correctly
         assert result.success is True
@@ -652,9 +636,7 @@ class TestEdgeCases:
         """Test handling of English question."""
         # Given: English question
         # When: Decomposing
-        result = await decomposer.decompose(
-            "What is the impact of AI on employment?"
-        )
+        result = await decomposer.decompose("What is the impact of AI on employment?")
 
         # Then: Handles English
         assert result.success is True
@@ -665,9 +647,7 @@ class TestEdgeCases:
         """Test handling of mixed Japanese/English question."""
         # Given: Mixed language question
         # When: Decomposing
-        result = await decomposer.decompose(
-            "ChatGPTとは何ですか？What are its capabilities?"
-        )
+        result = await decomposer.decompose("ChatGPTとは何ですか？What are its capabilities?")
 
         # Then: Handles mixed text
         assert result.success is True
@@ -678,9 +658,7 @@ class TestEdgeCases:
         """Test handling of numeric content (quantitative detection)."""
         # Given: Question with large number (no year)
         # When: Decomposing
-        result = await decomposer.decompose(
-            "売上は1000億円を超えた"
-        )
+        result = await decomposer.decompose("売上は1000億円を超えた")
 
         # Then: Detects quantitative type
         assert result.success is True
@@ -721,4 +699,3 @@ class TestClaimIdUniqueness:
             suffix = claim.claim_id.replace("claim_", "")
             assert len(suffix) == 8
             assert all(c in "0123456789abcdef" for c in suffix)
-

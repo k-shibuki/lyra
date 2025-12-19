@@ -862,4 +862,3 @@ class TestUndetectedProviderMocked:
 
         assert result.ok is False
         assert "not available" in result.error
-

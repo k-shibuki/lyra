@@ -67,10 +67,11 @@ from src.utils.notification import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_db():
     """Mock database for intervention tests.
-    
+
     Per §7.1.7: Database should be mocked in unit tests.
     """
     db = AsyncMock()
@@ -82,8 +83,8 @@ def mock_db():
 @pytest.fixture
 def mock_settings():
     """Mock settings with notification config.
-    
-    Note: intervention_timeout has been removed per §3.6.1 
+
+    Note: intervention_timeout has been removed per §3.6.1
     (user-driven completion, no timeout).
     """
     settings = MagicMock()
@@ -93,7 +94,7 @@ def mock_settings():
 @pytest.fixture
 def intervention_manager(mock_settings, mock_db):
     """Create InterventionManager with mocked dependencies.
-    
+
     Per §7.1.7: External services should be mocked in unit tests.
     """
     with patch("src.utils.notification.get_settings", return_value=mock_settings):
@@ -105,7 +106,7 @@ def intervention_manager(mock_settings, mock_db):
 @pytest.fixture
 def mock_page():
     """Mock Playwright page object.
-    
+
     Per §7.1.7: Chrome/browser should be mocked in unit tests.
     """
     page = AsyncMock()
@@ -120,7 +121,7 @@ def mock_page():
 @pytest.fixture
 def challenge_page():
     """Mock Playwright page with Cloudflare challenge content.
-    
+
     Per §7.1.3: Test data should be realistic.
     """
     page = AsyncMock()
@@ -128,7 +129,8 @@ def challenge_page():
     page.context.browser = MagicMock()
     page.context.new_cdp_session = AsyncMock()
     page.evaluate = AsyncMock(return_value=True)
-    page.content = AsyncMock(return_value="""
+    page.content = AsyncMock(
+        return_value="""
         <html>
         <head><title>Cloudflare</title></head>
         <body>
@@ -140,7 +142,8 @@ def challenge_page():
             </div>
         </body>
         </html>
-    """)
+    """
+    )
     return page
 
 
@@ -148,10 +151,11 @@ def challenge_page():
 # InterventionStatus Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestInterventionStatus:
     """Tests for InterventionStatus enum.
-    
+
     Verifies all required status values exist per design spec.
     """
 
@@ -171,15 +175,14 @@ class TestInterventionStatus:
         for attr_name, expected_value in expected_statuses.items():
             status = getattr(InterventionStatus, attr_name)
             assert status.value == expected_value, (
-                f"InterventionStatus.{attr_name} should be '{expected_value}', "
-                f"got '{status.value}'"
+                f"InterventionStatus.{attr_name} should be '{expected_value}', got '{status.value}'"
             )
 
 
 @pytest.mark.unit
 class TestInterventionType:
     """Tests for InterventionType enum.
-    
+
     Verifies all required intervention types per §3.6.
     """
 
@@ -208,10 +211,11 @@ class TestInterventionType:
 # InterventionResult Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestInterventionResult:
     """Tests for InterventionResult class.
-    
+
     Verifies correct construction and serialization of intervention results.
     """
 
@@ -234,19 +238,13 @@ class TestInterventionResult:
         assert result.elapsed_seconds == 30.5, (
             f"elapsed_seconds should be 30.5, got {result.elapsed_seconds}"
         )
-        assert result.should_retry is False, (
-            "should_retry should default to False for success"
-        )
-        assert result.cooldown_until is None, (
-            "cooldown_until should default to None"
-        )
-        assert result.skip_domain_today is False, (
-            "skip_domain_today should default to False"
-        )
+        assert result.should_retry is False, "should_retry should default to False for success"
+        assert result.cooldown_until is None, "cooldown_until should default to None"
+        assert result.skip_domain_today is False, "skip_domain_today should default to False"
 
     def test_timeout_result_with_cooldown_per_spec(self):
         """Test creating a timeout intervention result per §3.6.
-        
+
         Per §3.6: Timeout should trigger cooldown of ≥60 minutes.
         """
         # Given
@@ -266,9 +264,7 @@ class TestInterventionResult:
         assert result.status == InterventionStatus.TIMEOUT, (
             f"status should be TIMEOUT, got {result.status}"
         )
-        assert result.should_retry is True, (
-            "should_retry should be True for timeout"
-        )
+        assert result.should_retry is True, "should_retry should be True for timeout"
         assert result.cooldown_until == cooldown, (
             f"cooldown_until should be {cooldown}, got {result.cooldown_until}"
         )
@@ -295,29 +291,26 @@ class TestInterventionResult:
         assert serialized["status"] == "skipped", (
             f"status should be 'skipped', got '{serialized['status']}'"
         )
-        assert serialized["skip_domain_today"] is True, (
-            "skip_domain_today should be True"
-        )
-        assert isinstance(serialized, dict), (
-            f"Result should be dict, got {type(serialized)}"
-        )
+        assert serialized["skip_domain_today"] is True, "skip_domain_today should be True"
+        assert isinstance(serialized, dict), f"Result should be dict, got {type(serialized)}"
 
 
 # =============================================================================
 # InterventionManager Core Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestInterventionManagerCore:
     """Core tests for InterventionManager.
-    
+
     Tests configuration properties and basic functionality per §3.6.1.
     Note: intervention_timeout test removed (timeout no longer used).
     """
 
     def test_max_domain_failures_is_three_per_spec(self, intervention_manager):
         """Test max domain failures is 3 per §3.1.
-        
+
         Per §3.1: Skip domain for the day after 3 failures.
         """
         expected_max = 3
@@ -329,7 +322,7 @@ class TestInterventionManagerCore:
 
     def test_cooldown_at_least_60_minutes_per_spec(self, intervention_manager):
         """Test cooldown is ≥60 minutes per §3.5.
-        
+
         Per §3.5: Cooldown (minimum 60 minutes).
         """
         actual_cooldown = intervention_manager.cooldown_minutes
@@ -344,9 +337,7 @@ class TestInterventionManagerCore:
         domain = "example.com"
         failures = intervention_manager.get_domain_failures(domain)
 
-        assert failures == 0, (
-            f"Initial failure count for '{domain}' should be 0, got {failures}"
-        )
+        assert failures == 0, f"Initial failure count for '{domain}' should be 0, got {failures}"
 
     def test_domain_failure_tracking_set_and_get(self, intervention_manager):
         """Test setting and getting domain failure count."""
@@ -374,9 +365,7 @@ class TestInterventionManagerCore:
 
         # Then
         failures = intervention_manager.get_domain_failures(domain)
-        assert failures == 0, (
-            f"Failure count after reset should be 0, got {failures}"
-        )
+        assert failures == 0, f"Failure count after reset should be 0, got {failures}"
 
 
 # =============================================================================
@@ -391,10 +380,11 @@ class TestInterventionManagerCore:
 # Intervention Message Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestInterventionMessages:
     """Tests for intervention message generation.
-    
+
     Messages should be user-friendly and include relevant context.
     """
 
@@ -442,21 +432,25 @@ class TestInterventionMessages:
 # Domain Skip Logic Tests (§3.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestDomainSkipLogic:
     """Tests for domain skip logic per §3.1.
-    
+
     Per §3.1: Skip domain for the day after 3 failures (after connection refresh, headful escalation, cooldown applied).
     """
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("failure_count,should_skip", [
-        (0, False),   # No failures - should not skip
-        (1, False),   # 1 failure - should not skip
-        (2, False),   # 2 failures - should not skip (boundary)
-        (3, True),    # 3 failures - should skip (threshold)
-        (4, True),    # 4 failures - should skip (above threshold)
-    ])
+    @pytest.mark.parametrize(
+        "failure_count,should_skip",
+        [
+            (0, False),  # No failures - should not skip
+            (1, False),  # 1 failure - should not skip
+            (2, False),  # 2 failures - should not skip (boundary)
+            (3, True),  # 3 failures - should skip (threshold)
+            (4, True),  # 4 failures - should skip (above threshold)
+        ],
+    )
     async def test_skip_domain_boundary_conditions(
         self,
         intervention_manager,
@@ -465,7 +459,7 @@ class TestDomainSkipLogic:
         should_skip,
     ):
         """Test domain skip at boundary conditions per §3.1.
-        
+
         Parametrized test verifying skip behavior at 0, 1, 2, 3, 4 failures.
         Per §7.1.2.4: Boundary conditions should be tested.
         """
@@ -480,14 +474,11 @@ class TestDomainSkipLogic:
 
             # Then
             assert result is should_skip, (
-                f"With {failure_count} failures, should_skip should be {should_skip}, "
-                f"got {result}"
+                f"With {failure_count} failures, should_skip should be {should_skip}, got {result}"
             )
 
     @pytest.mark.asyncio
-    async def test_skip_domain_with_active_cooldown(
-        self, intervention_manager, mock_db
-    ):
+    async def test_skip_domain_with_active_cooldown(self, intervention_manager, mock_db):
         """Test domain is skipped when in active cooldown period."""
         # Given: Future cooldown time
         future_time = (datetime.now(UTC) + timedelta(minutes=30)).isoformat()
@@ -498,14 +489,10 @@ class TestDomainSkipLogic:
             result = await intervention_manager._should_skip_domain("test.com")
 
             # Then
-            assert result is True, (
-                "Domain with future cooldown time should be skipped"
-            )
+            assert result is True, "Domain with future cooldown time should be skipped"
 
     @pytest.mark.asyncio
-    async def test_no_skip_with_expired_cooldown(
-        self, intervention_manager, mock_db
-    ):
+    async def test_no_skip_with_expired_cooldown(self, intervention_manager, mock_db):
         """Test domain is not skipped when cooldown has expired."""
         # Given: Past cooldown time
         past_time = (datetime.now(UTC) - timedelta(minutes=30)).isoformat()
@@ -516,26 +503,25 @@ class TestDomainSkipLogic:
             result = await intervention_manager._should_skip_domain("test.com")
 
             # Then
-            assert result is False, (
-                "Domain with expired cooldown should not be skipped"
-            )
+            assert result is False, "Domain with expired cooldown should not be skipped"
 
 
 # =============================================================================
 # Toast Notification Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestToastNotification:
     """Tests for toast notification functionality.
-    
+
     Updated for NotificationProvider abstraction.
     Toast notifications now use the provider registry.
     """
 
     def test_is_wsl_function_returns_boolean(self):
         """Test WSL detection function returns boolean.
-        
+
         Note: is_wsl() is now a standalone function in notification_provider module,
         not a method of InterventionManager.
         """
@@ -543,14 +529,12 @@ class TestToastNotification:
 
         result = is_wsl()
 
-        assert isinstance(result, bool), (
-            f"is_wsl() should return bool, got {type(result)}"
-        )
+        assert isinstance(result, bool), f"is_wsl() should return bool, got {type(result)}"
 
     @pytest.mark.asyncio
     async def test_send_toast_returns_boolean(self, intervention_manager):
         """Test send_toast returns boolean indicating success.
-        
+
         Updated: send_toast now uses NotificationProviderRegistry
         internally. We mock the registry's send() method.
         """
@@ -578,12 +562,8 @@ class TestToastNotification:
             )
 
             # Then
-            assert isinstance(result, bool), (
-                f"send_toast should return bool, got {type(result)}"
-            )
-            assert result is True, (
-                "send_toast should return True when provider registry succeeds"
-            )
+            assert isinstance(result, bool), f"send_toast should return bool, got {type(result)}"
+            assert result is True, "send_toast should return True when provider registry succeeds"
 
             # Verify registry was called with correct parameters
             mock_registry.send.assert_called_once()
@@ -596,10 +576,11 @@ class TestToastNotification:
 # Tab Bring-to-Front Tests (Safe Mode per §3.6.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestTabBringToFront:
     """Tests for browser window bring-to-front functionality per §3.6.1.
-    
+
     Safe Operation Policy:
     - Uses CDP Page.bringToFront only (allowed)
     - Uses OS API fallback (SetForegroundWindow/wmctrl)
@@ -607,9 +588,7 @@ class TestTabBringToFront:
     """
 
     @pytest.mark.asyncio
-    async def test_bring_tab_to_front_uses_cdp_safe_command(
-        self, intervention_manager, mock_page
-    ):
+    async def test_bring_tab_to_front_uses_cdp_safe_command(self, intervention_manager, mock_page):
         """Test that bring tab to front uses only CDP Page.bringToFront (safe)."""
         # Given
         cdp_session = AsyncMock()
@@ -624,11 +603,9 @@ class TestTabBringToFront:
         cdp_session.send.assert_any_call("Page.bringToFront")
 
     @pytest.mark.asyncio
-    async def test_bring_tab_does_not_use_forbidden_cdp(
-        self, intervention_manager, mock_page
-    ):
+    async def test_bring_tab_does_not_use_forbidden_cdp(self, intervention_manager, mock_page):
         """Test that bring tab to front does NOT use forbidden CDP commands.
-        
+
         Per §3.6.1: Runtime.evaluate, DOM.*, Input.* are forbidden.
         """
         # Given
@@ -651,18 +628,14 @@ class TestTabBringToFront:
                 )
 
     @pytest.mark.asyncio
-    async def test_bring_tab_to_front_falls_back_to_os_api(
-        self, intervention_manager
-    ):
+    async def test_bring_tab_to_front_falls_back_to_os_api(self, intervention_manager):
         """Test graceful fallback to OS API when CDP connection fails."""
         # Given
         page = AsyncMock()
         page.context.new_cdp_session = AsyncMock(side_effect=Exception("CDP error"))
 
         with patch.object(
-            intervention_manager,
-            "_platform_activate_window",
-            new_callable=AsyncMock
+            intervention_manager, "_platform_activate_window", new_callable=AsyncMock
         ) as mock_activate:
             # When
             await intervention_manager._bring_tab_to_front(page)
@@ -683,10 +656,11 @@ class TestTabBringToFront:
 # Full Intervention Flow Tests (Updated per §3.6.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestInterventionFlow:
     """Tests for the intervention flow per §3.6.1.
-    
+
     Key behavior changes per §3.6.1:
     - request_intervention returns PENDING immediately (no waiting)
     - No timeout enforcement (user-driven completion)
@@ -694,9 +668,7 @@ class TestInterventionFlow:
     """
 
     @pytest.mark.asyncio
-    async def test_skips_domain_with_three_failures(
-        self, mock_settings, mock_db
-    ):
+    async def test_skips_domain_with_three_failures(self, mock_settings, mock_db):
         """Test intervention is skipped for domains with 3 failures per §3.1."""
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
@@ -716,16 +688,12 @@ class TestInterventionFlow:
                 assert result.status == InterventionStatus.SKIPPED, (
                     f"Expected SKIPPED status, got {result.status}"
                 )
-                assert result.skip_domain_today is True, (
-                    "skip_domain_today should be True"
-                )
+                assert result.skip_domain_today is True, "skip_domain_today should be True"
 
     @pytest.mark.asyncio
-    async def test_returns_pending_immediately_per_spec(
-        self, mock_settings, mock_db, mock_page
-    ):
+    async def test_returns_pending_immediately_per_spec(self, mock_settings, mock_db, mock_page):
         """Test intervention returns PENDING immediately per §3.6.1.
-        
+
         Per §3.6.1: No waiting/polling. Returns PENDING for user to complete.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
@@ -733,12 +701,8 @@ class TestInterventionFlow:
                 # Given
                 manager = InterventionManager()
 
-                with patch.object(
-                    manager, "send_toast", new_callable=AsyncMock, return_value=True
-                ):
-                    with patch.object(
-                        manager, "_bring_tab_to_front", new_callable=AsyncMock
-                    ):
+                with patch.object(manager, "send_toast", new_callable=AsyncMock, return_value=True):
+                    with patch.object(manager, "_bring_tab_to_front", new_callable=AsyncMock):
                         # When
                         result = await manager.request_intervention(
                             intervention_type=InterventionType.CAPTCHA,
@@ -756,9 +720,7 @@ class TestInterventionFlow:
                         )
 
     @pytest.mark.asyncio
-    async def test_logs_intervention_to_database(
-        self, intervention_manager, mock_db, mock_page
-    ):
+    async def test_logs_intervention_to_database(self, intervention_manager, mock_db, mock_page):
         """Test intervention request logs to database."""
         with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
             with patch.object(
@@ -786,9 +748,7 @@ class TestInterventionFlow:
                     )
 
     @pytest.mark.asyncio
-    async def test_success_resets_failure_counter(
-        self, intervention_manager, mock_db
-    ):
+    async def test_success_resets_failure_counter(self, intervention_manager, mock_db):
         """Test successful intervention resets failure counter to 0."""
         # Given
         domain = "example.com"
@@ -813,14 +773,10 @@ class TestInterventionFlow:
 
             # Then
             failures = intervention_manager._domain_failures[domain]
-            assert failures == 0, (
-                f"Failure count after success should be 0, got {failures}"
-            )
+            assert failures == 0, f"Failure count after success should be 0, got {failures}"
 
     @pytest.mark.asyncio
-    async def test_failure_increments_counter(
-        self, intervention_manager, mock_db
-    ):
+    async def test_failure_increments_counter(self, intervention_manager, mock_db):
         """Test failed intervention increments failure counter."""
         # Given
         domain = "example.com"
@@ -847,14 +803,13 @@ class TestInterventionFlow:
             # Then
             failures = intervention_manager._domain_failures[domain]
             expected = initial_failures + 1
-            assert failures == expected, (
-                f"Failure count should be {expected}, got {failures}"
-            )
+            assert failures == expected, f"Failure count should be {expected}, got {failures}"
 
 
 # =============================================================================
 # notify_user Function Tests
 # =============================================================================
+
 
 @pytest.mark.unit
 class TestNotifyUserFunction:
@@ -867,6 +822,7 @@ class TestNotifyUserFunction:
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
                 # Reset global manager
                 import src.utils.notification as notif_module
+
                 notif_module._manager = None
 
                 with patch.object(
@@ -890,17 +846,16 @@ class TestNotifyUserFunction:
                     )
 
     @pytest.mark.asyncio
-    async def test_captcha_event_returns_pending_per_spec(
-        self, mock_settings, mock_db
-    ):
+    async def test_captcha_event_returns_pending_per_spec(self, mock_settings, mock_db):
         """Test notify_user with captcha event returns PENDING per §3.6.1.
-        
+
         Per §3.6.1: Intervention returns PENDING immediately for user to complete.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
                 # Reset global manager
                 import src.utils.notification as notif_module
+
                 notif_module._manager = None
 
                 with patch.object(
@@ -932,12 +887,13 @@ class TestNotifyUserFunction:
 # Integration-style Tests (still unit - using mocks) - Updated per §3.6.1
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestInterventionIntegration:
     """Integration-style tests for intervention flows (mocked) per §3.6.1.
-    
+
     Tests complete flows end-to-end with mocked dependencies.
-    
+
     Key changes per §3.6.1:
     - No timeout enforcement (user-driven completion)
     - Returns PENDING immediately
@@ -945,9 +901,7 @@ class TestInterventionIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_full_lifecycle_returns_pending_per_spec(
-        self, mock_settings, mock_db, mock_page
-    ):
+    async def test_full_lifecycle_returns_pending_per_spec(self, mock_settings, mock_db, mock_page):
         """Test full intervention lifecycle returns PENDING per §3.6.1."""
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
@@ -971,11 +925,9 @@ class TestInterventionIntegration:
                         )
 
     @pytest.mark.asyncio
-    async def test_complete_intervention_marks_success(
-        self, mock_settings, mock_db
-    ):
+    async def test_complete_intervention_marks_success(self, mock_settings, mock_db):
         """Test complete_intervention marks intervention as successful.
-        
+
         Per §3.6.1: User calls complete_authentication when done.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
@@ -1003,9 +955,7 @@ class TestInterventionIntegration:
 
                 # Then: Failure counter should be reset
                 failures = manager.get_domain_failures(domain)
-                assert failures == 0, (
-                    f"Failure count after success should be 0, got {failures}"
-                )
+                assert failures == 0, f"Failure count after success should be 0, got {failures}"
 
                 # Then: Intervention removed from pending
                 assert intervention_id not in manager._pending_interventions, (
@@ -1013,11 +963,9 @@ class TestInterventionIntegration:
                 )
 
     @pytest.mark.asyncio
-    async def test_check_status_shows_pending_without_timeout(
-        self, mock_settings, mock_db
-    ):
+    async def test_check_status_shows_pending_without_timeout(self, mock_settings, mock_db):
         """Test check_intervention_status shows pending without timeout per §3.6.1.
-        
+
         Per §3.6.1: No timeout enforcement - user-driven completion only.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
@@ -1039,21 +987,18 @@ class TestInterventionIntegration:
                 assert status["status"] == "pending", (
                     f"Expected 'pending' status per §3.6.1, got '{status['status']}'"
                 )
-                assert "elapsed_seconds" in status, (
-                    "Status should include elapsed_seconds"
-                )
-                assert "note" in status, (
-                    "Status should include note about user completion"
-                )
+                assert "elapsed_seconds" in status, "Status should include elapsed_seconds"
+                assert "note" in status, "Status should include note about user completion"
 
 
 # =============================================================================
 # K.3-8: Domain Blocked Notification Tests
 # =============================================================================
 
+
 class TestDomainBlockedNotification:
     """Tests for domain_blocked notification (K.3-8).
-    
+
     Test Perspectives Table:
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
     |---------|---------------------|-------------|-----------------|-------|
@@ -1067,7 +1012,7 @@ class TestDomainBlockedNotification:
     def test_intervention_type_includes_domain_blocked(self):
         """
         TC-DB-N-01: InterventionType should include DOMAIN_BLOCKED.
-        
+
         // Given: InterventionType enum
         // When: Checking values
         // Then: DOMAIN_BLOCKED should be defined with value "domain_blocked"
@@ -1076,12 +1021,10 @@ class TestDomainBlockedNotification:
         assert InterventionType.DOMAIN_BLOCKED.value == "domain_blocked"
 
     @pytest.mark.asyncio
-    async def test_notify_user_domain_blocked_queues_and_notifies(
-        self, mock_settings, mock_db
-    ):
+    async def test_notify_user_domain_blocked_queues_and_notifies(self, mock_settings, mock_db):
         """
         TC-DB-N-02: notify_user with domain_blocked should queue and send toast.
-        
+
         // Given: domain_blocked event with valid payload
         // When: Calling notify_user
         // Then: Item queued, toast sent, queue_id returned
@@ -1099,7 +1042,9 @@ class TestDomainBlockedNotification:
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
                 with patch("src.utils.notification._get_manager", return_value=mock_manager):
-                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                    with patch(
+                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                    ):
                         # When
                         result = await notify_user(
                             event="domain_blocked",
@@ -1129,12 +1074,10 @@ class TestDomainBlockedNotification:
                         assert result["queue_id"] == "iq_test123"
 
     @pytest.mark.asyncio
-    async def test_notify_domain_blocked_convenience_function(
-        self, mock_settings, mock_db
-    ):
+    async def test_notify_domain_blocked_convenience_function(self, mock_settings, mock_db):
         """
         TC-DB-N-03: notify_domain_blocked helper should work correctly.
-        
+
         // Given: Domain and reason
         // When: Calling notify_domain_blocked
         // Then: Correct result returned
@@ -1150,7 +1093,9 @@ class TestDomainBlockedNotification:
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
                 with patch("src.utils.notification._get_manager", return_value=mock_manager):
-                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                    with patch(
+                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                    ):
                         # When
                         result = await notify_domain_blocked(
                             domain="blocked.example.com",
@@ -1164,12 +1109,10 @@ class TestDomainBlockedNotification:
                         assert result["queue_id"] == "iq_conv123"
 
     @pytest.mark.asyncio
-    async def test_notify_user_domain_blocked_missing_domain(
-        self, mock_settings, mock_db
-    ):
+    async def test_notify_user_domain_blocked_missing_domain(self, mock_settings, mock_db):
         """
         TC-DB-A-01: notify_user domain_blocked with missing domain uses "unknown".
-        
+
         // Given: domain_blocked event without domain
         // When: Calling notify_user
         // Then: Uses "unknown" as domain
@@ -1185,7 +1128,9 @@ class TestDomainBlockedNotification:
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
                 with patch("src.utils.notification._get_manager", return_value=mock_manager):
-                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                    with patch(
+                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                    ):
                         # When: No domain provided
                         result = await notify_user(
                             event="domain_blocked",
@@ -1198,12 +1143,10 @@ class TestDomainBlockedNotification:
                         assert result["domain"] == "unknown"
 
     @pytest.mark.asyncio
-    async def test_notify_user_domain_blocked_missing_reason(
-        self, mock_settings, mock_db
-    ):
+    async def test_notify_user_domain_blocked_missing_reason(self, mock_settings, mock_db):
         """
         TC-DB-A-02: notify_user domain_blocked with missing reason uses default.
-        
+
         // Given: domain_blocked event without reason
         // When: Calling notify_user
         // Then: Uses default reason "Verification failure"
@@ -1219,7 +1162,9 @@ class TestDomainBlockedNotification:
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
                 with patch("src.utils.notification._get_manager", return_value=mock_manager):
-                    with patch("src.utils.notification.get_intervention_queue", return_value=mock_queue):
+                    with patch(
+                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                    ):
                         # When: No reason provided
                         result = await notify_user(
                             event="domain_blocked",

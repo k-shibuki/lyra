@@ -49,6 +49,7 @@ from src.crawler.site_search import (
 # SearchTemplate Tests
 # =============================================================================
 
+
 class TestSearchTemplate:
     """Tests for SearchTemplate dataclass."""
 
@@ -96,6 +97,7 @@ class TestSearchTemplate:
 # =============================================================================
 # DomainSearchStats Tests
 # =============================================================================
+
 
 class TestDomainSearchStats:
     """Tests for DomainSearchStats dataclass."""
@@ -182,6 +184,7 @@ class TestDomainSearchStats:
 # SiteSearchResult Tests
 # =============================================================================
 
+
 class TestSiteSearchResult:
     """Tests for SiteSearchResult dataclass."""
 
@@ -220,6 +223,7 @@ class TestSiteSearchResult:
 # =============================================================================
 # SiteSearchManager Tests
 # =============================================================================
+
 
 class TestSiteSearchManager:
     """Tests for SiteSearchManager class."""
@@ -377,6 +381,7 @@ class TestSiteSearchManager:
 # MCP Tool Function Tests
 # =============================================================================
 
+
 class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
@@ -385,13 +390,15 @@ class TestMCPToolFunctions:
         """site_search should return structured result."""
         with patch("src.crawler.site_search.get_site_search_manager") as mock_get:
             mock_manager = MagicMock()
-            mock_manager.search = AsyncMock(return_value=SiteSearchResult(
-                domain="example.com",
-                query="test",
-                success=True,
-                result_urls=["https://example.com/r1"],
-                result_count=1,
-            ))
+            mock_manager.search = AsyncMock(
+                return_value=SiteSearchResult(
+                    domain="example.com",
+                    query="test",
+                    success=True,
+                    result_urls=["https://example.com/r1"],
+                    result_count=1,
+                )
+            )
             mock_get.return_value = mock_manager
 
             result = await site_search("example.com", "test")
@@ -443,6 +450,7 @@ class TestMCPToolFunctions:
 # Edge Cases
 # =============================================================================
 
+
 class TestEdgeCases:
     """Edge case tests."""
 
@@ -487,11 +495,3 @@ class TestEdgeCases:
         urls = manager._extract_result_urls(html, "example.com", template)
 
         assert len(urls) <= 50  # Should be limited
-
-
-
-
-
-
-
-

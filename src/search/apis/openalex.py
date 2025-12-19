@@ -22,6 +22,7 @@ class OpenAlexClient(BaseAcademicClient):
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
+
             config = get_academic_apis_config()
             api_config = config.apis.get("openalex", {})
             base_url = api_config.base_url if api_config.base_url else "https://api.openalex.org"
@@ -45,8 +46,8 @@ class OpenAlexClient(BaseAcademicClient):
                 params={
                     "search": query,
                     "per-page": limit,
-                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location"
-                }
+                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
+                },
             )
             response.raise_for_status()
             return response.json()
@@ -58,15 +59,11 @@ class OpenAlexClient(BaseAcademicClient):
             return AcademicSearchResult(
                 papers=papers,
                 total_count=data.get("meta", {}).get("count", 0),
-                source_api="openalex"
+                source_api="openalex",
             )
         except Exception as e:
             logger.error("OpenAlex search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[],
-                total_count=0,
-                source_api="openalex"
-            )
+            return AcademicSearchResult(papers=[], total_count=0, source_api="openalex")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
@@ -79,7 +76,9 @@ class OpenAlexClient(BaseAcademicClient):
                 pid = pid.split("/")[-1]
             response = await session.get(
                 f"{self.base_url}/works/{pid}",
-                params={"select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location"}
+                params={
+                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location"
+                },
             )
             response.raise_for_status()
             return response.json()
@@ -114,11 +113,13 @@ class OpenAlexClient(BaseAcademicClient):
         authors = []
         for authorship in data.get("authorships", []):
             author_data = authorship.get("author", {})
-            authors.append(Author(
-                name=author_data.get("display_name", ""),
-                affiliation=None,  # OpenAlex does not provide detailed affiliation
-                orcid=author_data.get("orcid")
-            ))
+            authors.append(
+                Author(
+                    name=author_data.get("display_name", ""),
+                    affiliation=None,  # OpenAlex does not provide detailed affiliation
+                    orcid=author_data.get("orcid"),
+                )
+            )
 
         doi = data.get("doi", "")
         if doi and doi.startswith("https://doi.org/"):
@@ -131,20 +132,22 @@ class OpenAlexClient(BaseAcademicClient):
             authors=authors,
             year=data.get("publication_year"),
             doi=doi if doi else None,
-            venue=location.get("source", {}).get("display_name") if location.get("source") else None,
+            venue=location.get("source", {}).get("display_name")
+            if location.get("source")
+            else None,
             citation_count=data.get("cited_by_count", 0),
             reference_count=data.get("referenced_works_count", 0),
             is_open_access=oa.get("is_oa", False),
             oa_url=oa.get("oa_url"),
-            source_api="openalex"
+            source_api="openalex",
         )
 
     def _reconstruct_abstract(self, inverted_index: dict | None) -> str | None:
         """Reconstruct plain text from OpenAlex inverted index format.
-        
+
         Args:
             inverted_index: {"word": [position1, position2, ...]} format dict
-            
+
         Returns:
             Reconstructed abstract text or None
         """

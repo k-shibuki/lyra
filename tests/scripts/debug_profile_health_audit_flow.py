@@ -63,8 +63,10 @@ async def test_browser_fetcher_health_check():
 
             # Type check
             assert isinstance(audit_result, AuditResult), "audit_result should be AuditResult"
-            assert hasattr(audit_result, 'status'), "AuditResult should have 'status' attribute"
-            assert audit_result.status in AuditStatus, f"status should be AuditStatus, got {type(audit_result.status)}"
+            assert hasattr(audit_result, "status"), "AuditResult should have 'status' attribute"
+            assert audit_result.status in AuditStatus, (
+                f"status should be AuditStatus, got {type(audit_result.status)}"
+            )
 
             print(f"  ✓ Health check completed: status={audit_result.status.value}")
 
@@ -72,7 +74,9 @@ async def test_browser_fetcher_health_check():
                 print(f"    - Drifts detected: {len(audit_result.drifts)}")
                 print(f"    - Repair status: {audit_result.repair_status.value}")
                 for drift in audit_result.drifts:
-                    print(f"      - {drift.attribute}: {drift.baseline_value} → {drift.current_value}")
+                    print(
+                        f"      - {drift.attribute}: {drift.baseline_value} → {drift.current_value}"
+                    )
             elif audit_result.status == AuditStatus.FAIL:
                 print(f"    - Audit failed: {audit_result.error}")
             else:
@@ -90,6 +94,7 @@ async def test_browser_fetcher_health_check():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         # Clean up on error
         if browser_fetcher and browser_fetcher._playwright:
@@ -141,6 +146,7 @@ async def test_browser_search_provider_health_check():
         # Ensure browser is initialized with timeout
         print("  Calling _ensure_browser()...")
         import asyncio
+
         try:
             await asyncio.wait_for(provider._ensure_browser(), timeout=10.0)
         except (TimeoutError, CDPConnectionError) as e:
@@ -172,8 +178,10 @@ async def test_browser_search_provider_health_check():
 
             # Type check
             assert isinstance(audit_result, AuditResult), "audit_result should be AuditResult"
-            assert hasattr(audit_result, 'status'), "AuditResult should have 'status' attribute"
-            assert audit_result.status in AuditStatus, f"status should be AuditStatus, got {type(audit_result.status)}"
+            assert hasattr(audit_result, "status"), "AuditResult should have 'status' attribute"
+            assert audit_result.status in AuditStatus, (
+                f"status should be AuditStatus, got {type(audit_result.status)}"
+            )
 
             print(f"  ✓ Health check completed: status={audit_result.status.value}")
 
@@ -181,7 +189,9 @@ async def test_browser_search_provider_health_check():
                 print(f"    - Drifts detected: {len(audit_result.drifts)}")
                 print(f"    - Repair status: {audit_result.repair_status.value}")
                 for drift in audit_result.drifts:
-                    print(f"      - {drift.attribute}: {drift.baseline_value} → {drift.current_value}")
+                    print(
+                        f"      - {drift.attribute}: {drift.baseline_value} → {drift.current_value}"
+                    )
             elif audit_result.status == AuditStatus.FAIL:
                 print(f"    - Audit failed: {audit_result.error}")
             else:
@@ -211,6 +221,7 @@ async def test_browser_search_provider_health_check():
             return True  # Skip test if CDP not available
         print(f"  ✗ Error: {error_type}: {e}")
         import traceback
+
         traceback.print_exc()
         # Clean up on error
         if provider and provider._playwright:
@@ -239,6 +250,7 @@ async def test_health_check_error_handling():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -286,4 +298,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

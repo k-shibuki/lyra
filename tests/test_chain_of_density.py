@@ -59,6 +59,7 @@ from src.report.chain_of_density import (
 # Test Fixtures
 # ============================================================
 
+
 @pytest.fixture
 def sample_fragment():
     """Create a sample fragment for testing."""
@@ -138,6 +139,7 @@ def sample_claims():
 # CitationInfo Tests
 # ============================================================
 
+
 class TestCitationInfo:
     """Tests for CitationInfo class."""
 
@@ -161,7 +163,9 @@ class TestCitationInfo:
         assert citation.discovered_at == "2024-01-15T10:30:00Z"
         assert citation.source_tag == "government"
         assert citation.is_primary is True
-        assert "経済成長率" in citation.excerpt, f"Expected '経済成長率' in excerpt: {citation.excerpt}"
+        assert "経済成長率" in citation.excerpt, (
+            f"Expected '経済成長率' in excerpt: {citation.excerpt}"
+        )
 
     def test_from_fragment_without_heading(self):
         """Test creating CitationInfo when heading_context is None."""
@@ -285,6 +289,7 @@ class TestCitationInfo:
 # DenseClaim Tests
 # ============================================================
 
+
 class TestDenseClaim:
     """Tests for DenseClaim class."""
 
@@ -386,6 +391,7 @@ class TestDenseClaim:
 # ChainOfDensityCompressor Tests
 # ============================================================
 
+
 class TestChainOfDensityCompressor:
     """Tests for ChainOfDensityCompressor class."""
 
@@ -411,9 +417,7 @@ class TestChainOfDensityCompressor:
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
 
         # When: Creating dense claims
-        dense_claims = compressor._create_dense_claims(
-            sample_claims, mapping, sample_fragments
-        )
+        dense_claims = compressor._create_dense_claims(sample_claims, mapping, sample_fragments)
 
         # Then: DenseClaim objects have citations
         assert len(dense_claims) == 2
@@ -427,9 +431,7 @@ class TestChainOfDensityCompressor:
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
-        dense_claims = compressor._create_dense_claims(
-            sample_claims, mapping, sample_fragments
-        )
+        dense_claims = compressor._create_dense_claims(sample_claims, mapping, sample_fragments)
 
         # When: Validating claims
         validation = compressor._validate_claims(dense_claims)
@@ -445,9 +447,7 @@ class TestChainOfDensityCompressor:
         # Given: Dense claims with primary sources
         compressor = ChainOfDensityCompressor(use_llm=False)
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
-        dense_claims = compressor._create_dense_claims(
-            sample_claims, mapping, sample_fragments
-        )
+        dense_claims = compressor._create_dense_claims(sample_claims, mapping, sample_fragments)
 
         # When: Calculating primary ratio
         ratio = compressor._calc_primary_ratio(dense_claims)
@@ -498,9 +498,7 @@ class TestChainOfDensityCompressor:
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
-        dense_claims = compressor._create_dense_claims(
-            sample_claims, mapping, sample_fragments
-        )
+        dense_claims = compressor._create_dense_claims(sample_claims, mapping, sample_fragments)
 
         # When: Compressing with rule-based method
         summaries = compressor._rule_based_compress(dense_claims)
@@ -518,9 +516,7 @@ class TestChainOfDensityCompressor:
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
         mapping = compressor._build_citation_mapping(sample_claims, sample_fragments)
-        dense_claims = compressor._create_dense_claims(
-            sample_claims, mapping, sample_fragments
-        )
+        dense_claims = compressor._create_dense_claims(sample_claims, mapping, sample_fragments)
 
         # When: Extracting entities
         entities = compressor._extract_all_entities(dense_claims, sample_fragments)
@@ -575,13 +571,12 @@ class TestChainOfDensityCompressor:
 # Integration Tests
 # ============================================================
 
+
 class TestChainOfDensityIntegration:
     """Integration tests for Chain-of-Density compression."""
 
     @pytest.mark.asyncio
-    async def test_compress_with_chain_of_density_function(
-        self, sample_claims, sample_fragments
-    ):
+    async def test_compress_with_chain_of_density_function(self, sample_claims, sample_fragments):
         """Test the convenience function."""
         # Given: Sample claims and fragments
         # When: Using convenience function
@@ -672,6 +667,7 @@ class TestChainOfDensityIntegration:
 # ============================================================
 # Edge Case Tests
 # ============================================================
+
 
 class TestChainOfDensityEdgeCases:
     """Edge case tests for Chain-of-Density compression."""
@@ -823,6 +819,7 @@ class TestChainOfDensityEdgeCases:
 # DenseSummary Tests
 # ============================================================
 
+
 class TestDenseSummary:
     """Tests for DenseSummary class."""
 
@@ -855,4 +852,3 @@ class TestDenseSummary:
         assert data["word_count"] == 10
         assert data["density_score"] == 0.5
         assert len(data["claims"]) == 1
-

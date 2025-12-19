@@ -22,7 +22,6 @@ in the test environment.
 | TC-CF-02 | close_undetected_fetcher | Equivalence – cleanup | Fetcher closed | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -126,6 +125,7 @@ class TestUndetectedChromeFetcher:
 
         # Remove from sys.modules if present to force re-check
         import sys
+
         original = sys.modules.get("undetected_chromedriver")
         if "undetected_chromedriver" in sys.modules:
             del sys.modules["undetected_chromedriver"]
@@ -150,7 +150,7 @@ class TestUndetectedChromeFetcher:
         mock_uc.ChromeOptions.return_value = mock_options
 
         with patch.dict("sys.modules", {"undetected_chromedriver": mock_uc}):
-            options = fetcher._create_options(headless=True)
+            fetcher._create_options(headless=True)
 
             # Verify options were created
             assert mock_uc.ChromeOptions.called
@@ -162,6 +162,7 @@ class TestUndetectedChromeFetcher:
         fetcher = UndetectedChromeFetcher()
 
         import time
+
         start = time.time()
         fetcher._simulate_human_delay(0.1, 0.2)
         elapsed = time.time() - start
@@ -251,10 +252,12 @@ class TestUndetectedChromeFetcher:
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
 
-        fetcher.add_cookies([
-            {"name": "session", "value": "abc123"},
-            {"name": "user", "value": "test"},
-        ])
+        fetcher.add_cookies(
+            [
+                {"name": "session", "value": "abc123"},
+                {"name": "user", "value": "test"},
+            ]
+        )
 
         assert fetcher._driver.add_cookie.call_count == 2
 
@@ -365,6 +368,7 @@ class TestGlobalInstance:
         """Test getting global fetcher instance."""
         # Reset global
         import src.crawler.undetected as uc_module
+
         uc_module._undetected_fetcher = None
 
         fetcher1 = get_undetected_fetcher()
@@ -488,4 +492,3 @@ class TestConfig:
 
         assert hasattr(config, "undetected_chromedriver")
         assert config.undetected_chromedriver.enabled is True
-

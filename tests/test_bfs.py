@@ -121,6 +121,7 @@ SAMPLE_HTML_WITH_FRAGMENTS = """
 # ExtractedLink Tests
 # =============================================================================
 
+
 class TestExtractedLink:
     """Tests for ExtractedLink dataclass."""
 
@@ -128,7 +129,9 @@ class TestExtractedLink:
         """Links should be hashable by URL (TC-EL-N-01)."""
         # Given: Two links with same URL but different text/type
         link1 = ExtractedLink(url="https://example.com/page", text="Page", link_type=LinkType.BODY)
-        link2 = ExtractedLink(url="https://example.com/page", text="Different", link_type=LinkType.TOC)
+        link2 = ExtractedLink(
+            url="https://example.com/page", text="Different", link_type=LinkType.TOC
+        )
 
         # When/Then: Hash should be same (based on URL)
         assert hash(link1) == hash(link2)
@@ -137,8 +140,12 @@ class TestExtractedLink:
         """Links should be equal if URLs match (TC-EL-N-02)."""
         # Given: Links with same/different URLs
         link1 = ExtractedLink(url="https://example.com/page", text="Page", link_type=LinkType.BODY)
-        link2 = ExtractedLink(url="https://example.com/page", text="Different", link_type=LinkType.TOC)
-        link3 = ExtractedLink(url="https://example.com/other", text="Other", link_type=LinkType.BODY)
+        link2 = ExtractedLink(
+            url="https://example.com/page", text="Different", link_type=LinkType.TOC
+        )
+        link3 = ExtractedLink(
+            url="https://example.com/other", text="Other", link_type=LinkType.BODY
+        )
 
         # When/Then: Same URL = equal, different URL = not equal
         assert link1 == link2
@@ -160,6 +167,7 @@ class TestExtractedLink:
 # =============================================================================
 # BFSResult Tests
 # =============================================================================
+
 
 class TestBFSResult:
     """Tests for BFSResult dataclass."""
@@ -188,6 +196,7 @@ class TestBFSResult:
 # =============================================================================
 # LinkExtractor Tests
 # =============================================================================
+
 
 class TestLinkExtractor:
     """Tests for LinkExtractor class."""
@@ -463,6 +472,7 @@ class TestLinkExtractor:
 # DomainBFSCrawler Tests
 # =============================================================================
 
+
 class TestDomainBFSCrawler:
     """Tests for DomainBFSCrawler class."""
 
@@ -472,7 +482,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, '_robots_manager') as mock_robots:
+        with patch.object(crawler, "_robots_manager") as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
@@ -496,7 +506,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, '_robots_manager') as mock_robots:
+        with patch.object(crawler, "_robots_manager") as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
@@ -522,7 +532,8 @@ class TestDomainBFSCrawler:
         crawler = DomainBFSCrawler()
         blocked_url = "https://example.com/blocked"
 
-        with patch.object(crawler, '_robots_manager') as mock_robots:
+        with patch.object(crawler, "_robots_manager") as mock_robots:
+
             async def can_fetch(url):
                 return url != blocked_url
 
@@ -549,7 +560,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, '_robots_manager') as mock_robots:
+        with patch.object(crawler, "_robots_manager") as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
 
             # When: Getting priority links
@@ -569,7 +580,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, '_robots_manager') as mock_robots:
+        with patch.object(crawler, "_robots_manager") as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
@@ -594,6 +605,7 @@ class TestDomainBFSCrawler:
 # MCP Tool Function Tests
 # =============================================================================
 
+
 class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
@@ -603,12 +615,14 @@ class TestMCPToolFunctions:
         # Given: Mocked BFS crawler
         with patch("src.crawler.bfs.get_bfs_crawler") as mock_get:
             mock_crawler = MagicMock()
-            mock_crawler.crawl = AsyncMock(return_value=BFSResult(
-                domain="example.com",
-                seed_url="https://example.com/",
-                discovered_urls=["https://example.com/page1"],
-                visited_count=2,
-            ))
+            mock_crawler.crawl = AsyncMock(
+                return_value=BFSResult(
+                    domain="example.com",
+                    seed_url="https://example.com/",
+                    discovered_urls=["https://example.com/page1"],
+                    visited_count=2,
+                )
+            )
             mock_get.return_value = mock_crawler
 
             # When: Calling explore_domain
@@ -625,10 +639,12 @@ class TestMCPToolFunctions:
         # Given: Mocked BFS crawler
         with patch("src.crawler.bfs.get_bfs_crawler") as mock_get:
             mock_crawler = MagicMock()
-            mock_crawler.get_priority_links = AsyncMock(return_value=[
-                ("https://example.com/page1", 0.9, "heading"),
-                ("https://example.com/page2", 0.7, "body"),
-            ])
+            mock_crawler.get_priority_links = AsyncMock(
+                return_value=[
+                    ("https://example.com/page1", 0.9, "heading"),
+                    ("https://example.com/page2", 0.7, "body"),
+                ]
+            )
             mock_get.return_value = mock_crawler
 
             # When: Calling extract_page_links
@@ -646,6 +662,7 @@ class TestMCPToolFunctions:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Edge case tests."""

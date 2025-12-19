@@ -47,6 +47,7 @@ MAX_DOMAINS_DISCOVERED = 50
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class CertificateInfo:
     """Information about a single certificate."""
@@ -100,7 +101,7 @@ class CertificateInfo:
 
     def get_all_domains(self) -> list[str]:
         """Get all domains from CN and SANs.
-        
+
         Returns:
             Deduplicated list of all domains.
         """
@@ -167,7 +168,7 @@ class CertTimeline:
         description: str,
     ) -> None:
         """Add a timeline entry.
-        
+
         Args:
             date: Event date.
             action: Action type (issued, expired, renewed).
@@ -195,6 +196,7 @@ class CertTimeline:
 # Certificate Transparency Parser
 # =============================================================================
 
+
 class CertTransparencyParser:
     """Parser for crt.sh HTML responses."""
 
@@ -211,12 +213,12 @@ class CertTransparencyParser:
         source_url: str = "",
     ) -> CertSearchResult:
         """Parse crt.sh search results page.
-        
+
         Args:
             domain: Domain being searched.
             html: HTML response from crt.sh.
             source_url: Source URL.
-            
+
         Returns:
             CertSearchResult with parsed certificates.
         """
@@ -296,11 +298,11 @@ class CertTransparencyParser:
         cert_id: str,
     ) -> CertificateInfo | None:
         """Parse certificate detail page.
-        
+
         Args:
             html: HTML response from crt.sh certificate page.
             cert_id: Certificate ID.
-            
+
         Returns:
             CertificateInfo or None if parsing fails.
         """
@@ -359,10 +361,10 @@ class CertTransparencyParser:
 
     def _parse_date(self, date_str: str) -> datetime | None:
         """Parse date string from crt.sh.
-        
+
         Args:
             date_str: Date string.
-            
+
         Returns:
             Parsed datetime or None.
         """
@@ -388,10 +390,10 @@ class CertTransparencyParser:
 
     def _parse_cert_date(self, date_str: str) -> datetime | None:
         """Parse certificate date format.
-        
+
         Args:
             date_str: Certificate date string (e.g., "Jan 15 00:00:00 2024 GMT").
-            
+
         Returns:
             Parsed datetime or None.
         """
@@ -418,10 +420,10 @@ class CertTransparencyParser:
 
     def _parse_sans(self, san_text: str) -> list[str]:
         """Parse Subject Alternative Names from text.
-        
+
         Args:
             san_text: SAN text field.
-            
+
         Returns:
             List of DNS names.
         """
@@ -448,10 +450,10 @@ class CertTransparencyParser:
 
     def _extract_org_from_issuer(self, issuer: str) -> str | None:
         """Extract organization from issuer string.
-        
+
         Args:
             issuer: Issuer string.
-            
+
         Returns:
             Organization name or None.
         """
@@ -479,7 +481,7 @@ class CertTransparencyParser:
 
     def _aggregate_discoveries(self, result: CertSearchResult) -> None:
         """Aggregate discovered entities from certificates.
-        
+
         Args:
             result: CertSearchResult to update.
         """
@@ -535,9 +537,10 @@ class CertTransparencyParser:
 # Certificate Transparency Client
 # =============================================================================
 
+
 class CertTransparencyClient:
     """Client for certificate transparency log queries via crt.sh.
-    
+
     Implements HTML scraping only (no API per §4.1).
     """
 
@@ -547,7 +550,7 @@ class CertTransparencyClient:
         parser: CertTransparencyParser | None = None,
     ):
         """Initialize certificate transparency client.
-        
+
         Args:
             fetcher: URL fetcher to use.
             parser: Parser instance.
@@ -568,13 +571,13 @@ class CertTransparencyClient:
         include_wildcards: bool = True,
     ) -> CertSearchResult | None:
         """Search for certificates for a domain.
-        
+
         Args:
             domain: Domain to search.
             trace: Causal trace for logging.
             use_cache: Whether to use cached results.
             include_wildcards: Whether to include wildcard matches.
-            
+
         Returns:
             CertSearchResult or None if search fails.
         """
@@ -616,11 +619,11 @@ class CertTransparencyClient:
         trace: CausalTrace | None = None,
     ) -> CertificateInfo | None:
         """Get detailed certificate information.
-        
+
         Args:
             cert_id: Certificate ID from crt.sh.
             trace: Causal trace.
-            
+
         Returns:
             CertificateInfo or None.
         """
@@ -659,12 +662,12 @@ class CertTransparencyClient:
         trace: CausalTrace,
     ) -> CertSearchResult | None:
         """Fetch URL and parse CT response.
-        
+
         Args:
             domain: Domain being searched.
             url: crt.sh search URL.
             trace: Causal trace.
-            
+
         Returns:
             Parsed CertSearchResult or None.
         """
@@ -698,13 +701,13 @@ class CertTransparencyClient:
         trace: CausalTrace | None = None,
     ) -> list[str]:
         """Discover domains related via certificate sharing.
-        
+
         This is useful for OSINT pivot exploration per §3.1.1.
-        
+
         Args:
             domain: Domain to start from.
             trace: Causal trace.
-            
+
         Returns:
             List of related domains.
         """
@@ -721,11 +724,11 @@ class CertTransparencyClient:
         trace: CausalTrace | None = None,
     ) -> CertTimeline:
         """Build certificate timeline for a domain.
-        
+
         Args:
             domain: Domain to analyze.
             trace: Causal trace.
-            
+
         Returns:
             CertTimeline with issuance history.
         """
@@ -761,12 +764,12 @@ class CertTransparencyClient:
         trace: CausalTrace | None = None,
     ) -> dict[str, CertSearchResult | None]:
         """Search certificates for multiple domains.
-        
+
         Args:
             domains: List of domains to search.
             max_concurrent: Maximum concurrent searches.
             trace: Causal trace.
-            
+
         Returns:
             Dictionary mapping domain to CertSearchResult or None.
         """
@@ -792,14 +795,14 @@ class CertTransparencyClient:
 # Helper Functions
 # =============================================================================
 
+
 def get_cert_transparency_client(fetcher: Any = None) -> CertTransparencyClient:
     """Get certificate transparency client instance.
-    
+
     Args:
         fetcher: URL fetcher to use.
-        
+
     Returns:
         CertTransparencyClient instance.
     """
     return CertTransparencyClient(fetcher=fetcher)
-

@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 
 class AcademicSearchProvider(BaseSearchProvider):
     """Academic API integration provider.
-    
+
     Integrates multiple academic APIs into a unified interface for search and
     citation graph retrieval. Early deduplication ensures each unique paper
     is processed only once.
@@ -53,9 +53,9 @@ class AcademicSearchProvider(BaseSearchProvider):
 
     def get_last_index(self) -> CanonicalPaperIndex | None:
         """Get the CanonicalPaperIndex from the last search.
-        
+
         Returns the internal index containing Paper objects with full metadata.
-        
+
         Returns:
             CanonicalPaperIndex or None if no search has been performed
         """
@@ -63,13 +63,14 @@ class AcademicSearchProvider(BaseSearchProvider):
 
     def _is_unpaywall_enabled(self) -> bool:
         """Check if Unpaywall is enabled via configuration.
-        
+
         Returns:
             True if Unpaywall is enabled, False otherwise (default: False)
         """
         if self._unpaywall_enabled is None:
             try:
                 from src.utils.config import get_academic_apis_config
+
                 config = get_academic_apis_config()
                 unpaywall_config = config.apis.get("unpaywall")
                 # Default to False if config not found (opt-in behavior)
@@ -106,13 +107,13 @@ class AcademicSearchProvider(BaseSearchProvider):
         options: SearchOptions | None = None,
     ) -> SearchResponse:
         """Search for academic papers.
-        
+
         Calls multiple APIs in parallel, merges and deduplicates results.
-        
+
         Args:
             query: Search query
             options: Search options
-            
+
         Returns:
             SearchResponse with deduplicated results
         """
@@ -122,10 +123,7 @@ class AcademicSearchProvider(BaseSearchProvider):
         apis_to_use = options.engines if options.engines else self._default_apis
 
         # Sort by priority
-        apis_to_use = sorted(
-            apis_to_use,
-            key=lambda api: self.API_PRIORITY.get(api, 999)
-        )
+        apis_to_use = sorted(apis_to_use, key=lambda api: self.API_PRIORITY.get(api, 999))
 
         # Parallel search
         tasks = []
@@ -152,12 +150,13 @@ class AcademicSearchProvider(BaseSearchProvider):
         index = CanonicalPaperIndex()
 
         # Register in priority order (higher priority API registered first)
-        for api_name, result in zip(apis_to_use, results):
+        for api_name, result in zip(apis_to_use, results, strict=False):
             if isinstance(result, Exception):
                 logger.warning("API search failed", api=api_name, error=str(result))
                 continue
 
             from src.utils.schemas import AcademicSearchResult
+
             if not isinstance(result, AcademicSearchResult):
                 continue
 
@@ -206,12 +205,12 @@ class AcademicSearchProvider(BaseSearchProvider):
         direction: str = "both",  # "references", "citations", "both"
     ) -> tuple[list[Paper], list]:
         """Get citation graph.
-        
+
         Args:
             paper_id: Starting paper ID
             depth: Search depth (1=direct citations only, 2=citations of citations)
             direction: Search direction
-            
+
         Returns:
             (papers, citations) tuple
         """
@@ -235,11 +234,14 @@ class AcademicSearchProvider(BaseSearchProvider):
                 for ref_paper, is_influential in refs:
                     papers[ref_paper.id] = ref_paper
                     from src.utils.schemas import Citation
-                    citations.append(Citation(
-                        citing_paper_id=current_id,
-                        cited_paper_id=ref_paper.id,
-                        is_influential=is_influential
-                    ))
+
+                    citations.append(
+                        Citation(
+                            citing_paper_id=current_id,
+                            cited_paper_id=ref_paper.id,
+                            is_influential=is_influential,
+                        )
+                    )
                     if current_depth + 1 < depth:
                         to_explore.append((ref_paper.id, current_depth + 1))
 
@@ -249,11 +251,14 @@ class AcademicSearchProvider(BaseSearchProvider):
                 for cit_paper, is_influential in cits:
                     papers[cit_paper.id] = cit_paper
                     from src.utils.schemas import Citation
-                    citations.append(Citation(
-                        citing_paper_id=cit_paper.id,
-                        cited_paper_id=current_id,
-                        is_influential=is_influential
-                    ))
+
+                    citations.append(
+                        Citation(
+                            citing_paper_id=cit_paper.id,
+                            cited_paper_id=current_id,
+                            is_influential=is_influential,
+                        )
+                    )
                     if current_depth + 1 < depth:
                         to_explore.append((cit_paper.id, current_depth + 1))
 
@@ -261,10 +266,10 @@ class AcademicSearchProvider(BaseSearchProvider):
 
     async def resolve_oa_url_for_paper(self, paper: Paper) -> str | None:
         """Resolve OA URL for a paper using Unpaywall if not already available.
-        
+
         Args:
             paper: Paper object
-            
+
         Returns:
             OA URL if resolved, None otherwise
         """

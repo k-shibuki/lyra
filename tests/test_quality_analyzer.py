@@ -79,9 +79,9 @@ class TestContentQualityAnalyzer:
         html = """
         <html>
             <body>
-                <p>This is a single paragraph that contains many words but lacks proper 
-                structure and organization. It goes on and on without any breaks or 
-                headings to organize the content. The reader would find it difficult 
+                <p>This is a single paragraph that contains many words but lacks proper
+                structure and organization. It goes on and on without any breaks or
+                headings to organize the content. The reader would find it difficult
                 to scan and understand the key points being made in this text.</p>
             </body>
         </html>
@@ -188,7 +188,8 @@ class TestContentQualityAnalyzer:
     def test_template_heavy_detection(self, analyzer: ContentQualityAnalyzer):
         """Test detection of template-heavy content."""
         # Lots of HTML structure, very little text
-        html = """
+        html = (
+            """
         <html>
             <head>
                 <title>Page</title>
@@ -221,7 +222,9 @@ class TestContentQualityAnalyzer:
                 </footer>
             </body>
         </html>
-        """ * 10  # Repeat to make it large enough
+        """
+            * 10
+        )  # Repeat to make it large enough
 
         result = analyzer.analyze(html)
 
@@ -297,16 +300,16 @@ class TestContentQualityAnalyzer:
         <html>
             <body>
                 <h1>Comprehensive Guide to Understanding Topic</h1>
-                <p>It's important to note that this topic has several key aspects. 
+                <p>It's important to note that this topic has several key aspects.
                 Let's delve into the various factors that contribute to this phenomenon.</p>
-                <p>Firstly, we must understand the fundamental concepts. Secondly, 
-                we should examine the practical applications. Thirdly, we need to 
+                <p>Firstly, we must understand the fundamental concepts. Secondly,
+                we should examine the practical applications. Thirdly, we need to
                 consider the implications.</p>
-                <p>In conclusion, it's worth noting that this comprehensive overview 
-                has covered the essential aspects. To summarize, the key takeaways 
+                <p>In conclusion, it's worth noting that this comprehensive overview
+                has covered the essential aspects. To summarize, the key takeaways
                 include understanding the landscape and leveraging best practices.</p>
-                <p>Having said that, it is important to understand that there are 
-                several factors to consider. With that being said, let's explore 
+                <p>Having said that, it is important to understand that there are
+                several factors to consider. With that being said, let's explore
                 the various dimensions of this topic.</p>
             </body>
         </html>
@@ -325,11 +328,11 @@ class TestContentQualityAnalyzer:
             <body>
                 <h1>My Experience Building a Startup</h1>
                 <p>Last year, I quit my job to start a company. It was terrifying.</p>
-                <p>The first three months were brutal. We had no customers, no revenue, 
+                <p>The first three months were brutal. We had no customers, no revenue,
                 and I was burning through my savings. My wife thought I was crazy.</p>
-                <p>But then something clicked. A random tweet went viral. Suddenly we 
+                <p>But then something clicked. A random tweet went viral. Suddenly we
                 had 500 signups in a day. I couldn't believe it!</p>
-                <p>Looking back, I learned that persistence matters more than having 
+                <p>Looking back, I learned that persistence matters more than having
                 a perfect plan. Sometimes you just have to ship and see what happens.</p>
             </body>
         </html>
@@ -348,7 +351,7 @@ class TestContentQualityAnalyzer:
         <html>
             <body>
                 <h1>Best Cheap Laptops Online 2024</h1>
-                <p>Looking for the best laptops online? Our top laptop reviews 2024 
+                <p>Looking for the best laptops online? Our top laptop reviews 2024
                 guide will help you find cheap laptops near me.</p>
                 <h2>Top 10 Best Laptop Reviews 2024</h2>
                 <p>Buy the best laptops online with our comprehensive laptop guide 2024.
@@ -413,7 +416,7 @@ class TestContentQualityAnalyzer:
         <html>
             <body>
                 <h1>You Won't Believe What Happened Next!</h1>
-                <p>This shocking discovery will blow your mind. The incredible 
+                <p>This shocking discovery will blow your mind. The incredible
                 results are truly unbelievable. What happened next was jaw-dropping!</p>
                 <p>Doctors hate this one trick that changed everything.</p>
             </body>
@@ -511,35 +514,35 @@ class TestContentQualityAnalyzer:
             <body>
                 <article>
                     <h1>Understanding Climate Change Impacts</h1>
-                    <p>Climate change represents one of the most significant challenges facing 
-                    our planet today. Scientists have documented rising global temperatures 
+                    <p>Climate change represents one of the most significant challenges facing
+                    our planet today. Scientists have documented rising global temperatures
                     and their effects on ecosystems worldwide.</p>
-                    <p>The Arctic ice sheets have been melting at unprecedented rates. 
-                    Polar bear populations are declining as their habitat shrinks. 
+                    <p>The Arctic ice sheets have been melting at unprecedented rates.
+                    Polar bear populations are declining as their habitat shrinks.
                     Meanwhile, coral reefs face bleaching events due to warmer ocean waters.</p>
-                    <p>Agricultural systems must adapt to changing precipitation patterns. 
-                    Farmers in many regions report shifting growing seasons. 
+                    <p>Agricultural systems must adapt to changing precipitation patterns.
+                    Farmers in many regions report shifting growing seasons.
                     Drought-resistant crop varieties are becoming increasingly important.</p>
-                    <p>Coastal communities face rising sea levels and increased storm intensity. 
-                    Infrastructure investments are needed to protect vulnerable populations. 
+                    <p>Coastal communities face rising sea levels and increased storm intensity.
+                    Infrastructure investments are needed to protect vulnerable populations.
                     Many cities are developing climate adaptation plans.</p>
-                    <p>Renewable energy adoption continues to accelerate globally. 
-                    Solar and wind power costs have decreased dramatically. 
+                    <p>Renewable energy adoption continues to accelerate globally.
+                    Solar and wind power costs have decreased dramatically.
                     Electric vehicle sales are breaking records in major markets.</p>
-                    <p>International cooperation remains essential for addressing climate change. 
-                    The Paris Agreement set ambitious emissions reduction targets. 
+                    <p>International cooperation remains essential for addressing climate change.
+                    The Paris Agreement set ambitious emissions reduction targets.
                     Nations must work together to achieve carbon neutrality by mid-century.</p>
-                    <p>Individual actions can contribute to emissions reductions. 
-                    Energy efficiency improvements in homes reduce carbon footprints. 
+                    <p>Individual actions can contribute to emissions reductions.
+                    Energy efficiency improvements in homes reduce carbon footprints.
                     Sustainable transportation choices help decrease urban pollution.</p>
-                    <p>Education and awareness play crucial roles in climate action. 
-                    Young people are leading movements demanding environmental protection. 
+                    <p>Education and awareness play crucial roles in climate action.
+                    Young people are leading movements demanding environmental protection.
                     Schools are incorporating climate science into their curricula.</p>
-                    <p>Business leaders recognize the economic opportunities in sustainability. 
-                    Green investments are attracting significant capital flows. 
+                    <p>Business leaders recognize the economic opportunities in sustainability.
+                    Green investments are attracting significant capital flows.
                     Corporate sustainability reporting has become standard practice.</p>
-                    <p>The scientific consensus on human-caused climate change is clear. 
-                    Continued research helps refine our understanding of climate systems. 
+                    <p>The scientific consensus on human-caused climate change is clear.
+                    Continued research helps refine our understanding of climate systems.
                     Evidence-based policy decisions are essential for effective action.</p>
                 </article>
             </body>
@@ -902,20 +905,20 @@ class TestIntegrationWithPageClassifier:
                     <div id="toc">Table of Contents</div>
                     <h1>History of Computing</h1>
                     <div class="infobox">Summary info</div>
-                    <p>The history of computing spans several centuries of technological 
-                    development. Early mechanical calculators laid the groundwork for 
+                    <p>The history of computing spans several centuries of technological
+                    development. Early mechanical calculators laid the groundwork for
                     modern electronic computers.</p>
-                    <p>Charles Babbage designed the Analytical Engine in the 1830s. 
-                    Ada Lovelace wrote the first computer algorithm for this machine. 
+                    <p>Charles Babbage designed the Analytical Engine in the 1830s.
+                    Ada Lovelace wrote the first computer algorithm for this machine.
                     Their work anticipated many concepts used in modern computing.</p>
-                    <p>Electronic computers emerged during World War II. ENIAC became 
-                    operational in 1945 at the University of Pennsylvania. 
+                    <p>Electronic computers emerged during World War II. ENIAC became
+                    operational in 1945 at the University of Pennsylvania.
                     It could perform thousands of calculations per second.</p>
-                    <p>The transistor revolutionized electronics in the 1950s. 
-                    Integrated circuits further miniaturized computing components. 
+                    <p>The transistor revolutionized electronics in the 1950s.
+                    Integrated circuits further miniaturized computing components.
                     Moore's Law predicted the doubling of transistor density every two years.</p>
-                    <p>Personal computers became widespread in the 1980s. 
-                    The IBM PC and Apple Macintosh brought computing to homes and offices. 
+                    <p>Personal computers became widespread in the 1980s.
+                    The IBM PC and Apple Macintosh brought computing to homes and offices.
                     Graphical user interfaces made computers accessible to ordinary users.</p>
                     <div id="references">
                         <h2>References</h2>
@@ -934,4 +937,3 @@ class TestIntegrationWithPageClassifier:
         # Wiki content should generally be high quality
         assert result.quality_score >= 0.5
         assert QualityIssue.AGGREGATOR not in result.issues
-

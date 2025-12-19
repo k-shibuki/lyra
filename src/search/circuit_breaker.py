@@ -38,19 +38,19 @@ __all__ = [
 
 class EngineCircuitBreaker:
     """Circuit breaker for a single search engine.
-    
+
     Extends the generic circuit breaker pattern with search-engine-specific
     features:
     - Exponential backoff for cooldown (based on total failures in window)
     - EMA metrics: success_rate_1h, latency_ema, captcha_rate
     - Database persistence with datetime-based cooldown
     - DomainPolicyManager integration for default configuration
-    
+
     State transitions:
     - CLOSED: Normal operation. Failure count tracked.
     - OPEN: Engine disabled. Wait for cooldown before probing.
     - HALF_OPEN: Testing recovery. Single request allowed.
-    
+
     Transitions:
     - CLOSED -> OPEN: consecutive_failures >= threshold
     - OPEN -> HALF_OPEN: cooldown period elapsed
@@ -66,9 +66,9 @@ class EngineCircuitBreaker:
         cooldown_max: int | None = None,
     ):
         """Initialize circuit breaker.
-        
+
         Uses DomainPolicyManager for default values if not specified.
-        
+
         Args:
             engine: Engine name.
             failure_threshold: Failures before opening circuit. Default from config.
@@ -131,7 +131,7 @@ class EngineCircuitBreaker:
 
     def _calculate_cooldown(self) -> timedelta:
         """Calculate cooldown duration based on failure history.
-        
+
         Uses shared exponential backoff calculation per §4.3.5.
         Cooldown is capped at cooldown_max.
         """
@@ -145,7 +145,7 @@ class EngineCircuitBreaker:
 
     def record_success(self, latency_ms: float | None = None) -> None:
         """Record successful request.
-        
+
         Args:
             latency_ms: Request latency in milliseconds.
         """
@@ -175,7 +175,7 @@ class EngineCircuitBreaker:
         is_timeout: bool = False,
     ) -> None:
         """Record failed request.
-        
+
         Args:
             is_captcha: Whether failure was due to CAPTCHA.
             is_timeout: Whether failure was due to timeout.
@@ -224,7 +224,7 @@ class EngineCircuitBreaker:
 
     def force_open(self, cooldown_minutes: int | None = None) -> None:
         """Force circuit open (manual intervention).
-        
+
         Args:
             cooldown_minutes: Custom cooldown duration.
         """
@@ -248,7 +248,7 @@ class EngineCircuitBreaker:
 
     def get_metrics(self) -> dict[str, Any]:
         """Get current metrics.
-        
+
         Returns:
             Metrics dictionary including engine-specific EMA metrics.
         """
@@ -270,7 +270,7 @@ class EngineCircuitBreaker:
 
         await db.execute(
             """
-            INSERT INTO engine_health (engine, status, success_rate_1h, captcha_rate, 
+            INSERT INTO engine_health (engine, status, success_rate_1h, captcha_rate,
                                        median_latency_ms, consecutive_failures, cooldown_until)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(engine) DO UPDATE SET
@@ -295,7 +295,7 @@ class EngineCircuitBreaker:
 
     async def load_from_db(self) -> bool:
         """Load circuit state from database.
-        
+
         Returns:
             True if state was loaded, False if engine not found.
         """
@@ -334,12 +334,12 @@ class CircuitBreakerManager:
 
     async def get_breaker(self, engine: str) -> EngineCircuitBreaker:
         """Get or create circuit breaker for an engine.
-        
+
         Uses DomainPolicyManager for default settings via EngineCircuitBreaker.
-        
+
         Args:
             engine: Engine name.
-            
+
         Returns:
             Circuit breaker instance.
         """
@@ -358,10 +358,10 @@ class CircuitBreakerManager:
         requested_engines: list[str] | None = None,
     ) -> list[str]:
         """Get list of available engines.
-        
+
         Args:
             requested_engines: Engines to check. If None, returns all available.
-            
+
         Returns:
             List of available engine names.
         """
@@ -392,7 +392,7 @@ class CircuitBreakerManager:
         latency_ms: float | None = None,
     ) -> None:
         """Record successful request for an engine.
-        
+
         Args:
             engine: Engine name.
             latency_ms: Request latency.
@@ -408,7 +408,7 @@ class CircuitBreakerManager:
         is_timeout: bool = False,
     ) -> None:
         """Record failed request for an engine.
-        
+
         Args:
             engine: Engine name.
             is_captcha: Whether failure was CAPTCHA.
@@ -420,7 +420,7 @@ class CircuitBreakerManager:
 
     async def get_all_metrics(self) -> list[dict[str, Any]]:
         """Get metrics for all tracked engines.
-        
+
         Returns:
             List of metrics dicts.
         """
@@ -450,7 +450,7 @@ _manager: CircuitBreakerManager | None = None
 
 async def get_circuit_breaker_manager() -> CircuitBreakerManager:
     """Get the global circuit breaker manager.
-    
+
     Returns:
         CircuitBreakerManager instance.
     """
@@ -462,10 +462,10 @@ async def get_circuit_breaker_manager() -> CircuitBreakerManager:
 
 async def check_engine_available(engine: str) -> bool:
     """Check if an engine is available.
-    
+
     Args:
         engine: Engine name.
-        
+
     Returns:
         True if available.
     """
@@ -482,7 +482,7 @@ async def record_engine_result(
     is_timeout: bool = False,
 ) -> None:
     """Record engine request result.
-    
+
     Args:
         engine: Engine name.
         success: Whether request succeeded.
@@ -502,10 +502,10 @@ async def get_available_engines(
     requested: list[str] | None = None,
 ) -> list[str]:
     """Get available engines.
-    
+
     Args:
         requested: Engines to filter.
-        
+
     Returns:
         List of available engines.
     """

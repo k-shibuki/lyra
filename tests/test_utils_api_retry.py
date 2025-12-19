@@ -221,6 +221,7 @@ class TestRetryApiCall:
     @pytest.mark.asyncio
     async def test_success_on_first_try(self):
         """TC-R-01: Returns result when function succeeds immediately."""
+
         # Given: Function that succeeds
         async def success_func():
             return {"data": "test"}
@@ -258,6 +259,7 @@ class TestRetryApiCall:
     @pytest.mark.asyncio
     async def test_all_retries_exhausted(self):
         """TC-R-03: Raises APIRetryError when all retries exhausted."""
+
         # Given: Function that always fails
         async def always_fails():
             raise ConnectionError("Connection refused")
@@ -276,6 +278,7 @@ class TestRetryApiCall:
     @pytest.mark.asyncio
     async def test_non_retryable_exception(self):
         """TC-R-04: Non-retryable exceptions are re-raised immediately."""
+
         # Given: Function that raises ValueError
         async def raises_value_error():
             raise ValueError("Invalid input")
@@ -288,6 +291,7 @@ class TestRetryApiCall:
     @pytest.mark.asyncio
     async def test_non_retryable_http_status(self):
         """TC-R-05: Non-retryable HTTP status is re-raised immediately."""
+
         # Given: Function that returns 404
         async def returns_404():
             raise HTTPStatusError(404, "Not found")
@@ -326,6 +330,7 @@ class TestRetryApiCall:
     @pytest.mark.asyncio
     async def test_operation_name_in_error(self):
         """Test that operation name appears in error."""
+
         # Given: Function that always fails
         async def my_special_func():
             raise ConnectionError("Failed")
@@ -348,6 +353,7 @@ class TestRetryApiCall:
     @pytest.mark.asyncio
     async def test_last_status_in_error(self):
         """Test that last HTTP status is recorded in error."""
+
         # Given: Function that always returns 503
         async def server_error():
             raise HTTPStatusError(503, "Service unavailable")
@@ -366,6 +372,7 @@ class TestRetryApiCall:
     @pytest.mark.asyncio
     async def test_with_args_and_kwargs(self):
         """Test that args and kwargs are passed correctly."""
+
         # Given: Function with parameters
         async def func_with_params(a, b, c=None):
             return {"a": a, "b": b, "c": c}
@@ -425,6 +432,7 @@ class TestWithApiRetryDecorator:
     @pytest.mark.asyncio
     async def test_decorator_preserves_function_metadata(self):
         """Test that decorator preserves function metadata."""
+
         # Given: Decorated function with docstring
         @with_api_retry()
         async def my_function():
@@ -556,4 +564,3 @@ class TestSpecCompliance:
         # First delay ~0.05s, second delay ~0.10s
         assert delay1 >= 0.04  # Allow some tolerance
         assert delay2 >= delay1 * 1.5  # Second delay should be larger
-

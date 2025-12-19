@@ -87,9 +87,7 @@ def main():
         manager.record_domain_request("test1.com", is_page=(i % 2 == 0))
 
     budget = manager.get_domain_budget("test1.com")
-    print(
-        f"    OK: requests={budget.requests_today}, pages={budget.pages_today}"
-    )
+    print(f"    OK: requests={budget.requests_today}, pages={budget.pages_today}")
     assert budget.requests_today == 5
     assert budget.pages_today == 3  # 0, 2, 4 are pages
 

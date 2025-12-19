@@ -78,10 +78,11 @@ from src.utils.notification import InterventionQueue, get_intervention_queue
 # Fixtures
 # =============================================================================
 
+
 @pytest_asyncio.fixture
 async def queue_with_db(test_database):
     """Create InterventionQueue with real in-memory database.
-    
+
     Per §7.1.7: Database should use in-memory SQLite for unit tests.
     """
     queue = InterventionQueue()
@@ -92,7 +93,7 @@ async def queue_with_db(test_database):
 @pytest_asyncio.fixture
 async def sample_task_id(test_database):
     """Create a sample task and return its ID.
-    
+
     Per schema: intervention_queue.task_id references tasks(id)
     """
     task_id = await test_database.create_task(query="Test query for intervention queue")
@@ -102,7 +103,7 @@ async def sample_task_id(test_database):
 @pytest.fixture
 def sample_domains():
     """Sample domains for testing.
-    
+
     Per §7.1.3: Test data should be realistic and diverse.
     """
     return ["example.com", "cloudflare-protected.com", "login-required.org"]
@@ -112,10 +113,11 @@ def sample_domains():
 # InterventionQueue Initialization Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestInterventionQueueInit:
     """Tests for InterventionQueue initialization.
-    
+
     Verifies correct construction and database connection.
     """
 
@@ -125,9 +127,7 @@ class TestInterventionQueueInit:
         queue = InterventionQueue()
 
         # Then
-        assert queue._db is None, (
-            "_db should be None before _ensure_db is called"
-        )
+        assert queue._db is None, "_db should be None before _ensure_db is called"
 
     @pytest.mark.asyncio
     async def test_ensure_db_creates_connection(self, test_database):
@@ -144,22 +144,19 @@ class TestInterventionQueueInit:
             await queue._ensure_db()
 
             # Then
-            assert queue._db is not None, (
-                "_db should not be None after _ensure_db"
-            )
-            assert queue._db == test_database, (
-                "_db should be the database returned by get_database"
-            )
+            assert queue._db is not None, "_db should not be None after _ensure_db"
+            assert queue._db == test_database, "_db should be the database returned by get_database"
 
 
 # =============================================================================
 # Enqueue Tests (§3.6.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestEnqueue:
     """Tests for enqueue functionality.
-    
+
     Per §3.6.1: Queue URLs requiring auth instead of blocking immediately.
     """
 
@@ -175,12 +172,8 @@ class TestEnqueue:
         )
 
         # Then
-        assert isinstance(queue_id, str), (
-            f"queue_id should be string, got {type(queue_id)}"
-        )
-        assert queue_id.startswith("iq_"), (
-            f"queue_id should start with 'iq_', got '{queue_id}'"
-        )
+        assert isinstance(queue_id, str), f"queue_id should be string, got {type(queue_id)}"
+        assert queue_id.startswith("iq_"), f"queue_id should start with 'iq_', got '{queue_id}'"
         assert len(queue_id) == 15, (  # "iq_" + 12 hex chars
             f"queue_id should have length 15, got {len(queue_id)}"
         )
@@ -205,20 +198,12 @@ class TestEnqueue:
 
         # Then: Verify by fetching
         items = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(items) == 1, (
-            f"Should have 1 item in queue, got {len(items)}"
-        )
+        assert len(items) == 1, f"Should have 1 item in queue, got {len(items)}"
 
         item = items[0]
-        assert item["id"] == queue_id, (
-            f"Item ID should be '{queue_id}', got '{item['id']}'"
-        )
-        assert item["url"] == url, (
-            f"URL should be '{url}', got '{item['url']}'"
-        )
-        assert item["domain"] == domain, (
-            f"Domain should be '{domain}', got '{item['domain']}'"
-        )
+        assert item["id"] == queue_id, f"Item ID should be '{queue_id}', got '{item['id']}'"
+        assert item["url"] == url, f"URL should be '{url}', got '{item['url']}'"
+        assert item["domain"] == domain, f"Domain should be '{domain}', got '{item['domain']}'"
         assert item["auth_type"] == auth_type, (
             f"auth_type should be '{auth_type}', got '{item['auth_type']}'"
         )
@@ -248,18 +233,16 @@ class TestEnqueue:
         )
 
     @pytest.mark.asyncio
-    async def test_enqueue_sets_default_expiration_one_hour(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_enqueue_sets_default_expiration_one_hour(self, queue_with_db, sample_task_id):
         """Test enqueue sets default expiration to 1 hour from now.
-        
+
         Per design: Default expiration: 1 hour from now
         """
         # Given
         before = datetime.now(UTC)
 
         # When
-        queue_id = await queue_with_db.enqueue(
+        await queue_with_db.enqueue(
             task_id=sample_task_id,
             url="https://example.com/page",
             domain="example.com",
@@ -271,9 +254,7 @@ class TestEnqueue:
         # Then
         items = await queue_with_db.get_pending(task_id=sample_task_id)
         expires_str = items[0]["expires_at"]
-        assert expires_str is not None, (
-            "expires_at should be set"
-        )
+        assert expires_str is not None, "expires_at should be set"
 
         # Parse and verify within 1 hour +/- 1 minute
         expires = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
@@ -306,19 +287,18 @@ class TestEnqueue:
 
         # Allow 1 second tolerance for test execution
         delta = abs((expires - custom_expires).total_seconds())
-        assert delta < 2, (
-            f"expires_at should match custom value, delta was {delta}s"
-        )
+        assert delta < 2, f"expires_at should match custom value, delta was {delta}s"
 
 
 # =============================================================================
 # Get Pending Tests (§3.6.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestGetPending:
     """Tests for get_pending functionality.
-    
+
     Per §3.6.1: Priority management: high (primary sources), medium (secondary), low.
     """
 
@@ -329,9 +309,7 @@ class TestGetPending:
         items = await queue_with_db.get_pending(task_id=sample_task_id)
 
         # Then
-        assert items == [], (
-            f"Empty queue should return [], got {items}"
-        )
+        assert items == [], f"Empty queue should return [], got {items}"
 
     @pytest.mark.asyncio
     async def test_get_pending_returns_correct_items(self, queue_with_db, sample_task_id):
@@ -354,19 +332,15 @@ class TestGetPending:
         items = await queue_with_db.get_pending(task_id=sample_task_id)
 
         # Then
-        assert len(items) == 3, (
-            f"Should return 3 items, got {len(items)}"
-        )
+        assert len(items) == 3, f"Should return 3 items, got {len(items)}"
         returned_urls = [item["url"] for item in items]
         for url in urls:
-            assert url in returned_urls, (
-                f"URL '{url}' should be in returned items"
-            )
+            assert url in returned_urls, f"URL '{url}' should be in returned items"
 
     @pytest.mark.asyncio
     async def test_get_pending_orders_by_priority(self, queue_with_db, sample_task_id):
         """Test get_pending returns items ordered by priority (high first).
-        
+
         Per §3.6.1: Priority management - high > medium > low.
         """
         # Given: Add items in reverse priority order
@@ -426,16 +400,12 @@ class TestGetPending:
         items_task2 = await queue_with_db.get_pending(task_id=task2)
 
         # Then
-        assert len(items_task1) == 1, (
-            f"Task 1 should have 1 item, got {len(items_task1)}"
-        )
+        assert len(items_task1) == 1, f"Task 1 should have 1 item, got {len(items_task1)}"
         assert items_task1[0]["domain"] == "task1.com", (
             f"Task 1 item domain should be 'task1.com', got '{items_task1[0]['domain']}'"
         )
 
-        assert len(items_task2) == 1, (
-            f"Task 2 should have 1 item, got {len(items_task2)}"
-        )
+        assert len(items_task2) == 1, f"Task 2 should have 1 item, got {len(items_task2)}"
         assert items_task2[0]["domain"] == "task2.com", (
             f"Task 2 item domain should be 'task2.com', got '{items_task2[0]['domain']}'"
         )
@@ -460,9 +430,7 @@ class TestGetPending:
         )
 
         # Then
-        assert len(high_items) == 1, (
-            f"Should have 1 high priority item, got {len(high_items)}"
-        )
+        assert len(high_items) == 1, f"Should have 1 high priority item, got {len(high_items)}"
         assert high_items[0]["priority"] == "high", (
             f"Item priority should be 'high', got '{high_items[0]['priority']}'"
         )
@@ -483,14 +451,13 @@ class TestGetPending:
         items = await queue_with_db.get_pending(task_id=sample_task_id, limit=3)
 
         # Then
-        assert len(items) == 3, (
-            f"Should return 3 items with limit=3, got {len(items)}"
-        )
+        assert len(items) == 3, f"Should return 3 items with limit=3, got {len(items)}"
 
 
 # =============================================================================
 # Get Pending Count Tests
 # =============================================================================
+
 
 @pytest.mark.unit
 class TestGetPendingCount:
@@ -503,18 +470,10 @@ class TestGetPendingCount:
         counts = await queue_with_db.get_pending_count(sample_task_id)
 
         # Then
-        assert counts["high"] == 0, (
-            f"high count should be 0, got {counts['high']}"
-        )
-        assert counts["medium"] == 0, (
-            f"medium count should be 0, got {counts['medium']}"
-        )
-        assert counts["low"] == 0, (
-            f"low count should be 0, got {counts['low']}"
-        )
-        assert counts["total"] == 0, (
-            f"total count should be 0, got {counts['total']}"
-        )
+        assert counts["high"] == 0, f"high count should be 0, got {counts['high']}"
+        assert counts["medium"] == 0, f"medium count should be 0, got {counts['medium']}"
+        assert counts["low"] == 0, f"low count should be 0, got {counts['low']}"
+        assert counts["total"] == 0, f"total count should be 0, got {counts['total']}"
 
     @pytest.mark.asyncio
     async def test_get_pending_count_by_priority(self, queue_with_db, sample_task_id):
@@ -548,28 +507,21 @@ class TestGetPendingCount:
         counts = await queue_with_db.get_pending_count(sample_task_id)
 
         # Then
-        assert counts["high"] == 2, (
-            f"high count should be 2, got {counts['high']}"
-        )
-        assert counts["medium"] == 3, (
-            f"medium count should be 3, got {counts['medium']}"
-        )
-        assert counts["low"] == 1, (
-            f"low count should be 1, got {counts['low']}"
-        )
-        assert counts["total"] == 6, (
-            f"total count should be 6, got {counts['total']}"
-        )
+        assert counts["high"] == 2, f"high count should be 2, got {counts['high']}"
+        assert counts["medium"] == 3, f"medium count should be 3, got {counts['medium']}"
+        assert counts["low"] == 1, f"low count should be 1, got {counts['low']}"
+        assert counts["total"] == 6, f"total count should be 6, got {counts['total']}"
 
 
 # =============================================================================
 # Start Session Tests (§3.6.1 Safe Operation Policy)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestStartSession:
     """Tests for start_session functionality per §3.6.1.
-    
+
     Safe Operation Policy:
     - Returns URLs for user to process (no DOM operations)
     - User finds and resolves challenges themselves
@@ -584,23 +536,15 @@ class TestStartSession:
         result = await queue_with_db.start_session(task_id=sample_task_id)
 
         # Then
-        assert result["ok"] is True, (
-            "ok should be True even with empty queue"
-        )
+        assert result["ok"] is True, "ok should be True even with empty queue"
         assert result["session_started"] is False, (
             "session_started should be False with no pending items"
         )
-        assert result["count"] == 0, (
-            f"count should be 0, got {result['count']}"
-        )
-        assert result["items"] == [], (
-            f"items should be empty list, got {result['items']}"
-        )
+        assert result["count"] == 0, f"count should be 0, got {result['count']}"
+        assert result["items"] == [], f"items should be empty list, got {result['items']}"
 
     @pytest.mark.asyncio
-    async def test_start_session_marks_items_in_progress(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_start_session_marks_items_in_progress(self, queue_with_db, sample_task_id):
         """Test start_session changes item status to 'in_progress'."""
         # Given
         await queue_with_db.enqueue(
@@ -614,12 +558,8 @@ class TestStartSession:
         result = await queue_with_db.start_session(task_id=sample_task_id)
 
         # Then
-        assert result["session_started"] is True, (
-            "session_started should be True"
-        )
-        assert result["count"] == 1, (
-            f"count should be 1, got {result['count']}"
-        )
+        assert result["session_started"] is True, "session_started should be True"
+        assert result["count"] == 1, f"count should be 1, got {result['count']}"
 
         # Verify status changed - pending items should be 0 now
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
@@ -628,9 +568,7 @@ class TestStartSession:
         )
 
     @pytest.mark.asyncio
-    async def test_start_session_returns_item_details(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_start_session_returns_item_details(self, queue_with_db, sample_task_id):
         """Test start_session returns correct item details."""
         # Given
         url = "https://protected.example.com/secure"
@@ -651,17 +589,11 @@ class TestStartSession:
 
         # Then
         items = result["items"]
-        assert len(items) == 1, (
-            f"Should return 1 item, got {len(items)}"
-        )
+        assert len(items) == 1, f"Should return 1 item, got {len(items)}"
 
         item = items[0]
-        assert item["url"] == url, (
-            f"Item URL should be '{url}', got '{item['url']}'"
-        )
-        assert item["domain"] == domain, (
-            f"Item domain should be '{domain}', got '{item['domain']}'"
-        )
+        assert item["url"] == url, f"Item URL should be '{url}', got '{item['url']}'"
+        assert item["domain"] == domain, f"Item domain should be '{domain}', got '{item['domain']}'"
         assert item["auth_type"] == auth_type, (
             f"Item auth_type should be '{auth_type}', got '{item['auth_type']}'"
         )
@@ -670,9 +602,7 @@ class TestStartSession:
         )
 
     @pytest.mark.asyncio
-    async def test_start_session_with_specific_queue_ids(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_start_session_with_specific_queue_ids(self, queue_with_db, sample_task_id):
         """Test start_session with specific queue_ids."""
         # Given: Add multiple items
         id1 = await queue_with_db.enqueue(
@@ -701,23 +631,15 @@ class TestStartSession:
         )
 
         # Then
-        assert result["count"] == 2, (
-            f"Should process 2 items, got {result['count']}"
-        )
+        assert result["count"] == 2, f"Should process 2 items, got {result['count']}"
 
         # id2 should still be pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 1, (
-            f"Should have 1 pending item, got {len(pending)}"
-        )
-        assert pending[0]["id"] == id2, (
-            f"Pending item should be id2, got '{pending[0]['id']}'"
-        )
+        assert len(pending) == 1, f"Should have 1 pending item, got {len(pending)}"
+        assert pending[0]["id"] == id2, f"Pending item should be id2, got '{pending[0]['id']}'"
 
     @pytest.mark.asyncio
-    async def test_start_session_filters_by_priority(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_start_session_filters_by_priority(self, queue_with_db, sample_task_id):
         """Test start_session filters by priority when specified."""
         # Given
         await queue_with_db.enqueue(
@@ -742,40 +664,31 @@ class TestStartSession:
         )
 
         # Then
-        assert result["count"] == 1, (
-            f"Should process 1 high priority item, got {result['count']}"
-        )
-        assert result["items"][0]["priority"] == "high", (
-            "Processed item should be high priority"
-        )
+        assert result["count"] == 1, f"Should process 1 high priority item, got {result['count']}"
+        assert result["items"][0]["priority"] == "high", "Processed item should be high priority"
 
         # Low priority should still be pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 1, (
-            f"Should have 1 pending item, got {len(pending)}"
-        )
-        assert pending[0]["priority"] == "low", (
-            "Pending item should be low priority"
-        )
+        assert len(pending) == 1, f"Should have 1 pending item, got {len(pending)}"
+        assert pending[0]["priority"] == "low", "Pending item should be low priority"
 
 
 # =============================================================================
 # Complete Tests (§3.6.1 - Primary Completion Method)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestComplete:
     """Tests for complete functionality per §3.6.1.
-    
+
     Per §3.6.1: complete_authentication is the primary completion method.
     User explicitly reports when they have resolved the authentication challenge.
     This is the only way to mark authentication as complete (no timeout/auto-detect).
     """
 
     @pytest.mark.asyncio
-    async def test_complete_success_updates_status(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_complete_success_updates_status(self, queue_with_db, sample_task_id):
         """Test complete with success=True sets status to 'completed'."""
         # Given
         queue_id = await queue_with_db.enqueue(
@@ -790,9 +703,7 @@ class TestComplete:
         result = await queue_with_db.complete(queue_id=queue_id, success=True)
 
         # Then
-        assert result["ok"] is True, (
-            "ok should be True"
-        )
+        assert result["ok"] is True, "ok should be True"
         assert result["queue_id"] == queue_id, (
             f"queue_id should be '{queue_id}', got '{result['queue_id']}'"
         )
@@ -801,9 +712,7 @@ class TestComplete:
         )
 
     @pytest.mark.asyncio
-    async def test_complete_failure_updates_status(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_complete_failure_updates_status(self, queue_with_db, sample_task_id):
         """Test complete with success=False sets status to 'skipped'."""
         # Given
         queue_id = await queue_with_db.enqueue(
@@ -823,11 +732,9 @@ class TestComplete:
         )
 
     @pytest.mark.asyncio
-    async def test_complete_stores_session_data(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_complete_stores_session_data(self, queue_with_db, sample_task_id):
         """Test complete stores session data when provided.
-        
+
         Per §3.6.1: Session reuse - store authenticated session data.
         """
         # Given
@@ -855,17 +762,13 @@ class TestComplete:
         stored_session = await queue_with_db.get_session_for_domain(
             domain="example.com",
         )
-        assert stored_session is not None, (
-            "Session data should be stored"
-        )
+        assert stored_session is not None, "Session data should be stored"
         assert stored_session["cookies"][0]["name"] == "cf_clearance", (
             "Session cookie name should be 'cf_clearance'"
         )
 
     @pytest.mark.asyncio
-    async def test_complete_returns_url_and_domain(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_complete_returns_url_and_domain(self, queue_with_db, sample_task_id):
         """Test complete returns the URL and domain of completed item."""
         # Given
         url = "https://secure.example.com/protected"
@@ -882,22 +785,19 @@ class TestComplete:
         result = await queue_with_db.complete(queue_id=queue_id, success=True)
 
         # Then
-        assert result["url"] == url, (
-            f"URL should be '{url}', got '{result['url']}'"
-        )
-        assert result["domain"] == domain, (
-            f"Domain should be '{domain}', got '{result['domain']}'"
-        )
+        assert result["url"] == url, f"URL should be '{url}', got '{result['url']}'"
+        assert result["domain"] == domain, f"Domain should be '{domain}', got '{result['domain']}'"
 
 
 # =============================================================================
 # Skip Tests (§3.6.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestSkip:
     """Tests for skip functionality.
-    
+
     Per §3.6.1: skip_authentication - skip authentication.
     """
 
@@ -917,18 +817,12 @@ class TestSkip:
         result = await queue_with_db.skip(task_id=sample_task_id)
 
         # Then
-        assert result["ok"] is True, (
-            "ok should be True"
-        )
-        assert result["skipped"] >= 3, (
-            f"Should skip at least 3 items, got {result['skipped']}"
-        )
+        assert result["ok"] is True, "ok should be True"
+        assert result["skipped"] >= 3, f"Should skip at least 3 items, got {result['skipped']}"
 
         # Verify no pending items remain
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 0, (
-            f"Should have no pending items, got {len(pending)}"
-        )
+        assert len(pending) == 0, f"Should have no pending items, got {len(pending)}"
 
     @pytest.mark.asyncio
     async def test_skip_specific_queue_ids(self, queue_with_db, sample_task_id):
@@ -952,12 +846,8 @@ class TestSkip:
 
         # Then: id2 should still be pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 1, (
-            f"Should have 1 pending item, got {len(pending)}"
-        )
-        assert pending[0]["id"] == id2, (
-            "Pending item should be id2"
-        )
+        assert len(pending) == 1, f"Should have 1 pending item, got {len(pending)}"
+        assert pending[0]["id"] == id2, "Pending item should be id2"
 
     @pytest.mark.asyncio
     async def test_skip_in_progress_items(self, queue_with_db, sample_task_id):
@@ -975,39 +865,32 @@ class TestSkip:
         result = await queue_with_db.skip(task_id=sample_task_id)
 
         # Then: Should have skipped the in_progress item
-        assert result["ok"] is True, (
-            "ok should be True"
-        )
+        assert result["ok"] is True, "ok should be True"
 
 
 # =============================================================================
 # Get Session for Domain Tests (§3.6.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestGetSessionForDomain:
     """Tests for get_session_for_domain functionality.
-    
+
     Per §3.6.1: Session reuse - reuse for subsequent requests to same domain.
     """
 
     @pytest.mark.asyncio
-    async def test_get_session_returns_none_when_no_session(
-        self, queue_with_db
-    ):
+    async def test_get_session_returns_none_when_no_session(self, queue_with_db):
         """Test get_session_for_domain returns None when no session exists."""
         # When
         session = await queue_with_db.get_session_for_domain(domain="unknown.com")
 
         # Then
-        assert session is None, (
-            "Should return None when no session exists"
-        )
+        assert session is None, "Should return None when no session exists"
 
     @pytest.mark.asyncio
-    async def test_get_session_returns_stored_session(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_get_session_returns_stored_session(self, queue_with_db, sample_task_id):
         """Test get_session_for_domain returns stored session data."""
         # Given: Complete an authentication with session data
         domain = "example.com"
@@ -1033,17 +916,13 @@ class TestGetSessionForDomain:
         retrieved = await queue_with_db.get_session_for_domain(domain=domain)
 
         # Then
-        assert retrieved is not None, (
-            "Should return session data"
-        )
+        assert retrieved is not None, "Should return session data"
         assert retrieved["cf_token"] == "secret_token_123", (
             f"cf_token should be 'secret_token_123', got '{retrieved['cf_token']}'"
         )
 
     @pytest.mark.asyncio
-    async def test_get_session_returns_most_recent(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_get_session_returns_most_recent(self, queue_with_db, sample_task_id):
         """Test get_session_for_domain returns the most recent session."""
         # Given: Complete two authentications for same domain
         domain = "example.com"
@@ -1089,14 +968,13 @@ class TestGetSessionForDomain:
 # Cleanup Expired Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestCleanupExpired:
     """Tests for cleanup_expired functionality."""
 
     @pytest.mark.asyncio
-    async def test_cleanup_expired_marks_expired_items(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_cleanup_expired_marks_expired_items(self, queue_with_db, sample_task_id):
         """Test cleanup_expired marks expired items correctly."""
         # Given: Add item with past expiration
         past_time = datetime.now(UTC) - timedelta(hours=1)
@@ -1112,20 +990,14 @@ class TestCleanupExpired:
         cleaned = await queue_with_db.cleanup_expired()
 
         # Then
-        assert cleaned >= 1, (
-            f"Should have cleaned at least 1 expired item, got {cleaned}"
-        )
+        assert cleaned >= 1, f"Should have cleaned at least 1 expired item, got {cleaned}"
 
         # Verify item is no longer pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 0, (
-            f"Should have no pending items after cleanup, got {len(pending)}"
-        )
+        assert len(pending) == 0, f"Should have no pending items after cleanup, got {len(pending)}"
 
     @pytest.mark.asyncio
-    async def test_cleanup_does_not_affect_valid_items(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_cleanup_does_not_affect_valid_items(self, queue_with_db, sample_task_id):
         """Test cleanup_expired does not affect non-expired items."""
         # Given: Add item with future expiration
         future_time = datetime.now(UTC) + timedelta(hours=2)
@@ -1142,14 +1014,13 @@ class TestCleanupExpired:
 
         # Then: Item should still be pending
         pending = await queue_with_db.get_pending(task_id=sample_task_id)
-        assert len(pending) == 1, (
-            f"Valid item should still be pending, got {len(pending)}"
-        )
+        assert len(pending) == 1, f"Valid item should still be pending, got {len(pending)}"
 
 
 # =============================================================================
 # Boundary Condition Tests (§7.1.2.4)
 # =============================================================================
+
 
 @pytest.mark.unit
 class TestBoundaryConditions:
@@ -1170,14 +1041,10 @@ class TestBoundaryConditions:
         items = await queue_with_db.get_pending(task_id=sample_task_id, limit=0)
 
         # Then
-        assert items == [], (
-            f"limit=0 should return empty list, got {len(items)} items"
-        )
+        assert items == [], f"limit=0 should return empty list, got {len(items)} items"
 
     @pytest.mark.asyncio
-    async def test_start_session_with_nonexistent_queue_ids(
-        self, queue_with_db, sample_task_id
-    ):
+    async def test_start_session_with_nonexistent_queue_ids(self, queue_with_db, sample_task_id):
         """Test start_session with non-existent queue_ids."""
         # When
         result = await queue_with_db.start_session(
@@ -1203,25 +1070,20 @@ class TestBoundaryConditions:
         )
 
         # Then: Should return ok but with None values
-        assert result["ok"] is True, (
-            "ok should be True even for non-existent ID"
-        )
-        assert result["url"] is None, (
-            "url should be None for non-existent ID"
-        )
-        assert result["domain"] is None, (
-            "domain should be None for non-existent ID"
-        )
+        assert result["ok"] is True, "ok should be True even for non-existent ID"
+        assert result["url"] is None, "url should be None for non-existent ID"
+        assert result["domain"] is None, "domain should be None for non-existent ID"
 
 
 # =============================================================================
 # Get Authentication Queue Summary Tests (§16.7.1)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestGetAuthenticationQueueSummary:
     """Tests for get_authentication_queue_summary functionality.
-    
+
     Per §16.7.1: Provides comprehensive summary for get_exploration_status.
     """
 
@@ -1238,12 +1100,8 @@ class TestGetAuthenticationQueueSummary:
         assert summary["high_priority_count"] == 0, (
             f"high_priority_count should be 0, got {summary['high_priority_count']}"
         )
-        assert summary["domains"] == [], (
-            f"domains should be empty, got {summary['domains']}"
-        )
-        assert summary["oldest_queued_at"] is None, (
-            "oldest_queued_at should be None"
-        )
+        assert summary["domains"] == [], f"domains should be empty, got {summary['domains']}"
+        assert summary["oldest_queued_at"] is None, "oldest_queued_at should be None"
         assert summary["by_auth_type"] == {}, (
             f"by_auth_type should be empty, got {summary['by_auth_type']}"
         )
@@ -1305,12 +1163,8 @@ class TestGetAuthenticationQueueSummary:
         assert len(summary["domains"]) == 2, (
             f"Should have 2 distinct domains, got {len(summary['domains'])}"
         )
-        assert "example.com" in summary["domains"], (
-            "example.com should be in domains"
-        )
-        assert "other.com" in summary["domains"], (
-            "other.com should be in domains"
-        )
+        assert "example.com" in summary["domains"], "example.com should be in domains"
+        assert "other.com" in summary["domains"], "other.com should be in domains"
 
     @pytest.mark.asyncio
     async def test_summary_tracks_oldest_queued_at(self, queue_with_db, sample_task_id):
@@ -1327,9 +1181,7 @@ class TestGetAuthenticationQueueSummary:
         summary = await queue_with_db.get_authentication_queue_summary(sample_task_id)
 
         # Then
-        assert summary["oldest_queued_at"] is not None, (
-            "oldest_queued_at should not be None"
-        )
+        assert summary["oldest_queued_at"] is not None, "oldest_queued_at should not be None"
 
     @pytest.mark.asyncio
     async def test_summary_counts_by_auth_type(self, queue_with_db, sample_task_id):
@@ -1374,10 +1226,11 @@ class TestGetAuthenticationQueueSummary:
 # Get Item Tests (O.6 Auth Compliance)
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestGetItem:
     """Tests for get_item functionality added for O.6 auth compliance.
-    
+
     Per §3.6.1: Get specific queue item by ID for cookie capture.
     """
 
@@ -1440,6 +1293,7 @@ class TestGetItem:
 # Global Queue Instance Tests
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestGetInterventionQueue:
     """Tests for get_intervention_queue global instance."""
@@ -1448,6 +1302,7 @@ class TestGetInterventionQueue:
         """Test get_intervention_queue returns InterventionQueue instance."""
         # Reset global state
         import src.utils.notification as notif_module
+
         notif_module._queue = None
 
         # When
@@ -1462,6 +1317,7 @@ class TestGetInterventionQueue:
         """Test get_intervention_queue returns same instance (singleton)."""
         # Reset global state
         import src.utils.notification as notif_module
+
         notif_module._queue = None
 
         # When
@@ -1469,7 +1325,4 @@ class TestGetInterventionQueue:
         queue2 = get_intervention_queue()
 
         # Then
-        assert queue1 is queue2, (
-            "Should return same instance on multiple calls"
-        )
-
+        assert queue1 is queue2, "Should return same instance on multiple calls"

@@ -146,7 +146,7 @@ class TestEvidenceGraphAcademicEdges:
         target_id = "page_target"
 
         # When
-        edge_id = evidence_graph.add_edge(
+        evidence_graph.add_edge(
             source_type=NodeType.PAGE,
             source_id=source_id,
             target_type=NodeType.PAGE,
@@ -178,7 +178,7 @@ class TestEvidenceGraphAcademicEdges:
         context = "As demonstrated in previous work..."
 
         # When
-        edge_id = evidence_graph.add_edge(
+        evidence_graph.add_edge(
             source_type=NodeType.PAGE,
             source_id=source_id,
             target_type=NodeType.PAGE,
@@ -214,9 +214,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: PAGE node is created with is_academic=True and metadata
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -252,9 +253,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: CITES edges are created for each citation with mapped page_id
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -281,7 +283,7 @@ class TestAddAcademicPageWithCitations:
             assert mock_db_instance.insert.call_count == len(sample_citations)
 
             # Check each edge insert
-            for i, call in enumerate(mock_db_instance.insert.call_args_list):
+            for _i, call in enumerate(mock_db_instance.insert.call_args_list):
                 table_name = call[0][0]
                 edge_data = call[0][1]
 
@@ -300,9 +302,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: is_influential is correctly set on edges
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -342,9 +345,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: No edges are created, no errors
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -383,22 +387,27 @@ class TestAcademicEdgeQuery:
         """
         # Given: Add mix of edges
         evidence_graph.add_edge(
-            NodeType.PAGE, "page1",
-            NodeType.PAGE, "page2",
+            NodeType.PAGE,
+            "page1",
+            NodeType.PAGE,
+            "page2",
             RelationType.CITES,
             is_academic=True,
         )
 
         evidence_graph.add_edge(
-            NodeType.FRAGMENT, "frag1",
-            NodeType.PAGE, "page3",
+            NodeType.FRAGMENT,
+            "frag1",
+            NodeType.PAGE,
+            "page3",
             RelationType.CITES,
             is_academic=False,
         )
 
         # When: Filter for academic edges
         academic_edges = [
-            (u, v, d) for u, v, d in evidence_graph._graph.edges(data=True)
+            (u, v, d)
+            for u, v, d in evidence_graph._graph.edges(data=True)
             if d.get("is_academic") is True
         ]
 
@@ -416,16 +425,20 @@ class TestAcademicEdgeQuery:
         """
         # Given: Add mix of edges
         evidence_graph.add_edge(
-            NodeType.PAGE, "page1",
-            NodeType.PAGE, "ref1",
+            NodeType.PAGE,
+            "page1",
+            NodeType.PAGE,
+            "ref1",
             RelationType.CITES,
             is_academic=True,
             is_influential=True,
         )
 
         evidence_graph.add_edge(
-            NodeType.PAGE, "page1",
-            NodeType.PAGE, "ref2",
+            NodeType.PAGE,
+            "page1",
+            NodeType.PAGE,
+            "ref2",
             RelationType.CITES,
             is_academic=True,
             is_influential=False,
@@ -433,7 +446,8 @@ class TestAcademicEdgeQuery:
 
         # When: Filter for influential edges
         influential_edges = [
-            (u, v, d) for u, v, d in evidence_graph._graph.edges(data=True)
+            (u, v, d)
+            for u, v, d in evidence_graph._graph.edges(data=True)
             if d.get("is_influential") is True
         ]
 
@@ -458,7 +472,7 @@ class TestBoundaryValues:
         When: Adding citation edge
         Then: Edge is created with None context
         """
-        citation = Citation(
+        Citation(
             citing_paper_id="page_123",
             cited_paper_id="s2:ref1",
             is_influential=False,
@@ -469,8 +483,10 @@ class TestBoundaryValues:
 
         # When: Adding edge with None context
         edge_id = graph.add_edge(
-            NodeType.PAGE, "page_123",
-            NodeType.PAGE, "s2:ref1",
+            NodeType.PAGE,
+            "page_123",
+            NodeType.PAGE,
+            "s2:ref1",
             RelationType.CITES,
             is_academic=True,
             citation_context=None,
@@ -660,9 +676,10 @@ class TestExceptionHandlingEvidenceGraph:
         """
         from src.utils.schemas import Citation
 
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -706,9 +723,10 @@ class TestExceptionHandlingEvidenceGraph:
         """
         from src.utils.schemas import Citation
 
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -740,4 +758,3 @@ class TestExceptionHandlingEvidenceGraph:
             edge_data = mock_db_instance.insert.call_args[0][1]
             assert edge_data["target_id"] == "page_ref1"  # Mapped page_id
             assert edge_data["target_id"] != "s2:ref1"  # Not paper_id
-

@@ -109,7 +109,9 @@ class TestMetricValue:
         assert d["ema_long"] == 0.65, f"Expected ema_long=0.65, got {d['ema_long']}"
         assert d["samples"] == 10, f"Expected samples=10, got {d['samples']}"
         assert "updated_at" in d, "updated_at key should exist"
-        assert isinstance(d["updated_at"], str), f"updated_at should be string, got {type(d['updated_at'])}"
+        assert isinstance(d["updated_at"], str), (
+            f"updated_at should be string, got {type(d['updated_at'])}"
+        )
 
 
 class TestTaskMetrics:
@@ -213,7 +215,7 @@ class TestTaskMetrics:
         # Given: TaskMetrics with 15s LLM time out of 60s total
         tm = TaskMetrics(task_id="test")
         tm.total_time_ms = 60000  # 60 seconds
-        tm.llm_time_ms = 15000   # 15 seconds
+        tm.llm_time_ms = 15000  # 15 seconds
 
         # When: Computing metrics
         metrics = tm.compute_metrics()
@@ -406,9 +408,13 @@ class TestMetricsCollector:
 
         # Then: Domain-specific data is tracked
         assert "fetch_count" in domain_metrics, "fetch_count should be tracked for domain"
-        assert domain_metrics["fetch_count"]["raw"] == 1.0, "fetch_count should be 1 after single fetch"
+        assert domain_metrics["fetch_count"]["raw"] == 1.0, (
+            "fetch_count should be 1 after single fetch"
+        )
         assert "error_403_rate" in domain_metrics, "error_403_rate should be tracked for domain"
-        assert 0.0 <= domain_metrics["error_403_rate"]["ema_short"] <= 1.0, "error_403_rate EMA should be in [0, 1]"
+        assert 0.0 <= domain_metrics["error_403_rate"]["ema_short"] <= 1.0, (
+            "error_403_rate EMA should be in [0, 1]"
+        )
 
     async def test_export_snapshot(self):
         """Test exporting full metrics snapshot."""
@@ -459,4 +465,3 @@ def test_get_metrics_collector_singleton():
 
     # Then: Same instance is returned
     assert collector1 is collector2
-

@@ -134,9 +134,7 @@ class APIRetryPolicy:
         # Ensure no overlap between retryable and non-retryable
         overlap = self.retryable_status_codes & self.non_retryable_status_codes
         if overlap:
-            raise ValueError(
-                f"Status codes cannot be both retryable and non-retryable: {overlap}"
-            )
+            raise ValueError(f"Status codes cannot be both retryable and non-retryable: {overlap}")
 
     def should_retry_exception(self, exc: Exception) -> bool:
         """Check if exception is retryable.
@@ -163,7 +161,7 @@ class APIRetryPolicy:
         return status in self.retryable_status_codes
 
 
-async def retry_api_call(
+async def retry_api_call[T](
     func: Callable[..., Awaitable[T]],
     *args: Any,
     policy: APIRetryPolicy | None = None,
@@ -203,7 +201,7 @@ async def retry_api_call(
         ...     if response.status >= 400:
         ...         raise HTTPStatusError(response.status)
         ...     return response.json()
-        >>> 
+        >>>
         >>> result = await retry_api_call(
         ...     fetch_estat,
         ...     "/api/v1/stats",
@@ -313,6 +311,7 @@ def with_api_retry(
         ...         raise HTTPStatusError(response.status)
         ...     return response.json()
     """
+
     def decorator(
         func: Callable[..., Awaitable[T]],
     ) -> Callable[..., Awaitable[T]]:
@@ -325,7 +324,9 @@ def with_api_retry(
                 operation_name=operation_name or func.__name__,
                 **kwargs,
             )
+
         return wrapper
+
     return decorator
 
 
@@ -351,4 +352,3 @@ ENTITY_API_POLICY = APIRetryPolicy(
     max_retries=3,
     backoff=BackoffConfig(base_delay=0.5, max_delay=30.0),
 )
-

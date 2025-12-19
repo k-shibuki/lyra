@@ -49,6 +49,7 @@ pytestmark = pytest.mark.integration
 # Fixtures
 # =============================================================================
 
+
 @pytest_asyncio.fixture
 async def integration_db(tmp_path):
     """Create a test database for integration tests."""
@@ -73,13 +74,13 @@ def mock_html_content():
             <p>Published: June 1, 2024</p>
             <section>
                 <h2>Key Findings</h2>
-                <p>Our investigation found that Topic X has significant implications 
+                <p>Our investigation found that Topic X has significant implications
                 for public policy. The evidence strongly supports the conclusion that
                 X leads to Y under conditions Z.</p>
             </section>
             <section>
                 <h2>Methodology</h2>
-                <p>This report is based on analysis of 500 data points collected 
+                <p>This report is based on analysis of 500 data points collected
                 over 24 months from reliable sources.</p>
             </section>
         </article>
@@ -91,6 +92,7 @@ def mock_html_content():
 # =============================================================================
 # Search to Extract Pipeline Integration Tests
 # =============================================================================
+
 
 class TestSearchToExtractPipeline:
     """Test the search → fetch → extract pipeline."""
@@ -133,6 +135,7 @@ class TestSearchToExtractPipeline:
 # Exploration Control Engine Integration Tests
 # =============================================================================
 
+
 class TestExplorationControlFlow:
     """Test the exploration control engine workflow per §2.1."""
 
@@ -154,7 +157,10 @@ class TestExplorationControlFlow:
 
         # Then: Context contains entities and templates
         assert result["ok"] is True
-        assert result["original_query"] == "What are the environmental impacts of Toyota's EV production?"
+        assert (
+            result["original_query"]
+            == "What are the environmental impacts of Toyota's EV production?"
+        )
         assert "extracted_entities" in result
         assert "applicable_templates" in result
 
@@ -213,6 +219,7 @@ class TestExplorationControlFlow:
 # Evidence Graph Integration Tests
 # =============================================================================
 
+
 class TestEvidenceGraphIntegration:
     """Test evidence graph construction and analysis."""
 
@@ -224,14 +231,14 @@ class TestEvidenceGraphIntegration:
         # Given: An evidence graph with claim and fragment
         graph = EvidenceGraph(task_id="test_task_1")
 
-        claim_id = graph.add_node(
+        graph.add_node(
             NodeType.CLAIM,
             "claim_1",
             text="X leads to Y",
             confidence=0.8,
         )
 
-        frag_id = graph.add_node(
+        graph.add_node(
             NodeType.FRAGMENT,
             "frag_1",
             text="Research shows X leads to Y in 95% of cases",
@@ -240,8 +247,10 @@ class TestEvidenceGraphIntegration:
 
         # When: Add support relationship and retrieve evidence
         graph.add_edge(
-            NodeType.FRAGMENT, "frag_1",
-            NodeType.CLAIM, "claim_1",
+            NodeType.FRAGMENT,
+            "frag_1",
+            NodeType.CLAIM,
+            "claim_1",
             RelationType.SUPPORTS,
             confidence=0.9,
             nli_label="entailment",
@@ -291,11 +300,7 @@ class TestEvidenceGraphIntegration:
         graph.add_node(NodeType.PAGE, "primary_3", domain="arxiv.org")
 
         graph.add_node(NodeType.PAGE, "secondary_1", domain="news.com")
-        graph.add_edge(
-            NodeType.PAGE, "secondary_1",
-            NodeType.PAGE, "primary_1",
-            RelationType.CITES
-        )
+        graph.add_edge(NodeType.PAGE, "secondary_1", NodeType.PAGE, "primary_1", RelationType.CITES)
 
         # When: Calculate primary source ratio
         ratio_info = graph.get_primary_source_ratio()
@@ -332,6 +337,7 @@ class TestEvidenceGraphIntegration:
 # Deduplication Integration Tests
 # =============================================================================
 
+
 class TestDeduplicationIntegration:
     """Test deduplication across the pipeline."""
 
@@ -342,10 +348,22 @@ class TestDeduplicationIntegration:
 
         # Given: Fragments with exact and near duplicates
         fragments = [
-            {"id": "f1", "text": "Topic X has significant environmental implications for the region."},
-            {"id": "f2", "text": "Topic X has significant environmental implications for the region."},
-            {"id": "f3", "text": "Environmental implications of Topic X are significant for the area."},
-            {"id": "f4", "text": "Completely unrelated text about cooking recipes and ingredients."},
+            {
+                "id": "f1",
+                "text": "Topic X has significant environmental implications for the region.",
+            },
+            {
+                "id": "f2",
+                "text": "Topic X has significant environmental implications for the region.",
+            },
+            {
+                "id": "f3",
+                "text": "Environmental implications of Topic X are significant for the area.",
+            },
+            {
+                "id": "f4",
+                "text": "Completely unrelated text about cooking recipes and ingredients.",
+            },
         ]
 
         # When: Deduplicate fragments
@@ -382,6 +400,7 @@ class TestDeduplicationIntegration:
 # NLI Integration Tests
 # =============================================================================
 
+
 class TestNLIIntegration:
     """Test NLI stance classification integration."""
 
@@ -415,6 +434,7 @@ class TestNLIIntegration:
 # =============================================================================
 # Report Generation Integration Tests
 # =============================================================================
+
 
 class TestReportIntegration:
     """Test report generation integration."""
@@ -452,6 +472,7 @@ class TestReportIntegration:
 # =============================================================================
 # Scheduler Integration Tests
 # =============================================================================
+
 
 class TestSchedulerIntegration:
     """Test job scheduler integration."""
@@ -511,6 +532,7 @@ class TestSchedulerIntegration:
 # Calibration Integration Tests
 # =============================================================================
 
+
 class TestCalibrationIntegration:
     """Test calibration integration with LLM/NLI pipeline."""
 
@@ -526,12 +548,15 @@ class TestCalibrationIntegration:
             calibrator = Calibrator()
 
             # Then: Instance is created
-            assert isinstance(calibrator, Calibrator), f"Expected Calibrator instance, got {type(calibrator)}"
+            assert isinstance(calibrator, Calibrator), (
+                f"Expected Calibrator instance, got {type(calibrator)}"
+            )
 
 
 # =============================================================================
 # Metrics and Policy Integration Tests
 # =============================================================================
+
 
 class TestMetricsPolicyIntegration:
     """Test metrics collection and policy adjustment integration."""
@@ -545,7 +570,9 @@ class TestMetricsPolicyIntegration:
         collector = MetricsCollector()
 
         # Then: Instance is created
-        assert isinstance(collector, MetricsCollector), f"Expected MetricsCollector, got {type(collector)}"
+        assert isinstance(collector, MetricsCollector), (
+            f"Expected MetricsCollector, got {type(collector)}"
+        )
 
     @pytest.mark.asyncio
     async def test_policy_engine_initialization(self):
@@ -563,6 +590,7 @@ class TestMetricsPolicyIntegration:
 # Notification Integration Tests
 # =============================================================================
 
+
 class TestNotificationIntegration:
     """Test notification system integration."""
 
@@ -575,7 +603,9 @@ class TestNotificationIntegration:
         manager = InterventionManager()
 
         # Then: Instance is created
-        assert isinstance(manager, InterventionManager), f"Expected InterventionManager, got {type(manager)}"
+        assert isinstance(manager, InterventionManager), (
+            f"Expected InterventionManager, got {type(manager)}"
+        )
 
     @pytest.mark.asyncio
     async def test_intervention_types(self):
@@ -593,6 +623,7 @@ class TestNotificationIntegration:
 # =============================================================================
 # Full Pipeline Simulation Test
 # =============================================================================
+
 
 class TestFullPipelineSimulation:
     """Simulated end-to-end pipeline test with mocks."""
@@ -642,7 +673,9 @@ class TestFullPipelineSimulation:
         graph = EvidenceGraph(task_id=task_id)
         graph.add_node(NodeType.CLAIM, "c1", text="Microplastics may affect human health")
         graph.add_node(NodeType.FRAGMENT, "f1", text="WHO report on microplastic health effects")
-        graph.add_edge(NodeType.FRAGMENT, "f1", NodeType.CLAIM, "c1", RelationType.SUPPORTS, confidence=0.9)
+        graph.add_edge(
+            NodeType.FRAGMENT, "f1", NodeType.CLAIM, "c1", RelationType.SUPPORTS, confidence=0.9
+        )
 
         # Then: Final state has 3 subqueries and evidence
         final_status = await state.get_status()

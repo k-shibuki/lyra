@@ -118,21 +118,21 @@ class ParseResult:
 class BaseSearchParser(ABC):
     """
     Base class for search result parsers.
-    
+
     Provides common functionality for:
     - Loading configuration from search_parsers.yaml
     - Selector-based element finding with validation
     - CAPTCHA detection
     - Debug HTML saving
     - Error reporting with diagnostic messages
-    
+
     Subclasses implement engine-specific result extraction.
     """
 
     def __init__(self, engine_name: str):
         """
         Initialize parser.
-        
+
         Args:
             engine_name: Name of search engine (e.g., "duckduckgo").
         """
@@ -166,12 +166,12 @@ class BaseSearchParser(ABC):
     ) -> list[Tag]:
         """
         Find elements using configured selector.
-        
+
         Args:
             soup: BeautifulSoup object.
             selector_name: Name of selector from config.
             parent: Parent element to search within.
-            
+
         Returns:
             List of matching elements.
         """
@@ -201,12 +201,12 @@ class BaseSearchParser(ABC):
     ) -> Tag | None:
         """
         Find single element using configured selector.
-        
+
         Args:
             soup: BeautifulSoup object.
             selector_name: Name of selector from config.
             parent: Parent element to search within.
-            
+
         Returns:
             First matching element or None.
         """
@@ -219,10 +219,10 @@ class BaseSearchParser(ABC):
     ) -> tuple[bool, list[str]]:
         """
         Validate that all required selectors find elements.
-        
+
         Args:
             soup: BeautifulSoup object.
-            
+
         Returns:
             Tuple of (all_valid, list of error messages).
         """
@@ -244,10 +244,10 @@ class BaseSearchParser(ABC):
     def _collect_failed_selectors(self, soup: BeautifulSoup) -> list[FailedSelector]:
         """
         Collect detailed information about failed selectors.
-        
+
         Args:
             soup: BeautifulSoup object.
-            
+
         Returns:
             List of FailedSelector objects.
         """
@@ -256,22 +256,24 @@ class BaseSearchParser(ABC):
         for selector_config in self.config.get_required_selectors():
             elements = self.find_elements(soup, selector_config.name)
             if not elements:
-                failed.append(FailedSelector(
-                    name=selector_config.name,
-                    selector=selector_config.selector,
-                    required=selector_config.required,
-                    diagnostic_message=selector_config.diagnostic_message,
-                ))
+                failed.append(
+                    FailedSelector(
+                        name=selector_config.name,
+                        selector=selector_config.selector,
+                        required=selector_config.required,
+                        diagnostic_message=selector_config.diagnostic_message,
+                    )
+                )
 
         return failed
 
     def detect_captcha(self, html: str) -> tuple[bool, str | None]:
         """
         Check if HTML contains CAPTCHA/challenge.
-        
+
         Args:
             html: HTML content.
-            
+
         Returns:
             Tuple of (is_captcha, captcha_type).
         """
@@ -285,12 +287,12 @@ class BaseSearchParser(ABC):
     ) -> str:
         """
         Build search URL for this engine.
-        
+
         Args:
             query: Search query (will be URL-encoded).
             time_range: Time range filter.
             **kwargs: Additional URL parameters.
-            
+
         Returns:
             Complete search URL.
         """
@@ -306,11 +308,11 @@ class BaseSearchParser(ABC):
     def parse(self, html: str, query: str = "") -> ParseResult:
         """
         Parse search results from HTML.
-        
+
         Args:
             html: HTML content of search results page.
             query: Original search query (for error reporting).
-            
+
         Returns:
             ParseResult with extracted results or error information.
         """
@@ -358,7 +360,8 @@ class BaseSearchParser(ABC):
                 html_path=str(saved_path) if saved_path else None,
                 top_candidate=(
                     diagnostic_report.candidate_elements[0].selector
-                    if diagnostic_report.candidate_elements else None
+                    if diagnostic_report.candidate_elements
+                    else None
                 ),
                 has_suggestions=len(diagnostic_report.suggested_fixes) > 0,
             )
@@ -430,12 +433,12 @@ class BaseSearchParser(ABC):
     def _extract_results(self, soup: BeautifulSoup) -> list[ParsedResult]:
         """
         Extract search results from parsed HTML.
-        
+
         Subclasses implement engine-specific extraction logic.
-        
+
         Args:
             soup: BeautifulSoup object.
-            
+
         Returns:
             List of ParsedResult objects.
         """
@@ -529,7 +532,9 @@ class DuckDuckGoParser(BaseSearchParser):
 
         # Fallback: try direct search in container
         if title_elem is None:
-            title_elem = container.select_one("h2 a, a[data-testid='result-title-a'], .result__title a")
+            title_elem = container.select_one(
+                "h2 a, a[data-testid='result-title-a'], .result__title a"
+            )
 
         if url_elem is None:
             url_elem = container.select_one("a[data-testid='result-title-a'], h2 a")
@@ -548,9 +553,7 @@ class DuckDuckGoParser(BaseSearchParser):
             return None
 
         # Extract snippet
-        snippet_elem = container.select_one(
-            "[data-testid='result-snippet'], .result__snippet"
-        )
+        snippet_elem = container.select_one("[data-testid='result-snippet'], .result__snippet")
         snippet = self._extract_text(snippet_elem)
 
         # Extract date (if available)
@@ -710,6 +713,7 @@ class GoogleParser(BaseSearchParser):
         """Clean Google redirect URL to get actual destination."""
         if "/url?" in url:
             from urllib.parse import parse_qs, urlparse
+
             parsed = urlparse(url)
             params = parse_qs(parsed.query)
             if "q" in params:
@@ -721,8 +725,11 @@ class GoogleParser(BaseSearchParser):
     def _is_internal_url(self, netloc: str) -> bool:
         """Check if URL is internal to Google."""
         google_domains = [
-            "google.com", "google.co.jp", "google.co.uk",
-            "gstatic.com", "googleapis.com",
+            "google.com",
+            "google.co.jp",
+            "google.co.uk",
+            "gstatic.com",
+            "googleapis.com",
         ]
         return any(gd in netloc.lower() for gd in google_domains)
 
@@ -829,7 +836,9 @@ class EcosiaParser(BaseSearchParser):
             return None
 
         # Extract URL - the actual result link is inside .result__title or has data-test-id="result-link"
-        url_elem = container.select_one("a[data-test-id='result-link'], .result__title a, a.result__link[href^='http']")
+        url_elem = container.select_one(
+            "a[data-test-id='result-link'], .result__title a, a.result__link[href^='http']"
+        )
         if url_elem is None:
             # Try parent link
             if title_elem.name == "a":
@@ -1060,7 +1069,9 @@ class BingParser(BaseSearchParser):
                         return decoded
                     except Exception as e:
                         # If decode fails, return as-is
-                        logger.debug("Base64 URL decode failed", encoded_url=encoded_url[:50], error=str(e))
+                        logger.debug(
+                            "Base64 URL decode failed", encoded_url=encoded_url[:50], error=str(e)
+                        )
                         return encoded_url[2:]
                 return encoded_url
         return url
@@ -1068,8 +1079,11 @@ class BingParser(BaseSearchParser):
     def _is_internal_url(self, netloc: str) -> bool:
         """Check if URL is internal to Bing."""
         bing_domains = [
-            "bing.com", "msn.com", "microsoft.com",
-            "live.com", "bing.net",
+            "bing.com",
+            "msn.com",
+            "microsoft.com",
+            "live.com",
+            "bing.net",
         ]
         return any(bd in netloc.lower() for bd in bing_domains)
 
@@ -1093,10 +1107,10 @@ _parser_registry: dict[str, type[BaseSearchParser]] = {
 def get_parser(engine_name: str) -> BaseSearchParser | None:
     """
     Get parser instance for an engine.
-    
+
     Args:
         engine_name: Engine name (case-insensitive).
-        
+
     Returns:
         Parser instance or None if not available.
     """
@@ -1127,7 +1141,7 @@ def get_available_parsers() -> list[str]:
 def register_parser(engine_name: str, parser_class: type[BaseSearchParser]) -> None:
     """
     Register a custom parser for an engine.
-    
+
     Args:
         engine_name: Engine name.
         parser_class: Parser class (must inherit BaseSearchParser).
@@ -1147,12 +1161,13 @@ def register_parser(engine_name: str, parser_class: type[BaseSearchParser]) -> N
 def _classify_source(url: str) -> SourceTag:
     """
     Classify source type based on URL.
-    
+
     Reuses classification logic from search_api and converts to SourceTag enum.
     """
     # Import here to avoid circular dependency
     try:
         from src.search.search_api import _classify_source as classify_source
+
         tag_str = classify_source(url)
         # Convert string to SourceTag enum
         try:
@@ -1171,4 +1186,3 @@ def _classify_source(url: str) -> SourceTag:
             return SourceTag.KNOWLEDGE
 
         return SourceTag.UNKNOWN
-

@@ -306,4 +306,3 @@ class TestIdentifierExtractor:
         # Then: Returns PMID (next priority)
         assert canonical_id.startswith("pmid:")
         assert "12345678" in canonical_id
-

@@ -342,8 +342,8 @@ class TestCircuitBreakerManager:
         with patch("src.search.circuit_breaker.get_database") as mock_db:
             mock_db.return_value.fetch_one = AsyncMock(return_value=None)
 
-            breaker1 = await manager.get_breaker("available1")
-            breaker2 = await manager.get_breaker("available2")
+            await manager.get_breaker("available1")
+            await manager.get_breaker("available2")
             breaker3 = await manager.get_breaker("unavailable")
             breaker3._state = CircuitState.OPEN
             breaker3._cooldown_until = datetime.now(UTC) + timedelta(hours=1)
@@ -362,7 +362,7 @@ class TestCircuitBreakerManager:
 @pytest.mark.integration
 class TestDatabasePersistence:
     """Tests for database persistence.
-    
+
     Integration tests per §7.1.7 - uses temporary database.
     """
 
@@ -556,4 +556,3 @@ class TestStateTransitionScenarios:
 
         breaker.record_failure()
         assert breaker.state == CircuitState.OPEN
-

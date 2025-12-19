@@ -28,7 +28,6 @@ Per §7.1 of docs/REQUIREMENTS.md:
 | TC-EC-09 | Invalid config file | Abnormal – parse error | Handles gracefully | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -55,6 +54,7 @@ from src.search.engine_config import (
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def sample_config_data():
@@ -170,6 +170,7 @@ def reset_singleton():
 # Schema Validation Tests
 # =============================================================================
 
+
 class TestEngineDefinitionSchema:
     """Tests for EngineDefinitionSchema validation."""
 
@@ -243,6 +244,7 @@ class TestEngineDefinitionSchema:
 # Manager Configuration Loading Tests
 # =============================================================================
 
+
 class TestConfigLoading:
     """Tests for configuration loading."""
 
@@ -290,6 +292,7 @@ class TestConfigLoading:
 # =============================================================================
 # Engine Configuration Tests
 # =============================================================================
+
 
 class TestEngineConfiguration:
     """Tests for engine configuration retrieval."""
@@ -392,6 +395,7 @@ class TestEngineConfiguration:
 # Category Management Tests
 # =============================================================================
 
+
 class TestCategoryManagement:
     """Tests for category-based engine retrieval."""
 
@@ -399,7 +403,7 @@ class TestCategoryManagement:
         """Test retrieving engines for a category."""
         academic = manager.get_engines_for_category("academic")
 
-        names = {e.name for e in academic}
+        {e.name for e in academic}
         # Only engines with parsers should be returned
         # arxiv and wikipedia don't have parsers, so they should be filtered out
         # duckduckgo has a parser and is in category_engines["academic"] via fallback
@@ -410,6 +414,7 @@ class TestCategoryManagement:
         # But duckduckgo might be included via fallback if category_engines is empty
         # Let's check that only engines with parsers are returned
         from src.search.search_parsers import get_available_parsers
+
         available_parsers = set(get_available_parsers())
         for engine in academic:
             assert engine.name in available_parsers, f"Engine {engine.name} should have a parser"
@@ -423,6 +428,7 @@ class TestCategoryManagement:
         names = {e.name for e in technical}
         # Only engines with parsers should be returned
         from src.search.search_parsers import get_available_parsers
+
         available_parsers = set(get_available_parsers())
         for engine in technical:
             assert engine.name in available_parsers, f"Engine {engine.name} should have a parser"
@@ -452,6 +458,7 @@ class TestCategoryManagement:
 # =============================================================================
 # Operator Mapping Tests
 # =============================================================================
+
 
 class TestOperatorMapping:
     """Tests for operator mapping retrieval."""
@@ -502,6 +509,7 @@ class TestOperatorMapping:
 # Direct Sources Tests
 # =============================================================================
 
+
 class TestDirectSources:
     """Tests for direct source configuration."""
 
@@ -540,6 +548,7 @@ class TestDirectSources:
 # =============================================================================
 # Hot-Reload Tests
 # =============================================================================
+
 
 class TestHotReload:
     """Tests for hot-reload functionality."""
@@ -631,6 +640,7 @@ class TestHotReload:
 # Cache Tests
 # =============================================================================
 
+
 class TestCache:
     """Tests for caching functionality."""
 
@@ -682,6 +692,7 @@ class TestCache:
 # =============================================================================
 # Convenience Function Tests
 # =============================================================================
+
 
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
@@ -743,6 +754,7 @@ class TestConvenienceFunctions:
 # EngineConfig Data Class Tests
 # =============================================================================
 
+
 class TestEngineConfigDataClass:
     """Tests for EngineConfig data class."""
 
@@ -777,6 +789,7 @@ class TestEngineConfigDataClass:
 # Integration with Existing Code Tests
 # =============================================================================
 
+
 class TestIntegration:
     """Tests for integration with existing code."""
 
@@ -797,4 +810,3 @@ class TestIntegration:
         # Should have loaded mappings from manager
         assert "site" in processor._operator_mapping
         assert processor._operator_mapping["site"]["default"] == "site:{domain}"
-

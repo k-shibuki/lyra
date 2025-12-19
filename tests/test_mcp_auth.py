@@ -70,7 +70,7 @@ class TestGetAuthQueueExecution:
     ) -> None:
         """
         TC-N-01: Get auth queue without grouping.
-        
+
         // Given: Pending authentication items
         // When: Calling get_auth_queue with group_by=none
         // Then: Returns flat list of items
@@ -84,9 +84,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "none",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "none",
+                }
+            )
 
         assert result["ok"] is True
         assert result["group_by"] == "none"
@@ -99,7 +101,7 @@ class TestGetAuthQueueExecution:
     ) -> None:
         """
         TC-N-02: Get auth queue grouped by domain.
-        
+
         // Given: Pending items from multiple domains
         // When: Calling get_auth_queue with group_by=domain
         // Then: Returns items grouped by domain
@@ -113,9 +115,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "domain",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "domain",
+                }
+            )
 
         assert result["ok"] is True
         assert result["group_by"] == "domain"
@@ -132,7 +136,7 @@ class TestGetAuthQueueExecution:
     ) -> None:
         """
         TC-N-03: Get auth queue grouped by type.
-        
+
         // Given: Pending items with different auth types
         // When: Calling get_auth_queue with group_by=type
         // Then: Returns items grouped by auth_type
@@ -146,9 +150,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "type",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "type",
+                }
+            )
 
         assert result["ok"] is True
         assert result["group_by"] == "type"
@@ -164,7 +170,7 @@ class TestGetAuthQueueExecution:
     ) -> None:
         """
         TC-N-04: Get auth queue filtered by task_id.
-        
+
         // Given: task_id filter
         // When: Calling get_auth_queue
         // Then: Queue.get_pending called with task_id
@@ -178,9 +184,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            await _handle_get_auth_queue({
-                "task_id": "task_abc",
-            })
+            await _handle_get_auth_queue(
+                {
+                    "task_id": "task_abc",
+                }
+            )
 
         mock_queue.get_pending.assert_called_once()
         call_kwargs = mock_queue.get_pending.call_args
@@ -192,7 +200,7 @@ class TestGetAuthQueueExecution:
     ) -> None:
         """
         TC-N-05: Get auth queue filtered by priority.
-        
+
         // Given: priority_filter=high
         // When: Calling get_auth_queue
         // Then: Queue.get_pending called with priority
@@ -206,9 +214,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "priority_filter": "high",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "priority_filter": "high",
+                }
+            )
 
         mock_queue.get_pending.assert_called_once()
         call_kwargs = mock_queue.get_pending.call_args
@@ -223,7 +233,7 @@ class TestGetAuthQueueBoundaryValues:
     async def test_empty_queue(self) -> None:
         """
         TC-B-01: Empty queue (0 items).
-        
+
         // Given: No pending items in queue
         // When: Calling get_auth_queue
         // Then: Returns total_count=0 and empty items list
@@ -247,7 +257,7 @@ class TestGetAuthQueueBoundaryValues:
     async def test_single_item_queue(self) -> None:
         """
         TC-B-02: Single item in queue.
-        
+
         // Given: Exactly 1 pending item
         // When: Calling get_auth_queue
         // Then: Returns total_count=1
@@ -255,14 +265,16 @@ class TestGetAuthQueueBoundaryValues:
         from src.mcp.server import _handle_get_auth_queue
 
         mock_queue = AsyncMock()
-        mock_queue.get_pending.return_value = [{
-            "id": "q_001",
-            "task_id": "task_abc",
-            "url": "https://example.com",
-            "domain": "example.com",
-            "auth_type": "captcha",
-            "priority": "high",
-        }]
+        mock_queue.get_pending.return_value = [
+            {
+                "id": "q_001",
+                "task_id": "task_abc",
+                "url": "https://example.com",
+                "domain": "example.com",
+                "auth_type": "captcha",
+                "priority": "high",
+            }
+        ]
 
         with patch(
             "src.utils.notification.get_intervention_queue",
@@ -278,7 +290,7 @@ class TestGetAuthQueueBoundaryValues:
     async def test_empty_group_by_domain(self) -> None:
         """
         TC-B-03: group_by with 0 items returns empty groups.
-        
+
         // Given: Empty queue
         // When: Calling get_auth_queue with group_by=domain
         // Then: Returns groups as empty dict
@@ -292,9 +304,11 @@ class TestGetAuthQueueBoundaryValues:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "domain",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "domain",
+                }
+            )
 
         assert result["ok"] is True
         assert result["total_count"] == 0
@@ -308,7 +322,7 @@ class TestResolveAuthValidation:
     async def test_missing_action_raises_error(self) -> None:
         """
         TC-A-01: Missing action parameter.
-        
+
         // Given: No action provided
         // When: Calling resolve_auth
         // Then: Raises InvalidParamsError
@@ -325,7 +339,7 @@ class TestResolveAuthValidation:
     async def test_item_target_missing_queue_id_raises_error(self) -> None:
         """
         TC-A-02: Missing queue_id for item target.
-        
+
         // Given: target=item but no queue_id
         // When: Calling resolve_auth
         // Then: Raises InvalidParamsError
@@ -334,10 +348,12 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "item",
-                "action": "complete",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "action": "complete",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "queue_id"
 
@@ -345,7 +361,7 @@ class TestResolveAuthValidation:
     async def test_domain_target_missing_domain_raises_error(self) -> None:
         """
         TC-A-03: Missing domain for domain target.
-        
+
         // Given: target=domain but no domain
         // When: Calling resolve_auth
         // Then: Raises InvalidParamsError
@@ -354,10 +370,12 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "domain",
-                "action": "complete",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "action": "complete",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "domain"
 
@@ -365,7 +383,7 @@ class TestResolveAuthValidation:
     async def test_invalid_target_raises_error(self) -> None:
         """
         TC-A-04: Invalid target value.
-        
+
         // Given: target=invalid
         // When: Calling resolve_auth
         // Then: Raises InvalidParamsError
@@ -374,10 +392,12 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "invalid",
-                "action": "complete",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "invalid",
+                    "action": "complete",
+                }
+            )
 
         assert "target" in str(exc_info.value.details.get("param_name"))
 
@@ -385,7 +405,7 @@ class TestResolveAuthValidation:
     async def test_invalid_action_raises_error(self) -> None:
         """
         TC-A-05: Invalid action value.
-        
+
         // Given: action=invalid_action
         // When: Calling resolve_auth
         // Then: Raises InvalidParamsError
@@ -394,11 +414,13 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "invalid_action",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "invalid_action",
+                }
+            )
 
         assert "action" in str(exc_info.value.details.get("param_name"))
 
@@ -410,7 +432,7 @@ class TestResolveAuthExecution:
     async def test_complete_single_item(self) -> None:
         """
         TC-N-06: Complete single auth item.
-        
+
         // Given: Valid queue_id
         // When: Calling resolve_auth with action=complete, target=item
         // Then: Completes the item with session_data capture attempt
@@ -429,20 +451,25 @@ class TestResolveAuthExecution:
             "status": "completed",
         }
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=None,
-        ) as mock_capture:
-            result = await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "complete",
-                "success": True,
-            })
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=None,
+            ) as mock_capture,
+        ):
+            result = await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         assert result["ok"] is True
         assert result["target"] == "item"
@@ -459,7 +486,7 @@ class TestResolveAuthExecution:
     async def test_skip_single_item(self) -> None:
         """
         TC-N-07: Skip single auth item.
-        
+
         // Given: Valid queue_id
         // When: Calling resolve_auth with action=skip, target=item
         // Then: Skips the item
@@ -473,11 +500,13 @@ class TestResolveAuthExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "skip",
-            })
+            result = await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "skip",
+                }
+            )
 
         assert result["ok"] is True
         assert result["action"] == "skip"
@@ -487,7 +516,7 @@ class TestResolveAuthExecution:
     async def test_complete_domain(self) -> None:
         """
         TC-N-08: Complete all auth items for a domain.
-        
+
         // Given: Valid domain
         // When: Calling resolve_auth with action=complete, target=domain
         // Then: Completes all items for that domain with cookie capture
@@ -502,20 +531,25 @@ class TestResolveAuthExecution:
             "affected_tasks": ["task_abc"],
         }
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=None,
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
-            result = await _handle_resolve_auth({
-                "target": "domain",
-                "domain": "example.com",
-                "action": "complete",
-                "success": True,
-            })
+            result = await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "domain": "example.com",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         assert result["ok"] is True
         assert result["target"] == "domain"
@@ -529,7 +563,7 @@ class TestResolveAuthExecution:
     async def test_skip_domain(self) -> None:
         """
         TC-N-09: Skip all auth items for a domain.
-        
+
         // Given: Valid domain
         // When: Calling resolve_auth with action=skip, target=domain
         // Then: Skips all items for that domain
@@ -547,11 +581,13 @@ class TestResolveAuthExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_resolve_auth({
-                "target": "domain",
-                "domain": "example.com",
-                "action": "skip",
-            })
+            result = await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "domain": "example.com",
+                    "action": "skip",
+                }
+            )
 
         assert result["ok"] is True
         assert result["target"] == "domain"
@@ -561,7 +597,7 @@ class TestResolveAuthExecution:
 
 class TestCaptureAuthSessionCookies:
     """Tests for _capture_auth_session_cookies function (O.6 compliance).
-    
+
     Per §3.6.1: Capture session data after authentication for reuse.
     """
 
@@ -569,7 +605,7 @@ class TestCaptureAuthSessionCookies:
     async def test_capture_returns_cookies_when_browser_connected(self) -> None:
         """
         TC-CC-N-01: Cookie capture when browser connected with cookies.
-        
+
         // Given: Browser connected with cookies for domain
         // When: Calling _capture_auth_session_cookies
         // Then: Returns session_data with cookies
@@ -613,7 +649,7 @@ class TestCaptureAuthSessionCookies:
     async def test_capture_returns_none_when_browser_not_connected(self) -> None:
         """
         TC-CC-B-01: Cookie capture when browser not connected.
-        
+
         // Given: Browser not connected (no contexts)
         // When: Calling _capture_auth_session_cookies
         // Then: Returns None
@@ -645,7 +681,7 @@ class TestCaptureAuthSessionCookies:
     async def test_capture_returns_none_when_no_matching_cookies(self) -> None:
         """
         TC-CC-B-02: Cookie capture when no matching cookies.
-        
+
         // Given: Browser connected but no cookies for domain
         // When: Calling _capture_auth_session_cookies
         // Then: Returns None
@@ -683,10 +719,10 @@ class TestCaptureAuthSessionCookies:
     async def test_capture_excludes_subdomain_cookies_for_parent_domain(self) -> None:
         """
         TC-CC-B-03: Cookie capture excludes subdomain cookies for parent domain.
-        
+
         Per HTTP cookie spec: cookies set for subdomain should not be sent to parent domain.
         Only parent domain cookies can be sent to subdomains.
-        
+
         // Given: Browser connected with cookies for subdomain (sub.example.com)
         // When: Calling _capture_auth_session_cookies with parent domain (example.com)
         // Then: Subdomain cookies are NOT included in result
@@ -724,16 +760,20 @@ class TestCaptureAuthSessionCookies:
         assert "cookies" in result, "Should have cookies field"
         # Only parent domain cookie should be included, subdomain cookie should be excluded
         assert len(result["cookies"]) == 1, "Should have 1 matching cookie (parent domain only)"
-        assert result["cookies"][0]["name"] == "parent_session", "Should include parent domain cookie"
-        assert result["cookies"][0]["domain"] == "example.com", "Cookie domain should be example.com"
+        assert result["cookies"][0]["name"] == "parent_session", (
+            "Should include parent domain cookie"
+        )
+        assert result["cookies"][0]["domain"] == "example.com", (
+            "Cookie domain should be example.com"
+        )
 
     @pytest.mark.asyncio
     async def test_capture_includes_parent_cookies_for_subdomain(self) -> None:
         """
         TC-CC-N-02: Cookie capture includes parent domain cookies for subdomain.
-        
+
         Per HTTP cookie spec: cookies set for parent domain can be sent to subdomains.
-        
+
         // Given: Browser connected with cookies for parent domain (example.com)
         // When: Calling _capture_auth_session_cookies with subdomain (sub.example.com)
         // Then: Parent domain cookies ARE included in result
@@ -779,7 +819,7 @@ class TestCaptureAuthSessionCookies:
     async def test_capture_handles_exception_gracefully(self) -> None:
         """
         TC-CC-A-01: Cookie capture handles exceptions.
-        
+
         // Given: Exception during cookie capture
         // When: Calling _capture_auth_session_cookies
         // Then: Returns None (no exception raised)
@@ -819,7 +859,7 @@ class TestResolveAuthCookieCapture:
     async def test_complete_item_captures_cookies(self) -> None:
         """
         TC-RA-N-01: resolve_auth complete captures cookies.
-        
+
         // Given: Browser connected with cookies
         // When: Calling resolve_auth action=complete with success=True
         // Then: Cookies captured and passed to complete()
@@ -839,20 +879,25 @@ class TestResolveAuthCookieCapture:
         }
         mock_queue.complete.return_value = {"ok": True, "status": "completed"}
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=session_data,
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=session_data,
+            ),
         ):
-            await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "complete",
-                "success": True,
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         # Verify complete was called with session_data
         mock_queue.complete.assert_called_once_with(
@@ -863,7 +908,7 @@ class TestResolveAuthCookieCapture:
     async def test_complete_failure_skips_cookie_capture(self) -> None:
         """
         TC-RA-N-02: resolve_auth with success=False skips cookie capture.
-        
+
         // Given: Auth failed
         // When: Calling resolve_auth action=complete with success=False
         // Then: Cookie capture not attempted
@@ -877,19 +922,24 @@ class TestResolveAuthCookieCapture:
         }
         mock_queue.complete.return_value = {"ok": True, "status": "skipped"}
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-        ) as mock_capture:
-            await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "complete",
-                "success": False,
-            })
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+            ) as mock_capture,
+        ):
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "complete",
+                    "success": False,
+                }
+            )
 
         # Verify cookie capture was NOT called (success=False)
         mock_capture.assert_not_called()
@@ -898,7 +948,7 @@ class TestResolveAuthCookieCapture:
     async def test_complete_domain_captures_cookies(self) -> None:
         """
         TC-RA-N-03: resolve_auth domain complete captures cookies.
-        
+
         // Given: Domain auth complete
         // When: Calling resolve_auth target=domain action=complete
         // Then: Cookies captured and passed to complete_domain()
@@ -917,20 +967,25 @@ class TestResolveAuthCookieCapture:
             "resolved_count": 3,
         }
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=session_data,
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=session_data,
+            ),
         ):
-            await _handle_resolve_auth({
-                "target": "domain",
-                "domain": "example.com",
-                "action": "complete",
-                "success": True,
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "domain": "example.com",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         # Verify complete_domain was called with session_data
         mock_queue.complete_domain.assert_called_once_with(
@@ -944,7 +999,7 @@ class TestAuthToolDefinitions:
     def test_get_auth_queue_in_tools(self) -> None:
         """
         Test that get_auth_queue is defined in TOOLS.
-        
+
         // Given: TOOLS list
         // When: Searching for get_auth_queue
         // Then: Found with correct schema
@@ -961,7 +1016,7 @@ class TestAuthToolDefinitions:
     def test_resolve_auth_in_tools(self) -> None:
         """
         Test that resolve_auth is defined in TOOLS.
-        
+
         // Given: TOOLS list
         // When: Searching for resolve_auth
         // Then: Found with correct schema
@@ -976,4 +1031,3 @@ class TestAuthToolDefinitions:
         assert "domain" in tool.inputSchema["properties"]
         assert "action" in tool.inputSchema["properties"]
         assert tool.inputSchema["required"] == ["action"]
-

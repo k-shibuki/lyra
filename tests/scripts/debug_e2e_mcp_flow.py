@@ -39,9 +39,11 @@ async def main():
 
     from src.mcp.server import _handle_create_task
 
-    create_result = await _handle_create_task({
-        "query": "E2E test: What are the effects of caffeine?",
-    })
+    create_result = await _handle_create_task(
+        {
+            "query": "E2E test: What are the effects of caffeine?",
+        }
+    )
 
     print(f"  - ok: {create_result.get('ok')}")
     task_id = create_result.get("task_id")
@@ -91,19 +93,32 @@ async def main():
     await db.execute(
         """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant, relevance_reason, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (fragment_id, page_id, "paragraph",
-         "Caffeine is a stimulant that affects the central nervous system.",
-         "Effects of Caffeine", 1, "primary_source=True; url=https://example.gov/caffeine"),
+        (
+            fragment_id,
+            page_id,
+            "paragraph",
+            "Caffeine is a stimulant that affects the central nervous system.",
+            "Effects of Caffeine",
+            1,
+            "primary_source=True; url=https://example.gov/caffeine",
+        ),
     )
 
     # Create claim
     import json
+
     await db.execute(
         """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (claim_id, task_id,
-         "Caffeine acts as a central nervous system stimulant.",
-         "fact", 0.85, json.dumps([fragment_id]), "source_url=https://example.gov/caffeine"),
+        (
+            claim_id,
+            task_id,
+            "Caffeine acts as a central nervous system stimulant.",
+            "fact",
+            0.85,
+            json.dumps([fragment_id]),
+            "source_url=https://example.gov/caffeine",
+        ),
     )
 
     # Create edge
@@ -141,10 +156,12 @@ async def main():
 
     from src.mcp.server import _handle_get_materials
 
-    materials_result = await _handle_get_materials({
-        "task_id": task_id,
-        "options": {"include_graph": True},
-    })
+    materials_result = await _handle_get_materials(
+        {
+            "task_id": task_id,
+            "options": {"include_graph": True},
+        }
+    )
 
     print(f"  - ok: {materials_result.get('ok')}")
     print(f"  - claims: {len(materials_result.get('claims', []))}")
@@ -169,10 +186,12 @@ async def main():
 
     from src.mcp.server import _handle_stop_task
 
-    stop_result = await _handle_stop_task({
-        "task_id": task_id,
-        "reason": "e2e_test_complete",
-    })
+    stop_result = await _handle_stop_task(
+        {
+            "task_id": task_id,
+            "reason": "e2e_test_complete",
+        }
+    )
 
     print(f"  - ok: {stop_result.get('ok')}")
     print(f"  - final_status: {stop_result.get('final_status')}")

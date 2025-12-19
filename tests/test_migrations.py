@@ -254,7 +254,9 @@ class TestMigrationExecution:
         apply_migration(conn, 1, "create_test", migration_file)
 
         # Then: Table exists and migration recorded
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'")
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'"
+        )
         assert cursor.fetchone() is not None
 
         applied = get_applied_migrations(conn)
@@ -595,4 +597,3 @@ class TestBoundaryConditions:
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_t1'")
         assert cursor.fetchone() is not None
         conn.close()
-

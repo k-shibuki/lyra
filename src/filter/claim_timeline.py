@@ -36,21 +36,22 @@ FRESHNESS_THRESHOLD_DAYS = 365
 
 class TimelineEventType(str, Enum):
     """Types of timeline events (§3.4, §16.12.2)."""
-    FIRST_APPEARED = "first_appeared"   # Initial discovery
-    UPDATED = "updated"                  # Content modified
-    CORRECTED = "corrected"              # Error correction issued
-    RETRACTED = "retracted"              # Claim withdrawn
-    CONFIRMED = "confirmed"              # Additional supporting evidence
+
+    FIRST_APPEARED = "first_appeared"  # Initial discovery
+    UPDATED = "updated"  # Content modified
+    CORRECTED = "corrected"  # Error correction issued
+    RETRACTED = "retracted"  # Claim withdrawn
+    CONFIRMED = "confirmed"  # Additional supporting evidence
     # §16.12.2: Archive-related events
-    CONTENT_MODIFIED = "content_modified"    # Archive differs from current
+    CONTENT_MODIFIED = "content_modified"  # Archive differs from current
     CONTENT_MAJOR_CHANGE = "content_major_change"  # Significant archive diff
-    ARCHIVE_ONLY = "archive_only"            # Only available in archive
+    ARCHIVE_ONLY = "archive_only"  # Only available in archive
 
 
 @dataclass
 class TimelineEvent:
     """A single event in a claim's timeline.
-    
+
     Attributes:
         event_type: Type of the event.
         timestamp: When the event occurred.
@@ -60,6 +61,7 @@ class TimelineEvent:
         notes: Optional notes about the event.
         confidence: Confidence in this event (0.0-1.0).
     """
+
     event_type: TimelineEventType
     timestamp: datetime
     source_url: str
@@ -106,13 +108,14 @@ class TimelineEvent:
 @dataclass
 class ClaimTimeline:
     """Timeline of events for a specific claim.
-    
+
     Tracks the evolution of a claim over time, including:
     - When it first appeared
     - Updates and corrections
     - Retractions
     - Confirmations from other sources
     """
+
     claim_id: str
     events: list[TimelineEvent] = field(default_factory=list)
 
@@ -149,7 +152,7 @@ class ClaimTimeline:
     @property
     def has_timeline(self) -> bool:
         """Check if this claim has meaningful timeline data.
-        
+
         A claim has a timeline if it has at least one event
         with a valid timestamp and source.
         """
@@ -166,7 +169,7 @@ class ClaimTimeline:
         confidence: float = 1.0,
     ) -> TimelineEvent:
         """Add an event to the timeline.
-        
+
         Args:
             event_type: Type of event.
             timestamp: When it occurred (default: now).
@@ -175,7 +178,7 @@ class ClaimTimeline:
             wayback_snapshot_url: Wayback snapshot if applicable.
             notes: Additional notes.
             confidence: Event confidence.
-            
+
         Returns:
             The created TimelineEvent.
         """
@@ -209,10 +212,10 @@ class ClaimTimeline:
         event_type: TimelineEventType,
     ) -> list[TimelineEvent]:
         """Get all events of a specific type.
-        
+
         Args:
             event_type: Type to filter by.
-            
+
         Returns:
             List of matching events.
         """
@@ -224,11 +227,11 @@ class ClaimTimeline:
         end: datetime,
     ) -> list[TimelineEvent]:
         """Get events within a time range.
-        
+
         Args:
             start: Start datetime.
             end: End datetime.
-            
+
         Returns:
             List of events in range.
         """
@@ -236,9 +239,9 @@ class ClaimTimeline:
 
     def calculate_confidence_adjustment(self) -> float:
         """Calculate confidence adjustment based on timeline events.
-        
+
         Retractions reduce confidence, confirmations increase it.
-        
+
         Returns:
             Adjustment factor (0.0-1.5).
         """
@@ -256,7 +259,7 @@ class ClaimTimeline:
         confirmations = self.confirmation_count
         if confirmations > 0:
             bonus = min(0.5, confirmations * 0.1)
-            adjustment *= (1.0 + bonus)
+            adjustment *= 1.0 + bonus
 
         return adjustment
 
@@ -267,8 +270,12 @@ class ClaimTimeline:
             "events": [e.to_dict() for e in self.events],
             "summary": {
                 "event_count": len(self.events),
-                "first_appeared_at": self.first_appeared.timestamp.isoformat() if self.first_appeared else None,
-                "latest_event_at": self.latest_event.timestamp.isoformat() if self.latest_event else None,
+                "first_appeared_at": self.first_appeared.timestamp.isoformat()
+                if self.first_appeared
+                else None,
+                "latest_event_at": self.latest_event.timestamp.isoformat()
+                if self.latest_event
+                else None,
                 "is_retracted": self.is_retracted,
                 "is_corrected": self.is_corrected,
                 "confirmation_count": self.confirmation_count,
@@ -296,10 +303,10 @@ class ClaimTimeline:
     @classmethod
     def from_json(cls, json_str: str | None) -> "ClaimTimeline | None":
         """Create ClaimTimeline from JSON string.
-        
+
         Args:
             json_str: JSON string or None.
-            
+
         Returns:
             ClaimTimeline or None if parsing fails.
         """
@@ -318,9 +325,10 @@ class ClaimTimeline:
 # Timeline Manager
 # =============================================================================
 
+
 class ClaimTimelineManager:
     """Manages claim timelines with database persistence.
-    
+
     Provides:
     - Timeline creation and updates
     - Wayback integration
@@ -333,10 +341,10 @@ class ClaimTimelineManager:
 
     async def get_timeline(self, claim_id: str) -> ClaimTimeline | None:
         """Get timeline for a claim.
-        
+
         Args:
             claim_id: Claim ID.
-            
+
         Returns:
             ClaimTimeline or None if not found.
         """
@@ -369,10 +377,10 @@ class ClaimTimelineManager:
 
     async def save_timeline(self, timeline: ClaimTimeline) -> bool:
         """Save timeline to database.
-        
+
         Args:
             timeline: Timeline to save.
-            
+
         Returns:
             True if saved successfully.
         """
@@ -407,13 +415,13 @@ class ClaimTimelineManager:
         fragment_id: str | None = None,
     ) -> TimelineEvent | None:
         """Record first appearance of a claim.
-        
+
         Args:
             claim_id: Claim ID.
             source_url: Source URL.
             timestamp: When discovered (default: now).
             fragment_id: Source fragment ID.
-            
+
         Returns:
             Created event or None if failed.
         """
@@ -445,14 +453,14 @@ class ClaimTimelineManager:
         notes: str | None = None,
     ) -> TimelineEvent | None:
         """Record a confirmation of a claim from another source.
-        
+
         Args:
             claim_id: Claim ID.
             source_url: Confirming source URL.
             timestamp: When confirmed.
             fragment_id: Source fragment ID.
             notes: Optional notes.
-            
+
         Returns:
             Created event or None.
         """
@@ -481,7 +489,7 @@ class ClaimTimelineManager:
         notes: str | None = None,
     ) -> TimelineEvent | None:
         """Record an update to a claim.
-        
+
         Args:
             claim_id: Claim ID.
             source_url: Source URL of the update.
@@ -489,7 +497,7 @@ class ClaimTimelineManager:
             fragment_id: Source fragment ID.
             wayback_url: Wayback snapshot showing the change.
             notes: Description of the update.
-            
+
         Returns:
             Created event or None.
         """
@@ -519,7 +527,7 @@ class ClaimTimelineManager:
         notes: str | None = None,
     ) -> TimelineEvent | None:
         """Record a correction to a claim.
-        
+
         Args:
             claim_id: Claim ID.
             source_url: Source URL of the correction.
@@ -527,7 +535,7 @@ class ClaimTimelineManager:
             fragment_id: Source fragment ID.
             wayback_url: Wayback snapshot.
             notes: Description of the correction.
-            
+
         Returns:
             Created event or None.
         """
@@ -557,14 +565,14 @@ class ClaimTimelineManager:
         notes: str | None = None,
     ) -> TimelineEvent | None:
         """Record a retraction of a claim.
-        
+
         Args:
             claim_id: Claim ID.
             source_url: Source URL of the retraction.
             timestamp: When retracted.
             fragment_id: Source fragment ID.
             notes: Reason for retraction.
-            
+
         Returns:
             Created event or None.
         """
@@ -593,7 +601,7 @@ class ClaimTimelineManager:
         timeline: ClaimTimeline,
     ) -> None:
         """Apply confidence adjustment based on timeline events.
-        
+
         Args:
             claim_id: Claim ID.
             timeline: The claim's timeline.
@@ -638,12 +646,12 @@ class ClaimTimelineManager:
         wayback_result: dict[str, Any],
     ) -> int:
         """Integrate Wayback exploration results into claim timeline.
-        
+
         Args:
             claim_id: Claim ID.
             source_url: Original source URL.
             wayback_result: Result from WaybackExplorer.
-            
+
         Returns:
             Number of events added.
         """
@@ -709,16 +717,16 @@ class ClaimTimelineManager:
         fragment_id: str | None = None,
     ) -> TimelineEvent | None:
         """Add a timeline event from archive diff comparison.
-        
+
         Per §16.12.2: Records content changes detected between
         archived and current versions.
-        
+
         Args:
             claim_id: Claim ID.
             source_url: Source URL.
             diff_result: ArchiveDiffResult.to_dict() output.
             fragment_id: Optional fragment ID.
-            
+
         Returns:
             Created event or None if no significant changes.
         """
@@ -745,13 +753,11 @@ class ClaimTimelineManager:
         archive_date_str = diff_result.get("archive_date")
         if archive_date_str:
             try:
-                archive_date = datetime.fromisoformat(
-                    archive_date_str.replace("Z", "+00:00")
-                )
+                datetime.fromisoformat(archive_date_str.replace("Z", "+00:00"))
             except (ValueError, TypeError):
-                archive_date = datetime.now(UTC)
+                datetime.now(UTC)
         else:
-            archive_date = datetime.now(UTC)
+            datetime.now(UTC)
 
         # Calculate confidence based on freshness
         freshness_penalty = diff_result.get("freshness_penalty", 0.0)
@@ -796,10 +802,10 @@ class ClaimTimelineManager:
 
     async def get_timeline_coverage(self, task_id: str) -> dict[str, Any]:
         """Calculate timeline coverage metrics for a task.
-        
+
         Args:
             task_id: Task ID.
-            
+
         Returns:
             Coverage metrics.
         """
@@ -846,7 +852,9 @@ class ClaimTimelineManager:
             "claims_retracted": claims_retracted,
             "claims_corrected": claims_corrected,
             "total_events": total_events,
-            "average_events_per_claim": total_events / claims_with_timeline if claims_with_timeline > 0 else 0.0,
+            "average_events_per_claim": total_events / claims_with_timeline
+            if claims_with_timeline > 0
+            else 0.0,
             "meets_target": coverage_rate >= 0.9,  # §7: ≥90%
         }
 
@@ -864,7 +872,7 @@ _manager: ClaimTimelineManager | None = None
 
 def get_timeline_manager() -> ClaimTimelineManager:
     """Get the global timeline manager instance.
-    
+
     Returns:
         ClaimTimelineManager instance.
     """
@@ -878,6 +886,7 @@ def get_timeline_manager() -> ClaimTimelineManager:
 # Convenience Functions
 # =============================================================================
 
+
 async def record_first_appeared(
     claim_id: str,
     source_url: str,
@@ -885,13 +894,13 @@ async def record_first_appeared(
     fragment_id: str | None = None,
 ) -> TimelineEvent | None:
     """Record first appearance of a claim.
-    
+
     Args:
         claim_id: Claim ID.
         source_url: Source URL.
         timestamp: When discovered.
         fragment_id: Source fragment ID.
-        
+
     Returns:
         Created event or None.
     """
@@ -906,13 +915,13 @@ async def record_confirmation(
     fragment_id: str | None = None,
 ) -> TimelineEvent | None:
     """Record a confirmation of a claim.
-    
+
     Args:
         claim_id: Claim ID.
         source_url: Confirming source URL.
         timestamp: When confirmed.
         fragment_id: Source fragment ID.
-        
+
     Returns:
         Created event or None.
     """
@@ -927,13 +936,13 @@ async def record_retraction(
     notes: str | None = None,
 ) -> TimelineEvent | None:
     """Record a retraction of a claim.
-    
+
     Args:
         claim_id: Claim ID.
         source_url: Source URL of retraction.
         timestamp: When retracted.
         notes: Reason for retraction.
-        
+
     Returns:
         Created event or None.
     """
@@ -943,10 +952,10 @@ async def record_retraction(
 
 async def get_claim_timeline(claim_id: str) -> ClaimTimeline | None:
     """Get timeline for a claim.
-    
+
     Args:
         claim_id: Claim ID.
-        
+
     Returns:
         ClaimTimeline or None.
     """
@@ -956,10 +965,10 @@ async def get_claim_timeline(claim_id: str) -> ClaimTimeline | None:
 
 async def get_timeline_coverage(task_id: str) -> dict[str, Any]:
     """Calculate timeline coverage metrics for a task.
-    
+
     Args:
         task_id: Task ID.
-        
+
     Returns:
         Coverage metrics dictionary.
     """
@@ -973,15 +982,14 @@ async def integrate_wayback_into_timeline(
     wayback_result: dict[str, Any],
 ) -> int:
     """Integrate Wayback results into claim timeline.
-    
+
     Args:
         claim_id: Claim ID.
         source_url: Original source URL.
         wayback_result: Wayback exploration result.
-        
+
     Returns:
         Number of events added.
     """
     manager = get_timeline_manager()
     return await manager.integrate_wayback_result(claim_id, source_url, wayback_result)
-

@@ -28,6 +28,7 @@ logger = get_logger(__name__)
 
 class ProtocolVersion(Enum):
     """HTTP protocol versions."""
+
     HTTP_1_1 = "h1"
     HTTP_2 = "h2"
     HTTP_3 = "h3"
@@ -36,10 +37,10 @@ class ProtocolVersion(Enum):
     @classmethod
     def from_string(cls, value: str) -> "ProtocolVersion":
         """Parse protocol version from string.
-        
+
         Args:
             value: Protocol string (e.g., "h3", "h2", "HTTP/1.1", "h3-29")
-            
+
         Returns:
             ProtocolVersion enum value.
         """
@@ -66,10 +67,11 @@ class ProtocolVersion(Enum):
 @dataclass
 class HTTP3DomainStats:
     """Per-domain HTTP/3 statistics.
-    
+
     Tracks HTTP/3 availability and behavioral differences
     to inform route selection policy.
     """
+
     domain: str
 
     # HTTP/3 availability
@@ -126,8 +128,12 @@ class HTTP3DomainStats:
         return {
             "domain": self.domain,
             "http3_detected": self.http3_detected,
-            "http3_first_seen_at": self.http3_first_seen_at.isoformat() if self.http3_first_seen_at else None,
-            "http3_last_seen_at": self.http3_last_seen_at.isoformat() if self.http3_last_seen_at else None,
+            "http3_first_seen_at": self.http3_first_seen_at.isoformat()
+            if self.http3_first_seen_at
+            else None,
+            "http3_last_seen_at": self.http3_last_seen_at.isoformat()
+            if self.http3_last_seen_at
+            else None,
             "browser_requests": self.browser_requests,
             "browser_http3_requests": self.browser_http3_requests,
             "browser_successes": self.browser_successes,
@@ -176,6 +182,7 @@ class HTTP3DomainStats:
 @dataclass
 class HTTP3RequestResult:
     """Result of a request with HTTP/3 information."""
+
     domain: str
     url: str
     route: str  # "browser" or "http_client"
@@ -189,6 +196,7 @@ class HTTP3RequestResult:
 @dataclass
 class HTTP3PolicyDecision:
     """Policy decision for route selection based on HTTP/3 availability."""
+
     domain: str
 
     # Recommendation
@@ -216,7 +224,7 @@ class HTTP3PolicyDecision:
 
 class HTTP3PolicyManager:
     """Manages HTTP/3 policy decisions for route selection.
-    
+
     Per §4.3:
     - Browser route naturally uses HTTP/3 when site provides it
     - HTTP client uses HTTP/2 by default
@@ -229,36 +237,36 @@ class HTTP3PolicyManager:
         self._lock = asyncio.Lock()
 
         # Configuration
-        self._ema_alpha = getattr(
-            getattr(self._settings, 'http3', None),
-            'ema_alpha',
-            0.1
-        ) if hasattr(self._settings, 'http3') else 0.1
+        self._ema_alpha = (
+            getattr(getattr(self._settings, "http3", None), "ema_alpha", 0.1)
+            if hasattr(self._settings, "http3")
+            else 0.1
+        )
 
-        self._difference_threshold = getattr(
-            getattr(self._settings, 'http3', None),
-            'difference_threshold',
-            0.15
-        ) if hasattr(self._settings, 'http3') else 0.15
+        self._difference_threshold = (
+            getattr(getattr(self._settings, "http3", None), "difference_threshold", 0.15)
+            if hasattr(self._settings, "http3")
+            else 0.15
+        )
 
-        self._max_browser_boost = getattr(
-            getattr(self._settings, 'http3', None),
-            'max_browser_boost',
-            0.3
-        ) if hasattr(self._settings, 'http3') else 0.3
+        self._max_browser_boost = (
+            getattr(getattr(self._settings, "http3", None), "max_browser_boost", 0.3)
+            if hasattr(self._settings, "http3")
+            else 0.3
+        )
 
-        self._min_samples = getattr(
-            getattr(self._settings, 'http3', None),
-            'min_samples',
-            5
-        ) if hasattr(self._settings, 'http3') else 5
+        self._min_samples = (
+            getattr(getattr(self._settings, "http3", None), "min_samples", 5)
+            if hasattr(self._settings, "http3")
+            else 5
+        )
 
     async def get_stats(self, domain: str) -> HTTP3DomainStats:
         """Get or create stats for a domain.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             HTTP3DomainStats instance.
         """
@@ -273,7 +281,7 @@ class HTTP3PolicyManager:
 
     async def record_request(self, result: HTTP3RequestResult) -> None:
         """Record a request result for HTTP/3 tracking.
-        
+
         Args:
             result: Request result with protocol information.
         """
@@ -315,10 +323,10 @@ class HTTP3PolicyManager:
 
     async def _update_behavioral_difference(self, stats: HTTP3DomainStats) -> None:
         """Update behavioral difference EMA based on success rate gap.
-        
+
         The behavioral difference measures how much better browser route
         (with HTTP/3) performs compared to HTTP client route.
-        
+
         Args:
             stats: Domain stats to update.
         """
@@ -337,25 +345,21 @@ class HTTP3PolicyManager:
         if difference > 0 and stats.http3_ratio > 0.5:
             # Update EMA
             stats.behavioral_difference_ema = (
-                self._ema_alpha * difference +
-                (1 - self._ema_alpha) * stats.behavioral_difference_ema
+                self._ema_alpha * difference
+                + (1 - self._ema_alpha) * stats.behavioral_difference_ema
             )
             stats.behavioral_difference_samples += 1
             stats.behavioral_difference_sum += difference
         else:
             # Decay toward zero when no advantage
-            stats.behavioral_difference_ema *= (1 - self._ema_alpha * 0.5)
+            stats.behavioral_difference_ema *= 1 - self._ema_alpha * 0.5
 
         # Update browser ratio boost based on behavioral difference
         if stats.behavioral_difference_ema > self._difference_threshold:
             # Scale boost proportionally to difference
-            boost_factor = min(
-                stats.behavioral_difference_ema / self._difference_threshold,
-                2.0
-            )
+            boost_factor = min(stats.behavioral_difference_ema / self._difference_threshold, 2.0)
             stats.browser_ratio_boost = min(
-                self._max_browser_boost * (boost_factor - 1) / 1.0,
-                self._max_browser_boost
+                self._max_browser_boost * (boost_factor - 1) / 1.0, self._max_browser_boost
             )
 
             logger.debug(
@@ -366,17 +370,14 @@ class HTTP3PolicyManager:
             )
         else:
             # Gradually reduce boost
-            stats.browser_ratio_boost = max(
-                0.0,
-                stats.browser_ratio_boost - 0.01
-            )
+            stats.browser_ratio_boost = max(0.0, stats.browser_ratio_boost - 0.01)
 
     async def get_policy_decision(self, domain: str) -> HTTP3PolicyDecision:
         """Get policy decision for route selection.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             HTTP3PolicyDecision with recommendations.
         """
@@ -414,11 +415,11 @@ class HTTP3PolicyManager:
         base_ratio: float,
     ) -> float:
         """Get browser ratio adjusted for HTTP/3 policy.
-        
+
         Args:
             domain: Domain name.
             base_ratio: Base browser ratio from domain policy.
-            
+
         Returns:
             Adjusted browser ratio (capped at 1.0).
         """
@@ -431,20 +432,21 @@ class HTTP3PolicyManager:
 
     async def _load_stats_from_db(self, domain: str) -> HTTP3DomainStats | None:
         """Load stats from database.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             HTTP3DomainStats or None if not found.
         """
         try:
             from src.storage.database import get_database
+
             db = await get_database()
 
             row = await db.fetch_one(
                 """
-                SELECT 
+                SELECT
                     http3_detected,
                     http3_first_seen_at,
                     http3_last_seen_at,
@@ -469,17 +471,13 @@ class HTTP3PolicyManager:
 
             if row.get("http3_first_seen_at"):
                 try:
-                    stats.http3_first_seen_at = datetime.fromisoformat(
-                        row["http3_first_seen_at"]
-                    )
+                    stats.http3_first_seen_at = datetime.fromisoformat(row["http3_first_seen_at"])
                 except (ValueError, TypeError):
                     pass
 
             if row.get("http3_last_seen_at"):
                 try:
-                    stats.http3_last_seen_at = datetime.fromisoformat(
-                        row["http3_last_seen_at"]
-                    )
+                    stats.http3_last_seen_at = datetime.fromisoformat(row["http3_last_seen_at"])
                 except (ValueError, TypeError):
                     pass
 
@@ -503,12 +501,13 @@ class HTTP3PolicyManager:
 
     async def _save_stats_to_db(self, stats: HTTP3DomainStats) -> None:
         """Save stats to database.
-        
+
         Args:
             stats: Stats to save.
         """
         try:
             from src.storage.database import get_database
+
             db = await get_database()
 
             # Update or insert domain record
@@ -566,7 +565,7 @@ class HTTP3PolicyManager:
 
     def get_all_stats(self) -> dict[str, HTTP3DomainStats]:
         """Get all cached stats.
-        
+
         Returns:
             Dictionary of domain -> stats.
         """
@@ -574,12 +573,13 @@ class HTTP3PolicyManager:
 
     async def get_http3_domains(self) -> list[str]:
         """Get list of domains where HTTP/3 has been detected.
-        
+
         Returns:
             List of domain names.
         """
         try:
             from src.storage.database import get_database
+
             db = await get_database()
 
             rows = await db.fetch_all(
@@ -599,7 +599,7 @@ class HTTP3PolicyManager:
 
     async def get_metrics(self) -> dict[str, Any]:
         """Get HTTP/3 policy metrics.
-        
+
         Returns:
             Dictionary of metrics.
         """
@@ -621,8 +621,7 @@ class HTTP3PolicyManager:
             "total_browser_requests": total_browser_requests,
             "total_http3_requests": total_http3_requests,
             "http3_usage_rate": (
-                total_http3_requests / total_browser_requests
-                if total_browser_requests > 0 else 0.0
+                total_http3_requests / total_browser_requests if total_browser_requests > 0 else 0.0
             ),
             "boosted_domains_count": total_boosted_domains,
             "cached_domains_count": len(self._stats_cache),
@@ -635,7 +634,7 @@ _http3_policy_manager: HTTP3PolicyManager | None = None
 
 def get_http3_policy_manager() -> HTTP3PolicyManager:
     """Get or create HTTP/3 policy manager instance.
-    
+
     Returns:
         HTTP3PolicyManager instance.
     """
@@ -655,12 +654,12 @@ async def detect_protocol_from_cdp_response(
     response_data: dict[str, Any],
 ) -> ProtocolVersion:
     """Detect HTTP protocol version from CDP Network.responseReceived data.
-    
+
     CDP provides protocol information in the response object.
-    
+
     Args:
         response_data: CDP Network.responseReceived response object.
-        
+
     Returns:
         ProtocolVersion detected.
     """
@@ -686,13 +685,13 @@ async def detect_protocol_from_playwright_response(
     response,  # Playwright Response object
 ) -> ProtocolVersion:
     """Detect HTTP protocol version from Playwright response.
-    
+
     Playwright doesn't directly expose protocol version, but we can
     use CDP to get this information if needed.
-    
+
     Args:
         response: Playwright Response object.
-        
+
     Returns:
         ProtocolVersion detected.
     """
@@ -711,4 +710,3 @@ async def detect_protocol_from_playwright_response(
         logger.debug("Failed to check Alt-Svc header", error=str(e))
 
     return ProtocolVersion.UNKNOWN
-

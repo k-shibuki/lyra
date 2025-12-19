@@ -166,7 +166,7 @@ class TestQueryExpander:
 
     def test_get_synonyms_known_word(self):
         """Test getting synonyms for known words.
-        
+
         Validates §3.1.1 synonym expansion for search query diversification.
         """
         from src.search.search_api import QueryExpander
@@ -195,7 +195,7 @@ class TestQueryExpander:
 
     def test_expand_with_normalized_forms(self):
         """Test normalized form expansion.
-        
+
         Validates query variant generation for §3.1.1 search diversification.
         Original query must always be included in results.
         """
@@ -209,12 +209,14 @@ class TestQueryExpander:
 
         # STRICT: Original query must always be included as first element
         assert isinstance(variants, list), f"Expected list, got {type(variants)}"
-        assert variants[0] == query, f"First element should be original query '{query}', got '{variants[0]}'"
+        assert variants[0] == query, (
+            f"First element should be original query '{query}', got '{variants[0]}'"
+        )
         assert query in variants, f"Original query '{query}' must be in variants"
 
     def test_expand_with_synonyms(self):
         """Test synonym-based expansion.
-        
+
         Validates §3.1.1 query diversification via synonyms.
         Original query must always be first, additional variants expected.
         """
@@ -228,11 +230,13 @@ class TestQueryExpander:
         # STRICT: Original query must be first element
         assert variants[0] == query, f"First element should be '{query}', got '{variants[0]}'"
         # STRICT: Should have additional variants (AI -> 人工知能 and 問題 -> 課題 exist in synonym dict)
-        assert len(variants) >= 2, f"Expected at least 2 variants (original + synonym), got {len(variants)}"
+        assert len(variants) >= 2, (
+            f"Expected at least 2 variants (original + synonym), got {len(variants)}"
+        )
 
     def test_generate_variants_all(self):
         """Test generating all variants.
-        
+
         Validates combined query expansion for §3.1.1.
         人工知能 has synonyms ["AI", "エーアイ", "機械知能"].
         """
@@ -286,7 +290,7 @@ class TestExpandQuery:
     @pytest.mark.asyncio
     async def test_expand_query_japanese(self):
         """Test expand_query with Japanese query.
-        
+
         Validates §3.1.1 query expansion for Japanese text.
         """
         from src.search.search_api import expand_query
@@ -297,7 +301,9 @@ class TestExpandQuery:
         # STRICT: Original query must be first element
         assert results[0] == query, f"First element should be '{query}', got '{results[0]}'"
         # STRICT: Should have variants (人工知能 and 影響 both have synonyms)
-        assert len(results) >= 2, f"Expected at least 2 variants for query with known synonyms, got {len(results)}"
+        assert len(results) >= 2, (
+            f"Expected at least 2 variants for query with known synonyms, got {len(results)}"
+        )
 
     @pytest.mark.asyncio
     async def test_expand_query_synonyms_only(self):
@@ -358,7 +364,7 @@ class TestExpandQuery:
 @pytest.mark.unit
 class TestGenerateMirrorQuery:
     """Tests for generate_mirror_query function.
-    
+
     Implements cross-language (JA↔EN) mirror query auto-generation (§3.1.1).
     LLM calls are mocked to avoid external dependencies.
     """
@@ -564,13 +570,13 @@ class TestGenerateMirrorQuery:
 @pytest.mark.unit
 class TestParsedOperator:
     """Tests for ParsedOperator dataclass.
-    
+
     Validates the data structure for parsed search operators (§3.1.1).
     """
 
     def test_parsed_operator_creation(self):
         """Test basic ParsedOperator creation.
-        
+
         Verifies that ParsedOperator correctly stores operator_type, value,
         and raw_text fields as specified.
         """
@@ -582,21 +588,25 @@ class TestParsedOperator:
             raw_text="site:example.com",
         )
 
-        assert op.operator_type == "site", f"Expected operator_type='site', got '{op.operator_type}'"
+        assert op.operator_type == "site", (
+            f"Expected operator_type='site', got '{op.operator_type}'"
+        )
         assert op.value == "example.com", f"Expected value='example.com', got '{op.value}'"
-        assert op.raw_text == "site:example.com", f"Expected raw_text='site:example.com', got '{op.raw_text}'"
+        assert op.raw_text == "site:example.com", (
+            f"Expected raw_text='site:example.com', got '{op.raw_text}'"
+        )
 
 
 @pytest.mark.unit
 class TestParsedQuery:
     """Tests for ParsedQuery dataclass.
-    
+
     Validates the data structure for parsed queries with operators (§3.1.1).
     """
 
     def test_parsed_query_has_operator(self):
         """Test ParsedQuery.has_operator method.
-        
+
         Verifies that has_operator correctly identifies presence/absence
         of specific operator types in the parsed query.
         """
@@ -611,12 +621,16 @@ class TestParsedQuery:
         )
 
         assert parsed.has_operator("site") is True, "Expected has_operator('site') to be True"
-        assert parsed.has_operator("filetype") is True, "Expected has_operator('filetype') to be True"
-        assert parsed.has_operator("intitle") is False, "Expected has_operator('intitle') to be False"
+        assert parsed.has_operator("filetype") is True, (
+            "Expected has_operator('filetype') to be True"
+        )
+        assert parsed.has_operator("intitle") is False, (
+            "Expected has_operator('intitle') to be False"
+        )
 
     def test_parsed_query_get_operators(self):
         """Test ParsedQuery.get_operators method.
-        
+
         Verifies that get_operators returns correct list of operators
         filtered by type.
         """
@@ -636,20 +650,22 @@ class TestParsedQuery:
 
         site_ops = parsed.get_operators("site")
         assert len(site_ops) == 1, f"Expected 1 site operator, got {len(site_ops)}"
-        assert site_ops[0].value == "go.jp", f"Expected site value='go.jp', got '{site_ops[0].value}'"
+        assert site_ops[0].value == "go.jp", (
+            f"Expected site value='go.jp', got '{site_ops[0].value}'"
+        )
 
 
 @pytest.mark.unit
 class TestQueryOperatorProcessor:
     """Tests for QueryOperatorProcessor class.
-    
+
     Validates §3.1.1 (query operators: site:, filetype:, intitle:, "...", +/-, after:)
     and §3.1.4 (engine normalization: mapping operators to engine-specific syntax).
     """
 
     def test_parse_site_operator(self):
         """Test parsing site: operator.
-        
+
         Validates §3.1.1: site: operator for domain restriction (e.g., site:go.jp).
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -657,14 +673,20 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("AI規制 site:go.jp")
 
-        assert parsed.base_query == "AI規制", f"Expected base_query='AI規制', got '{parsed.base_query}'"
+        assert parsed.base_query == "AI規制", (
+            f"Expected base_query='AI規制', got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
-        assert parsed.operators[0].operator_type == "site", f"Expected operator_type='site', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "go.jp", f"Expected value='go.jp', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "site", (
+            f"Expected operator_type='site', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "go.jp", (
+            f"Expected value='go.jp', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_filetype_operator(self):
         """Test parsing filetype: operator.
-        
+
         Validates §3.1.1: filetype: operator for file type restriction.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -672,14 +694,20 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("技術仕様 filetype:pdf")
 
-        assert parsed.base_query == "技術仕様", f"Expected base_query='技術仕様', got '{parsed.base_query}'"
+        assert parsed.base_query == "技術仕様", (
+            f"Expected base_query='技術仕様', got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
-        assert parsed.operators[0].operator_type == "filetype", f"Expected operator_type='filetype', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "pdf", f"Expected value='pdf', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "filetype", (
+            f"Expected operator_type='filetype', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "pdf", (
+            f"Expected value='pdf', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_intitle_operator_unquoted(self):
         """Test parsing intitle: operator with unquoted value.
-        
+
         Validates §3.1.1: intitle: operator for title search.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -687,14 +715,20 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("intitle:重要 調査レポート")
 
-        assert "調査レポート" in parsed.base_query, f"Expected '調査レポート' in base_query, got '{parsed.base_query}'"
+        assert "調査レポート" in parsed.base_query, (
+            f"Expected '調査レポート' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
-        assert parsed.operators[0].operator_type == "intitle", f"Expected operator_type='intitle', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "重要", f"Expected value='重要', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "intitle", (
+            f"Expected operator_type='intitle', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "重要", (
+            f"Expected value='重要', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_intitle_operator_quoted(self):
         """Test parsing intitle: operator with quoted value.
-        
+
         Validates §3.1.1: intitle:"phrase" for multi-word title search.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -702,14 +736,20 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse('intitle:"重要なお知らせ" 情報')
 
-        assert "情報" in parsed.base_query, f"Expected '情報' in base_query, got '{parsed.base_query}'"
+        assert "情報" in parsed.base_query, (
+            f"Expected '情報' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
-        assert parsed.operators[0].operator_type == "intitle", f"Expected operator_type='intitle', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "重要なお知らせ", f"Expected value='重要なお知らせ', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "intitle", (
+            f"Expected operator_type='intitle', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "重要なお知らせ", (
+            f"Expected value='重要なお知らせ', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_exact_phrase(self):
         """Test parsing exact phrase with quotes.
-        
+
         Validates §3.1.1: Phrase fixing ("...") for exact phrase matching.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -717,14 +757,20 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse('"人工知能の発展" 影響')
 
-        assert "影響" in parsed.base_query, f"Expected '影響' in base_query, got '{parsed.base_query}'"
+        assert "影響" in parsed.base_query, (
+            f"Expected '影響' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
-        assert parsed.operators[0].operator_type == "exact", f"Expected operator_type='exact', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "人工知能の発展", f"Expected value='人工知能の発展', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "exact", (
+            f"Expected operator_type='exact', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "人工知能の発展", (
+            f"Expected value='人工知能の発展', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_exclude_operator(self):
         """Test parsing exclude (-) operator.
-        
+
         Validates §3.1.1: Required/Exclude (+/-) for term exclusion.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -741,7 +787,7 @@ class TestQueryOperatorProcessor:
 
     def test_parse_required_operator(self):
         """Test parsing required (+) operator.
-        
+
         Validates §3.1.1: Required/Exclude (+/-) for required terms.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -749,16 +795,22 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("機械学習 +Python +TensorFlow")
 
-        assert "機械学習" in parsed.base_query, f"Expected '機械学習' in base_query, got '{parsed.base_query}'"
+        assert "機械学習" in parsed.base_query, (
+            f"Expected '機械学習' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 2, f"Expected 2 operators, got {len(parsed.operators)}"
 
         required_values = [op.value for op in parsed.operators if op.operator_type == "required"]
-        assert "Python" in required_values, f"Expected 'Python' in required values, got {required_values}"
-        assert "TensorFlow" in required_values, f"Expected 'TensorFlow' in required values, got {required_values}"
+        assert "Python" in required_values, (
+            f"Expected 'Python' in required values, got {required_values}"
+        )
+        assert "TensorFlow" in required_values, (
+            f"Expected 'TensorFlow' in required values, got {required_values}"
+        )
 
     def test_parse_date_after_operator(self):
         """Test parsing after: operator for date filtering.
-        
+
         Validates §3.1.1: after: operator for time range filtering.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -766,14 +818,20 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("最新技術 after:2024-01-01")
 
-        assert "最新技術" in parsed.base_query, f"Expected '最新技術' in base_query, got '{parsed.base_query}'"
+        assert "最新技術" in parsed.base_query, (
+            f"Expected '最新技術' in base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 1, f"Expected 1 operator, got {len(parsed.operators)}"
-        assert parsed.operators[0].operator_type == "date_after", f"Expected operator_type='date_after', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "2024-01-01", f"Expected value='2024-01-01', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "date_after", (
+            f"Expected operator_type='date_after', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "2024-01-01", (
+            f"Expected value='2024-01-01', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_date_after_year_only(self):
         """Test parsing after: with year only.
-        
+
         Validates §3.1.1: after: operator with abbreviated date format.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -781,12 +839,16 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("研究 after:2023")
 
-        assert parsed.operators[0].operator_type == "date_after", f"Expected operator_type='date_after', got '{parsed.operators[0].operator_type}'"
-        assert parsed.operators[0].value == "2023", f"Expected value='2023', got '{parsed.operators[0].value}'"
+        assert parsed.operators[0].operator_type == "date_after", (
+            f"Expected operator_type='date_after', got '{parsed.operators[0].operator_type}'"
+        )
+        assert parsed.operators[0].value == "2023", (
+            f"Expected value='2023', got '{parsed.operators[0].value}'"
+        )
 
     def test_parse_multiple_operators(self):
         """Test parsing query with multiple operators.
-        
+
         Validates §3.1.1: systematic application of multiple operators in a single query.
         Tests the combination of site:, filetype:, "...", -, and after: operators.
         """
@@ -797,7 +859,9 @@ class TestQueryOperatorProcessor:
         parsed = processor.parse(query)
 
         # Base query should only contain "AI規制"
-        assert "AI規制" in parsed.base_query, f"Expected 'AI規制' in base_query, got '{parsed.base_query}'"
+        assert "AI規制" in parsed.base_query, (
+            f"Expected 'AI規制' in base_query, got '{parsed.base_query}'"
+        )
 
         # Should have 5 operators
         assert len(parsed.operators) == 5, f"Expected 5 operators, got {len(parsed.operators)}"
@@ -815,11 +879,13 @@ class TestQueryOperatorProcessor:
         assert site_op.value == "go.jp", f"Expected site value='go.jp', got '{site_op.value}'"
 
         filetype_op = next(op for op in parsed.operators if op.operator_type == "filetype")
-        assert filetype_op.value == "pdf", f"Expected filetype value='pdf', got '{filetype_op.value}'"
+        assert filetype_op.value == "pdf", (
+            f"Expected filetype value='pdf', got '{filetype_op.value}'"
+        )
 
     def test_parse_no_operators(self):
         """Test parsing query without operators.
-        
+
         Verifies that plain text queries are handled correctly without operator extraction.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -827,12 +893,14 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("simple query text")
 
-        assert parsed.base_query == "simple query text", f"Expected base_query='simple query text', got '{parsed.base_query}'"
+        assert parsed.base_query == "simple query text", (
+            f"Expected base_query='simple query text', got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 0, f"Expected 0 operators, got {len(parsed.operators)}"
 
     def test_parse_exclude_not_negative_number(self):
         """Test that negative numbers are not treated as exclude operators.
-        
+
         Validates edge case: -10 (negative number) should not be parsed as exclude operator.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -842,11 +910,13 @@ class TestQueryOperatorProcessor:
 
         # "-10" should NOT be parsed as an exclude operator (it's a number)
         exclude_values = [op.value for op in parsed.operators if op.operator_type == "exclude"]
-        assert "10" not in exclude_values, f"'10' should not be in exclude values, got {exclude_values}"
+        assert "10" not in exclude_values, (
+            f"'10' should not be in exclude values, got {exclude_values}"
+        )
 
     def test_transform_for_google(self):
         """Test transforming query for Google engine.
-        
+
         Validates §3.1.4: Google supports all standard operators including after:.
         """
         from src.search.search_api import ParsedOperator, ParsedQuery, QueryOperatorProcessor
@@ -870,7 +940,7 @@ class TestQueryOperatorProcessor:
 
     def test_transform_for_duckduckgo(self):
         """Test transforming query for DuckDuckGo engine.
-        
+
         Validates §3.1.4: DuckDuckGo doesn't support date_after operator,
         which should be omitted from the transformed query.
         """
@@ -890,11 +960,13 @@ class TestQueryOperatorProcessor:
         assert "AI研究" in result, f"Expected 'AI研究' in result, got '{result}'"
         assert "site:arxiv.org" in result, f"Expected 'site:arxiv.org' in result, got '{result}'"
         # DuckDuckGo doesn't support after:, so it should be omitted
-        assert "after:2024" not in result, f"'after:2024' should be omitted for DuckDuckGo, got '{result}'"
+        assert "after:2024" not in result, (
+            f"'after:2024' should be omitted for DuckDuckGo, got '{result}'"
+        )
 
     def test_transform_preserves_exact_phrases(self):
         """Test that exact phrases are preserved with quotes.
-        
+
         Validates §3.1.4: exact phrase quotes must be preserved in transformation.
         """
         from src.search.search_api import ParsedOperator, ParsedQuery, QueryOperatorProcessor
@@ -913,7 +985,7 @@ class TestQueryOperatorProcessor:
 
     def test_process_query_end_to_end(self):
         """Test process_query convenience method.
-        
+
         Validates end-to-end query processing: parse + transform in one call.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -921,7 +993,7 @@ class TestQueryOperatorProcessor:
         processor = QueryOperatorProcessor()
 
         result = processor.process_query(
-            'AI site:go.jp filetype:pdf -spam',
+            "AI site:go.jp filetype:pdf -spam",
             engine="google",
         )
 
@@ -932,7 +1004,7 @@ class TestQueryOperatorProcessor:
 
     def test_build_query_programmatic(self):
         """Test building queries programmatically.
-        
+
         Validates §3.1.1: systematic query construction using build_query API.
         This is used for OSINT vertical templates (§3.1.3).
         """
@@ -957,7 +1029,7 @@ class TestQueryOperatorProcessor:
 
     def test_build_query_multiple_exact_phrases(self):
         """Test building query with multiple exact phrases.
-        
+
         Validates that multiple exact phrases are correctly quoted and included.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -975,7 +1047,7 @@ class TestQueryOperatorProcessor:
 
     def test_get_supported_operators(self):
         """Test getting list of supported operators for engine.
-        
+
         Validates §3.1.4: operator support varies by engine.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -986,23 +1058,27 @@ class TestQueryOperatorProcessor:
 
         # Google should support all common operators
         assert "site" in google_ops, f"Expected 'site' in google operators, got {google_ops}"
-        assert "filetype" in google_ops, f"Expected 'filetype' in google operators, got {google_ops}"
+        assert "filetype" in google_ops, (
+            f"Expected 'filetype' in google operators, got {google_ops}"
+        )
         assert "intitle" in google_ops, f"Expected 'intitle' in google operators, got {google_ops}"
         assert "exact" in google_ops, f"Expected 'exact' in google operators, got {google_ops}"
         assert "exclude" in google_ops, f"Expected 'exclude' in google operators, got {google_ops}"
-        assert "date_after" in google_ops, f"Expected 'date_after' in google operators, got {google_ops}"
+        assert "date_after" in google_ops, (
+            f"Expected 'date_after' in google operators, got {google_ops}"
+        )
 
 
 @pytest.mark.unit
 class TestQueryOperatorHelperFunctions:
     """Tests for module-level helper functions.
-    
+
     Validates convenience functions for query operator processing.
     """
 
     def test_parse_query_operators_function(self):
         """Test parse_query_operators helper function.
-        
+
         Validates the module-level parse_query_operators() function.
         """
         from src.search.search_api import parse_query_operators
@@ -1014,7 +1090,7 @@ class TestQueryOperatorHelperFunctions:
 
     def test_transform_query_for_engine_function(self):
         """Test transform_query_for_engine helper function.
-        
+
         Validates the module-level transform_query_for_engine() function.
         """
         from src.search.search_api import transform_query_for_engine
@@ -1026,7 +1102,7 @@ class TestQueryOperatorHelperFunctions:
 
     def test_build_search_query_function(self):
         """Test build_search_query helper function.
-        
+
         Validates §3.1.1/§3.1.3: programmatic query construction for OSINT templates.
         Example from §3.1.3: `site:go.jp 企業名`, `filetype:pdf 会社名 仕様`
         """
@@ -1045,7 +1121,7 @@ class TestQueryOperatorHelperFunctions:
 
     def test_build_search_query_with_date_filter(self):
         """Test build_search_query with date filter.
-        
+
         Validates §3.1.1: after: operator for time-based filtering.
         """
         from src.search.search_api import build_search_query
@@ -1057,19 +1133,21 @@ class TestQueryOperatorHelperFunctions:
         )
 
         assert "最新ニュース" in result, f"Expected '最新ニュース' in result, got '{result}'"
-        assert "after:2024-01-01" in result, f"Expected 'after:2024-01-01' in result, got '{result}'"
+        assert "after:2024-01-01" in result, (
+            f"Expected 'after:2024-01-01' in result, got '{result}'"
+        )
 
 
 @pytest.mark.unit
 class TestQueryOperatorEdgeCases:
     """Edge case tests for query operator processing.
-    
+
     Validates boundary conditions and unusual inputs per §7.1.2.
     """
 
     def test_empty_query(self):
         """Test handling of empty query.
-        
+
         Boundary condition: empty string input should produce empty result.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -1082,7 +1160,7 @@ class TestQueryOperatorEdgeCases:
 
     def test_only_operators_no_base(self):
         """Test query with only operators, no base text.
-        
+
         Boundary condition: query consisting only of operators.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -1091,12 +1169,14 @@ class TestQueryOperatorEdgeCases:
         parsed = processor.parse("site:example.com filetype:pdf")
 
         # Base query should be empty or minimal whitespace
-        assert parsed.base_query.strip() == "", f"Expected empty base_query, got '{parsed.base_query}'"
+        assert parsed.base_query.strip() == "", (
+            f"Expected empty base_query, got '{parsed.base_query}'"
+        )
         assert len(parsed.operators) == 2, f"Expected 2 operators, got {len(parsed.operators)}"
 
     def test_special_characters_in_domain(self):
         """Test handling of special characters in site domain.
-        
+
         Validates parsing of complex domain names with subdomains and hyphens.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -1104,12 +1184,13 @@ class TestQueryOperatorEdgeCases:
         processor = QueryOperatorProcessor()
         parsed = processor.parse("test site:sub.domain-name.co.jp")
 
-        assert parsed.operators[0].value == "sub.domain-name.co.jp", \
+        assert parsed.operators[0].value == "sub.domain-name.co.jp", (
             f"Expected value='sub.domain-name.co.jp', got '{parsed.operators[0].value}'"
+        )
 
     def test_unicode_in_operators(self):
         """Test handling of Unicode characters in operators.
-        
+
         Validates Japanese text in intitle: and exact phrase operators.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -1118,16 +1199,18 @@ class TestQueryOperatorEdgeCases:
         parsed = processor.parse('intitle:日本語タイトル "検索テスト"')
 
         intitle_op = next(op for op in parsed.operators if op.operator_type == "intitle")
-        assert intitle_op.value == "日本語タイトル", \
+        assert intitle_op.value == "日本語タイトル", (
             f"Expected intitle value='日本語タイトル', got '{intitle_op.value}'"
+        )
 
         exact_op = next(op for op in parsed.operators if op.operator_type == "exact")
-        assert exact_op.value == "検索テスト", \
+        assert exact_op.value == "検索テスト", (
             f"Expected exact value='検索テスト', got '{exact_op.value}'"
+        )
 
     def test_multiple_exact_phrases(self):
         """Test parsing multiple exact phrases.
-        
+
         Validates that multiple quoted phrases are correctly extracted.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -1144,7 +1227,7 @@ class TestQueryOperatorEdgeCases:
 
     def test_case_insensitive_operators(self):
         """Test that operators are case-insensitive.
-        
+
         Validates that SITE:, Site:, and site: are all recognized as site operator.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -1156,13 +1239,25 @@ class TestQueryOperatorEdgeCases:
         parsed2 = processor.parse("test Site:example.com")
         parsed3 = processor.parse("test site:example.com")
 
-        assert len(parsed1.operators) == 1, f"Expected 1 operator for SITE:, got {len(parsed1.operators)}"
-        assert len(parsed2.operators) == 1, f"Expected 1 operator for Site:, got {len(parsed2.operators)}"
-        assert len(parsed3.operators) == 1, f"Expected 1 operator for site:, got {len(parsed3.operators)}"
+        assert len(parsed1.operators) == 1, (
+            f"Expected 1 operator for SITE:, got {len(parsed1.operators)}"
+        )
+        assert len(parsed2.operators) == 1, (
+            f"Expected 1 operator for Site:, got {len(parsed2.operators)}"
+        )
+        assert len(parsed3.operators) == 1, (
+            f"Expected 1 operator for site:, got {len(parsed3.operators)}"
+        )
 
-        assert parsed1.operators[0].operator_type == "site", f"Expected 'site' for SITE:, got '{parsed1.operators[0].operator_type}'"
-        assert parsed2.operators[0].operator_type == "site", f"Expected 'site' for Site:, got '{parsed2.operators[0].operator_type}'"
-        assert parsed3.operators[0].operator_type == "site", f"Expected 'site' for site:, got '{parsed3.operators[0].operator_type}'"
+        assert parsed1.operators[0].operator_type == "site", (
+            f"Expected 'site' for SITE:, got '{parsed1.operators[0].operator_type}'"
+        )
+        assert parsed2.operators[0].operator_type == "site", (
+            f"Expected 'site' for Site:, got '{parsed2.operators[0].operator_type}'"
+        )
+        assert parsed3.operators[0].operator_type == "site", (
+            f"Expected 'site' for site:, got '{parsed3.operators[0].operator_type}'"
+        )
 
 
 class TestMirrorQueryGeneration:
@@ -1171,6 +1266,7 @@ class TestMirrorQueryGeneration:
     @pytest.fixture
     def mock_ollama_client(self):
         """Create a mock Ollama client for translation tests."""
+
         class MockOllamaClient:
             async def generate(self, prompt, model=None, temperature=None, max_tokens=None):
                 # Extract query from prompt and return translation
@@ -1183,6 +1279,7 @@ class TestMirrorQueryGeneration:
                 elif "AIエージェント" in prompt:
                     return "AI agent"
                 return "translated query"
+
         return MockOllamaClient()
 
     @pytest.mark.asyncio
@@ -1195,9 +1292,7 @@ class TestMirrorQueryGeneration:
 
         with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
             result = await generate_mirror_query(
-                "機械学習の最新動向",
-                source_lang="ja",
-                target_lang="en"
+                "機械学習の最新動向", source_lang="ja", target_lang="en"
             )
 
         assert result is not None, "Translation should succeed"
@@ -1212,9 +1307,7 @@ class TestMirrorQueryGeneration:
 
         with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
             result = await generate_mirror_query(
-                "machine learning trends",
-                source_lang="en",
-                target_lang="ja"
+                "machine learning trends", source_lang="en", target_lang="ja"
             )
 
         assert result is not None, "Translation should succeed"
@@ -1225,11 +1318,7 @@ class TestMirrorQueryGeneration:
         """Test that same-language returns original query."""
         from src.search.search_api import generate_mirror_query
 
-        result = await generate_mirror_query(
-            "test query",
-            source_lang="en",
-            target_lang="en"
-        )
+        result = await generate_mirror_query("test query", source_lang="en", target_lang="en")
 
         assert result == "test query", "Same language should return original"
 
@@ -1277,9 +1366,7 @@ class TestMirrorQueryGeneration:
 
         with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
             results = await generate_mirror_queries(
-                "AIエージェント",
-                source_lang="ja",
-                target_langs=["en"]
+                "AIエージェント", source_lang="ja", target_langs=["en"]
             )
 
         assert "ja" in results, "Source language should be in results"
@@ -1318,4 +1405,3 @@ class TestMirrorQueryGeneration:
             result = await generate_mirror_query("test", "ja", "en")
 
         assert result == "quoted translation", "Quotes should be stripped"
-

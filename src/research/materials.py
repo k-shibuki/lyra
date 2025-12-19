@@ -142,24 +142,28 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
                     url = reason.split("url=")[1].split(";")[0].strip()
                 if "primary_source=True" in reason:
                     is_primary = True
-                parsed_sources.append({
-                    "url": url or source_url,
-                    "title": s.get("heading_context", ""),
-                    "is_primary": is_primary,
-                })
+                parsed_sources.append(
+                    {
+                        "url": url or source_url,
+                        "title": s.get("heading_context", ""),
+                        "is_primary": is_primary,
+                    }
+                )
 
             # If no sources from edges, use source_url from verification_notes
             if not parsed_sources and source_url:
                 parsed_sources = [{"url": source_url, "title": "", "is_primary": False}]
 
-            claims.append({
-                "id": row["id"],
-                "text": row.get("claim_text", ""),
-                "confidence": row.get("confidence_score", 0.5),
-                "evidence_count": row.get("evidence_count", 0),
-                "has_refutation": bool(row.get("has_refutation", 0)),
-                "sources": parsed_sources,
-            })
+            claims.append(
+                {
+                    "id": row["id"],
+                    "text": row.get("claim_text", ""),
+                    "confidence": row.get("confidence_score", 0.5),
+                    "evidence_count": row.get("evidence_count", 0),
+                    "has_refutation": bool(row.get("has_refutation", 0)),
+                    "sources": parsed_sources,
+                }
+            )
 
     except Exception as e:
         logger.debug("Failed to collect claims", task_id=task_id, error=str(e))
@@ -202,13 +206,15 @@ async def _collect_fragments(db, task_id: str) -> list[dict[str, Any]]:
             if "primary_source=True" in reason:
                 is_primary = True
 
-            fragments.append({
-                "id": row["id"],
-                "text": (row.get("text_content", "") or "")[:500],  # Limit text length
-                "source_url": source_url,
-                "context": row.get("heading_context", ""),
-                "is_primary": is_primary,
-            })
+            fragments.append(
+                {
+                    "id": row["id"],
+                    "text": (row.get("text_content", "") or "")[:500],  # Limit text length
+                    "source_url": source_url,
+                    "context": row.get("heading_context", ""),
+                    "is_primary": is_primary,
+                }
+            )
 
     except Exception as e:
         logger.debug("Failed to collect fragments", task_id=task_id, error=str(e))
@@ -244,11 +250,13 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
                 (task_id,),
             )
             for row in claim_rows:
-                nodes.append({
-                    "id": row["id"],
-                    "type": "claim",
-                    "label": row.get("label", "")[:50],
-                })
+                nodes.append(
+                    {
+                        "id": row["id"],
+                        "type": "claim",
+                        "label": row.get("label", "")[:50],
+                    }
+                )
 
             # O.7 fix: fragments doesn't have task_id, get via edges linked to claims
             fragment_rows = await db.fetch_all(
@@ -263,11 +271,13 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
                 (task_id,),
             )
             for row in fragment_rows:
-                nodes.append({
-                    "id": row["id"],
-                    "type": "fragment",
-                    "label": (row.get("label", "") or "")[:50],
-                })
+                nodes.append(
+                    {
+                        "id": row["id"],
+                        "type": "fragment",
+                        "label": (row.get("label", "") or "")[:50],
+                    }
+                )
 
             # Get edges linked to this task's claims
             edge_rows = await db.fetch_all(
@@ -281,15 +291,16 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
                 (task_id, task_id),
             )
             for row in edge_rows:
-                edges.append({
-                    "source": row["source_id"],
-                    "target": row["target_id"],
-                    "relation": row.get("relation", "supports"),
-                    "confidence": row.get("confidence", 0.5),
-                })
+                edges.append(
+                    {
+                        "source": row["source_id"],
+                        "target": row["target_id"],
+                        "relation": row.get("relation", "supports"),
+                        "confidence": row.get("confidence", 0.5),
+                    }
+                )
 
         except Exception as e2:
             logger.debug("Fallback graph build failed", error=str(e2))
 
     return {"nodes": nodes, "edges": edges}
-

@@ -74,6 +74,7 @@ def _get_captcha_type(result) -> str | None:
 @dataclass
 class VerificationResult:
     """Data class to hold verification results."""
+
     name: str
     spec_ref: str
     passed: bool
@@ -100,6 +101,7 @@ class BingSearchVerifier:
         # Check browser connectivity via BrowserSearchProvider
         try:
             from src.search.browser_search_provider import BrowserSearchProvider
+
             provider = BrowserSearchProvider()
             await provider._ensure_browser()
             if provider._browser and provider._browser.is_connected():
@@ -118,6 +120,7 @@ class BingSearchVerifier:
 
         # Check parser availability
         from src.search.search_parsers import get_parser
+
         parser = get_parser(self.ENGINE_NAME)
         if parser:
             print(f"  ✓ {self.ENGINE_DISPLAY} parser available")
@@ -151,7 +154,7 @@ class BingSearchVerifier:
                     error="Browser not connected",
                 )
 
-            browser_info = {'connected': provider._browser.is_connected()}
+            browser_info = {"connected": provider._browser.is_connected()}
             print(f"    ✓ Browser connected: {browser_info.get('connected', False)}")
             await provider.close()
 
@@ -307,7 +310,7 @@ class BingSearchVerifier:
 
             for r in result.results:
                 has_title = bool(r.title and len(r.title) > 0)
-                has_url = bool(r.url and r.url.startswith('http'))
+                has_url = bool(r.url and r.url.startswith("http"))
                 has_engine = r.engine == self.ENGINE_NAME
                 has_rank = r.rank > 0
 
@@ -381,7 +384,7 @@ class BingSearchVerifier:
             ]
 
             all_passed = True
-            for html, expected_captcha, expected_type in test_cases:
+            for html, expected_captcha, _expected_type in test_cases:
                 is_captcha, captcha_type = parser.detect_captcha(html)
                 if is_captcha != expected_captcha:
                     all_passed = False
@@ -460,7 +463,9 @@ class BingSearchVerifier:
                 print(f"      Reason: {result.skip_reason}")
 
         print("\n" + "-" * 70)
-        print(f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+        print(
+            f"  Total: {len(self.results)} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}"
+        )
         print("=" * 70)
 
         if failed > 0:
@@ -485,4 +490,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

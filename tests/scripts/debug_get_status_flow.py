@@ -104,11 +104,17 @@ async def main():
     print(f"  - elapsed_seconds: {metrics.get('elapsed_seconds')}")
 
     # Note: total_searches is sum of satisfied + partial + pending + exhausted
-    total_searches = (metrics.get("satisfied_count", 0) + metrics.get("partial_count", 0) +
-                      metrics.get("pending_count", 0) + metrics.get("exhausted_count", 0))
+    total_searches = (
+        metrics.get("satisfied_count", 0)
+        + metrics.get("partial_count", 0)
+        + metrics.get("pending_count", 0)
+        + metrics.get("exhausted_count", 0)
+    )
     assert total_searches == 2, f"Expected 2 total searches, got {total_searches}"
     assert metrics.get("total_pages") == 4, f"Expected 4 pages, got {metrics.get('total_pages')}"
-    assert metrics.get("total_fragments") == 2, f"Expected 2 fragments, got {metrics.get('total_fragments')}"
+    assert metrics.get("total_fragments") == 2, (
+        f"Expected 2 fragments, got {metrics.get('total_fragments')}"
+    )
     assert metrics.get("total_claims") == 1, f"Expected 1 claim, got {metrics.get('total_claims')}"
 
     print("[2] Metrics calculation: PASSED ✓")
@@ -249,7 +255,7 @@ async def main():
     if issues:
         print("\n⚠ Issues Found:")
         for i, issue in enumerate(issues):
-            print(f"  {i+1}. {issue}")
+            print(f"  {i + 1}. {issue}")
     else:
         print("\n✓ All checks passed!")
         print("  - ExplorationState.get_status() returns correct structure")

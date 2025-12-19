@@ -162,9 +162,7 @@ class TestMLServerE2E:
         documents = ["test document"]
         rerank_results = await ml_client.rerank(query, documents)
 
-        pairs = [
-            {"pair_id": "1", "premise": "Test premise", "hypothesis": "Test hypothesis"}
-        ]
+        pairs = [{"pair_id": "1", "premise": "Test premise", "hypothesis": "Test hypothesis"}]
         nli_results = await ml_client.nli(pairs)
 
         # Then - All requests should succeed
@@ -183,8 +181,7 @@ class TestMLServerE2E:
         health = await ml_client.health_check()
 
         # Then
-        models_loaded = health.get("models_loaded", {})
+        health.get("models_loaded", {})
         # At least embedding should be loaded (lazy loading)
         # We can't guarantee all models are loaded, but health check should work
         assert health["status"] == "ok"
-

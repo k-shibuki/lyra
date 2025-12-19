@@ -518,4 +518,3 @@ class TestCreateErrorResponse:
         ).to_dict()
 
         assert result == expected
-

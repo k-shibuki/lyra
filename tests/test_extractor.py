@@ -19,12 +19,14 @@ pytestmark = pytest.mark.unit
 # Check optional dependencies for conditional test skipping
 try:
     import fitz  # noqa: F401
+
     HAS_FITZ = True
 except ImportError:
     HAS_FITZ = False
 
 try:
     from PIL import Image  # noqa: F401
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -97,7 +99,9 @@ class TestExtractContent:
         # Then: Extraction succeeds and heading is detected
         assert result["ok"] is True
         assert "headings" in result, f"Expected 'headings' in result keys: {list(result.keys())}"
-        heading_texts = [h.get("text", "") if isinstance(h, dict) else str(h) for h in result["headings"]]
+        heading_texts = [
+            h.get("text", "") if isinstance(h, dict) else str(h) for h in result["headings"]
+        ]
         assert "Test Heading" in heading_texts, (
             f"Expected 'Test Heading' in headings: {result['headings']}"
         )
@@ -242,7 +246,9 @@ class TestPDFExtraction:
         with patch("fitz.open") as mock_fitz:
             mock_doc = MagicMock()
             mock_page = MagicMock()
-            mock_page.get_text.return_value = "This is extracted text from PDF page one with sufficient content."
+            mock_page.get_text.return_value = (
+                "This is extracted text from PDF page one with sufficient content."
+            )
             mock_page.get_pixmap.return_value = MagicMock()
             mock_page.matrix = MagicMock()
 
@@ -302,7 +308,9 @@ class TestPDFExtraction:
         with patch("fitz.open") as mock_fitz:
             mock_doc = MagicMock()
             mock_page = MagicMock()
-            mock_page.get_text.return_value = "This is plenty of text content that would not normally trigger OCR."
+            mock_page.get_text.return_value = (
+                "This is plenty of text content that would not normally trigger OCR."
+            )
 
             mock_pixmap = MagicMock()
             mock_pixmap.tobytes.return_value = b"fake_png_data"
@@ -337,6 +345,7 @@ class TestOCREngines:
         from PIL import Image
 
         from src.extractor.content import _ocr_with_paddleocr
+
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -364,7 +373,7 @@ class TestOCREngines:
     @pytest.mark.asyncio
     async def test_tesseract_extraction_via_ocr_image(self):
         """Test Tesseract text extraction via ocr_image function.
-        
+
         Tests the fallback path when PaddleOCR is unavailable.
         The _ocr_with_tesseract function is mocked to avoid dependency on
         pytesseract installation.
@@ -398,6 +407,7 @@ class TestOCREngines:
         from PIL import Image
 
         from src.extractor.content import _ocr_with_paddleocr
+
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -447,6 +457,7 @@ class TestOCRImage:
         from PIL import Image
 
         from src.extractor.content import ocr_image
+
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -471,6 +482,7 @@ class TestOCRImage:
         from PIL import Image
 
         from src.extractor.content import ocr_image
+
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -496,6 +508,7 @@ class TestOCRImage:
         from PIL import Image
 
         from src.extractor.content import ocr_image
+
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -552,4 +565,3 @@ class TestFallbackExtraction:
         # Then: Returns None or empty string for empty content
         is_empty = (result is None) or (result == "")
         assert is_empty, f"Expected None or empty string for empty HTML, got: {result!r}"
-

@@ -33,6 +33,7 @@ logger = get_logger(__name__)
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class CalibrationSample:
     """Single sample for calibration."""
@@ -174,9 +175,10 @@ class RollbackEvent:
 # Calibration Methods
 # =============================================================================
 
+
 class PlattScaling:
     """Platt scaling (logistic regression) calibration.
-    
+
     Fits: P(y=1|f) = 1 / (1 + exp(A*f + B))
     where f is the raw logit/score.
     """
@@ -189,15 +191,15 @@ class PlattScaling:
         lr: float = 0.01,
     ) -> tuple[float, float]:
         """Fit Platt scaling parameters.
-        
+
         Uses gradient descent to minimize log loss.
-        
+
         Args:
             logits: Raw model outputs (logits or scores).
             labels: Ground truth labels (0 or 1).
             max_iter: Maximum iterations.
             lr: Learning rate.
-            
+
         Returns:
             Tuple of (A, B) parameters.
         """
@@ -230,12 +232,12 @@ class PlattScaling:
     @staticmethod
     def transform(logit: float, A: float, B: float) -> float:
         """Apply Platt scaling to get calibrated probability.
-        
+
         Args:
             logit: Raw logit/score.
             A: Platt A parameter.
             B: Platt B parameter.
-            
+
         Returns:
             Calibrated probability.
         """
@@ -245,7 +247,7 @@ class PlattScaling:
 
 class TemperatureScaling:
     """Temperature scaling calibration.
-    
+
     Simple single-parameter scaling: P_calibrated = softmax(logit / T)
     """
 
@@ -257,15 +259,15 @@ class TemperatureScaling:
         lr: float = 0.1,
     ) -> float:
         """Fit temperature parameter.
-        
+
         Minimizes negative log likelihood.
-        
+
         Args:
             logits: Raw model logits.
             labels: Ground truth labels.
             max_iter: Maximum iterations.
             lr: Learning rate.
-            
+
         Returns:
             Optimal temperature.
         """
@@ -299,11 +301,11 @@ class TemperatureScaling:
     @staticmethod
     def transform(logit: float, temperature: float) -> float:
         """Apply temperature scaling.
-        
+
         Args:
             logit: Raw logit.
             temperature: Temperature parameter.
-            
+
         Returns:
             Calibrated probability.
         """
@@ -315,19 +317,20 @@ class TemperatureScaling:
 # Evaluation Metrics
 # =============================================================================
 
+
 def brier_score(
     predictions: Sequence[float],
     labels: Sequence[int],
 ) -> float:
     """Calculate Brier score.
-    
+
     Brier score = mean((predicted - actual)^2)
     Lower is better, 0 is perfect.
-    
+
     Args:
         predictions: Predicted probabilities.
         labels: Ground truth labels (0 or 1).
-        
+
     Returns:
         Brier score. Returns NaN for empty inputs.
     """
@@ -346,14 +349,14 @@ def expected_calibration_error(
     n_bins: int = 10,
 ) -> tuple[float, list[dict[str, float]]]:
     """Calculate Expected Calibration Error (ECE).
-    
+
     ECE = sum(|B_m| / n * |accuracy(B_m) - confidence(B_m)|)
-    
+
     Args:
         predictions: Predicted probabilities.
         labels: Ground truth labels.
         n_bins: Number of bins for discretization.
-        
+
     Returns:
         Tuple of (ECE score, bin data for reliability diagram).
     """
@@ -379,23 +382,27 @@ def expected_calibration_error(
 
             ece += (count / n) * abs(accuracy - confidence)
 
-            bins_data.append({
-                "bin_lower": float(lower),
-                "bin_upper": float(upper),
-                "count": int(count),
-                "accuracy": float(accuracy),
-                "confidence": float(confidence),
-                "gap": float(abs(accuracy - confidence)),
-            })
+            bins_data.append(
+                {
+                    "bin_lower": float(lower),
+                    "bin_upper": float(upper),
+                    "count": int(count),
+                    "accuracy": float(accuracy),
+                    "confidence": float(confidence),
+                    "gap": float(abs(accuracy - confidence)),
+                }
+            )
         else:
-            bins_data.append({
-                "bin_lower": float(lower),
-                "bin_upper": float(upper),
-                "count": 0,
-                "accuracy": 0.0,
-                "confidence": 0.0,
-                "gap": 0.0,
-            })
+            bins_data.append(
+                {
+                    "bin_lower": float(lower),
+                    "bin_upper": float(upper),
+                    "count": 0,
+                    "accuracy": 0.0,
+                    "confidence": 0.0,
+                    "gap": 0.0,
+                }
+            )
 
     return float(ece), bins_data
 
@@ -404,9 +411,10 @@ def expected_calibration_error(
 # Calibration History Manager
 # =============================================================================
 
+
 class CalibrationHistory:
     """Manages calibration parameter history for rollback support.
-    
+
     Implements §4.6.1 requirements:
     - Parameter history preservation (up to max_history entries per source)
     - Degradation detection (Brier score worsening)
@@ -420,7 +428,7 @@ class CalibrationHistory:
 
     def __init__(self, max_history: int = DEFAULT_MAX_HISTORY):
         """Initialize calibration history manager.
-        
+
         Args:
             max_history: Maximum number of parameter sets to keep per source.
         """
@@ -448,9 +456,7 @@ class CalibrationHistory:
                     data = json.load(f)
 
                 for source, params_list in data.items():
-                    self._history[source] = [
-                        CalibrationParams.from_dict(p) for p in params_list
-                    ]
+                    self._history[source] = [CalibrationParams.from_dict(p) for p in params_list]
 
                 logger.debug(
                     "Loaded calibration history",
@@ -498,7 +504,7 @@ class CalibrationHistory:
 
     def add_params(self, params: CalibrationParams) -> None:
         """Add new calibration parameters to history.
-        
+
         Args:
             params: Calibration parameters to add.
         """
@@ -517,7 +523,7 @@ class CalibrationHistory:
 
         # Trim history to max size
         if len(self._history[source]) > self._max_history:
-            self._history[source] = self._history[source][-self._max_history:]
+            self._history[source] = self._history[source][-self._max_history :]
 
         self._save_history()
 
@@ -530,10 +536,10 @@ class CalibrationHistory:
 
     def get_history(self, source: str) -> list[CalibrationParams]:
         """Get parameter history for a source.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             List of historical parameter sets (oldest first).
         """
@@ -541,10 +547,10 @@ class CalibrationHistory:
 
     def get_latest(self, source: str) -> CalibrationParams | None:
         """Get most recent parameters for a source.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             Latest CalibrationParams or None.
         """
@@ -553,10 +559,10 @@ class CalibrationHistory:
 
     def get_previous(self, source: str) -> CalibrationParams | None:
         """Get second-most recent parameters for a source.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             Previous CalibrationParams or None.
         """
@@ -565,11 +571,11 @@ class CalibrationHistory:
 
     def get_by_version(self, source: str, version: int) -> CalibrationParams | None:
         """Get parameters by version number.
-        
+
         Args:
             source: Source model identifier.
             version: Version number to retrieve.
-            
+
         Returns:
             CalibrationParams with matching version or None.
         """
@@ -584,13 +590,13 @@ class CalibrationHistory:
         new_brier: float,
     ) -> tuple[bool, float]:
         """Check if new calibration shows degradation.
-        
+
         Implements §4.6.1 degradation detection.
-        
+
         Args:
             source: Source model identifier.
             new_brier: Brier score with new calibration.
-            
+
         Returns:
             Tuple of (is_degraded, degradation_ratio).
             degradation_ratio is (new - old) / old (positive = worse).
@@ -614,7 +620,7 @@ class CalibrationHistory:
                 source=source,
                 old_brier=f"{old_brier:.4f}",
                 new_brier=f"{new_brier:.4f}",
-                degradation=f"{degradation_ratio*100:.1f}%",
+                degradation=f"{degradation_ratio * 100:.1f}%",
             )
 
         return is_degraded, degradation_ratio
@@ -625,13 +631,13 @@ class CalibrationHistory:
         reason: str = "degradation",
     ) -> CalibrationParams | None:
         """Rollback to previous calibration parameters.
-        
+
         Implements §4.6.1 automatic rollback.
-        
+
         Args:
             source: Source model identifier.
             reason: Reason for rollback ("degradation" or "manual").
-            
+
         Returns:
             Rolled-back CalibrationParams or None if no previous available.
         """
@@ -683,12 +689,12 @@ class CalibrationHistory:
         reason: str = "manual",
     ) -> CalibrationParams | None:
         """Rollback to a specific version.
-        
+
         Args:
             source: Source model identifier.
             target_version: Version number to rollback to.
             reason: Reason for rollback.
-            
+
         Returns:
             Target CalibrationParams or None if not found.
         """
@@ -727,7 +733,7 @@ class CalibrationHistory:
         self._save_rollback_log()
 
         # Keep only up to target version
-        self._history[source] = history[:target_idx + 1]
+        self._history[source] = history[: target_idx + 1]
         self._save_history()
 
         logger.info(
@@ -746,11 +752,11 @@ class CalibrationHistory:
         limit: int = 100,
     ) -> list[RollbackEvent]:
         """Get rollback event history.
-        
+
         Args:
             source: Optional source filter.
             limit: Maximum events to return.
-            
+
         Returns:
             List of RollbackEvents (most recent first).
         """
@@ -763,7 +769,7 @@ class CalibrationHistory:
 
     def get_stats(self) -> dict[str, Any]:
         """Get calibration history statistics.
-        
+
         Returns:
             Dictionary with history statistics.
         """
@@ -785,9 +791,10 @@ class CalibrationHistory:
 # Calibrator
 # =============================================================================
 
+
 class Calibrator:
     """Main calibration manager.
-    
+
     Handles:
     - Training calibration on validation data
     - Applying calibration to predictions
@@ -802,7 +809,7 @@ class Calibrator:
 
     def __init__(self, enable_auto_rollback: bool = True):
         """Initialize calibrator.
-        
+
         Args:
             enable_auto_rollback: Enable automatic rollback on degradation.
         """
@@ -842,10 +849,7 @@ class Calibrator:
         path = self._get_params_path()
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = {
-            source: params.to_dict()
-            for source, params in self._params.items()
-        }
+        data = {source: params.to_dict() for source, params in self._params.items()}
 
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
@@ -905,15 +909,15 @@ class Calibrator:
         logit: float | None = None,
     ) -> bool:
         """Add a new calibration sample and trigger recalibration if needed.
-        
+
         Call this after each prediction when ground truth becomes available.
-        
+
         Args:
             predicted_prob: Model's predicted probability.
             actual_label: Ground truth label (0 or 1).
             source: Source model identifier.
             logit: Raw logit if available.
-            
+
         Returns:
             True if recalibration was triggered.
         """
@@ -939,7 +943,7 @@ class Calibrator:
 
     def _recalibrate(self, source: str) -> None:
         """Recalibrate using accumulated samples.
-        
+
         Args:
             source: Source model identifier.
         """
@@ -968,12 +972,12 @@ class Calibrator:
         method: str = "temperature",
     ) -> CalibrationParams:
         """Fit calibration on samples.
-        
+
         Args:
             samples: Calibration samples with predictions and labels.
             source: Source identifier (e.g., "llm_extract", "nli_judge").
             method: Calibration method ("platt" or "temperature").
-            
+
         Returns:
             Fitted CalibrationParams.
         """
@@ -1033,9 +1037,7 @@ class Calibrator:
         params.brier_after = brier_after
 
         # Check for degradation before saving
-        is_degraded, degradation_ratio = self._history.check_degradation(
-            source, brier_after
-        )
+        is_degraded, degradation_ratio = self._history.check_degradation(source, brier_after)
 
         if is_degraded and self._enable_auto_rollback:
             # Rollback to previous parameters
@@ -1043,7 +1045,7 @@ class Calibrator:
                 "Auto-rollback triggered due to degradation",
                 source=source,
                 new_brier=f"{brier_after:.4f}",
-                degradation=f"{degradation_ratio*100:.1f}%",
+                degradation=f"{degradation_ratio * 100:.1f}%",
             )
 
             rollback_params = self._history.rollback(source, reason="degradation")
@@ -1061,8 +1063,7 @@ class Calibrator:
         self._save_params()
 
         improvement_pct = (
-            (brier_before - brier_after) / brier_before * 100
-            if brier_before > 0 else 0.0
+            (brier_before - brier_after) / brier_before * 100 if brier_before > 0 else 0.0
         )
 
         logger.info(
@@ -1084,12 +1085,12 @@ class Calibrator:
         logit: float | None = None,
     ) -> float:
         """Calibrate a probability.
-        
+
         Args:
             prob: Raw predicted probability.
             source: Source model identifier.
             logit: Raw logit if available.
-            
+
         Returns:
             Calibrated probability.
         """
@@ -1106,12 +1107,12 @@ class Calibrator:
         params: CalibrationParams,
     ) -> float:
         """Apply calibration parameters.
-        
+
         Args:
             prob: Raw probability.
             logit: Raw logit (optional).
             params: Calibration parameters.
-            
+
         Returns:
             Calibrated probability.
         """
@@ -1136,11 +1137,11 @@ class Calibrator:
         source: str,
     ) -> CalibrationResult:
         """Evaluate calibration quality.
-        
+
         Args:
             samples: Test samples.
             source: Source model identifier.
-            
+
         Returns:
             CalibrationResult with metrics.
         """
@@ -1159,10 +1160,7 @@ class Calibrator:
 
         # Evaluate with calibration if available
         if source in self._params:
-            calibrated = [
-                self.calibrate(s.predicted_prob, source, s.logit)
-                for s in samples
-            ]
+            calibrated = [self.calibrate(s.predicted_prob, source, s.logit) for s in samples]
 
             brier_after = brier_score(calibrated, labels)
             result.brier_score_calibrated = brier_after
@@ -1174,10 +1172,10 @@ class Calibrator:
 
     def get_params(self, source: str) -> CalibrationParams | None:
         """Get calibration parameters for source.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             CalibrationParams or None.
         """
@@ -1185,12 +1183,12 @@ class Calibrator:
 
     def needs_recalibration(self, source: str) -> bool:
         """Check if source needs recalibration.
-        
+
         Recalibration is triggered when enough new samples have accumulated.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             True if recalibration recommended.
         """
@@ -1205,10 +1203,10 @@ class Calibrator:
 
     def get_pending_sample_count(self, source: str) -> int:
         """Get number of pending samples for source.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             Number of pending samples.
         """
@@ -1216,7 +1214,7 @@ class Calibrator:
 
     def get_all_sources(self) -> list[str]:
         """Get all calibrated sources.
-        
+
         Returns:
             List of source identifiers.
         """
@@ -1232,11 +1230,11 @@ class Calibrator:
         reason: str = "manual",
     ) -> CalibrationParams | None:
         """Rollback to previous calibration parameters.
-        
+
         Args:
             source: Source model identifier.
             reason: Reason for rollback.
-            
+
         Returns:
             Rolled-back CalibrationParams or None.
         """
@@ -1256,12 +1254,12 @@ class Calibrator:
         reason: str = "manual",
     ) -> CalibrationParams | None:
         """Rollback to a specific version.
-        
+
         Args:
             source: Source model identifier.
             version: Target version number.
             reason: Reason for rollback.
-            
+
         Returns:
             Target CalibrationParams or None.
         """
@@ -1276,10 +1274,10 @@ class Calibrator:
 
     def get_history(self, source: str) -> list[CalibrationParams]:
         """Get calibration parameter history for a source.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             List of historical parameter sets.
         """
@@ -1291,11 +1289,11 @@ class Calibrator:
         limit: int = 100,
     ) -> list[RollbackEvent]:
         """Get rollback event history.
-        
+
         Args:
             source: Optional source filter.
             limit: Maximum events to return.
-            
+
         Returns:
             List of RollbackEvents.
         """
@@ -1303,7 +1301,7 @@ class Calibrator:
 
     def get_history_stats(self) -> dict[str, Any]:
         """Get calibration history statistics.
-        
+
         Returns:
             Dictionary with history statistics.
         """
@@ -1311,7 +1309,7 @@ class Calibrator:
 
     def set_auto_rollback(self, enabled: bool) -> None:
         """Enable or disable automatic rollback.
-        
+
         Args:
             enabled: Whether to enable auto-rollback.
         """
@@ -1338,18 +1336,19 @@ def get_calibrator() -> Calibrator:
 # MCP Tool Integration
 # =============================================================================
 
+
 async def calibrate_confidence(
     prob: float,
     source: str,
     logit: float | None = None,
 ) -> dict[str, Any]:
     """Calibrate a confidence value (for MCP tool use).
-    
+
     Args:
         prob: Raw probability.
         source: Source model.
         logit: Raw logit.
-        
+
     Returns:
         Calibrated result.
     """
@@ -1373,12 +1372,12 @@ async def evaluate_calibration(
     labels: list[int],
 ) -> dict[str, Any]:
     """Evaluate calibration for a source (for MCP tool use).
-    
+
     Args:
         source: Source model.
         predictions: Predicted probabilities.
         labels: Ground truth labels.
-        
+
     Returns:
         Evaluation result.
     """
@@ -1386,7 +1385,7 @@ async def evaluate_calibration(
 
     samples = [
         CalibrationSample(predicted_prob=p, actual_label=label, source=source)
-        for p, label in zip(predictions, labels)
+        for p, label in zip(predictions, labels, strict=False)
     ]
 
     result = calibrator.evaluate(samples, source)
@@ -1401,13 +1400,13 @@ async def fit_calibration(
     method: str = "temperature",
 ) -> dict[str, Any]:
     """Fit calibration for a source (for MCP tool use).
-    
+
     Args:
         source: Source model.
         predictions: Predicted probabilities.
         labels: Ground truth labels.
         method: Calibration method.
-        
+
     Returns:
         Fitted parameters.
     """
@@ -1415,7 +1414,7 @@ async def fit_calibration(
 
     samples = [
         CalibrationSample(predicted_prob=p, actual_label=label, source=source)
-        for p, label in zip(predictions, labels)
+        for p, label in zip(predictions, labels, strict=False)
     ]
 
     params = calibrator.fit(samples, source, method)
@@ -1430,16 +1429,16 @@ async def add_calibration_sample(
     logit: float | None = None,
 ) -> dict[str, Any]:
     """Add a calibration sample and trigger recalibration if needed (for MCP tool use).
-    
+
     Call this after each prediction when ground truth becomes available.
     This enables incremental recalibration as data accumulates.
-    
+
     Args:
         predicted_prob: Model's predicted probability.
         actual_label: Ground truth label (0 or 1).
         source: Source model identifier.
         logit: Raw logit if available.
-        
+
     Returns:
         Status including whether recalibration occurred.
     """
@@ -1467,14 +1466,14 @@ async def rollback_calibration(
     reason: str = "manual",
 ) -> dict[str, Any]:
     """Rollback calibration to a previous version (for MCP tool use).
-    
+
     Implements §4.6.1 rollback functionality.
-    
+
     Args:
         source: Source model identifier.
         version: Target version to rollback to. If None, rollback to previous.
         reason: Reason for rollback.
-        
+
     Returns:
         Rollback result including new active parameters.
     """
@@ -1505,10 +1504,10 @@ async def get_calibration_history(
     source: str,
 ) -> dict[str, Any]:
     """Get calibration parameter history for a source (for MCP tool use).
-    
+
     Args:
         source: Source model identifier.
-        
+
     Returns:
         History with all parameter versions.
     """
@@ -1538,11 +1537,11 @@ async def get_rollback_events(
     limit: int = 50,
 ) -> dict[str, Any]:
     """Get rollback event history (for MCP tool use).
-    
+
     Args:
         source: Optional source filter.
         limit: Maximum events to return.
-        
+
     Returns:
         List of rollback events.
     """
@@ -1559,7 +1558,7 @@ async def get_rollback_events(
 
 async def get_calibration_stats() -> dict[str, Any]:
     """Get calibration and history statistics (for MCP tool use).
-    
+
     Returns:
         Comprehensive calibration statistics.
     """
@@ -1589,6 +1588,7 @@ async def get_calibration_stats() -> dict[str, Any]:
 # =============================================================================
 # Calibration Evaluation (§4.6.1)
 # =============================================================================
+
 
 @dataclass
 class CalibrationEvaluation:
@@ -1625,12 +1625,12 @@ class CalibrationEvaluation:
 
 class CalibrationEvaluator:
     """Manages calibration evaluation persistence (§4.6.1).
-    
+
     Responsibilities (Lancet Worker):
     - Execute evaluation calculations
     - Persist evaluation results to DB
     - Return structured data
-    
+
     NOT responsible for (Cursor AI Thinking):
     - Report generation/composition
     - Interpretation of evaluation results
@@ -1639,7 +1639,7 @@ class CalibrationEvaluator:
 
     def __init__(self, db: Any = None):
         """Initialize evaluator.
-        
+
         Args:
             db: Database connection. If None, uses global database.
         """
@@ -1655,6 +1655,7 @@ class CalibrationEvaluator:
     def _generate_id(self) -> str:
         """Generate unique evaluation ID."""
         import uuid
+
         return f"eval_{uuid.uuid4().hex[:12]}"
 
     async def save_evaluation(
@@ -1664,19 +1665,19 @@ class CalibrationEvaluator:
         labels: list[int],
     ) -> CalibrationEvaluation:
         """Execute evaluation and save to database.
-        
+
         Args:
             source: Source model identifier.
             predictions: Predicted probabilities.
             labels: Ground truth labels (0 or 1).
-            
+
         Returns:
             Saved CalibrationEvaluation.
         """
         # Create samples
         samples = [
             CalibrationSample(predicted_prob=p, actual_label=label, source=source)
-            for p, label in zip(predictions, labels)
+            for p, label in zip(predictions, labels, strict=False)
         ]
 
         # Calculate metrics
@@ -1692,10 +1693,7 @@ class CalibrationEvaluator:
         improvement_ratio = 0.0
 
         if params is not None:
-            calibrated_probs = [
-                self._calibrator.calibrate(p, source)
-                for p in predictions
-            ]
+            calibrated_probs = [self._calibrator.calibrate(p, source) for p in predictions]
             brier_calibrated = brier_score(calibrated_probs, labels)
 
             if brier_before > 0:
@@ -1732,7 +1730,7 @@ class CalibrationEvaluator:
 
     async def _save_to_db(self, evaluation: CalibrationEvaluation) -> None:
         """Save evaluation to database.
-        
+
         Args:
             evaluation: Evaluation to save.
         """
@@ -1769,12 +1767,12 @@ class CalibrationEvaluator:
         since: datetime | None = None,
     ) -> list[CalibrationEvaluation]:
         """Get evaluation history.
-        
+
         Args:
             source: Optional source filter.
             limit: Maximum evaluations to return.
             since: Optional start datetime filter.
-            
+
         Returns:
             List of CalibrationEvaluations (most recent first).
         """
@@ -1805,10 +1803,10 @@ class CalibrationEvaluator:
 
     async def get_latest_evaluation(self, source: str) -> CalibrationEvaluation | None:
         """Get most recent evaluation for a source.
-        
+
         Args:
             source: Source model identifier.
-            
+
         Returns:
             Latest CalibrationEvaluation or None.
         """
@@ -1817,10 +1815,10 @@ class CalibrationEvaluator:
 
     async def get_evaluation_by_id(self, evaluation_id: str) -> CalibrationEvaluation | None:
         """Get evaluation by ID.
-        
+
         Args:
             evaluation_id: Evaluation ID.
-            
+
         Returns:
             CalibrationEvaluation or None.
         """
@@ -1839,10 +1837,10 @@ class CalibrationEvaluator:
 
     def _row_to_evaluation(self, row: Any) -> CalibrationEvaluation:
         """Convert database row to CalibrationEvaluation.
-        
+
         Args:
             row: Database row.
-            
+
         Returns:
             CalibrationEvaluation.
         """
@@ -1852,12 +1850,19 @@ class CalibrationEvaluator:
         else:
             # Assume column order matches schema
             columns = [
-                "id", "source", "brier_score", "brier_score_calibrated",
-                "improvement_ratio", "expected_calibration_error",
-                "samples_evaluated", "bins_json", "calibration_version",
-                "evaluated_at", "created_at",
+                "id",
+                "source",
+                "brier_score",
+                "brier_score_calibrated",
+                "improvement_ratio",
+                "expected_calibration_error",
+                "samples_evaluated",
+                "bins_json",
+                "calibration_version",
+                "evaluated_at",
+                "created_at",
             ]
-            data = dict(zip(columns, row))
+            data = dict(zip(columns, row, strict=False))
 
         evaluated_at = data["evaluated_at"]
         if isinstance(evaluated_at, str):
@@ -1891,11 +1896,11 @@ class CalibrationEvaluator:
         evaluation_id: str | None = None,
     ) -> dict[str, Any]:
         """Get reliability diagram data for visualization.
-        
+
         Args:
             source: Source model identifier.
             evaluation_id: Optional specific evaluation ID.
-            
+
         Returns:
             Structured data for reliability diagram.
         """
@@ -1925,10 +1930,10 @@ class CalibrationEvaluator:
 
     async def count_evaluations(self, source: str | None = None) -> int:
         """Count evaluations.
-        
+
         Args:
             source: Optional source filter.
-            
+
         Returns:
             Count of evaluations.
         """
@@ -1965,20 +1970,21 @@ def get_calibration_evaluator() -> CalibrationEvaluator:
 # MCP Tool Integration (§4.6.1)
 # =============================================================================
 
+
 async def save_calibration_evaluation(
     source: str,
     predictions: list[float],
     labels: list[int],
 ) -> dict[str, Any]:
     """Execute evaluation and save to database (for MCP tool use).
-    
+
     Implements §4.6.1: Lancet Worker - Evaluation calculation and DB persistence.
-    
+
     Args:
         source: Source model identifier.
         predictions: Predicted probabilities.
         labels: Ground truth labels (0 or 1).
-        
+
     Returns:
         Saved evaluation result.
     """
@@ -1998,14 +2004,14 @@ async def get_calibration_evaluations(
     since: str | None = None,
 ) -> dict[str, Any]:
     """Get evaluation history (for MCP tool use).
-    
+
     Implements §4.6.1: Lancet Worker - Return structured data.
-    
+
     Args:
         source: Optional source filter.
         limit: Maximum evaluations to return.
         since: Optional start datetime (ISO format).
-        
+
     Returns:
         Evaluation history as structured data.
     """
@@ -2038,13 +2044,13 @@ async def get_reliability_diagram_data(
     evaluation_id: str | None = None,
 ) -> dict[str, Any]:
     """Get reliability diagram data for visualization (for MCP tool use).
-    
+
     Implements §4.6.1: Lancet Worker - Return bin data for reliability curve.
-    
+
     Args:
         source: Source model identifier.
         evaluation_id: Optional specific evaluation ID.
-        
+
     Returns:
         Reliability diagram data.
     """
@@ -2057,20 +2063,21 @@ async def get_reliability_diagram_data(
 # Unified Calibration API (Phase M)
 # =============================================================================
 
+
 async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
     """Unified calibration API for MCP.
-    
+
     This is the single entry point for all calibration operations (except rollback).
     Implements Phase M unified architecture: MCPハンドラーは薄いラッパーとし、
     ロジックはドメインモジュールの統合APIに集約する。
-    
+
     Args:
         action: One of "add_sample", "get_stats", "evaluate", "get_evaluations", "get_diagram_data"
         data: Action-specific data (optional for get_stats)
-    
+
     Returns:
         Action result with ok: bool and action-specific fields
-    
+
     Actions:
         - add_sample: Add a calibration sample
             data: {source: str, prediction: float, actual: int, logit?: float}
@@ -2081,7 +2088,7 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
             data: {source?: str, limit?: int, since?: str}
         - get_diagram_data: Get reliability diagram data
             data: {source: str, evaluation_id?: str}
-    
+
     Raises:
         ValueError: If action is invalid or required data is missing
     """
@@ -2123,7 +2130,11 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
             if source is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
             if predictions is None:
-                return {"ok": False, "error": "INVALID_PARAMS", "message": "predictions is required"}
+                return {
+                    "ok": False,
+                    "error": "INVALID_PARAMS",
+                    "message": "predictions is required",
+                }
             if labels is None:
                 return {"ok": False, "error": "INVALID_PARAMS", "message": "labels is required"}
 
@@ -2167,4 +2178,3 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
             "error": "INTERNAL_ERROR",
             "message": str(e),
         }
-

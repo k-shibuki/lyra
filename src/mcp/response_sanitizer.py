@@ -29,14 +29,16 @@ logger = get_logger(__name__)
 
 # Fields that contain LLM-generated content and require L4 sanitization
 # Also includes user-provided fields that should be defensively sanitized
-LLM_CONTENT_FIELDS = frozenset([
-    "text",           # Claim/fragment text
-    "summary",        # Any summary field
-    "message",        # Messages that might contain LLM content
-    "description",    # Descriptions
-    "extracted_text", # Extracted content
-    "query",          # User-provided search queries (defensive sanitization)
-])
+LLM_CONTENT_FIELDS = frozenset(
+    [
+        "text",  # Claim/fragment text
+        "summary",  # Any summary field
+        "message",  # Messages that might contain LLM content
+        "description",  # Descriptions
+        "extracted_text",  # Extracted content
+        "query",  # User-provided search queries (defensive sanitization)
+    ]
+)
 
 # Fields in nested objects that contain LLM content
 LLM_NESTED_PATHS = [
@@ -56,7 +58,7 @@ _INTERNAL_PATH_PATTERN = re.compile(
     r"\\\\src\\\\|"
     r"File \"[^\"]+\"|"  # Python traceback file paths
     r"line \d+, in \w+",  # Python traceback line info
-    re.IGNORECASE
+    re.IGNORECASE,
 )
 
 # Pattern for stack trace fragments
@@ -67,13 +69,14 @@ _STACK_TRACE_PATTERN = re.compile(
     r"Exception:|"
     r"Error:|"
     r"^\s+raise \w+",
-    re.MULTILINE
+    re.MULTILINE,
 )
 
 
 # ============================================================================
 # Data Classes
 # ============================================================================
+
 
 @dataclass
 class SanitizationStats:
@@ -88,11 +91,7 @@ class SanitizationStats:
     @property
     def had_modifications(self) -> bool:
         """Check if any modifications were made."""
-        return (
-            self.fields_removed > 0
-            or self.fields_sanitized > 0
-            or self.leakage_detected > 0
-        )
+        return self.fields_removed > 0 or self.fields_sanitized > 0 or self.leakage_detected > 0
 
 
 @dataclass
@@ -112,6 +111,7 @@ class SanitizationResult:
 # ============================================================================
 # Response Sanitizer
 # ============================================================================
+
 
 class ResponseSanitizer:
     """
@@ -291,9 +291,7 @@ class ResponseSanitizer:
 
             # Recursively process nested objects
             if isinstance(value, dict) and prop_schema.get("type") == "object":
-                nested, nested_removed = self._strip_unknown_fields(
-                    value, prop_schema
-                )
+                nested, nested_removed = self._strip_unknown_fields(value, prop_schema)
                 result[key] = nested
                 removed_count += nested_removed
 
@@ -304,9 +302,7 @@ class ResponseSanitizer:
                     cleaned_items = []
                     for item in value:
                         if isinstance(item, dict):
-                            cleaned, item_removed = self._strip_unknown_fields(
-                                item, items_schema
-                            )
+                            cleaned, item_removed = self._strip_unknown_fields(item, items_schema)
                             cleaned_items.append(cleaned)
                             removed_count += item_removed
                         else:
@@ -456,6 +452,7 @@ class ResponseSanitizer:
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def _count_fields(obj: Any, depth: int = 0) -> int:
     """Count total fields in nested structure."""

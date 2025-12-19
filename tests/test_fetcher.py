@@ -101,8 +101,7 @@ class TestSaveWarc:
             }
 
             warc_path = await _save_warc(
-                url, content, status_code, response_headers,
-                request_headers=request_headers
+                url, content, status_code, response_headers, request_headers=request_headers
             )
 
             # Count record types
@@ -128,7 +127,7 @@ class TestSaveWarc:
                 (301, "Moved Permanently"),
             ]
 
-            for status_code, expected_text in test_cases:
+            for status_code, _expected_text in test_cases:
                 url = f"https://example.com/test_{status_code}"
                 content = b"Test content"
                 response_headers = {"Content-Type": "text/plain"}
@@ -310,7 +309,7 @@ class TestFetchResultCacheFields:
 
     def test_fetch_result_304_response(self):
         """Test FetchResult for 304 Not Modified response.
-        
+
         Per §4.3: 304 utilization rate ≥70% requires proper 304 handling.
         """
         from src.crawler.fetcher import FetchResult
@@ -351,7 +350,7 @@ class TestFetchResultAuthFields:
 
     def test_fetch_result_with_auth_fields(self):
         """Test FetchResult with auth fields populated.
-        
+
         Per §16.7.4: auth_type and estimated_effort should be included.
         """
         from src.crawler.fetcher import FetchResult
@@ -375,7 +374,7 @@ class TestFetchResultAuthFields:
 
     def test_fetch_result_to_dict_includes_auth_type_when_set(self):
         """Test FetchResult.to_dict() includes auth_type when set.
-        
+
         Per §16.7.4: Include auth details only when relevant.
         """
         from src.crawler.fetcher import FetchResult
@@ -396,7 +395,7 @@ class TestFetchResultAuthFields:
 
     def test_fetch_result_to_dict_omits_auth_type_when_none(self):
         """Test FetchResult.to_dict() omits auth fields when None.
-        
+
         Per §16.7.4: Include auth details only when relevant.
         """
         from src.crawler.fetcher import FetchResult
@@ -423,78 +422,62 @@ class TestEstimateAuthEffort:
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("cloudflare")
-        assert effort == "low", (
-            f"cloudflare should be 'low' effort, got '{effort}'"
-        )
+        assert effort == "low", f"cloudflare should be 'low' effort, got '{effort}'"
 
     def test_js_challenge_is_low_effort(self):
         """Test JS challenge is estimated as low effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("js_challenge")
-        assert effort == "low", (
-            f"js_challenge should be 'low' effort, got '{effort}'"
-        )
+        assert effort == "low", f"js_challenge should be 'low' effort, got '{effort}'"
 
     def test_turnstile_is_medium_effort(self):
         """Test Turnstile is estimated as medium effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("turnstile")
-        assert effort == "medium", (
-            f"turnstile should be 'medium' effort, got '{effort}'"
-        )
+        assert effort == "medium", f"turnstile should be 'medium' effort, got '{effort}'"
 
     def test_captcha_is_high_effort(self):
         """Test generic CAPTCHA is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("captcha")
-        assert effort == "high", (
-            f"captcha should be 'high' effort, got '{effort}'"
-        )
+        assert effort == "high", f"captcha should be 'high' effort, got '{effort}'"
 
     def test_recaptcha_is_high_effort(self):
         """Test reCAPTCHA is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("recaptcha")
-        assert effort == "high", (
-            f"recaptcha should be 'high' effort, got '{effort}'"
-        )
+        assert effort == "high", f"recaptcha should be 'high' effort, got '{effort}'"
 
     def test_hcaptcha_is_high_effort(self):
         """Test hCaptcha is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("hcaptcha")
-        assert effort == "high", (
-            f"hcaptcha should be 'high' effort, got '{effort}'"
-        )
+        assert effort == "high", f"hcaptcha should be 'high' effort, got '{effort}'"
 
     def test_login_is_high_effort(self):
         """Test login requirement is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("login")
-        assert effort == "high", (
-            f"login should be 'high' effort, got '{effort}'"
-        )
+        assert effort == "high", f"login should be 'high' effort, got '{effort}'"
 
     def test_unknown_type_defaults_to_medium(self):
         """Test unknown challenge type defaults to medium effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("unknown_challenge")
-        assert effort == "medium", (
-            f"unknown type should default to 'medium' effort, got '{effort}'"
-        )
+        assert effort == "medium", f"unknown type should default to 'medium' effort, got '{effort}'"
 
 
 @pytest.mark.unit
 class TestDatabaseUrlNormalization:
     """Tests for URL normalization used in fetch cache.
-    
+
     Per §5.1.2: cache_fetch key should be normalized URL.
     """
 
@@ -567,9 +550,9 @@ class TestHumanBehavior:
 
     def test_scroll_pattern_generation(self):
         """Test scroll pattern generates reasonable positions.
-        
+
         For page_height=3000 and viewport_height=1080, scrollable area is 1920px.
-        
+
         Note: New implementation returns fine-grained inertial animation steps,
         so we get more positions with shorter delays (in seconds, not ms).
         Per §7.1.3.3: Random seed is fixed for determinism.
@@ -588,9 +571,7 @@ class TestHumanBehavior:
 
         # Scrollable area = 3000 - 1080 = 1920px
         # New implementation returns inertial animation steps (more positions)
-        assert len(positions) >= 1, (
-            f"Expected at least 1 scroll position, got {len(positions)}"
-        )
+        assert len(positions) >= 1, f"Expected at least 1 scroll position, got {len(positions)}"
 
         # Verify positions are within scrollable range and have valid delays
         for idx, (scroll_y, delay) in enumerate(positions):
@@ -598,9 +579,7 @@ class TestHumanBehavior:
                 f"Position {idx}: scroll_y={scroll_y} out of range [0, 1920]"
             )
             # Delays are now in seconds (converted from ms)
-            assert delay >= 0, (
-                f"Position {idx}: delay={delay} should be non-negative"
-            )
+            assert delay >= 0, f"Position {idx}: delay={delay} should be non-negative"
 
     def test_scroll_pattern_short_page(self):
         """Test scroll pattern for page shorter than viewport."""
@@ -616,10 +595,10 @@ class TestHumanBehavior:
 
     def test_mouse_path_generation(self):
         """Test mouse path generates smooth bezier curve.
-        
+
         Path should start near origin and end near destination,
         with small jitter applied to intermediate points.
-        
+
         Note: The path length is now determined dynamically based on distance,
         not the `steps` parameter (which is ignored by the new implementation).
         """
@@ -630,8 +609,10 @@ class TestHumanBehavior:
         steps = 10  # Note: This parameter is now ignored by new implementation
 
         path = HumanBehavior.mouse_path(
-            start_x=start_x, start_y=start_y,
-            end_x=end_x, end_y=end_y,
+            start_x=start_x,
+            start_y=start_y,
+            end_x=end_x,
+            end_y=end_y,
             steps=steps,
         )
 
@@ -699,7 +680,7 @@ class TestTorController:
 @pytest.mark.integration
 class TestDatabaseFetchCache:
     """Tests for fetch cache database operations (§5.1.2 - cache_fetch).
-    
+
     Tests cache storage and retrieval for conditional request support.
     Uses in-memory SQLite database for isolation.
     """
@@ -750,7 +731,7 @@ class TestDatabaseFetchCache:
     @pytest.mark.asyncio
     async def test_fetch_cache_url_normalization(self, memory_database):
         """Test cache lookup uses normalized URLs.
-        
+
         URLs differing only in query param order or fragment should match.
         """
         db = memory_database
@@ -829,17 +810,19 @@ class TestDatabaseFetchCache:
     @pytest.mark.asyncio
     async def test_fetch_cache_stats(self, memory_database):
         """Test fetch cache statistics.
-        
+
         Setup:
         - a.com: etag only
-        - b.com: last_modified only  
+        - b.com: last_modified only
         - c.com: both etag and last_modified
         """
         db = memory_database
 
         await db.set_fetch_cache("https://a.com/1", etag='"e1"')
         await db.set_fetch_cache("https://b.com/2", last_modified="Mon, 01 Jan 2024 00:00:00 GMT")
-        await db.set_fetch_cache("https://c.com/3", etag='"e3"', last_modified="Tue, 02 Jan 2024 00:00:00 GMT")
+        await db.set_fetch_cache(
+            "https://c.com/3", etag='"e3"', last_modified="Tue, 02 Jan 2024 00:00:00 GMT"
+        )
 
         stats = await db.get_fetch_cache_stats()
 
@@ -880,7 +863,7 @@ class TestDatabaseFetchCache:
 @pytest.mark.unit
 class TestHTTPFetcherConditionalHeaders:
     """Tests for HTTPFetcher conditional request headers handling.
-    
+
     Per fix: URL-specific cached_etag/cached_last_modified should take precedence
     over session-level conditional headers to prevent incorrect ETag usage.
     """
@@ -888,7 +871,7 @@ class TestHTTPFetcherConditionalHeaders:
     @pytest.mark.asyncio
     async def test_url_specific_etag_takes_precedence(self, mock_settings):
         """Test that URL-specific cached_etag is not overwritten by session headers.
-        
+
         TC-CH-01: When cached_etag is provided, session transfer headers should
         not include If-None-Match to prevent overwriting URL-specific value.
         """
@@ -932,7 +915,7 @@ class TestHTTPFetcherConditionalHeaders:
 
                     # Fetch with URL-specific ETag
                     url_specific_etag = '"url-specific-etag"'
-                    result = await fetcher.fetch(
+                    await fetcher.fetch(
                         "https://example.com/page",
                         cached_etag=url_specific_etag,
                     )
@@ -959,7 +942,7 @@ class TestHTTPFetcherConditionalHeaders:
     @pytest.mark.asyncio
     async def test_url_specific_last_modified_takes_precedence(self, mock_settings):
         """Test that URL-specific cached_last_modified is not overwritten.
-        
+
         TC-CH-02: When cached_last_modified is provided, session transfer headers
         should not include If-Modified-Since.
         """
@@ -977,6 +960,7 @@ class TestHTTPFetcherConditionalHeaders:
             mock_get = AsyncMock(return_value=mock_response)
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
+
                 def mock_get_transfer_side_effect(url, include_conditional=True):
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
@@ -998,7 +982,7 @@ class TestHTTPFetcherConditionalHeaders:
                     fetcher = HTTPFetcher()
 
                     url_specific_lm = "Thu, 15 Jan 2024 12:00:00 GMT"
-                    result = await fetcher.fetch(
+                    await fetcher.fetch(
                         "https://example.com/page",
                         cached_last_modified=url_specific_lm,
                     )
@@ -1020,7 +1004,7 @@ class TestHTTPFetcherConditionalHeaders:
     @pytest.mark.asyncio
     async def test_both_cached_values_exclude_session_conditionals(self, mock_settings):
         """Test that both cached_etag and cached_last_modified exclude session conditionals.
-        
+
         TC-CH-03: When both are provided, session should not include either conditional header.
         """
         from unittest.mock import patch
@@ -1037,6 +1021,7 @@ class TestHTTPFetcherConditionalHeaders:
             mock_get = AsyncMock(return_value=mock_response)
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
+
                 def mock_get_transfer_side_effect(url, include_conditional=True):
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
@@ -1058,7 +1043,7 @@ class TestHTTPFetcherConditionalHeaders:
                 with patch("curl_cffi.requests.get", mock_get):
                     fetcher = HTTPFetcher()
 
-                    result = await fetcher.fetch(
+                    await fetcher.fetch(
                         "https://example.com/page",
                         cached_etag='"url-etag"',
                         cached_last_modified="Thu, 15 Jan 2024",
@@ -1073,7 +1058,7 @@ class TestHTTPFetcherConditionalHeaders:
     @pytest.mark.asyncio
     async def test_no_cached_values_includes_session_conditionals(self, mock_settings):
         """Test that session conditional headers are included when no cached values provided.
-        
+
         TC-CH-04: When cached_etag and cached_last_modified are None, session should
         include conditional headers (backward compatibility).
         """
@@ -1103,7 +1088,7 @@ class TestHTTPFetcherConditionalHeaders:
                 with patch("curl_cffi.requests.get", mock_get):
                     fetcher = HTTPFetcher()
 
-                    result = await fetcher.fetch(
+                    await fetcher.fetch(
                         "https://example.com/page",
                         # No cached_etag or cached_last_modified
                     )
@@ -1122,7 +1107,7 @@ class TestBrowserFetcherHumanBehavior:
     @pytest.mark.asyncio
     async def test_fetch_with_human_behavior_enabled(self):
         """Test BrowserFetcher.fetch() applies human behavior when simulate_human=True.
-        
+
         Given: simulate_human=True, page has interactive elements
         When: fetch() is called
         Then: simulate_reading() and move_mouse_to_element() are called
@@ -1137,9 +1122,9 @@ class TestBrowserFetcherHumanBehavior:
         mock_page = AsyncMock()
         mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
         mock_page.content = AsyncMock(return_value="<html><body><a href='#'>Link</a></body></html>")
-        mock_page.query_selector_all = AsyncMock(return_value=[
-            MagicMock(evaluate=AsyncMock(return_value="a"))
-        ])
+        mock_page.query_selector_all = AsyncMock(
+            return_value=[MagicMock(evaluate=AsyncMock(return_value="a"))]
+        )
 
         # Mock context
         mock_context = AsyncMock()
@@ -1149,21 +1134,56 @@ class TestBrowserFetcherHumanBehavior:
         # Mock browser
         mock_browser = MagicMock()
 
-        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
-            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
-                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
-                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
-                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
-                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
-                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+        with patch.object(
+            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
+        ):
+            with patch.object(
+                fetcher._human_behavior, "simulate_reading", AsyncMock()
+            ) as mock_simulate:
+                with patch.object(
+                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
+                ) as mock_mouse:
+                    with patch(
+                        "src.crawler.fetcher._save_content",
+                        AsyncMock(return_value="/tmp/page.html"),
+                    ):
+                        with patch(
+                            "src.crawler.fetcher._save_warc",
+                            AsyncMock(return_value="/tmp/page.warc.gz"),
+                        ):
+                            with patch(
+                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
+                            ):
+                                with patch(
+                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                ):
                                     from src.crawler.http3_policy import ProtocolVersion
-                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+
+                                    with patch(
+                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        AsyncMock(return_value=ProtocolVersion.HTTP_2),
+                                    ):
                                         mock_http3_manager = MagicMock()
-                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(
+                                            return_value=0.1
+                                        )
                                         mock_http3_manager.record_request = AsyncMock()
-                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
-                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
-                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                        with patch(
+                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            return_value=mock_http3_manager,
+                                        ):
+                                            with patch(
+                                                "src.utils.notification.get_intervention_queue",
+                                                return_value=MagicMock(
+                                                    get_session_for_domain=AsyncMock(
+                                                        return_value=None
+                                                    )
+                                                ),
+                                            ):
+                                                with patch(
+                                                    "src.crawler.session_transfer.capture_browser_session",
+                                                    AsyncMock(return_value=None),
+                                                ):
                                                     result = await fetcher.fetch(
                                                         "https://example.com",
                                                         simulate_human=True,
@@ -1180,7 +1200,7 @@ class TestBrowserFetcherHumanBehavior:
     @pytest.mark.asyncio
     async def test_fetch_with_human_behavior_disabled(self):
         """Test BrowserFetcher.fetch() skips human behavior when simulate_human=False.
-        
+
         Given: simulate_human=False
         When: fetch() is called
         Then: simulate_reading() and move_mouse_to_element() are not called
@@ -1201,21 +1221,56 @@ class TestBrowserFetcherHumanBehavior:
 
         mock_browser = MagicMock()
 
-        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
-            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
-                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
-                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
-                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
-                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
-                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+        with patch.object(
+            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
+        ):
+            with patch.object(
+                fetcher._human_behavior, "simulate_reading", AsyncMock()
+            ) as mock_simulate:
+                with patch.object(
+                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
+                ) as mock_mouse:
+                    with patch(
+                        "src.crawler.fetcher._save_content",
+                        AsyncMock(return_value="/tmp/page.html"),
+                    ):
+                        with patch(
+                            "src.crawler.fetcher._save_warc",
+                            AsyncMock(return_value="/tmp/page.warc.gz"),
+                        ):
+                            with patch(
+                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
+                            ):
+                                with patch(
+                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                ):
                                     from src.crawler.http3_policy import ProtocolVersion
-                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+
+                                    with patch(
+                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        AsyncMock(return_value=ProtocolVersion.HTTP_2),
+                                    ):
                                         mock_http3_manager = MagicMock()
-                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(
+                                            return_value=0.1
+                                        )
                                         mock_http3_manager.record_request = AsyncMock()
-                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
-                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
-                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                        with patch(
+                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            return_value=mock_http3_manager,
+                                        ):
+                                            with patch(
+                                                "src.utils.notification.get_intervention_queue",
+                                                return_value=MagicMock(
+                                                    get_session_for_domain=AsyncMock(
+                                                        return_value=None
+                                                    )
+                                                ),
+                                            ):
+                                                with patch(
+                                                    "src.crawler.session_transfer.capture_browser_session",
+                                                    AsyncMock(return_value=None),
+                                                ):
                                                     result = await fetcher.fetch(
                                                         "https://example.com",
                                                         simulate_human=False,
@@ -1232,7 +1287,7 @@ class TestBrowserFetcherHumanBehavior:
     @pytest.mark.asyncio
     async def test_fetch_with_no_elements(self):
         """Test BrowserFetcher.fetch() handles pages with no interactive elements.
-        
+
         Given: simulate_human=True, page has no interactive elements
         When: fetch() is called
         Then: simulate_reading() is called but move_mouse_to_element() is skipped
@@ -1254,21 +1309,56 @@ class TestBrowserFetcherHumanBehavior:
 
         mock_browser = MagicMock()
 
-        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
-            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
-                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
-                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
-                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
-                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
-                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+        with patch.object(
+            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
+        ):
+            with patch.object(
+                fetcher._human_behavior, "simulate_reading", AsyncMock()
+            ) as mock_simulate:
+                with patch.object(
+                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
+                ) as mock_mouse:
+                    with patch(
+                        "src.crawler.fetcher._save_content",
+                        AsyncMock(return_value="/tmp/page.html"),
+                    ):
+                        with patch(
+                            "src.crawler.fetcher._save_warc",
+                            AsyncMock(return_value="/tmp/page.warc.gz"),
+                        ):
+                            with patch(
+                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
+                            ):
+                                with patch(
+                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                ):
                                     from src.crawler.http3_policy import ProtocolVersion
-                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+
+                                    with patch(
+                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        AsyncMock(return_value=ProtocolVersion.HTTP_2),
+                                    ):
                                         mock_http3_manager = MagicMock()
-                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(
+                                            return_value=0.1
+                                        )
                                         mock_http3_manager.record_request = AsyncMock()
-                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
-                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
-                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                        with patch(
+                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            return_value=mock_http3_manager,
+                                        ):
+                                            with patch(
+                                                "src.utils.notification.get_intervention_queue",
+                                                return_value=MagicMock(
+                                                    get_session_for_domain=AsyncMock(
+                                                        return_value=None
+                                                    )
+                                                ),
+                                            ):
+                                                with patch(
+                                                    "src.crawler.session_transfer.capture_browser_session",
+                                                    AsyncMock(return_value=None),
+                                                ):
                                                     result = await fetcher.fetch(
                                                         "https://example.com",
                                                         simulate_human=True,
@@ -1285,7 +1375,7 @@ class TestBrowserFetcherHumanBehavior:
     @pytest.mark.asyncio
     async def test_fetch_with_element_search_exception(self):
         """Test BrowserFetcher.fetch() handles exceptions during element search gracefully.
-        
+
         Given: simulate_human=True, query_selector_all raises exception
         When: fetch() is called
         Then: Exception is caught, logged, and normal flow continues
@@ -1307,21 +1397,56 @@ class TestBrowserFetcherHumanBehavior:
 
         mock_browser = MagicMock()
 
-        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
-            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
-                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
-                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
-                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
-                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
-                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
+        with patch.object(
+            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
+        ):
+            with patch.object(
+                fetcher._human_behavior, "simulate_reading", AsyncMock()
+            ) as mock_simulate:
+                with patch.object(
+                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
+                ) as mock_mouse:
+                    with patch(
+                        "src.crawler.fetcher._save_content",
+                        AsyncMock(return_value="/tmp/page.html"),
+                    ):
+                        with patch(
+                            "src.crawler.fetcher._save_warc",
+                            AsyncMock(return_value="/tmp/page.warc.gz"),
+                        ):
+                            with patch(
+                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
+                            ):
+                                with patch(
+                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                ):
                                     from src.crawler.http3_policy import ProtocolVersion
-                                    with patch("src.crawler.fetcher.detect_protocol_from_playwright_response", AsyncMock(return_value=ProtocolVersion.HTTP_2)):
+
+                                    with patch(
+                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        AsyncMock(return_value=ProtocolVersion.HTTP_2),
+                                    ):
                                         mock_http3_manager = MagicMock()
-                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(return_value=0.1)
+                                        mock_http3_manager.get_adjusted_browser_ratio = AsyncMock(
+                                            return_value=0.1
+                                        )
                                         mock_http3_manager.record_request = AsyncMock()
-                                        with patch("src.crawler.fetcher.get_http3_policy_manager", return_value=mock_http3_manager):
-                                            with patch("src.utils.notification.get_intervention_queue", return_value=MagicMock(get_session_for_domain=AsyncMock(return_value=None))):
-                                                with patch("src.crawler.session_transfer.capture_browser_session", AsyncMock(return_value=None)):
+                                        with patch(
+                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            return_value=mock_http3_manager,
+                                        ):
+                                            with patch(
+                                                "src.utils.notification.get_intervention_queue",
+                                                return_value=MagicMock(
+                                                    get_session_for_domain=AsyncMock(
+                                                        return_value=None
+                                                    )
+                                                ),
+                                            ):
+                                                with patch(
+                                                    "src.crawler.session_transfer.capture_browser_session",
+                                                    AsyncMock(return_value=None),
+                                                ):
                                                     result = await fetcher.fetch(
                                                         "https://example.com",
                                                         simulate_human=True,
@@ -1331,7 +1456,9 @@ class TestBrowserFetcherHumanBehavior:
                                                     # Verify simulate_reading was called but mouse movement failed gracefully
                                                     mock_simulate.assert_called_once()
                                                     mock_mouse.assert_not_called()  # Exception prevented call
-                                                    assert result.ok is True  # Normal flow continues
+                                                    assert (
+                                                        result.ok is True
+                                                    )  # Normal flow continues
 
         await fetcher.close()
 
@@ -1339,9 +1466,9 @@ class TestBrowserFetcherHumanBehavior:
 @pytest.mark.unit
 class TestFetchUrlCumulativeTimeout:
     """Tests for fetch_url cumulative timeout (O.8 fix).
-    
+
     ## Test Perspectives Table
-    
+
     | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
     |---------|---------------------|---------------------------------------|-----------------|-------|
     | TC-TO-01 | Fast fetch (< max_fetch_time) | Equivalence – normal | Fetch succeeds | - |
@@ -1355,7 +1482,7 @@ class TestFetchUrlCumulativeTimeout:
     async def test_fetch_completes_within_timeout(self, mock_settings):
         """
         TC-TO-01: Fast fetch completes successfully.
-        
+
         // Given: fetch_url_impl completes quickly
         // When: Calling fetch_url
         // Then: Returns successful result
@@ -1372,7 +1499,9 @@ class TestFetchUrlCumulativeTimeout:
         }
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
-            with patch("src.crawler.fetcher._fetch_url_impl", new=AsyncMock(return_value=mock_result)):
+            with patch(
+                "src.crawler.fetcher._fetch_url_impl", new=AsyncMock(return_value=mock_result)
+            ):
                 from src.crawler.fetcher import fetch_url
 
                 result = await fetch_url("https://example.com/page")
@@ -1384,7 +1513,7 @@ class TestFetchUrlCumulativeTimeout:
     async def test_fetch_times_out_returns_cumulative_timeout(self, mock_settings):
         """
         TC-TO-02: Slow fetch exceeds timeout.
-        
+
         // Given: fetch_url_impl takes longer than max_fetch_time
         // When: Calling fetch_url
         // Then: Returns cumulative_timeout result
@@ -1412,7 +1541,7 @@ class TestFetchUrlCumulativeTimeout:
     async def test_fetch_zero_timeout_immediate_failure(self, mock_settings):
         """
         TC-TO-03: Zero timeout boundary.
-        
+
         // Given: max_fetch_time=0
         // When: Calling fetch_url
         // Then: Returns timeout immediately (or nearly)
@@ -1440,7 +1569,7 @@ class TestFetchUrlCumulativeTimeout:
     async def test_policy_override_max_fetch_time(self, mock_settings):
         """
         TC-TO-04: Policy overrides default max_fetch_time.
-        
+
         // Given: Policy specifies max_fetch_time=2
         // When: Calling fetch_url with slow implementation
         // Then: Uses policy timeout value
@@ -1471,7 +1600,7 @@ class TestFetchUrlCumulativeTimeout:
     async def test_cumulative_timeout_aborts_escalation(self, mock_settings):
         """
         TC-TO-05: Timeout aborts multi-stage escalation.
-        
+
         // Given: Fetch impl simulates slow multi-stage escalation
         // When: Calling fetch_url with short timeout
         // Then: Escalation is aborted mid-way
@@ -1499,4 +1628,3 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["reason"] == "cumulative_timeout"
                 # Escalation should have been interrupted
                 assert len(escalation_stages) < 3  # Not all stages completed
-

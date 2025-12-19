@@ -20,9 +20,9 @@ from typing import Any
 class VerificationStatus(str, Enum):
     """Verification status for claims/sources (§4.4.1 L6)."""
 
-    PENDING = "pending"      # Not yet verified
-    VERIFIED = "verified"    # Corroborated by independent sources
-    REJECTED = "rejected"    # Contradiction detected or dangerous pattern
+    PENDING = "pending"  # Not yet verified
+    VERIFIED = "verified"  # Corroborated by independent sources
+    REJECTED = "rejected"  # Contradiction detected or dangerous pattern
 
 
 @dataclass
@@ -64,7 +64,7 @@ class SecurityWarning:
 @dataclass
 class LancetMeta:
     """Metadata attached to MCP responses (§4.4.1 L5).
-    
+
     This provides Cursor AI with information to assess trustworthiness
     of the data returned by Lancet.
     """
@@ -145,12 +145,12 @@ class ResponseMetaBuilder:
         severity: str = "warning",
     ) -> ResponseMetaBuilder:
         """Add a security warning.
-        
+
         Args:
             warning_type: Type of warning (dangerous_pattern, external_url, etc.)
             message: Human-readable warning message
             severity: Severity level (info, warning, critical)
-            
+
         Returns:
             Self for method chaining.
         """
@@ -161,10 +161,10 @@ class ResponseMetaBuilder:
 
     def add_blocked_domain(self, domain: str) -> ResponseMetaBuilder:
         """Add a blocked domain.
-        
+
         Args:
             domain: Domain that was blocked.
-            
+
         Returns:
             Self for method chaining.
         """
@@ -174,10 +174,10 @@ class ResponseMetaBuilder:
 
     def add_unverified_domain(self, domain: str) -> ResponseMetaBuilder:
         """Add an unverified domain.
-        
+
         Args:
             domain: Domain that is unverified.
-            
+
         Returns:
             Self for method chaining.
         """
@@ -187,10 +187,10 @@ class ResponseMetaBuilder:
 
     def set_data_quality(self, quality: str) -> ResponseMetaBuilder:
         """Set overall data quality indicator.
-        
+
         Args:
             quality: Quality level (normal, degraded, limited)
-            
+
         Returns:
             Self for method chaining.
         """
@@ -199,10 +199,10 @@ class ResponseMetaBuilder:
 
     def add_claim_meta(self, claim_meta: ClaimMeta) -> ResponseMetaBuilder:
         """Add per-claim metadata.
-        
+
         Args:
             claim_meta: Claim metadata to add.
-            
+
         Returns:
             Self for method chaining.
         """
@@ -211,7 +211,7 @@ class ResponseMetaBuilder:
 
     def build(self) -> dict[str, Any]:
         """Build the _lancet_meta dictionary.
-        
+
         Returns:
             Dictionary suitable for inclusion in MCP response.
         """
@@ -225,7 +225,7 @@ class ResponseMetaBuilder:
 
 def create_response_meta() -> ResponseMetaBuilder:
     """Create a new ResponseMetaBuilder.
-    
+
     Returns:
         New builder instance.
     """
@@ -234,11 +234,11 @@ def create_response_meta() -> ResponseMetaBuilder:
 
 def attach_meta(response: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
     """Attach _lancet_meta to a response dictionary.
-    
+
     Args:
         response: Original response dictionary.
         meta: Metadata to attach.
-        
+
     Returns:
         Response with _lancet_meta attached.
     """
@@ -248,7 +248,7 @@ def attach_meta(response: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any
 
 def create_minimal_meta() -> dict[str, Any]:
     """Create minimal metadata for simple responses.
-    
+
     Returns:
         Minimal _lancet_meta dictionary.
     """
@@ -256,4 +256,3 @@ def create_minimal_meta() -> dict[str, Any]:
         "timestamp": datetime.now(UTC).isoformat(),
         "data_quality": "normal",
     }
-

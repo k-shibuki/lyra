@@ -42,7 +42,7 @@ class TestCalibrateRollbackHandler:
     async def test_rollback_to_previous_version(self, mock_calibrator: MagicMock) -> None:
         """
         TC-N-01: Valid source with history.
-        
+
         // Given: Source with calibration history
         // When: Calling calibrate_rollback without version
         // Then: Rollback to previous version succeeds
@@ -50,9 +50,11 @@ class TestCalibrateRollbackHandler:
         from src.mcp.server import _handle_calibrate_rollback
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback({
-                "source": "llm_extract",
-            })
+            result = await _handle_calibrate_rollback(
+                {
+                    "source": "llm_extract",
+                }
+            )
 
         assert result["ok"] is True
         assert result["source"] == "llm_extract"
@@ -70,7 +72,7 @@ class TestCalibrateRollbackHandler:
     async def test_rollback_to_specific_version(self, mock_calibrator: MagicMock) -> None:
         """
         TC-N-02: Valid source with specific version.
-        
+
         // Given: Source with multiple versions
         // When: Calling calibrate_rollback with version=1
         // Then: Rollback to version 1 succeeds
@@ -85,10 +87,12 @@ class TestCalibrateRollbackHandler:
         mock_calibrator.rollback_to_version.return_value = rollback_params
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback({
-                "source": "llm_extract",
-                "version": 1,
-            })
+            result = await _handle_calibrate_rollback(
+                {
+                    "source": "llm_extract",
+                    "version": 1,
+                }
+            )
 
         assert result["ok"] is True
         assert result["rolled_back_to"] == 1
@@ -104,7 +108,7 @@ class TestCalibrateRollbackHandler:
     async def test_rollback_with_reason(self, mock_calibrator: MagicMock) -> None:
         """
         TC-N-03: Valid source with reason.
-        
+
         // Given: Source with calibration
         // When: Calling calibrate_rollback with reason
         // Then: Reason included in response and passed to rollback
@@ -112,10 +116,12 @@ class TestCalibrateRollbackHandler:
         from src.mcp.server import _handle_calibrate_rollback
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback({
-                "source": "nli_judge",
-                "reason": "Brier score degradation detected",
-            })
+            result = await _handle_calibrate_rollback(
+                {
+                    "source": "nli_judge",
+                    "reason": "Brier score degradation detected",
+                }
+            )
 
         assert result["ok"] is True
         assert result["reason"] == "Brier score degradation detected"
@@ -130,7 +136,7 @@ class TestCalibrateRollbackHandler:
     async def test_missing_source_parameter(self) -> None:
         """
         TC-A-01: Missing source parameter.
-        
+
         // Given: No source in arguments
         // When: Calling calibrate_rollback
         // Then: InvalidParamsError raised
@@ -147,7 +153,7 @@ class TestCalibrateRollbackHandler:
     async def test_empty_source_string(self) -> None:
         """
         TC-A-02: Empty source string.
-        
+
         // Given: source=""
         // When: Calling calibrate_rollback
         // Then: InvalidParamsError raised
@@ -163,7 +169,7 @@ class TestCalibrateRollbackHandler:
     async def test_source_with_no_calibration(self, mock_calibrator: MagicMock) -> None:
         """
         TC-A-03: Source with no calibration history.
-        
+
         // Given: Source never calibrated (get_params returns None)
         // When: Calling calibrate_rollback
         // Then: CalibrationError raised
@@ -184,7 +190,7 @@ class TestCalibrateRollbackHandler:
     async def test_source_with_only_one_version(self, mock_calibrator: MagicMock) -> None:
         """
         TC-A-04: Source with only one version.
-        
+
         // Given: Source with single calibration version (version=1)
         // When: Calling calibrate_rollback without version
         // Then: CalibrationError raised (no previous)
@@ -207,7 +213,7 @@ class TestCalibrateRollbackHandler:
     async def test_nonexistent_target_version(self, mock_calibrator: MagicMock) -> None:
         """
         TC-A-05: Non-existent target version.
-        
+
         // Given: Target version not in history
         // When: Calling calibrate_rollback with invalid version
         // Then: CalibrationError raised
@@ -219,10 +225,12 @@ class TestCalibrateRollbackHandler:
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
-                await _handle_calibrate_rollback({
-                    "source": "llm_extract",
-                    "version": 999,
-                })
+                await _handle_calibrate_rollback(
+                    {
+                        "source": "llm_extract",
+                        "version": 999,
+                    }
+                )
 
         assert exc_info.value.code.value == "CALIBRATION_ERROR"
 
@@ -230,7 +238,7 @@ class TestCalibrateRollbackHandler:
     async def test_rollback_returns_none(self, mock_calibrator: MagicMock) -> None:
         """
         TC-A-06: Rollback returns None.
-        
+
         // Given: rollback_to_version returns None
         // When: Calling calibrate_rollback
         // Then: CalibrationError raised
@@ -241,10 +249,12 @@ class TestCalibrateRollbackHandler:
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
-                await _handle_calibrate_rollback({
-                    "source": "llm_extract",
-                    "version": 1,
-                })
+                await _handle_calibrate_rollback(
+                    {
+                        "source": "llm_extract",
+                        "version": 1,
+                    }
+                )
 
         assert exc_info.value.code.value == "CALIBRATION_ERROR"
         assert "not found" in exc_info.value.message
@@ -253,7 +263,7 @@ class TestCalibrateRollbackHandler:
     async def test_response_includes_brier_and_method(self, mock_calibrator: MagicMock) -> None:
         """
         Test that response includes brier_after and method fields.
-        
+
         // Given: Successful rollback
         // When: Checking response
         // Then: brier_after and method are included
@@ -261,9 +271,11 @@ class TestCalibrateRollbackHandler:
         from src.mcp.server import _handle_calibrate_rollback
 
         with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
-            result = await _handle_calibrate_rollback({
-                "source": "llm_extract",
-            })
+            result = await _handle_calibrate_rollback(
+                {
+                    "source": "llm_extract",
+                }
+            )
 
         assert "brier_after" in result
         assert "method" in result
@@ -278,7 +290,7 @@ class TestCallToolErrorHandling:
     async def test_mcp_error_returns_structured_response(self) -> None:
         """
         Test that MCPError is converted to structured response.
-        
+
         // Given: Handler that raises MCPError
         // When: Calling via call_tool
         // Then: Returns structured error response
@@ -300,7 +312,7 @@ class TestCallToolErrorHandling:
     async def test_unexpected_error_wrapped_as_internal(self) -> None:
         """
         Test that unexpected errors are wrapped as INTERNAL_ERROR.
-        
+
         // Given: Handler that raises unexpected exception
         // When: Calling via call_tool
         // Then: Returns INTERNAL_ERROR with error_id
@@ -327,7 +339,7 @@ class TestToolDefinition:
     def test_calibrate_rollback_in_tools(self) -> None:
         """
         Test that calibrate_rollback is defined in TOOLS.
-        
+
         // Given: TOOLS list
         // When: Searching for calibrate_rollback
         // Then: Found with correct schema

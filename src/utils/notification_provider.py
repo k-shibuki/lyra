@@ -28,6 +28,7 @@ logger = get_logger(__name__)
 
 class NotificationUrgency(str, Enum):
     """Notification urgency levels."""
+
     LOW = "low"
     NORMAL = "normal"
     CRITICAL = "critical"
@@ -35,6 +36,7 @@ class NotificationUrgency(str, Enum):
 
 class NotificationHealthState(str, Enum):
     """Provider health states."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -43,6 +45,7 @@ class NotificationHealthState(str, Enum):
 
 class Platform(str, Enum):
     """Supported platforms."""
+
     LINUX = "linux"
     WINDOWS = "windows"
     WSL = "wsl"
@@ -54,7 +57,7 @@ class Platform(str, Enum):
 class NotificationOptions:
     """
     Options for notification requests.
-    
+
     Attributes:
         timeout_seconds: Display duration in seconds.
         urgency: Notification urgency level.
@@ -62,6 +65,7 @@ class NotificationOptions:
         sound: Whether to play notification sound.
         category: Notification category hint.
     """
+
     timeout_seconds: int = 10
     urgency: NotificationUrgency = NotificationUrgency.NORMAL
     icon: str | None = None
@@ -83,7 +87,7 @@ class NotificationOptions:
 class NotificationResult:
     """
     Result of a notification send operation.
-    
+
     Attributes:
         ok: Whether notification was sent successfully.
         provider: Provider name that sent the notification.
@@ -91,6 +95,7 @@ class NotificationResult:
         error: Error message if notification failed.
         elapsed_ms: Time taken in milliseconds.
     """
+
     ok: bool
     provider: str
     message_id: str | None = None
@@ -142,7 +147,7 @@ class NotificationResult:
 class NotificationHealthStatus:
     """
     Health status of a notification provider.
-    
+
     Attributes:
         state: Current health state.
         available: Whether the provider is available on this platform.
@@ -152,6 +157,7 @@ class NotificationHealthStatus:
         message: Optional status message.
         details: Additional health details.
     """
+
     state: NotificationHealthState
     available: bool = True
     platform: Platform = Platform.UNKNOWN
@@ -246,7 +252,7 @@ class NotificationHealthStatus:
 def detect_platform() -> Platform:
     """
     Detect the current platform.
-    
+
     Returns:
         Platform enum indicating the current OS/environment.
     """
@@ -285,16 +291,16 @@ def is_wsl() -> bool:
 class NotificationProvider(Protocol):
     """
     Protocol for notification providers.
-    
+
     Defines the interface that all notification providers must implement.
     Uses Python's Protocol for structural subtyping.
-    
+
     Example implementation:
         class MyProvider:
             @property
             def name(self) -> str:
                 return "my_provider"
-            
+
             async def send(
                 self,
                 title: str,
@@ -303,10 +309,10 @@ class NotificationProvider(Protocol):
             ) -> NotificationResult:
                 # Implementation
                 ...
-            
+
             async def get_health(self) -> NotificationHealthStatus:
                 return NotificationHealthStatus.healthy(Platform.LINUX)
-            
+
             async def close(self) -> None:
                 # Cleanup
                 ...
@@ -330,12 +336,12 @@ class NotificationProvider(Protocol):
     ) -> NotificationResult:
         """
         Send a notification.
-        
+
         Args:
             title: Notification title.
             message: Notification body text.
             options: Notification options (timeout, urgency, etc.).
-            
+
         Returns:
             NotificationResult with success/failure status.
         """
@@ -344,7 +350,7 @@ class NotificationProvider(Protocol):
     async def get_health(self) -> NotificationHealthStatus:
         """
         Get current health status.
-        
+
         Returns:
             NotificationHealthStatus indicating provider health.
         """
@@ -353,7 +359,7 @@ class NotificationProvider(Protocol):
     async def close(self) -> None:
         """
         Close and cleanup provider resources.
-        
+
         Should be called when the provider is no longer needed.
         """
         ...
@@ -362,7 +368,7 @@ class NotificationProvider(Protocol):
 class BaseNotificationProvider(ABC):
     """
     Abstract base class for notification providers.
-    
+
     Provides common functionality and enforces the interface contract.
     Subclasses should implement the abstract methods.
     """
@@ -370,7 +376,7 @@ class BaseNotificationProvider(ABC):
     def __init__(self, provider_name: str, target_platform: Platform):
         """
         Initialize base provider.
-        
+
         Args:
             provider_name: Unique name for this provider.
             target_platform: Platform this provider targets.
@@ -446,7 +452,7 @@ class BaseNotificationProvider(ABC):
 class LinuxNotifyProvider(BaseNotificationProvider):
     """
     Linux notification provider using notify-send.
-    
+
     Uses libnotify/notify-send for desktop notifications on Linux.
     """
 
@@ -471,12 +477,12 @@ class LinuxNotifyProvider(BaseNotificationProvider):
     ) -> NotificationResult:
         """
         Send notification using notify-send.
-        
+
         Args:
             title: Notification title.
             message: Notification body.
             options: Notification options.
-            
+
         Returns:
             NotificationResult with status.
         """
@@ -498,8 +504,10 @@ class LinuxNotifyProvider(BaseNotificationProvider):
         # Build command
         cmd = [
             notify_send,
-            "-t", str(options.timeout_seconds * 1000),  # Convert to ms
-            "-u", self._map_urgency(options.urgency),
+            "-t",
+            str(options.timeout_seconds * 1000),  # Convert to ms
+            "-u",
+            self._map_urgency(options.urgency),
         ]
 
         if options.icon:
@@ -602,7 +610,7 @@ class LinuxNotifyProvider(BaseNotificationProvider):
 class WindowsToastProvider(BaseNotificationProvider):
     """
     Windows notification provider using PowerShell Toast API.
-    
+
     Uses Windows UWP Toast Notification API via PowerShell.
     """
 
@@ -618,12 +626,12 @@ class WindowsToastProvider(BaseNotificationProvider):
     ) -> NotificationResult:
         """
         Send notification using Windows Toast API.
-        
+
         Args:
             title: Notification title.
             message: Notification body.
             options: Notification options.
-            
+
         Returns:
             NotificationResult with status.
         """
@@ -641,7 +649,8 @@ class WindowsToastProvider(BaseNotificationProvider):
         # Build PowerShell script for UWP Toast
         sound_element = (
             '<audio src="ms-winsoundevent:Notification.Reminder"/>'
-            if options.sound else '<audio silent="true"/>'
+            if options.sound
+            else '<audio silent="true"/>'
         )
 
         ps_script = f"""
@@ -670,8 +679,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         try:
             process = await asyncio.create_subprocess_exec(
                 "powershell.exe",
-                "-ExecutionPolicy", "Bypass",
-                "-Command", ps_script,
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                ps_script,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -758,7 +769,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 class WSLBridgeProvider(BaseNotificationProvider):
     """
     WSL notification provider bridging to Windows.
-    
+
     Uses PowerShell via WSL interop to send Windows notifications.
     Supports BurntToast module if available, falls back to NotifyIcon.
     """
@@ -775,12 +786,12 @@ class WSLBridgeProvider(BaseNotificationProvider):
     ) -> NotificationResult:
         """
         Send notification from WSL to Windows.
-        
+
         Args:
             title: Notification title.
             message: Notification body.
             options: Notification options.
-            
+
         Returns:
             NotificationResult with status.
         """
@@ -815,10 +826,12 @@ if (Get-Module -ListAvailable -Name BurntToast) {{
 """
 
         try:
-            process = await asyncio.create_subprocess_exec(
+            await asyncio.create_subprocess_exec(
                 "powershell.exe",
-                "-ExecutionPolicy", "Bypass",
-                "-Command", ps_script,
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                ps_script,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -887,17 +900,17 @@ if (Get-Module -ListAvailable -Name BurntToast) {{
 class NotificationProviderRegistry:
     """
     Registry for notification providers.
-    
+
     Manages registration, retrieval, and lifecycle of notification providers.
     Supports platform auto-detection and fallback selection.
-    
+
     Example usage:
         registry = NotificationProviderRegistry()
         registry.auto_register()  # Auto-detect platform and register providers
-        
+
         # Send notification
         result = await registry.send(title, message)
-        
+
         # Or use specific provider
         provider = registry.get("linux_notify")
         result = await provider.send(title, message)
@@ -921,11 +934,11 @@ class NotificationProviderRegistry:
     ) -> None:
         """
         Register a notification provider.
-        
+
         Args:
             provider: Provider instance to register.
             set_default: Whether to set as default provider.
-        
+
         Raises:
             ValueError: If provider with same name already registered.
         """
@@ -949,10 +962,10 @@ class NotificationProviderRegistry:
     def unregister(self, name: str) -> NotificationProvider | None:
         """
         Unregister a provider by name.
-        
+
         Args:
             name: Provider name to unregister.
-            
+
         Returns:
             The unregistered provider, or None if not found.
         """
@@ -970,10 +983,10 @@ class NotificationProviderRegistry:
     def get(self, name: str) -> NotificationProvider | None:
         """
         Get a provider by name.
-        
+
         Args:
             name: Provider name.
-            
+
         Returns:
             Provider instance or None if not found.
         """
@@ -982,7 +995,7 @@ class NotificationProviderRegistry:
     def get_default(self) -> NotificationProvider | None:
         """
         Get the default provider.
-        
+
         Returns:
             Default provider or None if no providers registered.
         """
@@ -993,10 +1006,10 @@ class NotificationProviderRegistry:
     def set_default(self, name: str) -> None:
         """
         Set the default provider.
-        
+
         Args:
             name: Provider name to set as default.
-            
+
         Raises:
             ValueError: If provider not found.
         """
@@ -1009,7 +1022,7 @@ class NotificationProviderRegistry:
     def list_providers(self) -> list[str]:
         """
         List all registered provider names.
-        
+
         Returns:
             List of provider names.
         """
@@ -1018,7 +1031,7 @@ class NotificationProviderRegistry:
     def auto_register(self) -> None:
         """
         Auto-detect platform and register appropriate providers.
-        
+
         Registers providers suitable for the current platform and
         sets the most appropriate one as default.
         """
@@ -1041,7 +1054,7 @@ class NotificationProviderRegistry:
     async def get_all_health(self) -> dict[str, NotificationHealthStatus]:
         """
         Get health status for all providers.
-        
+
         Returns:
             Dict mapping provider names to health status.
         """
@@ -1065,15 +1078,15 @@ class NotificationProviderRegistry:
     ) -> NotificationResult:
         """
         Send notification using the default provider with fallback.
-        
+
         Args:
             title: Notification title.
             message: Notification body.
             options: Notification options.
-            
+
         Returns:
             NotificationResult from first successful provider.
-            
+
         Raises:
             RuntimeError: If no providers available.
         """
@@ -1153,7 +1166,7 @@ _registry: NotificationProviderRegistry | None = None
 def get_notification_registry() -> NotificationProviderRegistry:
     """
     Get the global notification provider registry.
-    
+
     Returns:
         The global NotificationProviderRegistry instance.
     """
@@ -1167,7 +1180,7 @@ def get_notification_registry() -> NotificationProviderRegistry:
 async def cleanup_notification_registry() -> None:
     """
     Cleanup the global registry.
-    
+
     Closes all providers and resets the registry.
     """
     global _registry
@@ -1179,9 +1192,8 @@ async def cleanup_notification_registry() -> None:
 def reset_notification_registry() -> None:
     """
     Reset the global registry without closing providers.
-    
+
     For testing purposes only.
     """
     global _registry
     _registry = None
-

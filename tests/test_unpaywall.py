@@ -106,8 +106,8 @@ class TestUnpaywallClient:
             "is_oa": True,
             "best_oa_location": {
                 "url_for_pdf": "https://example.com/paper.pdf",
-                "url_for_landing_page": "https://example.com/paper"
-            }
+                "url_for_landing_page": "https://example.com/paper",
+            },
         }
 
         # When: Resolving OA URL
@@ -131,9 +131,7 @@ class TestUnpaywallClient:
         client = UnpaywallClient()
         mock_response = {
             "is_oa": True,
-            "best_oa_location": {
-                "url_for_landing_page": "https://example.com/paper"
-            }
+            "best_oa_location": {"url_for_landing_page": "https://example.com/paper"},
         }
 
         # When: Resolving OA URL
@@ -202,9 +200,7 @@ class TestUnpaywallClient:
         client = UnpaywallClient()
         mock_response = {
             "is_oa": True,
-            "best_oa_location": {
-                "url_for_pdf": "https://example.com/paper.pdf"
-            }
+            "best_oa_location": {"url_for_pdf": "https://example.com/paper.pdf"},
         }
 
         # When: Resolving OA URL with prefixed DOI
@@ -249,11 +245,7 @@ class TestUnpaywallClient:
         """TC-UP-A-07: Paper OA but no location URLs."""
         # Given: Unpaywall client and OA paper but no location URLs
         client = UnpaywallClient()
-        mock_response = {
-            "is_oa": True,
-            "best_oa_location": {},
-            "oa_locations": []
-        }
+        mock_response = {"is_oa": True, "best_oa_location": {}, "oa_locations": []}
 
         # When: Resolving OA URL
         with patch.object(client, "_get_session") as mock_get_session:
@@ -330,10 +322,14 @@ class TestAcademicSearchProviderIntegration:
         provider = AcademicSearchProvider()
 
         # When: Resolving OA URL via Unpaywall
-        with patch.object(provider, "_is_unpaywall_enabled", return_value=True), \
-             patch.object(provider, "_get_client") as mock_get_client:
+        with (
+            patch.object(provider, "_is_unpaywall_enabled", return_value=True),
+            patch.object(provider, "_get_client") as mock_get_client,
+        ):
             mock_unpaywall_client = AsyncMock(spec=UnpaywallClient)
-            mock_unpaywall_client.resolve_oa_url = AsyncMock(return_value="https://example.com/resolved.pdf")
+            mock_unpaywall_client.resolve_oa_url = AsyncMock(
+                return_value="https://example.com/resolved.pdf"
+            )
             mock_get_client.return_value = mock_unpaywall_client
 
             oa_url = await provider.resolve_oa_url_for_paper(sample_paper_with_doi)
@@ -349,8 +345,10 @@ class TestAcademicSearchProviderIntegration:
         provider = AcademicSearchProvider()
 
         # When: Resolving OA URL and API returns None
-        with patch.object(provider, "_is_unpaywall_enabled", return_value=True), \
-             patch.object(provider, "_get_client") as mock_get_client:
+        with (
+            patch.object(provider, "_is_unpaywall_enabled", return_value=True),
+            patch.object(provider, "_get_client") as mock_get_client,
+        ):
             mock_unpaywall_client = AsyncMock(spec=UnpaywallClient)
             mock_unpaywall_client.resolve_oa_url = AsyncMock(return_value=None)
             mock_get_client.return_value = mock_unpaywall_client
@@ -367,8 +365,10 @@ class TestAcademicSearchProviderIntegration:
         provider = AcademicSearchProvider()
 
         # When: Resolving OA URL and exception occurs
-        with patch.object(provider, "_is_unpaywall_enabled", return_value=True), \
-             patch.object(provider, "_get_client") as mock_get_client:
+        with (
+            patch.object(provider, "_is_unpaywall_enabled", return_value=True),
+            patch.object(provider, "_get_client") as mock_get_client,
+        ):
             mock_get_client.side_effect = Exception("Client initialization failed")
 
             # Then: Should not raise exception, return None

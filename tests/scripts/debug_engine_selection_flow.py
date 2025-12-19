@@ -43,8 +43,12 @@ async def test_category_detection():
     for query, expected_category in test_cases:
         category = provider._detect_category(query)
         status = "✓" if category == expected_category else "✗"
-        print(f"  {status} Query: '{query}' -> Category: {category} (expected: {expected_category})")
-        assert category == expected_category, f"Category mismatch: {category} != {expected_category}"
+        print(
+            f"  {status} Query: '{query}' -> Category: {category} (expected: {expected_category})"
+        )
+        assert category == expected_category, (
+            f"Category mismatch: {category} != {expected_category}"
+        )
 
     print("\n  ✓ All category detection tests passed")
 
@@ -65,7 +69,7 @@ async def test_engine_selection_with_category():
         ("API tutorial", "technical"),
     ]
 
-    for query, expected_category in test_cases:
+    for query, _expected_category in test_cases:
         category = provider._detect_category(query)
         print(f"\n  Query: '{query}' -> Category: {category}")
 
@@ -118,6 +122,7 @@ async def test_engine_health_recording():
     except Exception as e:
         print(f"    ✗ Error recording success: {e}")
         import traceback
+
         traceback.print_exc()
 
     # Test failure recording
@@ -133,6 +138,7 @@ async def test_engine_health_recording():
     except Exception as e:
         print(f"    ✗ Error recording failure: {e}")
         import traceback
+
         traceback.print_exc()
 
     # Test CAPTCHA recording
@@ -148,6 +154,7 @@ async def test_engine_health_recording():
     except Exception as e:
         print(f"    ✗ Error recording CAPTCHA: {e}")
         import traceback
+
         traceback.print_exc()
 
     print("\n  ✓ Engine health recording tests completed")
@@ -222,6 +229,7 @@ async def main():
         print(f"✗ Test failed: {e}")
         print("=" * 80)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

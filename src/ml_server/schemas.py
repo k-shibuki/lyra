@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 # Health Check
 # =============================================================================
 
+
 class HealthResponse(BaseModel):
     """Health check response."""
 
@@ -18,6 +19,7 @@ class HealthResponse(BaseModel):
 # =============================================================================
 # Embedding
 # =============================================================================
+
 
 class EmbedRequest(BaseModel):
     """Embedding request."""
@@ -37,6 +39,7 @@ class EmbedResponse(BaseModel):
 # =============================================================================
 # Reranking
 # =============================================================================
+
 
 class RerankRequest(BaseModel):
     """Reranking request."""
@@ -64,6 +67,7 @@ class RerankResponse(BaseModel):
 # =============================================================================
 # NLI (Natural Language Inference)
 # =============================================================================
+
 
 class NLIPair(BaseModel):
     """Single NLI pair."""
@@ -95,4 +99,3 @@ class NLIResponse(BaseModel):
     ok: bool = True
     results: list[NLIResult] = Field(default_factory=list)
     error: str | None = None
-

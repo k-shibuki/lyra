@@ -17,7 +17,6 @@ Follows §7.1 test code quality standards:
 - Boundary conditions coverage
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -315,7 +314,9 @@ class TestDuckDuckGoParser:
 
         # Should fail with selector errors (at least 1 for missing container)
         assert result.ok is False
-        assert len(result.selector_errors) >= 1, f"Expected >=1 selector errors, got {result.selector_errors}"
+        assert len(result.selector_errors) >= 1, (
+            f"Expected >=1 selector errors, got {result.selector_errors}"
+        )
 
     def test_malformed_html(self):
         """Test handling of malformed HTML."""
@@ -478,7 +479,9 @@ class TestParserErrorHandling:
         result = parser.parse(html, "test query")
 
         assert result.ok is False
-        assert len(result.selector_errors) >= 1, f"Expected selector errors, got {result.selector_errors}"
+        assert len(result.selector_errors) >= 1, (
+            f"Expected selector errors, got {result.selector_errors}"
+        )
 
         # Check error messages contain diagnostics about the failed selector
         error_text = "\n".join(result.selector_errors)
@@ -491,12 +494,12 @@ class TestParserErrorHandling:
         # Configure to save to temp directory
         with patch.object(
             get_parser_config_manager().settings,
-            'debug_html_dir',
+            "debug_html_dir",
             tmp_path,
         ):
             with patch.object(
                 get_parser_config_manager().settings,
-                'save_failed_html',
+                "save_failed_html",
                 True,
             ):
                 parser = DuckDuckGoParser()
@@ -875,4 +878,3 @@ class TestBingParserRegistry:
         parsers = get_available_parsers()
 
         assert "bing" in parsers, f"bing not in {parsers}"
-

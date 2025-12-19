@@ -42,7 +42,7 @@ async def test_browser_fetcher_human_behavior():
         )
 
         # Type check
-        assert hasattr(result, 'ok'), "FetchResult should have 'ok' attribute"
+        assert hasattr(result, "ok"), "FetchResult should have 'ok' attribute"
         print(f"  ✓ BrowserFetcher returned: ok={result.ok}")
 
         if result.ok:
@@ -55,6 +55,7 @@ async def test_browser_fetcher_human_behavior():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         # Cleanup
@@ -78,7 +79,7 @@ async def test_browser_search_provider_human_behavior():
         result = await provider.search(test_query)
 
         # Type check
-        assert hasattr(result, 'ok'), "SearchResponse should have 'ok' attribute"
+        assert hasattr(result, "ok"), "SearchResponse should have 'ok' attribute"
         print(f"  ✓ BrowserSearchProvider returned: ok={result.ok}")
 
         if result.ok:
@@ -91,6 +92,7 @@ async def test_browser_search_provider_human_behavior():
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         # Cleanup
@@ -165,6 +167,7 @@ async def main():
     except Exception as e:
         print(f"\n✗ BrowserFetcher test failed: {e}")
         import traceback
+
         traceback.print_exc()
 
     # Test BrowserSearchProvider
@@ -172,11 +175,14 @@ async def main():
         await test_browser_search_provider_human_behavior()
     except (TimeoutError, CDPConnectionError) as e:
         error_msg = str(e)
-        print(f"\n⚠ BrowserSearchProvider test skipped: CDP connection failed ({type(e).__name__}: {error_msg})")
+        print(
+            f"\n⚠ BrowserSearchProvider test skipped: CDP connection failed ({type(e).__name__}: {error_msg})"
+        )
         print("  → This is expected if Chrome CDP is not available")
     except Exception as e:
         print(f"\n✗ BrowserSearchProvider test failed: {e}")
         import traceback
+
         traceback.print_exc()
 
     print("\n" + "=" * 80)

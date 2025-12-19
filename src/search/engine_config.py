@@ -43,8 +43,10 @@ logger = get_logger(__name__)
 # Enums and Constants
 # =============================================================================
 
+
 class EngineCategory(str, Enum):
     """Search engine category classification."""
+
     GENERAL = "general"
     ACADEMIC = "academic"
     NEWS = "news"
@@ -57,6 +59,7 @@ class EngineCategory(str, Enum):
 
 class EngineStatus(str, Enum):
     """Engine availability status."""
+
     ENABLED = "enabled"
     DISABLED = "disabled"
     LASTMILE = "lastmile"  # Strict limits, last resort
@@ -65,6 +68,7 @@ class EngineStatus(str, Enum):
 # =============================================================================
 # Pydantic Schema Models
 # =============================================================================
+
 
 class EngineDefinitionSchema(BaseModel):
     """Schema for individual search engine definition."""
@@ -151,11 +155,12 @@ class SearchEngineConfigSchema(BaseModel):
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class EngineConfig:
     """
     Resolved configuration for a specific search engine.
-    
+
     Combines static configuration with runtime state.
     """
 
@@ -224,31 +229,32 @@ class DirectSource:
 # Search Engine Config Manager
 # =============================================================================
 
+
 class SearchEngineConfigManager:
     """
     Centralized manager for search engine configurations.
-    
+
     Features:
     - Loads all engine configs from config/engines.yaml
     - Provides efficient lookups with caching
     - Supports hot-reload of configuration
     - Thread-safe for concurrent access
-    
+
     Usage:
         manager = get_engine_config_manager()
-        
+
         # Get specific engine config
         config = manager.get_engine("duckduckgo")
-        
+
         # Get engines for category
         engines = manager.get_engines_for_category("academic")
-        
+
         # Get available engines
         available = manager.get_available_engines()
-        
+
         # Get operator mapping
         mapping = manager.get_operator_mapping("site", "google")
-        
+
         # Force reload
         manager.reload()
     """
@@ -264,7 +270,7 @@ class SearchEngineConfigManager:
     ):
         """
         Initialize search engine config manager.
-        
+
         Args:
             config_path: Path to engines.yaml. Defaults to config/engines.yaml.
             watch_interval: Interval (seconds) for checking file changes.
@@ -439,10 +445,10 @@ class SearchEngineConfigManager:
     def get_engine(self, name: str) -> EngineConfig | None:
         """
         Get configuration for a specific engine.
-        
+
         Args:
             name: Engine name (case-insensitive).
-            
+
         Returns:
             EngineConfig or None if not found.
         """
@@ -496,10 +502,10 @@ class SearchEngineConfigManager:
     def get_available_engines(self, include_lastmile: bool = False) -> list[EngineConfig]:
         """
         Get available (non-disabled) engines.
-        
+
         Args:
             include_lastmile: Whether to include lastmile engines.
-            
+
         Returns:
             List of available engine configurations.
         """
@@ -516,10 +522,10 @@ class SearchEngineConfigManager:
     def get_engines_for_category(self, category: str) -> list[EngineConfig]:
         """
         Get engines for a specific category.
-        
+
         Args:
             category: Category name (e.g., "academic", "news").
-            
+
         Returns:
             List of engine configurations for that category.
         """
@@ -531,9 +537,7 @@ class SearchEngineConfigManager:
             # Filter to only engines with available parsers
             filtered_names = self.get_engines_with_parsers(engine_names)
             return [
-                config
-                for name in filtered_names
-                if (config := self.get_engine(name)) is not None
+                config for name in filtered_names if (config := self.get_engine(name)) is not None
             ]
 
         # Fall back to engines with matching category in their categories list
@@ -546,11 +550,7 @@ class SearchEngineConfigManager:
         # Filter by parser availability
         matching_names = [cfg.name for cfg in all_matching]
         filtered_names = self.get_engines_with_parsers(matching_names)
-        return [
-            config
-            for config in all_matching
-            if config.name in filtered_names
-        ]
+        return [config for config in all_matching if config.name in filtered_names]
 
     def get_block_resistant_engines(self) -> list[EngineConfig]:
         """Get engines marked as block-resistant."""
@@ -562,14 +562,15 @@ class SearchEngineConfigManager:
 
     def get_engines_with_parsers(self, engines: list[str] | None = None) -> list[str]:
         """Filter engines to only those with available parsers.
-        
+
         Args:
             engines: List of engine names to filter. If None, filters all engines.
-            
+
         Returns:
             List of engine names that have available parsers.
         """
         from src.search.search_parsers import get_available_parsers
+
         available_parsers = set(get_available_parsers())
 
         if engines is None:
@@ -615,11 +616,11 @@ class SearchEngineConfigManager:
     ) -> str | None:
         """
         Get operator syntax for an engine.
-        
+
         Args:
             operator: Operator type (site, filetype, intitle, etc.).
             engine: Target engine (None for default).
-            
+
         Returns:
             Operator template string or None if not supported.
         """
@@ -641,10 +642,10 @@ class SearchEngineConfigManager:
     def get_supported_operators(self, engine: str) -> list[str]:
         """
         Get list of operators supported by an engine.
-        
+
         Args:
             engine: Engine name.
-            
+
         Returns:
             List of supported operator names.
         """
@@ -664,10 +665,10 @@ class SearchEngineConfigManager:
     def get_direct_sources(self, category: str | None = None) -> list[DirectSource]:
         """
         Get direct source configurations.
-        
+
         Args:
             category: Filter by category (None for all).
-            
+
         Returns:
             List of DirectSource objects.
         """
@@ -678,22 +679,24 @@ class SearchEngineConfigManager:
                 continue
 
             for source_schema in source_list:
-                sources.append(DirectSource(
-                    domain=source_schema.domain,
-                    priority=source_schema.priority,
-                    search_url=source_schema.search_url,
-                    category=cat,
-                ))
+                sources.append(
+                    DirectSource(
+                        domain=source_schema.domain,
+                        priority=source_schema.priority,
+                        search_url=source_schema.search_url,
+                        category=cat,
+                    )
+                )
 
         return sources
 
     def get_direct_source_for_domain(self, domain: str) -> DirectSource | None:
         """
         Get direct source config for a domain.
-        
+
         Args:
             domain: Domain name to look up.
-            
+
         Returns:
             DirectSource or None if not found.
         """
@@ -732,11 +735,11 @@ class SearchEngineConfigManager:
     ) -> list[EngineConfig]:
         """
         Get engines sorted by priority.
-        
+
         Args:
             max_priority: Maximum priority level to include (1=highest).
             category: Optional category filter.
-            
+
         Returns:
             List of engine configs sorted by priority.
         """
@@ -774,7 +777,7 @@ class SearchEngineConfigManager:
     def update_engine_usage(self, name: str, increment: int = 1) -> None:
         """
         Update daily usage count for an engine.
-        
+
         Args:
             name: Engine name.
             increment: Usage increment.
@@ -804,7 +807,7 @@ _manager_lock = threading.Lock()
 def get_engine_config_manager(**kwargs) -> SearchEngineConfigManager:
     """
     Get the singleton SearchEngineConfigManager instance.
-    
+
     Usage:
         manager = get_engine_config_manager()
         config = manager.get_engine("duckduckgo")
@@ -832,6 +835,7 @@ def reset_engine_config_manager() -> None:
 # Convenience functions for common operations
 # =============================================================================
 
+
 def get_engine_config(name: str) -> EngineConfig | None:
     """Get configuration for an engine (convenience function)."""
     return get_engine_config_manager().get_engine(name)
@@ -850,4 +854,3 @@ def get_engine_operator_mapping(operator: str, engine: str | None = None) -> str
 def is_search_engine_available(name: str) -> bool:
     """Check if a search engine is available (convenience function)."""
     return get_engine_config_manager().is_engine_available(name)
-

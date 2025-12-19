@@ -29,6 +29,7 @@ from src.crawler.robots import (
 # RobotsRule Tests
 # =============================================================================
 
+
 class TestRobotsRule:
     """Tests for RobotsRule dataclass."""
 
@@ -61,6 +62,7 @@ class TestRobotsRule:
 # =============================================================================
 # SitemapEntry Tests
 # =============================================================================
+
 
 class TestSitemapEntry:
     """Tests for SitemapEntry dataclass."""
@@ -108,6 +110,7 @@ class TestSitemapEntry:
 # SitemapResult Tests
 # =============================================================================
 
+
 class TestSitemapResult:
     """Tests for SitemapResult dataclass."""
 
@@ -133,8 +136,7 @@ class TestSitemapResult:
     def test_get_priority_urls_limit(self):
         """Limit should be respected."""
         entries = [
-            SitemapEntry(loc=f"https://example.com/page{i}", priority=0.8)
-            for i in range(10)
+            SitemapEntry(loc=f"https://example.com/page{i}", priority=0.8) for i in range(10)
         ]
         result = SitemapResult(domain="example.com", entries=entries)
         urls = result.get_priority_urls(limit=3)
@@ -157,6 +159,7 @@ class TestSitemapResult:
 # =============================================================================
 # RobotsChecker Tests
 # =============================================================================
+
 
 class TestRobotsChecker:
     """Tests for RobotsChecker class."""
@@ -247,8 +250,12 @@ Disallow: /admin/  # inline comment
 
         assert rules.domain == "example.com"
         # Inline comment should be stripped, leaving just /admin/
-        assert "/admin/" in rules.disallowed_paths, "Expected /admin/ to be parsed with inline comment stripped"
-        assert len(rules.disallowed_paths) == 1, f"Expected exactly 1 disallowed path, got {len(rules.disallowed_paths)}"
+        assert "/admin/" in rules.disallowed_paths, (
+            "Expected /admin/ to be parsed with inline comment stripped"
+        )
+        assert len(rules.disallowed_paths) == 1, (
+            f"Expected exactly 1 disallowed path, got {len(rules.disallowed_paths)}"
+        )
 
     @pytest.mark.asyncio
     async def test_can_fetch_allowed(self):
@@ -311,6 +318,7 @@ Disallow: /admin/  # inline comment
 # =============================================================================
 # SitemapParser Tests
 # =============================================================================
+
 
 class TestSitemapParser:
     """Tests for SitemapParser class."""
@@ -389,6 +397,7 @@ class TestSitemapParser:
 # RobotsManager Tests
 # =============================================================================
 
+
 class TestRobotsManager:
     """Tests for RobotsManager integration class."""
 
@@ -439,6 +448,7 @@ class TestRobotsManager:
 # MCP Tool Function Tests
 # =============================================================================
 
+
 class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
@@ -450,10 +460,12 @@ class TestMCPToolFunctions:
             mock_manager = MagicMock()
             mock_manager.can_fetch = AsyncMock(return_value=True)
             mock_manager.get_effective_delay = AsyncMock(return_value=2.0)
-            mock_manager.get_robots_info = AsyncMock(return_value={
-                "domain": "example.com",
-                "found": True,
-            })
+            mock_manager.get_robots_info = AsyncMock(
+                return_value={
+                    "domain": "example.com",
+                    "found": True,
+                }
+            )
             mock_get_manager.return_value = mock_manager
 
             result = await check_robots_compliance("https://example.com/page")
@@ -468,10 +480,12 @@ class TestMCPToolFunctions:
         """get_sitemap_urls should return URL list."""
         with patch("src.crawler.robots.get_robots_manager") as mock_get_manager:
             mock_manager = MagicMock()
-            mock_manager.get_priority_urls = AsyncMock(return_value=[
-                ("https://example.com/high", 0.9),
-                ("https://example.com/mid", 0.6),
-            ])
+            mock_manager.get_priority_urls = AsyncMock(
+                return_value=[
+                    ("https://example.com/high", 0.9),
+                    ("https://example.com/mid", 0.6),
+                ]
+            )
             mock_get_manager.return_value = mock_manager
 
             result = await get_sitemap_urls("example.com", limit=10)
@@ -486,11 +500,13 @@ class TestMCPToolFunctions:
         """Keywords should filter URLs."""
         with patch("src.crawler.robots.get_robots_manager") as mock_get_manager:
             mock_manager = MagicMock()
-            mock_manager.get_priority_urls = AsyncMock(return_value=[
-                ("https://example.com/docs/api", 0.9),
-                ("https://example.com/blog/post", 0.8),
-                ("https://example.com/docs/guide", 0.7),
-            ])
+            mock_manager.get_priority_urls = AsyncMock(
+                return_value=[
+                    ("https://example.com/docs/api", 0.9),
+                    ("https://example.com/blog/post", 0.8),
+                    ("https://example.com/docs/guide", 0.7),
+                ]
+            )
             mock_get_manager.return_value = mock_manager
 
             result = await get_sitemap_urls(
@@ -507,6 +523,7 @@ class TestMCPToolFunctions:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Edge case tests."""
@@ -534,8 +551,12 @@ Sitemap: https://example.com/sitemap.xml
         # Without User-agent, rules may not apply to disallow
         assert rules.domain == "example.com"
         # Sitemap should be extracted (it's a global directive)
-        assert "https://example.com/sitemap.xml" in rules.sitemap_urls, "Expected sitemap URL to be extracted"
-        assert len(rules.sitemap_urls) == 1, f"Expected exactly 1 sitemap URL, got {len(rules.sitemap_urls)}"
+        assert "https://example.com/sitemap.xml" in rules.sitemap_urls, (
+            "Expected sitemap URL to be extracted"
+        )
+        assert len(rules.sitemap_urls) == 1, (
+            f"Expected exactly 1 sitemap URL, got {len(rules.sitemap_urls)}"
+        )
 
     def test_sitemap_entry_score_old_content(self):
         """Old content should not get recency boost."""
@@ -554,4 +575,3 @@ Sitemap: https://example.com/sitemap.xml
     def test_path_matches_root(self):
         """Root pattern should match all."""
         assert RobotsChecker._path_matches("/any/path", "/")
-

@@ -63,7 +63,12 @@ VERTICAL_TEMPLATES = {
     "academic": TemplateInfo(
         name="academic",
         description="学術・研究資料向けテンプレート",
-        example_operators=["site:arxiv.org", "site:pubmed.gov", "filetype:pdf", "site:jstage.jst.go.jp"],
+        example_operators=[
+            "site:arxiv.org",
+            "site:pubmed.gov",
+            "filetype:pdf",
+            "site:jstage.jst.go.jp",
+        ],
         recommended_engines=["duckduckgo", "qwant"],
     ),
     "government": TemplateInfo(
@@ -132,11 +137,11 @@ class RegistryInfo:
 class ResearchContext:
     """
     Provides design support information for Cursor AI.
-    
+
     This class extracts entities, suggests applicable templates,
     and retrieves past query success rates. It does NOT generate
     subquery candidates - that responsibility belongs to Cursor AI.
-    
+
     Registry integration (§3.1.2, §3.1.3):
     - RDAP/WHOIS lookups for domain entities
     - Certificate transparency (crt.sh) for domain discovery
@@ -144,7 +149,7 @@ class ResearchContext:
 
     def __init__(self, task_id: str, fetcher: Any = None):
         """Initialize research context for a task.
-        
+
         Args:
             task_id: The task ID to provide context for.
             fetcher: Optional URL fetcher for registry lookups.
@@ -173,7 +178,7 @@ class ResearchContext:
     async def get_context(self) -> dict[str, Any]:
         """
         Get design support information for Cursor AI.
-        
+
         Returns:
             Dictionary containing:
             - original_query: The research question
@@ -185,7 +190,7 @@ class ResearchContext:
             - pivot_suggestions: Pivot exploration suggestions (§3.1.1)
             - registry_info: Domain registry data (WHOIS/RDAP/CT) (§3.1.2)
             - notes: Additional hints for Cursor AI
-            
+
         Note:
             This does NOT include subquery candidates.
             Cursor AI designs subqueries using this information.
@@ -248,7 +253,7 @@ class ResearchContext:
     async def _extract_entities(self) -> list[EntityInfo]:
         """
         Extract entities from the original query.
-        
+
         Uses simple pattern matching. For production, consider
         using a proper NER model via the local LLM.
         """
@@ -263,11 +268,13 @@ class ResearchContext:
                         if isinstance(match, tuple):
                             match = match[0]
                         if len(match) > 2:  # Filter very short matches
-                            entities.append(EntityInfo(
-                                text=match,
-                                entity_type=entity_type,
-                                context=query,
-                            ))
+                            entities.append(
+                                EntityInfo(
+                                    text=match,
+                                    entity_type=entity_type,
+                                    context=query,
+                                )
+                            )
                 except re.error:
                     continue
 
@@ -289,12 +296,31 @@ class ResearchContext:
         query_lower = self._original_query.lower()
 
         # Academic indicators
-        academic_keywords = ["研究", "論文", "学術", "研究", "paper", "study", "research", "journal"]
+        academic_keywords = [
+            "研究",
+            "論文",
+            "学術",
+            "研究",
+            "paper",
+            "study",
+            "research",
+            "journal",
+        ]
         if any(kw in query_lower for kw in academic_keywords):
             templates.append(VERTICAL_TEMPLATES["academic"])
 
         # Government indicators
-        gov_keywords = ["政府", "省", "庁", "官", "法律", "規制", "government", "regulation", "policy"]
+        gov_keywords = [
+            "政府",
+            "省",
+            "庁",
+            "官",
+            "法律",
+            "規制",
+            "government",
+            "regulation",
+            "policy",
+        ]
         if any(kw in query_lower for kw in gov_keywords):
             templates.append(VERTICAL_TEMPLATES["government"])
 
@@ -304,7 +330,16 @@ class ResearchContext:
             templates.append(VERTICAL_TEMPLATES["corporate"])
 
         # Technical indicators
-        tech_keywords = ["技術", "仕様", "規格", "プロトコル", "API", "specification", "protocol", "standard"]
+        tech_keywords = [
+            "技術",
+            "仕様",
+            "規格",
+            "プロトコル",
+            "API",
+            "specification",
+            "protocol",
+            "standard",
+        ]
         if any(kw in query_lower for kw in tech_keywords):
             templates.append(VERTICAL_TEMPLATES["technical"])
 
@@ -345,15 +380,18 @@ class ResearchContext:
                 if pq.get("engines_used"):
                     try:
                         import json
+
                         engines = json.loads(pq["engines_used"])
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                results.append(PastQueryInfo(
-                    query=query_text,
-                    harvest_rate=pq.get("harvest_rate", 0),
-                    success_engines=engines,
-                ))
+                results.append(
+                    PastQueryInfo(
+                        query=query_text,
+                        harvest_rate=pq.get("harvest_rate", 0),
+                        success_engines=engines,
+                    )
+                )
 
         return results[:5]  # Limit to top 5
 
@@ -428,7 +466,7 @@ class ResearchContext:
         notes = []
 
         if entities:
-            entity_types = set(e.entity_type for e in entities)
+            entity_types = {e.entity_type for e in entities}
             if "organization" in entity_types:
                 notes.append("組織名が検出されました。IR情報や公式サイトの検索が有効です。")
             if "location" in entity_types:
@@ -448,15 +486,15 @@ class ResearchContext:
     ) -> list[dict[str, Any]]:
         """
         Generate pivot exploration suggestions for entities.
-        
+
         Implements §3.1.1 pivot exploration patterns:
         - Organization → subsidiaries, officers, location, domain
         - Domain → subdomain, certificate SAN, organization
         - Person → aliases, handles, affiliations
-        
+
         Args:
             entities: List of extracted entities.
-            
+
         Returns:
             List of pivot suggestion dictionaries.
         """
@@ -501,14 +539,14 @@ class ResearchContext:
     ) -> list[dict[str, Any]]:
         """
         Get registry information for domain entities.
-        
+
         Implements §3.1.2 infrastructure/registry integration:
         - RDAP/WHOIS for domain registration data
         - crt.sh for certificate transparency / SAN discovery
-        
+
         Args:
             entities: List of extracted entities.
-            
+
         Returns:
             List of registry info dictionaries.
         """
@@ -518,8 +556,7 @@ class ResearchContext:
 
         # Find domain entities
         domain_entities = [
-            e for e in entities
-            if e.entity_type == "domain" or self._looks_like_domain(e.text)
+            e for e in entities if e.entity_type == "domain" or self._looks_like_domain(e.text)
         ]
 
         if not domain_entities:
@@ -581,44 +618,47 @@ class ResearchContext:
 
             # Only include if we got some data
             if info.registrar or info.discovered_domains:
-                results.append({
-                    "domain": info.domain,
-                    "registrar": info.registrar,
-                    "registrant_org": info.registrant_org,
-                    "registrant_country": info.registrant_country,
-                    "nameservers": info.nameservers,
-                    "created_date": info.created_date,
-                    "updated_date": info.updated_date,
-                    "expiry_date": info.expiry_date,
-                    "discovered_domains": info.discovered_domains,
-                    "discovered_issuers": info.discovered_issuers,
-                    "cert_timeline_start": info.cert_timeline_start,
-                    "cert_timeline_end": info.cert_timeline_end,
-                    "source": info.source,
-                })
+                results.append(
+                    {
+                        "domain": info.domain,
+                        "registrar": info.registrar,
+                        "registrant_org": info.registrant_org,
+                        "registrant_country": info.registrant_country,
+                        "nameservers": info.nameservers,
+                        "created_date": info.created_date,
+                        "updated_date": info.updated_date,
+                        "expiry_date": info.expiry_date,
+                        "discovered_domains": info.discovered_domains,
+                        "discovered_issuers": info.discovered_issuers,
+                        "cert_timeline_start": info.cert_timeline_start,
+                        "cert_timeline_end": info.cert_timeline_end,
+                        "source": info.source,
+                    }
+                )
 
         return results
 
     def _looks_like_domain(self, text: str) -> bool:
         """Check if text looks like a domain name.
-        
+
         Args:
             text: Text to check.
-            
+
         Returns:
             True if text appears to be a domain.
         """
         import re
+
         # Simple domain pattern: at least one dot, valid characters
         pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$"
         return bool(re.match(pattern, text.lower()))
 
     def _normalize_domain(self, text: str) -> str | None:
         """Normalize text to a domain name.
-        
+
         Args:
             text: Text that might be a domain or URL.
-            
+
         Returns:
             Normalized domain or None.
         """
@@ -640,9 +680,3 @@ class ResearchContext:
             return f"{ext.domain}.{ext.suffix}".lower()
 
         return None
-
-
-
-
-
-

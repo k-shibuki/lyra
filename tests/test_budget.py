@@ -61,7 +61,6 @@ Test quality: Follows §7.1 test code quality standards.
 | TC-INT-02 | LLM ratio enforcement | Integration – ratio | LLM restricted after threshold | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -576,10 +575,7 @@ class TestBudgetManager:
         assert budget.is_active is True
 
         # When: Stopping with TIME_LIMIT reason
-        await budget_manager.stop_budget(
-            "task-1",
-            BudgetExceededReason.TIME_LIMIT
-        )
+        await budget_manager.stop_budget("task-1", BudgetExceededReason.TIME_LIMIT)
 
         # Then: Budget inactive with reason
         assert budget.is_active is False
@@ -667,6 +663,7 @@ class TestConvenienceFunctions:
     def reset_global_manager(self):
         """Reset global budget manager between tests."""
         import src.scheduler.budget as budget_module
+
         budget_module._budget_manager = None
         yield
         budget_module._budget_manager = None
@@ -745,10 +742,7 @@ class TestConvenienceFunctions:
             assert budget.is_active is True
 
             # When: Stopping via convenience function
-            await stop_task_budget(
-                "task-1",
-                BudgetExceededReason.PAGE_LIMIT
-            )
+            await stop_task_budget("task-1", BudgetExceededReason.PAGE_LIMIT)
 
             # Then: Budget is inactive
             assert budget.is_active is False
@@ -830,7 +824,7 @@ class TestBudgetIntegrationScenarios:
                     "task-1",
                     record_page=True,
                 )
-                assert can_continue is True, f"should continue at page {i+1}"
+                assert can_continue is True, f"should continue at page {i + 1}"
 
             # Then: 5 pages recorded
             assert budget.pages_fetched == 5, "should have fetched 5 pages"
@@ -888,4 +882,3 @@ class TestBudgetIntegrationScenarios:
             # When: Trying to use 5s more (projected 18/56 = 0.32 > 0.30)
             # Then: Cannot run
             assert await manager.can_run_llm("task-1", 5.0) is False
-

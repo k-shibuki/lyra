@@ -45,7 +45,7 @@ _SENSITIVE_PATH_PATTERN = re.compile(
     r"\\\\src\\\\|"
     r'File "[^"]+"|'
     r"line \d+, in \w+",
-    re.IGNORECASE
+    re.IGNORECASE,
 )
 
 # Pattern for stack trace fragments
@@ -54,7 +54,7 @@ _STACK_TRACE_PATTERN = re.compile(
     r"^\s+File |"
     r"^\s+at \w+|"
     r"^\s+raise \w+",
-    re.MULTILINE
+    re.MULTILINE,
 )
 
 # Patterns that suggest LLM prompt content
@@ -65,15 +65,13 @@ _PROMPT_CONTENT_PATTERNS = [
     r"このタグ.*内の記述",
 ]
 
-_PROMPT_CONTENT_REGEX = re.compile(
-    "|".join(_PROMPT_CONTENT_PATTERNS),
-    re.IGNORECASE
-)
+_PROMPT_CONTENT_REGEX = re.compile("|".join(_PROMPT_CONTENT_PATTERNS), re.IGNORECASE)
 
 
 # ============================================================================
 # Enums
 # ============================================================================
+
 
 class SecurityEventType(Enum):
     """Types of security events for audit logging."""
@@ -100,6 +98,7 @@ class SecurityEventType(Enum):
 # ============================================================================
 # Data Classes
 # ============================================================================
+
 
 @dataclass
 class LLMIOSummary:
@@ -140,6 +139,7 @@ class SanitizedExceptionInfo:
 # ============================================================================
 # SecureLogger Class
 # ============================================================================
+
 
 class SecureLogger:
     """
@@ -397,6 +397,7 @@ class SecureLogger:
 # AuditLogger Class
 # ============================================================================
 
+
 class AuditLogger:
     """
     Security audit logger for recording detection events.
@@ -548,6 +549,7 @@ class AuditLogger:
 # Structlog Processor
 # ============================================================================
 
+
 def sanitize_log_processor(
     logger: Any,
     method_name: str,
@@ -625,4 +627,3 @@ def get_audit_logger() -> AuditLogger:
         _default_audit_logger = AuditLogger()
 
     return _default_audit_logger
-

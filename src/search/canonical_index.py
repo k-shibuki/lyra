@@ -20,7 +20,7 @@ class PaperIdentityResolver:
 
     def __init__(self, similarity_threshold: float = 0.9):
         """Initialize resolver.
-        
+
         Args:
             similarity_threshold: Title similarity threshold (0.0-1.0)
         """
@@ -29,10 +29,10 @@ class PaperIdentityResolver:
 
     def resolve_identity(self, paper: Paper) -> str:
         """Determine canonical ID for a paper.
-        
+
         Args:
             paper: Paper object
-            
+
         Returns:
             Canonical ID string
         """
@@ -62,14 +62,15 @@ class PaperIdentityResolver:
 
         # 4. Fallback (unique ID)
         import uuid
+
         return f"unknown:{uuid.uuid4().hex[:8]}"
 
     def resolve_identity_from_identifier(self, identifier: PaperIdentifier) -> str:
         """Determine canonical ID from PaperIdentifier.
-        
+
         Args:
             identifier: PaperIdentifier
-            
+
         Returns:
             Canonical ID string
         """
@@ -77,10 +78,10 @@ class PaperIdentityResolver:
 
     def _normalize_title(self, title: str) -> str:
         """Normalize title.
-        
+
         Args:
             title: Original title
-            
+
         Returns:
             Normalized title
         """
@@ -88,17 +89,17 @@ class PaperIdentityResolver:
             return ""
         # Lowercase, remove punctuation, remove articles, normalize whitespace
         title = title.lower()
-        title = re.sub(r'[^\w\s]', ' ', title)
-        title = re.sub(r'\b(the|a|an)\b', '', title)
-        title = re.sub(r'\s+', ' ', title).strip()
+        title = re.sub(r"[^\w\s]", " ", title)
+        title = re.sub(r"\b(the|a|an)\b", "", title)
+        title = re.sub(r"\s+", " ", title).strip()
         return title
 
     def _extract_first_author_surname(self, authors: list) -> str | None:
         """Extract first author's surname.
-        
+
         Args:
             authors: List of Author objects
-            
+
         Returns:
             Surname (lowercase) or None
         """
@@ -116,9 +117,9 @@ class PaperIdentityResolver:
             name = str(first_author)
 
         # "John Smith" -> "smith", "Smith, John" -> "smith"
-        if ',' in name:
+        if "," in name:
             # "Last, First" format → take the part before comma
-            surname = name.split(',')[0].strip()
+            surname = name.split(",")[0].strip()
         else:
             # "First Last" format → take the last word
             parts = name.split()
@@ -128,10 +129,10 @@ class PaperIdentityResolver:
 
     def _find_similar_title(self, normalized_title: str) -> str | None:
         """Find similar title (Jaccard coefficient).
-        
+
         Args:
             normalized_title: Normalized title
-            
+
         Returns:
             Existing canonical ID or None
         """
@@ -154,7 +155,7 @@ class CanonicalPaperIndex:
 
     def __init__(self, similarity_threshold: float = 0.9):
         """Initialize index.
-        
+
         Args:
             similarity_threshold: Title similarity threshold
         """
@@ -169,11 +170,11 @@ class CanonicalPaperIndex:
 
     def register_paper(self, paper: Paper, source_api: str) -> str:
         """Register a paper from academic API.
-        
+
         Args:
             paper: Paper object
             source_api: Source API name
-            
+
         Returns:
             Canonical ID
         """
@@ -189,7 +190,9 @@ class CanonicalPaperIndex:
             elif entry.source == "api":
                 # Same paper from multiple APIs, keep existing (priority controlled by caller)
                 pass
-            logger.debug("Paper already registered", canonical_id=canonical_id, source_api=source_api)
+            logger.debug(
+                "Paper already registered", canonical_id=canonical_id, source_api=source_api
+            )
         else:
             # Register new entry
             self._index[canonical_id] = CanonicalEntry(
@@ -208,16 +211,17 @@ class CanonicalPaperIndex:
         identifier: PaperIdentifier | None = None,
     ) -> str:
         """Register a SERP result.
-        
+
         Args:
             serp_result: SearchResult object
             identifier: Extracted PaperIdentifier (optional)
-            
+
         Returns:
             Canonical ID
         """
         if identifier is None:
             from src.search.identifier_extractor import IdentifierExtractor
+
             extractor = IdentifierExtractor()
             identifier = extractor.extract(serp_result.url)
 
@@ -242,13 +246,15 @@ class CanonicalPaperIndex:
 
         return canonical_id
 
-    def find_by_title_similarity(self, normalized_title: str, threshold: float = 0.9) -> CanonicalEntry | None:
+    def find_by_title_similarity(
+        self, normalized_title: str, threshold: float = 0.9
+    ) -> CanonicalEntry | None:
         """Find entry by title similarity.
-        
+
         Args:
             normalized_title: Normalized title
             threshold: Similarity threshold
-            
+
         Returns:
             CanonicalEntry or None
         """
@@ -259,7 +265,7 @@ class CanonicalPaperIndex:
 
     def get_all_entries(self) -> list[CanonicalEntry]:
         """Get all entries.
-        
+
         Returns:
             List of CanonicalEntry
         """
@@ -267,7 +273,7 @@ class CanonicalPaperIndex:
 
     def get_stats(self) -> dict[str, int]:
         """Get statistics.
-        
+
         Returns:
             Statistics dictionary
         """

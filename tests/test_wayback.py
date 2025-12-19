@@ -94,6 +94,7 @@ SAMPLE_HTML_V2 = """
 # Snapshot Tests
 # =============================================================================
 
+
 class TestSnapshot:
     """Tests for Snapshot dataclass."""
 
@@ -143,6 +144,7 @@ class TestSnapshot:
 # =============================================================================
 # ContentDiff Tests
 # =============================================================================
+
 
 class TestContentDiff:
     """Tests for ContentDiff dataclass."""
@@ -233,6 +235,7 @@ class TestContentDiff:
 # WaybackResult Tests
 # =============================================================================
 
+
 class TestWaybackResult:
     """Tests for WaybackResult dataclass."""
 
@@ -257,12 +260,13 @@ class TestWaybackResult:
 # ContentAnalyzer Tests
 # =============================================================================
 
+
 class TestContentAnalyzer:
     """Tests for ContentAnalyzer class."""
 
     def test_extract_text(self):
         """Should extract main text content.
-        
+
         SAMPLE_HTML_V1 contains article with 'Main Title' and 'original content'.
         Navigation text is in <header><nav> and should be excluded.
         """
@@ -273,7 +277,9 @@ class TestContentAnalyzer:
         assert "Main Title" in text, "Expected 'Main Title' in extracted text"
         assert "original content" in text, "Expected 'original content' in extracted text"
         # Navigation content should be excluded (trafilatura filters nav elements)
-        assert "Navigation" not in text, "Expected 'Navigation' to be excluded from article extraction"
+        assert "Navigation" not in text, (
+            "Expected 'Navigation' to be excluded from article extraction"
+        )
 
     def test_extract_headings(self):
         """Should extract all headings."""
@@ -303,27 +309,33 @@ class TestContentAnalyzer:
 
     def test_compare_detects_changes(self):
         """Should detect differences between versions.
-        
+
         SAMPLE_HTML_V1 has 'Main Title' while V2 has 'Main Title Updated'.
         SAMPLE_HTML_V1 has 'Section Two' while V2 has 'Section Three'.
         """
         analyzer = ContentAnalyzer()
 
         old_snap = Snapshot(
-            url="", original_url="",
+            url="",
+            original_url="",
             timestamp=datetime(2023, 1, 1, tzinfo=UTC),
         )
         new_snap = Snapshot(
-            url="", original_url="",
+            url="",
+            original_url="",
             timestamp=datetime(2024, 1, 1, tzinfo=UTC),
         )
 
         diff = analyzer.compare(SAMPLE_HTML_V1, SAMPLE_HTML_V2, old_snap, new_snap)
 
         # V1 and V2 have different content - similarity should be below 1.0
-        assert diff.similarity_ratio < 1.0, f"Expected similarity < 1.0 for different content, got {diff.similarity_ratio}"
+        assert diff.similarity_ratio < 1.0, (
+            f"Expected similarity < 1.0 for different content, got {diff.similarity_ratio}"
+        )
         # Heading changed from 'Main Title' to 'Main Title Updated' and 'Section Two' to 'Section Three'
-        assert len(diff.heading_changes) >= 1, f"Expected at least 1 heading change, got {len(diff.heading_changes)}"
+        assert len(diff.heading_changes) >= 1, (
+            f"Expected at least 1 heading change, got {len(diff.heading_changes)}"
+        )
 
     def test_compare_identical(self):
         """Identical content should have high similarity."""
@@ -352,6 +364,7 @@ class TestContentAnalyzer:
 # WaybackClient Tests
 # =============================================================================
 
+
 class TestWaybackClient:
     """Tests for WaybackClient class."""
 
@@ -377,6 +390,7 @@ class TestWaybackClient:
 # =============================================================================
 # WaybackBudgetManager Tests
 # =============================================================================
+
 
 class TestWaybackBudgetManager:
     """Tests for WaybackBudgetManager class."""
@@ -426,6 +440,7 @@ class TestWaybackBudgetManager:
 # WaybackExplorer Tests
 # =============================================================================
 
+
 class TestWaybackExplorer:
     """Tests for WaybackExplorer class."""
 
@@ -434,7 +449,7 @@ class TestWaybackExplorer:
         """Should handle no snapshots gracefully."""
         explorer = WaybackExplorer()
 
-        with patch.object(explorer._client, 'get_snapshots', new_callable=AsyncMock) as mock_get:
+        with patch.object(explorer._client, "get_snapshots", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = []
 
             result = await explorer.explore("https://example.com/page")
@@ -453,10 +468,12 @@ class TestWaybackExplorer:
             timestamp=datetime(2023, 1, 1, tzinfo=UTC),
         )
 
-        with patch.object(explorer._client, 'get_snapshots', new_callable=AsyncMock) as mock_get:
+        with patch.object(explorer._client, "get_snapshots", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = [archived_snapshot]
 
-            with patch.object(explorer._client, 'fetch_snapshot', new_callable=AsyncMock) as mock_fetch:
+            with patch.object(
+                explorer._client, "fetch_snapshot", new_callable=AsyncMock
+            ) as mock_fetch:
                 mock_fetch.return_value = SAMPLE_HTML_V1
 
                 has_changes = await explorer.check_content_changes(
@@ -471,6 +488,7 @@ class TestWaybackExplorer:
 # MCP Tool Function Tests
 # =============================================================================
 
+
 class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
@@ -479,11 +497,13 @@ class TestMCPToolFunctions:
         """explore_wayback should return structured result."""
         with patch("src.crawler.wayback.get_wayback_explorer") as mock_get:
             mock_explorer = MagicMock()
-            mock_explorer.explore = AsyncMock(return_value=WaybackResult(
-                url="https://example.com/page",
-                snapshots_found=3,
-                snapshots_fetched=3,
-            ))
+            mock_explorer.explore = AsyncMock(
+                return_value=WaybackResult(
+                    url="https://example.com/page",
+                    snapshots_found=3,
+                    snapshots_fetched=3,
+                )
+            )
             mock_get.return_value = mock_explorer
 
             result = await explore_wayback("https://example.com/page")
@@ -551,6 +571,7 @@ class TestMCPToolFunctions:
 # Edge Cases
 # =============================================================================
 
+
 class TestEdgeCases:
     """Edge case tests."""
 
@@ -566,7 +587,7 @@ class TestEdgeCases:
 
     def test_malformed_html(self):
         """Should handle malformed HTML without raising exceptions.
-        
+
         Malformed HTML with unclosed tags should be handled gracefully.
         """
         analyzer = ContentAnalyzer()
@@ -610,4 +631,3 @@ class TestEdgeCases:
 
         # task2 budget should be unchanged
         assert manager._task_budgets["task2"] == int(200 * WAYBACK_BUDGET_RATIO)
-

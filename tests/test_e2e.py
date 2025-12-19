@@ -53,9 +53,10 @@ pytestmark = pytest.mark.e2e
 # Service Availability Checks
 # =============================================================================
 
+
 async def is_browser_search_available() -> bool:
     """Check if browser-based search is available.
-    
+
     Returns True only if:
     - Playwright is installed
     - A display is available (for headed mode) or headless mode is configured
@@ -70,6 +71,7 @@ async def is_browser_search_available() -> bool:
 
         # Check if Playwright is available
         from playwright.async_api import async_playwright
+
         return True
     except ImportError:
         return False
@@ -77,7 +79,7 @@ async def is_browser_search_available() -> bool:
 
 async def is_ollama_available() -> bool:
     """Check if Ollama is available.
-    
+
     Per Phase O: In hybrid mode, Ollama is accessed via proxy server.
     Uses the same connection method as OllamaProvider (proxy_url/ollama).
     """
@@ -94,8 +96,7 @@ async def is_ollama_available() -> bool:
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                f"{ollama_url}/api/tags",
-                timeout=aiohttp.ClientTimeout(total=5)
+                f"{ollama_url}/api/tags", timeout=aiohttp.ClientTimeout(total=5)
             ) as resp:
                 return resp.status == 200
     except Exception:
@@ -138,17 +139,18 @@ async def check_ollama():
 # E2E Test 1: Browser Search → Fetch → Extract → Report Pipeline
 # =============================================================================
 
+
 @pytest.mark.e2e
 class TestSearchToReportPipeline:
     """
     E2E test for the complete research pipeline.
-    
+
     Verifies §3.1-§3.4 requirements:
     - Search execution via browser-based search
     - URL fetching with rate limiting
     - Content extraction from HTML
     - Report material generation
-    
+
     Requirements:
     - Display available or LANCET_HEADLESS=true
     - Network access for URL fetching
@@ -158,7 +160,7 @@ class TestSearchToReportPipeline:
     async def test_search_returns_results(self, check_browser_search, e2e_database):
         """
         Verify browser-based search returns normalized results.
-        
+
         Tests §3.2.1 search_serp tool:
         - Query execution with real browser search
         - Result normalization (title, url, snippet, engine, rank)
@@ -186,8 +188,9 @@ class TestSearchToReportPipeline:
         for field in required_fields:
             assert field in first_result, f"Missing required field: {field}"
 
-        assert first_result["url"].startswith(("http://", "https://")), \
+        assert first_result["url"].startswith(("http://", "https://")), (
             f"Invalid URL: {first_result['url']}"
+        )
 
         print(f"\n[E2E] Search returned {len(results)} results")
         print(f"[E2E] First result: {first_result['title'][:50]}...")
@@ -196,7 +199,7 @@ class TestSearchToReportPipeline:
     async def test_fetch_and_extract_content(self, check_browser_search, e2e_database):
         """
         Verify URL fetching and content extraction.
-        
+
         Tests §3.2 fetch_url and §3.3 extract_content:
         - HTTP fetching with rate limiting
         - Content extraction from HTML
@@ -249,7 +252,7 @@ class TestSearchToReportPipeline:
     async def test_full_pipeline_simulation(self, check_browser_search, e2e_database):
         """
         Simulate a complete research pipeline.
-        
+
         Tests the flow: Search → Fetch → Extract → Store
         Verifies §3.1.7 exploration control and §3.3 filtering.
         """
@@ -316,16 +319,14 @@ class TestSearchToReportPipeline:
     async def test_report_materials_generation(self, check_browser_search, e2e_database):
         """
         Test report materials can be generated from research data.
-        
+
         Verifies §3.4 and §3.2.1 get_report_materials.
         Note: This tests data structure, not Cursor AI composition.
         """
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
         # Given: A task with claims and supporting fragments
-        task_id = await e2e_database.create_task(
-            query="E2E test query for report generation"
-        )
+        task_id = await e2e_database.create_task(query="E2E test query for report generation")
 
         graph = EvidenceGraph(task_id=task_id)
 
@@ -350,8 +351,10 @@ class TestSearchToReportPipeline:
         )
 
         graph.add_edge(
-            NodeType.FRAGMENT, "frag_1",
-            NodeType.CLAIM, "claim_1",
+            NodeType.FRAGMENT,
+            "frag_1",
+            NodeType.CLAIM,
+            "claim_1",
             RelationType.SUPPORTS,
             confidence=0.92,
         )
@@ -376,16 +379,17 @@ class TestSearchToReportPipeline:
 # E2E Test 2: Authentication Queue → Manual Intervention → Resume
 # =============================================================================
 
+
 @pytest.mark.e2e
 class TestAuthenticationQueueFlow:
     """
     E2E test for the authentication queue and intervention flow.
-    
+
     Per RFC_AUTH_QUEUE_DOMAIN_BASED:
     - Authentication is domain-centric (one auth resolves all URLs for that domain)
     - Queue is grouped by domain for efficient batch processing
     - Session reuse is per-domain
-    
+
     This test simulates the semi-automatic operation mode where
     authentication challenges are queued for batch processing.
     """
@@ -393,16 +397,14 @@ class TestAuthenticationQueueFlow:
     @pytest_asyncio.fixture(autouse=True)
     async def cleanup_queue(self, e2e_database):
         """Clear intervention_queue before each test to ensure isolation."""
-        await e2e_database.execute(
-            "DELETE FROM intervention_queue WHERE 1=1"
-        )
+        await e2e_database.execute("DELETE FROM intervention_queue WHERE 1=1")
         yield
 
     @pytest.mark.asyncio
     async def test_enqueue_authentication(self, e2e_database):
         """
         Test enqueueing authentication challenges.
-        
+
         Verifies queue item creation with priority and domain tracking.
         """
         from src.utils.notification import InterventionQueue
@@ -453,7 +455,7 @@ class TestAuthenticationQueueFlow:
     async def test_get_pending_by_domain(self, e2e_database):
         """
         Test retrieving pending authentications grouped by domain.
-        
+
         Per RFC_AUTH_QUEUE_DOMAIN_BASED:
         - Results are grouped by domain
         - Each domain shows affected_tasks, pending_count, high_priority_count
@@ -494,12 +496,8 @@ class TestAuthenticationQueueFlow:
 
         # Then: Results are correctly grouped with counts
         assert result["ok"] is True
-        assert result["total_domains"] == 2, (
-            f"Expected 2 domains, got {result['total_domains']}"
-        )
-        assert result["total_pending"] == 3, (
-            f"Expected 3 pending, got {result['total_pending']}"
-        )
+        assert result["total_domains"] == 2, f"Expected 2 domains, got {result['total_domains']}"
+        assert result["total_pending"] == 3, f"Expected 3 pending, got {result['total_pending']}"
 
         go_jp = next((d for d in result["domains"] if d["domain"] == "protected.go.jp"), None)
         assert go_jp is not None, "protected.go.jp should be in domains"
@@ -509,15 +507,17 @@ class TestAuthenticationQueueFlow:
 
         print("\n[E2E] Pending by domain:")
         for d in result["domains"]:
-            print(f"[E2E]   {d['domain']}: {d['pending_count']} pending, "
-                  f"{d['high_priority_count']} high priority, "
-                  f"tasks: {d['affected_tasks']}")
+            print(
+                f"[E2E]   {d['domain']}: {d['pending_count']} pending, "
+                f"{d['high_priority_count']} high priority, "
+                f"tasks: {d['affected_tasks']}"
+            )
 
     @pytest.mark.asyncio
     async def test_complete_authentication_single_item(self, e2e_database):
         """
         Test completing a single authentication item.
-        
+
         Verifies single-item complete (legacy API).
         """
         from src.utils.notification import InterventionQueue
@@ -560,7 +560,7 @@ class TestAuthenticationQueueFlow:
     async def test_complete_domain_resolves_multiple_tasks(self, e2e_database):
         """
         Test domain-based authentication completion.
-        
+
         Per RFC_AUTH_QUEUE_DOMAIN_BASED:
         - One auth resolves all pending URLs for that domain
         - Returns affected_tasks list
@@ -613,8 +613,7 @@ class TestAuthenticationQueueFlow:
         # Then: No more pending items for that domain
         pending = await queue.get_pending_by_domain()
         protected_domain = next(
-            (d for d in pending["domains"] if d["domain"] == "protected.gov"),
-            None
+            (d for d in pending["domains"] if d["domain"] == "protected.gov"), None
         )
         assert protected_domain is None, "protected.gov should have no pending items"
 
@@ -625,7 +624,7 @@ class TestAuthenticationQueueFlow:
     async def test_skip_by_queue_ids(self, e2e_database):
         """
         Test skipping specific queue items.
-        
+
         Per RFC_AUTH_QUEUE_DOMAIN_BASED:
         - skip(queue_ids=[...]) skips only those items
         """
@@ -672,7 +671,7 @@ class TestAuthenticationQueueFlow:
     async def test_skip_by_domain(self, e2e_database):
         """
         Test skipping all items for a domain.
-        
+
         Per RFC_AUTH_QUEUE_DOMAIN_BASED:
         - skip(domain=...) skips all pending for that domain
         """
@@ -722,7 +721,7 @@ class TestAuthenticationQueueFlow:
     async def test_pending_count_and_summary(self, e2e_database):
         """
         Test getting pending count for exploration status.
-        
+
         Verifies §3.6.1 integration with get_exploration_status:
         - Pending count by priority
         - High priority count for alerts
@@ -735,14 +734,34 @@ class TestAuthenticationQueueFlow:
 
         task_id = await e2e_database.create_task(query="E2E pending count test")
 
-        await queue.enqueue(task_id=task_id, url="https://h1.go.jp/",
-                           domain="h1.go.jp", auth_type="cloudflare", priority="high")
-        await queue.enqueue(task_id=task_id, url="https://h2.go.jp/",
-                           domain="h2.go.jp", auth_type="cloudflare", priority="high")
-        await queue.enqueue(task_id=task_id, url="https://m1.example.com/",
-                           domain="m1.example.com", auth_type="captcha", priority="medium")
-        await queue.enqueue(task_id=task_id, url="https://l1.example.com/",
-                           domain="l1.example.com", auth_type="captcha", priority="low")
+        await queue.enqueue(
+            task_id=task_id,
+            url="https://h1.go.jp/",
+            domain="h1.go.jp",
+            auth_type="cloudflare",
+            priority="high",
+        )
+        await queue.enqueue(
+            task_id=task_id,
+            url="https://h2.go.jp/",
+            domain="h2.go.jp",
+            auth_type="cloudflare",
+            priority="high",
+        )
+        await queue.enqueue(
+            task_id=task_id,
+            url="https://m1.example.com/",
+            domain="m1.example.com",
+            auth_type="captcha",
+            priority="medium",
+        )
+        await queue.enqueue(
+            task_id=task_id,
+            url="https://l1.example.com/",
+            domain="l1.example.com",
+            auth_type="captcha",
+            priority="low",
+        )
 
         # When: Get pending count summary
         counts = await queue.get_pending_count(task_id=task_id)
@@ -758,14 +777,16 @@ class TestAuthenticationQueueFlow:
         assert counts["high"] >= 2, "Should trigger critical due to high priority count"
 
         print("\n[E2E] Pending count summary:")
-        print(f"[E2E] Total: {counts['total']}, High: {counts['high']}, "
-              f"Medium: {counts['medium']}, Low: {counts['low']}")
+        print(
+            f"[E2E] Total: {counts['total']}, High: {counts['high']}, "
+            f"Medium: {counts['medium']}, Low: {counts['low']}"
+        )
 
     @pytest.mark.asyncio
     async def test_cleanup_expired_items(self, e2e_database):
         """
         Test cleanup of expired queue items.
-        
+
         Verifies queue maintenance functionality.
         """
         from datetime import timedelta
@@ -800,16 +821,17 @@ class TestAuthenticationQueueFlow:
 # E2E Test 3: Intervention Manager (Immediate Mode)
 # =============================================================================
 
+
 @pytest.mark.e2e
 class TestInterventionManagerFlow:
     """
     E2E test for the intervention manager (immediate/legacy mode).
-    
+
     Verifies §3.6.2 requirements:
     - Intervention request handling
     - Timeout management
     - Domain failure tracking
-    
+
     Note: This doesn't test actual UI interaction, but verifies
     the intervention workflow logic.
     """
@@ -818,7 +840,7 @@ class TestInterventionManagerFlow:
     async def test_intervention_request_creates_record(self, e2e_database):
         """
         Test that intervention requests create database records.
-        
+
         Verifies §3.6.2 logging requirements.
         """
         from src.utils.notification import InterventionManager
@@ -839,7 +861,7 @@ class TestInterventionManagerFlow:
     async def test_domain_failure_tracking(self, e2e_database):
         """
         Test domain failure tracking for skip decisions.
-        
+
         Verifies §3.6.2: Skip domain after 3 consecutive failures.
         Uses get_domain_failures() and max_domain_failures property.
         """
@@ -878,11 +900,12 @@ class TestInterventionManagerFlow:
 # E2E Test 4: Complete Research Flow with Evidence Graph
 # =============================================================================
 
+
 @pytest.mark.e2e
 class TestCompleteResearchFlow:
     """
     E2E test for a complete research workflow.
-    
+
     This test simulates the entire flow from task creation to
     report material generation, verifying the integration of
     all major components.
@@ -892,7 +915,7 @@ class TestCompleteResearchFlow:
     async def test_end_to_end_research_workflow(self, check_browser_search, e2e_database):
         """
         Complete E2E test of the research workflow.
-        
+
         Flow:
         1. Create task
         2. Get research context
@@ -900,7 +923,7 @@ class TestCompleteResearchFlow:
         4. Fetch and extract content
         5. Build evidence graph
         6. Generate report materials
-        
+
         This test uses real browser search but mocks content fetching
         to avoid rate limiting and external dependencies.
         """
@@ -968,7 +991,7 @@ class TestCompleteResearchFlow:
         )
 
         for i, result in enumerate(results[:2]):
-            frag_id = f"frag_{i+1}"
+            frag_id = f"frag_{i + 1}"
             graph.add_node(
                 NodeType.FRAGMENT,
                 frag_id,
@@ -976,8 +999,10 @@ class TestCompleteResearchFlow:
                 url=result.get("url", ""),
             )
             graph.add_edge(
-                NodeType.FRAGMENT, frag_id,
-                NodeType.CLAIM, "claim_1",
+                NodeType.FRAGMENT,
+                frag_id,
+                NodeType.CLAIM,
+                "claim_1",
                 RelationType.SUPPORTS,
                 confidence=0.8,
             )
@@ -1005,11 +1030,12 @@ class TestCompleteResearchFlow:
 # E2E Test 5: LLM Integration (Optional - requires Ollama)
 # =============================================================================
 
+
 @pytest.mark.e2e
 class TestLLMIntegration:
     """
     E2E test for LLM integration.
-    
+
     Tests §3.3 LLM extraction functionality with real Ollama.
     Optional - skipped if Ollama is not available.
     """
@@ -1018,7 +1044,7 @@ class TestLLMIntegration:
     async def test_ollama_model_availability(self, check_ollama):
         """
         Verify Ollama is running and has required models.
-        
+
         Per Phase O: Uses proxy URL for Ollama access (same as OllamaProvider).
         """
         import aiohttp
@@ -1049,7 +1075,7 @@ class TestLLMIntegration:
     async def test_llm_extract_basic(self, check_ollama, e2e_database):
         """
         Test basic LLM extraction.
-        
+
         Note: This test may be slow (LLM inference).
         """
         from src.filter.llm import llm_extract
@@ -1059,7 +1085,7 @@ class TestLLMIntegration:
             {
                 "id": "p1",
                 "text": "Python 3.12 was released in October 2023. It includes "
-                        "improvements to error messages and a new type parameter syntax.",
+                "improvements to error messages and a new type parameter syntax.",
             }
         ]
 
@@ -1077,4 +1103,3 @@ class TestLLMIntegration:
         except Exception as e:
             # LLM may not be available or may timeout
             pytest.skip(f"LLM extraction failed (may need model): {e}")
-

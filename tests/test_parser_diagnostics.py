@@ -619,7 +619,7 @@ class TestYAMLFixGeneration:
         fix = generate_yaml_fix("results_container", candidate, "bing")
 
         # Backslash should be escaped as \\, and quotes should be escaped as \"
-        assert '\\\\.item' in fix  # Backslash escaped
+        assert "\\\\.item" in fix  # Backslash escaped
         assert '\\"value\\"' in fix  # Quotes escaped
 
     # Given: A candidate with empty selector string
@@ -963,7 +963,7 @@ class TestEscapeCssAttributeValue:
     # Then: Properly escaped with single quotes
     def test_both_quotes(self):
         """Test string with both quotes is properly escaped."""
-        result = _escape_css_attribute_value("it's \"great\"")
+        result = _escape_css_attribute_value('it\'s "great"')
         # Should use single quotes and escape the single quote
         assert "\\'" in result or '\\"' in result
 
@@ -1163,7 +1163,9 @@ class TestExceptionHandling:
     def test_create_report_handles_exception(self):
         """Test create_diagnostic_report handles exceptions gracefully."""
         # Create a mock that raises an exception
-        with patch.object(HTMLAnalyzer, 'find_result_containers', side_effect=Exception("Test error")):
+        with patch.object(
+            HTMLAnalyzer, "find_result_containers", side_effect=Exception("Test error")
+        ):
             report = create_diagnostic_report(
                 engine="test",
                 query="test query",
@@ -1318,4 +1320,3 @@ class TestContainerSelectorBoundary:
 
         # Should return results
         assert len(result) > 0
-

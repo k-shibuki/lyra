@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 # Embedding Models
 # ============================================================
 
+
 class EmbedRequest(BaseModel):
     """Request model for text embedding."""
 
@@ -26,6 +27,7 @@ class EmbedResponse(BaseModel):
 # ============================================================
 # Reranker Models
 # ============================================================
+
 
 class RerankRequest(BaseModel):
     """Request model for reranking."""
@@ -52,6 +54,7 @@ class RerankResponse(BaseModel):
 # ============================================================
 # NLI Models
 # ============================================================
+
 
 class NLIPair(BaseModel):
     """Single NLI pair."""
@@ -88,10 +91,10 @@ class NLIResponse(BaseModel):
 # Health Check Models
 # ============================================================
 
+
 class HealthResponse(BaseModel):
     """Response model for health check."""
 
     status: str = Field(..., description="Server status")
     models_loaded: dict[str, bool] = Field(..., description="Model loading status")
     gpu_available: bool = Field(..., description="Whether GPU is available")
-

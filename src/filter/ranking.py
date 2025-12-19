@@ -38,10 +38,10 @@ class BM25Ranker:
 
     def _tokenize(self, text: str) -> list[str]:
         """Tokenize text.
-        
+
         Args:
             text: Text to tokenize.
-            
+
         Returns:
             List of tokens.
         """
@@ -50,19 +50,17 @@ class BM25Ranker:
         if tokenizer == "simple":
             # Simple tokenization for fallback
             import re
+
             tokens = re.findall(r"\w+", text.lower())
             return tokens
         else:
             # SudachiPy tokenization
-            tokens = [
-                m.surface()
-                for m in tokenizer.tokenize(text, self._tokenize_mode)
-            ]
+            tokens = [m.surface() for m in tokenizer.tokenize(text, self._tokenize_mode)]
             return tokens
 
     def fit(self, corpus: list[str]) -> None:
         """Fit BM25 index on corpus.
-        
+
         Args:
             corpus: List of documents.
         """
@@ -76,10 +74,10 @@ class BM25Ranker:
 
     def get_scores(self, query: str) -> list[float]:
         """Get BM25 scores for query.
-        
+
         Args:
             query: Search query.
-            
+
         Returns:
             List of scores corresponding to corpus documents.
         """
@@ -93,7 +91,7 @@ class BM25Ranker:
 
 class EmbeddingRanker:
     """Embedding-based semantic similarity ranker.
-    
+
     Supports both local and remote (ML server) execution based on ml.use_remote setting.
     """
 
@@ -138,10 +136,10 @@ class EmbeddingRanker:
 
     async def encode(self, texts: list[str]) -> list[list[float]]:
         """Encode texts to embeddings.
-        
+
         Args:
             texts: List of texts.
-            
+
         Returns:
             List of embedding vectors.
         """
@@ -190,7 +188,7 @@ class EmbeddingRanker:
                 normalize_embeddings=True,
             )
 
-            for idx, emb in zip(uncached_indices, embeddings):
+            for idx, emb in zip(uncached_indices, embeddings, strict=False):
                 emb_list = emb.tolist()
                 cache_key = self._get_cache_key(texts[idx])
                 self._cache[cache_key] = emb_list
@@ -204,11 +202,11 @@ class EmbeddingRanker:
         documents: list[str],
     ) -> list[float]:
         """Get similarity scores between query and documents.
-        
+
         Args:
             query: Query text.
             documents: List of document texts.
-            
+
         Returns:
             List of similarity scores.
         """
@@ -222,7 +220,7 @@ class EmbeddingRanker:
         # Calculate cosine similarity
         scores = []
         for doc_emb in doc_embs:
-            score = sum(a * b for a, b in zip(query_emb, doc_emb))
+            score = sum(a * b for a, b in zip(query_emb, doc_emb, strict=False))
             scores.append(score)
 
         return scores
@@ -230,7 +228,7 @@ class EmbeddingRanker:
 
 class Reranker:
     """Cross-encoder reranker for final ranking.
-    
+
     Supports both local and remote (ML server) execution based on ml.use_remote setting.
     """
 
@@ -271,12 +269,12 @@ class Reranker:
         top_k: int | None = None,
     ) -> list[tuple[int, float]]:
         """Rerank documents by relevance to query.
-        
+
         Args:
             query: Query text.
             documents: List of document texts.
             top_k: Number of top results to return.
-            
+
         Returns:
             List of (index, score) tuples sorted by score descending.
         """
@@ -332,16 +330,16 @@ async def rank_candidates(
     top_k: int = 20,
 ) -> list[dict[str, Any]]:
     """Multi-stage ranking of passages.
-    
+
     Stage 1: BM25 for fast filtering
     Stage 2: Embeddings for semantic similarity
     Stage 3: Reranker for precision
-    
+
     Args:
         query: Search query.
         passages: List of passage dicts with 'id' and 'text'.
         top_k: Number of top results to return.
-        
+
     Returns:
         List of passage dicts with scores added.
     """
@@ -391,7 +389,7 @@ async def rank_candidates(
 
     # Sort by combined score and get top candidates for reranking
     combined.sort(key=lambda x: x[3], reverse=True)
-    rerank_candidates = combined[:settings.reranker.top_k]
+    rerank_candidates = combined[: settings.reranker.top_k]
 
     # Stage 3: Reranker
     rerank_texts = [texts[idx] for idx, _, _, _ in rerank_candidates]
@@ -418,4 +416,3 @@ async def rank_candidates(
     )
 
     return results
-

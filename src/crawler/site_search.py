@@ -33,6 +33,7 @@ logger = get_logger(__name__)
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class SearchTemplate:
     """Template for site-internal search UI."""
@@ -149,9 +150,10 @@ class DomainSearchStats:
 # Site Search Manager
 # =============================================================================
 
+
 class SiteSearchManager:
     """Manages site-internal search operations.
-    
+
     Features:
     - Allowlist management from config
     - Template-based form interaction
@@ -218,10 +220,10 @@ class SiteSearchManager:
 
     def is_allowlisted(self, domain: str) -> bool:
         """Check if domain has allowlisted internal search.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             True if domain has a search template.
         """
@@ -229,10 +231,10 @@ class SiteSearchManager:
 
     def get_template(self, domain: str) -> SearchTemplate | None:
         """Get search template for domain.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             SearchTemplate or None.
         """
@@ -240,10 +242,10 @@ class SiteSearchManager:
 
     def get_stats(self, domain: str) -> DomainSearchStats:
         """Get or create stats for domain.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             DomainSearchStats instance.
         """
@@ -253,12 +255,12 @@ class SiteSearchManager:
 
     async def can_search(self, domain: str) -> bool:
         """Check if site search is available for domain.
-        
+
         Considers allowlist, skip status, and rate limiting.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             True if search can proceed.
         """
@@ -286,13 +288,13 @@ class SiteSearchManager:
         fallback_to_site: bool = True,
     ) -> SiteSearchResult:
         """Execute site-internal search.
-        
+
         Args:
             domain: Target domain.
             query: Search query.
             browser_context: Playwright browser context (optional).
             fallback_to_site: Fall back to site: operator on failure.
-            
+
         Returns:
             SiteSearchResult with found URLs.
         """
@@ -316,7 +318,10 @@ class SiteSearchManager:
             if browser_context:
                 # Browser-based search
                 result = await self._browser_search(
-                    domain, query, template, browser_context,
+                    domain,
+                    query,
+                    template,
+                    browser_context,
                 )
             else:
                 # HTTP-based search (if possible)
@@ -372,13 +377,13 @@ class SiteSearchManager:
         context,
     ) -> SiteSearchResult:
         """Execute search using browser automation.
-        
+
         Args:
             domain: Target domain.
             query: Search query.
             template: Search template.
             context: Playwright browser context.
-            
+
         Returns:
             SiteSearchResult.
         """
@@ -458,14 +463,14 @@ class SiteSearchManager:
         template: SearchTemplate,
     ) -> SiteSearchResult:
         """Execute search using HTTP requests (limited support).
-        
+
         Most sites require JavaScript, so this is often a fallback.
-        
+
         Args:
             domain: Target domain.
             query: Search query.
             template: Search template.
-            
+
         Returns:
             SiteSearchResult.
         """
@@ -494,7 +499,9 @@ class SiteSearchManager:
 
                 if response.status_code == 200:
                     urls = self._extract_result_urls(
-                        response.text, domain, template,
+                        response.text,
+                        domain,
+                        template,
                     )
 
                     if urls:
@@ -516,11 +523,11 @@ class SiteSearchManager:
         query: str,
     ) -> SiteSearchResult:
         """Fallback to site: operator search via search engines.
-        
+
         Args:
             domain: Target domain.
             query: Search query.
-            
+
         Returns:
             SiteSearchResult with fallback results.
         """
@@ -574,12 +581,12 @@ class SiteSearchManager:
         template: SearchTemplate,
     ) -> list[str]:
         """Extract result URLs from search results page.
-        
+
         Args:
             html: Search results HTML.
             domain: Target domain.
             template: Search template.
-            
+
         Returns:
             List of result URLs.
         """
@@ -618,9 +625,10 @@ class SiteSearchManager:
                 seen.add(absolute_url)
 
                 # Skip common non-content URLs
-                if any(x in absolute_url.lower() for x in [
-                    "/search", "/login", "/register", "/tag/", "/category/"
-                ]):
+                if any(
+                    x in absolute_url.lower()
+                    for x in ["/search", "/login", "/register", "/tag/", "/category/"]
+                ):
                     continue
 
                 urls.append(absolute_url)
@@ -629,10 +637,10 @@ class SiteSearchManager:
 
     async def _detect_challenge(self, page) -> bool:
         """Detect CAPTCHA or login wall.
-        
+
         Args:
             page: Playwright page.
-            
+
         Returns:
             True if challenge detected.
         """
@@ -641,8 +649,13 @@ class SiteSearchManager:
             content_lower = content.lower()
 
             challenge_indicators = [
-                "captcha", "recaptcha", "hcaptcha", "turnstile",
-                "login", "sign in", "ログイン",
+                "captcha",
+                "recaptcha",
+                "hcaptcha",
+                "turnstile",
+                "login",
+                "sign in",
+                "ログイン",
             ]
 
             return any(ind in content_lower for ind in challenge_indicators)
@@ -657,7 +670,7 @@ class SiteSearchManager:
         stats: DomainSearchStats,
     ) -> None:
         """Update domain policy with search statistics.
-        
+
         Args:
             domain: Domain name.
             stats: Current statistics.
@@ -666,13 +679,16 @@ class SiteSearchManager:
             db = await get_database()
 
             # Update or insert domain record
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT INTO domains (domain, internal_search_success_rate, internal_search_harvest_rate)
                 VALUES (?, ?, ?)
                 ON CONFLICT(domain) DO UPDATE SET
                     internal_search_success_rate = excluded.internal_search_success_rate,
                     internal_search_harvest_rate = excluded.internal_search_harvest_rate
-            """, (domain, stats.success_rate, stats.harvest_rate))
+            """,
+                (domain, stats.success_rate, stats.harvest_rate),
+            )
 
         except Exception as e:
             logger.debug(
@@ -691,7 +707,7 @@ _site_search_manager: SiteSearchManager | None = None
 
 def get_site_search_manager() -> SiteSearchManager:
     """Get or create global SiteSearchManager instance.
-    
+
     Returns:
         SiteSearchManager instance.
     """
@@ -705,6 +721,7 @@ def get_site_search_manager() -> SiteSearchManager:
 # MCP Tool Integration
 # =============================================================================
 
+
 async def site_search(
     domain: str,
     query: str,
@@ -712,13 +729,13 @@ async def site_search(
     fallback: bool = True,
 ) -> dict[str, Any]:
     """Execute site-internal search (for MCP tool use).
-    
+
     Args:
         domain: Target domain.
         query: Search query.
         use_browser: Use browser automation.
         fallback: Fall back to site: operator on failure.
-        
+
     Returns:
         Search result dictionary.
     """
@@ -748,10 +765,10 @@ async def site_search(
 
 async def get_site_search_stats(domain: str) -> dict[str, Any]:
     """Get site search statistics for domain (for MCP tool use).
-    
+
     Args:
         domain: Domain name.
-        
+
     Returns:
         Statistics dictionary.
     """
@@ -769,7 +786,9 @@ async def get_site_search_stats(domain: str) -> dict[str, Any]:
             "search_input": template.search_input,
             "search_button": template.search_button,
             "results_selector": template.results_selector,
-        } if template else None,
+        }
+        if template
+        else None,
         "stats": {
             "total_attempts": stats.total_attempts,
             "successful_attempts": stats.successful_attempts,
@@ -778,30 +797,33 @@ async def get_site_search_stats(domain: str) -> dict[str, Any]:
             "consecutive_failures": stats.consecutive_failures,
             "is_skipped": stats.is_skipped(),
             "skip_until": stats.skip_until.isoformat() if stats.skip_until else None,
-        } if stats else None,
+        }
+        if stats
+        else None,
     }
 
 
 async def list_allowlisted_domains() -> dict[str, Any]:
     """List all allowlisted domains for site search (for MCP tool use).
-    
+
     Returns:
         Dictionary with domain list.
     """
     manager = get_site_search_manager()
 
     domains = []
-    for domain, template in manager._templates.items():
+    for domain, _template in manager._templates.items():
         stats = manager.get_stats(domain)
-        domains.append({
-            "domain": domain,
-            "success_rate": stats.success_rate,
-            "harvest_rate": stats.harvest_rate,
-            "is_skipped": stats.is_skipped(),
-        })
+        domains.append(
+            {
+                "domain": domain,
+                "success_rate": stats.success_rate,
+                "harvest_rate": stats.harvest_rate,
+                "is_skipped": stats.is_skipped(),
+            }
+        )
 
     return {
         "domains": domains,
         "total": len(domains),
     }
-
