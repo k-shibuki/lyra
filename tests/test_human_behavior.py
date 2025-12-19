@@ -601,9 +601,9 @@ mouse:
             think_time_max_ms=20.0,
         ))
 
-        start = asyncio.get_event_loop().time()
+        start = asyncio.get_running_loop().time()
         await simulator.think()
-        elapsed = asyncio.get_event_loop().time() - start
+        elapsed = asyncio.get_running_loop().time() - start
 
         # Should have delayed at least 10ms
         assert elapsed >= 0.01

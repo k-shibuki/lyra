@@ -536,7 +536,7 @@ class TestSpecCompliance:
 
         async def failing_func():
             nonlocal call_count
-            timestamps.append(asyncio.get_event_loop().time())
+            timestamps.append(asyncio.get_running_loop().time())
             call_count += 1
             if call_count < 3:
                 raise ConnectionError("Failed")
