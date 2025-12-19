@@ -170,6 +170,12 @@ git diff main..HEAD
 
 `/quality-check` コマンドを実行。lint/型エラーを確認・修正。
 
+**重要**: 
+- lint/型エラーだけでなく、**警告も必ず解消する**
+- `ruff check` で警告が出た場合は `ruff check --fix` で自動修正を試みる
+- `git diff --check` でtrailing whitespaceなどの警告を確認
+- 警告が残っている場合はマージしない
+
 ## 4. 回帰テスト
 
 `/regression-test` コマンドを実行。全テストがパスすることを確認。
@@ -181,6 +187,7 @@ git diff main..HEAD
 - [ ] lint/型エラーがない（`/quality-check` パス）
 - [ ] 全テストがパス（`/regression-test` パス）
 - [ ] 仕様書との整合性が取れている
+- [ ] **警告が全て解消されている**（必須）
 
 ### 判断結果の提示
 
@@ -193,22 +200,48 @@ git diff main..HEAD
 - 変更内容が仕様に準拠している
 - テストが全てパス
 - コード品質に問題なし
+- **警告が全て解消されている**
 
 ### 指摘事項（ある場合）
 1. xxx について修正が必要
 2. yyy の追加を推奨
+3. **警告が残っている場合は必ず解消してからマージ**
 ```
 
 ## 6. マージ実行
 
 ユーザー承認後にのみ実行。`/merge-complete` と同様の手順。
 
+### 6.1. マージ前の確認
+
+**重要**: マージ前に必ず以下を確認・実行する：
+
+1. **警告の解消**: `ruff check` や `mypy` の警告が全て解消されていること
+2. **コンフリクトの解決**: マージコンフリクトが発生した場合は、必ず解決してからコミット
+3. **trailing whitespaceの解消**: `git diff --check` で警告がないことを確認
+
+```bash
+# 警告確認
+podman exec lancet ruff check src/ tests/
+podman exec lancet mypy src/ tests/
+
+# trailing whitespace確認
+git diff --check
+
+# 警告がある場合は自動修正を試みる
+podman exec lancet ruff check --fix src/ tests/
+```
+
+### 6.2. マージ実行
+
 ```bash
 git checkout main
 git merge --no-edit <pr-branch>
 ```
 
-**注意**: `--no-edit` オプションで対話を避ける。
+**注意**: 
+- `--no-edit` オプションで対話を避ける
+- **警告が残っている場合はマージを実行しない**（必ず解消してからマージ）
 
 ## 出力
 
