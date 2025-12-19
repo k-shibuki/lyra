@@ -16,8 +16,7 @@ Usage:
 """
 
 import sys
-from datetime import date
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Add project root to path
 sys.path.insert(0, "/home/statuser/lancet")
@@ -34,7 +33,7 @@ def main():
     # =========================================================================
     print("\n[1] Testing DomainDailyBudget Schema...")
 
-    from src.utils.schemas import DomainBudgetCheckResult, DomainDailyBudget
+    from src.utils.schemas import DomainDailyBudget
 
     budget = DomainDailyBudget(
         domain="example.com",
@@ -64,8 +63,6 @@ def main():
     print("\n[2] Testing DomainDailyBudgetManager...")
 
     from src.scheduler.domain_budget import (
-        DEFAULT_MAX_PAGES_PER_DAY,
-        DEFAULT_MAX_REQUESTS_PER_DAY,
         DomainDailyBudgetManager,
         reset_domain_budget_manager,
     )
@@ -245,7 +242,6 @@ def main():
     print("\n[8] Testing domain policy integration...")
 
     from src.utils.domain_policy import (
-        DomainPolicy,
         get_domain_policy_manager,
         reset_domain_policy_manager,
     )
@@ -255,7 +251,7 @@ def main():
 
     # Check that domain policy has new fields
     policy = policy_manager.get_policy("wikipedia.org")
-    print(f"  - wikipedia.org policy:")
+    print("  - wikipedia.org policy:")
     print(f"    - max_requests_per_day: {policy.max_requests_per_day}")
     print(f"    - max_pages_per_day: {policy.max_pages_per_day}")
 

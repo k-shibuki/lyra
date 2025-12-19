@@ -24,7 +24,6 @@ Tests notification functionality per §3.2.1.
 | TC-B-04 | Empty payload dict | Boundary – empty | Accepts empty payload | Minimal payload |
 """
 
-from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -43,7 +42,7 @@ class TestNotifyUserExecution:
         // Then: Sends notification with auth message
         """
         from src.mcp.server import _handle_notify_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -55,11 +54,11 @@ class TestNotifyUserExecution:
                     "domain": "example.com",
                 },
             })
-        
+
         assert result["ok"] is True
         assert result["event"] == "auth_required"
         assert result["notified"] is True
-        
+
         mock_send.assert_called_once()
         call_kwargs = mock_send.call_args[1]
         assert call_kwargs["event"] == "auth_required"
@@ -74,7 +73,7 @@ class TestNotifyUserExecution:
         // Then: Sends progress notification
         """
         from src.mcp.server import _handle_notify_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -87,7 +86,7 @@ class TestNotifyUserExecution:
                     "progress_percent": 50,
                 },
             })
-        
+
         assert result["ok"] is True
         assert result["event"] == "task_progress"
         mock_send.assert_called_once()
@@ -102,7 +101,7 @@ class TestNotifyUserExecution:
         // Then: Sends completion notification
         """
         from src.mcp.server import _handle_notify_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -114,7 +113,7 @@ class TestNotifyUserExecution:
                     "task_id": "task_abc",
                 },
             })
-        
+
         assert result["ok"] is True
         assert result["event"] == "task_complete"
         mock_send.assert_called_once()
@@ -129,7 +128,7 @@ class TestNotifyUserExecution:
         // Then: Sends error notification
         """
         from src.mcp.server import _handle_notify_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -140,7 +139,7 @@ class TestNotifyUserExecution:
                     "message": "An error occurred",
                 },
             })
-        
+
         assert result["ok"] is True
         assert result["event"] == "error"
         mock_send.assert_called_once()
@@ -157,7 +156,7 @@ class TestNotifyUserExecution:
         // Then: Sends info notification
         """
         from src.mcp.server import _handle_notify_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -168,7 +167,7 @@ class TestNotifyUserExecution:
                     "message": "Information message",
                 },
             })
-        
+
         assert result["ok"] is True
         assert result["event"] == "info"
         mock_send.assert_called_once()
@@ -186,14 +185,14 @@ class TestNotifyUserValidation:
         // When: Calling notify_user
         // Then: Raises InvalidParamsError
         """
-        from src.mcp.server import _handle_notify_user
         from src.mcp.errors import InvalidParamsError
-        
+        from src.mcp.server import _handle_notify_user
+
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_notify_user({
                 "payload": {"message": "test"},
             })
-        
+
         assert exc_info.value.details.get("param_name") == "event"
 
     @pytest.mark.asyncio
@@ -205,15 +204,15 @@ class TestNotifyUserValidation:
         // When: Calling notify_user
         // Then: Raises InvalidParamsError
         """
-        from src.mcp.server import _handle_notify_user
         from src.mcp.errors import InvalidParamsError
-        
+        from src.mcp.server import _handle_notify_user
+
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_notify_user({
                 "event": "invalid_event",
                 "payload": {"message": "test"},
             })
-        
+
         assert "event" in str(exc_info.value.details.get("param_name"))
 
     @pytest.mark.asyncio
@@ -225,14 +224,14 @@ class TestNotifyUserValidation:
         // When: Calling notify_user
         // Then: Raises InvalidParamsError
         """
-        from src.mcp.server import _handle_notify_user
         from src.mcp.errors import InvalidParamsError
-        
+        from src.mcp.server import _handle_notify_user
+
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_notify_user({
                 "event": "info",
             })
-        
+
         assert exc_info.value.details.get("param_name") == "payload"
 
     @pytest.mark.asyncio
@@ -245,7 +244,7 @@ class TestNotifyUserValidation:
         // Then: Accepts empty payload
         """
         from src.mcp.server import _handle_notify_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -254,7 +253,7 @@ class TestNotifyUserValidation:
                 "event": "info",
                 "payload": {},
             })
-        
+
         assert result["ok"] is True
 
 
@@ -270,12 +269,12 @@ class TestWaitForUserValidation:
         // When: Calling wait_for_user
         // Then: Raises InvalidParamsError
         """
-        from src.mcp.server import _handle_wait_for_user
         from src.mcp.errors import InvalidParamsError
-        
+        from src.mcp.server import _handle_wait_for_user
+
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_wait_for_user({})
-        
+
         assert exc_info.value.details.get("param_name") == "prompt"
 
     @pytest.mark.asyncio
@@ -287,14 +286,14 @@ class TestWaitForUserValidation:
         // When: Calling wait_for_user
         // Then: Raises InvalidParamsError
         """
-        from src.mcp.server import _handle_wait_for_user
         from src.mcp.errors import InvalidParamsError
-        
+        from src.mcp.server import _handle_wait_for_user
+
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_wait_for_user({
                 "prompt": "",
             })
-        
+
         assert exc_info.value.details.get("param_name") == "prompt"
 
 
@@ -311,7 +310,7 @@ class TestWaitForUserBoundaryValues:
         // Then: Accepts 0 timeout
         """
         from src.mcp.server import _handle_wait_for_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -320,7 +319,7 @@ class TestWaitForUserBoundaryValues:
                 "prompt": "Test prompt",
                 "timeout_seconds": 0,
             })
-        
+
         assert result["ok"] is True
         assert result["timeout_seconds"] == 0
 
@@ -334,7 +333,7 @@ class TestWaitForUserBoundaryValues:
         // Then: Accepts 1 second timeout
         """
         from src.mcp.server import _handle_wait_for_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -343,7 +342,7 @@ class TestWaitForUserBoundaryValues:
                 "prompt": "Test prompt",
                 "timeout_seconds": 1,
             })
-        
+
         assert result["ok"] is True
         assert result["timeout_seconds"] == 1
 
@@ -361,7 +360,7 @@ class TestWaitForUserExecution:
         // Then: Sends notification with prompt
         """
         from src.mcp.server import _handle_wait_for_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -369,7 +368,7 @@ class TestWaitForUserExecution:
             result = await _handle_wait_for_user({
                 "prompt": "Please confirm the action",
             })
-        
+
         assert result["ok"] is True
         assert result["status"] == "notification_sent"
         assert result["prompt"] == "Please confirm the action"
@@ -385,7 +384,7 @@ class TestWaitForUserExecution:
         // Then: Response includes timeout value
         """
         from src.mcp.server import _handle_wait_for_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -394,7 +393,7 @@ class TestWaitForUserExecution:
                 "prompt": "Test prompt",
                 "timeout_seconds": 600,
             })
-        
+
         assert result["ok"] is True
         assert result["timeout_seconds"] == 600
 
@@ -408,7 +407,7 @@ class TestWaitForUserExecution:
         // Then: Uses default timeout of 300 seconds
         """
         from src.mcp.server import _handle_wait_for_user
-        
+
         with patch(
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
@@ -416,7 +415,7 @@ class TestWaitForUserExecution:
             result = await _handle_wait_for_user({
                 "prompt": "Test prompt",
             })
-        
+
         assert result["timeout_seconds"] == 300
 
 
@@ -432,14 +431,14 @@ class TestNotificationToolDefinitions:
         // Then: Found with correct schema
         """
         from src.mcp.server import TOOLS
-        
+
         tool = next((t for t in TOOLS if t.name == "notify_user"), None)
-        
+
         assert tool is not None
         assert "event" in tool.inputSchema["properties"]
         assert "payload" in tool.inputSchema["properties"]
         assert set(tool.inputSchema["required"]) == {"event", "payload"}
-        
+
         # Check event enum
         event_prop = tool.inputSchema["properties"]["event"]
         assert "enum" in event_prop
@@ -458,9 +457,9 @@ class TestNotificationToolDefinitions:
         // Then: Found with correct schema
         """
         from src.mcp.server import TOOLS
-        
+
         tool = next((t for t in TOOLS if t.name == "wait_for_user"), None)
-        
+
         assert tool is not None
         assert "prompt" in tool.inputSchema["properties"]
         assert "timeout_seconds" in tool.inputSchema["properties"]
@@ -480,7 +479,7 @@ class TestOldToolsRemoved:
         // Then: None found
         """
         from src.mcp.server import TOOLS
-        
+
         deprecated_tools = [
             "search_serp",
             "fetch_url",
@@ -504,9 +503,9 @@ class TestOldToolsRemoved:
             "decompose_question",
             "compress_with_chain_of_density",
         ]
-        
+
         tool_names = {t.name for t in TOOLS}
-        
+
         for deprecated in deprecated_tools:
             assert deprecated not in tool_names, f"Deprecated tool '{deprecated}' should be removed"
 
@@ -519,7 +518,7 @@ class TestOldToolsRemoved:
         // Then: Exactly 11 tools
         """
         from src.mcp.server import TOOLS
-        
+
         assert len(TOOLS) == 11, f"Expected 11 tools per §3.2.1, got {len(TOOLS)}"
 
     def test_all_new_tools_present(self) -> None:
@@ -531,7 +530,7 @@ class TestOldToolsRemoved:
         // Then: All 11 tools present
         """
         from src.mcp.server import TOOLS
-        
+
         required_tools = [
             "create_task",
             "get_status",
@@ -545,9 +544,9 @@ class TestOldToolsRemoved:
             "notify_user",
             "wait_for_user",
         ]
-        
+
         tool_names = {t.name for t in TOOLS}
-        
+
         for required in required_tools:
             assert required in tool_names, f"Required tool '{required}' not found"
 

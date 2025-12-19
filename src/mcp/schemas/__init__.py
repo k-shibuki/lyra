@@ -29,14 +29,14 @@ def get_schema(tool_name: str) -> dict[str, Any] | None:
     """
     if tool_name in _schema_cache:
         return _schema_cache[tool_name]
-    
+
     schema_path = SCHEMAS_DIR / f"{tool_name}.json"
     if not schema_path.exists():
         return None
-    
+
     with open(schema_path, encoding="utf-8") as f:
         schema = json.load(f)
-    
+
     _schema_cache[tool_name] = schema
     return schema
 

@@ -63,7 +63,7 @@ from src.filter.claim_decomposition import (
 
 class TestAtomicClaim:
     """Tests for AtomicClaim dataclass."""
-    
+
     def test_create_atomic_claim_with_defaults(self):
         """Test creating an atomic claim with default values."""
         # Given: Required fields only
@@ -74,7 +74,7 @@ class TestAtomicClaim:
             expected_polarity=ClaimPolarity.POSITIVE,
             granularity=ClaimGranularity.ATOMIC,
         )
-        
+
         # Then: All defaults correctly set
         assert claim.claim_id == "test_001"
         assert claim.text == "GPT-4は2023年にリリースされた"
@@ -85,7 +85,7 @@ class TestAtomicClaim:
         assert claim.confidence == 1.0
         assert claim.keywords == []
         assert claim.verification_hints == []
-    
+
     def test_create_atomic_claim_with_all_fields(self):
         """Test creating an atomic claim with all fields specified."""
         # Given: All fields specified
@@ -102,7 +102,7 @@ class TestAtomicClaim:
             keywords=["東京", "人口", "1400万人"],
             verification_hints=["統計局データ", "国勢調査"],
         )
-        
+
         # Then: All fields correctly stored
         assert claim.claim_type == ClaimType.QUANTITATIVE
         assert claim.parent_claim_id == "parent_001"
@@ -111,7 +111,7 @@ class TestAtomicClaim:
         assert len(claim.keywords) == 3
         assert "東京" in claim.keywords
         assert len(claim.verification_hints) == 2
-    
+
     def test_to_dict_serialization(self):
         """Test serialization to dictionary."""
         # Given: AtomicClaim with various fields
@@ -123,10 +123,10 @@ class TestAtomicClaim:
             claim_type=ClaimType.CAUSAL,
             keywords=["test", "claim"],
         )
-        
+
         # When: Serializing to dict
         d = claim.to_dict()
-        
+
         # Then: All fields present with correct values
         assert d["claim_id"] == "test_003"
         assert d["text"] == "Test claim"
@@ -134,7 +134,7 @@ class TestAtomicClaim:
         assert d["granularity"] == "composite"
         assert d["claim_type"] == "causal"
         assert d["keywords"] == ["test", "claim"]
-    
+
     def test_from_dict_deserialization(self):
         """Test deserialization from dictionary."""
         # Given: Dictionary with claim data
@@ -148,10 +148,10 @@ class TestAtomicClaim:
             "keywords": ["time", "date"],
             "verification_hints": ["archives"],
         }
-        
+
         # When: Deserializing from dict
         claim = AtomicClaim.from_dict(data)
-        
+
         # Then: Object correctly populated
         assert claim.claim_id == "test_004"
         assert claim.text == "Deserialized claim"
@@ -159,7 +159,7 @@ class TestAtomicClaim:
         assert claim.granularity == ClaimGranularity.ATOMIC
         assert claim.claim_type == ClaimType.TEMPORAL
         assert claim.confidence == 0.8
-    
+
     def test_from_dict_with_missing_optional_fields(self):
         """Test deserialization handles missing optional fields."""
         # Given: Minimal dictionary
@@ -167,10 +167,10 @@ class TestAtomicClaim:
             "claim_id": "test_005",
             "text": "Minimal claim",
         }
-        
+
         # When: Deserializing from dict
         claim = AtomicClaim.from_dict(data)
-        
+
         # Then: Defaults used for missing fields
         assert claim.claim_id == "test_005"
         assert claim.expected_polarity == ClaimPolarity.NEUTRAL
@@ -180,7 +180,7 @@ class TestAtomicClaim:
 
 class TestClaimEnums:
     """Tests for claim-related enums."""
-    
+
     def test_claim_polarity_values(self):
         """Test ClaimPolarity enum values."""
         # Given/When: Checking enum values
@@ -188,7 +188,7 @@ class TestClaimEnums:
         assert ClaimPolarity.POSITIVE.value == "positive"
         assert ClaimPolarity.NEGATIVE.value == "negative"
         assert ClaimPolarity.NEUTRAL.value == "neutral"
-    
+
     def test_claim_granularity_values(self):
         """Test ClaimGranularity enum values."""
         # Given/When: Checking enum values
@@ -196,7 +196,7 @@ class TestClaimEnums:
         assert ClaimGranularity.ATOMIC.value == "atomic"
         assert ClaimGranularity.COMPOSITE.value == "composite"
         assert ClaimGranularity.META.value == "meta"
-    
+
     def test_claim_type_values(self):
         """Test ClaimType enum values."""
         # Given/When: Checking enum values
@@ -211,7 +211,7 @@ class TestClaimEnums:
 
 class TestDecompositionResult:
     """Tests for DecompositionResult dataclass."""
-    
+
     def test_create_decomposition_result(self):
         """Test creating a decomposition result."""
         # Given: List of claims
@@ -229,21 +229,21 @@ class TestDecompositionResult:
                 granularity=ClaimGranularity.ATOMIC,
             ),
         ]
-        
+
         # When: Creating DecompositionResult
         result = DecompositionResult(
             original_question="Test question?",
             claims=claims,
             decomposition_method="rule_based",
         )
-        
+
         # Then: All fields correctly set
         assert result.original_question == "Test question?"
         assert len(result.claims) == 2
         assert result.decomposition_method == "rule_based"
         assert result.success is True
         assert result.error is None
-    
+
     def test_to_dict_serialization(self):
         """Test serialization to dictionary."""
         # Given: DecompositionResult with claims
@@ -261,10 +261,10 @@ class TestDecompositionResult:
             decomposition_method="llm",
             success=True,
         )
-        
+
         # When: Serializing to dict
         d = result.to_dict()
-        
+
         # Then: All fields present
         assert d["original_question"] == "Question?"
         assert len(d["claims"]) == 1
@@ -275,31 +275,31 @@ class TestDecompositionResult:
 
 class TestClaimDecomposerRuleBased:
     """Tests for rule-based claim decomposition."""
-    
+
     @pytest.fixture
     def decomposer(self):
         """Create a rule-based decomposer."""
         return ClaimDecomposer(use_llm=False)
-    
+
     @pytest.mark.asyncio
     async def test_empty_question(self, decomposer):
         """Test handling of empty question."""
         # Given: Empty string
         # When: Decomposing
         result = await decomposer.decompose("")
-        
+
         # Then: Fails with error message
         assert result.success is False
         assert result.error == "Empty question provided"
         assert len(result.claims) == 0
-    
+
     @pytest.mark.asyncio
     async def test_simple_question(self, decomposer):
         """Test decomposition of a simple question."""
         # Given: Simple question
         # When: Decomposing
         result = await decomposer.decompose("AIエージェントとは何ですか")
-        
+
         # Then: Success with claims
         assert result.success is True
         assert result.decomposition_method == "rule_based"
@@ -309,7 +309,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.text
         assert claim.expected_polarity is not None
         assert claim.granularity is not None
-    
+
     @pytest.mark.asyncio
     async def test_compound_question_decomposition(self, decomposer):
         """Test decomposition of compound question with conjunctions."""
@@ -318,37 +318,37 @@ class TestClaimDecomposerRuleBased:
         result = await decomposer.decompose(
             "GPT-4の性能、およびClaude 3との比較について調べてください"
         )
-        
+
         # Then: Multiple claims generated
         assert result.success is True
         assert len(result.claims) >= 1
-    
+
     @pytest.mark.asyncio
     async def test_temporal_claim_detection(self, decomposer):
         """Test detection of temporal claims."""
         # Given: Question with year
         # When: Decomposing
         result = await decomposer.decompose("2024年のAI動向について")
-        
+
         # Then: Detected as TEMPORAL
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
         assert claim.claim_type == ClaimType.TEMPORAL
-    
+
     @pytest.mark.asyncio
     async def test_quantitative_claim_detection(self, decomposer):
         """Test detection of quantitative claims."""
         # Given: Question with numbers
         # When: Decomposing
         result = await decomposer.decompose("OpenAIの売上は100億ドル以上である")
-        
+
         # Then: Detected as QUANTITATIVE
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
         assert claim.claim_type == ClaimType.QUANTITATIVE
-    
+
     @pytest.mark.asyncio
     async def test_comparative_claim_detection(self, decomposer):
         """Test detection of comparative claims."""
@@ -357,13 +357,13 @@ class TestClaimDecomposerRuleBased:
         result = await decomposer.decompose(
             "GPT-4はGPT-3.5より優れている"
         )
-        
+
         # Then: Detected as COMPARATIVE
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
         assert claim.claim_type == ClaimType.COMPARATIVE
-    
+
     @pytest.mark.asyncio
     async def test_causal_claim_detection(self, decomposer):
         """Test detection of causal claims."""
@@ -372,13 +372,13 @@ class TestClaimDecomposerRuleBased:
         result = await decomposer.decompose(
             "AIの発展によって雇用に影響が生じている"
         )
-        
+
         # Then: Detected as CAUSAL
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
         assert claim.claim_type == ClaimType.CAUSAL
-    
+
     @pytest.mark.asyncio
     async def test_definitional_claim_detection(self, decomposer):
         """Test detection of definitional claims."""
@@ -387,13 +387,13 @@ class TestClaimDecomposerRuleBased:
         result = await decomposer.decompose(
             "大規模言語モデルとは何を意味するのか"
         )
-        
+
         # Then: Detected as DEFINITIONAL
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
         assert claim.claim_type == ClaimType.DEFINITIONAL
-    
+
     @pytest.mark.asyncio
     async def test_negative_polarity_detection(self, decomposer):
         """Test detection of negative polarity."""
@@ -402,26 +402,26 @@ class TestClaimDecomposerRuleBased:
         result = await decomposer.decompose(
             "AIは人間の仕事を奪うことはない"
         )
-        
+
         # Then: Detected as NEGATIVE
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
         assert claim.expected_polarity == ClaimPolarity.NEGATIVE
-    
+
     @pytest.mark.asyncio
     async def test_neutral_polarity_for_question(self, decomposer):
         """Test neutral polarity for questions."""
         # Given: Open question
         # When: Decomposing
         result = await decomposer.decompose("AIの未来はどうなるか？")
-        
+
         # Then: Detected as NEUTRAL
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
         assert claim.expected_polarity == ClaimPolarity.NEUTRAL
-    
+
     @pytest.mark.asyncio
     async def test_keyword_extraction(self, decomposer):
         """Test keyword extraction from claims."""
@@ -430,7 +430,7 @@ class TestClaimDecomposerRuleBased:
         result = await decomposer.decompose(
             "OpenAIのGPT-4はマルチモーダル機能を持つ"
         )
-        
+
         # Then: Keywords extracted
         assert result.success is True
         assert len(result.claims) >= 1
@@ -440,7 +440,7 @@ class TestClaimDecomposerRuleBased:
         has_openai = any("openai" in k for k in keywords_lower)
         has_gpt = any("gpt" in k for k in keywords_lower)
         assert has_openai or has_gpt, f"Expected 'openai' or 'gpt' in keywords: {claim.keywords}"
-    
+
     @pytest.mark.asyncio
     async def test_verification_hints_generation(self, decomposer):
         """Test verification hints are generated."""
@@ -449,7 +449,7 @@ class TestClaimDecomposerRuleBased:
         result = await decomposer.decompose(
             "総務省の統計データによると人口は減少している"
         )
-        
+
         # Then: Hints generated
         assert result.success is True
         assert len(result.claims) >= 1
@@ -457,16 +457,16 @@ class TestClaimDecomposerRuleBased:
         assert len(claim.verification_hints) >= 1, (
             f"Expected >=1 verification hints, got {len(claim.verification_hints)}"
         )
-    
+
     @pytest.mark.asyncio
     async def test_source_question_preserved(self, decomposer):
         """Test original question is preserved in claims."""
         # Given: Test question
         question = "テスト用の質問です"
-        
+
         # When: Decomposing
         result = await decomposer.decompose(question)
-        
+
         # Then: Source question preserved
         assert result.success is True
         for claim in result.claims:
@@ -475,12 +475,12 @@ class TestClaimDecomposerRuleBased:
 
 class TestClaimDecomposerLLM:
     """Tests for LLM-based claim decomposition (mocked)."""
-    
+
     @pytest.mark.asyncio
     async def test_llm_decomposition(self, monkeypatch):
         """Test LLM-based decomposition with mocked response."""
         from unittest.mock import AsyncMock, MagicMock
-        
+
         # Given: Mocked LLM response with valid JSON
         mock_response = """[
             {
@@ -506,11 +506,11 @@ class TestClaimDecomposerLLM:
             "src.filter.claim_decomposition._get_client",
             lambda: mock_client,
         )
-        
+
         # When: Decomposing with LLM
         decomposer = ClaimDecomposer(use_llm=True)
         result = await decomposer.decompose("GPT-4について教えてください")
-        
+
         # Then: Success with claims from JSON
         assert result.success is True
         assert result.decomposition_method == "llm"
@@ -523,12 +523,12 @@ class TestClaimDecomposerLLM:
         claim2 = result.claims[1]
         assert claim2.text == "GPT-4はマルチモーダル機能を持つ"
         assert claim2.claim_type == ClaimType.FACTUAL
-    
+
     @pytest.mark.asyncio
     async def test_llm_fallback_on_invalid_json(self, monkeypatch):
         """Test fallback to rule-based when LLM returns invalid JSON."""
         from unittest.mock import AsyncMock, MagicMock
-        
+
         # Given: Mocked LLM returning invalid JSON
         mock_client = MagicMock()
         mock_client.generate = AsyncMock(return_value="Invalid response")
@@ -536,20 +536,20 @@ class TestClaimDecomposerLLM:
             "src.filter.claim_decomposition._get_client",
             lambda: mock_client,
         )
-        
+
         # When: Decomposing with LLM
         decomposer = ClaimDecomposer(use_llm=True)
         result = await decomposer.decompose("テスト質問")
-        
+
         # Then: Falls back to rule-based
         assert result.success is True
         assert len(result.claims) >= 1
-    
+
     @pytest.mark.asyncio
     async def test_llm_fallback_on_error(self, monkeypatch):
         """Test fallback to rule-based when LLM raises an error."""
         from unittest.mock import AsyncMock, MagicMock
-        
+
         # Given: Mocked LLM raising exception
         mock_client = MagicMock()
         mock_client.generate = AsyncMock(
@@ -559,11 +559,11 @@ class TestClaimDecomposerLLM:
             "src.filter.claim_decomposition._get_client",
             lambda: mock_client,
         )
-        
+
         # When: Decomposing with LLM
         decomposer = ClaimDecomposer(use_llm=True)
         result = await decomposer.decompose("エラーテスト")
-        
+
         # Then: Falls back to rule-based
         assert result.success is True
         assert result.decomposition_method == "rule_based"
@@ -571,7 +571,7 @@ class TestClaimDecomposerLLM:
 
 class TestDecomposeQuestionFunction:
     """Tests for the convenience function."""
-    
+
     @pytest.mark.asyncio
     async def test_decompose_question_default(self):
         """Test decompose_question with default parameters."""
@@ -581,11 +581,11 @@ class TestDecomposeQuestionFunction:
             "AIについて教えてください",
             use_llm=False,
         )
-        
+
         # Then: Success
         assert result.success is True
         assert len(result.claims) >= 1
-    
+
     @pytest.mark.asyncio
     async def test_decompose_question_rule_based(self):
         """Test decompose_question with rule-based method."""
@@ -595,7 +595,7 @@ class TestDecomposeQuestionFunction:
             "機械学習とディープラーニングの違いは何ですか",
             use_llm=False,
         )
-        
+
         # Then: method=rule_based
         assert result.success is True
         assert result.decomposition_method == "rule_based"
@@ -604,36 +604,36 @@ class TestDecomposeQuestionFunction:
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
-    
+
     @pytest.fixture
     def decomposer(self):
         """Create a rule-based decomposer."""
         return ClaimDecomposer(use_llm=False)
-    
+
     @pytest.mark.asyncio
     async def test_whitespace_only_question(self, decomposer):
         """Test handling of whitespace-only question."""
         # Given: Whitespace-only input
         # When: Decomposing
         result = await decomposer.decompose("   \n\t  ")
-        
+
         # Then: Fails
         assert result.success is False
         assert result.error == "Empty question provided"
-    
+
     @pytest.mark.asyncio
     async def test_very_long_question(self, decomposer):
         """Test handling of very long question."""
         # Given: Very long input (2000 chars)
         long_question = "AI" * 1000
-        
+
         # When: Decomposing
         result = await decomposer.decompose(long_question)
-        
+
         # Then: Handles gracefully
         assert result.success is True
         assert len(result.claims) >= 1
-    
+
     @pytest.mark.asyncio
     async def test_special_characters(self, decomposer):
         """Test handling of special characters in question."""
@@ -642,11 +642,11 @@ class TestEdgeCases:
         result = await decomposer.decompose(
             "AI (人工知能) の「未来」について調べる！？"
         )
-        
+
         # Then: Handles correctly
         assert result.success is True
         assert len(result.claims) >= 1
-    
+
     @pytest.mark.asyncio
     async def test_english_question(self, decomposer):
         """Test handling of English question."""
@@ -655,11 +655,11 @@ class TestEdgeCases:
         result = await decomposer.decompose(
             "What is the impact of AI on employment?"
         )
-        
+
         # Then: Handles English
         assert result.success is True
         assert len(result.claims) >= 1
-    
+
     @pytest.mark.asyncio
     async def test_mixed_language_question(self, decomposer):
         """Test handling of mixed Japanese/English question."""
@@ -668,11 +668,11 @@ class TestEdgeCases:
         result = await decomposer.decompose(
             "ChatGPTとは何ですか？What are its capabilities?"
         )
-        
+
         # Then: Handles mixed text
         assert result.success is True
         assert len(result.claims) >= 1
-    
+
     @pytest.mark.asyncio
     async def test_numeric_only_question(self, decomposer):
         """Test handling of numeric content (quantitative detection)."""
@@ -681,7 +681,7 @@ class TestEdgeCases:
         result = await decomposer.decompose(
             "売上は1000億円を超えた"
         )
-        
+
         # Then: Detects quantitative type
         assert result.success is True
         claim = result.claims[0]
@@ -690,31 +690,31 @@ class TestEdgeCases:
 
 class TestClaimIdUniqueness:
     """Tests for claim ID uniqueness."""
-    
+
     @pytest.mark.asyncio
     async def test_unique_claim_ids(self):
         """Test that claim IDs are unique across decompositions."""
         # Given: Decomposer
         decomposer = ClaimDecomposer(use_llm=False)
-        
+
         # When: Decomposing two different questions
         result1 = await decomposer.decompose("質問1")
         result2 = await decomposer.decompose("質問2")
-        
+
         # Then: IDs don't overlap
         ids1 = {c.claim_id for c in result1.claims}
         ids2 = {c.claim_id for c in result2.claims}
         assert ids1.isdisjoint(ids2)
-    
+
     @pytest.mark.asyncio
     async def test_claim_id_format(self):
         """Test that claim IDs follow expected format."""
         # Given: Decomposer
         decomposer = ClaimDecomposer(use_llm=False)
-        
+
         # When: Decomposing
         result = await decomposer.decompose("テスト質問")
-        
+
         # Then: Follows claim_XXXXXXXX format
         for claim in result.claims:
             assert claim.claim_id.startswith("claim_")

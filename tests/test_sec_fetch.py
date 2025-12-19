@@ -30,26 +30,25 @@ Covers:
 import pytest
 
 from src.crawler.sec_fetch import (
-    SecFetchSite,
-    SecFetchMode,
-    SecFetchDest,
-    SecFetchHeaders,
+    BrandVersion,
     NavigationContext,
-    generate_sec_fetch_headers,
-    generate_headers_for_serp_click,
-    generate_headers_for_direct_navigation,
-    generate_headers_for_internal_link,
-    _get_registrable_domain,
-    _determine_fetch_site,
     # Sec-CH-UA-* related imports
     Platform,
-    BrandVersion,
     SecCHUAConfig,
     SecCHUAHeaders,
-    generate_sec_ch_ua_headers,
+    SecFetchDest,
+    SecFetchHeaders,
+    SecFetchMode,
+    SecFetchSite,
+    _determine_fetch_site,
+    _get_registrable_domain,
     generate_all_security_headers,
     generate_complete_navigation_headers,
-    update_default_sec_ch_ua_config,
+    generate_headers_for_direct_navigation,
+    generate_headers_for_internal_link,
+    generate_headers_for_serp_click,
+    generate_sec_ch_ua_headers,
+    generate_sec_fetch_headers,
 )
 
 
@@ -91,9 +90,9 @@ class TestSecFetchHeaders:
             dest=SecFetchDest.DOCUMENT,
             user=True,
         )
-        
+
         result = headers.to_dict()
-        
+
         assert result["Sec-Fetch-Site"] == "cross-site"
         assert result["Sec-Fetch-Mode"] == "navigate"
         assert result["Sec-Fetch-Dest"] == "document"
@@ -107,9 +106,9 @@ class TestSecFetchHeaders:
             dest=SecFetchDest.IMAGE,
             user=True,  # Should be ignored for non-navigate
         )
-        
+
         result = headers.to_dict()
-        
+
         assert "Sec-Fetch-User" not in result
         assert result["Sec-Fetch-Mode"] == "no-cors"
 
@@ -121,9 +120,9 @@ class TestSecFetchHeaders:
             dest=SecFetchDest.DOCUMENT,
             user=False,
         )
-        
+
         result = headers.to_dict()
-        
+
         assert "Sec-Fetch-User" not in result
 
 
@@ -256,9 +255,9 @@ class TestGenerateSecFetchHeaders:
             is_user_initiated=True,
             destination=SecFetchDest.DOCUMENT,
         )
-        
+
         headers = generate_sec_fetch_headers(context)
-        
+
         assert headers.site == SecFetchSite.NONE
         assert headers.mode == SecFetchMode.NAVIGATE
         assert headers.dest == SecFetchDest.DOCUMENT
@@ -272,9 +271,9 @@ class TestGenerateSecFetchHeaders:
             is_user_initiated=True,
             destination=SecFetchDest.DOCUMENT,
         )
-        
+
         headers = generate_sec_fetch_headers(context)
-        
+
         assert headers.site == SecFetchSite.CROSS_SITE
         assert headers.mode == SecFetchMode.NAVIGATE
         assert headers.dest == SecFetchDest.DOCUMENT
@@ -287,9 +286,9 @@ class TestGenerateSecFetchHeaders:
             is_user_initiated=True,
             destination=SecFetchDest.DOCUMENT,
         )
-        
+
         headers = generate_sec_fetch_headers(context)
-        
+
         assert headers.site == SecFetchSite.SAME_ORIGIN
         assert headers.mode == SecFetchMode.NAVIGATE
 
@@ -301,9 +300,9 @@ class TestGenerateSecFetchHeaders:
             is_user_initiated=False,
             destination=SecFetchDest.IMAGE,
         )
-        
+
         headers = generate_sec_fetch_headers(context)
-        
+
         assert headers.mode == SecFetchMode.NO_CORS
         assert headers.dest == SecFetchDest.IMAGE
 
@@ -318,7 +317,7 @@ class TestGenerateHeadersForSerpClick:
             target_url="https://example.com/article",
             serp_url="https://www.google.com/search?q=test+query",
         )
-        
+
         assert headers["Sec-Fetch-Site"] == "cross-site"
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Sec-Fetch-Dest"] == "document"
@@ -331,7 +330,7 @@ class TestGenerateHeadersForSerpClick:
             target_url="https://example.jp/page",
             serp_url="https://duckduckgo.com/?q=test",
         )
-        
+
         assert headers["Sec-Fetch-Site"] == "cross-site"
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Referer"] == "https://duckduckgo.com/?q=test"
@@ -346,7 +345,7 @@ class TestGenerateHeadersForDirectNavigation:
         headers = generate_headers_for_direct_navigation(
             target_url="https://example.com/page",
         )
-        
+
         assert headers["Sec-Fetch-Site"] == "none"
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Sec-Fetch-Dest"] == "document"
@@ -358,7 +357,7 @@ class TestGenerateHeadersForDirectNavigation:
         headers = generate_headers_for_direct_navigation(
             target_url="https://example.com/bookmarked-page",
         )
-        
+
         assert headers["Sec-Fetch-Site"] == "none"
         assert "Referer" not in headers
 
@@ -373,7 +372,7 @@ class TestGenerateHeadersForInternalLink:
             target_url="https://example.com/page2",
             source_url="https://example.com/page1",
         )
-        
+
         assert headers["Sec-Fetch-Site"] == "same-origin"
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Referer"] == "https://example.com/page1"
@@ -384,7 +383,7 @@ class TestGenerateHeadersForInternalLink:
             target_url="https://blog.example.com/post",
             source_url="https://www.example.com/",
         )
-        
+
         assert headers["Sec-Fetch-Site"] == "same-site"
         assert headers["Referer"] == "https://www.example.com/"
 
@@ -450,7 +449,7 @@ class TestHeaderConsistency:
             target_url="https://example.com/page",
             serp_url="https://google.com/search",
         )
-        
+
         required = ["Sec-Fetch-Site", "Sec-Fetch-Mode", "Sec-Fetch-Dest"]
         for header in required:
             assert header in headers, f"Missing required header: {header}"
@@ -467,7 +466,7 @@ class TestHeaderConsistency:
         headers = generate_sec_fetch_headers(context)
         result = headers.to_dict()
         assert "Sec-Fetch-User" in result
-        
+
         # Not user-initiated (e.g., redirect)
         context = NavigationContext(
             target_url="https://example.com/",
@@ -484,7 +483,7 @@ class TestHeaderConsistency:
         headers = generate_headers_for_direct_navigation(
             target_url="https://example.com/",
         )
-        
+
         for key, value in headers.items():
             assert isinstance(value, str), f"Header {key} value should be string, got {type(value)}"
 
@@ -518,9 +517,9 @@ class TestBrandVersion:
             brand="Google Chrome",
             major_version="120",
         )
-        
+
         result = brand.to_ua_item()
-        
+
         assert result == '"Google Chrome";v="120"'
 
     def test_to_ua_item_with_special_characters(self):
@@ -529,9 +528,9 @@ class TestBrandVersion:
             brand="Not_A Brand",
             major_version="8",
         )
-        
+
         result = brand.to_ua_item()
-        
+
         assert result == '"Not_A Brand";v="8"'
 
     def test_to_ua_item_full_version(self):
@@ -541,9 +540,9 @@ class TestBrandVersion:
             major_version="120",
             full_version="120.0.6099.130",
         )
-        
+
         result = brand.to_ua_item(include_full_version=True)
-        
+
         assert result == '"Chromium";v="120.0.6099.130"'
 
     def test_to_ua_item_full_version_fallback(self):
@@ -552,9 +551,9 @@ class TestBrandVersion:
             brand="Test",
             major_version="10",
         )
-        
+
         result = brand.to_ua_item(include_full_version=True)
-        
+
         assert result == '"Test";v="10"'
 
 
@@ -565,7 +564,7 @@ class TestSecCHUAConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = SecCHUAConfig()
-        
+
         assert config.chrome_major_version == "120"
         assert config.platform == Platform.WINDOWS
         assert config.is_mobile is False
@@ -580,7 +579,7 @@ class TestSecCHUAConfig:
             platform=Platform.LINUX,
             is_mobile=False,
         )
-        
+
         assert config.chrome_major_version == "121"
         assert config.platform == Platform.LINUX
 
@@ -590,9 +589,9 @@ class TestSecCHUAConfig:
             chrome_major_version="120",
             chrome_full_version="120.0.6099.130",
         )
-        
+
         brands = config.brands
-        
+
         assert len(brands) == 3
         # First is GREASE brand
         assert brands[0].brand == "Not_A Brand"
@@ -620,13 +619,13 @@ class TestSecCHUAHeaders:
             is_mobile=False,
             platform=Platform.WINDOWS,
         )
-        
+
         result = headers.to_dict()
-        
+
         assert "Sec-CH-UA" in result
         assert "Sec-CH-UA-Mobile" in result
         assert "Sec-CH-UA-Platform" in result
-        
+
         assert result["Sec-CH-UA-Mobile"] == "?0"
         assert result["Sec-CH-UA-Platform"] == '"Windows"'
 
@@ -637,9 +636,9 @@ class TestSecCHUAHeaders:
             is_mobile=True,
             platform=Platform.ANDROID,
         )
-        
+
         result = headers.to_dict()
-        
+
         assert result["Sec-CH-UA-Mobile"] == "?1"
         assert result["Sec-CH-UA-Platform"] == '"Android"'
 
@@ -650,9 +649,9 @@ class TestSecCHUAHeaders:
             is_mobile=False,
             platform=Platform.LINUX,
         )
-        
+
         result = headers.to_dict()
-        
+
         assert result["Sec-CH-UA-Platform"] == '"Linux"'
 
     def test_to_dict_with_optional_headers(self):
@@ -665,9 +664,9 @@ class TestSecCHUAHeaders:
             platform=Platform.WINDOWS,
             platform_version="15.0.0",
         )
-        
+
         result = headers.to_dict(include_optional=True)
-        
+
         assert "Sec-CH-UA-Platform-Version" in result
         assert result["Sec-CH-UA-Platform-Version"] == '"15.0.0"'
         assert "Sec-CH-UA-Full-Version-List" in result
@@ -680,9 +679,9 @@ class TestSecCHUAHeaders:
             platform=Platform.WINDOWS,
             platform_version="15.0.0",
         )
-        
+
         result = headers.to_dict(include_optional=False)
-        
+
         assert "Sec-CH-UA-Platform-Version" not in result
         assert "Sec-CH-UA-Full-Version-List" not in result
 
@@ -697,10 +696,10 @@ class TestSecCHUAHeaders:
             is_mobile=False,
             platform=Platform.WINDOWS,
         )
-        
+
         result = headers.to_dict()
         sec_ch_ua = result["Sec-CH-UA"]
-        
+
         # Should be comma-separated list
         assert '"Not_A Brand";v="8"' in sec_ch_ua
         assert '"Chromium";v="120"' in sec_ch_ua
@@ -716,12 +715,12 @@ class TestGenerateSecCHUAHeaders:
         """Test header generation with default config."""
         headers = generate_sec_ch_ua_headers()
         result = headers.to_dict()
-        
+
         # Should have all required headers
         assert "Sec-CH-UA" in result
         assert "Sec-CH-UA-Mobile" in result
         assert "Sec-CH-UA-Platform" in result
-        
+
         # Default is desktop Windows
         assert result["Sec-CH-UA-Mobile"] == "?0"
         assert result["Sec-CH-UA-Platform"] == '"Windows"'
@@ -733,10 +732,10 @@ class TestGenerateSecCHUAHeaders:
             platform=Platform.MACOS,
             is_mobile=False,
         )
-        
+
         headers = generate_sec_ch_ua_headers(config=config)
         result = headers.to_dict()
-        
+
         assert result["Sec-CH-UA-Platform"] == '"macOS"'
         assert '"121"' in result["Sec-CH-UA"]
 
@@ -745,13 +744,13 @@ class TestGenerateSecCHUAHeaders:
         config = SecCHUAConfig(
             platform_version="15.0.0",
         )
-        
+
         headers = generate_sec_ch_ua_headers(
             config=config,
             include_optional=True,
         )
         result = headers.to_dict(include_optional=True)
-        
+
         assert "Sec-CH-UA-Platform-Version" in result
 
 
@@ -767,20 +766,20 @@ class TestGenerateAllSecurityHeaders:
             is_user_initiated=True,
             destination=SecFetchDest.DOCUMENT,
         )
-        
+
         headers = generate_all_security_headers(context)
-        
+
         # Sec-Fetch-* headers
         assert headers["Sec-Fetch-Site"] == "cross-site"
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Sec-Fetch-Dest"] == "document"
         assert headers["Sec-Fetch-User"] == "?1"
-        
+
         # Sec-CH-UA-* headers
         assert "Sec-CH-UA" in headers
         assert "Sec-CH-UA-Mobile" in headers
         assert "Sec-CH-UA-Platform" in headers
-        
+
         # Referer
         assert headers["Referer"] == "https://google.com/search"
 
@@ -792,9 +791,9 @@ class TestGenerateAllSecurityHeaders:
             is_user_initiated=True,
             destination=SecFetchDest.DOCUMENT,
         )
-        
+
         headers = generate_all_security_headers(context)
-        
+
         assert headers["Sec-Fetch-Site"] == "none"
         assert "Referer" not in headers
 
@@ -804,17 +803,17 @@ class TestGenerateAllSecurityHeaders:
             target_url="https://example.com/page",
             referer_url="https://google.com/search",
         )
-        
+
         # Should have all Sec-Fetch-* headers
         assert "Sec-Fetch-Site" in headers
         assert "Sec-Fetch-Mode" in headers
         assert "Sec-Fetch-Dest" in headers
-        
+
         # Should have all Sec-CH-UA-* headers
         assert "Sec-CH-UA" in headers
         assert "Sec-CH-UA-Mobile" in headers
         assert "Sec-CH-UA-Platform" in headers
-        
+
         # Should have Referer
         assert "Referer" in headers
 
@@ -823,7 +822,7 @@ class TestGenerateAllSecurityHeaders:
         headers = generate_complete_navigation_headers(
             target_url="https://example.com/page",
         )
-        
+
         assert headers["Sec-Fetch-Site"] == "none"
         assert "Referer" not in headers
 
@@ -840,19 +839,19 @@ class TestSecCHUAHeadersIntegration:
             platform=Platform.WINDOWS,
             is_mobile=False,
         )
-        
+
         headers = generate_sec_ch_ua_headers(config=config)
         result = headers.to_dict()
-        
+
         # Chrome's Sec-CH-UA format (order may vary)
         sec_ch_ua = result["Sec-CH-UA"]
-        
+
         # Should contain three brands
         assert sec_ch_ua.count(';v="') == 3
-        
+
         # Mobile should be ?0 for desktop
         assert result["Sec-CH-UA-Mobile"] == "?0"
-        
+
         # Platform should be quoted
         assert result["Sec-CH-UA-Platform"] == '"Windows"'
 
@@ -860,7 +859,7 @@ class TestSecCHUAHeadersIntegration:
         """Test all header values are strings for HTTP client compatibility."""
         headers = generate_sec_ch_ua_headers()
         result = headers.to_dict(include_optional=True)
-        
+
         for key, value in result.items():
             assert isinstance(value, str), f"Header {key} should be string, got {type(value)}"
 
@@ -870,10 +869,10 @@ class TestSecCHUAHeadersIntegration:
             platform=Platform.ANDROID,
             is_mobile=True,
         )
-        
+
         headers = generate_sec_ch_ua_headers(config=config)
         result = headers.to_dict()
-        
+
         assert result["Sec-CH-UA-Mobile"] == "?1"
         assert result["Sec-CH-UA-Platform"] == '"Android"'
 
@@ -883,10 +882,10 @@ class TestSecCHUAHeadersIntegration:
             platform=Platform.IOS,
             is_mobile=True,
         )
-        
+
         headers = generate_sec_ch_ua_headers(config=config)
         result = headers.to_dict()
-        
+
         assert result["Sec-CH-UA-Platform"] == '"iOS"'
         assert result["Sec-CH-UA-Mobile"] == "?1"
 

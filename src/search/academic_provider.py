@@ -9,18 +9,17 @@ Provides unified interface for searching academic papers from:
 """
 
 import asyncio
-from typing import Optional
 
-from src.search.provider import BaseSearchProvider, SearchResponse, SearchOptions, SearchResult
-from src.search.apis.base import BaseAcademicClient
-from src.search.apis.semantic_scholar import SemanticScholarClient
-from src.search.apis.openalex import OpenAlexClient
-from src.search.apis.crossref import CrossrefClient
 from src.search.apis.arxiv import ArxivClient
+from src.search.apis.base import BaseAcademicClient
+from src.search.apis.crossref import CrossrefClient
+from src.search.apis.openalex import OpenAlexClient
+from src.search.apis.semantic_scholar import SemanticScholarClient
 from src.search.apis.unpaywall import UnpaywallClient
 from src.search.canonical_index import CanonicalPaperIndex
-from src.utils.schemas import Paper
+from src.search.provider import BaseSearchProvider, SearchOptions, SearchResponse
 from src.utils.logging import get_logger
+from src.utils.schemas import Paper
 
 logger = get_logger(__name__)
 
@@ -32,7 +31,7 @@ class AcademicSearchProvider(BaseSearchProvider):
     citation graph retrieval. Early deduplication ensures each unique paper
     is processed only once.
     """
-    
+
     # API priority (lower number = higher priority)
     API_PRIORITY = {
         "semantic_scholar": 1,
@@ -41,16 +40,16 @@ class AcademicSearchProvider(BaseSearchProvider):
         "arxiv": 4,
         "unpaywall": 5,
     }
-    
+
     def __init__(self):
         """Initialize academic search provider."""
         super().__init__("academic")
         self._clients: dict[str, BaseAcademicClient] = {}
         self._default_apis = ["semantic_scholar", "openalex"]  # Default APIs to use
-        self._last_index: Optional[CanonicalPaperIndex] = None  # Expose last search index
-        self._unpaywall_enabled: Optional[bool] = None  # Cache for Unpaywall enabled status
-    
-    def get_last_index(self) -> Optional[CanonicalPaperIndex]:
+        self._last_index: CanonicalPaperIndex | None = None  # Expose last search index
+        self._unpaywall_enabled: bool | None = None  # Cache for Unpaywall enabled status
+
+    def get_last_index(self) -> CanonicalPaperIndex | None:
         """Get the CanonicalPaperIndex from the last search.
         
         Returns the internal index containing Paper objects with full metadata.
@@ -59,7 +58,7 @@ class AcademicSearchProvider(BaseSearchProvider):
             CanonicalPaperIndex or None if no search has been performed
         """
         return self._last_index
-    
+
     def _is_unpaywall_enabled(self) -> bool:
         """Check if Unpaywall is enabled via configuration.
         
@@ -78,7 +77,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                 # Default to False on error (opt-in behavior)
                 self._unpaywall_enabled = False
         return self._unpaywall_enabled
-    
+
     async def _get_client(self, api_name: str) -> BaseAcademicClient:
         """Get client (lazy initialization)."""
         if api_name not in self._clients:
@@ -98,11 +97,11 @@ class AcademicSearchProvider(BaseSearchProvider):
             else:
                 raise ValueError(f"Unknown API: {api_name}")
         return self._clients[api_name]
-    
+
     async def search(
         self,
         query: str,
-        options: Optional[SearchOptions] = None,
+        options: SearchOptions | None = None,
     ) -> SearchResponse:
         """Search for academic papers.
         
@@ -117,15 +116,15 @@ class AcademicSearchProvider(BaseSearchProvider):
         """
         if options is None:
             options = SearchOptions()
-        
+
         apis_to_use = options.engines if options.engines else self._default_apis
-        
+
         # Sort by priority
         apis_to_use = sorted(
             apis_to_use,
             key=lambda api: self.API_PRIORITY.get(api, 999)
         )
-        
+
         # Parallel search
         tasks = []
         for api_name in apis_to_use:
@@ -135,7 +134,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                 tasks.append(client.search(query, limit=limit))
             except Exception as e:
                 logger.warning("Failed to create search task", api=api_name, error=str(e))
-        
+
         if not tasks:
             return SearchResponse(
                 results=[],
@@ -143,34 +142,34 @@ class AcademicSearchProvider(BaseSearchProvider):
                 provider=self.name,
                 error="No API clients available",
             )
-        
+
         # Execute in parallel
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         # Early deduplication
         index = CanonicalPaperIndex()
-        
+
         # Register in priority order (higher priority API registered first)
         for api_name, result in zip(apis_to_use, results):
             if isinstance(result, Exception):
                 logger.warning("API search failed", api=api_name, error=str(result))
                 continue
-            
+
             from src.utils.schemas import AcademicSearchResult
             if not isinstance(result, AcademicSearchResult):
                 continue
-            
+
             # Register each paper (duplicates are automatically skipped)
             for paper in result.papers:
                 index.register_paper(paper, source_api=api_name)
-        
+
         # Store index for external access (e.g., to get Paper objects)
         self._last_index = index
-        
+
         # Get unique paper list
         unique_entries = index.get_all_entries()
         stats = index.get_stats()
-        
+
         logger.info(
             "Academic API search completed",
             query=query[:100],
@@ -183,21 +182,21 @@ class AcademicSearchProvider(BaseSearchProvider):
             unique_count=stats["total"],
             dedup_stats=stats,
         )
-        
+
         # Convert to SearchResponse format
         search_results = []
         for entry in unique_entries:
             if entry.paper:
                 search_result = entry.paper.to_search_result()
                 search_results.append(search_result)
-        
+
         return SearchResponse(
             results=search_results,
             query=query,
             provider=self.name,
             total_count=len(search_results),
         )
-    
+
     async def get_citation_graph(
         self,
         paper_id: str,
@@ -216,18 +215,18 @@ class AcademicSearchProvider(BaseSearchProvider):
         """
         # Prefer Semantic Scholar (best citation graph coverage)
         client = await self._get_client("semantic_scholar")
-        
+
         papers: dict[str, Paper] = {}
         citations = []
         to_explore = [(paper_id, 0)]  # (paper_id, current_depth)
         explored = set()
-        
+
         while to_explore:
             current_id, current_depth = to_explore.pop(0)
             if current_id in explored or current_depth >= depth:
                 continue
             explored.add(current_id)
-            
+
             # Get references
             if direction in ("references", "both"):
                 refs = await client.get_references(current_id)
@@ -241,7 +240,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                     ))
                     if current_depth + 1 < depth:
                         to_explore.append((ref_paper.id, current_depth + 1))
-            
+
             # Get citations
             if direction in ("citations", "both"):
                 cits = await client.get_citations(current_id)
@@ -255,10 +254,10 @@ class AcademicSearchProvider(BaseSearchProvider):
                     ))
                     if current_depth + 1 < depth:
                         to_explore.append((cit_paper.id, current_depth + 1))
-        
+
         return list(papers.values()), citations
-    
-    async def resolve_oa_url_for_paper(self, paper: Paper) -> Optional[str]:
+
+    async def resolve_oa_url_for_paper(self, paper: Paper) -> str | None:
         """Resolve OA URL for a paper using Unpaywall if not already available.
         
         Args:
@@ -270,16 +269,16 @@ class AcademicSearchProvider(BaseSearchProvider):
         # If paper already has OA URL, return it
         if paper.oa_url:
             return paper.oa_url
-        
+
         # If no DOI, cannot resolve
         if not paper.doi:
             return None
-        
+
         # Check if Unpaywall is enabled before attempting resolution
         if not self._is_unpaywall_enabled():
             logger.debug("Unpaywall is disabled, skipping OA URL resolution", doi=paper.doi)
             return None
-        
+
         # Try Unpaywall API
         try:
             unpaywall_client = await self._get_client("unpaywall")
@@ -294,20 +293,20 @@ class AcademicSearchProvider(BaseSearchProvider):
             return None
         except Exception as e:
             logger.debug("Failed to resolve OA URL via Unpaywall", doi=paper.doi, error=str(e))
-        
+
         return None
-    
+
     async def get_health(self):
         """Get health status."""
-        from src.search.provider import HealthStatus, HealthState
-        
+        from src.search.provider import HealthStatus
+
         # Simple health check: can client be initialized
         try:
             await self._get_client("semantic_scholar")
             return HealthStatus.healthy()
         except Exception as e:
             return HealthStatus.unhealthy(str(e))
-    
+
     async def close(self) -> None:
         """Close all clients."""
         for client in self._clients.values():
