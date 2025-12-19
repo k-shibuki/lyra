@@ -76,6 +76,19 @@ In cloud agent environments:
 - Slow tests are automatically skipped (unless explicitly requested)
 - Only unit and integration tests run by default
 
+IMPORTANT: Cloud Agent Limitation
+---------------------------------
+クラウドエージェント環境（Cursor Cloud Agent、Claude Code等）では、
+外部サービス依存のテスト（E2E、slow）は自動的にスキップされます。
+
+**ローカル環境での追加テスト実行が必要です：**
+  - E2Eテスト: pytest -m e2e
+  - Slowテスト: pytest -m slow
+  - 全テスト: pytest
+
+依存関係が不足している場合、該当テストファイルは収集されません。
+ローカル環境で `pip install -e ".[dev]"` を実行して全依存関係をインストールしてください。
+
 =============================================================================
 Default Execution
 =============================================================================
@@ -340,8 +353,30 @@ def pytest_configure(config):
         "markers", "manual: E2E requiring human interaction (CAPTCHA resolution)"
     )
     
-    # Log environment info for debugging
-    if config.option.verbose > 0:
+    # Always show cloud agent notice (important for users to know)
+    if _env_info.is_cloud_agent:
+        print(f"\n{'='*70}")
+        print(f"[Lancet Test] CLOUD AGENT ENVIRONMENT DETECTED")
+        print(f"{'='*70}")
+        print(f"  Agent Type: {_env_info.cloud_agent_type.value}")
+        print(f"  E2E Capable: {_env_info.is_e2e_capable}")
+        print()
+        print("  ⚠️  E2E/Slow tests are SKIPPED in this environment.")
+        print("  📋 Please run the following tests LOCALLY:")
+        print()
+        print("      pytest -m e2e          # E2E tests (Chrome, Ollama required)")
+        print("      pytest -m slow         # Slow tests (>5s)")
+        print("      pytest                 # All tests")
+        print()
+        if not _deps_available:
+            print(f"  ⚠️  Missing dependencies: {', '.join(_missing_deps)}")
+            print("      Only minimal-safe tests will run.")
+            print("      Install with: pip install -e '.[dev]'")
+            print()
+        print(f"{'='*70}\n")
+    
+    # Log environment info for debugging (verbose mode)
+    elif config.option.verbose > 0:
         print(f"\n[Lancet Test] Environment Detection:")
         print(f"  Cloud Agent: {_env_info.is_cloud_agent} ({_env_info.cloud_agent_type.value})")
         print(f"  E2E Capable: {_env_info.is_e2e_capable}")
