@@ -1630,7 +1630,7 @@ class CalibrationEvaluation:
 class CalibrationEvaluator:
     """Manages calibration evaluation persistence (§4.6.1).
 
-    Responsibilities (Lancet Worker):
+    Responsibilities (Lyra Worker):
     - Execute evaluation calculations
     - Persist evaluation results to DB
     - Return structured data
@@ -1984,7 +1984,7 @@ async def save_calibration_evaluation(
 ) -> dict[str, Any]:
     """Execute evaluation and save to database (for MCP tool use).
 
-    Implements §4.6.1: Lancet Worker - Evaluation calculation and DB persistence.
+    Implements §4.6.1: Lyra Worker - Evaluation calculation and DB persistence.
 
     Args:
         source: Source model identifier.
@@ -2011,7 +2011,7 @@ async def get_calibration_evaluations(
 ) -> dict[str, Any]:
     """Get evaluation history (for MCP tool use).
 
-    Implements §4.6.1: Lancet Worker - Return structured data.
+    Implements §4.6.1: Lyra Worker - Return structured data.
 
     Args:
         source: Optional source filter.
@@ -2051,7 +2051,7 @@ async def get_reliability_diagram_data(
 ) -> dict[str, Any]:
     """Get reliability diagram data for visualization (for MCP tool use).
 
-    Implements §4.6.1: Lancet Worker - Return bin data for reliability curve.
+    Implements §4.6.1: Lyra Worker - Return bin data for reliability curve.
 
     Args:
         source: Source model identifier.

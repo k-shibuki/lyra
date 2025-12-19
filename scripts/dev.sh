@@ -115,7 +115,7 @@ show_logs() {
 
 # Function: cleanup_environment
 # Description: Clean up containers and images
-#             Removes all Lancet containers, volumes, and images
+#             Removes all Lyra containers, volumes, and images
 # Returns:
 #   0: Success
 cleanup_environment() {
@@ -155,7 +155,7 @@ cmd_up() {
     echo ""
     echo "Services started:"
     echo "  - Tor SOCKS: localhost:9050"
-    echo "  - Lancet: Running in container"
+    echo "  - Lyra: Running in container"
     echo ""
     echo "To enter the development shell: ./scripts/dev.sh shell"
 }

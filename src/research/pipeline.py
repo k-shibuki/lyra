@@ -105,7 +105,7 @@ class SearchResult:
 class SearchOptions:
     """Options for search execution."""
 
-    engines: list[str] | None = None  # Use None for Lancet-selected engines
+    engines: list[str] | None = None  # Use None for Lyra-selected engines
     max_pages: int | None = None
     seek_primary: bool = False  # Prioritize primary sources
     refute: bool = False  # Enable refutation mode

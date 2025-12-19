@@ -3,7 +3,7 @@ Research exploration control module for Lyra.
 
 This module implements the exploration control engine where:
 - Cursor AI designs all search queries (strategic decisions)
-- Lancet provides design support information and executes queries (operational work)
+- Lyra provides design support information and executes queries (operational work)
 
 See docs/REQUIREMENTS.md §2.1 for the responsibility matrix.
 See docs/REQUIREMENTS.md §3.1.1 for UCB1-based budget allocation and pivot exploration.

@@ -78,7 +78,7 @@ load_env 2>/dev/null || true
 export CHROME_PORT="${LYRA_BROWSER__CHROME_PORT:-9222}"
 
 # Container settings
-export CONTAINER_NAME="${LYRA_SCRIPT__CONTAINER_NAME:-lancet}"
+export CONTAINER_NAME="${LYRA_SCRIPT__CONTAINER_NAME:-lyra}"
 
 # Timeouts (seconds)
 export CONTAINER_TIMEOUT="${LYRA_SCRIPT__CONTAINER_TIMEOUT:-30}"
@@ -242,7 +242,7 @@ detect_container() {
     fi
     
     # Detect if running in ML container (lyra-ml has FastAPI and ML libs)
-    # Other containers: lancet (main), lyra-ollama (LLM), lyra-tor (proxy)
+    # Other containers: lyra (main), lyra-ollama (LLM), lyra-tor (proxy)
     IS_ML_CONTAINER=false
     if [[ "$IN_CONTAINER" == "true" ]] && [[ "$CURRENT_CONTAINER_NAME" == "lyra-ml" ]]; then
         IS_ML_CONTAINER=true

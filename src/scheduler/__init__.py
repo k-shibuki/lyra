@@ -1,5 +1,5 @@
 """
-Lancet scheduler module.
+Lyra scheduler module.
 Provides job scheduling with budget control.
 """
 

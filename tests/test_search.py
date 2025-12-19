@@ -1006,7 +1006,7 @@ class TestQueryOperatorProcessor:
         """Test building queries programmatically.
 
         Validates §3.1.1: systematic query construction using build_query API.
-        This is used for OSINT vertical templates (§3.1.3).
+        This is used for Academic Research vertical templates (§3.1.3).
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -1103,12 +1103,12 @@ class TestQueryOperatorHelperFunctions:
     def test_build_search_query_function(self):
         """Test build_search_query helper function.
 
-        Validates §3.1.1/§3.1.3: programmatic query construction for OSINT templates.
+        Validates §3.1.1/§3.1.3: programmatic query construction for Academic Research templates.
         Example from §3.1.3: `site:go.jp 企業名`, `filetype:pdf 会社名 仕様`
         """
         from src.search.search_api import build_search_query
 
-        # Build a query matching OSINT template pattern from §3.1.3
+        # Build a query matching Academic Research template pattern from §3.1.3
         result = build_search_query(
             base_query="企業名",
             site="go.jp",

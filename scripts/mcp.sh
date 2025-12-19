@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lancet MCP Server Launcher (WSL Hybrid Mode)
+# Lyra MCP Server Launcher (WSL Hybrid Mode)
 #
 # Launches MCP server on WSL host, with LLM/ML via container proxy.
 # Called by Cursor via .cursor/mcp.json

@@ -1,5 +1,5 @@
 """
-Lancet utilities module.
+Lyra utilities module.
 """
 
 from src.utils.config import ensure_directories, get_project_root, get_settings

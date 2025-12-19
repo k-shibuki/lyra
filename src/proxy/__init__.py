@@ -1,5 +1,5 @@
 """
-Lancet Proxy Server.
+Lyra Proxy Server.
 
 Lightweight reverse proxy for Ollama and ML Server access.
 Runs inside the lyra container, providing access to internal network services.

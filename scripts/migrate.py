@@ -198,7 +198,7 @@ def cmd_create(name: str) -> int:
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Database migration runner for Lancet"
+        description="Database migration runner for Lyra"
     )
     parser.add_argument(
         "--db",

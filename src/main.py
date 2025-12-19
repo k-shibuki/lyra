@@ -28,7 +28,7 @@ async def initialize() -> None:
 
     logger = get_logger(__name__)
     logger.info(
-        "Lancet initializing",
+        "Lyra initializing",
         version=settings.general.version,
         log_level=settings.general.log_level,
     )
@@ -36,17 +36,17 @@ async def initialize() -> None:
     # Initialize database
     await get_database()
 
-    logger.info("Lancet initialized successfully")
+    logger.info("Lyra initialized successfully")
 
 
 async def shutdown() -> None:
     """Shutdown the application."""
     logger = get_logger(__name__)
-    logger.info("Lancet shutting down")
+    logger.info("Lyra shutting down")
 
     await close_database()
 
-    logger.info("Lancet shutdown complete")
+    logger.info("Lyra shutdown complete")
 
 
 async def run_research(query: str) -> None:
@@ -145,7 +145,7 @@ def main() -> None:
     """Main entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Lancet - Local Autonomous Deep Research Agent")
+    parser = argparse.ArgumentParser(description="Lyra - Local Yielding Research Aide")
     parser.add_argument(
         "command",
         choices=["init", "research", "mcp"],
@@ -165,7 +165,7 @@ def main() -> None:
 
         try:
             if args.command == "init":
-                print("Lancet initialized successfully.")
+                print("Lyra initialized successfully.")
 
             elif args.command == "research":
                 if not args.query:

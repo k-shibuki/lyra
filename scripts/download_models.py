@@ -138,7 +138,7 @@ def verify_model_loads(model_paths: dict) -> None:
 
 def main():
     print("=" * 60)
-    print("Downloading ML models for Lancet")
+    print("Downloading ML models for Lyra")
     print("=" * 60)
 
     model_paths = {}

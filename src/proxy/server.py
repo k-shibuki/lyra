@@ -1,5 +1,5 @@
 """
-Lancet Proxy Server.
+Lyra Proxy Server.
 
 Lightweight reverse proxy for Ollama and ML Server.
 Runs inside lyra container, exposes port 8080.
@@ -178,7 +178,7 @@ def create_app() -> web.Application:
 async def main() -> None:
     """Run proxy server."""
     logger.info(
-        "Starting Lancet Proxy Server",
+        "Starting Lyra Proxy Server",
         host=PROXY_HOST,
         port=PROXY_PORT,
         ollama_url=OLLAMA_URL,

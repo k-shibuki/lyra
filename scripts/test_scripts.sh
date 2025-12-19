@@ -240,7 +240,7 @@ test_mcp() {
 main() {
     local test_target="${1:-all}"
     
-    echo "Lancet Shell Scripts Test Suite"
+    echo "Lyra Shell Scripts Test Suite"
     echo "================================"
     
     case "$test_target" in

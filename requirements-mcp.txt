@@ -1,4 +1,4 @@
-# Lancet MCP Server Dependencies (WSL Host Execution)
+# Lyra MCP Server Dependencies (WSL Host Execution)
 # Lightweight subset for running MCP server on WSL host.
 # Excludes heavy ML dependencies (PyTorch, PaddleOCR, ONNX, etc.)
 # which run in containers via proxy.

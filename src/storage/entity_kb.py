@@ -1,7 +1,7 @@
 """
 Entity Knowledge Base for Lyra.
 
-Normalizes and stores entities extracted from OSINT sources (RDAP/WHOIS, crt.sh, etc.).
+Normalizes and stores entities extracted from Academic Research sources (RDAP/WHOIS, crt.sh, etc.).
 Implements §3.1.2:
 - Name normalization (alternate representations, identity estimation)
 - Address normalization

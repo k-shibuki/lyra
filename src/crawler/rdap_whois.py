@@ -9,7 +9,7 @@ Implements §3.1.2, §3.1.3:
 
 References:
 - §3.1.2: Infrastructure/Registry Direct Access (HTML only)
-- §3.1.3: OSINT Vertical Templates
+- §3.1.3: Academic Research Vertical Templates
 """
 
 import asyncio
