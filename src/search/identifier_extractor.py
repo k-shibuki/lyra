@@ -4,6 +4,8 @@ Identifier extractor for academic papers from URLs.
 Extracts DOI, PMID, arXiv ID, CiNii CRID, etc. from SERP result URLs.
 """
 
+from __future__ import annotations
+
 import re
 from urllib.parse import urlparse
 

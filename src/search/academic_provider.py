@@ -8,8 +8,9 @@ Provides unified interface for searching academic papers from:
 - arXiv (priority=4, preprints)
 """
 
+from __future__ import annotations
+
 import asyncio
-from collections import deque
 
 from src.search.apis.arxiv import ArxivClient
 from src.search.apis.base import BaseAcademicClient
@@ -219,12 +220,11 @@ class AcademicSearchProvider(BaseSearchProvider):
 
         papers: dict[str, Paper] = {}
         citations = []
-        # Use deque for O(1) popleft() in BFS traversal
-        to_explore: deque[tuple[str, int]] = deque([(paper_id, 0)])  # (paper_id, current_depth)
+        to_explore = [(paper_id, 0)]  # (paper_id, current_depth)
         explored = set()
 
         while to_explore:
-            current_id, current_depth = to_explore.popleft()
+            current_id, current_depth = to_explore.pop(0)
             if current_id in explored or current_depth >= depth:
                 continue
             explored.add(current_id)
