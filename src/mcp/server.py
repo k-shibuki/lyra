@@ -7,16 +7,16 @@ Phase M: Refactored to 11 tools per docs/requirements.md §3.2.1.
 
 import asyncio
 import json
-import sys
+from datetime import UTC
 from typing import Any
 
-from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
-from src.utils.logging import get_logger, ensure_logging_configured, LogContext
-from src.storage.database import get_database, close_database
-from src.mcp.response_meta import create_minimal_meta, attach_meta
+from mcp.server import Server
+from src.mcp.response_meta import attach_meta, create_minimal_meta
+from src.storage.database import close_database, get_database
+from src.utils.logging import LogContext, ensure_logging_configured, get_logger
 
 ensure_logging_configured()
 logger = get_logger(__name__)
@@ -352,29 +352,29 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls.
-    
+
     Args:
         name: Tool name.
         arguments: Tool arguments.
-        
+
     Returns:
         List of text content responses.
-        
+
     Note:
         All responses pass through L7 sanitization (§4.4.1)
         before being returned to Cursor AI.
     """
     from src.mcp.errors import MCPError, generate_error_id
-    from src.mcp.response_sanitizer import sanitize_response, sanitize_error
-    
+    from src.mcp.response_sanitizer import sanitize_error, sanitize_response
+
     logger.info("Tool called", tool=name, arguments=arguments)
-    
+
     try:
         result = await _dispatch_tool(name, arguments)
-        
+
         # L7: Sanitize response before returning to Cursor AI
         sanitized_result = sanitize_response(result, name)
-        
+
         return [TextContent(type="text", text=json.dumps(sanitized_result, ensure_ascii=False, indent=2))]
     except MCPError as e:
         # Structured MCP error with error code
@@ -405,11 +405,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
 async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Dispatch tool call to appropriate handler.
-    
+
     Args:
         name: Tool name.
         arguments: Tool arguments.
-        
+
     Returns:
         Tool result.
     """
@@ -432,11 +432,11 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "notify_user": _handle_notify_user,
         "wait_for_user": _handle_wait_for_user,
     }
-    
+
     handler = handlers.get(name)
     if handler is None:
         raise ValueError(f"Unknown tool: {name}")
-    
+
     return await handler(arguments)
 
 
@@ -451,12 +451,12 @@ _exploration_states: dict[str, Any] = {}
 async def _get_exploration_state(task_id: str):
     """Get or create exploration state for a task."""
     from src.research.state import ExplorationState
-    
+
     if task_id not in _exploration_states:
         state = ExplorationState(task_id)
         await state.load_state()
         _exploration_states[task_id] = state
-    
+
     return _exploration_states[task_id]
 
 
@@ -473,32 +473,32 @@ def _clear_exploration_state(task_id: str) -> None:
 async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle create_task tool call.
-    
+
     Creates a new research task and returns task_id.
     Per §3.2.1: Returns task_id, query, created_at, budget.
     """
     import uuid
-    from datetime import datetime, timezone
-    
+    from datetime import datetime
+
     query = args["query"]
     config = args.get("config", {})
-    
+
     # Generate task ID
     task_id = f"task_{uuid.uuid4().hex[:8]}"
-    
+
     # Extract budget config
     budget_config = config.get("budget", {})
     max_pages = budget_config.get("max_pages", 120)
     max_seconds = budget_config.get("max_seconds", 1200)
-    
+
     with LogContext(task_id=task_id):
         logger.info("Creating task", query=query[:100])
-        
+
         # Store task in database
         db = await get_database()
-        
-        created_at = datetime.now(timezone.utc).isoformat()
-        
+
+        created_at = datetime.now(UTC).isoformat()
+
         await db.execute(
             """
             INSERT INTO tasks (id, query, status, config_json, created_at)
@@ -506,7 +506,7 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
             """,
             (task_id, query, "created", json.dumps(config), created_at),
         )
-        
+
         response = {
             "ok": True,
             "task_id": task_id,
@@ -523,23 +523,23 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_status tool call.
-    
+
     Implements §3.2.1: Unified task and exploration status.
     Returns task info, search states, metrics, budget, auth queue.
-    
+
     Note: Returns data only, no recommendations. Cursor AI decides next actions.
     """
-    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
-    
+    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
+
     task_id = args.get("task_id")
-    
+
     if not task_id:
         raise InvalidParamsError(
             "task_id is required",
             param_name="task_id",
             expected="non-empty string",
         )
-    
+
     with LogContext(task_id=task_id):
         # Get task info from DB
         db = await get_database()
@@ -547,14 +547,14 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             "SELECT id, query, status, created_at FROM tasks WHERE id = ?",
             (task_id,),
         )
-        
+
         if task is None:
             raise TaskNotFoundError(task_id)
-        
+
         # Map DB status to spec status
         db_status = task["status"] if isinstance(task, dict) else task[2]
         task_query = task["query"] if isinstance(task, dict) else task[1]
-        
+
         # Get exploration state if exists
         exploration_status = None
         try:
@@ -566,7 +566,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 task_id=task_id,
                 error=str(e),
             )
-        
+
         # Build unified response per §3.2.1
         if exploration_status:
             # Convert searches to §3.2.1 format (text -> query field name mapping)
@@ -582,7 +582,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                     "satisfaction_score": sq.get("satisfaction_score", 0.0),
                     "has_primary_source": sq.get("has_primary_source", False),
                 })
-            
+
             # Map task_status to status field
             status_map = {
                 "exploring": "exploring",
@@ -597,15 +597,15 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 exploration_status.get("task_status", db_status),
                 "exploring"
             )
-            
+
             metrics = exploration_status.get("metrics", {})
             budget = exploration_status.get("budget", {})
-            
+
             # Calculate remaining percent
             pages_used = budget.get("pages_used", 0)
             pages_limit = budget.get("pages_limit", 120)
             remaining_percent = int((1 - pages_used / max(1, pages_limit)) * 100)
-            
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -667,21 +667,22 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 async def _check_chrome_cdp_ready() -> bool:
     """
     Check if Chrome CDP is available.
-    
+
     Performs a lightweight HTTP check to the CDP endpoint without
     initializing full Playwright.
-    
+
     Returns:
         True if CDP is available, False otherwise.
     """
     import aiohttp
+
     from src.utils.config import get_settings
-    
+
     settings = get_settings()
     chrome_host = settings.browser.chrome_host
     chrome_port = settings.browser.chrome_port
     cdp_url = f"http://{chrome_host}:{chrome_port}/json/version"
-    
+
     try:
         timeout = aiohttp.ClientTimeout(total=3)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -695,26 +696,26 @@ async def _check_chrome_cdp_ready() -> bool:
 async def _auto_start_chrome() -> bool:
     """
     Auto-start Chrome using chrome.sh script.
-    
+
     Executes ./scripts/chrome.sh start and returns success status.
     Per N.5.3: UX-first approach - Lancet auto-starts Chrome when needed.
-    
+
     Uses asyncio.create_subprocess_exec() for non-blocking execution.
-    
+
     Returns:
         True if chrome.sh start succeeded, False otherwise.
     """
     import asyncio
     from pathlib import Path
-    
+
     # Find chrome.sh script relative to this file
     # src/mcp/server.py -> scripts/chrome.sh
     script_path = Path(__file__).parent.parent.parent / "scripts" / "chrome.sh"
-    
+
     if not script_path.exists():
         logger.warning("chrome.sh not found", path=str(script_path))
         return False
-    
+
     try:
         logger.info("Auto-starting Chrome", script=str(script_path))
         process = await asyncio.create_subprocess_exec(
@@ -723,22 +724,22 @@ async def _auto_start_chrome() -> bool:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        
+
         # Wait for process completion with timeout
         try:
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(),
                 timeout=30.0,  # 30 second timeout for script execution
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("Chrome auto-start timed out")
             process.kill()
             await process.wait()
             return False
-        
+
         stdout_text = stdout.decode() if stdout else ""
         stderr_text = stderr.decode() if stderr else ""
-        
+
         if process.returncode == 0:
             logger.info("Chrome auto-start script completed", stdout=stdout_text[:200] if stdout_text else "")
             return True
@@ -757,39 +758,40 @@ async def _auto_start_chrome() -> bool:
 async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5) -> bool:
     """
     Ensure Chrome CDP is ready, auto-starting if needed.
-    
+
     Per N.5.3 and docs/requirements.md §3.2.1:
     1. Check if CDP is already connected
     2. If not, auto-start Chrome using chrome.sh
     3. Wait up to timeout seconds for CDP connection
     4. Return True if connected, raise ChromeNotReadyError if failed
-    
+
     Args:
         timeout: Maximum seconds to wait for CDP connection after auto-start.
         poll_interval: Seconds between CDP connection checks.
-        
+
     Returns:
         True if Chrome CDP is ready.
-        
+
     Raises:
         ChromeNotReadyError: If Chrome could not be started or connected.
     """
     import time
+
     from src.mcp.errors import ChromeNotReadyError
-    
+
     # 1. Check if already connected
     if await _check_chrome_cdp_ready():
         logger.debug("Chrome CDP already ready")
         return True
-    
+
     # 2. Auto-start Chrome
     logger.info("Chrome CDP not ready, attempting auto-start")
     auto_start_success = await _auto_start_chrome()
-    
+
     if not auto_start_success:
         logger.warning("Chrome auto-start script failed")
         # Continue to wait anyway - script might have partially succeeded
-    
+
     # 3. Wait for CDP connection with polling
     start_time = time.monotonic()
     while time.monotonic() - start_time < timeout:
@@ -798,10 +800,10 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
             logger.info("Chrome CDP ready after auto-start", elapsed_seconds=round(elapsed, 1))
             return True
         await asyncio.sleep(poll_interval)
-    
+
     # 4. Failed - raise error
     logger.error("Chrome CDP not ready after auto-start", timeout=timeout)
-    
+
     raise ChromeNotReadyError(
         "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh start",
         auto_start_attempted=True,
@@ -811,42 +813,42 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
 async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle search tool call.
-    
+
     Implements §3.2.1: Executes Cursor AI-designed query through
     the search→fetch→extract→evaluate pipeline.
-    
+
     Supports refute:true for refutation mode.
-    
+
     Per N.5.3: Auto-starts Chrome if not connected.
-    
+
     Raises:
         ChromeNotReadyError: If Chrome CDP is not connected after auto-start attempt.
     """
-    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
+    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
     from src.research.pipeline import search_action
-    
+
     task_id = args.get("task_id")
     query = args.get("query")
     options = args.get("options", {})
-    
+
     if not task_id:
         raise InvalidParamsError(
             "task_id is required",
             param_name="task_id",
             expected="non-empty string",
         )
-    
+
     if not query or not query.strip():
         raise InvalidParamsError(
             "query is required",
             param_name="query",
             expected="non-empty string",
         )
-    
+
     # Pre-check: Ensure Chrome CDP is available, auto-starting if needed
     # Per N.5.3: UX-first - auto-start Chrome rather than returning error immediately
     await _ensure_chrome_ready()
-    
+
     with LogContext(task_id=task_id):
         # Verify task exists
         db = await get_database()
@@ -854,13 +856,13 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
             "SELECT id FROM tasks WHERE id = ?",
             (task_id,),
         )
-        
+
         if task is None:
             raise TaskNotFoundError(task_id)
-        
+
         # Get exploration state
         state = await _get_exploration_state(task_id)
-        
+
         # Execute search through unified API
         result = await search_action(
             task_id=task_id,
@@ -868,20 +870,19 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
             state=state,
             options=options,
         )
-        
+
         # Check for error codes in result and convert to MCPError
         if result.get("error_code"):
             from src.mcp.errors import (
-                MCPErrorCode,
-                ParserNotAvailableError,
-                SerpSearchFailedError,
                 AllFetchesFailedError,
+                ParserNotAvailableError,
                 PipelineError,
+                SerpSearchFailedError,
             )
-            
+
             error_code = result["error_code"]
             error_details = result.get("error_details", {})
-            
+
             if error_code == "PARSER_NOT_AVAILABLE":
                 raise ParserNotAvailableError(
                     engine=error_details.get("engine", "unknown"),
@@ -904,29 +905,29 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
                     message=f"Search failed: {error_code}",
                     stage="search",
                 )
-        
+
         return result
 
 
 async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle stop_task tool call.
-    
+
     Implements §3.2.1: Finalizes task and returns summary.
     """
-    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
+    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
     from src.research.pipeline import stop_task_action
-    
+
     task_id = args.get("task_id")
     reason = args.get("reason", "completed")
-    
+
     if not task_id:
         raise InvalidParamsError(
             "task_id is required",
             param_name="task_id",
             expected="non-empty string",
         )
-    
+
     with LogContext(task_id=task_id):
         # Verify task exists
         db = await get_database()
@@ -934,29 +935,29 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
             "SELECT id FROM tasks WHERE id = ?",
             (task_id,),
         )
-        
+
         if task is None:
             raise TaskNotFoundError(task_id)
-        
+
         # Get exploration state
         state = await _get_exploration_state(task_id)
-        
+
         # Execute stop through unified API
         result = await stop_task_action(
             task_id=task_id,
             state=state,
             reason=reason,
         )
-        
+
         # Clear cached state
         _clear_exploration_state(task_id)
-        
+
         # Update task status in DB
         await db.execute(
             "UPDATE tasks SET status = ? WHERE id = ?",
             (result.get("final_status", "completed"), task_id),
         )
-        
+
         return result
 
 
@@ -967,23 +968,23 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_materials tool call.
-    
+
     Implements §3.2.1: Returns report materials for Cursor AI.
     Does NOT generate report - composition is Cursor AI's responsibility.
     """
-    from src.mcp.errors import TaskNotFoundError, InvalidParamsError
+    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
     from src.research.materials import get_materials_action
-    
+
     task_id = args.get("task_id")
     options = args.get("options", {})
-    
+
     if not task_id:
         raise InvalidParamsError(
             "task_id is required",
             param_name="task_id",
             expected="non-empty string",
         )
-    
+
     with LogContext(task_id=task_id):
         # Verify task exists
         db = await get_database()
@@ -991,17 +992,17 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
             "SELECT id FROM tasks WHERE id = ?",
             (task_id,),
         )
-        
+
         if task is None:
             raise TaskNotFoundError(task_id)
-        
+
         # Get materials through unified API
         result = await get_materials_action(
             task_id=task_id,
             include_graph=options.get("include_graph", False),
             format=options.get("format", "structured"),
         )
-        
+
         return result
 
 
@@ -1012,32 +1013,32 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle calibrate tool call.
-    
+
     Implements §3.2.1: Unified calibration operations (daily operations).
     Actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data.
-    
+
     For rollback (destructive operation), use calibrate_rollback tool.
     """
-    from src.utils.calibration import calibrate_action
     from src.mcp.errors import InvalidParamsError
-    
+    from src.utils.calibration import calibrate_action
+
     action = args.get("action")
     data = args.get("data", {})
-    
+
     if not action:
         raise InvalidParamsError(
             "action is required",
             param_name="action",
             expected="one of: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
         )
-    
+
     return await calibrate_action(action, data)
 
 
 async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle calibrate_rollback tool call.
-    
+
     Implements §3.2.1: Rollback calibration parameters (destructive operation).
     Separate tool to prevent accidental invocation.
     """
@@ -1046,32 +1047,32 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
         InvalidParamsError,
     )
     from src.utils.calibration import get_calibrator
-    
+
     source = args.get("source")
     version = args.get("version")
     reason = args.get("reason", "Manual rollback")
-    
+
     if not source:
         raise InvalidParamsError(
             "source is required",
             param_name="source",
             expected="non-empty string (e.g., 'llm_extract', 'nli_judge')",
         )
-    
+
     logger.info(
         "Calibration rollback requested",
         source=source,
         target_version=version,
         reason=reason,
     )
-    
+
     # Get calibrator
     calibrator = get_calibrator()
-    
+
     # Get current parameters for logging
     current_params = calibrator.get_params(source)
     previous_version = current_params.version if current_params else 0
-    
+
     # Determine target version
     if version is not None:
         target_version = version
@@ -1083,7 +1084,7 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
                 source=source,
             )
         target_version = previous_version - 1
-    
+
     # Perform rollback (synchronous method)
     try:
         rolled_back_params = calibrator.rollback_to_version(
@@ -1093,13 +1094,13 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
         )
     except ValueError as e:
         raise CalibrationError(str(e), source=source)
-    
+
     if rolled_back_params is None:
         raise CalibrationError(
             f"Rollback failed: version {target_version} not found for source '{source}'",
             source=source,
         )
-    
+
     # Log the rollback
     logger.warning(
         "Calibration rolled back",
@@ -1108,7 +1109,7 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
         to_version=rolled_back_params.version,
         reason=reason,
     )
-    
+
     return {
         "ok": True,
         "source": source,
@@ -1127,24 +1128,24 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_auth_queue tool call.
-    
+
     Implements §3.2.1: Get pending authentication queue.
     Supports grouping by domain/type and priority filtering.
     """
     from src.utils.notification import get_intervention_queue
-    
+
     task_id = args.get("task_id")
     group_by = args.get("group_by", "none")
     priority_filter = args.get("priority_filter", "all")
-    
+
     queue = get_intervention_queue()
-    
+
     # Get pending items using existing get_pending method
     items = await queue.get_pending(
         task_id=task_id,
         priority=priority_filter if priority_filter != "all" else None,
     )
-    
+
     # Group if requested
     if group_by == "domain":
         grouped: dict[str, list] = {}
@@ -1153,14 +1154,14 @@ async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
             if domain not in grouped:
                 grouped[domain] = []
             grouped[domain].append(item)
-        
+
         return {
             "ok": True,
             "group_by": "domain",
             "groups": grouped,
             "total_count": len(items),
         }
-    
+
     elif group_by == "type":
         grouped = {}
         for item in items:
@@ -1168,14 +1169,14 @@ async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
             if auth_type not in grouped:
                 grouped[auth_type] = []
             grouped[auth_type].append(item)
-        
+
         return {
             "ok": True,
             "group_by": "type",
             "groups": grouped,
             "total_count": len(items),
         }
-    
+
     else:  # no grouping
         return {
             "ok": True,
@@ -1187,40 +1188,41 @@ async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
 
 async def _capture_auth_session_cookies(domain: str) -> dict | None:
     """Capture cookies from browser for authentication session storage.
-    
+
     Per §3.6.1: Capture session data after authentication completion
     so subsequent requests can reuse the authenticated session.
-    
+
     This function connects to the existing Chrome browser via CDP and
     retrieves cookies from all existing contexts, filtering for the target domain.
-    
+
     Args:
         domain: Domain to capture cookies for.
-        
+
     Returns:
         Session data dict with cookies, or None if capture failed.
     """
-    from datetime import datetime, timezone
-    
+    from datetime import datetime
+
     try:
         # Connect to existing Chrome browser via CDP
         from playwright.async_api import async_playwright
+
         from src.utils.config import get_settings
-        
+
         settings = get_settings()
         chrome_host = getattr(settings.browser, "chrome_host", "localhost")
         chrome_port = getattr(settings.browser, "chrome_port", 9222)
         cdp_url = f"http://{chrome_host}:{chrome_port}"
-        
+
         playwright = await async_playwright().start()
-        
+
         try:
             # Connect to existing Chrome instance
             browser = await playwright.chromium.connect_over_cdp(cdp_url)
-            
+
             # Get all existing contexts (these contain cookies from user's browser session)
             existing_contexts = browser.contexts
-            
+
             if not existing_contexts:
                 logger.debug(
                     "No browser contexts found, skipping cookie capture",
@@ -1228,7 +1230,7 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
                 )
                 await playwright.stop()
                 return None
-            
+
             # Collect cookies from all contexts
             all_cookies = []
             for context in existing_contexts:
@@ -1241,12 +1243,12 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
                         error=str(e),
                     )
                     continue
-            
+
             # Filter cookies that match the domain
             # Per HTTP cookie spec: cookies set for subdomain should not be sent to parent domain
             # Only parent domain cookies can be sent to subdomains
             from src.crawler.session_transfer import CookieData
-            
+
             domain_cookies = []
             for cookie in all_cookies:
                 cookie_data = CookieData.from_playwright_cookie(cookie)
@@ -1256,35 +1258,35 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
                 # - Subdomain -> parent: NOT allowed (correctly rejected)
                 if cookie_data.matches_domain(domain):
                     domain_cookies.append(dict(cookie))
-            
+
             await playwright.stop()
-            
+
             if not domain_cookies:
                 logger.debug(
                     "No cookies found for domain",
                     domain=domain,
                 )
                 return None
-            
+
             session_data = {
                 "cookies": domain_cookies,
-                "captured_at": datetime.now(timezone.utc).isoformat(),
+                "captured_at": datetime.now(UTC).isoformat(),
                 "domain": domain,
             }
-            
+
             logger.info(
                 "Captured authentication session cookies",
                 domain=domain,
                 cookie_count=len(domain_cookies),
                 contexts_checked=len(existing_contexts),
             )
-            
+
             return session_data
-            
-        except Exception as e:
+
+        except Exception:
             await playwright.stop()
             raise
-        
+
     except Exception as e:
         logger.warning(
             "Failed to capture authentication session cookies",
@@ -1297,25 +1299,25 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
 async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle resolve_auth tool call.
-    
+
     Implements §3.2.1: Report authentication completion or skip.
     Per §3.6.1: Captures session cookies on completion for reuse.
     Supports single item or domain-batch operations.
     """
     from src.mcp.errors import InvalidParamsError
     from src.utils.notification import get_intervention_queue
-    
+
     target = args.get("target", "item")
     action = args.get("action")
     success = args.get("success", True)
-    
+
     if not action:
         raise InvalidParamsError(
             "action is required",
             param_name="action",
             expected="one of: complete, skip",
         )
-    
+
     valid_actions = {"complete", "skip"}
     if action not in valid_actions:
         raise InvalidParamsError(
@@ -1323,7 +1325,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             param_name="action",
             expected="one of: complete, skip",
         )
-    
+
     valid_targets = {"item", "domain"}
     if target not in valid_targets:
         raise InvalidParamsError(
@@ -1331,9 +1333,9 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             param_name="target",
             expected="one of: item, domain",
         )
-    
+
     queue = get_intervention_queue()
-    
+
     if target == "item":
         queue_id = args.get("queue_id")
         if not queue_id:
@@ -1342,7 +1344,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
                 param_name="queue_id",
                 expected="non-empty string",
             )
-        
+
         if action == "complete":
             # Get domain from queue item for cookie capture
             item = await queue.get_item(queue_id)
@@ -1351,11 +1353,11 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
                 domain = item.get("domain")
                 if domain:
                     session_data = await _capture_auth_session_cookies(domain)
-            
+
             result = await queue.complete(queue_id, success=success, session_data=session_data)
         else:  # skip
             result = await queue.skip(queue_ids=[queue_id])
-        
+
         return {
             "ok": True,
             "target": "item",
@@ -1363,7 +1365,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             "action": action,
             "success": success if action == "complete" else None,
         }
-    
+
     elif target == "domain":
         domain = args.get("domain")
         if not domain:
@@ -1372,19 +1374,19 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
                 param_name="domain",
                 expected="non-empty string",
             )
-        
+
         if action == "complete":
             # Capture cookies for the domain
             session_data = None
             if success:
                 session_data = await _capture_auth_session_cookies(domain)
-            
+
             result = await queue.complete_domain(domain, success=success, session_data=session_data)
             count = result.get("resolved_count", 0)
         else:  # skip
             result = await queue.skip(domain=domain)
             count = result.get("skipped", 0)
-        
+
         return {
             "ok": True,
             "target": "domain",
@@ -1392,7 +1394,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             "action": action,
             "resolved_count": count,
         }
-    
+
     else:
         raise InvalidParamsError(
             f"Invalid target: {target}",
@@ -1408,16 +1410,16 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle notify_user tool call.
-    
+
     Implements §3.2.1: Send notification to user.
     Per §3.6.1: No DOM operations during auth sessions.
     """
     from src.mcp.errors import InvalidParamsError
     from src.utils.notification import notify_user as send_notification
-    
+
     event = args.get("event")
     payload = args.get("payload")
-    
+
     # Validate required params
     if not event:
         raise InvalidParamsError(
@@ -1425,7 +1427,7 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
             param_name="event",
             expected="one of: auth_required, task_progress, task_complete, error, info",
         )
-    
+
     valid_events = {"auth_required", "task_progress", "task_complete", "error", "info"}
     if event not in valid_events:
         raise InvalidParamsError(
@@ -1433,18 +1435,18 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
             param_name="event",
             expected="one of: auth_required, task_progress, task_complete, error, info",
         )
-    
+
     if payload is None:
         raise InvalidParamsError(
             "payload is required",
             param_name="payload",
             expected="object",
         )
-    
+
     # Allow empty payload dict (TC-B-04)
     if not isinstance(payload, dict):
         payload = {}
-    
+
     # Map event types to notification
     title_map = {
         "auth_required": "認証が必要です",
@@ -1453,20 +1455,19 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
         "error": "エラー",
         "info": "お知らせ",
     }
-    
-    title = title_map.get(event, "Lancet通知")
-    message = payload.get("message", "")
-    
+
+    title_map.get(event, "Lancet通知")
+    payload.get("message", "")
+
     if event == "auth_required":
-        url = payload.get("url", "")
-        domain = payload.get("domain", "")
-        message = f"認証が必要: {domain or url}"
-    
+        payload.get("url", "")
+        payload.get("domain", "")
+
     await send_notification(
         event=event,
         payload=payload,
     )
-    
+
     return {
         "ok": True,
         "event": event,
@@ -1477,23 +1478,23 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle wait_for_user tool call.
-    
+
     Implements §3.2.1: Wait for user input/acknowledgment.
-    
+
     Note: This is a simplified implementation that sends a notification
     and returns immediately with a "waiting" status. The actual wait
     is handled by Cursor AI polling get_status or get_auth_queue.
-    
+
     For blocking waits with timeout, the MCP protocol doesn't support
     true blocking operations - Cursor AI should poll for completion.
     """
     from src.mcp.errors import InvalidParamsError
     from src.utils.notification import notify_user
-    
+
     prompt = args.get("prompt")
     timeout_seconds = args.get("timeout_seconds", 300)
     options = args.get("options", [])
-    
+
     # Validate required params
     if not prompt or not prompt.strip():
         raise InvalidParamsError(
@@ -1501,20 +1502,20 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
             param_name="prompt",
             expected="non-empty string",
         )
-    
+
     # Send notification with prompt
     await notify_user(
         event="info",
         payload={"message": prompt},
     )
-    
+
     logger.info(
         "User input requested",
         prompt=prompt[:100],
         timeout_seconds=timeout_seconds,
         options=options,
     )
-    
+
     # Return immediately - MCP doesn't support true blocking
     # Cursor AI should poll get_status or get_auth_queue for completion
     return {
@@ -1533,10 +1534,10 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
 async def run_server() -> None:
     """Run the MCP server."""
     logger.info("Starting Lancet MCP server (Phase M - 11 tools)")
-    
+
     # Initialize database
     await get_database()
-    
+
     try:
         async with stdio_server() as (read_stream, write_stream):
             await app.run(

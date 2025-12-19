@@ -16,9 +16,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.utils.notification import get_intervention_queue
-from src.utils.logging import configure_logging, get_logger
 from src.storage.database import get_database
+from src.utils.logging import configure_logging, get_logger
+from src.utils.notification import get_intervention_queue
 
 configure_logging()
 logger = get_logger(__name__)
@@ -29,15 +29,15 @@ async def main():
     print("=" * 70)
     print("デバッグ: start_sessionブラウザ起動フロー（問題5）")
     print("=" * 70)
-    
+
     # テスト用データ
     test_task_id = "debug_task_002"
-    
-    print(f"\n[Step 1] Create test task and authentication queue item")
+
+    print("\n[Step 1] Create test task and authentication queue item")
     try:
         db = await get_database()
         queue = get_intervention_queue()
-        
+
         # テスト用のtaskレコードを作成（外部キー制約のため）
         await db.execute(
             """
@@ -47,7 +47,7 @@ async def main():
             [test_task_id, "Debug test query", "pending"],
         )
         print(f"  ✓ Created test task: {test_task_id}")
-        
+
         # テスト用の認証待ちアイテムを作成
         queue_id = await queue.enqueue(
             task_id=test_task_id,
@@ -62,7 +62,7 @@ async def main():
         import traceback
         traceback.print_exc()
         return 1
-    
+
     print(f"\n[Step 2] InterventionQueue.start_session({test_task_id})")
     print("  Testing Chrome auto-start functionality")
     print("  Expected flow:")
@@ -81,53 +81,53 @@ async def main():
             ),
             timeout=45.0  # 45秒タイムアウト（Chrome自動起動を含む）
         )
-        
+
         # 型チェック
         assert isinstance(result, dict), f"result should be dict, got {type(result)}"
         assert "ok" in result, "result should have 'ok' key"
         assert "session_started" in result, "result should have 'session_started' key"
         assert "count" in result, "result should have 'count' key"
         assert "items" in result, "result should have 'items' key"
-        
+
         assert isinstance(result["ok"], bool), "ok should be bool"
         assert isinstance(result["session_started"], bool), "session_started should be bool"
         assert isinstance(result["count"], int), "count should be int"
         assert isinstance(result["items"], list), "items should be list"
-        
+
         print(f"  ✓ start_session returned: ok={result['ok']}, session_started={result['session_started']}, count={result['count']}")
-        
+
         if result["items"]:
             item = result["items"][0]
             assert "id" in item, "item should have 'id' key"
             assert "url" in item, "item should have 'url' key"
             assert "domain" in item, "item should have 'domain' key"
             print(f"  ✓ First item: id={item['id']}, url={item['url'][:50]}...")
-            
+
             # ブラウザ起動処理はstart_session()内で実行される
             # BrowserFetcher._ensure_browser()がChrome自動起動を実行する
             # ログで確認: "Auto-starting Chrome", "Connected to Chrome via CDP after auto-start", "Opened authentication URL in browser"
             if result.get("session_started"):
-                print(f"  ✓ Browser opening should have been triggered")
-                print(f"  → Check logs above for Chrome auto-start messages:")
-                print(f"    - 'Auto-starting Chrome'")
-                print(f"    - 'Connected to Chrome via CDP after auto-start'")
-                print(f"    - 'Opened authentication URL in browser'")
+                print("  ✓ Browser opening should have been triggered")
+                print("  → Check logs above for Chrome auto-start messages:")
+                print("    - 'Auto-starting Chrome'")
+                print("    - 'Connected to Chrome via CDP after auto-start'")
+                print("    - 'Opened authentication URL in browser'")
             else:
-                print(f"  ⚠ Browser opening may have failed (check logs)")
+                print("  ⚠ Browser opening may have failed (check logs)")
         else:
-            print(f"  ⚠ No items to process")
-            
-    except asyncio.TimeoutError:
-        print(f"  ⚠ Timeout: Browser opening took too long (45s)")
-        print(f"  → This may indicate Chrome auto-start is working but taking time")
-        print(f"  → Check logs for Chrome auto-start progress")
+            print("  ⚠ No items to process")
+
+    except TimeoutError:
+        print("  ⚠ Timeout: Browser opening took too long (45s)")
+        print("  → This may indicate Chrome auto-start is working but taking time")
+        print("  → Check logs for Chrome auto-start progress")
         return 1
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
         traceback.print_exc()
         return 1
-    
+
     print("\n[Step 3] Cleanup test data")
     try:
         # テストデータを削除
@@ -139,10 +139,10 @@ async def main():
             "DELETE FROM tasks WHERE id = ?",
             [test_task_id],
         )
-        print(f"  ✓ Cleaned up test data")
+        print("  ✓ Cleaned up test data")
     except Exception as e:
         print(f"  ⚠ Cleanup error (non-critical): {e}")
-    
+
     print("\n" + "=" * 70)
     print("✓ All steps passed!")
     print("=" * 70)

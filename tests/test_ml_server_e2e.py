@@ -31,8 +31,6 @@ See also:
 """
 
 import pytest
-from src.utils.config import get_settings
-
 
 # =============================================================================
 # E2E Tests
@@ -185,7 +183,7 @@ class TestMLServerE2E:
         health = await ml_client.health_check()
 
         # Then
-        models_loaded = health.get("models_loaded", {})
+        health.get("models_loaded", {})
         # At least embedding should be loaded (lazy loading)
         # We can't guarantee all models are loaded, but health check should work
         assert health["status"] == "ok"

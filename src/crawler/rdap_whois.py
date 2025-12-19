@@ -15,15 +15,15 @@ References:
 import asyncio
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urljoin, urlparse, quote
+from urllib.parse import quote, urlparse
 
-from bs4 import BeautifulSoup
 import tldextract
+from bs4 import BeautifulSoup
 
 from src.utils.config import get_settings
-from src.utils.logging import get_logger, CausalTrace
+from src.utils.logging import CausalTrace, get_logger
 
 logger = get_logger(__name__)
 
@@ -75,7 +75,7 @@ TLD_TO_RIR = {
 @dataclass
 class RegistrantInfo:
     """Domain registrant information."""
-    
+
     name: str | None = None
     organization: str | None = None
     email: str | None = None
@@ -84,7 +84,7 @@ class RegistrantInfo:
     country: str | None = None
     state: str | None = None
     city: str | None = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -97,7 +97,7 @@ class RegistrantInfo:
             "state": self.state,
             "city": self.city,
         }
-    
+
     def is_empty(self) -> bool:
         """Check if all fields are empty."""
         return all(v is None for v in [
@@ -109,10 +109,10 @@ class RegistrantInfo:
 @dataclass
 class NameserverInfo:
     """Nameserver information."""
-    
+
     hostname: str
     ip_addresses: list[str] = field(default_factory=list)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -124,29 +124,29 @@ class NameserverInfo:
 @dataclass
 class WHOISRecord:
     """Complete WHOIS/RDAP record for a domain."""
-    
+
     domain: str
     registrar: str | None = None
     registrant: RegistrantInfo | None = None
-    
+
     # Dates
     created_date: datetime | None = None
     updated_date: datetime | None = None
     expiry_date: datetime | None = None
-    
+
     # Technical info
     nameservers: list[NameserverInfo] = field(default_factory=list)
     status: list[str] = field(default_factory=list)
     dnssec: bool = False
-    
+
     # Source tracking
     source_url: str | None = None
     source_type: str = "unknown"  # rdap, whois-web, whois-cli
-    fetched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    fetched_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
     # Raw data for debugging
     raw_text: str = ""
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -163,7 +163,7 @@ class WHOISRecord:
             "source_type": self.source_type,
             "fetched_at": self.fetched_at.isoformat(),
         }
-    
+
     def get_registrant_org(self) -> str | None:
         """Get registrant organization or name."""
         if self.registrant:
@@ -177,7 +177,7 @@ class WHOISRecord:
 
 class WHOISParser:
     """Parser for WHOIS/RDAP HTML and text responses."""
-    
+
     # Common date patterns
     DATE_PATTERNS = [
         r"(\d{4}-\d{2}-\d{2})",  # ISO format: 2024-01-15
@@ -186,7 +186,7 @@ class WHOISParser:
         r"(\d{2}/\d{2}/\d{4})",  # 01/15/2024
         r"(\d{4}\.\d{2}\.\d{2})",  # 2024.01.15
     ]
-    
+
     # Field name patterns (case-insensitive)
     FIELD_PATTERNS = {
         "registrar": [
@@ -249,12 +249,12 @@ class WHOISParser:
             r"ds\s+records?[:\s]+(.+)",
         ],
     }
-    
+
     def __init__(self):
         """Initialize parser."""
         self._compiled_patterns: dict[str, list[re.Pattern]] = {}
         self._compile_patterns()
-    
+
     def _compile_patterns(self) -> None:
         """Pre-compile regex patterns."""
         for field, patterns in self.FIELD_PATTERNS.items():
@@ -262,15 +262,15 @@ class WHOISParser:
                 re.compile(p, re.IGNORECASE | re.MULTILINE)
                 for p in patterns
             ]
-    
+
     def parse_text(self, domain: str, text: str, source_url: str = "") -> WHOISRecord:
         """Parse WHOIS text response.
-        
+
         Args:
             domain: Domain name being queried.
             text: Raw WHOIS text response.
             source_url: URL where data was fetched.
-            
+
         Returns:
             Parsed WHOISRecord.
         """
@@ -280,25 +280,25 @@ class WHOISParser:
             source_type="whois-text",
             raw_text=text[:5000],  # Limit stored raw text
         )
-        
+
         # Parse each field
         record.registrar = self._extract_field(text, "registrar")
-        
+
         # Registrant info
         registrant = RegistrantInfo()
         registrant.name = self._extract_field(text, "registrant_name")
         registrant.organization = self._extract_field(text, "registrant_org")
         registrant.email = self._extract_field(text, "registrant_email")
         registrant.country = self._extract_field(text, "registrant_country")
-        
+
         if not registrant.is_empty():
             record.registrant = registrant
-        
+
         # Dates
         record.created_date = self._parse_date(self._extract_field(text, "created"))
         record.updated_date = self._parse_date(self._extract_field(text, "updated"))
         record.expiry_date = self._parse_date(self._extract_field(text, "expiry"))
-        
+
         # Nameservers - multiple patterns for different formats
         ns_patterns = [
             r"name\s*server[:\s]+(\S+)",
@@ -312,36 +312,36 @@ class WHOISParser:
                     # Avoid duplicates
                     if not any(existing.hostname == ns.lower() for existing in record.nameservers):
                         record.nameservers.append(NameserverInfo(hostname=ns.lower()))
-        
+
         # Status
         for match in re.finditer(r"(?:domain\s+)?status[:\s]+(\S+)", text, re.IGNORECASE):
             status = match.group(1).strip()
             if status and status not in record.status:
                 record.status.append(status)
-        
+
         # DNSSEC
         dnssec_value = self._extract_field(text, "dnssec")
         if dnssec_value:
             record.dnssec = dnssec_value.lower() in ("signed", "yes", "true", "active")
-        
+
         return record
-    
+
     def parse_html(self, domain: str, html: str, source_url: str = "") -> WHOISRecord:
         """Parse WHOIS/RDAP HTML response.
-        
+
         Args:
             domain: Domain name being queried.
             html: HTML response.
             source_url: URL where data was fetched.
-            
+
         Returns:
             Parsed WHOISRecord.
         """
         soup = BeautifulSoup(html, "html.parser")
-        
+
         # First, try to extract text from common WHOIS containers
         whois_text = ""
-        
+
         # Common container selectors
         containers = [
             soup.select_one(".whois-data"),
@@ -352,31 +352,31 @@ class WHOISParser:
             soup.select_one(".domain-info"),
             soup.select_one("#domain-info"),
         ]
-        
+
         for container in containers:
             if container:
                 whois_text = container.get_text(separator="\n", strip=True)
                 break
-        
+
         if not whois_text:
             # Fallback: get all text
             whois_text = soup.get_text(separator="\n", strip=True)
-        
+
         # Parse extracted text
         record = self.parse_text(domain, whois_text, source_url)
         record.source_type = "whois-html"
-        
+
         # Try to extract structured data from tables
         self._parse_tables(soup, record)
-        
+
         # Parse RDAP-specific JSON-LD if present
         self._parse_rdap_json(soup, record)
-        
+
         return record
-    
+
     def _parse_tables(self, soup: BeautifulSoup, record: WHOISRecord) -> None:
         """Extract data from HTML tables.
-        
+
         Args:
             soup: BeautifulSoup object.
             record: WHOISRecord to update.
@@ -388,7 +388,7 @@ class WHOISParser:
                 if len(cells) >= 2:
                     key = cells[0].get_text(strip=True).lower()
                     value = cells[1].get_text(strip=True)
-                    
+
                     # Map common table fields
                     if "registrar" in key and not record.registrar:
                         record.registrar = value
@@ -401,16 +401,16 @@ class WHOISParser:
                             record.nameservers.append(
                                 NameserverInfo(hostname=value.lower())
                             )
-    
+
     def _parse_rdap_json(self, soup: BeautifulSoup, record: WHOISRecord) -> None:
         """Parse RDAP JSON-LD data if present.
-        
+
         Args:
             soup: BeautifulSoup object.
             record: WHOISRecord to update.
         """
         import json
-        
+
         for script in soup.find_all("script", type="application/ld+json"):
             try:
                 data = json.loads(script.string)
@@ -432,14 +432,14 @@ class WHOISParser:
                                     record.expiry_date = dt
             except (json.JSONDecodeError, AttributeError):
                 continue
-    
+
     def _extract_field(self, text: str, field: str) -> str | None:
         """Extract a field value from text.
-        
+
         Args:
             text: Text to search.
             field: Field name to extract.
-            
+
         Returns:
             Extracted value or None.
         """
@@ -454,19 +454,19 @@ class WHOISParser:
                 if value and value.lower() not in ("not disclosed", "redacted", "n/a", "none"):
                     return value
         return None
-    
+
     def _parse_date(self, date_str: str | None) -> datetime | None:
         """Parse date string to datetime.
-        
+
         Args:
             date_str: Date string to parse.
-            
+
         Returns:
             Parsed datetime or None.
         """
         if not date_str:
             return None
-        
+
         # Try ISO format first
         try:
             # Handle ISO 8601 with timezone
@@ -474,7 +474,7 @@ class WHOISParser:
                 return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         except ValueError:
             pass
-        
+
         # Try common patterns
         formats = [
             "%Y-%m-%d",
@@ -487,14 +487,14 @@ class WHOISParser:
             "%Y-%m-%dT%H:%M:%SZ",
             "%Y年%m月%d日",  # Japanese
         ]
-        
+
         for fmt in formats:
             try:
                 dt = datetime.strptime(date_str[:20], fmt)
-                return dt.replace(tzinfo=timezone.utc)
+                return dt.replace(tzinfo=UTC)
             except ValueError:
                 continue
-        
+
         return None
 
 
@@ -504,18 +504,18 @@ class WHOISParser:
 
 class RDAPClient:
     """Client for fetching domain registration via RDAP/WHOIS web interfaces.
-    
+
     Implements HTML scraping only (no API per §4.1).
     Follows rate limiting and domain policies per §4.3.
     """
-    
+
     def __init__(
         self,
         fetcher: Any = None,  # HTTPFetcher or BrowserFetcher
         parser: WHOISParser | None = None,
     ):
         """Initialize RDAP client.
-        
+
         Args:
             fetcher: URL fetcher to use.
             parser: WHOIS parser instance.
@@ -523,11 +523,11 @@ class RDAPClient:
         self._fetcher = fetcher
         self._parser = parser or WHOISParser()
         self._settings = get_settings()
-        
+
         # Cache to avoid repeated lookups
         self._cache: dict[str, WHOISRecord] = {}
         self._cache_ttl = 86400  # 24 hours
-    
+
     async def lookup(
         self,
         domain: str,
@@ -535,39 +535,39 @@ class RDAPClient:
         use_cache: bool = True,
     ) -> WHOISRecord | None:
         """Look up WHOIS/RDAP record for a domain.
-        
+
         Tries multiple sources in order:
         1. TLD-specific endpoint (e.g., JPRS for .jp)
         2. ICANN lookup
         3. Generic WHOIS web interface
-        
+
         Args:
             domain: Domain name to look up.
             trace: Causal trace for logging.
             use_cache: Whether to use cached results.
-            
+
         Returns:
             WHOISRecord or None if lookup fails.
         """
         # Normalize domain
         ext = tldextract.extract(domain)
         domain = f"{ext.domain}.{ext.suffix}".lower()
-        
+
         # Check cache
         if use_cache and domain in self._cache:
             logger.debug(f"WHOIS cache hit for {domain}")
             return self._cache[domain]
-        
+
         trace = trace or CausalTrace()
-        
+
         # Determine endpoints to try
         endpoints = self._get_endpoints_for_domain(domain, ext.suffix)
-        
+
         for endpoint_name, url_template in endpoints:
             url = url_template.format(domain=quote(domain, safe=""))
-            
+
             logger.info(f"Trying WHOIS lookup via {endpoint_name}: {url}")
-            
+
             try:
                 result = await self._fetch_and_parse(domain, url, trace)
                 if result:
@@ -576,43 +576,43 @@ class RDAPClient:
             except Exception as e:
                 logger.warning(f"WHOIS lookup failed via {endpoint_name}: {e}")
                 continue
-        
+
         logger.warning(f"All WHOIS lookups failed for {domain}")
         return None
-    
+
     def _get_endpoints_for_domain(
         self,
         domain: str,
         tld: str,
     ) -> list[tuple[str, str]]:
         """Get ordered list of endpoints to try for a domain.
-        
+
         Args:
             domain: Domain name.
             tld: Top-level domain.
-            
+
         Returns:
             List of (endpoint_name, url_template) tuples.
         """
         endpoints = []
-        
+
         # TLD-specific endpoint
         if tld in WHOIS_WEB_ENDPOINTS:
             endpoints.append((f"whois-{tld}", WHOIS_WEB_ENDPOINTS[tld]))
-        
+
         # RIR mapping
         rir = TLD_TO_RIR.get(tld)
         if rir and rir in RDAP_WEB_ENDPOINTS:
             endpoints.append((f"rdap-{rir}", RDAP_WEB_ENDPOINTS[rir]))
-        
+
         # ICANN lookup (generic)
         endpoints.append(("icann", WHOIS_WEB_ENDPOINTS["com"]))
-        
+
         # Generic fallback
         endpoints.append(("whois-generic", WHOIS_WEB_ENDPOINTS["generic"]))
-        
+
         return endpoints
-    
+
     async def _fetch_and_parse(
         self,
         domain: str,
@@ -620,26 +620,26 @@ class RDAPClient:
         trace: CausalTrace,
     ) -> WHOISRecord | None:
         """Fetch URL and parse WHOIS response.
-        
+
         Args:
             domain: Domain being looked up.
             url: WHOIS lookup URL.
             trace: Causal trace.
-            
+
         Returns:
             Parsed WHOISRecord or None.
         """
         if self._fetcher is None:
             logger.error("No fetcher available for RDAP lookup")
             return None
-        
+
         # Fetch the page
         result = await self._fetcher.fetch(url, trace=trace)
-        
+
         if not result.ok:
             logger.warning(f"Failed to fetch WHOIS page: {result.reason}")
             return None
-        
+
         # Read content
         content = ""
         if result.html_path:
@@ -649,20 +649,20 @@ class RDAPClient:
             except Exception as e:
                 logger.warning(f"Failed to read WHOIS response: {e}")
                 return None
-        
+
         if not content:
             return None
-        
+
         # Parse response
         record = self._parser.parse_html(domain, content, url)
-        
+
         # Validate: at least some data should be extracted
         if not record.registrar and not record.registrant and not record.nameservers:
             logger.debug(f"WHOIS parsing yielded no data from {url}")
             return None
-        
+
         return record
-    
+
     async def lookup_batch(
         self,
         domains: list[str],
@@ -670,30 +670,30 @@ class RDAPClient:
         trace: CausalTrace | None = None,
     ) -> dict[str, WHOISRecord | None]:
         """Look up WHOIS records for multiple domains.
-        
+
         Args:
             domains: List of domains to look up.
             max_concurrent: Maximum concurrent lookups.
             trace: Causal trace.
-            
+
         Returns:
             Dictionary mapping domain to WHOISRecord or None.
         """
         results = {}
         semaphore = asyncio.Semaphore(max_concurrent)
-        
+
         async def lookup_one(domain: str) -> tuple[str, WHOISRecord | None]:
             async with semaphore:
                 result = await self.lookup(domain, trace)
                 # Rate limit between requests
                 await asyncio.sleep(1.0)
                 return (domain, result)
-        
+
         tasks = [lookup_one(d) for d in domains]
         for future in asyncio.as_completed(tasks):
             domain, record = await future
             results[domain] = record
-        
+
         return results
 
 
@@ -703,10 +703,10 @@ class RDAPClient:
 
 def normalize_domain(url_or_domain: str) -> str:
     """Normalize URL or domain string to base domain.
-    
+
     Args:
         url_or_domain: URL or domain string.
-        
+
     Returns:
         Normalized base domain (e.g., example.com).
     """
@@ -714,10 +714,10 @@ def normalize_domain(url_or_domain: str) -> str:
     if "://" in url_or_domain:
         parsed = urlparse(url_or_domain)
         url_or_domain = parsed.netloc or parsed.path
-    
+
     # Remove port
     url_or_domain = url_or_domain.split(":")[0]
-    
+
     # Extract domain
     ext = tldextract.extract(url_or_domain)
     return f"{ext.domain}.{ext.suffix}".lower()
@@ -725,10 +725,10 @@ def normalize_domain(url_or_domain: str) -> str:
 
 def get_rdap_client(fetcher: Any = None) -> RDAPClient:
     """Get RDAP client instance.
-    
+
     Args:
         fetcher: URL fetcher to use.
-        
+
     Returns:
         RDAPClient instance.
     """

@@ -14,10 +14,10 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.research.state import ExplorationState, SearchStatus
+from src.research.state import ExplorationState
 from src.storage.database import get_database
-from src.utils.logging import get_logger, LogContext
 from src.utils.config import get_settings
+from src.utils.logging import LogContext, get_logger
 
 logger = get_logger(__name__)
 
@@ -52,10 +52,10 @@ REFUTATION_SUFFIXES = [
 @dataclass
 class SearchResult:
     """Result of search execution.
-    
+
     Per §16.7.4: Includes authentication queue information.
     """
-    
+
     search_id: str
     status: str
     pages_fetched: int = 0
@@ -74,12 +74,12 @@ class SearchResult:
     # Error tracking for MCP
     error_code: str | None = None  # MCP error code if failed
     error_details: dict[str, Any] = field(default_factory=dict)  # Additional error info
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         # Determine ok based on error_code presence (error_code takes precedence)
         is_ok = self.error_code is None and len(self.errors) == 0
-        
+
         result: dict[str, Any] = {
             "ok": is_ok,
             "search_id": self.search_id,
@@ -94,7 +94,7 @@ class SearchResult:
             "new_claims": self.new_claims,
             "budget_remaining": self.budget_remaining,
         }
-        
+
         # Include error information if present
         if self.error_code:
             result["error_code"] = self.error_code
@@ -102,7 +102,7 @@ class SearchResult:
             result["error_details"] = self.error_details
         if self.errors:
             result["errors"] = self.errors
-        
+
         # §16.7.4: Include auth info only if there are blocked/queued items
         if self.auth_blocked_urls > 0 or self.auth_queued_count > 0:
             result["auth_blocked_urls"] = self.auth_blocked_urls
@@ -117,20 +117,20 @@ SubqueryResult = SearchResult
 class SearchExecutor:
     """
     Executes search queries designed by Cursor AI.
-    
+
     Responsibilities (§2.1.3):
     - Mechanical expansion of queries (synonyms, mirror queries, operators)
     - Search → Fetch → Extract → Evaluate pipeline
     - Metrics calculation (harvest rate, novelty, satisfaction)
-    
+
     Does NOT:
     - Design search queries (Cursor AI's responsibility)
     - Make strategic decisions about what to search next
     """
-    
+
     def __init__(self, task_id: str, state: ExplorationState):
         """Initialize executor.
-        
+
         Args:
             task_id: The task ID.
             state: The exploration state manager.
@@ -140,12 +140,12 @@ class SearchExecutor:
         self._db = None
         self._seen_fragment_hashes: set[str] = set()
         self._seen_domains: set[str] = set()
-    
+
     async def _ensure_db(self) -> None:
         """Ensure database connection."""
         if self._db is None:
             self._db = await get_database()
-    
+
     async def execute(
         self,
         query: str,
@@ -158,31 +158,31 @@ class SearchExecutor:
     ) -> SearchResult:
         """
         Execute a search query designed by Cursor AI.
-        
+
         Args:
             query: The search query text (designed by Cursor AI).
             priority: Execution priority (high/medium/low).
             budget_pages: Optional page budget for this search.
             budget_time_seconds: Optional time budget for this search.
-            
+
         Returns:
             SearchResult with execution results.
         """
         # Backward compatibility: accept subquery param
         if subquery is not None:
             query = subquery
-        
+
         # Store engines for use in _execute_search
         self._engines = engines
-            
+
         await self._ensure_db()
-        
+
         # Generate search ID
         search_id = f"s_{uuid.uuid4().hex[:8]}"
-        
+
         with LogContext(task_id=self.task_id, search_id=search_id):
             logger.info("Executing search", query=query[:100], priority=priority)
-            
+
             # Register and start search
             search_state = self.state.register_search(
                 search_id=search_id,
@@ -192,23 +192,23 @@ class SearchExecutor:
                 budget_time_seconds=budget_time_seconds,
             )
             self.state.start_search(search_id)
-            
+
             result = SearchResult(search_id=search_id, status="running")
-            
+
             try:
                 # Step 1: Expand query mechanically
                 expanded_queries = self._expand_query(query)
-                
+
                 # Step 2: Execute search for each expanded query
                 all_serp_items = []
                 search_errors = []  # Track errors from all queries
-                
+
                 for eq in expanded_queries:
                     serp_items, error_code, error_details = await self._execute_search(eq)
                     if error_code:
                         search_errors.append((eq, error_code, error_details))
                     all_serp_items.extend(serp_items)
-                
+
                 # If all searches failed, report the first error
                 if not all_serp_items and search_errors:
                     first_error = search_errors[0]
@@ -223,7 +223,7 @@ class SearchExecutor:
                         query_count=len(expanded_queries),
                     )
                     return result
-                
+
                 # Deduplicate by URL
                 seen_urls = set()
                 unique_serp_items = []
@@ -232,26 +232,26 @@ class SearchExecutor:
                     if url not in seen_urls:
                         seen_urls.add(url)
                         unique_serp_items.append(item)
-                
+
                 logger.info(
                     "Search completed",
                     expanded_count=len(expanded_queries),
                     total_results=len(unique_serp_items),
                     errors_encountered=len(search_errors),
                 )
-                
+
                 # Step 3: Fetch and extract from top results
                 # Use dynamic budget from UCB allocator if available (§3.1.1)
                 dynamic_budget = self.state.get_dynamic_budget(search_id)
                 budget = budget_pages or dynamic_budget or 15
-                
+
                 logger.debug(
                     "Using budget for search",
                     search_id=search_id,
                     budget=budget,
                     dynamic_budget=dynamic_budget,
                 )
-                
+
                 fetch_attempted = 0
                 for item in unique_serp_items[:budget]:
                     # Check overall budget
@@ -259,15 +259,15 @@ class SearchExecutor:
                     if not within_budget:
                         result.errors.append("予算上限に達しました")
                         break
-                    
+
                     # Check novelty stop condition
                     if self.state.check_novelty_stop_condition(search_id):
                         logger.info("Novelty stop condition met", search_id=search_id)
                         break
-                    
+
                     fetch_attempted += 1
                     await self._fetch_and_extract(search_id, item, result)
-                
+
                 # Check for ALL_FETCHES_FAILED condition
                 # If we attempted fetches but got no successful pages
                 search_state = self.state.get_search(search_id)
@@ -285,7 +285,7 @@ class SearchExecutor:
                         attempted=fetch_attempted,
                         auth_blocked=result.auth_blocked_urls,
                     )
-                
+
                 # Update result from state (but preserve failed status if all fetches failed)
                 if search_state:
                     search_state.update_status()
@@ -298,65 +298,65 @@ class SearchExecutor:
                     result.has_primary_source = search_state.has_primary_source
                     result.satisfaction_score = search_state.satisfaction_score
                     result.novelty_score = search_state.novelty_score
-                
+
                 # Calculate remaining budget
                 overall_status = await self.state.get_status()
                 result.budget_remaining = {
                     "pages": overall_status["budget"]["pages_limit"] - overall_status["budget"]["pages_used"],
                     "time_seconds": overall_status["budget"]["time_limit_seconds"] - overall_status["budget"]["time_used_seconds"],
                 }
-                
+
             except Exception as e:
                 logger.error("Search execution failed", error=str(e), exc_info=True)
                 result.status = "failed"
                 result.errors.append(str(e))
-            
+
             return result
-    
+
     def _expand_query(self, query: str) -> list[str]:
         """
         Mechanically expand a query (§2.1.3).
-        
+
         Only performs mechanical expansions:
         - Original query
         - With common operators
         - Mirror queries (if applicable)
-        
+
         Does NOT generate new query ideas (that's Cursor AI's job).
         """
         expanded = [query]
-        
+
         # Add site operators for known high-value domains
         if "site:" not in query.lower():
             # Academic
             if any(kw in query.lower() for kw in ["研究", "論文", "paper", "study"]):
                 expanded.append(f'{query} site:arxiv.org OR site:jstage.jst.go.jp')
-            
+
             # Government
             if any(kw in query.lower() for kw in ["政府", "省", "gov", "official"]):
                 expanded.append(f'{query} site:go.jp')
-        
+
         # Add filetype:pdf for document-heavy queries
         if "filetype:" not in query.lower():
             if any(kw in query.lower() for kw in ["仕様", "報告書", "白書", "specification", "report"]):
                 expanded.append(f'{query} filetype:pdf')
-        
+
         return expanded
-    
+
     async def _execute_search(self, query: str) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
         """Execute search via search provider.
-        
+
         Returns:
             Tuple of (results, error_code, error_details).
             error_code is None if successful.
         """
         from src.search import search_serp
         from src.search.search_api import (
-            SearchError,
             ParserNotAvailableSearchError,
+            SearchError,
             SerpSearchError,
         )
-        
+
         try:
             # Pass engines if specified (O.8 fix)
             results = await search_serp(
@@ -397,7 +397,7 @@ class SearchExecutor:
         except Exception as e:
             logger.error("Search failed: unexpected error", query=query[:50], error=str(e))
             return [], "INTERNAL_ERROR", {"error": str(e)}
-    
+
     async def _fetch_and_extract(
         self,
         search_id: str,
@@ -405,16 +405,16 @@ class SearchExecutor:
         result: SearchResult,
     ) -> None:
         """Fetch URL and extract content.
-        
+
         Per §16.7.4: Tracks authentication blocks and queued items.
         """
         from src.crawler.fetcher import fetch_url
         from src.extractor.content import extract_content
-        
+
         url = serp_item.get("url", "")
         if not url:
             return
-        
+
         # Extract domain
         try:
             from urllib.parse import urlparse
@@ -429,18 +429,18 @@ class SearchExecutor:
         except Exception:
             domain = url
             domain_short = url
-        
+
         # Check if this is a primary source
         is_primary = any(
             primary in domain.lower()
             for primary in PRIMARY_SOURCE_DOMAINS
         )
-        
+
         # Check if this is an independent source (new domain)
         is_independent = domain_short not in self._seen_domains
         if is_independent:
             self._seen_domains.add(domain_short)
-        
+
         try:
             # Fetch
             fetch_result = await fetch_url(
@@ -448,11 +448,11 @@ class SearchExecutor:
                 context={"referer": serp_item.get("engine", "")},
                 task_id=self.task_id,
             )
-            
+
             if not fetch_result.get("ok"):
                 reason = fetch_result.get("reason", "")
                 logger.debug("Fetch failed", url=url[:50], reason=reason)
-                
+
                 # §16.7.4: Track authentication blocks
                 if fetch_result.get("auth_queued"):
                     result.auth_blocked_urls += 1
@@ -464,9 +464,9 @@ class SearchExecutor:
                     )
                 elif reason in ("auth_required", "challenge_detected"):
                     result.auth_blocked_urls += 1
-                
+
                 return
-            
+
             # Record page fetch
             self.state.record_page_fetch(
                 search_id=search_id,
@@ -474,7 +474,7 @@ class SearchExecutor:
                 is_primary_source=is_primary,
                 is_independent=is_independent,
             )
-            
+
             # Extract content
             html_path = fetch_result.get("html_path")
             if html_path:
@@ -482,26 +482,26 @@ class SearchExecutor:
                     input_path=html_path,
                     content_type="html",
                 )
-                
+
                 if extract_result.get("text"):
                     # Hash the content for novelty detection
                     content_hash = hashlib.sha256(
                         extract_result["text"][:1000].encode()
                     ).hexdigest()[:16]
-                    
+
                     is_novel = content_hash not in self._seen_fragment_hashes
                     self._seen_fragment_hashes.add(content_hash)
-                    
+
                     # Consider useful if we got substantial text
                     is_useful = len(extract_result.get("text", "")) > 200
-                    
+
                     self.state.record_fragment(
                         search_id=search_id,
                         fragment_hash=content_hash,
                         is_useful=is_useful,
                         is_novel=is_novel,
                     )
-                    
+
                     # Persist fragment to DB for get_materials() (O.7 fix)
                     fragment_id = f"f_{uuid.uuid4().hex[:8]}"
                     page_id = fetch_result.get("page_id", f"p_{uuid.uuid4().hex[:8]}")
@@ -514,7 +514,7 @@ class SearchExecutor:
                         heading_context=extract_result.get("title", ""),
                         is_primary=is_primary,
                     )
-                    
+
                     # Extract claims using llm_extract for primary sources (§2.1.4, §3.3)
                     # LLM extraction is only applied to primary sources to control LLM time ratio
                     if is_useful:
@@ -524,11 +524,11 @@ class SearchExecutor:
                             title=serp_item.get("title", ""),
                             is_primary=is_primary,
                         )
-                        
+
                         for claim in extracted_claims:
                             self.state.record_claim(search_id)
                             result.new_claims.append(claim)
-                            
+
                             # Persist claim to DB for get_materials() (O.7 fix)
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
@@ -538,7 +538,7 @@ class SearchExecutor:
                                 source_url=url,
                                 source_fragment_id=fragment_id,
                             )
-                        
+
                         # If no claims extracted by LLM, record at least one potential claim
                         if not extracted_claims:
                             self.state.record_claim(search_id)
@@ -548,7 +548,7 @@ class SearchExecutor:
                                 "title": serp_item.get("title", ""),
                                 "snippet": snippet,
                             })
-                            
+
                             # Persist snippet as claim for get_materials() (O.7 fix)
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
@@ -558,10 +558,10 @@ class SearchExecutor:
                                 source_url=url,
                                 source_fragment_id=fragment_id,
                             )
-        
+
         except Exception as e:
             logger.debug("Fetch/extract failed", url=url[:50], error=str(e))
-    
+
     async def _extract_claims_from_text(
         self,
         text: str,
@@ -571,42 +571,42 @@ class SearchExecutor:
     ) -> list[dict[str, Any]]:
         """
         Extract claims from text using LLM (§2.1.4, §3.3).
-        
+
         LLM extraction is only applied to primary sources to control
         LLM processing time ratio (≤30% per §3.1).
-        
+
         Args:
             text: The text to extract claims from.
             source_url: URL of the source.
             title: Title of the source.
             is_primary: Whether this is a primary source.
-            
+
         Returns:
             List of extracted claims.
         """
         # Only use LLM for primary sources to control processing time
         if not is_primary:
             return []
-        
-        settings = get_settings()
-        
+
+        get_settings()
+
         try:
             from src.filter.llm import llm_extract
-            
+
             # Prepare passage for LLM extraction
             passage = {
                 "id": hashlib.sha256(source_url.encode()).hexdigest()[:16],
                 "text": text[:4000],  # Limit text length for LLM
                 "source_url": source_url,
             }
-            
+
             # Extract claims using LLM
             result = await llm_extract(
                 passages=[passage],
                 task="extract_claims",
                 context=self.state.original_query,
             )
-            
+
             if result.get("ok") and result.get("claims"):
                 claims = []
                 for claim in result["claims"]:
@@ -620,16 +620,16 @@ class SearchExecutor:
                             "snippet": text[:200],
                         })
                 return claims
-            
+
         except Exception as e:
             logger.debug(
                 "LLM claim extraction failed",
                 source_url=source_url[:50],
                 error=str(e),
             )
-        
+
         return []
-    
+
     async def _persist_fragment(
         self,
         fragment_id: str,
@@ -642,10 +642,10 @@ class SearchExecutor:
     ) -> None:
         """
         Persist fragment to database for get_materials() retrieval.
-        
+
         O.7 fix: fragments were only tracked in memory, causing get_materials()
         to return empty results.
-        
+
         Args:
             fragment_id: Unique fragment identifier.
             page_id: Associated page identifier.
@@ -655,18 +655,17 @@ class SearchExecutor:
             heading_context: Heading context for fragment.
             is_primary: Whether from primary source.
         """
-        import json
-        
+
         try:
             db = await get_database()
-            
+
             # Hash text for deduplication
             text_hash = hashlib.sha256(text[:500].encode()).hexdigest()[:16]
-            
+
             await db.execute(
                 """
-                INSERT OR IGNORE INTO fragments 
-                (id, page_id, fragment_type, text_content, heading_context, text_hash, 
+                INSERT OR IGNORE INTO fragments
+                (id, page_id, fragment_type, text_content, heading_context, text_hash,
                  is_relevant, relevance_reason, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
@@ -687,7 +686,7 @@ class SearchExecutor:
                 fragment_id=fragment_id,
                 error=str(e),
             )
-    
+
     async def _persist_claim(
         self,
         claim_id: str,
@@ -698,10 +697,10 @@ class SearchExecutor:
     ) -> None:
         """
         Persist claim to database for get_materials() retrieval.
-        
+
         O.7 fix: claims were only tracked in memory, causing get_materials()
         to return empty results.
-        
+
         Args:
             claim_id: Unique claim identifier.
             claim_text: The claim text.
@@ -710,15 +709,15 @@ class SearchExecutor:
             source_fragment_id: Associated fragment ID.
         """
         import json
-        
+
         try:
             db = await get_database()
-            
+
             # Insert claim (using schema-valid columns)
             await db.execute(
                 """
-                INSERT OR IGNORE INTO claims 
-                (id, task_id, claim_text, claim_type, confidence_score, 
+                INSERT OR IGNORE INTO claims
+                (id, task_id, claim_text, claim_type, confidence_score,
                  source_fragment_ids, verification_notes, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
@@ -732,7 +731,7 @@ class SearchExecutor:
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
-            
+
             # Insert edge linking fragment to claim
             edge_id = f"e_{uuid.uuid4().hex[:8]}"
             await db.execute(
@@ -756,25 +755,25 @@ class SearchExecutor:
                 claim_id=claim_id,
                 error=str(e),
             )
-    
+
     def generate_refutation_queries(self, base_query: str) -> list[str]:
         """
         Generate refutation queries using mechanical patterns only.
-        
+
         This applies predefined suffixes to the base query.
         Does NOT use LLM for query design (§2.1.4).
-        
+
         Args:
             base_query: The base query to generate refutations for.
-            
+
         Returns:
             List of refutation queries.
         """
         refutation_queries = []
-        
+
         for suffix in REFUTATION_SUFFIXES:
             refutation_queries.append(f"{base_query} {suffix}")
-        
+
         return refutation_queries
 
 
