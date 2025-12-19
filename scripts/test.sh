@@ -1,14 +1,20 @@
 #!/bin/bash
-# Lancet Test Runner (Cursor AI-friendly)
+# Lancet Test Runner (Cloud Agent Compatible)
 #
 # Runs tests directly in WSL venv (hybrid architecture).
 # This design provides fast test execution without container overhead.
+#
+# Supports multiple environments:
+#   - Cloud Agents (Cursor, Claude Code): Unit/Integration tests only
+#   - CI (GitHub Actions, GitLab): Unit/Integration tests only
+#   - Local (WSL2): Unit/Integration + optional E2E
 #
 # Usage:
 #   ./scripts/test.sh run [target]  # Start test execution
 #   ./scripts/test.sh check         # Check completion status
 #   ./scripts/test.sh get           # Get test results
 #   ./scripts/test.sh kill          # Force stop pytest
+#   ./scripts/test.sh env           # Show environment info
 
 set -euo pipefail
 
@@ -54,6 +60,38 @@ ensure_venv() {
 }
 
 # =============================================================================
+# TEST MARKER SELECTION
+# =============================================================================
+
+# Function: get_pytest_markers
+# Description: Get appropriate pytest markers based on environment
+# Returns: Marker expression string for pytest -m option
+# Note: Log messages are written to stderr to avoid polluting the return value
+get_pytest_markers() {
+    local markers=""
+    
+    if [[ "${IS_CLOUD_AGENT:-false}" == "true" ]]; then
+        # Cloud agent environment: unit + integration only (no e2e, no slow)
+        markers="not e2e and not slow"
+        log_info "Cloud agent detected (${CLOUD_AGENT_TYPE:-unknown}): Running unit + integration tests only" >&2
+    elif [[ "${LANCET_TEST_LAYER:-}" == "e2e" ]]; then
+        # Explicitly request E2E tests
+        markers="e2e"
+        log_info "E2E layer requested: Running E2E tests" >&2
+    elif [[ "${LANCET_TEST_LAYER:-}" == "all" ]]; then
+        # Run all tests
+        markers=""
+        log_info "All tests requested" >&2
+    else
+        # Default: unit + integration (exclude e2e)
+        markers="not e2e"
+        log_info "Default layer: Running unit + integration tests" >&2
+    fi
+    
+    echo "$markers"
+}
+
+# =============================================================================
 # COMMAND HANDLERS
 # =============================================================================
 
@@ -75,12 +113,20 @@ cmd_run() {
     echo "=== Running: $target ==="
     rm -f "$TEST_RESULT_FILE" "$TEST_PID_FILE"
     
+    # Get appropriate markers for this environment
+    local markers
+    markers=$(get_pytest_markers)
+    
     # Activate venv and run pytest in background
     (
         # shellcheck source=/dev/null
         source "${VENV_DIR}/bin/activate"
         cd "${PROJECT_ROOT}"
         export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+        
+        # Export cloud agent detection for Python-side detection
+        export IS_CLOUD_AGENT="${IS_CLOUD_AGENT:-false}"
+        export CLOUD_AGENT_TYPE="${CLOUD_AGENT_TYPE:-none}"
         
         # Set environment variables for container-specific tests
         # - lancet-ml container: Has FastAPI and ML libs (enable all ML tests)
@@ -108,11 +154,52 @@ cmd_run() {
         export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-0}"
         export LANCET_RUN_EXTRACTOR_TESTS="${LANCET_RUN_EXTRACTOR_TESTS:-0}"
         
-        PYTHONUNBUFFERED=1 pytest "$target" -m 'not e2e' --tb=short -q > "$TEST_RESULT_FILE" 2>&1 &
+        # Build pytest command with appropriate markers
+        local pytest_cmd="pytest $target --tb=short -q"
+        if [[ -n "$markers" ]]; then
+            pytest_cmd="$pytest_cmd -m '$markers'"
+        fi
+        
+        PYTHONUNBUFFERED=1 eval "$pytest_cmd" > "$TEST_RESULT_FILE" 2>&1 &
         echo $! > "$TEST_PID_FILE"
     )
     
     echo "Started. Run: ./scripts/test.sh check"
+}
+
+# Function: cmd_env
+# Description: Show environment detection information
+# Returns:
+#   0: Success
+cmd_env() {
+    echo "=== Lancet Test Environment ==="
+    echo ""
+    echo "Environment Detection:"
+    echo "  OS Type: $(detect_env)"
+    echo "  In Container: ${IN_CONTAINER:-false}"
+    echo "  Container Name: ${CURRENT_CONTAINER_NAME:-N/A}"
+    echo "  Is ML Container: ${IS_ML_CONTAINER:-false}"
+    echo ""
+    echo "Cloud Agent Detection:"
+    echo "  Is Cloud Agent: ${IS_CLOUD_AGENT:-false}"
+    echo "  Agent Type: ${CLOUD_AGENT_TYPE:-none}"
+    echo "  E2E Capable: $(is_e2e_capable && echo "true" || echo "false")"
+    echo ""
+    echo "Test Configuration:"
+    echo "  Test Layer: ${LANCET_TEST_LAYER:-default (unit + integration)}"
+    local markers
+    markers=$(get_pytest_markers 2>/dev/null)
+    echo "  Markers: ${markers:-<none>}"
+    echo ""
+    echo "Environment Variables:"
+    echo "  DISPLAY: ${DISPLAY:-<not set>}"
+    echo "  CI: ${CI:-<not set>}"
+    echo "  GITHUB_ACTIONS: ${GITHUB_ACTIONS:-<not set>}"
+    echo "  CURSOR_CLOUD_AGENT: ${CURSOR_CLOUD_AGENT:-<not set>}"
+    echo "  CURSOR_SESSION_ID: ${CURSOR_SESSION_ID:-<not set>}"
+    echo "  CURSOR_BACKGROUND: ${CURSOR_BACKGROUND:-<not set>}"
+    echo "  CLAUDE_CODE: ${CLAUDE_CODE:-<not set>}"
+    echo ""
 }
 
 # Function: cmd_check
@@ -188,19 +275,38 @@ cmd_kill() {
 }
 
 show_help() {
-    echo "Lancet Test Runner (AI-friendly)"
+    echo "Lancet Test Runner (Cloud Agent Compatible)"
     echo ""
-    echo "Usage: $0 {run|check|get|kill} [target]"
+    echo "Usage: $0 {run|check|get|kill|env|help} [target]"
     echo ""
     echo "Commands:"
     echo "  run [target]  Start test execution (default: tests/)"
     echo "  check         Check if tests are done (DONE/RUNNING)"
     echo "  get           Get test results (last 20 lines)"
     echo "  kill          Force stop pytest process"
+    echo "  env           Show environment detection info"
     echo ""
     echo "Pattern: Start with 'run', poll with 'check', get results with 'get'"
     echo ""
-    echo "Environment Detection:"
+    echo "Test Layers:"
+    echo "  L1 (Cloud Agent/CI): Unit + Integration tests only (default in cloud)"
+    echo "  L2 (Local):          Unit + Integration tests (default locally)"
+    echo "  L3 (E2E):            All tests including E2E"
+    echo ""
+    echo "Environment Variables:"
+    echo "  LANCET_TEST_LAYER=e2e  Run E2E tests explicitly"
+    echo "  LANCET_TEST_LAYER=all  Run all tests"
+    echo "  LANCET_LOCAL=1         Force local mode (disable cloud agent detection)"
+    echo ""
+    echo "Cloud Agent Detection:"
+    echo "  Automatically detects these cloud agent environments:"
+    echo "  - Cursor Cloud Agent: CURSOR_CLOUD_AGENT, CURSOR_SESSION_ID"
+    echo "  - Claude Code: CLAUDE_CODE"
+    echo "  - GitHub Actions: GITHUB_ACTIONS=true"
+    echo "  - GitLab CI: GITLAB_CI"
+    echo "  - Generic CI: CI=true"
+    echo ""
+    echo "Container Detection:"
     echo "  - Automatically detects if running inside container"
     echo "  - Container detection: /.dockerenv, /run/.containerenv, HOSTNAME"
     echo "  - In any container: ML tests (test_ml_server.py) are enabled"
@@ -241,12 +347,16 @@ case "$ACTION" in
         cmd_kill
         ;;
     
+    env)
+        cmd_env
+        ;;
+    
     help|--help|-h)
         show_help
         ;;
     
     *)
-        echo "Usage: $0 {run|check|get|kill} [target]"
+        echo "Usage: $0 {run|check|get|kill|env|help} [target]"
         exit 1
         ;;
 esac
