@@ -1,5 +1,5 @@
 """
-Lancet Crawler Module.
+Lyra Crawler Module.
 
 Provides URL fetching, robots.txt compliance, and sitemap parsing.
 """

@@ -686,7 +686,7 @@ async def _auto_start_chrome() -> bool:
     Auto-start Chrome using chrome.sh script.
 
     Executes ./scripts/chrome.sh start and returns success status.
-    Per N.5.3: UX-first approach - Lancet auto-starts Chrome when needed.
+    Per N.5.3: UX-first approach - Lyra auto-starts Chrome when needed.
 
     Uses asyncio.create_subprocess_exec() for non-blocking execution.
 
@@ -1457,7 +1457,7 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
         "info": "お知らせ",
     }
 
-    title_map.get(event, "Lancet通知")
+    title_map.get(event, "Lyra通知")
     payload.get("message", "")
 
     if event == "auth_required":
@@ -1535,7 +1535,7 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
 
 async def run_server() -> None:
     """Run the MCP server."""
-    logger.info("Starting Lancet MCP server (Phase M - 11 tools)")
+    logger.info("Starting Lyra MCP server (Phase M - 11 tools)")
 
     # Initialize database
     await get_database()
@@ -1549,7 +1549,7 @@ async def run_server() -> None:
             )
     finally:
         await close_database()
-        logger.info("Lancet MCP server stopped")
+        logger.info("Lyra MCP server stopped")
 
 
 def main() -> None:

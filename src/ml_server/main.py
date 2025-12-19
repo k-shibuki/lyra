@@ -1,5 +1,5 @@
 """
-Lancet ML Server - FastAPI Application.
+Lyra ML Server - FastAPI Application.
 Provides embedding, reranking, and NLI inference endpoints.
 SECURITY: Runs on internal-only network (lyra-internal).
 """
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(
-    title="Lancet ML Server",
+    title="Lyra ML Server",
     description="Internal ML inference server for embedding, reranking, and NLI",
     version="1.0.0",
     lifespan=lifespan,

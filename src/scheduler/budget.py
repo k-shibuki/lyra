@@ -1,5 +1,5 @@
 """
-Budget control for Lancet task execution.
+Budget control for Lyra task execution.
 Implements §3.1 and §3.2.2 requirements:
 - Task page limit: ≤120 pages/task
 - Time limit: ≤60 minutes/task (GPU), ≤75 minutes (CPU)

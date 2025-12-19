@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lancet Chrome Manager (AI-friendly)
+# Lyra Chrome Manager (AI-friendly)
 #
 # Start Chrome with remote debugging for Lyra.
 # Designed to coexist with existing Chrome sessions by using separate user-data-dir.
@@ -8,7 +8,7 @@
 #   ./scripts/chrome.sh              # Check status
 #   ./scripts/chrome.sh check        # Check if debug port is available
 #   ./scripts/chrome.sh start        # Start Chrome with remote debugging
-#   ./scripts/chrome.sh stop         # Stop Lancet Chrome instance
+#   ./scripts/chrome.sh stop         # Stop Lyra Chrome instance
 #   ./scripts/chrome.sh diagnose     # Troubleshoot connection issues
 #   ./scripts/chrome.sh fix          # Auto-fix WSL2 mirrored networking issues
 
@@ -281,7 +281,7 @@ start_chrome_wsl() {
     start_result=$(run_ps "
         \$ErrorActionPreference = 'Stop'
         try {
-            \$dataDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LancetChrome'
+            \$dataDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LyraChrome'
             if (-not (Test-Path \$dataDir)) { New-Item -ItemType Directory -Path \$dataDir -Force | Out-Null }
             
             \$proc = Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList @(
@@ -379,7 +379,7 @@ start_chrome_linux() {
 }
 
 # Function: stop_chrome
-# Description: Stop Lancet Chrome instance
+# Description: Stop Lyra Chrome instance
 # Arguments:
 #   $1: Port number (optional, defaults to CHROME_PORT)
 # Returns:
@@ -713,20 +713,20 @@ run_fix() {
 # =============================================================================
 
 show_help() {
-    echo "Lancet Chrome Manager (AI-friendly)"
+    echo "Lyra Chrome Manager (AI-friendly)"
     echo ""
     echo "Usage: $0 {check|start|stop|diagnose|fix} [port]"
     echo ""
     echo "Commands:"
     echo "  check     Check if Chrome debug port is available (default)"
     echo "  start     Start Chrome with remote debugging (separate profile)"
-    echo "  stop      Stop Lancet Chrome instance"
+    echo "  stop      Stop Lyra Chrome instance"
     echo "  diagnose  Troubleshoot connection issues (WSL only)"
     echo "  fix       Auto-generate fix commands for WSL2 mirrored networking"
     echo ""
     echo "Default port: $CHROME_PORT (from .env: LYRA_BROWSER__CHROME_PORT)"
     echo ""
-    echo "The Chrome instance uses a separate profile (LancetChrome)"
+    echo "The Chrome instance uses a separate profile (LyraChrome)"
     echo "so it won't interfere with your normal browsing."
     echo ""
     echo "WSL2 Note:"

@@ -1,4 +1,4 @@
-# Lancet ML Server Dependencies
+# Lyra ML Server Dependencies
 # For embedding, reranking, and NLI inference
 
 # Web framework

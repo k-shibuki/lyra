@@ -1,5 +1,5 @@
 """
-Pivot exploration for OSINT entity expansion.
+Pivot exploration for Academic Research entity expansion.
 
 Implements §3.1.1 pivot exploration patterns:
 - Organization → subsidiaries, officers, location, domain
@@ -107,7 +107,7 @@ ORG_PIVOT_TEMPLATES: dict[PivotType, PivotTemplateInfo] = {
         ],
         "priority": "high",
         "target_type": EntityType.ORGANIZATION,
-        "rationale": "子会社・グループ会社の特定はOSINTの基本",
+        "rationale": "子会社・グループ会社の特定はAcademic Researchの基本",
         "operators": ["site:edinet-fsa.go.jp", "filetype:pdf"],
     },
     PivotType.ORG_OFFICER: {
@@ -289,7 +289,7 @@ PERSON_PIVOT_TEMPLATES: dict[PivotType, PivotTemplateInfo] = {
 
 class PivotExpander:
     """
-    Generates pivot queries for OSINT entity expansion.
+    Generates pivot queries for Academic Research entity expansion.
 
     Implements §3.1.1 pivot exploration patterns. This class generates
     query suggestions for Cursor AI to consider when designing subqueries.

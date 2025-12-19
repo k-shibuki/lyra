@@ -1094,7 +1094,7 @@ class BrowserFetcher:
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
 
-        Per docs/requirements.md §3.2.1: CDP未接続を検知した場合、Lancetは
+        Per docs/requirements.md §3.2.1: CDP未接続を検知した場合、Lyraは
         ./scripts/chrome.sh start を自動実行する。
 
         Returns:

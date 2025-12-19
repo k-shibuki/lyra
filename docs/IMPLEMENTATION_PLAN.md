@@ -1,8 +1,8 @@
-# 実装計画: Local Autonomous Deep Research Agent (Lancet)
+# 実装計画: Local Yielding Research Aide (Lyra)
 
 ## 1. ドキュメントの位置づけ
 
-本ドキュメントは、Lancetプロジェクトの**実装計画書**である。
+本ドキュメントは、Lyraプロジェクトの**実装計画書**である。
 
 | ドキュメント | 役割 | 参照 |
 |-------------|------|------|
@@ -10,7 +10,7 @@
 | `docs/PUBLICATION_PLAN.md` | 論文執筆準備メモ | SoftwareX投稿、ケーススタディ設計 |
 | **`docs/IMPLEMENTATION_PLAN.md`**（本文書） | **実装計画書** | Phase別の実装状況・知見を管理 |
 
-**システム概要**: 信頼性が高いデスクトップリサーチを自律的に実行するローカルAIエージェント。**Podmanコンテナ環境**で稼働し、MCPを通じてCursorと連携する。
+**システム概要**: 信頼性が高いデスクトップリサーチをCursor AIと協調して実行するローカルAIエージェント。**Podmanコンテナ環境**で稼働し、MCPを通じてCursorと連携する。
 
 ---
 
@@ -39,7 +39,7 @@
 | | B | 品質強化 | ✅ | §4 |
 | | C | 検索経路再設計 | ✅ | §4 |
 | | D | 抗堅性・ステルス性強化 | ✅ | §4 |
-| | E | OSINT品質強化 | ✅ | §4 |
+| | E | 学術情報品質強化 | ✅ | §4 |
 | | F | 追加機能 | ✅ | §4 |
 | | G | テスト基盤 | ✅ | §4 |
 | | H | 検索エンジン多様化 | ✅ | §4 |
@@ -198,7 +198,7 @@
 
 #### B.2 探索制御 ✅
 
-**§2.1責任分界**: クエリ設計はCursor AI、Lancetは実行のみ
+**§2.1責任分界**: クエリ設計はCursor AI、Lyraは実行のみ
 
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
@@ -349,7 +349,7 @@
 
 ---
 
-### Phase E: OSINT品質強化 ✅
+### Phase E: 学術情報品質強化 ✅
 
 #### E.1 検索戦略 ✅
 
@@ -991,7 +991,7 @@ prompt = render_prompt("extract_claims", text="...", context="リサーチクエ
 | HTMLエンティティデコード | 同上 | ✅ |
 | ゼロ幅文字除去 | 同上 | ✅ |
 | 制御文字除去 | 同上 | ✅ |
-| タグパターン除去 | `LANCET-`プレフィックスパターン | ✅ |
+| タグパターン除去 | `LYRA-`プレフィックスパターン | ✅ |
 | 危険単語検出・警告 | ログ出力 | ✅ |
 | 入力長制限 | 4000文字 | ✅ |
 
@@ -1007,7 +1007,7 @@ prompt = render_prompt("extract_claims", text="...", context="リサーチクエ
 
 **実装内容（§4.4.1 L4強化）**:
 - n-gram一致検出（連続20文字以上）
-- タグ名パターン検出（`LANCET-`プレフィックス）
+- タグ名パターン検出（`LYRA-`プレフィックス）
 - 検出時のマスク処理（`[REDACTED]`置換）
 - 検出イベントの監査ログ出力
 - `LeakageDetectionResult`データクラス追加
@@ -1243,14 +1243,14 @@ except Exception as e:
 
 **背景**:
 K.1の調査で以下が判明:
-- 埋め込み（bge-m3）、リランカー（bge-reranker-v2-m3）、NLI（DeBERTa）はLancetコンテナ内で実行
+- 埋め込み（bge-m3）、リランカー（bge-reranker-v2-m3）、NLI（DeBERTa）はLyraコンテナ内で実行
 - これらはHuggingFaceから初回ダウンロード後、外部アクセス不要
 - Ollamaと同様にネットワーク分離すべき
 
 **実装方針**:
 - 埋め込み・リランカー・NLIを「MLコンテナ」に集約
 - Ollamaと同じ`lyra-internal`ネットワーク（`internal: true`）に配置
-- Lancetコンテナからのみアクセス可能に
+- Lyraコンテナからのみアクセス可能に
 - モデルはビルド時にダウンロードしてイメージに含める
 
 **タスク**:
@@ -1259,7 +1259,7 @@ K.1の調査で以下が判明:
 - [x] `podman-compose.yml`にMLコンテナ追加（`lyra-ml`サービス）
 - [x] `lyra-internal`ネットワーク追加（`internal: true`、Ollamaと共用）
 - [x] 埋め込み・リランカー・NLIのAPI化（`src/ml_server/` FastAPI）
-- [x] LancetコンテナからMLコンテナへの通信実装（`src/ml_client.py`）
+- [x] LyraコンテナからMLコンテナへの通信実装（`src/ml_client.py`）
 - [x] 既存の`ranking.py`/`nli.py`をリモート呼び出しに対応
 - [x] `.env`にML設定追加、`config.py`に`MLServerConfig`追加
 
@@ -1741,8 +1741,8 @@ _handle_search() (server.py)
 
 ##### N.5.3 実装方針
 
-- **自動起動を行う**: CDP未接続時、Lancetは `./scripts/chrome.sh start` を自動実行してChromeを起動する
-  - UX最優先: Lancetを使う以上Chrome CDP接続は必須であり、ユーザーに毎回手動起動を求めるのはUX上許容できない
+- **自動起動を行う**: CDP未接続時、Lyraは `./scripts/chrome.sh start` を自動実行してChromeを起動する
+  - UX最優先: Lyraを使う以上Chrome CDP接続は必須であり、ユーザーに毎回手動起動を求めるのはUX上許容できない
   - ハイブリッド構成（Phase O）により、WSL→Windows Chromeへの直接接続が可能
 - **エラーは自動起動失敗時のみ**: 自動起動を試行し、成功すれば検索を続行。失敗した場合のみ `CHROME_NOT_READY` エラーを報告
 - **事前チェック**: パイプライン開始前に `_ensure_chrome_ready()` で接続確認・自動起動を行い、検索途中での失敗を防止
@@ -1812,7 +1812,7 @@ _handle_search() (server.py)
 **商用ツールとの差別化**:
 - Perplexity/ChatGPT: クエリがサーバーに送信される
 - Google Deep Research: 収集情報がGoogleに蓄積される
-- Lancet: **すべてローカル完結、ログは手元にのみ存在**
+- Lyra: **すべてローカル完結、ログは手元にのみ存在**
 
 ---
 
@@ -2336,7 +2336,7 @@ python scripts/migrate.py create NAME  # 新規作成
 
 **WSL側（venv使用・推奨）**:
 ```bash
-cd /home/statuser/lancet
+cd /home/statuser/lyra
 source .venv/bin/activate
 pytest tests/ -m 'not e2e' --tb=short -q
 ```
@@ -2362,7 +2362,7 @@ Phase G.2 も参照。
 
 2. **venv作成**
    ```bash
-   cd /home/statuser/lancet
+   cd /home/statuser/lyra
    python3 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements-mcp.txt

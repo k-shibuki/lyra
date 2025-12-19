@@ -407,7 +407,7 @@ class HARGenerator:
             "log": {
                 "version": "1.2",
                 "creator": {
-                    "name": "Lancet Browser Archiver",
+                    "name": "Lyra Browser Archiver",
                     "version": "1.0",
                 },
                 "pages": [

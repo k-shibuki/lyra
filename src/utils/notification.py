@@ -223,7 +223,7 @@ class InterventionManager:
             )
 
             # Step 1: Send toast notification
-            title = f"Lancet: {intervention_type.value.upper()}"
+            title = f"Lyra: {intervention_type.value.upper()}"
             notification_sent = await self.send_toast(
                 title,
                 notification_msg,
@@ -726,7 +726,7 @@ async def notify_user(
 
         # Send toast notification
         message = payload.get("message") or f"Domain {domain} blocked: {reason}"
-        sent = await manager.send_toast("Lancet: DOMAIN BLOCKED", message)
+        sent = await manager.send_toast("Lyra: DOMAIN BLOCKED", message)
 
         logger.warning(
             "Domain blocked notification sent",
@@ -745,7 +745,7 @@ async def notify_user(
         }
     else:
         # Simple notification (no intervention flow)
-        title = f"Lancet: {event.upper()}"
+        title = f"Lyra: {event.upper()}"
         message = payload.get("message", "")
 
         sent = await manager.send_toast(title, message)

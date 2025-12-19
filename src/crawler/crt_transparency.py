@@ -702,7 +702,7 @@ class CertTransparencyClient:
     ) -> list[str]:
         """Discover domains related via certificate sharing.
 
-        This is useful for OSINT pivot exploration per §3.1.1.
+        This is useful for Academic Research pivot exploration per §3.1.1.
 
         Args:
             domain: Domain to start from.

@@ -1,4 +1,4 @@
-# Local Autonomous Deep Research Agent (Lancet)
+# Local Yielding Research Aide (Lyra)
 # Python 3.12+ Required
 
 # === Core Dependencies ===

@@ -34,7 +34,7 @@ class MetricType(str, Enum):
     HTTP_ERROR_403_RATE = "http_error_403_rate"  # 403 responses / total requests
     HTTP_ERROR_429_RATE = "http_error_429_rate"  # 429 responses / total requests
 
-    # OSINT quality metrics
+    # Academic Research quality metrics
     PRIMARY_SOURCE_RATE = "primary_source_rate"  # primary sources / total sources
     CITATION_LOOP_RATE = "citation_loop_rate"  # loops detected / total citations
     NARRATIVE_DIVERSITY = "narrative_diversity"  # narrative clusters diversity
@@ -114,7 +114,7 @@ class TaskMetrics:
     total_sources: int = 0
     unique_domains: set[str] = field(default_factory=set)
 
-    # OSINT quality
+    # Academic Research quality
     citation_loops_detected: int = 0
     total_citations: int = 0
     contradictions_found: int = 0

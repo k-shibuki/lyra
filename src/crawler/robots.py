@@ -136,7 +136,7 @@ class RobotsChecker:
     """
 
     DEFAULT_USER_AGENT = "*"
-    LYRA_USER_AGENT = "Lancet"  # Our crawler's user agent
+    LYRA_USER_AGENT = "Lyra"  # Our crawler's user agent
 
     def __init__(self) -> None:
         self._settings = get_settings()
@@ -152,7 +152,7 @@ class RobotsChecker:
 
         Args:
             url: URL to check.
-            user_agent: User agent to check for (default: Lancet or *).
+            user_agent: User agent to check for (default: Lyra or *).
 
         Returns:
             True if URL is allowed, False otherwise.
@@ -293,7 +293,7 @@ class RobotsChecker:
     def _parse_robots_txt(self, domain: str, content: str) -> RobotsRule:
         """Parse robots.txt content.
 
-        Extracts rules for our user agent (Lancet) or *.
+        Extracts rules for our user agent (Lyra) or *.
 
         Args:
             domain: Domain name.

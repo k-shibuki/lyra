@@ -1,5 +1,5 @@
 """
-Lancet search module.
+Lyra search module.
 
 Provides unified search interface through provider abstraction.
 All search operations now go through SearchProvider interface by default.
