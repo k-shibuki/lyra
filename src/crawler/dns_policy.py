@@ -321,9 +321,9 @@ class DNSPolicyManager:
                 )
 
                 # Extract unique addresses
-                seen = set()
+                seen: set[str] = set()
                 for info in addr_info:
-                    addr = info[4][0]
+                    addr = str(info[4][0])
                     if addr not in seen:
                         addresses.append(addr)
                         seen.add(addr)

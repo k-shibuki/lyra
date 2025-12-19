@@ -12,11 +12,14 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from src.research.executor import PRIMARY_SOURCE_DOMAINS, REFUTATION_SUFFIXES, SearchExecutor
 from src.research.state import ExplorationState
 from src.storage.database import get_database
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 from src.utils.logging import LogContext, get_logger
 from src.utils.schemas import Paper
 
@@ -128,7 +131,7 @@ class SearchPipeline:
         """
         self.task_id = task_id
         self.state = state
-        self._db = None
+        self._db: Database | None = None
         self._seen_fragment_hashes: set[str] = set()
         self._seen_domains: set[str] = set()
 
@@ -306,7 +309,7 @@ class SearchPipeline:
                 engines=options.engines,
             )
 
-            academic_task = academic_provider.search(query, options)
+            academic_task = academic_provider.search(query, cast(Any, options))
 
             # Execute in parallel
             try:
@@ -481,9 +484,9 @@ class SearchPipeline:
                     )
 
                     # Look up page_id from mapping
-                    page_id = paper_to_page_map.get(paper.id)
+                    mapped_page_id = paper_to_page_map.get(paper.id)
 
-                    if page_id and citations:
+                    if mapped_page_id and citations:
                         # Build paper_metadata
                         paper_metadata = {
                             "doi": paper.doi,
@@ -503,7 +506,7 @@ class SearchPipeline:
                         }
 
                         await add_academic_page_with_citations(
-                            page_id=page_id,
+                            page_id=mapped_page_id,
                             paper_metadata=paper_metadata,
                             citations=citations,
                             task_id=self.task_id,
@@ -513,7 +516,7 @@ class SearchPipeline:
                         logger.debug(
                             "Added citation graph",
                             paper_id=paper.id,
-                            page_id=page_id,
+                            page_id=mapped_page_id,
                             citation_count=len(citations),
                         )
 

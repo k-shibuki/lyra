@@ -358,17 +358,17 @@ class MouseTrajectory:
         Returns:
             Speed multiplier (>1 = faster, <1 = slower).
         """
-        accel_ratio = self._config.acceleration_ratio
-        decel_ratio = self._config.deceleration_ratio
+        accel_ratio: float = float(self._config.acceleration_ratio)
+        decel_ratio: float = float(self._config.deceleration_ratio)
 
         if t < accel_ratio:
             # Acceleration phase: ease-in (slow to fast)
-            normalized = t / accel_ratio
-            return 0.3 + 0.7 * (normalized**0.5)  # Starts at 0.3, reaches 1.0
+            normalized: float = t / accel_ratio
+            return float(0.3 + 0.7 * (normalized**0.5))  # Starts at 0.3, reaches 1.0
         elif t > (1 - decel_ratio):
             # Deceleration phase: ease-out (fast to slow)
-            normalized = (t - (1 - decel_ratio)) / decel_ratio
-            return 1.0 - 0.7 * (normalized**2)  # Starts at 1.0, reaches 0.3
+            normalized_decel: float = (t - (1 - decel_ratio)) / decel_ratio
+            return float(1.0 - 0.7 * (normalized_decel**2))  # Starts at 1.0, reaches 0.3
         else:
             # Constant speed phase
             return 1.0

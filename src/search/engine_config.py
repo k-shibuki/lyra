@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -105,7 +105,7 @@ class OperatorMappingSchema(BaseModel):
         engine_lower = engine.lower()
         value = getattr(self, engine_lower, None)
         if value is not None:
-            return value
+            return cast(str, value)
         return self.default
 
 

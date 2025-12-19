@@ -109,6 +109,8 @@ async def extract_content(
 
     # Extract based on type
     if content_type == "pdf":
+        if input_path is None:
+            return {"ok": False, "error": "PDF extraction requires input_path"}
         return await _extract_pdf(input_path)
     else:
         return await _extract_html(input_path, html, page_id)
@@ -314,9 +316,9 @@ async def _extract_pdf(
 
         doc = fitz.open(input_path)
 
-        text_parts = []
-        headings = []
-        tables = []
+        text_parts: list[str] = []
+        headings: list[dict[str, Any]] = []
+        tables: list[dict[str, Any]] = []
         ocr_used = False
         ocr_pages = []
 
@@ -546,7 +548,7 @@ async def ocr_image(
             image_data = Path(image_path).read_bytes()
 
         # Try PaddleOCR first
-        if _check_paddleocr_available():
+        if _check_paddleocr_available() and image_data is not None:
             text = await _ocr_with_paddleocr(image_data)
             if text:
                 return {
@@ -556,7 +558,7 @@ async def ocr_image(
                 }
 
         # Fallback to Tesseract
-        if _check_tesseract_available():
+        if _check_tesseract_available() and image_data is not None:
             text = await _ocr_with_tesseract(image_data)
             if text:
                 return {

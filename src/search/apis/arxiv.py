@@ -40,10 +40,12 @@ class ArxivClient(BaseAcademicClient):
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers (Atom XML format)."""
         session = await self._get_session()
+        base_url = self.base_url
+        assert base_url is not None, "base_url must be set"
 
         async def _search() -> str:
             response = await session.get(
-                self.base_url,
+                base_url,
                 params={
                     "search_query": f"all:{query}",
                     "start": 0,
@@ -67,11 +69,13 @@ class ArxivClient(BaseAcademicClient):
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata from arXiv ID."""
         session = await self._get_session()
+        base_url = self.base_url
+        assert base_url is not None, "base_url must be set"
 
         async def _fetch() -> str:
             # paper_id is "2301.12345" format or "arXiv:2301.12345"
             arxiv_id = paper_id.replace("arXiv:", "").replace("arxiv:", "")
-            response = await session.get(self.base_url, params={"id_list": arxiv_id})
+            response = await session.get(base_url, params={"id_list": arxiv_id})
             response.raise_for_status()
             return response.text
 

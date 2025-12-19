@@ -20,8 +20,8 @@ class NLIModel:
     LABELS = ["supports", "refutes", "neutral"]
 
     def __init__(self) -> None:
-        self._fast_model = None
-        self._slow_model = None
+        self._fast_model: Any = None
+        self._slow_model: Any = None
         self._settings = get_settings()
 
     async def _ensure_fast_model(self) -> None:

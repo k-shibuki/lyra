@@ -19,7 +19,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from src.utils.logging import get_logger
 
@@ -1480,7 +1480,7 @@ class EntityKB:
             )
 
             if existing:
-                return existing["id"]
+                return cast(str, existing["id"])
 
         identifier_id = str(uuid.uuid4())
 
@@ -1526,7 +1526,7 @@ class EntityKB:
             )
 
             if existing:
-                return existing["id"]
+                return cast(str, existing["id"])
 
         alias_id = str(uuid.uuid4())
 

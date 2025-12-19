@@ -9,7 +9,10 @@ from __future__ import annotations
 import hashlib
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from src.search.provider import SearchResult
 
 from pydantic import BaseModel, Field
 
@@ -509,7 +512,7 @@ class CanonicalEntry(BaseModel):
             if isinstance(first_serp, SearchResult):
                 return first_serp.url
             if isinstance(first_serp, dict):
-                return first_serp.get("url", "")
+                return cast(str, first_serp.get("url", ""))
         return ""
 
     @property

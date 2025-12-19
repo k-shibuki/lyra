@@ -9,7 +9,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from src.scheduler.budget import (
     BudgetExceededReason,
@@ -597,8 +597,11 @@ async def schedule_job(job: dict[str, Any]) -> dict[str, Any]:
     input_data = job.get("input", {})
     task_id = job.get("task_id")
 
+    if kind is None:
+        raise ValueError("Job 'kind' is required")
+
     return await scheduler.submit(
-        kind=kind,
+        kind=cast(JobKind | str, kind),
         input_data=input_data,
         priority=priority,
         task_id=task_id,

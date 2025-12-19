@@ -485,9 +485,9 @@ class CertTransparencyParser:
         Args:
             result: CertSearchResult to update.
         """
-        domains = set()
-        orgs = set()
-        issuers = set()
+        domains: set[str] = set()
+        orgs: set[str] = set()
+        issuers: set[str] = set()
         earliest = None
         latest = None
 

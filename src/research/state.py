@@ -21,6 +21,7 @@ from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from src.research.ucb_allocator import UCBAllocator
+    from src.storage.database import Database
 
 logger = get_logger(__name__)
 
@@ -244,7 +245,7 @@ class ExplorationState:
             ucb_exploration_constant: UCB1 exploration constant (default: sqrt(2)).
         """
         self.task_id = task_id
-        self._db = None
+        self._db: Database | None = None
         self._task_status = TaskStatus.CREATED
         self._searches: dict[str, SearchState] = {}
 

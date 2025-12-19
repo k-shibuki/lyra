@@ -4,7 +4,7 @@ OpenAlex API client.
 Large-scale search API (priority=2).
 """
 
-from typing import Any
+from typing import Any, cast
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -50,7 +50,7 @@ class OpenAlexClient(BaseAcademicClient):
                 },
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
@@ -82,7 +82,7 @@ class OpenAlexClient(BaseAcademicClient):
                 },
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)

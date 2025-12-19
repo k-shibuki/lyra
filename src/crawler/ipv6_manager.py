@@ -19,7 +19,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from src.storage.database import Database
@@ -472,14 +472,14 @@ class IPv6ConnectionManager:
                 if family == socket.AF_INET6:
                     ipv6_addresses.append(
                         IPv6Address(
-                            address=addr,
+                            address=str(addr),
                             family=AddressFamily.IPV6,
                         )
                     )
                 elif family == socket.AF_INET:
                     ipv4_addresses.append(
                         IPv6Address(
-                            address=addr,
+                            address=str(addr),
                             family=AddressFamily.IPV4,
                         )
                     )
@@ -725,7 +725,7 @@ class IPv6ConnectionManager:
             True if IPv6 is enabled.
         """
         settings = self._get_ipv6_settings()
-        return settings.get("enabled", True)
+        return cast(bool, settings.get("enabled", True))
 
     async def is_ipv6_enabled_for_domain(self, domain: str) -> bool:
         """Check if IPv6 is enabled for a specific domain.

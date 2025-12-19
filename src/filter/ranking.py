@@ -7,7 +7,7 @@ via HTTP calls to the lancet-ml container on internal network.
 """
 
 import hashlib
-from typing import Any
+from typing import Any, cast
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -19,9 +19,9 @@ class BM25Ranker:
     """BM25-based first-stage ranker."""
 
     def __init__(self) -> None:
-        self._index = None
+        self._index: Any = None
         self._corpus: list[str] = []
-        self._tokenizer = None
+        self._tokenizer: Any = None
 
     def _get_tokenizer(self) -> Any:
         """Get or create tokenizer."""
@@ -86,7 +86,7 @@ class BM25Ranker:
 
         tokenized_query = self._tokenize(query)
         scores = self._index.get_scores(tokenized_query)
-        return scores.tolist()
+        return cast(list[float], scores.tolist())
 
 
 class EmbeddingRanker:
@@ -96,7 +96,7 @@ class EmbeddingRanker:
     """
 
     def __init__(self) -> None:
-        self._model = None
+        self._model: Any = None
         self._settings = get_settings()
         self._cache: dict[str, Any] = {}
 
@@ -168,9 +168,9 @@ class EmbeddingRanker:
         assert self._model is not None  # Guaranteed by _ensure_model
 
         # Check cache
-        uncached_texts = []
-        uncached_indices = []
-        results = [None] * len(texts)
+        uncached_texts: list[str] = []
+        uncached_indices: list[int] = []
+        results: list[list[float] | None] = [None] * len(texts)
 
         for idx, text in enumerate(texts):
             cache_key = self._get_cache_key(text)
@@ -196,7 +196,7 @@ class EmbeddingRanker:
                 self._cache[cache_key] = emb_list
                 results[idx] = emb_list
 
-        return results
+        return cast(list[list[float]], results)
 
     async def get_scores(
         self,

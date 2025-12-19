@@ -12,10 +12,13 @@ Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.research.state import ExplorationState
 from src.storage.database import get_database
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 from src.utils.config import get_settings
 from src.utils.logging import LogContext, get_logger
 
@@ -151,7 +154,7 @@ class SearchExecutor:
         """
         self.task_id = task_id
         self.state = state
-        self._db = None
+        self._db: Database | None = None
         self._seen_fragment_hashes: set[str] = set()
         self._seen_domains: set[str] = set()
 
@@ -284,9 +287,9 @@ class SearchExecutor:
 
                 # Check for ALL_FETCHES_FAILED condition
                 # If we attempted fetches but got no successful pages
-                search_state = self.state.get_search(search_id)
+                search_state_check = self.state.get_search(search_id)
                 all_fetches_failed = (
-                    fetch_attempted > 0 and search_state and search_state.pages_fetched == 0
+                    fetch_attempted > 0 and search_state_check and search_state_check.pages_fetched == 0
                 )
                 if all_fetches_failed:
                     result.status = "failed"

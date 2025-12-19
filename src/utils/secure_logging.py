@@ -369,7 +369,7 @@ class SecureLogger:
 
     def _sanitize_dict(self, d: dict[str, Any]) -> dict[str, Any]:
         """Sanitize all values in a dict."""
-        result = {}
+        result: dict[str, Any] = {}
         for key, value in d.items():
             if isinstance(value, str):
                 # Mask sensitive patterns

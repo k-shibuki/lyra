@@ -14,7 +14,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from src.filter.llm import _get_client
 from src.report.generator import generate_deep_link
@@ -354,7 +354,7 @@ class ChainOfDensityCompressor:
         fragment_by_id = {f.get("id"): f for f in fragments if f.get("id")}
 
         # Create fragment lookup by URL
-        fragment_by_url = {}
+        fragment_by_url: dict[str, list[dict[str, Any]]] = {}
         for f in fragments:
             url = f.get("url")
             if url:
@@ -406,8 +406,8 @@ class ChainOfDensityCompressor:
         # Simple word overlap scoring
         claim_words = set(claim_text.lower().split())
 
-        best_score = 0
-        best_fragment = None
+        best_score: float = 0.0
+        best_fragment: dict[str, Any] | None = None
 
         for frag in fragments:
             frag_text = frag.get("text_content", "")
@@ -423,7 +423,7 @@ class ChainOfDensityCompressor:
             if union > 0:
                 score = intersection / union
                 if score > best_score:
-                    best_score = score
+                    best_score = float(score)
                     best_fragment = frag
 
         # Only return if similarity is above threshold
@@ -666,7 +666,7 @@ class ChainOfDensityCompressor:
             # Find JSON object in response
             json_match = re.search(r"\{.*\}", response, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group())
+                return cast(dict[str, Any], json.loads(json_match.group()))
         except json.JSONDecodeError:
             pass
 

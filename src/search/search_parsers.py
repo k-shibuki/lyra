@@ -463,7 +463,10 @@ class BaseSearchParser(ABC):
         # Try finding link child
         link = element.find("a")
         if link:
-            return link.get("href")
+            href_value = link.get("href")
+            if isinstance(href_value, str):
+                return href_value
+            return None
 
         return None
 

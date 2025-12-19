@@ -9,11 +9,14 @@ See docs/REQUIREMENTS.md §2.1.4 and §3.1.7.5.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.research.executor import REFUTATION_SUFFIXES
 from src.research.state import ExplorationState
 from src.storage.database import get_database
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 from src.utils.logging import LogContext, get_logger
 
 logger = get_logger(__name__)
@@ -72,7 +75,7 @@ class RefutationExecutor:
         """
         self.task_id = task_id
         self.state = state
-        self._db = None
+        self._db: Database | None = None
 
     async def _ensure_db(self) -> None:
         """Ensure database connection."""

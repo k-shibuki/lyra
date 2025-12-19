@@ -17,7 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urldefrag, urljoin, urlparse
 
 from bs4 import BeautifulSoup
@@ -285,7 +285,7 @@ class LinkExtractor:
             if parent.name is None:
                 continue
 
-            parent_str = str(parent.get("class", [])) + str(parent.get("id", ""))
+            parent_str = str(parent.get("class", "")) + str(parent.get("id", ""))
             parent_str = parent_str.lower()
 
             # Navigation
@@ -551,7 +551,7 @@ class DomainBFSCrawler:
             )
 
             if response.status_code == 200:
-                return response.text
+                return cast(str, response.text)
 
             return None
 
