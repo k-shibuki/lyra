@@ -272,7 +272,9 @@ class SearchFetchVerifier:
             success_rate = successful_fetches / total_fetches
             threshold = 0.95  # §7: スクレイピング成功率≥95%
 
-            print(f"\n    Fetch success rate: {success_rate:.0%} ({successful_fetches}/{total_fetches})")
+            print(
+                f"\n    Fetch success rate: {success_rate:.0%} ({successful_fetches}/{total_fetches})"
+            )
 
             if success_rate >= threshold:
                 return VerificationResult(
@@ -316,7 +318,7 @@ class SearchFetchVerifier:
             stats = manager.get_session_stats()
             print(f"    Total sessions: {stats['total_sessions']}")
 
-            if stats['total_sessions'] == 0:
+            if stats["total_sessions"] == 0:
                 print("    ! No sessions to verify")
                 print("      (This may be normal if no fetches completed successfully)")
                 return VerificationResult(
@@ -331,7 +333,7 @@ class SearchFetchVerifier:
             verified_count = 0
             total_count = 0
 
-            for domain, count in stats['domains'].items():
+            for domain, count in stats["domains"].items():
                 total_count += 1
                 print(f"      - {domain}: {count} session(s)")
 
@@ -410,7 +412,7 @@ class SearchFetchVerifier:
         try:
             stats = manager.get_session_stats()
 
-            if len(stats['domains']) < 2:
+            if len(stats["domains"]) < 2:
                 print("    ! Only one domain in sessions, skipping isolation test")
                 return VerificationResult(
                     name="Cross-Domain Isolation",
@@ -420,7 +422,7 @@ class SearchFetchVerifier:
                     skip_reason="Need 2+ domains to test isolation",
                 )
 
-            domains = list(stats['domains'].keys())
+            domains = list(stats["domains"].keys())
             domain_a = domains[0]
             domain_b = domains[1]
 
@@ -506,9 +508,9 @@ class SearchFetchVerifier:
             result = await fetcher.fetch("https://example.com", policy=policy)
 
             # Verify the result has challenge detection fields
-            has_challenge_field = hasattr(result, 'challenge_detected')
-            has_challenge_type = hasattr(result, 'challenge_type')
-            has_queue_auth = hasattr(result, 'auth_queued')
+            has_challenge_field = hasattr(result, "challenge_detected")
+            has_challenge_type = hasattr(result, "challenge_type")
+            has_queue_auth = hasattr(result, "auth_queued")
 
             print(f"    ✓ challenge_detected field: {has_challenge_field}")
             print(f"    ✓ challenge_type field: {has_challenge_type}")

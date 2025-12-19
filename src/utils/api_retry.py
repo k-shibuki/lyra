@@ -134,9 +134,7 @@ class APIRetryPolicy:
         # Ensure no overlap between retryable and non-retryable
         overlap = self.retryable_status_codes & self.non_retryable_status_codes
         if overlap:
-            raise ValueError(
-                f"Status codes cannot be both retryable and non-retryable: {overlap}"
-            )
+            raise ValueError(f"Status codes cannot be both retryable and non-retryable: {overlap}")
 
     def should_retry_exception(self, exc: Exception) -> bool:
         """Check if exception is retryable.

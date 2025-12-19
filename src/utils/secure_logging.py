@@ -413,7 +413,7 @@ class AuditLogger:
         )
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize audit logger."""
         self._logger = get_logger("security.audit")
 
@@ -522,7 +522,7 @@ class AuditLogger:
         details: dict[str, Any],
     ) -> dict[str, Any]:
         """Sanitize audit details to prevent sensitive data in logs."""
-        result = {}
+        result: dict[str, Any] = {}
 
         for key, value in details.items():
             if isinstance(value, str):

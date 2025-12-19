@@ -22,7 +22,10 @@ import asyncio
 import random
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, BrowserContext, Playwright
 
 from src.crawler.fetcher import HumanBehavior
 from src.search.circuit_breaker import check_engine_available, record_engine_result
@@ -147,10 +150,10 @@ class BrowserSearchProvider(BaseSearchProvider):
         self._min_interval = min_interval or self.MIN_INTERVAL
 
         # Browser state (lazy initialization)
-        self._playwright = None
-        self._browser = None
-        self._context = None
-        self._page = None
+        self._playwright: Playwright | None = None
+        self._browser: Browser | None = None
+        self._context: BrowserContext | None = None
+        self._page: Any = None
 
         # Rate limiting
         self._rate_limiter = asyncio.Semaphore(1)
@@ -188,6 +191,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 from playwright.async_api import async_playwright
 
                 self._playwright = await async_playwright().start()
+                assert self._playwright is not None  # Just initialized
 
                 # CDP connection to Chrome (required, no fallback)
                 chrome_host = getattr(self._settings.browser, "chrome_host", "localhost")
@@ -202,14 +206,16 @@ class BrowserSearchProvider(BaseSearchProvider):
                     # CDP connection failed - do NOT fall back to headless
                     # Per spec: "real profile consistency" is required
                     self._cdp_connected = False
-                    await self._playwright.stop()
-                    self._playwright = None
+                    if self._playwright is not None:
+                        await self._playwright.stop()
+                        self._playwright = None
 
                     raise CDPConnectionError(
                         f"CDP connection failed: {e}. Start Chrome with: ./scripts/chrome.sh start"
                     ) from e
 
                 # Reuse existing context if available (preserves profile cookies per §3.6.1)
+                assert self._browser is not None  # Just connected
                 existing_contexts = self._browser.contexts
                 if existing_contexts:
                     self._context = existing_contexts[0]
@@ -228,6 +234,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                     logger.info("Created new browser context")
 
                 # Block unnecessary resources
+                assert self._context is not None  # Just created or reused
                 await self._context.route(
                     "**/*.{png,jpg,jpeg,gif,svg,webp,mp4,webm,mp3,woff,woff2}",
                     lambda route: route.abort(),
@@ -262,6 +269,7 @@ class BrowserSearchProvider(BaseSearchProvider):
             from src.crawler.profile_audit import AuditStatus, perform_health_check
 
             # Create temporary page for audit (minimal impact on performance)
+            assert self._context is not None  # Guaranteed by caller
             page = await self._context.new_page()
             try:
                 await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
@@ -301,6 +309,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def _get_page(self) -> Any:
         """Get or create a browser page."""
         await self._ensure_browser()
+        assert self._context is not None  # Guaranteed by _ensure_browser
 
         if self._page is None or self._page.is_closed():
             self._page = await self._context.new_page()
@@ -939,10 +948,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 )
 
             # Convert results
-            results = [
-                r.to_search_result(engine)
-                for r in parse_result.results[:options.limit]
-            ]
+            results = [r.to_search_result(engine) for r in parse_result.results[: options.limit]]
 
             # Save session cookies
             await self._save_session(engine, page)
@@ -1099,6 +1105,8 @@ class BrowserSearchProvider(BaseSearchProvider):
 
     async def _save_session(self, engine: str, page: Any) -> None:
         """Save session cookies for engine."""
+        if self._context is None:
+            return  # No context to save from
         try:
             cookies = await self._context.cookies()
 

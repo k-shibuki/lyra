@@ -29,6 +29,7 @@ import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
+# E402: Intentionally import after pytestmark for test configuration
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -277,7 +278,9 @@ class TestContentAnalyzer:
         assert "Main Title" in text, "Expected 'Main Title' in extracted text"
         assert "original content" in text, "Expected 'original content' in extracted text"
         # Navigation content should be excluded (trafilatura filters nav elements)
-        assert "Navigation" not in text, "Expected 'Navigation' to be excluded from article extraction"
+        assert "Navigation" not in text, (
+            "Expected 'Navigation' to be excluded from article extraction"
+        )
 
     def test_extract_headings(self):
         """Should extract all headings."""
@@ -314,11 +317,13 @@ class TestContentAnalyzer:
         analyzer = ContentAnalyzer()
 
         old_snap = Snapshot(
-            url="", original_url="",
+            url="",
+            original_url="",
             timestamp=datetime(2023, 1, 1, tzinfo=UTC),
         )
         new_snap = Snapshot(
-            url="", original_url="",
+            url="",
+            original_url="",
             timestamp=datetime(2024, 1, 1, tzinfo=UTC),
         )
 
@@ -329,7 +334,9 @@ class TestContentAnalyzer:
             f"Expected similarity < 1.0 for different content, got {diff.similarity_ratio}"
         )
         # Heading changed from 'Main Title' to 'Main Title Updated' and 'Section Two' to 'Section Three'
-        assert len(diff.heading_changes) >= 1, f"Expected at least 1 heading change, got {len(diff.heading_changes)}"
+        assert len(diff.heading_changes) >= 1, (
+            f"Expected at least 1 heading change, got {len(diff.heading_changes)}"
+        )
 
     def test_compare_identical(self):
         """Identical content should have high similarity."""
@@ -443,7 +450,7 @@ class TestWaybackExplorer:
         """Should handle no snapshots gracefully."""
         explorer = WaybackExplorer()
 
-        with patch.object(explorer._client, 'get_snapshots', new_callable=AsyncMock) as mock_get:
+        with patch.object(explorer._client, "get_snapshots", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = []
 
             result = await explorer.explore("https://example.com/page")
@@ -462,10 +469,12 @@ class TestWaybackExplorer:
             timestamp=datetime(2023, 1, 1, tzinfo=UTC),
         )
 
-        with patch.object(explorer._client, 'get_snapshots', new_callable=AsyncMock) as mock_get:
+        with patch.object(explorer._client, "get_snapshots", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = [archived_snapshot]
 
-            with patch.object(explorer._client, 'fetch_snapshot', new_callable=AsyncMock) as mock_fetch:
+            with patch.object(
+                explorer._client, "fetch_snapshot", new_callable=AsyncMock
+            ) as mock_fetch:
                 mock_fetch.return_value = SAMPLE_HTML_V1
 
                 has_changes = await explorer.check_content_changes(

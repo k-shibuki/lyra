@@ -16,10 +16,13 @@ Key Design:
 import asyncio
 import socket
 import time
-from collections import deque
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 import structlog
 
@@ -192,9 +195,7 @@ class DomainIPv6Stats:
                 self.last_ipv4_failure_at = now
 
             # Update EMA
-            self.ipv4_success_rate = (
-                ema_alpha * value + (1 - ema_alpha) * self.ipv4_success_rate
-            )
+            self.ipv4_success_rate = ema_alpha * value + (1 - ema_alpha) * self.ipv4_success_rate
 
     def record_switch(self, success: bool) -> None:
         """Record a family switch event.
@@ -361,7 +362,7 @@ class IPv6ConnectionManager:
     4. Learn success rates per domain and adjust preferences
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._domain_stats: dict[str, DomainIPv6Stats] = {}
         self._metrics = IPv6Metrics()
@@ -476,10 +477,12 @@ class IPv6ConnectionManager:
                         )
                     )
                 elif family == socket.AF_INET:
-                    ipv4_addresses.append(IPv6Address(
-                        address=addr,
-                        family=AddressFamily.IPV4,
-                    ))
+                    ipv4_addresses.append(
+                        IPv6Address(
+                            address=addr,
+                            family=AddressFamily.IPV4,
+                        )
+                    )
 
         except socket.gaierror as e:
             logger.debug("DNS resolution failed", hostname=hostname, error=str(e))
@@ -602,7 +605,7 @@ class IPv6ConnectionManager:
         self,
         hostname: str,
         domain: str,
-        connect_func,
+        connect_func: Callable[..., Awaitable[Any]],
         timeout: float | None = None,
     ) -> IPv6ConnectionResult:
         """Try to connect with automatic IPv6/IPv4 fallback.
@@ -785,7 +788,7 @@ class IPv6ConnectionManager:
         """
         return self._domain_stats.copy()
 
-    async def load_domain_stats_from_db(self, db) -> int:
+    async def load_domain_stats_from_db(self, db: "Database") -> int:
         """Load domain stats from database.
 
         Args:
@@ -817,7 +820,7 @@ class IPv6ConnectionManager:
             logger.warning("Failed to load domain IPv6 stats from DB", error=str(e))
             return 0
 
-    async def save_domain_stats_to_db(self, db, domain: str) -> bool:
+    async def save_domain_stats_to_db(self, db: "Database", domain: str) -> bool:
         """Save domain stats to database.
 
         Args:

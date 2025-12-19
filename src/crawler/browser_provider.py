@@ -502,15 +502,13 @@ class BaseBrowserProvider(ABC):
         *args: Any,
     ) -> Any:
         """Execute JavaScript (default: not supported)."""
-        raise NotImplementedError(
-            f"Provider '{self._name}' does not support script execution"
-        )
+        raise NotImplementedError(f"Provider '{self._name}' does not support script execution")
 
     async def get_cookies(self, url: str | None = None) -> list[Cookie]:
         """Get cookies (default: empty list)."""
         return []
 
-    async def set_cookies(self, cookies: list[Cookie]) -> None:
+    async def set_cookies(self, cookies: list[Cookie]) -> None:  # noqa: B027
         """Set cookies (default: no-op)."""
         pass
 
@@ -562,7 +560,7 @@ class BrowserProviderRegistry:
         result = await registry.navigate_with_fallback(url)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize empty registry."""
         self._providers: dict[str, BrowserProvider] = {}
         self._default_name: str | None = None

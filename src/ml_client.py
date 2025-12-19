@@ -47,7 +47,7 @@ class NLIError(MLClientError):
 class MLClient:
     """HTTP client for ML Server."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._client: httpx.AsyncClient | None = None
         self._base_url: str | None = None

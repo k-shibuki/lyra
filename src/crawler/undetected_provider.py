@@ -53,7 +53,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
     for async compatibility.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize UndetectedChrome provider."""
         super().__init__("undetected_chrome")
         self._settings = get_settings()
@@ -83,7 +83,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
         self,
         mode: BrowserMode,
         options: BrowserOptions,
-    ):
+    ) -> Any:
         """Create Chrome options for undetected-chromedriver."""
         import undetected_chromedriver as uc
 
@@ -134,6 +134,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
             use_subprocess=True,
             version_main=None,  # Auto-detect Chrome version
         )
+        assert self._driver is not None  # Just initialized
 
         # Set page load timeout
         self._driver.set_page_load_timeout(int(options.timeout))
@@ -161,12 +162,8 @@ class UndetectedChromeProvider(BaseBrowserProvider):
             return
 
         try:
-            page_height = self._driver.execute_script(
-                "return document.body.scrollHeight"
-            )
-            viewport_height = self._driver.execute_script(
-                "return window.innerHeight"
-            )
+            page_height = self._driver.execute_script("return document.body.scrollHeight")
+            viewport_height = self._driver.execute_script("return window.innerHeight")
 
             current_position = 0
             max_scrolls = 3
@@ -184,9 +181,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
                     page_height - viewport_height,
                 )
 
-                self._driver.execute_script(
-                    f"window.scrollTo(0, {current_position})"
-                )
+                self._driver.execute_script(f"window.scrollTo(0, {current_position})")
 
                 time.sleep(random.uniform(0.3, 1.0))
 
@@ -310,6 +305,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
             # Initialize driver if not already done
             if self._driver is None:
                 self._init_driver(options.mode, options)
+            assert self._driver is not None  # Guaranteed by _init_driver
 
             # Navigate to URL
             logger.info("Navigating with undetected-chromedriver", url=url[:80])
@@ -464,7 +460,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
         if self._driver is None:
             return
 
-        def _set_cookies_sync():
+        def _set_cookies_sync() -> None:
             for cookie in cookies:
                 try:
                     self._driver.add_cookie(cookie.to_dict())
@@ -509,9 +505,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
     async def get_health(self) -> BrowserHealthStatus:
         """Get current health status."""
         if not self._check_available():
-            return BrowserHealthStatus.unavailable(
-                "undetected-chromedriver not installed"
-            )
+            return BrowserHealthStatus.unavailable("undetected-chromedriver not installed")
 
         if self._is_closed:
             return BrowserHealthStatus.unhealthy("Provider is closed")

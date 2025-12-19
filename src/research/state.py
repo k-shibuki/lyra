@@ -28,8 +28,8 @@ logger = get_logger(__name__)
 class SearchStatus(Enum):
     """Status of a search execution."""
 
-    PENDING = "pending"      # Created but not executed
-    RUNNING = "running"      # Currently executing
+    PENDING = "pending"  # Created but not executed
+    RUNNING = "running"  # Currently executing
     SATISFIED = "satisfied"  # Sufficient sources found (≥3 independent or 1 primary + 1 secondary)
     PARTIAL = "partial"  # Some sources found (1-2 independent)
     EXHAUSTED = "exhausted"  # Budget consumed or novelty dropped
@@ -43,8 +43,8 @@ SubqueryStatus = SearchStatus
 class TaskStatus(Enum):
     """Status of a research task."""
 
-    CREATED = "created"              # Task created, Cursor AI designing searches
-    EXPLORING = "exploring"          # Exploration in progress
+    CREATED = "created"  # Task created, Cursor AI designing searches
+    EXPLORING = "exploring"  # Exploration in progress
     AWAITING_DECISION = "awaiting_decision"  # Waiting for Cursor AI decision
     FINALIZING = "finalizing"  # Wrapping up exploration
     COMPLETED = "completed"  # Successfully completed
@@ -74,10 +74,7 @@ class SearchState(BaseModel):
     status: SearchStatus = Field(
         default=SearchStatus.PENDING, description="Current execution status"
     )
-    priority: str = Field(
-        default="medium",
-        description="Execution priority (high/medium/low)"
-    )
+    priority: str = Field(default="medium", description="Execution priority (high/medium/low)")
 
     # Source tracking
     independent_sources: int = Field(
@@ -111,10 +108,7 @@ class SearchState(BaseModel):
     refutation_status: str = Field(
         default="pending", description="Refutation status (pending/found/not_found)"
     )
-    refutation_count: int = Field(
-        default=0, ge=0,
-        description="Number of refutations found"
-    )
+    refutation_count: int = Field(default=0, ge=0, description="Number of refutations found")
 
     # Budget
     budget_pages: int | None = Field(
@@ -305,6 +299,7 @@ class ExplorationState:
     async def load_state(self) -> None:
         """Load state from database."""
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         task = await self._db.fetch_one(
             "SELECT * FROM tasks WHERE id = ?",
@@ -342,6 +337,7 @@ class ExplorationState:
     async def save_state(self) -> None:
         """Save current state to database."""
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         await self._db.execute(
             "UPDATE tasks SET status = ? WHERE id = ?",
@@ -490,7 +486,9 @@ class ExplorationState:
             if self._ucb_allocator:
                 self._ucb_allocator.record_observation(search_id, is_useful)
 
-    def record_claim(self, search_id: str, is_verified: bool = False, is_refuted: bool = False) -> None:
+    def record_claim(
+        self, search_id: str, is_verified: bool = False, is_refuted: bool = False
+    ) -> None:
         """Record a claim extraction.
 
         Args:
@@ -684,7 +682,9 @@ class ExplorationState:
         satisfied = sum(1 for s in self._searches.values() if s.status == SearchStatus.SATISFIED)
         partial = sum(1 for s in self._searches.values() if s.status == SearchStatus.PARTIAL)
         pending = sum(1 for s in self._searches.values() if s.status == SearchStatus.PENDING)
-        exhausted_count = sum(1 for s in self._searches.values() if s.status == SearchStatus.EXHAUSTED)
+        exhausted_count = sum(
+            1 for s in self._searches.values() if s.status == SearchStatus.EXHAUSTED
+        )
 
         # Generate warnings (factual alerts, not recommendations)
         warnings = []
@@ -808,9 +808,7 @@ class ExplorationState:
             domain_sample = ", ".join(domains[:3])
             if len(domains) > 3:
                 domain_sample += f" 他{len(domains) - 3}件"
-            alerts.append(
-                f"[warning] 認証待ち{pending_count}件 ({domain_sample})"
-            )
+            alerts.append(f"[warning] 認証待ち{pending_count}件 ({domain_sample})")
 
         return alerts
 
@@ -851,7 +849,9 @@ class ExplorationState:
         """
         self._task_status = TaskStatus.COMPLETED
 
-        satisfied_searches = [s for s in self._searches.values() if s.status == SearchStatus.SATISFIED]
+        satisfied_searches = [
+            s for s in self._searches.values() if s.status == SearchStatus.SATISFIED
+        ]
         partial_searches = [s for s in self._searches.values() if s.status == SearchStatus.PARTIAL]
         unsatisfied_searches = [
             s

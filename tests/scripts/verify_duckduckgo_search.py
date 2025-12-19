@@ -138,11 +138,11 @@ class BrowserSearchVerifier:
             browser = provider._browser
             browser_info["connected"] = browser.is_connected()
             contexts = browser.contexts
-            browser_info['contexts'] = len(contexts)
+            browser_info["contexts"] = len(contexts)
 
             if contexts:
                 pages = contexts[0].pages
-                browser_info['pages'] = len(pages)
+                browser_info["pages"] = len(pages)
 
             print(f"    ✓ Browser connected: {browser_info.get('connected', False)}")
             print(f"    ✓ Contexts: {browser_info.get('contexts', 0)}")
@@ -456,7 +456,7 @@ class BrowserSearchVerifier:
             final_count = final_stats["total_sessions"]
             print(f"    Final sessions: {final_count}")
 
-            if final_stats['domains']:
+            if final_stats["domains"]:
                 print("    Session domains:")
                 for domain, count in list(final_stats["domains"].items())[:3]:
                     print(f"      - {domain}: {count}")

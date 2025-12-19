@@ -125,8 +125,12 @@ class AllowlistEntrySchema(BaseModel):
     cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
     max_retries: int | None = Field(default=None, ge=0, le=10)
     # Daily budget limits (§4.3 - IP block prevention)
-    max_requests_per_day: int | None = Field(default=None, ge=0, description="Max requests per day (0=unlimited)")
-    max_pages_per_day: int | None = Field(default=None, ge=0, description="Max pages per day (0=unlimited)")
+    max_requests_per_day: int | None = Field(
+        default=None, ge=0, description="Max requests per day (0=unlimited)"
+    )
+    max_pages_per_day: int | None = Field(
+        default=None, ge=0, description="Max pages per day (0=unlimited)"
+    )
 
     @field_validator("domain")
     @classmethod
@@ -210,11 +214,17 @@ class LearningStateDomainSchema(BaseModel):
 class SearchEnginePolicySchema(BaseModel):
     """Schema for search engine policy settings (§3.1.4, §4.3)."""
 
-    default_qps: float = Field(default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines")
-    site_search_qps: float = Field(default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit")
+    default_qps: float = Field(
+        default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines"
+    )
+    site_search_qps: float = Field(
+        default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit"
+    )
     cooldown_min: int = Field(default=30, ge=1, le=1440, description="Minimum cooldown in minutes")
     cooldown_max: int = Field(default=120, ge=1, le=1440, description="Maximum cooldown in minutes")
-    failure_threshold: int = Field(default=2, ge=1, le=10, description="Failures before circuit open")
+    failure_threshold: int = Field(
+        default=2, ge=1, le=10, description="Failures before circuit open"
+    )
 
     @property
     def default_min_interval(self) -> float:
@@ -240,27 +250,41 @@ class PolicyBoundsEntrySchema(BaseModel):
 class PolicyBoundsSchema(BaseModel):
     """Schema for policy auto-update bounds (§4.6)."""
 
-    engine_weight: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
-    ))
-    engine_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.1, max=0.5, default=0.25, step_up=0.05, step_down=0.1
-    ))
-    domain_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.05, max=0.3, default=0.2, step_up=0.02, step_down=0.05
-    ))
-    domain_cooldown: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=30.0, max=240.0, default=60.0, step_up=30.0, step_down=15.0
-    ))
-    headful_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.0, max=0.5, default=0.1, step_up=0.05, step_down=0.05
-    ))
-    tor_usage_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.0, max=0.2, default=0.0, step_up=0.02, step_down=0.05
-    ))
-    browser_route_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
-        min=0.1, max=0.5, default=0.3, step_up=0.05, step_down=0.05
-    ))
+    engine_weight: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
+        )
+    )
+    engine_qps: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.1, max=0.5, default=0.25, step_up=0.05, step_down=0.1
+        )
+    )
+    domain_qps: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.05, max=0.3, default=0.2, step_up=0.02, step_down=0.05
+        )
+    )
+    domain_cooldown: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=30.0, max=240.0, default=60.0, step_up=30.0, step_down=15.0
+        )
+    )
+    headful_ratio: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.0, max=0.5, default=0.1, step_up=0.05, step_down=0.05
+        )
+    )
+    tor_usage_ratio: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.0, max=0.2, default=0.0, step_up=0.02, step_down=0.05
+        )
+    )
+    browser_route_ratio: PolicyBoundsEntrySchema = Field(
+        default_factory=lambda: PolicyBoundsEntrySchema(
+            min=0.1, max=0.5, default=0.3, step_up=0.05, step_down=0.05
+        )
+    )
 
 
 class DomainPolicyConfigSchema(BaseModel):
@@ -457,7 +481,7 @@ class DomainPolicyManager:
         self._load_config()
 
     @classmethod
-    def get_instance(cls, **kwargs) -> DomainPolicyManager:
+    def get_instance(cls, **kwargs: Any) -> DomainPolicyManager:
         """Get singleton instance of domain policy manager."""
         if cls._instance is None:
             with cls._lock:
@@ -575,7 +599,9 @@ class DomainPolicyManager:
         self._check_reload()
         if self._config is None:
             self._load_config()
-        return self._config  # type: ignore
+        # After _load_config(), _config is guaranteed to be non-None
+        assert self._config is not None
+        return self._config
 
     def get_default_policy(self) -> DefaultPolicySchema:
         """Get default policy configuration."""
@@ -656,7 +682,7 @@ class DomainPolicyManager:
         default = config.default_policy
 
         # Start with default policy
-        policy = DomainPolicy(
+        policy: DomainPolicy = DomainPolicy(
             domain=domain,
             qps=default.qps,
             concurrent=default.concurrent,
@@ -671,11 +697,13 @@ class DomainPolicyManager:
         )
 
         # Check denylist first (highest priority for skipping)
-        for entry in config.denylist:
-            if self._match_pattern(domain, entry.domain_pattern):
+        for deny_entry in config.denylist:
+            if self._match_pattern(domain, deny_entry.domain_pattern):
                 policy.skip = True
                 policy.skip_reason = (
-                    entry.reason if isinstance(entry.reason, str) else entry.reason.value
+                    deny_entry.reason
+                    if isinstance(deny_entry.reason, str)
+                    else deny_entry.reason.value
                 )
                 policy.source = "denylist"
                 with self._cache_lock:
@@ -683,59 +711,63 @@ class DomainPolicyManager:
                 return policy
 
         # Check cloudflare sites
-        for entry in config.cloudflare_sites:
-            if self._match_pattern(domain, entry.domain_pattern):
-                policy.headful_required = entry.headful_required
-                policy.tor_blocked = entry.tor_blocked
-                if entry.tor_blocked:
+        for cf_entry in config.cloudflare_sites:
+            if self._match_pattern(domain, cf_entry.domain_pattern):
+                policy.headful_required = cf_entry.headful_required
+                policy.tor_blocked = cf_entry.tor_blocked
+                if cf_entry.tor_blocked:
                     policy.tor_allowed = False
                 policy.source = "cloudflare"
                 break
 
         # Check allowlist (exact and suffix match)
-        for entry in config.allowlist:
-            if self._match_pattern(domain, entry.domain):
+        for allow_entry in config.allowlist:
+            if self._match_pattern(domain, allow_entry.domain):
                 # Apply allowlist overrides
-                if entry.qps is not None:
-                    policy.qps = entry.qps
-                if entry.headful_ratio is not None:
-                    policy.headful_ratio = entry.headful_ratio
-                if entry.tor_allowed is not None:
-                    policy.tor_allowed = entry.tor_allowed
-                if entry.concurrent is not None:
-                    policy.concurrent = entry.concurrent
-                if entry.cooldown_minutes is not None:
-                    policy.cooldown_minutes = entry.cooldown_minutes
-                if entry.max_retries is not None:
-                    policy.max_retries = entry.max_retries
+                if allow_entry.qps is not None:
+                    policy.qps = allow_entry.qps
+                if allow_entry.headful_ratio is not None:
+                    policy.headful_ratio = allow_entry.headful_ratio
+                if allow_entry.tor_allowed is not None:
+                    policy.tor_allowed = allow_entry.tor_allowed
+                if allow_entry.concurrent is not None:
+                    policy.concurrent = allow_entry.concurrent
+                if allow_entry.cooldown_minutes is not None:
+                    policy.cooldown_minutes = allow_entry.cooldown_minutes
+                if allow_entry.max_retries is not None:
+                    policy.max_retries = allow_entry.max_retries
                 # Daily budget limits (§4.3 - IP block prevention)
-                if entry.max_requests_per_day is not None:
-                    policy.max_requests_per_day = entry.max_requests_per_day
-                if entry.max_pages_per_day is not None:
-                    policy.max_pages_per_day = entry.max_pages_per_day
+                if allow_entry.max_requests_per_day is not None:
+                    policy.max_requests_per_day = allow_entry.max_requests_per_day
+                if allow_entry.max_pages_per_day is not None:
+                    policy.max_pages_per_day = allow_entry.max_pages_per_day
 
-                policy.trust_level = entry.trust_level
-                policy.internal_search = entry.internal_search
+                policy.trust_level = allow_entry.trust_level
+                policy.internal_search = allow_entry.internal_search
                 policy.source = "allowlist"
                 break
 
         # Check graylist if not in allowlist
         if policy.source not in ("allowlist", "cloudflare"):
-            for entry in config.graylist:
-                if self._match_pattern(domain, entry.domain_pattern):
+            for gray_entry in config.graylist:
+                if self._match_pattern(domain, gray_entry.domain_pattern):
                     # Apply graylist overrides
-                    if entry.trust_level is not None:
-                        policy.trust_level = entry.trust_level
-                    if entry.headful_ratio is not None:
-                        policy.headful_ratio = entry.headful_ratio
-                    if entry.cooldown_minutes is not None:
-                        policy.cooldown_minutes = entry.cooldown_minutes
-                    if entry.qps is not None:
-                        policy.qps = entry.qps
+                    if gray_entry.trust_level is not None:
+                        policy.trust_level = gray_entry.trust_level
+                    if gray_entry.headful_ratio is not None:
+                        policy.headful_ratio = gray_entry.headful_ratio
+                    if gray_entry.cooldown_minutes is not None:
+                        policy.cooldown_minutes = gray_entry.cooldown_minutes
+                    if gray_entry.qps is not None:
+                        policy.qps = gray_entry.qps
 
-                    if entry.skip:
+                    if gray_entry.skip:
                         policy.skip = True
-                        policy.skip_reason = entry.reason if isinstance(entry.reason, str) else (entry.reason.value if entry.reason else None)
+                        policy.skip_reason = (
+                            gray_entry.reason
+                            if isinstance(gray_entry.reason, str)
+                            else (gray_entry.reason.value if gray_entry.reason else None)
+                        )
 
                     policy.source = "graylist"
                     break
@@ -790,11 +822,7 @@ class DomainPolicyManager:
 
     def get_domains_by_trust_level(self, trust_level: TrustLevel) -> list[str]:
         """Get domains with specific trust level from allowlist."""
-        return [
-            entry.domain
-            for entry in self.config.allowlist
-            if entry.trust_level == trust_level
-        ]
+        return [entry.domain for entry in self.config.allowlist if entry.trust_level == trust_level]
 
     def update_learning_state(self, domain: str, state: dict[str, Any]) -> None:
         """
@@ -948,7 +976,7 @@ _manager_instance: DomainPolicyManager | None = None
 _manager_lock = threading.Lock()
 
 
-def get_domain_policy_manager(**kwargs) -> DomainPolicyManager:
+def get_domain_policy_manager(**kwargs: Any) -> DomainPolicyManager:
     """
     Get the singleton DomainPolicyManager instance.
 

@@ -195,7 +195,7 @@ class WaybackClient:
     Uses HTML scraping only (no API per §3.1.6).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._session = None
 
@@ -333,7 +333,7 @@ class WaybackClient:
 
         cleaned = html
         for pattern in patterns:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+            cleaned = re.sub(pattern, "", cleaned, flags=re.DOTALL | re.IGNORECASE)
 
         return cleaned
 
@@ -495,7 +495,7 @@ class ContentAnalyzer:
                 break
 
         if len(summary) > max_length:
-            summary = summary[:max_length - 3] + "..."
+            summary = summary[: max_length - 3] + "..."
 
         return summary
 
@@ -517,7 +517,7 @@ class WaybackExplorer:
 
     DEFAULT_SNAPSHOT_COUNT = 4  # Latest + 3 prior
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._client = WaybackClient()
         self._analyzer = ContentAnalyzer()
         self._settings = get_settings()
@@ -697,7 +697,7 @@ class WaybackExplorer:
 class WaybackBudgetManager:
     """Manages Wayback fetch budget per task/domain."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._task_budgets: dict[str, int] = {}  # task_id -> remaining
         self._domain_budgets: dict[str, int] = {}  # domain -> remaining today
 
@@ -1071,7 +1071,7 @@ class WaybackFallback:
 
     DEFAULT_MAX_ATTEMPTS = 3  # Try up to 3 snapshots
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._client = WaybackClient()
         self._analyzer = ContentAnalyzer()
 
@@ -1117,9 +1117,7 @@ class WaybackFallback:
                         result.ok = True
                         result.html = html
                         result.snapshot = snapshot
-                        result.freshness_penalty = calculate_freshness_penalty(
-                            snapshot.timestamp
-                        )
+                        result.freshness_penalty = calculate_freshness_penalty(snapshot.timestamp)
 
                         logger.info(
                             "Wayback fallback successful",

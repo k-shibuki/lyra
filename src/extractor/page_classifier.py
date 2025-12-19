@@ -17,7 +17,7 @@ traversal strategies.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 from urllib.parse import urlparse
@@ -30,10 +30,10 @@ logger = get_logger(__name__)
 class PageType(Enum):
     """Enumeration of page types for classification."""
 
-    ARTICLE = "article"        # News articles, blog posts
-    KNOWLEDGE = "knowledge"    # Wiki pages, documentation, FAQs
-    NOTICE = "notice"          # Official announcements, press releases
-    FORUM = "forum"            # Discussion boards, Q&A, comments
+    ARTICLE = "article"  # News articles, blog posts
+    KNOWLEDGE = "knowledge"  # Wiki pages, documentation, FAQs
+    NOTICE = "notice"  # Official announcements, press releases
+    FORUM = "forum"  # Discussion boards, Q&A, comments
     LOGIN_WALL = "login_wall"  # Pages requiring authentication
     INDEX = "index"  # Category pages, search results, listings
     ACADEMIC = "academic"  # Research papers, academic journals
@@ -131,12 +131,11 @@ class PageFeatures:
     has_about_section: bool = False
 
     # URL/meta hints
-    url_hints: list[str] = None
+    url_hints: list[str] = field(default_factory=list)
     meta_og_type: str | None = None
 
-    def __post_init__(self):
-        if self.url_hints is None:
-            self.url_hints = []
+    def __post_init__(self) -> None:
+        pass
 
 
 class PageClassifier:
@@ -403,24 +402,14 @@ class PageClassifier:
         r"会社概要",
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the page classifier."""
         # Compile patterns for efficiency
-        self._login_pattern = re.compile(
-            "|".join(self.LOGIN_PATTERNS), re.IGNORECASE
-        )
-        self._forum_pattern = re.compile(
-            "|".join(self.FORUM_PATTERNS), re.IGNORECASE
-        )
-        self._wiki_pattern = re.compile(
-            "|".join(self.WIKI_PATTERNS), re.IGNORECASE
-        )
-        self._article_pattern = re.compile(
-            "|".join(self.ARTICLE_PATTERNS), re.IGNORECASE
-        )
-        self._index_pattern = re.compile(
-            "|".join(self.INDEX_PATTERNS), re.IGNORECASE
-        )
+        self._login_pattern = re.compile("|".join(self.LOGIN_PATTERNS), re.IGNORECASE)
+        self._forum_pattern = re.compile("|".join(self.FORUM_PATTERNS), re.IGNORECASE)
+        self._wiki_pattern = re.compile("|".join(self.WIKI_PATTERNS), re.IGNORECASE)
+        self._article_pattern = re.compile("|".join(self.ARTICLE_PATTERNS), re.IGNORECASE)
+        self._index_pattern = re.compile("|".join(self.INDEX_PATTERNS), re.IGNORECASE)
 
     def classify(
         self,
@@ -503,9 +492,7 @@ class PageClassifier:
         # Text ratios
         text_content = re.sub(r"<[^>]+>", "", html)
         text_content = re.sub(r"\s+", " ", text_content).strip()
-        features.text_to_html_ratio = (
-            len(text_content) / len(html) if len(html) > 0 else 0.0
-        )
+        features.text_to_html_ratio = len(text_content) / len(html) if len(html) > 0 else 0.0
 
         # Link density
         total_text_len = len(text_content)
@@ -652,8 +639,9 @@ class PageClassifier:
             scores[PageType.NOTICE] += 1.5
         if features.paragraph_count >= 2 and features.paragraph_count <= 10:
             scores[PageType.NOTICE] += 0.5
-        if any("news" in hint or "notice" in hint or "press" in hint
-               for hint in features.url_hints):
+        if any(
+            "news" in hint or "notice" in hint or "press" in hint for hint in features.url_hints
+        ):
             scores[PageType.NOTICE] += 2.0
 
         # INDEX indicators
@@ -668,8 +656,9 @@ class PageClassifier:
             scores[PageType.ARTICLE] += 0.5  # Articles also have breadcrumbs
         if features.paragraph_count < 3 and features.link_count > 20:
             scores[PageType.INDEX] += 2.0
-        if any("category" in hint or "archive" in hint or "list" in hint
-               for hint in features.url_hints):
+        if any(
+            "category" in hint or "archive" in hint or "list" in hint for hint in features.url_hints
+        ):
             scores[PageType.INDEX] += 2.0
 
         # ACADEMIC indicators
@@ -681,8 +670,9 @@ class PageClassifier:
             scores[PageType.ACADEMIC] += 2.0
         if features.has_academic_structure:
             scores[PageType.ACADEMIC] += 2.0
-        if any("academic" in hint or "paper" in hint or "arxiv" in hint
-               for hint in features.url_hints):
+        if any(
+            "academic" in hint or "paper" in hint or "arxiv" in hint for hint in features.url_hints
+        ):
             scores[PageType.ACADEMIC] += 2.5
 
         # REPORT indicators
@@ -694,8 +684,9 @@ class PageClassifier:
             scores[PageType.REPORT] += 2.0
         if features.has_charts_tables:
             scores[PageType.REPORT] += 1.5
-        if any("report" in hint or "ir" in hint or "investor" in hint
-               for hint in features.url_hints):
+        if any(
+            "report" in hint or "ir" in hint or "investor" in hint for hint in features.url_hints
+        ):
             scores[PageType.REPORT] += 2.5
 
         # LEGAL indicators
@@ -705,8 +696,9 @@ class PageClassifier:
             scores[PageType.LEGAL] += 2.5
         if features.has_legal_citations:
             scores[PageType.LEGAL] += 2.0
-        if any("legal" in hint or "law" in hint or "regulation" in hint
-               for hint in features.url_hints):
+        if any(
+            "legal" in hint or "law" in hint or "regulation" in hint for hint in features.url_hints
+        ):
             scores[PageType.LEGAL] += 2.5
 
         # PRODUCT indicators
@@ -718,8 +710,9 @@ class PageClassifier:
             scores[PageType.PRODUCT] += 2.0
         if features.has_product_gallery:
             scores[PageType.PRODUCT] += 1.5
-        if any("product" in hint or "shop" in hint or "store" in hint
-               for hint in features.url_hints):
+        if any(
+            "product" in hint or "shop" in hint or "store" in hint for hint in features.url_hints
+        ):
             scores[PageType.PRODUCT] += 2.0
 
         # PROFILE indicators
@@ -731,8 +724,9 @@ class PageClassifier:
             scores[PageType.PROFILE] += 2.0
         if features.has_contact_info:
             scores[PageType.PROFILE] += 1.5
-        if any("profile" in hint or "about" in hint or "company" in hint
-               for hint in features.url_hints):
+        if any(
+            "profile" in hint or "about" in hint or "company" in hint for hint in features.url_hints
+        ):
             scores[PageType.PROFILE] += 2.0
 
         # Ensure minimum score of 0.1 for each type (to avoid division by zero)
@@ -1290,9 +1284,22 @@ class PageClassifier:
             # Check for common path segments
             segments = path.split("/")
             for seg in segments:
-                if seg in ["news", "blog", "article", "wiki", "docs",
-                          "forum", "thread", "category", "tag", "archive",
-                          "press", "notice", "announcement", "release"]:
+                if seg in [
+                    "news",
+                    "blog",
+                    "article",
+                    "wiki",
+                    "docs",
+                    "forum",
+                    "thread",
+                    "category",
+                    "tag",
+                    "archive",
+                    "press",
+                    "notice",
+                    "announcement",
+                    "release",
+                ]:
                     hints.append(seg)
 
             # Check hostname for subdomains like docs., blog., forum.

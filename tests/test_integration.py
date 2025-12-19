@@ -300,11 +300,7 @@ class TestEvidenceGraphIntegration:
         graph.add_node(NodeType.PAGE, "primary_3", domain="arxiv.org")
 
         graph.add_node(NodeType.PAGE, "secondary_1", domain="news.com")
-        graph.add_edge(
-            NodeType.PAGE, "secondary_1",
-            NodeType.PAGE, "primary_1",
-            RelationType.CITES
-        )
+        graph.add_edge(NodeType.PAGE, "secondary_1", NodeType.PAGE, "primary_1", RelationType.CITES)
 
         # When: Calculate primary source ratio
         ratio_info = graph.get_primary_source_ratio()
@@ -574,7 +570,9 @@ class TestMetricsPolicyIntegration:
         collector = MetricsCollector()
 
         # Then: Instance is created
-        assert isinstance(collector, MetricsCollector), f"Expected MetricsCollector, got {type(collector)}"
+        assert isinstance(collector, MetricsCollector), (
+            f"Expected MetricsCollector, got {type(collector)}"
+        )
 
     @pytest.mark.asyncio
     async def test_policy_engine_initialization(self):
@@ -605,7 +603,9 @@ class TestNotificationIntegration:
         manager = InterventionManager()
 
         # Then: Instance is created
-        assert isinstance(manager, InterventionManager), f"Expected InterventionManager, got {type(manager)}"
+        assert isinstance(manager, InterventionManager), (
+            f"Expected InterventionManager, got {type(manager)}"
+        )
 
     @pytest.mark.asyncio
     async def test_intervention_types(self):
@@ -673,7 +673,9 @@ class TestFullPipelineSimulation:
         graph = EvidenceGraph(task_id=task_id)
         graph.add_node(NodeType.CLAIM, "c1", text="Microplastics may affect human health")
         graph.add_node(NodeType.FRAGMENT, "f1", text="WHO report on microplastic health effects")
-        graph.add_edge(NodeType.FRAGMENT, "f1", NodeType.CLAIM, "c1", RelationType.SUPPORTS, confidence=0.9)
+        graph.add_edge(
+            NodeType.FRAGMENT, "f1", NodeType.CLAIM, "c1", RelationType.SUPPORTS, confidence=0.9
+        )
 
         # Then: Final state has 3 subqueries and evidence
         final_status = await state.get_status()

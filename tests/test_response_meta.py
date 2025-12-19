@@ -284,14 +284,18 @@ class TestResponseMetaBuilder:
         // Then: Claims array in output
         """
         builder = ResponseMetaBuilder()
-        builder.add_claim_meta(ClaimMeta(
-            claim_id="claim_1",
-            source_trust_level="trusted",
-        ))
-        builder.add_claim_meta(ClaimMeta(
-            claim_id="claim_2",
-            source_trust_level="unverified",
-        ))
+        builder.add_claim_meta(
+            ClaimMeta(
+                claim_id="claim_1",
+                source_trust_level="trusted",
+            )
+        )
+        builder.add_claim_meta(
+            ClaimMeta(
+                claim_id="claim_2",
+                source_trust_level="unverified",
+            )
+        )
 
         result = builder.build()
 

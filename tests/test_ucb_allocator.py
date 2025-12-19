@@ -30,6 +30,7 @@ import pytest
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
 
+# E402: Intentionally import after pytestmark for test configuration
 from src.research.ucb_allocator import SearchArm, UCBAllocator
 
 

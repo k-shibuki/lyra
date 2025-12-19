@@ -4,11 +4,13 @@ ID resolver for converting between different paper identifier formats.
 Converts PMID, arXiv ID, etc. to DOI using external APIs.
 """
 
+from typing import Any
 
 import httpx
 
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
 from src.utils.logging import get_logger
+from src.utils.schemas import PaperIdentifier
 
 logger = get_logger(__name__)
 
@@ -16,7 +18,7 @@ logger = get_logger(__name__)
 class IDResolver:
     """Convert various paper IDs to DOI."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize ID resolver."""
         self._session: httpx.AsyncClient | None = None
 
@@ -41,7 +43,7 @@ class IDResolver:
         try:
             session = await self._get_session()
 
-            async def _fetch():
+            async def _fetch() -> dict[str, Any]:
                 response = await session.get(
                     "https://api.crossref.org/works", params={"filter": f"pmid:{pmid}", "rows": 1}
                 )
@@ -75,7 +77,7 @@ class IDResolver:
         try:
             session = await self._get_session()
 
-            async def _fetch():
+            async def _fetch() -> dict[str, Any]:
                 response = await session.get(
                     f"https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}",
                     params={"fields": "externalIds"},

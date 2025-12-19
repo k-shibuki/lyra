@@ -223,9 +223,7 @@ class TestNotificationOptions:
         )
         assert options.icon is None, f"Default icon should be None, got {options.icon}"
         assert options.sound is True, f"Default sound should be True, got {options.sound}"
-        assert options.category is None, (
-            f"Default category should be None, got {options.category}"
-        )
+        assert options.category is None, f"Default category should be None, got {options.category}"
 
     def test_custom_values(self):
         """Test creating options with custom values."""
@@ -554,7 +552,9 @@ class TestLinuxNotifyProvider:
         """Test health check on wrong platform."""
         provider = LinuxNotifyProvider()
 
-        with patch("src.utils.notification_provider.detect_platform", return_value=Platform.WINDOWS):
+        with patch(
+            "src.utils.notification_provider.detect_platform", return_value=Platform.WINDOWS
+        ):
             health = await provider.get_health()
 
         assert health.state == NotificationHealthState.UNHEALTHY
@@ -609,7 +609,9 @@ class TestWindowsToastProvider:
         """Test that special characters are properly escaped."""
         provider = WindowsToastProvider()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_subprocess_success) as mock_exec:
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=mock_subprocess_success
+        ) as mock_exec:
             await provider.send("Test's Title", "Message with\nnewline")
 
         # Verify escaping happened
@@ -623,7 +625,9 @@ class TestWindowsToastProvider:
         """Test health check when on Windows."""
         provider = WindowsToastProvider()
 
-        with patch("src.utils.notification_provider.detect_platform", return_value=Platform.WINDOWS):
+        with patch(
+            "src.utils.notification_provider.detect_platform", return_value=Platform.WINDOWS
+        ):
             with patch("shutil.which", return_value="C:\\Windows\\System32\\powershell.exe"):
                 health = await provider.get_health()
 
@@ -912,7 +916,11 @@ class TestNotificationProviderRegistry:
         provider1 = LinuxNotifyProvider()
         registry.register(provider1)
 
-        with patch.object(provider1, "get_health", return_value=NotificationHealthStatus.unhealthy(Platform.LINUX, "test failure")):
+        with patch.object(
+            provider1,
+            "get_health",
+            return_value=NotificationHealthStatus.unhealthy(Platform.LINUX, "test failure"),
+        ):
             result = await registry.send("Test", "Message")
 
         assert result.ok is False

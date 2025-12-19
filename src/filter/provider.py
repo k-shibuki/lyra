@@ -666,7 +666,7 @@ class LLMProviderRegistry:
         response = await registry.generate_with_fallback(prompt)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize empty registry."""
         self._providers: dict[str, LLMProvider] = {}
         self._default_name: str | None = None

@@ -575,9 +575,7 @@ class TestEdgeCases:
             mock_root.return_value = tmp_path
             calibrator = Calibrator()
 
-            samples = [
-                CalibrationSample(predicted_prob=0.5, actual_label=1, source="test")
-            ]
+            samples = [CalibrationSample(predicted_prob=0.5, actual_label=1, source="test")]
 
             params = calibrator.fit(samples, "test")
 
@@ -727,9 +725,7 @@ class TestCalibrationHistory:
         """Should enforce max history limit."""
         for i in range(10):
             params = CalibrationParams(
-                method="temperature",
-                source="test",
-                temperature=1.0 + i * 0.1
+                method="temperature", source="test", temperature=1.0 + i * 0.1
             )
             history.add_params(params)
 
@@ -739,8 +735,7 @@ class TestCalibrationHistory:
     def test_check_degradation_detects_worsening(self, history):
         """check_degradation should detect Brier score increase."""
         params1 = CalibrationParams(
-            method="temperature", source="test",
-            brier_before=0.20, brier_after=0.15
+            method="temperature", source="test", brier_before=0.20, brier_after=0.15
         )
         params2 = CalibrationParams(
             method="temperature",
@@ -1222,18 +1217,20 @@ class TestMCPCalibrationEvaluationTools:
         """save_calibration_evaluation should save and return result."""
         with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
             mock_evaluator = MagicMock()
-            mock_evaluator.save_evaluation = AsyncMock(return_value=CalibrationEvaluation(
-                id="eval_test",
-                source="test",
-                brier_score=0.15,
-                brier_score_calibrated=0.12,
-                improvement_ratio=0.20,
-                expected_calibration_error=0.08,
-                samples_evaluated=100,
-                bins=[],
-                calibration_version=1,
-                evaluated_at=datetime.now(UTC),
-            ))
+            mock_evaluator.save_evaluation = AsyncMock(
+                return_value=CalibrationEvaluation(
+                    id="eval_test",
+                    source="test",
+                    brier_score=0.15,
+                    brier_score_calibrated=0.12,
+                    improvement_ratio=0.20,
+                    expected_calibration_error=0.08,
+                    samples_evaluated=100,
+                    bins=[],
+                    calibration_version=1,
+                    evaluated_at=datetime.now(UTC),
+                )
+            )
             mock_get.return_value = mock_evaluator
 
             result = await save_calibration_evaluation(
@@ -1251,20 +1248,22 @@ class TestMCPCalibrationEvaluationTools:
         """get_calibration_evaluations should return evaluation history."""
         with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
             mock_evaluator = MagicMock()
-            mock_evaluator.get_evaluations = AsyncMock(return_value=[
-                CalibrationEvaluation(
-                    id="eval_1",
-                    source="test",
-                    brier_score=0.15,
-                    brier_score_calibrated=0.12,
-                    improvement_ratio=0.20,
-                    expected_calibration_error=0.08,
-                    samples_evaluated=100,
-                    bins=[],
-                    calibration_version=1,
-                    evaluated_at=datetime.now(UTC),
-                ),
-            ])
+            mock_evaluator.get_evaluations = AsyncMock(
+                return_value=[
+                    CalibrationEvaluation(
+                        id="eval_1",
+                        source="test",
+                        brier_score=0.15,
+                        brier_score_calibrated=0.12,
+                        improvement_ratio=0.20,
+                        expected_calibration_error=0.08,
+                        samples_evaluated=100,
+                        bins=[],
+                        calibration_version=1,
+                        evaluated_at=datetime.now(UTC),
+                    ),
+                ]
+            )
             mock_evaluator.count_evaluations = AsyncMock(return_value=1)
             mock_get.return_value = mock_evaluator
 

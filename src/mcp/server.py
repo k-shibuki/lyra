@@ -351,7 +351,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         # L7: Sanitize response before returning to Cursor AI
         sanitized_result = sanitize_response(result, name)
 
-        return [TextContent(type="text", text=json.dumps(sanitized_result, ensure_ascii=False, indent=2))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(sanitized_result, ensure_ascii=False, indent=2)
+            )
+        ]
     except MCPError as e:
         # Structured MCP error with error code
         logger.warning(
@@ -428,7 +432,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
 _exploration_states: dict[str, Any] = {}
 
 
-async def _get_exploration_state(task_id: str):
+async def _get_exploration_state(task_id: str) -> Any:
     """Get or create exploration state for a task."""
     from src.research.state import ExplorationState
 
@@ -553,16 +557,18 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Convert searches to §3.2.1 format (text -> query field name mapping)
             searches = []
             for sq in exploration_status.get("searches", []):
-                searches.append({
-                    "id": sq.get("id"),
-                    "query": sq.get("text"),
-                    "status": sq.get("status"),
-                    "pages_fetched": sq.get("pages_fetched", 0),
-                    "useful_fragments": sq.get("useful_fragments", 0),
-                    "harvest_rate": sq.get("harvest_rate", 0.0),
-                    "satisfaction_score": sq.get("satisfaction_score", 0.0),
-                    "has_primary_source": sq.get("has_primary_source", False),
-                })
+                searches.append(
+                    {
+                        "id": sq.get("id"),
+                        "query": sq.get("text"),
+                        "status": sq.get("status"),
+                        "pages_fetched": sq.get("pages_fetched", 0),
+                        "useful_fragments": sq.get("useful_fragments", 0),
+                        "harvest_rate": sq.get("harvest_rate", 0.0),
+                        "satisfaction_score": sq.get("satisfaction_score", 0.0),
+                        "has_primary_source": sq.get("has_primary_source", False),
+                    }
+                )
 
             # Map task_status to status field
             status_map = {
@@ -574,10 +580,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "completed": "completed",
                 "failed": "failed",
             }
-            status = status_map.get(
-                exploration_status.get("task_status", db_status),
-                "exploring"
-            )
+            status = status_map.get(exploration_status.get("task_status", db_status), "exploring")
 
             metrics = exploration_status.get("metrics", {})
             budget = exploration_status.get("budget", {})
@@ -1080,7 +1083,7 @@ async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
             reason=reason,
         )
     except ValueError as e:
-        raise CalibrationError(str(e), source=source)
+        raise CalibrationError(str(e), source=source) from e
 
     if rolled_back_params is None:
         raise CalibrationError(

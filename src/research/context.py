@@ -168,6 +168,7 @@ class ResearchContext:
     async def _load_task(self) -> None:
         """Load task information from database."""
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
         self._task = await self._db.fetch_one(
             "SELECT * FROM tasks WHERE id = ?",
             (self.task_id,),
@@ -359,6 +360,7 @@ class ResearchContext:
         Find similar past queries and their success rates.
         """
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         # Get recent successful queries with good harvest rates
         past_queries = await self._db.fetch_all(
@@ -385,11 +387,13 @@ class ResearchContext:
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                results.append(PastQueryInfo(
-                    query=query_text,
-                    harvest_rate=pq.get("harvest_rate", 0),
-                    success_engines=engines,
-                ))
+                results.append(
+                    PastQueryInfo(
+                        query=query_text,
+                        harvest_rate=pq.get("harvest_rate", 0),
+                        success_engines=engines,
+                    )
+                )
 
         return results[:5]  # Limit to top 5
 
@@ -412,6 +416,7 @@ class ResearchContext:
         Get recommended search engines based on health and success rates.
         """
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         # Get healthy engines sorted by success rate
         engines = await self._db.fetch_all(
@@ -435,6 +440,7 @@ class ResearchContext:
         Get domains with historically high success rates.
         """
         await self._ensure_db()
+        assert self._db is not None  # Guaranteed by _ensure_db
 
         domains = await self._db.fetch_all(
             """
@@ -573,7 +579,7 @@ class ResearchContext:
         rdap_client = get_rdap_client(self._fetcher)
         ct_client = get_cert_transparency_client(self._fetcher)
 
-        trace = CausalTrace.create("registry_lookup")
+        trace = CausalTrace()  # Create new causal trace for registry lookup
 
         for entity in domain_entities[:3]:  # Limit to 3 domains
             domain = self._normalize_domain(entity.text)
@@ -616,21 +622,23 @@ class ResearchContext:
 
             # Only include if we got some data
             if info.registrar or info.discovered_domains:
-                results.append({
-                    "domain": info.domain,
-                    "registrar": info.registrar,
-                    "registrant_org": info.registrant_org,
-                    "registrant_country": info.registrant_country,
-                    "nameservers": info.nameservers,
-                    "created_date": info.created_date,
-                    "updated_date": info.updated_date,
-                    "expiry_date": info.expiry_date,
-                    "discovered_domains": info.discovered_domains,
-                    "discovered_issuers": info.discovered_issuers,
-                    "cert_timeline_start": info.cert_timeline_start,
-                    "cert_timeline_end": info.cert_timeline_end,
-                    "source": info.source,
-                })
+                results.append(
+                    {
+                        "domain": info.domain,
+                        "registrar": info.registrar,
+                        "registrant_org": info.registrant_org,
+                        "registrant_country": info.registrant_country,
+                        "nameservers": info.nameservers,
+                        "created_date": info.created_date,
+                        "updated_date": info.updated_date,
+                        "expiry_date": info.expiry_date,
+                        "discovered_domains": info.discovered_domains,
+                        "discovered_issuers": info.discovered_issuers,
+                        "cert_timeline_start": info.cert_timeline_start,
+                        "cert_timeline_end": info.cert_timeline_end,
+                        "source": info.source,
+                    }
+                )
 
         return results
 

@@ -308,8 +308,13 @@ class TestABTestExecutor:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return [{"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(5)]
-            return [{"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(8)]
+                return [
+                    {"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."}
+                    for i in range(5)
+                ]
+            return [
+                {"title": f"R{i}", "url": f"http://ex.com/{i}", "snippet": "..."} for i in range(8)
+            ]
 
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.search.search_serp", _search):
@@ -382,11 +387,7 @@ class TestHighYieldQueryCache:
         cache = HighYieldQueryCache()
 
         # When/Then: Similar queries should match (50% term overlap required)
-        assert cache._matches_pattern(
-            "AI 技術 問題",
-            "AI 技術 課題",
-            "人工知能 技術 課題"
-        )
+        assert cache._matches_pattern("AI 技術 問題", "AI 技術 課題", "人工知能 技術 課題")
 
     def test_matches_pattern_different(self):
         """Test pattern matching with different queries (TC-HYC-N-02)."""
@@ -394,11 +395,7 @@ class TestHighYieldQueryCache:
         cache = HighYieldQueryCache()
 
         # When/Then: Very different queries should not match
-        assert not cache._matches_pattern(
-            "完全に異なるクエリ",
-            "AI技術",
-            "人工知能"
-        )
+        assert not cache._matches_pattern("完全に異なるクエリ", "AI技術", "人工知能")
 
     def test_matches_pattern_empty(self):
         """Test pattern matching with empty strings (TC-HYC-B-01)."""
@@ -415,11 +412,7 @@ class TestHighYieldQueryCache:
         cache = HighYieldQueryCache()
 
         # When: Applying a pattern
-        result = cache._apply_pattern(
-            "AI技術の問題",
-            "AI技術の問題",
-            "人工知能技術の問題"
-        )
+        result = cache._apply_pattern("AI技術の問題", "AI技術の問題", "人工知能技術の問題")
 
         # Then: Pattern should be applied
         assert result is not None

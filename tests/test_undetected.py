@@ -22,11 +22,11 @@ in the test environment.
 | TC-CF-02 | close_undetected_fetcher | Equivalence – cleanup | Fetcher closed | - |
 """
 
-
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
+# E402: Intentionally import after pytestmark for test configuration
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -253,10 +253,12 @@ class TestUndetectedChromeFetcher:
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
 
-        fetcher.add_cookies([
-            {"name": "session", "value": "abc123"},
-            {"name": "user", "value": "test"},
-        ])
+        fetcher.add_cookies(
+            [
+                {"name": "session", "value": "abc123"},
+                {"name": "user", "value": "test"},
+            ]
+        )
 
         assert fetcher._driver.add_cookie.call_count == 2
 

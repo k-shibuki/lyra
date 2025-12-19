@@ -18,6 +18,7 @@ import re
 import secrets
 import unicodedata
 from dataclasses import dataclass, field
+from typing import Any
 
 from src.utils.logging import get_logger
 
@@ -162,11 +163,7 @@ class OutputValidationResult:
     @property
     def had_suspicious_content(self) -> bool:
         """Check if suspicious content was found."""
-        return (
-            len(self.urls_found) > 0
-            or len(self.ips_found) > 0
-            or self.leakage_detected
-        )
+        return len(self.urls_found) > 0 or len(self.ips_found) > 0 or self.leakage_detected
 
 
 @dataclass
@@ -690,7 +687,7 @@ class LLMSecurityContext:
             validated = ctx.validate_output(response, expected_max=1000)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize security context."""
         self._tag: SystemTag | None = None
         self._sanitization_count = 0
@@ -708,7 +705,12 @@ class LLMSecurityContext:
         )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         """Exit context and log metrics."""
         logger.info(
             "LLM security context ended",
@@ -729,7 +731,12 @@ class LLMSecurityContext:
         )
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         """Sync exit for non-async usage."""
         logger.info(
             "LLM security context ended",

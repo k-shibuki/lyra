@@ -20,7 +20,7 @@ class NLIService:
 
     LABELS = ["supports", "refutes", "neutral"]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._fast_model = None
         self._slow_model = None
         self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"

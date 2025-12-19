@@ -14,14 +14,20 @@ Features:
 import asyncio
 import hashlib
 import io
+import json
 import random
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from warcio.statusandheaders import StatusAndHeaders
+
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, BrowserContext, Page, Playwright, Route
+
+    from src.storage.database import Database
 from warcio.warcwriter import WARCWriter
 
 from src.crawler.browser_provider import (
@@ -74,7 +80,8 @@ logger = get_logger(__name__)
 # Human-like Behavior Simulation (delegated to human_behavior module)
 # =============================================================================
 
-# Import from dedicated module for advanced human-like behavior
+# E402: Intentionally import after other imports to avoid circular dependencies
+# (human_behavior imports from fetcher, so we import it here after all other imports)
 from src.crawler.human_behavior import (
     get_human_behavior_simulator,
 )
@@ -87,7 +94,7 @@ class HumanBehavior:
     Kept for backward compatibility with existing code.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._simulator = get_human_behavior_simulator()
 
@@ -157,7 +164,7 @@ class HumanBehavior:
         # Convert to legacy format: (x, y) only (no delays)
         return [(int(x), int(y)) for x, y, _ in path]
 
-    async def simulate_reading(self, page, content_length: int) -> None:
+    async def simulate_reading(self, page: "Page", content_length: int) -> None:
         """Simulate human reading behavior on page.
 
         Args:
@@ -169,7 +176,7 @@ class HumanBehavior:
         except Exception as e:
             logger.debug("Reading simulation error", error=str(e))
 
-    async def move_mouse_to_element(self, page, selector: str) -> None:
+    async def move_mouse_to_element(self, page: "Page", selector: str) -> None:
         """Move mouse to element with human-like motion.
 
         Args:
@@ -193,7 +200,7 @@ class TorController:
     Provides circuit renewal and exit node management.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._controller = None
         self._last_renewal: dict[str, float] = {}  # domain -> timestamp
@@ -217,7 +224,8 @@ class TorController:
             )
 
             # Try to authenticate (no password by default)
-            self._controller.authenticate()
+            if self._controller is not None:
+                self._controller.authenticate()
 
             logger.info(
                 "Connected to Tor control port",
@@ -258,7 +266,8 @@ class TorController:
                         return True
 
                 # Request new circuit
-                self._controller.signal("NEWNYM")
+                if self._controller is not None:
+                    self._controller.signal("NEWNYM")
 
                 # Wait for circuit to establish
                 await asyncio.sleep(2.0)
@@ -515,7 +524,7 @@ class RateLimiter:
     Uses DomainPolicyManager for per-domain QPS configuration.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._domain_locks: dict[str, asyncio.Lock] = {}
         self._domain_last_request: dict[str, float] = {}
         self._settings = get_settings()
@@ -572,7 +581,7 @@ class HTTPFetcher:
     - Conditional requests (ETag/If-Modified-Since) for 304 cache
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._rate_limiter = RateLimiter()
         self._settings = get_settings()
         self._ipv6_manager = get_ipv6_manager()
@@ -687,7 +696,9 @@ class HTTPFetcher:
 
             # Extract ETag and Last-Modified from response
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
-            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get(
+                "Last-Modified"
+            )
 
             # Handle 304 Not Modified response
             if response.status_code == 304:
@@ -734,14 +745,16 @@ class HTTPFetcher:
             # HTTP client uses HTTP/2 by default, not HTTP/3
             domain = urlparse(url).netloc.lower()
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="http_client",
-                success=True,
-                protocol=ProtocolVersion.HTTP_2,  # curl_cffi uses HTTP/2
-                status_code=response.status_code,
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="http_client",
+                    success=True,
+                    protocol=ProtocolVersion.HTTP_2,  # curl_cffi uses HTTP/2
+                    status_code=response.status_code,
+                )
+            )
 
             logger.info(
                 "HTTP fetch success",
@@ -773,14 +786,16 @@ class HTTPFetcher:
             # Record failed HTTP client request for HTTP/3 policy tracking
             domain = urlparse(url).netloc.lower()
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="http_client",
-                success=False,
-                protocol=ProtocolVersion.UNKNOWN,
-                error=str(e),
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="http_client",
+                    success=False,
+                    protocol=ProtocolVersion.UNKNOWN,
+                    error=str(e),
+                )
+            )
 
             return FetchResult(
                 ok=False,
@@ -801,14 +816,14 @@ class BrowserFetcher:
     - Lifecycle management for task-scoped cleanup
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._rate_limiter = RateLimiter()
         self._settings = get_settings()
-        self._headless_browser = None
-        self._headless_context = None
-        self._headful_browser = None
-        self._headful_context = None
-        self._playwright = None
+        self._headless_browser: Browser | None = None
+        self._headless_context: BrowserContext | None = None
+        self._headful_browser: Browser | None = None
+        self._headful_context: BrowserContext | None = None
+        self._playwright: Playwright | None = None
         self._human_behavior = HumanBehavior()
         self._current_task_id: str | None = None
         self._lifecycle_manager = get_lifecycle_manager()
@@ -843,6 +858,9 @@ class BrowserFetcher:
                     self._playwright,
                     task_id,
                 )
+
+        # Type guard: _playwright is guaranteed to be initialized at this point
+        assert self._playwright is not None
 
         # Update current task ID
         if task_id:
@@ -885,7 +903,11 @@ class BrowserFetcher:
                         timeout = 15.0
                         poll_interval = 0.5
 
-                        logger.debug("Waiting for CDP connection after auto-start", timeout=timeout, poll_interval=poll_interval)
+                        logger.debug(
+                            "Waiting for CDP connection after auto-start",
+                            timeout=timeout,
+                            poll_interval=poll_interval,
+                        )
                         while time.monotonic() - start_time < timeout:
                             try:
                                 self._headful_browser = await asyncio.wait_for(
@@ -914,7 +936,9 @@ class BrowserFetcher:
                             "CDP connection failed after auto-start, launching local headful browser",
                             error=str(e),
                         )
-                        self._headful_browser = await self._playwright.chromium.launch(headless=False)
+                        self._headful_browser = await self._playwright.chromium.launch(
+                            headless=False
+                        )
 
                 # Register browser for lifecycle management
                 if task_id:
@@ -927,24 +951,26 @@ class BrowserFetcher:
 
                 # Reuse existing context if available (preserves profile cookies)
                 # This only applies when connected via CDP to real Chrome
-                existing_contexts = self._headful_browser.contexts
-                if existing_contexts:
-                    self._headful_context = existing_contexts[0]
-                    logger.info(
-                        "Reusing existing browser context for cookie preservation",
-                        context_count=len(existing_contexts),
-                    )
-                else:
-                    self._headful_context = await self._headful_browser.new_context(
-                        viewport={
-                            "width": browser_settings.viewport_width,
-                            "height": browser_settings.viewport_height,
-                        },
-                        locale="ja-JP",
-                        timezone_id="Asia/Tokyo",
-                    )
-                    logger.info("Created new browser context")
-                await self._setup_blocking(self._headful_context)
+                if self._headful_browser is not None:
+                    existing_contexts = self._headful_browser.contexts
+                    if existing_contexts:
+                        self._headful_context = existing_contexts[0]
+                        logger.info(
+                            "Reusing existing browser context for cookie preservation",
+                            context_count=len(existing_contexts),
+                        )
+                    else:
+                        self._headful_context = await self._headful_browser.new_context(
+                            viewport={
+                                "width": browser_settings.viewport_width,
+                                "height": browser_settings.viewport_height,
+                            },
+                            locale="ja-JP",
+                            timezone_id="Asia/Tokyo",
+                        )
+                        logger.info("Created new browser context")
+                if self._headful_context is not None:
+                    await self._setup_blocking(self._headful_context)
 
                 # Register context for lifecycle management
                 if task_id:
@@ -1007,7 +1033,7 @@ class BrowserFetcher:
 
     async def _perform_health_audit(
         self,
-        context,
+        context: "BrowserContext",
         task_id: str | None = None,
     ) -> None:
         """Perform profile health audit on browser session initialization.
@@ -1124,7 +1150,7 @@ class BrowserFetcher:
             logger.error("Chrome auto-start error", error=str(e))
             return False
 
-    async def _setup_blocking(self, context) -> None:
+    async def _setup_blocking(self, context: "BrowserContext") -> None:
         """Setup resource blocking rules.
 
         Args:
@@ -1135,32 +1161,38 @@ class BrowserFetcher:
         block_patterns = []
 
         if browser_settings.block_ads:
-            block_patterns.extend([
-                "*googlesyndication.com*",
-                "*doubleclick.net*",
-                "*googleadservices.com*",
-                "*adnxs.com*",
-                "*criteo.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*googlesyndication.com*",
+                    "*doubleclick.net*",
+                    "*googleadservices.com*",
+                    "*adnxs.com*",
+                    "*criteo.com*",
+                ]
+            )
 
         if browser_settings.block_trackers:
-            block_patterns.extend([
-                "*google-analytics.com*",
-                "*googletagmanager.com*",
-                "*facebook.com/tr*",
-                "*hotjar.com*",
-                "*mixpanel.com*",
-            ])
+            block_patterns.extend(
+                [
+                    "*google-analytics.com*",
+                    "*googletagmanager.com*",
+                    "*facebook.com/tr*",
+                    "*hotjar.com*",
+                    "*mixpanel.com*",
+                ]
+            )
 
         if browser_settings.block_large_media:
-            block_patterns.extend([
-                "*.mp4",
-                "*.webm",
-                "*.avi",
-                "*.mov",
-            ])
+            block_patterns.extend(
+                [
+                    "*.mp4",
+                    "*.webm",
+                    "*.avi",
+                    "*.mov",
+                ]
+            )
 
-        async def block_route(route):
+        async def block_route(route: "Route") -> None:
             await route.abort()
 
         for pattern in block_patterns:
@@ -1394,7 +1426,10 @@ class BrowserFetcher:
                             challenge_type=challenge_type,
                         )
 
-                        if intervention_result and intervention_result.status == InterventionStatus.SUCCESS:
+                        if (
+                            intervention_result
+                            and intervention_result.status == InterventionStatus.SUCCESS
+                        ):
                             # Re-check page content after intervention
                             content = await page.content()
                             if not _is_challenge_page(content, {}):
@@ -1492,21 +1527,25 @@ class BrowserFetcher:
 
             # Extract ETag and Last-Modified from response headers
             resp_etag = resp_headers.get("etag") or resp_headers.get("ETag")
-            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get("Last-Modified")
+            resp_last_modified = resp_headers.get("last-modified") or resp_headers.get(
+                "Last-Modified"
+            )
 
             # Detect HTTP/3 protocol usage
             protocol = await detect_protocol_from_playwright_response(response)
 
             # Record HTTP/3 usage for policy tracking
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="browser",
-                success=True,
-                protocol=protocol,
-                status_code=response.status,
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="browser",
+                    success=True,
+                    protocol=protocol,
+                    status_code=response.status,
+                )
+            )
 
             logger.info(
                 "Browser fetch success",
@@ -1562,14 +1601,16 @@ class BrowserFetcher:
 
             # Record failed request for HTTP/3 policy tracking
             http3_manager = get_http3_policy_manager()
-            await http3_manager.record_request(HTTP3RequestResult(
-                domain=domain,
-                url=url,
-                route="browser",
-                success=False,
-                protocol=ProtocolVersion.UNKNOWN,
-                error=str(e),
-            ))
+            await http3_manager.record_request(
+                HTTP3RequestResult(
+                    domain=domain,
+                    url=url,
+                    route="browser",
+                    success=False,
+                    protocol=ProtocolVersion.UNKNOWN,
+                    error=str(e),
+                )
+            )
 
             return FetchResult(
                 ok=False,
@@ -1585,10 +1626,10 @@ class BrowserFetcher:
         self,
         url: str,
         domain: str,
-        page,
+        page: "Page",
         task_id: str | None,
         challenge_type: str,
-    ):
+    ) -> Any:
         """Request manual intervention for challenge bypass.
 
         Safe Operation Policy:
@@ -1778,10 +1819,8 @@ def _estimate_auth_effort(challenge_type: str) -> str:
         # Low: Usually auto-resolves or simple click
         "js_challenge": "low",
         "cloudflare": "low",  # Basic Cloudflare often auto-resolves
-
         # Medium: Requires simple user interaction
         "turnstile": "medium",  # Usually just a click/checkbox
-
         # High: Requires significant user effort
         "captcha": "high",
         "recaptcha": "high",
@@ -1943,7 +1982,7 @@ def _get_http_status_text(status_code: int) -> str:
     return status_texts.get(status_code, "Unknown")
 
 
-async def _save_screenshot(page, url: str) -> Path | None:
+async def _save_screenshot(page: "Page", url: str) -> Path | None:
     """Save page screenshot.
 
     Args:
@@ -2489,12 +2528,13 @@ async def _fetch_url_impl(
         # =====================================================================
 
         # Update domain metrics
-        await db.update_domain_metrics(
-            domain,
-            success=result.ok,
-            is_captcha=result.reason and "challenge" in result.reason,
-            is_http_error=result.status and result.status >= 400,
-        )
+        if result is not None:
+            await db.update_domain_metrics(
+                domain,
+                success=result.ok,
+                is_captcha=result.reason and "challenge" in result.reason,
+                is_http_error=result.status and result.status >= 400,
+            )
 
         # Update IPv6 metrics
         # Track connection result for IPv6 learning
@@ -2504,34 +2544,35 @@ async def _fetch_url_impl(
         # Determine IP family from result or connection info
         # Note: curl_cffi doesn't expose the actual IP family used,
         # so we track based on success/failure patterns for learning
-        if result.ok:
-            # Record as success for learning
-            ipv6_result = IPv6ConnectionResult(
-                hostname=urlparse(url).hostname or domain,
-                success=True,
-                family_used=ip_family_used,
-                family_attempted=ip_family_used,
-                switched=False,
-                switch_success=False,
-                latency_ms=0,  # Not tracked at this level
-            )
-            await ipv6_manager.record_connection_result(domain, ipv6_result)
-        elif result.reason and "timeout" in result.reason.lower():
-            # Timeout might indicate IPv6 connectivity issue
-            ipv6_result = IPv6ConnectionResult(
-                hostname=urlparse(url).hostname or domain,
-                success=False,
-                family_used=ip_family_used,
-                family_attempted=ip_family_used,
-                switched=False,
-                switch_success=False,
-                latency_ms=0,
-                error=result.reason,
-            )
-            await ipv6_manager.record_connection_result(domain, ipv6_result)
+        if result is not None:
+            if result.ok:
+                # Record as success for learning
+                ipv6_result = IPv6ConnectionResult(
+                    hostname=urlparse(url).hostname or domain,
+                    success=True,
+                    family_used=ip_family_used,
+                    family_attempted=ip_family_used,
+                    switched=False,
+                    switch_success=False,
+                    latency_ms=0,  # Not tracked at this level
+                )
+                await ipv6_manager.record_connection_result(domain, ipv6_result)
+            elif result.reason and "timeout" in result.reason.lower():
+                # Timeout might indicate IPv6 connectivity issue
+                ipv6_result = IPv6ConnectionResult(
+                    hostname=urlparse(url).hostname or domain,
+                    success=False,
+                    family_used=ip_family_used,
+                    family_attempted=ip_family_used,
+                    switched=False,
+                    switch_success=False,
+                    latency_ms=0,
+                    error=result.reason,
+                )
+                await ipv6_manager.record_connection_result(domain, ipv6_result)
 
         # Store page record and update cache if successful
-        if result.ok:
+        if result is not None and result.ok:
             # Update pages table and capture page_id for fragment linking
             page_id = await db.insert(
                 "pages",
@@ -2552,67 +2593,74 @@ async def _fetch_url_impl(
                 },
                 or_replace=True,
             )
-            result.page_id = page_id
+            if result is not None:
+                result.page_id = page_id
 
-            # Update fetch cache for future conditional requests
-            # Only cache if we have ETag or Last-Modified
-            if (result.etag or result.last_modified) and not result.from_cache:
-                await db.set_fetch_cache(
-                    url,
-                    etag=result.etag,
-                    last_modified=result.last_modified,
-                    content_hash=result.content_hash,
-                    content_path=result.html_path,
-                )
-                logger.debug(
-                    "Updated fetch cache",
-                    url=url[:80],
-                    etag=result.etag[:20] if result.etag else None,
-                    last_modified=result.last_modified,
-                )
+                # Update fetch cache for future conditional requests
+                # Only cache if we have ETag or Last-Modified
+                if (result.etag or result.last_modified) and not result.from_cache:
+                    await db.set_fetch_cache(
+                        url,
+                        etag=result.etag,
+                        last_modified=result.last_modified,
+                        content_hash=result.content_hash,
+                        content_path=result.html_path,
+                    )
+                    logger.debug(
+                        "Updated fetch cache",
+                        url=url[:80],
+                        etag=result.etag[:20] if result.etag else None,
+                        last_modified=result.last_modified,
+                    )
 
         # Log event
-        event_details = {
-            "url": url,
-            "ok": result.ok,
-            "method": result.method,
-            "status": result.status,
-            "reason": result.reason,
-            "from_cache": result.from_cache,
-            "has_etag": bool(result.etag),
-            "has_last_modified": bool(result.last_modified),
-            "escalation_path": " -> ".join(escalation_path),
-            "retry_count": retry_count,
-            "ip_family": result.ip_family,
-            "ip_switched": result.ip_switched,
-        }
+        if result is not None:
+            event_details = {
+                "url": url,
+                "ok": result.ok,
+                "method": result.method,
+                "status": result.status,
+                "reason": result.reason,
+                "from_cache": result.from_cache,
+                "has_etag": bool(result.etag),
+                "has_last_modified": bool(result.last_modified),
+                "escalation_path": " -> ".join(escalation_path),
+                "retry_count": retry_count,
+                "ip_family": result.ip_family,
+                "ip_switched": result.ip_switched,
+            }
 
-        # Add archive details if content is from Wayback
-        if result.is_archived:
-            event_details["is_archived"] = True
-            event_details["archive_date"] = (
-                result.archive_date.isoformat() if result.archive_date else None
+            # Add archive details if content is from Wayback
+            if result.is_archived:
+                event_details["is_archived"] = True
+                event_details["archive_date"] = (
+                    result.archive_date.isoformat() if result.archive_date else None
+                )
+                event_details["freshness_penalty"] = result.freshness_penalty
+
+            await db.log_event(
+                event_type="fetch",
+                message=f"Fetched {url[:60]}",
+                task_id=task_id,
+                cause_id=trace.id,
+                component="crawler",
+                details=event_details,
             )
-            event_details["freshness_penalty"] = result.freshness_penalty
 
-        await db.log_event(
-            event_type="fetch",
-            message=f"Fetched {url[:60]}",
-            task_id=task_id,
-            cause_id=trace.id,
-            component="crawler",
-            details=event_details,
-        )
+            # Record domain request for daily budget tracking (§4.3 - Problem 11)
+            # Only record successful fetches with actual content (not 304)
+            if result.ok and result.status != 304:
+                budget_manager.record_domain_request(domain, is_page=True)
 
-        # Record domain request for daily budget tracking (§4.3 - Problem 11)
-        # Only record successful fetches with actual content (not 304)
-        if result.ok and result.status != 304:
-            budget_manager.record_domain_request(domain, is_page=True)
+            return result.to_dict()
 
-        return result.to_dict()
+        # If result is None, return empty dict
+        return {}
 
 
-async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -> None:
+async def _update_domain_headful_ratio(
+    db: "Database", domain: str, increase: bool = True
+) -> None:
     """Update domain's headful ratio based on fetch outcomes.
 
     Args:
@@ -2657,7 +2705,9 @@ async def _update_domain_headful_ratio(db, domain: str, increase: bool = True) -
         )
 
 
-async def _update_domain_wayback_success(db, domain: str, success: bool) -> None:
+async def _update_domain_wayback_success(
+    db: "Database", domain: str, success: bool
+) -> None:
     """Update domain's Wayback fallback success rate.
 
     Track Wayback fallback success to inform future fallback decisions.
@@ -2713,5 +2763,3 @@ async def _update_domain_wayback_success(db, domain: str, success: bool) -> None
             success_count=success_count,
             failure_count=failure_count,
         )
-
-

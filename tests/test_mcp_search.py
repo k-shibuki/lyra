@@ -96,10 +96,12 @@ class TestSearchValidation:
         with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with pytest.raises(TaskNotFoundError) as exc_info:
-                    await _handle_search({
-                        "task_id": "nonexistent_task",
-                        "query": "test query",
-                    })
+                    await _handle_search(
+                        {
+                            "task_id": "nonexistent_task",
+                            "query": "test query",
+                        }
+                    )
 
         assert exc_info.value.details.get("task_id") == "nonexistent_task"
 
@@ -116,10 +118,12 @@ class TestSearchValidation:
         from src.mcp.server import _handle_search
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_search({
-                "task_id": "task_123",
-                "query": "",
-            })
+            await _handle_search(
+                {
+                    "task_id": "task_123",
+                    "query": "",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "query"
 
@@ -136,10 +140,12 @@ class TestSearchValidation:
         from src.mcp.server import _handle_search
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_search({
-                "task_id": "task_123",
-                "query": "   \t\n  ",
-            })
+            await _handle_search(
+                {
+                    "task_id": "task_123",
+                    "query": "   \t\n  ",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "query"
 
@@ -196,11 +202,13 @@ class TestSearchBoundaryValues:
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch("src.research.pipeline.search_action", side_effect=capture_action):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test",
-                            "options": {"max_pages": 0},
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test",
+                                "options": {"max_pages": 0},
+                            }
+                        )
 
         assert result["ok"] is True
         assert captured_options.get("max_pages") == 0
@@ -232,11 +240,13 @@ class TestSearchBoundaryValues:
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
                 with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                     with patch("src.research.pipeline.search_action", side_effect=capture_action):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test",
-                            "options": {"max_pages": 1},
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test",
+                                "options": {"max_pages": 1},
+                            }
+                        )
 
         assert result["ok"] is True
         assert captured_options.get("max_pages") == 1
@@ -267,10 +277,12 @@ class TestSearchBoundaryValues:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": long_query,
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": long_query,
+                            }
+                        )
 
         assert result["ok"] is True
 
@@ -333,10 +345,12 @@ class TestSearchExecution:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test search query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test search query",
+                            }
+                        )
 
         assert result["ok"] is True
         assert result["search_id"] == "s_001"
@@ -382,11 +396,13 @@ class TestSearchExecution:
                         "src.research.pipeline.search_action",
                         return_value=refutation_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test claim",
-                            "options": {"refute": True},
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test claim",
+                                "options": {"refute": True},
+                            }
+                        )
 
         assert result["ok"] is True
         assert result.get("refutations_found") == 2
@@ -432,14 +448,16 @@ class TestSearchExecution:
                         "src.research.pipeline.search_action",
                         side_effect=capture_search_action,
                     ):
-                        await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test query",
-                            "options": {
-                                "max_pages": 20,
-                                "seek_primary": True,
-                            },
-                        })
+                        await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test query",
+                                "options": {
+                                    "max_pages": 20,
+                                    "seek_primary": True,
+                                },
+                            }
+                        )
 
         assert captured_options.get("max_pages") == 20
         assert captured_options.get("seek_primary") is True
@@ -577,10 +595,12 @@ class TestStopTaskExecution:
                     "src.research.pipeline.stop_task_action",
                     side_effect=capture_stop_action,
                 ):
-                    await _handle_stop_task({
-                        "task_id": "task_abc123",
-                        "reason": "budget_exhausted",
-                    })
+                    await _handle_stop_task(
+                        {
+                            "task_id": "task_abc123",
+                            "reason": "budget_exhausted",
+                        }
+                    )
 
         assert captured_reason == "budget_exhausted"
 
@@ -770,10 +790,12 @@ class TestChromeAutoStart:
         # Mock subprocess that returns success
         mock_process = MagicMock()
         mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(
-            b"READY\nHost: localhost:9222",
-            b"",
-        ))
+        mock_process.communicate = AsyncMock(
+            return_value=(
+                b"READY\nHost: localhost:9222",
+                b"",
+            )
+        )
 
         with patch("pathlib.Path.exists", return_value=True):
             with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)):
@@ -813,10 +835,12 @@ class TestChromeAutoStart:
         # Mock subprocess that returns failure
         mock_process = MagicMock()
         mock_process.returncode = 1
-        mock_process.communicate = AsyncMock(return_value=(
-            b"",
-            b"ERROR: Chrome failed to start",
-        ))
+        mock_process.communicate = AsyncMock(
+            return_value=(
+                b"",
+                b"ERROR: Chrome failed to start",
+            )
+        )
 
         with patch("pathlib.Path.exists", return_value=True):
             with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_process)):
@@ -863,7 +887,9 @@ class TestEnsureChromeReady:
         """
         from src.mcp.server import _ensure_chrome_ready
 
-        with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)) as mock_check:
+        with patch(
+            "src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)
+        ) as mock_check:
             with patch("src.mcp.server._auto_start_chrome") as mock_auto_start:
                 result = await _ensure_chrome_ready()
 
@@ -970,10 +996,12 @@ class TestSearchWithAutoStart:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test query",
+                            }
+                        )
 
         assert result["ok"] is True
         assert result["search_id"] == "s_001"
@@ -1009,10 +1037,12 @@ class TestSearchWithAutoStart:
                         "src.research.pipeline.search_action",
                         return_value=mock_search_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_abc123",
-                            "query": "test query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_abc123",
+                                "query": "test query",
+                            }
+                        )
 
         assert ensure_called is True
         assert result["ok"] is True
@@ -1031,10 +1061,12 @@ class TestSearchWithAutoStart:
 
         with patch("src.mcp.server._ensure_chrome_ready", side_effect=ChromeNotReadyError()):
             with pytest.raises(ChromeNotReadyError) as exc_info:
-                await _handle_search({
-                    "task_id": "task_123",
-                    "query": "test query",
-                })
+                await _handle_search(
+                    {
+                        "task_id": "task_123",
+                        "query": "test query",
+                    }
+                )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "CHROME_NOT_READY"
@@ -1095,10 +1127,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(ParserNotAvailableError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "PARSER_NOT_AVAILABLE"
@@ -1140,10 +1174,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(SerpSearchFailedError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "SERP_SEARCH_FAILED"
@@ -1183,10 +1219,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(AllFetchesFailedError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "ALL_FETCHES_FAILED"
@@ -1225,10 +1263,12 @@ class TestSearchErrorHandling:
                         return_value=error_result,
                     ):
                         with pytest.raises(PipelineError) as exc_info:
-                            await _handle_search({
-                                "task_id": "task_err_test",
-                                "query": "test query",
-                            })
+                            await _handle_search(
+                                {
+                                    "task_id": "task_err_test",
+                                    "query": "test query",
+                                }
+                            )
 
         error_dict = exc_info.value.to_dict()
         assert error_dict["error_code"] == "PIPELINE_ERROR"
@@ -1264,10 +1304,12 @@ class TestSearchErrorHandling:
                         "src.research.pipeline.search_action",
                         return_value=success_result,
                     ):
-                        result = await _handle_search({
-                            "task_id": "task_err_test",
-                            "query": "test query",
-                        })
+                        result = await _handle_search(
+                            {
+                                "task_id": "task_err_test",
+                                "query": "test query",
+                            }
+                        )
 
         assert result["ok"] is True
         assert result["search_id"] == "s_success"

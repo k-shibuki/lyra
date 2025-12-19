@@ -44,7 +44,7 @@ class ShingleTokenizer:
         self.use_words = use_words
         self._sudachi_tokenizer = None
 
-    def _get_sudachi(self):
+    def _get_sudachi(self) -> Any:
         """Get or create SudachiPy tokenizer."""
         if self._sudachi_tokenizer is None:
             try:
@@ -414,7 +414,7 @@ class SimHash:
         result = 0
         for i in range(self.bit_size):
             if weights[i] > 0:
-                result |= (1 << i)
+                result |= 1 << i
 
         return result
 

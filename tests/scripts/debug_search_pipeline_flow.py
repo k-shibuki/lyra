@@ -266,8 +266,12 @@ async def main():
     calls_persist_claim = "_persist_claim" in fetch_extract_source
     calls_persist_fragment = "_persist_fragment" in fetch_extract_source
 
-    print(f"  - _fetch_and_extract calls _persist_claim: {'YES ✓' if calls_persist_claim else 'NO ⚠'}")
-    print(f"  - _fetch_and_extract calls _persist_fragment: {'YES ✓' if calls_persist_fragment else 'NO ⚠'}")
+    print(
+        f"  - _fetch_and_extract calls _persist_claim: {'YES ✓' if calls_persist_claim else 'NO ⚠'}"
+    )
+    print(
+        f"  - _fetch_and_extract calls _persist_fragment: {'YES ✓' if calls_persist_fragment else 'NO ⚠'}"
+    )
 
     print("\n  *** Analysis Result ***")
     if (

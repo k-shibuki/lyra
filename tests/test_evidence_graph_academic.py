@@ -214,9 +214,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: PAGE node is created with is_academic=True and metadata
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -252,9 +253,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: CITES edges are created for each citation with mapped page_id
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -300,9 +302,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: is_influential is correctly set on edges
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -342,9 +345,10 @@ class TestAddAcademicPageWithCitations:
         When: add_academic_page_with_citations() is called
         Then: No edges are created, no errors
         """
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -672,9 +676,10 @@ class TestExceptionHandlingEvidenceGraph:
         """
         from src.utils.schemas import Citation
 
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
@@ -718,9 +723,10 @@ class TestExceptionHandlingEvidenceGraph:
         """
         from src.utils.schemas import Citation
 
-        with patch("src.filter.evidence_graph.get_database") as mock_db, \
-             patch("src.filter.evidence_graph._graph", None):
-
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()

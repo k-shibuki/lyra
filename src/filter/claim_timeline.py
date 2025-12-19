@@ -259,7 +259,7 @@ class ClaimTimeline:
         confirmations = self.confirmation_count
         if confirmations > 0:
             bonus = min(0.5, confirmations * 0.1)
-            adjustment *= (1.0 + bonus)
+            adjustment *= 1.0 + bonus
 
         return adjustment
 
@@ -335,7 +335,7 @@ class ClaimTimelineManager:
     - Metrics tracking
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the timeline manager."""
         self._cache: dict[str, ClaimTimeline] = {}
 
@@ -753,9 +753,7 @@ class ClaimTimelineManager:
         archive_date_str = diff_result.get("archive_date")
         if archive_date_str:
             try:
-                datetime.fromisoformat(
-                    archive_date_str.replace("Z", "+00:00")
-                )
+                datetime.fromisoformat(archive_date_str.replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 datetime.now(UTC)
         else:

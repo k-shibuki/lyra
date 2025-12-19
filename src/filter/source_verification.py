@@ -35,9 +35,9 @@ logger = get_logger(__name__)
 class PromotionResult(str, Enum):
     """Result of trust level promotion/demotion check."""
 
-    PROMOTED = "promoted"      # Promoted to LOW from UNVERIFIED
-    DEMOTED = "demoted"        # Demoted to BLOCKED
-    UNCHANGED = "unchanged"    # No change in trust level
+    PROMOTED = "promoted"  # Promoted to LOW from UNVERIFIED
+    DEMOTED = "demoted"  # Demoted to BLOCKED
+    UNCHANGED = "unchanged"  # No change in trust level
 
 
 @dataclass
@@ -76,9 +76,7 @@ class DomainVerificationState:
     verified_claims: list[str] = field(default_factory=list)
     rejected_claims: list[str] = field(default_factory=list)
     pending_claims: list[str] = field(default_factory=list)
-    last_updated: str = field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    last_updated: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     @property
     def total_claims(self) -> int:
@@ -120,7 +118,9 @@ class SourceVerifier:
         self._domain_states: dict[str, DomainVerificationState] = {}
         self._blocked_domains: set[str] = set()
         # K.3-8: Pending blocked notifications (processed via send_pending_notifications)
-        self._pending_blocked_notifications: list[tuple[str, str, str | None]] = []  # (domain, reason, task_id)
+        self._pending_blocked_notifications: list[
+            tuple[str, str, str | None]
+        ] = []  # (domain, reason, task_id)
 
     def verify_claim(
         self,
@@ -463,11 +463,13 @@ class SourceVerifier:
                     domain=domain,
                     error=str(e),
                 )
-                results.append({
-                    "error": str(e),
-                    "domain": domain,
-                    "reason": reason,
-                })
+                results.append(
+                    {
+                        "error": str(e),
+                        "domain": domain,
+                        "reason": reason,
+                    }
+                )
 
         return results
 

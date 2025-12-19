@@ -42,9 +42,9 @@ from typing import Any
 class CircuitState(str, Enum):
     """Circuit breaker states."""
 
-    CLOSED = "closed"       # Normal operation, tracking failures
-    OPEN = "open"           # Blocking requests, waiting for cooldown
-    HALF_OPEN = "half-open" # Testing recovery with limited requests
+    CLOSED = "closed"  # Normal operation, tracking failures
+    OPEN = "open"  # Blocking requests, waiting for cooldown
+    HALF_OPEN = "half-open"  # Testing recovery with limited requests
 
 
 @dataclass
@@ -333,7 +333,12 @@ class AsyncCircuitBreaker:
             raise CircuitBreakerError(self.breaker)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> bool:
         """Exit context, recording success or failure."""
         if exc_type is None:
             self.breaker.record_success()
@@ -368,7 +373,12 @@ class _AsyncCircuitGuard:
             raise CircuitBreakerError(self.breaker)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> bool:
         if self.auto_record and not self._recorded:
             if exc_type is None:
                 self.breaker.record_success()

@@ -15,9 +15,12 @@ import time
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from playwright.async_api import Page
 
 from src.utils.config import get_project_root, get_settings
 from src.utils.logging import get_logger
@@ -77,7 +80,9 @@ class FingerprintData(BaseModel):
     color_depth: int = Field(default=0, ge=0, description="Color depth")
     platform: str = Field(default="", description="Platform string")
     plugins_count: int = Field(default=0, ge=0, description="Number of plugins")
-    timestamp: float = Field(default=0.0, ge=0.0, description="When the fingerprint was captured (Unix timestamp)")
+    timestamp: float = Field(
+        default=0.0, ge=0.0, description="When the fingerprint was captured (Unix timestamp)"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -144,7 +149,9 @@ class AuditResult(BaseModel):
     error: str | None = Field(None, description="Error message if audit failed")
     duration_ms: float = Field(default=0.0, ge=0.0, description="Audit duration in milliseconds")
     retry_count: int = Field(default=0, ge=0, description="Number of retries attempted")
-    timestamp: float = Field(default=0.0, ge=0.0, description="When the audit was performed (Unix timestamp)")
+    timestamp: float = Field(
+        default=0.0, ge=0.0, description="When the audit was performed (Unix timestamp)"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging."""
@@ -444,7 +451,7 @@ class ProfileAuditor:
                 path=str(log_path),
             )
 
-    async def collect_fingerprint(self, page) -> FingerprintData:
+    async def collect_fingerprint(self, page: "Page") -> FingerprintData:
         """Collect current browser fingerprint from page.
 
         Args:
@@ -504,13 +511,15 @@ class ProfileAuditor:
         # Check UA major version
         if baseline.ua_major_version != current.ua_major_version:
             severity, repair_action = self.SEVERITY_CONFIG["ua_major_version"]
-            drifts.append(DriftInfo(
-                attribute="ua_major_version",
-                baseline_value=baseline.ua_major_version,
-                current_value=current.ua_major_version,
-                severity=severity,
-                repair_action=repair_action,
-            ))
+            drifts.append(
+                DriftInfo(
+                    attribute="ua_major_version",
+                    baseline_value=baseline.ua_major_version,
+                    current_value=current.ua_major_version,
+                    severity=severity,
+                    repair_action=repair_action,
+                )
+            )
 
         # Check fonts (allow some drift)
         if baseline.fonts and current.fonts:
@@ -527,35 +536,41 @@ class ProfileAuditor:
                     missing = baseline_fonts - current_fonts
                     added = current_fonts - baseline_fonts
                     severity, repair_action = self.SEVERITY_CONFIG["fonts"]
-                    drifts.append(DriftInfo(
-                        attribute="fonts",
-                        baseline_value=f"missing={list(missing)[:5]}",
-                        current_value=f"added={list(added)[:5]}",
-                        severity=severity,
-                        repair_action=repair_action,
-                    ))
+                    drifts.append(
+                        DriftInfo(
+                            attribute="fonts",
+                            baseline_value=f"missing={list(missing)[:5]}",
+                            current_value=f"added={list(added)[:5]}",
+                            severity=severity,
+                            repair_action=repair_action,
+                        )
+                    )
 
         # Check language
         if baseline.language != current.language:
             severity, repair_action = self.SEVERITY_CONFIG["language"]
-            drifts.append(DriftInfo(
-                attribute="language",
-                baseline_value=baseline.language,
-                current_value=current.language,
-                severity=severity,
-                repair_action=repair_action,
-            ))
+            drifts.append(
+                DriftInfo(
+                    attribute="language",
+                    baseline_value=baseline.language,
+                    current_value=current.language,
+                    severity=severity,
+                    repair_action=repair_action,
+                )
+            )
 
         # Check timezone
         if baseline.timezone != current.timezone:
             severity, repair_action = self.SEVERITY_CONFIG["timezone"]
-            drifts.append(DriftInfo(
-                attribute="timezone",
-                baseline_value=baseline.timezone,
-                current_value=current.timezone,
-                severity=severity,
-                repair_action=repair_action,
-            ))
+            drifts.append(
+                DriftInfo(
+                    attribute="timezone",
+                    baseline_value=baseline.timezone,
+                    current_value=current.timezone,
+                    severity=severity,
+                    repair_action=repair_action,
+                )
+            )
 
         # Check canvas fingerprint (allow for minor variations)
         if baseline.canvas_hash and current.canvas_hash:
@@ -565,13 +580,15 @@ class ProfileAuditor:
                 and current.canvas_hash != "error"
             ):
                 severity, repair_action = self.SEVERITY_CONFIG["canvas_hash"]
-                drifts.append(DriftInfo(
-                    attribute="canvas_hash",
-                    baseline_value=baseline.canvas_hash[:20],
-                    current_value=current.canvas_hash[:20],
-                    severity=severity,
-                    repair_action=repair_action,
-                ))
+                drifts.append(
+                    DriftInfo(
+                        attribute="canvas_hash",
+                        baseline_value=baseline.canvas_hash[:20],
+                        current_value=current.canvas_hash[:20],
+                        severity=severity,
+                        repair_action=repair_action,
+                    )
+                )
 
         # Check audio fingerprint
         if baseline.audio_hash and current.audio_hash:
@@ -581,13 +598,15 @@ class ProfileAuditor:
                 and current.audio_hash != "error"
             ):
                 severity, repair_action = self.SEVERITY_CONFIG["audio_hash"]
-                drifts.append(DriftInfo(
-                    attribute="audio_hash",
-                    baseline_value=baseline.audio_hash,
-                    current_value=current.audio_hash,
-                    severity=severity,
-                    repair_action=repair_action,
-                ))
+                drifts.append(
+                    DriftInfo(
+                        attribute="audio_hash",
+                        baseline_value=baseline.audio_hash,
+                        current_value=current.audio_hash,
+                        severity=severity,
+                        repair_action=repair_action,
+                    )
+                )
 
         return drifts
 
@@ -622,7 +641,7 @@ class ProfileAuditor:
 
     async def audit(
         self,
-        page,
+        page: "Page",
         force: bool = False,
         update_baseline: bool = False,
     ) -> AuditResult:
@@ -650,6 +669,9 @@ class ProfileAuditor:
                 )
                 return AuditResult(
                     status=AuditStatus.SKIPPED,
+                    baseline=None,
+                    current=None,
+                    error=None,
                     duration_ms=0,
                     timestamp=start_time,
                 )
@@ -666,6 +688,7 @@ class ProfileAuditor:
                     status=AuditStatus.PASS,
                     baseline=current,
                     current=current,
+                    error=None,
                     duration_ms=(time.time() - start_time) * 1000,
                     timestamp=start_time,
                 )
@@ -688,6 +711,7 @@ class ProfileAuditor:
                     status=AuditStatus.PASS,
                     baseline=self._baseline,
                     current=current,
+                    error=None,
                     duration_ms=(time.time() - start_time) * 1000,
                     timestamp=start_time,
                 )
@@ -705,6 +729,7 @@ class ProfileAuditor:
                     drifts=drifts,
                     repair_actions=repair_actions,
                     repair_status=RepairStatus.PENDING,
+                    error=None,
                     duration_ms=(time.time() - start_time) * 1000,
                     timestamp=start_time,
                 )
@@ -723,6 +748,8 @@ class ProfileAuditor:
         except Exception as e:
             result = AuditResult(
                 status=AuditStatus.FAIL,
+                baseline=None,
+                current=None,
                 error=str(e),
                 duration_ms=(time.time() - start_time) * 1000,
                 timestamp=start_time,
@@ -869,7 +896,7 @@ def get_profile_auditor(profile_dir: Path | None = None) -> ProfileAuditor:
 
 
 async def perform_health_check(
-    page,
+    page: "Page",
     force: bool = False,
     auto_repair: bool = True,
     browser_manager: Any = None,

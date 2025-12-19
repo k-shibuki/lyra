@@ -231,35 +231,35 @@ class HTTP3PolicyManager:
     - Auto-increase browser route ratio when HTTP/3 sites show behavioral differences
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._stats_cache: dict[str, HTTP3DomainStats] = {}
         self._lock = asyncio.Lock()
 
         # Configuration
-        self._ema_alpha = getattr(
-            getattr(self._settings, 'http3', None),
-            'ema_alpha',
-            0.1
-        ) if hasattr(self._settings, 'http3') else 0.1
+        self._ema_alpha = (
+            getattr(getattr(self._settings, "http3", None), "ema_alpha", 0.1)
+            if hasattr(self._settings, "http3")
+            else 0.1
+        )
 
-        self._difference_threshold = getattr(
-            getattr(self._settings, 'http3', None),
-            'difference_threshold',
-            0.15
-        ) if hasattr(self._settings, 'http3') else 0.15
+        self._difference_threshold = (
+            getattr(getattr(self._settings, "http3", None), "difference_threshold", 0.15)
+            if hasattr(self._settings, "http3")
+            else 0.15
+        )
 
-        self._max_browser_boost = getattr(
-            getattr(self._settings, 'http3', None),
-            'max_browser_boost',
-            0.3
-        ) if hasattr(self._settings, 'http3') else 0.3
+        self._max_browser_boost = (
+            getattr(getattr(self._settings, "http3", None), "max_browser_boost", 0.3)
+            if hasattr(self._settings, "http3")
+            else 0.3
+        )
 
-        self._min_samples = getattr(
-            getattr(self._settings, 'http3', None),
-            'min_samples',
-            5
-        ) if hasattr(self._settings, 'http3') else 5
+        self._min_samples = (
+            getattr(getattr(self._settings, "http3", None), "min_samples", 5)
+            if hasattr(self._settings, "http3")
+            else 5
+        )
 
     async def get_stats(self, domain: str) -> HTTP3DomainStats:
         """Get or create stats for a domain.
@@ -352,7 +352,7 @@ class HTTP3PolicyManager:
             stats.behavioral_difference_sum += difference
         else:
             # Decay toward zero when no advantage
-            stats.behavioral_difference_ema *= (1 - self._ema_alpha * 0.5)
+            stats.behavioral_difference_ema *= 1 - self._ema_alpha * 0.5
 
         # Update browser ratio boost based on behavioral difference
         if stats.behavioral_difference_ema > self._difference_threshold:
@@ -370,10 +370,7 @@ class HTTP3PolicyManager:
             )
         else:
             # Gradually reduce boost
-            stats.browser_ratio_boost = max(
-                0.0,
-                stats.browser_ratio_boost - 0.01
-            )
+            stats.browser_ratio_boost = max(0.0, stats.browser_ratio_boost - 0.01)
 
     async def get_policy_decision(self, domain: str) -> HTTP3PolicyDecision:
         """Get policy decision for route selection.
@@ -685,7 +682,7 @@ async def detect_protocol_from_cdp_response(
 
 
 async def detect_protocol_from_playwright_response(
-    response,  # Playwright Response object
+    response: Any,  # Playwright Response object
 ) -> ProtocolVersion:
     """Detect HTTP protocol version from Playwright response.
 

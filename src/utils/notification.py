@@ -23,7 +23,12 @@ import asyncio
 import platform
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from playwright.async_api import Page
+
+    from src.storage.database import Database
 
 from src.storage.database import get_database
 from src.utils.config import get_settings
@@ -112,7 +117,7 @@ class InterventionManager:
     - Forbidden: Runtime.evaluate, DOM.*, Input.*, scrollIntoView, etc.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._pending_interventions: dict[str, dict] = {}
         self._domain_failures: dict[str, int] = {}  # domain -> consecutive failure count
@@ -272,7 +277,7 @@ class InterventionManager:
         }
         return messages.get(intervention_type, f"手動操作が必要です\nサイト: {domain}")
 
-    async def _bring_tab_to_front(self, page) -> bool:
+    async def _bring_tab_to_front(self, page: "Page") -> bool:
         """Bring browser window to front using safe methods.
 
         Safe Operation Policy:
@@ -373,8 +378,8 @@ class InterventionManager:
     async def _handle_intervention_result(
         self,
         result: InterventionResult,
-        intervention_state: dict,
-        db,
+        intervention_state: dict[str, Any],
+        db: "Database",
     ) -> None:
         """Handle intervention result with cooldown and skip logic.
 
@@ -683,7 +688,14 @@ async def notify_user(
     """
     manager = _get_manager()
 
-    intervention_types = {"captcha", "login_required", "cookie_banner", "cloudflare", "turnstile", "js_challenge"}
+    intervention_types = {
+        "captcha",
+        "login_required",
+        "cookie_banner",
+        "cloudflare",
+        "turnstile",
+        "js_challenge",
+    }
 
     if event in intervention_types:
         # These require intervention flow (safe mode)
@@ -830,10 +842,10 @@ class InterventionQueue:
     - Authenticated sessions can be reused for same domain
     """
 
-    def __init__(self):
-        self._db = None
+    def __init__(self) -> None:
+        self._db: Database | None = None
 
-    async def _ensure_db(self):
+    async def _ensure_db(self) -> None:
         """Ensure database connection."""
         if self._db is None:
             self._db = await get_database()
@@ -861,6 +873,7 @@ class InterventionQueue:
             Queue item ID.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         import uuid
 
@@ -900,6 +913,7 @@ class InterventionQueue:
             Queue item dict or None if not found.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         row = await self._db.fetch_one(
             """
@@ -933,6 +947,7 @@ class InterventionQueue:
             List of pending queue items.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         # Use ISO format for comparison with stored timestamps
         now_iso = datetime.now(UTC).isoformat()
@@ -954,7 +969,9 @@ class InterventionQueue:
             query += " AND priority = ?"
             params.append(priority)
 
-        query += " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
+        query += (
+            " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
+        )
         query += f" LIMIT {limit}"
 
         rows = await self._db.fetch_all(query, params)
@@ -971,6 +988,7 @@ class InterventionQueue:
             Dict with counts by priority and total.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         # Use ISO format for comparison with stored timestamps
         now_iso = datetime.now(UTC).isoformat()
@@ -1012,6 +1030,7 @@ class InterventionQueue:
             - by_auth_type: Count by auth_type (cloudflare, captcha, etc.)
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         now_iso = datetime.now(UTC).isoformat()
 
@@ -1108,6 +1127,7 @@ class InterventionQueue:
             Session info with URLs to process.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         # Get items to process
         if queue_ids:
@@ -1178,8 +1198,14 @@ class InterventionQueue:
 
                 browser_fetcher = BrowserFetcher()
                 logger.debug("Calling BrowserFetcher._ensure_browser(headful=True)")
-                browser, context = await browser_fetcher._ensure_browser(headful=True, task_id=task_id)
-                logger.debug("BrowserFetcher._ensure_browser() returned", has_browser=browser is not None, has_context=context is not None)
+                browser, context = await browser_fetcher._ensure_browser(
+                    headful=True, task_id=task_id
+                )
+                logger.debug(
+                    "BrowserFetcher._ensure_browser() returned",
+                    has_browser=browser is not None,
+                    has_context=context is not None,
+                )
 
                 if context:
                     # Open first URL in browser
@@ -1235,6 +1261,7 @@ class InterventionQueue:
             - domains: List of domain info dicts
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         now_iso = datetime.now(UTC).isoformat()
 
@@ -1277,14 +1304,16 @@ class InterventionQueue:
         # Convert sets to lists for JSON serialization
         domains = []
         for info in domain_map.values():
-            domains.append({
-                "domain": info["domain"],
-                "pending_count": info["pending_count"],
-                "high_priority_count": info["high_priority_count"],
-                "affected_tasks": list(info["affected_tasks"]),
-                "auth_types": list(info["auth_types"]),
-                "urls": info["urls"],
-            })
+            domains.append(
+                {
+                    "domain": info["domain"],
+                    "pending_count": info["pending_count"],
+                    "high_priority_count": info["high_priority_count"],
+                    "affected_tasks": list(info["affected_tasks"]),
+                    "auth_types": list(info["auth_types"]),
+                    "urls": info["urls"],
+                }
+            )
 
         # Sort by high priority count desc, then pending count desc
         domains.sort(key=lambda d: (-d["high_priority_count"], -d["pending_count"]))
@@ -1318,6 +1347,7 @@ class InterventionQueue:
             Completion result.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         import json
 
@@ -1380,6 +1410,7 @@ class InterventionQueue:
             - session_stored: Whether session data was stored
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         import json
 
@@ -1459,6 +1490,7 @@ class InterventionQueue:
             Skip result with affected_tasks for domain-based skips.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         now_iso = datetime.now(UTC).isoformat()
         affected_tasks: list[str] = []
@@ -1579,6 +1611,7 @@ class InterventionQueue:
             Session data dict or None.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         import json
 
@@ -1610,6 +1643,7 @@ class InterventionQueue:
             Number of items cleaned up.
         """
         await self._ensure_db()
+        assert self._db is not None  # Type narrowing after _ensure_db
 
         # Use ISO format for comparison with stored timestamps
         now_iso = datetime.now(UTC).isoformat()

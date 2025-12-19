@@ -17,7 +17,13 @@ logger = get_logger(__name__)
 class BaseAcademicClient(ABC):
     """Base class for academic API clients."""
 
-    def __init__(self, name: str, base_url: str | None = None, timeout: float | None = None, headers: dict[str, str] | None = None):
+    def __init__(
+        self,
+        name: str,
+        base_url: str | None = None,
+        timeout: float | None = None,
+        headers: dict[str, str] | None = None,
+    ):
         """Initialize client.
 
         Args:
@@ -35,14 +41,12 @@ class BaseAcademicClient(ABC):
                 from src.utils.config import get_academic_apis_config
 
                 config = get_academic_apis_config()
-                api_config = config.apis.get(name, {})
+                api_config = config.get_api_config(name)
 
                 if base_url is None:
-                    base_url = api_config.base_url if api_config.base_url else None
+                    base_url = api_config.base_url
                 if timeout is None:
-                    timeout = (
-                        float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
-                    )
+                    timeout = float(api_config.timeout_seconds)
                 if headers is None and api_config.headers:
                     headers = api_config.headers.copy()
             except Exception as e:

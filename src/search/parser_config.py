@@ -304,7 +304,7 @@ class ParserConfigManager:
         self._load_config()
 
     @classmethod
-    def get_instance(cls, **kwargs) -> ParserConfigManager:
+    def get_instance(cls, **kwargs: Any) -> ParserConfigManager:
         """Get singleton instance of parser config manager."""
         if cls._instance is None:
             with cls._lock:
@@ -424,7 +424,9 @@ class ParserConfigManager:
         self._check_reload()
         if self._config is None:
             self._load_config()
-        return self._config  # type: ignore
+        # After _load_config(), _config is guaranteed to be non-None
+        assert self._config is not None
+        return self._config
 
     @property
     def settings(self) -> ParserSettings:
@@ -432,7 +434,9 @@ class ParserConfigManager:
         self._check_reload()
         if self._settings is None:
             self._load_config()
-        return self._settings  # type: ignore
+        # After _load_config(), _settings is guaranteed to be non-None
+        assert self._settings is not None
+        return self._settings
 
     # =========================================================================
     # Engine Configuration
@@ -580,7 +584,7 @@ _manager_instance: ParserConfigManager | None = None
 _manager_lock = threading.Lock()
 
 
-def get_parser_config_manager(**kwargs) -> ParserConfigManager:
+def get_parser_config_manager(**kwargs: Any) -> ParserConfigManager:
     """
     Get the singleton ParserConfigManager instance.
 

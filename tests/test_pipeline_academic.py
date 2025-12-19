@@ -578,9 +578,10 @@ class TestSemanticScholarIDNormalization:
             # We need to await it to get the result
             return await func()
 
-        with patch.object(client, '_get_session', return_value=mock_http), \
-             patch('src.search.apis.semantic_scholar.retry_api_call', new=mock_retry_api_call):
-
+        with (
+            patch.object(client, "_get_session", return_value=mock_http),
+            patch("src.search.apis.semantic_scholar.retry_api_call", new=mock_retry_api_call),
+        ):
             # When
             await client.get_references(paper_id)
 
@@ -624,9 +625,10 @@ class TestSemanticScholarIDNormalization:
             # We need to await it to get the result
             return await func()
 
-        with patch.object(client, '_get_session', return_value=mock_http), \
-             patch('src.search.apis.semantic_scholar.retry_api_call', new=mock_retry_api_call):
-
+        with (
+            patch.object(client, "_get_session", return_value=mock_http),
+            patch("src.search.apis.semantic_scholar.retry_api_call", new=mock_retry_api_call),
+        ):
             # When
             await client.get_citations(paper_id)
 
@@ -666,7 +668,9 @@ class TestExecuteComplementarySearchIntegration:
         # Then: needs_fetch should be True (will trigger browser fallback)
         assert entry.needs_fetch is True
 
-    def test_mixed_entries_processing(self, sample_paper_with_abstract, sample_paper_without_abstract):
+    def test_mixed_entries_processing(
+        self, sample_paper_with_abstract, sample_paper_without_abstract
+    ):
         """
         Test: Mixed entries (with/without abstract) are processed correctly.
 
@@ -766,8 +770,12 @@ class TestExecuteComplementarySearchE2E:
         unique_entries = index.get_all_entries()
 
         # Verify entries have correct needs_fetch values
-        entry_with_abstract = next(e for e in unique_entries if e.paper and e.paper.id == sample_paper_with_abstract.id)
-        entry_without_abstract = next(e for e in unique_entries if e.paper and e.paper.id == sample_paper_without_abstract.id)
+        entry_with_abstract = next(
+            e for e in unique_entries if e.paper and e.paper.id == sample_paper_with_abstract.id
+        )
+        entry_without_abstract = next(
+            e for e in unique_entries if e.paper and e.paper.id == sample_paper_without_abstract.id
+        )
 
         assert entry_with_abstract.needs_fetch is False
         assert entry_without_abstract.needs_fetch is True
@@ -807,7 +815,7 @@ class TestExecuteComplementarySearchE2E:
 
         provider = AcademicSearchProvider()
 
-        with patch.object(provider, '_get_client') as mock_get_client:
+        with patch.object(provider, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
 
@@ -873,7 +881,7 @@ class TestExecuteComplementarySearchE2E:
 
         provider = AcademicSearchProvider()
 
-        with patch.object(provider, '_get_client') as mock_get_client:
+        with patch.object(provider, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
             mock_client.get_references = AsyncMock(side_effect=Exception("API error"))
@@ -912,7 +920,7 @@ class TestExecuteComplementarySearchE2E:
             await asyncio.sleep(10)  # Simulate timeout
             return []
 
-        with patch.object(provider, '_get_client') as mock_get_client:
+        with patch.object(provider, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
             mock_client.get_references = AsyncMock(side_effect=TimeoutError("API timeout"))

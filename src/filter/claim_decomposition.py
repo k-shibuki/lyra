@@ -39,7 +39,7 @@ class ClaimPolarity(str, Enum):
 class ClaimGranularity(str, Enum):
     """Granularity level of a claim."""
 
-    ATOMIC = "atomic"      # Cannot be further decomposed
+    ATOMIC = "atomic"  # Cannot be further decomposed
     COMPOSITE = "composite"  # Can be decomposed into sub-claims
     META = "meta"  # Meta-level claim about the research itself
 
@@ -47,8 +47,8 @@ class ClaimGranularity(str, Enum):
 class ClaimType(str, Enum):
     """Type of claim based on content."""
 
-    FACTUAL = "factual"        # Verifiable fact
-    CAUSAL = "causal"          # Cause-effect relationship
+    FACTUAL = "factual"  # Verifiable fact
+    CAUSAL = "causal"  # Cause-effect relationship
     COMPARATIVE = "comparative"  # Comparison between entities
     DEFINITIONAL = "definitional"  # Definition or classification
     TEMPORAL = "temporal"  # Time-related claim
@@ -336,17 +336,19 @@ class ClaimDecomposer:
 
         # If no claims were generated, create a single claim from the question
         if not claims:
-            claims.append(AtomicClaim(
-                claim_id=f"claim_{uuid.uuid4().hex[:8]}",
-                text=question,
-                expected_polarity=ClaimPolarity.NEUTRAL,
-                granularity=ClaimGranularity.COMPOSITE,
-                claim_type=ClaimType.FACTUAL,
-                source_question=question,
-                confidence=0.5,
-                keywords=self._extract_keywords(question),
-                verification_hints=["一般的な検索で調査"],
-            ))
+            claims.append(
+                AtomicClaim(
+                    claim_id=f"claim_{uuid.uuid4().hex[:8]}",
+                    text=question,
+                    expected_polarity=ClaimPolarity.NEUTRAL,
+                    granularity=ClaimGranularity.COMPOSITE,
+                    claim_type=ClaimType.FACTUAL,
+                    source_question=question,
+                    confidence=0.5,
+                    keywords=self._extract_keywords(question),
+                    verification_hints=["一般的な検索で調査"],
+                )
+            )
 
         return DecompositionResult(
             original_question=question,

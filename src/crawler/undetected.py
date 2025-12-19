@@ -15,7 +15,11 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from types import TracebackType
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from undetected_chromedriver import ChromeOptions
 
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -68,7 +72,7 @@ class UndetectedChromeFetcher:
     Methods are wrapped to work with async code.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._driver = None
         self._available: bool | None = None
@@ -100,7 +104,7 @@ class UndetectedChromeFetcher:
         self,
         headless: bool = False,
         user_data_dir: str | None = None,
-    ):
+    ) -> "ChromeOptions":
         """Create Chrome options for undetected-chromedriver.
 
         Args:
@@ -154,7 +158,7 @@ class UndetectedChromeFetcher:
         self,
         headless: bool = False,
         user_data_dir: str | None = None,
-    ):
+    ) -> None:
         """Initialize the undetected-chromedriver instance.
 
         Args:
@@ -178,11 +182,10 @@ class UndetectedChromeFetcher:
             use_subprocess=True,
             version_main=None,  # Auto-detect Chrome version
         )
+        assert self._driver is not None  # Just initialized
 
         # Set page load timeout
-        self._driver.set_page_load_timeout(
-            self._settings.crawler.page_load_timeout
-        )
+        self._driver.set_page_load_timeout(self._settings.crawler.page_load_timeout)
 
         # Set implicit wait
         self._driver.implicitly_wait(10)
@@ -193,7 +196,9 @@ class UndetectedChromeFetcher:
             user_data_dir=user_data_dir,
         )
 
-    def _simulate_human_delay(self, min_seconds: float = 0.5, max_seconds: float = 2.0):
+    def _simulate_human_delay(
+        self, min_seconds: float = 0.5, max_seconds: float = 2.0
+    ) -> None:
         """Add human-like delay between actions.
 
         Args:
@@ -205,7 +210,7 @@ class UndetectedChromeFetcher:
         delay = random.uniform(min_seconds, max_seconds)
         time.sleep(delay)
 
-    def _simulate_scroll(self):
+    def _simulate_scroll(self) -> None:
         """Simulate human-like scrolling behavior."""
         if not self._driver:
             return
@@ -214,12 +219,8 @@ class UndetectedChromeFetcher:
 
         try:
             # Get page height
-            page_height = self._driver.execute_script(
-                "return document.body.scrollHeight"
-            )
-            viewport_height = self._driver.execute_script(
-                "return window.innerHeight"
-            )
+            page_height = self._driver.execute_script("return document.body.scrollHeight")
+            viewport_height = self._driver.execute_script("return window.innerHeight")
 
             # Scroll down in chunks
             current_position = 0
@@ -239,9 +240,7 @@ class UndetectedChromeFetcher:
                     page_height - viewport_height,
                 )
 
-                self._driver.execute_script(
-                    f"window.scrollTo(0, {current_position})"
-                )
+                self._driver.execute_script(f"window.scrollTo(0, {current_position})")
 
                 # Random delay
                 time.sleep(random.uniform(0.3, 1.0))
@@ -382,6 +381,7 @@ class UndetectedChromeFetcher:
             # Initialize driver if not already done
             if self._driver is None:
                 self._init_driver(headless=headless)
+            assert self._driver is not None  # Guaranteed by _init_driver
 
             # Navigate to URL
             logger.info("Navigating with undetected-chromedriver", url=url[:80])
@@ -541,11 +541,16 @@ class UndetectedChromeFetcher:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.close)
 
-    def __enter__(self):
+    def __enter__(self) -> "UndetectedChromeFetcher":
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """Context manager exit - cleanup driver."""
         self.close()
         return False

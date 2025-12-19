@@ -55,9 +55,19 @@ class TestCloudAgentDetection:
         from tests.conftest import CloudAgentType, detect_environment
 
         # Clear other cloud agent vars and set CLAUDE_CODE
-        env_copy = {k: v for k, v in os.environ.items()
-                   if k not in ["CURSOR_CLOUD_AGENT", "CURSOR_SESSION_ID", "CURSOR_BACKGROUND",
-                               "GITHUB_ACTIONS", "GITLAB_CI", "CI"]}
+        env_copy = {
+            k: v
+            for k, v in os.environ.items()
+            if k
+            not in [
+                "CURSOR_CLOUD_AGENT",
+                "CURSOR_SESSION_ID",
+                "CURSOR_BACKGROUND",
+                "GITHUB_ACTIONS",
+                "GITLAB_CI",
+                "CI",
+            ]
+        }
         env_copy["CLAUDE_CODE"] = "true"
 
         with patch.dict(os.environ, env_copy, clear=True):
@@ -69,9 +79,19 @@ class TestCloudAgentDetection:
         """Test GitHub Actions environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
-        env_copy = {k: v for k, v in os.environ.items()
-                   if k not in ["CURSOR_CLOUD_AGENT", "CURSOR_SESSION_ID", "CURSOR_BACKGROUND",
-                               "CLAUDE_CODE", "GITLAB_CI", "CI"]}
+        env_copy = {
+            k: v
+            for k, v in os.environ.items()
+            if k
+            not in [
+                "CURSOR_CLOUD_AGENT",
+                "CURSOR_SESSION_ID",
+                "CURSOR_BACKGROUND",
+                "CLAUDE_CODE",
+                "GITLAB_CI",
+                "CI",
+            ]
+        }
         env_copy["GITHUB_ACTIONS"] = "true"
 
         with patch.dict(os.environ, env_copy, clear=True):
@@ -83,9 +103,19 @@ class TestCloudAgentDetection:
         """Test GitLab CI environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
-        env_copy = {k: v for k, v in os.environ.items()
-                   if k not in ["CURSOR_CLOUD_AGENT", "CURSOR_SESSION_ID", "CURSOR_BACKGROUND",
-                               "CLAUDE_CODE", "GITHUB_ACTIONS", "CI"]}
+        env_copy = {
+            k: v
+            for k, v in os.environ.items()
+            if k
+            not in [
+                "CURSOR_CLOUD_AGENT",
+                "CURSOR_SESSION_ID",
+                "CURSOR_BACKGROUND",
+                "CLAUDE_CODE",
+                "GITHUB_ACTIONS",
+                "CI",
+            ]
+        }
         env_copy["GITLAB_CI"] = "true"
 
         with patch.dict(os.environ, env_copy, clear=True):
@@ -97,9 +127,19 @@ class TestCloudAgentDetection:
         """Test generic CI environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
-        env_copy = {k: v for k, v in os.environ.items()
-                   if k not in ["CURSOR_CLOUD_AGENT", "CURSOR_SESSION_ID", "CURSOR_BACKGROUND",
-                               "CLAUDE_CODE", "GITHUB_ACTIONS", "GITLAB_CI"]}
+        env_copy = {
+            k: v
+            for k, v in os.environ.items()
+            if k
+            not in [
+                "CURSOR_CLOUD_AGENT",
+                "CURSOR_SESSION_ID",
+                "CURSOR_BACKGROUND",
+                "CLAUDE_CODE",
+                "GITHUB_ACTIONS",
+                "GITLAB_CI",
+            ]
+        }
         env_copy["CI"] = "true"
 
         with patch.dict(os.environ, env_copy, clear=True):
@@ -125,8 +165,15 @@ class TestCloudAgentDetection:
         """Test CloudAgentType enum has expected values."""
         from tests.conftest import CloudAgentType
 
-        expected_types = ["none", "cursor", "claude_code", "github_actions",
-                         "gitlab_ci", "generic_ci", "headless"]
+        expected_types = [
+            "none",
+            "cursor",
+            "claude_code",
+            "github_actions",
+            "gitlab_ci",
+            "generic_ci",
+            "headless",
+        ]
 
         actual_types = [t.value for t in CloudAgentType]
 
@@ -218,8 +265,10 @@ class TestDependencyChecking:
             conftest_module._env_info = EnvironmentInfo(
                 is_cloud_agent=True,
                 cloud_agent_type=CloudAgentType.CURSOR,
-                is_e2e_capable=False, is_wsl=False,
-                is_container=False, has_display=False,
+                is_e2e_capable=False,
+                is_wsl=False,
+                is_container=False,
+                has_display=False,
             )
 
             # Then: This file should NOT be skipped (returns None)
@@ -247,8 +296,10 @@ class TestDependencyChecking:
             conftest_module._env_info = EnvironmentInfo(
                 is_cloud_agent=True,
                 cloud_agent_type=CloudAgentType.CURSOR,
-                is_e2e_capable=False, is_wsl=False,
-                is_container=False, has_display=False,
+                is_e2e_capable=False,
+                is_wsl=False,
+                is_container=False,
+                has_display=False,
             )
 
             # When/Then: Other test files should be skipped
@@ -276,8 +327,10 @@ class TestDependencyChecking:
             conftest_module._env_info = EnvironmentInfo(
                 is_cloud_agent=False,  # LOCAL environment
                 cloud_agent_type=CloudAgentType.NONE,
-                is_e2e_capable=True, is_wsl=True,
-                is_container=False, has_display=True,
+                is_e2e_capable=True,
+                is_wsl=True,
+                is_container=False,
+                has_display=True,
             )
 
             # When/Then: Should NOT skip (show normal import errors)

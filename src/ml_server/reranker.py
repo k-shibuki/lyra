@@ -14,7 +14,7 @@ logger = structlog.get_logger(__name__)
 class RerankerService:
     """Reranker model service using cross-encoder."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._model = None
         self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
 
@@ -92,6 +92,7 @@ class RerankerService:
             return []
 
         await self.load()
+        assert self._model is not None  # Guaranteed by load()
 
         # Prepare pairs
         pairs = [(query, doc) for doc in documents]

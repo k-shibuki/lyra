@@ -395,11 +395,13 @@ class TestProcessLifecycleManager:
     def test_touch_resource(self, manager):
         """Test touching a resource updates timestamp."""
         # Given: A registered resource
-        asyncio.run(manager.register_resource(
-            "browser_1",
-            ResourceType.BROWSER,
-            MagicMock(),
-        ))
+        asyncio.run(
+            manager.register_resource(
+                "browser_1",
+                ResourceType.BROWSER,
+                MagicMock(),
+            )
+        )
 
         initial_time = manager._resources["browser_1"].last_used_at
 
@@ -416,24 +418,30 @@ class TestProcessLifecycleManager:
     def test_get_resource_count_filters(self, manager):
         """Test get_resource_count with filters."""
         # Given: Resources of different types and tasks
-        asyncio.run(manager.register_resource(
-            "browser_1",
-            ResourceType.BROWSER,
-            MagicMock(),
-            "task_1",
-        ))
-        asyncio.run(manager.register_resource(
-            "context_1",
-            ResourceType.BROWSER_CONTEXT,
-            MagicMock(),
-            "task_1",
-        ))
-        asyncio.run(manager.register_resource(
-            "browser_2",
-            ResourceType.BROWSER,
-            MagicMock(),
-            "task_2",
-        ))
+        asyncio.run(
+            manager.register_resource(
+                "browser_1",
+                ResourceType.BROWSER,
+                MagicMock(),
+                "task_1",
+            )
+        )
+        asyncio.run(
+            manager.register_resource(
+                "context_1",
+                ResourceType.BROWSER_CONTEXT,
+                MagicMock(),
+                "task_1",
+            )
+        )
+        asyncio.run(
+            manager.register_resource(
+                "browser_2",
+                ResourceType.BROWSER,
+                MagicMock(),
+                "task_2",
+            )
+        )
 
         # When/Then: Filtered counts are correct
         assert manager.get_resource_count() == 3
@@ -464,7 +472,7 @@ class TestOllamaSessionCleanup:
         mock_session = AsyncMock()
         mock_session.closed = False
 
-        with patch.object(manager, '_settings') as mock_settings:
+        with patch.object(manager, "_settings") as mock_settings:
             mock_settings.llm.unload_on_task_complete = True
             mock_settings.llm.ollama_host = "http://localhost:11434"
 

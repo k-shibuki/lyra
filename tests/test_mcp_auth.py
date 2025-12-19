@@ -84,9 +84,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "none",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "none",
+                }
+            )
 
         assert result["ok"] is True
         assert result["group_by"] == "none"
@@ -113,9 +115,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "domain",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "domain",
+                }
+            )
 
         assert result["ok"] is True
         assert result["group_by"] == "domain"
@@ -146,9 +150,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "type",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "type",
+                }
+            )
 
         assert result["ok"] is True
         assert result["group_by"] == "type"
@@ -178,9 +184,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            await _handle_get_auth_queue({
-                "task_id": "task_abc",
-            })
+            await _handle_get_auth_queue(
+                {
+                    "task_id": "task_abc",
+                }
+            )
 
         mock_queue.get_pending.assert_called_once()
         call_kwargs = mock_queue.get_pending.call_args
@@ -206,9 +214,11 @@ class TestGetAuthQueueExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "priority_filter": "high",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "priority_filter": "high",
+                }
+            )
 
         mock_queue.get_pending.assert_called_once()
         call_kwargs = mock_queue.get_pending.call_args
@@ -255,14 +265,16 @@ class TestGetAuthQueueBoundaryValues:
         from src.mcp.server import _handle_get_auth_queue
 
         mock_queue = AsyncMock()
-        mock_queue.get_pending.return_value = [{
-            "id": "q_001",
-            "task_id": "task_abc",
-            "url": "https://example.com",
-            "domain": "example.com",
-            "auth_type": "captcha",
-            "priority": "high",
-        }]
+        mock_queue.get_pending.return_value = [
+            {
+                "id": "q_001",
+                "task_id": "task_abc",
+                "url": "https://example.com",
+                "domain": "example.com",
+                "auth_type": "captcha",
+                "priority": "high",
+            }
+        ]
 
         with patch(
             "src.utils.notification.get_intervention_queue",
@@ -292,9 +304,11 @@ class TestGetAuthQueueBoundaryValues:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_get_auth_queue({
-                "group_by": "domain",
-            })
+            result = await _handle_get_auth_queue(
+                {
+                    "group_by": "domain",
+                }
+            )
 
         assert result["ok"] is True
         assert result["total_count"] == 0
@@ -334,10 +348,12 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "item",
-                "action": "complete",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "action": "complete",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "queue_id"
 
@@ -354,10 +370,12 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "domain",
-                "action": "complete",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "action": "complete",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "domain"
 
@@ -374,10 +392,12 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "invalid",
-                "action": "complete",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "invalid",
+                    "action": "complete",
+                }
+            )
 
         assert "target" in str(exc_info.value.details.get("param_name"))
 
@@ -394,11 +414,13 @@ class TestResolveAuthValidation:
         from src.mcp.server import _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "invalid_action",
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "invalid_action",
+                }
+            )
 
         assert "action" in str(exc_info.value.details.get("param_name"))
 
@@ -429,20 +451,25 @@ class TestResolveAuthExecution:
             "status": "completed",
         }
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=None,
-        ) as mock_capture:
-            result = await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "complete",
-                "success": True,
-            })
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=None,
+            ) as mock_capture,
+        ):
+            result = await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         assert result["ok"] is True
         assert result["target"] == "item"
@@ -473,11 +500,13 @@ class TestResolveAuthExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "skip",
-            })
+            result = await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "skip",
+                }
+            )
 
         assert result["ok"] is True
         assert result["action"] == "skip"
@@ -502,20 +531,25 @@ class TestResolveAuthExecution:
             "affected_tasks": ["task_abc"],
         }
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=None,
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
-            result = await _handle_resolve_auth({
-                "target": "domain",
-                "domain": "example.com",
-                "action": "complete",
-                "success": True,
-            })
+            result = await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "domain": "example.com",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         assert result["ok"] is True
         assert result["target"] == "domain"
@@ -547,11 +581,13 @@ class TestResolveAuthExecution:
             "src.utils.notification.get_intervention_queue",
             return_value=mock_queue,
         ):
-            result = await _handle_resolve_auth({
-                "target": "domain",
-                "domain": "example.com",
-                "action": "skip",
-            })
+            result = await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "domain": "example.com",
+                    "action": "skip",
+                }
+            )
 
         assert result["ok"] is True
         assert result["target"] == "domain"
@@ -724,8 +760,12 @@ class TestCaptureAuthSessionCookies:
         assert "cookies" in result, "Should have cookies field"
         # Only parent domain cookie should be included, subdomain cookie should be excluded
         assert len(result["cookies"]) == 1, "Should have 1 matching cookie (parent domain only)"
-        assert result["cookies"][0]["name"] == "parent_session", "Should include parent domain cookie"
-        assert result["cookies"][0]["domain"] == "example.com", "Cookie domain should be example.com"
+        assert result["cookies"][0]["name"] == "parent_session", (
+            "Should include parent domain cookie"
+        )
+        assert result["cookies"][0]["domain"] == "example.com", (
+            "Cookie domain should be example.com"
+        )
 
     @pytest.mark.asyncio
     async def test_capture_includes_parent_cookies_for_subdomain(self) -> None:
@@ -839,20 +879,25 @@ class TestResolveAuthCookieCapture:
         }
         mock_queue.complete.return_value = {"ok": True, "status": "completed"}
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=session_data,
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=session_data,
+            ),
         ):
-            await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "complete",
-                "success": True,
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         # Verify complete was called with session_data
         mock_queue.complete.assert_called_once_with(
@@ -877,19 +922,24 @@ class TestResolveAuthCookieCapture:
         }
         mock_queue.complete.return_value = {"ok": True, "status": "skipped"}
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-        ) as mock_capture:
-            await _handle_resolve_auth({
-                "target": "item",
-                "queue_id": "q_001",
-                "action": "complete",
-                "success": False,
-            })
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+            ) as mock_capture,
+        ):
+            await _handle_resolve_auth(
+                {
+                    "target": "item",
+                    "queue_id": "q_001",
+                    "action": "complete",
+                    "success": False,
+                }
+            )
 
         # Verify cookie capture was NOT called (success=False)
         mock_capture.assert_not_called()
@@ -917,20 +967,25 @@ class TestResolveAuthCookieCapture:
             "resolved_count": 3,
         }
 
-        with patch(
-            "src.utils.notification.get_intervention_queue",
-            return_value=mock_queue,
-        ), patch(
-            "src.mcp.server._capture_auth_session_cookies",
-            new_callable=AsyncMock,
-            return_value=session_data,
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=session_data,
+            ),
         ):
-            await _handle_resolve_auth({
-                "target": "domain",
-                "domain": "example.com",
-                "action": "complete",
-                "success": True,
-            })
+            await _handle_resolve_auth(
+                {
+                    "target": "domain",
+                    "domain": "example.com",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
 
         # Verify complete_domain was called with session_data
         mock_queue.complete_domain.assert_called_once_with(

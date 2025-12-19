@@ -86,9 +86,9 @@ def configure_logging(
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
-        _add_timestamp,
-        _add_log_level,
-        _filter_health_check,
+        _add_timestamp,  # type: ignore[list-item]
+        _add_log_level,  # type: ignore[list-item]
+        _filter_health_check,  # type: ignore[list-item]
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
@@ -124,7 +124,7 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     Returns:
         Configured logger instance.
     """
-    return structlog.get_logger(name)
+    return structlog.get_logger(name)  # type: ignore[no-any-return]
 
 
 def bind_context(**kwargs: Any) -> None:
@@ -176,7 +176,12 @@ class LogContext:
         bind_context(**self.context)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         """Exit context and unbind variables."""
         unbind_context(*self.context.keys())
 
@@ -207,7 +212,12 @@ class CausalTrace:
         )
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         """Exit trace context."""
         unbind_context("cause_id", "parent_cause_id")
 

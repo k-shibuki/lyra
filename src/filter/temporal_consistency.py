@@ -92,6 +92,7 @@ class ConsistencyLevel(str, Enum):
 @dataclass
 class DateExtraction:
     """Extracted date information."""
+
     year: int | None = None
     month: int | None = None
     day: int | None = None
@@ -178,7 +179,7 @@ class ConsistencyResult:
 class DateExtractor:
     """Extracts dates from text and metadata."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize date extractor."""
         self._compiled_patterns = [
             (re.compile(pattern, re.IGNORECASE), pattern) for pattern in DATE_PATTERNS
@@ -295,7 +296,7 @@ class DateExtractor:
                     confidence=0.8,
                 )
 
-            if '平成' in pattern:
+            if "平成" in pattern:
                 era_year = int(groups[0])
                 # 平成1年 = 1989年
                 return DateExtraction(

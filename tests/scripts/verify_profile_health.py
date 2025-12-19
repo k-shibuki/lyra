@@ -130,7 +130,9 @@ class ProfileHealthVerifier:
             success_rate = success_count / check_count
             threshold = 0.99
 
-            print(f"\n    Health check success rate: {success_rate:.0%} ({success_count}/{check_count})")
+            print(
+                f"\n    Health check success rate: {success_rate:.0%} ({success_count}/{check_count})"
+            )
 
             # Note: With only 5 checks, we can't truly verify 99%
             # In production, this would be tracked over many task starts
@@ -282,7 +284,9 @@ class ProfileHealthVerifier:
             repair_rate = repair_successes / repair_attempts
             threshold = 0.90
 
-            print(f"\n    Repair action coverage: {repair_rate:.0%} ({repair_successes}/{repair_attempts})")
+            print(
+                f"\n    Repair action coverage: {repair_rate:.0%} ({repair_successes}/{repair_attempts})"
+            )
 
             # Note: This tests repair action generation, not actual repair execution
             # Actual repair would require triggering deviations and fixing them

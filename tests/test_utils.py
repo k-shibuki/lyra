@@ -26,6 +26,7 @@ import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
+# E402: Intentionally import after pytestmark for test configuration
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -219,10 +220,13 @@ class TestApplyEnvOverrides:
 
         config = {}
 
-        with patch.dict(os.environ, {
-            "LANCET_TOR__ENABLED": "false",
-            "LANCET_BROWSER__BLOCK_ADS": "true",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "LANCET_TOR__ENABLED": "false",
+                "LANCET_BROWSER__BLOCK_ADS": "true",
+            },
+        ):
             result = _apply_env_overrides(config)
 
         assert result["tor"]["enabled"] is False
@@ -256,10 +260,13 @@ class TestApplyEnvOverrides:
 
         config = {}
 
-        with patch.dict(os.environ, {
-            "OTHER_VAR": "value",
-            "HOME": "/home/user",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "OTHER_VAR": "value",
+                "HOME": "/home/user",
+            },
+        ):
             result = _apply_env_overrides(config)
 
         assert "other_var" not in result

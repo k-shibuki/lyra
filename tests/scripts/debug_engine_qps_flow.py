@@ -239,7 +239,7 @@ async def test_full_qps_flow():
     # The implementation is verified by checking _last_search_times
 
     print("\n  [Step 2] Check _last_search_times tracking")
-    if hasattr(provider, '_last_search_times'):
+    if hasattr(provider, "_last_search_times"):
         last_time = provider._last_search_times.get(engine, 0)
         print(f"    ✓ {engine} last_time: {last_time}")
         print("    ✓ Rate limiting flow completed")

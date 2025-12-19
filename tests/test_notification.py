@@ -238,15 +238,9 @@ class TestInterventionResult:
         assert result.elapsed_seconds == 30.5, (
             f"elapsed_seconds should be 30.5, got {result.elapsed_seconds}"
         )
-        assert result.should_retry is False, (
-            "should_retry should default to False for success"
-        )
-        assert result.cooldown_until is None, (
-            "cooldown_until should default to None"
-        )
-        assert result.skip_domain_today is False, (
-            "skip_domain_today should default to False"
-        )
+        assert result.should_retry is False, "should_retry should default to False for success"
+        assert result.cooldown_until is None, "cooldown_until should default to None"
+        assert result.skip_domain_today is False, "skip_domain_today should default to False"
 
     def test_timeout_result_with_cooldown_per_spec(self):
         """Test creating a timeout intervention result per §3.6.
@@ -343,9 +337,7 @@ class TestInterventionManagerCore:
         domain = "example.com"
         failures = intervention_manager.get_domain_failures(domain)
 
-        assert failures == 0, (
-            f"Initial failure count for '{domain}' should be 0, got {failures}"
-        )
+        assert failures == 0, f"Initial failure count for '{domain}' should be 0, got {failures}"
 
     def test_domain_failure_tracking_set_and_get(self, intervention_manager):
         """Test setting and getting domain failure count."""
@@ -497,9 +489,7 @@ class TestDomainSkipLogic:
             result = await intervention_manager._should_skip_domain("test.com")
 
             # Then
-            assert result is True, (
-                "Domain with future cooldown time should be skipped"
-            )
+            assert result is True, "Domain with future cooldown time should be skipped"
 
     @pytest.mark.asyncio
     async def test_no_skip_with_expired_cooldown(self, intervention_manager, mock_db):
@@ -539,9 +529,7 @@ class TestToastNotification:
 
         result = is_wsl()
 
-        assert isinstance(result, bool), (
-            f"is_wsl() should return bool, got {type(result)}"
-        )
+        assert isinstance(result, bool), f"is_wsl() should return bool, got {type(result)}"
 
     @pytest.mark.asyncio
     async def test_send_toast_returns_boolean(self, intervention_manager):
@@ -574,12 +562,8 @@ class TestToastNotification:
             )
 
             # Then
-            assert isinstance(result, bool), (
-                f"send_toast should return bool, got {type(result)}"
-            )
-            assert result is True, (
-                "send_toast should return True when provider registry succeeds"
-            )
+            assert isinstance(result, bool), f"send_toast should return bool, got {type(result)}"
+            assert result is True, "send_toast should return True when provider registry succeeds"
 
             # Verify registry was called with correct parameters
             mock_registry.send.assert_called_once()
@@ -704,9 +688,7 @@ class TestInterventionFlow:
                 assert result.status == InterventionStatus.SKIPPED, (
                     f"Expected SKIPPED status, got {result.status}"
                 )
-                assert result.skip_domain_today is True, (
-                    "skip_domain_today should be True"
-                )
+                assert result.skip_domain_today is True, "skip_domain_today should be True"
 
     @pytest.mark.asyncio
     async def test_returns_pending_immediately_per_spec(self, mock_settings, mock_db, mock_page):
@@ -719,12 +701,8 @@ class TestInterventionFlow:
                 # Given
                 manager = InterventionManager()
 
-                with patch.object(
-                    manager, "send_toast", new_callable=AsyncMock, return_value=True
-                ):
-                    with patch.object(
-                        manager, "_bring_tab_to_front", new_callable=AsyncMock
-                    ):
+                with patch.object(manager, "send_toast", new_callable=AsyncMock, return_value=True):
+                    with patch.object(manager, "_bring_tab_to_front", new_callable=AsyncMock):
                         # When
                         result = await manager.request_intervention(
                             intervention_type=InterventionType.CAPTCHA,
@@ -795,9 +773,7 @@ class TestInterventionFlow:
 
             # Then
             failures = intervention_manager._domain_failures[domain]
-            assert failures == 0, (
-                f"Failure count after success should be 0, got {failures}"
-            )
+            assert failures == 0, f"Failure count after success should be 0, got {failures}"
 
     @pytest.mark.asyncio
     async def test_failure_increments_counter(self, intervention_manager, mock_db):
@@ -979,9 +955,7 @@ class TestInterventionIntegration:
 
                 # Then: Failure counter should be reset
                 failures = manager.get_domain_failures(domain)
-                assert failures == 0, (
-                    f"Failure count after success should be 0, got {failures}"
-                )
+                assert failures == 0, f"Failure count after success should be 0, got {failures}"
 
                 # Then: Intervention removed from pending
                 assert intervention_id not in manager._pending_interventions, (

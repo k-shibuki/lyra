@@ -236,6 +236,7 @@ class MetricsConfig(BaseModel):
 
 class AcademicAPIRateLimitConfig(BaseModel):
     """Academic API rate limit configuration."""
+
     requests_per_interval: int | None = None
     interval_seconds: int | None = None
     requests_per_day: int | None = None
@@ -269,6 +270,34 @@ class AcademicAPIsConfig(BaseModel):
 
     apis: dict[str, AcademicAPIConfig] = Field(default_factory=dict)
     defaults: AcademicAPIsDefaultsConfig = Field(default_factory=AcademicAPIsDefaultsConfig)
+
+    # Default base URLs for academic APIs (used when API not configured)
+    _DEFAULT_BASE_URLS: dict[str, str] = {
+        "semantic_scholar": "https://api.semanticscholar.org/graph/v1",
+        "openalex": "https://api.openalex.org",
+        "crossref": "https://api.crossref.org",
+        "arxiv": "http://export.arxiv.org/api/query",
+        "unpaywall": "https://api.unpaywall.org/v2",
+    }
+
+    def get_api_config(self, api_name: str) -> AcademicAPIConfig:
+        """Get API configuration with type-safe fallback.
+
+        Returns the configured AcademicAPIConfig for the API,
+        or a default config with the standard base URL if not configured.
+
+        Args:
+            api_name: Name of the API (semantic_scholar, openalex, etc.)
+
+        Returns:
+            AcademicAPIConfig for the requested API
+        """
+        if api_name in self.apis:
+            return self.apis[api_name]
+
+        # Return default config with standard base URL
+        default_url = self._DEFAULT_BASE_URLS.get(api_name, f"https://api.{api_name}.org")
+        return AcademicAPIConfig(base_url=default_url, enabled=False)
 
 
 class GeneralConfig(BaseModel):
@@ -334,7 +363,7 @@ def _load_yaml_config(config_dir: Path) -> dict[str, Any]:
     Returns:
         Merged configuration dictionary.
     """
-    config = {}
+    config: dict[str, Any] = {}
 
     # Load settings.yaml
     settings_path = config_dir / "settings.yaml"
@@ -382,7 +411,9 @@ def get_academic_apis_config() -> AcademicAPIsConfig:
     config_data = _load_academic_apis_config(config_dir)
 
     # Apply environment overrides
-    config_data = _apply_env_overrides({"academic_apis": config_data}).get("academic_apis", config_data)
+    config_data = _apply_env_overrides({"academic_apis": config_data}).get(
+        "academic_apis", config_data
+    )
 
     # Parse API configurations
     apis_dict = {}
@@ -430,7 +461,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
             continue
 
         # Remove prefix and split by double underscore
-        key_path = key[len(prefix):].lower().split("__")
+        key_path = key[len(prefix) :].lower().split("__")
 
         # Navigate to the correct nested location
         current = config

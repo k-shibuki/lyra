@@ -135,8 +135,10 @@ os.environ["LANCET_GENERAL__LOG_LEVEL"] = "DEBUG"
 # Cloud Agent Environment Detection
 # =============================================================================
 
+
 class CloudAgentType(Enum):
     """Types of cloud agent environments."""
+
     NONE = "none"
     CURSOR = "cursor"
     CLAUDE_CODE = "claude_code"
@@ -149,6 +151,7 @@ class CloudAgentType(Enum):
 @dataclass
 class EnvironmentInfo:
     """Information about the current execution environment."""
+
     is_cloud_agent: bool
     cloud_agent_type: CloudAgentType
     is_e2e_capable: bool
@@ -175,19 +178,18 @@ def detect_environment() -> EnvironmentInfo:
         pass
 
     # Check for container
-    is_container = (
-        os.path.exists("/.dockerenv") or
-        os.path.exists("/run/.containerenv")
-    )
+    is_container = os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv")
 
     # Detect cloud agent type
     is_cloud_agent = False
     cloud_agent_type = CloudAgentType.NONE
 
     # Cursor Cloud Agent detection
-    if (os.environ.get("CURSOR_CLOUD_AGENT") or
-        os.environ.get("CURSOR_SESSION_ID") or
-        os.environ.get("CURSOR_BACKGROUND") == "true"):
+    if (
+        os.environ.get("CURSOR_CLOUD_AGENT")
+        or os.environ.get("CURSOR_SESSION_ID")
+        or os.environ.get("CURSOR_BACKGROUND") == "true"
+    ):
         is_cloud_agent = True
         cloud_agent_type = CloudAgentType.CURSOR
 
@@ -218,9 +220,9 @@ def detect_environment() -> EnvironmentInfo:
 
     # Determine E2E capability
     is_e2e_capable = (
-        os.environ.get("LANCET_HEADLESS") == "true" or
-        has_display or
-        is_wsl  # WSL can access Windows display via CDP
+        os.environ.get("LANCET_HEADLESS") == "true"
+        or has_display
+        or is_wsl  # WSL can access Windows display via CDP
     )
 
     return EnvironmentInfo(
@@ -255,6 +257,7 @@ def is_e2e_capable() -> bool:
 # =============================================================================
 # Dependency Checking for Minimal Environments
 # =============================================================================
+
 
 def _check_core_dependencies() -> tuple[bool, list[str]]:
     """Check if core dependencies are available.
@@ -355,9 +358,9 @@ def pytest_configure(config):
 
     # Always show cloud agent notice (important for users to know)
     if _env_info.is_cloud_agent:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("[Lancet Test] CLOUD AGENT ENVIRONMENT DETECTED")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"  Agent Type: {_env_info.cloud_agent_type.value}")
         print(f"  E2E Capable: {_env_info.is_e2e_capable}")
         print()
@@ -373,7 +376,7 @@ def pytest_configure(config):
             print("      Only minimal-safe tests will run.")
             print("      Install with: pip install -e '.[dev]'")
             print()
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
     # Log environment info for debugging (verbose mode)
     elif config.option.verbose > 0:
@@ -405,11 +408,11 @@ def pytest_collection_modifyitems(config, items):
     # Skip reasons for cloud agent environment
     skip_e2e_reason = pytest.mark.skip(
         reason=f"E2E tests skipped in cloud agent environment ({_env_info.cloud_agent_type.value}). "
-               f"Run locally with: pytest -m e2e"
+        f"Run locally with: pytest -m e2e"
     )
     skip_slow_reason = pytest.mark.skip(
         reason=f"Slow tests skipped in cloud agent environment ({_env_info.cloud_agent_type.value}). "
-               f"Run with: pytest -m slow"
+        f"Run with: pytest -m slow"
     )
 
     for item in items:
@@ -602,6 +605,7 @@ def reset_search_provider():
     # Reset after each test
     try:
         from src.search.provider import reset_registry
+
         reset_registry()
     except ImportError:
         # Dependencies not available in minimal test environment
@@ -619,6 +623,7 @@ def reset_global_database():
     # Reset global database after each test
     try:
         from src.storage import database as db_module
+
         if db_module._db is not None:
             # Force reset without awaiting (connection should already be closed
             # by the test_database fixture if it was used)

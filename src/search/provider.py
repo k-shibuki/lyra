@@ -51,8 +51,12 @@ class SearchResult(BaseModel):
     engine: str = Field(..., description="Search engine that returned this result")
     rank: int = Field(..., ge=0, description="Rank position in search results")
     date: str | None = Field(default=None, description="Publication date if available")
-    source_tag: SourceTag = Field(default=SourceTag.UNKNOWN, description="Classification of source type")
-    raw_data: dict[str, Any] | None = Field(default=None, description="Optional raw data from provider")
+    source_tag: SourceTag = Field(
+        default=SourceTag.UNKNOWN, description="Classification of source type"
+    )
+    raw_data: dict[str, Any] | None = Field(
+        default=None, description="Optional raw data from provider"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -363,7 +367,7 @@ class SearchProviderRegistry:
         response = await registry.search_with_fallback(query)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize empty registry."""
         self._providers: dict[str, SearchProvider] = {}
         self._default_name: str | None = None

@@ -326,7 +326,7 @@ class EngineCircuitBreaker:
 class CircuitBreakerManager:
     """Manages circuit breakers for multiple search engines."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize circuit breaker manager."""
         self._breakers: dict[str, EngineCircuitBreaker] = {}
         self._settings = get_settings()

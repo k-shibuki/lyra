@@ -5,6 +5,7 @@ Open Access URL resolution (priority=5).
 """
 
 import os
+from typing import Any
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -17,22 +18,20 @@ logger = get_logger(__name__)
 class UnpaywallClient(BaseAcademicClient):
     """Unpaywall API client for OA URL resolution."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Unpaywall client."""
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
 
             config = get_academic_apis_config()
-            api_config = config.apis.get("unpaywall", {})
-            base_url = (
-                api_config.base_url if api_config.base_url else "https://api.unpaywall.org/v2"
-            )
-            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
-            headers = api_config.headers if api_config.headers else None
+            api_config = config.get_api_config("unpaywall")
+            base_url = api_config.base_url
+            timeout = float(api_config.timeout_seconds)
+            headers = api_config.headers
 
             # Email is required for Unpaywall API
-            self.email = api_config.email if api_config.email else None
+            self.email = api_config.email
             if not self.email:
                 # Try environment variable
                 self.email = os.environ.get(
@@ -44,7 +43,9 @@ class UnpaywallClient(BaseAcademicClient):
             base_url = "https://api.unpaywall.org/v2"
             timeout = 30.0
             headers = None
-            self.email = os.environ.get("LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com")
+            self.email = os.environ.get(
+                "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com"
+            )
 
         super().__init__("unpaywall", base_url=base_url, timeout=timeout, headers=headers)
 
@@ -67,7 +68,7 @@ class UnpaywallClient(BaseAcademicClient):
 
         session = await self._get_session()
 
-        async def _fetch():
+        async def _fetch() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/{normalized_doi}", params={"email": self.email}
             )
@@ -109,11 +110,7 @@ class UnpaywallClient(BaseAcademicClient):
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search is not supported by Unpaywall API."""
         logger.debug("Unpaywall does not support search", query=query)
-        return AcademicSearchResult(
-            papers=[],
-            total_count=0,
-            source_api="unpaywall"
-        )
+        return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="unpaywall")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper is not supported by Unpaywall API.

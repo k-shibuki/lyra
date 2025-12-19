@@ -56,7 +56,7 @@ def _check_tesseract_available() -> bool:
     return _tesseract_available
 
 
-def _get_paddleocr_instance():
+def _get_paddleocr_instance() -> Any:
     """Get or create PaddleOCR instance (singleton for efficiency)."""
     global _paddleocr_instance
     if _paddleocr_instance is None and _check_paddleocr_available():
@@ -204,16 +204,19 @@ async def _extract_html(
 
             # Store in database if we have a page_id
             if page_id:
-                await db.insert("fragments", {
-                    "page_id": page_id,
-                    "fragment_type": "paragraph",
-                    "position": idx,
-                    "text_content": para,
-                    "heading_context": fragment["heading_context"],
-                    "heading_hierarchy": json.dumps(heading_hierarchy, ensure_ascii=False),
-                    "element_index": element_index,
-                    "text_hash": text_hash,
-                })
+                await db.insert(
+                    "fragments",
+                    {
+                        "page_id": page_id,
+                        "fragment_type": "paragraph",
+                        "position": idx,
+                        "text_content": para,
+                        "heading_context": fragment["heading_context"],
+                        "heading_hierarchy": json.dumps(heading_hierarchy, ensure_ascii=False),
+                        "element_index": element_index,
+                        "text_hash": text_hash,
+                    },
+                )
 
         logger.info(
             "HTML extraction complete",
@@ -350,11 +353,13 @@ async def _extract_pdf(
                             for span in line["spans"]:
                                 # Detect headings by font size
                                 if span["size"] > 14:
-                                    headings.append({
-                                        "level": 1 if span["size"] > 18 else 2,
-                                        "text": span["text"].strip(),
-                                        "page": page_num + 1,
-                                    })
+                                    headings.append(
+                                        {
+                                            "level": 1 if span["size"] > 18 else 2,
+                                            "text": span["text"].strip(),
+                                            "page": page_num + 1,
+                                        }
+                                    )
 
         # Extract PDF metadata
         metadata = doc.metadata
@@ -395,7 +400,7 @@ async def _extract_pdf(
         }
 
 
-async def _ocr_pdf_page(page, page_num: int) -> str | None:
+async def _ocr_pdf_page(page: Any, page_num: int) -> str | None:
     """Apply OCR to a PDF page.
 
     Tries PaddleOCR first (GPU-capable), falls back to Tesseract.
@@ -602,11 +607,13 @@ def _extract_headings(html: str) -> list[dict[str, Any]]:
             heading_char_pos = match.start()
             position = sum(1 for p in para_positions if p < heading_char_pos)
 
-            headings.append({
-                "level": level,
-                "text": text,
-                "position": position,
-            })
+            headings.append(
+                {
+                    "level": level,
+                    "text": text,
+                    "position": position,
+                }
+            )
 
     return headings
 
@@ -642,10 +649,12 @@ def _extract_tables(html: str) -> list[dict[str, Any]]:
                 rows.append(cells)
 
         if rows:
-            tables.append({
-                "index": idx,
-                "rows": rows,
-            })
+            tables.append(
+                {
+                    "index": idx,
+                    "rows": rows,
+                }
+            )
 
     return tables
 

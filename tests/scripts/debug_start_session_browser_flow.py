@@ -95,7 +95,9 @@ async def main():
         assert isinstance(result["count"], int), "count should be int"
         assert isinstance(result["items"], list), "items should be list"
 
-        print(f"  ✓ start_session returned: ok={result['ok']}, session_started={result['session_started']}, count={result['count']}")
+        print(
+            f"  ✓ start_session returned: ok={result['ok']}, session_started={result['session_started']}, count={result['count']}"
+        )
 
         if result["items"]:
             item = result["items"][0]

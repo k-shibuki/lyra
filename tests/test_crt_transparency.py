@@ -329,17 +329,11 @@ Certificate:
         """Test extracting organization from issuer string."""
         parser = CertTransparencyParser()
 
-        assert parser._extract_org_from_issuer(
-            "C=US, O=Let's Encrypt, CN=R3"
-        ) == "Let's Encrypt"
+        assert parser._extract_org_from_issuer("C=US, O=Let's Encrypt, CN=R3") == "Let's Encrypt"
 
-        assert parser._extract_org_from_issuer(
-            "DigiCert SHA2 Secure Server CA"
-        ) == "DigiCert Inc"
+        assert parser._extract_org_from_issuer("DigiCert SHA2 Secure Server CA") == "DigiCert Inc"
 
-        assert parser._extract_org_from_issuer(
-            "Unknown Issuer"
-        ) is None
+        assert parser._extract_org_from_issuer("Unknown Issuer") is None
 
     def test_aggregate_discoveries(self):
         """Test aggregating discovered entities from certs."""

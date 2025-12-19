@@ -63,8 +63,10 @@ async def test_browser_fetcher_health_check():
 
             # Type check
             assert isinstance(audit_result, AuditResult), "audit_result should be AuditResult"
-            assert hasattr(audit_result, 'status'), "AuditResult should have 'status' attribute"
-            assert audit_result.status in AuditStatus, f"status should be AuditStatus, got {type(audit_result.status)}"
+            assert hasattr(audit_result, "status"), "AuditResult should have 'status' attribute"
+            assert audit_result.status in AuditStatus, (
+                f"status should be AuditStatus, got {type(audit_result.status)}"
+            )
 
             print(f"  ✓ Health check completed: status={audit_result.status.value}")
 
@@ -176,8 +178,10 @@ async def test_browser_search_provider_health_check():
 
             # Type check
             assert isinstance(audit_result, AuditResult), "audit_result should be AuditResult"
-            assert hasattr(audit_result, 'status'), "AuditResult should have 'status' attribute"
-            assert audit_result.status in AuditStatus, f"status should be AuditStatus, got {type(audit_result.status)}"
+            assert hasattr(audit_result, "status"), "AuditResult should have 'status' attribute"
+            assert audit_result.status in AuditStatus, (
+                f"status should be AuditStatus, got {type(audit_result.status)}"
+            )
 
             print(f"  ✓ Health check completed: status={audit_result.status.value}")
 

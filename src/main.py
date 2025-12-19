@@ -91,10 +91,12 @@ async def run_research(query: str) -> None:
                     task_id=task_id,
                 )
                 if fetch_result.get("ok"):
-                    pages.append({
-                        "url": url,
-                        "html_path": fetch_result.get("html_path"),
-                    })
+                    pages.append(
+                        {
+                            "url": url,
+                            "html_path": fetch_result.get("html_path"),
+                        }
+                    )
 
         logger.info(f"Fetched {len(pages)} pages")
 
@@ -108,11 +110,13 @@ async def run_research(query: str) -> None:
                 )
                 if extract_result.get("ok"):
                     for i, frag in enumerate(extract_result.get("fragments", [])):
-                        passages.append({
-                            "id": f"{page['url']}_{i}",
-                            "text": frag.get("text", ""),
-                            "source_url": page["url"],
-                        })
+                        passages.append(
+                            {
+                                "id": f"{page['url']}_{i}",
+                                "text": frag.get("text", ""),
+                                "source_url": page["url"],
+                            }
+                        )
 
         logger.info(f"Extracted {len(passages)} passages")
 
@@ -141,9 +145,7 @@ def main() -> None:
     """Main entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Lancet - Local Autonomous Deep Research Agent"
-    )
+    parser = argparse.ArgumentParser(description="Lancet - Local Autonomous Deep Research Agent")
     parser.add_argument(
         "command",
         choices=["init", "research", "mcp"],
@@ -158,7 +160,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    async def async_main():
+    async def async_main() -> None:
         await initialize()
 
         try:

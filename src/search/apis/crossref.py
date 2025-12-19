@@ -4,7 +4,7 @@ Crossref API client.
 DOI resolution and metadata normalization (priority=3).
 """
 
-
+from typing import Any
 
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
@@ -17,17 +17,17 @@ logger = get_logger(__name__)
 class CrossrefClient(BaseAcademicClient):
     """Crossref API client."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Crossref client."""
         # Load config
         try:
             from src.utils.config import get_academic_apis_config
 
             config = get_academic_apis_config()
-            api_config = config.apis.get("crossref", {})
-            base_url = api_config.base_url if api_config.base_url else "https://api.crossref.org"
-            timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
-            headers = api_config.headers if api_config.headers else None
+            api_config = config.get_api_config("crossref")
+            base_url = api_config.base_url
+            timeout = float(api_config.timeout_seconds)
+            headers = api_config.headers
         except Exception:
             # Fallback to defaults if config loading fails
             base_url = "https://api.crossref.org"
@@ -40,7 +40,7 @@ class CrossrefClient(BaseAcademicClient):
         """Search for papers."""
         session = await self._get_session()
 
-        async def _search():
+        async def _search() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/works", params={"query": query, "rows": limit}
             )
@@ -55,15 +55,12 @@ class CrossrefClient(BaseAcademicClient):
             return AcademicSearchResult(
                 papers=papers,
                 total_count=data.get("message", {}).get("total-results", 0),
+                next_cursor=None,
                 source_api="crossref",
             )
         except Exception as e:
             logger.error("Crossref search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[],
-                total_count=0,
-                source_api="crossref"
-            )
+            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="crossref")
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata by DOI."""
@@ -73,7 +70,7 @@ class CrossrefClient(BaseAcademicClient):
         """Get paper metadata from DOI."""
         session = await self._get_session()
 
-        async def _fetch():
+        async def _fetch() -> dict[str, Any] | None:
             response = await session.get(f"{self.base_url}/works/{doi}")
             if response.status_code == 404:
                 return None
@@ -110,11 +107,7 @@ class CrossrefClient(BaseAcademicClient):
             family = author_data.get("family", "")
             name = f"{given} {family}".strip() if given or family else ""
             if name:
-                authors.append(Author(
-                    name=name,
-                    affiliation=None,
-                    orcid=author_data.get("ORCID")
-                ))
+                authors.append(Author(name=name, affiliation=None, orcid=author_data.get("ORCID")))
 
         doi = data.get("DOI", "")
         if doi and doi.startswith("https://doi.org/"):
@@ -144,7 +137,9 @@ class CrossrefClient(BaseAcademicClient):
             abstract=None,  # Crossref API often does not have abstract
             authors=authors,
             year=year,
+            published_date=None,  # Crossref API date handled via year
             doi=doi if doi else None,
+            arxiv_id=None,  # Crossref does not provide arXiv ID
             venue=data.get("container-title", [""])[0]
             if isinstance(data.get("container-title"), list)
             else data.get("container-title"),
@@ -152,5 +147,6 @@ class CrossrefClient(BaseAcademicClient):
             reference_count=len(data.get("reference", [])) if data.get("reference") else 0,
             is_open_access=False,  # Crossref API does not have OA info
             oa_url=None,
+            pdf_url=None,  # Crossref does not provide PDF URL
             source_api="crossref",
         )

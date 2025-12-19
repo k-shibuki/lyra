@@ -21,9 +21,12 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
+
+if TYPE_CHECKING:
+    from src.search.engine_config import SearchEngineConfigManager
 
 from src.storage.database import get_database
 from src.utils.config import get_settings
@@ -166,7 +169,7 @@ class QueryOperatorProcessor:
                          SearchEngineConfigManager singleton.
         """
         self._operator_mapping: dict[str, dict[str, str | None]] = {}
-        self._config_manager = None
+        self._config_manager: SearchEngineConfigManager | None = None
         self._load_config(config_path)
 
     def _load_config(self, config_path: str | None = None) -> None:
@@ -181,6 +184,7 @@ class QueryOperatorProcessor:
 
             if config_path is None:
                 self._config_manager = get_engine_config_manager()
+                assert self._config_manager is not None
                 self._operator_mapping = self._config_manager.get_all_operator_mappings()
                 logger.debug(
                     "Loaded operator mapping from SearchEngineConfigManager",
@@ -286,7 +290,15 @@ class QueryOperatorProcessor:
         remaining_query = query
 
         # Extract operators in specific order (more specific first)
-        extraction_order = ["site", "filetype", "intitle", "date_after", "exact", "exclude", "required"]
+        extraction_order = [
+            "site",
+            "filetype",
+            "intitle",
+            "date_after",
+            "exact",
+            "exclude",
+            "required",
+        ]
 
         for op_type in extraction_order:
             pattern = self.PATTERNS.get(op_type)
@@ -304,14 +316,16 @@ class QueryOperatorProcessor:
                 else:
                     value = match.group(1)
 
-                operators.append(ParsedOperator(
-                    operator_type=op_type,
-                    value=value,
-                    raw_text=raw_text,
-                ))
+                operators.append(
+                    ParsedOperator(
+                        operator_type=op_type,
+                        value=value,
+                        raw_text=raw_text,
+                    )
+                )
 
                 # Remove from query
-                remaining_query = remaining_query[:match.start()] + remaining_query[match.end():]
+                remaining_query = remaining_query[: match.start()] + remaining_query[match.end() :]
 
         # Clean up base query
         base_query = " ".join(remaining_query.split())
@@ -597,7 +611,8 @@ async def _search_with_provider(
         registry.register(provider, set_default=True)
 
     # Set as default if not already
-    if registry.get_default() is None or registry.get_default().name != "browser_search":
+    default_provider = registry.get_default()
+    if default_provider is None or default_provider.name != "browser_search":
         if registry.get("browser_search"):
             registry.set_default("browser_search")
 
@@ -758,42 +773,53 @@ async def search_serp(
 
         # Store in database
         if task_id:
-            query_id = await db.insert("queries", {
-                "task_id": task_id,
-                "query_text": query,
-                "query_type": "initial",
-                "engines_used": json.dumps(engines) if engines else None,
-                "result_count": len(results),
-                "cause_id": trace.id,
-            })
+            query_id = await db.insert(
+                "queries",
+                {
+                    "task_id": task_id,
+                    "query_text": query,
+                    "query_type": "initial",
+                    "engines_used": json.dumps(engines) if engines else None,
+                    "result_count": len(results),
+                    "cause_id": trace.id,
+                },
+            )
 
             # Store SERP items
             for result in results:
-                await db.insert("serp_items", {
-                    "query_id": query_id,
-                    "engine": result["engine"],
-                    "rank": result["rank"],
-                    "url": result["url"],
-                    "title": result["title"],
-                    "snippet": result["snippet"],
-                    "published_date": result.get("date"),
-                    "source_tag": result["source_tag"],
-                    "cause_id": trace.id,
-                })
+                await db.insert(
+                    "serp_items",
+                    {
+                        "query_id": query_id,
+                        "engine": result["engine"],
+                        "rank": result["rank"],
+                        "url": result["url"],
+                        "title": result["title"],
+                        "snippet": result["snippet"],
+                        "published_date": result.get("date"),
+                        "source_tag": result["source_tag"],
+                        "cause_id": trace.id,
+                    },
+                )
 
         # Cache results
         if use_cache and results:
             settings = get_settings()
             expires_at = datetime.now(UTC) + timedelta(hours=settings.storage.serp_cache_ttl)
 
-            await db.insert("cache_serp", {
-                "cache_key": cache_key,
-                "query_normalized": _normalize_query(query),
-                "engines_json": json.dumps(engines) if engines else "[]",
-                "time_range": time_range,
-                "result_json": json.dumps(results, ensure_ascii=False),
-                "expires_at": expires_at.isoformat(),
-            }, or_replace=True, auto_id=False)
+            await db.insert(
+                "cache_serp",
+                {
+                    "cache_key": cache_key,
+                    "query_normalized": _normalize_query(query),
+                    "engines_json": json.dumps(engines) if engines else "[]",
+                    "time_range": time_range,
+                    "result_json": json.dumps(results, ensure_ascii=False),
+                    "expires_at": expires_at.isoformat(),
+                },
+                or_replace=True,
+                auto_id=False,
+            )
 
         logger.info(
             "SERP search completed",
@@ -883,7 +909,7 @@ def _classify_source(url: str) -> str:
 class QueryExpander:
     """Query expansion using SudachiPy for Japanese text analysis."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize query expander."""
         self._tokenizer = None
         self._tokenize_mode = None
@@ -957,9 +983,9 @@ class QueryExpander:
         """
         if not self._ensure_initialized():
             # Fallback: simple space-based tokenization
-            return [{"surface": w, "normalized": w, "pos": "unknown"}
-                    for w in text.split()]
+            return [{"surface": w, "normalized": w, "pos": "unknown"} for w in text.split()]
 
+        assert self._tokenizer is not None  # Guaranteed by _ensure_initialized
         tokens = []
         for m in self._tokenizer.tokenize(text, self._tokenize_mode):
             tokens.append(
@@ -1071,7 +1097,7 @@ class QueryExpander:
                 if variant != query and variant not in expanded:
                     expanded.append(variant)
 
-        return expanded[:max_expansions + 1]  # Limit total expansions
+        return expanded[: max_expansions + 1]  # Limit total expansions
 
     def generate_variants(
         self,
