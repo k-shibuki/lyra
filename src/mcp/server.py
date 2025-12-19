@@ -1,5 +1,5 @@
 """
-MCP Server implementation for Lancet.
+MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
 Phase M: Refactored to 11 tools per docs/REQUIREMENTS.md §3.2.1.
@@ -22,7 +22,7 @@ ensure_logging_configured()
 logger = get_logger(__name__)
 
 # Create MCP server instance
-app = Server("lancet")
+app = Server("lyra")
 
 
 # ============================================================

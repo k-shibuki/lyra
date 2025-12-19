@@ -1,5 +1,5 @@
 """
-Job scheduler for Lancet.
+Job scheduler for Lyra.
 Manages job queues, slots, and resource allocation.
 Implements budget control per §3.1 and §3.2.2.
 """

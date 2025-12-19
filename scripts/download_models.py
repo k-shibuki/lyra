@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Download ML models for Lancet.
+Download ML models for Lyra.
 This script is run during Docker build to include models in the image.
 
 Models can be updated by:
@@ -23,18 +23,18 @@ import os
 import sys
 
 # Model names - edit these to update models
-MODEL_EMBEDDING = os.environ.get("LANCET_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
-MODEL_RERANKER = os.environ.get("LANCET_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
+MODEL_EMBEDDING = os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
+MODEL_RERANKER = os.environ.get("LYRA_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 MODEL_NLI_FAST = os.environ.get(
-    "LANCET_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall"
+    "LYRA_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall"
 )
 MODEL_NLI_SLOW = os.environ.get(
-    "LANCET_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small"
+    "LYRA_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small"
 )
 
 # Output path for model paths JSON
 MODEL_PATHS_FILE = os.environ.get(
-    "LANCET_ML__MODEL_PATHS_FILE", "/app/models/model_paths.json"
+    "LYRA_ML__MODEL_PATHS_FILE", "/app/models/model_paths.json"
 )
 
 

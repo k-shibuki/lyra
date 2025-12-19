@@ -32,7 +32,7 @@
 
 ```bash
 # コンテナ内で診断スクリプトを実行
-podman exec lancet python -c "
+podman exec lyra python -c "
 from src.search.parser_diagnostics import get_latest_debug_html, analyze_debug_html
 import json
 
@@ -50,7 +50,7 @@ else:
 
 ```bash
 # DuckDuckGoの最新失敗を分析
-podman exec lancet python -c "
+podman exec lyra python -c "
 from src.search.parser_diagnostics import get_latest_debug_html, analyze_debug_html
 import json
 
@@ -66,9 +66,9 @@ if path:
 
 ```bash
 # 検索エンジンごとのE2E検証スクリプト
-podman exec lancet python tests/scripts/verify_duckduckgo_search.py
-podman exec lancet python tests/scripts/verify_ecosia_search.py
-podman exec lancet python tests/scripts/verify_startpage_search.py
+podman exec lyra python tests/scripts/verify_duckduckgo_search.py
+podman exec lyra python tests/scripts/verify_ecosia_search.py
+podman exec lyra python tests/scripts/verify_startpage_search.py
 ```
 
 ## 診断レポートの読み方

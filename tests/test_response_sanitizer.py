@@ -53,7 +53,7 @@ def sanitizer():
 def sanitizer_with_prompt():
     """Create sanitizer with system prompt for leakage detection."""
     return ResponseSanitizer(
-        system_prompt="This is a secret system prompt for testing LANCET-abc123"
+        system_prompt="This is a secret system prompt for testing LYRA-abc123"
     )
 
 
@@ -351,7 +351,7 @@ class TestAbnormalCases:
         // Then: Paths are removed
         """
         try:
-            raise FileNotFoundError("Cannot find /home/statuser/lancet/secret.txt")
+            raise FileNotFoundError("Cannot find /home/statuser/lyra/secret.txt")
         except Exception as e:
             result = sanitizer.sanitize_error(e)
 

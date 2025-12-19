@@ -1,6 +1,6 @@
 """
 ML Server Client.
-HTTP client for communicating with the ML server (lancet-ml container).
+HTTP client for communicating with the ML server (lyra-ml container).
 ML models run in a separate container on internal network for security isolation.
 """
 

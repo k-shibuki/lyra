@@ -1,5 +1,5 @@
 """
-Deduplication module for Lancet.
+Deduplication module for Lyra.
 Uses MinHash/LSH and SimHash for detecting duplicate/near-duplicate text fragments.
 """
 

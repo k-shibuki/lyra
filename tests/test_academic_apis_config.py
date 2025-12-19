@@ -96,7 +96,7 @@ class TestConfigLoading:
         config_file.write_text(sample_config_yaml)
 
         # When: Loading configuration
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_config_dir)}):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_config_dir)}):
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()
 
@@ -124,7 +124,7 @@ class TestConfigLoading:
         """TC-CFG-B-02: Config file missing."""
         # Given: Config file does not exist
         # When: Loading configuration
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": "/nonexistent/path"}):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": "/nonexistent/path"}):
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()
 
@@ -139,7 +139,7 @@ class TestConfigLoading:
         config_file.write_text("")
 
         # When: Loading configuration
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_config_dir)}):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_config_dir)}):
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()
 
@@ -154,7 +154,7 @@ class TestConfigLoading:
         config_file.write_text("apis:\n  invalid: [unclosed")
 
         # When: Loading configuration
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_config_dir)}):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_config_dir)}):
             get_academic_apis_config.cache_clear()
 
             # Then: Should handle YAML parse error gracefully
@@ -174,7 +174,7 @@ class TestConfigLoading:
         config_file.write_text("apis: {}\ndefaults:\n  search_apis: []")
 
         # When: Loading configuration
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_config_dir)}):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_config_dir)}):
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()
 
@@ -191,7 +191,7 @@ class TestConfigLoading:
         )
 
         # When: Loading configuration
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_config_dir)}):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_config_dir)}):
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()
 
@@ -207,7 +207,7 @@ class TestBackwardCompatibility:
         """TC-BC-N-01: API clients initialized without config file."""
         # Given: Config file does not exist
         # When: Initializing API clients
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": "/nonexistent/path"}, clear=False):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": "/nonexistent/path"}, clear=False):
             get_academic_apis_config.cache_clear()
 
             from src.search.apis.arxiv import ArxivClient
@@ -242,8 +242,8 @@ class TestEnvironmentVariableOverride:
         with patch.dict(
             os.environ,
             {
-                "LANCET_CONFIG_DIR": str(temp_config_dir),
-                "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL": "override@example.com",
+                "LYRA_CONFIG_DIR": str(temp_config_dir),
+                "LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL": "override@example.com",
             },
         ):
             get_academic_apis_config.cache_clear()

@@ -1,5 +1,5 @@
 """
-Claim Timeline for Lancet.
+Claim Timeline for Lyra.
 
 Implements §3.4 requirement for claim timeline tracking:
 - First appearance / update / correction / retraction / confirmation events

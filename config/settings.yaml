@@ -1,9 +1,9 @@
-# Lancet - Local Autonomous Deep Research Agent
+# Lyra - Local Yielding Research Aide
 # Main Configuration File
 
 # === General Settings ===
 general:
-  project_name: "lancet"
+  project_name: "lyra"
   version: "0.1.0"
   log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
   data_dir: "data"
@@ -202,7 +202,7 @@ nli:
 
 # === Storage Settings ===
 storage:
-  database_path: "data/lancet.db"
+  database_path: "data/lyra.db"
   warc_dir: "data/warc"
   screenshots_dir: "data/screenshots"
   reports_dir: "data/reports"

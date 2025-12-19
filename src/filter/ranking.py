@@ -1,9 +1,9 @@
 """
-Passage ranking for Lancet.
+Passage ranking for Lyra.
 Multi-stage ranking: BM25 → Embeddings → Reranker.
 
 When ml.use_remote=True, embedding and reranking are performed
-via HTTP calls to the lancet-ml container on internal network.
+via HTTP calls to the lyra-ml container on internal network.
 """
 
 import hashlib

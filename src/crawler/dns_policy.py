@@ -1,5 +1,5 @@
 """
-DNS Policy Management for Lancet.
+DNS Policy Management for Lyra.
 
 Implements DNS policies per §4.3:
 - Resolve DNS through Tor SOCKS proxy when using Tor route (socks5h://)

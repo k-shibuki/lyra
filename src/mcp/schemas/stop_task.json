@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:stop_task",
+  "$id": "lyra:mcp:stop_task",
   "title": "stop_task Response",
   "description": "Response schema for stop_task tool",
   "type": "object",

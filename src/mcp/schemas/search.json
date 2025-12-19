@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:search",
+  "$id": "lyra:mcp:search",
   "title": "search Response",
   "description": "Response schema for search tool (§3.2.1: search pipeline execution)",
   "type": "object",

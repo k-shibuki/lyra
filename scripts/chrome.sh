@@ -1,7 +1,7 @@
 #!/bin/bash
 # Lancet Chrome Manager (AI-friendly)
 #
-# Start Chrome with remote debugging for Lancet.
+# Start Chrome with remote debugging for Lyra.
 # Designed to coexist with existing Chrome sessions by using separate user-data-dir.
 #
 # Usage:
@@ -353,7 +353,7 @@ start_chrome_linux() {
     echo "Port: $port"
     
     # Use separate data dir
-    local data_dir="$HOME/.local/share/lancet-chrome"
+    local data_dir="$HOME/.local/share/lyra-chrome"
     mkdir -p "$data_dir"
     
     "$chrome_path" \
@@ -436,7 +436,7 @@ stop_chrome() {
 run_diagnose() {
     local port="$1"
     
-    echo "=== Lancet Chrome Diagnostics ==="
+    echo "=== Lyra Chrome Diagnostics ==="
     echo ""
     echo "Environment: $ENV_TYPE"
     echo "Port: $port"
@@ -603,7 +603,7 @@ run_fix() {
         return 0
     fi
     
-    echo "=== Lancet Chrome Auto-Fix (WSL2) ==="
+    echo "=== Lyra Chrome Auto-Fix (WSL2) ==="
     echo ""
     
     # Check current status
@@ -724,7 +724,7 @@ show_help() {
     echo "  diagnose  Troubleshoot connection issues (WSL only)"
     echo "  fix       Auto-generate fix commands for WSL2 mirrored networking"
     echo ""
-    echo "Default port: $CHROME_PORT (from .env: LANCET_BROWSER__CHROME_PORT)"
+    echo "Default port: $CHROME_PORT (from .env: LYRA_BROWSER__CHROME_PORT)"
     echo ""
     echo "The Chrome instance uses a separate profile (LancetChrome)"
     echo "so it won't interfere with your normal browsing."

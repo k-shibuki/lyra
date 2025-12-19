@@ -6,7 +6,7 @@ ML Testing Strategy
 =============================================================================
 
 This project uses a hybrid architecture where ML inference runs in an isolated
-container (lancet-ml) for security. Tests are split into two categories:
+container (lyra-ml) for security. Tests are split into two categories:
 
 1. UNIT TESTS (this file - test_ml_server.py)
    - Test model path management, service classes, label mapping, etc.
@@ -50,8 +50,8 @@ _HAS_SENTENCE_TRANSFORMERS = False
 _HAS_TRANSFORMERS = False
 
 # Check environment variable to force running ML tests (e.g., in container)
-_RUN_ML_TESTS = os.environ.get("LANCET_RUN_ML_TESTS", "0") == "1"
-_RUN_ML_API_TESTS = os.environ.get("LANCET_RUN_ML_API_TESTS", "0") == "1"
+_RUN_ML_TESTS = os.environ.get("LYRA_RUN_ML_TESTS", "0") == "1"
+_RUN_ML_API_TESTS = os.environ.get("LYRA_RUN_ML_API_TESTS", "0") == "1"
 
 try:
     import sentence_transformers  # noqa: F401
@@ -95,7 +95,7 @@ _SKIP_MSG_ML_CONTAINER = (
 )
 
 # Decorators for skipping tests based on ML dependencies
-# If LANCET_RUN_ML_TESTS=1 is set (e.g., in container), don't skip even if libs are missing
+# If LYRA_RUN_ML_TESTS=1 is set (e.g., in container), don't skip even if libs are missing
 requires_sentence_transformers = pytest.mark.skipif(
     not _HAS_SENTENCE_TRANSFORMERS and not _RUN_ML_TESTS,
     reason=_SKIP_MSG_SENTENCE_TRANSFORMERS,
@@ -143,7 +143,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_model_paths
 
             result = get_model_paths()
@@ -176,7 +176,7 @@ class TestModelPaths:
         non_existent_file = tmp_path / "non_existent.json"
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(non_existent_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(non_existent_file)}):
             from src.ml_server.model_paths import get_model_paths
 
             result = get_model_paths()
@@ -195,7 +195,7 @@ class TestModelPaths:
         json_file.write_text("{ invalid json }")
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_model_paths
 
             result = get_model_paths()
@@ -226,7 +226,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_embedding_path
 
             result = get_embedding_path()
@@ -247,8 +247,8 @@ class TestModelPaths:
         with patch.dict(
             os.environ,
             {
-                "LANCET_ML__MODEL_PATHS_FILE": str(non_existent),
-                "LANCET_ML__EMBEDDING_MODEL": "custom/embedding-model",
+                "LYRA_ML__MODEL_PATHS_FILE": str(non_existent),
+                "LYRA_ML__EMBEDDING_MODEL": "custom/embedding-model",
             },
         ):
             from src.ml_server.model_paths import get_embedding_path
@@ -281,7 +281,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_reranker_path
 
             result = get_reranker_path()
@@ -312,7 +312,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_nli_fast_path
 
             result = get_nli_fast_path()
@@ -343,7 +343,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_nli_slow_path
 
             result = get_nli_slow_path()
@@ -373,7 +373,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import is_using_local_paths
 
             result = is_using_local_paths()
@@ -391,7 +391,7 @@ class TestModelPaths:
         non_existent = tmp_path / "non_existent.json"
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(non_existent)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(non_existent)}):
             from src.ml_server.model_paths import is_using_local_paths
 
             result = is_using_local_paths()
@@ -420,7 +420,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_model_paths
 
             result = get_model_paths()
@@ -449,7 +449,7 @@ class TestModelPaths:
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
-        with patch.dict(os.environ, {"LANCET_ML__MODEL_PATHS_FILE": str(json_file)}):
+        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
             from src.ml_server.model_paths import get_model_paths
 
             result = get_model_paths()

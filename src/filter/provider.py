@@ -1,5 +1,5 @@
 """
-LLM provider abstraction layer for Lancet.
+LLM provider abstraction layer for Lyra.
 
 Provides a unified interface for LLM providers, enabling easy switching
 between different backends (Ollama, future providers like llama.cpp, vLLM).

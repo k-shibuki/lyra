@@ -1,5 +1,5 @@
 """
-Content extraction module for Lancet.
+Content extraction module for Lyra.
 
 Provides HTML/PDF content extraction with OCR support,
 page type classification, and content quality analysis.

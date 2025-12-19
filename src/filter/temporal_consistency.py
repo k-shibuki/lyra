@@ -1,5 +1,5 @@
 """
-Temporal Consistency Checker for Lancet.
+Temporal Consistency Checker for Lyra.
 
 Implements §3.3.3 requirement for temporal consistency validation:
 - Claim timestamp vs page update date consistency check

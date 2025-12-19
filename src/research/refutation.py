@@ -1,5 +1,5 @@
 """
-Refutation executor for Lancet.
+Refutation executor for Lyra.
 
 Executes refutation searches using mechanical patterns only.
 Cursor AI designs which claims/subqueries to refute;

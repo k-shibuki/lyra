@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:error",
+  "$id": "lyra:mcp:error",
   "title": "MCP Error Response",
   "description": "Common error response schema for all MCP tools",
   "type": "object",

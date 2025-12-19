@@ -1,5 +1,5 @@
 """
-Search integration for Lancet.
+Search integration for Lyra.
 
 Provides unified search interface through provider abstraction.
 Uses BrowserSearchProvider by default.

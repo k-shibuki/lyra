@@ -1,5 +1,5 @@
 """
-Browser provider abstraction layer for Lancet.
+Browser provider abstraction layer for Lyra.
 
 Provides a unified interface for browser automation providers, enabling easy
 switching between different backends (Playwright, undetected-chromedriver).

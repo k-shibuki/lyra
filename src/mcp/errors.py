@@ -1,5 +1,5 @@
 """
-MCP Error Code definitions for Lancet.
+MCP Error Code definitions for Lyra.
 
 Implements §3.2.1 error code schema for consistent error handling across all MCP tools.
 Each error code has a specific meaning and recommended action for Cursor AI.

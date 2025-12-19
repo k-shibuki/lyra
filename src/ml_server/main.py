@@ -1,7 +1,7 @@
 """
 Lancet ML Server - FastAPI Application.
 Provides embedding, reranking, and NLI inference endpoints.
-SECURITY: Runs on internal-only network (lancet-internal).
+SECURITY: Runs on internal-only network (lyra-internal).
 """
 
 from collections.abc import AsyncGenerator

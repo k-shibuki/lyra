@@ -5,7 +5,7 @@ E2E Environment Verification Script
 Verification target: N.2-1 - E2E実行環境確認
 
 Verification items:
-1. Container proxy status (lancet proxy, ollama, lancet-ml)
+1. Container proxy status (lyra proxy, ollama, lyra-ml)
 2. Chrome CDP connection (Windows Chrome -> WSL2)
 3. Ollama LLM availability and model check (via proxy)
 4. Proxy connectivity (WSL -> container proxy -> ollama/ml)
@@ -82,7 +82,7 @@ class EnvironmentVerifier:
         Verify Podman container status.
 
         Checks:
-        - lancet container is running (current container)
+        - lyra container is running (current container)
         - Environment variables are set correctly
         """
         print("\n[1/6] Verifying container environment...")
@@ -237,7 +237,7 @@ class EnvironmentVerifier:
 
             # Create provider with configured host
             # In container, Ollama is accessible via internal network
-            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
+            ollama_host = os.environ.get("LYRA_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             provider = OllamaProvider(host=ollama_host)
 
@@ -306,7 +306,7 @@ class EnvironmentVerifier:
         Verify container network connectivity.
 
         Checks:
-        - lancet can reach ollama via internal network
+        - lyra can reach ollama via internal network
         - DNS resolution works
         """
         print("\n[4/6] Verifying container network (§4.4.1 L1 ネットワーク分離)...")
@@ -317,7 +317,7 @@ class EnvironmentVerifier:
             from src.utils.config import get_settings
 
             settings = get_settings()
-            ollama_host = os.environ.get("LANCET_LLM__OLLAMA_HOST", settings.llm.ollama_host)
+            ollama_host = os.environ.get("LYRA_LLM__OLLAMA_HOST", settings.llm.ollama_host)
 
             # Try to connect to Ollama API
             async with aiohttp.ClientSession() as session:

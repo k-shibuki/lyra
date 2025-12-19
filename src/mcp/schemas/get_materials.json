@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:get_materials",
+  "$id": "lyra:mcp:get_materials",
   "title": "get_materials Response",
   "description": "Response schema for get_materials tool (§3.2.1: report materials)",
   "type": "object",

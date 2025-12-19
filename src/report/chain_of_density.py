@@ -1,5 +1,5 @@
 """
-Chain-of-Density compression for Lancet.
+Chain-of-Density compression for Lyra.
 
 Implements iterative summarization that increases information density
 while preserving all essential citations and evidence.

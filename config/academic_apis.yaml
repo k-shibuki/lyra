@@ -1,4 +1,4 @@
-# Academic API Configuration for Lancet
+# Academic API Configuration for Lyra
 # See docs/J2_ACADEMIC_API_INTEGRATION.md §8.1
 
 apis:
@@ -10,7 +10,7 @@ apis:
       interval_seconds: 300  # 5 minutes
     timeout_seconds: 30
     priority: 1  # Highest priority (best citation graph coverage)
-    
+
   openalex:
     enabled: true
     base_url: "https://api.openalex.org"
@@ -19,8 +19,8 @@ apis:
     timeout_seconds: 30
     priority: 2
     headers:
-      User-Agent: "Lancet/1.0 (research tool; mailto:lancet@example.com)"
-    
+      User-Agent: "Lyra/1.0 (research tool; mailto:lyra@example.com)"
+
   crossref:
     enabled: true
     base_url: "https://api.crossref.org"
@@ -29,8 +29,8 @@ apis:
     timeout_seconds: 30
     priority: 3
     headers:
-      User-Agent: "Lancet/1.0 (research tool; mailto:lancet@example.com)"
-    
+      User-Agent: "Lyra/1.0 (research tool; mailto:lyra@example.com)"
+
   arxiv:
     enabled: true
     base_url: "http://export.arxiv.org/api/query"
@@ -38,15 +38,15 @@ apis:
       min_interval_seconds: 3
     timeout_seconds: 30
     priority: 4  # Preprint-specific
-    
+
   unpaywall:
-    enabled: false  # Disabled by default. Set LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__ENABLED=true to enable
+    enabled: false  # Disabled by default. Set LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__ENABLED=true to enable
     base_url: "https://api.unpaywall.org/v2"
     rate_limit:
       requests_per_day: 100000
     timeout_seconds: 30
     priority: 5  # OA URL resolution only
-    email: "lancet@example.com"  # Required if enabled (can be overridden via LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL env var)
+    email: "lyra@example.com"  # Required if enabled (can be overridden via LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL env var)
 
 # Default settings
 defaults:

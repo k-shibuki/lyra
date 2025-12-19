@@ -1,5 +1,5 @@
 """
-Search execution engine for Lancet.
+Search execution engine for Lyra.
 
 Executes Cursor AI-designed search queries through the search/fetch/extract pipeline.
 Handles mechanical expansions (synonyms, mirror queries, operators) only.

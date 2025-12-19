@@ -1,5 +1,5 @@
 """
-Ollama LLM provider implementation for Lancet.
+Ollama LLM provider implementation for Lyra.
 
 Implements the LLMProvider interface for Ollama backend.
 

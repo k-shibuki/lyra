@@ -19,7 +19,7 @@ import sys
 import uuid
 
 # Add project root to path
-sys.path.insert(0, "/home/statuser/lancet")
+sys.path.insert(0, "/home/statuser/lyra")
 
 
 async def main():

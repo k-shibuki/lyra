@@ -1,5 +1,5 @@
 """
-Report materials collection for Lancet.
+Report materials collection for Lyra.
 
 Provides unified API for collecting report materials including claims,
 fragments, and evidence graph.

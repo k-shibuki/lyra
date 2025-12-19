@@ -1,5 +1,5 @@
 """
-robots.txt and sitemap.xml parser for Lancet.
+robots.txt and sitemap.xml parser for Lyra.
 
 Implements:
 - robots.txt parsing and compliance checking (§3.1.2)
@@ -136,7 +136,7 @@ class RobotsChecker:
     """
 
     DEFAULT_USER_AGENT = "*"
-    LANCET_USER_AGENT = "Lancet"  # Our crawler's user agent
+    LYRA_USER_AGENT = "Lancet"  # Our crawler's user agent
 
     def __init__(self) -> None:
         self._settings = get_settings()
@@ -327,7 +327,7 @@ class RobotsChecker:
 
             if directive == "user-agent":
                 # New user-agent block
-                if value.lower() in ("*", self.LANCET_USER_AGENT.lower()):
+                if value.lower() in ("*", self.LYRA_USER_AGENT.lower()):
                     applies_to_us = True
                 else:
                     applies_to_us = False

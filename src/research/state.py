@@ -1,5 +1,5 @@
 """
-Exploration state management for Lancet.
+Exploration state management for Lyra.
 
 Manages task and search states, calculates satisfaction and novelty scores.
 Reports state to Cursor AI for decision making.

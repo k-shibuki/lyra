@@ -1,5 +1,5 @@
 """
-Page Type Classifier for Lancet.
+Page Type Classifier for Lyra.
 
 Classifies web pages into types for extraction/traversal strategy selection.
 

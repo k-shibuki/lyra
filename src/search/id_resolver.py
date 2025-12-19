@@ -27,7 +27,7 @@ class IDResolver:
         if self._session is None:
             self._session = httpx.AsyncClient(
                 timeout=30.0,
-                headers={"User-Agent": "Lancet/1.0 (research tool; mailto:lancet@example.com)"},
+                headers={"User-Agent": "Lyra/1.0 (research tool; mailto:lyra@example.com)"},
             )
         return self._session
 

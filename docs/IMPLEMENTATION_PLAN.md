@@ -243,7 +243,7 @@
 
 ```
 ┌──────────────┐    ┌──────────────┐
-│ Lancet       │ →  │ Playwright   │ → DuckDuckGo等
+│ Lyra       │ →  │ Playwright   │ → DuckDuckGo等
 │ (直接検索)   │    │ (ブラウザ)   │
 │              │    │ Cookie: あり │
 │              │    │ 指紋: あり   │    → 人間らしい
@@ -458,13 +458,13 @@ pytest tests/ -m 'not e2e' --tb=short -q
 pip install -r requirements-ml.txt
 
 # 全テスト実行（devコンテナ内で実行）
-podman exec lancet pytest tests/
+podman exec lyra pytest tests/
 
 # 簡潔な出力
-podman exec lancet pytest tests/ --tb=no -q
+podman exec lyra pytest tests/ --tb=no -q
 
 # 特定ファイルのみ
-podman exec lancet pytest tests/test_robots.py -v
+podman exec lyra pytest tests/test_robots.py -v
 ```
 
 **依存関係確認**（回帰テスト実行前）:
@@ -1026,7 +1026,7 @@ prompt = render_prompt("extract_claims", text="...", context="リサーチクエ
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| `_lancet_meta` 付与 | `src/mcp/response_meta.py` (新規) | ✅ |
+| `_lyra_meta` 付与 | `src/mcp/response_meta.py` (新規) | ✅ |
 | claim検証状態付与 | `source_trust_level`, `verification_status` | ✅ |
 | `create_task` 応答拡張 | `src/mcp/server.py` | ✅ |
 | `get_status` 応答拡張 | `src/mcp/server.py` | ✅ |
@@ -1034,11 +1034,11 @@ prompt = render_prompt("extract_claims", text="...", context="リサーチクエ
 **実装内容:**
 - `src/mcp/response_meta.py`: メタデータ生成ヘルパー
   - `VerificationStatus` enum: pending/verified/rejected
-  - `LancetMeta` dataclass: timestamp, security_warnings, blocked_domains, unverified_domains
+  - `LyraMeta` dataclass: timestamp, security_warnings, blocked_domains, unverified_domains
   - `ClaimMeta` dataclass: per-claim検証情報
   - `ResponseMetaBuilder`: 流暢なビルダーAPI
   - `attach_meta()`, `create_minimal_meta()`: ヘルパー関数
-- `src/mcp/server.py`: `create_task`, `get_status`ハンドラーに`_lancet_meta`追加
+- `src/mcp/server.py`: `create_task`, `get_status`ハンドラーに`_lyra_meta`追加
 
 **テスト:** `tests/test_response_meta.py` (16件)
 
@@ -1155,7 +1155,7 @@ MCP応答がCursor AIに渡る前の最終サニタイズ。Cursor AI経由の�
     "satisfaction_score": {"type": "number"},
     "novelty_score": {"type": "number"},
     "budget_remaining": {"type": "object"},
-    "_lancet_meta": {"type": "object"}
+    "_lyra_meta": {"type": "object"}
   },
   "additionalProperties": false
 }
@@ -1249,15 +1249,15 @@ K.1の調査で以下が判明:
 
 **実装方針**:
 - 埋め込み・リランカー・NLIを「MLコンテナ」に集約
-- Ollamaと同じ`lancet-internal`ネットワーク（`internal: true`）に配置
+- Ollamaと同じ`lyra-internal`ネットワーク（`internal: true`）に配置
 - Lancetコンテナからのみアクセス可能に
 - モデルはビルド時にダウンロードしてイメージに含める
 
 **タスク**:
 - [x] 仕様書にMLモデルのセキュリティ方針を追記（docs/REQUIREMENTS.md L1セクション）
 - [x] MLコンテナ用Dockerfile作成（`Dockerfile.ml`）
-- [x] `podman-compose.yml`にMLコンテナ追加（`lancet-ml`サービス）
-- [x] `lancet-internal`ネットワーク追加（`internal: true`、Ollamaと共用）
+- [x] `podman-compose.yml`にMLコンテナ追加（`lyra-ml`サービス）
+- [x] `lyra-internal`ネットワーク追加（`internal: true`、Ollamaと共用）
 - [x] 埋め込み・リランカー・NLIのAPI化（`src/ml_server/` FastAPI）
 - [x] LancetコンテナからMLコンテナへの通信実装（`src/ml_client.py`）
 - [x] 既存の`ranking.py`/`nli.py`をリモート呼び出しに対応
@@ -1317,7 +1317,7 @@ K.1の調査で以下が判明:
      - `@requires_sentence_transformers` / `@requires_transformers` デコレータを実装
      - スキップメッセージで「Use E2E tests (test_ml_server_e2e.py) for ML validation」を明示
    - **E2Eテストの推奨**: MLサーバーの検証はE2Eテスト（HTTP経由）が推奨方法
-     - アーキテクチャ: WSL (pytest) → localhost:8080 (proxy) → lancet-ml:8100 (ML Server)
+     - アーキテクチャ: WSL (pytest) → localhost:8080 (proxy) → lyra-ml:8100 (ML Server)
      - 実際のHTTP通信を検証するため、より信頼性が高い
    - **FastAPIテストの分離**: メインコンテナにはFastAPIがインストールされていないため、FastAPI TestClientを使うテストは`@pytest.mark.skip`でスキップし、E2Eテストで代替
    - **非同期フィクスチャの修正**: E2Eテストのフィクスチャで`asyncio.run()`を使うとイベントループ競合が発生するため、`async def`フィクスチャにして`await client.close()`を使用
@@ -1345,7 +1345,7 @@ K.1の調査で以下が判明:
      - **PDF/OCR関連**: `PyMuPDF` (`fitz`), `Pillow` (`PIL`)
        - 影響テスト: `tests/test_extractor.py`（PDF抽出、OCR機能）
    - **実装状況**:
-     - MLモデルは別コンテナ（`lancet-ml`）で実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要
+     - MLモデルは別コンテナ（`lyra-ml`）で実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要
      - モックを使用しているテストでも、インポート時に依存関係がチェックされるため、事前インストールが必要
    - **回帰テスト実行前の確認タスク**:
      - [x] ML依存関係チェック機能を実装（ML依存関係がない場合は適切にスキップ）
@@ -1424,7 +1424,7 @@ MCPツールを**30個から11個**に簡素化。実装完了、E2E検証は Ph
 **目的**:
 - Cursor AIの認知負荷低減（ツール選択の単純化）
 - 低レベル操作の隠蔽（Cursor AIはパイプラインの詳細を知る必要がない）
-- 責任分界の明確化（Cursor AI = 戦略、Lancet = 戦術）
+- 責任分界の明確化（Cursor AI = 戦略、Lyra = 戦術）
 - セキュリティ境界の明確化（公開APIを最小化）
 
 **統一アーキテクチャ方針**:
@@ -1527,7 +1527,7 @@ MCPハンドラー (_handle_*)
 | Podmanコンテナ起動 | コンテナ内からの実行確認 | ✅ |
 | Chrome CDP接続 | Playwright CDP接続（15秒タイムアウト） | ✅ |
 | Ollama LLM起動 | OllamaProvider.get_health() | ✅ |
-| コンテナ間通信 | lancet → ollama (内部ネットワーク) | ✅ |
+| コンテナ間通信 | lyra → ollama (内部ネットワーク) | ✅ |
 | 検索エンジン疎通 | CDP依存、スキップ可能 | ✅ |
 | トースト通知 | NotificationProviderRegistry | ✅ |
 
@@ -1547,10 +1547,10 @@ MCPハンドラー (_handle_*)
 ./scripts/chrome.sh start
 
 # 3. 環境確認スクリプト実行
-podman exec lancet python tests/scripts/verify_environment.py
+podman exec lyra python tests/scripts/verify_environment.py
 
 # 4. 検索テスト（Chrome接続後）
-podman exec lancet python tests/scripts/verify_duckduckgo_search.py
+podman exec lyra python tests/scripts/verify_duckduckgo_search.py
 ```
 
 #### N.3 MCPツール疎通確認 ✅
@@ -1610,7 +1610,7 @@ Phase K.3 の防御層が統合環境で正しく動作することを確認。
 |----|---------|:----:|
 | L1 | Ollamaから外部通信不可（`internal: true`ネットワーク） | ✅ |
 | L2/L3/L4 | サニタイズ済みプロンプトでLLM正常動作 | ✅ |
-| L5 | MCP応答に`_lancet_meta`が含まれる | ✅ |
+| L5 | MCP応答に`_lyra_meta`が含まれる | ✅ |
 | L6 | ソース検証フロー動作確認 | ✅ |
 | L7 | 予期しないフィールドが除去される | ✅ |
 | L8 | ログにプロンプト本文が含まれない | ✅ |
@@ -1618,14 +1618,14 @@ Phase K.3 の防御層が統合環境で正しく動作することを確認。
 **検証結果（2025-12-10）**:
 - L1: ネットワーク設定で`internal: true`確認済み
 - L2/L3/L4: タグパターン除去、危険パターン検出、出力検証が正常動作
-- L5: `create_task`/`get_status`に`_lancet_meta`付与確認
+- L5: `create_task`/`get_status`に`_lyra_meta`付与確認
 - L6: `DomainVerificationState`とレスポンスメタ生成が正常動作
 - L7: 不明フィールド除去、LLMコンテンツサニタイズが正常動作
 - L8: ハッシュ/長さ/プレビューのみ記録、センシティブ内容マスク確認
 
 **手順**:
 ```bash
-podman exec lancet python tests/scripts/verify_llm_security.py
+podman exec lyra python tests/scripts/verify_llm_security.py
 ```
 
 #### N.5 Chrome CDP接続エラーハンドリング改善 ✅
@@ -1887,9 +1887,9 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 | `src/utils/config.py` | `execution_mode`フィールド削除、常にプロキシ経由に固定（L226-232） | ~7行 | 高 |
 | `src/filter/ollama_provider.py` | execution_mode分岐削除、常にプロキシURL使用（L89-95） | ~7行 | 高 |
 | `src/ml_client.py` | execution_mode分岐削除、常にプロキシURL使用（L31-37） | ~7行 | 高 |
-| `.env` | `LANCET_EXECUTION_MODE`設定削除（L7-9） | 3行 | 高 |
+| `.env` | `LYRA_EXECUTION_MODE`設定削除（L7-9） | 3行 | 高 |
 | `.env` | コンテナモード用コメント削除（L24-28） | 5行 | 中 |
-| `scripts/mcp.sh` | `LANCET_EXECUTION_MODE`設定削除（L130） | 1行 | 高 |
+| `scripts/mcp.sh` | `LYRA_EXECUTION_MODE`設定削除（L130） | 1行 | 高 |
 | `tests/test_ml_server_e2e.py` | execution_mode関連テスト確認・修正 | - | 中 |
 
 **合計削除行数**: ~30行
@@ -1925,7 +1925,7 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 | `scripts/dev.sh` | コンテナネットワーキング関連コメント削除（L145） | 1行 | 中 |
 | `scripts/dev.sh` | フォールバック設定のコメント更新（L55-56） | 2行 | 低 |
 | `scripts/test.sh` | WSL直接実行オプション追加（コンテナ実行は削除） | - | 高 |
-| `scripts/mcp.sh` | `LANCET_EXECUTION_MODE`設定削除（L130） | 1行 | 高 |
+| `scripts/mcp.sh` | `LYRA_EXECUTION_MODE`設定削除（L130） | 1行 | 高 |
 | `tests/scripts/verify_environment.py` | コンテナ検出コード削除または更新（L101-114） | ~14行 | 中 |
 | `tests/scripts/*.py` | Usageコメントの`podman exec`をWSL venv経由に変更 | ~16ファイル | 中 |
 
@@ -1936,9 +1936,9 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 - `Dockerfile`: CMDを`src.mcp.server`から`src.proxy.server`に変更
 - `dev.sh`: 「container networking」コメントを「proxy server」に変更
 - `test.sh`: `podman exec`経由のテスト実行を削除し、WSL venv経由に統一
-- `mcp.sh`: `LANCET_EXECUTION_MODE`設定削除（常にWSLモード）
+- `mcp.sh`: `LYRA_EXECUTION_MODE`設定削除（常にWSLモード）
 - `verify_environment.py`: コンテナ検出は残すが、WSL実行時の説明を追加
-- E2Eテストスクリプト: Usageコメントの`podman exec lancet python`を`python`（WSL venv経由）に変更
+- E2Eテストスクリプト: Usageコメントの`podman exec lyra python`を`python`（WSL venv経由）に変更
 
 ##### O.3.7 ドキュメント更新
 
@@ -1973,7 +1973,7 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 #### O.5 影響範囲
 
 **削除される機能**:
-- コンテナ内MCP実行モード（`LANCET_EXECUTION_MODE=container`）
+- コンテナ内MCP実行モード（`LYRA_EXECUTION_MODE=container`）
 - socatポートフォワード機能
 - host-gateway経由のChrome接続
 - コンテナ検出による条件分岐
@@ -1984,7 +1984,7 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 - WSL→Windows Chrome直接接続（localhost:9222）
 
 **移行手順**:
-1. `.env`から`LANCET_EXECUTION_MODE`を削除
+1. `.env`から`LYRA_EXECUTION_MODE`を削除
 2. venvを作成し、`requirements-mcp.txt`をインストール
 3. `./scripts/mcp.sh`でMCPサーバー起動（Cursorが自動実行）
 
@@ -2186,7 +2186,7 @@ Recent claims:
 # - create_task → search → get_status → get_materials → stop_task
 
 # 5. DB確認
-python -c "import sqlite3; c=sqlite3.connect('data/lancet.db'); print(c.execute('SELECT COUNT(*) FROM claims').fetchone())"
+python -c "import sqlite3; c=sqlite3.connect('data/lyra.db'); print(c.execute('SELECT COUNT(*) FROM claims').fetchone())"
 ```
 
 ##### 成功基準
@@ -2325,10 +2325,10 @@ python scripts/migrate.py create NAME  # 新規作成
 - Playwright（Chrome CDP接続）
 
 **コンテナ側**:
-- `lancet` - プロキシサーバー（Ollama/ML Serverへのアクセス）
-- `lancet-ml` - 埋め込み/リランカー/NLI
-- `lancet-ollama` - ローカルLLM (GPU対応)
-- `lancet-tor` - Torプロキシ
+- `lyra` - プロキシサーバー（Ollama/ML Serverへのアクセス）
+- `lyra-ml` - 埋め込み/リランカー/NLI
+- `lyra-ollama` - ローカルLLM (GPU対応)
+- `lyra-tor` - Torプロキシ
 
 **注意**: SearXNGは廃止済み（Phase C参照）
 
@@ -2343,7 +2343,7 @@ pytest tests/ -m 'not e2e' --tb=short -q
 
 **コンテナ側（従来方式）**:
 ```bash
-podman exec lancet pytest tests/ -m 'not e2e' --tb=short -q
+podman exec lyra pytest tests/ -m 'not e2e' --tb=short -q
 ```
 
 Phase G.2 も参照。

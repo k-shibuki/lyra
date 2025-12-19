@@ -1,5 +1,5 @@
 """
-URL fetcher for Lancet.
+URL fetcher for Lyra.
 Handles fetching URLs via HTTP client or browser with appropriate strategies.
 
 Features:

@@ -142,7 +142,7 @@ class TestResearchContext:
         Verify that get_context does NOT return subquery candidates.
 
         §2.1.1: Subquery design is Cursor AI's exclusive responsibility.
-        §2.1.4: Lancet must NOT generate subquery candidates.
+        §2.1.4: Lyra must NOT generate subquery candidates.
         """
         # Given: A task with any query
         task_id = await test_database.create_task(
@@ -992,7 +992,7 @@ class TestSubqueryExecutor:
     """
     Tests for SubqueryExecutor mechanical operations.
 
-    §2.1.3: Lancet only performs mechanical expansions, not query design.
+    §2.1.3: Lyra only performs mechanical expansions, not query design.
     """
 
     def test_primary_source_detection(self):
@@ -1010,7 +1010,7 @@ class TestSubqueryExecutor:
         """
         Verify query expansion is mechanical (operators, not new ideas).
 
-        §2.1.3: Lancet only adds operators, does not design new queries.
+        §2.1.3: Lyra only adds operators, does not design new queries.
         """
         # Given: A SubqueryExecutor and original query
         task_id = await test_database.create_task(query="test")
@@ -1060,7 +1060,7 @@ class TestRefutationExecutor:
     """
     Tests for RefutationExecutor mechanical pattern application.
 
-    §3.1.7.5: Lancet applies mechanical patterns only (suffixes).
+    §3.1.7.5: Lyra applies mechanical patterns only (suffixes).
     §2.1.4: No LLM-based reverse query design.
     """
 
@@ -1197,15 +1197,15 @@ class TestExplorationIntegration:
 
 class TestResponsibilityBoundary:
     """
-    Tests verifying the Cursor AI / Lancet responsibility boundary.
+    Tests verifying the Cursor AI / Lyra responsibility boundary.
 
-    These tests ensure Lancet does NOT exceed its responsibilities
+    These tests ensure Lyra does NOT exceed its responsibilities
     as defined in §2.1.
     """
 
-    def test_lancet_does_not_design_queries(self):
+    def test_lyra_does_not_design_queries(self):
         """
-        Verify Lancet components don't have query design capabilities.
+        Verify Lyra components don't have query design capabilities.
 
         §2.1.1: Query design is Cursor AI's exclusive responsibility.
         """
@@ -1237,7 +1237,7 @@ class TestResponsibilityBoundary:
         """
         Verify context notes are hints, not directives.
 
-        §2.1.1: Lancet provides support information, Cursor AI decides.
+        §2.1.1: Lyra provides support information, Cursor AI decides.
         """
         # Given: A ResearchContext
         task_id = await test_database.create_task(query="test query")

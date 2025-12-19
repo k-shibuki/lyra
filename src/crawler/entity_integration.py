@@ -1,5 +1,5 @@
 """
-Entity Integration for Lancet.
+Entity Integration for Lyra.
 
 Integrates RDAP/WHOIS and Certificate Transparency data with Entity KB.
 Implements §3.1.2:

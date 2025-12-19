@@ -1,7 +1,7 @@
 #!/bin/bash
-# Lancet Development Environment (Podman)
+# Lyra Development Environment (Podman)
 #
-# Manages the Podman-based development environment for Lancet.
+# Manages the Podman-based development environment for Lyra.
 #
 # Usage: ./scripts/dev.sh [command]
 
@@ -44,7 +44,7 @@ start_dev_shell() {
     log_info "Entering development shell..."
     
     # Build dev image (base stage only, no GPU packages)
-    podman build -t lancet-dev:latest -f Dockerfile --target base .
+    podman build -t lyra-dev:latest -f Dockerfile --target base .
     
     # Load environment from .env if exists, otherwise use defaults
     local env_opts=""
@@ -53,23 +53,23 @@ start_dev_shell() {
     else
         log_warn ".env not found, using default environment variables"
         # Fallback defaults for proxy server (internal services)
-        env_opts="-e LANCET_TOR__SOCKS_HOST=tor -e LANCET_TOR__SOCKS_PORT=9050 -e LANCET_LLM__OLLAMA_HOST=http://ollama:11434"
+        env_opts="-e LYRA_TOR__SOCKS_HOST=tor -e LYRA_TOR__SOCKS_PORT=9050 -e LYRA_LLM__OLLAMA_HOST=http://ollama:11434"
     fi
     
     # Derive network names from project directory name (podman-compose prefix)
     local project_name
     project_name="$(basename "$PROJECT_DIR")"
-    local net_primary="${project_name}_lancet-net"
-    local net_internal="${project_name}_lancet-internal"
+    local net_primary="${project_name}_lyra-net"
+    local net_internal="${project_name}_lyra-internal"
     
     # Cleanup function to ensure container is removed on exit/error
     cleanup_dev_container() {
-        podman rm -f lancet-dev 2>/dev/null || true
+        podman rm -f lyra-dev 2>/dev/null || true
     }
     trap cleanup_dev_container EXIT
     
     # Remove existing container if exists
-    podman rm -f lancet-dev 2>/dev/null || true
+    podman rm -f lyra-dev 2>/dev/null || true
     
     # Create container with primary network
     # Note: Podman doesn't support multiple --network flags in a single run command,
@@ -83,15 +83,15 @@ start_dev_shell() {
         -v "${PROJECT_DIR}/tests:/app/tests:rw" \
         --network "$net_primary" \
         $env_opts \
-        --name lancet-dev \
-        lancet-dev:latest \
+        --name lyra-dev \
+        lyra-dev:latest \
         /bin/bash
     
     # Connect to internal network for inference services (Ollama/ML)
-    podman network connect "$net_internal" lancet-dev
+    podman network connect "$net_internal" lyra-dev
     
     # Start container interactively and attach
-    podman start -ai lancet-dev
+    podman start -ai lyra-dev
 }
 
 # Function: show_logs
@@ -124,7 +124,7 @@ cleanup_environment() {
     # Remove project images manually (podman-compose doesn't support --rmi)
     # Use xargs -r to skip if input is empty (safe with set -u)
     local image_ids
-    image_ids=$(podman images --filter "reference=lancet*" -q 2>/dev/null || true)
+    image_ids=$(podman images --filter "reference=lyra*" -q 2>/dev/null || true)
     if [ -n "${image_ids:-}" ]; then
         echo "$image_ids" | xargs -r podman rmi -f 2>/dev/null || true
     fi
@@ -150,7 +150,7 @@ cmd_up() {
         exit 1
     fi
     
-    log_info "Starting Lancet development environment..."
+    log_info "Starting Lyra development environment..."
     $COMPOSE up -d
     echo ""
     echo "Services started:"
@@ -161,7 +161,7 @@ cmd_up() {
 }
 
 cmd_down() {
-    log_info "Stopping Lancet development environment..."
+    log_info "Stopping Lyra development environment..."
     $COMPOSE down
 }
 
@@ -200,7 +200,7 @@ cmd_status() {
 }
 
 show_help() {
-    echo "Lancet Development Environment (Podman)"
+    echo "Lyra Development Environment (Podman)"
     echo ""
     echo "Usage: ./scripts/dev.sh [command]"
     echo ""

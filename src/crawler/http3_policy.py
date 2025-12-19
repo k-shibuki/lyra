@@ -1,5 +1,5 @@
 """
-HTTP/3 (QUIC) Policy Manager for Lancet.
+HTTP/3 (QUIC) Policy Manager for Lyra.
 
 Implements §4.3 HTTP/3(QUIC) policy:
 - Browser route naturally uses HTTP/3 when site provides it

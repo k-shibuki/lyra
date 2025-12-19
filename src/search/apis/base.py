@@ -60,7 +60,7 @@ class BaseAcademicClient(ABC):
         self.timeout = timeout or 30.0
 
         # Default headers
-        default_headers = {"User-Agent": "Lancet/1.0 (research tool; mailto:lancet@example.com)"}
+        default_headers = {"User-Agent": "Lyra/1.0 (research tool; mailto:lyra@example.com)"}
         if headers:
             default_headers.update(headers)
         self.default_headers = default_headers

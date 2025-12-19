@@ -325,7 +325,7 @@ class BaseAcademicClient(ABC):
         if self._session is None:
             self._session = httpx.AsyncClient(
                 timeout=30.0,
-                headers={"User-Agent": "Lancet/1.0 (research tool; mailto:lancet@example.com)"}
+                headers={"User-Agent": "Lyra/1.0 (research tool; mailto:lyra@example.com)"}
             )
         return self._session
     
@@ -1103,7 +1103,7 @@ apis:
     timeout_seconds: 30
     priority: 2
     headers:
-      User-Agent: "Lancet/1.0 (research tool; mailto:lancet@example.com)"
+      User-Agent: "Lyra/1.0 (research tool; mailto:lyra@example.com)"
     
   crossref:
     enabled: true
@@ -1113,7 +1113,7 @@ apis:
     timeout_seconds: 30
     priority: 3
     headers:
-      User-Agent: "Lancet/1.0 (research tool; mailto:lancet@example.com)"
+      User-Agent: "Lyra/1.0 (research tool; mailto:lyra@example.com)"
     
   arxiv:
     enabled: true
@@ -1130,7 +1130,7 @@ apis:
       requests_per_day: 100000
     timeout_seconds: 30
     priority: 5  # OAリンク解決専用
-    email: "lancet@example.com"  # 必須
+    email: "lyra@example.com"  # 必須
 
 # デフォルト設定
 defaults:

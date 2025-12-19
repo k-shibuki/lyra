@@ -1,7 +1,7 @@
 #!/bin/bash
-# Lancet Shell Scripts - Common Functions and Constants
+# Lyra Shell Scripts - Common Functions and Constants
 #
-# This file provides shared utilities for all Lancet shell scripts.
+# This file provides shared utilities for all Lyra shell scripts.
 # Source this file at the beginning of each script:
 #   source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 #
@@ -74,19 +74,19 @@ load_env 2>/dev/null || true
 # =============================================================================
 
 # Chrome CDP settings
-# LANCET_BROWSER__CHROME_PORT from .env overrides default
-export CHROME_PORT="${LANCET_BROWSER__CHROME_PORT:-9222}"
+# LYRA_BROWSER__CHROME_PORT from .env overrides default
+export CHROME_PORT="${LYRA_BROWSER__CHROME_PORT:-9222}"
 
 # Container settings
-export CONTAINER_NAME="${LANCET_SCRIPT__CONTAINER_NAME:-lancet}"
+export CONTAINER_NAME="${LYRA_SCRIPT__CONTAINER_NAME:-lancet}"
 
 # Timeouts (seconds)
-export CONTAINER_TIMEOUT="${LANCET_SCRIPT__CONTAINER_TIMEOUT:-30}"
-export CONNECT_TIMEOUT="${LANCET_SCRIPT__CONNECT_TIMEOUT:-30}"
-export COMPLETION_THRESHOLD="${LANCET_SCRIPT__COMPLETION_THRESHOLD:-5}"
+export CONTAINER_TIMEOUT="${LYRA_SCRIPT__CONTAINER_TIMEOUT:-30}"
+export CONNECT_TIMEOUT="${LYRA_SCRIPT__CONNECT_TIMEOUT:-30}"
+export COMPLETION_THRESHOLD="${LYRA_SCRIPT__COMPLETION_THRESHOLD:-5}"
 
 # Test result file path (inside container)
-export TEST_RESULT_FILE="${LANCET_SCRIPT__TEST_RESULT_FILE:-/app/test_result.txt}"
+export TEST_RESULT_FILE="${LYRA_SCRIPT__TEST_RESULT_FILE:-/app/test_result.txt}"
 
 # =============================================================================
 # DEBUG MODE
@@ -171,7 +171,7 @@ log_error() {
 # =============================================================================
 
 # Function: check_container_running
-# Description: Check if the lancet container is running
+# Description: Check if the lyra container is running
 # Arguments:
 #   $1: Container name (optional, defaults to CONTAINER_NAME)
 # Returns:
@@ -241,10 +241,10 @@ detect_container() {
         fi
     fi
     
-    # Detect if running in ML container (lancet-ml has FastAPI and ML libs)
-    # Other containers: lancet (main), lancet-ollama (LLM), lancet-tor (proxy)
+    # Detect if running in ML container (lyra-ml has FastAPI and ML libs)
+    # Other containers: lancet (main), lyra-ollama (LLM), lyra-tor (proxy)
     IS_ML_CONTAINER=false
-    if [[ "$IN_CONTAINER" == "true" ]] && [[ "$CURRENT_CONTAINER_NAME" == "lancet-ml" ]]; then
+    if [[ "$IN_CONTAINER" == "true" ]] && [[ "$CURRENT_CONTAINER_NAME" == "lyra-ml" ]]; then
         IS_ML_CONTAINER=true
     fi
     
@@ -319,7 +319,7 @@ detect_cloud_agent
 #   1: Not E2E capable
 is_e2e_capable() {
     # If explicitly configured for headless E2E
-    if [[ "${LANCET_HEADLESS:-}" == "true" ]]; then
+    if [[ "${LYRA_HEADLESS:-}" == "true" ]]; then
         return 0
     fi
     

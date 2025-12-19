@@ -1,5 +1,5 @@
 """
-Domain-internal BFS crawler for Lancet.
+Domain-internal BFS crawler for Lyra.
 
 Implements breadth-first search within a single domain (§3.1.2):
 - Maximum depth of 2 from seed URL

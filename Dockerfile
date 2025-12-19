@@ -1,4 +1,4 @@
-# Lancet Development Container
+# Lyra Development Container
 # Python 3.12 + CUDA support for GPU inference
 
 FROM python:3.12-slim-bookworm AS base

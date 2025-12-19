@@ -1,5 +1,5 @@
 """
-Policy auto-update engine for Lancet.
+Policy auto-update engine for Lyra.
 Implements closed-loop control as defined in requirements §4.6.
 
 Controls:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database migration runner for Lancet.
+Database migration runner for Lyra.
 
 Provides versioned schema migrations with tracking.
 
@@ -20,7 +20,7 @@ from pathlib import Path
 # Project root and migrations directory
 PROJECT_ROOT = Path(__file__).parent.parent
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "lancet.db"
+DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "lyra.db"
 
 
 def get_connection(db_path: Path) -> sqlite3.Connection:

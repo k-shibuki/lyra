@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "lancet": {
+    "lyra": {
       "command": "bash",
       "args": [
         "./scripts/mcp.sh"

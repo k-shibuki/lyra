@@ -1,4 +1,4 @@
-# Lancet Test Execution Layers
+# Lyra Test Execution Layers
 
 このドキュメントでは、Lancetプロジェクトのテスト実行階層について説明します。
 
@@ -78,7 +78,7 @@ pytest
 
 ```
 ======================================================================
-[Lancet Test] CLOUD AGENT ENVIRONMENT DETECTED
+[Lyra Test] CLOUD AGENT ENVIRONMENT DETECTED
 ======================================================================
   Agent Type: cursor
   E2E Capable: False
@@ -115,14 +115,14 @@ pytest -m "not e2e and not slow"
 ./scripts/test.sh run tests/test_search.py
 
 # E2Eを含める（Podmanコンテナが必要）
-LANCET_TEST_LAYER=e2e ./scripts/test.sh run
+LYRA_TEST_LAYER=e2e ./scripts/test.sh run
 ```
 
 ### L3: フル環境
 
 ```bash
 # すべてのテスト
-LANCET_TEST_LAYER=all ./scripts/test.sh run
+LYRA_TEST_LAYER=all ./scripts/test.sh run
 
 # E2Eのみ
 pytest -m e2e
@@ -141,7 +141,7 @@ pytest -m "e2e and rate_limited"
 
 出力例：
 ```
-=== Lancet Test Environment ===
+=== Lyra Test Environment ===
 
 Environment Detection:
   OS Type: wsl
@@ -163,9 +163,9 @@ Test Configuration:
 
 | 変数 | 説明 | デフォルト |
 |------|------|----------|
-| `LANCET_TEST_LAYER` | テスト層の指定（`e2e`, `all`） | 自動検出 |
-| `LANCET_LOCAL` | ローカルモードを強制（クラウド検出を無効化） | - |
-| `LANCET_HEADLESS` | ヘッドレスE2Eを有効化 | `false` |
+| `LYRA_TEST_LAYER` | テスト層の指定（`e2e`, `all`） | 自動検出 |
+| `LYRA_LOCAL` | ローカルモードを強制（クラウド検出を無効化） | - |
+| `LYRA_HEADLESS` | ヘッドレスE2Eを有効化 | `false` |
 
 ## モック戦略 (§7.1.7)
 
@@ -203,7 +203,7 @@ E2Eテストを実行するには以下の準備が必要：
 
 強制的にローカルモードで実行する場合：
 ```bash
-LANCET_LOCAL=1 ./scripts/test.sh run
+LYRA_LOCAL=1 ./scripts/test.sh run
 ```
 
 ### E2Eテストが失敗する

@@ -1,5 +1,5 @@
 """
-Browser stealth utilities for Lancet.
+Browser stealth utilities for Lyra.
 
 Implements minimal anti-bot detection measures per §4.3:
 - navigator.webdriver property override

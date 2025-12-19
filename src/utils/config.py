@@ -1,5 +1,5 @@
 """
-Configuration management for Lancet.
+Configuration management for Lyra.
 Loads and validates settings from YAML files and environment variables.
 """
 
@@ -166,10 +166,10 @@ class MLServerConfig(BaseModel):
     """ML Server configuration.
 
     ML models (embedding, reranker, NLI) run in a separate container
-    on the internal network (lancet-internal) for security isolation.
+    on the internal network (lyra-internal) for security isolation.
     """
 
-    server_url: str = "http://lancet-ml:8100"
+    server_url: str = "http://lyra-ml:8100"
     timeout: int = 120  # seconds
     use_remote: bool = True  # When True, use ML server; when False, use local models
     # Retry settings
@@ -180,7 +180,7 @@ class MLServerConfig(BaseModel):
 class StorageConfig(BaseModel):
     """Storage configuration."""
 
-    database_path: str = "data/lancet.db"
+    database_path: str = "data/lyra.db"
     warc_dir: str = "data/warc"
     screenshots_dir: str = "data/screenshots"
     reports_dir: str = "data/reports"
@@ -304,13 +304,13 @@ class AcademicAPIsConfig(BaseModel):
 class GeneralConfig(BaseModel):
     """General configuration."""
 
-    project_name: str = "lancet"
+    project_name: str = "lyra"
     version: str = "0.1.0"
     log_level: str = "INFO"
     data_dir: str = "data"
     logs_dir: str = "logs"
 
-    # Proxy URL for hybrid mode (lancet container proxy server)
+    # Proxy URL for hybrid mode (lyra container proxy server)
     # MCP server always runs on WSL host, LLM/ML via proxy
     proxy_url: str = "http://localhost:8080"
 
@@ -400,13 +400,13 @@ def get_academic_apis_config() -> AcademicAPIsConfig:
 
     Configuration is loaded from:
     1. config/academic_apis.yaml
-    2. Environment variables (highest priority, prefixed with LANCET_ACADEMIC_APIS__)
+    2. Environment variables (highest priority, prefixed with LYRA_ACADEMIC_APIS__)
 
     Returns:
         AcademicAPIsConfig instance.
     """
     # Determine config directory
-    config_dir = Path(os.environ.get("LANCET_CONFIG_DIR", "config"))
+    config_dir = Path(os.environ.get("LYRA_CONFIG_DIR", "config"))
 
     # Load base configuration
     config_data = _load_academic_apis_config(config_dir)
@@ -443,11 +443,11 @@ def get_academic_apis_config() -> AcademicAPIsConfig:
 def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
     """Apply environment variable overrides.
 
-    Environment variables should be prefixed with LANCET_ and use
+    Environment variables should be prefixed with LYRA_ and use
     double underscores for nested keys.
 
     Example:
-        LANCET_GENERAL__LOG_LEVEL=DEBUG
+        LYRA_GENERAL__LOG_LEVEL=DEBUG
 
     Args:
         config: Configuration dictionary.
@@ -455,7 +455,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Configuration with environment overrides.
     """
-    prefix = "LANCET_"
+    prefix = "LYRA_"
 
     for key, value in os.environ.items():
         if not key.startswith(prefix):
@@ -500,7 +500,7 @@ def get_settings() -> Settings:
         Settings instance.
     """
     # Determine config directory
-    config_dir = Path(os.environ.get("LANCET_CONFIG_DIR", "config"))
+    config_dir = Path(os.environ.get("LYRA_CONFIG_DIR", "config"))
 
     # Load base configuration
     config = _load_yaml_config(config_dir)

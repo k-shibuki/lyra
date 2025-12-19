@@ -220,12 +220,12 @@ async def start_session(self, task_id: str, ...):
 ### 確認結果
 
 **現状の実装**:
-- WSL: `$env:LocalApplicationData\LancetChrome`
-- Linux: `$HOME/.local/share/lancet-chrome`
+- WSL: `$env:LocalApplicationData\LyraChrome`
+- Linux: `$HOME/.local/share/lyra-chrome`
 - 専用の`--user-data-dir`を使用し、日常プロファイルから完全に分離
 
 **結論**:
-- 専用の`user-data-dir`（`LancetChrome`）により、日常プロファイルへの影響は遮断されている
+- 専用の`user-data-dir`（`LyraChrome`）により、日常プロファイルへの影響は遮断されている
 - `--profile-directory`は未指定だが、専用ディレクトリを使用しているため機能的には問題なし
 - 仕様書の`Profile-Research`は参考例であり、現在の実装で仕様の意図（研究用隔離）は達成されている
 
@@ -248,7 +248,7 @@ async def start_session(self, task_id: str, ...):
 ### 確認結果
 
 **現状の実装**:
-- 専用の`user-data-dir`（`LancetChrome` / `lancet-chrome`）を使用
+- 専用の`user-data-dir`（`LyraChrome` / `lyra-chrome`）を使用
 - Chromeは`user-data-dir`ごとに独立したCookie/LocalStorage/IndexedDBを保持
 
 **結論**:

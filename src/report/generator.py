@@ -1,5 +1,5 @@
 """
-Report generator for Lancet.
+Report generator for Lyra.
 Creates research reports from collected evidence.
 """
 
