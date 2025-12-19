@@ -13,8 +13,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.utils.logging import get_logger
 from src.storage.database import get_database
+from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -92,7 +92,7 @@ async def extract_content(
             "ok": False,
             "error": "Either input_path or html must be provided",
         }
-    
+
     # Determine content type
     if content_type == "auto":
         if input_path:
@@ -103,7 +103,7 @@ async def extract_content(
                 content_type = "html"
         else:
             content_type = "html"
-    
+
     # Extract based on type
     if content_type == "pdf":
         return await _extract_pdf(input_path)
@@ -128,14 +128,14 @@ async def _extract_html(
     """
     try:
         import trafilatura
-        
+
         # Load content
         if html is None and input_path:
             html = Path(input_path).read_text(encoding="utf-8", errors="ignore")
-        
+
         if html is None:
             return {"ok": False, "error": "No content to extract"}
-        
+
         # Extract main content
         extracted = trafilatura.extract(
             html,
@@ -146,48 +146,48 @@ async def _extract_html(
             output_format="txt",
             favor_precision=True,
         )
-        
+
         if extracted is None:
             # Fallback to other extractors
             extracted = await _fallback_extract_html(html)
-        
+
         if extracted is None:
             return {
                 "ok": False,
                 "error": "Could not extract content",
             }
-        
+
         # Extract metadata
         metadata = trafilatura.extract_metadata(html)
-        
+
         title = None
         language = None
-        
+
         if metadata:
             title = metadata.title
             language = metadata.language
-        
+
         # Extract headings
         headings = _extract_headings(html)
-        
+
         # Extract tables
         tables = _extract_tables(html)
-        
+
         # Store fragments in database
         fragments = []
         db = await get_database()
-        
+
         # Split text into paragraphs
         paragraphs = _split_into_paragraphs(extracted)
-        
+
         for idx, para in enumerate(paragraphs):
             if len(para.strip()) < 20:  # Skip very short paragraphs
                 continue
-            
+
             text_hash = hashlib.sha256(para.encode()).hexdigest()[:32]
             heading_hierarchy = _build_heading_hierarchy(headings, idx)
             element_index = _calculate_element_index(idx, headings)
-            
+
             fragment = {
                 "text": para,
                 "type": "paragraph",
@@ -198,7 +198,7 @@ async def _extract_html(
                 "text_hash": text_hash,
             }
             fragments.append(fragment)
-            
+
             # Store in database if we have a page_id
             if page_id:
                 await db.insert("fragments", {
@@ -211,14 +211,14 @@ async def _extract_html(
                     "element_index": element_index,
                     "text_hash": text_hash,
                 })
-        
+
         logger.info(
             "HTML extraction complete",
             input_path=input_path,
             text_length=len(extracted),
             fragment_count=len(fragments),
         )
-        
+
         return {
             "ok": True,
             "text": extracted,
@@ -233,7 +233,7 @@ async def _extract_html(
                 "sitename": metadata.sitename if metadata else None,
             },
         }
-        
+
     except Exception as e:
         logger.error("HTML extraction error", error=str(e), input_path=input_path)
         return {
@@ -256,13 +256,13 @@ async def _fallback_extract_html(html: str) -> str | None:
         from readability import Document
         doc = Document(html)
         summary = doc.summary()
-        
+
         # Strip HTML tags from summary
         from html import unescape
         text = re.sub(r"<[^>]+>", " ", summary)
         text = unescape(text)
         text = re.sub(r"\s+", " ", text).strip()
-        
+
         if len(text) > 100:
             return text
     except Exception as e:
@@ -302,23 +302,23 @@ async def _extract_pdf(
     """
     try:
         import fitz  # PyMuPDF
-        
+
         doc = fitz.open(input_path)
-        
+
         text_parts = []
         headings = []
         tables = []
         ocr_used = False
         ocr_pages = []
-        
+
         for page_num, page in enumerate(doc):
             # Extract text using standard method
             text = page.get_text("text")
-            
+
             # Check if OCR is needed for this page
             text_length = len(text.strip())
             needs_ocr = force_ocr or (text_length < ocr_threshold)
-            
+
             if needs_ocr:
                 # Try OCR for this page
                 ocr_text = await _ocr_pdf_page(page, page_num)
@@ -332,9 +332,9 @@ async def _extract_pdf(
                         original_length=text_length,
                         ocr_length=len(ocr_text),
                     )
-            
+
             text_parts.append(text)
-            
+
             # Try to extract structure (only from non-OCR pages)
             if not needs_ocr:
                 blocks = page.get_text("dict")["blocks"]
@@ -349,15 +349,15 @@ async def _extract_pdf(
                                         "text": span["text"].strip(),
                                         "page": page_num + 1,
                                     })
-        
+
         # Extract PDF metadata
         metadata = doc.metadata
         title = metadata.get("title") if metadata else None
-        
+
         doc.close()
-        
+
         full_text = "\n\n".join(text_parts)
-        
+
         logger.info(
             "PDF extraction complete",
             input_path=input_path,
@@ -366,7 +366,7 @@ async def _extract_pdf(
             ocr_used=ocr_used,
             ocr_pages=ocr_pages if ocr_pages else None,
         )
-        
+
         return {
             "ok": True,
             "text": full_text,
@@ -380,7 +380,7 @@ async def _extract_pdf(
                 "ocr_pages": ocr_pages if ocr_pages else None,
             },
         }
-        
+
     except Exception as e:
         logger.error("PDF extraction error", error=str(e), input_path=input_path)
         return {
@@ -405,25 +405,25 @@ async def _ocr_pdf_page(page, page_num: int) -> str | None:
         # Render page to image (300 DPI for good OCR quality)
         mat = page.get_pixmap(matrix=page.matrix * 2)  # 2x scale for better quality
         img_data = mat.tobytes("png")
-        
+
         # Try PaddleOCR first
         if _check_paddleocr_available():
             text = await _ocr_with_paddleocr(img_data)
             if text:
                 return text
-        
+
         # Fallback to Tesseract
         if _check_tesseract_available():
             text = await _ocr_with_tesseract(img_data)
             if text:
                 return text
-        
+
         logger.warning(
             "No OCR engine available",
             page=page_num + 1,
         )
         return None
-        
+
     except Exception as e:
         logger.error(
             "OCR failed for page",
@@ -444,24 +444,25 @@ async def _ocr_with_paddleocr(img_data: bytes) -> str | None:
     """
     try:
         import io
+
         import numpy as np
         from PIL import Image
-        
+
         # Convert bytes to numpy array
         img = Image.open(io.BytesIO(img_data))
         img_array = np.array(img)
-        
+
         # Get PaddleOCR instance
         ocr = _get_paddleocr_instance()
         if ocr is None:
             return None
-        
+
         # Perform OCR
         result = ocr.ocr(img_array, cls=True)
-        
+
         if not result or not result[0]:
             return None
-        
+
         # Extract text from result
         # Result format: [[[box], (text, confidence)], ...]
         lines = []
@@ -470,9 +471,9 @@ async def _ocr_with_paddleocr(img_data: bytes) -> str | None:
                 text, confidence = line[1]
                 if confidence > 0.5:  # Filter low confidence results
                     lines.append(text)
-        
+
         return "\n".join(lines) if lines else None
-        
+
     except Exception as e:
         logger.debug("PaddleOCR failed", error=str(e))
         return None
@@ -489,21 +490,22 @@ async def _ocr_with_tesseract(img_data: bytes) -> str | None:
     """
     try:
         import io
+
         import pytesseract
         from PIL import Image
-        
+
         # Convert bytes to PIL Image
         img = Image.open(io.BytesIO(img_data))
-        
+
         # Perform OCR with Japanese + English support
         text = pytesseract.image_to_string(
             img,
             lang="jpn+eng",  # Japanese + English
             config="--oem 3 --psm 3",  # LSTM engine, auto page segmentation
         )
-        
+
         return text.strip() if text else None
-        
+
     except Exception as e:
         logger.debug("Tesseract OCR failed", error=str(e))
         return None
@@ -526,12 +528,12 @@ async def ocr_image(
     """
     if image_path is None and image_data is None:
         return {"ok": False, "error": "Either image_path or image_data must be provided"}
-    
+
     try:
         # Load image data
         if image_data is None and image_path:
             image_data = Path(image_path).read_bytes()
-        
+
         # Try PaddleOCR first
         if _check_paddleocr_available():
             text = await _ocr_with_paddleocr(image_data)
@@ -541,7 +543,7 @@ async def ocr_image(
                     "text": text,
                     "engine": "paddleocr",
                 }
-        
+
         # Fallback to Tesseract
         if _check_tesseract_available():
             text = await _ocr_with_tesseract(image_data)
@@ -551,12 +553,12 @@ async def ocr_image(
                     "text": text,
                     "engine": "tesseract",
                 }
-        
+
         return {
             "ok": False,
             "error": "No OCR engine available",
         }
-        
+
     except Exception as e:
         logger.error("Image OCR error", error=str(e))
         return {
@@ -575,31 +577,31 @@ def _extract_headings(html: str) -> list[dict[str, Any]]:
         List of heading dictionaries with level, text, and position.
     """
     headings = []
-    
+
     # Simple regex extraction for headings
     heading_pattern = re.compile(r"<h([1-6])[^>]*>(.*?)</h\1>", re.IGNORECASE | re.DOTALL)
-    
+
     # Also track paragraph positions to correlate with headings
     paragraph_pattern = re.compile(r"<p[^>]*>.*?</p>", re.IGNORECASE | re.DOTALL)
-    
+
     # Find all paragraph positions
     para_positions = [m.start() for m in paragraph_pattern.finditer(html)]
-    
+
     for match in heading_pattern.finditer(html):
         level = int(match.group(1))
         text = re.sub(r"<[^>]+>", "", match.group(2)).strip()
-        
+
         if text:
             # Calculate position as "number of paragraphs before this heading"
             heading_char_pos = match.start()
             position = sum(1 for p in para_positions if p < heading_char_pos)
-            
+
             headings.append({
                 "level": level,
                 "text": text,
                 "position": position,
             })
-    
+
     return headings
 
 
@@ -613,18 +615,18 @@ def _extract_tables(html: str) -> list[dict[str, Any]]:
         List of table dictionaries.
     """
     tables = []
-    
+
     # Simple table detection
     table_pattern = re.compile(r"<table[^>]*>(.*?)</table>", re.IGNORECASE | re.DOTALL)
-    
+
     for idx, match in enumerate(table_pattern.finditer(html)):
         table_html = match.group(1)
-        
+
         # Extract rows
         rows = []
         row_pattern = re.compile(r"<tr[^>]*>(.*?)</tr>", re.IGNORECASE | re.DOTALL)
         cell_pattern = re.compile(r"<t[hd][^>]*>(.*?)</t[hd]>", re.IGNORECASE | re.DOTALL)
-        
+
         for row_match in row_pattern.finditer(table_html):
             cells = []
             for cell_match in cell_pattern.finditer(row_match.group(1)):
@@ -632,13 +634,13 @@ def _extract_tables(html: str) -> list[dict[str, Any]]:
                 cells.append(cell_text)
             if cells:
                 rows.append(cells)
-        
+
         if rows:
             tables.append({
                 "index": idx,
                 "rows": rows,
             })
-    
+
     return tables
 
 
@@ -653,14 +655,14 @@ def _split_into_paragraphs(text: str) -> list[str]:
     """
     # Split by double newlines
     paragraphs = re.split(r"\n\s*\n", text)
-    
+
     # Clean up each paragraph
     cleaned = []
     for para in paragraphs:
         para = re.sub(r"\s+", " ", para).strip()
         if para:
             cleaned.append(para)
-    
+
     return cleaned
 
 
@@ -683,13 +685,13 @@ def _build_heading_hierarchy(
     """
     if not headings:
         return []
-    
+
     # Find all headings that appear before this paragraph
     applicable_headings = [h for h in headings if h.get("position", 0) <= paragraph_idx]
-    
+
     if not applicable_headings:
         return []
-    
+
     # Build hierarchy: keep the most recent heading at each level
     hierarchy = {}
     for h in applicable_headings:
@@ -699,7 +701,7 @@ def _build_heading_hierarchy(
         for deeper in list(hierarchy.keys()):
             if deeper > level:
                 del hierarchy[deeper]
-    
+
     # Sort by level and return
     return [
         {"level": level, "text": hierarchy[level].get("text", "")}
@@ -744,7 +746,7 @@ def _calculate_element_index(
     """
     if not headings:
         return paragraph_idx
-    
+
     # Find the most recent heading before this paragraph
     last_heading_pos = 0
     for h in headings:
@@ -753,6 +755,6 @@ def _calculate_element_index(
             last_heading_pos = pos
         else:
             break
-    
+
     return paragraph_idx - last_heading_pos
 

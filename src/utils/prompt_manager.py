@@ -10,7 +10,6 @@ Per Phase K.2: External prompt template management for improved maintainability.
 """
 
 import os
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +46,7 @@ class PromptManager:
         manager = get_prompt_manager()
         prompt = manager.render("extract_facts", text="...")
     """
-    
+
     def __init__(self, prompts_dir: Path | None = None):
         """
         Initialize the prompt manager.
@@ -63,20 +62,20 @@ class PromptManager:
                 from src.utils.config import get_project_root
                 config_dir = get_project_root() / config_dir
             prompts_dir = config_dir / "prompts"
-        
+
         self._prompts_dir = prompts_dir
         self._env: Environment | None = None
-        
+
         logger.debug(
             "PromptManager initialized",
             prompts_dir=str(self._prompts_dir),
         )
-    
+
     @property
     def prompts_dir(self) -> Path:
         """Get the prompts directory path."""
         return self._prompts_dir
-    
+
     def _get_environment(self) -> Environment:
         """
         Get or create the Jinja2 environment.
@@ -92,7 +91,7 @@ class PromptManager:
                 raise TemplateNotFoundError(
                     f"Prompts directory not found: {self._prompts_dir}"
                 )
-            
+
             self._env = Environment(
                 loader=FileSystemLoader(str(self._prompts_dir)),
                 # Keep whitespace as-is for prompt formatting
@@ -103,14 +102,14 @@ class PromptManager:
                 # Raise error on undefined variables
                 undefined=StrictUndefined,
             )
-            
+
             logger.debug(
                 "Jinja2 environment created",
                 prompts_dir=str(self._prompts_dir),
             )
-        
+
         return self._env
-    
+
     def get_template_path(self, template_name: str) -> Path:
         """
         Get the path to a template file.
@@ -122,7 +121,7 @@ class PromptManager:
             Full path to the template file.
         """
         return self._prompts_dir / f"{template_name}.j2"
-    
+
     def template_exists(self, template_name: str) -> bool:
         """
         Check if a template exists.
@@ -134,7 +133,7 @@ class PromptManager:
             True if template exists, False otherwise.
         """
         return self.get_template_path(template_name).exists()
-    
+
     def list_templates(self) -> list[str]:
         """
         List all available templates.
@@ -144,11 +143,11 @@ class PromptManager:
         """
         if not self._prompts_dir.exists():
             return []
-        
+
         return [
             p.stem for p in self._prompts_dir.glob("*.j2")
         ]
-    
+
     def render(self, template_name: str, **kwargs: Any) -> str:
         """
         Render a prompt template with given variables.
@@ -167,18 +166,18 @@ class PromptManager:
         try:
             env = self._get_environment()
             template = env.get_template(f"{template_name}.j2")
-            
+
             rendered = template.render(**kwargs)
-            
+
             logger.debug(
                 "Template rendered",
                 template=template_name,
                 vars=list(kwargs.keys()),
                 length=len(rendered),
             )
-            
+
             return rendered
-            
+
         except TemplateNotFound:
             raise TemplateNotFoundError(
                 f"Template not found: {template_name}.j2 "
@@ -195,7 +194,7 @@ class PromptManager:
             raise TemplateRenderError(
                 f"Template '{template_name}' rendering failed: {e}"
             )
-    
+
     def clear_cache(self) -> None:
         """Clear the template cache."""
         if self._env is not None:

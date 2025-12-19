@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 
 class ClaimPolarity(str, Enum):
     """Expected polarity of a claim."""
-    
+
     POSITIVE = "positive"  # Claim asserts something is true
     NEGATIVE = "negative"  # Claim asserts something is false
     NEUTRAL = "neutral"    # Claim is a question or neutral statement
@@ -38,7 +38,7 @@ class ClaimPolarity(str, Enum):
 
 class ClaimGranularity(str, Enum):
     """Granularity level of a claim."""
-    
+
     ATOMIC = "atomic"      # Cannot be further decomposed
     COMPOSITE = "composite"  # Can be decomposed into sub-claims
     META = "meta"          # Meta-level claim about the research itself
@@ -46,7 +46,7 @@ class ClaimGranularity(str, Enum):
 
 class ClaimType(str, Enum):
     """Type of claim based on content."""
-    
+
     FACTUAL = "factual"        # Verifiable fact
     CAUSAL = "causal"          # Cause-effect relationship
     COMPARATIVE = "comparative"  # Comparison between entities
@@ -62,7 +62,7 @@ class AtomicClaim:
     
     Per §3.3.1: Schema: claim_id, text, expected_polarity, granularity
     """
-    
+
     claim_id: str
     text: str
     expected_polarity: ClaimPolarity
@@ -73,7 +73,7 @@ class AtomicClaim:
     confidence: float = 1.0
     keywords: list[str] = field(default_factory=list)
     verification_hints: list[str] = field(default_factory=list)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -88,7 +88,7 @@ class AtomicClaim:
             "keywords": self.keywords,
             "verification_hints": self.verification_hints,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AtomicClaim":
         """Create from dictionary."""
@@ -109,13 +109,13 @@ class AtomicClaim:
 @dataclass
 class DecompositionResult:
     """Result of claim decomposition."""
-    
+
     original_question: str
     claims: list[AtomicClaim]
     decomposition_method: str  # "llm" or "rule_based"
     success: bool = True
     error: str | None = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -142,7 +142,7 @@ class ClaimDecomposer:
     Per §2.1.4: Permitted uses of local LLM
     - Fact/claim extraction from fragments is allowed
     """
-    
+
     def __init__(self, use_llm: bool = True):
         """
         Initialize claim decomposer.
@@ -153,7 +153,7 @@ class ClaimDecomposer:
         """
         self.use_llm = use_llm
         self._settings = get_settings()
-    
+
     async def decompose(
         self,
         question: str,
@@ -178,7 +178,7 @@ class ClaimDecomposer:
                 success=False,
                 error="Empty question provided",
             )
-        
+
         try:
             if self.use_llm:
                 return await self._decompose_with_llm(question)
@@ -197,7 +197,7 @@ class ClaimDecomposer:
                 success=False,
                 error=str(e),
             )
-    
+
     async def _decompose_with_llm(
         self,
         question: str,
@@ -209,27 +209,27 @@ class ClaimDecomposer:
         """
         client = _get_client()
         model = self._settings.llm.model
-        
+
         # Render prompt template (Phase K.2)
         prompt = render_prompt("decompose", question=question)
-        
+
         response = await client.generate(
             prompt=prompt,
             model=model,
             temperature=0.3,  # Lower temperature for more consistent output
             max_tokens=2000,
         )
-        
+
         # Parse LLM response
         claims = self._parse_llm_response(response, question)
-        
+
         return DecompositionResult(
             original_question=question,
             claims=claims,
             decomposition_method="llm",
             success=len(claims) > 0,
         )
-    
+
     def _parse_llm_response(
         self,
         response: str,
@@ -237,7 +237,7 @@ class ClaimDecomposer:
     ) -> list[AtomicClaim]:
         """Parse LLM response into atomic claims."""
         claims = []
-        
+
         # Try to extract JSON array from response
         try:
             # Find JSON array in response
@@ -245,38 +245,38 @@ class ClaimDecomposer:
             if not json_match:
                 logger.warning("No JSON array found in LLM response")
                 return self._decompose_with_rules(source_question).claims
-            
+
             parsed = json.loads(json_match.group())
-            
+
             for item in parsed:
                 if not isinstance(item, dict):
                     continue
-                
+
                 text = item.get("text", "").strip()
                 if not text:
                     continue
-                
+
                 # Map polarity
                 polarity_str = item.get("polarity", "neutral").lower()
                 try:
                     polarity = ClaimPolarity(polarity_str)
                 except ValueError:
                     polarity = ClaimPolarity.NEUTRAL
-                
+
                 # Map granularity
                 granularity_str = item.get("granularity", "atomic").lower()
                 try:
                     granularity = ClaimGranularity(granularity_str)
                 except ValueError:
                     granularity = ClaimGranularity.ATOMIC
-                
+
                 # Map type
                 type_str = item.get("type", "factual").lower()
                 try:
                     claim_type = ClaimType(type_str)
                 except ValueError:
                     claim_type = ClaimType.FACTUAL
-                
+
                 claim = AtomicClaim(
                     claim_id=f"claim_{uuid.uuid4().hex[:8]}",
                     text=text,
@@ -289,13 +289,13 @@ class ClaimDecomposer:
                     verification_hints=item.get("hints", []),
                 )
                 claims.append(claim)
-                
+
         except json.JSONDecodeError as e:
             logger.warning("Failed to parse LLM response as JSON", error=str(e))
             return self._decompose_with_rules(source_question).claims
-        
+
         return claims
-    
+
     def _decompose_with_rules(self, question: str) -> DecompositionResult:
         """
         Decompose using rule-based approach.
@@ -304,23 +304,23 @@ class ClaimDecomposer:
         Uses pattern matching and linguistic heuristics.
         """
         claims = []
-        
+
         # Normalize question
         question = question.strip()
-        
+
         # Split by common conjunctions and delimiters
         segments = self._split_by_conjunctions(question)
-        
+
         for segment in segments:
             segment = segment.strip()
             if not segment:
                 continue
-            
+
             # Analyze segment
             polarity = self._infer_polarity(segment)
             claim_type = self._infer_claim_type(segment)
             keywords = self._extract_keywords(segment)
-            
+
             claim = AtomicClaim(
                 claim_id=f"claim_{uuid.uuid4().hex[:8]}",
                 text=segment,
@@ -333,7 +333,7 @@ class ClaimDecomposer:
                 verification_hints=self._generate_hints(claim_type, keywords),
             )
             claims.append(claim)
-        
+
         # If no claims were generated, create a single claim from the question
         if not claims:
             claims.append(AtomicClaim(
@@ -347,14 +347,14 @@ class ClaimDecomposer:
                 keywords=self._extract_keywords(question),
                 verification_hints=["一般的な検索で調査"],
             ))
-        
+
         return DecompositionResult(
             original_question=question,
             claims=claims,
             decomposition_method="rule_based",
             success=True,
         )
-    
+
     def _split_by_conjunctions(self, text: str) -> list[str]:
         """Split text by conjunctions and delimiters."""
         # Japanese and English conjunctions
@@ -364,7 +364,7 @@ class ClaimDecomposer:
             r"(?:and|or|but|also|moreover)",  # English conjunctions
             r"[,;]",            # English punctuation
         ]
-        
+
         result = [text]
         for pattern in patterns:
             new_result = []
@@ -372,14 +372,14 @@ class ClaimDecomposer:
                 parts = re.split(pattern, segment)
                 new_result.extend(parts)
             result = new_result
-        
+
         # Filter short segments
         return [s.strip() for s in result if len(s.strip()) > 5]
-    
+
     def _infer_polarity(self, text: str) -> ClaimPolarity:
         """Infer the polarity of a claim from its text."""
         text_lower = text.lower()
-        
+
         # Negative indicators
         negative_patterns = [
             r"ない", r"しない", r"できない", r"不可能",
@@ -387,11 +387,11 @@ class ClaimDecomposer:
             r"not", r"never", r"cannot", r"impossible",
             r"false", r"incorrect", r"wrong",
         ]
-        
+
         for pattern in negative_patterns:
             if re.search(pattern, text_lower):
                 return ClaimPolarity.NEGATIVE
-        
+
         # Question indicators
         question_patterns = [
             r"\?$", r"？$",
@@ -399,17 +399,17 @@ class ClaimDecomposer:
             r"^(何|誰|いつ|どこ|なぜ|どう|どの)",
             r"(か|のか|でしょうか)$",
         ]
-        
+
         for pattern in question_patterns:
             if re.search(pattern, text_lower):
                 return ClaimPolarity.NEUTRAL
-        
+
         return ClaimPolarity.POSITIVE
-    
+
     def _infer_claim_type(self, text: str) -> ClaimType:
         """Infer the type of claim from its text."""
         text_lower = text.lower()
-        
+
         # Temporal patterns
         temporal_patterns = [
             r"\d{4}年", r"\d{4}/\d{1,2}",
@@ -419,7 +419,7 @@ class ClaimDecomposer:
         for pattern in temporal_patterns:
             if re.search(pattern, text_lower):
                 return ClaimType.TEMPORAL
-        
+
         # Quantitative patterns
         quant_patterns = [
             r"\d+%", r"\d+億", r"\d+万",
@@ -429,7 +429,7 @@ class ClaimDecomposer:
         for pattern in quant_patterns:
             if re.search(pattern, text_lower):
                 return ClaimType.QUANTITATIVE
-        
+
         # Comparative patterns
         comp_patterns = [
             r"(より|compared to|than|versus|vs)",
@@ -438,7 +438,7 @@ class ClaimDecomposer:
         for pattern in comp_patterns:
             if re.search(pattern, text_lower):
                 return ClaimType.COMPARATIVE
-        
+
         # Causal patterns
         causal_patterns = [
             r"(なぜ|原因|理由|結果|影響)",
@@ -448,7 +448,7 @@ class ClaimDecomposer:
         for pattern in causal_patterns:
             if re.search(pattern, text_lower):
                 return ClaimType.CAUSAL
-        
+
         # Definitional patterns
         def_patterns = [
             r"(とは|定義|意味|what is|define|definition)",
@@ -456,9 +456,9 @@ class ClaimDecomposer:
         for pattern in def_patterns:
             if re.search(pattern, text_lower):
                 return ClaimType.DEFINITIONAL
-        
+
         return ClaimType.FACTUAL
-    
+
     def _extract_keywords(self, text: str) -> list[str]:
         """Extract keywords from text."""
         # Remove common stopwords and extract significant terms
@@ -475,17 +475,17 @@ class ClaimDecomposer:
             "where", "when", "why", "how", "and", "or", "but", "if",
             "then", "else", "for", "of", "to", "from", "by", "with",
         }
-        
+
         # Split by whitespace and common delimiters
         words = re.split(r"[\s、。,.\-:;()（）「」『』]+", text)
-        
+
         # Filter stopwords and short words
         keywords = []
         for word in words:
             word = word.strip()
             if word and len(word) > 1 and word.lower() not in stopwords:
                 keywords.append(word)
-        
+
         # Return unique keywords (preserve order)
         seen = set()
         unique_keywords = []
@@ -493,9 +493,9 @@ class ClaimDecomposer:
             if kw not in seen:
                 seen.add(kw)
                 unique_keywords.append(kw)
-        
+
         return unique_keywords[:10]  # Limit to 10 keywords
-    
+
     def _generate_hints(
         self,
         claim_type: ClaimType,
@@ -503,7 +503,7 @@ class ClaimDecomposer:
     ) -> list[str]:
         """Generate verification hints based on claim type."""
         hints = []
-        
+
         type_hints = {
             ClaimType.FACTUAL: ["公式発表・プレスリリース", "信頼できるニュースソース"],
             ClaimType.TEMPORAL: ["タイムラインや年表", "アーカイブ・履歴資料"],
@@ -512,16 +512,16 @@ class ClaimDecomposer:
             ClaimType.CAUSAL: ["研究論文・分析", "専門家の解説"],
             ClaimType.DEFINITIONAL: ["辞書・用語集", "公式ドキュメント"],
         }
-        
+
         hints.extend(type_hints.get(claim_type, ["一般的な検索"]))
-        
+
         # Add keyword-based hints
         for kw in keywords[:3]:
             if any(c in kw for c in ["株式会社", "会社", "Inc", "Corp", "Ltd"]):
                 hints.append(f"{kw}の公式サイト・IR情報")
             elif any(c in kw for c in ["省", "庁", "局"]):
                 hints.append(f"{kw}の公式サイト")
-        
+
         return hints[:5]  # Limit to 5 hints
 
 

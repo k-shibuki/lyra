@@ -8,25 +8,24 @@ Test Coverage:
 - attach_meta and create_minimal_meta helpers
 """
 
-import pytest
-from datetime import datetime, timezone
+from datetime import datetime
 
 from src.mcp.response_meta import (
-    VerificationStatus,
-    VerificationDetails,
-    SecurityWarning,
-    LancetMeta,
     ClaimMeta,
+    LancetMeta,
     ResponseMetaBuilder,
-    create_response_meta,
+    SecurityWarning,
+    VerificationDetails,
+    VerificationStatus,
     attach_meta,
     create_minimal_meta,
+    create_response_meta,
 )
 
 
 class TestVerificationDetails:
     """Tests for VerificationDetails dataclass."""
-    
+
     def test_to_dict_default_values(self):
         """
         TC-N-01: VerificationDetails with default values.
@@ -37,12 +36,12 @@ class TestVerificationDetails:
         """
         details = VerificationDetails()
         result = details.to_dict()
-        
+
         assert result["independent_sources"] == 0
         assert result["corroborating_claims"] == []
         assert result["contradicting_claims"] == []
         assert result["nli_scores"] == {}
-    
+
     def test_to_dict_with_values(self):
         """
         TC-N-02: VerificationDetails with populated values.
@@ -58,7 +57,7 @@ class TestVerificationDetails:
             nli_scores={"supporting": 2, "refuting": 1},
         )
         result = details.to_dict()
-        
+
         assert result["independent_sources"] == 3
         assert result["corroborating_claims"] == ["claim_1", "claim_2"]
         assert result["contradicting_claims"] == ["claim_3"]
@@ -67,7 +66,7 @@ class TestVerificationDetails:
 
 class TestSecurityWarning:
     """Tests for SecurityWarning dataclass."""
-    
+
     def test_to_dict_default_severity(self):
         """
         TC-N-03: SecurityWarning with default severity.
@@ -81,11 +80,11 @@ class TestSecurityWarning:
             message="External URL detected",
         )
         result = warning.to_dict()
-        
+
         assert result["type"] == "external_url"
         assert result["message"] == "External URL detected"
         assert result["severity"] == "warning"
-    
+
     def test_to_dict_custom_severity(self):
         """
         TC-N-04: SecurityWarning with custom severity.
@@ -100,13 +99,13 @@ class TestSecurityWarning:
             severity="critical",
         )
         result = warning.to_dict()
-        
+
         assert result["severity"] == "critical"
 
 
 class TestLancetMeta:
     """Tests for LancetMeta dataclass."""
-    
+
     def test_to_dict_minimal(self):
         """
         TC-N-05: LancetMeta with minimal fields (empty lists).
@@ -117,14 +116,14 @@ class TestLancetMeta:
         """
         meta = LancetMeta()
         result = meta.to_dict()
-        
+
         assert "timestamp" in result
         assert result["data_quality"] == "normal"
         # Empty lists should not be included
         assert "security_warnings" not in result
         assert "blocked_domains" not in result
         assert "unverified_domains" not in result
-    
+
     def test_to_dict_with_warnings(self):
         """
         TC-N-06: LancetMeta with security warnings.
@@ -139,11 +138,11 @@ class TestLancetMeta:
             ]
         )
         result = meta.to_dict()
-        
+
         assert "security_warnings" in result
         assert len(result["security_warnings"]) == 1
         assert result["security_warnings"][0]["type"] == "test"
-    
+
     def test_to_dict_with_domains(self):
         """
         TC-N-07: LancetMeta with blocked and unverified domains.
@@ -157,10 +156,10 @@ class TestLancetMeta:
             unverified_domains=["unknown.com", "new.com"],
         )
         result = meta.to_dict()
-        
+
         assert result["blocked_domains"] == ["blocked.com"]
         assert result["unverified_domains"] == ["unknown.com", "new.com"]
-    
+
     def test_timestamp_is_iso_format(self):
         """
         TC-N-08: Timestamp is in ISO format.
@@ -176,7 +175,7 @@ class TestLancetMeta:
 
 class TestClaimMeta:
     """Tests for ClaimMeta dataclass."""
-    
+
     def test_to_dict_minimal(self):
         """
         TC-N-09: ClaimMeta with minimal required fields.
@@ -190,13 +189,13 @@ class TestClaimMeta:
             source_trust_level="academic",
         )
         result = claim_meta.to_dict()
-        
+
         assert result["claim_id"] == "claim_123"
         assert result["source_trust_level"] == "academic"
         assert result["verification_status"] == "pending"
         assert "verification_details" not in result
         assert "source_domain" not in result
-    
+
     def test_to_dict_with_all_fields(self):
         """
         TC-N-10: ClaimMeta with all fields populated.
@@ -213,7 +212,7 @@ class TestClaimMeta:
             source_domain="example.go.jp",
         )
         result = claim_meta.to_dict()
-        
+
         assert result["claim_id"] == "claim_456"
         assert result["verification_status"] == "verified"
         assert result["source_domain"] == "example.go.jp"
@@ -222,7 +221,7 @@ class TestClaimMeta:
 
 class TestResponseMetaBuilder:
     """Tests for ResponseMetaBuilder."""
-    
+
     def test_builder_chain_methods(self):
         """
         TC-N-11: Builder methods return self for chaining.
@@ -232,19 +231,19 @@ class TestResponseMetaBuilder:
         // Then: Each method returns self
         """
         builder = ResponseMetaBuilder()
-        
+
         result = builder.add_security_warning("test", "Test")
         assert result is builder
-        
+
         result = builder.add_blocked_domain("blocked.com")
         assert result is builder
-        
+
         result = builder.add_unverified_domain("unknown.com")
         assert result is builder
-        
+
         result = builder.set_data_quality("degraded")
         assert result is builder
-    
+
     def test_build_empty(self):
         """
         TC-A-01: Build with no additions.
@@ -255,10 +254,10 @@ class TestResponseMetaBuilder:
         """
         builder = ResponseMetaBuilder()
         result = builder.build()
-        
+
         assert "timestamp" in result
         assert result["data_quality"] == "normal"
-    
+
     def test_build_with_warnings(self):
         """
         TC-N-12: Build with multiple security warnings.
@@ -270,12 +269,12 @@ class TestResponseMetaBuilder:
         builder = ResponseMetaBuilder()
         builder.add_security_warning("type1", "Message 1")
         builder.add_security_warning("type2", "Message 2", severity="critical")
-        
+
         result = builder.build()
-        
+
         assert len(result["security_warnings"]) == 2
         assert result["security_warnings"][1]["severity"] == "critical"
-    
+
     def test_build_with_claims(self):
         """
         TC-N-13: Build with claim metadata.
@@ -293,13 +292,13 @@ class TestResponseMetaBuilder:
             claim_id="claim_2",
             source_trust_level="unverified",
         ))
-        
+
         result = builder.build()
-        
+
         assert "claims" in result
         assert len(result["claims"]) == 2
         assert result["claims"][0]["claim_id"] == "claim_1"
-    
+
     def test_add_blocked_domain_deduplication(self):
         """
         TC-A-02: Duplicate blocked domains are deduplicated.
@@ -311,11 +310,11 @@ class TestResponseMetaBuilder:
         builder = ResponseMetaBuilder()
         builder.add_blocked_domain("blocked.com")
         builder.add_blocked_domain("blocked.com")
-        
+
         result = builder.build()
-        
+
         assert len(result["blocked_domains"]) == 1
-    
+
     def test_add_unverified_domain_deduplication(self):
         """
         TC-A-03: Duplicate unverified domains are deduplicated.
@@ -327,15 +326,15 @@ class TestResponseMetaBuilder:
         builder = ResponseMetaBuilder()
         builder.add_unverified_domain("unknown.com")
         builder.add_unverified_domain("unknown.com")
-        
+
         result = builder.build()
-        
+
         assert len(result["unverified_domains"]) == 1
 
 
 class TestHelperFunctions:
     """Tests for module-level helper functions."""
-    
+
     def test_create_response_meta_returns_builder(self):
         """
         TC-N-14: create_response_meta returns new builder.
@@ -346,7 +345,7 @@ class TestHelperFunctions:
         """
         builder = create_response_meta()
         assert isinstance(builder, ResponseMetaBuilder)
-    
+
     def test_attach_meta_adds_key(self):
         """
         TC-B-01: attach_meta adds _lancet_meta key.
@@ -357,13 +356,13 @@ class TestHelperFunctions:
         """
         response = {"ok": True, "data": "test"}
         meta = {"timestamp": "2024-01-01T00:00:00Z"}
-        
+
         result = attach_meta(response, meta)
-        
+
         assert result is response  # Modified in place
         assert "_lancet_meta" in result
         assert result["_lancet_meta"]["timestamp"] == "2024-01-01T00:00:00Z"
-    
+
     def test_create_minimal_meta_structure(self):
         """
         TC-B-02: create_minimal_meta returns minimal structure.
@@ -373,7 +372,7 @@ class TestHelperFunctions:
         // Then: Returns dict with timestamp and data_quality only
         """
         meta = create_minimal_meta()
-        
+
         assert "timestamp" in meta
         assert meta["data_quality"] == "normal"
         assert len(meta) == 2  # Only timestamp and data_quality
@@ -381,7 +380,7 @@ class TestHelperFunctions:
 
 class TestVerificationStatusEnum:
     """Tests for VerificationStatus enum."""
-    
+
     def test_enum_values(self):
         """
         TC-N-15: VerificationStatus enum values.
@@ -393,7 +392,7 @@ class TestVerificationStatusEnum:
         assert VerificationStatus.PENDING.value == "pending"
         assert VerificationStatus.VERIFIED.value == "verified"
         assert VerificationStatus.REJECTED.value == "rejected"
-    
+
     def test_enum_is_str(self):
         """
         TC-N-16: VerificationStatus is string enum.
@@ -409,7 +408,7 @@ class TestVerificationStatusEnum:
 
 class TestBoundaryAndEdgeCases:
     """Boundary value and edge case tests."""
-    
+
     def test_claim_meta_empty_claim_id(self):
         """
         TC-A-04: ClaimMeta with empty claim_id.
@@ -423,9 +422,9 @@ class TestBoundaryAndEdgeCases:
             source_trust_level="unverified",
         )
         result = claim_meta.to_dict()
-        
+
         assert result["claim_id"] == ""
-    
+
     def test_security_warning_empty_fields(self):
         """
         TC-A-05: SecurityWarning with empty type and message.
@@ -436,10 +435,10 @@ class TestBoundaryAndEdgeCases:
         """
         warning = SecurityWarning(type="", message="")
         result = warning.to_dict()
-        
+
         assert result["type"] == ""
         assert result["message"] == ""
-    
+
     def test_verification_details_negative_sources(self):
         """
         TC-A-06: VerificationDetails with negative independent_sources.
@@ -450,9 +449,9 @@ class TestBoundaryAndEdgeCases:
         """
         details = VerificationDetails(independent_sources=-1)
         result = details.to_dict()
-        
+
         assert result["independent_sources"] == -1
-    
+
     def test_lancet_meta_many_warnings(self):
         """
         TC-B-03: LancetMeta with many security warnings.
@@ -467,9 +466,9 @@ class TestBoundaryAndEdgeCases:
         ]
         meta = LancetMeta(security_warnings=warnings)
         result = meta.to_dict()
-        
+
         assert len(result["security_warnings"]) == 100
-    
+
     def test_attach_meta_modifies_response_in_place(self):
         """
         TC-B-04: attach_meta modifies response in place.
@@ -480,12 +479,12 @@ class TestBoundaryAndEdgeCases:
         """
         response = {"ok": True}
         meta = {"test": "value"}
-        
+
         result = attach_meta(response, meta)
-        
+
         assert result is response
         assert response["_lancet_meta"] == meta
-    
+
     def test_builder_add_claim_meta_returns_self(self):
         """
         TC-N-17: add_claim_meta returns self for chaining.
@@ -496,11 +495,11 @@ class TestBoundaryAndEdgeCases:
         """
         builder = ResponseMetaBuilder()
         claim = ClaimMeta(claim_id="test", source_trust_level="unverified")
-        
+
         result = builder.add_claim_meta(claim)
-        
+
         assert result is builder
-    
+
     def test_verification_details_empty_lists(self):
         """
         TC-A-07: VerificationDetails with explicitly empty lists.
@@ -516,11 +515,11 @@ class TestBoundaryAndEdgeCases:
             nli_scores={},
         )
         result = details.to_dict()
-        
+
         assert result["corroborating_claims"] == []
         assert result["contradicting_claims"] == []
         assert result["nli_scores"] == {}
-    
+
     def test_claim_meta_all_verification_statuses(self):
         """
         TC-A-08: ClaimMeta with each verification status.
@@ -537,7 +536,7 @@ class TestBoundaryAndEdgeCases:
             )
             result = claim.to_dict()
             assert result["verification_status"] == status.value
-    
+
     def test_data_quality_values(self):
         """
         TC-A-09: LancetMeta with different data_quality values.
