@@ -261,7 +261,7 @@ Sources are classified by institutional authority:
 | Resource | Reference Spec | Notes |
 |----------|----------------|-------|
 | RAM | 64GB host, 32GB WSL2 | Lower limits not yet determined |
-| GPU | NVIDIA RTX 4060 (8GB VRAM) | CPU fallback available |
+| GPU | NVIDIA RTX 4060 Laptop (8GB VRAM) | CPU fallback available |
 | Task time | ~20 min (GPU), ~25 min (CPU) | Per 120-page research task |
 
 The default `podman-compose.yml` expects GPU access via CDI. For CPU-only operation, remove `devices: nvidia.com/gpu=all` from the compose file and set `LYRA_ML__USE_GPU=false` in `.env`.
