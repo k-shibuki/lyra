@@ -34,7 +34,7 @@ Lancet開発の統合ワークフロー。単機能コマンドを順次実行�
 | テスト作成 | `/test-create` | テスト観点表・テストコード作成 |
 | テストレビュー | `/test-review` | テスト品質の検証・修正 |
 | 品質確認 | `/quality-check` | lint/型エラー確認・修正 |
-| 回帰テスト | `/regression-test` | 全テスト実行 |
+| 回帰テスト | `/regression-test` | 全テスト実行（非同期実行→ポーリングで完了確認） |
 | コミット | `/commit` | コミットメッセージ作成・コミット |
 | 完了 | `/merge-complete` | mainマージ・完了報告 |
 | 中断 | `/suspend` | 進捗記録・WIPコミット |

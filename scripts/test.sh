@@ -116,8 +116,9 @@ cmd_run() {
 }
 
 # Function: cmd_check
-# Description: Check if tests are completed by checking file modification time
-#             If no updates for COMPLETION_THRESHOLD seconds, test is done
+# Description: Check if tests are completed by checking:
+#             1. Test result keywords (passed/failed/skipped/deselected)
+#             2. File modification time (fallback: if no updates for COMPLETION_THRESHOLD seconds)
 # Returns:
 #   0: Tests completed or still running
 #   1: Result file not found
@@ -133,11 +134,27 @@ cmd_check() {
     local now
     local age
     local last_line
+    local result_content
     
+    # Read last few lines to check for test completion keywords
+    result_content=$(tail -10 "$TEST_RESULT_FILE" 2>/dev/null || echo "")
+    last_line=$(tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
+    
+    # Check if test result contains completion keywords
+    # pytest output format: "===== X passed, Y failed, Z skipped, W deselected ====="
+    if echo "$result_content" | grep -qE "(passed|failed|skipped|deselected|error|ERROR)"; then
+        # Check if it's a summary line (contains "passed" or "failed" with numbers)
+        if echo "$result_content" | grep -qE "=====.*[0-9]+ (passed|failed|skipped|deselected)"; then
+            echo "DONE"
+            tail -5 "$TEST_RESULT_FILE" 2>/dev/null || echo "No output"
+            return 0
+        fi
+    fi
+    
+    # Fallback: Check file modification time
     mtime=$(stat -c %Y "$TEST_RESULT_FILE" 2>/dev/null || echo 0)
     now=$(date +%s)
     age=$((now - mtime))
-    last_line=$(tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
     
     if [ "$age" -gt "$COMPLETION_THRESHOLD" ]; then
         echo "DONE (${age}s ago)"
