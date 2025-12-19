@@ -109,7 +109,7 @@ def main():
 
         # Make requests up to limit
         print("  - Testing request limit...")
-        for i in range(3):
+        for _i in range(3):
             result = manager.can_request_to_domain("limited.com")
             assert result.allowed is True
             manager.record_domain_request("limited.com")
@@ -129,7 +129,7 @@ def main():
         manager.clear_budgets()
 
         print("  - Testing page limit...")
-        for i in range(2):
+        for _i in range(2):
             result = manager.can_request_to_domain("pagelimited.com")
             assert result.allowed is True
             manager.record_domain_request("pagelimited.com", is_page=True)
