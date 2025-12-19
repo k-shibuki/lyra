@@ -252,17 +252,17 @@ Sources are classified by institutional authority:
 ### Prerequisites
 
 - **OS**: Windows 11 + WSL2 (Ubuntu 22.04 or 24.04)
-- **RAM**: 64GB host (32GB allocated to WSL2 recommended)
 - **Python**: 3.12+
 - **Browser**: Google Chrome (for CDP remote debugging)
 - **Container Runtime**: Podman (recommended) or Docker
 
-**GPU Requirements:**
+**Reference Environment** (tested configuration; lower specs may work):
 
-| Mode | Hardware | Performance |
-|------|----------|-------------|
-| **GPU (recommended)** | NVIDIA RTX 4060 or equivalent (8GB VRAM) | ~20 min per research task (120 pages) |
-| **CPU fallback** | Any modern CPU | ~25 min per task; code supports CPU mode but container config requires modification |
+| Resource | Reference Spec | Notes |
+|----------|----------------|-------|
+| RAM | 64GB host, 32GB WSL2 | Lower limits not yet determined |
+| GPU | NVIDIA RTX 4060 (8GB VRAM) | CPU fallback available |
+| Task time | ~20 min (GPU), ~25 min (CPU) | Per 120-page research task |
 
 The default `podman-compose.yml` expects GPU access via CDI. For CPU-only operation, remove `devices: nvidia.com/gpu=all` from the compose file and set `LYRA_ML__USE_GPU=false` in `.env`.
 
