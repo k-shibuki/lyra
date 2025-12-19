@@ -421,7 +421,7 @@ class Paper(BaseModel):
     pdf_url: str | None = Field(None, description="PDF URL")
     source_api: str = Field(..., description="Source API name")
 
-    def to_search_result(self) -> "SearchResult":
+    def to_search_result(self) -> "SearchResult":  # noqa: F821
         """Convert to SearchResult format."""
         from src.search.provider import SearchResult, SourceTag
 
