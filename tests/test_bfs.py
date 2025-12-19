@@ -129,9 +129,7 @@ class TestExtractedLink:
         """Links should be hashable by URL (TC-EL-N-01)."""
         # Given: Two links with same URL but different text/type
         link1 = ExtractedLink(url="https://example.com/page", text="Page", link_type=LinkType.BODY)
-        link2 = ExtractedLink(
-            url="https://example.com/page", text="Different", link_type=LinkType.TOC
-        )
+        link2 = ExtractedLink(url="https://example.com/page", text="Different", link_type=LinkType.TOC)
 
         # When/Then: Hash should be same (based on URL)
         assert hash(link1) == hash(link2)
@@ -140,12 +138,8 @@ class TestExtractedLink:
         """Links should be equal if URLs match (TC-EL-N-02)."""
         # Given: Links with same/different URLs
         link1 = ExtractedLink(url="https://example.com/page", text="Page", link_type=LinkType.BODY)
-        link2 = ExtractedLink(
-            url="https://example.com/page", text="Different", link_type=LinkType.TOC
-        )
-        link3 = ExtractedLink(
-            url="https://example.com/other", text="Other", link_type=LinkType.BODY
-        )
+        link2 = ExtractedLink(url="https://example.com/page", text="Different", link_type=LinkType.TOC)
+        link3 = ExtractedLink(url="https://example.com/other", text="Other", link_type=LinkType.BODY)
 
         # When/Then: Same URL = equal, different URL = not equal
         assert link1 == link2
@@ -482,7 +476,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, "_robots_manager") as mock_robots:
+        with patch.object(crawler, '_robots_manager') as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
@@ -506,7 +500,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, "_robots_manager") as mock_robots:
+        with patch.object(crawler, '_robots_manager') as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
@@ -532,8 +526,7 @@ class TestDomainBFSCrawler:
         crawler = DomainBFSCrawler()
         blocked_url = "https://example.com/blocked"
 
-        with patch.object(crawler, "_robots_manager") as mock_robots:
-
+        with patch.object(crawler, '_robots_manager') as mock_robots:
             async def can_fetch(url):
                 return url != blocked_url
 
@@ -560,7 +553,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, "_robots_manager") as mock_robots:
+        with patch.object(crawler, '_robots_manager') as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
 
             # When: Getting priority links
@@ -580,7 +573,7 @@ class TestDomainBFSCrawler:
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
 
-        with patch.object(crawler, "_robots_manager") as mock_robots:
+        with patch.object(crawler, '_robots_manager') as mock_robots:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 

@@ -89,7 +89,6 @@ class CAPTCHAFlowVerifier:
         # Check notification system
         try:
             from src.utils.notification import InterventionManager
-
             InterventionManager()
             print("  ✓ Notification system available")
         except Exception as e:
@@ -99,7 +98,6 @@ class CAPTCHAFlowVerifier:
         # Check database
         try:
             from src.storage.database import get_database
-
             await get_database()
             print("  ✓ Database available")
         except Exception as e:
@@ -141,7 +139,7 @@ class CAPTCHAFlowVerifier:
 
             # Verify all items are in queue
             pending = await queue.get_pending()
-            pending_ids = {item["id"] for item in pending}
+            pending_ids = {item['id'] for item in pending}
 
             all_queued = all(qid in pending_ids for qid in queue_ids)
 
@@ -322,7 +320,7 @@ class CAPTCHAFlowVerifier:
 
                     # Verify the blocked item is still pending
                     pending = await queue.get_pending()
-                    still_pending = any(item["id"] == queue_id for item in pending)
+                    still_pending = any(item['id'] == queue_id for item in pending)
 
                     if still_pending:
                         print("    ✓ Blocked item still in queue (parallel processing works)")
@@ -459,9 +457,7 @@ class CAPTCHAFlowVerifier:
             success_rate = success_count / notification_count
             threshold = 0.99  # §7: ≥99%
 
-            print(
-                f"    Notification success rate: {success_rate:.1%} ({success_count}/{notification_count})"
-            )
+            print(f"    Notification success rate: {success_rate:.1%} ({success_count}/{notification_count})")
 
             if success_rate >= threshold:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
@@ -528,9 +524,7 @@ class CAPTCHAFlowVerifier:
             success_rate = success_count / foreground_count
             threshold = 0.95  # §7: ≥95%
 
-            print(
-                f"    Foreground success rate: {success_rate:.1%} ({success_count}/{foreground_count})"
-            )
+            print(f"    Foreground success rate: {success_rate:.1%} ({success_count}/{foreground_count})")
 
             if success_rate >= threshold:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")

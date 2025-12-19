@@ -4,8 +4,6 @@ Unpaywall API client.
 Open Access URL resolution (priority=5).
 """
 
-from __future__ import annotations
-
 import os
 
 from src.search.apis.base import BaseAcademicClient
@@ -46,9 +44,7 @@ class UnpaywallClient(BaseAcademicClient):
             base_url = "https://api.unpaywall.org/v2"
             timeout = 30.0
             headers = None
-            self.email = os.environ.get(
-                "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com"
-            )
+            self.email = os.environ.get("LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com")
 
         super().__init__("unpaywall", base_url=base_url, timeout=timeout, headers=headers)
 
@@ -113,7 +109,11 @@ class UnpaywallClient(BaseAcademicClient):
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search is not supported by Unpaywall API."""
         logger.debug("Unpaywall does not support search", query=query)
-        return AcademicSearchResult(papers=[], total_count=0, source_api="unpaywall")
+        return AcademicSearchResult(
+            papers=[],
+            total_count=0,
+            source_api="unpaywall"
+        )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper is not supported by Unpaywall API.

@@ -92,7 +92,6 @@ class ConsistencyLevel(str, Enum):
 @dataclass
 class DateExtraction:
     """Extracted date information."""
-
     year: int | None = None
     month: int | None = None
     day: int | None = None
@@ -296,7 +295,7 @@ class DateExtractor:
                     confidence=0.8,
                 )
 
-            if "平成" in pattern:
+            if '平成' in pattern:
                 era_year = int(groups[0])
                 # 平成1年 = 1989年
                 return DateExtraction(

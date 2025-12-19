@@ -188,9 +188,8 @@ class TestSearchToReportPipeline:
         for field in required_fields:
             assert field in first_result, f"Missing required field: {field}"
 
-        assert first_result["url"].startswith(("http://", "https://")), (
+        assert first_result["url"].startswith(("http://", "https://")), \
             f"Invalid URL: {first_result['url']}"
-        )
 
         print(f"\n[E2E] Search returned {len(results)} results")
         print(f"[E2E] First result: {first_result['title'][:50]}...")
@@ -326,7 +325,9 @@ class TestSearchToReportPipeline:
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
         # Given: A task with claims and supporting fragments
-        task_id = await e2e_database.create_task(query="E2E test query for report generation")
+        task_id = await e2e_database.create_task(
+            query="E2E test query for report generation"
+        )
 
         graph = EvidenceGraph(task_id=task_id)
 
@@ -496,8 +497,12 @@ class TestAuthenticationQueueFlow:
 
         # Then: Results are correctly grouped with counts
         assert result["ok"] is True
-        assert result["total_domains"] == 2, f"Expected 2 domains, got {result['total_domains']}"
-        assert result["total_pending"] == 3, f"Expected 3 pending, got {result['total_pending']}"
+        assert result["total_domains"] == 2, (
+            f"Expected 2 domains, got {result['total_domains']}"
+        )
+        assert result["total_pending"] == 3, (
+            f"Expected 3 pending, got {result['total_pending']}"
+        )
 
         go_jp = next((d for d in result["domains"] if d["domain"] == "protected.go.jp"), None)
         assert go_jp is not None, "protected.go.jp should be in domains"
@@ -507,11 +512,9 @@ class TestAuthenticationQueueFlow:
 
         print("\n[E2E] Pending by domain:")
         for d in result["domains"]:
-            print(
-                f"[E2E]   {d['domain']}: {d['pending_count']} pending, "
-                f"{d['high_priority_count']} high priority, "
-                f"tasks: {d['affected_tasks']}"
-            )
+            print(f"[E2E]   {d['domain']}: {d['pending_count']} pending, "
+                  f"{d['high_priority_count']} high priority, "
+                  f"tasks: {d['affected_tasks']}")
 
     @pytest.mark.asyncio
     async def test_complete_authentication_single_item(self, e2e_database):
@@ -613,7 +616,8 @@ class TestAuthenticationQueueFlow:
         # Then: No more pending items for that domain
         pending = await queue.get_pending_by_domain()
         protected_domain = next(
-            (d for d in pending["domains"] if d["domain"] == "protected.gov"), None
+            (d for d in pending["domains"] if d["domain"] == "protected.gov"),
+            None
         )
         assert protected_domain is None, "protected.gov should have no pending items"
 
@@ -734,34 +738,14 @@ class TestAuthenticationQueueFlow:
 
         task_id = await e2e_database.create_task(query="E2E pending count test")
 
-        await queue.enqueue(
-            task_id=task_id,
-            url="https://h1.go.jp/",
-            domain="h1.go.jp",
-            auth_type="cloudflare",
-            priority="high",
-        )
-        await queue.enqueue(
-            task_id=task_id,
-            url="https://h2.go.jp/",
-            domain="h2.go.jp",
-            auth_type="cloudflare",
-            priority="high",
-        )
-        await queue.enqueue(
-            task_id=task_id,
-            url="https://m1.example.com/",
-            domain="m1.example.com",
-            auth_type="captcha",
-            priority="medium",
-        )
-        await queue.enqueue(
-            task_id=task_id,
-            url="https://l1.example.com/",
-            domain="l1.example.com",
-            auth_type="captcha",
-            priority="low",
-        )
+        await queue.enqueue(task_id=task_id, url="https://h1.go.jp/",
+                           domain="h1.go.jp", auth_type="cloudflare", priority="high")
+        await queue.enqueue(task_id=task_id, url="https://h2.go.jp/",
+                           domain="h2.go.jp", auth_type="cloudflare", priority="high")
+        await queue.enqueue(task_id=task_id, url="https://m1.example.com/",
+                           domain="m1.example.com", auth_type="captcha", priority="medium")
+        await queue.enqueue(task_id=task_id, url="https://l1.example.com/",
+                           domain="l1.example.com", auth_type="captcha", priority="low")
 
         # When: Get pending count summary
         counts = await queue.get_pending_count(task_id=task_id)
@@ -777,10 +761,8 @@ class TestAuthenticationQueueFlow:
         assert counts["high"] >= 2, "Should trigger critical due to high priority count"
 
         print("\n[E2E] Pending count summary:")
-        print(
-            f"[E2E] Total: {counts['total']}, High: {counts['high']}, "
-            f"Medium: {counts['medium']}, Low: {counts['low']}"
-        )
+        print(f"[E2E] Total: {counts['total']}, High: {counts['high']}, "
+              f"Medium: {counts['medium']}, Low: {counts['low']}")
 
     @pytest.mark.asyncio
     async def test_cleanup_expired_items(self, e2e_database):

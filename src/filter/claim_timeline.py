@@ -259,7 +259,7 @@ class ClaimTimeline:
         confirmations = self.confirmation_count
         if confirmations > 0:
             bonus = min(0.5, confirmations * 0.1)
-            adjustment *= 1.0 + bonus
+            adjustment *= (1.0 + bonus)
 
         return adjustment
 
@@ -753,7 +753,9 @@ class ClaimTimelineManager:
         archive_date_str = diff_result.get("archive_date")
         if archive_date_str:
             try:
-                datetime.fromisoformat(archive_date_str.replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    archive_date_str.replace("Z", "+00:00")
+                )
             except (ValueError, TypeError):
                 datetime.now(UTC)
         else:

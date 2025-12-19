@@ -55,7 +55,10 @@ class BM25Ranker:
             return tokens
         else:
             # SudachiPy tokenization
-            tokens = [m.surface() for m in tokenizer.tokenize(text, self._tokenize_mode)]
+            tokens = [
+                m.surface()
+                for m in tokenizer.tokenize(text, self._tokenize_mode)
+            ]
             return tokens
 
     def fit(self, corpus: list[str]) -> None:
@@ -389,7 +392,7 @@ async def rank_candidates(
 
     # Sort by combined score and get top candidates for reranking
     combined.sort(key=lambda x: x[3], reverse=True)
-    rerank_candidates = combined[: settings.reranker.top_k]
+    rerank_candidates = combined[:settings.reranker.top_k]
 
     # Stage 3: Reranker
     rerank_texts = [texts[idx] for idx, _, _, _ in rerank_candidates]
@@ -414,5 +417,7 @@ async def rank_candidates(
         input_count=len(passages),
         output_count=len(results),
     )
+
+    return results
 
     return results

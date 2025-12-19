@@ -286,15 +286,7 @@ class QueryOperatorProcessor:
         remaining_query = query
 
         # Extract operators in specific order (more specific first)
-        extraction_order = [
-            "site",
-            "filetype",
-            "intitle",
-            "date_after",
-            "exact",
-            "exclude",
-            "required",
-        ]
+        extraction_order = ["site", "filetype", "intitle", "date_after", "exact", "exclude", "required"]
 
         for op_type in extraction_order:
             pattern = self.PATTERNS.get(op_type)
@@ -312,16 +304,14 @@ class QueryOperatorProcessor:
                 else:
                     value = match.group(1)
 
-                operators.append(
-                    ParsedOperator(
-                        operator_type=op_type,
-                        value=value,
-                        raw_text=raw_text,
-                    )
-                )
+                operators.append(ParsedOperator(
+                    operator_type=op_type,
+                    value=value,
+                    raw_text=raw_text,
+                ))
 
                 # Remove from query
-                remaining_query = remaining_query[: match.start()] + remaining_query[match.end() :]
+                remaining_query = remaining_query[:match.start()] + remaining_query[match.end():]
 
         # Clean up base query
         base_query = " ".join(remaining_query.split())
@@ -768,53 +758,42 @@ async def search_serp(
 
         # Store in database
         if task_id:
-            query_id = await db.insert(
-                "queries",
-                {
-                    "task_id": task_id,
-                    "query_text": query,
-                    "query_type": "initial",
-                    "engines_used": json.dumps(engines) if engines else None,
-                    "result_count": len(results),
-                    "cause_id": trace.id,
-                },
-            )
+            query_id = await db.insert("queries", {
+                "task_id": task_id,
+                "query_text": query,
+                "query_type": "initial",
+                "engines_used": json.dumps(engines) if engines else None,
+                "result_count": len(results),
+                "cause_id": trace.id,
+            })
 
             # Store SERP items
             for result in results:
-                await db.insert(
-                    "serp_items",
-                    {
-                        "query_id": query_id,
-                        "engine": result["engine"],
-                        "rank": result["rank"],
-                        "url": result["url"],
-                        "title": result["title"],
-                        "snippet": result["snippet"],
-                        "published_date": result.get("date"),
-                        "source_tag": result["source_tag"],
-                        "cause_id": trace.id,
-                    },
-                )
+                await db.insert("serp_items", {
+                    "query_id": query_id,
+                    "engine": result["engine"],
+                    "rank": result["rank"],
+                    "url": result["url"],
+                    "title": result["title"],
+                    "snippet": result["snippet"],
+                    "published_date": result.get("date"),
+                    "source_tag": result["source_tag"],
+                    "cause_id": trace.id,
+                })
 
         # Cache results
         if use_cache and results:
             settings = get_settings()
             expires_at = datetime.now(UTC) + timedelta(hours=settings.storage.serp_cache_ttl)
 
-            await db.insert(
-                "cache_serp",
-                {
-                    "cache_key": cache_key,
-                    "query_normalized": _normalize_query(query),
-                    "engines_json": json.dumps(engines) if engines else "[]",
-                    "time_range": time_range,
-                    "result_json": json.dumps(results, ensure_ascii=False),
-                    "expires_at": expires_at.isoformat(),
-                },
-                or_replace=True,
-                auto_id=False,
-            )
+            await db.insert("cache_serp", {
+                "cache_key": cache_key,
+                "query_normalized": _normalize_query(query),
+                "engines_json": json.dumps(engines) if engines else "[]",
+                "time_range": time_range,
+                "result_json": json.dumps(results, ensure_ascii=False),
+                "expires_at": expires_at.isoformat(),
+            }, or_replace=True, auto_id=False)
 
         logger.info(
             "SERP search completed",
@@ -978,7 +957,8 @@ class QueryExpander:
         """
         if not self._ensure_initialized():
             # Fallback: simple space-based tokenization
-            return [{"surface": w, "normalized": w, "pos": "unknown"} for w in text.split()]
+            return [{"surface": w, "normalized": w, "pos": "unknown"}
+                    for w in text.split()]
 
         tokens = []
         for m in self._tokenizer.tokenize(text, self._tokenize_mode):
@@ -1091,7 +1071,7 @@ class QueryExpander:
                 if variant != query and variant not in expanded:
                     expanded.append(variant)
 
-        return expanded[: max_expansions + 1]  # Limit total expansions
+        return expanded[:max_expansions + 1]  # Limit total expansions
 
     def generate_variants(
         self,
@@ -1329,5 +1309,7 @@ async def generate_mirror_queries(
             translated = await generate_mirror_query(query, source_lang, target_lang)
             if translated:
                 results[target_lang] = translated
+
+    return results
 
     return results

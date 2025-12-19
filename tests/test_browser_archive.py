@@ -359,27 +359,16 @@ class TestNetworkEventCollector:
         collector.start_collection("https://example.com/")
 
         # Main document
-        collector.on_request(
-            url="https://example.com/", resource_type="document", is_main_frame=True
-        )
-        collector.on_response(
-            url="https://example.com/", status=200, headers={}, mime_type="text/html"
-        )
+        collector.on_request(url="https://example.com/", resource_type="document", is_main_frame=True)
+        collector.on_response(url="https://example.com/", status=200, headers={}, mime_type="text/html")
 
         # Script (should be included)
         collector.on_request(url="https://example.com/app.js", resource_type="script")
-        collector.on_response(
-            url="https://example.com/app.js",
-            status=200,
-            headers={},
-            mime_type="application/javascript",
-        )
+        collector.on_response(url="https://example.com/app.js", status=200, headers={}, mime_type="application/javascript")
 
         # Image (should be filtered out)
         collector.on_request(url="https://example.com/image.png", resource_type="image")
-        collector.on_response(
-            url="https://example.com/image.png", status=200, headers={}, mime_type="image/png"
-        )
+        collector.on_response(url="https://example.com/image.png", status=200, headers={}, mime_type="image/png")
 
         # When: Getting main resources
         all_resources = collector.resources
@@ -639,24 +628,12 @@ class TestBrowserArchiver:
         collector = NetworkEventCollector()
         collector.start_collection("https://example.com/")
 
-        collector.on_request(
-            url="https://example.com/", method="GET", resource_type="document", is_main_frame=True
-        )
-        collector.on_response(
-            url="https://example.com/",
-            status=200,
-            headers={"content-type": "text/html"},
-            mime_type="text/html",
-        )
+        collector.on_request(url="https://example.com/", method="GET", resource_type="document", is_main_frame=True)
+        collector.on_response(url="https://example.com/", status=200, headers={"content-type": "text/html"}, mime_type="text/html")
         collector.on_request_finished(url="https://example.com/", size=512)
 
         collector.on_request(url="https://example.com/app.js", resource_type="script")
-        collector.on_response(
-            url="https://example.com/app.js",
-            status=200,
-            headers={},
-            mime_type="application/javascript",
-        )
+        collector.on_response(url="https://example.com/app.js", status=200, headers={}, mime_type="application/javascript")
 
         content = b"<html><script src='app.js'></script></html>"
 
@@ -750,24 +727,15 @@ class TestBrowserArchiverIntegration:
 
         # CSS file
         collector.on_request(url="https://example.org/style.css", resource_type="stylesheet")
-        collector.on_response(
-            url="https://example.org/style.css", status=200, headers={}, mime_type="text/css"
-        )
+        collector.on_response(url="https://example.org/style.css", status=200, headers={}, mime_type="text/css")
 
         # JS file
         collector.on_request(url="https://example.org/main.js", resource_type="script")
-        collector.on_response(
-            url="https://example.org/main.js",
-            status=200,
-            headers={},
-            mime_type="application/javascript",
-        )
+        collector.on_response(url="https://example.org/main.js", status=200, headers={}, mime_type="application/javascript")
 
         # Image (should be filtered from main_resources)
         collector.on_request(url="https://example.org/logo.png", resource_type="image")
-        collector.on_response(
-            url="https://example.org/logo.png", status=200, headers={}, mime_type="image/png"
-        )
+        collector.on_response(url="https://example.org/logo.png", status=200, headers={}, mime_type="image/png")
 
         content = b"""
         <!DOCTYPE html>

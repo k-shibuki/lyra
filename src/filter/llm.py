@@ -485,21 +485,17 @@ async def llm_extract(
                     except json.JSONDecodeError:
                         extracted = [{"raw_response": response_text}]
 
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "extracted": extracted,
-                        }
-                    )
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "extracted": extracted,
+                    })
                 else:
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "result": response_text.strip(),
-                        }
-                    )
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "result": response_text.strip(),
+                    })
 
             except Exception as e:
                 # L8: Use secure logger for exception handling
@@ -576,21 +572,17 @@ async def llm_extract(
                     except json.JSONDecodeError:
                         extracted = [{"raw_response": response_text}]
 
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "extracted": extracted,
-                        }
-                    )
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "extracted": extracted,
+                    })
                 else:
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "result": response_text.strip(),
-                        }
-                    )
+                    results.append({
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "result": response_text.strip(),
+                    })
 
             except Exception as e:
                 # L8: Use secure logger for exception handling
@@ -598,12 +590,10 @@ async def llm_extract(
                     e,
                     context={"passage_id": passage_id, "task": task},
                 )
-                results.append(
-                    {
-                        "id": passage_id,
-                        "error": sanitized.sanitized_message,
-                    }
-                )
+                results.append({
+                    "id": passage_id,
+                    "error": sanitized.sanitized_message,
+                })
 
     # Aggregate results
     if task == "extract_facts":

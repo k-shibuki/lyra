@@ -422,49 +422,63 @@ class TestEstimateAuthEffort:
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("cloudflare")
-        assert effort == "low", f"cloudflare should be 'low' effort, got '{effort}'"
+        assert effort == "low", (
+            f"cloudflare should be 'low' effort, got '{effort}'"
+        )
 
     def test_js_challenge_is_low_effort(self):
         """Test JS challenge is estimated as low effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("js_challenge")
-        assert effort == "low", f"js_challenge should be 'low' effort, got '{effort}'"
+        assert effort == "low", (
+            f"js_challenge should be 'low' effort, got '{effort}'"
+        )
 
     def test_turnstile_is_medium_effort(self):
         """Test Turnstile is estimated as medium effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("turnstile")
-        assert effort == "medium", f"turnstile should be 'medium' effort, got '{effort}'"
+        assert effort == "medium", (
+            f"turnstile should be 'medium' effort, got '{effort}'"
+        )
 
     def test_captcha_is_high_effort(self):
         """Test generic CAPTCHA is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("captcha")
-        assert effort == "high", f"captcha should be 'high' effort, got '{effort}'"
+        assert effort == "high", (
+            f"captcha should be 'high' effort, got '{effort}'"
+        )
 
     def test_recaptcha_is_high_effort(self):
         """Test reCAPTCHA is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("recaptcha")
-        assert effort == "high", f"recaptcha should be 'high' effort, got '{effort}'"
+        assert effort == "high", (
+            f"recaptcha should be 'high' effort, got '{effort}'"
+        )
 
     def test_hcaptcha_is_high_effort(self):
         """Test hCaptcha is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("hcaptcha")
-        assert effort == "high", f"hcaptcha should be 'high' effort, got '{effort}'"
+        assert effort == "high", (
+            f"hcaptcha should be 'high' effort, got '{effort}'"
+        )
 
     def test_login_is_high_effort(self):
         """Test login requirement is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("login")
-        assert effort == "high", f"login should be 'high' effort, got '{effort}'"
+        assert effort == "high", (
+            f"login should be 'high' effort, got '{effort}'"
+        )
 
     def test_unknown_type_defaults_to_medium(self):
         """Test unknown challenge type defaults to medium effort."""
@@ -571,7 +585,9 @@ class TestHumanBehavior:
 
         # Scrollable area = 3000 - 1080 = 1920px
         # New implementation returns inertial animation steps (more positions)
-        assert len(positions) >= 1, f"Expected at least 1 scroll position, got {len(positions)}"
+        assert len(positions) >= 1, (
+            f"Expected at least 1 scroll position, got {len(positions)}"
+        )
 
         # Verify positions are within scrollable range and have valid delays
         for idx, (scroll_y, delay) in enumerate(positions):
@@ -820,9 +836,7 @@ class TestDatabaseFetchCache:
 
         await db.set_fetch_cache("https://a.com/1", etag='"e1"')
         await db.set_fetch_cache("https://b.com/2", last_modified="Mon, 01 Jan 2024 00:00:00 GMT")
-        await db.set_fetch_cache(
-            "https://c.com/3", etag='"e3"', last_modified="Tue, 02 Jan 2024 00:00:00 GMT"
-        )
+        await db.set_fetch_cache("https://c.com/3", etag='"e3"', last_modified="Tue, 02 Jan 2024 00:00:00 GMT")
 
         stats = await db.get_fetch_cache_stats()
 
@@ -1122,9 +1136,9 @@ class TestBrowserFetcherHumanBehavior:
         mock_page = AsyncMock()
         mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
         mock_page.content = AsyncMock(return_value="<html><body><a href='#'>Link</a></body></html>")
-        mock_page.query_selector_all = AsyncMock(
-            return_value=[MagicMock(evaluate=AsyncMock(return_value="a"))]
-        )
+        mock_page.query_selector_all = AsyncMock(return_value=[
+            MagicMock(evaluate=AsyncMock(return_value="a"))
+        ])
 
         # Mock context
         mock_context = AsyncMock()
@@ -1134,29 +1148,13 @@ class TestBrowserFetcherHumanBehavior:
         # Mock browser
         mock_browser = MagicMock()
 
-        with patch.object(
-            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
-        ):
-            with patch.object(
-                fetcher._human_behavior, "simulate_reading", AsyncMock()
-            ) as mock_simulate:
-                with patch.object(
-                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
-                ) as mock_mouse:
-                    with patch(
-                        "src.crawler.fetcher._save_content",
-                        AsyncMock(return_value="/tmp/page.html"),
-                    ):
-                        with patch(
-                            "src.crawler.fetcher._save_warc",
-                            AsyncMock(return_value="/tmp/page.warc.gz"),
-                        ):
-                            with patch(
-                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
-                            ):
-                                with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
-                                ):
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
@@ -1221,29 +1219,13 @@ class TestBrowserFetcherHumanBehavior:
 
         mock_browser = MagicMock()
 
-        with patch.object(
-            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
-        ):
-            with patch.object(
-                fetcher._human_behavior, "simulate_reading", AsyncMock()
-            ) as mock_simulate:
-                with patch.object(
-                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
-                ) as mock_mouse:
-                    with patch(
-                        "src.crawler.fetcher._save_content",
-                        AsyncMock(return_value="/tmp/page.html"),
-                    ):
-                        with patch(
-                            "src.crawler.fetcher._save_warc",
-                            AsyncMock(return_value="/tmp/page.warc.gz"),
-                        ):
-                            with patch(
-                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
-                            ):
-                                with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
-                                ):
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
@@ -1309,29 +1291,13 @@ class TestBrowserFetcherHumanBehavior:
 
         mock_browser = MagicMock()
 
-        with patch.object(
-            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
-        ):
-            with patch.object(
-                fetcher._human_behavior, "simulate_reading", AsyncMock()
-            ) as mock_simulate:
-                with patch.object(
-                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
-                ) as mock_mouse:
-                    with patch(
-                        "src.crawler.fetcher._save_content",
-                        AsyncMock(return_value="/tmp/page.html"),
-                    ):
-                        with patch(
-                            "src.crawler.fetcher._save_warc",
-                            AsyncMock(return_value="/tmp/page.warc.gz"),
-                        ):
-                            with patch(
-                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
-                            ):
-                                with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
-                                ):
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
@@ -1397,29 +1363,13 @@ class TestBrowserFetcherHumanBehavior:
 
         mock_browser = MagicMock()
 
-        with patch.object(
-            fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))
-        ):
-            with patch.object(
-                fetcher._human_behavior, "simulate_reading", AsyncMock()
-            ) as mock_simulate:
-                with patch.object(
-                    fetcher._human_behavior, "move_mouse_to_element", AsyncMock()
-                ) as mock_mouse:
-                    with patch(
-                        "src.crawler.fetcher._save_content",
-                        AsyncMock(return_value="/tmp/page.html"),
-                    ):
-                        with patch(
-                            "src.crawler.fetcher._save_warc",
-                            AsyncMock(return_value="/tmp/page.warc.gz"),
-                        ):
-                            with patch(
-                                "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
-                            ):
-                                with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
-                                ):
+        with patch.object(fetcher, "_ensure_browser", AsyncMock(return_value=(mock_browser, mock_context))):
+            with patch.object(fetcher._human_behavior, "simulate_reading", AsyncMock()) as mock_simulate:
+                with patch.object(fetcher._human_behavior, "move_mouse_to_element", AsyncMock()) as mock_mouse:
+                    with patch("src.crawler.fetcher._save_content", AsyncMock(return_value="/tmp/page.html")):
+                        with patch("src.crawler.fetcher._save_warc", AsyncMock(return_value="/tmp/page.warc.gz")):
+                            with patch("src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)):
+                                with patch("src.crawler.fetcher._is_challenge_page", return_value=False):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
@@ -1456,9 +1406,7 @@ class TestBrowserFetcherHumanBehavior:
                                                     # Verify simulate_reading was called but mouse movement failed gracefully
                                                     mock_simulate.assert_called_once()
                                                     mock_mouse.assert_not_called()  # Exception prevented call
-                                                    assert (
-                                                        result.ok is True
-                                                    )  # Normal flow continues
+                                                    assert result.ok is True  # Normal flow continues
 
         await fetcher.close()
 

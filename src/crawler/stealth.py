@@ -343,20 +343,28 @@ def get_stealth_args() -> list[str]:
     return [
         # Disable automation-controlled flag
         "--disable-blink-features=AutomationControlled",
+
         # Disable infobars (e.g., "Chrome is being controlled by automated software")
         "--disable-infobars",
+
         # Use /dev/shm for faster operation
         "--disable-dev-shm-usage",
+
         # Disable extensions that might be detected
         "--disable-extensions",
+
         # Disable background networking
         "--disable-background-networking",
+
         # Disable sync
         "--disable-sync",
+
         # Disable translate
         "--disable-translate",
+
         # Disable various Chrome features that can be fingerprinted
         "--disable-features=IsolateOrigins,site-per-process",
+
         # Set window size explicitly (can be overridden by viewport)
         "--window-size=1920,1080",
     ]

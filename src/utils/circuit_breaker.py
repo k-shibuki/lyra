@@ -42,9 +42,9 @@ from typing import Any
 class CircuitState(str, Enum):
     """Circuit breaker states."""
 
-    CLOSED = "closed"  # Normal operation, tracking failures
-    OPEN = "open"  # Blocking requests, waiting for cooldown
-    HALF_OPEN = "half-open"  # Testing recovery with limited requests
+    CLOSED = "closed"       # Normal operation, tracking failures
+    OPEN = "open"           # Blocking requests, waiting for cooldown
+    HALF_OPEN = "half-open" # Testing recovery with limited requests
 
 
 @dataclass

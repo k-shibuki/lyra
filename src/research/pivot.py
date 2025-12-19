@@ -441,21 +441,19 @@ class PivotExpander:
         suggestions = []
 
         # Related entity search
-        suggestions.append(
-            PivotSuggestion(
-                pivot_type=PivotType.RELATED_ENTITY,
-                query_template='"{entity}" 関連',
-                query_examples=[
-                    f'"{entity}" 関連',
-                    f'"{entity}" related',
-                ],
-                source_entity=entity,
-                target_entity_type=None,
-                priority="medium",
-                rationale="関連エンティティの探索",
-                operators=[],
-            )
-        )
+        suggestions.append(PivotSuggestion(
+            pivot_type=PivotType.RELATED_ENTITY,
+            query_template='"{entity}" 関連',
+            query_examples=[
+                f'"{entity}" 関連',
+                f'"{entity}" related',
+            ],
+            source_entity=entity,
+            target_entity_type=None,
+            priority="medium",
+            rationale="関連エンティティの探索",
+            operators=[],
+        ))
 
         return suggestions
 

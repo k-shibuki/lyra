@@ -414,7 +414,7 @@ class SimHash:
         result = 0
         for i in range(self.bit_size):
             if weights[i] > 0:
-                result |= 1 << i
+                result |= (1 << i)
 
         return result
 

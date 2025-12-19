@@ -125,12 +125,8 @@ class AllowlistEntrySchema(BaseModel):
     cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
     max_retries: int | None = Field(default=None, ge=0, le=10)
     # Daily budget limits (§4.3 - IP block prevention)
-    max_requests_per_day: int | None = Field(
-        default=None, ge=0, description="Max requests per day (0=unlimited)"
-    )
-    max_pages_per_day: int | None = Field(
-        default=None, ge=0, description="Max pages per day (0=unlimited)"
-    )
+    max_requests_per_day: int | None = Field(default=None, ge=0, description="Max requests per day (0=unlimited)")
+    max_pages_per_day: int | None = Field(default=None, ge=0, description="Max pages per day (0=unlimited)")
 
     @field_validator("domain")
     @classmethod
@@ -214,17 +210,11 @@ class LearningStateDomainSchema(BaseModel):
 class SearchEnginePolicySchema(BaseModel):
     """Schema for search engine policy settings (§3.1.4, §4.3)."""
 
-    default_qps: float = Field(
-        default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines"
-    )
-    site_search_qps: float = Field(
-        default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit"
-    )
+    default_qps: float = Field(default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines")
+    site_search_qps: float = Field(default=0.1, ge=0.01, le=0.5, description="Site-internal search QPS limit")
     cooldown_min: int = Field(default=30, ge=1, le=1440, description="Minimum cooldown in minutes")
     cooldown_max: int = Field(default=120, ge=1, le=1440, description="Maximum cooldown in minutes")
-    failure_threshold: int = Field(
-        default=2, ge=1, le=10, description="Failures before circuit open"
-    )
+    failure_threshold: int = Field(default=2, ge=1, le=10, description="Failures before circuit open")
 
     @property
     def default_min_interval(self) -> float:
@@ -250,41 +240,27 @@ class PolicyBoundsEntrySchema(BaseModel):
 class PolicyBoundsSchema(BaseModel):
     """Schema for policy auto-update bounds (§4.6)."""
 
-    engine_weight: PolicyBoundsEntrySchema = Field(
-        default_factory=lambda: PolicyBoundsEntrySchema(
-            min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
-        )
-    )
-    engine_qps: PolicyBoundsEntrySchema = Field(
-        default_factory=lambda: PolicyBoundsEntrySchema(
-            min=0.1, max=0.5, default=0.25, step_up=0.05, step_down=0.1
-        )
-    )
-    domain_qps: PolicyBoundsEntrySchema = Field(
-        default_factory=lambda: PolicyBoundsEntrySchema(
-            min=0.05, max=0.3, default=0.2, step_up=0.02, step_down=0.05
-        )
-    )
-    domain_cooldown: PolicyBoundsEntrySchema = Field(
-        default_factory=lambda: PolicyBoundsEntrySchema(
-            min=30.0, max=240.0, default=60.0, step_up=30.0, step_down=15.0
-        )
-    )
-    headful_ratio: PolicyBoundsEntrySchema = Field(
-        default_factory=lambda: PolicyBoundsEntrySchema(
-            min=0.0, max=0.5, default=0.1, step_up=0.05, step_down=0.05
-        )
-    )
-    tor_usage_ratio: PolicyBoundsEntrySchema = Field(
-        default_factory=lambda: PolicyBoundsEntrySchema(
-            min=0.0, max=0.2, default=0.0, step_up=0.02, step_down=0.05
-        )
-    )
-    browser_route_ratio: PolicyBoundsEntrySchema = Field(
-        default_factory=lambda: PolicyBoundsEntrySchema(
-            min=0.1, max=0.5, default=0.3, step_up=0.05, step_down=0.05
-        )
-    )
+    engine_weight: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.1, max=2.0, default=1.0, step_up=0.1, step_down=0.2
+    ))
+    engine_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.1, max=0.5, default=0.25, step_up=0.05, step_down=0.1
+    ))
+    domain_qps: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.05, max=0.3, default=0.2, step_up=0.02, step_down=0.05
+    ))
+    domain_cooldown: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=30.0, max=240.0, default=60.0, step_up=30.0, step_down=15.0
+    ))
+    headful_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.0, max=0.5, default=0.1, step_up=0.05, step_down=0.05
+    ))
+    tor_usage_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.0, max=0.2, default=0.0, step_up=0.02, step_down=0.05
+    ))
+    browser_route_ratio: PolicyBoundsEntrySchema = Field(default_factory=lambda: PolicyBoundsEntrySchema(
+        min=0.1, max=0.5, default=0.3, step_up=0.05, step_down=0.05
+    ))
 
 
 class DomainPolicyConfigSchema(BaseModel):
@@ -599,8 +575,7 @@ class DomainPolicyManager:
         self._check_reload()
         if self._config is None:
             self._load_config()
-        assert self._config is not None, "_load_config must set _config"
-        return self._config
+        return self._config  # type: ignore
 
     def get_default_policy(self) -> DefaultPolicySchema:
         """Get default policy configuration."""
@@ -760,11 +735,7 @@ class DomainPolicyManager:
 
                     if entry.skip:
                         policy.skip = True
-                        policy.skip_reason = (
-                            entry.reason
-                            if isinstance(entry.reason, str)
-                            else (entry.reason.value if entry.reason else None)
-                        )
+                        policy.skip_reason = entry.reason if isinstance(entry.reason, str) else (entry.reason.value if entry.reason else None)
 
                     policy.source = "graylist"
                     break
@@ -819,7 +790,11 @@ class DomainPolicyManager:
 
     def get_domains_by_trust_level(self, trust_level: TrustLevel) -> list[str]:
         """Get domains with specific trust level from allowlist."""
-        return [entry.domain for entry in self.config.allowlist if entry.trust_level == trust_level]
+        return [
+            entry.domain
+            for entry in self.config.allowlist
+            if entry.trust_level == trust_level
+        ]
 
     def update_learning_state(self, domain: str, state: dict[str, Any]) -> None:
         """

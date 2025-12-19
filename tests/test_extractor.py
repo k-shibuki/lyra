@@ -308,9 +308,7 @@ class TestPDFExtraction:
         with patch("fitz.open") as mock_fitz:
             mock_doc = MagicMock()
             mock_page = MagicMock()
-            mock_page.get_text.return_value = (
-                "This is plenty of text content that would not normally trigger OCR."
-            )
+            mock_page.get_text.return_value = "This is plenty of text content that would not normally trigger OCR."
 
             mock_pixmap = MagicMock()
             mock_pixmap.tobytes.return_value = b"fake_png_data"
@@ -345,7 +343,6 @@ class TestOCREngines:
         from PIL import Image
 
         from src.extractor.content import _ocr_with_paddleocr
-
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -407,7 +404,6 @@ class TestOCREngines:
         from PIL import Image
 
         from src.extractor.content import _ocr_with_paddleocr
-
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -457,7 +453,6 @@ class TestOCRImage:
         from PIL import Image
 
         from src.extractor.content import ocr_image
-
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -482,7 +477,6 @@ class TestOCRImage:
         from PIL import Image
 
         from src.extractor.content import ocr_image
-
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
@@ -508,7 +502,6 @@ class TestOCRImage:
         from PIL import Image
 
         from src.extractor.content import ocr_image
-
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")

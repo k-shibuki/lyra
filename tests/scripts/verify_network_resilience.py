@@ -69,7 +69,6 @@ class NetworkResilienceVerifier:
         # Check database
         try:
             from src.storage.database import get_database
-
             await get_database()
             print("  ✓ Database available")
         except Exception as e:
@@ -145,9 +144,7 @@ class NetworkResilienceVerifier:
             recovery_rate = recovery_successes / recovery_attempts
             threshold = 0.70
 
-            print(
-                f"\n    Recovery rate: {recovery_rate:.0%} ({recovery_successes}/{recovery_attempts})"
-            )
+            print(f"\n    Recovery rate: {recovery_rate:.0%} ({recovery_successes}/{recovery_attempts})")
 
             if recovery_rate >= threshold:
                 return VerificationResult(
@@ -459,9 +456,7 @@ class NetworkResilienceVerifier:
             utilization_rate = got_304 / total_revisits
             threshold = 0.70
 
-            print(
-                f"\n    304 utilization rate: {utilization_rate:.0%} ({got_304}/{total_revisits})"
-            )
+            print(f"\n    304 utilization rate: {utilization_rate:.0%} ({got_304}/{total_revisits})")
 
             if utilization_rate >= threshold:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")

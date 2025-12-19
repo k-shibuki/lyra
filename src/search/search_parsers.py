@@ -256,14 +256,12 @@ class BaseSearchParser(ABC):
         for selector_config in self.config.get_required_selectors():
             elements = self.find_elements(soup, selector_config.name)
             if not elements:
-                failed.append(
-                    FailedSelector(
-                        name=selector_config.name,
-                        selector=selector_config.selector,
-                        required=selector_config.required,
-                        diagnostic_message=selector_config.diagnostic_message,
-                    )
-                )
+                failed.append(FailedSelector(
+                    name=selector_config.name,
+                    selector=selector_config.selector,
+                    required=selector_config.required,
+                    diagnostic_message=selector_config.diagnostic_message,
+                ))
 
         return failed
 
@@ -532,9 +530,7 @@ class DuckDuckGoParser(BaseSearchParser):
 
         # Fallback: try direct search in container
         if title_elem is None:
-            title_elem = container.select_one(
-                "h2 a, a[data-testid='result-title-a'], .result__title a"
-            )
+            title_elem = container.select_one("h2 a, a[data-testid='result-title-a'], .result__title a")
 
         if url_elem is None:
             url_elem = container.select_one("a[data-testid='result-title-a'], h2 a")
@@ -1184,5 +1180,7 @@ def _classify_source(url: str) -> SourceTag:
             return SourceTag.GOVERNMENT
         if "wikipedia.org" in url_lower:
             return SourceTag.KNOWLEDGE
+
+        return SourceTag.UNKNOWN
 
         return SourceTag.UNKNOWN

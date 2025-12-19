@@ -416,7 +416,11 @@ class BudgetManager:
         Returns:
             List of budget dictionaries.
         """
-        return [budget.to_dict() for budget in self._budgets.values() if budget.is_active]
+        return [
+            budget.to_dict()
+            for budget in self._budgets.values()
+            if budget.is_active
+        ]
 
     async def enforce_limits(self, task_id: str) -> dict[str, Any]:
         """

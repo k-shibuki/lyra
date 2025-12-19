@@ -50,9 +50,7 @@ class StartSessionRequest(BaseModel):
 
     task_id: str = Field(..., description="タスクID")
     queue_ids: list[str] | None = Field(None, description="特定のキューIDリスト（オプション）")
-    priority_filter: str | None = Field(
-        None, description="優先度フィルタ（'high', 'medium', 'low'）"
-    )
+    priority_filter: str | None = Field(None, description="優先度フィルタ（'high', 'medium', 'low'）")
 
 
 class QueueItem(BaseModel):
@@ -79,12 +77,8 @@ class SessionTransferRequest(BaseModel):
     """セッション転送リクエスト（問題12用）."""
 
     url: str = Field(..., description="ターゲットURL")
-    session_id: str | None = Field(
-        None, description="セッションID（指定しない場合はドメインから検索）"
-    )
-    include_conditional: bool = Field(
-        default=True, description="ETag/Last-Modifiedヘッダーを含めるか"
-    )
+    session_id: str | None = Field(None, description="セッションID（指定しない場合はドメインから検索）")
+    include_conditional: bool = Field(default=True, description="ETag/Last-Modifiedヘッダーを含めるか")
 
 
 class TransferResult(BaseModel):
@@ -143,7 +137,8 @@ class EngineHealthMetrics(BaseModel):
         default=0.0, ge=0.0, le=1.0, description="HTTP error rate (403/429)"
     )
     last_used_at: datetime | None = Field(
-        None, description="Last usage timestamp for time decay calculation"
+        None,
+        description="Last usage timestamp for time decay calculation"
     )
 
     class Config:
@@ -208,10 +203,12 @@ class DynamicWeightResult(BaseModel):
         description="Metrics confidence (decays with time since last use)",
     )
     category: str | None = Field(
-        None, description="Query category (general, academic, news, government, technical)"
+        None,
+        description="Query category (general, academic, news, government, technical)"
     )
     metrics_used: EngineHealthMetrics | None = Field(
-        None, description="Health metrics used for calculation"
+        None,
+        description="Health metrics used for calculation"
     )
 
     class Config:
@@ -246,10 +243,18 @@ class TorUsageMetrics(BaseModel):
     Per §4.3 and §7: Track global Tor usage to enforce daily limit (20%).
     Metrics are reset at the start of each new day.
     """
-
-    total_requests: int = Field(default=0, ge=0, description="Total requests today (all types)")
-    tor_requests: int = Field(default=0, ge=0, description="Tor-routed requests today")
-    date: str = Field(..., description="Date in YYYY-MM-DD format for reset detection")
+    total_requests: int = Field(
+        default=0, ge=0,
+        description="Total requests today (all types)"
+    )
+    tor_requests: int = Field(
+        default=0, ge=0,
+        description="Tor-routed requests today"
+    )
+    date: str = Field(
+        ...,
+        description="Date in YYYY-MM-DD format for reset detection"
+    )
 
     @property
     def usage_ratio(self) -> float:
@@ -284,7 +289,10 @@ class DomainTorMetrics(BaseModel):
     tor_requests: int = Field(
         default=0, ge=0, description="Tor-routed requests to this domain today"
     )
-    date: str = Field(..., description="Date in YYYY-MM-DD format for reset detection")
+    date: str = Field(
+        ...,
+        description="Date in YYYY-MM-DD format for reset detection"
+    )
 
     @property
     def usage_ratio(self) -> float:
@@ -329,7 +337,10 @@ class DomainDailyBudget(BaseModel):
     max_pages_per_day: int = Field(
         ..., ge=0, description="Maximum pages allowed per day (0 = unlimited)"
     )
-    date: str = Field(..., description="Date in YYYY-MM-DD format for reset detection")
+    date: str = Field(
+        ...,
+        description="Date in YYYY-MM-DD format for reset detection"
+    )
 
     @property
     def requests_remaining(self) -> int:
@@ -374,9 +385,18 @@ class DomainBudgetCheckResult(BaseModel):
     """
 
     allowed: bool = Field(..., description="Whether the request is allowed")
-    reason: str | None = Field(None, description="Reason for denial (None if allowed)")
-    requests_remaining: int = Field(..., ge=0, description="Remaining requests for today")
-    pages_remaining: int = Field(..., ge=0, description="Remaining pages for today")
+    reason: str | None = Field(
+        None,
+        description="Reason for denial (None if allowed)"
+    )
+    requests_remaining: int = Field(
+        ..., ge=0,
+        description="Remaining requests for today"
+    )
+    pages_remaining: int = Field(
+        ..., ge=0,
+        description="Remaining pages for today"
+    )
 
     class Config:
         json_schema_extra = {
@@ -421,7 +441,7 @@ class Paper(BaseModel):
     pdf_url: str | None = Field(None, description="PDF URL")
     source_api: str = Field(..., description="Source API name")
 
-    def to_search_result(self) -> "SearchResult":  # noqa: F821
+    def to_search_result(self) -> "SearchResult":
         """Convert to SearchResult format."""
         from src.search.provider import SearchResult, SourceTag
 
@@ -459,15 +479,12 @@ class AcademicSearchResult(BaseModel):
 
 class PaperIdentifier(BaseModel):
     """Paper identifier (multiple format support)."""
-
     doi: str | None = Field(None, description="DOI")
     pmid: str | None = Field(None, description="PubMed ID")
     arxiv_id: str | None = Field(None, description="arXiv ID")
     crid: str | None = Field(None, description="CiNii Research ID")
     url: str | None = Field(None, description="URL (fallback)")
-    needs_meta_extraction: bool = Field(
-        default=False, description="Whether meta tag extraction is needed"
-    )
+    needs_meta_extraction: bool = Field(default=False, description="Whether meta tag extraction is needed")
 
     def get_canonical_id(self) -> str:
         """Return canonical ID (priority: DOI > PMID > arXiv > CRID > URL)."""

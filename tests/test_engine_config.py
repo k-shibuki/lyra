@@ -28,6 +28,7 @@ Per §7.1 of docs/REQUIREMENTS.md:
 | TC-EC-09 | Invalid config file | Abnormal – parse error | Handles gracefully | - |
 """
 
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)

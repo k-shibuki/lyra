@@ -333,7 +333,7 @@ class WaybackClient:
 
         cleaned = html
         for pattern in patterns:
-            cleaned = re.sub(pattern, "", cleaned, flags=re.DOTALL | re.IGNORECASE)
+            cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
 
         return cleaned
 
@@ -495,7 +495,7 @@ class ContentAnalyzer:
                 break
 
         if len(summary) > max_length:
-            summary = summary[: max_length - 3] + "..."
+            summary = summary[:max_length - 3] + "..."
 
         return summary
 
@@ -1117,7 +1117,9 @@ class WaybackFallback:
                         result.ok = True
                         result.html = html
                         result.snapshot = snapshot
-                        result.freshness_penalty = calculate_freshness_penalty(snapshot.timestamp)
+                        result.freshness_penalty = calculate_freshness_penalty(
+                            snapshot.timestamp
+                        )
 
                         logger.info(
                             "Wayback fallback successful",

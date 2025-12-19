@@ -80,7 +80,7 @@ class TestSecureLoggerNormal:
         input_text = "What is Python programming language?"
         output_text = "Python is a high-level programming language."
 
-        with patch.object(secure_logger, "_logger") as mock_logger:
+        with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io(
                 "extract_facts",
                 input_text=input_text,
@@ -138,7 +138,7 @@ class TestSecureLoggerNormal:
             "status": "success",
         }
 
-        with patch.object(secure_logger, "_logger") as mock_logger:
+        with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_sensitive_operation("test_op", details)
 
             mock_logger.info.assert_called_once()
@@ -166,7 +166,7 @@ class TestSecureLoggerAbnormal:
         """
         input_text = "This is <LANCET-abc123> system instruction text"
 
-        with patch.object(secure_logger, "_logger") as mock_logger:
+        with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text=input_text)
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -184,7 +184,7 @@ class TestSecureLoggerAbnormal:
         """
         input_text = "Error in file /home/user/secret/config.py"
 
-        with patch.object(secure_logger, "_logger") as mock_logger:
+        with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text=input_text)
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -263,7 +263,7 @@ class TestSecureLoggerBoundary:
         """
         long_text = "A" * 10000
 
-        with patch.object(secure_logger, "_logger") as mock_logger:
+        with patch.object(secure_logger, '_logger') as mock_logger:
             secure_logger.log_llm_io("test", input_text=long_text)
 
             call_kwargs = mock_logger.debug.call_args[1]
@@ -377,7 +377,7 @@ class TestAuditLoggerAbnormalBoundary:
         """
         long_value = "A" * 100
 
-        with patch.object(audit_logger, "_logger") as mock_logger:
+        with patch.object(audit_logger, '_logger') as mock_logger:
             audit_logger.log_security_event(
                 SecurityEventType.UNKNOWN_FIELD_REMOVED,
                 details={"long_field": long_value},

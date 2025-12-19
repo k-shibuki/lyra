@@ -186,9 +186,7 @@ class TestConfigLoading:
         """TC-CFG-B-04: Empty defaults section."""
         # Given: Config file with empty defaults
         config_file = temp_config_dir / "academic_apis.yaml"
-        config_file.write_text(
-            "apis:\n  semantic_scholar:\n    base_url: 'https://api.example.com'\ndefaults: {}"
-        )
+        config_file.write_text("apis:\n  semantic_scholar:\n    base_url: 'https://api.example.com'\ndefaults: {}")
 
         # When: Loading configuration
         with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_config_dir)}):

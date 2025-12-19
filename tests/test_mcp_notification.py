@@ -47,15 +47,13 @@ class TestNotifyUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ) as mock_send:
-            result = await _handle_notify_user(
-                {
-                    "event": "auth_required",
-                    "payload": {
-                        "url": "https://example.com/protected",
-                        "domain": "example.com",
-                    },
-                }
-            )
+            result = await _handle_notify_user({
+                "event": "auth_required",
+                "payload": {
+                    "url": "https://example.com/protected",
+                    "domain": "example.com",
+                },
+            })
 
         assert result["ok"] is True
         assert result["event"] == "auth_required"
@@ -80,16 +78,14 @@ class TestNotifyUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ) as mock_send:
-            result = await _handle_notify_user(
-                {
-                    "event": "task_progress",
-                    "payload": {
-                        "message": "50% complete",
-                        "task_id": "task_abc",
-                        "progress_percent": 50,
-                    },
-                }
-            )
+            result = await _handle_notify_user({
+                "event": "task_progress",
+                "payload": {
+                    "message": "50% complete",
+                    "task_id": "task_abc",
+                    "progress_percent": 50,
+                },
+            })
 
         assert result["ok"] is True
         assert result["event"] == "task_progress"
@@ -110,15 +106,13 @@ class TestNotifyUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ) as mock_send:
-            result = await _handle_notify_user(
-                {
-                    "event": "task_complete",
-                    "payload": {
-                        "message": "Research task completed",
-                        "task_id": "task_abc",
-                    },
-                }
-            )
+            result = await _handle_notify_user({
+                "event": "task_complete",
+                "payload": {
+                    "message": "Research task completed",
+                    "task_id": "task_abc",
+                },
+            })
 
         assert result["ok"] is True
         assert result["event"] == "task_complete"
@@ -139,14 +133,12 @@ class TestNotifyUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ) as mock_send:
-            result = await _handle_notify_user(
-                {
-                    "event": "error",
-                    "payload": {
-                        "message": "An error occurred",
-                    },
-                }
-            )
+            result = await _handle_notify_user({
+                "event": "error",
+                "payload": {
+                    "message": "An error occurred",
+                },
+            })
 
         assert result["ok"] is True
         assert result["event"] == "error"
@@ -169,14 +161,12 @@ class TestNotifyUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ) as mock_send:
-            result = await _handle_notify_user(
-                {
-                    "event": "info",
-                    "payload": {
-                        "message": "Information message",
-                    },
-                }
-            )
+            result = await _handle_notify_user({
+                "event": "info",
+                "payload": {
+                    "message": "Information message",
+                },
+            })
 
         assert result["ok"] is True
         assert result["event"] == "info"
@@ -199,11 +189,9 @@ class TestNotifyUserValidation:
         from src.mcp.server import _handle_notify_user
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_notify_user(
-                {
-                    "payload": {"message": "test"},
-                }
-            )
+            await _handle_notify_user({
+                "payload": {"message": "test"},
+            })
 
         assert exc_info.value.details.get("param_name") == "event"
 
@@ -220,12 +208,10 @@ class TestNotifyUserValidation:
         from src.mcp.server import _handle_notify_user
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_notify_user(
-                {
-                    "event": "invalid_event",
-                    "payload": {"message": "test"},
-                }
-            )
+            await _handle_notify_user({
+                "event": "invalid_event",
+                "payload": {"message": "test"},
+            })
 
         assert "event" in str(exc_info.value.details.get("param_name"))
 
@@ -242,11 +228,9 @@ class TestNotifyUserValidation:
         from src.mcp.server import _handle_notify_user
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_notify_user(
-                {
-                    "event": "info",
-                }
-            )
+            await _handle_notify_user({
+                "event": "info",
+            })
 
         assert exc_info.value.details.get("param_name") == "payload"
 
@@ -265,12 +249,10 @@ class TestNotifyUserValidation:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ):
-            result = await _handle_notify_user(
-                {
-                    "event": "info",
-                    "payload": {},
-                }
-            )
+            result = await _handle_notify_user({
+                "event": "info",
+                "payload": {},
+            })
 
         assert result["ok"] is True
 
@@ -308,11 +290,9 @@ class TestWaitForUserValidation:
         from src.mcp.server import _handle_wait_for_user
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_wait_for_user(
-                {
-                    "prompt": "",
-                }
-            )
+            await _handle_wait_for_user({
+                "prompt": "",
+            })
 
         assert exc_info.value.details.get("param_name") == "prompt"
 
@@ -335,12 +315,10 @@ class TestWaitForUserBoundaryValues:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ):
-            result = await _handle_wait_for_user(
-                {
-                    "prompt": "Test prompt",
-                    "timeout_seconds": 0,
-                }
-            )
+            result = await _handle_wait_for_user({
+                "prompt": "Test prompt",
+                "timeout_seconds": 0,
+            })
 
         assert result["ok"] is True
         assert result["timeout_seconds"] == 0
@@ -360,12 +338,10 @@ class TestWaitForUserBoundaryValues:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ):
-            result = await _handle_wait_for_user(
-                {
-                    "prompt": "Test prompt",
-                    "timeout_seconds": 1,
-                }
-            )
+            result = await _handle_wait_for_user({
+                "prompt": "Test prompt",
+                "timeout_seconds": 1,
+            })
 
         assert result["ok"] is True
         assert result["timeout_seconds"] == 1
@@ -389,11 +365,9 @@ class TestWaitForUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ) as mock_send:
-            result = await _handle_wait_for_user(
-                {
-                    "prompt": "Please confirm the action",
-                }
-            )
+            result = await _handle_wait_for_user({
+                "prompt": "Please confirm the action",
+            })
 
         assert result["ok"] is True
         assert result["status"] == "notification_sent"
@@ -415,12 +389,10 @@ class TestWaitForUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ):
-            result = await _handle_wait_for_user(
-                {
-                    "prompt": "Test prompt",
-                    "timeout_seconds": 600,
-                }
-            )
+            result = await _handle_wait_for_user({
+                "prompt": "Test prompt",
+                "timeout_seconds": 600,
+            })
 
         assert result["ok"] is True
         assert result["timeout_seconds"] == 600
@@ -440,11 +412,9 @@ class TestWaitForUserExecution:
             "src.utils.notification.notify_user",
             new_callable=AsyncMock,
         ):
-            result = await _handle_wait_for_user(
-                {
-                    "prompt": "Test prompt",
-                }
-            )
+            result = await _handle_wait_for_user({
+                "prompt": "Test prompt",
+            })
 
         assert result["timeout_seconds"] == 300
 

@@ -153,7 +153,7 @@ class GoogleSearchVerifier:
                     error="Browser not connected",
                 )
 
-            browser_info = {"connected": provider._browser.is_connected()}
+            browser_info = {'connected': provider._browser.is_connected()}
             print(f"    ✓ Browser connected: {browser_info.get('connected', False)}")
             await provider.close()
 

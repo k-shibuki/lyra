@@ -466,18 +466,16 @@ class TestClaimTimeline:
     def test_from_json_deserialization(self):
         """Verify timeline deserializes from JSON correctly."""
         # Given:
-        json_str = json.dumps(
-            {
-                "claim_id": "claim_003",
-                "events": [
-                    {
-                        "event_type": "first_appeared",
-                        "timestamp": "2024-01-15T10:00:00+00:00",
-                        "source_url": "https://example.com",
-                    },
-                ],
-            }
-        )
+        json_str = json.dumps({
+            "claim_id": "claim_003",
+            "events": [
+                {
+                    "event_type": "first_appeared",
+                    "timestamp": "2024-01-15T10:00:00+00:00",
+                    "source_url": "https://example.com",
+                },
+            ],
+        })
 
         # When:
         timeline = ClaimTimeline.from_json(json_str)
@@ -560,9 +558,9 @@ class TestClaimTimelineManager:
         }
 
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
-            mock_db.fetch_one = AsyncMock(
-                return_value={"timeline_json": json.dumps(existing_timeline)}
-            )
+            mock_db.fetch_one = AsyncMock(return_value={
+                "timeline_json": json.dumps(existing_timeline)
+            })
 
             # When:
             timeline = await manager.get_timeline("claim_existing")
@@ -645,7 +643,9 @@ class TestClaimTimelineManager:
         }
 
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
-            mock_db.fetch_one = AsyncMock(return_value={"timeline_json": json.dumps(existing)})
+            mock_db.fetch_one = AsyncMock(return_value={
+                "timeline_json": json.dumps(existing)
+            })
 
             # When:
             event = await manager.add_first_appeared(
@@ -681,12 +681,10 @@ class TestClaimTimelineManager:
         """Verify add_retraction creates event and updates confidence."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
-            mock_db.fetch_one = AsyncMock(
-                side_effect=[
-                    {"timeline_json": None},  # First call for get_timeline
-                    {"confidence_score": 0.9},  # Second call for confidence adjustment
-                ]
-            )
+            mock_db.fetch_one = AsyncMock(side_effect=[
+                {"timeline_json": None},  # First call for get_timeline
+                {"confidence_score": 0.9},  # Second call for confidence adjustment
+            ])
 
             # When:
             event = await manager.add_retraction(

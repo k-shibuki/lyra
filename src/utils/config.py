@@ -236,7 +236,6 @@ class MetricsConfig(BaseModel):
 
 class AcademicAPIRateLimitConfig(BaseModel):
     """Academic API rate limit configuration."""
-
     requests_per_interval: int | None = None
     interval_seconds: int | None = None
     requests_per_day: int | None = None
@@ -383,9 +382,7 @@ def get_academic_apis_config() -> AcademicAPIsConfig:
     config_data = _load_academic_apis_config(config_dir)
 
     # Apply environment overrides
-    config_data = _apply_env_overrides({"academic_apis": config_data}).get(
-        "academic_apis", config_data
-    )
+    config_data = _apply_env_overrides({"academic_apis": config_data}).get("academic_apis", config_data)
 
     # Parse API configurations
     apis_dict = {}
@@ -433,7 +430,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
             continue
 
         # Remove prefix and split by double underscore
-        key_path = key[len(prefix) :].lower().split("__")
+        key_path = key[len(prefix):].lower().split("__")
 
         # Navigate to the correct nested location
         current = config

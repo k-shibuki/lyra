@@ -66,28 +66,12 @@ async def main():
     await db.execute(
         """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant, relevance_reason, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (
-            fragment1_id,
-            page_id,
-            "paragraph",
-            "This is test fragment 1 with important content.",
-            "Test Heading",
-            1,
-            "primary_source=True; url=https://example.gov/test",
-        ),
+        (fragment1_id, page_id, "paragraph", "This is test fragment 1 with important content.", "Test Heading", 1, "primary_source=True; url=https://example.gov/test"),
     )
     await db.execute(
         """INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant, relevance_reason, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (
-            fragment2_id,
-            page_id,
-            "paragraph",
-            "This is test fragment 2 with secondary content.",
-            "Another Heading",
-            1,
-            "primary_source=False; url=https://example.com/article",
-        ),
+        (fragment2_id, page_id, "paragraph", "This is test fragment 2 with secondary content.", "Another Heading", 1, "primary_source=False; url=https://example.com/article"),
     )
     print(f"  - Created test fragments: {fragment1_id}, {fragment2_id}")
 
@@ -98,28 +82,12 @@ async def main():
     await db.execute(
         """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (
-            claim1_id,
-            task_id,
-            "Test claim 1: Important fact from primary source",
-            "fact",
-            0.85,
-            json.dumps([fragment1_id]),
-            "source_url=https://example.gov/test",
-        ),
+        (claim1_id, task_id, "Test claim 1: Important fact from primary source", "fact", 0.85, json.dumps([fragment1_id]), "source_url=https://example.gov/test"),
     )
     await db.execute(
         """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (
-            claim2_id,
-            task_id,
-            "Test claim 2: Secondary information",
-            "fact",
-            0.5,
-            json.dumps([fragment2_id]),
-            "source_url=https://example.com/article",
-        ),
+        (claim2_id, task_id, "Test claim 2: Secondary information", "fact", 0.5, json.dumps([fragment2_id]), "source_url=https://example.com/article"),
     )
     print(f"  - Created test claims: {claim1_id}, {claim2_id}")
 

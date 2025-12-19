@@ -17,13 +17,7 @@ logger = get_logger(__name__)
 class BaseAcademicClient(ABC):
     """Base class for academic API clients."""
 
-    def __init__(
-        self,
-        name: str,
-        base_url: str | None = None,
-        timeout: float | None = None,
-        headers: dict[str, str] | None = None,
-    ):
+    def __init__(self, name: str, base_url: str | None = None, timeout: float | None = None, headers: dict[str, str] | None = None):
         """Initialize client.
 
         Args:

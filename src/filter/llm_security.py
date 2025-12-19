@@ -162,7 +162,11 @@ class OutputValidationResult:
     @property
     def had_suspicious_content(self) -> bool:
         """Check if suspicious content was found."""
-        return len(self.urls_found) > 0 or len(self.ips_found) > 0 or self.leakage_detected
+        return (
+            len(self.urls_found) > 0
+            or len(self.ips_found) > 0
+            or self.leakage_detected
+        )
 
 
 @dataclass

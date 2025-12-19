@@ -454,3 +454,7 @@ class TestSpecCompliance:
         # Then: Delays vary (not all identical) - prevents thundering herd
         unique_delays = {round(d, 6) for d in delays}
         assert len(unique_delays) > 1, "Jitter should provide variation"
+
+        # Then: Delays vary (not all identical) - prevents thundering herd
+        unique_delays = {round(d, 6) for d in delays}
+        assert len(unique_delays) > 1, "Jitter should provide variation"

@@ -182,16 +182,14 @@ class EvidenceGraph:
                 node_type, obj_id = self._parse_node_id(predecessor)
                 node_data = self._graph.nodes[predecessor]
 
-                evidence.append(
-                    {
-                        "node_type": node_type.value,
-                        "obj_id": obj_id,
-                        "relation": edge_data.get("relation"),
-                        "confidence": edge_data.get("confidence"),
-                        "nli_confidence": edge_data.get("nli_confidence"),
-                        **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
-                    }
-                )
+                evidence.append({
+                    "node_type": node_type.value,
+                    "obj_id": obj_id,
+                    "relation": edge_data.get("relation"),
+                    "confidence": edge_data.get("confidence"),
+                    "nli_confidence": edge_data.get("nli_confidence"),
+                    **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
+                })
 
         return evidence
 
@@ -221,16 +219,14 @@ class EvidenceGraph:
                 node_type, obj_id = self._parse_node_id(predecessor)
                 node_data = self._graph.nodes[predecessor]
 
-                evidence.append(
-                    {
-                        "node_type": node_type.value,
-                        "obj_id": obj_id,
-                        "relation": edge_data.get("relation"),
-                        "confidence": edge_data.get("confidence"),
-                        "nli_confidence": edge_data.get("nli_confidence"),
-                        **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
-                    }
-                )
+                evidence.append({
+                    "node_type": node_type.value,
+                    "obj_id": obj_id,
+                    "relation": edge_data.get("relation"),
+                    "confidence": edge_data.get("confidence"),
+                    "nli_confidence": edge_data.get("nli_confidence"),
+                    **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
+                })
 
         return evidence
 
@@ -312,14 +308,12 @@ class EvidenceGraph:
             node_type_current, obj_id_current = self._parse_node_id(current)
             node_data = self._graph.nodes[current]
 
-            chain.append(
-                {
-                    "depth": depth,
-                    "node_type": node_type_current.value,
-                    "obj_id": obj_id_current,
-                    **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
-                }
-            )
+            chain.append({
+                "depth": depth,
+                "node_type": node_type_current.value,
+                "obj_id": obj_id_current,
+                **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
+            })
 
             # Find next citation
             next_node = None
@@ -425,25 +419,22 @@ class EvidenceGraph:
                 edge1 = self._graph.edges.get((claim1, claim2), {})
                 edge2 = self._graph.edges.get((claim2, claim1), {})
 
-                if (
-                    edge1.get("relation") == RelationType.REFUTES.value
-                    or edge2.get("relation") == RelationType.REFUTES.value
-                ):
+                if (edge1.get("relation") == RelationType.REFUTES.value or
+                    edge2.get("relation") == RelationType.REFUTES.value):
+
                     _, id1 = self._parse_node_id(claim1)
                     _, id2 = self._parse_node_id(claim2)
 
-                    contradictions.append(
-                        {
-                            "claim1_id": id1,
-                            "claim2_id": id2,
-                            "claim1_data": dict(self._graph.nodes[claim1]),
-                            "claim2_data": dict(self._graph.nodes[claim2]),
-                            "confidence": max(
-                                edge1.get("confidence", 0),
-                                edge2.get("confidence", 0),
-                            ),
-                        }
-                    )
+                    contradictions.append({
+                        "claim1_id": id1,
+                        "claim2_id": id2,
+                        "claim1_data": dict(self._graph.nodes[claim1]),
+                        "claim2_data": dict(self._graph.nodes[claim2]),
+                        "confidence": max(
+                            edge1.get("confidence", 0),
+                            edge2.get("confidence", 0),
+                        ),
+                    })
 
         return contradictions
 
@@ -484,23 +475,19 @@ class EvidenceGraph:
             for node_id in cycle:
                 if node_id in self._graph.nodes:
                     node_type, obj_id = self._parse_node_id(node_id)
-                    cycle_info.append(
-                        {
-                            "node_id": node_id,
-                            "node_type": node_type.value,
-                            "obj_id": obj_id,
-                        }
-                    )
+                    cycle_info.append({
+                        "node_id": node_id,
+                        "node_type": node_type.value,
+                        "obj_id": obj_id,
+                    })
 
             if cycle_info:
-                loops.append(
-                    {
-                        "type": "citation_loop",
-                        "length": len(cycle),
-                        "nodes": cycle_info,
-                        "severity": self._calculate_loop_severity(len(cycle)),
-                    }
-                )
+                loops.append({
+                    "type": "citation_loop",
+                    "length": len(cycle),
+                    "nodes": cycle_info,
+                    "severity": self._calculate_loop_severity(len(cycle)),
+                })
 
         return loops
 
@@ -536,22 +523,20 @@ class EvidenceGraph:
                     type_u, id_u = self._parse_node_id(u)
                     type_v, id_v = self._parse_node_id(v)
 
-                    round_trips.append(
-                        {
-                            "type": "round_trip",
-                            "node_a": {
-                                "node_id": u,
-                                "node_type": type_u.value,
-                                "obj_id": id_u,
-                            },
-                            "node_b": {
-                                "node_id": v,
-                                "node_type": type_v.value,
-                                "obj_id": id_v,
-                            },
-                            "severity": "high",  # Round-trips are always high severity
-                        }
-                    )
+                    round_trips.append({
+                        "type": "round_trip",
+                        "node_a": {
+                            "node_id": u,
+                            "node_type": type_u.value,
+                            "obj_id": id_u,
+                        },
+                        "node_b": {
+                            "node_id": v,
+                            "node_type": type_v.value,
+                            "obj_id": id_v,
+                        },
+                        "severity": "high",  # Round-trips are always high severity
+                    })
 
         return round_trips
 
@@ -596,23 +581,21 @@ class EvidenceGraph:
                 type_u, id_u = self._parse_node_id(u)
                 type_v, id_v = self._parse_node_id(v)
 
-                self_refs.append(
-                    {
-                        "type": "same_domain_citation",
-                        "source": {
-                            "node_id": u,
-                            "node_type": type_u.value,
-                            "obj_id": id_u,
-                        },
-                        "target": {
-                            "node_id": v,
-                            "node_type": type_v.value,
-                            "obj_id": id_v,
-                        },
-                        "domain": u_domain,
-                        "severity": "medium",
-                    }
-                )
+                self_refs.append({
+                    "type": "same_domain_citation",
+                    "source": {
+                        "node_id": u,
+                        "node_type": type_u.value,
+                        "obj_id": id_u,
+                    },
+                    "target": {
+                        "node_id": v,
+                        "node_type": type_v.value,
+                        "obj_id": id_v,
+                    },
+                    "domain": u_domain,
+                    "severity": "medium",
+                })
 
         return self_refs
 
@@ -847,25 +830,21 @@ class EvidenceGraph:
                 source_type, source_id = self._parse_node_id(source)
                 target_type, target_id = self._parse_node_id(target)
 
-                await db.insert(
-                    "edges",
-                    {
-                        "id": data.get("edge_id", str(uuid.uuid4())),
-                        "source_type": source_type.value,
-                        "source_id": source_id,
-                        "target_type": target_type.value,
-                        "target_id": target_id,
-                        "relation": data.get("relation"),
-                        "confidence": data.get("confidence"),
-                        "nli_label": data.get("nli_label"),
-                        "nli_confidence": data.get("nli_confidence"),
-                        "is_academic": 1 if data.get("is_academic") else 0,
-                        "is_influential": 1 if data.get("is_influential") else 0,
-                        "citation_context": data.get("citation_context"),
-                        "cause_id": trace.id,
-                    },
-                    or_replace=True,
-                )
+                await db.insert("edges", {
+                    "id": data.get("edge_id", str(uuid.uuid4())),
+                    "source_type": source_type.value,
+                    "source_id": source_id,
+                    "target_type": target_type.value,
+                    "target_id": target_id,
+                    "relation": data.get("relation"),
+                    "confidence": data.get("confidence"),
+                    "nli_label": data.get("nli_label"),
+                    "nli_confidence": data.get("nli_confidence"),
+                    "is_academic": 1 if data.get("is_academic") else 0,
+                    "is_influential": 1 if data.get("is_influential") else 0,
+                    "citation_context": data.get("citation_context"),
+                    "cause_id": trace.id,
+                }, or_replace=True)
 
         logger.info(
             "Evidence graph saved",
@@ -937,13 +916,11 @@ class EvidenceGraph:
 
         edges = []
         for source, target, data in self._graph.edges(data=True):
-            edges.append(
-                {
-                    "source": source,
-                    "target": target,
-                    **data,
-                }
-            )
+            edges.append({
+                "source": source,
+                "target": target,
+                **data,
+            })
 
         return {
             "nodes": nodes,
@@ -1013,21 +990,17 @@ async def add_claim_evidence(
 
     # Persist immediately
     db = await get_database()
-    await db.insert(
-        "edges",
-        {
-            "id": edge_id,
-            "source_type": NodeType.FRAGMENT.value,
-            "source_id": fragment_id,
-            "target_type": NodeType.CLAIM.value,
-            "target_id": claim_id,
-            "relation": relation,
-            "confidence": confidence,
-            "nli_label": nli_label,
-            "nli_confidence": nli_confidence,
-        },
-        or_replace=True,
-    )
+    await db.insert("edges", {
+        "id": edge_id,
+        "source_type": NodeType.FRAGMENT.value,
+        "source_id": fragment_id,
+        "target_type": NodeType.CLAIM.value,
+        "target_id": claim_id,
+        "relation": relation,
+        "confidence": confidence,
+        "nli_label": nli_label,
+        "nli_confidence": nli_confidence,
+    }, or_replace=True)
 
     logger.debug(
         "Claim evidence added",
@@ -1078,22 +1051,18 @@ async def add_citation(
 
     # Persist
     db = await get_database()
-    await db.insert(
-        "edges",
-        {
-            "id": edge_id,
-            "source_type": source_type,
-            "source_id": source_id,
-            "target_type": NodeType.PAGE.value,
-            "target_id": page_id,
-            "relation": RelationType.CITES.value,
-            "confidence": 1.0,
-            "is_academic": 1 if is_academic else 0,
-            "is_influential": 1 if is_influential else 0,
-            "citation_context": citation_context,
-        },
-        or_replace=True,
-    )
+    await db.insert("edges", {
+        "id": edge_id,
+        "source_type": source_type,
+        "source_id": source_id,
+        "target_type": NodeType.PAGE.value,
+        "target_id": page_id,
+        "relation": RelationType.CITES.value,
+        "confidence": 1.0,
+        "is_academic": 1 if is_academic else 0,
+        "is_influential": 1 if is_influential else 0,
+        "citation_context": citation_context,
+    }, or_replace=True)
 
     return edge_id
 
@@ -1129,16 +1098,14 @@ async def add_academic_page_with_citations(
         graph.add_node(NodeType.PAGE, page_id)
 
     # Add academic metadata to node
-    graph._graph.nodes[page_node].update(
-        {
-            "is_academic": True,
-            "doi": paper_metadata.get("doi"),
-            "citation_count": paper_metadata.get("citation_count", 0),
-            "year": paper_metadata.get("year"),
-            "venue": paper_metadata.get("venue"),
-            "source_api": paper_metadata.get("source_api"),
-        }
-    )
+    graph._graph.nodes[page_node].update({
+        "is_academic": True,
+        "doi": paper_metadata.get("doi"),
+        "citation_count": paper_metadata.get("citation_count", 0),
+        "year": paper_metadata.get("year"),
+        "venue": paper_metadata.get("venue"),
+        "source_api": paper_metadata.get("source_api"),
+    })
 
     # Add citation edges
     if paper_to_page_map is None:
@@ -1185,22 +1152,18 @@ async def add_academic_page_with_citations(
         )
 
         # Persist edge to database
-        await db.insert(
-            "edges",
-            {
-                "id": edge_id,
-                "source_type": NodeType.PAGE.value,
-                "source_id": page_id,
-                "target_type": NodeType.PAGE.value,
-                "target_id": cited_page_id,
-                "relation": RelationType.CITES.value,
-                "confidence": 1.0,
-                "is_academic": 1,
-                "is_influential": 1 if citation.is_influential else 0,
-                "citation_context": citation.context,
-            },
-            or_replace=True,
-        )
+        await db.insert("edges", {
+            "id": edge_id,
+            "source_type": NodeType.PAGE.value,
+            "source_id": page_id,
+            "target_type": NodeType.PAGE.value,
+            "target_id": cited_page_id,
+            "relation": RelationType.CITES.value,
+            "confidence": 1.0,
+            "is_academic": 1,
+            "is_influential": 1 if citation.is_influential else 0,
+            "citation_context": citation.context,
+        }, or_replace=True)
 
         edges_created += 1
 

@@ -21,7 +21,6 @@ from urllib.parse import quote_plus, urljoin, urlparse
 import yaml
 
 from src.crawler.bfs import LinkExtractor
-from src.crawler.playwright_provider import BrowserMode, get_playwright_provider
 from src.storage.database import get_database
 from src.utils.config import get_project_root, get_settings
 from src.utils.logging import get_logger
@@ -686,9 +685,7 @@ class SiteSearchManager:
                 ON CONFLICT(domain) DO UPDATE SET
                     internal_search_success_rate = excluded.internal_search_success_rate,
                     internal_search_harvest_rate = excluded.internal_search_harvest_rate
-            """,
-                (domain, stats.success_rate, stats.harvest_rate),
-            )
+            """, (domain, stats.success_rate, stats.harvest_rate))
 
         except Exception as e:
             logger.debug(
@@ -814,14 +811,12 @@ async def list_allowlisted_domains() -> dict[str, Any]:
     domains = []
     for domain, _template in manager._templates.items():
         stats = manager.get_stats(domain)
-        domains.append(
-            {
-                "domain": domain,
-                "success_rate": stats.success_rate,
-                "harvest_rate": stats.harvest_rate,
-                "is_skipped": stats.is_skipped(),
-            }
-        )
+        domains.append({
+            "domain": domain,
+            "success_rate": stats.success_rate,
+            "harvest_rate": stats.harvest_rate,
+            "is_skipped": stats.is_skipped(),
+        })
 
     return {
         "domains": domains,

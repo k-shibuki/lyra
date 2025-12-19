@@ -190,3 +190,5 @@ def calculate_total_delay(
         total += calculate_backoff(attempt, config, add_jitter=False)
 
     return total
+
+    return total

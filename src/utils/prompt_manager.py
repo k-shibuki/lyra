@@ -92,7 +92,9 @@ class PromptManager:
         """
         if self._env is None:
             if not self._prompts_dir.exists():
-                raise TemplateNotFoundError(f"Prompts directory not found: {self._prompts_dir}")
+                raise TemplateNotFoundError(
+                    f"Prompts directory not found: {self._prompts_dir}"
+                )
 
             self._env = Environment(
                 loader=FileSystemLoader(str(self._prompts_dir)),
@@ -146,7 +148,9 @@ class PromptManager:
         if not self._prompts_dir.exists():
             return []
 
-        return [p.stem for p in self._prompts_dir.glob("*.j2")]
+        return [
+            p.stem for p in self._prompts_dir.glob("*.j2")
+        ]
 
     def render(self, template_name: str, **kwargs: Any) -> str:
         """
@@ -178,7 +182,7 @@ class PromptManager:
 
             return rendered
 
-        except TemplateNotFound as err:
+        except TemplateNotFound:
             raise TemplateNotFoundError(
                 f"Template not found: {template_name}.j2 (searched in {self._prompts_dir})"
             ) from err
@@ -188,7 +192,9 @@ class PromptManager:
         except UndefinedError as e:
             raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}") from e
         except Exception as e:
-            raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}") from e
+            raise TemplateRenderError(
+                f"Template '{template_name}' rendering failed: {e}"
+            )
 
     def clear_cache(self) -> None:
         """Clear the template cache."""

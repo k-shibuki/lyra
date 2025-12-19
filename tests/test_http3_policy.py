@@ -362,15 +362,13 @@ class TestHTTP3PolicyManager:
 
         # Only 3 browser requests (below min_samples=5)
         for _ in range(3):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="browser",
-                    success=True,
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         stats = await manager.get_stats(unique_domain)
         assert stats.behavioral_difference_ema == 0.0
@@ -393,27 +391,23 @@ class TestHTTP3PolicyManager:
 
         # Add browser requests (90% success with HTTP/3)
         for i in range(10):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="browser",
-                    success=(i < 9),  # 9 successes, 1 failure
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="browser",
+                success=(i < 9),  # 9 successes, 1 failure
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         # Add HTTP client requests (60% success)
         for i in range(10):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="http_client",
-                    success=(i < 6),  # 6 successes, 4 failures
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="http_client",
+                success=(i < 6),  # 6 successes, 4 failures
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         stats = await manager.get_stats(unique_domain)
 
@@ -455,27 +449,23 @@ class TestHTTP3PolicyManager:
 
         # Add 50 browser requests (100% success with HTTP/3)
         for _ in range(50):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="browser",
-                    success=True,
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         # Add 50 HTTP client requests (40% success = 60% difference)
         for i in range(50):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="http_client",
-                    success=(i % 5 < 2),  # 40% success (2 out of every 5)
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="http_client",
+                success=(i % 5 < 2),  # 40% success (2 out of every 5)
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         stats = await manager.get_stats(unique_domain)
 
@@ -505,27 +495,23 @@ class TestHTTP3PolicyManager:
 
         # Add exactly 4 browser requests (below min_samples=5)
         for _i in range(4):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="browser",
-                    success=True,
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         # Add exactly 4 HTTP client requests (below min_samples=5)
         for _i in range(4):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="http_client",
-                    success=False,  # 0% success to create max difference
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="http_client",
+                success=False,
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         stats = await manager.get_stats(unique_domain)
 
@@ -535,26 +521,22 @@ class TestHTTP3PolicyManager:
         )
 
         # Add 5th browser request
-        await manager.record_request(
-            HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            )
-        )
+        await manager.record_request(HTTP3RequestResult(
+            domain=unique_domain,
+            url=f"https://{unique_domain}/page",
+            route="browser",
+            success=True,
+            protocol=ProtocolVersion.HTTP_3,
+        ))
 
         # Add 5th HTTP client request (failure)
-        await manager.record_request(
-            HTTP3RequestResult(
-                domain=unique_domain,
-                url=f"https://{unique_domain}/page",
-                route="http_client",
-                success=False,
-                protocol=ProtocolVersion.HTTP_2,
-            )
-        )
+        await manager.record_request(HTTP3RequestResult(
+            domain=unique_domain,
+            url=f"https://{unique_domain}/page",
+            route="http_client",
+            success=False,
+            protocol=ProtocolVersion.HTTP_2,
+        ))
 
         stats = await manager.get_stats(unique_domain)
 
@@ -578,15 +560,13 @@ class TestHTTP3PolicyManager:
     async def test_get_policy_decision_http3_no_difference(self, manager):
         """Policy decision should not boost when HTTP/3 but no behavioral difference."""
         # Record HTTP/3 detection
-        await manager.record_request(
-            HTTP3RequestResult(
-                domain="http3-no-diff.com",
-                url="https://http3-no-diff.com/page",
-                route="browser",
-                success=True,
-                protocol=ProtocolVersion.HTTP_3,
-            )
-        )
+        await manager.record_request(HTTP3RequestResult(
+            domain="http3-no-diff.com",
+            url="https://http3-no-diff.com/page",
+            route="browser",
+            success=True,
+            protocol=ProtocolVersion.HTTP_3,
+        ))
 
         decision = await manager.get_policy_decision("http3-no-diff.com")
 
@@ -663,15 +643,13 @@ class TestHTTP3PolicyManagerDBIntegration:
             manager = HTTP3PolicyManager()
 
             # Record a request - this will try to save to DB
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain="db-test.com",
-                    url="https://db-test.com/page",
-                    route="browser",
-                    success=True,
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain="db-test.com",
+                url="https://db-test.com/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
             # Stats should be created and cached
             stats = await manager.get_stats("db-test.com")
@@ -776,27 +754,23 @@ class TestEMACalculation:
 
         # Setup: 5 browser requests (100% success, all HTTP/3)
         for _ in range(5):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="browser",
-                    success=True,
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         # 5 HTTP client requests (0% success)
         for _ in range(5):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="http_client",
-                    success=False,
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="http_client",
+                success=False,
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         stats = await manager.get_stats(unique_domain)
 
@@ -820,26 +794,22 @@ class TestEMACalculation:
 
         # First: establish high EMA with browser advantage
         for _ in range(10):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="browser",
-                    success=True,
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="browser",
+                success=True,
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         for _ in range(10):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="http_client",
-                    success=False,  # 0% success
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="http_client",
+                success=False,  # 0% success
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         stats = await manager.get_stats(unique_domain)
         high_ema = stats.behavioral_difference_ema
@@ -847,15 +817,13 @@ class TestEMACalculation:
 
         # Now: HTTP client starts succeeding (no more advantage)
         for _ in range(20):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain=unique_domain,
-                    url=f"https://{unique_domain}/page",
-                    route="http_client",
-                    success=True,  # 100% success now
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain=unique_domain,
+                url=f"https://{unique_domain}/page",
+                route="http_client",
+                success=True,  # 100% success now
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         stats = await manager.get_stats(unique_domain)
 
@@ -886,27 +854,23 @@ class TestHTTP3PolicyIntegration:
         # Browser requests: 20 total, 18 success (90%), all HTTP/3
         # Need more samples for EMA to converge
         for i in range(20):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain="http3advantage.com",
-                    url="https://http3advantage.com/page",
-                    route="browser",
-                    success=(i < 18),
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain="http3advantage.com",
+                url="https://http3advantage.com/page",
+                route="browser",
+                success=(i < 18),
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         # HTTP client requests: 20 total, 10 success (50%), HTTP/2
         for i in range(20):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain="http3advantage.com",
-                    url="https://http3advantage.com/page",
-                    route="http_client",
-                    success=(i < 10),
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain="http3advantage.com",
+                url="https://http3advantage.com/page",
+                route="http_client",
+                success=(i < 10),
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         # Get policy decision
         decision = await manager.get_policy_decision("http3advantage.com")
@@ -930,26 +894,22 @@ class TestHTTP3PolicyIntegration:
         """
         # Both routes perform equally well (90% success)
         for i in range(10):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain="equalsite.com",
-                    url="https://equalsite.com/page",
-                    route="browser",
-                    success=(i < 9),
-                    protocol=ProtocolVersion.HTTP_3,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain="equalsite.com",
+                url="https://equalsite.com/page",
+                route="browser",
+                success=(i < 9),
+                protocol=ProtocolVersion.HTTP_3,
+            ))
 
         for i in range(10):
-            await manager.record_request(
-                HTTP3RequestResult(
-                    domain="equalsite.com",
-                    url="https://equalsite.com/page",
-                    route="http_client",
-                    success=(i < 9),
-                    protocol=ProtocolVersion.HTTP_2,
-                )
-            )
+            await manager.record_request(HTTP3RequestResult(
+                domain="equalsite.com",
+                url="https://equalsite.com/page",
+                route="http_client",
+                success=(i < 9),
+                protocol=ProtocolVersion.HTTP_2,
+            ))
 
         decision = await manager.get_policy_decision("equalsite.com")
 

@@ -71,15 +71,8 @@ class TestGetStatusIntegration:
                 """INSERT INTO fragments (id, page_id, fragment_type, text_content,
                    heading_context, is_relevant, relevance_reason, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-                (
-                    fragment_id,
-                    page_id,
-                    "paragraph",
-                    f"Content {i}",
-                    f"Heading {i}",
-                    1,
-                    f"url=https://example.com/page{i}",
-                ),
+                (fragment_id, page_id, "paragraph", f"Content {i}", f"Heading {i}",
+                 1, f"url=https://example.com/page{i}"),
             )
 
         return {
@@ -210,19 +203,12 @@ class TestGetMaterialsIntegration:
                 """INSERT INTO claims (id, task_id, claim_text, claim_type,
                    confidence_score, source_fragment_ids, verification_notes, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-                (
-                    claim_id,
-                    task_id,
-                    f"Claim {i} text",
-                    "fact",
-                    0.8 - i * 0.2,
-                    json.dumps([frag_ids[i]]),
-                    "source_url=https://example.gov/doc",
-                ),
+                (claim_id, task_id, f"Claim {i} text", "fact", 0.8 - i*0.2,
+                 json.dumps([frag_ids[i]]), "source_url=https://example.gov/doc"),
             )
 
         # Create edges (fragment -> claim)
-        for _i, (frag_id, claim_id) in enumerate(zip(frag_ids, claim_ids, strict=False)):
+        for i, (frag_id, claim_id) in enumerate(zip(frag_ids, claim_ids, strict=False)):
             edge_id = f"e_{uuid.uuid4().hex[:8]}"
             await db.execute(
                 """INSERT INTO edges (id, source_type, source_id, target_type,
@@ -256,9 +242,7 @@ class TestGetMaterialsIntegration:
         data = setup_task_with_claims
         task_id = data["task_id"]
 
-        with patch(
-            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
-        ):
+        with patch("src.research.materials.get_database", new=AsyncMock(return_value=memory_database)):
             result = await get_materials_action(task_id)
 
         assert result["ok"] is True
@@ -321,9 +305,7 @@ class TestGetMaterialsIntegration:
         data = setup_task_with_claims
         task_id = data["task_id"]
 
-        with patch(
-            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
-        ):
+        with patch("src.research.materials.get_database", new=AsyncMock(return_value=memory_database)):
             result = await get_materials_action(task_id, include_graph=True)
 
         assert result["ok"] is True

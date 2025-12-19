@@ -91,7 +91,11 @@ class SanitizationStats:
     @property
     def had_modifications(self) -> bool:
         """Check if any modifications were made."""
-        return self.fields_removed > 0 or self.fields_sanitized > 0 or self.leakage_detected > 0
+        return (
+            self.fields_removed > 0
+            or self.fields_sanitized > 0
+            or self.leakage_detected > 0
+        )
 
 
 @dataclass

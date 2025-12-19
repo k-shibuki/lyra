@@ -674,7 +674,7 @@ class SitemapParser:
                 if loc is not None and loc.text:
                     urls.append(loc.text.strip())
 
-        return urls[: self.MAX_URLS_PER_SITEMAP]
+        return urls[:self.MAX_URLS_PER_SITEMAP]
 
     def _extract_url_entries(self, root: ET.Element) -> list[SitemapEntry]:
         """Extract URL entries from sitemap.
@@ -694,7 +694,7 @@ class SitemapParser:
         if not url_elements:
             url_elements = root.findall(".//url")
 
-        for url_elem in url_elements[: self.MAX_URLS_PER_SITEMAP]:
+        for url_elem in url_elements[:self.MAX_URLS_PER_SITEMAP]:
             entry = self._parse_url_element(url_elem)
             if entry:
                 entries.append(entry)

@@ -43,12 +43,8 @@ async def test_category_detection():
     for query, expected_category in test_cases:
         category = provider._detect_category(query)
         status = "✓" if category == expected_category else "✗"
-        print(
-            f"  {status} Query: '{query}' -> Category: {category} (expected: {expected_category})"
-        )
-        assert category == expected_category, (
-            f"Category mismatch: {category} != {expected_category}"
-        )
+        print(f"  {status} Query: '{query}' -> Category: {category} (expected: {expected_category})")
+        assert category == expected_category, f"Category mismatch: {category} != {expected_category}"
 
     print("\n  ✓ All category detection tests passed")
 

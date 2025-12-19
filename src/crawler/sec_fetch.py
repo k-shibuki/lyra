@@ -273,7 +273,8 @@ class SecCHUAHeaders:
 
             # Full version list
             full_list = ", ".join(
-                brand.to_ua_item(include_full_version=True) for brand in self.brands
+                brand.to_ua_item(include_full_version=True)
+                for brand in self.brands
             )
             headers["Sec-CH-UA-Full-Version-List"] = full_list
 
@@ -457,7 +458,8 @@ def _determine_fetch_site(
         referer_scheme = referer_parsed.scheme.lower()
 
         # Same-origin: same scheme + host + port
-        if target_scheme == referer_scheme and target_host == referer_host:
+        if (target_scheme == referer_scheme and
+            target_host == referer_host):
             return SecFetchSite.SAME_ORIGIN
 
         # Same-site: same registrable domain
@@ -498,12 +500,8 @@ def generate_sec_fetch_headers(
     # Determine Sec-Fetch-Mode (document navigation = navigate)
     if context.destination == SecFetchDest.DOCUMENT:
         mode = SecFetchMode.NAVIGATE
-    elif context.destination in (
-        SecFetchDest.IMAGE,
-        SecFetchDest.SCRIPT,
-        SecFetchDest.STYLE,
-        SecFetchDest.FONT,
-    ):
+    elif context.destination in (SecFetchDest.IMAGE, SecFetchDest.SCRIPT,
+                                  SecFetchDest.STYLE, SecFetchDest.FONT):
         mode = SecFetchMode.NO_CORS
     else:
         mode = SecFetchMode.NAVIGATE
@@ -670,5 +668,7 @@ def generate_complete_navigation_headers(
         is_user_initiated=is_user_initiated,
         destination=SecFetchDest.DOCUMENT,
     )
+
+    return generate_all_security_headers(context)
 
     return generate_all_security_headers(context)

@@ -92,10 +92,7 @@ async def test_academic_provider_initialization():
     }
     assert provider.API_PRIORITY == expected_priority, (
         f"API priority mismatch: {provider.API_PRIORITY}"
-    )
-    print(
-        "  ✓ API priority order: semantic_scholar(1) > openalex(2) > crossref(3) > arxiv(4) > unpaywall(5)"
-    )
+    print("  ✓ API priority order: semantic_scholar(1) > openalex(2) > crossref(3) > arxiv(4) > unpaywall(5)")
 
     # Verify lazy initialization
     assert provider._clients == {}, "Clients should be empty (lazy init)"

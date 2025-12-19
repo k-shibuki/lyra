@@ -96,9 +96,7 @@ def test_should_use_lastmile_method():
         passed = result.should_use_lastmile == expected
         status = "✓" if passed else "✗"
 
-        print(
-            f"  {status} {description}: harvest_rate={harvest_rate}, expected={expected}, got={result.should_use_lastmile}"
-        )
+        print(f"  {status} {description}: harvest_rate={harvest_rate}, expected={expected}, got={result.should_use_lastmile}")
 
         if not passed:
             all_passed = False
@@ -169,10 +167,9 @@ async def test_lastmile_engine_selection():
     provider = BrowserSearchProvider()
 
     # Mock dependencies
-    with (
-        patch("src.search.browser_search_provider.get_engine_config_manager") as mock_config_mgr,
-        patch("src.search.browser_search_provider.check_engine_available") as mock_check_available,
-    ):
+    with patch("src.search.browser_search_provider.get_engine_config_manager") as mock_config_mgr, \
+         patch("src.search.browser_search_provider.check_engine_available") as mock_check_available:
+
         # Setup mock config manager
         mock_manager = MagicMock()
         mock_manager.get_lastmile_engines.return_value = ["brave", "google", "bing"]
