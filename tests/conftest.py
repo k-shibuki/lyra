@@ -474,8 +474,12 @@ def reset_search_provider():
     """
     yield
     # Reset after each test
-    from src.search.provider import reset_registry
-    reset_registry()
+    try:
+        from src.search.provider import reset_registry
+        reset_registry()
+    except ImportError:
+        # Dependencies not available in minimal test environment
+        pass
 
 
 @pytest.fixture(autouse=True)
@@ -487,11 +491,15 @@ def reset_global_database():
     """
     yield
     # Reset global database after each test
-    from src.storage import database as db_module
-    if db_module._db is not None:
-        # Force reset without awaiting (connection should already be closed
-        # by the test_database fixture if it was used)
-        db_module._db = None
+    try:
+        from src.storage import database as db_module
+        if db_module._db is not None:
+            # Force reset without awaiting (connection should already be closed
+            # by the test_database fixture if it was used)
+            db_module._db = None
+    except ImportError:
+        # Dependencies not available in minimal test environment
+        pass
 
 
 # =============================================================================
