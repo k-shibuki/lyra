@@ -53,7 +53,7 @@ select = [
 ignore = [
     "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
-    "E402",  # module level import not at top of file (intentional for circular import avoidance)
+    # E402: Some test scripts intentionally import after sys.path manipulation
 ]
 
 [tool.ruff.lint.isort]
