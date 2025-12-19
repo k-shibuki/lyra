@@ -13,12 +13,11 @@ References:
 - §3.1.1: Pivot Exploration - Entity expansion
 """
 
-import hashlib
 import json
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -154,7 +153,7 @@ class NormalizedName:
     tokens: list[str]  # Tokenized form for matching
     suffix_type: str | None = None  # e.g., "KK", "inc"
     language: str | None = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -178,7 +177,7 @@ class NormalizedAddress:
     city: str | None = None
     postal_code: str | None = None
     street: str | None = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -200,23 +199,23 @@ class EntityRecord:
     entity_type: EntityType
     canonical_name: str
     display_name: str
-    
+
     # Normalized components
     normalized_name: NormalizedName | None = None
     normalized_address: NormalizedAddress | None = None
-    
+
     # Metadata
     confidence: float = 0.5
     source_type: SourceType = SourceType.MANUAL
     source_url: str | None = None
-    
+
     # Timestamps
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
     # Additional data
     extra_data: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -246,7 +245,7 @@ class EntityAlias:
     language: str | None = None
     confidence: float = 0.5
     source_type: SourceType = SourceType.MANUAL
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -274,7 +273,7 @@ class EntityIdentifier:
     source_type: SourceType = SourceType.MANUAL
     valid_from: datetime | None = None
     valid_until: datetime | None = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -298,7 +297,7 @@ class EntityMatch:
     match_score: float
     match_type: str  # "exact", "canonical", "alias", "identifier", "fuzzy"
     matched_value: str
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -315,7 +314,7 @@ class EntityMatch:
 
 class NameNormalizer:
     """Normalizes organization and person names."""
-    
+
     def __init__(self):
         """Initialize normalizer."""
         # Build reverse lookup for suffixes (English: at end of string)
@@ -328,13 +327,13 @@ class NameNormalizer:
                 re.IGNORECASE
             )
             self._suffix_patterns.append((pattern, normalized, suffix))
-        
+
         # Japanese prefix patterns (株式会社テスト -> テスト KK)
         self._jp_prefix_patterns: list[tuple[re.Pattern, str]] = []
         for prefix, normalized in JAPANESE_PREFIX_SUFFIXES.items():
             pattern = re.compile(rf"^{re.escape(prefix)}(.+)$")
             self._jp_prefix_patterns.append((pattern, normalized))
-        
+
         # Japanese parenthetical patterns (株) at beginning
         self._jp_paren_patterns: list[tuple[re.Pattern, str]] = [
             (re.compile(r"^\(株\)(.+)$"), "KK"),
@@ -342,14 +341,14 @@ class NameNormalizer:
             (re.compile(r"^\(有\)(.+)$"), "YK"),
             (re.compile(r"^（有）(.+)$"), "YK"),
         ]
-    
+
     def normalize(self, name: str, entity_type: EntityType = EntityType.ORGANIZATION) -> NormalizedName:
         """Normalize a name.
-        
+
         Args:
             name: Original name string.
             entity_type: Type of entity (affects normalization rules).
-            
+
         Returns:
             NormalizedName with various representations.
         """
@@ -360,28 +359,28 @@ class NameNormalizer:
                 canonical="",
                 tokens=[],
             )
-        
+
         original = name.strip()
-        
+
         # Step 1: Basic normalization
         normalized = self._basic_normalize(original)
-        
+
         # Step 2: Extract and normalize corporate suffix
         suffix_type = None
         if entity_type == EntityType.ORGANIZATION:
             normalized, suffix_type = self._extract_suffix(normalized)
-        
+
         # Step 3: Create canonical form (lowercase, no punctuation)
         canonical = self._canonicalize(normalized)
         if suffix_type:
             canonical = f"{canonical} {suffix_type}"
-        
+
         # Step 4: Tokenize for matching
         tokens = self._tokenize(canonical)
-        
+
         # Step 5: Detect language
         language = self._detect_language(original)
-        
+
         return NormalizedName(
             original=original,
             normalized=normalized,
@@ -390,34 +389,34 @@ class NameNormalizer:
             suffix_type=suffix_type,
             language=language,
         )
-    
+
     def _basic_normalize(self, name: str) -> str:
         """Apply basic normalization.
-        
+
         Args:
             name: Input name.
-            
+
         Returns:
             Normalized name.
         """
         # Normalize whitespace
         result = " ".join(name.split())
-        
+
         # Normalize quotes
         result = result.replace('"', '"').replace('"', '"')
         result = result.replace("'", "'").replace("'", "'")
-        
+
         # Normalize full-width to half-width for ASCII chars
         result = self._fullwidth_to_halfwidth(result)
-        
+
         return result
-    
+
     def _extract_suffix(self, name: str) -> tuple[str, str | None]:
         """Extract corporate suffix from name.
-        
+
         Args:
             name: Input name.
-            
+
         Returns:
             Tuple of (name without suffix, normalized suffix).
         """
@@ -427,7 +426,7 @@ class NameNormalizer:
             if match:
                 company_name = match.group(1).strip()
                 return (company_name, normalized_suffix)
-        
+
         # Check Japanese prefix patterns (株式会社テスト)
         for pattern, normalized_suffix in self._jp_prefix_patterns:
             match = pattern.match(name)
@@ -435,86 +434,86 @@ class NameNormalizer:
                 # Extract the company name part after the prefix
                 company_name = match.group(1).strip()
                 return (company_name, normalized_suffix)
-        
+
         # Check suffix patterns (テスト株式会社, Example Corp, Acme Inc.)
-        for pattern, normalized_suffix, original_suffix in self._suffix_patterns:
+        for pattern, normalized_suffix, _original_suffix in self._suffix_patterns:
             if pattern.search(name):
                 # Remove the suffix from name
                 cleaned = pattern.sub(" ", name).strip()
                 return (cleaned, normalized_suffix)
-        
+
         return (name, None)
-    
+
     def _canonicalize(self, name: str) -> str:
         """Create canonical form of name.
-        
+
         Args:
             name: Input name.
-            
+
         Returns:
             Canonical form (lowercase, minimal punctuation).
         """
         # Lowercase
         result = name.lower()
-        
+
         # Remove most punctuation but keep hyphens and apostrophes in words
         result = re.sub(r"[^\w\s\-']", " ", result)
-        
+
         # Normalize whitespace
         result = " ".join(result.split())
-        
+
         return result
-    
+
     def _tokenize(self, name: str) -> list[str]:
         """Tokenize name for matching.
-        
+
         Args:
             name: Canonical name.
-            
+
         Returns:
             List of tokens.
         """
         # Split on whitespace and hyphens
         tokens = re.split(r"[\s\-]+", name)
-        
+
         # Filter empty tokens
         tokens = [t for t in tokens if t]
-        
+
         return tokens
-    
+
     def _detect_language(self, name: str) -> str | None:
         """Detect language of name.
-        
+
         Args:
             name: Input name.
-            
+
         Returns:
             Language code or None.
         """
         # Check for Japanese characters
         if re.search(r"[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]", name):
             return "ja"
-        
+
         # Check for Chinese characters (without Japanese kana)
         if re.search(r"[\u4E00-\u9FFF]", name) and not re.search(r"[\u3040-\u309F\u30A0-\u30FF]", name):
             return "zh"
-        
+
         # Check for Korean characters
         if re.search(r"[\uAC00-\uD7AF\u1100-\u11FF]", name):
             return "ko"
-        
+
         # Default to English for Latin alphabet
         if re.search(r"[a-zA-Z]", name):
             return "en"
-        
+
         return None
-    
+
     def _fullwidth_to_halfwidth(self, text: str) -> str:
         """Convert full-width ASCII to half-width.
-        
+
         Args:
             text: Input text.
-            
+
         Returns:
             Text with half-width ASCII.
         """
@@ -530,38 +529,38 @@ class NameNormalizer:
             else:
                 result.append(char)
         return "".join(result)
-    
+
     def compute_similarity(self, name1: NormalizedName, name2: NormalizedName) -> float:
         """Compute similarity between two normalized names.
-        
+
         Args:
             name1: First normalized name.
             name2: Second normalized name.
-            
+
         Returns:
             Similarity score between 0 and 1.
         """
         # Exact canonical match
         if name1.canonical == name2.canonical:
             return 1.0
-        
+
         # Token-based Jaccard similarity
         tokens1 = set(name1.tokens)
         tokens2 = set(name2.tokens)
-        
+
         if not tokens1 or not tokens2:
             return 0.0
-        
+
         intersection = len(tokens1 & tokens2)
         union = len(tokens1 | tokens2)
-        
+
         jaccard = intersection / union if union > 0 else 0.0
-        
+
         # Boost if suffix types match
         if name1.suffix_type and name2.suffix_type:
             if name1.suffix_type == name2.suffix_type:
                 jaccard = min(1.0, jaccard + 0.1)
-        
+
         return jaccard
 
 
@@ -571,7 +570,7 @@ class NameNormalizer:
 
 class AddressNormalizer:
     """Normalizes addresses."""
-    
+
     def __init__(self):
         """Initialize normalizer."""
         # Build country lookup
@@ -580,25 +579,25 @@ class AddressNormalizer:
             self._country_lookup[code] = code
             for alias in aliases:
                 self._country_lookup[alias.lower()] = code
-    
+
     def normalize(self, address: str, country: str | None = None) -> NormalizedAddress:
         """Normalize an address.
-        
+
         Args:
             address: Original address string.
             country: Optional country hint.
-            
+
         Returns:
             NormalizedAddress with parsed components.
         """
         if not address:
             return NormalizedAddress(original="", normalized="")
-        
+
         original = address.strip()
-        
+
         # Normalize whitespace
         normalized = " ".join(original.split())
-        
+
         # Try to parse components
         country_code = None
         country_name = None
@@ -606,20 +605,20 @@ class AddressNormalizer:
         city = None
         postal_code = None
         street = None
-        
+
         # Extract country
         if country:
             country_code = self._normalize_country(country)
             country_name = country
         else:
             country_code, country_name = self._extract_country(normalized)
-        
+
         # Extract postal code
         postal_code = self._extract_postal_code(normalized, country_code)
-        
+
         # Extract region (prefecture/state)
         region = self._extract_region(normalized, country_code)
-        
+
         # Build normalized string
         parts = []
         if street:
@@ -632,9 +631,9 @@ class AddressNormalizer:
             parts.append(postal_code)
         if country_code:
             parts.append(country_code.upper())
-        
+
         normalized_str = ", ".join(parts) if parts else normalized
-        
+
         return NormalizedAddress(
             original=original,
             normalized=normalized_str,
@@ -645,56 +644,56 @@ class AddressNormalizer:
             postal_code=postal_code,
             street=street,
         )
-    
+
     def _normalize_country(self, country: str) -> str | None:
         """Normalize country to ISO 3166-1 alpha-2 code.
-        
+
         Args:
             country: Country name or code.
-            
+
         Returns:
             ISO country code or None.
         """
         if not country:
             return None
-        
+
         country_lower = country.lower().strip()
-        
+
         # Direct lookup
         if country_lower in self._country_lookup:
             return self._country_lookup[country_lower]
-        
+
         # Check if it's already a 2-letter code
         if len(country_lower) == 2 and country_lower.isalpha():
             return country_lower
-        
+
         return None
-    
+
     def _extract_country(self, address: str) -> tuple[str | None, str | None]:
         """Extract country from address string.
-        
+
         Args:
             address: Address string.
-            
+
         Returns:
             Tuple of (country_code, country_name).
         """
         address_lower = address.lower()
-        
+
         for code, aliases in COUNTRY_ALIASES.items():
             for alias in aliases:
                 if alias in address_lower:
                     return (code, alias)
-        
+
         return (None, None)
-    
+
     def _extract_postal_code(self, address: str, country_code: str | None) -> str | None:
         """Extract postal code from address.
-        
+
         Args:
             address: Address string.
             country_code: Country code for format hints.
-            
+
         Returns:
             Postal code or None.
         """
@@ -708,21 +707,21 @@ class AddressNormalizer:
             # Generic numeric
             r"\b(\d{4,6})\b",
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, address, re.IGNORECASE)
             if match:
                 return match.group(1)
-        
+
         return None
-    
+
     def _extract_region(self, address: str, country_code: str | None) -> str | None:
         """Extract region (state/prefecture) from address.
-        
+
         Args:
             address: Address string.
             country_code: Country code.
-            
+
         Returns:
             Region name or None.
         """
@@ -731,7 +730,7 @@ class AddressNormalizer:
             for jp_name, en_name in JP_PREFECTURES.items():
                 if jp_name in address:
                     return en_name
-        
+
         return None
 
 
@@ -741,77 +740,77 @@ class AddressNormalizer:
 
 class IdentifierNormalizer:
     """Normalizes various identifiers."""
-    
+
     def normalize_domain(self, domain: str) -> str:
         """Normalize a domain name.
-        
+
         Args:
             domain: Domain name.
-            
+
         Returns:
             Normalized domain (lowercase, no trailing dot).
         """
         if not domain:
             return ""
-        
+
         result = domain.lower().strip()
         result = result.rstrip(".")
-        
+
         # Remove protocol if present
         if "://" in result:
             result = result.split("://", 1)[1]
-        
+
         # Remove path if present
         result = result.split("/")[0]
-        
+
         # Remove port if present
         result = result.split(":")[0]
-        
+
         return result
-    
+
     def normalize_email(self, email: str) -> str:
         """Normalize an email address.
-        
+
         Args:
             email: Email address.
-            
+
         Returns:
             Normalized email (lowercase).
         """
         if not email:
             return ""
-        
+
         result = email.lower().strip()
-        
+
         # Basic validation
         if "@" not in result:
             return result
-        
+
         local, domain = result.rsplit("@", 1)
         domain = self.normalize_domain(domain)
-        
+
         return f"{local}@{domain}"
-    
+
     def normalize_phone(self, phone: str, country_code: str | None = None) -> str:
         """Normalize a phone number.
-        
+
         Args:
             phone: Phone number.
             country_code: Country code for formatting.
-            
+
         Returns:
             Normalized phone number (digits only with country code).
         """
         if not phone:
             return ""
-        
+
         # Extract digits only
         digits = re.sub(r"[^\d+]", "", phone)
-        
+
         # Handle leading +
         if digits.startswith("+"):
             return digits
-        
+
         # Add country code if known
         if country_code == "jp" and not digits.startswith("81"):
             if digits.startswith("0"):
@@ -819,23 +818,23 @@ class IdentifierNormalizer:
             else:
                 digits = "81" + digits
             return "+" + digits
-        
+
         return digits
-    
+
     def normalize_ip(self, ip: str) -> str:
         """Normalize an IP address.
-        
+
         Args:
             ip: IP address.
-            
+
         Returns:
             Normalized IP address.
         """
         if not ip:
             return ""
-        
+
         result = ip.strip()
-        
+
         # For IPv4, remove leading zeros
         if "." in result and ":" not in result:
             parts = result.split(".")
@@ -844,7 +843,7 @@ class IdentifierNormalizer:
                 return ".".join(parts)
             except ValueError:
                 pass
-        
+
         # For IPv6, lowercase
         return result.lower()
 
@@ -855,14 +854,14 @@ class IdentifierNormalizer:
 
 class EntityKB:
     """Entity Knowledge Base manager.
-    
+
     Stores and retrieves normalized entities with deduplication
     and identity estimation.
     """
-    
+
     def __init__(self, db: Any = None):
         """Initialize Entity KB.
-        
+
         Args:
             db: Database instance (from src.storage.database).
         """
@@ -870,18 +869,18 @@ class EntityKB:
         self._name_normalizer = NameNormalizer()
         self._address_normalizer = AddressNormalizer()
         self._identifier_normalizer = IdentifierNormalizer()
-        
+
         # In-memory cache for frequent lookups
         self._entity_cache: dict[str, EntityRecord] = {}
         self._alias_index: dict[str, list[str]] = {}  # normalized_alias -> [entity_ids]
         self._identifier_index: dict[str, list[str]] = {}  # normalized_id -> [entity_ids]
-    
+
     async def initialize_schema(self) -> None:
         """Initialize database schema for entity KB."""
         if self._db is None:
             logger.warning("No database connection for EntityKB")
             return
-        
+
         # Execute each SQL statement individually to support both
         # standard Database class and aiosqlite's single-statement limitation
         statements = [
@@ -902,7 +901,7 @@ class EntityKB:
             )""",
             "CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type)",
             "CREATE INDEX IF NOT EXISTS idx_entities_canonical ON entities(canonical_name)",
-            
+
             # Entity aliases
             """CREATE TABLE IF NOT EXISTS entity_aliases (
                 id TEXT PRIMARY KEY,
@@ -918,7 +917,7 @@ class EntityKB:
             )""",
             "CREATE INDEX IF NOT EXISTS idx_aliases_entity ON entity_aliases(entity_id)",
             "CREATE INDEX IF NOT EXISTS idx_aliases_normalized ON entity_aliases(alias_normalized)",
-            
+
             # Entity identifiers
             """CREATE TABLE IF NOT EXISTS entity_identifiers (
                 id TEXT PRIMARY KEY,
@@ -937,7 +936,7 @@ class EntityKB:
             "CREATE INDEX IF NOT EXISTS idx_identifiers_entity ON entity_identifiers(entity_id)",
             "CREATE INDEX IF NOT EXISTS idx_identifiers_normalized ON entity_identifiers(identifier_normalized)",
             "CREATE INDEX IF NOT EXISTS idx_identifiers_type ON entity_identifiers(identifier_type)",
-            
+
             # Entity relationships
             """CREATE TABLE IF NOT EXISTS entity_relationships (
                 id TEXT PRIMARY KEY,
@@ -953,7 +952,7 @@ class EntityKB:
             )""",
             "CREATE INDEX IF NOT EXISTS idx_relationships_source ON entity_relationships(source_entity_id)",
             "CREATE INDEX IF NOT EXISTS idx_relationships_target ON entity_relationships(target_entity_id)",
-            
+
             # FTS for entity search
             """CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(
                 canonical_name,
@@ -962,12 +961,12 @@ class EntityKB:
                 content_rowid='rowid'
             )""",
         ]
-        
+
         for sql in statements:
             await self._db.execute(sql)
-        
+
         logger.info("EntityKB schema initialized")
-    
+
     async def add_entity(
         self,
         name: str,
@@ -984,7 +983,7 @@ class EntityKB:
         deduplicate: bool = True,
     ) -> EntityRecord:
         """Add or update an entity in the KB.
-        
+
         Args:
             name: Entity name.
             entity_type: Type of entity.
@@ -997,18 +996,18 @@ class EntityKB:
             aliases: List of alias names.
             extra_data: Additional data to store.
             deduplicate: Whether to check for existing entity.
-            
+
         Returns:
             EntityRecord (new or existing).
         """
         # Normalize name
         normalized_name = self._name_normalizer.normalize(name, entity_type)
-        
+
         # Normalize address if provided
         normalized_address = None
         if address:
             normalized_address = self._address_normalizer.normalize(address, country)
-        
+
         # Check for existing entity if deduplication enabled
         if deduplicate:
             matches = await self.find_entity(
@@ -1017,24 +1016,24 @@ class EntityKB:
                 identifiers=identifiers,
                 threshold=0.9,
             )
-            
+
             if matches:
                 # Update existing entity if new info has higher confidence
                 existing = matches[0].entity
                 if confidence > existing.confidence:
                     await self._update_entity(existing, normalized_name, normalized_address, confidence)
-                
+
                 # Add new identifiers/aliases
                 if identifiers:
                     for id_type, id_value in identifiers:
                         await self._add_identifier(existing.id, id_type, id_value, source_type)
-                
+
                 if aliases:
                     for alias in aliases:
                         await self._add_alias(existing.id, alias, source_type)
-                
+
                 return existing
-        
+
         # Create new entity
         entity_id = str(uuid.uuid4())
         entity = EntityRecord(
@@ -1049,7 +1048,7 @@ class EntityKB:
             source_url=source_url,
             extra_data=extra_data or {},
         )
-        
+
         # Save to database
         if self._db:
             await self._db.insert("entities", {
@@ -1064,23 +1063,23 @@ class EntityKB:
                 "source_url": source_url,
                 "extra_data_json": json.dumps(extra_data) if extra_data else None,
             }, auto_id=False)
-        
+
         # Cache
         self._entity_cache[entity_id] = entity
-        
+
         # Add identifiers
         if identifiers:
             for id_type, id_value in identifiers:
                 await self._add_identifier(entity_id, id_type, id_value, source_type)
-        
+
         # Add aliases
         if aliases:
             for alias in aliases:
                 await self._add_alias(entity_id, alias, source_type)
-        
+
         logger.info(f"Added entity: {entity.display_name} ({entity_type.value})")
         return entity
-    
+
     async def find_entity(
         self,
         name: str | None = None,
@@ -1090,24 +1089,24 @@ class EntityKB:
         limit: int = 10,
     ) -> list[EntityMatch]:
         """Find entities matching the given criteria.
-        
+
         Args:
             name: Name to search for.
             entity_type: Type filter.
             identifiers: Identifiers to match.
             threshold: Minimum similarity threshold.
             limit: Maximum results.
-            
+
         Returns:
             List of EntityMatch results.
         """
         matches: list[EntityMatch] = []
-        
+
         # Search by identifiers first (most reliable)
         if identifiers:
             for id_type, id_value in identifiers:
                 normalized_id = self._normalize_identifier(id_type, id_value)
-                
+
                 if self._db:
                     rows = await self._db.fetch_all(
                         """
@@ -1116,7 +1115,7 @@ class EntityKB:
                         """,
                         (normalized_id, id_type.value),
                     )
-                    
+
                     for row in rows:
                         entity = await self._get_entity(row["entity_id"])
                         if entity:
@@ -1126,14 +1125,14 @@ class EntityKB:
                                 match_type="identifier",
                                 matched_value=id_value,
                             ))
-        
+
         # Search by name
         if name:
             normalized_name = self._name_normalizer.normalize(
                 name,
                 entity_type or EntityType.ORGANIZATION,
             )
-            
+
             # Exact canonical match
             if self._db:
                 type_filter = f"AND entity_type = '{entity_type.value}'" if entity_type else ""
@@ -1145,7 +1144,7 @@ class EntityKB:
                     """,
                     (normalized_name.canonical, limit),
                 )
-                
+
                 for row in rows:
                     entity = self._row_to_entity(row)
                     if entity and not any(m.entity.id == entity.id for m in matches):
@@ -1155,7 +1154,7 @@ class EntityKB:
                             match_type="canonical",
                             matched_value=name,
                         ))
-            
+
             # Alias search
             if self._db:
                 rows = await self._db.fetch_all(
@@ -1166,7 +1165,7 @@ class EntityKB:
                     """,
                     (normalized_name.canonical, limit),
                 )
-                
+
                 for row in rows:
                     entity = await self._get_entity(row["entity_id"])
                     if entity and not any(m.entity.id == entity.id for m in matches):
@@ -1177,7 +1176,7 @@ class EntityKB:
                                 match_type="alias",
                                 matched_value=row["alias_text"],
                             ))
-            
+
             # Fuzzy match on remaining candidates
             if len(matches) < limit and self._db:
                 type_filter = f"AND entity_type = '{entity_type.value}'" if entity_type else ""
@@ -1189,7 +1188,7 @@ class EntityKB:
                     """,
                     (f"%{normalized_name.tokens[0] if normalized_name.tokens else ''}%", limit * 2),
                 )
-                
+
                 for row in rows:
                     entity = self._row_to_entity(row)
                     if entity and not any(m.entity.id == entity.id for m in matches):
@@ -1205,60 +1204,60 @@ class EntityKB:
                                     match_type="fuzzy",
                                     matched_value=name,
                                 ))
-        
+
         # Sort by score and limit
         matches.sort(key=lambda m: m.match_score, reverse=True)
         return matches[:limit]
-    
+
     async def get_entity(self, entity_id: str) -> EntityRecord | None:
         """Get entity by ID.
-        
+
         Args:
             entity_id: Entity ID.
-            
+
         Returns:
             EntityRecord or None.
         """
         return await self._get_entity(entity_id)
-    
+
     async def get_entity_identifiers(self, entity_id: str) -> list[EntityIdentifier]:
         """Get all identifiers for an entity.
-        
+
         Args:
             entity_id: Entity ID.
-            
+
         Returns:
             List of EntityIdentifier.
         """
         if not self._db:
             return []
-        
+
         rows = await self._db.fetch_all(
             "SELECT * FROM entity_identifiers WHERE entity_id = ?",
             (entity_id,),
         )
-        
+
         return [self._row_to_identifier(row) for row in rows]
-    
+
     async def get_entity_aliases(self, entity_id: str) -> list[EntityAlias]:
         """Get all aliases for an entity.
-        
+
         Args:
             entity_id: Entity ID.
-            
+
         Returns:
             List of EntityAlias.
         """
         if not self._db:
             return []
-        
+
         rows = await self._db.fetch_all(
             "SELECT * FROM entity_aliases WHERE entity_id = ?",
             (entity_id,),
         )
-        
+
         return [self._row_to_alias(row) for row in rows]
-    
+
     async def add_relationship(
         self,
         source_entity_id: str,
@@ -1269,7 +1268,7 @@ class EntityKB:
         evidence: dict[str, Any] | None = None,
     ) -> str:
         """Add a relationship between entities.
-        
+
         Args:
             source_entity_id: Source entity ID.
             target_entity_id: Target entity ID.
@@ -1277,12 +1276,12 @@ class EntityKB:
             confidence: Confidence score.
             source_type: Source of information.
             evidence: Evidence for the relationship.
-            
+
         Returns:
             Relationship ID.
         """
         rel_id = str(uuid.uuid4())
-        
+
         if self._db:
             await self._db.insert("entity_relationships", {
                 "id": rel_id,
@@ -1293,31 +1292,31 @@ class EntityKB:
                 "source_type": source_type.value,
                 "evidence_json": json.dumps(evidence) if evidence else None,
             }, auto_id=False)
-        
+
         return rel_id
-    
+
     async def get_related_entities(
         self,
         entity_id: str,
         relationship_type: str | None = None,
     ) -> list[tuple[EntityRecord, str, float]]:
         """Get entities related to the given entity.
-        
+
         Args:
             entity_id: Entity ID.
             relationship_type: Optional filter by relationship type.
-            
+
         Returns:
             List of (entity, relationship_type, confidence) tuples.
         """
         if not self._db:
             return []
-        
+
         type_filter = "AND relationship_type = ?" if relationship_type else ""
         params = [entity_id]
         if relationship_type:
             params.append(relationship_type)
-        
+
         rows = await self._db.fetch_all(
             f"""
             SELECT target_entity_id, relationship_type, confidence
@@ -1326,41 +1325,41 @@ class EntityKB:
             """,
             tuple(params),
         )
-        
+
         results = []
         for row in rows:
             entity = await self._get_entity(row["target_entity_id"])
             if entity:
                 results.append((entity, row["relationship_type"], row["confidence"]))
-        
+
         return results
-    
+
     # =========================================================================
     # Private Methods
     # =========================================================================
-    
+
     async def _get_entity(self, entity_id: str) -> EntityRecord | None:
         """Get entity by ID from cache or database."""
         # Check cache
         if entity_id in self._entity_cache:
             return self._entity_cache[entity_id]
-        
+
         if not self._db:
             return None
-        
+
         row = await self._db.fetch_one(
             "SELECT * FROM entities WHERE id = ?",
             (entity_id,),
         )
-        
+
         if row:
             entity = self._row_to_entity(row)
             if entity:
                 self._entity_cache[entity_id] = entity
             return entity
-        
+
         return None
-    
+
     def _row_to_entity(self, row: dict[str, Any]) -> EntityRecord | None:
         """Convert database row to EntityRecord."""
         try:
@@ -1368,16 +1367,16 @@ class EntityKB:
             if row.get("normalized_name_json"):
                 name_data = json.loads(row["normalized_name_json"])
                 normalized_name = NormalizedName(**name_data)
-            
+
             normalized_address = None
             if row.get("normalized_address_json"):
                 addr_data = json.loads(row["normalized_address_json"])
                 normalized_address = NormalizedAddress(**addr_data)
-            
+
             extra_data = {}
             if row.get("extra_data_json"):
                 extra_data = json.loads(row["extra_data_json"])
-            
+
             return EntityRecord(
                 id=row["id"],
                 entity_type=EntityType(row["entity_type"]),
@@ -1393,7 +1392,7 @@ class EntityKB:
         except Exception as e:
             logger.warning(f"Failed to parse entity row: {e}")
             return None
-    
+
     def _row_to_identifier(self, row: dict[str, Any]) -> EntityIdentifier:
         """Convert database row to EntityIdentifier."""
         return EntityIdentifier(
@@ -1406,7 +1405,7 @@ class EntityKB:
             confidence=row.get("confidence", 0.5),
             source_type=SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL,
         )
-    
+
     def _row_to_alias(self, row: dict[str, Any]) -> EntityAlias:
         """Convert database row to EntityAlias."""
         return EntityAlias(
@@ -1419,7 +1418,7 @@ class EntityKB:
             confidence=row.get("confidence", 0.5),
             source_type=SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL,
         )
-    
+
     async def _add_identifier(
         self,
         entity_id: str,
@@ -1429,7 +1428,7 @@ class EntityKB:
     ) -> str:
         """Add an identifier to an entity."""
         normalized = self._normalize_identifier(id_type, id_value)
-        
+
         # Check if already exists
         if self._db:
             existing = await self._db.fetch_one(
@@ -1439,12 +1438,12 @@ class EntityKB:
                 """,
                 (entity_id, normalized),
             )
-            
+
             if existing:
                 return existing["id"]
-        
+
         identifier_id = str(uuid.uuid4())
-        
+
         if self._db:
             await self._db.insert("entity_identifiers", {
                 "id": identifier_id,
@@ -1454,15 +1453,15 @@ class EntityKB:
                 "identifier_normalized": normalized,
                 "source_type": source_type.value,
             }, auto_id=False)
-        
+
         # Update index
         if normalized not in self._identifier_index:
             self._identifier_index[normalized] = []
         if entity_id not in self._identifier_index[normalized]:
             self._identifier_index[normalized].append(entity_id)
-        
+
         return identifier_id
-    
+
     async def _add_alias(
         self,
         entity_id: str,
@@ -1471,7 +1470,7 @@ class EntityKB:
     ) -> str:
         """Add an alias to an entity."""
         normalized = self._name_normalizer.normalize(alias).canonical
-        
+
         # Check if already exists
         if self._db:
             existing = await self._db.fetch_one(
@@ -1481,12 +1480,12 @@ class EntityKB:
                 """,
                 (entity_id, normalized),
             )
-            
+
             if existing:
                 return existing["id"]
-        
+
         alias_id = str(uuid.uuid4())
-        
+
         if self._db:
             await self._db.insert("entity_aliases", {
                 "id": alias_id,
@@ -1496,15 +1495,15 @@ class EntityKB:
                 "alias_type": "name",
                 "source_type": source_type.value,
             }, auto_id=False)
-        
+
         # Update index
         if normalized not in self._alias_index:
             self._alias_index[normalized] = []
         if entity_id not in self._alias_index[normalized]:
             self._alias_index[normalized].append(entity_id)
-        
+
         return alias_id
-    
+
     async def _update_entity(
         self,
         entity: EntityRecord,
@@ -1516,24 +1515,24 @@ class EntityKB:
         if self._db:
             update_data = {
                 "confidence": confidence,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
             }
-            
+
             if normalized_address and not entity.normalized_address:
                 update_data["normalized_address_json"] = json.dumps(normalized_address.to_dict())
-            
+
             await self._db.update(
                 "entities",
                 update_data,
                 "id = ?",
                 (entity.id,),
             )
-        
+
         # Update cache
         entity.confidence = confidence
         if normalized_address and not entity.normalized_address:
             entity.normalized_address = normalized_address
-    
+
     def _normalize_identifier(self, id_type: IdentifierType, value: str) -> str:
         """Normalize an identifier value."""
         if id_type == IdentifierType.DOMAIN:
@@ -1554,10 +1553,10 @@ class EntityKB:
 
 async def get_entity_kb(db: Any = None) -> EntityKB:
     """Get EntityKB instance.
-    
+
     Args:
         db: Database instance.
-        
+
     Returns:
         Initialized EntityKB.
     """

@@ -17,7 +17,7 @@ Usage:
 import asyncio
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Add project root to path
 sys.path.insert(0, "/home/statuser/lancet")
@@ -44,7 +44,7 @@ async def main():
     await db.execute(
         """INSERT INTO tasks (id, query, status, created_at)
            VALUES (?, ?, ?, ?)""",
-        (task_id, query, "created", datetime.now(timezone.utc).isoformat()),
+        (task_id, query, "created", datetime.now(UTC).isoformat()),
     )
 
     print(f"  - Created test task: {task_id}")
@@ -91,7 +91,7 @@ async def main():
     state = ExplorationState(task_id=task_id)
     await state.load_state()
     print(f"  - task_id: {state.task_id}")
-    
+
     # Check if original_query attribute exists (it should NOT - this is a bug)
     has_original_query = hasattr(state, "original_query")
     print(f"  - has original_query attr: {has_original_query}")
@@ -233,7 +233,7 @@ async def main():
     # Check for _persist_claim and _persist_fragment helper methods
     has_persist_claim = hasattr(SearchExecutor, "_persist_claim")
     has_persist_fragment = hasattr(SearchExecutor, "_persist_fragment")
-    
+
     print(f"  - _persist_claim method: {'EXISTS ✓' if has_persist_claim else 'MISSING ✗'}")
     print(f"  - _persist_fragment method: {'EXISTS ✓' if has_persist_fragment else 'MISSING ✗'}")
 
@@ -247,7 +247,7 @@ async def main():
     else:
         claims_insert = False
         edges_insert = False
-    
+
     if has_persist_fragment:
         persist_fragment_source = inspect.getsource(SearchExecutor._persist_fragment)
         fragments_insert = "INSERT" in persist_fragment_source and "fragments" in persist_fragment_source
@@ -259,7 +259,7 @@ async def main():
     fetch_extract_source = inspect.getsource(SearchExecutor._fetch_and_extract)
     calls_persist_claim = "_persist_claim" in fetch_extract_source
     calls_persist_fragment = "_persist_fragment" in fetch_extract_source
-    
+
     print(f"  - _fetch_and_extract calls _persist_claim: {'YES ✓' if calls_persist_claim else 'NO ⚠'}")
     print(f"  - _fetch_and_extract calls _persist_fragment: {'YES ✓' if calls_persist_fragment else 'NO ⚠'}")
 
@@ -309,7 +309,7 @@ async def main():
     print(f"  - useful_fragments: {search_state.useful_fragments}")
     print(f"  - harvest_rate: {search_state.harvest_rate:.2f}")
     print(f"  - independent_sources: {search_state.independent_sources}")
-    
+
     # Note: total_claims is tracked on ExplorationState, not SearchState
     overall_status = await state.get_status()
     total_claims = overall_status.get("metrics", {}).get("total_claims", 0)
