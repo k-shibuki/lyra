@@ -10,7 +10,7 @@ See docs/REQUIREMENTS.md §3.2.1.
 from typing import Any
 
 from src.storage.database import get_database
-from src.utils.logging import get_logger, LogContext
+from src.utils.logging import LogContext, get_logger
 
 logger = get_logger(__name__)
 
@@ -35,40 +35,40 @@ async def get_materials_action(
         Materials conforming to §3.2.1 schema.
     """
     db = await get_database()
-    
+
     with LogContext(task_id=task_id):
         logger.info("Collecting report materials", include_graph=include_graph)
-        
+
         # Get task info
         task = await db.fetch_one(
             "SELECT * FROM tasks WHERE id = ?",
             (task_id,),
         )
-        
+
         if not task:
             return {
                 "ok": False,
                 "error": f"Task not found: {task_id}",
             }
-        
+
         original_query = task.get("query", "")
-        
+
         # Collect claims
         claims = await _collect_claims(db, task_id)
-        
+
         # Collect fragments
         fragments = await _collect_fragments(db, task_id)
-        
+
         # Build evidence graph if requested
         evidence_graph = None
         if include_graph:
             evidence_graph = await _build_evidence_graph(db, task_id)
-        
+
         # Calculate summary
         verified_count = sum(1 for c in claims if c.get("evidence_count", 0) >= 2)
         refuted_count = sum(1 for c in claims if c.get("has_refutation", False))
         primary_count = sum(1 for f in fragments if f.get("is_primary", False))
-        
+
         result: dict[str, Any] = {
             "ok": True,
             "task_id": task_id,
@@ -82,10 +82,10 @@ async def get_materials_action(
                 "primary_source_ratio": primary_count / max(1, len(fragments)),
             },
         }
-        
+
         if evidence_graph:
             result["evidence_graph"] = evidence_graph
-        
+
         return result
 
 
@@ -97,7 +97,7 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
     - fragments table has relevance_reason (stores source metadata) not source_url
     """
     claims = []
-    
+
     try:
         rows = await db.fetch_all(
             """
@@ -113,14 +113,14 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
             """,
             (task_id,),
         )
-        
+
         for row in rows:
             # Extract source_url from verification_notes (format: "source_url=...")
             verification_notes = row.get("verification_notes", "") or ""
             source_url = ""
             if "source_url=" in verification_notes:
                 source_url = verification_notes.split("source_url=")[1].split(";")[0].strip()
-            
+
             # Get sources from linked fragments
             sources = await db.fetch_all(
                 """
@@ -131,7 +131,7 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
                 """,
                 (row["id"],),
             )
-            
+
             # Parse relevance_reason to extract metadata
             parsed_sources = []
             for s in sources:
@@ -147,11 +147,11 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
                     "title": s.get("heading_context", ""),
                     "is_primary": is_primary,
                 })
-            
+
             # If no sources from edges, use source_url from verification_notes
             if not parsed_sources and source_url:
                 parsed_sources = [{"url": source_url, "title": "", "is_primary": False}]
-            
+
             claims.append({
                 "id": row["id"],
                 "text": row.get("claim_text", ""),
@@ -160,10 +160,10 @@ async def _collect_claims(db, task_id: str) -> list[dict[str, Any]]:
                 "has_refutation": bool(row.get("has_refutation", 0)),
                 "sources": parsed_sources,
             })
-    
+
     except Exception as e:
         logger.debug("Failed to collect claims", task_id=task_id, error=str(e))
-    
+
     return claims
 
 
@@ -176,7 +176,7 @@ async def _collect_fragments(db, task_id: str) -> list[dict[str, Any]]:
     - Source URL and is_primary stored in relevance_reason field
     """
     fragments = []
-    
+
     try:
         # Get fragments linked to this task's claims via edges
         rows = await db.fetch_all(
@@ -191,7 +191,7 @@ async def _collect_fragments(db, task_id: str) -> list[dict[str, Any]]:
             """,
             (task_id,),
         )
-        
+
         for row in rows:
             # Parse relevance_reason to extract metadata
             reason = row.get("relevance_reason", "") or ""
@@ -201,7 +201,7 @@ async def _collect_fragments(db, task_id: str) -> list[dict[str, Any]]:
                 source_url = reason.split("url=")[1].split(";")[0].strip()
             if "primary_source=True" in reason:
                 is_primary = True
-            
+
             fragments.append({
                 "id": row["id"],
                 "text": (row.get("text_content", "") or "")[:500],  # Limit text length
@@ -209,10 +209,10 @@ async def _collect_fragments(db, task_id: str) -> list[dict[str, Any]]:
                 "context": row.get("heading_context", ""),
                 "is_primary": is_primary,
             })
-    
+
     except Exception as e:
         logger.debug("Failed to collect fragments", task_id=task_id, error=str(e))
-    
+
     return fragments
 
 
@@ -220,22 +220,22 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
     """Build evidence graph for a task."""
     nodes = []
     edges = []
-    
+
     try:
         # Load from evidence_graph module if available
         from src.filter.evidence_graph import EvidenceGraph
-        
+
         graph = EvidenceGraph(task_id=task_id)
         await graph.load_from_db(task_id=task_id)
-        
+
         # Convert to serializable format
         graph_data = graph.to_dict()
         nodes = graph_data.get("nodes", [])
         edges = graph_data.get("edges", [])
-    
+
     except Exception as e:
         logger.debug("Failed to build evidence graph", task_id=task_id, error=str(e))
-        
+
         # Fallback: build simple graph from DB
         try:
             # Get nodes (claims + fragments)
@@ -249,7 +249,7 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
                     "type": "claim",
                     "label": row.get("label", "")[:50],
                 })
-            
+
             # O.7 fix: fragments doesn't have task_id, get via edges linked to claims
             fragment_rows = await db.fetch_all(
                 """
@@ -268,7 +268,7 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
                     "type": "fragment",
                     "label": (row.get("label", "") or "")[:50],
                 })
-            
+
             # Get edges linked to this task's claims
             edge_rows = await db.fetch_all(
                 """
@@ -287,9 +287,9 @@ async def _build_evidence_graph(db, task_id: str) -> dict[str, Any]:
                     "relation": row.get("relation", "supports"),
                     "confidence": row.get("confidence", 0.5),
                 })
-        
+
         except Exception as e2:
             logger.debug("Fallback graph build failed", error=str(e2))
-    
+
     return {"nodes": nodes, "edges": edges}
 

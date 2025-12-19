@@ -17,7 +17,7 @@ Usage:
 import asyncio
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Add project root to path
 sys.path.insert(0, "/home/statuser/lancet")
@@ -44,7 +44,7 @@ async def main():
     await db.execute(
         """INSERT INTO tasks (id, query, status, created_at)
            VALUES (?, ?, ?, ?)""",
-        (task_id, query, "exploring", datetime.now(timezone.utc).isoformat()),
+        (task_id, query, "exploring", datetime.now(UTC).isoformat()),
     )
 
     print(f"  - Created test task: {task_id}")
@@ -55,7 +55,6 @@ async def main():
     # =========================================================================
     print("\n[1] Testing ExplorationState.get_status() structure...")
 
-    from src.research.state import ExplorationState
     from src.mcp.server import _get_exploration_state
 
     # Use the same state cache as _handle_get_status()
@@ -105,7 +104,7 @@ async def main():
     print(f"  - elapsed_seconds: {metrics.get('elapsed_seconds')}")
 
     # Note: total_searches is sum of satisfied + partial + pending + exhausted
-    total_searches = (metrics.get("satisfied_count", 0) + metrics.get("partial_count", 0) + 
+    total_searches = (metrics.get("satisfied_count", 0) + metrics.get("partial_count", 0) +
                       metrics.get("pending_count", 0) + metrics.get("exhausted_count", 0))
     assert total_searches == 2, f"Expected 2 total searches, got {total_searches}"
     assert metrics.get("total_pages") == 4, f"Expected 4 pages, got {metrics.get('total_pages')}"
@@ -124,7 +123,7 @@ async def main():
     print(f"  - pages_limit: {budget.get('pages_limit')}")
     print(f"  - time_used_seconds: {budget.get('time_used_seconds')}")
     print(f"  - time_limit_seconds: {budget.get('time_limit_seconds')}")
-    
+
     # Note: remaining_percent is NOT in ExplorationState.get_status() but is in _handle_get_status()
     # Spec §3.2.1 expects remaining_percent, added by _handle_get_status
     has_remaining_percent = "remaining_percent" in budget
@@ -171,7 +170,7 @@ async def main():
     print(f"  - task_id: {result.get('task_id')}")
     print(f"  - status: {result.get('status')}")
     print(f"  - query: {result.get('query')}")
-    
+
     # Check "searches" field (mapped from "subqueries")
     searches = result.get("searches", [])
     print(f"  - searches count: {len(searches)}")

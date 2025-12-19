@@ -4,21 +4,19 @@ OpenAlex API client.
 Large-scale search API (priority=2).
 """
 
-from typing import Optional
 
-import httpx
 
 from src.search.apis.base import BaseAcademicClient
-from src.utils.schemas import Paper, Author, AcademicSearchResult
-from src.utils.api_retry import retry_api_call, ACADEMIC_API_POLICY
+from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
 from src.utils.logging import get_logger
+from src.utils.schemas import AcademicSearchResult, Author, Paper
 
 logger = get_logger(__name__)
 
 
 class OpenAlexClient(BaseAcademicClient):
     """OpenAlex API client."""
-    
+
     def __init__(self):
         """Initialize OpenAlex client."""
         # Load config
@@ -29,18 +27,19 @@ class OpenAlexClient(BaseAcademicClient):
             base_url = api_config.base_url if api_config.base_url else "https://api.openalex.org"
             timeout = float(api_config.timeout_seconds) if api_config.timeout_seconds else 30.0
             headers = api_config.headers if api_config.headers else None
-        except Exception:
+        except Exception as e:
             # Fallback to defaults if config loading fails
+            logger.debug("Failed to load OpenAlex config, using defaults", error=str(e))
             base_url = "https://api.openalex.org"
             timeout = 30.0
             headers = None
-        
+
         super().__init__("openalex", base_url=base_url, timeout=timeout, headers=headers)
-    
+
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers."""
         session = await self._get_session()
-        
+
         async def _search():
             response = await session.get(
                 f"{self.base_url}/works",
@@ -52,11 +51,11 @@ class OpenAlexClient(BaseAcademicClient):
             )
             response.raise_for_status()
             return response.json()
-        
+
         try:
             data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
             papers = [self._parse_paper(w) for w in data.get("results", [])]
-            
+
             return AcademicSearchResult(
                 papers=papers,
                 total_count=data.get("meta", {}).get("count", 0),
@@ -69,11 +68,11 @@ class OpenAlexClient(BaseAcademicClient):
                 total_count=0,
                 source_api="openalex"
             )
-    
-    async def get_paper(self, paper_id: str) -> Optional[Paper]:
+
+    async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
         session = await self._get_session()
-        
+
         async def _fetch():
             # paper_id is "W123456789" format or "https://openalex.org/W123456789"
             pid = paper_id
@@ -85,34 +84,34 @@ class OpenAlexClient(BaseAcademicClient):
             )
             response.raise_for_status()
             return response.json()
-        
+
         try:
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
             return self._parse_paper(data)
         except Exception as e:
             logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
             return None
-    
+
     async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get references (OpenAlex does not support detailed references)."""
         # OpenAlex API does not have a references endpoint
         # Detailed references retrieval is delegated to Semantic Scholar
         logger.debug("OpenAlex does not support detailed references", paper_id=paper_id)
         return []
-    
+
     async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
         """Get citations (OpenAlex does not support detailed citations)."""
         # OpenAlex API does not have a citations endpoint
         # Detailed citations retrieval is delegated to Semantic Scholar
         logger.debug("OpenAlex does not support detailed citations", paper_id=paper_id)
         return []
-    
+
     def _parse_paper(self, data: dict) -> Paper:
         """Convert API response to Paper model."""
         abstract = self._reconstruct_abstract(data.get("abstract_inverted_index"))
         oa = data.get("open_access", {}) or {}
         location = data.get("primary_location", {}) or {}
-        
+
         authors = []
         for authorship in data.get("authorships", []):
             author_data = authorship.get("author", {})
@@ -121,11 +120,11 @@ class OpenAlexClient(BaseAcademicClient):
                 affiliation=None,  # OpenAlex does not provide detailed affiliation
                 orcid=author_data.get("orcid")
             ))
-        
+
         doi = data.get("doi", "")
         if doi and doi.startswith("https://doi.org/"):
             doi = doi.replace("https://doi.org/", "")
-        
+
         return Paper(
             id=f"openalex:{data['id'].split('/')[-1]}",
             title=data.get("title", ""),
@@ -140,8 +139,8 @@ class OpenAlexClient(BaseAcademicClient):
             oa_url=oa.get("oa_url"),
             source_api="openalex"
         )
-    
-    def _reconstruct_abstract(self, inverted_index: Optional[dict]) -> Optional[str]:
+
+    def _reconstruct_abstract(self, inverted_index: dict | None) -> str | None:
         """Reconstruct plain text from OpenAlex inverted index format.
         
         Args:
@@ -152,15 +151,15 @@ class OpenAlexClient(BaseAcademicClient):
         """
         if not inverted_index:
             return None
-        
+
         words = {}
         for word, positions in inverted_index.items():
             for pos in positions:
                 words[pos] = word
-        
+
         if not words:
             return None
-        
+
         # Sort by position and join
         sorted_positions = sorted(words.keys())
         return " ".join(words[pos] for pos in sorted_positions)

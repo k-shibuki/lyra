@@ -21,14 +21,13 @@ Provider Abstraction:
 
 import asyncio
 import platform
-import subprocess
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from src.storage.database import get_database
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
-from src.storage.database import get_database
 from src.utils.notification_provider import (
     NotificationOptions,
     NotificationUrgency,
@@ -63,7 +62,7 @@ class InterventionType(Enum):
 
 class InterventionResult:
     """Result of an intervention attempt."""
-    
+
     def __init__(
         self,
         intervention_id: str,
@@ -82,7 +81,7 @@ class InterventionResult:
         self.cooldown_until = cooldown_until
         self.skip_domain_today = skip_domain_today
         self.notes = notes
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -110,24 +109,24 @@ class InterventionManager:
     - Allowed: Page.bringToFront
     - Forbidden: Runtime.evaluate, DOM.*, Input.*, scrollIntoView, etc.
     """
-    
+
     def __init__(self):
         self._settings = get_settings()
         self._pending_interventions: dict[str, dict] = {}
         self._domain_failures: dict[str, int] = {}  # domain -> consecutive failure count
         self._browser_page = None  # Current browser page for intervention
         self._intervention_lock = asyncio.Lock()
-    
+
     @property
     def max_domain_failures(self) -> int:
         """Get max consecutive failures before skipping domain today."""
         return 3  # Max consecutive failures before skipping domain today
-    
+
     @property
     def cooldown_minutes(self) -> int:
         """Get minimum cooldown period in minutes after timeout."""
         return 60  # Minimum cooldown period in minutes after timeout
-    
+
     async def request_intervention(
         self,
         intervention_type: InterventionType | str,
@@ -166,7 +165,7 @@ class InterventionManager:
                 intervention_type = InterventionType(intervention_type)
             except ValueError:
                 intervention_type = InterventionType.CAPTCHA
-        
+
         # Check if domain should be skipped
         if await self._should_skip_domain(domain):
             logger.info(
@@ -180,10 +179,10 @@ class InterventionManager:
                 skip_domain_today=True,
                 notes="Domain skipped due to consecutive intervention failures",
             )
-        
+
         async with self._intervention_lock:
             intervention_id = f"{domain}_{datetime.now().strftime('%H%M%S%f')}"
-            
+
             # Log intervention start
             db = await get_database()
             await db.execute(
@@ -192,30 +191,30 @@ class InterventionManager:
                 (task_id, domain, intervention_type, notification_sent_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (task_id, domain, intervention_type.value, datetime.now(timezone.utc).isoformat()),
+                (task_id, domain, intervention_type.value, datetime.now(UTC).isoformat()),
             )
-            
+
             # Store intervention state (minimal - no timeout, no element_selector)
             intervention_state = {
                 "id": intervention_id,
                 "type": intervention_type,
                 "url": url,
                 "domain": domain,
-                "started_at": datetime.now(timezone.utc),
+                "started_at": datetime.now(UTC),
                 "task_id": task_id,
             }
             self._pending_interventions[intervention_id] = intervention_state
-            
+
             # Build notification message (no timeout info)
             if message is None:
                 message = self._build_intervention_message(intervention_type, url, domain)
-            
+
             notification_msg = (
                 f"{message}\n\n"
                 f"URL: {url}\n"
                 f"完了後、Cursorで complete_authentication を呼んでください"
             )
-            
+
             # Step 1: Send toast notification
             title = f"Lancet: {intervention_type.value.upper()}"
             notification_sent = await self.send_toast(
@@ -223,12 +222,12 @@ class InterventionManager:
                 notification_msg,
                 timeout_seconds=10,
             )
-            
+
             # Step 2: Bring browser window to front via OS API only
             # No DOM operations (scroll, highlight, focus)
             if page is not None:
                 await self._bring_tab_to_front(page)
-            
+
             logger.info(
                 "Intervention requested (safe mode)",
                 intervention_id=intervention_id,
@@ -236,7 +235,7 @@ class InterventionManager:
                 domain=domain,
                 notification_sent=notification_sent,
             )
-            
+
             # Return immediately with PENDING status
             # User will call complete_authentication when done
             return InterventionResult(
@@ -244,7 +243,7 @@ class InterventionManager:
                 status=InterventionStatus.PENDING,
                 notes="Awaiting user completion via complete_authentication",
             )
-    
+
     def _build_intervention_message(
         self,
         intervention_type: InterventionType,
@@ -270,7 +269,7 @@ class InterventionManager:
             InterventionType.JS_CHALLENGE: f"JavaScript検証が必要です\nサイト: {domain}",
         }
         return messages.get(intervention_type, f"手動操作が必要です\nサイト: {domain}")
-    
+
     async def _bring_tab_to_front(self, page) -> bool:
         """Bring browser window to front using safe methods.
         
@@ -288,25 +287,25 @@ class InterventionManager:
         try:
             # Get browser context
             context = page.context
-            
+
             # Use CDP Page.bringToFront (allowed)
             cdp_session = await context.new_cdp_session(page)
             await cdp_session.send("Page.bringToFront")
             await cdp_session.detach()
-            
+
             logger.info("Browser tab brought to front via CDP")
-            
+
             # Also try OS-level window activation for better visibility
             try:
                 await self._platform_activate_window()
-            except Exception:
-                pass  # Best effort
-            
+            except Exception as e:
+                logger.debug("OS-level window activation failed (best effort)", error=str(e))
+
             return True
-            
+
         except Exception as e:
             logger.warning("CDP bring to front failed", error=str(e))
-            
+
             # Fallback: Try OS-level window activation only
             try:
                 await self._platform_activate_window()
@@ -314,19 +313,19 @@ class InterventionManager:
                 return True
             except Exception as e2:
                 logger.debug("Platform window activation failed", error=str(e2))
-            
+
             return False
-    
+
     async def _platform_activate_window(self) -> None:
         """Platform-specific window activation fallback.
         
         For WSL2 -> Windows Chrome, uses PowerShell to activate Chrome window.
         """
         system = platform.system()
-        
+
         # Check for WSL using the provider module's detection
         running_in_wsl = is_wsl()
-        
+
         if system == "Windows" or running_in_wsl:
             # Activate Chrome window using PowerShell
             ps_script = """
@@ -349,7 +348,7 @@ class InterventionManager:
                 [WindowHelper]::SetForegroundWindow($chromeWindow.MainWindowHandle)
             }
             """
-            
+
             try:
                 process = await asyncio.create_subprocess_exec(
                     "powershell.exe",
@@ -362,11 +361,11 @@ class InterventionManager:
                 logger.debug("Chrome window activated via PowerShell")
             except Exception as e:
                 logger.debug("PowerShell window activation failed", error=str(e))
-    
+
     # NOTE: _highlight_element, _wait_for_intervention, _has_challenge_indicators
     # have been removed per Safe Operation Policy.
     # DOM operations and polling are forbidden during authentication sessions.
-    
+
     async def _handle_intervention_result(
         self,
         result: InterventionResult,
@@ -383,7 +382,7 @@ class InterventionManager:
         domain = intervention_state["domain"]
         intervention_type = intervention_state["type"]
         task_id = intervention_state.get("task_id")
-        
+
         # Update intervention log
         await db.execute(
             """
@@ -394,7 +393,7 @@ class InterventionManager:
             LIMIT 1
             """,
             (
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 result.status.value,
                 int(result.elapsed_seconds),
                 result.notes,
@@ -402,7 +401,7 @@ class InterventionManager:
                 intervention_type.value,
             ),
         )
-        
+
         if result.status == InterventionStatus.SUCCESS:
             # Reset failure counter
             self._domain_failures[domain] = 0
@@ -416,7 +415,7 @@ class InterventionManager:
             # Increment failure counter
             failures = self._domain_failures.get(domain, 0) + 1
             self._domain_failures[domain] = failures
-            
+
             logger.warning(
                 "Intervention failed",
                 intervention_id=result.intervention_id,
@@ -424,11 +423,11 @@ class InterventionManager:
                 status=result.status.value,
                 failures=failures,
             )
-            
+
             # Check if should skip domain
             if failures >= self.max_domain_failures:
                 result.skip_domain_today = True
-                
+
                 # Mark domain for skip in database
                 await db.execute(
                     """
@@ -437,12 +436,12 @@ class InterventionManager:
                     WHERE domain = ?
                     """,
                     (
-                        (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
+                        (datetime.now(UTC) + timedelta(hours=24)).isoformat(),
                         f"Skipped after {failures} consecutive intervention failures",
                         domain,
                     ),
                 )
-                
+
                 logger.info(
                     "Domain marked for skip today",
                     domain=domain,
@@ -458,13 +457,13 @@ class InterventionManager:
                     """,
                     (result.cooldown_until.isoformat(), domain),
                 )
-                
+
                 logger.info(
                     "Domain cooldown applied",
                     domain=domain,
                     cooldown_until=result.cooldown_until.isoformat(),
                 )
-    
+
     async def _should_skip_domain(self, domain: str) -> bool:
         """Check if domain should be skipped due to consecutive failures.
         
@@ -477,26 +476,26 @@ class InterventionManager:
         failures = self._domain_failures.get(domain, 0)
         if failures >= self.max_domain_failures:
             return True
-        
+
         # Also check database for cooldown
         db = await get_database()
         domain_info = await db.fetch_one(
             "SELECT cooldown_until FROM domains WHERE domain = ?",
             (domain,),
         )
-        
+
         if domain_info and domain_info.get("cooldown_until"):
             try:
                 cooldown_until = datetime.fromisoformat(
                     domain_info["cooldown_until"].replace("Z", "+00:00")
                 )
-                if datetime.now(timezone.utc) < cooldown_until:
+                if datetime.now(UTC) < cooldown_until:
                     return True
-            except Exception:
-                pass
-        
+            except Exception as e:
+                logger.debug("Failed to parse cooldown_until timestamp", error=str(e))
+
         return False
-    
+
     async def send_toast(
         self,
         title: str,
@@ -526,20 +525,20 @@ class InterventionManager:
                 sound=True,
             )
             result = await registry.send(title, message, options)
-            
+
             if not result.ok:
                 logger.warning(
                     "Notification send failed",
                     provider=result.provider,
                     error=result.error,
                 )
-            
+
             return result.ok
-            
+
         except Exception as e:
             logger.error("Failed to send notification", error=str(e))
             return False
-    
+
     async def check_intervention_status(
         self,
         intervention_id: str,
@@ -555,12 +554,12 @@ class InterventionManager:
             Status dict.
         """
         intervention = self._pending_interventions.get(intervention_id)
-        
+
         if intervention is None:
             return {"status": "unknown", "intervention_id": intervention_id}
-        
-        elapsed = (datetime.now(timezone.utc) - intervention["started_at"]).total_seconds()
-        
+
+        elapsed = (datetime.now(UTC) - intervention["started_at"]).total_seconds()
+
         # No timeout enforcement
         return {
             "status": "pending",
@@ -568,7 +567,7 @@ class InterventionManager:
             "elapsed_seconds": elapsed,
             "note": "Awaiting user completion via complete_authentication",
         }
-    
+
     async def complete_intervention(
         self,
         intervention_id: str,
@@ -583,14 +582,14 @@ class InterventionManager:
             notes: Optional notes.
         """
         intervention = self._pending_interventions.pop(intervention_id, None)
-        
+
         if intervention is None:
             logger.warning("Unknown intervention completed", id=intervention_id)
             return
-        
-        elapsed = (datetime.now(timezone.utc) - intervention["started_at"]).total_seconds()
+
+        elapsed = (datetime.now(UTC) - intervention["started_at"]).total_seconds()
         result = "success" if success else "failed"
-        
+
         # Log completion
         db = await get_database()
         await db.execute(
@@ -602,7 +601,7 @@ class InterventionManager:
             LIMIT 1
             """,
             (
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 result,
                 int(elapsed),
                 notes,
@@ -610,17 +609,17 @@ class InterventionManager:
                 intervention["type"].value if isinstance(intervention["type"], InterventionType) else intervention["type"],
             ),
         )
-        
+
         if success:
             self._domain_failures[intervention["domain"]] = 0
-        
+
         logger.info(
             "Intervention completed",
             intervention_id=intervention_id,
             success=success,
             duration=elapsed,
         )
-    
+
     def get_domain_failures(self, domain: str) -> int:
         """Get consecutive failure count for domain.
         
@@ -631,7 +630,7 @@ class InterventionManager:
             Failure count.
         """
         return self._domain_failures.get(domain, 0)
-    
+
     def reset_domain_failures(self, domain: str) -> None:
         """Reset failure count for domain.
         
@@ -677,9 +676,9 @@ async def notify_user(
         Notification/intervention result.
     """
     manager = _get_manager()
-    
+
     intervention_types = {"captcha", "login_required", "cookie_banner", "cloudflare", "turnstile", "js_challenge"}
-    
+
     if event in intervention_types:
         # These require intervention flow (safe mode)
         result = await manager.request_intervention(
@@ -696,7 +695,7 @@ async def notify_user(
         domain = payload.get("domain", "unknown")
         reason = payload.get("reason", "Verification failure")
         task_id = payload.get("task_id")
-        
+
         # Queue to intervention queue for tracking (no user action needed)
         queue = get_intervention_queue()
         queue_id = await queue.enqueue(
@@ -706,11 +705,11 @@ async def notify_user(
             auth_type="domain_blocked",
             priority="low",  # Informational, low priority
         )
-        
+
         # Send toast notification
         message = payload.get("message") or f"Domain {domain} blocked: {reason}"
         sent = await manager.send_toast("Lancet: DOMAIN BLOCKED", message)
-        
+
         logger.warning(
             "Domain blocked notification sent",
             domain=domain,
@@ -718,7 +717,7 @@ async def notify_user(
             task_id=task_id,
             queue_id=queue_id,
         )
-        
+
         return {
             "shown": sent,
             "event": event,
@@ -730,9 +729,9 @@ async def notify_user(
         # Simple notification (no intervention flow)
         title = f"Lancet: {event.upper()}"
         message = payload.get("message", "")
-        
+
         sent = await manager.send_toast(title, message)
-        
+
         return {
             "shown": sent,
             "event": event,
@@ -823,15 +822,15 @@ class InterventionQueue:
     - User completes via complete_authentication
     - Authenticated sessions can be reused for same domain
     """
-    
+
     def __init__(self):
         self._db = None
-    
+
     async def _ensure_db(self):
         """Ensure database connection."""
         if self._db is None:
             self._db = await get_database()
-    
+
     async def enqueue(
         self,
         task_id: str,
@@ -855,14 +854,14 @@ class InterventionQueue:
             Queue item ID.
         """
         await self._ensure_db()
-        
+
         import uuid
         queue_id = f"iq_{uuid.uuid4().hex[:12]}"
-        
+
         # Default expiration: 1 hour from now
         if expires_at is None:
-            expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-        
+            expires_at = datetime.now(UTC) + timedelta(hours=1)
+
         await self._db.execute(
             """
             INSERT INTO intervention_queue 
@@ -871,7 +870,7 @@ class InterventionQueue:
             """,
             (queue_id, task_id, url, domain, auth_type, priority, expires_at.isoformat()),
         )
-        
+
         logger.info(
             "Authentication queued",
             queue_id=queue_id,
@@ -880,9 +879,9 @@ class InterventionQueue:
             auth_type=auth_type,
             priority=priority,
         )
-        
+
         return queue_id
-    
+
     async def get_item(self, queue_id: str) -> dict[str, Any] | None:
         """Get a specific queue item by ID.
         
@@ -893,7 +892,7 @@ class InterventionQueue:
             Queue item dict or None if not found.
         """
         await self._ensure_db()
-        
+
         row = await self._db.fetch_one(
             """
             SELECT id, task_id, url, domain, auth_type, priority, status,
@@ -903,12 +902,12 @@ class InterventionQueue:
             """,
             (queue_id,),
         )
-        
+
         if not row:
             return None
-        
+
         return dict(row)
-    
+
     async def get_pending(
         self,
         task_id: str | None = None,
@@ -926,10 +925,10 @@ class InterventionQueue:
             List of pending queue items.
         """
         await self._ensure_db()
-        
+
         # Use ISO format for comparison with stored timestamps
-        now_iso = datetime.now(timezone.utc).isoformat()
-        
+        now_iso = datetime.now(UTC).isoformat()
+
         query = """
             SELECT id, task_id, url, domain, auth_type, priority, status, 
                    queued_at, expires_at
@@ -938,22 +937,22 @@ class InterventionQueue:
               AND (expires_at IS NULL OR expires_at > ?)
         """
         params = [now_iso]
-        
+
         if task_id:
             query += " AND task_id = ?"
             params.append(task_id)
-        
+
         if priority:
             query += " AND priority = ?"
             params.append(priority)
-        
+
         query += " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
         query += f" LIMIT {limit}"
-        
+
         rows = await self._db.fetch_all(query, params)
-        
+
         return [dict(row) for row in rows]
-    
+
     async def get_pending_count(self, task_id: str) -> dict[str, int]:
         """Get count of pending authentications by priority.
         
@@ -964,10 +963,10 @@ class InterventionQueue:
             Dict with counts by priority and total.
         """
         await self._ensure_db()
-        
+
         # Use ISO format for comparison with stored timestamps
-        now_iso = datetime.now(timezone.utc).isoformat()
-        
+        now_iso = datetime.now(UTC).isoformat()
+
         rows = await self._db.fetch_all(
             """
             SELECT priority, COUNT(*) as count
@@ -978,16 +977,16 @@ class InterventionQueue:
             """,
             (task_id, now_iso),
         )
-        
+
         counts = {"high": 0, "medium": 0, "low": 0, "total": 0}
         for row in rows:
             priority = row["priority"]
             count = row["count"]
             counts[priority] = count
             counts["total"] += count
-        
+
         return counts
-    
+
     async def get_authentication_queue_summary(self, task_id: str) -> dict[str, Any]:
         """Get comprehensive summary of authentication queue for exploration status.
         
@@ -1005,9 +1004,9 @@ class InterventionQueue:
             - by_auth_type: Count by auth_type (cloudflare, captcha, etc.)
         """
         await self._ensure_db()
-        
-        now_iso = datetime.now(timezone.utc).isoformat()
-        
+
+        now_iso = datetime.now(UTC).isoformat()
+
         # Get counts by priority
         priority_rows = await self._db.fetch_all(
             """
@@ -1019,7 +1018,7 @@ class InterventionQueue:
             """,
             (task_id, now_iso),
         )
-        
+
         pending_count = 0
         high_priority_count = 0
         for row in priority_rows:
@@ -1027,7 +1026,7 @@ class InterventionQueue:
             pending_count += count
             if row["priority"] == "high":
                 high_priority_count = count
-        
+
         # Get distinct domains
         domain_rows = await self._db.fetch_all(
             """
@@ -1040,7 +1039,7 @@ class InterventionQueue:
             (task_id, now_iso),
         )
         domains = [row["domain"] for row in domain_rows]
-        
+
         # Get oldest queued_at
         oldest_row = await self._db.fetch_one(
             """
@@ -1052,7 +1051,7 @@ class InterventionQueue:
             (task_id, now_iso),
         )
         oldest_queued_at = oldest_row["oldest"] if oldest_row and oldest_row["oldest"] else None
-        
+
         # Get counts by auth_type
         auth_type_rows = await self._db.fetch_all(
             """
@@ -1065,7 +1064,7 @@ class InterventionQueue:
             (task_id, now_iso),
         )
         by_auth_type = {row["auth_type"]: row["count"] for row in auth_type_rows}
-        
+
         return {
             "pending_count": pending_count,
             "high_priority_count": high_priority_count,
@@ -1073,7 +1072,7 @@ class InterventionQueue:
             "oldest_queued_at": oldest_queued_at,
             "by_auth_type": by_auth_type,
         }
-    
+
     async def start_session(
         self,
         task_id: str,
@@ -1101,7 +1100,7 @@ class InterventionQueue:
             Session info with URLs to process.
         """
         await self._ensure_db()
-        
+
         # Get items to process
         if queue_ids:
             placeholders = ",".join("?" * len(queue_ids))
@@ -1115,8 +1114,8 @@ class InterventionQueue:
             )
         else:
             # Use ISO format for comparison with stored timestamps
-            now_iso = datetime.now(timezone.utc).isoformat()
-            
+            now_iso = datetime.now(UTC).isoformat()
+
             query = """
                 SELECT id, url, domain, auth_type, priority
                 FROM intervention_queue
@@ -1124,15 +1123,15 @@ class InterventionQueue:
                   AND (expires_at IS NULL OR expires_at > ?)
             """
             params = [task_id, now_iso]
-            
+
             if priority_filter and priority_filter != "all":
                 query += " AND priority = ?"
                 params.append(priority_filter)
-            
+
             query += " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"
-            
+
             rows = await self._db.fetch_all(query, params)
-        
+
         if not rows:
             return {
                 "ok": True,
@@ -1141,7 +1140,7 @@ class InterventionQueue:
                 "count": 0,
                 "items": [],
             }
-        
+
         # Mark as in_progress
         ids = [row["id"] for row in rows]
         placeholders = ",".join("?" * len(ids))
@@ -1153,15 +1152,15 @@ class InterventionQueue:
             """,
             ids,
         )
-        
+
         items = [dict(row) for row in rows]
-        
+
         logger.info(
             "Authentication session started",
             task_id=task_id,
             count=len(items),
         )
-        
+
         # Open browser and navigate to first URL
         # Use BrowserFetcher for consistency with authentication session handling
         if items:
@@ -1172,21 +1171,21 @@ class InterventionQueue:
                 logger.debug("Calling BrowserFetcher._ensure_browser(headful=True)")
                 browser, context = await browser_fetcher._ensure_browser(headful=True, task_id=task_id)
                 logger.debug("BrowserFetcher._ensure_browser() returned", has_browser=browser is not None, has_context=context is not None)
-                
+
                 if context:
                     # Open first URL in browser
                     logger.debug("Creating new page")
                     page = await context.new_page()
                     first_url = items[0]["url"]
                     logger.debug("Navigating to URL", url=first_url[:80])
-                    
+
                     await page.goto(first_url, wait_until="domcontentloaded", timeout=10000)
                     logger.debug("Page navigation completed")
-                    
+
                     # Bring window to front (safe operation)
                     manager = get_intervention_manager()
                     await manager._bring_tab_to_front(page)
-                    
+
                     logger.info(
                         "Opened authentication URL in browser",
                         url=first_url[:80],
@@ -1205,14 +1204,14 @@ class InterventionQueue:
                     task_id=task_id,
                 )
                 # Continue with URL-only response (user can open manually)
-        
+
         return {
             "ok": True,
             "session_started": True,
             "count": len(items),
             "items": items,
         }
-    
+
     async def get_pending_by_domain(self) -> dict[str, Any]:
         """Get pending authentications grouped by domain.
         
@@ -1227,9 +1226,9 @@ class InterventionQueue:
             - domains: List of domain info dicts
         """
         await self._ensure_db()
-        
-        now_iso = datetime.now(timezone.utc).isoformat()
-        
+
+        now_iso = datetime.now(UTC).isoformat()
+
         # Get all pending items
         rows = await self._db.fetch_all(
             """
@@ -1243,7 +1242,7 @@ class InterventionQueue:
             """,
             (now_iso,),
         )
-        
+
         # Group by domain
         domain_map: dict[str, dict] = {}
         for row in rows:
@@ -1257,7 +1256,7 @@ class InterventionQueue:
                     "auth_types": set(),
                     "urls": [],
                 }
-            
+
             info = domain_map[domain]
             info["pending_count"] += 1
             if row["priority"] == "high":
@@ -1265,7 +1264,7 @@ class InterventionQueue:
             info["affected_tasks"].add(row["task_id"])
             info["auth_types"].add(row["auth_type"])
             info["urls"].append(row["url"])
-        
+
         # Convert sets to lists for JSON serialization
         domains = []
         for info in domain_map.values():
@@ -1277,19 +1276,19 @@ class InterventionQueue:
                 "auth_types": list(info["auth_types"]),
                 "urls": info["urls"],
             })
-        
+
         # Sort by high priority count desc, then pending count desc
         domains.sort(key=lambda d: (-d["high_priority_count"], -d["pending_count"]))
-        
+
         total_pending = sum(d["pending_count"] for d in domains)
-        
+
         return {
             "ok": True,
             "total_domains": len(domains),
             "total_pending": total_pending,
             "domains": domains,
         }
-    
+
     async def complete(
         self,
         queue_id: str,
@@ -1310,11 +1309,11 @@ class InterventionQueue:
             Completion result.
         """
         await self._ensure_db()
-        
+
         import json
         session_json = json.dumps(session_data) if session_data else None
         status = "completed" if success else "skipped"
-        
+
         await self._db.execute(
             """
             UPDATE intervention_queue
@@ -1323,20 +1322,20 @@ class InterventionQueue:
             """,
             (status, session_json, queue_id),
         )
-        
+
         # Get the item for return
         row = await self._db.fetch_one(
             "SELECT url, domain FROM intervention_queue WHERE id = ?",
             (queue_id,),
         )
-        
+
         logger.info(
             "Authentication completed",
             queue_id=queue_id,
             success=success,
             domain=row["domain"] if row else None,
         )
-        
+
         return {
             "ok": True,
             "queue_id": queue_id,
@@ -1344,7 +1343,7 @@ class InterventionQueue:
             "url": row["url"] if row else None,
             "domain": row["domain"] if row else None,
         }
-    
+
     async def complete_domain(
         self,
         domain: str,
@@ -1371,13 +1370,13 @@ class InterventionQueue:
             - session_stored: Whether session data was stored
         """
         await self._ensure_db()
-        
+
         import json
-        
-        now_iso = datetime.now(timezone.utc).isoformat()
+
+        now_iso = datetime.now(UTC).isoformat()
         session_json = json.dumps(session_data) if session_data else None
         status = "completed" if success else "skipped"
-        
+
         # Get affected items before updating
         affected_rows = await self._db.fetch_all(
             """
@@ -1388,7 +1387,7 @@ class InterventionQueue:
             """,
             (domain, now_iso),
         )
-        
+
         if not affected_rows:
             return {
                 "ok": True,
@@ -1397,7 +1396,7 @@ class InterventionQueue:
                 "affected_tasks": [],
                 "session_stored": False,
             }
-        
+
         # Update all items for this domain
         await self._db.execute(
             """
@@ -1407,10 +1406,10 @@ class InterventionQueue:
             """,
             (status, session_json, domain),
         )
-        
+
         # Collect affected task IDs
         affected_tasks = list(set(row["task_id"] for row in affected_rows))
-        
+
         logger.info(
             "Domain authentication completed",
             domain=domain,
@@ -1418,7 +1417,7 @@ class InterventionQueue:
             resolved_count=len(affected_rows),
             affected_tasks=affected_tasks,
         )
-        
+
         return {
             "ok": True,
             "domain": domain,
@@ -1426,7 +1425,7 @@ class InterventionQueue:
             "affected_tasks": affected_tasks,
             "session_stored": session_data is not None,
         }
-    
+
     async def skip(
         self,
         task_id: str | None = None,
@@ -1450,10 +1449,10 @@ class InterventionQueue:
             Skip result with affected_tasks for domain-based skips.
         """
         await self._ensure_db()
-        
-        now_iso = datetime.now(timezone.utc).isoformat()
+
+        now_iso = datetime.now(UTC).isoformat()
         affected_tasks: list[str] = []
-        
+
         if queue_ids:
             # Skip specific queue IDs
             placeholders = ",".join("?" * len(queue_ids))
@@ -1466,7 +1465,7 @@ class InterventionQueue:
                 queue_ids,
             )
             skipped = len(queue_ids)
-            
+
             logger.info(
                 "Authentications skipped by queue_ids",
                 queue_ids=queue_ids,
@@ -1485,7 +1484,7 @@ class InterventionQueue:
                 (domain, now_iso),
             )
             affected_tasks = [row["task_id"] for row in affected_rows]
-            
+
             # Count pending before update
             count_row = await self._db.fetch_one(
                 """
@@ -1497,7 +1496,7 @@ class InterventionQueue:
                 (domain, now_iso),
             )
             skipped = count_row["count"] if count_row else 0
-            
+
             # Update
             await self._db.execute(
                 """
@@ -1507,7 +1506,7 @@ class InterventionQueue:
                 """,
                 (domain,),
             )
-            
+
             logger.info(
                 "Authentications skipped by domain",
                 domain=domain,
@@ -1530,7 +1529,7 @@ class InterventionQueue:
                 (task_id,),
             )
             skipped = row["count"] if row else 0
-            
+
             logger.info(
                 "Authentications skipped by task_id",
                 task_id=task_id,
@@ -1543,18 +1542,18 @@ class InterventionQueue:
                 "error": "Must specify task_id, queue_ids, or domain",
                 "skipped": 0,
             }
-        
+
         result: dict[str, Any] = {
             "ok": True,
             "skipped": skipped,
         }
-        
+
         # Include affected_tasks for domain-based skips
         if domain and affected_tasks:
             result["affected_tasks"] = affected_tasks
-        
+
         return result
-    
+
     async def get_session_for_domain(
         self,
         domain: str,
@@ -1570,30 +1569,30 @@ class InterventionQueue:
             Session data dict or None.
         """
         await self._ensure_db()
-        
+
         import json
-        
+
         query = """
             SELECT session_data
             FROM intervention_queue
             WHERE domain = ? AND status = 'completed' AND session_data IS NOT NULL
         """
         params = [domain]
-        
+
         if task_id:
             query += " AND task_id = ?"
             params.append(task_id)
-        
+
         # Use rowid as secondary sort to ensure most recent insert wins on ties
         query += " ORDER BY completed_at DESC, rowid DESC LIMIT 1"
-        
+
         row = await self._db.fetch_one(query, params)
-        
+
         if row and row["session_data"]:
             return json.loads(row["session_data"])
-        
+
         return None
-    
+
     async def cleanup_expired(self) -> int:
         """Clean up expired queue items.
         
@@ -1601,10 +1600,10 @@ class InterventionQueue:
             Number of items cleaned up.
         """
         await self._ensure_db()
-        
+
         # Use ISO format for comparison with stored timestamps
-        now_iso = datetime.now(timezone.utc).isoformat()
-        
+        now_iso = datetime.now(UTC).isoformat()
+
         result = await self._db.execute(
             """
             UPDATE intervention_queue
@@ -1613,12 +1612,12 @@ class InterventionQueue:
             """,
             (now_iso,),
         )
-        
+
         # Count expired
         row = await self._db.fetch_one(
             "SELECT COUNT(*) as count FROM intervention_queue WHERE status = 'expired'",
         )
-        
+
         return row["count"] if row else 0
 
 

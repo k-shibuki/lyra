@@ -16,7 +16,7 @@ Tests the full data flow between MCP tools:
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -36,21 +36,21 @@ class TestGetStatusIntegration:
         db = memory_database
         task_id = f"task_int_{uuid.uuid4().hex[:8]}"
         search_id = f"sq_{uuid.uuid4().hex[:8]}"
-        
+
         # Create task
         await db.execute(
             """INSERT INTO tasks (id, query, status, created_at)
                VALUES (?, ?, ?, ?)""",
-            (task_id, "integration test query", "exploring", datetime.now(timezone.utc).isoformat()),
+            (task_id, "integration test query", "exploring", datetime.now(UTC).isoformat()),
         )
-        
+
         # Create query record (using actual schema: query_text, query_type)
         await db.execute(
             """INSERT INTO queries (id, task_id, query_text, query_type, created_at)
                VALUES (?, ?, ?, ?, datetime('now'))""",
             (search_id, task_id, "test search query", "initial"),
         )
-        
+
         # Create pages
         page_ids = []
         for i in range(3):
@@ -61,7 +61,7 @@ class TestGetStatusIntegration:
                    VALUES (?, ?, ?, datetime('now'))""",
                 (page_id, f"https://example.com/page{i}", "example.com"),
             )
-        
+
         # Create fragments
         fragment_ids = []
         for i, page_id in enumerate(page_ids):
@@ -71,10 +71,10 @@ class TestGetStatusIntegration:
                 """INSERT INTO fragments (id, page_id, fragment_type, text_content, 
                    heading_context, is_relevant, relevance_reason, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-                (fragment_id, page_id, "paragraph", f"Content {i}", f"Heading {i}", 
+                (fragment_id, page_id, "paragraph", f"Content {i}", f"Heading {i}",
                  1, f"url=https://example.com/page{i}"),
             )
-        
+
         return {
             "task_id": task_id,
             "search_id": search_id,
@@ -96,16 +96,16 @@ class TestGetStatusIntegration:
         // Then: Returns task info with searches, metrics, budget
         """
         from src.mcp.server import _handle_get_status
-        
+
         data = setup_task_with_search_data
         task_id = data["task_id"]
-        
+
         mock_db = memory_database
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", side_effect=KeyError("No state")):
                 result = await _handle_get_status({"task_id": task_id})
-        
+
         # Verify response structure
         assert result["ok"] is True
         assert result["task_id"] == task_id
@@ -126,21 +126,21 @@ class TestGetStatusIntegration:
         // Then: Returns minimal status with empty searches
         """
         from src.mcp.server import _handle_get_status
-        
+
         db = memory_database
         task_id = f"task_minimal_{uuid.uuid4().hex[:8]}"
-        
+
         # Create bare task
         await db.execute(
             """INSERT INTO tasks (id, query, status, created_at)
                VALUES (?, ?, ?, ?)""",
-            (task_id, "minimal query", "pending", datetime.now(timezone.utc).isoformat()),
+            (task_id, "minimal query", "pending", datetime.now(UTC).isoformat()),
         )
-        
+
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
             with patch("src.mcp.server._get_exploration_state", side_effect=KeyError("No state")):
                 result = await _handle_get_status({"task_id": task_id})
-        
+
         assert result["ok"] is True
         assert result["task_id"] == task_id
         assert result["searches"] == []
@@ -159,14 +159,14 @@ class TestGetMaterialsIntegration:
         """
         db = memory_database
         task_id = f"task_mat_{uuid.uuid4().hex[:8]}"
-        
+
         # Create task
         await db.execute(
             """INSERT INTO tasks (id, query, status, created_at)
                VALUES (?, ?, ?, ?)""",
-            (task_id, "materials test query", "exploring", datetime.now(timezone.utc).isoformat()),
+            (task_id, "materials test query", "exploring", datetime.now(UTC).isoformat()),
         )
-        
+
         # Create page
         page_id = f"p_{uuid.uuid4().hex[:8]}"
         await db.execute(
@@ -174,7 +174,7 @@ class TestGetMaterialsIntegration:
                VALUES (?, ?, ?, datetime('now'))""",
             (page_id, "https://example.gov/doc", "example.gov"),
         )
-        
+
         # Create fragments
         frag_ids = []
         for i in range(2):
@@ -188,7 +188,7 @@ class TestGetMaterialsIntegration:
                 (frag_id, page_id, "paragraph", f"Fragment content {i}", f"Section {i}",
                  1, f"primary_source={is_primary}; url=https://example.gov/doc"),
             )
-        
+
         # Create claims
         claim_ids = []
         for i in range(2):
@@ -199,9 +199,9 @@ class TestGetMaterialsIntegration:
                    confidence_score, source_fragment_ids, verification_notes, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
                 (claim_id, task_id, f"Claim {i} text", "fact", 0.8 - i*0.2,
-                 json.dumps([frag_ids[i]]), f"source_url=https://example.gov/doc"),
+                 json.dumps([frag_ids[i]]), "source_url=https://example.gov/doc"),
             )
-        
+
         # Create edges (fragment -> claim)
         for i, (frag_id, claim_id) in enumerate(zip(frag_ids, claim_ids)):
             edge_id = f"e_{uuid.uuid4().hex[:8]}"
@@ -211,7 +211,7 @@ class TestGetMaterialsIntegration:
                    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
                 (edge_id, "fragment", frag_id, "claim", claim_id, "supports"),
             )
-        
+
         return {
             "task_id": task_id,
             "claim_count": 2,
@@ -233,24 +233,24 @@ class TestGetMaterialsIntegration:
         // Then: Returns claims, fragments, summary
         """
         from src.research.materials import get_materials_action
-        
+
         data = setup_task_with_claims
         task_id = data["task_id"]
-        
+
         with patch("src.research.materials.get_database", new=AsyncMock(return_value=memory_database)):
             result = await get_materials_action(task_id)
-        
+
         assert result["ok"] is True
         assert result["task_id"] == task_id
         assert result["query"] == "materials test query"
-        
+
         # Verify claims
         assert len(result["claims"]) == 2
         assert all("claim_text" in c or "text" in c for c in result["claims"])
-        
+
         # Verify fragments
         assert len(result["fragments"]) >= 1
-        
+
         # Verify summary
         assert "summary" in result
         assert result["summary"]["total_claims"] == 2
@@ -265,20 +265,20 @@ class TestGetMaterialsIntegration:
         // Then: Returns empty claims and fragments lists
         """
         from src.research.materials import get_materials_action
-        
+
         db = memory_database
         task_id = f"task_empty_{uuid.uuid4().hex[:8]}"
-        
+
         # Create bare task
         await db.execute(
             """INSERT INTO tasks (id, query, status, created_at)
                VALUES (?, ?, ?, ?)""",
-            (task_id, "empty task query", "exploring", datetime.now(timezone.utc).isoformat()),
+            (task_id, "empty task query", "exploring", datetime.now(UTC).isoformat()),
         )
-        
+
         with patch("src.research.materials.get_database", new=AsyncMock(return_value=db)):
             result = await get_materials_action(task_id)
-        
+
         assert result["ok"] is True
         assert result["claims"] == []
         assert result["fragments"] == []
@@ -296,21 +296,21 @@ class TestGetMaterialsIntegration:
         // Then: Response includes evidence_graph structure (nodes and edges keys)
         """
         from src.research.materials import get_materials_action
-        
+
         data = setup_task_with_claims
         task_id = data["task_id"]
-        
+
         with patch("src.research.materials.get_database", new=AsyncMock(return_value=memory_database)):
             result = await get_materials_action(task_id, include_graph=True)
-        
+
         assert result["ok"] is True
         assert "evidence_graph" in result
-        
+
         graph = result["evidence_graph"]
         # Verify graph structure exists (fallback may return empty)
         assert "nodes" in graph
         assert "edges" in graph
-        
+
         # Graph may be empty if EvidenceGraph module is not available in test env
         # In that case, fallback logic still creates empty structure which is valid
         assert isinstance(graph["nodes"], list)
@@ -326,14 +326,14 @@ class TestMCPToolDataConsistency:
         """Create complete exploration data for consistency testing."""
         db = memory_database
         task_id = f"task_full_{uuid.uuid4().hex[:8]}"
-        
+
         # Create task
         await db.execute(
             """INSERT INTO tasks (id, query, status, created_at)
                VALUES (?, ?, ?, ?)""",
-            (task_id, "full exploration query", "exploring", datetime.now(timezone.utc).isoformat()),
+            (task_id, "full exploration query", "exploring", datetime.now(UTC).isoformat()),
         )
-        
+
         # Create query/search (using actual schema)
         search_id = f"sq_{uuid.uuid4().hex[:8]}"
         await db.execute(
@@ -341,7 +341,7 @@ class TestMCPToolDataConsistency:
                VALUES (?, ?, ?, ?, datetime('now'))""",
             (search_id, task_id, "search query", "initial"),
         )
-        
+
         # Create page
         page_id = f"p_{uuid.uuid4().hex[:8]}"
         await db.execute(
@@ -349,7 +349,7 @@ class TestMCPToolDataConsistency:
                VALUES (?, ?, ?, datetime('now'))""",
             (page_id, "https://source.gov/data", "source.gov"),
         )
-        
+
         # Create fragment
         frag_id = f"f_{uuid.uuid4().hex[:8]}"
         await db.execute(
@@ -359,7 +359,7 @@ class TestMCPToolDataConsistency:
             (frag_id, page_id, "paragraph", "Key information from source",
              "Results", 1, "primary_source=True; url=https://source.gov/data"),
         )
-        
+
         # Create claim
         claim_id = f"c_{uuid.uuid4().hex[:8]}"
         await db.execute(
@@ -369,7 +369,7 @@ class TestMCPToolDataConsistency:
             (claim_id, task_id, "Verified claim from exploration", "fact",
              0.9, json.dumps([frag_id]), "source_url=https://source.gov/data"),
         )
-        
+
         # Create edge
         edge_id = f"e_{uuid.uuid4().hex[:8]}"
         await db.execute(
@@ -378,7 +378,7 @@ class TestMCPToolDataConsistency:
                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
             (edge_id, "fragment", frag_id, "claim", claim_id, "supports"),
         )
-        
+
         return {
             "task_id": task_id,
             "search_id": search_id,
@@ -400,27 +400,27 @@ class TestMCPToolDataConsistency:
         """
         from src.mcp.server import _handle_get_status
         from src.research.materials import get_materials_action
-        
+
         data = setup_full_exploration
         task_id = data["task_id"]
-        
+
         # Get status
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=memory_database)):
             with patch("src.mcp.server._get_exploration_state", side_effect=KeyError("No state")):
                 status_result = await _handle_get_status({"task_id": task_id})
-        
+
         # Get materials
         with patch("src.research.materials.get_database", new=AsyncMock(return_value=memory_database)):
             materials_result = await get_materials_action(task_id)
-        
+
         # Verify both succeed
         assert status_result["ok"] is True
         assert materials_result["ok"] is True
-        
+
         # Verify same task_id
         assert status_result["task_id"] == task_id
         assert materials_result["task_id"] == task_id
-        
+
         # Verify materials contains expected claim
         assert len(materials_result["claims"]) == 1
         claim = materials_result["claims"][0]

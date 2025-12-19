@@ -39,28 +39,28 @@ import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 from src.crawler.rdap_whois import (
-    WHOISParser,
-    RDAPClient,
-    WHOISRecord,
-    RegistrantInfo,
     NameserverInfo,
-    normalize_domain,
+    RDAPClient,
+    RegistrantInfo,
+    WHOISParser,
+    WHOISRecord,
     get_rdap_client,
+    normalize_domain,
 )
 
 
 class TestWHOISParser:
     """Tests for WHOIS text/HTML parser."""
-    
+
     def test_parse_text_basic(self):
         """Test parsing basic WHOIS text response (TC-WP-N-01)."""
         # Given: A WHOISParser instance and valid WHOIS text with all fields
         parser = WHOISParser()
-        
+
         text = """
         Domain Name: example.com
         Registrar: Example Registrar Inc
@@ -72,10 +72,10 @@ class TestWHOISParser:
         Name Server: ns1.example.com
         Name Server: ns2.example.com
         """
-        
+
         # When: Parsing the WHOIS text
         record = parser.parse_text("example.com", text, "https://example.com/whois")
-        
+
         # Then: All fields are extracted correctly
         assert record.domain == "example.com"
         assert record.registrar == "Example Registrar Inc"
@@ -86,12 +86,12 @@ class TestWHOISParser:
         assert record.created_date.year == 2020
         assert len(record.nameservers) == 2
         assert record.nameservers[0].hostname == "ns1.example.com"
-    
+
     def test_parse_text_japanese(self):
         """Test parsing Japanese WHOIS text response (JPRS format) (TC-WP-N-02)."""
         # Given: A WHOISParser instance and Japanese JPRS format text
         parser = WHOISParser()
-        
+
         text = """
         [ドメイン名]                example.jp
         [登録年月日]                2020/04/01
@@ -101,58 +101,58 @@ class TestWHOISParser:
         [ネームサーバ]              ns1.example.jp
         [ネームサーバ]              ns2.example.jp
         """
-        
+
         # When: Parsing the Japanese WHOIS text
         record = parser.parse_text("example.jp", text)
-        
+
         # Then: Japanese fields are extracted correctly
         assert record.domain == "example.jp"
         assert record.created_date is not None
         assert record.created_date.year == 2020
         assert len(record.nameservers) == 2
-    
+
     def test_parse_text_no_data(self):
         """Test parsing empty/no-data response (TC-WP-B-01)."""
         # Given: A WHOISParser instance and a no-match response
         parser = WHOISParser()
-        
+
         text = "No match for domain."
-        
+
         # When: Parsing the no-data response
         record = parser.parse_text("unknown.com", text)
-        
+
         # Then: Empty record is returned with domain only
         assert record.domain == "unknown.com"
         assert record.registrar is None
         assert record.registrant is None
-    
+
     def test_parse_text_redacted_fields(self):
         """Test handling of redacted/privacy-protected fields (TC-WP-N-03)."""
         # Given: A WHOISParser instance and WHOIS text with privacy-redacted fields
         parser = WHOISParser()
-        
+
         # Note: The parser filters out common redacted values
         text = """
         Domain Name: example.com
         Registrar: Good Registrar
         Registrant Organization: REDACTED FOR PRIVACY
         """
-        
+
         # When: Parsing the text with redacted fields
         record = parser.parse_text("example.com", text)
-        
+
         # Then: Non-redacted fields are extracted, redacted values handled appropriately
         assert record.registrar == "Good Registrar"
         # Registrant should be None or empty since all fields are redacted-like
         # The parser does not create registrant if all fields are empty
         # Note: "REDACTED FOR PRIVACY" is not in the filter list, so it will be kept
         # This test verifies the parsing works, not the redaction filtering
-    
+
     def test_parse_html_with_table(self):
         """Test parsing HTML response with table format (TC-WP-N-04)."""
         # Given: A WHOISParser instance and HTML with table-formatted WHOIS data
         parser = WHOISParser()
-        
+
         html = """
         <html>
         <body>
@@ -165,19 +165,19 @@ class TestWHOISParser:
         </body>
         </html>
         """
-        
+
         # When: Parsing the HTML table
         record = parser.parse_html("example.org", html)
-        
+
         # Then: Table data is extracted correctly
         assert record.registrar == "Good Registrar LLC"
         assert len(record.nameservers) >= 2
-    
+
     def test_parse_html_with_pre(self):
         """Test parsing HTML response with pre-formatted text (TC-WP-N-05)."""
         # Given: A WHOISParser instance and HTML with pre-formatted WHOIS data
         parser = WHOISParser()
-        
+
         html = """
         <html>
         <body>
@@ -190,33 +190,33 @@ Name Server: ns.example.net
         </body>
         </html>
         """
-        
+
         # When: Parsing the HTML with pre tag
         record = parser.parse_html("example.net", html)
-        
+
         # Then: Pre-formatted content is extracted correctly
         assert record.registrar == "PreFormat Registrar"
         assert record.created_date is not None
         assert record.created_date.year == 2019
-    
+
     def test_parse_date_various_formats(self):
         """Test date parsing with various formats (TC-WP-N-06, TC-WP-B-02)."""
         # Given: A WHOISParser instance
         parser = WHOISParser()
-        
+
         # When/Then: ISO format parses correctly
         assert parser._parse_date("2024-01-15") is not None
         assert parser._parse_date("2024-01-15").year == 2024
-        
+
         # When/Then: Slash format parses correctly
         assert parser._parse_date("2024/01/15") is not None
-        
+
         # When/Then: Month name format parses correctly
         assert parser._parse_date("15-Jan-2024") is not None
-        
+
         # When/Then: Japanese format parses correctly
         assert parser._parse_date("2024年01月15日") is not None
-        
+
         # When/Then: Invalid/empty/NULL dates return None (boundary cases)
         assert parser._parse_date("invalid-date") is None
         assert parser._parse_date("") is None
@@ -225,7 +225,7 @@ Name Server: ns.example.net
 
 class TestWHOISRecord:
     """Tests for WHOISRecord data class."""
-    
+
     def test_to_dict(self):
         """Test serialization to dictionary (TC-WR-N-01)."""
         # Given: A WHOISRecord with all fields populated
@@ -236,15 +236,15 @@ class TestWHOISRecord:
                 name="Test User",
                 organization="Test Org",
             ),
-            created_date=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            created_date=datetime(2020, 1, 1, tzinfo=UTC),
             nameservers=[
                 NameserverInfo(hostname="ns1.example.com"),
             ],
         )
-        
+
         # When: Converting to dictionary
         d = record.to_dict()
-        
+
         # Then: All fields are serialized correctly
         assert d["domain"] == "example.com"
         assert d["registrar"] == "Test Registrar"
@@ -252,7 +252,7 @@ class TestWHOISRecord:
         assert d["registrant"]["organization"] == "Test Org"
         assert "2020" in d["created_date"]
         assert len(d["nameservers"]) == 1
-    
+
     def test_get_registrant_org(self):
         """Test getting registrant organization (TC-WR-N-02, TC-WR-B-01, TC-WR-B-02)."""
         # Given: A WHOISRecord with both name and organization
@@ -265,7 +265,7 @@ class TestWHOISRecord:
         )
         # When/Then: Organization is returned preferentially
         assert record.get_registrant_org() == "Example Corp"
-        
+
         # Given: A WHOISRecord with name only (boundary - fallback case)
         record = WHOISRecord(
             domain="example.com",
@@ -273,7 +273,7 @@ class TestWHOISRecord:
         )
         # When/Then: Name is returned as fallback
         assert record.get_registrant_org() == "Jane Doe"
-        
+
         # Given: A WHOISRecord with no registrant (boundary - NULL case)
         record = WHOISRecord(domain="example.com")
         # When/Then: None is returned
@@ -282,24 +282,24 @@ class TestWHOISRecord:
 
 class TestRegistrantInfo:
     """Tests for RegistrantInfo data class."""
-    
+
     def test_is_empty(self):
         """Test empty check (TC-RI-B-01, TC-RI-N-01)."""
         # Given: An empty RegistrantInfo (boundary - empty case)
         info = RegistrantInfo()
         # When/Then: is_empty returns True
         assert info.is_empty()
-        
+
         # Given: RegistrantInfo with name only
         info = RegistrantInfo(name="Test")
         # When/Then: is_empty returns False
         assert not info.is_empty()
-        
+
         # Given: RegistrantInfo with organization only
         info = RegistrantInfo(organization="Test Corp")
         # When/Then: is_empty returns False
         assert not info.is_empty()
-    
+
     def test_to_dict(self):
         """Test serialization (TC-RI-N-02)."""
         # Given: A RegistrantInfo with all fields populated
@@ -309,10 +309,10 @@ class TestRegistrantInfo:
             email="test@example.com",
             country="JP",
         )
-        
+
         # When: Converting to dictionary
         d = info.to_dict()
-        
+
         # Then: All fields are serialized correctly
         assert d["name"] == "Test User"
         assert d["organization"] == "Test Org"
@@ -322,13 +322,13 @@ class TestRegistrantInfo:
 
 class TestRDAPClient:
     """Tests for RDAP client."""
-    
+
     @pytest.fixture
     def mock_fetcher(self):
         """Create mock fetcher."""
         fetcher = AsyncMock()
         return fetcher
-    
+
     @pytest.mark.asyncio
     async def test_lookup_success(self, mock_fetcher, tmp_path):
         """Test successful WHOIS lookup (TC-RC-N-01)."""
@@ -342,22 +342,22 @@ class TestRDAPClient:
         Name Server: ns1.example.com
         </pre>
         """)
-        
+
         result = MagicMock()
         result.ok = True
         result.html_path = str(html_path)
         mock_fetcher.fetch = AsyncMock(return_value=result)
-        
+
         client = RDAPClient(fetcher=mock_fetcher)
-        
+
         # When: Looking up a domain
         record = await client.lookup("example.com")
-        
+
         # Then: WHOISRecord is returned with parsed data
         assert record is not None
         assert record.domain == "example.com"
         assert record.registrar == "Test Registrar"
-    
+
     @pytest.mark.asyncio
     async def test_lookup_cache(self, mock_fetcher, tmp_path):
         """Test that results are cached (TC-RC-N-02)."""
@@ -369,34 +369,34 @@ class TestRDAPClient:
         Registrar: Cached Registrar
         </pre>
         """)
-        
+
         result = MagicMock()
         result.ok = True
         result.html_path = str(html_path)
         mock_fetcher.fetch = AsyncMock(return_value=result)
-        
+
         client = RDAPClient(fetcher=mock_fetcher)
-        
+
         # When: Looking up the same domain twice
         record1 = await client.lookup("cached.com")
         record2 = await client.lookup("cached.com")
-        
+
         # Then: Cache is used, same object returned, fetcher called only once
         assert record1 is record2
         assert mock_fetcher.fetch.call_count == 1
-    
+
     @pytest.mark.asyncio
     async def test_lookup_no_fetcher(self):
         """Test lookup without fetcher returns None (TC-RC-A-01)."""
         # Given: An RDAPClient with no fetcher (missing dependency)
         client = RDAPClient(fetcher=None)
-        
+
         # When: Attempting to lookup a domain
         record = await client.lookup("example.com")
-        
+
         # Then: None is returned gracefully (no exception)
         assert record is None
-    
+
     @pytest.mark.asyncio
     async def test_lookup_fetch_failure(self, mock_fetcher):
         """Test handling of fetch failure (TC-RC-A-02)."""
@@ -405,15 +405,15 @@ class TestRDAPClient:
         result.ok = False
         result.reason = "Connection refused"
         mock_fetcher.fetch = AsyncMock(return_value=result)
-        
+
         client = RDAPClient(fetcher=mock_fetcher)
-        
+
         # When: Attempting to lookup a domain
         record = await client.lookup("example.com")
-        
+
         # Then: None is returned gracefully (no exception raised)
         assert record is None
-    
+
     @pytest.mark.asyncio
     async def test_lookup_batch(self, mock_fetcher, tmp_path):
         """Test batch lookup of multiple domains (TC-RC-N-03)."""
@@ -426,26 +426,26 @@ class TestRDAPClient:
             Registrar: Registrar {i}
             </pre>
             """)
-        
+
         call_count = [0]
-        
+
         async def mock_fetch(url, trace=None):
             result = MagicMock()
             result.ok = True
             result.html_path = str(tmp_path / f"whois_{call_count[0] % 3}.html")
             call_count[0] += 1
             return result
-        
+
         mock_fetcher.fetch = mock_fetch
-        
+
         client = RDAPClient(fetcher=mock_fetcher)
-        
+
         # When: Performing batch lookup with concurrency limit
         results = await client.lookup_batch(
             ["a.com", "b.com", "c.com"],
             max_concurrent=2,
         )
-        
+
         # Then: All domains are looked up and results returned
         assert len(results) == 3
         assert "a.com" in results
@@ -455,28 +455,28 @@ class TestRDAPClient:
 
 class TestNormalizeDomain:
     """Tests for domain normalization."""
-    
+
     def test_simple_domain(self):
         """Test simple domain input (TC-ND-N-01)."""
         # Given: Simple domain strings with different cases
         # When/Then: Lowercase base domain is returned
         assert normalize_domain("example.com") == "example.com"
         assert normalize_domain("EXAMPLE.COM") == "example.com"
-    
+
     def test_url_input(self):
         """Test URL input (TC-ND-N-02)."""
         # Given: Full URL strings
         # When/Then: Domain is extracted from the URL
         assert normalize_domain("https://example.com/path") == "example.com"
         assert normalize_domain("http://www.example.com:8080/") == "example.com"
-    
+
     def test_subdomain(self):
         """Test subdomain extraction (TC-ND-N-03)."""
         # Given: Domain strings with subdomains
         # When/Then: Base domain is extracted (subdomain stripped)
         assert normalize_domain("www.example.com") == "example.com"
         assert normalize_domain("sub.domain.example.co.jp") == "example.co.jp"
-    
+
     def test_with_port(self):
         """Test domain with port (TC-ND-N-04)."""
         # Given: Domain string with port number
@@ -486,25 +486,25 @@ class TestNormalizeDomain:
 
 class TestGetRDAPClient:
     """Tests for client factory function."""
-    
+
     def test_get_client_with_fetcher(self):
         """Test getting client with fetcher (TC-GC-N-01)."""
         # Given: A mock fetcher
         mock_fetcher = MagicMock()
-        
+
         # When: Creating client via factory function
         client = get_rdap_client(mock_fetcher)
-        
+
         # Then: Client is created with the provided fetcher
         assert client is not None
         assert client._fetcher is mock_fetcher
-    
+
     def test_get_client_without_fetcher(self):
         """Test getting client without fetcher (TC-GC-B-01)."""
         # Given: No fetcher provided (boundary - optional dependency)
         # When: Creating client via factory function
         client = get_rdap_client()
-        
+
         # Then: Client is created with None fetcher
         assert client is not None
         assert client._fetcher is None

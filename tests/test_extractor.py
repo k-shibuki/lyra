@@ -9,7 +9,6 @@ OCR functionality tests (§5.1.1):
 
 import io
 import os
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -67,9 +66,9 @@ class TestExtractContent:
     async def test_extract_content_requires_input(self):
         """Test that extract_content requires either input_path or html."""
         from src.extractor.content import extract_content
-        
+
         result = await extract_content()
-        
+
         assert result["ok"] is False
         assert "must be provided" in result["error"]
 
@@ -77,7 +76,7 @@ class TestExtractContent:
     async def test_extract_html_from_string(self):
         """Test HTML extraction from raw string."""
         from src.extractor.content import extract_content
-        
+
         # Given: HTML content with title, heading, and paragraphs
         html = """
         <html>
@@ -89,12 +88,12 @@ class TestExtractContent:
         </body>
         </html>
         """
-        
+
         # When: Extracting content from the HTML string
         with patch("src.extractor.content.get_database") as mock_db:
             mock_db.return_value = AsyncMock()
             result = await extract_content(html=html, content_type="html")
-        
+
         # Then: Extraction succeeds and heading is detected
         assert result["ok"] is True
         assert "headings" in result, f"Expected 'headings' in result keys: {list(result.keys())}"
@@ -107,7 +106,7 @@ class TestExtractContent:
     async def test_extract_html_detects_headings(self):
         """Test that HTML extraction detects headings."""
         from src.extractor.content import extract_content
-        
+
         # Given: HTML with multiple heading levels (h1, h2, h3)
         html = """
         <html>
@@ -120,12 +119,12 @@ class TestExtractContent:
         </body>
         </html>
         """
-        
+
         # When: Extracting content from the HTML
         with patch("src.extractor.content.get_database") as mock_db:
             mock_db.return_value = AsyncMock()
             result = await extract_content(html=html)
-        
+
         # Then: Multiple headings are detected
         assert result["ok"] is True
         assert len(result["headings"]) >= 2
@@ -137,7 +136,7 @@ class TestExtractContent:
     async def test_extract_html_detects_tables(self):
         """Test that HTML extraction detects tables."""
         from src.extractor.content import extract_content
-        
+
         # Given: HTML containing a table with header and data rows
         html = """
         <html>
@@ -150,12 +149,12 @@ class TestExtractContent:
         </body>
         </html>
         """
-        
+
         # When: Extracting content from the HTML
         with patch("src.extractor.content.get_database") as mock_db:
             mock_db.return_value = AsyncMock()
             result = await extract_content(html=html)
-        
+
         # Then: Table structure is extracted with rows
         assert result["ok"] is True
         assert len(result["tables"]) == 1
@@ -165,7 +164,7 @@ class TestExtractContent:
     async def test_auto_detect_pdf_type(self):
         """Test auto-detection of PDF content type."""
         from src.extractor.content import extract_content
-        
+
         # Given: A file path with .pdf extension
         # When: Extracting content with auto-detection
         with patch("src.extractor.content._extract_pdf") as mock_pdf:
@@ -178,9 +177,9 @@ class TestExtractContent:
                 "tables": [],
                 "meta": {"page_count": 1},
             }
-            
+
             result = await extract_content(input_path="/path/to/file.pdf")
-            
+
             # Then: PDF extraction is called and succeeds
             mock_pdf.assert_called_once()
             assert result["ok"] is True
@@ -192,40 +191,40 @@ class TestOCRAvailability:
     def test_paddleocr_availability_check_returns_bool(self):
         """Test PaddleOCR availability check returns boolean."""
         from src.extractor import content
-        
+
         # Given: Cached availability value is reset
         content._paddleocr_available = None
-        
+
         # When: Checking PaddleOCR availability
         result = content._check_paddleocr_available()
-        
+
         # Then: Result is a boolean (depends on system installation)
         assert isinstance(result, bool)
 
     def test_paddleocr_availability_check_when_unavailable(self):
         """Test PaddleOCR availability check when module is unavailable."""
         from src.extractor import content
-        
+
         # Given: PaddleOCR is cached as unavailable
         content._paddleocr_available = None
         content._paddleocr_available = False
-        
+
         # When: Checking availability
         result = content._check_paddleocr_available()
-        
+
         # Then: Returns False (cached unavailable status)
         assert result is False
 
     def test_tesseract_availability_check(self):
         """Test Tesseract availability check."""
         from src.extractor import content
-        
+
         # Given: Cached availability value is reset
         content._tesseract_available = None
-        
+
         # When: Checking Tesseract availability
         result = content._check_tesseract_available()
-        
+
         # Then: Result is a boolean (depends on system installation)
         assert isinstance(result, bool)
 
@@ -238,7 +237,7 @@ class TestPDFExtraction:
     async def test_pdf_extraction_basic(self, tmp_path):
         """Test basic PDF extraction without OCR."""
         from src.extractor.content import _extract_pdf
-        
+
         # Given: A mock PDF document with text content
         with patch("fitz.open") as mock_fitz:
             mock_doc = MagicMock()
@@ -246,17 +245,17 @@ class TestPDFExtraction:
             mock_page.get_text.return_value = "This is extracted text from PDF page one with sufficient content."
             mock_page.get_pixmap.return_value = MagicMock()
             mock_page.matrix = MagicMock()
-            
+
             mock_doc.__iter__ = lambda self: iter([mock_page])
             mock_doc.__len__ = lambda self: 1
             mock_doc.metadata = {"title": "Test PDF"}
             mock_doc.close = MagicMock()
-            
+
             mock_fitz.return_value = mock_doc
-            
+
             # When: Extracting content from the PDF
             result = await _extract_pdf("/fake/path.pdf")
-        
+
         # Then: Text is extracted successfully with metadata
         assert result["ok"] is True
         assert "extracted text" in result["text"]
@@ -266,30 +265,30 @@ class TestPDFExtraction:
     async def test_pdf_extraction_triggers_ocr_for_low_text(self):
         """Test that OCR is triggered when text content is low (scanned PDF detection)."""
         from src.extractor.content import _extract_pdf
-        
+
         # Given: A scanned PDF with minimal extractable text
         with patch("fitz.open") as mock_fitz:
             mock_doc = MagicMock()
             mock_page = MagicMock()
             mock_page.get_text.return_value = "ab"  # Below threshold
-            
+
             mock_pixmap = MagicMock()
             mock_pixmap.tobytes.return_value = b"fake_png_data"
             mock_page.get_pixmap.return_value = mock_pixmap
             mock_page.matrix = 1
-            
+
             mock_doc.__iter__ = lambda self: iter([mock_page])
             mock_doc.__len__ = lambda self: 1
             mock_doc.metadata = {}
             mock_doc.close = MagicMock()
-            
+
             mock_fitz.return_value = mock_doc
-            
+
             # When: Extracting with OCR threshold set
             with patch("src.extractor.content._ocr_pdf_page") as mock_ocr:
                 mock_ocr.return_value = "OCR extracted text from scanned page"
                 result = await _extract_pdf("/fake/scanned.pdf", ocr_threshold=100)
-        
+
         # Then: OCR is triggered for the low-text page
         assert result["ok"] is True
         mock_ocr.assert_called_once()
@@ -298,30 +297,30 @@ class TestPDFExtraction:
     async def test_pdf_extraction_force_ocr(self):
         """Test force_ocr parameter."""
         from src.extractor.content import _extract_pdf
-        
+
         # Given: A PDF with sufficient text content
         with patch("fitz.open") as mock_fitz:
             mock_doc = MagicMock()
             mock_page = MagicMock()
             mock_page.get_text.return_value = "This is plenty of text content that would not normally trigger OCR."
-            
+
             mock_pixmap = MagicMock()
             mock_pixmap.tobytes.return_value = b"fake_png_data"
             mock_page.get_pixmap.return_value = mock_pixmap
             mock_page.matrix = 1
-            
+
             mock_doc.__iter__ = lambda self: iter([mock_page])
             mock_doc.__len__ = lambda self: 1
             mock_doc.metadata = {}
             mock_doc.close = MagicMock()
-            
+
             mock_fitz.return_value = mock_doc
-            
+
             # When: Extracting with force_ocr=True
             with patch("src.extractor.content._ocr_pdf_page") as mock_ocr:
                 mock_ocr.return_value = None
                 result = await _extract_pdf("/fake/path.pdf", force_ocr=True)
-        
+
         # Then: OCR is called despite sufficient text
         assert result["ok"] is True
         mock_ocr.assert_called_once()
@@ -334,15 +333,15 @@ class TestOCREngines:
     @pytest.mark.asyncio
     async def test_paddleocr_extraction(self):
         """Test PaddleOCR text extraction."""
-        from src.extractor.content import _ocr_with_paddleocr
-        
         # Given: A test image and mocked PaddleOCR returning results
         from PIL import Image
+
+        from src.extractor.content import _ocr_with_paddleocr
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
         img_data = img_bytes.getvalue()
-        
+
         with patch("src.extractor.content._check_paddleocr_available", return_value=True):
             with patch("src.extractor.content._get_paddleocr_instance") as mock_get_ocr:
                 mock_ocr = MagicMock()
@@ -353,10 +352,10 @@ class TestOCREngines:
                     ]
                 ]
                 mock_get_ocr.return_value = mock_ocr
-                
+
                 # When: Running OCR on the image
                 result = await _ocr_with_paddleocr(img_data)
-        
+
         # Then: All recognized text is returned
         assert result is not None
         assert "Test text" in result
@@ -370,22 +369,23 @@ class TestOCREngines:
         The _ocr_with_tesseract function is mocked to avoid dependency on
         pytesseract installation.
         """
-        from src.extractor.content import ocr_image
         from PIL import Image
-        
+
+        from src.extractor.content import ocr_image
+
         # Given: An image and Tesseract as the only available OCR engine
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
         img_data = img_bytes.getvalue()
-        
+
         # When: Running OCR with PaddleOCR unavailable
         with patch("src.extractor.content._check_paddleocr_available", return_value=False):
             with patch("src.extractor.content._check_tesseract_available", return_value=True):
                 with patch("src.extractor.content._ocr_with_tesseract") as mock_tesseract:
                     mock_tesseract.return_value = "Tesseract extracted text"
                     result = await ocr_image(image_data=img_data)
-        
+
         # Then: Tesseract fallback is used successfully
         assert result["ok"] is True
         assert result["text"] == "Tesseract extracted text"
@@ -394,15 +394,15 @@ class TestOCREngines:
     @pytest.mark.asyncio
     async def test_paddleocr_filters_low_confidence(self):
         """Test that PaddleOCR filters low confidence results."""
-        from src.extractor.content import _ocr_with_paddleocr
-        
         # Given: OCR results with mixed confidence levels
         from PIL import Image
+
+        from src.extractor.content import _ocr_with_paddleocr
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
         img_data = img_bytes.getvalue()
-        
+
         with patch("src.extractor.content._check_paddleocr_available", return_value=True):
             with patch("src.extractor.content._get_paddleocr_instance") as mock_get_ocr:
                 mock_ocr = MagicMock()
@@ -413,10 +413,10 @@ class TestOCREngines:
                     ]
                 ]
                 mock_get_ocr.return_value = mock_ocr
-                
+
                 # When: Running OCR
                 result = await _ocr_with_paddleocr(img_data)
-        
+
         # Then: Low confidence results are filtered out
         assert result is not None
         assert "High conf" in result
@@ -430,11 +430,11 @@ class TestOCRImage:
     async def test_ocr_image_requires_input(self):
         """Test that ocr_image requires either image_path or image_data."""
         from src.extractor.content import ocr_image
-        
+
         # Given: No input provided
         # When: Calling ocr_image without arguments
         result = await ocr_image()
-        
+
         # Then: Error is returned indicating required input
         assert result["ok"] is False
         assert "must be provided" in result["error"]
@@ -443,21 +443,21 @@ class TestOCRImage:
     @pytest.mark.asyncio
     async def test_ocr_image_from_data(self):
         """Test OCR from image data."""
-        from src.extractor.content import ocr_image
-        
         # Given: Image data and available PaddleOCR
         from PIL import Image
+
+        from src.extractor.content import ocr_image
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
         img_data = img_bytes.getvalue()
-        
+
         # When: Running OCR on image data
         with patch("src.extractor.content._check_paddleocr_available", return_value=True):
             with patch("src.extractor.content._ocr_with_paddleocr") as mock_paddle:
                 mock_paddle.return_value = "Extracted text from image"
                 result = await ocr_image(image_data=img_data)
-        
+
         # Then: Text is extracted using PaddleOCR
         assert result["ok"] is True
         assert result["text"] == "Extracted text from image"
@@ -467,22 +467,22 @@ class TestOCRImage:
     @pytest.mark.asyncio
     async def test_ocr_image_falls_back_to_tesseract(self):
         """Test OCR falls back to Tesseract when PaddleOCR fails."""
-        from src.extractor.content import ocr_image
-        
         # Given: Image data with PaddleOCR unavailable
         from PIL import Image
+
+        from src.extractor.content import ocr_image
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
         img_data = img_bytes.getvalue()
-        
+
         # When: Running OCR with fallback to Tesseract
         with patch("src.extractor.content._check_paddleocr_available", return_value=False):
             with patch("src.extractor.content._check_tesseract_available", return_value=True):
                 with patch("src.extractor.content._ocr_with_tesseract") as mock_tess:
                     mock_tess.return_value = "Tesseract fallback text"
                     result = await ocr_image(image_data=img_data)
-        
+
         # Then: Tesseract is used as fallback
         assert result["ok"] is True
         assert result["text"] == "Tesseract fallback text"
@@ -492,20 +492,20 @@ class TestOCRImage:
     @pytest.mark.asyncio
     async def test_ocr_image_no_engine_available(self):
         """Test OCR when no engine is available."""
-        from src.extractor.content import ocr_image
-        
         # Given: Image data with no OCR engines available
         from PIL import Image
+
+        from src.extractor.content import ocr_image
         img = Image.new("RGB", (100, 50), color="white")
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="PNG")
         img_data = img_bytes.getvalue()
-        
+
         # When: Attempting OCR with no available engines
         with patch("src.extractor.content._check_paddleocr_available", return_value=False):
             with patch("src.extractor.content._check_tesseract_available", return_value=False):
                 result = await ocr_image(image_data=img_data)
-        
+
         # Then: Error is returned indicating no engine available
         assert result["ok"] is False
         assert "No OCR engine available" in result["error"]
@@ -518,7 +518,7 @@ class TestFallbackExtraction:
     async def test_fallback_uses_readability(self):
         """Test fallback extraction uses readability-lxml."""
         from src.extractor.content import _fallback_extract_html
-        
+
         # Given: HTML with article content and sidebar
         html = """
         <html>
@@ -531,10 +531,10 @@ class TestFallbackExtraction:
         </body>
         </html>
         """
-        
+
         # When: Running fallback extraction
         result = await _fallback_extract_html(html)
-        
+
         # Then: Result is either extracted text or None
         assert isinstance(result, (str, type(None))), (
             f"Expected str or None, got {type(result).__name__}"
@@ -544,11 +544,11 @@ class TestFallbackExtraction:
     async def test_fallback_handles_empty_html(self):
         """Test fallback handles empty/minimal HTML gracefully."""
         from src.extractor.content import _fallback_extract_html
-        
+
         # Given: Minimal HTML with empty body
         # When: Running fallback extraction
         result = await _fallback_extract_html("<html><body></body></html>")
-        
+
         # Then: Returns None or empty string for empty content
         is_empty = (result is None) or (result == "")
         assert is_empty, f"Expected None or empty string for empty HTML, got: {result!r}"
