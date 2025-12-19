@@ -62,7 +62,7 @@ Commercial research tools (Perplexity, ChatGPT with browsing, etc.) present sign
 
 ### Target Use Cases
 
-- **Healthcare & Research Institutions**: Sensitive investigations (drug safety, patient data) that cannot be exposed to third parties
+- **Healthcare-Related Research**: Drug safety, clinical evidence—where hallucinations can be fatal. Full auditability from claim to source is critical.
 - **Legal & Compliance Teams**: Research requiring strict confidentiality
 - **Independent Researchers & Journalists**: Cost-effective alternative to commercial tools
 - **Security-Conscious Organizations**: Auditable, deployable within controlled environments
