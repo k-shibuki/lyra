@@ -278,11 +278,16 @@ _deps_available, _missing_deps = _check_core_dependencies()
 def pytest_ignore_collect(collection_path, config):
     """Skip test modules that require unavailable dependencies.
     
-    In minimal environments (cloud agents, CI without full deps),
+    ONLY in cloud agent environments with missing dependencies,
     silently skip tests that would fail due to import errors.
+    Local environments will show normal import errors.
     """
+    # Only apply in cloud agent environments
+    if not _env_info.is_cloud_agent:
+        return None  # Local: show normal errors
+    
     if _deps_available:
-        return None  # Don't skip anything
+        return None  # All deps available, don't skip
     
     # Files that can run without full dependencies
     minimal_safe_files = {
@@ -297,7 +302,7 @@ def pytest_ignore_collect(collection_path, config):
     if filename in minimal_safe_files:
         return None
     
-    # Skip other test files in minimal environment
+    # Skip other test files in cloud agent with missing deps
     if filename.startswith("test_") and filename.endswith(".py"):
         return True  # Skip this file
     
