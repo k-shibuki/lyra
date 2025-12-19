@@ -42,8 +42,9 @@ ACTION="${1:-run}"
 TARGET="${2:-tests/}"
 
 VENV_DIR="${PROJECT_ROOT}/.venv"
-TEST_RESULT_FILE="${PROJECT_ROOT}/.test_result.txt"
-TEST_PID_FILE="${PROJECT_ROOT}/.test_pid"
+# Override common.sh defaults for local (non-container) execution
+TEST_RESULT_FILE="${LYRA_SCRIPT__TEST_RESULT_FILE:-/tmp/lyra_test_result.txt}"
+TEST_PID_FILE="${LYRA_SCRIPT__TEST_PID_FILE:-/tmp/lyra_test_pid}"
 
 # Container detection is done in common.sh (detect_container function)
 # Variables available: IN_CONTAINER, CURRENT_CONTAINER_NAME, IS_ML_CONTAINER
@@ -202,6 +203,13 @@ cmd_env() {
     echo ""
 }
 
+# Function: filter_node_errors
+# Description: Filter out Node.js EPIPE errors from Cursor terminal
+# These errors occur when the terminal pipe is closed unexpectedly
+filter_node_errors() {
+    grep -v -E "^(node:|Node\.js|Error: write EPIPE|    at |Emitted|  errno:|  code:|  syscall:|\{$|\}$)"
+}
+
 # Function: cmd_check
 # Description: Check if tests are completed by checking:
 #             1. Test result keywords (passed/failed/skipped/deselected)
@@ -223,9 +231,9 @@ cmd_check() {
     local last_line
     local result_content
 
-    # Read last few lines to check for test completion keywords
-    result_content=$(tail -10 "$TEST_RESULT_FILE" 2>/dev/null || echo "")
-    last_line=$(tail -1 "$TEST_RESULT_FILE" 2>/dev/null || echo "waiting...")
+    # Read last few lines to check for test completion keywords (filter Node.js errors)
+    result_content=$(tail -10 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "")
+    last_line=$(tail -1 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "waiting...")
 
     # Check if test result contains completion keywords
     # pytest output format: "===== X passed, Y failed, Z skipped, W deselected ====="
@@ -233,7 +241,7 @@ cmd_check() {
         # Check if it's a summary line (contains "passed" or "failed" with numbers)
         if echo "$result_content" | grep -qE "=====.*[0-9]+ (passed|failed|skipped|deselected)"; then
             echo "DONE"
-            tail -5 "$TEST_RESULT_FILE" 2>/dev/null || echo "No output"
+            tail -5 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "No output"
             return 0
         fi
     fi
@@ -245,7 +253,7 @@ cmd_check() {
 
     if [ "$age" -gt "$COMPLETION_THRESHOLD" ]; then
         echo "DONE (${age}s ago)"
-        tail -5 "$TEST_RESULT_FILE" 2>/dev/null || echo "No output"
+        tail -5 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "No output"
     else
         echo "RUNNING | $last_line"
     fi
@@ -266,7 +274,8 @@ cmd_get() {
         return 1
     fi
 
-    tail -20 "$TEST_RESULT_FILE" 2>/dev/null || {
+    # Filter out Node.js EPIPE errors from Cursor terminal
+    tail -20 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || {
         log_error "Failed to read test result file"
         echo "No result - read error"
         return 1
