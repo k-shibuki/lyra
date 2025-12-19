@@ -544,6 +544,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
         exploration_status = None
         try:
             state = await _get_exploration_state(task_id)
+            # Record activity for §2.1.5 idle timeout tracking
+            state.record_activity()
             exploration_status = await state.get_status()
         except Exception as e:
             logger.debug(
@@ -613,6 +615,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 },
                 "auth_queue": exploration_status.get("authentication_queue"),
                 "warnings": exploration_status.get("warnings", []),
+                "idle_seconds": exploration_status.get("idle_seconds", 0),  # §2.1.5
             }
             return attach_meta(response, create_minimal_meta())
         else:
@@ -851,6 +854,9 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
         # Get exploration state
         state = await _get_exploration_state(task_id)
 
+        # Record activity for §2.1.5 idle timeout tracking
+        state.record_activity()
+
         # Execute search through unified API
         result = await search_action(
             task_id=task_id,
@@ -929,6 +935,9 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
 
         # Get exploration state
         state = await _get_exploration_state(task_id)
+
+        # Record activity for §2.1.5 idle timeout tracking
+        state.record_activity()
 
         # Execute stop through unified API
         result = await stop_task_action(
