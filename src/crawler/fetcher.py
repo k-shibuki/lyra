@@ -2660,9 +2660,7 @@ async def _fetch_url_impl(
         return {}
 
 
-async def _update_domain_headful_ratio(
-    db: "Database", domain: str, increase: bool = True
-) -> None:
+async def _update_domain_headful_ratio(db: "Database", domain: str, increase: bool = True) -> None:
     """Update domain's headful ratio based on fetch outcomes.
 
     Args:
@@ -2707,9 +2705,7 @@ async def _update_domain_headful_ratio(
         )
 
 
-async def _update_domain_wayback_success(
-    db: "Database", domain: str, success: bool
-) -> None:
+async def _update_domain_wayback_success(db: "Database", domain: str, success: bool) -> None:
     """Update domain's Wayback fallback success rate.
 
     Track Wayback fallback success to inform future fallback decisions.

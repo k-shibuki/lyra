@@ -67,7 +67,9 @@ class SemanticScholarClient(BaseAcademicClient):
             )
         except Exception as e:
             logger.error("Semantic Scholar search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="semantic_scholar")
+            return AcademicSearchResult(
+                papers=[], total_count=0, next_cursor=None, source_api="semantic_scholar"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""

@@ -289,9 +289,7 @@ class HTMLAnalyzer:
             self._class_counts = Counter()
             for elem in self.soup.find_all(True):
                 class_attr = elem.get("class")
-                classes: list[str] = (
-                    class_attr if isinstance(class_attr, list) else []
-                )
+                classes: list[str] = class_attr if isinstance(class_attr, list) else []
                 if classes:
                     for cls in classes:
                         if isinstance(cls, str):
@@ -341,9 +339,7 @@ class HTMLAnalyzer:
         # Add classes
         class_attr = elem.get("class")
         if class_attr:
-            classes: list[str] = (
-                class_attr if isinstance(class_attr, list) else [str(class_attr)]
-            )
+            classes: list[str] = class_attr if isinstance(class_attr, list) else [str(class_attr)]
             if classes:
                 # Use most specific class (longest or most unique)
                 class_counts = self._get_class_counts()
@@ -379,9 +375,7 @@ class HTMLAnalyzer:
         # Find elements with result-like classes
         for elem in self.soup.find_all(True):
             class_attr = elem.get("class")
-            classes: list[str] = (
-                class_attr if isinstance(class_attr, list) else []
-            )
+            classes: list[str] = class_attr if isinstance(class_attr, list) else []
             class_str = " ".join(cls for cls in classes if isinstance(cls, str))
 
             # Check if class matches result patterns
@@ -491,9 +485,7 @@ class HTMLAnalyzer:
         # Look for elements with title-like classes
         for elem in context.find_all(True):
             class_attr = elem.get("class")
-            classes: list[str] = (
-                class_attr if isinstance(class_attr, list) else []
-            )
+            classes: list[str] = class_attr if isinstance(class_attr, list) else []
             class_str = " ".join(cls for cls in classes if isinstance(cls, str))
 
             if self._matches_patterns(class_str, self.TITLE_PATTERNS):
@@ -553,9 +545,7 @@ class HTMLAnalyzer:
         # Look for elements with snippet-like classes
         for elem in context.find_all(True):
             class_attr = elem.get("class")
-            classes: list[str] = (
-                class_attr if isinstance(class_attr, list) else []
-            )
+            classes: list[str] = class_attr if isinstance(class_attr, list) else []
             class_str = " ".join(cls for cls in classes if isinstance(cls, str))
 
             if self._matches_patterns(class_str, self.SNIPPET_PATTERNS):
@@ -598,8 +588,10 @@ class HTMLAnalyzer:
         # All links with external URLs
         for link in context.find_all("a", href=True):
             href_attr = link.get("href")
-            if href_attr and isinstance(href_attr, str) and href_attr.startswith(
-                ("http://", "https://")
+            if (
+                href_attr
+                and isinstance(href_attr, str)
+                and href_attr.startswith(("http://", "https://"))
             ):
                 selector = self._build_selector(link)
 
@@ -617,9 +609,7 @@ class HTMLAnalyzer:
         # Elements with URL-like classes
         for elem in context.find_all(True):
             class_attr = elem.get("class")
-            classes: list[str] = (
-                class_attr if isinstance(class_attr, list) else []
-            )
+            classes: list[str] = class_attr if isinstance(class_attr, list) else []
             class_str = " ".join(cls for cls in classes if isinstance(cls, str))
 
             if self._matches_patterns(class_str, self.URL_PATTERNS):

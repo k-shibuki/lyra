@@ -289,7 +289,9 @@ class SearchExecutor:
                 # If we attempted fetches but got no successful pages
                 search_state_check = self.state.get_search(search_id)
                 all_fetches_failed = (
-                    fetch_attempted > 0 and search_state_check and search_state_check.pages_fetched == 0
+                    fetch_attempted > 0
+                    and search_state_check
+                    and search_state_check.pages_fetched == 0
                 )
                 if all_fetches_failed:
                     result.status = "failed"

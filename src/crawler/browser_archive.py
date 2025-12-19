@@ -570,9 +570,7 @@ class BrowserArchiver:
         self._collector = NetworkEventCollector()
         return self._collector
 
-    async def attach_to_page(
-        self, page: "Page", main_url: str
-    ) -> NetworkEventCollector:
+    async def attach_to_page(self, page: "Page", main_url: str) -> NetworkEventCollector:
         """Attach network event listeners to a Playwright page.
 
         This sets up event handlers to automatically collect network

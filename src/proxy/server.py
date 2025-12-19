@@ -202,6 +202,7 @@ async def main() -> None:
         stop_event.set()
 
     import functools
+
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, functools.partial(handle_signal, sig))

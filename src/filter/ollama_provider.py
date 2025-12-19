@@ -554,7 +554,9 @@ class OllamaProvider(BaseLLMProvider):
 
             # Check if Ollama is reachable
             start_time = time.perf_counter()
-            async with session.get(f"{self._host}/api/tags", timeout=ClientTimeout(total=5)) as response:
+            async with session.get(
+                f"{self._host}/api/tags", timeout=ClientTimeout(total=5)
+            ) as response:
                 latency_ms = (time.perf_counter() - start_time) * 1000
 
                 if response.status != 200:

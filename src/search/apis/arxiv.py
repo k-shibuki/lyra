@@ -61,10 +61,14 @@ class ArxivClient(BaseAcademicClient):
             xml_text = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
             papers = self._parse_atom_feed(xml_text)
 
-            return AcademicSearchResult(papers=papers, total_count=len(papers), next_cursor=None, source_api="arxiv")
+            return AcademicSearchResult(
+                papers=papers, total_count=len(papers), next_cursor=None, source_api="arxiv"
+            )
         except Exception as e:
             logger.error("arXiv search failed", query=query, error=str(e))
-            return AcademicSearchResult(papers=[], total_count=0, next_cursor=None, source_api="arxiv")
+            return AcademicSearchResult(
+                papers=[], total_count=0, next_cursor=None, source_api="arxiv"
+            )
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata from arXiv ID."""
