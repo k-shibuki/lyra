@@ -128,7 +128,7 @@ get_pr_by_changes() {
             fi
             # origin/mainには未マージの場合は、プッシュが必要なPRとして扱う
         fi
-        
+
         # 追加チェック: merge-baseでマージ済みか確認（origin/mainに対して）
         branch_commit=$(git rev-parse $branch 2>/dev/null)
         origin_main_commit=$(git rev-parse origin/main 2>/dev/null)
@@ -138,7 +138,7 @@ get_pr_by_changes() {
                 continue
             fi
         fi
-        
+
         # 変更ファイル数と差分行数を取得（mainブランチとの差分）
         stat=$(git diff main..$branch --stat 2>/dev/null | tail -1)
         if [ -z "$stat" ]; then
@@ -148,13 +148,13 @@ get_pr_by_changes() {
                 continue
             fi
         fi
-        
+
         # 変更行数を抽出（追加+削除）
         changes=$(echo "$stat" | awk '{print $4+$6}' | sed 's/[^0-9]//g')
         if [ -z "$changes" ] || [ "$changes" = "0" ]; then
             changes=0
         fi
-        
+
         # コミット日時を取得（ISO形式、mainブランチとの差分）
         date=$(git log main..$branch --format="%ci" 2>/dev/null | tail -1)
         if [ -z "$date" ]; then
@@ -164,7 +164,7 @@ get_pr_by_changes() {
                 date="9999-12-31 00:00:00 +0000"
             fi
         fi
-        
+
         # コミットメッセージのプレフィックスを取得（mainブランチとの差分）
         prefix=$(git log main..$branch --format="%s" 2>/dev/null | head -1 | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
         if [ -z "$prefix" ]; then
@@ -178,7 +178,7 @@ get_pr_by_changes() {
             docs) priority=4 ;;
             *) priority=5 ;;
         esac
-        
+
         echo "$changes|$date|$priority|$branch"
     done | sort -t'|' -k1,1n -k2,2 -k3,3n | cut -d'|' -f4
 }
@@ -201,7 +201,7 @@ for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | gr
         fi
         # origin/mainには未マージの場合は、プッシュが必要なPRとして扱う
     fi
-    
+
     # 追加チェック: merge-baseでマージ済みか確認（origin/mainに対して）
     branch_commit=$(git rev-parse $branch 2>/dev/null)
     origin_main_commit=$(git rev-parse origin/main 2>/dev/null)
@@ -210,7 +210,7 @@ for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | gr
             continue  # origin/mainにマージ済みの場合はスキップ
         fi
     fi
-    
+
     # 変更量を取得（mainブランチとの差分）
     changes=$(git diff main..$branch --stat 2>/dev/null | tail -1 | awk '{print $4+$6}' | sed 's/[^0-9]//g')
     if [ -z "$changes" ]; then
@@ -233,7 +233,7 @@ git checkout -b <pr-branch> origin/<pr-branch>
 実際のワークフローでは以下の手順で実行：
 
 1. **PR候補の列挙**: `git branch -r` でリモートブランチを確認
-2. **マージ済みブランチの判定**: 
+2. **マージ済みブランチの判定**:
    - **ローカルでマージ済みのPRもチェック対象に含める**（`main`ブランチとの差分も確認）
    - `git log main..<branch>` が空の場合、`origin/main`との差分を確認
    - `git log origin/main..<branch>` が空の場合はスキップ（両方にマージ済み）
@@ -244,7 +244,7 @@ git checkout -b <pr-branch> origin/<pr-branch>
 6. **優先順位でソート**: 変更量（小→大）→ コミット日時（古→新）→ 変更種類の順でソート
 7. **順番にレビュー**: ソートされた順序でPRをレビュー
 
-**注意**: 
+**注意**:
 - ローカルでマージ済みでも`origin/main`に未プッシュのPRはレビュー対象に含める
 - 両方（`main`と`origin/main`）にマージ済みのブランチは自動的に除外される
   - `git log main..<branch>` と `git log origin/main..<branch>` が両方空の場合
@@ -297,7 +297,7 @@ git diff main..HEAD
 
 `/quality-check` コマンドを実行。lint/型エラーを確認・修正。
 
-**重要**: 
+**重要**:
 - lint/型エラーだけでなく、**警告も必ず解消する**
 - `ruff check` で警告が出た場合は `ruff check --fix` で自動修正を試みる
 - `git diff --check` でtrailing whitespaceなどの警告を確認
@@ -372,7 +372,7 @@ git checkout main
 git merge --no-edit <pr-branch>
 ```
 
-**注意**: 
+**注意**:
 - `--no-edit` オプションで対話を避ける
 - **警告が残っている場合はマージを実行しない**（必ず解消してからマージ）
 
@@ -391,7 +391,7 @@ git push origin main
 - CI/CDが動作する
 - バックアップになる
 
-**注意**: 
+**注意**:
 - プッシュ前に必ずマージが成功していることを確認
 - コンフリクトが発生した場合は解決してからプッシュ
 
@@ -429,7 +429,7 @@ podman exec lancet ruff check --fix src/ tests/
 git push origin main
 ```
 
-**注意**: 
+**注意**:
 - **警告が残っている場合はプッシュを実行しない**（必ず解消してからプッシュ）
 - プッシュ前に必ず品質確認・テストが完了していることを確認
 
@@ -441,3 +441,4 @@ git push origin main
 - テスト結果サマリ
 - マージ判断（理由付き）
 - マージ結果（実行した場合）
+
