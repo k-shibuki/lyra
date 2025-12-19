@@ -1,5 +1,5 @@
 """
-Session Transfer Utility for Lancet.
+Session Transfer Utility for Lyra.
 
 Implements §3.1.2 requirement for safe session context transfer:
 - Browser → HTTP Client session migration

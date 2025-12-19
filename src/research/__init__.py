@@ -1,5 +1,5 @@
 """
-Research exploration control module for Lancet.
+Research exploration control module for Lyra.
 
 This module implements the exploration control engine where:
 - Cursor AI designs all search queries (strategic decisions)

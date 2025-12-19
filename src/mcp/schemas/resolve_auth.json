@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:resolve_auth",
+  "$id": "lyra:mcp:resolve_auth",
   "title": "resolve_auth Response",
   "description": "Response schema for resolve_auth tool",
   "oneOf": [

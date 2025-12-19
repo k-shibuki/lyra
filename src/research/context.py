@@ -1,5 +1,5 @@
 """
-Research context provider for Lancet.
+Research context provider for Lyra.
 
 Provides design support information to Cursor AI for subquery design.
 Does NOT generate subquery candidates - that is Cursor AI's responsibility.

@@ -1,5 +1,5 @@
 """
-Prompt template manager for Lancet.
+Prompt template manager for Lyra.
 
 Manages LLM prompt templates using Jinja2, providing:
 - Template loading and caching
@@ -59,8 +59,8 @@ class PromptManager:
                         Defaults to config/prompts/ relative to project root.
         """
         if prompts_dir is None:
-            # Use LANCET_CONFIG_DIR if set, otherwise default to config/
-            config_dir = Path(os.environ.get("LANCET_CONFIG_DIR", "config"))
+            # Use LYRA_CONFIG_DIR if set, otherwise default to config/
+            config_dir = Path(os.environ.get("LYRA_CONFIG_DIR", "config"))
             if not config_dir.is_absolute():
                 from src.utils.config import get_project_root
 

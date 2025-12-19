@@ -1,6 +1,6 @@
-# Lancet ML Server Container
+# Lyra ML Server Container
 # Provides embedding, reranking, and NLI inference via FastAPI
-# SECURITY: Runs on internal-only network (lancet-internal)
+# SECURITY: Runs on internal-only network (lyra-internal)
 #
 # Models are downloaded at build time for:
 # - Zero-config deployment (no additional setup needed)
@@ -15,10 +15,10 @@
 FROM python:3.12-slim-bookworm AS base
 
 # Model versions (from .env via build args)
-ARG LANCET_ML__EMBEDDING_MODEL=BAAI/bge-m3
-ARG LANCET_ML__RERANKER_MODEL=BAAI/bge-reranker-v2-m3
-ARG LANCET_ML__NLI_FAST_MODEL=cross-encoder/nli-deberta-v3-xsmall
-ARG LANCET_ML__NLI_SLOW_MODEL=cross-encoder/nli-deberta-v3-small
+ARG LYRA_ML__EMBEDDING_MODEL=BAAI/bge-m3
+ARG LYRA_ML__RERANKER_MODEL=BAAI/bge-reranker-v2-m3
+ARG LYRA_ML__NLI_FAST_MODEL=cross-encoder/nli-deberta-v3-xsmall
+ARG LYRA_ML__NLI_SLOW_MODEL=cross-encoder/nli-deberta-v3-small
 
 # Set environment variables (offline mode disabled during build for download)
 ENV PYTHONUNBUFFERED=1 \
@@ -26,11 +26,11 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     HF_HOME=/app/models/huggingface \
-    LANCET_ML__MODEL_PATHS_FILE=/app/models/model_paths.json \
-    LANCET_ML__EMBEDDING_MODEL=${LANCET_ML__EMBEDDING_MODEL} \
-    LANCET_ML__RERANKER_MODEL=${LANCET_ML__RERANKER_MODEL} \
-    LANCET_ML__NLI_FAST_MODEL=${LANCET_ML__NLI_FAST_MODEL} \
-    LANCET_ML__NLI_SLOW_MODEL=${LANCET_ML__NLI_SLOW_MODEL}
+    LYRA_ML__MODEL_PATHS_FILE=/app/models/model_paths.json \
+    LYRA_ML__EMBEDDING_MODEL=${LYRA_ML__EMBEDDING_MODEL} \
+    LYRA_ML__RERANKER_MODEL=${LYRA_ML__RERANKER_MODEL} \
+    LYRA_ML__NLI_FAST_MODEL=${LYRA_ML__NLI_FAST_MODEL} \
+    LYRA_ML__NLI_SLOW_MODEL=${LYRA_ML__NLI_SLOW_MODEL}
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

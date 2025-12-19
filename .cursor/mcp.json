@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "lancet": {
-      "command": "/home/statuser/lancet/scripts/mcp.sh",
+    "lyra": {
+      "command": "/home/statuser/lyra/scripts/mcp.sh",
       "args": []
     }
   }

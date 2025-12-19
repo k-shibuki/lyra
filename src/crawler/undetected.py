@@ -1,5 +1,5 @@
 """
-Undetected ChromeDriver integration for Lancet.
+Undetected ChromeDriver integration for Lyra.
 
 Provides fallback browser automation for Cloudflare/Turnstile bypass per §4.3:
 - Cloudflare advanced challenge bypass

@@ -448,7 +448,7 @@ class CAPTCHAFlowVerifier:
 
             for i in range(notification_count):
                 sent = await manager.send_toast(
-                    title=f"Lancet: Test Notification {i + 1}",
+                    title=f"Lyra: Test Notification {i + 1}",
                     message=f"This is test notification {i + 1}/{notification_count}.\nVerifying notification system.",
                     timeout_seconds=2,
                 )

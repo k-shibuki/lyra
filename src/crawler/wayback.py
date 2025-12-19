@@ -1,5 +1,5 @@
 """
-Wayback Machine differential exploration for Lancet.
+Wayback Machine differential exploration for Lyra.
 
 Implements archive snapshot retrieval and diff extraction (§3.1.6, §16.12):
 - Snapshot discovery via HTML scraping (no API)

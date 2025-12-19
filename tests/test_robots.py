@@ -223,8 +223,8 @@ Sitemap: https://example.com/sitemap2.xml
         """Specific user-agent rules should be respected."""
         checker = RobotsChecker()
         content = """
-User-agent: Lancet
-Disallow: /lancet-blocked/
+User-agent: Lyra
+Disallow: /lyra-blocked/
 Crawl-delay: 5
 
 User-agent: *
@@ -232,8 +232,8 @@ Disallow: /general-blocked/
 """
         rules = checker._parse_robots_txt("example.com", content)
 
-        # Lancet-specific rules should be captured
-        assert "/lancet-blocked/" in rules.disallowed_paths
+        # Lyra-specific rules should be captured
+        assert "/lyra-blocked/" in rules.disallowed_paths
         assert rules.crawl_delay == 5.0
 
     def test_parse_robots_txt_comments(self):

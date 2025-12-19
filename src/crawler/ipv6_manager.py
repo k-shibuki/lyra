@@ -1,5 +1,5 @@
 """
-IPv6 Connection Management for Lancet.
+IPv6 Connection Management for Lyra.
 
 Implements IPv6 connection policies per §4.3:
 - IPv6-first with IPv4 fallback (Happy Eyeballs-style)

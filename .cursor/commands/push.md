@@ -44,11 +44,11 @@ fi
 
 ```bash
 # 警告確認
-podman exec lancet ruff check src/ tests/
-podman exec lancet mypy src/ tests/
+podman exec lyra ruff check src/ tests/
+podman exec lyra mypy src/ tests/
 
 # 警告がある場合は自動修正を試みる
-podman exec lancet ruff check --fix src/ tests/
+podman exec lyra ruff check --fix src/ tests/
 ```
 
 **注意**: **警告が残っている場合はプッシュを実行しない**（必ず解消してからプッシュ）

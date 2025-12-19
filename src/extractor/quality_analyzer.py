@@ -1,5 +1,5 @@
 """
-Content Quality Analyzer for Lancet.
+Content Quality Analyzer for Lyra.
 
 Detects low-quality and AI-generated content based on structural and textual features.
 

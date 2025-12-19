@@ -16,7 +16,7 @@ class RerankerService:
 
     def __init__(self) -> None:
         self._model = None
-        self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
+        self._use_gpu = os.environ.get("LYRA_ML__USE_GPU", "true").lower() == "true"
 
     @property
     def is_loaded(self) -> bool:

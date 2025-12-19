@@ -97,7 +97,7 @@ class TestSaveWarc:
             response_headers = {"Content-Type": "application/json"}
             request_headers = {
                 "Accept": "application/json",
-                "User-Agent": "Lancet/1.0",
+                "User-Agent": "Lyra/1.0",
             }
 
             warc_path = await _save_warc(

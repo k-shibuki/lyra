@@ -1,21 +1,21 @@
-# Lancet Development Stack
+# Lyra Development Stack
 # Usage: podman-compose up -d
 
 version: "3.8"
 
 services:
   # ============================================================
-  # Lancet Development Container
+  # Lyra Development Container
   # ============================================================
   # In hybrid mode, this container runs a proxy server that bridges
   # the WSL-based MCP server to the internal network (Ollama/ML).
   # ============================================================
-  lancet:
+  lyra:
     build:
       context: .
       dockerfile: Dockerfile
       target: base  # Use base stage (no GPU packages) for development
-    container_name: lancet
+    container_name: lyra
     env_file:
       - .env
     volumes:
@@ -32,25 +32,25 @@ services:
       - ./models:/app/models:rw
     environment:
       # Fixed values only - all other settings in .env
-      - LANCET_ENV=development
+      - LYRA_ENV=development
       # Proxy server targets (internal network hostnames)
       - OLLAMA_TARGET_URL=http://ollama:11434
-      - ML_TARGET_URL=http://lancet-ml:8100
+      - ML_TARGET_URL=http://lyra-ml:8100
     # Proxy port for WSL MCP server access (localhost only for security)
     ports:
       - "127.0.0.1:8080:8080"
     # Run proxy server (enables hybrid WSL/container mode)
-    # For development shell access, use: podman exec -it lancet bash
+    # For development shell access, use: podman exec -it lyra bash
     command: ["python", "-m", "src.proxy.server"]
     stdin_open: true
     tty: true
     depends_on:
       - tor
       - ollama
-      - lancet-ml
+      - lyra-ml
     networks:
-      - lancet-net
-      - lancet-internal  # Internal network for inference (Ollama/ML)
+      - lyra-net
+      - lyra-internal  # Internal network for inference (Ollama/ML)
     restart: unless-stopped
 
   # ============================================================
@@ -58,7 +58,7 @@ services:
   # ============================================================
   tor:
     image: docker.io/dperson/torproxy:latest
-    container_name: lancet-tor
+    container_name: lyra-tor
     environment:
       - TOR_NewCircuitPeriod=30
       - TOR_MaxCircuitDirtiness=600
@@ -66,7 +66,7 @@ services:
       - "9050:9050"  # SOCKS proxy
       - "9051:9051"  # Control port
     networks:
-      - lancet-net
+      - lyra-net
     restart: unless-stopped
 
   # ============================================================
@@ -74,11 +74,11 @@ services:
   # SECURITY: Isolated to internal network only
   # - No host port exposure
   # - No internet access (internal network only)
-  # - Accessible only from Lancet container
+  # - Accessible only from Lyra container
   # ============================================================
   ollama:
     image: docker.io/ollama/ollama:latest
-    container_name: lancet-ollama
+    container_name: lyra-ollama
     volumes:
       # Persist models
       - ./models/ollama:/root/.ollama:rw
@@ -86,7 +86,7 @@ services:
     # ports:
     #   - "11434:11434"  # REMOVED - no host access allowed
     networks:
-      - lancet-internal  # Internal only - no internet access
+      - lyra-internal  # Internal only - no internet access
     restart: unless-stopped
     # GPU support via CDI (requires nvidia-container-toolkit)
     # To enable: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
@@ -97,24 +97,24 @@ services:
       - OLLAMA_HOST=0.0.0.0
 
   # ============================================================
-  # Lancet ML Server - Embedding/Reranking/NLI (GPU)
+  # Lyra ML Server - Embedding/Reranking/NLI (GPU)
   # SECURITY: Isolated to internal network only
   # - No host port exposure
   # - No internet access (internal network only)
-  # - Accessible only from Lancet container
+  # - Accessible only from Lyra container
   # ============================================================
-  lancet-ml:
+  lyra-ml:
     build:
       context: .
       dockerfile: Dockerfile.ml
       target: gpu  # Use GPU variant
       args:
         # Model names from .env (downloaded at build time)
-        - LANCET_ML__EMBEDDING_MODEL=${LANCET_ML__EMBEDDING_MODEL:-BAAI/bge-m3}
-        - LANCET_ML__RERANKER_MODEL=${LANCET_ML__RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
-        - LANCET_ML__NLI_FAST_MODEL=${LANCET_ML__NLI_FAST_MODEL:-cross-encoder/nli-deberta-v3-xsmall}
-        - LANCET_ML__NLI_SLOW_MODEL=${LANCET_ML__NLI_SLOW_MODEL:-cross-encoder/nli-deberta-v3-small}
-    container_name: lancet-ml
+        - LYRA_ML__EMBEDDING_MODEL=${LYRA_ML__EMBEDDING_MODEL:-BAAI/bge-m3}
+        - LYRA_ML__RERANKER_MODEL=${LYRA_ML__RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+        - LYRA_ML__NLI_FAST_MODEL=${LYRA_ML__NLI_FAST_MODEL:-cross-encoder/nli-deberta-v3-xsmall}
+        - LYRA_ML__NLI_SLOW_MODEL=${LYRA_ML__NLI_SLOW_MODEL:-cross-encoder/nli-deberta-v3-small}
+    container_name: lyra-ml
     env_file:
       - .env
     volumes:
@@ -124,7 +124,7 @@ services:
     # ports:
     #   - "8100:8100"  # REMOVED - no host access allowed
     networks:
-      - lancet-internal  # Internal only - no internet access
+      - lyra-internal  # Internal only - no internet access
     restart: unless-stopped
     # GPU support via CDI (shared with Ollama)
     devices:
@@ -137,24 +137,24 @@ services:
   # ============================================================
   # redis:
   #   image: docker.io/redis:7-alpine
-  #   container_name: lancet-redis
+  #   container_name: lyra-redis
   #   ports:
   #     - "6379:6379"
   #   networks:
-  #     - lancet-net
+  #     - lyra-net
   #   restart: unless-stopped
 
 networks:
   # External-capable network for Tor, browser, etc.
-  lancet-net:
+  lyra-net:
     driver: bridge
 
   # SECURITY: Internal-only network for inference (Ollama + ML)
   # - internal: true prevents any external/internet access
-  # - Ollama and ML containers can only communicate with Lancet on this network
+  # - Ollama and ML containers can only communicate with Lyra on this network
   # - Prevents prompt injection attacks from exfiltrating data
   # - GPU is shared between Ollama and ML via CDI (排他制御はスケジューラ)
-  lancet-internal:
+  lyra-internal:
     driver: bridge
     internal: true
 
@@ -162,4 +162,4 @@ networks:
 # 1. Install nvidia-container-toolkit
 # 2. Generate CDI: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 # 3. Start: podman-compose up -d
-# 4. Verify: podman exec lancet-ollama nvidia-smi
+# 4. Verify: podman exec lyra-ollama nvidia-smi

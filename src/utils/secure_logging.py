@@ -1,5 +1,5 @@
 """
-Secure logging utilities for Lancet.
+Secure logging utilities for Lyra.
 
 Implements L8 (Log Security Policy) per §4.4.1:
 - LLM input/output logging as summaries (hash, length, preview)
@@ -59,7 +59,7 @@ _STACK_TRACE_PATTERN = re.compile(
 
 # Patterns that suggest LLM prompt content
 _PROMPT_CONTENT_PATTERNS = [
-    r"LANCET[\s_-]*[A-Za-z0-9_-]{4,}",  # Session tags
+    r"LYRA[\s_-]*[A-Za-z0-9_-]{4,}",  # Session tags
     r"システムインストラクション",
     r"ユーザープロンプト",
     r"このタグ.*内の記述",

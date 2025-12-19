@@ -1,5 +1,5 @@
 """
-Confidence calibration for Lancet.
+Confidence calibration for Lyra.
 
 Implements probability calibration for LLM/NLI outputs (§3.3.4):
 - Platt scaling (logistic regression on logits)

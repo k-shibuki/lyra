@@ -66,13 +66,13 @@ Lancetは**すべてを自動化することが目的ではない**。Cursor AI�
  - 監査可能性: HTML/PDFのWARC保存とスクリーンショット、抽出断片のハッシュ（出典・見出し・周辺文脈）を保存し、検証/再現を容易にする。
  - ヒューマンインザループ: CAPTCHA/ログイン/クッキーバナー等の突破は人手介入を許容（認証待ちキューでバッチ処理、上限を運用で管理、§3.6参照）。
 
-### 2.1. Cursor AI と Lancet の責任分界（探索制御）
+### 2.1. Cursor AI と Lyra の責任分界（探索制御）
 
 本システムでは「思考（何を調べるか）」と「作業（どう調べるか）」を明確に分離する。OSINT品質を最優先し、**検索クエリの設計を含む探索の戦略的判断はすべてCursor AIが担う**。ローカルLLM（Qwen2.5-3B等）はCursor AIより推論力が劣るため、クエリ設計には関与しない。
 
 #### 2.1.1. 責任マトリクス
 
-| 責任領域 | Cursor AI（思考） | Lancet MCP（作業） |
+| 責任領域 | Cursor AI（思考） | Lyra MCP（作業） |
 |---------|------------------|-------------------|
 | **問いの分解** | 検索クエリの設計・優先度決定 | —（設計には関与しない） |
 | **クエリ生成** | すべてのクエリの設計・指定 | 機械的展開のみ（同義語・ミラークエリ・演算子付与） |
@@ -434,7 +434,7 @@ MCPツールは「Cursor AIが何を考え、何を指示すべきか」に焦�
 
 1. **高レベルIF**: Cursor AIは検索・取得・抽出の詳細を知る必要がない。`search`を呼べばパイプライン全体が実行される
 2. **最小ツール数**: 認知負荷を下げるため、意味的に重複するツールは統合（11ツール体制）
-3. **明確な責任**: Cursor AI = 戦略（何を調べるか）、Lancet = 戦術（どう調べるか）
+3. **明確な責任**: Cursor AI = 戦略（何を調べるか）、Lyra = 戦術（どう調べるか）
 4. **透明な状態**: `get_status`で全状態を一覧でき、Cursor AIが次の判断を下せる
 
 ##### 公開MCPツール（11ツール）
@@ -888,7 +888,7 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
 **UC-1: 標準調査タスク**
 
 ```
-Cursor AI                          Lancet MCP
+Cursor AI                          Lyra MCP
    │                                   │
    ├─ create_task(query) ─────────────►│ タスク作成
    │◄───────────── {task_id} ──────────┤
@@ -924,7 +924,7 @@ Cursor AI                          Lancet MCP
 **UC-2: 認証介入フロー**
 
 ```
-Cursor AI                          Lancet MCP
+Cursor AI                          Lyra MCP
    │                                   │
    ├─ search(task_id, query) ─────────►│ パイプライン実行
    │◄─── {status: "partial", ...} ─────┤ （一部認証ブロック）
@@ -947,7 +947,7 @@ Cursor AI                          Lancet MCP
 **UC-3: 校正ループ**
 
 ```
-Cursor AI                          Lancet MCP
+Cursor AI                          Lyra MCP
    │                                   │
    │  [調査中にLLM予測を観測]           │
    │                                   │
@@ -1112,7 +1112,7 @@ Cursor AI                          Lancet MCP
 
 ##### 三者責任分界（認証に関する判断）
 
-| 判断 | ユーザー | Cursor AI | Lancet |
+| 判断 | ユーザー | Cursor AI | Lyra |
 |------|----------|-----------|--------|
 | **認証セッション開始** | ✅ 最終決定 | 提案・確認を仲介 | 実行 |
 | **認証スキップ** | ✅ 最終決定 | 提案・確認を仲介 | 実行 |
@@ -1343,19 +1343,19 @@ Lancetでは「リトライ」を以下の2種類に明確に分離する。
 推論コンテナ（Ollama、MLモデル）を内部専用ネットワークに限定し、外部アクセスを遮断する。
 
 - **対象コンテナ**:
-  - `lancet-ollama`: LLM推論（Qwen2.5-3B等）
-  - `lancet-ml`: MLモデル推論（埋め込み・リランカー・NLI）
+  - `lyra-ollama`: LLM推論（Qwen2.5-3B等）
+  - `lyra-ml`: MLモデル推論（埋め込み・リランカー・NLI）
 - **ネットワーク構成**:
-  - `lancet-internal`: 推論系コンテナ用内部ネットワーク（`internal: true`）
-  - Ollama と lancet-ml を同一ネットワークに配置（GPU 共有）
+  - `lyra-internal`: 推論系コンテナ用内部ネットワーク（`internal: true`）
+  - Ollama と lyra-ml を同一ネットワークに配置（GPU 共有）
   - Lancetコンテナのみがアクセス可能、外部ネットワーク接続なし
 - **ホストポート**: 公開禁止（開発時含む）
 - **効果**: 情報漏洩を物理的に不可能にする
 
 ```
-lancet-net (外部可)                  lancet-internal (internal: true)
+lyra-net (外部可)                  lyra-internal (internal: true)
 ┌──────────┐                         ┌──────────┐  ┌──────────┐
-│  Lancet  │────HTTP API─────────────│lancet-ml │  │  Ollama  │
+│  Lyra  │────HTTP API─────────────│lyra-ml │  │  Ollama  │
 │Container │                         │(Embed/   │  │(Qwen等)  │
 │          │                         │ Rerank/  │  │          │
 │          │────HTTP API─────────────│ NLI)     │  │          │
@@ -1364,10 +1364,10 @@ lancet-net (外部可)                  lancet-internal (internal: true)
      │                                    └───┴────────┴───┘
      │                                       CDI共有（排他制御はスケジューラ）
      ▼
- lancet-net → Tor → Internet
+ lyra-net → Tor → Internet
 ```
 
-- **MLモデル一覧**（`lancet-ml`コンテナ）:
+- **MLモデル一覧**（`lyra-ml`コンテナ）:
   - 埋め込み: `BAAI/bge-m3`（semantic search用）
   - リランカー: `BAAI/bge-reranker-v2-m3`（精密順位付け用）
   - NLI: `cross-encoder/nli-deberta-v3-xsmall/small`（スタンス判定用）
@@ -1418,7 +1418,7 @@ lancet-net (外部可)                  lancet-internal (internal: true)
     - `corroborating_claims`: 裏付けクレームID一覧
     - `contradicting_claims`: 矛盾クレームID一覧
 
-- 応答トップレベルに `_lancet_meta` を付与:
+- 応答トップレベルに `_lyra_meta` を付与:
   - `unverified_domains`: 未検証ドメイン一覧
   - `blocked_domains`: ブロック済みドメイン一覧
   - `security_warnings`: L2/L4の検出結果（危険パターン、外部URL等）
@@ -1461,7 +1461,7 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
   - 値の型・長さ・パターンを検証
 - **フィールド制限**:
   - LLM生成テキストを含むフィールド（`extracted_facts`, `claims`, `summary`等）は必ずL4を通過
-  - `_lancet_meta`以外のトップレベルフィールドは定義済みスキーマに限定
+  - `_lyra_meta`以外のトップレベルフィールドは定義済みスキーマに限定
 - **エラー応答のサニタイズ**:
   - 例外メッセージからシステムプロンプト断片・内部パス・スタックトレースを除去
   - エラー詳細は内部ログのみに記録し、MCP応答には汎用メッセージを返却
@@ -1514,7 +1514,7 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 | 評価歪曲 | 低〜中 | §4.5「3独立ソース裏付け」による相互検証で検出可能 |
 | 情報漏洩（直接） | ゼロ | L1ネットワーク分離で物理的に不可能 |
 | 情報漏洩（MCP経由） | 低 | L4（プロンプト断片検出）+ L7（MCP応答サニタイズ）で多層防御 |
-| 探索妨害 | 低 | Cursor AIが探索制御（§2.1）、Lancet LLMの影響は限定的 |
+| 探索妨害 | 低 | Cursor AIが探索制御（§2.1）、Lyra LLMの影響は限定的 |
 | システムプロンプト流出 | 低 | L4（断片検出・マスク）+ L7（スキーマ検証）+ L8（ログ非記録）で防御 |
 
 ##### 防御層の有効性まとめ
@@ -1553,7 +1553,7 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 
 ##### 責任分界（§2.1準拠）
 
-| 責任領域 | Cursor AI（思考） | Lancet MCP（作業） |
+| 責任領域 | Cursor AI（思考） | Lyra MCP（作業） |
 |---------|------------------|-------------------|
 | **評価タイミング** | 評価実行の指示 | - |
 | **評価計算** | - | Brierスコア/ECE/ビンデータの算出 |
@@ -1747,14 +1747,14 @@ MCPサーバーをWSL上で直接実行し、コンテナ内のOllama/ML Server�
 ```
 WSL Host (Windows 11)                    Podman Containers
 ┌─────────────────────────────────────┐  ┌─────────────────────────────────┐
-│                                     │  │ lancet (Proxy Server :8080)     │
+│                                     │  │ lyra (Proxy Server :8080)     │
 │  Cursor IDE                         │  │   ├─ /ollama/* → ollama:11434   │
-│      │ stdio                        │  │   └─ /ml/*    → lancet-ml:8100  │
+│      │ stdio                        │  │   └─ /ml/*    → lyra-ml:8100  │
 │      ▼                              │  │                                 │
 │  MCP Server (.venv)                 │  │ ollama (LLM :11434)             │
 │      │ HTTP                         │  │   └─ internal network only      │
 │      ▼                              │  │                                 │
-│  localhost:8080 ──────────────────────→│ lancet-ml (ML Server :8100)     │
+│  localhost:8080 ──────────────────────→│ lyra-ml (ML Server :8100)     │
 │                                     │  │   └─ internal network only      │
 │  Chrome CDP (localhost:9222)        │  │                                 │
 │      ↑                              │  │ tor (SOCKS :9050)               │
@@ -1799,9 +1799,9 @@ Lancetは**常にWSLハイブリッド構成**で実行される：
 - Playwright Chromium（`playwright install chromium`）
 
 **コンテナ側**:
-- `lancet`: プロキシサーバー（FastAPI）
+- `lyra`: プロキシサーバー（FastAPI）
 - `ollama`: ローカルLLM
-- `lancet-ml`: 埋め込み/リランカー/NLI
+- `lyra-ml`: 埋め込み/リランカー/NLI
 - `tor`: Torプロキシ
 
 ## 6. 成果物定義

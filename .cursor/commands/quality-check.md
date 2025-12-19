@@ -32,29 +32,29 @@
 ### Lintエラー確認（ruff）
 
 ```bash
-podman exec lancet ruff check src/ tests/
+podman exec lyra ruff check src/ tests/
 ```
 
 自動修正可能なエラーがある場合:
 ```bash
-podman exec lancet ruff check --fix src/ tests/
+podman exec lyra ruff check --fix src/ tests/
 ```
 
 ### フォーマット確認（ruff format）
 
 ```bash
-podman exec lancet ruff format --check src/ tests/
+podman exec lyra ruff format --check src/ tests/
 ```
 
 自動修正:
 ```bash
-podman exec lancet ruff format src/ tests/
+podman exec lyra ruff format src/ tests/
 ```
 
 ### 型チェック（mypy）
 
 ```bash
-podman exec lancet mypy src --config-file pyproject.toml
+podman exec lyra mypy src --config-file pyproject.toml
 ```
 
 **注意**: `--config-file pyproject.toml` を指定することで、`[tool.mypy]` の設定（`warn_return_any = true` など）が適用される。
@@ -109,10 +109,10 @@ to avoid circular dependencies. This triggers E402 but is intentional.
 
 ```bash
 # エラーの種類と数を確認
-podman exec lancet ruff check src/ tests/ 2>&1 | grep -E "^[A-Z][0-9]+" | sort | uniq -c | sort -rn
+podman exec lyra ruff check src/ tests/ 2>&1 | grep -E "^[A-Z][0-9]+" | sort | uniq -c | sort -rn
 
 # 特定のエラーコードの詳細を確認
-podman exec lancet ruff check src/ tests/ 2>&1 | grep "E402" | head -20
+podman exec lyra ruff check src/ tests/ 2>&1 | grep "E402" | head -20
 ```
 
 ### 5. 修正の優先順位

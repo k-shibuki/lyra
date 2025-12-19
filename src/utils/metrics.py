@@ -1,5 +1,5 @@
 """
-Metrics collection and aggregation for Lancet.
+Metrics collection and aggregation for Lyra.
 Implements comprehensive metrics as defined in requirements §4.6.
 """
 

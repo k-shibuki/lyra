@@ -1,5 +1,5 @@
 """
-Sec-Fetch-* and Sec-CH-UA-* Header Generation for Lancet.
+Sec-Fetch-* and Sec-CH-UA-* Header Generation for Lyra.
 
 Implements proper security header generation per §4.3 (stealth requirements):
 

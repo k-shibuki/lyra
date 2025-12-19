@@ -1,5 +1,5 @@
 """
-Structured logging configuration for Lancet.
+Structured logging configuration for Lyra.
 Uses structlog for JSON-formatted logs with causal tracing.
 """
 
@@ -67,7 +67,7 @@ def configure_logging(
     if log_file is None:
         log_dir = get_project_root() / settings.general.logs_dir
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / f"lancet_{datetime.now().strftime('%Y%m%d')}.log"
+        log_file = log_dir / f"lyra_{datetime.now().strftime('%Y%m%d')}.log"
 
     # Convert log level string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)

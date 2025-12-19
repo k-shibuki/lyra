@@ -1,5 +1,5 @@
 """
-Search pipeline for Lancet.
+Search pipeline for Lyra.
 
 Unified pipeline that combines search execution with optional refutation mode.
 Replaces execute_subquery and execute_refutation MCPtools with a single `search` interface.
@@ -113,7 +113,7 @@ class SearchOptions:
 
 class SearchPipeline:
     """
-    Unified search pipeline for Lancet.
+    Unified search pipeline for Lyra.
 
     Executes Cursor AI-designed queries through the search/fetch/extract pipeline.
     Supports both normal search and refutation mode.

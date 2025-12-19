@@ -1,5 +1,5 @@
 """
-End-to-End Tests for Lancet.
+End-to-End Tests for Lyra.
 
 Per §7.1.7: E2E tests require real environment (Browser, Ollama, etc.) and
 should be executed manually, not in CI.
@@ -64,7 +64,7 @@ async def is_browser_search_available() -> bool:
     try:
         # Check if running in container without display
         display = os.environ.get("DISPLAY")
-        headless = os.environ.get("LANCET_HEADLESS", "false").lower() == "true"
+        headless = os.environ.get("LYRA_HEADLESS", "false").lower() == "true"
 
         if not display and not headless:
             return False
@@ -122,7 +122,7 @@ async def check_browser_search():
     """Check browser search availability and skip if not available."""
     available = await is_browser_search_available()
     if not available:
-        pytest.skip("Browser search not available. Requires display or LANCET_HEADLESS=true")
+        pytest.skip("Browser search not available. Requires display or LYRA_HEADLESS=true")
     return True
 
 
@@ -152,7 +152,7 @@ class TestSearchToReportPipeline:
     - Report material generation
 
     Requirements:
-    - Display available or LANCET_HEADLESS=true
+    - Display available or LYRA_HEADLESS=true
     - Network access for URL fetching
     """
 

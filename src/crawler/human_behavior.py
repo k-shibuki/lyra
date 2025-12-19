@@ -1,5 +1,5 @@
 """
-Human-like browser behavior simulation for Lancet.
+Human-like browser behavior simulation for Lyra.
 
 Implements realistic human interaction patterns per §4.3.4:
 - Mouse trajectory with Bezier curves and natural acceleration/deceleration

@@ -18,7 +18,7 @@ class EmbeddingService:
         from typing import Any
 
         self._model: Any = None
-        self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
+        self._use_gpu = os.environ.get("LYRA_ML__USE_GPU", "true").lower() == "true"
 
     @property
     def is_loaded(self) -> bool:

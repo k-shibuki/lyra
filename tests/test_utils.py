@@ -91,7 +91,7 @@ class TestSettings:
 
         settings = Settings()
 
-        assert settings.general.project_name == "lancet"
+        assert settings.general.project_name == "lyra"
         assert settings.general.log_level == "INFO"
         assert settings.search.exploration_depth == 3
         assert settings.crawler.domain_qps == 0.2
@@ -198,7 +198,7 @@ class TestApplyEnvOverrides:
 
         config = {"general": {"log_level": "INFO"}}
 
-        with patch.dict(os.environ, {"LANCET_GENERAL__LOG_LEVEL": "DEBUG"}):
+        with patch.dict(os.environ, {"LYRA_GENERAL__LOG_LEVEL": "DEBUG"}):
             result = _apply_env_overrides(config)
 
         assert result["general"]["log_level"] == "DEBUG"
@@ -209,7 +209,7 @@ class TestApplyEnvOverrides:
 
         config = {}
 
-        with patch.dict(os.environ, {"LANCET_SEARCH__EXPLORATION_DEPTH": "10"}):
+        with patch.dict(os.environ, {"LYRA_SEARCH__EXPLORATION_DEPTH": "10"}):
             result = _apply_env_overrides(config)
 
         assert result["search"]["exploration_depth"] == 10
@@ -223,8 +223,8 @@ class TestApplyEnvOverrides:
         with patch.dict(
             os.environ,
             {
-                "LANCET_TOR__ENABLED": "false",
-                "LANCET_BROWSER__BLOCK_ADS": "true",
+                "LYRA_TOR__ENABLED": "false",
+                "LYRA_BROWSER__BLOCK_ADS": "true",
             },
         ):
             result = _apply_env_overrides(config)
@@ -238,7 +238,7 @@ class TestApplyEnvOverrides:
 
         config = {}
 
-        with patch.dict(os.environ, {"LANCET_CRAWLER__DOMAIN_QPS": "0.5"}):
+        with patch.dict(os.environ, {"LYRA_CRAWLER__DOMAIN_QPS": "0.5"}):
             result = _apply_env_overrides(config)
 
         assert result["crawler"]["domain_qps"] == 0.5
@@ -249,13 +249,13 @@ class TestApplyEnvOverrides:
 
         config = {}
 
-        with patch.dict(os.environ, {"LANCET_LLM__MODEL": "llama3:8b"}):
+        with patch.dict(os.environ, {"LYRA_LLM__MODEL": "llama3:8b"}):
             result = _apply_env_overrides(config)
 
         assert result["llm"]["model"] == "llama3:8b"
 
-    def test_apply_env_overrides_ignores_non_lancet(self):
-        """Test that non-LANCET_ env vars are ignored."""
+    def test_apply_env_overrides_ignores_non_lyra(self):
+        """Test that non-LYRA_ env vars are ignored."""
         from src.utils.config import _apply_env_overrides
 
         config = {}
@@ -282,7 +282,7 @@ class TestGetProjectRoot:
 
         root = get_project_root()
 
-        # Should point to lancet project root
+        # Should point to lyra project root
         assert root.is_dir()
         assert (root / "src").is_dir()
 

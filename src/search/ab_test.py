@@ -1,5 +1,5 @@
 """
-Query A/B testing module for Lancet.
+Query A/B testing module for Lyra.
 
 Implements §3.1.1: Query A/B Testing
 - Small-scale A/B tests with notation/particle/word-order variants

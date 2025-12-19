@@ -1,5 +1,5 @@
 """
-Main entry point for Lancet.
+Main entry point for Lyra.
 """
 
 import asyncio

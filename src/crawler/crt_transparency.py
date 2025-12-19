@@ -1,5 +1,5 @@
 """
-Certificate Transparency client for Lancet.
+Certificate Transparency client for Lyra.
 
 Retrieves certificate information from crt.sh via HTML scraping (no API).
 Implements §3.1.2:

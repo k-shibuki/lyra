@@ -1,5 +1,5 @@
 """
-Browser-based Search Provider for Lancet.
+Browser-based Search Provider for Lyra.
 
 Implements direct browser-based search using Playwright
 for improved resilience and session management.

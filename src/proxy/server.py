@@ -2,15 +2,15 @@
 Lancet Proxy Server.
 
 Lightweight reverse proxy for Ollama and ML Server.
-Runs inside lancet container, exposes port 8080.
+Runs inside lyra container, exposes port 8080.
 
 Routes:
   /ollama/* -> http://ollama:11434/*
-  /ml/* -> http://lancet-ml:8100/*
+  /ml/* -> http://lyra-ml:8100/*
   /health -> Health check
 
 This enables WSL-based MCP server to access containerized inference services
-while maintaining network isolation (lancet-internal remains internal: true).
+while maintaining network isolation (lyra-internal remains internal: true).
 
 Security:
 - Proxy port is bound to 127.0.0.1 only (localhost)
@@ -30,7 +30,7 @@ logger = structlog.get_logger(__name__)
 
 # Target services (container names on internal network)
 OLLAMA_URL = os.environ.get("OLLAMA_TARGET_URL", "http://ollama:11434")
-ML_SERVER_URL = os.environ.get("ML_TARGET_URL", "http://lancet-ml:8100")
+ML_SERVER_URL = os.environ.get("ML_TARGET_URL", "http://lyra-ml:8100")
 
 # Proxy settings
 PROXY_HOST = os.environ.get("PROXY_HOST", "0.0.0.0")

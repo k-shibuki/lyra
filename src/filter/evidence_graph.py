@@ -1,5 +1,5 @@
 """
-Evidence graph for Lancet.
+Evidence graph for Lyra.
 Manages relationships between claims, fragments, and sources.
 Uses NetworkX for in-memory graph operations and SQLite for persistence.
 """

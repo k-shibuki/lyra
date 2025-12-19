@@ -1,18 +1,18 @@
 [project]
-name = "lancet"
+name = "lyra"
 version = "0.1.0"
-description = "Local Autonomous Deep Research Agent for OSINT"
+description = "Local Yielding Research Aide for Academic Research"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
-    {name = "Lancet Team"}
+    {name = "Lyra Team"}
 ]
-keywords = ["osint", "research", "agent", "mcp", "llm"]
+keywords = ["academic", "research", "agent", "mcp", "llm"]
 
 [project.scripts]
-lancet = "src.main:main"
-lancet-mcp = "src.mcp.server:main"
+lyra = "src.main:main"
+lyra-mcp = "src.mcp.server:main"
 
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]

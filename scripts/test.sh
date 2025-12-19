@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lancet Test Runner (Cloud Agent Compatible)
+# Lyra Test Runner (Cloud Agent Compatible)
 #
 # Runs tests directly in WSL venv (hybrid architecture).
 # This design provides fast test execution without container overhead.
@@ -74,11 +74,11 @@ get_pytest_markers() {
         # Cloud agent environment: unit + integration only (no e2e, no slow)
         markers="not e2e and not slow"
         log_info "Cloud agent detected (${CLOUD_AGENT_TYPE:-unknown}): Running unit + integration tests only" >&2
-    elif [[ "${LANCET_TEST_LAYER:-}" == "e2e" ]]; then
+    elif [[ "${LYRA_TEST_LAYER:-}" == "e2e" ]]; then
         # Explicitly request E2E tests
         markers="e2e"
         log_info "E2E layer requested: Running E2E tests" >&2
-    elif [[ "${LANCET_TEST_LAYER:-}" == "all" ]]; then
+    elif [[ "${LYRA_TEST_LAYER:-}" == "all" ]]; then
         # Run all tests
         markers=""
         log_info "All tests requested" >&2
@@ -129,30 +129,30 @@ cmd_run() {
         export CLOUD_AGENT_TYPE="${CLOUD_AGENT_TYPE:-none}"
         
         # Set environment variables for container-specific tests
-        # - lancet-ml container: Has FastAPI and ML libs (enable all ML tests)
-        # - lancet container: May have ML libs but no FastAPI (enable ML lib tests only)
+        # - lyra-ml container: Has FastAPI and ML libs (enable all ML tests)
+        # - lyra container: May have ML libs but no FastAPI (enable ML lib tests only)
         # Note: .env file values take precedence (already loaded by common.sh)
         # Note: Ollama/Tor tests are unit tests with mocks, so no special handling needed
         if [[ "${IN_CONTAINER:-false}" == "true" ]]; then
-            # ML tests (lancet-ml container has all ML libs)
-            export LANCET_RUN_ML_TESTS="${LANCET_RUN_ML_TESTS:-1}"
-            # ML API tests (lancet-ml container has FastAPI)
+            # ML tests (lyra-ml container has all ML libs)
+            export LYRA_RUN_ML_TESTS="${LYRA_RUN_ML_TESTS:-1}"
+            # ML API tests (lyra-ml container has FastAPI)
             if [[ "${IS_ML_CONTAINER:-false}" == "true" ]]; then
-                export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-1}"
+                export LYRA_RUN_ML_API_TESTS="${LYRA_RUN_ML_API_TESTS:-1}"
             else
                 # Check if FastAPI is available (fallback for other containers)
                 if python3 -c "import fastapi" 2>/dev/null; then
-                    export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-1}"
+                    export LYRA_RUN_ML_API_TESTS="${LYRA_RUN_ML_API_TESTS:-1}"
                 fi
             fi
-            # Extractor tests (PDF/OCR - typically in ML container but may be in lancet)
-            export LANCET_RUN_EXTRACTOR_TESTS="${LANCET_RUN_EXTRACTOR_TESTS:-1}"
+            # Extractor tests (PDF/OCR - typically in ML container but may be in lyra)
+            export LYRA_RUN_EXTRACTOR_TESTS="${LYRA_RUN_EXTRACTOR_TESTS:-1}"
         fi
 
         # Export container detection flags (default to 0 if not set and not in container)
-        export LANCET_RUN_ML_TESTS="${LANCET_RUN_ML_TESTS:-0}"
-        export LANCET_RUN_ML_API_TESTS="${LANCET_RUN_ML_API_TESTS:-0}"
-        export LANCET_RUN_EXTRACTOR_TESTS="${LANCET_RUN_EXTRACTOR_TESTS:-0}"
+        export LYRA_RUN_ML_TESTS="${LYRA_RUN_ML_TESTS:-0}"
+        export LYRA_RUN_ML_API_TESTS="${LYRA_RUN_ML_API_TESTS:-0}"
+        export LYRA_RUN_EXTRACTOR_TESTS="${LYRA_RUN_EXTRACTOR_TESTS:-0}"
         
         # Build pytest command with appropriate markers
         local pytest_cmd="pytest $target --tb=short -q"
@@ -172,7 +172,7 @@ cmd_run() {
 # Returns:
 #   0: Success
 cmd_env() {
-    echo "=== Lancet Test Environment ==="
+    echo "=== Lyra Test Environment ==="
     echo ""
     echo "Environment Detection:"
     echo "  OS Type: $(detect_env)"
@@ -186,7 +186,7 @@ cmd_env() {
     echo "  E2E Capable: $(is_e2e_capable && echo "true" || echo "false")"
     echo ""
     echo "Test Configuration:"
-    echo "  Test Layer: ${LANCET_TEST_LAYER:-default (unit + integration)}"
+    echo "  Test Layer: ${LYRA_TEST_LAYER:-default (unit + integration)}"
     local markers
     markers=$(get_pytest_markers 2>/dev/null)
     echo "  Markers: ${markers:-<none>}"
@@ -292,7 +292,7 @@ cmd_kill() {
 }
 
 show_help() {
-    echo "Lancet Test Runner (Cloud Agent Compatible)"
+    echo "Lyra Test Runner (Cloud Agent Compatible)"
     echo ""
     echo "Usage: $0 {run|check|get|kill|env|help} [target]"
     echo ""
@@ -311,9 +311,9 @@ show_help() {
     echo "  L3 (E2E):            All tests including E2E"
     echo ""
     echo "Environment Variables:"
-    echo "  LANCET_TEST_LAYER=e2e  Run E2E tests explicitly"
-    echo "  LANCET_TEST_LAYER=all  Run all tests"
-    echo "  LANCET_LOCAL=1         Force local mode (disable cloud agent detection)"
+    echo "  LYRA_TEST_LAYER=e2e  Run E2E tests explicitly"
+    echo "  LYRA_TEST_LAYER=all  Run all tests"
+    echo "  LYRA_LOCAL=1         Force local mode (disable cloud agent detection)"
     echo ""
     echo "Cloud Agent Detection:"
     echo "  Automatically detects these cloud agent environments:"
@@ -327,18 +327,18 @@ show_help() {
     echo "  - Automatically detects if running inside container"
     echo "  - Container detection: /.dockerenv, /run/.containerenv, HOSTNAME"
     echo "  - In any container: ML tests (test_ml_server.py) are enabled"
-    echo "  - In lancet-ml container: ML API tests (TestMLServerAPI) are enabled"
+    echo "  - In lyra-ml container: ML API tests (TestMLServerAPI) are enabled"
     echo ""
     echo "Container Architecture:"
-    echo "  - lancet: Main container (proxy server, no ML libs)"
-    echo "  - lancet-ml: ML container (FastAPI + ML libs, GPU)"
-    echo "  - lancet-ollama: LLM container (Ollama, GPU) - unit tests use mocks"
-    echo "  - lancet-tor: Tor proxy container - unit tests use mocks"
+    echo "  - lyra: Main container (proxy server, no ML libs)"
+    echo "  - lyra-ml: ML container (FastAPI + ML libs, GPU)"
+    echo "  - lyra-ollama: LLM container (Ollama, GPU) - unit tests use mocks"
+    echo "  - lyra-tor: Tor proxy container - unit tests use mocks"
     echo ""
     echo "Manual Override (via .env or environment):"
-    echo "  LANCET_RUN_ML_TESTS=1      Enable ML tests even without libs"
-    echo "  LANCET_RUN_ML_API_TESTS=1  Enable ML API tests even without FastAPI"
-    echo "  LANCET_RUN_EXTRACTOR_TESTS=1  Enable extractor tests even without libs"
+    echo "  LYRA_RUN_ML_TESTS=1      Enable ML tests even without libs"
+    echo "  LYRA_RUN_ML_API_TESTS=1  Enable ML API tests even without FastAPI"
+    echo "  LYRA_RUN_EXTRACTOR_TESTS=1  Enable extractor tests even without libs"
     echo ""
     echo "Note: Tests run in WSL venv (.venv) by default, or in container if detected."
 }

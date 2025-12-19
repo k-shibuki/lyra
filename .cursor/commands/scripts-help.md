@@ -62,8 +62,8 @@ done
 ./scripts/chrome.sh fix [port]       # WSL2ネットワーク設定の自動修正
 ```
 
-デフォルトポート: `.env`の`LANCET_BROWSER__CHROME_PORT`で設定（デフォルト: 9222）。
-専用プロファイル`LancetChrome`で起動し、既存セッションに影響なし。
+デフォルトポート: `.env`の`LYRA_BROWSER__CHROME_PORT`で設定（デフォルト: 9222）。
+専用プロファイル`LyraChrome`で起動し、既存セッションに影響なし。
 
 ## mcp.sh（MCP Server）
 ```bash

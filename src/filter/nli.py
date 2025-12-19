@@ -1,9 +1,9 @@
 """
-NLI (Natural Language Inference) for Lancet.
+NLI (Natural Language Inference) for Lyra.
 Determines stance relationships between claims.
 
 When ml.use_remote=True, NLI inference is performed via HTTP calls
-to the lancet-ml container on internal network.
+to the lyra-ml container on internal network.
 """
 
 from typing import Any

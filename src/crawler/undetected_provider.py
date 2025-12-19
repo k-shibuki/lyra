@@ -1,5 +1,5 @@
 """
-Undetected ChromeDriver browser provider for Lancet.
+Undetected ChromeDriver browser provider for Lyra.
 
 Implements BrowserProvider protocol using undetected-chromedriver for
 Cloudflare/Turnstile bypass per §4.3.

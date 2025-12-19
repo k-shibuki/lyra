@@ -22,7 +22,7 @@ Run:
     pytest tests/test_ml_server_e2e.py -v -m e2e
 
 Architecture:
-    WSL (pytest) --> localhost:8080 (proxy) --> lancet-ml:8100 (ML Server)
+    WSL (pytest) --> localhost:8080 (proxy) --> lyra-ml:8100 (ML Server)
 
 See also:
     - test_ml_server.py: Unit tests (some skipped without ML libs)

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:get_auth_queue",
+  "$id": "lyra:mcp:get_auth_queue",
   "title": "get_auth_queue Response",
   "description": "Response schema for get_auth_queue tool (§3.2.1, §3.6.1)",
   "oneOf": [

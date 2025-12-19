@@ -2,7 +2,7 @@
 Tests for MCP Response Metadata (K.3-5, §4.4.1 L5).
 
 Test Coverage:
-- LancetMeta serialization
+- LyraMeta serialization
 - ResponseMetaBuilder chain methods
 - ClaimMeta with VerificationDetails
 - attach_meta and create_minimal_meta helpers
@@ -12,7 +12,7 @@ from datetime import datetime
 
 from src.mcp.response_meta import (
     ClaimMeta,
-    LancetMeta,
+    LyraMeta,
     ResponseMetaBuilder,
     SecurityWarning,
     VerificationDetails,
@@ -103,18 +103,18 @@ class TestSecurityWarning:
         assert result["severity"] == "critical"
 
 
-class TestLancetMeta:
-    """Tests for LancetMeta dataclass."""
+class TestLyraMeta:
+    """Tests for LyraMeta dataclass."""
 
     def test_to_dict_minimal(self):
         """
-        TC-N-05: LancetMeta with minimal fields (empty lists).
+        TC-N-05: LyraMeta with minimal fields (empty lists).
 
-        // Given: LancetMeta with default (empty) lists
+        // Given: LyraMeta with default (empty) lists
         // When: Converting to dict
         // Then: Empty lists are excluded from output
         """
-        meta = LancetMeta()
+        meta = LyraMeta()
         result = meta.to_dict()
 
         assert "timestamp" in result
@@ -126,13 +126,13 @@ class TestLancetMeta:
 
     def test_to_dict_with_warnings(self):
         """
-        TC-N-06: LancetMeta with security warnings.
+        TC-N-06: LyraMeta with security warnings.
 
-        // Given: LancetMeta with security warnings
+        // Given: LyraMeta with security warnings
         // When: Converting to dict
         // Then: Warnings serialized as list of dicts
         """
-        meta = LancetMeta(
+        meta = LyraMeta(
             security_warnings=[
                 SecurityWarning(type="test", message="Test warning"),
             ]
@@ -145,13 +145,13 @@ class TestLancetMeta:
 
     def test_to_dict_with_domains(self):
         """
-        TC-N-07: LancetMeta with blocked and unverified domains.
+        TC-N-07: LyraMeta with blocked and unverified domains.
 
-        // Given: LancetMeta with domain lists
+        // Given: LyraMeta with domain lists
         // When: Converting to dict
         // Then: Domain lists included in output
         """
-        meta = LancetMeta(
+        meta = LyraMeta(
             blocked_domains=["blocked.com"],
             unverified_domains=["unknown.com", "new.com"],
         )
@@ -164,11 +164,11 @@ class TestLancetMeta:
         """
         TC-N-08: Timestamp is in ISO format.
 
-        // Given: Default LancetMeta
+        // Given: Default LyraMeta
         // When: Checking timestamp
         // Then: Timestamp is valid ISO format
         """
-        meta = LancetMeta()
+        meta = LyraMeta()
         # Should not raise
         datetime.fromisoformat(meta.timestamp.replace("Z", "+00:00"))
 
@@ -352,11 +352,11 @@ class TestHelperFunctions:
 
     def test_attach_meta_adds_key(self):
         """
-        TC-B-01: attach_meta adds _lancet_meta key.
+        TC-B-01: attach_meta adds _lyra_meta key.
 
         // Given: Response dict and meta dict
         // When: Calling attach_meta
-        // Then: Response has _lancet_meta key
+        // Then: Response has _lyra_meta key
         """
         response = {"ok": True, "data": "test"}
         meta = {"timestamp": "2024-01-01T00:00:00Z"}
@@ -364,8 +364,8 @@ class TestHelperFunctions:
         result = attach_meta(response, meta)
 
         assert result is response  # Modified in place
-        assert "_lancet_meta" in result
-        assert result["_lancet_meta"]["timestamp"] == "2024-01-01T00:00:00Z"
+        assert "_lyra_meta" in result
+        assert result["_lyra_meta"]["timestamp"] == "2024-01-01T00:00:00Z"
 
     def test_create_minimal_meta_structure(self):
         """
@@ -456,16 +456,16 @@ class TestBoundaryAndEdgeCases:
 
         assert result["independent_sources"] == -1
 
-    def test_lancet_meta_many_warnings(self):
+    def test_lyra_meta_many_warnings(self):
         """
-        TC-B-03: LancetMeta with many security warnings.
+        TC-B-03: LyraMeta with many security warnings.
 
-        // Given: LancetMeta with 100 warnings
+        // Given: LyraMeta with 100 warnings
         // When: Converting to dict
         // Then: All warnings serialized
         """
         warnings = [SecurityWarning(type=f"type_{i}", message=f"Message {i}") for i in range(100)]
-        meta = LancetMeta(security_warnings=warnings)
+        meta = LyraMeta(security_warnings=warnings)
         result = meta.to_dict()
 
         assert len(result["security_warnings"]) == 100
@@ -484,7 +484,7 @@ class TestBoundaryAndEdgeCases:
         result = attach_meta(response, meta)
 
         assert result is response
-        assert response["_lancet_meta"] == meta
+        assert response["_lyra_meta"] == meta
 
     def test_builder_add_claim_meta_returns_self(self):
         """
@@ -540,13 +540,13 @@ class TestBoundaryAndEdgeCases:
 
     def test_data_quality_values(self):
         """
-        TC-A-09: LancetMeta with different data_quality values.
+        TC-A-09: LyraMeta with different data_quality values.
 
-        // Given: LancetMeta with various quality values
+        // Given: LyraMeta with various quality values
         // When: Serializing
         // Then: Values preserved
         """
         for quality in ["normal", "degraded", "limited"]:
-            meta = LancetMeta(data_quality=quality)
+            meta = LyraMeta(data_quality=quality)
             result = meta.to_dict()
             assert result["data_quality"] == quality

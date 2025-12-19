@@ -1,5 +1,5 @@
 """
-Filtering and evaluation module for Lancet.
+Filtering and evaluation module for Lyra.
 
 Includes:
 - Multi-stage ranking (BM25, embedding, reranking)

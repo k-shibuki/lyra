@@ -73,7 +73,7 @@ setup_venv() {
 wait_for_proxy() {
     local max_attempts=30
     local attempt=0
-    local proxy_url="${LANCET_GENERAL__PROXY_URL:-http://localhost:8080}"
+    local proxy_url="${LYRA_GENERAL__PROXY_URL:-http://localhost:8080}"
     
     echo "Waiting for proxy server at ${proxy_url}..." >&2
     
@@ -124,14 +124,14 @@ wait_for_proxy || true  # Continue even if proxy not ready
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
 # Data directory (shared with container via volume mount)
-export LANCET_DATA_DIR="${LANCET_DATA_DIR:-${PROJECT_ROOT}/data}"
+export LYRA_DATA_DIR="${LYRA_DATA_DIR:-${PROJECT_ROOT}/data}"
 
 # Proxy URL for hybrid mode
-export LANCET_GENERAL__PROXY_URL="${LANCET_GENERAL__PROXY_URL:-http://localhost:8080}"
+export LYRA_GENERAL__PROXY_URL="${LYRA_GENERAL__PROXY_URL:-http://localhost:8080}"
 
 # Chrome settings (localhost for WSL direct connection)
-export LANCET_BROWSER__CHROME_HOST="${LANCET_BROWSER__CHROME_HOST:-localhost}"
-export LANCET_BROWSER__CHROME_PORT="${LANCET_BROWSER__CHROME_PORT:-9222}"
+export LYRA_BROWSER__CHROME_HOST="${LYRA_BROWSER__CHROME_HOST:-localhost}"
+export LYRA_BROWSER__CHROME_PORT="${LYRA_BROWSER__CHROME_PORT:-9222}"
 
 # 6. Start MCP server on host (enables chrome.sh auto-start)
 cd "${PROJECT_ROOT}"

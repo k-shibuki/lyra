@@ -1,5 +1,5 @@
 """
-Process Lifecycle Management for Lancet.
+Process Lifecycle Management for Lyra.
 
 Per §4.2: Browser instances and LLM processes should be destroyed (Kill)
 after each task completion to prevent memory leaks.

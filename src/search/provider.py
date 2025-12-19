@@ -1,5 +1,5 @@
 """
-Search provider abstraction layer for Lancet.
+Search provider abstraction layer for Lyra.
 
 Provides a unified interface for search providers, enabling easy switching
 between different search backends (BrowserSearchProvider is the default).

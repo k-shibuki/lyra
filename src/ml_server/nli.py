@@ -25,7 +25,7 @@ class NLIService:
 
         self._fast_model: Any = None
         self._slow_model: Any = None
-        self._use_gpu = os.environ.get("LANCET_ML__USE_GPU", "true").lower() == "true"
+        self._use_gpu = os.environ.get("LYRA_ML__USE_GPU", "true").lower() == "true"
 
     @property
     def is_fast_loaded(self) -> bool:

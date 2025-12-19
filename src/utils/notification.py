@@ -1,5 +1,5 @@
 """
-User notification system for Lancet.
+User notification system for Lyra.
 Handles toast notifications and authentication queue management.
 
 Features (Safe Operation Policy):

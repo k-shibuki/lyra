@@ -160,11 +160,11 @@ class TestSecureLoggerAbnormal:
         """
         TC-A-01: log_llm_io with prompt-like content
 
-        // Given: Input containing LANCET tag patterns
+        // Given: Input containing LYRA tag patterns
         // When: Logging LLM I/O
         // Then: Content is masked with [MASKED]
         """
-        input_text = "This is <LANCET-abc123> system instruction text"
+        input_text = "This is <LYRA-abc123> system instruction text"
 
         with patch.object(secure_logger, "_logger") as mock_logger:
             secure_logger.log_llm_io("test", input_text=input_text)
@@ -222,7 +222,7 @@ class TestSecureLoggerAbnormal:
         // Then: Paths are removed/masked
         """
         try:
-            raise FileNotFoundError("Cannot open /home/statuser/lancet/secrets.txt")
+            raise FileNotFoundError("Cannot open /home/statuser/lyra/secrets.txt")
         except Exception as e:
             result = secure_logger.log_exception(e)
 
@@ -442,12 +442,12 @@ class TestStructlogProcessor:
         """
         event_dict = {
             "event": "test_event",
-            "prompt": "This is LANCET-secret123 instruction",
+            "prompt": "This is LYRA-secret123 instruction",
         }
 
         result = sanitize_log_processor(None, "info", event_dict)
 
-        assert "LANCET" not in result["prompt"]
+        assert "LYRA" not in result["prompt"]
         assert "[SANITIZED:" in result["prompt"]
 
     def test_processor_long_text(self):

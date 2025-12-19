@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:calibrate",
+  "$id": "lyra:mcp:calibrate",
   "title": "calibrate Response",
   "description": "Response schema for calibrate tool (5 actions)",
   "oneOf": [

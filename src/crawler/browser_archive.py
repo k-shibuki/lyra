@@ -1,5 +1,5 @@
 """
-Browser path archive utilities for Lancet.
+Browser path archive utilities for Lyra.
 
 Implements §4.3.2 requirements:
 - CDXJ-like metadata: URL/hash list of main resources

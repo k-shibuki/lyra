@@ -1,5 +1,5 @@
 """
-Entity Knowledge Base for Lancet.
+Entity Knowledge Base for Lyra.
 
 Normalizes and stores entities extracted from OSINT sources (RDAP/WHOIS, crt.sh, etc.).
 Implements §3.1.2:

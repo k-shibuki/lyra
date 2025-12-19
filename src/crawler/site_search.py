@@ -1,5 +1,5 @@
 """
-Site-internal search UI automation for Lancet.
+Site-internal search UI automation for Lyra.
 
 Implements automated interaction with site-internal search forms (§3.1.5):
 - Allowlist-based domain management for stable internal search UIs

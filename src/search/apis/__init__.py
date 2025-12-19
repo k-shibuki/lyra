@@ -1,5 +1,5 @@
 """
-Academic API clients for Lancet.
+Academic API clients for Lyra.
 
 Provides unified interface for accessing academic paper metadata from:
 - Semantic Scholar

@@ -2,7 +2,7 @@
 MCP Response Metadata Generator.
 
 Implements L5 (MCP Response Metadata) per §4.4.1:
-- Adds _lancet_meta to all MCP responses
+- Adds _lyra_meta to all MCP responses
 - Includes source trust level and verification status
 - Provides security warnings from L2/L4 detection
 
@@ -62,11 +62,11 @@ class SecurityWarning:
 
 
 @dataclass
-class LancetMeta:
+class LyraMeta:
     """Metadata attached to MCP responses (§4.4.1 L5).
 
     This provides Cursor AI with information to assess trustworthiness
-    of the data returned by Lancet.
+    of the data returned by Lyra.
     """
 
     # Timestamp of response generation
@@ -131,11 +131,11 @@ class ClaimMeta:
 
 
 class ResponseMetaBuilder:
-    """Builder for constructing _lancet_meta for MCP responses."""
+    """Builder for constructing _lyra_meta for MCP responses."""
 
     def __init__(self) -> None:
         """Initialize builder with empty metadata."""
-        self._meta = LancetMeta()
+        self._meta = LyraMeta()
         self._claim_metas: list[ClaimMeta] = []
 
     def add_security_warning(
@@ -210,7 +210,7 @@ class ResponseMetaBuilder:
         return self
 
     def build(self) -> dict[str, Any]:
-        """Build the _lancet_meta dictionary.
+        """Build the _lyra_meta dictionary.
 
         Returns:
             Dictionary suitable for inclusion in MCP response.
@@ -233,16 +233,16 @@ def create_response_meta() -> ResponseMetaBuilder:
 
 
 def attach_meta(response: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
-    """Attach _lancet_meta to a response dictionary.
+    """Attach _lyra_meta to a response dictionary.
 
     Args:
         response: Original response dictionary.
         meta: Metadata to attach.
 
     Returns:
-        Response with _lancet_meta attached.
+        Response with _lyra_meta attached.
     """
-    response["_lancet_meta"] = meta
+    response["_lyra_meta"] = meta
     return response
 
 
@@ -250,7 +250,7 @@ def create_minimal_meta() -> dict[str, Any]:
     """Create minimal metadata for simple responses.
 
     Returns:
-        Minimal _lancet_meta dictionary.
+        Minimal _lyra_meta dictionary.
     """
     return {
         "timestamp": datetime.now(UTC).isoformat(),

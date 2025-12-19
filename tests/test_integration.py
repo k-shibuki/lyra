@@ -1,5 +1,5 @@
 """
-Integration tests for Lancet.
+Integration tests for Lyra.
 
 Per §7.1.7: Integration tests use mocked external dependencies and should complete in <2min total.
 These tests verify end-to-end workflows across multiple modules.

@@ -1,5 +1,5 @@
 """
-Profile Health Audit for Lancet.
+Profile Health Audit for Lyra.
 
 Implements profile health monitoring per §4.3.1:
 - High-frequency checks at task start and browser session initialization

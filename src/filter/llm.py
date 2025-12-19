@@ -1,5 +1,5 @@
 """
-LLM-based extraction for Lancet.
+LLM-based extraction for Lyra.
 Uses local Ollama models for fact/claim extraction and summarization.
 
 Per §4.2: LLM processes are destroyed after task completion to prevent memory leaks.

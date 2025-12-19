@@ -35,7 +35,7 @@ class UnpaywallClient(BaseAcademicClient):
             if not self.email:
                 # Try environment variable
                 self.email = os.environ.get(
-                    "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com"
+                    "LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lyra@example.com"
                 )
         except Exception as e:
             logger.warning("Failed to load Unpaywall config", error=str(e))
@@ -44,7 +44,7 @@ class UnpaywallClient(BaseAcademicClient):
             timeout = 30.0
             headers = None
             self.email = os.environ.get(
-                "LANCET_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lancet@example.com"
+                "LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL", "lyra@example.com"
             )
 
         super().__init__("unpaywall", base_url=base_url, timeout=timeout, headers=headers)

@@ -1,5 +1,5 @@
 """
-Replay mode for Lancet.
+Replay mode for Lyra.
 Enables reconstruction and re-execution of decision flows from logs.
 
 Features:

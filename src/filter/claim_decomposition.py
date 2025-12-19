@@ -1,5 +1,5 @@
 """
-Claim decomposition for Lancet.
+Claim decomposition for Lyra.
 
 Decomposes high-level research questions into atomic claims
 for systematic verification.

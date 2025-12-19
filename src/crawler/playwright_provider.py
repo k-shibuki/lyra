@@ -1,5 +1,5 @@
 """
-Playwright-based browser provider for Lancet.
+Playwright-based browser provider for Lyra.
 
 Implements BrowserProvider protocol using Playwright for browser automation.
 Supports both headless and headful modes with CDP connection to Windows Chrome.

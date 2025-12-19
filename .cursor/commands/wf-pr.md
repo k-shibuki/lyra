@@ -413,14 +413,14 @@ done
 
 ```bash
 # 警告確認
-podman exec lancet ruff check src/ tests/
-podman exec lancet mypy src/ tests/
+podman exec lyra ruff check src/ tests/
+podman exec lyra mypy src/ tests/
 
 # trailing whitespace確認
 git diff --check
 
 # 警告がある場合は自動修正を試みる
-podman exec lancet ruff check --fix src/ tests/
+podman exec lyra ruff check --fix src/ tests/
 ```
 
 ### 6.2. マージ実行

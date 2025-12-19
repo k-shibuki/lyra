@@ -1,8 +1,8 @@
 #!/bin/bash
-# Lancet Shell Scripts Test Suite
+# Lyra Shell Scripts Test Suite
 #
 # Tests for shell scripts to ensure they work correctly.
-# This script tests basic functionality of all Lancet shell scripts.
+# This script tests basic functionality of all Lyra shell scripts.
 #
 # Usage:
 #   ./scripts/test_scripts.sh        # Run all tests

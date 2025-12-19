@@ -1,5 +1,5 @@
 """
-Content extraction for Lancet.
+Content extraction for Lyra.
 Extracts text, metadata, and structure from HTML and PDF documents.
 
 OCR Support (§5.1.1):

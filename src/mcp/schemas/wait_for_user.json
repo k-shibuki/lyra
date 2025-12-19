@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:wait_for_user",
+  "$id": "lyra:mcp:wait_for_user",
   "title": "wait_for_user Response",
   "description": "Response schema for wait_for_user tool",
   "type": "object",

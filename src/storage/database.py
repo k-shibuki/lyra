@@ -1,5 +1,5 @@
 """
-Database management for Lancet.
+Database management for Lyra.
 Handles SQLite connection, migrations, and common operations.
 """
 

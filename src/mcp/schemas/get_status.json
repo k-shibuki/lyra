@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "lancet:mcp:get_status",
+  "$id": "lyra:mcp:get_status",
   "title": "get_status Response",
   "description": "Response schema for get_status tool (§3.2.1: unified task/exploration status)",
   "type": "object",

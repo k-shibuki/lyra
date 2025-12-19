@@ -32,25 +32,25 @@ except ImportError:
     HAS_PIL = False
 
 # Check environment variable to force running extractor tests (e.g., in container)
-_RUN_EXTRACTOR_TESTS = os.environ.get("LANCET_RUN_EXTRACTOR_TESTS", "0") == "1"
+_RUN_EXTRACTOR_TESTS = os.environ.get("LYRA_RUN_EXTRACTOR_TESTS", "0") == "1"
 
 # Skip messages with guidance for ML container-based testing
 _SKIP_MSG_FITZ = (
     "Requires PyMuPDF (fitz). "
     "PDF extraction runs in ML container. "
-    "Run tests in container: podman exec lancet pytest tests/test_extractor.py, "
+    "Run tests in container: podman exec lyra pytest tests/test_extractor.py, "
     "or install: pip install PyMuPDF"
 )
 
 _SKIP_MSG_PIL = (
     "Requires Pillow (PIL). "
     "OCR functionality runs in ML container. "
-    "Run tests in container: podman exec lancet pytest tests/test_extractor.py, "
+    "Run tests in container: podman exec lyra pytest tests/test_extractor.py, "
     "or install: pip install Pillow"
 )
 
 # Decorators for skipping tests based on optional dependencies
-# If LANCET_RUN_EXTRACTOR_TESTS=1 is set (e.g., in container), don't skip even if libs are missing
+# If LYRA_RUN_EXTRACTOR_TESTS=1 is set (e.g., in container), don't skip even if libs are missing
 requires_fitz = pytest.mark.skipif(
     not HAS_FITZ and not _RUN_EXTRACTOR_TESTS,
     reason=_SKIP_MSG_FITZ,

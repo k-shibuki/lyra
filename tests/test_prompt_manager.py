@@ -86,8 +86,8 @@ class TestPromptManagerInit:
         assert manager.prompts_dir.parent.name == "config"
 
     def test_init_with_env_var(self, temp_prompts_dir):
-        """Test initialization respects LANCET_CONFIG_DIR env var."""
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_prompts_dir.parent)}):
+        """Test initialization respects LYRA_CONFIG_DIR env var."""
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_prompts_dir.parent)}):
             reset_prompt_manager()
             manager = PromptManager()
             # Should use the env var path
@@ -237,7 +237,7 @@ class TestSingleton:
         """Test render_prompt convenience function."""
         # Use a custom manager for this test
         reset_prompt_manager()
-        with patch.dict(os.environ, {"LANCET_CONFIG_DIR": str(temp_prompts_dir.parent)}):
+        with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_prompts_dir.parent)}):
             reset_prompt_manager()
             result = render_prompt("simple", name="Test")
             assert result == "Hello, Test!"

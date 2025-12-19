@@ -1,5 +1,5 @@
 """
-Notification provider abstraction layer for Lancet.
+Notification provider abstraction layer for Lyra.
 
 Provides a unified interface for notification providers, enabling easy
 switching between different backends (Linux notify-send, Windows Toast, WSL).

@@ -1,5 +1,5 @@
 """
-LLM Security module for Lancet.
+LLM Security module for Lyra.
 
 Implements prompt injection defense mechanisms per §4.4.1:
 - L2: Input sanitization (NFKC normalization, tag pattern removal, etc.)
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 # ============================================================================
 
 # Tag prefix for system instructions (used in sanitization)
-TAG_PREFIX = "LANCET-"
+TAG_PREFIX = "LYRA-"
 
 # Zero-width characters to remove (§4.4.1 L2)
 ZERO_WIDTH_CHARS = frozenset(
@@ -77,8 +77,8 @@ DANGEROUS_PATTERNS = [
 # Compiled dangerous pattern regex
 _DANGEROUS_REGEX = re.compile("|".join(DANGEROUS_PATTERNS), re.IGNORECASE)
 
-# Tag pattern regex (matches LANCET-xxxx style tags)
-_TAG_PATTERN = re.compile(r"</?(?:LANCET|lancet|Lancet)[\s_-]*[A-Za-z0-9_-]*>", re.IGNORECASE)
+# Tag pattern regex (matches LYRA-xxxx style tags)
+_TAG_PATTERN = re.compile(r"</?(?:LYRA|lyra|Lyra)[\s_-]*[A-Za-z0-9_-]*>", re.IGNORECASE)
 
 # URL patterns for output validation (§4.4.1 L4)
 _URL_PATTERN = re.compile(r"https?://[^\s<>\"']+|ftp://[^\s<>\"']+", re.IGNORECASE)
@@ -105,8 +105,8 @@ DEFAULT_MAX_OUTPUT_MULTIPLIER = 10
 # Minimum n-gram length for leakage detection (§4.4.1 L4)
 DEFAULT_LEAKAGE_NGRAM_LENGTH = 20
 
-# Tag pattern for leakage detection (matches LANCET-xxx anywhere)
-_LEAKAGE_TAG_PATTERN = re.compile(r"LANCET[\s_-]*[A-Za-z0-9_-]{4,}", re.IGNORECASE)
+# Tag pattern for leakage detection (matches LYRA-xxx anywhere)
+_LEAKAGE_TAG_PATTERN = re.compile(r"LYRA[\s_-]*[A-Za-z0-9_-]{4,}", re.IGNORECASE)
 
 
 # ============================================================================
@@ -282,13 +282,13 @@ def sanitize_llm_input(
         c for c in text if c in "\n\t\r" or (ord(c) >= 0x20 and ord(c) not in range(0x7F, 0xA0))
     )
 
-    # Step 5: Remove LANCET-style tag patterns
+    # Step 5: Remove LYRA-style tag patterns
     original_tag_len = len(text)
     text = _TAG_PATTERN.sub("", text)
     if len(text) < original_tag_len:
         removed_tags = 1  # At least one tag was removed
         logger.warning(
-            "Removed LANCET-style tag pattern from input",
+            "Removed LYRA-style tag pattern from input",
             chars_removed=original_tag_len - len(text),
         )
 
@@ -326,7 +326,7 @@ def sanitize_llm_input(
 
 def remove_tag_patterns(text: str) -> str:
     """
-    Remove LANCET-style tag patterns from text.
+    Remove LYRA-style tag patterns from text.
 
     This is a simpler version of sanitize_llm_input that only removes tags.
 
@@ -354,7 +354,7 @@ def detect_prompt_leakage(
 
     Per §4.4.1 L4 enhancement:
     - n-gram match detection (20+ consecutive characters)
-    - Tag name pattern detection (LANCET- prefix)
+    - Tag name pattern detection (LYRA- prefix)
 
     Args:
         output: LLM output text to check.
@@ -381,12 +381,12 @@ def detect_prompt_leakage(
     output_lower = output.lower()
     prompt_lower = system_prompt.lower()
 
-    # 1. Detect LANCET- tag patterns in output
+    # 1. Detect LYRA- tag patterns in output
     tag_matches = _LEAKAGE_TAG_PATTERN.findall(output)
     if tag_matches:
         leaked_tag_patterns = list(set(tag_matches))
         logger.warning(
-            "Prompt leakage detected: LANCET tag pattern in output",
+            "Prompt leakage detected: LYRA tag pattern in output",
             pattern_count=len(leaked_tag_patterns),
             # Don't log actual patterns to prevent log injection
         )

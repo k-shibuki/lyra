@@ -1,5 +1,5 @@
 """
-Pytest fixtures and configuration for Lancet tests.
+Pytest fixtures and configuration for Lyra tests.
 
 =============================================================================
 Test Classification (§7.1.7, §16.10.1)
@@ -127,8 +127,8 @@ import pytest
 import pytest_asyncio
 
 # Set test environment before importing anything else
-os.environ["LANCET_CONFIG_DIR"] = str(Path(__file__).parent.parent / "config")
-os.environ["LANCET_GENERAL__LOG_LEVEL"] = "DEBUG"
+os.environ["LYRA_CONFIG_DIR"] = str(Path(__file__).parent.parent / "config")
+os.environ["LYRA_GENERAL__LOG_LEVEL"] = "DEBUG"
 
 
 # =============================================================================
@@ -214,13 +214,13 @@ def detect_environment() -> EnvironmentInfo:
         cloud_agent_type = CloudAgentType.GENERIC_CI
 
     # Headless environment detection (no display, not WSL, not explicitly local)
-    elif not has_display and not is_wsl and not os.environ.get("LANCET_LOCAL"):
+    elif not has_display and not is_wsl and not os.environ.get("LYRA_LOCAL"):
         is_cloud_agent = True
         cloud_agent_type = CloudAgentType.HEADLESS
 
     # Determine E2E capability
     is_e2e_capable = (
-        os.environ.get("LANCET_HEADLESS") == "true"
+        os.environ.get("LYRA_HEADLESS") == "true"
         or has_display
         or is_wsl  # WSL can access Windows display via CDP
     )
@@ -359,7 +359,7 @@ def pytest_configure(config):
     # Always show cloud agent notice (important for users to know)
     if _env_info.is_cloud_agent:
         print(f"\n{'=' * 70}")
-        print("[Lancet Test] CLOUD AGENT ENVIRONMENT DETECTED")
+        print("[Lyra Test] CLOUD AGENT ENVIRONMENT DETECTED")
         print(f"{'=' * 70}")
         print(f"  Agent Type: {_env_info.cloud_agent_type.value}")
         print(f"  E2E Capable: {_env_info.is_e2e_capable}")
@@ -380,7 +380,7 @@ def pytest_configure(config):
 
     # Log environment info for debugging (verbose mode)
     elif config.option.verbose > 0:
-        print("\n[Lancet Test] Environment Detection:")
+        print("\n[Lyra Test] Environment Detection:")
         print(f"  Cloud Agent: {_env_info.is_cloud_agent} ({_env_info.cloud_agent_type.value})")
         print(f"  E2E Capable: {_env_info.is_e2e_capable}")
         print(f"  WSL: {_env_info.is_wsl}, Container: {_env_info.is_container}")
@@ -449,7 +449,7 @@ def temp_dir() -> Generator[Path, None, None]:
 @pytest.fixture
 def temp_db_path(temp_dir: Path) -> Path:
     """Get path for temporary test database."""
-    return temp_dir / "test_lancet.db"
+    return temp_dir / "test_lyra.db"
 
 
 @pytest_asyncio.fixture

@@ -62,10 +62,10 @@
 
 ```bash
 # 最近のエラーログを確認
-podman exec lancet cat logs/app.log | tail -100
+podman exec lyra cat logs/app.log | tail -100
 
 # 特定のエラーを検索
-podman exec lancet grep -r "ERROR\|Exception" logs/
+podman exec lyra grep -r "ERROR\|Exception" logs/
 ```
 
 ### 2. 原因調査

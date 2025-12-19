@@ -1,5 +1,5 @@
 """
-RDAP and WHOIS client for Lancet.
+RDAP and WHOIS client for Lyra.
 
 Retrieves domain registration information via HTML scraping (no API).
 Implements §3.1.2, §3.1.3:
