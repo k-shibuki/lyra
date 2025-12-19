@@ -68,11 +68,18 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "-v"
+# Test Execution Layers (Cloud Agent Compatible):
+#   L1 (CI/Cloud): unit + integration (auto-selected in cloud environments)
+#   L2 (Local):    unit + integration (default)
+#   L3 (E2E):      all tests including e2e (requires full environment)
 markers = [
-    "unit: Unit tests with no external dependencies (fast, <30s total)",
-    "integration: Integration tests with mocked external dependencies (<2min total)",
-    "e2e: End-to-end tests requiring real environment (manual execution only)",
-    "slow: Tests that take more than 5 seconds",
+    "unit: Unit tests with no external dependencies (fast, <30s total). L1/L2/L3 compatible.",
+    "integration: Integration tests with mocked external dependencies (<2min total). L1/L2/L3 compatible.",
+    "e2e: End-to-end tests requiring real environment (Chrome, Ollama, network). L3 only.",
+    "slow: Tests that take more than 5 seconds. Skipped in cloud agents by default.",
+    "external: E2E using external services with moderate block risk (Mojeek, Qwant).",
+    "rate_limited: E2E using services with high block risk (DuckDuckGo, Google).",
+    "manual: E2E requiring human interaction (CAPTCHA resolution).",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

@@ -5,6 +5,24 @@ Pytest fixtures and configuration for Lancet tests.
 Test Classification (§7.1.7, §16.10.1)
 =============================================================================
 
+Test Execution Layers (Cloud Agent Compatible):
+
+L1: CI Layer (Cloud Agent / GitHub Actions / GitLab CI)
+    - Runs: unit + integration tests only
+    - All external services mocked
+    - No display, Chrome, Ollama required
+    - Command: pytest -m "not e2e and not slow"
+
+L2: Local Layer (Developer WSL2 environment)
+    - Runs: L1 + container integration tests
+    - Requires: Podman containers (Ollama, ML Server)
+    - Command: pytest -m "not e2e"
+
+L3: E2E Layer (Full environment)
+    - Runs: All tests including E2E
+    - Requires: Chrome CDP, Ollama, network access, display
+    - Command: pytest (all tests) or pytest -m e2e
+
 Primary Markers (Execution Speed):
 - @pytest.mark.unit: Single class/function, no external dependencies
   - Fast (<1s per test, <30s total)
@@ -43,6 +61,22 @@ Risk-Based Sub-Markers (E2E only, §16.10.1):
   - Should be run from tests/scripts/ as standalone scripts
 
 =============================================================================
+Cloud Agent Environment Detection
+=============================================================================
+
+Supported cloud agent environments:
+- Cursor Cloud Agent: CURSOR_CLOUD_AGENT, CURSOR_SESSION_ID, CURSOR_BACKGROUND
+- Claude Code: CLAUDE_CODE environment variable
+- GitHub Actions: GITHUB_ACTIONS=true
+- GitLab CI: GITLAB_CI environment variable
+- Generic CI: CI=true
+
+In cloud agent environments:
+- E2E tests are automatically skipped
+- Slow tests are automatically skipped (unless explicitly requested)
+- Only unit and integration tests run by default
+
+=============================================================================
 Default Execution
 =============================================================================
 
@@ -71,6 +105,8 @@ Mock Strategy (§7.1.7)
 import asyncio
 import os
 import tempfile
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -81,6 +117,127 @@ import pytest_asyncio
 # Set test environment before importing anything else
 os.environ["LANCET_CONFIG_DIR"] = str(Path(__file__).parent.parent / "config")
 os.environ["LANCET_GENERAL__LOG_LEVEL"] = "DEBUG"
+
+
+# =============================================================================
+# Cloud Agent Environment Detection
+# =============================================================================
+
+class CloudAgentType(Enum):
+    """Types of cloud agent environments."""
+    NONE = "none"
+    CURSOR = "cursor"
+    CLAUDE_CODE = "claude_code"
+    GITHUB_ACTIONS = "github_actions"
+    GITLAB_CI = "gitlab_ci"
+    GENERIC_CI = "generic_ci"
+    HEADLESS = "headless"
+
+
+@dataclass
+class EnvironmentInfo:
+    """Information about the current execution environment."""
+    is_cloud_agent: bool
+    cloud_agent_type: CloudAgentType
+    is_e2e_capable: bool
+    is_wsl: bool
+    is_container: bool
+    has_display: bool
+
+
+def detect_environment() -> EnvironmentInfo:
+    """Detect the current execution environment.
+    
+    Returns:
+        EnvironmentInfo with details about the environment.
+    """
+    # Check for display availability
+    has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    
+    # Check for WSL
+    is_wsl = False
+    try:
+        with open("/proc/version", "r") as f:
+            is_wsl = "microsoft" in f.read().lower()
+    except (FileNotFoundError, PermissionError):
+        pass
+    
+    # Check for container
+    is_container = (
+        os.path.exists("/.dockerenv") or 
+        os.path.exists("/run/.containerenv")
+    )
+    
+    # Detect cloud agent type
+    is_cloud_agent = False
+    cloud_agent_type = CloudAgentType.NONE
+    
+    # Cursor Cloud Agent detection
+    if (os.environ.get("CURSOR_CLOUD_AGENT") or 
+        os.environ.get("CURSOR_SESSION_ID") or 
+        os.environ.get("CURSOR_BACKGROUND") == "true"):
+        is_cloud_agent = True
+        cloud_agent_type = CloudAgentType.CURSOR
+    
+    # Claude Code detection (Anthropic)
+    elif os.environ.get("CLAUDE_CODE"):
+        is_cloud_agent = True
+        cloud_agent_type = CloudAgentType.CLAUDE_CODE
+    
+    # GitHub Actions detection
+    elif os.environ.get("GITHUB_ACTIONS") == "true":
+        is_cloud_agent = True
+        cloud_agent_type = CloudAgentType.GITHUB_ACTIONS
+    
+    # GitLab CI detection
+    elif os.environ.get("GITLAB_CI"):
+        is_cloud_agent = True
+        cloud_agent_type = CloudAgentType.GITLAB_CI
+    
+    # Generic CI detection
+    elif os.environ.get("CI") == "true":
+        is_cloud_agent = True
+        cloud_agent_type = CloudAgentType.GENERIC_CI
+    
+    # Headless environment detection (no display, not WSL, not explicitly local)
+    elif not has_display and not is_wsl and not os.environ.get("LANCET_LOCAL"):
+        is_cloud_agent = True
+        cloud_agent_type = CloudAgentType.HEADLESS
+    
+    # Determine E2E capability
+    is_e2e_capable = (
+        os.environ.get("LANCET_HEADLESS") == "true" or
+        has_display or
+        is_wsl  # WSL can access Windows display via CDP
+    )
+    
+    return EnvironmentInfo(
+        is_cloud_agent=is_cloud_agent,
+        cloud_agent_type=cloud_agent_type,
+        is_e2e_capable=is_e2e_capable,
+        is_wsl=is_wsl,
+        is_container=is_container,
+        has_display=has_display,
+    )
+
+
+# Detect environment at module load
+_env_info = detect_environment()
+
+
+def is_cloud_agent() -> bool:
+    """Check if running in a cloud agent environment."""
+    return _env_info.is_cloud_agent
+
+
+def get_cloud_agent_type() -> CloudAgentType:
+    """Get the type of cloud agent environment."""
+    return _env_info.cloud_agent_type
+
+
+def is_e2e_capable() -> bool:
+    """Check if the environment can run E2E tests."""
+    return _env_info.is_e2e_capable
 
 
 # =============================================================================
@@ -113,15 +270,37 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "manual: E2E requiring human interaction (CAPTCHA resolution)"
     )
+    
+    # Log environment info for debugging
+    if config.option.verbose > 0:
+        print(f"\n[Lancet Test] Environment Detection:")
+        print(f"  Cloud Agent: {_env_info.is_cloud_agent} ({_env_info.cloud_agent_type.value})")
+        print(f"  E2E Capable: {_env_info.is_e2e_capable}")
+        print(f"  WSL: {_env_info.is_wsl}, Container: {_env_info.is_container}")
+        print(f"  Display: {_env_info.has_display}")
 
 
 def pytest_collection_modifyitems(config, items):
     """
-    Auto-apply 'unit' marker to tests without explicit classification.
+    Auto-apply markers and skip tests based on environment.
     
     Per §7.1.7, tests should be classified as unit/integration/e2e.
     Tests without explicit markers are assumed to be unit tests.
+    
+    In cloud agent environments (Cursor, Claude Code, GitHub Actions, etc.):
+    - E2E tests are automatically skipped
+    - Slow tests are automatically skipped (unless --run-slow is passed)
     """
+    # Skip reasons for cloud agent environment
+    skip_e2e_reason = pytest.mark.skip(
+        reason=f"E2E tests skipped in cloud agent environment ({_env_info.cloud_agent_type.value}). "
+               f"Run locally with: pytest -m e2e"
+    )
+    skip_slow_reason = pytest.mark.skip(
+        reason=f"Slow tests skipped in cloud agent environment ({_env_info.cloud_agent_type.value}). "
+               f"Run with: pytest -m slow"
+    )
+    
     for item in items:
         # Check if test already has a classification marker
         has_classification = any(
@@ -132,6 +311,19 @@ def pytest_collection_modifyitems(config, items):
         # Default to unit test if no classification
         if not has_classification:
             item.add_marker(pytest.mark.unit)
+        
+        # In cloud agent environment, skip E2E and slow tests
+        if _env_info.is_cloud_agent:
+            # Skip E2E tests
+            if any(marker.name == "e2e" for marker in item.iter_markers()):
+                item.add_marker(skip_e2e_reason)
+            
+            # Skip slow tests (unless explicitly requested)
+            if any(marker.name == "slow" for marker in item.iter_markers()):
+                # Check if slow tests are explicitly requested via marker expression
+                markexpr = config.getoption("-m", default="")
+                if "slow" not in markexpr:
+                    item.add_marker(skip_slow_reason)
 
 
 @pytest.fixture
