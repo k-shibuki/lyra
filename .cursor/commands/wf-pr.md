@@ -4,6 +4,20 @@
 
 **注意**: これは `/wf-dev` とは独立したワークフローです。
 
+## 重要な注意事項
+
+**PRブランチの検出パターン**:
+- 以下のパターンで始まるブランチをPRブランチとして扱います：
+  - `pr`, `PR`, `pull`, `merge` - 一般的なPRブランチ
+  - `claude` - Claude Codeで作成されたブランチ
+  - **`cursor`** - **Cursor Cloud Agentで作成されたブランチ（重要）**
+  - `feature` - 機能ブランチ
+
+**見落としを防ぐために**:
+- 検出されたブランチ数を確認する
+- 各ブランチのマージ状態を表示する
+- デバッグ出力を有効にする
+
 ## 関連ルール
 - コード実行時: @.cursor/rules/code-execution.mdc
 - テスト関連: @.cursor/rules/test-strategy.mdc
@@ -23,11 +37,19 @@
 git log origin/main..main --oneline
 
 # 未マージのPRブランチを確認
-git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD" | while read branch; do
+# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
+# 注意: cursor ブランチもPRブランチとして扱う（Cursor Cloud Agentで作成されたブランチ）
+echo "=== Checking PR branches ==="
+git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | while read branch; do
     if git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
-        echo "$branch: Not merged to origin/main"
+        echo "✓ $branch: Not merged to origin/main"
+    else
+        echo "  $branch: Already merged to origin/main (skipped)"
     fi
 done
+echo "=== Summary ==="
+echo "Total PR branches: $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | wc -l)"
+echo "Unmerged branches: $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | while read branch; do git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null && echo "$branch"; done | wc -l)"
 ```
 
 **判定基準**:
@@ -81,7 +103,12 @@ done
 git fetch origin
 
 # PRブランチ一覧を確認（リモートブランチ）
-git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)"
+# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
+# 注意: cursor ブランチもPRブランチとして扱う（Cursor Cloud Agentで作成されたブランチ）
+git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD"
+
+# デバッグ: 検出されたブランチ数を確認
+echo "Found $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | wc -l) PR candidate branches"
 ```
 
 ### 1.2. PR順序付け（技術的最適化）
@@ -117,8 +144,9 @@ PRをレビューする順序を以下の優先順位で決定する：
 
 # 1. 変更量でソート（小→大）
 # ローカルでマージ済みのPRもチェック対象に含める（mainブランチとの差分も確認）
+# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
 get_pr_by_changes() {
-    for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD"); do
+    for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD"); do
         # ローカルのmainブランチとの差分を確認（ローカルでマージ済みのPRもチェック）
         # git log main..$branch が空なら、ブランチは既にローカルのmainにマージ済み
         if ! git log main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
@@ -192,7 +220,8 @@ get_pr_by_changes
 ```bash
 # PR候補を変更量でソート（最もシンプル）
 # ローカルでマージ済みのPRもチェック対象に含める
-for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD"); do
+# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
+for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD"); do
     # ローカルのmainブランチとの差分を確認（ローカルでマージ済みのPRもチェック）
     if ! git log main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
         # ローカルでマージ済みの場合、origin/mainとの差分を確認
@@ -233,11 +262,15 @@ git checkout -b <pr-branch> origin/<pr-branch>
 実際のワークフローでは以下の手順で実行：
 
 1. **PR候補の列挙**: `git branch -r` でリモートブランチを確認
+   - **重要**: `cursor` ブランチもPRブランチとして扱う（Cursor Cloud Agentで作成されたブランチ）
+   - パターン: `(pr|PR|pull|merge|claude|cursor|feature)` で始まるブランチを検出
+   - デバッグ出力で検出されたブランチ数を確認
 2. **マージ済みブランチの判定**:
    - **ローカルでマージ済みのPRもチェック対象に含める**（`main`ブランチとの差分も確認）
    - `git log main..<branch>` が空の場合、`origin/main`との差分を確認
    - `git log origin/main..<branch>` が空の場合はスキップ（両方にマージ済み）
    - `git merge-base --is-ancestor <branch> origin/main` でorigin/mainにマージ済みか確認
+   - **デバッグ出力**: 各ブランチのマージ状態を表示
 3. **各PRの変更量を確認**: `git diff main..<branch> --stat` で変更ファイル数・行数を確認（ローカルmainとの差分）
 4. **コミット日時を確認**: `git log main..<branch> --format="%ci" | tail -1` で最初のコミット日時を確認
 5. **変更内容の種類を確認**: `git log main..<branch> --format="%s" | head -1` でコミットメッセージのプレフィックスを確認
@@ -245,6 +278,7 @@ git checkout -b <pr-branch> origin/<pr-branch>
 7. **順番にレビュー**: ソートされた順序でPRをレビュー
 
 **注意**:
+- **`cursor` ブランチもPRブランチとして扱う**（Cursor Cloud Agentで作成されたブランチ）
 - ローカルでマージ済みでも`origin/main`に未プッシュのPRはレビュー対象に含める
 - 両方（`main`と`origin/main`）にマージ済みのブランチは自動的に除外される
   - `git log main..<branch>` と `git log origin/main..<branch>` が両方空の場合
@@ -260,7 +294,8 @@ git log origin/main..main --oneline
 git diff origin/main..main --stat
 
 # マージ済みのPRブランチを確認
-git branch -r | grep -E "(pr|PR|pull|merge|claude|feature)" | grep -v "HEAD" | while read branch; do
+# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
+git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | while read branch; do
     if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
         echo "$branch: Already merged to origin/main"
     else
