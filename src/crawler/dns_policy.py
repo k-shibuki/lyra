@@ -19,6 +19,7 @@ Key Design:
 import asyncio
 import socket
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -91,7 +92,8 @@ class DNSMetrics:
     leaks_detected: int = 0
     resolution_errors: int = 0
     avg_resolution_time_ms: float = 0.0
-    _resolution_times: list[float] = field(default_factory=list)
+    # Use deque with maxlen for O(1) sliding window operations
+    _resolution_times: deque[float] = field(default_factory=lambda: deque(maxlen=100))
 
     def record_resolution(
         self,
@@ -120,10 +122,8 @@ class DNSMetrics:
         if error:
             self.resolution_errors += 1
 
-        # Update average resolution time (keep last 100)
+        # Append to deque - automatically discards oldest when maxlen reached (O(1))
         self._resolution_times.append(time_ms)
-        if len(self._resolution_times) > 100:
-            self._resolution_times.pop(0)
         self.avg_resolution_time_ms = sum(self._resolution_times) / len(self._resolution_times)
 
     def to_dict(self) -> dict[str, Any]:

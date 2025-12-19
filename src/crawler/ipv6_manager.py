@@ -16,6 +16,7 @@ Key Design:
 import asyncio
 import socket
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -265,7 +266,8 @@ class IPv6Metrics:
     total_ipv4_successes: int = 0
     total_switches: int = 0
     total_switch_successes: int = 0
-    _latencies: list[float] = field(default_factory=list)
+    # Use deque with maxlen for O(1) sliding window operations
+    _latencies: deque[float] = field(default_factory=lambda: deque(maxlen=100))
 
     def record_attempt(
         self,
@@ -276,7 +278,7 @@ class IPv6Metrics:
         latency_ms: float = 0.0,
     ) -> None:
         """Record a connection attempt.
-        
+
         Args:
             family: Address family used.
             success: Whether connection succeeded.
@@ -298,10 +300,8 @@ class IPv6Metrics:
             if switch_success:
                 self.total_switch_successes += 1
 
-        # Track latencies (keep last 100)
+        # Append to deque - automatically discards oldest when maxlen reached (O(1))
         self._latencies.append(latency_ms)
-        if len(self._latencies) > 100:
-            self._latencies.pop(0)
 
     @property
     def ipv6_success_rate(self) -> float:
