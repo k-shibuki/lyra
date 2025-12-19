@@ -178,17 +178,17 @@ class PromptManager:
 
             return rendered
 
-        except TemplateNotFound:
+        except TemplateNotFound as err:
             raise TemplateNotFoundError(
                 f"Template not found: {template_name}.j2 (searched in {self._prompts_dir})"
-            )
+            ) from err
         except TemplateNotFoundError:
             # Re-raise our own TemplateNotFoundError (from _get_environment)
             raise
         except UndefinedError as e:
-            raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}")
+            raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}") from e
         except Exception as e:
-            raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}")
+            raise TemplateRenderError(f"Template '{template_name}' rendering failed: {e}") from e
 
     def clear_cache(self) -> None:
         """Clear the template cache."""

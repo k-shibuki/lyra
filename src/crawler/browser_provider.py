@@ -508,6 +508,7 @@ class BaseBrowserProvider(ABC):
         """Get cookies (default: empty list)."""
         return []
 
+    @abstractmethod
     async def set_cookies(self, cookies: list[Cookie]) -> None:
         """Set cookies (default: no-op)."""
         pass
