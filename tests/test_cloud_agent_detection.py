@@ -157,3 +157,105 @@ class TestEnvironmentInfoDataclass:
         assert env.is_wsl is False
         assert env.is_container is True
         assert env.has_display is False
+
+
+class TestDependencyChecking:
+    """Test dependency checking functionality."""
+    
+    def test_check_core_dependencies_returns_tuple(self):
+        """Test _check_core_dependencies returns expected format."""
+        # Given: The function exists in conftest
+        from tests.conftest import _check_core_dependencies
+        
+        # When: We call it
+        result = _check_core_dependencies()
+        
+        # Then: Returns (bool, list)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert isinstance(result[0], bool)
+        assert isinstance(result[1], list)
+    
+    def test_deps_available_is_boolean(self):
+        """Test _deps_available module-level variable is boolean."""
+        # Given/When: Import the variable
+        from tests.conftest import _deps_available
+        
+        # Then: It's a boolean
+        assert isinstance(_deps_available, bool)
+    
+    def test_missing_deps_is_list(self):
+        """Test _missing_deps module-level variable is a list."""
+        # Given/When: Import the variable
+        from tests.conftest import _missing_deps
+        
+        # Then: It's a list
+        assert isinstance(_missing_deps, list)
+    
+    def test_pytest_ignore_collect_exists(self):
+        """Test pytest_ignore_collect hook is defined."""
+        # Given/When: Import the hook
+        from tests.conftest import pytest_ignore_collect
+        
+        # Then: It's callable
+        assert callable(pytest_ignore_collect)
+    
+    def test_minimal_safe_files_include_this_file(self):
+        """Test that test_cloud_agent_detection.py is in minimal safe files."""
+        # Given: We're testing the minimal safe files logic
+        # When: We mock missing dependencies and check this file
+        from unittest.mock import patch, MagicMock
+        import tests.conftest as conftest_module
+        
+        # Create a mock path object
+        mock_path = MagicMock()
+        mock_path.name = "test_cloud_agent_detection.py"
+        
+        # Temporarily set deps as unavailable to test the logic
+        original_deps_available = conftest_module._deps_available
+        try:
+            conftest_module._deps_available = False
+            
+            # Then: This file should NOT be skipped (returns None)
+            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            assert result is None
+        finally:
+            conftest_module._deps_available = original_deps_available
+    
+    def test_other_test_files_skipped_when_deps_missing(self):
+        """Test that other test files are skipped when dependencies are missing."""
+        # Given: Missing dependencies
+        from unittest.mock import MagicMock
+        import tests.conftest as conftest_module
+        
+        mock_path = MagicMock()
+        mock_path.name = "test_some_other_file.py"
+        
+        original_deps_available = conftest_module._deps_available
+        try:
+            conftest_module._deps_available = False
+            
+            # When/Then: Other test files should be skipped
+            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            assert result is True
+        finally:
+            conftest_module._deps_available = original_deps_available
+    
+    def test_files_not_skipped_when_deps_available(self):
+        """Test that no files are skipped when all dependencies are available."""
+        # Given: All dependencies available
+        from unittest.mock import MagicMock
+        import tests.conftest as conftest_module
+        
+        mock_path = MagicMock()
+        mock_path.name = "test_any_file.py"
+        
+        original_deps_available = conftest_module._deps_available
+        try:
+            conftest_module._deps_available = True
+            
+            # When/Then: No files should be skipped
+            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            assert result is None
+        finally:
+            conftest_module._deps_available = original_deps_available
