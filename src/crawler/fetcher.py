@@ -39,6 +39,9 @@ from src.crawler.http3_policy import (
     detect_protocol_from_playwright_response,
     get_http3_policy_manager,
 )
+from src.crawler.human_behavior import (
+    get_human_behavior_simulator,
+)
 from src.crawler.ipv6_manager import (
     AddressFamily,
     IPv6ConnectionResult,
@@ -66,9 +69,6 @@ from src.utils.notification import (
     InterventionStatus,
     InterventionType,
     get_intervention_manager,
-)
-from src.crawler.human_behavior import (
-    get_human_behavior_simulator,
 )
 
 logger = get_logger(__name__)
