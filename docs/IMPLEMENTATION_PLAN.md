@@ -24,6 +24,7 @@
 | M | MCPリファクタリング | ✅ | ✅ | 完了 | §6 |
 | N | E2Eケーススタディ | - | ⏳ | 進行中（N.2-5完了） | §6 |
 | **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.8）** | §6 |
+| **P** | **トラストレベル・エビデンスグラフ設計変更** | - | - | ⏳ | §6 |
 
 **現在のテスト数**: 3022件（全パス、K.2でPromptManagerテスト45件に更新）
 
@@ -50,6 +51,7 @@
 | | M | MCPツールリファクタリング | ✅ | §6 |
 | | N | E2Eケーススタディ | ⏳ | §6 |
 | | **O** | **ハイブリッド構成リファクタ** | ✅ | §6 |
+| | **P** | **トラストレベル・エビデンスグラフ設計変更** | ⏳ | §6 |
 
 ### 3.2 優先度
 
@@ -816,7 +818,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 #### J.2 学術API統合 ✅完了
 
 **状態**: ✅ 実装完了  
-**詳細ドキュメント**: `docs/J2_ACADEMIC_API_INTEGRATION.md`  
+**詳細ドキュメント**: `docs/archive/J2_ACADEMIC_API_INTEGRATION.md`
 **完了日**: 2025-12-18
 
 **対象（§3.1.3、§5.1.1）**:
@@ -2023,7 +2025,7 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 
 ##### 外部ドキュメント
 
-- **詳細ドキュメント**: `docs/O6_ADDITIONAL_ISSUES.md`
+- **詳細ドキュメント**: `docs/archive/O6_ADDITIONAL_ISSUES.md`
 
 ##### シーケンス図
 
@@ -2080,7 +2082,7 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 
 ##### 外部ドキュメント
 
-- **詳細ドキュメント**: `docs/O7_MCP_TOOL_CONFORMANCE.md`
+- **詳細ドキュメント**: `docs/archive/O7_MCP_TOOL_CONFORMANCE.md`
 
 ##### シーケンス図
 
@@ -2245,8 +2247,8 @@ python scripts/migrate.py create NAME  # 新規作成
 
 ##### 関連ドキュメント
 
-- O.6詳細: `docs/O6_ADDITIONAL_ISSUES.md`
-- O.7詳細: `docs/O7_MCP_TOOL_CONFORMANCE.md`
+- O.6詳細: `docs/archive/O6_ADDITIONAL_ISSUES.md`
+- O.7詳細: `docs/archive/O7_MCP_TOOL_CONFORMANCE.md`
 - MCP設定: `.cursor/mcp.json`
 - 起動スクリプト: `scripts/dev.sh`
 
@@ -2297,6 +2299,38 @@ python scripts/migrate.py create NAME  # 新規作成
 - `tests/test_engine_config.py`: テスト修正（パーサー未対応エンジンが除外されることを確認）
 
 テスト結果: 49件のテストがパス
+
+---
+
+### Phase P: トラストレベル・エビデンスグラフ設計変更 ⏳
+
+**目的**: トラストレベルとエビデンスグラフの設計を改善し、科学的論争と誤情報を適切に区別し、高推論AIへの情報提供を充実させる。
+
+**詳細ドキュメント**: `docs/TRUST_LEVEL.md`
+
+**主な変更内容**:
+
+1. **エッジへの信頼レベル情報追加**
+   - `edges`テーブルに`source_trust_level`, `target_trust_level`カラム追加
+   - REFUTESエッジに信頼レベル情報を付与し、高推論AIが「科学的論争か誤情報か」を判断可能にする
+
+2. **ベイズ信頼度モデルの導入**
+   - 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算
+   - confidence, uncertainty, controversy の3値を出力
+   - ドメイン分類に依存しない純粋エビデンス主義
+
+3. **引用追跡の完全実装**
+   - OpenAlex `get_references()` / `get_citations()` 実装
+   - 引用先論文のpagesテーブル自動追加
+   - 関連性フィルタリング（B+C hybrid）実装
+
+4. **矛盾検出ロジックの改善**
+   - 即時BLOCKEDを緩和
+   - エッジ情報に基づく判断基準の導入
+
+**実装ロードマップ**: `docs/TRUST_LEVEL.md` §実装ロードマップ参照
+
+**状態**: ⏳ 設計完了、実装待ち
 
 ---
 
