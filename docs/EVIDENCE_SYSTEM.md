@@ -20,10 +20,10 @@
 
 | 用語 | 英語 | 定義 |
 |------|------|------|
-| **信頼度** | Confidence | 主張が正しい確率の期待値。ベイズ更新により計算。ドメイン分類に依存しない |
+| **信頼度** | Confidence | 主張が正しい確率の期待値。ベイズ更新により計算。ドメインカテゴリに依存しない |
 | **不確実性** | Uncertainty | 信頼度の不確実さ。エビデンス量が少ないと高い |
 | **論争度** | Controversy | 支持と反論が拮抗している度合い |
-| **ドメイン分類** | Trust Level | ソースドメインの事前分類（PRIMARY〜BLOCKED）。ランキングのみに使用 |
+| **ドメインカテゴリ** | Domain Category | ソースドメインの事前分類（PRIMARY〜BLOCKED）。ランキング調整のみに使用。信頼度計算には使用しない |
 
 ### エビデンスグラフ関連
 
@@ -47,11 +47,12 @@
 
 ```
 信頼度 = f(エビデンス量, エビデンス質)
-       ≠ f(ドメイン分類)
+       ≠ f(ドメインカテゴリ)
 
-ドメイン分類 = ランキング調整のみに使用
-             = 高推論AIへの参考情報（エッジに付与）
-             ≠ 信頼度計算への入力
+ドメインカテゴリ = ランキング調整のみに使用（category_weight）
+                 = 高推論AIへの参考情報（エッジに付与）
+                 ≠ 信頼度計算への入力
+                 ≠ 検証判定への入力
 ```
 
 **根拠**: ドメインが何であれ誤った情報は存在する（再現性危機、論文撤回、ハゲタカジャーナル）。信頼度はエビデンスの量と質のみで決定すべき。
@@ -60,9 +61,9 @@
 
 ## 現状の設計
 
-### Trust Level 定義
+### Domain Category 定義
 
-ソースのドメインに対して以下の信頼レベルを割り当てる（`src/utils/domain_policy.py`）:
+ソースのドメインに対して以下のドメインカテゴリを割り当てる（`src/utils/domain_policy.py`）:
 
 | レベル | 説明 | 重み係数 |
 |--------|------|:--------:|
@@ -74,7 +75,7 @@
 | `UNVERIFIED` | 未知のドメイン（デフォルト） | 0.30 |
 | `BLOCKED` | 除外（矛盾検出/危険パターン） | 0.0 |
 
-**注**: この重み係数は**ランキング時のスコア調整**に使用される（`ranking.py`）。主張の信頼度（confidence）計算には使用しない。信頼度はベイズ更新により計算する（§提案6、§決定7参照）。
+**注**: この重み係数（`category_weight`）は**ランキング時のスコア調整**に使用される（`ranking.py`）。主張の信頼度（confidence）計算には使用しない。信頼度はベイズ更新により計算する（§提案6、§決定7参照）。また、検証判定（VERIFIED/REJECTED）にも使用しない（§決定10参照）。
 
 ### 割り当てフロー
 
@@ -1393,12 +1394,13 @@ def test_not_adopted_claim_preserved():
     """棄却された主張がadoption_status='not_adopted'で保持されることを検証"""
 ```
 
-### Phase 2: エッジへの信頼レベル情報追加（中リスク・高価値）【優先】
+### Phase 2: エッジへのドメインカテゴリ情報追加（中リスク・高価値）【優先】
 
 **目的**: 対立関係の解釈に必要な情報を高推論AIに提供する
 
-> **重要**: 信頼レベル情報は**高推論AI向けの参考情報**であり、**ベイズ信頼度計算（Phase 4）には使用しない**。
+> **重要**: ドメインカテゴリ情報は**高推論AI向けの参考情報**であり、**ベイズ信頼度計算（Phase 4）には使用しない**。
 > ベイズモデルは NLI confidence のみを使用する（§決定3、§決定7参照）。
+> また、**検証判定（VERIFIED/REJECTED）にも使用しない**（§決定10参照）。
 
 **この Phase を先に実装する根拠**:
 Phase 3（引用追跡）で追加される論文間の対立関係を、高推論AIが適切に解釈できるようにする。現行の`refuting_count > 0`で即BLOCKEDとなる問題も、エッジ情報に基づく判断基準の緩和で解決する。
@@ -1409,8 +1411,8 @@ Phase 3（引用追跡）で追加される論文間の対立関係を、高推�
 |---|--------|-------------|---------------|
 | 2.1 | スキーマ変更 | `migrations/003_add_trust_level_to_edges.sql` | `tests/test_migrations.py` |
 | 2.2 | `add_edge()` にパラメータ追加 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
-| 2.3 | NLI評価時に信頼レベル付与 | `src/filter/nli.py` | `tests/test_nli.py` |
-| 2.4 | 即時BLOCKEDを緩和 | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
+| 2.3 | NLI評価時にドメインカテゴリ付与 | `src/filter/nli.py` | `tests/test_nli.py` |
+| 2.4 | 判定ロジックからカテゴリ依存を除去 | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
 | 2.5 | `to_dict()` でエクスポート | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 
 #### タスク詳細
@@ -1419,6 +1421,7 @@ Phase 3（引用追跡）で追加される論文間の対立関係を、高推�
 
 ```sql
 -- migrations/003_add_trust_level_to_edges.sql
+-- 注: マイグレーション005で domain_category にリネームされる
 ALTER TABLE edges ADD COLUMN source_trust_level TEXT;
 ALTER TABLE edges ADD COLUMN target_trust_level TEXT;
 
@@ -1440,44 +1443,59 @@ def add_edge(
     confidence: float | None = None,
     nli_label: str | None = None,
     nli_confidence: float | None = None,
-    source_trust_level: str | None = None,  # 追加
-    target_trust_level: str | None = None,  # 追加
+    source_domain_category: str | None = None,  # 追加（ランキング調整用）
+    target_domain_category: str | None = None,  # 追加（ランキング調整用）
     **attributes: Any,
 ) -> str:
 ```
 
-**2.3 NLI評価時に信頼レベル付与**
+**2.3 NLI評価時にドメインカテゴリ付与**
 
 ```python
 # src/filter/nli.py: nli_judge() の呼び出し元で
-from src.utils.domain_policy import get_domain_trust_level
+from src.utils.domain_policy import get_domain_category
 
-source_trust = get_domain_trust_level(source_domain)
-target_trust = get_domain_trust_level(target_domain)
+source_category = get_domain_category(source_domain)
+target_category = get_domain_category(target_domain)
 
 graph.add_edge(
     ...
-    source_trust_level=source_trust.value,
-    target_trust_level=target_trust.value,
+    source_domain_category=source_category.value,
+    target_domain_category=target_category.value,
 )
 ```
 
-**2.4 即時BLOCKEDを緩和**
+**2.4 判定ロジックからカテゴリ依存を除去**
 
 ```python
 # src/filter/source_verification.py: _determine_verification_outcome()
 
-# 変更前: refuting_count > 0 で即BLOCKED
-# 変更後: 信頼レベルを考慮した判定
+# 変更前: DomainCategory で判定分岐（設計原則違反）
+# 変更後: エビデンスのみで判定
+
+class ReasonCode(str, Enum):
+    """事実ベースの理由コード（カテゴリ判定を含まない）"""
+    CONFLICTING_EVIDENCE = "conflicting_evidence"
+    WELL_SUPPORTED = "well_supported"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    DANGEROUS_PATTERN = "dangerous_pattern"
+    ALREADY_BLOCKED = "already_blocked"
 
 def _determine_verification_outcome(...) -> tuple[...]:
-    # Case 1: ACADEMIC vs ACADEMIC の対立 → 両方保持、論争として記録
-    if source_trust_level in (TrustLevel.PRIMARY, TrustLevel.ACADEMIC, TrustLevel.GOVERNMENT):
-        if target_trust_level in (TrustLevel.PRIMARY, TrustLevel.ACADEMIC, TrustLevel.GOVERNMENT):
-            return (VerificationStatus.PENDING, original_trust_level, PromotionResult.UNCHANGED, "Scientific controversy")
-
-    # Case 2: 高信頼 vs 低信頼 の対立 → 低信頼側を REJECTED（BLOCKEDではない）
-    # Case 3: 低信頼 vs 低信頼 の対立 → 両方 REJECTED
+    """エビデンスのみで判定。DomainCategory は使用しない。"""
+    
+    if has_dangerous_pattern:
+        return (REJECTED, BLOCKED, DEMOTED, ReasonCode.DANGEROUS_PATTERN)
+    
+    if independent_sources < MIN_THRESHOLD:
+        return (PENDING, original, UNCHANGED, ReasonCode.INSUFFICIENT_EVIDENCE)
+    
+    if independent_sources >= MIN_THRESHOLD and refuting_count == 0:
+        return (VERIFIED, ..., ReasonCode.WELL_SUPPORTED)
+    
+    # 対立あり → PENDING（自動 BLOCKED しない）
+    if refuting_count > 0:
+        return (PENDING, original, UNCHANGED, ReasonCode.CONFLICTING_EVIDENCE)
 ```
 
 **2.5 `to_dict()` でエクスポート**
@@ -1489,8 +1507,8 @@ def to_dict(self) -> dict[str, Any]:
     for u, v, data in self._graph.edges(data=True):
         edges.append({
             ...
-            "source_trust_level": data.get("source_trust_level"),
-            "target_trust_level": data.get("target_trust_level"),
+            "source_domain_category": data.get("source_domain_category"),
+            "target_domain_category": data.get("target_domain_category"),
         })
 ```
 
@@ -1498,21 +1516,21 @@ def to_dict(self) -> dict[str, Any]:
 
 ```python
 # tests/test_evidence_graph.py
-def test_edge_contains_trust_levels():
-    """REFUTESエッジにsource/target信頼レベルが含まれることを検証"""
+def test_edge_contains_domain_categories():
+    """REFUTESエッジにsource/targetドメインカテゴリが含まれることを検証"""
 
-def test_evidence_graph_export_includes_trust():
-    """to_dict()出力に信頼レベル情報が含まれることを検証"""
+def test_evidence_graph_export_includes_category():
+    """to_dict()出力にドメインカテゴリ情報が含まれることを検証"""
 
 # tests/test_source_verification.py
-def test_academic_refutes_academic_not_blocked():
-    """ACADEMIC vs ACADEMIC 対立で両方が保持されることを検証"""
+def test_verification_ignores_domain_category():
+    """検証判定がDomainCategoryに依存しないことを検証"""
 
-def test_academic_refutes_unverified_rejected_not_blocked():
-    """ACADEMIC→UNVERIFIED反論でREJECTED（BLOCKEDではない）を検証"""
+def test_conflicting_evidence_returns_pending():
+    """対立検出時はPENDINGを返し、自動BLOCKEDしないことを検証"""
 
-def test_scientific_controversy_marked():
-    """科学的論争がPENDINGとして記録されることを検証"""
+def test_reason_code_is_factual():
+    """ReasonCodeが事実ベース（解釈を含まない）であることを検証"""
 ```
 
 ### Phase 3: 引用追跡の完全実装（中リスク・高価値）
@@ -1687,7 +1705,7 @@ async def _evaluate_relevance_with_llm(
 ```jinja2
 {# config/prompts/relevance_evaluation.j2 #}
 以下の研究クエリと2つの論文アブストラクトを読んで、
-引用先論文がクエリと元論文にどの程度関連するかを0-10で評価してください。
+引用先論文がクエリと元論文にどの程度**主題的に関連**するかを0-10で評価してください。
 
 **クエリ**: {{ query }}
 
@@ -1698,13 +1716,16 @@ async def _evaluate_relevance_with_llm(
 {{ target_abstract }}
 
 **評価基準**:
-- 10: クエリに直接答える、または元論文の主張を強く支持/反論
-- 7-9: 密接に関連、重要な背景情報を提供
-- 4-6: 部分的に関連
-- 1-3: わずかに関連
+- 10: 同一の研究課題を扱っている
+- 7-9: 同一分野で密接に関連する課題を扱っている
+- 4-6: 関連する分野または手法を共有している
+- 1-3: 間接的な関連のみ
 - 0: 無関係
 
-回答は数字のみ:
+**注意**: 
+- 支持/反論の判断は行わないでください。主題的な近さのみを評価してください。
+- 回答は半角数字のみとしてください。
+
 ```
 
 #### テストケース
@@ -2086,9 +2107,9 @@ class VerificationStatus(str, Enum):
 
 2. **Thinking-Working分離原則との矛盾**: 「これは矛盾である」というフラグを立てる行為は解釈行為であり、決定2の設計思想に反する。Lyraは事実を記録し、解釈は高推論AIに委ねるべき。
 
-3. **「矛盾」の定義が曖昧**: `find_contradictions()` は信頼レベルを考慮せず、REFUTESエッジがあれば一律に「矛盾」とマークする。ACADEMIC vs ACADEMIC の科学的論争と、ACADEMIC vs UNVERIFIED の誤情報を区別できない。
+3. **「矛盾」の定義が曖昧**: `find_contradictions()` はドメインカテゴリを考慮せず、REFUTESエッジがあれば一律に「矛盾」とマークする。ACADEMIC vs ACADEMIC の科学的論争と、ACADEMIC vs UNVERIFIED の誤情報を区別できない。
 
-4. **Phase 2 で代替可能**: `source_trust_level` / `target_trust_level` をエッジに付与することで、高推論AIは適切に判断可能。
+4. **Phase 2 で代替可能**: `source_domain_category` / `target_domain_category` をエッジに付与することで、高推論AIは適切に判断可能。
 
 **削除対象**:
 - `edges.is_contradiction` カラム
@@ -2096,14 +2117,32 @@ class VerificationStatus(str, Enum):
 - `EvidenceGraph.get_contradiction_edges()` メソッド
 - 関連テストケース（`TestContradictionMarking` クラス）
 
-**代替手段**: Phase 2 で導入する `source_trust_level` / `target_trust_level` により、高推論AIは以下のように判断可能：
+**代替手段**: Phase 2 で導入する `source_domain_category` / `target_domain_category` により、高推論AIは以下のように判断可能：
 - 両方ACADEMIC → 科学的論争
 - ACADEMIC vs UNVERIFIED → 誤情報の可能性
 - 同一ソース内の自己矛盾 → 論理的矛盾
 
-### 決定3: 信頼度が主、ドメイン分類は従
+### 決定10: ReasonCode は事実のみ記述
 
-**決定**: **信頼度（confidence）がエビデンス評価の主軸**。ドメイン分類（TrustLevel）は副次的な参考情報に過ぎない。
+**決定**: `_determine_verification_outcome()` の reason は解釈を含まない `ReasonCode` enum とする。
+
+| コード | 意味（事実） | Lyra が判断しないこと |
+|--------|-------------|---------------------|
+| `conflicting_evidence` | 対立エビデンスが存在 | 「科学的論争である」「誤情報である」 |
+| `well_supported` | 複数の独立ソースで裏付け | 「正しい」 |
+| `insufficient_evidence` | エビデンス不足 | 「信頼できない」 |
+| `dangerous_pattern` | L2/L4 で危険パターン検出 | -（セキュリティ判断） |
+
+**根拠**:
+- 決定2: Lyra は事実を記録し、解釈は高推論 AI に委ねる
+- 決定9: `is_contradiction` フラグ廃止と同じ理由
+- ドメインカテゴリは判定に使用しない（決定3）
+
+高推論 AI はエッジの `source_domain_category` / `target_domain_category` を参照し、文脈に応じて「科学的論争」「誤情報」等の解釈を行う。Lyra は `ReasonCode` で事実のみを記述する。
+
+### 決定3: 信頼度が主、ドメインカテゴリは従
+
+**決定**: **信頼度（confidence）がエビデンス評価の主軸**。ドメインカテゴリ（DomainCategory）は副次的な参考情報に過ぎない。
 
 **根拠**: 査読済み論文 ≠ 正しい情報
 
@@ -2127,7 +2166,9 @@ controversy = ...                     # 論争度
 **設計への反映**:
 - Nature論文でも単独 → 高uncertainty（信頼度は確定しない）
 - 無名ブログでも5つの独立エビデンスで裏付け → 低uncertainty
-- TrustLevelは「出自のヒント」であり、信頼性の保証ではない
+- DomainCategoryは「出自のヒント」であり、信頼性の保証ではない
+- DomainCategoryはランキング調整（category_weight）にのみ使用
+- DomainCategoryは検証判定（VERIFIED/REJECTED）には使用しない（決定10）
 
 ### 決定4: Wikipedia
 
@@ -2209,6 +2250,16 @@ controversy = ...                     # 論争度
 - NLIは3クラス分類モデルであり、「関連性」という連続的な概念を判定するには不適切
 - LLMはプロンプトで評価基準を柔軟に指定でき、関連性の「程度」を評価可能
 - Qwen2.5 3Bは§K.1に準拠した単一モデルであり、追加の依存関係は不要
+
+**関連性評価 vs 含意関係判定の責務分離**:
+
+| 処理 | 責務 | 判定内容 | 使用モデル | Phase |
+|------|------|----------|------------|:-----:|
+| 引用フィルタリング | 関連性評価 | 主題的な近さ | LLM | 3 |
+| エビデンスグラフ構築 | 含意関係判定 | SUPPORTS/REFUTES | NLI | 4 |
+
+関連性評価のプロンプトには「支持/反論」の判断を含めない。
+これらは責務が異なり、混同は設計の一貫性を損なう。
 
 ---
 

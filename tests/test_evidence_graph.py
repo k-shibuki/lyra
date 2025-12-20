@@ -1316,15 +1316,15 @@ class TestClaimAdoptionStatus:
         assert claim_nodes[0]["adoption_status"] == "not_adopted"
 
 
-class TestPhaseP2TrustLevelOnEdges:
-    """Tests for Phase P.2: Trust level information on edges.
+class TestPhaseP2DomainCategoryOnEdges:
+    """Tests for Phase P.2: Domain category information on edges.
 
-    Phase P.2 adds source_trust_level and target_trust_level to edges,
-    enabling high-inference AI to evaluate conflicting evidence based
-    on the credibility of sources.
+    Phase P.2 adds source_domain_category and target_domain_category to edges,
+    for ranking adjustment and high-inference AI reference.
+    DomainCategory is NOT used for confidence calculation or verification decisions.
     """
 
-    def test_add_edge_with_trust_levels(self):
+    def test_add_edge_with_domain_categories(self):
         """
         TC-P2-EDGE-N-01: Add edge with source and target trust levels.
 
@@ -1343,16 +1343,16 @@ class TestPhaseP2TrustLevelOnEdges:
             confidence=0.85,
             nli_label="contradiction",
             nli_confidence=0.9,
-            source_trust_level="academic",
-            target_trust_level="unverified",
+            source_domain_category="academic",
+            target_domain_category="unverified",
         )
 
         assert edge_id is not None
         edge_data = graph._graph.edges["fragment:frag-academic", "claim:claim-1"]
-        assert edge_data["source_trust_level"] == "academic"
-        assert edge_data["target_trust_level"] == "unverified"
+        assert edge_data["source_domain_category"] == "academic"
+        assert edge_data["target_domain_category"] == "unverified"
 
-    def test_add_edge_trust_levels_default_none(self):
+    def test_add_edge_domain_categories_default_none(self):
         """
         TC-P2-EDGE-N-02: Trust levels default to None when not provided.
 
@@ -1372,10 +1372,10 @@ class TestPhaseP2TrustLevelOnEdges:
         )
 
         edge_data = graph._graph.edges["fragment:frag-1", "claim:claim-1"]
-        assert edge_data.get("source_trust_level") is None
-        assert edge_data.get("target_trust_level") is None
+        assert edge_data.get("source_domain_category") is None
+        assert edge_data.get("target_domain_category") is None
 
-    def test_to_dict_includes_trust_levels(self):
+    def test_to_dict_includes_domain_categories(self):
         """
         TC-P2-EDGE-N-03: Export includes trust levels on edges.
 
@@ -1392,18 +1392,18 @@ class TestPhaseP2TrustLevelOnEdges:
             target_id="claim-low",
             relation=RelationType.REFUTES,
             confidence=0.88,
-            source_trust_level="trusted",
-            target_trust_level="low",
+            source_domain_category="trusted",
+            target_domain_category="low",
         )
 
         data = graph.to_dict()
 
         assert len(data["edges"]) == 1
         edge = data["edges"][0]
-        assert edge["source_trust_level"] == "trusted"
-        assert edge["target_trust_level"] == "low"
+        assert edge["source_domain_category"] == "trusted"
+        assert edge["target_domain_category"] == "low"
 
-    def test_contradicting_edges_with_different_trust_levels(self):
+    def test_contradicting_edges_with_different_domain_categories(self):
         """
         TC-P2-EDGE-N-04: Contradicting claims with different trust levels.
 
@@ -1427,8 +1427,8 @@ class TestPhaseP2TrustLevelOnEdges:
             target_id="claim-unverified",
             relation=RelationType.REFUTES,
             confidence=0.95,
-            source_trust_level="academic",
-            target_trust_level="unverified",
+            source_domain_category="academic",
+            target_domain_category="unverified",
         )
 
         # Find contradictions
@@ -1438,11 +1438,11 @@ class TestPhaseP2TrustLevelOnEdges:
         # Export and verify trust levels preserved
         data = graph.to_dict()
         edge = data["edges"][0]
-        assert edge["source_trust_level"] == "academic"
-        assert edge["target_trust_level"] == "unverified"
+        assert edge["source_domain_category"] == "academic"
+        assert edge["target_domain_category"] == "unverified"
         # High-inference AI can now prioritize academic source
 
-    def test_add_claim_evidence_with_trust_levels(self):
+    def test_add_claim_evidence_with_domain_categories(self):
         """
         TC-P2-EDGE-N-05: add_claim_evidence accepts trust levels.
 
@@ -1450,7 +1450,6 @@ class TestPhaseP2TrustLevelOnEdges:
         // When: Calling add_claim_evidence with trust levels
         // Then: Trust levels stored in graph
         """
-        from unittest.mock import patch
 
         graph = EvidenceGraph(task_id="test")
 
@@ -1464,17 +1463,17 @@ class TestPhaseP2TrustLevelOnEdges:
             confidence=0.92,
             nli_label="entailment",
             nli_confidence=0.95,
-            source_trust_level="government",
-            target_trust_level="primary",
+            source_domain_category="government",
+            target_domain_category="primary",
         )
 
         assert edge_id is not None
         edge_data = graph._graph.edges["fragment:frag-gov", "claim:claim-1"]
-        assert edge_data["source_trust_level"] == "government"
-        assert edge_data["target_trust_level"] == "primary"
+        assert edge_data["source_domain_category"] == "government"
+        assert edge_data["target_domain_category"] == "primary"
 
     @pytest.mark.asyncio
-    async def test_save_to_db_with_trust_levels(self, test_database):
+    async def test_save_to_db_with_domain_categories(self, test_database):
         """
         TC-P2-EDGE-I-01: Save edges with trust levels to database.
 
@@ -1494,8 +1493,8 @@ class TestPhaseP2TrustLevelOnEdges:
             target_id="claim-1",
             relation=RelationType.REFUTES,
             confidence=0.85,
-            source_trust_level="academic",
-            target_trust_level="low",
+            source_domain_category="academic",
+            target_domain_category="low",
         )
 
         with patch.object(evidence_graph, "get_database", return_value=test_database):
@@ -1503,11 +1502,11 @@ class TestPhaseP2TrustLevelOnEdges:
 
         edges = await test_database.fetch_all("SELECT * FROM edges")
         assert len(edges) == 1
-        assert edges[0]["source_trust_level"] == "academic"
-        assert edges[0]["target_trust_level"] == "low"
+        assert edges[0]["source_domain_category"] == "academic"
+        assert edges[0]["target_domain_category"] == "low"
 
     @pytest.mark.asyncio
-    async def test_load_from_db_with_trust_levels(self, test_database):
+    async def test_load_from_db_with_domain_categories(self, test_database):
         """
         TC-P2-EDGE-I-02: Load edges with trust levels from database.
 
@@ -1539,7 +1538,7 @@ class TestPhaseP2TrustLevelOnEdges:
         await test_database.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, confidence, source_trust_level, target_trust_level)
+                             relation, confidence, source_domain_category, target_domain_category)
             VALUES ('edge-1', 'fragment', 'frag-1', 'claim', 'claim-1',
                    'supports', 0.9, 'government', 'trusted')
             """
@@ -1553,5 +1552,5 @@ class TestPhaseP2TrustLevelOnEdges:
         # Check edge was loaded with trust levels
         edge_data = graph._graph.edges.get(("fragment:frag-1", "claim:claim-1"))
         assert edge_data is not None
-        assert edge_data["source_trust_level"] == "government"
-        assert edge_data["target_trust_level"] == "trusted"
+        assert edge_data["source_domain_category"] == "government"
+        assert edge_data["target_domain_category"] == "trusted"

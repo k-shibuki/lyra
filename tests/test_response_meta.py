@@ -186,12 +186,12 @@ class TestClaimMeta:
         """
         claim_meta = ClaimMeta(
             claim_id="claim_123",
-            source_trust_level="academic",
+            source_domain_category="academic",
         )
         result = claim_meta.to_dict()
 
         assert result["claim_id"] == "claim_123"
-        assert result["source_trust_level"] == "academic"
+        assert result["source_domain_category"] == "academic"
         assert result["verification_status"] == "pending"
         assert "verification_details" not in result
         assert "source_domain" not in result
@@ -206,7 +206,7 @@ class TestClaimMeta:
         """
         claim_meta = ClaimMeta(
             claim_id="claim_456",
-            source_trust_level="government",
+            source_domain_category="government",
             verification_status=VerificationStatus.VERIFIED,
             verification_details=VerificationDetails(independent_sources=2),
             source_domain="example.go.jp",
@@ -287,13 +287,13 @@ class TestResponseMetaBuilder:
         builder.add_claim_meta(
             ClaimMeta(
                 claim_id="claim_1",
-                source_trust_level="trusted",
+                source_domain_category="trusted",
             )
         )
         builder.add_claim_meta(
             ClaimMeta(
                 claim_id="claim_2",
-                source_trust_level="unverified",
+                source_domain_category="unverified",
             )
         )
 
@@ -423,7 +423,7 @@ class TestBoundaryAndEdgeCases:
         """
         claim_meta = ClaimMeta(
             claim_id="",
-            source_trust_level="unverified",
+            source_domain_category="unverified",
         )
         result = claim_meta.to_dict()
 
@@ -495,7 +495,7 @@ class TestBoundaryAndEdgeCases:
         // Then: Returns self
         """
         builder = ResponseMetaBuilder()
-        claim = ClaimMeta(claim_id="test", source_trust_level="unverified")
+        claim = ClaimMeta(claim_id="test", source_domain_category="unverified")
 
         result = builder.add_claim_meta(claim)
 
@@ -532,7 +532,7 @@ class TestBoundaryAndEdgeCases:
         for status in VerificationStatus:
             claim = ClaimMeta(
                 claim_id="test",
-                source_trust_level="unverified",
+                source_domain_category="unverified",
                 verification_status=status,
             )
             result = claim.to_dict()

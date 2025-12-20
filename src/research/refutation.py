@@ -356,21 +356,21 @@ class RefutationExecutor:
         import uuid
         from urllib.parse import urlparse
 
-        from src.utils.domain_policy import get_domain_trust_level
+        from src.utils.domain_policy import get_domain_category
 
         await self._ensure_db()
         assert self._db is not None  # Guaranteed by _ensure_db
 
         edge_id = f"edge_{uuid.uuid4().hex[:8]}"
 
-        # Derive trust level from source URL domain (Phase P.2)
+        # Derive domain category from source URL domain (for ranking adjustment)
         source_url = refutation.get("source_url", "")
-        source_trust_level: str | None = None
+        source_domain_category: str | None = None
         if source_url:
             try:
                 parsed = urlparse(source_url)
                 domain = parsed.netloc.lower()
-                source_trust_level = get_domain_trust_level(domain).value
+                source_domain_category = get_domain_category(domain).value
             except Exception:
                 pass
 
@@ -378,7 +378,7 @@ class RefutationExecutor:
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
                              relation, confidence, nli_label, nli_confidence,
-                             source_trust_level, target_trust_level)
+                             source_domain_category, target_domain_category)
             VALUES (?, 'fragment', ?, 'claim', ?, 'refutes', ?, 'refutes', ?, ?, ?)
             """,
             (
@@ -387,8 +387,8 @@ class RefutationExecutor:
                 claim_id,
                 refutation.get("nli_confidence", 0),
                 refutation.get("nli_confidence", 0),
-                source_trust_level,
-                None,  # target_trust_level: claim origin unknown at this point
+                source_domain_category,
+                None,  # target_domain_category: claim origin unknown at this point
             ),
         )
 
@@ -396,5 +396,5 @@ class RefutationExecutor:
             "Recorded refutation edge",
             claim_id=claim_id,
             source_url=refutation.get("source_url", "")[:50],
-            source_trust_level=source_trust_level,
+            source_domain_category=source_domain_category,
         )

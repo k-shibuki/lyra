@@ -9,7 +9,7 @@ default_policy:
   tor_allowed: true
   cooldown_minutes: 60
   max_retries: 3
-  trust_level: "unverified"  # primary, government, academic, trusted, low, unverified, blocked
+  domain_category: "unverified"  # primary, government, academic, trusted, low, unverified, blocked
   # Daily budget limits (§4.3 - IP block prevention)
   max_requests_per_day: 200  # Maximum requests per domain per day (0=unlimited)
   max_pages_per_day: 100     # Maximum pages per domain per day (0=unlimited)
@@ -74,65 +74,65 @@ policy_bounds:
 allowlist:
   # Japanese Government
   - domain: "e-gov.go.jp"
-    trust_level: "government"
+    domain_category: "government"
     internal_search: true
     qps: 0.15
     
   - domain: "go.jp"
-    trust_level: "government"
+    domain_category: "government"
     internal_search: false
     qps: 0.2
     
   # Academic
   - domain: "arxiv.org"
-    trust_level: "academic"
+    domain_category: "academic"
     internal_search: true
     qps: 0.25
     
   - domain: "pubmed.ncbi.nlm.nih.gov"
-    trust_level: "academic"
+    domain_category: "academic"
     internal_search: true
     qps: 0.2
     
   - domain: "www.jstage.jst.go.jp"
-    trust_level: "academic"
+    domain_category: "academic"
     internal_search: true
     qps: 0.15
     
   - domain: "cir.nii.ac.jp"
-    trust_level: "academic"
+    domain_category: "academic"
     internal_search: true
     qps: 0.15
     
   # Knowledge bases
   - domain: "wikipedia.org"
-    trust_level: "low"  # Downgraded: anyone can edit, quality varies by article
+    domain_category: "low"  # Downgraded: anyone can edit, quality varies by article
     qps: 0.5
     headful_ratio: 0
     max_requests_per_day: 500
     max_pages_per_day: 250
     
   - domain: "wikidata.org"
-    trust_level: "trusted"
+    domain_category: "trusted"
     qps: 0.5
     headful_ratio: 0
     
   # Infrastructure / Registry
   - domain: "crt.sh"
-    trust_level: "trusted"
+    domain_category: "trusted"
     qps: 0.2
     
   - domain: "iana.org"
-    trust_level: "government"
+    domain_category: "government"
     qps: 0.2
     
   # Standards
   - domain: "iso.org"
-    trust_level: "primary"
+    domain_category: "primary"
     qps: 0.1
     
   - domain: "ietf.org"
-    trust_level: "primary"
+    domain_category: "primary"
     qps: 0.2
 
 # === Graylist (Caution required) ===
@@ -144,7 +144,7 @@ graylist:
     
   # Tech blogs (variable quality)
   - domain_pattern: "*.medium.com"
-    trust_level: "unverified"
+    domain_category: "unverified"
     qps: 0.1
     
   # Social media (skip by default)

@@ -16,13 +16,14 @@ import pytest
 from src.filter.source_verification import (
     DomainVerificationState,
     PromotionResult,
+    ReasonCode,
     SourceVerifier,
     VerificationResult,
     get_source_verifier,
     reset_source_verifier,
 )
 from src.mcp.response_meta import VerificationStatus
-from src.utils.domain_policy import TrustLevel
+from src.utils.domain_policy import DomainCategory
 
 
 @pytest.fixture
@@ -70,8 +71,8 @@ class TestSourceVerifierBasic:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_001",
@@ -80,7 +81,7 @@ class TestSourceVerifierBasic:
             )
 
         assert result.verification_status == VerificationStatus.PENDING
-        assert result.new_trust_level == TrustLevel.UNVERIFIED
+        assert result.new_domain_category == DomainCategory.UNVERIFIED
         assert result.promotion_result == PromotionResult.UNCHANGED
 
     def test_verify_claim_with_two_independent_sources_promotes(
@@ -103,8 +104,8 @@ class TestSourceVerifierBasic:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_002",
@@ -113,19 +114,20 @@ class TestSourceVerifierBasic:
             )
 
         assert result.verification_status == VerificationStatus.VERIFIED
-        assert result.new_trust_level == TrustLevel.LOW
+        assert result.new_domain_category == DomainCategory.LOW
         assert result.promotion_result == PromotionResult.PROMOTED
 
-    def test_verify_claim_with_contradictions_gets_rejected(self, verifier, mock_evidence_graph):
+    def test_verify_claim_with_contradictions_stays_pending(self, verifier, mock_evidence_graph):
         """
-        TC-N-02: Claim with contradictions gets REJECTED.
+        TC-N-02: Claim with contradictions stays PENDING.
 
         // Given: Claim with contradiction detected
         // When: Verifying claim
-        // Then: REJECTED status, demoted to LOW (Phase P.2: not BLOCKED)
+        // Then: PENDING status, DomainCategory unchanged (for AI evaluation)
 
-        Phase P.2 Update: Contradictions no longer immediately block.
-        UNVERIFIED domains are demoted to LOW for AI evaluation.
+        Phase P.2 Update: Contradictions do NOT change DomainCategory.
+        DomainCategory is only for ranking, not for verification decisions.
+        High-inference AI interprets conflicting evidence.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.3,
@@ -144,8 +146,8 @@ class TestSourceVerifierBasic:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_003",
@@ -153,10 +155,12 @@ class TestSourceVerifierBasic:
                 evidence_graph=mock_evidence_graph,
             )
 
-        assert result.verification_status == VerificationStatus.REJECTED
-        # Phase P.2: UNVERIFIED → LOW (not BLOCKED) for AI evaluation
-        assert result.new_trust_level == TrustLevel.LOW
-        assert result.promotion_result == PromotionResult.DEMOTED
+        # Phase P.2: Contradictions → PENDING (not REJECTED)
+        assert result.verification_status == VerificationStatus.PENDING
+        # DomainCategory unchanged (not demoted)
+        assert result.new_domain_category == DomainCategory.UNVERIFIED
+        assert result.promotion_result == PromotionResult.UNCHANGED
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
 
 class TestSourceVerifierEdgeCases:
@@ -171,8 +175,8 @@ class TestSourceVerifierEdgeCases:
         // Then: REJECTED immediately without graph query
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.BLOCKED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.BLOCKED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_blocked",
@@ -181,8 +185,8 @@ class TestSourceVerifierEdgeCases:
             )
 
         assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.BLOCKED
-        assert "blocked" in result.reason.lower()
+        assert result.new_domain_category == DomainCategory.BLOCKED
+        assert result.reason == ReasonCode.ALREADY_BLOCKED
 
     def test_dangerous_pattern_causes_immediate_block(self, verifier, mock_evidence_graph):
         """
@@ -193,8 +197,8 @@ class TestSourceVerifierEdgeCases:
         // Then: REJECTED, domain BLOCKED
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_dangerous",
@@ -204,7 +208,7 @@ class TestSourceVerifierEdgeCases:
             )
 
         assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.BLOCKED
+        assert result.new_domain_category == DomainCategory.BLOCKED
         assert result.promotion_result == PromotionResult.DEMOTED
         assert verifier.is_domain_blocked("dangerous-site.com")
 
@@ -226,8 +230,8 @@ class TestSourceVerifierEdgeCases:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_one_source",
@@ -256,8 +260,8 @@ class TestSourceVerifierEdgeCases:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_two_sources",
@@ -266,7 +270,7 @@ class TestSourceVerifierEdgeCases:
             )
 
         assert result.verification_status == VerificationStatus.VERIFIED
-        assert result.new_trust_level == TrustLevel.LOW
+        assert result.new_domain_category == DomainCategory.LOW
         assert result.promotion_result == PromotionResult.PROMOTED
 
     def test_zero_independent_sources_stays_pending(self, verifier, mock_evidence_graph):
@@ -287,8 +291,8 @@ class TestSourceVerifierEdgeCases:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_no_evidence",
@@ -312,8 +316,8 @@ class TestDomainStateTracking:
         // Then: Domain state created and tracked
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             verifier.verify_claim(
                 claim_id="first_claim",
@@ -344,8 +348,8 @@ class TestDomainStateTracking:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             verifier.verify_claim(
                 claim_id="verified_claim",
@@ -360,42 +364,45 @@ class TestDomainStateTracking:
         """
         TC-A-03: High rejection rate causes domain block.
 
-        // Given: Domain with many rejected claims
+        // Given: Domain with many rejected claims (via dangerous pattern)
         // When: Rejection rate exceeds threshold
         // Then: Domain gets blocked
+
+        Note: has_dangerous_pattern=True triggers REJECTED status.
+        Normal contradictions return PENDING (Phase P.2).
         """
-        mock_evidence_graph.find_contradictions.return_value = [
-            {"claim1_id": "rejected_claim", "claim2_id": "other"}
-        ]
+        mock_evidence_graph.find_contradictions.return_value = []
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.2,
             "supporting_count": 0,
-            "refuting_count": 1,
+            "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "likely_false",
+            "verdict": "unknown",
             "independent_sources": 0,
         }
 
         # Pre-populate domain state with many rejections
         verifier._domain_states["high-reject.com"] = DomainVerificationState(
             domain="high-reject.com",
-            trust_level=TrustLevel.UNVERIFIED,
+            domain_category=DomainCategory.UNVERIFIED,
             rejected_claims=["r1", "r2", "r3"],  # Already 3 rejections
             verified_claims=[],
         )
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
+            # Use has_dangerous_pattern to trigger REJECTED status
             result = verifier.verify_claim(
                 claim_id="rejected_claim",
                 domain="high-reject.com",
                 evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
             )
 
-        # Should be blocked due to high rejection rate (4/4 = 100% > 30%)
-        assert result.new_trust_level == TrustLevel.BLOCKED
+        # Should be blocked due to dangerous pattern
+        assert result.new_domain_category == DomainCategory.BLOCKED
         assert verifier.is_domain_blocked("high-reject.com")
 
 
@@ -412,7 +419,7 @@ class TestDomainVerificationState:
         """
         state = DomainVerificationState(
             domain="test.com",
-            trust_level=TrustLevel.UNVERIFIED,
+            domain_category=DomainCategory.UNVERIFIED,
             verified_claims=["v1", "v2"],
             rejected_claims=["r1"],
             pending_claims=["p1", "p2", "p3"],
@@ -430,7 +437,7 @@ class TestDomainVerificationState:
         """
         state = DomainVerificationState(
             domain="test.com",
-            trust_level=TrustLevel.UNVERIFIED,
+            domain_category=DomainCategory.UNVERIFIED,
             verified_claims=["v1", "v2"],
             rejected_claims=["r1"],
             pending_claims=["p1"],
@@ -448,7 +455,7 @@ class TestDomainVerificationState:
         """
         state = DomainVerificationState(
             domain="empty.com",
-            trust_level=TrustLevel.UNVERIFIED,
+            domain_category=DomainCategory.UNVERIFIED,
         )
 
         assert state.verification_rate == 0.0
@@ -463,7 +470,7 @@ class TestDomainVerificationState:
         """
         state = DomainVerificationState(
             domain="test.com",
-            trust_level=TrustLevel.UNVERIFIED,
+            domain_category=DomainCategory.UNVERIFIED,
             verified_claims=["v1"],
             rejected_claims=["r1", "r2"],
             pending_claims=["p1"],
@@ -488,20 +495,20 @@ class TestVerificationResult:
         result = VerificationResult(
             claim_id="claim_test",
             domain="test.com",
-            original_trust_level=TrustLevel.UNVERIFIED,
-            new_trust_level=TrustLevel.LOW,
+            original_domain_category=DomainCategory.UNVERIFIED,
+            new_domain_category=DomainCategory.LOW,
             verification_status=VerificationStatus.VERIFIED,
             promotion_result=PromotionResult.PROMOTED,
             details=VerificationDetails(independent_sources=3),
-            reason="Promoted due to corroboration",
+            reason=ReasonCode.WELL_SUPPORTED,
         )
 
         result_dict = result.to_dict()
 
         assert result_dict["claim_id"] == "claim_test"
         assert result_dict["domain"] == "test.com"
-        assert result_dict["original_trust_level"] == "unverified"
-        assert result_dict["new_trust_level"] == "low"
+        assert result_dict["original_domain_category"] == "unverified"
+        assert result_dict["new_domain_category"] == "low"
         assert result_dict["verification_status"] == "verified"
         assert result_dict["promotion_result"] == "promoted"
         assert result_dict["details"]["independent_sources"] == 3
@@ -524,8 +531,8 @@ class TestResponseMetaBuilding:
             VerificationResult(
                 claim_id="claim_1",
                 domain="good.com",
-                original_trust_level=TrustLevel.UNVERIFIED,
-                new_trust_level=TrustLevel.LOW,
+                original_domain_category=DomainCategory.UNVERIFIED,
+                new_domain_category=DomainCategory.LOW,
                 verification_status=VerificationStatus.VERIFIED,
                 promotion_result=PromotionResult.PROMOTED,
                 details=VerificationDetails(independent_sources=2),
@@ -534,8 +541,8 @@ class TestResponseMetaBuilding:
             VerificationResult(
                 claim_id="claim_2",
                 domain="bad.com",
-                original_trust_level=TrustLevel.UNVERIFIED,
-                new_trust_level=TrustLevel.BLOCKED,
+                original_domain_category=DomainCategory.UNVERIFIED,
+                new_domain_category=DomainCategory.BLOCKED,
                 verification_status=VerificationStatus.REJECTED,
                 promotion_result=PromotionResult.DEMOTED,
                 details=VerificationDetails(),
@@ -603,15 +610,18 @@ class TestGlobalInstance:
 class TestTrustedDomainBehavior:
     """Tests for behavior with higher trust level domains."""
 
-    def test_trusted_domain_with_contradiction_not_immediately_blocked(
+    def test_trusted_domain_with_contradiction_stays_pending(
         self, verifier, mock_evidence_graph
     ):
         """
-        TC-N-13: Trusted domain with contradiction gets rejected but not blocked.
+        TC-N-13: Trusted domain with contradiction stays PENDING.
 
         // Given: Claim from TRUSTED domain with contradiction
         // When: Verifying claim
-        // Then: REJECTED but trust level unchanged (not BLOCKED)
+        // Then: PENDING (not REJECTED), category unchanged
+
+        Phase P.2: Contradictions → PENDING for AI evaluation.
+        DomainCategory is not used in verification decisions.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.3,
@@ -626,8 +636,8 @@ class TestTrustedDomainBehavior:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.TRUSTED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.TRUSTED,
         ):
             result = verifier.verify_claim(
                 claim_id="trusted_claim",
@@ -635,9 +645,10 @@ class TestTrustedDomainBehavior:
                 evidence_graph=mock_evidence_graph,
             )
 
-        assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.TRUSTED  # Not blocked
+        assert result.verification_status == VerificationStatus.PENDING
+        assert result.new_domain_category == DomainCategory.TRUSTED  # Unchanged
         assert result.promotion_result == PromotionResult.UNCHANGED
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
     def test_trusted_domain_verified_stays_trusted(self, verifier, mock_evidence_graph):
         """
@@ -657,8 +668,8 @@ class TestTrustedDomainBehavior:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.TRUSTED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.TRUSTED,
         ):
             result = verifier.verify_claim(
                 claim_id="trusted_verified",
@@ -667,7 +678,7 @@ class TestTrustedDomainBehavior:
             )
 
         assert result.verification_status == VerificationStatus.VERIFIED
-        assert result.new_trust_level == TrustLevel.TRUSTED  # Stays TRUSTED
+        assert result.new_domain_category == DomainCategory.TRUSTED  # Stays TRUSTED
         assert result.promotion_result == PromotionResult.UNCHANGED
 
 
@@ -676,30 +687,28 @@ class TestBoundaryValues:
 
     def test_rejection_rate_exactly_at_threshold_not_blocked(self, verifier, mock_evidence_graph):
         """
-        TC-B-05: Rejection rate exactly at 0.3 threshold is NOT blocked.
+        TC-B-05: Rejection rate at threshold with dangerous pattern triggers block.
 
-        // Given: Domain with rejection_rate == 0.3 (exactly at threshold)
-        // When: Verifying claim that gets rejected
-        // Then: Not blocked (threshold is > 0.3, not >=)
+        // Given: Domain with existing rejections + dangerous pattern
+        // When: Verifying claim with has_dangerous_pattern=True
+        // Then: Blocked (dangerous pattern + high rejection rate)
+
+        Note: Normal contradictions return PENDING (Phase P.2).
         """
-        mock_evidence_graph.find_contradictions.return_value = [
-            {"claim1_id": "threshold_claim", "claim2_id": "other"}
-        ]
+        mock_evidence_graph.find_contradictions.return_value = []
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.2,
             "supporting_count": 0,
-            "refuting_count": 1,
+            "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "likely_false",
+            "verdict": "unknown",
             "independent_sources": 0,
         }
 
-        # 3 total: 1 rejected = 33%, after this verify it becomes 2/4 = 50% > 30%
-        # Actually: Start with state where rate will be exactly 30% after adding
-        # Need 3 rejected out of 10 total = 30%
+        # 3 rejected out of 10 total = 30%
         verifier._domain_states["threshold.com"] = DomainVerificationState(
             domain="threshold.com",
-            trust_level=TrustLevel.UNVERIFIED,
+            domain_category=DomainCategory.UNVERIFIED,
             rejected_claims=["r1", "r2"],  # 2 rejected
             verified_claims=["v1", "v2", "v3", "v4", "v5", "v6"],  # 6 verified
             pending_claims=[],  # 0 pending
@@ -707,28 +716,29 @@ class TestBoundaryValues:
         )
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="threshold_claim",
                 domain="threshold.com",
                 evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,  # Triggers REJECTED status
             )
 
-        # After this: 3 rejected / 9 total = 33.3% > 30%, should be blocked
-        assert result.new_trust_level == TrustLevel.BLOCKED
+        # Dangerous pattern blocks immediately
+        assert result.new_domain_category == DomainCategory.BLOCKED
 
-    def test_rejection_rate_below_threshold_not_blocked(self, verifier, mock_evidence_graph):
+    def test_contradiction_stays_pending_not_demoted(self, verifier, mock_evidence_graph):
         """
-        TC-B-06: Rejection rate below 0.3 threshold is NOT blocked.
+        TC-B-06: Contradiction stays PENDING without demotion.
 
-        // Given: Domain with rejection_rate < 0.3
-        // When: Verifying claim that gets rejected
-        // Then: Not blocked
+        // Given: Domain with contradiction
+        // When: Verifying claim
+        // Then: PENDING, DomainCategory unchanged
 
-        Phase P.2 Update: Contradictions no longer immediately block.
-        UNVERIFIED domains are demoted to LOW, not BLOCKED.
+        Phase P.2: Contradictions do NOT change DomainCategory.
+        High-inference AI evaluates conflicting evidence.
         """
         mock_evidence_graph.find_contradictions.return_value = [
             {"claim1_id": "below_threshold", "claim2_id": "other"}
@@ -742,19 +752,18 @@ class TestBoundaryValues:
             "independent_sources": 0,
         }
 
-        # 1 rejected out of 10 total = 10%
+        # Pre-populate domain state
         verifier._domain_states["low-reject.com"] = DomainVerificationState(
             domain="low-reject.com",
-            trust_level=TrustLevel.UNVERIFIED,
-            rejected_claims=[],  # 0 rejected
-            verified_claims=["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"],  # 9 verified
+            domain_category=DomainCategory.UNVERIFIED,
+            rejected_claims=[],
+            verified_claims=["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"],
             pending_claims=[],
-            # After adding 1 rejected = 1/10 = 10% < 30%
         )
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="below_threshold",
@@ -762,9 +771,10 @@ class TestBoundaryValues:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Phase P.2: UNVERIFIED → LOW (not BLOCKED) due to contradiction
-        # Domain is demoted but not blocked (awaiting AI evaluation)
-        assert result.new_trust_level == TrustLevel.LOW
+        # Phase P.2: Contradictions → PENDING, DomainCategory unchanged
+        assert result.verification_status == VerificationStatus.PENDING
+        assert result.new_domain_category == DomainCategory.UNVERIFIED
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
     def test_three_independent_sources_well_above_threshold(self, verifier, mock_evidence_graph):
         """
@@ -784,8 +794,8 @@ class TestBoundaryValues:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="well_supported",
@@ -794,7 +804,7 @@ class TestBoundaryValues:
             )
 
         assert result.verification_status == VerificationStatus.VERIFIED
-        assert result.new_trust_level == TrustLevel.LOW
+        assert result.new_domain_category == DomainCategory.LOW
         assert result.promotion_result == PromotionResult.PROMOTED
 
     def test_get_domain_state_unknown_domain_returns_none(self, verifier):
@@ -827,8 +837,8 @@ class TestBoundaryValues:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             # First verification
             verifier.verify_claim(
@@ -864,8 +874,8 @@ class TestExternalDependencyFailures:
         mock_graph.calculate_claim_confidence.side_effect = RuntimeError("DB connection failed")
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             with pytest.raises(RuntimeError, match="DB connection failed"):
                 verifier.verify_claim(
@@ -874,16 +884,16 @@ class TestExternalDependencyFailures:
                     evidence_graph=mock_graph,
                 )
 
-    def test_get_domain_trust_level_exception(self, verifier, mock_evidence_graph):
+    def test_get_domain_category_exception(self, verifier, mock_evidence_graph):
         """
-        TC-A-05: get_domain_trust_level raises exception.
+        TC-A-05: get_domain_category raises exception.
 
-        // Given: get_domain_trust_level that raises exception
+        // Given: get_domain_category that raises exception
         // When: Verifying claim
         // Then: Exception propagates
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
+            "src.filter.source_verification.get_domain_category",
             side_effect=RuntimeError("Config error"),
         ):
             with pytest.raises(RuntimeError, match="Config error"):
@@ -906,8 +916,8 @@ class TestEmptyInputs:
         // Then: Handles without error (implementation detail)
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="",
@@ -927,8 +937,8 @@ class TestEmptyInputs:
         // Then: Handles without error
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="test_claim",
@@ -948,7 +958,7 @@ class TestEmptyInputs:
         """
         state = DomainVerificationState(
             domain="empty.com",
-            trust_level=TrustLevel.UNVERIFIED,
+            domain_category=DomainCategory.UNVERIFIED,
         )
 
         assert state.rejection_rate == 0.0
@@ -991,8 +1001,8 @@ class TestPendingToOtherStatusTransition:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             verifier.verify_claim(
                 claim_id="transition_claim",
@@ -1014,8 +1024,8 @@ class TestPendingToOtherStatusTransition:
         }
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             verifier.verify_claim(
                 claim_id="transition_claim",
@@ -1045,8 +1055,8 @@ class TestBuildResponseMetaUnverified:
             VerificationResult(
                 claim_id="unverified_claim",
                 domain="unverified-domain.com",
-                original_trust_level=TrustLevel.UNVERIFIED,
-                new_trust_level=TrustLevel.UNVERIFIED,  # Stays UNVERIFIED
+                original_domain_category=DomainCategory.UNVERIFIED,
+                new_domain_category=DomainCategory.UNVERIFIED,  # Stays UNVERIFIED
                 verification_status=VerificationStatus.PENDING,
                 promotion_result=PromotionResult.UNCHANGED,
                 details=VerificationDetails(independent_sources=1),
@@ -1086,8 +1096,8 @@ class TestDomainBlockedList:
         // Then: Contains blocked domain
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             verifier.verify_claim(
                 claim_id="dangerous",
@@ -1100,17 +1110,17 @@ class TestDomainBlockedList:
 
         assert "blocked-via-pattern.com" in blocked
 
-    def test_is_domain_blocked_checks_both_internal_and_trust_level(self, verifier):
+    def test_is_domain_blocked_checks_both_internal_and_domain_category(self, verifier):
         """
-        TC-N-19: is_domain_blocked checks internal set and TrustLevel.
+        TC-N-19: is_domain_blocked checks internal set and DomainCategory.
 
         // Given: Domain with BLOCKED trust level in config
         // When: Checking if blocked
         // Then: Returns True
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.BLOCKED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.BLOCKED,
         ):
             result = verifier.is_domain_blocked("config-blocked.com")
 
@@ -1142,8 +1152,8 @@ class TestContradictingClaimsExtraction:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_001",
@@ -1176,8 +1186,8 @@ class TestContradictingClaimsExtraction:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_001",
@@ -1211,8 +1221,8 @@ class TestContradictingClaimsExtraction:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_001",
@@ -1245,8 +1255,8 @@ class TestContradictingClaimsExtraction:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_002",  # This claim is claim2_id
@@ -1278,8 +1288,8 @@ class TestContradictingClaimsExtraction:
         mock_evidence_graph.find_contradictions.return_value = [{}]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_001",
@@ -1321,8 +1331,8 @@ class TestBlockedDomainNotification:
         // Then: Notification queued for blocked domain
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             verifier.verify_claim(
                 claim_id="dangerous_claim",
@@ -1341,52 +1351,55 @@ class TestBlockedDomainNotification:
 
     def test_high_rejection_rate_queues_notification(self, verifier, mock_evidence_graph):
         """
-        TC-BN-N-02: High rejection rate blocks domain and queues notification.
+        TC-BN-N-02: Repeated dangerous patterns blocks domain and queues notification.
 
-        // Given: Domain with rejection rate > 30%
-        // When: Another rejection occurs
+        // Given: Domain with dangerous patterns detected
+        // When: Multiple dangerous pattern rejections occur
         // Then: Domain blocked, notification queued
+
+        Note: Normal contradictions return PENDING (Phase P.2).
+        Dangerous patterns trigger immediate REJECTED and blocking.
         """
-        # Set up rejection-heavy confidence info
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.1,
             "supporting_count": 0,
-            "refuting_count": 2,
+            "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "rejected",
+            "verdict": "unknown",
             "independent_sources": 0,
         }
         mock_evidence_graph.find_contradictions.return_value = []
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
-            # Verify multiple claims from same domain to build up rejection rate
-            for i in range(5):
+            # Verify multiple claims with dangerous pattern to trigger blocking
+            for i in range(3):
                 verifier.verify_claim(
                     claim_id=f"reject_claim_{i}",
                     domain="high-reject-rate.com",
                     evidence_graph=mock_evidence_graph,
+                    has_dangerous_pattern=True,
                 )
 
-        # Then: Domain should be blocked (rejection rate > 30%)
+        # Then: Domain should be blocked (dangerous pattern detected)
         assert verifier.is_domain_blocked("high-reject-rate.com")
 
         # And notification should be queued (at least one for the block)
         assert verifier.get_pending_notification_count() >= 1
 
-    def test_contradiction_demotes_unverified_domain_to_low(self, verifier, mock_evidence_graph):
+    def test_contradiction_stays_pending_no_demotion(self, verifier, mock_evidence_graph):
         """
-        TC-BN-N-03: Contradiction detection on UNVERIFIED domain demotes to LOW.
+        TC-BN-N-03: Contradiction on UNVERIFIED domain stays PENDING.
 
         // Given: UNVERIFIED domain with contradictions
         // When: Verifying claim
-        // Then: Domain demoted to LOW (Phase P.2), no immediate block
+        // Then: PENDING, DomainCategory unchanged, no notification
 
-        Phase P.2 Update: Single contradiction no longer blocks immediately.
-        Instead, domain is demoted to LOW for AI evaluation. Notifications
-        are not queued for demotion to LOW (only for actual blocks).
+        Phase P.2: Contradictions do NOT demote or block.
+        DomainCategory is for ranking only, not for verification decisions.
+        High-inference AI interprets conflicting evidence.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.5,
@@ -1396,11 +1409,13 @@ class TestBlockedDomainNotification:
             "verdict": "contradicted",
             "independent_sources": 1,
         }
-        mock_evidence_graph.find_contradictions.return_value = []
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim1_id": "contradicted_claim", "claim2_id": "other"}
+        ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="contradicted_claim",
@@ -1408,11 +1423,13 @@ class TestBlockedDomainNotification:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Phase P.2: Should be demoted to LOW, not BLOCKED
-        assert result.new_trust_level == TrustLevel.LOW
-        assert result.promotion_result == PromotionResult.DEMOTED
+        # Phase P.2: PENDING, DomainCategory unchanged
+        assert result.verification_status == VerificationStatus.PENDING
+        assert result.new_domain_category == DomainCategory.UNVERIFIED
+        assert result.promotion_result == PromotionResult.UNCHANGED
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
-        # No notification queued (demotion to LOW doesn't trigger block notification)
+        # No notification queued (no blocking occurred)
         assert verifier.get_pending_notification_count() == 0
 
     @pytest.mark.asyncio
@@ -1550,7 +1567,7 @@ class TestDomainBlockingTransparency:
 
         // Given: A SourceVerifier
         // When: _mark_domain_blocked is called
-        // Then: Domain state is updated with blocked_at, block_reason, original_trust_level
+        // Then: Domain state is updated with blocked_at, block_reason, original_domain_category
         """
         verifier._mark_domain_blocked(
             domain="example.com",
@@ -1564,9 +1581,9 @@ class TestDomainBlockingTransparency:
         # And: State is recorded correctly
         state = verifier.get_domain_state("example.com")
         assert state is not None
-        assert state.trust_level == TrustLevel.BLOCKED
+        assert state.domain_category == DomainCategory.BLOCKED
         assert state.block_reason == "High rejection rate"
-        assert state.original_trust_level is not None  # Preserved from before blocking
+        assert state.original_domain_category is not None  # Preserved from before blocking
         assert state.blocked_at is not None
         assert state.block_cause_id == "claim_abc"
 
@@ -1604,7 +1621,7 @@ class TestDomainBlockingTransparency:
         # Setup existing state
         verifier._domain_states["existing.com"] = DomainVerificationState(
             domain="existing.com",
-            trust_level=TrustLevel.LOW,
+            domain_category=DomainCategory.LOW,
             verified_claims=["claim_1"],
         )
 
@@ -1616,9 +1633,9 @@ class TestDomainBlockingTransparency:
 
         # Then: State is updated
         state = verifier.get_domain_state("existing.com")
-        assert state.trust_level == TrustLevel.BLOCKED
+        assert state.domain_category == DomainCategory.BLOCKED
         assert state.block_reason == "Repeated contradictions"
-        assert state.original_trust_level == TrustLevel.LOW  # Preserved from before
+        assert state.original_domain_category == DomainCategory.LOW  # Preserved from before
         assert state.verified_claims == ["claim_1"]  # Preserved
         assert state.is_blocked is True
 
@@ -1641,18 +1658,18 @@ class TestDomainBlockingTransparency:
         assert "block2.com" in blocked
         assert "block3.com" in blocked
 
-    def test_domain_state_preserves_original_trust_level_after_block(self, verifier):
+    def test_domain_state_preserves_original_domain_category_after_block(self, verifier):
         """
         TC-P1-1.1-N-03: Original trust level is preserved after blocking.
 
         // Given: A domain with specific trust level
         // When: Domain is blocked
-        // Then: original_trust_level is preserved for potential restoration
+        // Then: original_domain_category is preserved for potential restoration
         """
         # Setup existing state with specific trust level
         verifier._domain_states["academic.edu"] = DomainVerificationState(
             domain="academic.edu",
-            trust_level=TrustLevel.ACADEMIC,
+            domain_category=DomainCategory.ACADEMIC,
         )
 
         verifier._mark_domain_blocked(
@@ -1663,10 +1680,10 @@ class TestDomainBlockingTransparency:
         state = verifier.get_domain_state("academic.edu")
 
         # Current trust is BLOCKED
-        assert state.trust_level == TrustLevel.BLOCKED
+        assert state.domain_category == DomainCategory.BLOCKED
 
         # But original is preserved
-        assert state.original_trust_level == TrustLevel.ACADEMIC
+        assert state.original_domain_category == DomainCategory.ACADEMIC
 
     def test_queue_blocked_notification_includes_cause_id(self, verifier):
         """
@@ -1753,8 +1770,8 @@ class TestPhaseP2RelaxedBlocking:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_contested",
@@ -1762,11 +1779,11 @@ class TestPhaseP2RelaxedBlocking:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Phase P.2: UNVERIFIED → LOW (not BLOCKED)
-        assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.LOW
-        assert result.promotion_result == PromotionResult.DEMOTED
-        assert "contested" in result.reason.lower() or "awaiting AI" in result.reason.lower()
+        # Phase P.2: Conflicting evidence → PENDING (no automatic demotion)
+        assert result.verification_status == VerificationStatus.PENDING
+        assert result.new_domain_category == DomainCategory.UNVERIFIED
+        assert result.promotion_result == PromotionResult.UNCHANGED
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
     def test_contradiction_academic_domain_stays_unchanged(self, verifier, mock_evidence_graph):
         """
@@ -1789,8 +1806,8 @@ class TestPhaseP2RelaxedBlocking:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.ACADEMIC,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.ACADEMIC,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_academic",
@@ -1798,11 +1815,11 @@ class TestPhaseP2RelaxedBlocking:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # ACADEMIC domain contradiction: stays ACADEMIC, recorded for AI
-        assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.ACADEMIC
+        # ACADEMIC domain contradiction: PENDING (no automatic decision)
+        assert result.verification_status == VerificationStatus.PENDING
+        assert result.new_domain_category == DomainCategory.ACADEMIC
         assert result.promotion_result == PromotionResult.UNCHANGED
-        assert "trusted source" in result.reason.lower() or "AI evaluation" in result.reason.lower()
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
     def test_contradiction_trusted_domain_stays_unchanged(self, verifier, mock_evidence_graph):
         """
@@ -1825,8 +1842,8 @@ class TestPhaseP2RelaxedBlocking:
         ]
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.TRUSTED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.TRUSTED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_trusted",
@@ -1834,10 +1851,11 @@ class TestPhaseP2RelaxedBlocking:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # TRUSTED domain: stays TRUSTED even with contradiction
-        assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.TRUSTED
+        # TRUSTED domain: PENDING (no automatic decision)
+        assert result.verification_status == VerificationStatus.PENDING
+        assert result.new_domain_category == DomainCategory.TRUSTED
         assert result.promotion_result == PromotionResult.UNCHANGED
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
     def test_refuting_count_triggers_contested_not_blocked(self, verifier, mock_evidence_graph):
         """
@@ -1859,8 +1877,8 @@ class TestPhaseP2RelaxedBlocking:
         mock_evidence_graph.find_contradictions.return_value = []
 
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_refuted",
@@ -1868,10 +1886,11 @@ class TestPhaseP2RelaxedBlocking:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Refuting evidence: demote to LOW (not BLOCKED)
-        assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.LOW
-        assert result.promotion_result == PromotionResult.DEMOTED
+        # Refuting evidence: PENDING (no automatic demotion)
+        assert result.verification_status == VerificationStatus.PENDING
+        assert result.new_domain_category == DomainCategory.UNVERIFIED
+        assert result.promotion_result == PromotionResult.UNCHANGED
+        assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
     def test_dangerous_pattern_still_blocks_immediately(self, verifier, mock_evidence_graph):
         """
@@ -1882,8 +1901,8 @@ class TestPhaseP2RelaxedBlocking:
         // Then: BLOCKED immediately (Phase P.2 relaxation does NOT apply to L2/L4)
         """
         with patch(
-            "src.filter.source_verification.get_domain_trust_level",
-            return_value=TrustLevel.UNVERIFIED,
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
         ):
             result = verifier.verify_claim(
                 claim_id="claim_dangerous",
@@ -1894,6 +1913,60 @@ class TestPhaseP2RelaxedBlocking:
 
         # Dangerous pattern: immediate BLOCK (no relaxation)
         assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.BLOCKED
+        assert result.new_domain_category == DomainCategory.BLOCKED
         assert result.promotion_result == PromotionResult.DEMOTED
+        assert result.reason == ReasonCode.DANGEROUS_PATTERN
         assert verifier.is_domain_blocked("malware-site.com")
+
+    def test_verification_ignores_domain_category(self, verifier, mock_evidence_graph):
+        """
+        TC-P2-N-06: Verification decisions do NOT depend on DomainCategory.
+
+        // Given: Same evidence from different domain categories
+        // When: Verifying claims
+        // Then: Same verification status regardless of category
+        """
+        # Setup: Well-supported evidence (2+ independent sources, no refuting)
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.85,
+            "supporting_count": 3,
+            "refuting_count": 0,
+            "neutral_count": 0,
+            "verdict": "verified",
+            "independent_sources": 3,
+        }
+        mock_evidence_graph.find_contradictions.return_value = []
+
+        # Test with UNVERIFIED domain
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            result_unverified = verifier.verify_claim(
+                claim_id="claim-unverified",
+                domain="unverified-site.com",
+                evidence_graph=mock_evidence_graph,
+            )
+
+        # Test with ACADEMIC domain (same evidence)
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.ACADEMIC,
+        ):
+            result_academic = verifier.verify_claim(
+                claim_id="claim-academic",
+                domain="academic.edu",
+                evidence_graph=mock_evidence_graph,
+            )
+
+        # Both should be VERIFIED (evidence-based, not category-based)
+        assert result_unverified.verification_status == VerificationStatus.VERIFIED
+        assert result_academic.verification_status == VerificationStatus.VERIFIED
+        assert result_unverified.reason == ReasonCode.WELL_SUPPORTED
+        assert result_academic.reason == ReasonCode.WELL_SUPPORTED
+
+        # Only difference: promotion for UNVERIFIED → LOW
+        assert result_unverified.promotion_result == PromotionResult.PROMOTED
+        assert result_unverified.new_domain_category == DomainCategory.LOW
+        assert result_academic.promotion_result == PromotionResult.UNCHANGED
+        assert result_academic.new_domain_category == DomainCategory.ACADEMIC

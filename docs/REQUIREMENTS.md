@@ -1411,7 +1411,7 @@ lyra-net (外部可)                  lyra-internal (internal: true)
 全MCP応答に検証状態を含めることで、Cursor AIが信頼度を判断可能にする。
 
 - 各claim/エンティティに付与する情報:
-  - `source_trust_level`: ドメインの信頼度（TrustLevel値）
+  - `source_domain_category`: ドメインのカテゴリ（DomainCategory値、ランキング調整用）
   - `verification_status`: `"pending"` | `"verified"` | `"rejected"`
   - `verification_details`:
     - `independent_sources`: 独立ソース数（EvidenceGraphから取得）
@@ -1428,7 +1428,7 @@ lyra-net (外部可)                  lyra-internal (internal: true)
 未検証ドメインからの結果を自動検証し、Cursor AIに判断材料を提供する。
 
 1. **新ドメインからの結果取得時**
-   - TrustLevel: `UNVERIFIED`
+   - DomainCategory: `UNVERIFIED`
    - `verification_status`: `"pending"`
    - 結果は暫定採用（Cursor AIが判断材料として使用可能）
 
@@ -1488,9 +1488,9 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
   - L2/L4/L7での検出イベント（危険パターン、プロンプト断片検出等）は監査ログに記録
   - 監査ログ自体には検出された危険コンテンツの本文は含めない（パターン名・位置のみ）
 
-##### TrustLevel再定義
+##### DomainCategory再定義
 
-従来の `UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。
+従来の `UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。また、`TrustLevel`を`DomainCategory`にリネームし、ランキング調整専用であることを明確化。信頼度計算や検証判定には使用しない。
 
 | レベル | 説明 | 例 |
 |--------|------|-----|
