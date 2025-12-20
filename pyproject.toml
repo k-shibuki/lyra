@@ -95,6 +95,13 @@ filterwarnings = [
     # Ignore PytestUnraisableExceptionWarning for subprocess cleanup after tests
     # This occurs when BaseSubprocessTransport.__del__ runs after the event loop closes
     "ignore:Exception ignored in.*BaseSubprocessTransport:pytest.PytestUnraisableExceptionWarning",
+    # Ignore aiosqlite Connection.__del__ warnings during test cleanup
+    # This occurs when aiosqlite Connection objects are garbage collected after
+    # the event loop closes. The warning is benign: connections are eventually
+    # cleaned up by GC. Root cause is aiosqlite's async close() being called
+    # from a sync __del__ method when no event loop is available.
+    # See: https://github.com/omnilib/aiosqlite/issues/244
+    "ignore:Exception ignored in.*Connection.__del__:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]
