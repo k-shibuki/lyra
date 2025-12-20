@@ -113,6 +113,8 @@ class EvidenceGraph:
         confidence: float | None = None,
         nli_label: str | None = None,
         nli_confidence: float | None = None,
+        source_trust_level: str | None = None,
+        target_trust_level: str | None = None,
         **attributes: Any,
     ) -> str:
         """Add an edge (relationship) to the graph.
@@ -126,6 +128,9 @@ class EvidenceGraph:
             confidence: Overall confidence score.
             nli_label: NLI model label.
             nli_confidence: NLI model confidence.
+            source_trust_level: Trust level of source domain (Phase P.2).
+                Values: primary/government/academic/trusted/low/unverified/blocked
+            target_trust_level: Trust level of target domain (Phase P.2).
             **attributes: Additional edge attributes.
 
         Returns:
@@ -150,6 +155,8 @@ class EvidenceGraph:
             confidence=confidence,
             nli_label=nli_label,
             nli_confidence=nli_confidence,
+            source_trust_level=source_trust_level,
+            target_trust_level=target_trust_level,
             **attributes,
         )
 
@@ -916,6 +923,8 @@ class EvidenceGraph:
                         "is_academic": 1 if data.get("is_academic") else 0,
                         "is_influential": 1 if data.get("is_influential") else 0,
                         "citation_context": data.get("citation_context"),
+                        "source_trust_level": data.get("source_trust_level"),
+                        "target_trust_level": data.get("target_trust_level"),
                         "cause_id": trace.id,
                     },
                     or_replace=True,
@@ -969,6 +978,8 @@ class EvidenceGraph:
                 confidence=edge.get("confidence"),
                 nli_label=edge.get("nli_label"),
                 nli_confidence=edge.get("nli_confidence"),
+                source_trust_level=edge.get("source_trust_level"),
+                target_trust_level=edge.get("target_trust_level"),
             )
 
         logger.info(
@@ -1037,6 +1048,8 @@ async def add_claim_evidence(
     nli_label: str | None = None,
     nli_confidence: float | None = None,
     task_id: str | None = None,
+    source_trust_level: str | None = None,
+    target_trust_level: str | None = None,
 ) -> str:
     """Add evidence relationship for a claim.
 
@@ -1048,6 +1061,8 @@ async def add_claim_evidence(
         nli_label: NLI model label.
         nli_confidence: NLI model confidence.
         task_id: Task ID.
+        source_trust_level: Trust level of source (fragment's page domain).
+        target_trust_level: Trust level of target (claim's origin domain).
 
     Returns:
         Edge ID.
@@ -1063,6 +1078,8 @@ async def add_claim_evidence(
         confidence=confidence,
         nli_label=nli_label,
         nli_confidence=nli_confidence,
+        source_trust_level=source_trust_level,
+        target_trust_level=target_trust_level,
     )
 
     # Persist immediately
@@ -1079,6 +1096,8 @@ async def add_claim_evidence(
             "confidence": confidence,
             "nli_label": nli_label,
             "nli_confidence": nli_confidence,
+            "source_trust_level": source_trust_level,
+            "target_trust_level": target_trust_level,
         },
         or_replace=True,
     )
@@ -1101,6 +1120,8 @@ async def add_citation(
     is_academic: bool = False,
     is_influential: bool = False,
     citation_context: str | None = None,
+    source_trust_level: str | None = None,
+    target_trust_level: str | None = None,
 ) -> str:
     """Add citation relationship.
 
@@ -1112,6 +1133,8 @@ async def add_citation(
         is_academic: Whether this is an academic citation.
         is_influential: Whether this is an influential citation (Semantic Scholar).
         citation_context: Citation context text.
+        source_trust_level: Trust level of source domain.
+        target_trust_level: Trust level of cited page's domain.
 
     Returns:
         Edge ID.
@@ -1128,6 +1151,8 @@ async def add_citation(
         is_academic=is_academic,
         is_influential=is_influential,
         citation_context=citation_context,
+        source_trust_level=source_trust_level,
+        target_trust_level=target_trust_level,
     )
 
     # Persist
@@ -1145,6 +1170,8 @@ async def add_citation(
             "is_academic": 1 if is_academic else 0,
             "is_influential": 1 if is_influential else 0,
             "citation_context": citation_context,
+            "source_trust_level": source_trust_level,
+            "target_trust_level": target_trust_level,
         },
         or_replace=True,
     )

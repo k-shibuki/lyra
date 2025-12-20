@@ -239,19 +239,24 @@ class SourceVerifier:
         self._update_domain_state(domain, claim_id, verification_status)
 
         # Check if domain should be blocked based on aggregate stats
-        # Only auto-block UNVERIFIED or LOW trust domains (not TRUSTED+)
+        # Phase P.2: Only auto-block UNVERIFIED or LOW trust domains after
+        # repeated rejections (at least 3 rejected claims with high rejection rate).
+        # Single contradictions are NOT sufficient for blocking.
         if verification_status == VerificationStatus.REJECTED:
             domain_state = self._domain_states.get(domain)
             can_auto_block = original_trust_level in (
                 TrustLevel.UNVERIFIED,
                 TrustLevel.LOW,
             )
+            # Phase P.2: Require at least 3 rejected claims before auto-blocking
+            min_rejections_for_block = 3
             if (
                 can_auto_block
                 and domain_state
+                and len(domain_state.rejected_claims) >= min_rejections_for_block
                 and domain_state.rejection_rate > self.MAX_REJECTION_RATE_BEFORE_BLOCK
             ):
-                reason = f"High rejection rate ({domain_state.rejection_rate:.0%})"
+                reason = f"High rejection rate ({domain_state.rejection_rate:.0%}) with {len(domain_state.rejected_claims)} rejections"
                 self._mark_domain_blocked(domain, reason)
                 new_trust_level = TrustLevel.BLOCKED
                 promotion_result = PromotionResult.DEMOTED
@@ -260,6 +265,7 @@ class SourceVerifier:
                     "Domain blocked due to high rejection rate",
                     domain=domain,
                     rejection_rate=domain_state.rejection_rate,
+                    rejected_count=len(domain_state.rejected_claims),
                 )
 
                 # K.3-8: Queue notification for blocked domain
@@ -284,6 +290,12 @@ class SourceVerifier:
     ) -> tuple[VerificationStatus, TrustLevel, PromotionResult, str]:
         """Determine verification outcome based on evidence.
 
+        Phase P.2: Relaxed immediate blocking. When contradictions are detected,
+        we no longer immediately BLOCK the domain. Instead, we record the
+        contradiction with trust levels on edges, allowing high-inference AI
+        to make nuanced judgments about whether conflicts represent genuine
+        scientific controversy vs. misinformation.
+
         Args:
             original_trust_level: Current trust level of domain.
             confidence_info: Confidence assessment from EvidenceGraph.
@@ -296,22 +308,26 @@ class SourceVerifier:
         confidence_info.get("verdict", "unverified")
         refuting_count = confidence_info.get("refuting_count", 0)
 
-        # Case 1: Contradiction detected → REJECTED, possibly BLOCKED
+        # Case 1: Contradiction detected → CONTESTED (Phase P.2: no immediate block)
+        # Trust levels are recorded on edges for high-inference AI to interpret
         if has_contradictions or refuting_count > 0:
             if original_trust_level == TrustLevel.UNVERIFIED:
+                # Phase P.2: Demote to LOW instead of BLOCKED
+                # The contradiction is recorded with trust levels on the edge,
+                # allowing high-inference AI to evaluate the evidence quality
                 return (
                     VerificationStatus.REJECTED,
-                    TrustLevel.BLOCKED,
+                    TrustLevel.LOW,  # Was: BLOCKED - now relaxed per Phase P.2
                     PromotionResult.DEMOTED,
-                    "Contradiction detected",
+                    "Contradiction detected (contested - awaiting AI evaluation)",
                 )
             else:
-                # Higher trust levels get rejected but not immediately blocked
+                # Higher trust levels remain unchanged - contradiction recorded on edge
                 return (
                     VerificationStatus.REJECTED,
                     original_trust_level,
                     PromotionResult.UNCHANGED,
-                    "Contradiction detected (trusted source)",
+                    "Contradiction detected (trusted source - recorded for AI evaluation)",
                 )
 
         # Case 2: Well supported → VERIFIED, possibly promoted

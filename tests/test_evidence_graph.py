@@ -1314,3 +1314,244 @@ class TestClaimAdoptionStatus:
         claim_nodes = [n for n in data["nodes"] if n.get("node_type") == "claim"]
         assert len(claim_nodes) == 1
         assert claim_nodes[0]["adoption_status"] == "not_adopted"
+
+
+class TestPhaseP2TrustLevelOnEdges:
+    """Tests for Phase P.2: Trust level information on edges.
+
+    Phase P.2 adds source_trust_level and target_trust_level to edges,
+    enabling high-inference AI to evaluate conflicting evidence based
+    on the credibility of sources.
+    """
+
+    def test_add_edge_with_trust_levels(self):
+        """
+        TC-P2-EDGE-N-01: Add edge with source and target trust levels.
+
+        // Given: Evidence from different trust level sources
+        // When: Adding edge with trust levels
+        // Then: Trust levels stored on edge
+        """
+        graph = EvidenceGraph()
+
+        edge_id = graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-academic",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.REFUTES,
+            confidence=0.85,
+            nli_label="contradiction",
+            nli_confidence=0.9,
+            source_trust_level="academic",
+            target_trust_level="unverified",
+        )
+
+        assert edge_id is not None
+        edge_data = graph._graph.edges["fragment:frag-academic", "claim:claim-1"]
+        assert edge_data["source_trust_level"] == "academic"
+        assert edge_data["target_trust_level"] == "unverified"
+
+    def test_add_edge_trust_levels_default_none(self):
+        """
+        TC-P2-EDGE-N-02: Trust levels default to None when not provided.
+
+        // Given: Edge added without trust levels
+        // When: Inspecting edge data
+        // Then: Trust levels are None
+        """
+        graph = EvidenceGraph()
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+        )
+
+        edge_data = graph._graph.edges["fragment:frag-1", "claim:claim-1"]
+        assert edge_data.get("source_trust_level") is None
+        assert edge_data.get("target_trust_level") is None
+
+    def test_to_dict_includes_trust_levels(self):
+        """
+        TC-P2-EDGE-N-03: Export includes trust levels on edges.
+
+        // Given: Graph with edge containing trust levels
+        // When: Exporting to dict
+        // Then: Trust levels included in export
+        """
+        graph = EvidenceGraph()
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-trusted",
+            target_type=NodeType.CLAIM,
+            target_id="claim-low",
+            relation=RelationType.REFUTES,
+            confidence=0.88,
+            source_trust_level="trusted",
+            target_trust_level="low",
+        )
+
+        data = graph.to_dict()
+
+        assert len(data["edges"]) == 1
+        edge = data["edges"][0]
+        assert edge["source_trust_level"] == "trusted"
+        assert edge["target_trust_level"] == "low"
+
+    def test_contradicting_edges_with_different_trust_levels(self):
+        """
+        TC-P2-EDGE-N-04: Contradicting claims with different trust levels.
+
+        // Given: Two claims that contradict each other
+        // When: One is from ACADEMIC, one from UNVERIFIED
+        // Then: Trust levels allow AI to evaluate credibility
+        """
+        graph = EvidenceGraph()
+
+        # Academic source claims: "Climate change is real"
+        graph.add_node(NodeType.CLAIM, "claim-academic", text="Climate change is real")
+
+        # Unverified source claims opposite
+        graph.add_node(NodeType.CLAIM, "claim-unverified", text="Climate change is a hoax")
+
+        # Add refutes edge with trust levels
+        graph.add_edge(
+            source_type=NodeType.CLAIM,
+            source_id="claim-academic",
+            target_type=NodeType.CLAIM,
+            target_id="claim-unverified",
+            relation=RelationType.REFUTES,
+            confidence=0.95,
+            source_trust_level="academic",
+            target_trust_level="unverified",
+        )
+
+        # Find contradictions
+        contradictions = graph.find_contradictions()
+        assert len(contradictions) == 1
+
+        # Export and verify trust levels preserved
+        data = graph.to_dict()
+        edge = data["edges"][0]
+        assert edge["source_trust_level"] == "academic"
+        assert edge["target_trust_level"] == "unverified"
+        # High-inference AI can now prioritize academic source
+
+    def test_add_claim_evidence_with_trust_levels(self):
+        """
+        TC-P2-EDGE-N-05: add_claim_evidence accepts trust levels.
+
+        // Given: Need to add evidence with trust level info
+        // When: Calling add_claim_evidence with trust levels
+        // Then: Trust levels stored in graph
+        """
+        from unittest.mock import patch
+
+        graph = EvidenceGraph(task_id="test")
+
+        # Add edge directly (simulating what add_claim_evidence does)
+        edge_id = graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-gov",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.92,
+            nli_label="entailment",
+            nli_confidence=0.95,
+            source_trust_level="government",
+            target_trust_level="primary",
+        )
+
+        assert edge_id is not None
+        edge_data = graph._graph.edges["fragment:frag-gov", "claim:claim-1"]
+        assert edge_data["source_trust_level"] == "government"
+        assert edge_data["target_trust_level"] == "primary"
+
+    @pytest.mark.asyncio
+    async def test_save_to_db_with_trust_levels(self, test_database):
+        """
+        TC-P2-EDGE-I-01: Save edges with trust levels to database.
+
+        // Given: Edge with trust levels
+        // When: Saving to database
+        // Then: Trust levels persisted
+        """
+        from unittest.mock import patch
+
+        from src.filter import evidence_graph
+
+        graph = EvidenceGraph(task_id="test-task")
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.REFUTES,
+            confidence=0.85,
+            source_trust_level="academic",
+            target_trust_level="low",
+        )
+
+        with patch.object(evidence_graph, "get_database", return_value=test_database):
+            await graph.save_to_db()
+
+        edges = await test_database.fetch_all("SELECT * FROM edges")
+        assert len(edges) == 1
+        assert edges[0]["source_trust_level"] == "academic"
+        assert edges[0]["target_trust_level"] == "low"
+
+    @pytest.mark.asyncio
+    async def test_load_from_db_with_trust_levels(self, test_database):
+        """
+        TC-P2-EDGE-I-02: Load edges with trust levels from database.
+
+        // Given: Edges with trust levels in database
+        // When: Loading graph from database
+        // Then: Trust levels restored
+        """
+        from unittest.mock import patch
+
+        from src.filter import evidence_graph
+
+        # First create a task (foreign key required)
+        await test_database.execute(
+            """
+            INSERT INTO tasks (id, query, status, created_at)
+            VALUES ('test-task', 'Test question', 'pending', datetime('now'))
+            """
+        )
+
+        # Then create a claim referencing the task
+        await test_database.execute(
+            """
+            INSERT INTO claims (id, task_id, claim_text, confidence_score)
+            VALUES ('claim-1', 'test-task', 'Test claim', 0.9)
+            """
+        )
+
+        # Insert edge with trust levels
+        await test_database.execute(
+            """
+            INSERT INTO edges (id, source_type, source_id, target_type, target_id,
+                             relation, confidence, source_trust_level, target_trust_level)
+            VALUES ('edge-1', 'fragment', 'frag-1', 'claim', 'claim-1',
+                   'supports', 0.9, 'government', 'trusted')
+            """
+        )
+
+        graph = EvidenceGraph(task_id="test-task")
+
+        with patch.object(evidence_graph, "get_database", return_value=test_database):
+            await graph.load_from_db("test-task")
+
+        # Check edge was loaded with trust levels
+        edge_data = graph._graph.edges.get(("fragment:frag-1", "claim:claim-1"))
+        assert edge_data is not None
+        assert edge_data["source_trust_level"] == "government"
+        assert edge_data["target_trust_level"] == "trusted"
