@@ -155,7 +155,7 @@ class MockBrowserProvider(BaseBrowserProvider):
                 mode=options.mode if options else BrowserMode.HEADLESS,
             )
 
-    async def execute_script(self, script: str, *args) -> str:
+    async def execute_script(self, script: str, *args: object) -> str:
         """Mock script execution."""
         self._check_closed()
         self.script_calls.append(script)
@@ -468,6 +468,7 @@ class TestBrowserProviderProtocol:
 
         assert len(provider.navigate_calls) == 2
         assert provider.navigate_calls[0][0] == "https://example.com"
+        assert provider.navigate_calls[0][1] is not None
         assert provider.navigate_calls[0][1].mode == BrowserMode.HEADFUL
         assert provider.navigate_calls[1][0] == "https://test.com"
 
@@ -481,6 +482,7 @@ class TestBrowserProviderProtocol:
         assert result.ok is False
         assert result.challenge_detected is True
         assert result.challenge_type == "cloudflare"
+        assert result.error is not None
         assert "challenge_detected" in result.error
 
     @pytest.mark.asyncio
@@ -540,7 +542,7 @@ class TestBrowserProviderProtocol:
 class TestBrowserProviderRegistry:
     """Tests for BrowserProviderRegistry."""
 
-    def test_register_provider(self, reset_registry) -> None:
+    def test_register_provider(self, reset_registry: object) -> None:
         """Registry registers provider correctly."""
         registry = BrowserProviderRegistry()
         provider = MockBrowserProvider("test_provider")
@@ -550,7 +552,7 @@ class TestBrowserProviderRegistry:
         assert "test_provider" in registry.list_providers()
         assert registry.get("test_provider") is provider
 
-    def test_register_sets_first_as_default(self, reset_registry) -> None:
+    def test_register_sets_first_as_default(self, reset_registry: object) -> None:
         """First registered provider becomes default."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1")
@@ -561,7 +563,7 @@ class TestBrowserProviderRegistry:
 
         assert registry.get_default() is provider1
 
-    def test_register_explicit_default(self, reset_registry) -> None:
+    def test_register_explicit_default(self, reset_registry: object) -> None:
         """set_default=True overrides automatic default."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1")
@@ -572,7 +574,7 @@ class TestBrowserProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_register_duplicate_raises_error(self, reset_registry) -> None:
+    def test_register_duplicate_raises_error(self, reset_registry: object) -> None:
         """Registering duplicate name raises ValueError."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("same_name")
@@ -583,7 +585,7 @@ class TestBrowserProviderRegistry:
         with pytest.raises(ValueError, match="already registered"):
             registry.register(provider2)
 
-    def test_unregister_provider(self, reset_registry) -> None:
+    def test_unregister_provider(self, reset_registry: object) -> None:
         """Registry unregisters provider correctly."""
         registry = BrowserProviderRegistry()
         provider = MockBrowserProvider("to_remove")
@@ -595,7 +597,7 @@ class TestBrowserProviderRegistry:
         assert "to_remove" not in registry.list_providers()
         assert registry.get("to_remove") is None
 
-    def test_unregister_updates_default(self, reset_registry) -> None:
+    def test_unregister_updates_default(self, reset_registry: object) -> None:
         """Unregistering default updates to next available."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1")
@@ -607,7 +609,7 @@ class TestBrowserProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_set_default(self, reset_registry) -> None:
+    def test_set_default(self, reset_registry: object) -> None:
         """set_default() changes default provider."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1")
@@ -619,14 +621,14 @@ class TestBrowserProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_set_default_unknown_raises_error(self, reset_registry) -> None:
+    def test_set_default_unknown_raises_error(self, reset_registry: object) -> None:
         """set_default() with unknown name raises ValueError."""
         registry = BrowserProviderRegistry()
 
         with pytest.raises(ValueError, match="not registered"):
             registry.set_default("unknown")
 
-    def test_set_fallback_order(self, reset_registry) -> None:
+    def test_set_fallback_order(self, reset_registry: object) -> None:
         """set_fallback_order() configures fallback sequence."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("first")
@@ -642,7 +644,7 @@ class TestBrowserProviderRegistry:
         assert registry._fallback_order == ["third", "first", "second"]
 
     @pytest.mark.asyncio
-    async def test_get_all_health(self, reset_registry) -> None:
+    async def test_get_all_health(self, reset_registry: object) -> None:
         """get_all_health() returns health for all providers."""
         registry = BrowserProviderRegistry()
         healthy_provider = MockBrowserProvider("healthy")
@@ -660,7 +662,7 @@ class TestBrowserProviderRegistry:
         assert health["unhealthy"].state == BrowserHealthState.UNHEALTHY
 
     @pytest.mark.asyncio
-    async def test_navigate_with_fallback_success(self, reset_registry) -> None:
+    async def test_navigate_with_fallback_success(self, reset_registry: object) -> None:
         """navigate_with_fallback() returns first successful result."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1", should_succeed=True)
@@ -673,7 +675,7 @@ class TestBrowserProviderRegistry:
         assert len(provider1.navigate_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_navigate_with_fallback_tries_next_on_failure(self, reset_registry) -> None:
+    async def test_navigate_with_fallback_tries_next_on_failure(self, reset_registry: object) -> None:
         """navigate_with_fallback() tries next provider on failure."""
         registry = BrowserProviderRegistry()
         failing_provider = MockBrowserProvider("failing", should_succeed=False)
@@ -689,7 +691,7 @@ class TestBrowserProviderRegistry:
         assert len(success_provider.navigate_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_navigate_with_fallback_skips_unhealthy(self, reset_registry) -> None:
+    async def test_navigate_with_fallback_skips_unhealthy(self, reset_registry: object) -> None:
         """navigate_with_fallback() skips unhealthy providers."""
         registry = BrowserProviderRegistry()
         unhealthy = MockBrowserProvider(
@@ -708,7 +710,7 @@ class TestBrowserProviderRegistry:
         assert len(unhealthy.navigate_calls) == 0
 
     @pytest.mark.asyncio
-    async def test_navigate_with_fallback_all_fail(self, reset_registry) -> None:
+    async def test_navigate_with_fallback_all_fail(self, reset_registry: object) -> None:
         """navigate_with_fallback() returns error when all fail."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1", should_succeed=False)
@@ -719,11 +721,12 @@ class TestBrowserProviderRegistry:
         result = await registry.navigate_with_fallback("https://example.com")
 
         assert result.ok is False
+        assert result.error is not None
         assert "All providers failed" in result.error
         assert result.provider == "none"
 
     @pytest.mark.asyncio
-    async def test_navigate_with_fallback_no_providers_raises(self, reset_registry) -> None:
+    async def test_navigate_with_fallback_no_providers_raises(self, reset_registry: object) -> None:
         """navigate_with_fallback() raises error when no providers."""
         registry = BrowserProviderRegistry()
 
@@ -731,7 +734,7 @@ class TestBrowserProviderRegistry:
             await registry.navigate_with_fallback("https://example.com")
 
     @pytest.mark.asyncio
-    async def test_navigate_with_fallback_custom_order(self, reset_registry) -> None:
+    async def test_navigate_with_fallback_custom_order(self, reset_registry: object) -> None:
         """navigate_with_fallback() respects custom provider order."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1", should_succeed=True)
@@ -751,7 +754,7 @@ class TestBrowserProviderRegistry:
         assert len(provider1.navigate_calls) == 0
 
     @pytest.mark.asyncio
-    async def test_close_all(self, reset_registry) -> None:
+    async def test_close_all(self, reset_registry: object) -> None:
         """close_all() closes all providers."""
         registry = BrowserProviderRegistry()
         provider1 = MockBrowserProvider("provider1")
@@ -774,14 +777,14 @@ class TestBrowserProviderRegistry:
 class TestGlobalRegistry:
     """Tests for global registry functions."""
 
-    def test_get_browser_registry_singleton(self, reset_registry) -> None:
+    def test_get_browser_registry_singleton(self, reset_registry: object) -> None:
         """get_browser_registry() returns singleton instance."""
         registry1 = get_browser_registry()
         registry2 = get_browser_registry()
 
         assert registry1 is registry2
 
-    def test_reset_browser_registry(self, reset_registry) -> None:
+    def test_reset_browser_registry(self, reset_registry: object) -> None:
         """reset_browser_registry() creates new instance."""
         registry1 = get_browser_registry()
         registry1.register(MockBrowserProvider("test"))
@@ -831,6 +834,7 @@ class TestPlaywrightProviderMocked:
 
         assert health.state == BrowserHealthState.UNHEALTHY
         assert health.available is False
+        assert health.message is not None
         assert "closed" in health.message
 
 
@@ -849,6 +853,7 @@ class TestUndetectedProviderMocked:
 
         assert health.state == BrowserHealthState.UNHEALTHY
         assert health.available is False
+        assert health.message is not None
         assert "not installed" in health.message
 
     @pytest.mark.asyncio
@@ -862,4 +867,5 @@ class TestUndetectedProviderMocked:
         result = await provider.navigate("https://example.com")
 
         assert result.ok is False
+        assert result.error is not None
         assert "not available" in result.error
