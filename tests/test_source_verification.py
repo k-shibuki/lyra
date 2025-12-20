@@ -1677,3 +1677,37 @@ class TestDomainBlockingTransparency:
         notification = verifier._pending_blocked_notifications[0]
         assert len(notification) == 4
         assert notification[3] == "cause_evidence_123"
+
+    def test_mark_domain_blocked_with_none_cause_id(self, verifier):
+        """
+        TC-P1-1.2-B-01: _mark_domain_blocked with None cause_id.
+
+        // Given: A SourceVerifier
+        // When: _mark_domain_blocked called without cause_id
+        // Then: block_cause_id is None
+        """
+        verifier._mark_domain_blocked(
+            domain="no-cause.com",
+            reason="No causal trace",
+        )
+
+        state = verifier.get_domain_state("no-cause.com")
+        assert state.block_cause_id is None
+        assert state.block_reason == "No causal trace"
+
+    def test_mark_domain_blocked_with_empty_reason(self, verifier):
+        """
+        TC-P1-1.2-B-02: _mark_domain_blocked with empty reason string.
+
+        // Given: A SourceVerifier
+        // When: _mark_domain_blocked called with empty reason
+        // Then: Empty string is stored
+        """
+        verifier._mark_domain_blocked(
+            domain="empty-reason.com",
+            reason="",
+        )
+
+        state = verifier.get_domain_state("empty-reason.com")
+        assert state.block_reason == ""
+        assert state.is_blocked is True

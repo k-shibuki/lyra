@@ -425,30 +425,32 @@ class SourceVerifier:
         for domain in self._blocked_domains:
             state = self._domain_states.get(domain)
             if state and state.is_blocked:
-                result.append({
-                    "domain": domain,
-                    "blocked_at": state.blocked_at,
-                    "reason": state.block_reason,
-                    "cause_id": state.block_cause_id,
-                    "original_trust_level": (
-                        state.original_trust_level.value
-                        if state.original_trust_level
-                        else None
-                    ),
-                    "can_restore": True,
-                    "restore_via": "config/domains.yaml user_overrides",
-                })
+                result.append(
+                    {
+                        "domain": domain,
+                        "blocked_at": state.blocked_at,
+                        "reason": state.block_reason,
+                        "cause_id": state.block_cause_id,
+                        "original_trust_level": (
+                            state.original_trust_level.value if state.original_trust_level else None
+                        ),
+                        "can_restore": True,
+                        "restore_via": "config/domains.yaml user_overrides",
+                    }
+                )
             else:
                 # Domain is blocked but no detailed state available
-                result.append({
-                    "domain": domain,
-                    "blocked_at": None,
-                    "reason": "Domain is blocked",
-                    "cause_id": None,
-                    "original_trust_level": None,
-                    "can_restore": True,
-                    "restore_via": "config/domains.yaml user_overrides",
-                })
+                result.append(
+                    {
+                        "domain": domain,
+                        "blocked_at": None,
+                        "reason": "Domain is blocked",
+                        "cause_id": None,
+                        "original_trust_level": None,
+                        "can_restore": True,
+                        "restore_via": "config/domains.yaml user_overrides",
+                    }
+                )
         return result
 
     def _mark_domain_blocked(
