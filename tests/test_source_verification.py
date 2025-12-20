@@ -122,7 +122,10 @@ class TestSourceVerifierBasic:
 
         // Given: Claim with contradiction detected
         // When: Verifying claim
-        // Then: REJECTED status, demoted to BLOCKED
+        // Then: REJECTED status, demoted to LOW (Phase P.2: not BLOCKED)
+
+        Phase P.2 Update: Contradictions no longer immediately block.
+        UNVERIFIED domains are demoted to LOW for AI evaluation.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.3,
@@ -151,7 +154,8 @@ class TestSourceVerifierBasic:
             )
 
         assert result.verification_status == VerificationStatus.REJECTED
-        assert result.new_trust_level == TrustLevel.BLOCKED
+        # Phase P.2: UNVERIFIED → LOW (not BLOCKED) for AI evaluation
+        assert result.new_trust_level == TrustLevel.LOW
         assert result.promotion_result == PromotionResult.DEMOTED
 
 
@@ -722,6 +726,9 @@ class TestBoundaryValues:
         // Given: Domain with rejection_rate < 0.3
         // When: Verifying claim that gets rejected
         // Then: Not blocked
+
+        Phase P.2 Update: Contradictions no longer immediately block.
+        UNVERIFIED domains are demoted to LOW, not BLOCKED.
         """
         mock_evidence_graph.find_contradictions.return_value = [
             {"claim1_id": "below_threshold", "claim2_id": "other"}
@@ -755,10 +762,9 @@ class TestBoundaryValues:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # 1/10 = 10% < 30%, should NOT be blocked
-        assert result.new_trust_level == TrustLevel.BLOCKED  # Still blocked due to contradiction
-        # But domain itself not added to _blocked_domains due to rate
-        # Actually the contradiction causes immediate block for UNVERIFIED
+        # Phase P.2: UNVERIFIED → LOW (not BLOCKED) due to contradiction
+        # Domain is demoted but not blocked (awaiting AI evaluation)
+        assert result.new_trust_level == TrustLevel.LOW
 
     def test_three_independent_sources_well_above_threshold(self, verifier, mock_evidence_graph):
         """
@@ -1370,13 +1376,17 @@ class TestBlockedDomainNotification:
         # And notification should be queued (at least one for the block)
         assert verifier.get_pending_notification_count() >= 1
 
-    def test_contradiction_blocks_unverified_domain_and_queues(self, verifier, mock_evidence_graph):
+    def test_contradiction_demotes_unverified_domain_to_low(self, verifier, mock_evidence_graph):
         """
-        TC-BN-N-03: Contradiction detection on UNVERIFIED domain queues notification.
+        TC-BN-N-03: Contradiction detection on UNVERIFIED domain demotes to LOW.
 
         // Given: UNVERIFIED domain with contradictions
         // When: Verifying claim
-        // Then: Domain blocked, notification queued
+        // Then: Domain demoted to LOW (Phase P.2), no immediate block
+
+        Phase P.2 Update: Single contradiction no longer blocks immediately.
+        Instead, domain is demoted to LOW for AI evaluation. Notifications
+        are not queued for demotion to LOW (only for actual blocks).
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.5,
@@ -1398,12 +1408,12 @@ class TestBlockedDomainNotification:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Then: Should be blocked
-        assert result.new_trust_level == TrustLevel.BLOCKED
+        # Phase P.2: Should be demoted to LOW, not BLOCKED
+        assert result.new_trust_level == TrustLevel.LOW
         assert result.promotion_result == PromotionResult.DEMOTED
 
-        # And notification queued
-        assert verifier.get_pending_notification_count() == 1
+        # No notification queued (demotion to LOW doesn't trigger block notification)
+        assert verifier.get_pending_notification_count() == 0
 
     @pytest.mark.asyncio
     async def test_send_pending_notifications_sends_all(self, verifier, mock_evidence_graph):
@@ -1711,3 +1721,179 @@ class TestDomainBlockingTransparency:
         state = verifier.get_domain_state("empty-reason.com")
         assert state.block_reason == ""
         assert state.is_blocked is True
+
+
+class TestPhaseP2RelaxedBlocking:
+    """Phase P.2: Relaxed immediate blocking tests.
+
+    Phase P.2 changes the behavior when contradictions are detected:
+    - UNVERIFIED domains: demoted to LOW (was BLOCKED)
+    - Higher trust domains: stay unchanged (as before)
+    - Trust levels are now recorded on edges for high-inference AI evaluation
+    """
+
+    def test_contradiction_unverified_domain_demoted_to_low(self, verifier, mock_evidence_graph):
+        """
+        TC-P2-N-01: Contradiction from UNVERIFIED domain demotes to LOW (not BLOCKED).
+
+        // Given: Claim from UNVERIFIED domain with contradiction
+        // When: Verifying claim
+        // Then: REJECTED, demoted to LOW (Phase P.2 relaxation)
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.3,
+            "supporting_count": 1,
+            "refuting_count": 1,
+            "neutral_count": 0,
+            "verdict": "contested",
+            "independent_sources": 1,
+        }
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim1_id": "claim_contested", "claim2_id": "claim_other", "confidence": 0.9}
+        ]
+
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_contested",
+                domain="contested-site.com",
+                evidence_graph=mock_evidence_graph,
+            )
+
+        # Phase P.2: UNVERIFIED → LOW (not BLOCKED)
+        assert result.verification_status == VerificationStatus.REJECTED
+        assert result.new_trust_level == TrustLevel.LOW
+        assert result.promotion_result == PromotionResult.DEMOTED
+        assert "contested" in result.reason.lower() or "awaiting AI" in result.reason.lower()
+
+    def test_contradiction_academic_domain_stays_unchanged(self, verifier, mock_evidence_graph):
+        """
+        TC-P2-N-02: Contradiction from ACADEMIC domain stays unchanged.
+
+        // Given: Claim from ACADEMIC domain with contradiction (scientific debate)
+        // When: Verifying claim
+        // Then: REJECTED but trust level unchanged (for AI evaluation)
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.5,
+            "supporting_count": 2,
+            "refuting_count": 1,
+            "neutral_count": 0,
+            "verdict": "contested",
+            "independent_sources": 2,
+        }
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim1_id": "claim_academic", "claim2_id": "claim_other", "confidence": 0.8}
+        ]
+
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.ACADEMIC,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_academic",
+                domain="nature.com",
+                evidence_graph=mock_evidence_graph,
+            )
+
+        # ACADEMIC domain contradiction: stays ACADEMIC, recorded for AI
+        assert result.verification_status == VerificationStatus.REJECTED
+        assert result.new_trust_level == TrustLevel.ACADEMIC
+        assert result.promotion_result == PromotionResult.UNCHANGED
+        assert "trusted source" in result.reason.lower() or "AI evaluation" in result.reason.lower()
+
+    def test_contradiction_trusted_domain_stays_unchanged(self, verifier, mock_evidence_graph):
+        """
+        TC-P2-N-03: Contradiction from TRUSTED domain stays unchanged.
+
+        // Given: Claim from TRUSTED domain with contradiction
+        // When: Verifying claim
+        // Then: REJECTED but trust level unchanged
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.4,
+            "supporting_count": 1,
+            "refuting_count": 1,
+            "neutral_count": 0,
+            "verdict": "contested",
+            "independent_sources": 1,
+        }
+        mock_evidence_graph.find_contradictions.return_value = [
+            {"claim1_id": "claim_trusted", "claim2_id": "claim_other", "confidence": 0.85}
+        ]
+
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.TRUSTED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_trusted",
+                domain="reuters.com",
+                evidence_graph=mock_evidence_graph,
+            )
+
+        # TRUSTED domain: stays TRUSTED even with contradiction
+        assert result.verification_status == VerificationStatus.REJECTED
+        assert result.new_trust_level == TrustLevel.TRUSTED
+        assert result.promotion_result == PromotionResult.UNCHANGED
+
+    def test_refuting_count_triggers_contested_not_blocked(self, verifier, mock_evidence_graph):
+        """
+        TC-P2-N-04: Refuting evidence (no explicit contradiction) also triggers contested handling.
+
+        // Given: Claim with refuting evidence but no claim-claim contradiction
+        // When: Verifying claim from UNVERIFIED domain
+        // Then: REJECTED, demoted to LOW (Phase P.2)
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.3,
+            "supporting_count": 1,
+            "refuting_count": 2,  # Refuting evidence exists
+            "neutral_count": 0,
+            "verdict": "contested",
+            "independent_sources": 1,
+        }
+        # No explicit claim-claim contradiction
+        mock_evidence_graph.find_contradictions.return_value = []
+
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_refuted",
+                domain="refuted-site.com",
+                evidence_graph=mock_evidence_graph,
+            )
+
+        # Refuting evidence: demote to LOW (not BLOCKED)
+        assert result.verification_status == VerificationStatus.REJECTED
+        assert result.new_trust_level == TrustLevel.LOW
+        assert result.promotion_result == PromotionResult.DEMOTED
+
+    def test_dangerous_pattern_still_blocks_immediately(self, verifier, mock_evidence_graph):
+        """
+        TC-P2-N-05: Dangerous patterns (L2/L4) still cause immediate blocking.
+
+        // Given: Claim with dangerous pattern detected
+        // When: Verifying claim
+        // Then: BLOCKED immediately (Phase P.2 relaxation does NOT apply to L2/L4)
+        """
+        with patch(
+            "src.filter.source_verification.get_domain_trust_level",
+            return_value=TrustLevel.UNVERIFIED,
+        ):
+            result = verifier.verify_claim(
+                claim_id="claim_dangerous",
+                domain="malware-site.com",
+                evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
+            )
+
+        # Dangerous pattern: immediate BLOCK (no relaxation)
+        assert result.verification_status == VerificationStatus.REJECTED
+        assert result.new_trust_level == TrustLevel.BLOCKED
+        assert result.promotion_result == PromotionResult.DEMOTED
+        assert verifier.is_domain_blocked("malware-site.com")
