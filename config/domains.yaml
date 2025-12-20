@@ -106,10 +106,10 @@ allowlist:
     
   # Knowledge bases
   - domain: "wikipedia.org"
-    trust_level: "trusted"
+    trust_level: "low"  # Downgraded: anyone can edit, quality varies by article
     qps: 0.5
     headful_ratio: 0
-    max_requests_per_day: 500  # Higher budget for high-trust sites
+    max_requests_per_day: 500
     max_pages_per_day: 250
     
   - domain: "wikidata.org"
