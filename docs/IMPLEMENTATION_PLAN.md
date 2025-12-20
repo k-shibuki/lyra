@@ -2310,10 +2310,14 @@ python scripts/migrate.py create NAME  # 新規作成
 
 **主な変更内容**:
 
-1. **エッジへのドメインカテゴリ情報追加**
+1. **エッジへのドメインカテゴリ情報追加** ✅ (2025-12-20 完了)
    - `edges`テーブルに`source_domain_category`, `target_domain_category`カラム追加
    - REFUTESエッジにドメインカテゴリ情報を付与し、高推論AIが「科学的論争か誤情報か」を判断可能にする
    - ドメインカテゴリはランキング調整用であり、信頼度計算や検証判定には使用しない
+   - `TrustLevel` → `DomainCategory` にリネーム（設計原則の明確化）
+   - `ReasonCode` enum 導入（事実ベースの理由コード）
+   - 検証判定ロジックからドメインカテゴリ依存を除去（Thinking-Working分離）
+   - `category_weight` をランキングに適用
 
 2. **ベイズ信頼度モデルの導入**
    - 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算
@@ -2331,7 +2335,7 @@ python scripts/migrate.py create NAME  # 新規作成
 
 **実装ロードマップ**: `docs/EVIDENCE_SYSTEM.md` §実装ロードマップ参照
 
-**状態**: ⏳ 設計完了、実装待ち
+**状態**: ⏳ Phase 2 完了、Phase 3-4 実装待ち
 
 ---
 
