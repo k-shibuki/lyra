@@ -1187,8 +1187,10 @@ class TestContradictionMarking:
         graph.add_node(NodeType.CLAIM, "c1", text="Claim A is true")
         graph.add_node(NodeType.CLAIM, "c2", text="Claim A is false")
         graph.add_edge(
-            NodeType.CLAIM, "c1",
-            NodeType.CLAIM, "c2",
+            NodeType.CLAIM,
+            "c1",
+            NodeType.CLAIM,
+            "c2",
             RelationType.REFUTES,
             confidence=0.9,
         )
@@ -1214,11 +1216,30 @@ class TestContradictionMarking:
         graph.add_node(NodeType.CLAIM, "c1", text="Claim A")
         graph.add_node(NodeType.CLAIM, "c2", text="Claim B supports A")
         graph.add_edge(
-            NodeType.CLAIM, "c1",
-            NodeType.CLAIM, "c2",
+            NodeType.CLAIM,
+            "c1",
+            NodeType.CLAIM,
+            "c2",
             RelationType.SUPPORTS,
             confidence=0.8,
         )
+
+        # When: Mark contradictions
+        count = graph.mark_contradictions()
+
+        # Then: No contradictions
+        assert count == 0
+
+    def test_mark_contradictions_empty_graph(self):
+        """
+        Test mark_contradictions with empty graph.
+
+        // Given: Empty graph with no nodes
+        // When: Calling mark_contradictions()
+        // Then: Returns 0
+        """
+        # Given: Empty graph
+        graph = EvidenceGraph()
 
         # When: Mark contradictions
         count = graph.mark_contradictions()
@@ -1242,15 +1263,19 @@ class TestContradictionMarking:
 
         # Contradiction edge
         graph.add_edge(
-            NodeType.CLAIM, "c1",
-            NodeType.CLAIM, "c2",
+            NodeType.CLAIM,
+            "c1",
+            NodeType.CLAIM,
+            "c2",
             RelationType.REFUTES,
             confidence=0.9,
         )
         # Normal edge
         graph.add_edge(
-            NodeType.CLAIM, "c1",
-            NodeType.CLAIM, "c3",
+            NodeType.CLAIM,
+            "c1",
+            NodeType.CLAIM,
+            "c3",
             RelationType.SUPPORTS,
             confidence=0.8,
         )
@@ -1329,6 +1354,39 @@ class TestClaimAdoptionStatus:
 
         # Then: None for missing claim
         assert graph.get_claim_adoption_status("nonexistent") is None
+
+    def test_set_claim_adoption_status_empty_string(self):
+        """
+        Test setting empty string as adoption status.
+
+        // Given: Claim in graph
+        // When: Setting empty string as status
+        // Then: Status is stored (no validation)
+        """
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "c1", text="Test claim")
+
+        # When: Set empty status
+        graph.set_claim_adoption_status("c1", "")
+
+        # Then: Empty string stored
+        assert graph.get_claim_adoption_status("c1") == ""
+
+    def test_set_claim_adoption_status_nonexistent_claim(self):
+        """
+        Test setting status for nonexistent claim.
+
+        // Given: Claim not in graph
+        // When: Trying to set adoption status
+        // Then: Silently ignored (no error)
+        """
+        graph = EvidenceGraph()
+
+        # When: Set status for missing claim (should not raise)
+        graph.set_claim_adoption_status("missing_claim", "adopted")
+
+        # Then: Status is None (claim not found)
+        assert graph.get_claim_adoption_status("missing_claim") is None
 
     def test_get_claims_by_adoption_status(self):
         """

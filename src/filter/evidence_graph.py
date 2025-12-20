@@ -502,7 +502,8 @@ class EvidenceGraph:
         """
         node_id = self._make_node_id(NodeType.CLAIM, claim_id)
         if node_id in self._graph:
-            return self._graph.nodes[node_id].get("adoption_status", "pending")
+            status = self._graph.nodes[node_id].get("adoption_status", "pending")
+            return str(status) if status is not None else "pending"
         return None
 
     def get_claims_by_adoption_status(self, status: str) -> list[str]:
@@ -532,11 +533,13 @@ class EvidenceGraph:
         result = []
         for source, target, data in self._graph.edges(data=True):
             if data.get("is_contradiction"):
-                result.append({
-                    "source": source,
-                    "target": target,
-                    **data,
-                })
+                result.append(
+                    {
+                        "source": source,
+                        "target": target,
+                        **data,
+                    }
+                )
         return result
 
     def detect_citation_loops(self) -> list[dict[str, Any]]:
