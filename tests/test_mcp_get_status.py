@@ -552,37 +552,3 @@ class TestGetStatusBlockedDomains:
         assert "reason" in blocked
         assert "Contradiction" in blocked["reason"]
         assert blocked["cause_id"] == "abc123"
-
-    @pytest.mark.asyncio
-    async def test_get_status_blocked_domains_verifier_error(
-        self, mock_task: dict[str, Any]
-    ) -> None:
-        """
-        Test get_status handles verifier error gracefully.
-
-        // Given: Task exists but verifier raises exception
-        // When: Calling get_status
-        // Then: Returns empty blocked_domains instead of crashing
-        """
-        from src.mcp.server import _handle_get_status
-
-        mock_db = AsyncMock()
-        mock_db.fetch_one.return_value = mock_task
-
-        mock_verifier = MagicMock()
-        mock_verifier.get_blocked_domains_info.side_effect = RuntimeError("Verifier error")
-
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch(
-                "src.mcp.server._get_exploration_state",
-                side_effect=KeyError("No state"),
-            ):
-                with patch(
-                    "src.filter.source_verification.get_source_verifier",
-                    return_value=mock_verifier,
-                ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
-
-        # Should have empty list on error, not crash
-        assert "blocked_domains" in result
-        assert result["blocked_domains"] == []

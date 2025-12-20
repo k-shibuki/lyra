@@ -595,11 +595,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get blocked domains info for transparency
             from src.filter.source_verification import get_source_verifier
 
-            try:
-                verifier = get_source_verifier()
-                blocked_domains = verifier.get_blocked_domains_info()
-            except Exception:
-                blocked_domains = []
+            verifier = get_source_verifier()
+            blocked_domains = verifier.get_blocked_domains_info()
 
             response = {
                 "ok": True,
@@ -633,11 +630,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get blocked domains info for transparency
             from src.filter.source_verification import get_source_verifier
 
-            try:
-                verifier = get_source_verifier()
-                blocked_domains = verifier.get_blocked_domains_info()
-            except Exception:
-                blocked_domains = []
+            verifier = get_source_verifier()
+            blocked_domains = verifier.get_blocked_domains_info()
 
             response = {
                 "ok": True,
