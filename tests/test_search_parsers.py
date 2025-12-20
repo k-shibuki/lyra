@@ -17,6 +17,7 @@ Follows §7.1 test code quality standards:
 - Boundary conditions coverage
 """
 
+from collections.abc import Generator
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -96,7 +97,7 @@ def bing_html(fixtures_dir: Path) -> str:
 
 
 @pytest.fixture(autouse=True)
-def reset_manager():
+def reset_manager() -> Generator[None, None, None]:
     """Reset parser config manager before each test."""
     reset_parser_config_manager()
     yield
@@ -111,7 +112,7 @@ def reset_manager():
 class TestParserConfigManager:
     """Tests for ParserConfigManager."""
 
-    def test_load_config(self):
+    def test_load_config(self) -> None:
         """Test configuration loading from YAML."""
         manager = get_parser_config_manager()
 
@@ -121,7 +122,7 @@ class TestParserConfigManager:
         assert "duckduckgo" in engines
         assert "mojeek" in engines
 
-    def test_get_engine_config(self):
+    def test_get_engine_config(self) -> None:
         """Test getting engine configuration."""
         manager = get_parser_config_manager()
 
@@ -134,7 +135,7 @@ class TestParserConfigManager:
             f"Expected '{{query}}' placeholder in search_url: {config.search_url}"
         )
 
-    def test_get_engine_config_case_insensitive(self):
+    def test_get_engine_config_case_insensitive(self) -> None:
         """Test engine config lookup is case-insensitive."""
         manager = get_parser_config_manager()
 
@@ -147,14 +148,14 @@ class TestParserConfigManager:
         assert config3 is not None
         assert config1.name == config2.name == config3.name
 
-    def test_get_nonexistent_engine(self):
+    def test_get_nonexistent_engine(self) -> None:
         """Test getting config for nonexistent engine returns None."""
         manager = get_parser_config_manager()
 
         config = manager.get_engine_config("nonexistent_engine")
         assert config is None
 
-    def test_selector_config(self):
+    def test_selector_config(self) -> None:
         """Test selector configuration is loaded correctly."""
         manager = get_parser_config_manager()
 
@@ -170,7 +171,7 @@ class TestParserConfigManager:
             f"Expected diagnostic message >=10 chars, got: {selector.diagnostic_message}"
         )
 
-    def test_settings(self):
+    def test_settings(self) -> None:
         """Test global settings are loaded."""
         manager = get_parser_config_manager()
 
@@ -183,7 +184,7 @@ class TestParserConfigManager:
 class TestEngineParserConfig:
     """Tests for EngineParserConfig."""
 
-    def test_build_search_url_no_encoding(self):
+    def test_build_search_url_no_encoding(self) -> None:
         """
         Test EngineParserConfig.build_search_url does NOT encode query.
 
@@ -201,7 +202,7 @@ class TestEngineParserConfig:
         assert "test query" in url  # Space not encoded
         assert "duckduckgo.com" in url
 
-    def test_get_time_range(self):
+    def test_get_time_range(self) -> None:
         """Test time range mapping for DuckDuckGo."""
         manager = get_parser_config_manager()
         config = manager.get_engine_config("duckduckgo")
@@ -215,7 +216,7 @@ class TestEngineParserConfig:
         assert config.get_time_range("month") == "m"
         assert config.get_time_range("year") == "y"
 
-    def test_get_required_selectors(self):
+    def test_get_required_selectors(self) -> None:
         """Test getting required selectors."""
         manager = get_parser_config_manager()
         config = manager.get_engine_config("duckduckgo")
@@ -238,7 +239,7 @@ class TestEngineParserConfig:
 class TestDuckDuckGoParser:
     """Tests for DuckDuckGoParser."""
 
-    def test_parse_results(self, duckduckgo_html: str):
+    def test_parse_results(self, duckduckgo_html: str) -> None:
         """Test parsing DuckDuckGo search results."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_html, "test query")
@@ -248,7 +249,7 @@ class TestDuckDuckGoParser:
         assert result.is_captcha is False
         assert result.error is None
 
-    def test_parse_result_titles(self, duckduckgo_html: str):
+    def test_parse_result_titles(self, duckduckgo_html: str) -> None:
         """Test extracted titles are correct."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_html, "test")
@@ -258,7 +259,7 @@ class TestDuckDuckGoParser:
         assert "Academic Paper Title" in titles
         assert "Government Document" in titles
 
-    def test_parse_result_urls(self, duckduckgo_html: str):
+    def test_parse_result_urls(self, duckduckgo_html: str) -> None:
         """Test extracted URLs are correct."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_html, "test")
@@ -268,7 +269,7 @@ class TestDuckDuckGoParser:
         assert "https://arxiv.org/abs/12345" in urls
         assert "https://www.e-gov.go.jp/document" in urls
 
-    def test_parse_result_snippets(self, duckduckgo_html: str):
+    def test_parse_result_snippets(self, duckduckgo_html: str) -> None:
         """Test extracted snippets are correct."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_html, "test")
@@ -277,7 +278,7 @@ class TestDuckDuckGoParser:
         assert any("first result" in s.lower() for s in snippets)
         assert any("academic" in s.lower() for s in snippets)
 
-    def test_parse_result_ranks(self, duckduckgo_html: str):
+    def test_parse_result_ranks(self, duckduckgo_html: str) -> None:
         """Test results have correct ranks assigned."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_html, "test")
@@ -285,7 +286,7 @@ class TestDuckDuckGoParser:
         ranks = [r.rank for r in result.results]
         assert ranks == [1, 2, 3]
 
-    def test_detect_captcha(self, duckduckgo_captcha_html: str):
+    def test_detect_captcha(self, duckduckgo_captcha_html: str) -> None:
         """Test CAPTCHA detection."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_captcha_html, "test")
@@ -294,7 +295,7 @@ class TestDuckDuckGoParser:
         assert result.is_captcha is True
         assert result.captcha_type is not None
 
-    def test_captcha_detection_patterns(self):
+    def test_captcha_detection_patterns(self) -> None:
         """Test various CAPTCHA patterns are detected."""
         parser = DuckDuckGoParser()
 
@@ -308,7 +309,7 @@ class TestDuckDuckGoParser:
         result = parser.parse(html_recaptcha, "test")
         assert result.is_captcha is True
 
-    def test_empty_html(self):
+    def test_empty_html(self) -> None:
         """Test handling of empty HTML."""
         parser = DuckDuckGoParser()
         result = parser.parse("", "test")
@@ -319,7 +320,7 @@ class TestDuckDuckGoParser:
             f"Expected >=1 selector errors, got {result.selector_errors}"
         )
 
-    def test_malformed_html(self):
+    def test_malformed_html(self) -> None:
         """Test handling of malformed HTML."""
         parser = DuckDuckGoParser()
         html = "<html><div>No search results here</div></html>"
@@ -328,7 +329,7 @@ class TestDuckDuckGoParser:
         # Should fail because required selectors not found
         assert result.ok is False
 
-    def test_build_search_url_with_encoding(self):
+    def test_build_search_url_with_encoding(self) -> None:
         """
         Test BaseSearchParser.build_search_url URL-encodes the query.
 
@@ -353,7 +354,7 @@ class TestDuckDuckGoParser:
 class TestMojeekParser:
     """Tests for MojeekParser."""
 
-    def test_parse_results(self, mojeek_html: str):
+    def test_parse_results(self, mojeek_html: str) -> None:
         """Test parsing Mojeek search results."""
         parser = MojeekParser()
         result = parser.parse(mojeek_html, "test query")
@@ -362,7 +363,7 @@ class TestMojeekParser:
         assert len(result.results) == 2
         assert result.is_captcha is False
 
-    def test_parse_result_titles(self, mojeek_html: str):
+    def test_parse_result_titles(self, mojeek_html: str) -> None:
         """Test extracted titles from Mojeek."""
         parser = MojeekParser()
         result = parser.parse(mojeek_html, "test")
@@ -371,7 +372,7 @@ class TestMojeekParser:
         assert "Mojeek Result One" in titles
         assert "Wikipedia Article" in titles
 
-    def test_parse_result_urls(self, mojeek_html: str):
+    def test_parse_result_urls(self, mojeek_html: str) -> None:
         """Test extracted URLs from Mojeek."""
         parser = MojeekParser()
         result = parser.parse(mojeek_html, "test")
@@ -380,7 +381,7 @@ class TestMojeekParser:
         assert "https://example.com/mojeek1" in urls
         assert "https://wikipedia.org/wiki/Test" in urls
 
-    def test_build_search_url(self):
+    def test_build_search_url(self) -> None:
         """Test building Mojeek search URL."""
         parser = MojeekParser()
         url = parser.build_search_url("test query")
@@ -396,13 +397,13 @@ class TestMojeekParser:
 class TestParserRegistry:
     """Tests for parser registry functions."""
 
-    def test_get_parser(self):
+    def test_get_parser(self) -> None:
         """Test getting parser by name."""
         parser = get_parser("duckduckgo")
         assert parser is not None
         assert isinstance(parser, DuckDuckGoParser)
 
-    def test_get_parser_case_insensitive(self):
+    def test_get_parser_case_insensitive(self) -> None:
         """Test parser lookup is case-insensitive."""
         parser1 = get_parser("DuckDuckGo")
         parser2 = get_parser("duckduckgo")
@@ -411,12 +412,12 @@ class TestParserRegistry:
         assert parser2 is not None
         assert isinstance(parser1, type(parser2))
 
-    def test_get_nonexistent_parser(self):
+    def test_get_nonexistent_parser(self) -> None:
         """Test getting nonexistent parser returns None."""
         parser = get_parser("nonexistent")
         assert parser is None
 
-    def test_get_available_parsers(self):
+    def test_get_available_parsers(self) -> None:
         """Test getting list of available parsers."""
         parsers = get_available_parsers()
 
@@ -435,7 +436,7 @@ class TestParserRegistry:
 class TestSourceClassification:
     """Tests for source URL classification."""
 
-    def test_search_result_source_tag(self, duckduckgo_html: str):
+    def test_search_result_source_tag(self, duckduckgo_html: str) -> None:
         """Test source tags are assigned to results."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_html, "test")
@@ -450,7 +451,7 @@ class TestSourceClassification:
         search_result = academic_result.to_search_result("duckduckgo")
         assert search_result.source_tag == SourceTag.ACADEMIC
 
-    def test_government_source_classification(self, duckduckgo_html: str):
+    def test_government_source_classification(self, duckduckgo_html: str) -> None:
         """Test government source is classified correctly."""
         parser = DuckDuckGoParser()
         result = parser.parse(duckduckgo_html, "test")
@@ -473,7 +474,7 @@ class TestSourceClassification:
 class TestParserErrorHandling:
     """Tests for parser error handling and diagnostics."""
 
-    def test_selector_error_messages(self):
+    def test_selector_error_messages(self) -> None:
         """Test diagnostic messages are included in errors."""
         parser = DuckDuckGoParser()
         html = "<html><body>No results</body></html>"
@@ -490,7 +491,7 @@ class TestParserErrorHandling:
             f"Expected 'results_container' in error message: {error_text}"
         )
 
-    def test_html_saved_on_failure(self, tmp_path):
+    def test_html_saved_on_failure(self, tmp_path) -> None:
         """Test HTML is saved when parsing fails."""
         # Configure to save to temp directory
         with patch.object(
@@ -520,7 +521,7 @@ class TestParserErrorHandling:
 class TestEcosiaParser:
     """Tests for EcosiaParser (Bing-based, relatively lenient)."""
 
-    def test_parse_results(self, ecosia_html: str):
+    def test_parse_results(self, ecosia_html: str) -> None:
         """Test parsing Ecosia search results."""
         parser = EcosiaParser()
         result = parser.parse(ecosia_html, "test query")
@@ -530,7 +531,7 @@ class TestEcosiaParser:
         assert result.is_captcha is False
         assert result.error is None
 
-    def test_parse_result_titles(self, ecosia_html: str):
+    def test_parse_result_titles(self, ecosia_html: str) -> None:
         """Test extracted titles from Ecosia."""
         parser = EcosiaParser()
         result = parser.parse(ecosia_html, "test")
@@ -540,7 +541,7 @@ class TestEcosiaParser:
         assert "Nature Article" in titles
         assert "UK Government Document" in titles
 
-    def test_parse_result_urls(self, ecosia_html: str):
+    def test_parse_result_urls(self, ecosia_html: str) -> None:
         """Test extracted URLs from Ecosia."""
         parser = EcosiaParser()
         result = parser.parse(ecosia_html, "test")
@@ -550,7 +551,7 @@ class TestEcosiaParser:
         assert "https://nature.com/article/123" in urls
         assert "https://www.gov.uk/document" in urls
 
-    def test_parse_result_snippets(self, ecosia_html: str):
+    def test_parse_result_snippets(self, ecosia_html: str) -> None:
         """Test extracted snippets from Ecosia match expected content."""
         parser = EcosiaParser()
         result = parser.parse(ecosia_html, "test")
@@ -561,7 +562,7 @@ class TestEcosiaParser:
         assert "environmental research" in result.results[1].snippet
         assert "UK government document" in result.results[2].snippet
 
-    def test_parse_result_ranks(self, ecosia_html: str):
+    def test_parse_result_ranks(self, ecosia_html: str) -> None:
         """Test results have correct ranks assigned."""
         parser = EcosiaParser()
         result = parser.parse(ecosia_html, "test")
@@ -569,7 +570,7 @@ class TestEcosiaParser:
         ranks = [r.rank for r in result.results]
         assert ranks == [1, 2, 3]
 
-    def test_build_search_url(self):
+    def test_build_search_url(self) -> None:
         """Test building Ecosia search URL contains domain and encoded query."""
         parser = EcosiaParser()
         url = parser.build_search_url("test query")
@@ -579,7 +580,7 @@ class TestEcosiaParser:
         assert "test" in url
         assert "query" in url
 
-    def test_government_source_classification(self, ecosia_html: str):
+    def test_government_source_classification(self, ecosia_html: str) -> None:
         """Test UK government source is classified correctly."""
         parser = EcosiaParser()
         result = parser.parse(ecosia_html, "test")
@@ -593,7 +594,7 @@ class TestEcosiaParser:
         search_result = gov_result.to_search_result("ecosia")
         assert search_result.source_tag == SourceTag.GOVERNMENT
 
-    def test_empty_html(self):
+    def test_empty_html(self) -> None:
         """Test empty HTML returns failure with selector errors for required selectors."""
         parser = EcosiaParser()
         result = parser.parse("", "test")
@@ -611,7 +612,7 @@ class TestEcosiaParser:
 class TestStartpageParser:
     """Tests for StartpageParser (Google-based, privacy-focused)."""
 
-    def test_parse_results(self, startpage_html: str):
+    def test_parse_results(self, startpage_html: str) -> None:
         """Test parsing Startpage search results."""
         parser = StartpageParser()
         result = parser.parse(startpage_html, "test query")
@@ -621,7 +622,7 @@ class TestStartpageParser:
         assert result.is_captcha is False
         assert result.error is None
 
-    def test_parse_result_titles(self, startpage_html: str):
+    def test_parse_result_titles(self, startpage_html: str) -> None:
         """Test extracted titles from Startpage."""
         parser = StartpageParser()
         result = parser.parse(startpage_html, "test")
@@ -631,7 +632,7 @@ class TestStartpageParser:
         assert "Google Scholar Paper" in titles
         assert "Japanese Government Law" in titles
 
-    def test_parse_result_urls(self, startpage_html: str):
+    def test_parse_result_urls(self, startpage_html: str) -> None:
         """Test extracted URLs from Startpage."""
         parser = StartpageParser()
         result = parser.parse(startpage_html, "test")
@@ -641,7 +642,7 @@ class TestStartpageParser:
         assert "https://scholar.google.com/paper123" in urls
         assert "https://www.e-gov.go.jp/law" in urls
 
-    def test_parse_result_snippets(self, startpage_html: str):
+    def test_parse_result_snippets(self, startpage_html: str) -> None:
         """Test extracted snippets from Startpage match expected content."""
         parser = StartpageParser()
         result = parser.parse(startpage_html, "test")
@@ -652,7 +653,7 @@ class TestStartpageParser:
         assert "Academic paper" in result.results[1].snippet
         assert "Legal document" in result.results[2].snippet
 
-    def test_parse_result_ranks(self, startpage_html: str):
+    def test_parse_result_ranks(self, startpage_html: str) -> None:
         """Test results have correct ranks assigned."""
         parser = StartpageParser()
         result = parser.parse(startpage_html, "test")
@@ -660,14 +661,14 @@ class TestStartpageParser:
         ranks = [r.rank for r in result.results]
         assert ranks == [1, 2, 3]
 
-    def test_build_search_url(self):
+    def test_build_search_url(self) -> None:
         """Test building Startpage search URL."""
         parser = StartpageParser()
         url = parser.build_search_url("test query")
 
         assert "startpage.com" in url
 
-    def test_academic_source_classification(self, startpage_html: str):
+    def test_academic_source_classification(self, startpage_html: str) -> None:
         """Test Google Scholar source is classified as academic."""
         parser = StartpageParser()
         result = parser.parse(startpage_html, "test")
@@ -681,7 +682,7 @@ class TestStartpageParser:
         search_result = academic_result.to_search_result("startpage")
         assert search_result.source_tag == SourceTag.ACADEMIC
 
-    def test_government_source_classification(self, startpage_html: str):
+    def test_government_source_classification(self, startpage_html: str) -> None:
         """Test Japanese government source is classified correctly."""
         parser = StartpageParser()
         result = parser.parse(startpage_html, "test")
@@ -695,7 +696,7 @@ class TestStartpageParser:
         search_result = gov_result.to_search_result("startpage")
         assert search_result.source_tag == SourceTag.GOVERNMENT
 
-    def test_empty_html(self):
+    def test_empty_html(self) -> None:
         """Test empty HTML returns failure with selector errors for required selectors."""
         parser = StartpageParser()
         result = parser.parse("", "test")
@@ -704,7 +705,7 @@ class TestStartpageParser:
         # Startpage has 3 required selectors: results_container, title, url
         assert len(result.selector_errors) == 3
 
-    def test_captcha_detection(self):
+    def test_captcha_detection(self) -> None:
         """Test reCAPTCHA pattern is detected in HTML."""
         parser = StartpageParser()
 
@@ -723,26 +724,26 @@ class TestStartpageParser:
 class TestPhase1613ParserRegistry:
     """Tests for additional parsers (Ecosia, Startpage)."""
 
-    def test_ecosia_parser_available(self):
+    def test_ecosia_parser_available(self) -> None:
         """Test Ecosia parser is registered and returns correct type."""
         parser = get_parser("ecosia")
         assert parser is not None
         assert isinstance(parser, EcosiaParser)
 
-    def test_startpage_parser_available(self):
+    def test_startpage_parser_available(self) -> None:
         """Test Startpage parser is registered and returns correct type."""
         parser = get_parser("startpage")
         assert parser is not None
         assert isinstance(parser, StartpageParser)
 
-    def test_new_parsers_in_available_list(self):
+    def test_new_parsers_in_available_list(self) -> None:
         """Test additional parsers appear in available parsers list."""
         parsers = get_available_parsers()
 
         assert "ecosia" in parsers, f"ecosia not in {parsers}"
         assert "startpage" in parsers, f"startpage not in {parsers}"
 
-    def test_all_parsers_count(self):
+    def test_all_parsers_count(self) -> None:
         """Test total parser count is exactly 7."""
         parsers = get_available_parsers()
 
@@ -758,7 +759,7 @@ class TestPhase1613ParserRegistry:
 class TestBingParser:
     """Tests for BingParser (high block risk)."""
 
-    def test_parse_results(self, bing_html: str):
+    def test_parse_results(self, bing_html: str) -> None:
         """Test parsing Bing search results."""
         parser = BingParser()
         result = parser.parse(bing_html, "test query")
@@ -768,7 +769,7 @@ class TestBingParser:
         assert result.is_captcha is False
         assert result.error is None
 
-    def test_parse_result_titles(self, bing_html: str):
+    def test_parse_result_titles(self, bing_html: str) -> None:
         """Test extracted titles from Bing."""
         parser = BingParser()
         result = parser.parse(bing_html, "test")
@@ -778,7 +779,7 @@ class TestBingParser:
         assert "ArXiv Research Paper" in titles
         assert "Japanese Government Law" in titles
 
-    def test_parse_result_urls(self, bing_html: str):
+    def test_parse_result_urls(self, bing_html: str) -> None:
         """Test extracted URLs from Bing."""
         parser = BingParser()
         result = parser.parse(bing_html, "test")
@@ -788,7 +789,7 @@ class TestBingParser:
         assert "https://arxiv.org/abs/2024.12345" in urls
         assert "https://www.e-gov.go.jp/law/document" in urls
 
-    def test_parse_result_snippets(self, bing_html: str):
+    def test_parse_result_snippets(self, bing_html: str) -> None:
         """Test extracted snippets from Bing match expected content."""
         parser = BingParser()
         result = parser.parse(bing_html, "test")
@@ -799,7 +800,7 @@ class TestBingParser:
         assert "machine learning research" in result.results[1].snippet
         assert "Japanese government legal" in result.results[2].snippet
 
-    def test_parse_result_ranks(self, bing_html: str):
+    def test_parse_result_ranks(self, bing_html: str) -> None:
         """Test results have correct ranks assigned."""
         parser = BingParser()
         result = parser.parse(bing_html, "test")
@@ -807,7 +808,7 @@ class TestBingParser:
         ranks = [r.rank for r in result.results]
         assert ranks == [1, 2, 3]
 
-    def test_build_search_url(self):
+    def test_build_search_url(self) -> None:
         """Test building Bing search URL contains domain and encoded query."""
         parser = BingParser()
         url = parser.build_search_url("test query")
@@ -817,7 +818,7 @@ class TestBingParser:
         assert "test" in url
         assert "query" in url
 
-    def test_academic_source_classification(self, bing_html: str):
+    def test_academic_source_classification(self, bing_html: str) -> None:
         """Test arxiv source is classified as academic."""
         parser = BingParser()
         result = parser.parse(bing_html, "test")
@@ -831,7 +832,7 @@ class TestBingParser:
         search_result = academic_result.to_search_result("bing")
         assert search_result.source_tag == SourceTag.ACADEMIC
 
-    def test_government_source_classification(self, bing_html: str):
+    def test_government_source_classification(self, bing_html: str) -> None:
         """Test Japanese government source is classified correctly."""
         parser = BingParser()
         result = parser.parse(bing_html, "test")
@@ -845,7 +846,7 @@ class TestBingParser:
         search_result = gov_result.to_search_result("bing")
         assert search_result.source_tag == SourceTag.GOVERNMENT
 
-    def test_empty_html(self):
+    def test_empty_html(self) -> None:
         """Test empty HTML returns failure with selector errors for required selectors."""
         parser = BingParser()
         result = parser.parse("", "test")
@@ -854,7 +855,7 @@ class TestBingParser:
         # Bing has 3 required selectors: results_container, title, url
         assert len(result.selector_errors) == 3
 
-    def test_captcha_detection(self):
+    def test_captcha_detection(self) -> None:
         """Test reCAPTCHA pattern is detected in HTML."""
         parser = BingParser()
 
@@ -868,13 +869,13 @@ class TestBingParser:
 class TestBingParserRegistry:
     """Tests for Bing parser registration."""
 
-    def test_bing_parser_available(self):
+    def test_bing_parser_available(self) -> None:
         """Test Bing parser is registered and returns correct type."""
         parser = get_parser("bing")
         assert parser is not None
         assert isinstance(parser, BingParser)
 
-    def test_bing_in_available_list(self):
+    def test_bing_in_available_list(self) -> None:
         """Test Bing parser appears in available parsers list."""
         parsers = get_available_parsers()
 

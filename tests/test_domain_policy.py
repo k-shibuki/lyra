@@ -104,6 +104,7 @@ Test design follows §7.1 Test Code Quality Standards:
 | TC-FB-N-02 | Missing bounds | Equivalence – normal | Defaults used | - |
 """
 
+from collections.abc import Generator
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -255,7 +256,7 @@ def policy_manager(temp_config_file: Path) -> DomainPolicyManager:
 
 
 @pytest.fixture(autouse=True)
-def reset_singleton():
+def reset_singleton() -> Generator[None, None, None]:
     """Reset singleton before and after each test."""
     reset_domain_policy_manager()
     yield
@@ -270,7 +271,7 @@ def reset_singleton():
 class TestDefaultPolicySchema:
     """Tests for DefaultPolicySchema validation."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Verify default policy has expected default values."""
         # Arrange & Act
         schema = DefaultPolicySchema()
@@ -287,7 +288,7 @@ class TestDefaultPolicySchema:
         assert schema.max_requests_per_day == 200
         assert schema.max_pages_per_day == 100
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Verify schema accepts valid custom values."""
         # Arrange & Act
         schema = DefaultPolicySchema(
@@ -314,7 +315,7 @@ class TestDefaultPolicySchema:
         assert schema.max_requests_per_day == 500
         assert schema.max_pages_per_day == 250
 
-    def test_qps_validation_range(self):
+    def test_qps_validation_range(self) -> None:
         """Verify QPS validation rejects out-of-range values."""
         # Then - too low
         with pytest.raises(ValueError):
@@ -324,7 +325,7 @@ class TestDefaultPolicySchema:
         with pytest.raises(ValueError):
             DefaultPolicySchema(qps=3.0)
 
-    def test_headful_ratio_validation_range(self):
+    def test_headful_ratio_validation_range(self) -> None:
         """Verify headful_ratio validation enforces [0, 1] range."""
         # Then - negative
         with pytest.raises(ValueError):
@@ -338,7 +339,7 @@ class TestDefaultPolicySchema:
 class TestAllowlistEntrySchema:
     """Tests for AllowlistEntrySchema validation."""
 
-    def test_valid_entry(self):
+    def test_valid_entry(self) -> None:
         """Verify valid allowlist entry is accepted."""
         # Arrange & Act
         entry = AllowlistEntrySchema(
@@ -354,7 +355,7 @@ class TestAllowlistEntrySchema:
         assert entry.internal_search is True
         assert entry.qps == 0.15
 
-    def test_domain_normalization(self):
+    def test_domain_normalization(self) -> None:
         """Verify domain is normalized to lowercase."""
         # Arrange & Act
         entry = AllowlistEntrySchema(domain="EXAMPLE.COM")
@@ -362,17 +363,17 @@ class TestAllowlistEntrySchema:
         # Then
         assert entry.domain == "example.com"
 
-    def test_empty_domain_rejected(self):
+    def test_empty_domain_rejected(self) -> None:
         """Verify empty domain is rejected."""
         with pytest.raises(ValueError):
             AllowlistEntrySchema(domain="")
 
-    def test_short_domain_rejected(self):
+    def test_short_domain_rejected(self) -> None:
         """Verify single-character domain is rejected."""
         with pytest.raises(ValueError):
             AllowlistEntrySchema(domain="x")
 
-    def test_daily_budget_fields(self):
+    def test_daily_budget_fields(self) -> None:
         """Verify daily budget fields are accepted (§4.3 - Problem 11)."""
         # Arrange & Act
         entry = AllowlistEntrySchema(
@@ -385,7 +386,7 @@ class TestAllowlistEntrySchema:
         assert entry.max_requests_per_day == 500
         assert entry.max_pages_per_day == 250
 
-    def test_daily_budget_defaults_none(self):
+    def test_daily_budget_defaults_none(self) -> None:
         """Verify daily budget fields default to None (use global default)."""
         # Arrange & Act
         entry = AllowlistEntrySchema(domain="example.com")
@@ -398,7 +399,7 @@ class TestAllowlistEntrySchema:
 class TestGraylistEntrySchema:
     """Tests for GraylistEntrySchema validation."""
 
-    def test_valid_pattern(self):
+    def test_valid_pattern(self) -> None:
         """Verify valid graylist pattern is accepted."""
         # Arrange & Act
         entry = GraylistEntrySchema(
@@ -412,7 +413,7 @@ class TestGraylistEntrySchema:
         assert entry.headful_ratio == 0.5
         assert entry.skip is False
 
-    def test_skip_with_reason(self):
+    def test_skip_with_reason(self) -> None:
         """Verify skip entry with reason is accepted."""
         # Arrange & Act
         entry = GraylistEntrySchema(
@@ -429,7 +430,7 @@ class TestGraylistEntrySchema:
 class TestDenylistEntrySchema:
     """Tests for DenylistEntrySchema validation."""
 
-    def test_valid_entry(self):
+    def test_valid_entry(self) -> None:
         """Verify valid denylist entry is accepted."""
         # Arrange & Act
         entry = DenylistEntrySchema(
@@ -445,7 +446,7 @@ class TestDenylistEntrySchema:
 class TestDomainPolicyConfigSchema:
     """Tests for root config schema validation."""
 
-    def test_full_config_parsing(self, sample_config_yaml: str):
+    def test_full_config_parsing(self, sample_config_yaml: str) -> None:
         """Verify complete config YAML is parsed correctly."""
         # Given
         data = yaml.safe_load(sample_config_yaml)
@@ -468,7 +469,7 @@ class TestDomainPolicyConfigSchema:
         assert len(config.cloudflare_sites) == 1
         assert len(config.internal_search_templates) == 2
 
-    def test_empty_config_uses_defaults(self):
+    def test_empty_config_uses_defaults(self) -> None:
         """Verify empty config uses default values."""
         # Arrange & Act
         config = DomainPolicyConfigSchema()
@@ -488,7 +489,7 @@ class TestDomainPolicyConfigSchema:
 class TestDomainPolicy:
     """Tests for DomainPolicy data class."""
 
-    def test_category_weight_primary(self):
+    def test_category_weight_primary(self) -> None:
         """Verify PRIMARY trust level has weight 1.0."""
         # Arrange & Act
         policy = DomainPolicy(domain="gov.example", domain_category=DomainCategory.PRIMARY)
@@ -496,7 +497,7 @@ class TestDomainPolicy:
         # Then
         assert policy.category_weight == 1.0
 
-    def test_category_weight_government(self):
+    def test_category_weight_government(self) -> None:
         """Verify GOVERNMENT trust level has weight 0.95."""
         # Arrange & Act
         policy = DomainPolicy(domain="gov.example", domain_category=DomainCategory.GOVERNMENT)
@@ -504,7 +505,7 @@ class TestDomainPolicy:
         # Then
         assert policy.category_weight == 0.95
 
-    def test_category_weight_academic(self):
+    def test_category_weight_academic(self) -> None:
         """Verify ACADEMIC trust level has weight 0.90."""
         # Arrange & Act
         policy = DomainPolicy(domain="uni.example", domain_category=DomainCategory.ACADEMIC)
@@ -512,7 +513,7 @@ class TestDomainPolicy:
         # Then
         assert policy.category_weight == 0.90
 
-    def test_category_weight_unknown(self):
+    def test_category_weight_unknown(self) -> None:
         """Verify UNKNOWN trust level has weight 0.30."""
         # Arrange & Act
         policy = DomainPolicy(domain="unknown.example", domain_category=DomainCategory.UNVERIFIED)
@@ -520,7 +521,7 @@ class TestDomainPolicy:
         # Then
         assert policy.category_weight == 0.30
 
-    def test_min_request_interval(self):
+    def test_min_request_interval(self) -> None:
         """Verify min_request_interval is calculated correctly from QPS."""
         # Arrange & Act
         policy = DomainPolicy(domain="example.com", qps=0.25)
@@ -528,7 +529,7 @@ class TestDomainPolicy:
         # Then
         assert policy.min_request_interval == 4.0  # 1 / 0.25
 
-    def test_is_in_cooldown_true(self):
+    def test_is_in_cooldown_true(self) -> None:
         """Verify is_in_cooldown returns True when cooldown is active."""
         # Given
         future_time = datetime.now(UTC) + timedelta(hours=1)
@@ -537,7 +538,7 @@ class TestDomainPolicy:
         # Then
         assert policy.is_in_cooldown is True
 
-    def test_is_in_cooldown_false_when_expired(self):
+    def test_is_in_cooldown_false_when_expired(self) -> None:
         """Verify is_in_cooldown returns False when cooldown has expired."""
         # Given
         past_time = datetime.now(UTC) - timedelta(hours=1)
@@ -546,7 +547,7 @@ class TestDomainPolicy:
         # Then
         assert policy.is_in_cooldown is False
 
-    def test_is_in_cooldown_false_when_none(self):
+    def test_is_in_cooldown_false_when_none(self) -> None:
         """Verify is_in_cooldown returns False when no cooldown set."""
         # Given
         policy = DomainPolicy(domain="example.com", cooldown_until=None)
@@ -554,7 +555,7 @@ class TestDomainPolicy:
         # Then
         assert policy.is_in_cooldown is False
 
-    def test_to_dict_contains_all_fields(self):
+    def test_to_dict_contains_all_fields(self) -> None:
         """Verify to_dict includes all required fields."""
         # Given
         policy = DomainPolicy(
@@ -577,7 +578,7 @@ class TestDomainPolicy:
         assert "max_requests_per_day" in result
         assert "max_pages_per_day" in result
 
-    def test_daily_budget_defaults(self):
+    def test_daily_budget_defaults(self) -> None:
         """Verify DomainPolicy has correct daily budget defaults (§4.3 - Problem 11)."""
         # Given & When
         policy = DomainPolicy(domain="example.com")
@@ -586,7 +587,7 @@ class TestDomainPolicy:
         assert policy.max_requests_per_day == 200
         assert policy.max_pages_per_day == 100
 
-    def test_daily_budget_custom_values(self):
+    def test_daily_budget_custom_values(self) -> None:
         """Verify DomainPolicy accepts custom daily budget values (§4.3 - Problem 11)."""
         # Given & When
         policy = DomainPolicy(
@@ -608,7 +609,7 @@ class TestDomainPolicy:
 class TestDomainPolicyManagerLoading:
     """Tests for DomainPolicyManager configuration loading."""
 
-    def test_load_valid_config(self, policy_manager: DomainPolicyManager):
+    def test_load_valid_config(self, policy_manager: DomainPolicyManager) -> None:
         """Verify valid config is loaded correctly."""
         # Then
         config = policy_manager.config
@@ -617,7 +618,7 @@ class TestDomainPolicyManagerLoading:
         assert len(config.graylist) == 3
         assert len(config.denylist) == 2
 
-    def test_load_missing_config_uses_defaults(self, tmp_path: Path):
+    def test_load_missing_config_uses_defaults(self, tmp_path: Path) -> None:
         """Verify missing config file results in default values."""
         # Given
         nonexistent_path = tmp_path / "nonexistent.yaml"
@@ -629,7 +630,7 @@ class TestDomainPolicyManagerLoading:
         assert manager.config.default_policy.qps == 0.2
         assert manager.config.allowlist == []
 
-    def test_reload_clears_cache(self, policy_manager: DomainPolicyManager):
+    def test_reload_clears_cache(self, policy_manager: DomainPolicyManager) -> None:
         """Verify reload clears the policy cache."""
         # Given - populate cache
         _ = policy_manager.get_policy("example.com")
@@ -645,7 +646,7 @@ class TestDomainPolicyManagerLoading:
 class TestDomainPolicyManagerLookup:
     """Tests for DomainPolicyManager policy lookup."""
 
-    def test_get_policy_allowlist_exact_match(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_allowlist_exact_match(self, policy_manager: DomainPolicyManager) -> None:
         """Verify allowlist exact domain match returns correct policy."""
         # When
         policy = policy_manager.get_policy("arxiv.org")
@@ -656,7 +657,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.internal_search is True
         assert policy.source == "allowlist"
 
-    def test_get_policy_allowlist_suffix_match(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_allowlist_suffix_match(self, policy_manager: DomainPolicyManager) -> None:
         """Verify allowlist suffix match works (e.g., 'go.jp' matches 'example.go.jp')."""
         # When
         policy = policy_manager.get_policy("example.go.jp")
@@ -666,7 +667,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.qps == 0.15
         assert policy.source == "allowlist"
 
-    def test_get_policy_graylist_pattern_match(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_graylist_pattern_match(self, policy_manager: DomainPolicyManager) -> None:
         """Verify graylist pattern match returns correct policy."""
         # When
         policy = policy_manager.get_policy("user.medium.com")
@@ -675,7 +676,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.qps == 0.1
         assert policy.source == "graylist"
 
-    def test_get_policy_graylist_skip(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_graylist_skip(self, policy_manager: DomainPolicyManager) -> None:
         """Verify graylist skip entry sets skip=True."""
         # When
         policy = policy_manager.get_policy("api.twitter.com")
@@ -685,7 +686,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.skip_reason == "social_media"
         assert policy.source == "graylist"
 
-    def test_get_policy_denylist(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_denylist(self, policy_manager: DomainPolicyManager) -> None:
         """Verify denylist entry sets skip=True with highest priority."""
         # When
         policy = policy_manager.get_policy("myblog.blogspot.com")
@@ -695,7 +696,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.skip_reason == "low_quality_aggregator"
         assert policy.source == "denylist"
 
-    def test_get_policy_cloudflare_site(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_cloudflare_site(self, policy_manager: DomainPolicyManager) -> None:
         """Verify cloudflare site sets headful_required and tor_blocked."""
         # When
         policy = policy_manager.get_policy("api.protected-site.com")
@@ -706,7 +707,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.tor_allowed is False  # tor_blocked implies tor_allowed=False
         assert policy.source == "cloudflare"
 
-    def test_get_policy_default(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_default(self, policy_manager: DomainPolicyManager) -> None:
         """Verify unknown domain returns default policy."""
         # When
         policy = policy_manager.get_policy("unknown-domain.example")
@@ -716,7 +717,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.domain_category == DomainCategory.UNVERIFIED
         assert policy.source == "default"
 
-    def test_get_policy_normalized_domain(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_normalized_domain(self, policy_manager: DomainPolicyManager) -> None:
         """Verify domain normalization (lowercase, www removal)."""
         # When
         policy1 = policy_manager.get_policy("WWW.ARXIV.ORG")
@@ -728,7 +729,7 @@ class TestDomainPolicyManagerLookup:
         assert policy2.domain_category == DomainCategory.ACADEMIC
         assert policy3.domain_category == DomainCategory.ACADEMIC
 
-    def test_get_policy_daily_budget_from_allowlist(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_daily_budget_from_allowlist(self, policy_manager: DomainPolicyManager) -> None:
         """Verify daily budget limits from allowlist are applied (§4.3 - Problem 11)."""
         # When - wikipedia.org has custom limits in config/domains.yaml
         policy = policy_manager.get_policy("wikipedia.org")
@@ -738,7 +739,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.max_pages_per_day == 250
         assert policy.source == "allowlist"
 
-    def test_get_policy_daily_budget_default(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_daily_budget_default(self, policy_manager: DomainPolicyManager) -> None:
         """Verify unknown domain gets default daily budget limits (§4.3 - Problem 11)."""
         # When
         policy = policy_manager.get_policy("unknown-domain.example")
@@ -752,30 +753,30 @@ class TestDomainPolicyManagerLookup:
 class TestDomainPolicyManagerConvenienceMethods:
     """Tests for convenience methods."""
 
-    def test_should_skip_denylist(self, policy_manager: DomainPolicyManager):
+    def test_should_skip_denylist(self, policy_manager: DomainPolicyManager) -> None:
         """Verify should_skip returns True for denylist domains."""
         # Then
         assert policy_manager.should_skip("test.blogspot.com") is True
 
-    def test_should_skip_allowlist(self, policy_manager: DomainPolicyManager):
+    def test_should_skip_allowlist(self, policy_manager: DomainPolicyManager) -> None:
         """Verify should_skip returns False for allowlist domains."""
         # Then
         assert policy_manager.should_skip("arxiv.org") is False
 
-    def test_get_domain_category(self, policy_manager: DomainPolicyManager):
+    def test_get_domain_category(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_domain_category returns correct level."""
         # Then
         assert policy_manager.get_domain_category("arxiv.org") == DomainCategory.ACADEMIC
         assert policy_manager.get_domain_category("example.go.jp") == DomainCategory.GOVERNMENT
         assert policy_manager.get_domain_category("unknown.com") == DomainCategory.UNVERIFIED
 
-    def test_get_category_weight(self, policy_manager: DomainPolicyManager):
+    def test_get_category_weight(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_category_weight returns correct weight."""
         # Then
         assert policy_manager.get_category_weight("arxiv.org") == 0.90  # academic
         assert policy_manager.get_category_weight("example.go.jp") == 0.95  # government
 
-    def test_get_qps_limit(self, policy_manager: DomainPolicyManager):
+    def test_get_qps_limit(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_qps_limit returns correct QPS."""
         # Then
         assert policy_manager.get_qps_limit("arxiv.org") == 0.25
@@ -786,7 +787,7 @@ class TestDomainPolicyManagerConvenienceMethods:
 class TestDomainPolicyManagerInternalSearch:
     """Tests for internal search template functionality."""
 
-    def test_get_internal_search_template_exists(self, policy_manager: DomainPolicyManager):
+    def test_get_internal_search_template_exists(self, policy_manager: DomainPolicyManager) -> None:
         """Verify existing template is returned."""
         # When
         template = policy_manager.get_internal_search_template("arxiv.org")
@@ -798,7 +799,7 @@ class TestDomainPolicyManagerInternalSearch:
         assert template.search_button == "button[type='submit']"
         assert template.results_selector == ".arxiv-result"
 
-    def test_get_internal_search_template_not_exists(self, policy_manager: DomainPolicyManager):
+    def test_get_internal_search_template_not_exists(self, policy_manager: DomainPolicyManager) -> None:
         """Verify None is returned for domain without template."""
         # When
         template = policy_manager.get_internal_search_template("unknown.com")
@@ -806,17 +807,17 @@ class TestDomainPolicyManagerInternalSearch:
         # Then
         assert template is None
 
-    def test_has_internal_search_true_from_allowlist(self, policy_manager: DomainPolicyManager):
+    def test_has_internal_search_true_from_allowlist(self, policy_manager: DomainPolicyManager) -> None:
         """Verify has_internal_search returns True for allowlist internal_search=True."""
         # Then
         assert policy_manager.has_internal_search("arxiv.org") is True
 
-    def test_has_internal_search_true_from_template(self, policy_manager: DomainPolicyManager):
+    def test_has_internal_search_true_from_template(self, policy_manager: DomainPolicyManager) -> None:
         """Verify has_internal_search returns True for domain with template."""
         # Then
         assert policy_manager.has_internal_search("pubmed.ncbi.nlm.nih.gov") is True
 
-    def test_has_internal_search_false(self, policy_manager: DomainPolicyManager):
+    def test_has_internal_search_false(self, policy_manager: DomainPolicyManager) -> None:
         """Verify has_internal_search returns False for unknown domains."""
         # Then
         assert policy_manager.has_internal_search("unknown.com") is False
@@ -825,7 +826,7 @@ class TestDomainPolicyManagerInternalSearch:
 class TestDomainPolicyManagerLists:
     """Tests for list retrieval methods."""
 
-    def test_get_all_allowlist_domains(self, policy_manager: DomainPolicyManager):
+    def test_get_all_allowlist_domains(self, policy_manager: DomainPolicyManager) -> None:
         """Verify all allowlist domains are returned."""
         # When
         domains = policy_manager.get_all_allowlist_domains()
@@ -837,7 +838,7 @@ class TestDomainPolicyManagerLists:
         assert "wikipedia.org" in domains
         assert "example-primary.com" in domains
 
-    def test_get_domains_by_category_government(self, policy_manager: DomainPolicyManager):
+    def test_get_domains_by_category_government(self, policy_manager: DomainPolicyManager) -> None:
         """Verify domains with GOVERNMENT trust level are returned."""
         # When
         domains = policy_manager.get_domains_by_category(DomainCategory.GOVERNMENT)
@@ -846,7 +847,7 @@ class TestDomainPolicyManagerLists:
         assert len(domains) == 1
         assert "go.jp" in domains
 
-    def test_get_domains_by_category_academic(self, policy_manager: DomainPolicyManager):
+    def test_get_domains_by_category_academic(self, policy_manager: DomainPolicyManager) -> None:
         """Verify domains with ACADEMIC trust level are returned."""
         # When
         domains = policy_manager.get_domains_by_category(DomainCategory.ACADEMIC)
@@ -859,7 +860,7 @@ class TestDomainPolicyManagerLists:
 class TestDomainPolicyManagerLearningState:
     """Tests for runtime learning state updates."""
 
-    def test_update_learning_state(self, policy_manager: DomainPolicyManager):
+    def test_update_learning_state(self, policy_manager: DomainPolicyManager) -> None:
         """Verify learning state update modifies cached policy."""
         # Given - get policy to populate cache
         policy = policy_manager.get_policy("example.com")
@@ -879,7 +880,7 @@ class TestDomainPolicyManagerLearningState:
         assert updated_policy.block_score == 5.0
         assert updated_policy.captcha_rate == 0.3
 
-    def test_update_learning_state_cooldown(self, policy_manager: DomainPolicyManager):
+    def test_update_learning_state_cooldown(self, policy_manager: DomainPolicyManager) -> None:
         """Verify cooldown_until update affects is_in_cooldown."""
         # Given
         policy = policy_manager.get_policy("example.com")
@@ -902,7 +903,7 @@ class TestDomainPolicyManagerLearningState:
 class TestDomainPolicyManagerCaching:
     """Tests for caching functionality."""
 
-    def test_cache_hit(self, policy_manager: DomainPolicyManager):
+    def test_cache_hit(self, policy_manager: DomainPolicyManager) -> None:
         """Verify subsequent lookups use cache."""
         # Given
         _ = policy_manager.get_policy("arxiv.org")
@@ -915,7 +916,7 @@ class TestDomainPolicyManagerCaching:
         # Then - cache count should not increase
         assert initial_stats["cached_domains"] == final_stats["cached_domains"]
 
-    def test_clear_cache(self, policy_manager: DomainPolicyManager):
+    def test_clear_cache(self, policy_manager: DomainPolicyManager) -> None:
         """Verify clear_cache empties the cache."""
         # Given
         _ = policy_manager.get_policy("example.com")
@@ -928,7 +929,7 @@ class TestDomainPolicyManagerCaching:
         # Then
         assert policy_manager.get_cache_stats()["cached_domains"] == 0
 
-    def test_cache_stats(self, policy_manager: DomainPolicyManager):
+    def test_cache_stats(self, policy_manager: DomainPolicyManager) -> None:
         """Verify cache stats contain expected fields."""
         # When
         stats = policy_manager.get_cache_stats()
@@ -945,7 +946,7 @@ class TestDomainPolicyManagerCaching:
 class TestDomainPolicyManagerHotReload:
     """Tests for hot-reload functionality."""
 
-    def test_hot_reload_detects_file_change(self, tmp_path: Path):
+    def test_hot_reload_detects_file_change(self, tmp_path: Path) -> None:
         """Verify hot-reload detects and applies config file changes."""
         # Given - create initial config
         config_path = tmp_path / "domains.yaml"
@@ -987,7 +988,7 @@ allowlist:
         updated_policy = manager.get_policy("example.com")
         assert updated_policy.domain_category == DomainCategory.GOVERNMENT
 
-    def test_reload_callback_called(self, tmp_path: Path):
+    def test_reload_callback_called(self, tmp_path: Path) -> None:
         """Verify reload callbacks are called on config reload."""
         # Given
         config_path = tmp_path / "domains.yaml"
@@ -1008,7 +1009,7 @@ allowlist:
         assert len(callback_called) == 1
         assert callback_called[0] == 0.2
 
-    def test_remove_reload_callback(self, tmp_path: Path):
+    def test_remove_reload_callback(self, tmp_path: Path) -> None:
         """Verify reload callbacks can be removed."""
         # Given
         config_path = tmp_path / "domains.yaml"
@@ -1038,7 +1039,7 @@ allowlist:
 class TestModuleLevelFunctions:
     """Tests for module-level convenience functions."""
 
-    def test_get_domain_policy_manager_singleton(self, temp_config_file: Path):
+    def test_get_domain_policy_manager_singleton(self, temp_config_file: Path) -> None:
         """Verify get_domain_policy_manager returns singleton."""
         # Given
         reset_domain_policy_manager()
@@ -1052,7 +1053,7 @@ class TestModuleLevelFunctions:
         # Then
         assert manager1 is manager2
 
-    def test_reset_domain_policy_manager(self, temp_config_file: Path):
+    def test_reset_domain_policy_manager(self, temp_config_file: Path) -> None:
         """Verify reset creates new instance."""
         # Given
         manager1 = get_domain_policy_manager()
@@ -1073,25 +1074,25 @@ class TestModuleLevelFunctions:
 class TestPatternMatching:
     """Tests for domain pattern matching edge cases."""
 
-    def test_exact_match(self, policy_manager: DomainPolicyManager):
+    def test_exact_match(self, policy_manager: DomainPolicyManager) -> None:
         """Verify exact domain match works."""
         # Then
         policy = policy_manager.get_policy("arxiv.org")
         assert policy.source == "allowlist"
 
-    def test_glob_wildcard_match(self, policy_manager: DomainPolicyManager):
+    def test_glob_wildcard_match(self, policy_manager: DomainPolicyManager) -> None:
         """Verify glob wildcard pattern match works."""
         # Then - *.medium.com should match sub.medium.com
         policy = policy_manager.get_policy("blog.medium.com")
         assert policy.source == "graylist"
 
-    def test_nested_subdomain_match(self, policy_manager: DomainPolicyManager):
+    def test_nested_subdomain_match(self, policy_manager: DomainPolicyManager) -> None:
         """Verify nested subdomain matches glob pattern."""
         # Then - *.twitter.com should match api.v2.twitter.com
         policy = policy_manager.get_policy("api.v2.twitter.com")
         assert policy.skip is True
 
-    def test_suffix_match_go_jp(self, policy_manager: DomainPolicyManager):
+    def test_suffix_match_go_jp(self, policy_manager: DomainPolicyManager) -> None:
         """Verify suffix match works for go.jp domains."""
         # Then - go.jp should match ministry.go.jp
         policy = policy_manager.get_policy("ministry.go.jp")
@@ -1101,7 +1102,7 @@ class TestPatternMatching:
         policy2 = policy_manager.get_policy("sub.ministry.go.jp")
         assert policy2.domain_category == DomainCategory.GOVERNMENT
 
-    def test_no_match_partial_domain(self, policy_manager: DomainPolicyManager):
+    def test_no_match_partial_domain(self, policy_manager: DomainPolicyManager) -> None:
         """Verify partial domain doesn't match (arxiv.org vs myarxiv.org)."""
         # Then - myarxiv.org should NOT match arxiv.org
         policy = policy_manager.get_policy("myarxiv.org")
@@ -1116,7 +1117,7 @@ class TestPatternMatching:
 class TestDomainCategoryPriority:
     """Tests for domain category hierarchy and weights."""
 
-    def test_domain_category_hierarchy(self, policy_manager: DomainPolicyManager):
+    def test_domain_category_hierarchy(self, policy_manager: DomainPolicyManager) -> None:
         """Verify trust level weights follow expected hierarchy."""
         # Given
         primary_policy = policy_manager.get_policy("example-primary.com")
@@ -1140,7 +1141,7 @@ class TestDomainCategoryPriority:
 class TestResolutionPriority:
     """Tests for policy resolution priority order."""
 
-    def test_denylist_has_highest_priority(self, tmp_path: Path):
+    def test_denylist_has_highest_priority(self, tmp_path: Path) -> None:
         """Verify denylist overrides allowlist for same domain."""
         # Given - domain in both allowlist and denylist
         config = """
@@ -1163,7 +1164,7 @@ denylist:
         assert policy.skip is True
         assert policy.source == "denylist"
 
-    def test_cloudflare_before_allowlist(self, tmp_path: Path):
+    def test_cloudflare_before_allowlist(self, tmp_path: Path) -> None:
         """Verify cloudflare settings are applied even to allowlist domains."""
         # Given
         config = """
@@ -1196,7 +1197,7 @@ cloudflare_sites:
 class TestSearchEnginePolicySchema:
     """Tests for SearchEnginePolicySchema (§3.1.4, §4.3)."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Verify default values are correctly set."""
         # Arrange & Act
         schema = SearchEnginePolicySchema()
@@ -1208,7 +1209,7 @@ class TestSearchEnginePolicySchema:
         assert schema.cooldown_max == 120
         assert schema.failure_threshold == 2
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Verify custom values are accepted."""
         # Arrange & Act
         schema = SearchEnginePolicySchema(
@@ -1226,7 +1227,7 @@ class TestSearchEnginePolicySchema:
         assert schema.cooldown_max == 180
         assert schema.failure_threshold == 3
 
-    def test_default_min_interval_property(self):
+    def test_default_min_interval_property(self) -> None:
         """Verify default_min_interval is calculated correctly."""
         # Arrange & Act
         schema = SearchEnginePolicySchema(default_qps=0.25)
@@ -1234,7 +1235,7 @@ class TestSearchEnginePolicySchema:
         # Then
         assert schema.default_min_interval == 4.0  # 1 / 0.25
 
-    def test_site_search_min_interval_property(self):
+    def test_site_search_min_interval_property(self) -> None:
         """Verify site_search_min_interval is calculated correctly."""
         # Arrange & Act
         schema = SearchEnginePolicySchema(site_search_qps=0.1)
@@ -1242,7 +1243,7 @@ class TestSearchEnginePolicySchema:
         # Then
         assert schema.site_search_min_interval == 10.0  # 1 / 0.1
 
-    def test_qps_validation_range(self):
+    def test_qps_validation_range(self) -> None:
         """Verify QPS validation enforces valid range."""
         # Then - too low
         with pytest.raises(ValueError):
@@ -1256,7 +1257,7 @@ class TestSearchEnginePolicySchema:
 class TestPolicyBoundsEntrySchema:
     """Tests for PolicyBoundsEntrySchema (§4.6)."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Verify default values are set."""
         # Arrange & Act
         entry = PolicyBoundsEntrySchema()
@@ -1268,7 +1269,7 @@ class TestPolicyBoundsEntrySchema:
         assert entry.step_up == 0.1
         assert entry.step_down == 0.1
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Verify custom values are accepted."""
         # Arrange & Act
         entry = PolicyBoundsEntrySchema(
@@ -1290,7 +1291,7 @@ class TestPolicyBoundsEntrySchema:
 class TestPolicyBoundsSchema:
     """Tests for PolicyBoundsSchema (§4.6)."""
 
-    def test_default_bounds_exist(self):
+    def test_default_bounds_exist(self) -> None:
         """Verify all expected bounds parameters exist with defaults."""
         # Arrange & Act
         schema = PolicyBoundsSchema()
@@ -1304,7 +1305,7 @@ class TestPolicyBoundsSchema:
         assert schema.tor_usage_ratio is not None
         assert schema.browser_route_ratio is not None
 
-    def test_engine_weight_defaults(self):
+    def test_engine_weight_defaults(self) -> None:
         """Verify engine_weight has correct default values."""
         # Arrange & Act
         schema = PolicyBoundsSchema()
@@ -1314,7 +1315,7 @@ class TestPolicyBoundsSchema:
         assert schema.engine_weight.max == 2.0
         assert schema.engine_weight.default == 1.0
 
-    def test_domain_qps_defaults(self):
+    def test_domain_qps_defaults(self) -> None:
         """Verify domain_qps has correct default values."""
         # Arrange & Act
         schema = PolicyBoundsSchema()
@@ -1333,7 +1334,7 @@ class TestPolicyBoundsSchema:
 class TestSearchEnginePolicyAccess:
     """Tests for DomainPolicyManager search engine policy methods."""
 
-    def test_get_search_engine_policy(self, policy_manager: DomainPolicyManager):
+    def test_get_search_engine_policy(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_search_engine_policy returns SearchEnginePolicySchema."""
         # When
         policy = policy_manager.get_search_engine_policy()
@@ -1343,7 +1344,7 @@ class TestSearchEnginePolicyAccess:
         assert policy.default_qps == 0.25
         assert policy.site_search_qps == 0.1
 
-    def test_get_search_engine_qps(self, policy_manager: DomainPolicyManager):
+    def test_get_search_engine_qps(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_search_engine_qps returns correct value."""
         # When
         qps = policy_manager.get_search_engine_qps()
@@ -1351,7 +1352,7 @@ class TestSearchEnginePolicyAccess:
         # Then
         assert qps == 0.25
 
-    def test_get_search_engine_min_interval(self, policy_manager: DomainPolicyManager):
+    def test_get_search_engine_min_interval(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_search_engine_min_interval returns 1/QPS."""
         # When
         interval = policy_manager.get_search_engine_min_interval()
@@ -1359,7 +1360,7 @@ class TestSearchEnginePolicyAccess:
         # Then
         assert interval == 4.0  # 1 / 0.25
 
-    def test_get_site_search_qps(self, policy_manager: DomainPolicyManager):
+    def test_get_site_search_qps(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_site_search_qps returns correct value."""
         # When
         qps = policy_manager.get_site_search_qps()
@@ -1367,7 +1368,7 @@ class TestSearchEnginePolicyAccess:
         # Then
         assert qps == 0.1
 
-    def test_get_site_search_min_interval(self, policy_manager: DomainPolicyManager):
+    def test_get_site_search_min_interval(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_site_search_min_interval returns 1/QPS."""
         # When
         interval = policy_manager.get_site_search_min_interval()
@@ -1375,7 +1376,7 @@ class TestSearchEnginePolicyAccess:
         # Then
         assert interval == 10.0  # 1 / 0.1
 
-    def test_get_circuit_breaker_cooldown_min(self, policy_manager: DomainPolicyManager):
+    def test_get_circuit_breaker_cooldown_min(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_circuit_breaker_cooldown_min returns correct value."""
         # When
         cooldown = policy_manager.get_circuit_breaker_cooldown_min()
@@ -1383,7 +1384,7 @@ class TestSearchEnginePolicyAccess:
         # Then
         assert cooldown == 30
 
-    def test_get_circuit_breaker_cooldown_max(self, policy_manager: DomainPolicyManager):
+    def test_get_circuit_breaker_cooldown_max(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_circuit_breaker_cooldown_max returns correct value."""
         # When
         cooldown = policy_manager.get_circuit_breaker_cooldown_max()
@@ -1391,7 +1392,7 @@ class TestSearchEnginePolicyAccess:
         # Then
         assert cooldown == 120
 
-    def test_get_circuit_breaker_failure_threshold(self, policy_manager: DomainPolicyManager):
+    def test_get_circuit_breaker_failure_threshold(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_circuit_breaker_failure_threshold returns correct value."""
         # When
         threshold = policy_manager.get_circuit_breaker_failure_threshold()
@@ -1408,7 +1409,7 @@ class TestSearchEnginePolicyAccess:
 class TestPolicyBoundsAccess:
     """Tests for DomainPolicyManager policy bounds methods."""
 
-    def test_get_policy_bounds(self, policy_manager: DomainPolicyManager):
+    def test_get_policy_bounds(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_policy_bounds returns PolicyBoundsSchema."""
         # When
         bounds = policy_manager.get_policy_bounds()
@@ -1418,7 +1419,7 @@ class TestPolicyBoundsAccess:
         assert bounds.engine_weight is not None
         assert bounds.domain_qps is not None
 
-    def test_get_bounds_for_parameter_engine_weight(self, policy_manager: DomainPolicyManager):
+    def test_get_bounds_for_parameter_engine_weight(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_bounds_for_parameter returns correct bounds for engine_weight."""
         # When
         bounds = policy_manager.get_bounds_for_parameter("engine_weight")
@@ -1431,7 +1432,7 @@ class TestPolicyBoundsAccess:
         assert bounds.step_up == 0.1
         assert bounds.step_down == 0.2
 
-    def test_get_bounds_for_parameter_domain_qps(self, policy_manager: DomainPolicyManager):
+    def test_get_bounds_for_parameter_domain_qps(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_bounds_for_parameter returns correct bounds for domain_qps."""
         # When
         bounds = policy_manager.get_bounds_for_parameter("domain_qps")
@@ -1442,7 +1443,7 @@ class TestPolicyBoundsAccess:
         assert bounds.max == 0.3
         assert bounds.default == 0.2
 
-    def test_get_bounds_for_parameter_nonexistent(self, policy_manager: DomainPolicyManager):
+    def test_get_bounds_for_parameter_nonexistent(self, policy_manager: DomainPolicyManager) -> None:
         """Verify get_bounds_for_parameter returns None for unknown parameter."""
         # When
         bounds = policy_manager.get_bounds_for_parameter("nonexistent_param")
@@ -1459,7 +1460,7 @@ class TestPolicyBoundsAccess:
 class TestDefaultConfigFallback:
     """Tests for fallback behavior when config sections are missing."""
 
-    def test_missing_search_engine_policy_uses_defaults(self, tmp_path: Path):
+    def test_missing_search_engine_policy_uses_defaults(self, tmp_path: Path) -> None:
         """Verify missing search_engine_policy section uses defaults."""
         # Given - config without search_engine_policy
         config = """
@@ -1477,7 +1478,7 @@ default_policy:
         # Then - should use default value
         assert qps == 0.25
 
-    def test_missing_policy_bounds_uses_defaults(self, tmp_path: Path):
+    def test_missing_policy_bounds_uses_defaults(self, tmp_path: Path) -> None:
         """Verify missing policy_bounds section uses defaults."""
         # Given - config without policy_bounds
         config = """

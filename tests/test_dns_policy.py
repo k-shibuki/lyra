@@ -92,7 +92,7 @@ def mock_settings():
 class TestDNSCacheEntry:
     """Tests for DNSCacheEntry."""
 
-    def test_cache_entry_not_expired_within_ttl(self):
+    def test_cache_entry_not_expired_within_ttl(self) -> None:
         """Cache entry should not be expired within TTL."""
         # Given: Cache entry resolved just now with 300s TTL
         entry = DNSCacheEntry(
@@ -105,7 +105,7 @@ class TestDNSCacheEntry:
         # When/Then: is_expired()=False
         assert not entry.is_expired()
 
-    def test_cache_entry_expired_after_ttl(self):
+    def test_cache_entry_expired_after_ttl(self) -> None:
         """Cache entry should be expired after TTL."""
         # Given: Cache entry resolved 400s ago with 300s TTL
         entry = DNSCacheEntry(
@@ -127,7 +127,7 @@ class TestDNSCacheEntry:
 class TestDNSResolutionResult:
     """Tests for DNSResolutionResult."""
 
-    def test_success_with_addresses(self):
+    def test_success_with_addresses(self) -> None:
         """Result with addresses should be successful."""
         result = DNSResolutionResult(
             hostname="example.com",
@@ -138,7 +138,7 @@ class TestDNSResolutionResult:
         )
         assert result.success
 
-    def test_failure_without_addresses(self):
+    def test_failure_without_addresses(self) -> None:
         """Result without addresses should not be successful."""
         result = DNSResolutionResult(
             hostname="nonexistent.invalid",
@@ -149,7 +149,7 @@ class TestDNSResolutionResult:
         )
         assert not result.success
 
-    def test_leak_detected_flag(self):
+    def test_leak_detected_flag(self) -> None:
         """Leak detection should be properly set."""
         result = DNSResolutionResult(
             hostname="example.com",
@@ -170,7 +170,7 @@ class TestDNSResolutionResult:
 class TestDNSMetrics:
     """Tests for DNSMetrics."""
 
-    def test_record_resolution_increments_counts(self):
+    def test_record_resolution_increments_counts(self) -> None:
         """Recording resolution should update counts."""
         metrics = DNSMetrics()
 
@@ -186,7 +186,7 @@ class TestDNSMetrics:
         assert metrics.cache_hits == 0
         assert metrics.tor_resolutions == 0
 
-    def test_record_cache_hit(self):
+    def test_record_cache_hit(self) -> None:
         """Recording cache hit should update cache_hits."""
         metrics = DNSMetrics()
 
@@ -199,7 +199,7 @@ class TestDNSMetrics:
         assert metrics.cache_hits == 1
         assert metrics.cache_misses == 0
 
-    def test_record_tor_resolution(self):
+    def test_record_tor_resolution(self) -> None:
         """Recording Tor resolution should update tor_resolutions."""
         metrics = DNSMetrics()
 
@@ -212,7 +212,7 @@ class TestDNSMetrics:
         assert metrics.tor_resolutions == 1
         assert metrics.direct_resolutions == 0
 
-    def test_record_leak_detected(self):
+    def test_record_leak_detected(self) -> None:
         """Recording leak should update leaks_detected."""
         metrics = DNSMetrics()
 
@@ -225,7 +225,7 @@ class TestDNSMetrics:
 
         assert metrics.leaks_detected == 1
 
-    def test_average_resolution_time(self):
+    def test_average_resolution_time(self) -> None:
         """Average resolution time should be calculated correctly."""
         metrics = DNSMetrics()
 
@@ -238,7 +238,7 @@ class TestDNSMetrics:
 
         assert metrics.avg_resolution_time_ms == pytest.approx(20.0)
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Metrics should be convertible to dictionary."""
         metrics = DNSMetrics()
         metrics.record_resolution(DNSRoute.DIRECT, from_cache=True, time_ms=5.0)
@@ -263,7 +263,7 @@ class TestDNSMetrics:
 class TestDNSPolicyManagerProxyGeneration:
     """Tests for SOCKS proxy URL generation."""
 
-    def test_socks5h_used_when_resolve_through_tor_enabled(self, mock_settings):
+    def test_socks5h_used_when_resolve_through_tor_enabled(self, mock_settings) -> None:
         """socks5h:// should be used when resolve_through_tor is True."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -273,7 +273,7 @@ class TestDNSPolicyManagerProxyGeneration:
             assert proxy_url.startswith("socks5h://")
             assert "127.0.0.1:9050" in proxy_url
 
-    def test_socks5_used_when_resolve_through_tor_disabled(self, mock_settings):
+    def test_socks5_used_when_resolve_through_tor_disabled(self, mock_settings) -> None:
         """socks5:// should be used when resolve_through_tor is False."""
         mock_settings.tor.dns.resolve_through_tor = False
 
@@ -285,7 +285,7 @@ class TestDNSPolicyManagerProxyGeneration:
             assert proxy_url.startswith("socks5://")
             assert not proxy_url.startswith("socks5h://")
 
-    def test_override_resolve_dns_through_proxy(self, mock_settings):
+    def test_override_resolve_dns_through_proxy(self, mock_settings) -> None:
         """Override parameter should take precedence over config."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -304,7 +304,7 @@ class TestDNSPolicyManagerProxyGeneration:
             )
             assert proxy_url.startswith("socks5h://")
 
-    def test_no_proxy_when_use_tor_false(self, mock_settings):
+    def test_no_proxy_when_use_tor_false(self, mock_settings) -> None:
         """No proxy should be returned when use_tor is False."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -312,7 +312,7 @@ class TestDNSPolicyManagerProxyGeneration:
 
             assert proxy_url is None
 
-    def test_no_proxy_when_tor_disabled(self, mock_settings):
+    def test_no_proxy_when_tor_disabled(self, mock_settings) -> None:
         """No proxy should be returned when Tor is disabled in settings."""
         mock_settings.tor.enabled = False
 
@@ -322,7 +322,7 @@ class TestDNSPolicyManagerProxyGeneration:
 
             assert proxy_url is None
 
-    def test_get_proxy_dict(self, mock_settings):
+    def test_get_proxy_dict(self, mock_settings) -> None:
         """get_proxy_dict should return proper dictionary."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -334,7 +334,7 @@ class TestDNSPolicyManagerProxyGeneration:
             assert proxy_dict["http"] == proxy_dict["https"]
             assert proxy_dict["http"].startswith("socks5h://")
 
-    def test_get_proxy_dict_none_when_not_using_tor(self, mock_settings):
+    def test_get_proxy_dict_none_when_not_using_tor(self, mock_settings) -> None:
         """get_proxy_dict should return None when not using Tor."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -352,7 +352,7 @@ class TestDNSPolicyManagerResolution:
     """Tests for DNS resolution functionality."""
 
     @pytest.mark.asyncio
-    async def test_tor_route_returns_leak_warning(self, mock_settings):
+    async def test_tor_route_returns_leak_warning(self, mock_settings) -> None:
         """Resolving with TOR route should return leak warning."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -366,7 +366,7 @@ class TestDNSPolicyManagerResolution:
             assert result.addresses == []  # Should not resolve locally
 
     @pytest.mark.asyncio
-    async def test_direct_route_resolves_hostname(self, mock_settings):
+    async def test_direct_route_resolves_hostname(self, mock_settings) -> None:
         """Direct route should resolve hostname."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -384,7 +384,7 @@ class TestDNSPolicyManagerResolution:
             assert result.leak_detected == DNSLeakType.NONE
 
     @pytest.mark.asyncio
-    async def test_cache_hit_returns_cached_result(self, mock_settings):
+    async def test_cache_hit_returns_cached_result(self, mock_settings) -> None:
         """Second resolution should return cached result."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -405,7 +405,7 @@ class TestDNSPolicyManagerResolution:
             assert result2.addresses == result1.addresses
 
     @pytest.mark.asyncio
-    async def test_cache_bypass_with_use_cache_false(self, mock_settings):
+    async def test_cache_bypass_with_use_cache_false(self, mock_settings) -> None:
         """Setting use_cache=False should bypass cache."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -434,7 +434,7 @@ class TestDNSPolicyManagerCache:
     """Tests for DNS cache management."""
 
     @pytest.mark.asyncio
-    async def test_clear_cache(self, mock_settings):
+    async def test_clear_cache(self, mock_settings) -> None:
         """clear_cache should remove all entries."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -451,7 +451,7 @@ class TestDNSPolicyManagerCache:
             assert not result.from_cache
 
     @pytest.mark.asyncio
-    async def test_prune_expired_cache(self, mock_settings):
+    async def test_prune_expired_cache(self, mock_settings) -> None:
         """prune_expired_cache should remove expired entries."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -468,7 +468,7 @@ class TestDNSPolicyManagerCache:
             count = await manager.prune_expired_cache()
             assert count == 1
 
-    def test_get_cache_stats(self, mock_settings):
+    def test_get_cache_stats(self, mock_settings) -> None:
         """get_cache_stats should return cache statistics."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -504,7 +504,7 @@ class TestDNSPolicyManagerCache:
 class TestDNSPolicyManagerLeakDetection:
     """Tests for DNS leak detection."""
 
-    def test_detect_leak_during_tor_route(self, mock_settings):
+    def test_detect_leak_during_tor_route(self, mock_settings) -> None:
         """Should detect leak when local resolution happens during Tor route."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -517,7 +517,7 @@ class TestDNSPolicyManagerLeakDetection:
 
             assert leak == DNSLeakType.LOCAL_RESOLUTION_DURING_TOR
 
-    def test_no_leak_with_direct_route(self, mock_settings):
+    def test_no_leak_with_direct_route(self, mock_settings) -> None:
         """No leak should be detected with direct route."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -530,7 +530,7 @@ class TestDNSPolicyManagerLeakDetection:
 
             assert leak == DNSLeakType.NONE
 
-    def test_no_leak_when_detection_disabled(self, mock_settings):
+    def test_no_leak_when_detection_disabled(self, mock_settings) -> None:
         """No leak should be detected when detection is disabled."""
         mock_settings.tor.dns.leak_detection_enabled = False
 
@@ -554,7 +554,7 @@ class TestDNSPolicyManagerLeakDetection:
 class TestDNSPolicyManagerUtility:
     """Tests for utility functions."""
 
-    def test_extract_hostname(self, mock_settings):
+    def test_extract_hostname(self, mock_settings) -> None:
         """extract_hostname should correctly parse URL."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -563,7 +563,7 @@ class TestDNSPolicyManagerUtility:
             assert manager.extract_hostname("http://sub.example.org:8080/") == "sub.example.org"
             assert manager.extract_hostname("https://localhost:3000") == "localhost"
 
-    def test_should_use_tor_dns(self, mock_settings):
+    def test_should_use_tor_dns(self, mock_settings) -> None:
         """should_use_tor_dns should return correct value."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -574,7 +574,7 @@ class TestDNSPolicyManagerUtility:
             # When not using Tor
             assert manager.should_use_tor_dns(use_tor=False) is False
 
-    def test_should_use_tor_dns_respects_config(self, mock_settings):
+    def test_should_use_tor_dns_respects_config(self, mock_settings) -> None:
         """should_use_tor_dns should respect configuration."""
         mock_settings.tor.dns.resolve_through_tor = False
 
@@ -593,7 +593,7 @@ class TestDNSPolicyManagerUtility:
 class TestGlobalFunctions:
     """Tests for global convenience functions."""
 
-    def test_get_dns_policy_manager_returns_singleton(self):
+    def test_get_dns_policy_manager_returns_singleton(self) -> None:
         """get_dns_policy_manager should return singleton instance."""
         # Reset global state
         import src.crawler.dns_policy as dns_module
@@ -606,7 +606,7 @@ class TestGlobalFunctions:
         assert manager1 is manager2
 
     @pytest.mark.asyncio
-    async def test_get_socks_proxy_for_request(self, mock_settings):
+    async def test_get_socks_proxy_for_request(self, mock_settings) -> None:
         """get_socks_proxy_for_request should return proper proxy dict."""
         import src.crawler.dns_policy as dns_module
 
@@ -623,7 +623,7 @@ class TestGlobalFunctions:
             dns_module._dns_policy_manager = None
 
     @pytest.mark.asyncio
-    async def test_get_socks_proxy_for_request_none_when_not_using_tor(self, mock_settings):
+    async def test_get_socks_proxy_for_request_none_when_not_using_tor(self, mock_settings) -> None:
         """get_socks_proxy_for_request should return None when not using Tor."""
         import src.crawler.dns_policy as dns_module
 
@@ -647,7 +647,7 @@ class TestDNSPolicyIntegration:
     """Integration-style tests for DNS policy."""
 
     @pytest.mark.asyncio
-    async def test_full_resolution_flow_with_metrics(self, mock_settings):
+    async def test_full_resolution_flow_with_metrics(self, mock_settings) -> None:
         """Test full DNS resolution flow with metrics tracking."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -671,7 +671,7 @@ class TestDNSPolicyIntegration:
             assert manager.metrics.total_resolutions == 2
 
     @pytest.mark.asyncio
-    async def test_tor_route_prevents_local_resolution(self, mock_settings):
+    async def test_tor_route_prevents_local_resolution(self, mock_settings) -> None:
         """Test that Tor route prevents local DNS resolution."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()
@@ -686,7 +686,7 @@ class TestDNSPolicyIntegration:
             assert result.leak_detected == DNSLeakType.LOCAL_RESOLUTION_DURING_TOR
             assert manager.metrics.leaks_detected == 1
 
-    def test_proxy_url_prevents_dns_leak(self, mock_settings):
+    def test_proxy_url_prevents_dns_leak(self, mock_settings) -> None:
         """Test that generated proxy URL uses socks5h:// to prevent DNS leaks."""
         with patch("src.crawler.dns_policy.get_settings", return_value=mock_settings):
             manager = DNSPolicyManager()

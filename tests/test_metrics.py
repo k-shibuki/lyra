@@ -52,7 +52,7 @@ pytestmark = pytest.mark.unit
 class TestMetricValue:
     """Tests for MetricValue class."""
 
-    def test_initial_values(self):
+    def test_initial_values(self) -> None:
         """Test initial metric value creation."""
         # Given: Parameters for a MetricValue
         # When: Creating a MetricValue instance
@@ -69,7 +69,7 @@ class TestMetricValue:
         assert mv.ema_long == 0.5
         assert mv.sample_count == 1
 
-    def test_ema_update(self):
+    def test_ema_update(self) -> None:
         """Test EMA update calculation."""
         # Given: A MetricValue with initial values
         mv = MetricValue(
@@ -90,7 +90,7 @@ class TestMetricValue:
         assert mv.sample_count == 2
         assert mv.raw_value == 1.0
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test conversion to dictionary."""
         # Given: A MetricValue with known values
         mv = MetricValue(
@@ -117,7 +117,7 @@ class TestMetricValue:
 class TestTaskMetrics:
     """Tests for TaskMetrics class."""
 
-    def test_task_metrics_creation(self):
+    def test_task_metrics_creation(self) -> None:
         """Test task metrics initialization."""
         # Given: A task ID
         # When: Creating TaskMetrics
@@ -129,7 +129,7 @@ class TestTaskMetrics:
         assert tm.total_pages_fetched == 0
         assert len(tm.unique_domains) == 0
 
-    def test_compute_harvest_rate(self):
+    def test_compute_harvest_rate(self) -> None:
         """Test harvest rate computation."""
         # Given: TaskMetrics with 10 pages fetched, 5 useful fragments
         tm = TaskMetrics(task_id="test")
@@ -142,7 +142,7 @@ class TestTaskMetrics:
         # Then: harvest_rate = 5/10 = 0.5
         assert metrics["harvest_rate"] == 0.5
 
-    def test_compute_harvest_rate_zero_pages(self):
+    def test_compute_harvest_rate_zero_pages(self) -> None:
         """Test harvest rate with zero pages."""
         # Given: TaskMetrics with 0 pages fetched
         tm = TaskMetrics(task_id="test")
@@ -154,7 +154,7 @@ class TestTaskMetrics:
         # Then: harvest_rate = 0.0 (no division by zero)
         assert metrics["harvest_rate"] == 0.0
 
-    def test_compute_domain_diversity(self):
+    def test_compute_domain_diversity(self) -> None:
         """Test domain diversity computation."""
         # Given: TaskMetrics with 3 unique domains, 6 total sources
         tm = TaskMetrics(task_id="test")
@@ -167,7 +167,7 @@ class TestTaskMetrics:
         # Then: domain_diversity = 3/6 = 0.5
         assert metrics["domain_diversity"] == 0.5
 
-    def test_compute_tor_usage_rate(self):
+    def test_compute_tor_usage_rate(self) -> None:
         """Test Tor usage rate computation."""
         # Given: TaskMetrics with 15 tor requests out of 100
         tm = TaskMetrics(task_id="test")
@@ -180,7 +180,7 @@ class TestTaskMetrics:
         # Then: tor_usage_rate = 15/100 = 0.15
         assert metrics["tor_usage_rate"] == 0.15
 
-    def test_compute_error_rates(self):
+    def test_compute_error_rates(self) -> None:
         """Test error rate computations."""
         # Given: TaskMetrics with various error counts
         tm = TaskMetrics(task_id="test")
@@ -197,7 +197,7 @@ class TestTaskMetrics:
         assert metrics["http_error_403_rate"] == 0.03
         assert metrics["http_error_429_rate"] == 0.02
 
-    def test_compute_primary_source_rate(self):
+    def test_compute_primary_source_rate(self) -> None:
         """Test primary source rate computation."""
         # Given: TaskMetrics with 12 primary sources out of 20
         tm = TaskMetrics(task_id="test")
@@ -210,7 +210,7 @@ class TestTaskMetrics:
         # Then: primary_source_rate = 12/20 = 0.6
         assert metrics["primary_source_rate"] == 0.6
 
-    def test_compute_llm_time_ratio(self):
+    def test_compute_llm_time_ratio(self) -> None:
         """Test LLM time ratio computation."""
         # Given: TaskMetrics with 15s LLM time out of 60s total
         tm = TaskMetrics(task_id="test")
@@ -223,7 +223,7 @@ class TestTaskMetrics:
         # Then: llm_time_ratio = 15000/60000 = 0.25
         assert metrics["llm_time_ratio"] == 0.25
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test full dictionary conversion."""
         # Given: TaskMetrics with various values
         tm = TaskMetrics(task_id="test")
@@ -246,7 +246,7 @@ class TestTaskMetrics:
 class TestMetricsCollector:
     """Tests for MetricsCollector class."""
 
-    async def test_start_task(self):
+    async def test_start_task(self) -> None:
         """Test starting task metrics tracking."""
         # Given: A MetricsCollector instance
         collector = MetricsCollector()
@@ -258,7 +258,7 @@ class TestMetricsCollector:
         assert metrics.task_id == "test-task-1"
         assert metrics.total_queries == 0
 
-    async def test_get_task_metrics(self):
+    async def test_get_task_metrics(self) -> None:
         """Test retrieving task metrics."""
         # Given: A collector with an active task
         collector = MetricsCollector()
@@ -271,7 +271,7 @@ class TestMetricsCollector:
         assert metrics is not None
         assert metrics.task_id == "test-task-2"
 
-    async def test_get_nonexistent_task(self):
+    async def test_get_nonexistent_task(self) -> None:
         """Test retrieving non-existent task metrics."""
         # Given: A collector with no tasks
         collector = MetricsCollector()
@@ -282,7 +282,7 @@ class TestMetricsCollector:
         # Then: None is returned
         assert metrics is None
 
-    async def test_record_query(self):
+    async def test_record_query(self) -> None:
         """Test recording a query."""
         # Given: A collector with an active task
         collector = MetricsCollector()
@@ -296,7 +296,7 @@ class TestMetricsCollector:
         metrics = await collector.get_task_metrics("test-task-3")
         assert metrics.total_queries == 2
 
-    async def test_record_page_fetch(self):
+    async def test_record_page_fetch(self) -> None:
         """Test recording a page fetch."""
         # Given: A collector with an active task
         collector = MetricsCollector()
@@ -318,7 +318,7 @@ class TestMetricsCollector:
         assert metrics.primary_sources == 1
         assert "example.com" in metrics.unique_domains
 
-    async def test_record_error(self):
+    async def test_record_error(self) -> None:
         """Test recording errors."""
         # Given: A collector with an active task
         collector = MetricsCollector()
@@ -333,7 +333,7 @@ class TestMetricsCollector:
         assert metrics.error_403_count == 1
         assert metrics.captcha_count == 1
 
-    async def test_record_fragments(self):
+    async def test_record_fragments(self) -> None:
         """Test recording fragment extraction."""
         # Given: A collector with an active task
         collector = MetricsCollector()
@@ -347,7 +347,7 @@ class TestMetricsCollector:
         assert metrics.total_fragments == 20
         assert metrics.useful_fragments == 15
 
-    async def test_record_claim(self):
+    async def test_record_claim(self) -> None:
         """Test recording claims."""
         # Given: A collector with an active task
         collector = MetricsCollector()
@@ -364,7 +364,7 @@ class TestMetricsCollector:
         assert metrics.claims_with_timeline == 1
         assert metrics.contradictions_found == 1
 
-    async def test_finish_task(self):
+    async def test_finish_task(self) -> None:
         """Test finishing task and computing final metrics."""
         # Given: A collector with recorded activity
         collector = MetricsCollector()
@@ -379,7 +379,7 @@ class TestMetricsCollector:
         assert "computed_metrics" in result
         assert result["computed_metrics"]["harvest_rate"] == 5.0  # useful/pages
 
-    async def test_global_metrics(self):
+    async def test_global_metrics(self) -> None:
         """Test global metrics retrieval."""
         # Given: A MetricsCollector instance
         collector = MetricsCollector()
@@ -395,7 +395,7 @@ class TestMetricsCollector:
             assert "ema_short" in metric_data, f"{metric_name} should have 'ema_short' field"
             assert "samples" in metric_data, f"{metric_name} should have 'samples' field"
 
-    async def test_domain_metrics(self):
+    async def test_domain_metrics(self) -> None:
         """Test domain-specific metrics."""
         # Given: A collector with recorded domain activity
         collector = MetricsCollector()
@@ -416,7 +416,7 @@ class TestMetricsCollector:
             "error_403_rate EMA should be in [0, 1]"
         )
 
-    async def test_export_snapshot(self):
+    async def test_export_snapshot(self) -> None:
         """Test exporting full metrics snapshot."""
         # Given: A collector with recorded activity
         collector = MetricsCollector()
@@ -443,7 +443,7 @@ class TestMetricsCollector:
 class TestMetricTypes:
     """Tests for MetricType enum coverage."""
 
-    async def test_all_metric_types_initialized(self):
+    async def test_all_metric_types_initialized(self) -> None:
         """Test that all metric types are initialized in collector."""
         # Given: A MetricsCollector instance
         collector = MetricsCollector()
@@ -456,7 +456,7 @@ class TestMetricTypes:
             assert metric_type.value in global_metrics, f"Missing metric: {metric_type.value}"
 
 
-def test_get_metrics_collector_singleton():
+def test_get_metrics_collector_singleton() -> None:
     """Test that get_metrics_collector returns singleton."""
     # Given: No prior collector access
     # When: Getting collector twice

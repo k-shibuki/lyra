@@ -143,7 +143,7 @@ def sample_claims():
 class TestCitationInfo:
     """Tests for CitationInfo class."""
 
-    def test_from_fragment_with_complete_data(self, sample_fragment):
+    def test_from_fragment_with_complete_data(self, sample_fragment) -> None:
         """Test creating CitationInfo from a complete fragment.
 
         Verifies that all required fields (§3.3.1) are populated:
@@ -167,7 +167,7 @@ class TestCitationInfo:
             f"Expected '経済成長率' in excerpt: {citation.excerpt}"
         )
 
-    def test_from_fragment_without_heading(self):
+    def test_from_fragment_without_heading(self) -> None:
         """Test creating CitationInfo when heading_context is None."""
         # Given: Fragment without heading_context
         fragment = {
@@ -188,7 +188,7 @@ class TestCitationInfo:
         assert citation.heading_context is None
         assert citation.is_primary is False
 
-    def test_from_fragment_with_empty_text(self):
+    def test_from_fragment_with_empty_text(self) -> None:
         """Test creating CitationInfo with empty text content."""
         # Given: Fragment with empty text_content
         fragment = {
@@ -208,7 +208,7 @@ class TestCitationInfo:
         assert citation.excerpt == ""
         assert citation.url == "https://example.com/empty"
 
-    def test_primary_source_detection(self):
+    def test_primary_source_detection(self) -> None:
         """Test detection of primary sources.
 
         Per §3.4: Primary sources include government, academic, official,
@@ -244,7 +244,7 @@ class TestCitationInfo:
             )
             assert citation.is_primary is False, f"Tag '{tag}' should not be primary"
 
-    def test_excerpt_truncation(self):
+    def test_excerpt_truncation(self) -> None:
         """Test that excerpts are properly truncated."""
         # Given: Text longer than max_length
         long_text = "A" * 500
@@ -256,7 +256,7 @@ class TestCitationInfo:
         assert len(excerpt) <= 203  # 200 + "..."
         assert excerpt.endswith("...")
 
-    def test_excerpt_sentence_boundary(self):
+    def test_excerpt_sentence_boundary(self) -> None:
         """Test excerpt truncation at sentence boundary."""
         # Given: Text with sentence boundaries
         text = "First sentence. Second sentence is longer. Third sentence."
@@ -267,7 +267,7 @@ class TestCitationInfo:
         # Then: Preserves sentence boundary
         assert "First sentence." in excerpt
 
-    def test_to_dict_serialization(self, sample_fragment):
+    def test_to_dict_serialization(self, sample_fragment) -> None:
         """Test that CitationInfo serializes correctly."""
         # Given: CitationInfo from fragment
         citation = CitationInfo.from_fragment(sample_fragment)
@@ -293,7 +293,7 @@ class TestCitationInfo:
 class TestDenseClaim:
     """Tests for DenseClaim class."""
 
-    def test_validation_with_complete_citations(self, sample_fragment):
+    def test_validation_with_complete_citations(self, sample_fragment) -> None:
         """Test validation passes with complete citation info."""
         # Given: DenseClaim with complete citation
         citation = CitationInfo.from_fragment(sample_fragment)
@@ -311,7 +311,7 @@ class TestDenseClaim:
         assert is_valid is True
         assert missing == []
 
-    def test_validation_fails_without_citations(self):
+    def test_validation_fails_without_citations(self) -> None:
         """Test validation fails when citations are missing.
 
         Per §3.3.1: All claims must have citations.
@@ -331,7 +331,7 @@ class TestDenseClaim:
         assert is_valid is False
         assert "citations" in missing
 
-    def test_validation_fails_with_incomplete_citation(self):
+    def test_validation_fails_with_incomplete_citation(self) -> None:
         """Test validation fails when citation is incomplete."""
         # Given: DenseClaim with incomplete citation
         incomplete_citation = CitationInfo(
@@ -358,7 +358,7 @@ class TestDenseClaim:
         assert "citation[0].excerpt" in missing
         assert "citation[0].discovered_at" in missing
 
-    def test_to_dict_includes_all_fields(self, sample_fragment):
+    def test_to_dict_includes_all_fields(self, sample_fragment) -> None:
         """Test that to_dict includes all required fields."""
         # Given: DenseClaim with all fields
         citation = CitationInfo.from_fragment(sample_fragment)
@@ -395,7 +395,7 @@ class TestDenseClaim:
 class TestChainOfDensityCompressor:
     """Tests for ChainOfDensityCompressor class."""
 
-    def test_build_citation_mapping(self, sample_claims, sample_fragments):
+    def test_build_citation_mapping(self, sample_claims, sample_fragments) -> None:
         """Test building citation mapping from claims to fragments."""
         # Given: Compressor and sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -410,7 +410,7 @@ class TestChainOfDensityCompressor:
         urls = [c.url for c in citations_001]
         assert "https://example.gov.jp/report/2024" in urls
 
-    def test_create_dense_claims(self, sample_claims, sample_fragments):
+    def test_create_dense_claims(self, sample_claims, sample_fragments) -> None:
         """Test creating DenseClaim objects with citations."""
         # Given: Compressor and citation mapping
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -426,7 +426,7 @@ class TestChainOfDensityCompressor:
         assert claim_001.confidence == 0.85
         assert claim_001.text == "日本の経済成長率は2024年に2.5%を記録した"
 
-    def test_validate_claims(self, sample_claims, sample_fragments):
+    def test_validate_claims(self, sample_claims, sample_fragments) -> None:
         """Test validation of dense claims."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -442,7 +442,7 @@ class TestChainOfDensityCompressor:
         assert "issues" in validation
         assert validation["valid_count"] + validation["invalid_count"] == len(dense_claims)
 
-    def test_calc_primary_ratio(self, sample_claims, sample_fragments):
+    def test_calc_primary_ratio(self, sample_claims, sample_fragments) -> None:
         """Test calculation of primary source ratio."""
         # Given: Dense claims with primary sources
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -456,7 +456,7 @@ class TestChainOfDensityCompressor:
         assert 0.0 <= ratio <= 1.0
         assert ratio > 0
 
-    def test_count_words_japanese(self):
+    def test_count_words_japanese(self) -> None:
         """Test word counting for Japanese text."""
         # Given: Japanese text
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -469,7 +469,7 @@ class TestChainOfDensityCompressor:
         assert count_jp > 0
         assert count_jp < len(japanese)
 
-    def test_count_words_english(self):
+    def test_count_words_english(self) -> None:
         """Test word counting for English text."""
         # Given: English text with 9 words
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -481,7 +481,7 @@ class TestChainOfDensityCompressor:
         # Then: Accurate count
         assert count_en == 9
 
-    def test_count_words_mixed(self):
+    def test_count_words_mixed(self) -> None:
         """Test word counting for mixed Japanese/English text."""
         # Given: Mixed text
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -493,7 +493,7 @@ class TestChainOfDensityCompressor:
         # Then: Non-zero count
         assert count > 0
 
-    def test_rule_based_compress(self, sample_claims, sample_fragments):
+    def test_rule_based_compress(self, sample_claims, sample_fragments) -> None:
         """Test rule-based compression without LLM."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -511,7 +511,7 @@ class TestChainOfDensityCompressor:
         assert len(summary.text) >= 10, f"Expected text >=10 chars, got: {summary.text}"
         assert summary.density_score >= 0
 
-    def test_extract_all_entities(self, sample_claims, sample_fragments):
+    def test_extract_all_entities(self, sample_claims, sample_fragments) -> None:
         """Test entity extraction from claims and fragments."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -527,7 +527,7 @@ class TestChainOfDensityCompressor:
         assert has_year, f"Expected '2024' in entities: {entities}"
 
     @pytest.mark.asyncio
-    async def test_compress_empty_input(self):
+    async def test_compress_empty_input(self) -> None:
         """Test compression with empty input."""
         # Given: Compressor with empty input
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -544,7 +544,7 @@ class TestChainOfDensityCompressor:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_compress_rule_based(self, sample_claims, sample_fragments):
+    async def test_compress_rule_based(self, sample_claims, sample_fragments) -> None:
         """Test full compression pipeline with rule-based method."""
         # Given: Compressor with sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -576,7 +576,7 @@ class TestChainOfDensityIntegration:
     """Integration tests for Chain-of-Density compression."""
 
     @pytest.mark.asyncio
-    async def test_compress_with_chain_of_density_function(self, sample_claims, sample_fragments):
+    async def test_compress_with_chain_of_density_function(self, sample_claims, sample_fragments) -> None:
         """Test the convenience function."""
         # Given: Sample claims and fragments
         # When: Using convenience function
@@ -594,7 +594,7 @@ class TestChainOfDensityIntegration:
         assert len(result["dense_claims"]) == 2
 
     @pytest.mark.asyncio
-    async def test_citation_mandatory_fields_enforced(self):
+    async def test_citation_mandatory_fields_enforced(self) -> None:
         """Test that all mandatory citation fields are enforced.
 
         Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
@@ -637,7 +637,7 @@ class TestChainOfDensityIntegration:
         assert citation["excerpt"] != ""
 
     @pytest.mark.asyncio
-    async def test_validation_reports_missing_fields(self):
+    async def test_validation_reports_missing_fields(self) -> None:
         """Test that validation properly reports missing fields."""
         # Given: Claim without matching fragment
         claims = [
@@ -673,7 +673,7 @@ class TestChainOfDensityEdgeCases:
     """Edge case tests for Chain-of-Density compression."""
 
     @pytest.mark.asyncio
-    async def test_single_claim(self):
+    async def test_single_claim(self) -> None:
         """Test compression with a single claim."""
         # Given: Single claim and fragment
         claims = [
@@ -708,7 +708,7 @@ class TestChainOfDensityEdgeCases:
         assert result["statistics"]["total_claims"] == 1
 
     @pytest.mark.asyncio
-    async def test_claims_without_matching_fragments(self):
+    async def test_claims_without_matching_fragments(self) -> None:
         """Test handling of claims that don't match any fragment."""
         # Given: Claim with no matching fragment URL
         claims = [
@@ -741,7 +741,7 @@ class TestChainOfDensityEdgeCases:
         assert result["ok"] is True
 
     @pytest.mark.asyncio
-    async def test_unicode_content(self):
+    async def test_unicode_content(self) -> None:
         """Test handling of various Unicode content."""
         # Given: Unicode content in claims and fragments
         claims = [
@@ -778,7 +778,7 @@ class TestChainOfDensityEdgeCases:
         assert "日本語" in dense_claim["text"]
 
     @pytest.mark.asyncio
-    async def test_very_long_excerpt(self):
+    async def test_very_long_excerpt(self) -> None:
         """Test handling of very long text content."""
         # Given: Very long text (10000 chars)
         long_text = "A" * 10000
@@ -823,7 +823,7 @@ class TestChainOfDensityEdgeCases:
 class TestDenseSummary:
     """Tests for DenseSummary class."""
 
-    def test_to_dict(self, sample_fragment):
+    def test_to_dict(self, sample_fragment) -> None:
         """Test DenseSummary serialization."""
         # Given: DenseSummary with claims
         citation = CitationInfo.from_fragment(sample_fragment)

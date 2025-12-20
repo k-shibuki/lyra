@@ -45,7 +45,7 @@ pytestmark = pytest.mark.unit
 class TestCalculateFreshnessPenalty:
     """Tests for calculate_freshness_penalty function."""
 
-    def test_fresh_content_no_penalty(self):
+    def test_fresh_content_no_penalty(self) -> None:
         """Test content less than 7 days old has no penalty."""
         now = datetime.now(UTC)
 
@@ -61,7 +61,7 @@ class TestCalculateFreshnessPenalty:
         snapshot_date = now - timedelta(days=6)
         assert calculate_freshness_penalty(snapshot_date) == 0.0
 
-    def test_one_week_to_month_minor_penalty(self):
+    def test_one_week_to_month_minor_penalty(self) -> None:
         """Test content 7-30 days old has minor penalty (0.0-0.2)."""
         now = datetime.now(UTC)
 
@@ -80,7 +80,7 @@ class TestCalculateFreshnessPenalty:
         penalty = calculate_freshness_penalty(snapshot_date)
         assert 0.1 <= penalty <= 0.2
 
-    def test_one_to_six_months_moderate_penalty(self):
+    def test_one_to_six_months_moderate_penalty(self) -> None:
         """Test content 1-6 months old has moderate penalty (0.2-0.5)."""
         now = datetime.now(UTC)
 
@@ -99,7 +99,7 @@ class TestCalculateFreshnessPenalty:
         penalty = calculate_freshness_penalty(snapshot_date)
         assert 0.4 <= penalty <= 0.5
 
-    def test_six_to_twelve_months_significant_penalty(self):
+    def test_six_to_twelve_months_significant_penalty(self) -> None:
         """Test content 6-12 months old has significant penalty (0.5-0.7)."""
         now = datetime.now(UTC)
 
@@ -118,7 +118,7 @@ class TestCalculateFreshnessPenalty:
         penalty = calculate_freshness_penalty(snapshot_date)
         assert 0.65 <= penalty <= 0.75
 
-    def test_over_one_year_major_penalty(self):
+    def test_over_one_year_major_penalty(self) -> None:
         """Test content over 1 year old has major penalty (0.7-1.0)."""
         now = datetime.now(UTC)
 
@@ -137,7 +137,7 @@ class TestCalculateFreshnessPenalty:
         penalty = calculate_freshness_penalty(snapshot_date)
         assert penalty == 1.0
 
-    def test_future_date_no_penalty(self):
+    def test_future_date_no_penalty(self) -> None:
         """Test future dates (shouldn't happen) have no penalty."""
         now = datetime.now(UTC)
         future_date = now + timedelta(days=10)
@@ -154,7 +154,7 @@ class TestCalculateFreshnessPenalty:
 class TestFallbackResult:
     """Tests for FallbackResult dataclass."""
 
-    def test_to_dict_success(self):
+    def test_to_dict_success(self) -> None:
         """Test to_dict for successful result."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -181,7 +181,7 @@ class TestFallbackResult:
         assert d["attempts"] == 1
         assert d["error"] is None
 
-    def test_to_dict_failure(self):
+    def test_to_dict_failure(self) -> None:
         """Test to_dict for failed result."""
         result = FallbackResult(
             ok=False,
@@ -212,7 +212,7 @@ class TestWaybackFallback:
         return WaybackFallback()
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_success(self, wayback_fallback):
+    async def test_get_fallback_content_success(self, wayback_fallback) -> None:
         """Test successful fallback content retrieval."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -246,7 +246,7 @@ class TestWaybackFallback:
             assert result.attempts == 1
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_no_snapshots(self, wayback_fallback):
+    async def test_get_fallback_content_no_snapshots(self, wayback_fallback) -> None:
         """Test fallback when no snapshots available."""
         with patch.object(
             wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
@@ -260,7 +260,7 @@ class TestWaybackFallback:
             assert result.html is None
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_all_fail(self, wayback_fallback):
+    async def test_get_fallback_content_all_fail(self, wayback_fallback) -> None:
         """Test fallback when all snapshot fetches fail."""
         snapshots = [
             Snapshot(
@@ -292,7 +292,7 @@ class TestWaybackFallback:
             assert result.attempts == 3
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_second_attempt_success(self, wayback_fallback):
+    async def test_get_fallback_content_second_attempt_success(self, wayback_fallback) -> None:
         """Test fallback succeeds on second attempt."""
         snapshots = [
             Snapshot(
@@ -332,7 +332,7 @@ class TestWaybackFallback:
             assert result.snapshot == snapshots[1]
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_error_page_detection(self, wayback_fallback):
+    async def test_get_fallback_content_error_page_detection(self, wayback_fallback) -> None:
         """Test detection of Wayback error pages."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -364,7 +364,7 @@ class TestWaybackFallback:
             assert result.ok is False
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_short_content_rejected(self, wayback_fallback):
+    async def test_get_fallback_content_short_content_rejected(self, wayback_fallback) -> None:
         """Test very short content is rejected."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -389,7 +389,7 @@ class TestWaybackFallback:
             # Should fail because content is too short
             assert result.ok is False
 
-    def test_is_error_page_detection(self, wayback_fallback):
+    def test_is_error_page_detection(self, wayback_fallback) -> None:
         """Test error page detection patterns."""
         # Should detect as error page
         assert wayback_fallback._is_error_page("The Wayback Machine has not archived that URL")
@@ -404,7 +404,7 @@ class TestWaybackFallback:
         assert not wayback_fallback._is_error_page("This is a regular article about web archives")
 
     @pytest.mark.asyncio
-    async def test_get_best_snapshot_content_success(self, wayback_fallback):
+    async def test_get_best_snapshot_content_success(self, wayback_fallback) -> None:
         """Test get_best_snapshot_content returns content."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -438,7 +438,7 @@ class TestWaybackFallback:
             assert penalty == 0.0  # 5 days old, no penalty
 
     @pytest.mark.asyncio
-    async def test_get_best_snapshot_content_failure(self, wayback_fallback):
+    async def test_get_best_snapshot_content_failure(self, wayback_fallback) -> None:
         """Test get_best_snapshot_content when no content available."""
         with patch.object(
             wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
@@ -462,7 +462,7 @@ class TestWaybackFallback:
 class TestGlobalWaybackFallback:
     """Tests for global WaybackFallback instance."""
 
-    def test_get_wayback_fallback_singleton(self):
+    def test_get_wayback_fallback_singleton(self) -> None:
         """Test get_wayback_fallback returns same instance."""
         fb1 = get_wayback_fallback()
         fb2 = get_wayback_fallback()
@@ -479,7 +479,7 @@ class TestGlobalWaybackFallback:
 class TestFetchResultArchiveFields:
     """Tests for FetchResult archive-related fields."""
 
-    def test_fetch_result_default_not_archived(self):
+    def test_fetch_result_default_not_archived(self) -> None:
         """Test FetchResult defaults to not archived."""
         from src.crawler.fetcher import FetchResult
 
@@ -490,7 +490,7 @@ class TestFetchResultArchiveFields:
         assert result.archive_url is None
         assert result.freshness_penalty == 0.0
 
-    def test_fetch_result_archived_fields(self):
+    def test_fetch_result_archived_fields(self) -> None:
         """Test FetchResult with archive fields set."""
         from src.crawler.fetcher import FetchResult
 
@@ -511,7 +511,7 @@ class TestFetchResultArchiveFields:
         assert "web.archive.org" in result.archive_url
         assert result.freshness_penalty == 0.25
 
-    def test_fetch_result_to_dict_includes_archive(self):
+    def test_fetch_result_to_dict_includes_archive(self) -> None:
         """Test to_dict includes archive fields when archived."""
         from src.crawler.fetcher import FetchResult
 
@@ -533,7 +533,7 @@ class TestFetchResultArchiveFields:
         assert d["archive_url"] == "https://web.archive.org/..."
         assert d["freshness_penalty"] == 0.3
 
-    def test_fetch_result_to_dict_excludes_archive_when_not_archived(self):
+    def test_fetch_result_to_dict_excludes_archive_when_not_archived(self) -> None:
         """Test to_dict excludes archive fields when not archived."""
         from src.crawler.fetcher import FetchResult
 
@@ -559,14 +559,14 @@ class TestFetchResultArchiveFields:
 class TestApplyFreshnessPenalty:
     """Tests for apply_freshness_penalty function."""
 
-    def test_no_penalty_no_change(self):
+    def test_no_penalty_no_change(self) -> None:
         """Test zero penalty doesn't change confidence."""
         from src.crawler.wayback import apply_freshness_penalty
 
         result = apply_freshness_penalty(0.9, 0.0)
         assert result == 0.9
 
-    def test_max_penalty_halves_confidence(self):
+    def test_max_penalty_halves_confidence(self) -> None:
         """Test max penalty with default weight reduces by 50%."""
         from src.crawler.wayback import apply_freshness_penalty
 
@@ -574,7 +574,7 @@ class TestApplyFreshnessPenalty:
         result = apply_freshness_penalty(1.0, 1.0, weight=0.5)
         assert result == 0.5
 
-    def test_moderate_penalty(self):
+    def test_moderate_penalty(self) -> None:
         """Test moderate penalty application."""
         from src.crawler.wayback import apply_freshness_penalty
 
@@ -582,7 +582,7 @@ class TestApplyFreshnessPenalty:
         result = apply_freshness_penalty(0.8, 0.5, weight=0.5)
         assert 0.55 < result < 0.65
 
-    def test_custom_weight(self):
+    def test_custom_weight(self) -> None:
         """Test custom weight parameter."""
         from src.crawler.wayback import apply_freshness_penalty
 
@@ -590,7 +590,7 @@ class TestApplyFreshnessPenalty:
         result = apply_freshness_penalty(1.0, 1.0, weight=0.3)
         assert result == 0.7
 
-    def test_bounds(self):
+    def test_bounds(self) -> None:
         """Test result stays within [0.0, 1.0]."""
         from src.crawler.wayback import apply_freshness_penalty
 
@@ -606,7 +606,7 @@ class TestApplyFreshnessPenalty:
 class TestArchiveDiffResult:
     """Tests for ArchiveDiffResult dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values."""
         from src.crawler.wayback import ArchiveDiffResult
 
@@ -618,7 +618,7 @@ class TestArchiveDiffResult:
         assert result.headings_removed == []
         assert result.timeline_event_type == "content_unchanged"
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test to_dict conversion."""
         from src.crawler.wayback import ArchiveDiffResult
 
@@ -643,7 +643,7 @@ class TestArchiveDiffResult:
         assert d["freshness_penalty"] == 0.3
         assert d["adjusted_confidence"] == 0.85
 
-    def test_generate_timeline_notes_outdated(self):
+    def test_generate_timeline_notes_outdated(self) -> None:
         """Test timeline notes for outdated archive."""
         from src.crawler.wayback import ArchiveDiffResult
 
@@ -655,7 +655,7 @@ class TestArchiveDiffResult:
         notes = result.generate_timeline_notes()
         assert "significantly outdated" in notes.lower()
 
-    def test_generate_timeline_notes_headings(self):
+    def test_generate_timeline_notes_headings(self) -> None:
         """Test timeline notes include heading changes."""
         from src.crawler.wayback import ArchiveDiffResult
 
@@ -683,7 +683,7 @@ class TestCompareWithCurrent:
         return WaybackFallback()
 
     @pytest.mark.asyncio
-    async def test_compare_no_archive(self, wayback_fallback):
+    async def test_compare_no_archive(self, wayback_fallback) -> None:
         """Test comparison when no archive available."""
         with patch.object(
             wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
@@ -699,7 +699,7 @@ class TestCompareWithCurrent:
             assert "No archive" in result.timeline_notes
 
     @pytest.mark.asyncio
-    async def test_compare_similar_content(self, wayback_fallback):
+    async def test_compare_similar_content(self, wayback_fallback) -> None:
         """Test comparison with similar content."""
         snapshot = Snapshot(
             url="https://example.com",
@@ -730,7 +730,7 @@ class TestCompareWithCurrent:
             assert result.timeline_event_type == "content_unchanged"
 
     @pytest.mark.asyncio
-    async def test_compare_modified_content(self, wayback_fallback):
+    async def test_compare_modified_content(self, wayback_fallback) -> None:
         """Test comparison with modified content."""
         snapshot = Snapshot(
             url="https://example.com",
@@ -776,7 +776,7 @@ class TestCompareWithCurrent:
             assert "Old Section" in result.headings_removed
 
     @pytest.mark.asyncio
-    async def test_compare_applies_freshness_penalty(self, wayback_fallback):
+    async def test_compare_applies_freshness_penalty(self, wayback_fallback) -> None:
         """Test that comparison applies freshness penalty to confidence."""
         snapshot = Snapshot(
             url="https://example.com",
@@ -813,7 +813,7 @@ class TestCompareWithCurrent:
 class TestTimelineEventTypes:
     """Tests for new timeline event types."""
 
-    def test_content_modified_event_type(self):
+    def test_content_modified_event_type(self) -> None:
         """Test CONTENT_MODIFIED event type exists."""
         from src.filter.claim_timeline import TimelineEventType
 

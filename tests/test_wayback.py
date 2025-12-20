@@ -99,7 +99,7 @@ SAMPLE_HTML_V2 = """
 class TestSnapshot:
     """Tests for Snapshot dataclass."""
 
-    def test_wayback_url_generation(self):
+    def test_wayback_url_generation(self) -> None:
         """Should generate correct Wayback URL."""
         snapshot = Snapshot(
             url="example.com/page",
@@ -111,7 +111,7 @@ class TestSnapshot:
         assert "example.com/page" in snapshot.wayback_url
         assert snapshot.wayback_url.startswith("https://web.archive.org/web/")
 
-    def test_from_cdx_line_valid(self):
+    def test_from_cdx_line_valid(self) -> None:
         """Should parse valid CDX line."""
         line = "com,example)/page 20240115103000 https://example.com/page text/html 200 ABC123 1234"
 
@@ -124,7 +124,7 @@ class TestSnapshot:
         assert snapshot.status_code == 200
         assert snapshot.mime_type == "text/html"
 
-    def test_from_cdx_line_invalid(self):
+    def test_from_cdx_line_invalid(self) -> None:
         """Should return None for invalid CDX line."""
         line = "invalid line"
 
@@ -132,7 +132,7 @@ class TestSnapshot:
 
         assert snapshot is None
 
-    def test_from_cdx_line_missing_status(self):
+    def test_from_cdx_line_missing_status(self) -> None:
         """Should handle missing status code."""
         line = "com,example)/page 20240115103000 https://example.com/page text/html - ABC123 1234"
 
@@ -150,7 +150,7 @@ class TestSnapshot:
 class TestContentDiff:
     """Tests for ContentDiff dataclass."""
 
-    def test_is_significant_low_similarity(self):
+    def test_is_significant_low_similarity(self) -> None:
         """Low similarity should be significant."""
         old_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
         new_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
@@ -163,7 +163,7 @@ class TestContentDiff:
 
         assert diff.is_significant(threshold=0.8)
 
-    def test_is_significant_heading_changes(self):
+    def test_is_significant_heading_changes(self) -> None:
         """Heading changes should be significant."""
         old_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
         new_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
@@ -177,7 +177,7 @@ class TestContentDiff:
 
         assert diff.is_significant()
 
-    def test_is_significant_large_word_count_change(self):
+    def test_is_significant_large_word_count_change(self) -> None:
         """Large word count change should be significant."""
         old_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
         new_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
@@ -191,7 +191,7 @@ class TestContentDiff:
 
         assert diff.is_significant()
 
-    def test_not_significant(self):
+    def test_not_significant(self) -> None:
         """High similarity with no changes should not be significant."""
         old_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
         new_snap = Snapshot(url="", original_url="", timestamp=datetime.now(UTC))
@@ -205,7 +205,7 @@ class TestContentDiff:
 
         assert not diff.is_significant()
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Should convert to serializable dict."""
         old_snap = Snapshot(
             url="",
@@ -240,7 +240,7 @@ class TestContentDiff:
 class TestWaybackResult:
     """Tests for WaybackResult dataclass."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Should convert to serializable dict."""
         result = WaybackResult(
             url="https://example.com/page",
@@ -265,7 +265,7 @@ class TestWaybackResult:
 class TestContentAnalyzer:
     """Tests for ContentAnalyzer class."""
 
-    def test_extract_text(self):
+    def test_extract_text(self) -> None:
         """Should extract main text content.
 
         SAMPLE_HTML_V1 contains article with 'Main Title' and 'original content'.
@@ -282,7 +282,7 @@ class TestContentAnalyzer:
             "Expected 'Navigation' to be excluded from article extraction"
         )
 
-    def test_extract_headings(self):
+    def test_extract_headings(self) -> None:
         """Should extract all headings."""
         analyzer = ContentAnalyzer()
         headings = analyzer.extract_headings(SAMPLE_HTML_V1)
@@ -291,14 +291,14 @@ class TestContentAnalyzer:
         assert "Section One" in headings
         assert "Section Two" in headings
 
-    def test_extract_dates(self):
+    def test_extract_dates(self) -> None:
         """Should extract date references."""
         analyzer = ContentAnalyzer()
         dates = analyzer.extract_dates(SAMPLE_HTML_V1)
 
         assert any("2023" in d for d in dates)
 
-    def test_extract_dates_japanese(self):
+    def test_extract_dates_japanese(self) -> None:
         """Should extract Japanese date format."""
         analyzer = ContentAnalyzer()
         html = "<html><body><p>2024年1月15日に公開</p></body></html>"
@@ -308,7 +308,7 @@ class TestContentAnalyzer:
         assert len(dates) >= 1
         assert any("2024年1月15日" in d for d in dates)
 
-    def test_compare_detects_changes(self):
+    def test_compare_detects_changes(self) -> None:
         """Should detect differences between versions.
 
         SAMPLE_HTML_V1 has 'Main Title' while V2 has 'Main Title Updated'.
@@ -338,7 +338,7 @@ class TestContentAnalyzer:
             f"Expected at least 1 heading change, got {len(diff.heading_changes)}"
         )
 
-    def test_compare_identical(self):
+    def test_compare_identical(self) -> None:
         """Identical content should have high similarity."""
         analyzer = ContentAnalyzer()
 
@@ -351,7 +351,7 @@ class TestContentAnalyzer:
         assert len(diff.added_lines) == 0
         assert len(diff.removed_lines) == 0
 
-    def test_summarize_content(self):
+    def test_summarize_content(self) -> None:
         """Should generate brief summary."""
         analyzer = ContentAnalyzer()
         summary = analyzer.summarize_content(SAMPLE_HTML_V1, max_length=100)
@@ -369,7 +369,7 @@ class TestContentAnalyzer:
 class TestWaybackClient:
     """Tests for WaybackClient class."""
 
-    def test_remove_wayback_toolbar(self):
+    def test_remove_wayback_toolbar(self) -> None:
         """Should remove Wayback toolbar from HTML."""
         client = WaybackClient()
 
@@ -396,7 +396,7 @@ class TestWaybackClient:
 class TestWaybackBudgetManager:
     """Tests for WaybackBudgetManager class."""
 
-    def test_get_task_budget(self):
+    def test_get_task_budget(self) -> None:
         """Should calculate correct budget."""
         manager = WaybackBudgetManager()
 
@@ -405,7 +405,7 @@ class TestWaybackBudgetManager:
         expected = int(100 * WAYBACK_BUDGET_RATIO)
         assert budget == expected
 
-    def test_consume_budget_success(self):
+    def test_consume_budget_success(self) -> None:
         """Should consume budget when available."""
         manager = WaybackBudgetManager()
         manager.get_task_budget("task1", total_pages=100)
@@ -413,7 +413,7 @@ class TestWaybackBudgetManager:
         assert manager.consume_budget("task1", 5) is True
         assert manager._task_budgets["task1"] == int(100 * WAYBACK_BUDGET_RATIO) - 5
 
-    def test_consume_budget_insufficient(self):
+    def test_consume_budget_insufficient(self) -> None:
         """Should fail when insufficient budget."""
         manager = WaybackBudgetManager()
         manager._task_budgets["task1"] = 3
@@ -421,13 +421,13 @@ class TestWaybackBudgetManager:
         assert manager.consume_budget("task1", 5) is False
         assert manager._task_budgets["task1"] == 3  # Unchanged
 
-    def test_consume_budget_unknown_task(self):
+    def test_consume_budget_unknown_task(self) -> None:
         """Should fail for unknown task."""
         manager = WaybackBudgetManager()
 
         assert manager.consume_budget("unknown", 1) is False
 
-    def test_reset_task_budget(self):
+    def test_reset_task_budget(self) -> None:
         """Should reset task budget."""
         manager = WaybackBudgetManager()
         manager._task_budgets["task1"] = 10
@@ -446,7 +446,7 @@ class TestWaybackExplorer:
     """Tests for WaybackExplorer class."""
 
     @pytest.mark.asyncio
-    async def test_explore_no_snapshots(self):
+    async def test_explore_no_snapshots(self) -> None:
         """Should handle no snapshots gracefully."""
         explorer = WaybackExplorer()
 
@@ -459,7 +459,7 @@ class TestWaybackExplorer:
             assert len(result.timeline) == 0
 
     @pytest.mark.asyncio
-    async def test_check_content_changes(self):
+    async def test_check_content_changes(self) -> None:
         """Should detect changes from archive."""
         explorer = WaybackExplorer()
 
@@ -494,7 +494,7 @@ class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
     @pytest.mark.asyncio
-    async def test_explore_wayback_function(self):
+    async def test_explore_wayback_function(self) -> None:
         """explore_wayback should return structured result."""
         with patch("src.crawler.wayback.get_wayback_explorer") as mock_get:
             mock_explorer = MagicMock()
@@ -514,7 +514,7 @@ class TestMCPToolFunctions:
             assert "diffs" in result
 
     @pytest.mark.asyncio
-    async def test_get_archived_content_found(self):
+    async def test_get_archived_content_found(self) -> None:
         """get_archived_content should return content when found."""
         with patch("src.crawler.wayback.get_wayback_explorer") as mock_get:
             mock_explorer = MagicMock()
@@ -538,7 +538,7 @@ class TestMCPToolFunctions:
             assert "headings" in result
 
     @pytest.mark.asyncio
-    async def test_get_archived_content_not_found(self):
+    async def test_get_archived_content_not_found(self) -> None:
         """get_archived_content should handle not found."""
         with patch("src.crawler.wayback.get_wayback_explorer") as mock_get:
             mock_explorer = MagicMock()
@@ -553,7 +553,7 @@ class TestMCPToolFunctions:
             assert result["found"] is False
 
     @pytest.mark.asyncio
-    async def test_check_content_modified_function(self):
+    async def test_check_content_modified_function(self) -> None:
         """check_content_modified should return modification status."""
         with patch("src.crawler.wayback.get_wayback_explorer") as mock_get:
             mock_explorer = MagicMock()
@@ -576,7 +576,7 @@ class TestMCPToolFunctions:
 class TestEdgeCases:
     """Edge case tests."""
 
-    def test_empty_html_extraction(self):
+    def test_empty_html_extraction(self) -> None:
         """Should handle empty HTML."""
         analyzer = ContentAnalyzer()
 
@@ -586,7 +586,7 @@ class TestEdgeCases:
         assert text == ""
         assert headings == []
 
-    def test_malformed_html(self):
+    def test_malformed_html(self) -> None:
         """Should handle malformed HTML without raising exceptions.
 
         Malformed HTML with unclosed tags should be handled gracefully.
@@ -608,7 +608,7 @@ class TestEdgeCases:
         assert "Unclosed" in combined, f"Expected 'Unclosed' (from h1) in: {combined}"
         assert "Text" in combined, f"Expected 'Text' (from paragraph) in: {combined}"
 
-    def test_compare_empty_content(self):
+    def test_compare_empty_content(self) -> None:
         """Should handle empty content comparison."""
         analyzer = ContentAnalyzer()
 
@@ -619,7 +619,7 @@ class TestEdgeCases:
 
         assert diff.similarity_ratio == 1.0  # Empty == empty
 
-    def test_budget_manager_multiple_tasks(self):
+    def test_budget_manager_multiple_tasks(self) -> None:
         """Should track budgets for multiple tasks."""
         manager = WaybackBudgetManager()
 

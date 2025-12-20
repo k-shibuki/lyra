@@ -54,7 +54,7 @@ from src.crawler.site_search import (
 class TestSearchTemplate:
     """Tests for SearchTemplate dataclass."""
 
-    def test_from_dict_basic(self):
+    def test_from_dict_basic(self) -> None:
         """Create template from basic dictionary."""
         data = {
             "domain": "example.com",
@@ -68,7 +68,7 @@ class TestSearchTemplate:
         assert template.search_input == "input#search"
         assert template.search_button == "button#submit"
 
-    def test_from_dict_defaults(self):
+    def test_from_dict_defaults(self) -> None:
         """Template should have sensible defaults."""
         data = {}
 
@@ -78,7 +78,7 @@ class TestSearchTemplate:
         assert "input" in template.search_input
         assert template.link_selector == "a"
 
-    def test_from_dict_full(self):
+    def test_from_dict_full(self) -> None:
         """Create template with all fields."""
         data = {
             "domain": "arxiv.org",
@@ -103,7 +103,7 @@ class TestSearchTemplate:
 class TestDomainSearchStats:
     """Tests for DomainSearchStats dataclass."""
 
-    def test_initial_state(self):
+    def test_initial_state(self) -> None:
         """New stats should have zero values."""
         stats = DomainSearchStats(domain="example.com")
 
@@ -113,7 +113,7 @@ class TestDomainSearchStats:
         assert stats.harvest_rate == 0.0
         assert not stats.is_skipped()
 
-    def test_success_rate_calculation(self):
+    def test_success_rate_calculation(self) -> None:
         """Success rate should be calculated correctly."""
         stats = DomainSearchStats(domain="example.com")
         stats.total_attempts = 10
@@ -121,7 +121,7 @@ class TestDomainSearchStats:
 
         assert stats.success_rate == 0.7
 
-    def test_harvest_rate_calculation(self):
+    def test_harvest_rate_calculation(self) -> None:
         """Harvest rate should be calculated correctly."""
         stats = DomainSearchStats(domain="example.com")
         stats.successful_attempts = 5
@@ -129,7 +129,7 @@ class TestDomainSearchStats:
 
         assert stats.harvest_rate == 10.0
 
-    def test_record_success(self):
+    def test_record_success(self) -> None:
         """Recording success should update stats correctly."""
         stats = DomainSearchStats(domain="example.com")
         stats.consecutive_failures = 1
@@ -142,7 +142,7 @@ class TestDomainSearchStats:
         assert stats.consecutive_failures == 0
         assert stats.last_success_at is not None
 
-    def test_record_failure(self):
+    def test_record_failure(self) -> None:
         """Recording failure should update stats correctly."""
         stats = DomainSearchStats(domain="example.com")
 
@@ -153,7 +153,7 @@ class TestDomainSearchStats:
         assert stats.consecutive_failures == 1
         assert stats.last_failure_at is not None
 
-    def test_skip_after_consecutive_failures(self):
+    def test_skip_after_consecutive_failures(self) -> None:
         """Domain should be skipped after 2 consecutive failures."""
         stats = DomainSearchStats(domain="example.com")
 
@@ -164,14 +164,14 @@ class TestDomainSearchStats:
         assert stats.is_skipped()
         assert stats.skip_until is not None
 
-    def test_is_skipped_expires(self):
+    def test_is_skipped_expires(self) -> None:
         """Skip should expire after set time."""
         stats = DomainSearchStats(domain="example.com")
         stats.skip_until = datetime.now(UTC) - timedelta(hours=1)
 
         assert not stats.is_skipped()
 
-    def test_success_resets_failures(self):
+    def test_success_resets_failures(self) -> None:
         """Success should reset consecutive failures."""
         stats = DomainSearchStats(domain="example.com")
         stats.consecutive_failures = 1
@@ -189,7 +189,7 @@ class TestDomainSearchStats:
 class TestSiteSearchResult:
     """Tests for SiteSearchResult dataclass."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """to_dict should return serializable dictionary."""
         result = SiteSearchResult(
             domain="example.com",
@@ -206,7 +206,7 @@ class TestSiteSearchResult:
         assert d["success"] is True
         assert len(d["result_urls"]) == 1
 
-    def test_failed_result(self):
+    def test_failed_result(self) -> None:
         """Failed result should have error."""
         result = SiteSearchResult(
             domain="example.com",
@@ -229,7 +229,7 @@ class TestSiteSearchResult:
 class TestSiteSearchManager:
     """Tests for SiteSearchManager class."""
 
-    def test_is_allowlisted_with_template(self):
+    def test_is_allowlisted_with_template(self) -> None:
         """Domain with template should be allowlisted."""
         manager = SiteSearchManager()
         manager._templates["example.com"] = SearchTemplate(
@@ -240,7 +240,7 @@ class TestSiteSearchManager:
         assert manager.is_allowlisted("example.com")
         assert not manager.is_allowlisted("other.com")
 
-    def test_get_template(self):
+    def test_get_template(self) -> None:
         """Should return template for domain."""
         manager = SiteSearchManager()
         template = SearchTemplate(domain="example.com", search_input="input")
@@ -249,7 +249,7 @@ class TestSiteSearchManager:
         assert manager.get_template("example.com") == template
         assert manager.get_template("other.com") is None
 
-    def test_get_stats_creates_new(self):
+    def test_get_stats_creates_new(self) -> None:
         """get_stats should create new stats if not exists."""
         manager = SiteSearchManager()
 
@@ -258,7 +258,7 @@ class TestSiteSearchManager:
         assert stats.domain == "new-domain.com"
         assert stats.total_attempts == 0
 
-    def test_get_stats_returns_existing(self):
+    def test_get_stats_returns_existing(self) -> None:
         """get_stats should return existing stats."""
         manager = SiteSearchManager()
         existing = DomainSearchStats(domain="example.com")
@@ -270,14 +270,14 @@ class TestSiteSearchManager:
         assert stats.total_attempts == 5
 
     @pytest.mark.asyncio
-    async def test_can_search_not_allowlisted(self):
+    async def test_can_search_not_allowlisted(self) -> None:
         """can_search should return False for non-allowlisted domains."""
         manager = SiteSearchManager()
 
         assert not await manager.can_search("not-allowlisted.com")
 
     @pytest.mark.asyncio
-    async def test_can_search_skipped_domain(self):
+    async def test_can_search_skipped_domain(self) -> None:
         """can_search should return False for skipped domains."""
         manager = SiteSearchManager()
         manager._templates["example.com"] = SearchTemplate(
@@ -290,7 +290,7 @@ class TestSiteSearchManager:
         assert not await manager.can_search("example.com")
 
     @pytest.mark.asyncio
-    async def test_can_search_available(self):
+    async def test_can_search_available(self) -> None:
         """can_search should return True for available domains."""
         manager = SiteSearchManager()
         manager._templates["example.com"] = SearchTemplate(
@@ -300,7 +300,7 @@ class TestSiteSearchManager:
 
         assert await manager.can_search("example.com")
 
-    def test_extract_result_urls_basic(self):
+    def test_extract_result_urls_basic(self) -> None:
         """Should extract URLs from search results."""
         manager = SiteSearchManager()
         template = SearchTemplate(
@@ -334,7 +334,7 @@ class TestSiteSearchManager:
         # External link should be excluded
         assert not any("external.com" in url for url in urls)
 
-    def test_extract_result_urls_skip_search_pages(self):
+    def test_extract_result_urls_skip_search_pages(self) -> None:
         """Should skip search and login URLs."""
         manager = SiteSearchManager()
         template = SearchTemplate(
@@ -358,7 +358,7 @@ class TestSiteSearchManager:
         assert len(urls) == 1
         assert "content" in urls[0]
 
-    def test_extract_result_urls_deduplicates(self):
+    def test_extract_result_urls_deduplicates(self) -> None:
         """Should deduplicate URLs."""
         manager = SiteSearchManager()
         template = SearchTemplate(domain="example.com", search_input="input")
@@ -387,7 +387,7 @@ class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
     @pytest.mark.asyncio
-    async def test_site_search_function(self):
+    async def test_site_search_function(self) -> None:
         """site_search should return structured result."""
         with patch("src.crawler.site_search.get_site_search_manager") as mock_get:
             mock_manager = MagicMock()
@@ -408,7 +408,7 @@ class TestMCPToolFunctions:
             assert result["success"] is True
 
     @pytest.mark.asyncio
-    async def test_get_site_search_stats_function(self):
+    async def test_get_site_search_stats_function(self) -> None:
         """get_site_search_stats should return stats."""
         with patch("src.crawler.site_search.get_site_search_manager") as mock_get:
             mock_manager = MagicMock()
@@ -431,7 +431,7 @@ class TestMCPToolFunctions:
             assert result["stats"]["total_attempts"] == 10
 
     @pytest.mark.asyncio
-    async def test_list_allowlisted_domains_function(self):
+    async def test_list_allowlisted_domains_function(self) -> None:
         """list_allowlisted_domains should return domain list."""
         with patch("src.crawler.site_search.get_site_search_manager") as mock_get:
             mock_manager = MagicMock()
@@ -455,7 +455,7 @@ class TestMCPToolFunctions:
 class TestEdgeCases:
     """Edge case tests."""
 
-    def test_empty_html_extraction(self):
+    def test_empty_html_extraction(self) -> None:
         """Should handle empty HTML gracefully."""
         manager = SiteSearchManager()
         template = SearchTemplate(domain="example.com", search_input="input")
@@ -464,7 +464,7 @@ class TestEdgeCases:
 
         assert urls == []
 
-    def test_malformed_html_extraction(self):
+    def test_malformed_html_extraction(self) -> None:
         """Should handle malformed HTML gracefully."""
         manager = SiteSearchManager()
         template = SearchTemplate(domain="example.com", search_input="input")
@@ -476,7 +476,7 @@ class TestEdgeCases:
         # Should extract at least some URLs without error
         assert isinstance(urls, list)
 
-    def test_stats_zero_division_safety(self):
+    def test_stats_zero_division_safety(self) -> None:
         """Success/harvest rate should handle zero attempts."""
         stats = DomainSearchStats(domain="example.com")
 
@@ -484,7 +484,7 @@ class TestEdgeCases:
         assert stats.success_rate == 0.0
         assert stats.harvest_rate == 0.0
 
-    def test_url_limit(self):
+    def test_url_limit(self) -> None:
         """Should limit extracted URLs."""
         manager = SiteSearchManager()
         template = SearchTemplate(domain="example.com", search_input="input")

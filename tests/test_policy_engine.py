@@ -50,7 +50,7 @@ pytestmark = pytest.mark.unit
 class TestParameterBounds:
     """Tests for ParameterBounds."""
 
-    def test_default_bounds_exist(self):
+    def test_default_bounds_exist(self) -> None:
         """Test that default bounds are defined for all parameters."""
         # Given: All defined PolicyParameter enum values
         # When: Checking DEFAULT_BOUNDS dictionary
@@ -58,7 +58,7 @@ class TestParameterBounds:
         for param in PolicyParameter:
             assert param in DEFAULT_BOUNDS, f"Missing bounds for {param}"
 
-    def test_bounds_values_valid(self):
+    def test_bounds_values_valid(self) -> None:
         """Test that bounds values are valid."""
         # Given: All parameter bounds in DEFAULT_BOUNDS
         # When: Validating each bound's constraints
@@ -73,7 +73,7 @@ class TestParameterBounds:
 class TestParameterState:
     """Tests for ParameterState."""
 
-    def test_initial_state(self):
+    def test_initial_state(self) -> None:
         """Test initial parameter state."""
         # Given: A new ParameterState with value 0.5
         state = ParameterState(current_value=0.5)
@@ -84,7 +84,7 @@ class TestParameterState:
         assert state.last_direction == "none"
         assert state.change_count == 0
 
-    def test_can_change_immediately(self):
+    def test_can_change_immediately(self) -> None:
         """Test that new state can change immediately."""
         # Given: A state with last change 10 minutes ago
         state = ParameterState(current_value=0.5)
@@ -94,7 +94,7 @@ class TestParameterState:
         # Then: Change is permitted
         assert state.can_change(min_interval_seconds=300)  # 5 minutes
 
-    def test_cannot_change_too_soon(self):
+    def test_cannot_change_too_soon(self) -> None:
         """Test that recent changes block further changes."""
         # Given: A state with last change 60 seconds ago
         state = ParameterState(current_value=0.5)
@@ -104,7 +104,7 @@ class TestParameterState:
         # Then: Change is blocked
         assert not state.can_change(min_interval_seconds=300)
 
-    def test_apply_change_within_bounds(self):
+    def test_apply_change_within_bounds(self) -> None:
         """Test applying a change within bounds."""
         # Given: A state at 0.5 with bounds [0.0, 1.0]
         state = ParameterState(current_value=0.5)
@@ -125,7 +125,7 @@ class TestParameterState:
         assert state.last_direction == "up"
         assert state.change_count == 1
 
-    def test_apply_change_clamped_max(self):
+    def test_apply_change_clamped_max(self) -> None:
         """Test that changes are clamped to max bound."""
         # Given: A state at 0.9 with max bound 1.0
         state = ParameterState(current_value=0.9)
@@ -144,7 +144,7 @@ class TestParameterState:
         assert result == 1.0
         assert state.current_value == 1.0
 
-    def test_apply_change_clamped_min(self):
+    def test_apply_change_clamped_min(self) -> None:
         """Test that changes are clamped to min bound."""
         # Given: A state at 0.1 with min bound 0.0
         state = ParameterState(current_value=0.1)
@@ -167,7 +167,7 @@ class TestParameterState:
 class TestPolicyUpdate:
     """Tests for PolicyUpdate dataclass."""
 
-    def test_policy_update_creation(self):
+    def test_policy_update_creation(self) -> None:
         """Test creating a policy update record."""
         # Given: Valid parameters for a policy update
         # When: Creating a PolicyUpdate instance
@@ -193,7 +193,7 @@ class TestPolicyUpdate:
 class TestPolicyEngine:
     """Tests for PolicyEngine class."""
 
-    async def test_engine_initialization(self):
+    async def test_engine_initialization(self) -> None:
         """Test policy engine initialization."""
         # Given: A MetricsCollector and configuration values
         collector = MetricsCollector()
@@ -209,7 +209,7 @@ class TestPolicyEngine:
         assert engine._update_interval == 60
         assert engine._hysteresis_interval == 300
 
-    async def test_get_parameter_value_default(self):
+    async def test_get_parameter_value_default(self) -> None:
         """Test getting default parameter value."""
         # Given: A new PolicyEngine with no parameter overrides
         collector = MetricsCollector()
@@ -221,7 +221,7 @@ class TestPolicyEngine:
         # Then: Returns the default value from bounds
         assert value == DEFAULT_BOUNDS[PolicyParameter.ENGINE_WEIGHT].default_value
 
-    async def test_set_parameter_value(self):
+    async def test_set_parameter_value(self) -> None:
         """Test manually setting parameter value."""
         # Given: A PolicyEngine with mocked database
         collector = MetricsCollector()
@@ -245,7 +245,7 @@ class TestPolicyEngine:
             assert update.new_value == 0.3
             assert update.reason == "Manual test"
 
-    async def test_get_update_history(self):
+    async def test_get_update_history(self) -> None:
         """Test getting update history returns empty list initially."""
         # Given: A new PolicyEngine with no updates
         collector = MetricsCollector()
@@ -257,7 +257,7 @@ class TestPolicyEngine:
         # Then: Returns empty list
         assert history == [], f"Expected empty list for new engine, got {history}"
 
-    async def test_adjust_engine_policy_low_success(self):
+    async def test_adjust_engine_policy_low_success(self) -> None:
         """Test engine policy adjustment on low success rate.
 
         Related spec: §4.6 Policy Auto-update
@@ -295,7 +295,7 @@ class TestPolicyEngine:
             f"Weight should decrease: {weight_updates[0].old_value} -> {weight_updates[0].new_value}"
         )
 
-    async def test_adjust_domain_policy_high_error(self):
+    async def test_adjust_domain_policy_high_error(self) -> None:
         """Test domain policy adjustment on high error rate.
 
         Related spec: §4.6 Policy Auto-update, §4.3 Resilience and Stealth
@@ -342,7 +342,7 @@ class TestPolicyEngine:
                 f"headful_ratio should increase: {update.old_value} -> {update.new_value}"
             )
 
-    async def test_hysteresis_prevents_rapid_changes(self):
+    async def test_hysteresis_prevents_rapid_changes(self) -> None:
         """Test that hysteresis prevents rapid parameter changes."""
         # Given: A PolicyEngine with 5 minute hysteresis interval
         collector = MetricsCollector()
@@ -359,7 +359,7 @@ class TestPolicyEngine:
         # Then: Change is blocked due to hysteresis
         assert not state.can_change(300)
 
-    async def test_start_stop_engine(self):
+    async def test_start_stop_engine(self) -> None:
         """Test starting and stopping the policy engine."""
         # Given: A PolicyEngine with short update interval
         collector = MetricsCollector()
@@ -382,7 +382,7 @@ class TestPolicyEngine:
 
 
 @pytest.mark.asyncio
-async def test_get_policy_engine_singleton():
+async def test_get_policy_engine_singleton() -> None:
     """Test that get_policy_engine returns singleton."""
     # Given: Reset global engine state
     import src.utils.policy_engine as pe
@@ -427,7 +427,7 @@ class TestDynamicWeightCalculation:
     | TC-DW-A-01 | Engine not in DB | Abnormal - missing | returns base_weight | Fallback |
     """
 
-    def test_ideal_metrics_recent_use(self):
+    def test_ideal_metrics_recent_use(self) -> None:
         """TC-DW-N-01: Ideal metrics with recent use.
 
         Given: Ideal metrics (success=1.0, captcha=0, low latency) and recent use
@@ -460,7 +460,7 @@ class TestDynamicWeightCalculation:
         # (lower latency factor due to 500ms latency gives ~0.47)
         assert weight >= 0.4, f"Weight {weight} should be >= 0.4 with ideal metrics"
 
-    def test_degraded_metrics_recent_use(self):
+    def test_degraded_metrics_recent_use(self) -> None:
         """TC-DW-N-02: Degraded metrics with recent use.
 
         Given: Degraded metrics (low success, high captcha, high latency) and recent use
@@ -497,7 +497,7 @@ class TestDynamicWeightCalculation:
             f"Degraded weight {degraded_weight} not in valid range"
         )
 
-    def test_minimum_weight_clamp(self):
+    def test_minimum_weight_clamp(self) -> None:
         """TC-DW-B-01: Minimum weight clamping.
 
         Given: Worst possible metrics (success=0, high captcha, high latency)
@@ -518,7 +518,7 @@ class TestDynamicWeightCalculation:
 
         assert weight >= 0.1, f"Weight {weight} should be >= 0.1 (minimum)"
 
-    def test_maximum_weight_clamp(self):
+    def test_maximum_weight_clamp(self) -> None:
         """TC-DW-B-02: Maximum weight clamping.
 
         Given: High base weight and optimal metrics
@@ -539,7 +539,7 @@ class TestDynamicWeightCalculation:
 
         assert weight <= 1.0, f"Weight {weight} should be <= 1.0 (maximum)"
 
-    def test_high_captcha_rate_penalty(self):
+    def test_high_captcha_rate_penalty(self) -> None:
         """TC-DW-B-03: High CAPTCHA rate penalty.
 
         Given: High CAPTCHA rate (1.0) with otherwise good metrics
@@ -573,7 +573,7 @@ class TestDynamicWeightCalculation:
             f"High CAPTCHA weight {high_captcha_weight} should be < no CAPTCHA weight {no_captcha_weight}"
         )
 
-    def test_high_latency_penalty(self):
+    def test_high_latency_penalty(self) -> None:
         """TC-DW-B-04: High latency penalty.
 
         Given: High latency (10000ms) with otherwise good metrics
@@ -607,7 +607,7 @@ class TestDynamicWeightCalculation:
             f"High latency weight {high_latency_weight} should be < low latency weight {low_latency_weight}"
         )
 
-    def test_time_decay_24h(self):
+    def test_time_decay_24h(self) -> None:
         """TC-DW-B-05: Time decay at 24 hours.
 
         Given: Bad metrics and last used 24 hours ago
@@ -644,7 +644,7 @@ class TestDynamicWeightCalculation:
         # Confidence should be around 0.5 for 24h
         assert 0.4 <= old_conf <= 0.6, f"Confidence {old_conf} should be ~0.5 for 24h old metrics"
 
-    def test_time_decay_48h(self):
+    def test_time_decay_48h(self) -> None:
         """TC-DW-B-06: Time decay at 48 hours.
 
         Given: Bad metrics and last used 48 hours ago
@@ -675,7 +675,7 @@ class TestDynamicWeightCalculation:
             f"Weight {weight} should be close to base_weight {base_weight}"
         )
 
-    def test_time_decay_never_used(self):
+    def test_time_decay_never_used(self) -> None:
         """TC-DW-B-07: Never used engine.
 
         Given: Bad metrics but last_used_at is None (never used)
@@ -702,7 +702,7 @@ class TestDynamicWeightCalculation:
         )
 
     @pytest.mark.asyncio
-    async def test_get_dynamic_weight_fallback(self):
+    async def test_get_dynamic_weight_fallback(self) -> None:
         """TC-DW-A-01: Fallback for non-existent engine.
 
         Given: Non-existent engine name
@@ -719,7 +719,7 @@ class TestDynamicWeightCalculation:
         # Should return default weight for unknown engine
         assert weight == 1.0, f"Non-existent engine should return default weight 1.0, got {weight}"
 
-    def test_confidence_calculation(self):
+    def test_confidence_calculation(self) -> None:
         """Test confidence calculation based on time since last use.
 
         Given: Various time intervals since last use

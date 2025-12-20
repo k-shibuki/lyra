@@ -56,21 +56,21 @@ from src.crawler.sec_fetch import (
 class TestSecFetchSiteEnums:
     """Tests for Sec-Fetch-* enum values."""
 
-    def test_sec_fetch_site_values(self):
+    def test_sec_fetch_site_values(self) -> None:
         """Test SecFetchSite enum has correct string values."""
         assert SecFetchSite.NONE.value == "none"
         assert SecFetchSite.SAME_ORIGIN.value == "same-origin"
         assert SecFetchSite.SAME_SITE.value == "same-site"
         assert SecFetchSite.CROSS_SITE.value == "cross-site"
 
-    def test_sec_fetch_mode_values(self):
+    def test_sec_fetch_mode_values(self) -> None:
         """Test SecFetchMode enum has correct string values."""
         assert SecFetchMode.NAVIGATE.value == "navigate"
         assert SecFetchMode.CORS.value == "cors"
         assert SecFetchMode.NO_CORS.value == "no-cors"
         assert SecFetchMode.SAME_ORIGIN.value == "same-origin"
 
-    def test_sec_fetch_dest_values(self):
+    def test_sec_fetch_dest_values(self) -> None:
         """Test SecFetchDest enum has correct string values."""
         assert SecFetchDest.DOCUMENT.value == "document"
         assert SecFetchDest.IMAGE.value == "image"
@@ -82,7 +82,7 @@ class TestSecFetchSiteEnums:
 class TestSecFetchHeaders:
     """Tests for SecFetchHeaders dataclass."""
 
-    def test_to_dict_basic(self):
+    def test_to_dict_basic(self) -> None:
         """Test basic header generation."""
         headers = SecFetchHeaders(
             site=SecFetchSite.CROSS_SITE,
@@ -98,7 +98,7 @@ class TestSecFetchHeaders:
         assert result["Sec-Fetch-Dest"] == "document"
         assert result["Sec-Fetch-User"] == "?1"
 
-    def test_to_dict_no_user_for_non_navigate(self):
+    def test_to_dict_no_user_for_non_navigate(self) -> None:
         """Test Sec-Fetch-User is not set for non-navigate mode."""
         headers = SecFetchHeaders(
             site=SecFetchSite.SAME_ORIGIN,
@@ -112,7 +112,7 @@ class TestSecFetchHeaders:
         assert "Sec-Fetch-User" not in result
         assert result["Sec-Fetch-Mode"] == "no-cors"
 
-    def test_to_dict_no_user_when_false(self):
+    def test_to_dict_no_user_when_false(self) -> None:
         """Test Sec-Fetch-User is not set when user=False."""
         headers = SecFetchHeaders(
             site=SecFetchSite.CROSS_SITE,
@@ -130,36 +130,36 @@ class TestSecFetchHeaders:
 class TestGetRegistrableDomain:
     """Tests for registrable domain extraction."""
 
-    def test_simple_domain(self):
+    def test_simple_domain(self) -> None:
         """Test simple two-part domain."""
         assert _get_registrable_domain("example.com") == "example.com"
         assert _get_registrable_domain("google.com") == "google.com"
 
-    def test_subdomain(self):
+    def test_subdomain(self) -> None:
         """Test subdomain is stripped to registrable domain."""
         assert _get_registrable_domain("www.example.com") == "example.com"
         assert _get_registrable_domain("api.example.com") == "example.com"
         assert _get_registrable_domain("deep.nested.example.com") == "example.com"
 
-    def test_multi_part_tld_japan(self):
+    def test_multi_part_tld_japan(self) -> None:
         """Test Japanese multi-part TLDs."""
         assert _get_registrable_domain("example.go.jp") == "example.go.jp"
         assert _get_registrable_domain("www.example.go.jp") == "example.go.jp"
         assert _get_registrable_domain("example.co.jp") == "example.co.jp"
         assert _get_registrable_domain("example.or.jp") == "example.or.jp"
 
-    def test_multi_part_tld_uk(self):
+    def test_multi_part_tld_uk(self) -> None:
         """Test UK multi-part TLDs."""
         assert _get_registrable_domain("example.co.uk") == "example.co.uk"
         assert _get_registrable_domain("www.example.co.uk") == "example.co.uk"
         assert _get_registrable_domain("example.org.uk") == "example.org.uk"
 
-    def test_port_stripped(self):
+    def test_port_stripped(self) -> None:
         """Test port number is stripped."""
         assert _get_registrable_domain("example.com:8080") == "example.com"
         assert _get_registrable_domain("www.example.com:443") == "example.com"
 
-    def test_case_insensitive(self):
+    def test_case_insensitive(self) -> None:
         """Test domain comparison is case-insensitive."""
         assert _get_registrable_domain("EXAMPLE.COM") == "example.com"
         assert _get_registrable_domain("WWW.Example.Com") == "example.com"
@@ -169,17 +169,17 @@ class TestGetRegistrableDomain:
 class TestDetermineFetchSite:
     """Tests for Sec-Fetch-Site determination."""
 
-    def test_no_referer_is_none(self):
+    def test_no_referer_is_none(self) -> None:
         """Test no referer results in 'none'."""
         result = _determine_fetch_site("https://example.com/page", None)
         assert result == SecFetchSite.NONE
 
-    def test_empty_referer_is_none(self):
+    def test_empty_referer_is_none(self) -> None:
         """Test empty referer results in 'none'."""
         result = _determine_fetch_site("https://example.com/page", "")
         assert result == SecFetchSite.NONE
 
-    def test_same_origin(self):
+    def test_same_origin(self) -> None:
         """Test same-origin detection (same scheme + host + port)."""
         result = _determine_fetch_site(
             "https://example.com/page2",
@@ -187,7 +187,7 @@ class TestDetermineFetchSite:
         )
         assert result == SecFetchSite.SAME_ORIGIN
 
-    def test_same_origin_different_path(self):
+    def test_same_origin_different_path(self) -> None:
         """Test same-origin with different paths."""
         result = _determine_fetch_site(
             "https://example.com/deep/nested/page",
@@ -195,7 +195,7 @@ class TestDetermineFetchSite:
         )
         assert result == SecFetchSite.SAME_ORIGIN
 
-    def test_same_site_different_subdomain(self):
+    def test_same_site_different_subdomain(self) -> None:
         """Test same-site detection (different subdomain, same registrable domain)."""
         result = _determine_fetch_site(
             "https://api.example.com/data",
@@ -203,7 +203,7 @@ class TestDetermineFetchSite:
         )
         assert result == SecFetchSite.SAME_SITE
 
-    def test_cross_site(self):
+    def test_cross_site(self) -> None:
         """Test cross-site detection (different registrable domains)."""
         result = _determine_fetch_site(
             "https://example.com/page",
@@ -211,7 +211,7 @@ class TestDetermineFetchSite:
         )
         assert result == SecFetchSite.CROSS_SITE
 
-    def test_serp_to_article_is_cross_site(self):
+    def test_serp_to_article_is_cross_site(self) -> None:
         """Test SERP to article is cross-site (typical search flow).
 
         Per §4.3: SERP → article transitions should look like cross-site navigation.
@@ -222,7 +222,7 @@ class TestDetermineFetchSite:
         )
         assert result == SecFetchSite.CROSS_SITE
 
-    def test_duckduckgo_to_article_is_cross_site(self):
+    def test_duckduckgo_to_article_is_cross_site(self) -> None:
         """Test DuckDuckGo SERP to article is cross-site."""
         result = _determine_fetch_site(
             "https://example.com/page",
@@ -230,7 +230,7 @@ class TestDetermineFetchSite:
         )
         assert result == SecFetchSite.CROSS_SITE
 
-    def test_scheme_difference_is_cross_site(self):
+    def test_scheme_difference_is_cross_site(self) -> None:
         """Test different schemes (http vs https) treated as different origin.
 
         Note: This is stricter than same-site but appropriate for security.
@@ -247,7 +247,7 @@ class TestDetermineFetchSite:
 class TestGenerateSecFetchHeaders:
     """Tests for generate_sec_fetch_headers function."""
 
-    def test_direct_navigation(self):
+    def test_direct_navigation(self) -> None:
         """Test headers for direct navigation (no referer)."""
         context = NavigationContext(
             target_url="https://example.com/page",
@@ -263,7 +263,7 @@ class TestGenerateSecFetchHeaders:
         assert headers.dest == SecFetchDest.DOCUMENT
         assert headers.user is True
 
-    def test_cross_site_navigation(self):
+    def test_cross_site_navigation(self) -> None:
         """Test headers for cross-site navigation."""
         context = NavigationContext(
             target_url="https://example.com/article",
@@ -278,7 +278,7 @@ class TestGenerateSecFetchHeaders:
         assert headers.mode == SecFetchMode.NAVIGATE
         assert headers.dest == SecFetchDest.DOCUMENT
 
-    def test_same_origin_navigation(self):
+    def test_same_origin_navigation(self) -> None:
         """Test headers for same-origin navigation."""
         context = NavigationContext(
             target_url="https://example.com/page2",
@@ -292,7 +292,7 @@ class TestGenerateSecFetchHeaders:
         assert headers.site == SecFetchSite.SAME_ORIGIN
         assert headers.mode == SecFetchMode.NAVIGATE
 
-    def test_image_request(self):
+    def test_image_request(self) -> None:
         """Test headers for image resource request."""
         context = NavigationContext(
             target_url="https://cdn.example.com/image.png",
@@ -311,7 +311,7 @@ class TestGenerateSecFetchHeaders:
 class TestGenerateHeadersForSerpClick:
     """Tests for generate_headers_for_serp_click helper."""
 
-    def test_google_serp_to_article(self):
+    def test_google_serp_to_article(self) -> None:
         """Test clicking Google search result."""
         headers = generate_headers_for_serp_click(
             target_url="https://example.com/article",
@@ -324,7 +324,7 @@ class TestGenerateHeadersForSerpClick:
         assert headers["Sec-Fetch-User"] == "?1"
         assert headers["Referer"] == "https://www.google.com/search?q=test+query"
 
-    def test_duckduckgo_serp_to_article(self):
+    def test_duckduckgo_serp_to_article(self) -> None:
         """Test clicking DuckDuckGo search result."""
         headers = generate_headers_for_serp_click(
             target_url="https://example.jp/page",
@@ -340,7 +340,7 @@ class TestGenerateHeadersForSerpClick:
 class TestGenerateHeadersForDirectNavigation:
     """Tests for generate_headers_for_direct_navigation helper."""
 
-    def test_direct_url_access(self):
+    def test_direct_url_access(self) -> None:
         """Test simulating direct URL access (address bar)."""
         headers = generate_headers_for_direct_navigation(
             target_url="https://example.com/page",
@@ -352,7 +352,7 @@ class TestGenerateHeadersForDirectNavigation:
         assert headers["Sec-Fetch-User"] == "?1"
         assert "Referer" not in headers
 
-    def test_bookmark_access(self):
+    def test_bookmark_access(self) -> None:
         """Test simulating bookmark access."""
         headers = generate_headers_for_direct_navigation(
             target_url="https://example.com/bookmarked-page",
@@ -366,7 +366,7 @@ class TestGenerateHeadersForDirectNavigation:
 class TestGenerateHeadersForInternalLink:
     """Tests for generate_headers_for_internal_link helper."""
 
-    def test_same_origin_internal_link(self):
+    def test_same_origin_internal_link(self) -> None:
         """Test following internal link on same origin."""
         headers = generate_headers_for_internal_link(
             target_url="https://example.com/page2",
@@ -377,7 +377,7 @@ class TestGenerateHeadersForInternalLink:
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Referer"] == "https://example.com/page1"
 
-    def test_subdomain_internal_link(self):
+    def test_subdomain_internal_link(self) -> None:
         """Test following link to subdomain (same-site)."""
         headers = generate_headers_for_internal_link(
             target_url="https://blog.example.com/post",
@@ -392,7 +392,7 @@ class TestGenerateHeadersForInternalLink:
 class TestEdgeCases:
     """Tests for edge cases and special scenarios."""
 
-    def test_ipv4_address(self):
+    def test_ipv4_address(self) -> None:
         """Test handling of IPv4 address URLs."""
         result = _determine_fetch_site(
             "http://192.168.1.1/page",
@@ -400,7 +400,7 @@ class TestEdgeCases:
         )
         assert result == SecFetchSite.SAME_ORIGIN
 
-    def test_ipv4_different_hosts(self):
+    def test_ipv4_different_hosts(self) -> None:
         """Test different IPv4 addresses are cross-site."""
         result = _determine_fetch_site(
             "http://192.168.1.1/page",
@@ -408,7 +408,7 @@ class TestEdgeCases:
         )
         assert result == SecFetchSite.CROSS_SITE
 
-    def test_localhost(self):
+    def test_localhost(self) -> None:
         """Test localhost handling."""
         result = _determine_fetch_site(
             "http://localhost:8080/page",
@@ -416,7 +416,7 @@ class TestEdgeCases:
         )
         assert result == SecFetchSite.SAME_ORIGIN
 
-    def test_localhost_different_ports(self):
+    def test_localhost_different_ports(self) -> None:
         """Test localhost with different ports (different origin, same site)."""
         # Ports differ, so not same-origin, but localhost is same "site"
         result = _determine_fetch_site(
@@ -426,12 +426,12 @@ class TestEdgeCases:
         # localhost:8080 vs localhost:3000 - same registrable domain (localhost)
         assert result == SecFetchSite.SAME_SITE
 
-    def test_single_label_domain(self):
+    def test_single_label_domain(self) -> None:
         """Test single-label domain (e.g., intranet)."""
         assert _get_registrable_domain("intranet") == "intranet"
         assert _get_registrable_domain("localhost") == "localhost"
 
-    def test_trailing_dot_domain(self):
+    def test_trailing_dot_domain(self) -> None:
         """Test domain with trailing dot (FQDN)."""
         # The dot should be handled gracefully
         domain = _get_registrable_domain("example.com.")
@@ -443,7 +443,7 @@ class TestEdgeCases:
 class TestHeaderConsistency:
     """Tests to ensure header consistency with browser behavior."""
 
-    def test_all_required_headers_present_for_navigation(self):
+    def test_all_required_headers_present_for_navigation(self) -> None:
         """Test all required Sec-Fetch-* headers are present for navigation."""
         headers = generate_headers_for_serp_click(
             target_url="https://example.com/page",
@@ -454,7 +454,7 @@ class TestHeaderConsistency:
         for header in required:
             assert header in headers, f"Missing required header: {header}"
 
-    def test_sec_fetch_user_only_for_user_initiated(self):
+    def test_sec_fetch_user_only_for_user_initiated(self) -> None:
         """Test Sec-Fetch-User is only set for user-initiated navigations."""
         # User-initiated (default)
         context = NavigationContext(
@@ -478,7 +478,7 @@ class TestHeaderConsistency:
         result = headers.to_dict()
         assert "Sec-Fetch-User" not in result
 
-    def test_header_values_are_strings(self):
+    def test_header_values_are_strings(self) -> None:
         """Test all header values are strings (not enum objects)."""
         headers = generate_headers_for_direct_navigation(
             target_url="https://example.com/",
@@ -497,7 +497,7 @@ class TestHeaderConsistency:
 class TestPlatformEnum:
     """Tests for Platform enum values."""
 
-    def test_platform_values(self):
+    def test_platform_values(self) -> None:
         """Test Platform enum has correct string values."""
         assert Platform.WINDOWS.value == "Windows"
         assert Platform.MACOS.value == "macOS"
@@ -512,7 +512,7 @@ class TestPlatformEnum:
 class TestBrandVersion:
     """Tests for BrandVersion dataclass."""
 
-    def test_to_ua_item_basic(self):
+    def test_to_ua_item_basic(self) -> None:
         """Test basic UA item formatting."""
         brand = BrandVersion(
             brand="Google Chrome",
@@ -523,7 +523,7 @@ class TestBrandVersion:
 
         assert result == '"Google Chrome";v="120"'
 
-    def test_to_ua_item_with_special_characters(self):
+    def test_to_ua_item_with_special_characters(self) -> None:
         """Test UA item with special characters in brand name."""
         brand = BrandVersion(
             brand="Not_A Brand",
@@ -534,7 +534,7 @@ class TestBrandVersion:
 
         assert result == '"Not_A Brand";v="8"'
 
-    def test_to_ua_item_full_version(self):
+    def test_to_ua_item_full_version(self) -> None:
         """Test UA item with full version when requested."""
         brand = BrandVersion(
             brand="Chromium",
@@ -546,7 +546,7 @@ class TestBrandVersion:
 
         assert result == '"Chromium";v="120.0.6099.130"'
 
-    def test_to_ua_item_full_version_fallback(self):
+    def test_to_ua_item_full_version_fallback(self) -> None:
         """Test UA item falls back to major version if no full version."""
         brand = BrandVersion(
             brand="Test",
@@ -562,7 +562,7 @@ class TestBrandVersion:
 class TestSecCHUAConfig:
     """Tests for SecCHUAConfig configuration class."""
 
-    def test_default_config(self):
+    def test_default_config(self) -> None:
         """Test default configuration values."""
         config = SecCHUAConfig()
 
@@ -572,7 +572,7 @@ class TestSecCHUAConfig:
         assert config.grease_brand == "Not_A Brand"
         assert config.grease_version == "8"
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test custom configuration values."""
         config = SecCHUAConfig(
             chrome_major_version="121",
@@ -584,7 +584,7 @@ class TestSecCHUAConfig:
         assert config.chrome_major_version == "121"
         assert config.platform == Platform.LINUX
 
-    def test_brands_property(self):
+    def test_brands_property(self) -> None:
         """Test brands property returns correct list."""
         config = SecCHUAConfig(
             chrome_major_version="120",
@@ -609,7 +609,7 @@ class TestSecCHUAConfig:
 class TestSecCHUAHeaders:
     """Tests for SecCHUAHeaders dataclass."""
 
-    def test_to_dict_basic(self):
+    def test_to_dict_basic(self) -> None:
         """Test basic header generation."""
         headers = SecCHUAHeaders(
             brands=[
@@ -630,7 +630,7 @@ class TestSecCHUAHeaders:
         assert result["Sec-CH-UA-Mobile"] == "?0"
         assert result["Sec-CH-UA-Platform"] == '"Windows"'
 
-    def test_to_dict_mobile(self):
+    def test_to_dict_mobile(self) -> None:
         """Test mobile device header generation."""
         headers = SecCHUAHeaders(
             brands=[BrandVersion("Chrome", "120")],
@@ -643,7 +643,7 @@ class TestSecCHUAHeaders:
         assert result["Sec-CH-UA-Mobile"] == "?1"
         assert result["Sec-CH-UA-Platform"] == '"Android"'
 
-    def test_to_dict_linux_platform(self):
+    def test_to_dict_linux_platform(self) -> None:
         """Test Linux platform header generation."""
         headers = SecCHUAHeaders(
             brands=[BrandVersion("Chrome", "120")],
@@ -655,7 +655,7 @@ class TestSecCHUAHeaders:
 
         assert result["Sec-CH-UA-Platform"] == '"Linux"'
 
-    def test_to_dict_with_optional_headers(self):
+    def test_to_dict_with_optional_headers(self) -> None:
         """Test optional headers are included when requested."""
         headers = SecCHUAHeaders(
             brands=[
@@ -672,7 +672,7 @@ class TestSecCHUAHeaders:
         assert result["Sec-CH-UA-Platform-Version"] == '"15.0.0"'
         assert "Sec-CH-UA-Full-Version-List" in result
 
-    def test_to_dict_without_optional_headers(self):
+    def test_to_dict_without_optional_headers(self) -> None:
         """Test optional headers are excluded by default."""
         headers = SecCHUAHeaders(
             brands=[BrandVersion("Chrome", "120", "120.0.6099.130")],
@@ -686,7 +686,7 @@ class TestSecCHUAHeaders:
         assert "Sec-CH-UA-Platform-Version" not in result
         assert "Sec-CH-UA-Full-Version-List" not in result
 
-    def test_sec_ch_ua_format(self):
+    def test_sec_ch_ua_format(self) -> None:
         """Test Sec-CH-UA header format matches browser output."""
         headers = SecCHUAHeaders(
             brands=[
@@ -712,7 +712,7 @@ class TestSecCHUAHeaders:
 class TestGenerateSecCHUAHeaders:
     """Tests for generate_sec_ch_ua_headers function."""
 
-    def test_default_generation(self):
+    def test_default_generation(self) -> None:
         """Test header generation with default config."""
         headers = generate_sec_ch_ua_headers()
         result = headers.to_dict()
@@ -726,7 +726,7 @@ class TestGenerateSecCHUAHeaders:
         assert result["Sec-CH-UA-Mobile"] == "?0"
         assert result["Sec-CH-UA-Platform"] == '"Windows"'
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test header generation with custom config."""
         config = SecCHUAConfig(
             chrome_major_version="121",
@@ -740,7 +740,7 @@ class TestGenerateSecCHUAHeaders:
         assert result["Sec-CH-UA-Platform"] == '"macOS"'
         assert '"121"' in result["Sec-CH-UA"]
 
-    def test_with_optional_headers(self):
+    def test_with_optional_headers(self) -> None:
         """Test generation includes optional headers when requested."""
         config = SecCHUAConfig(
             platform_version="15.0.0",
@@ -759,7 +759,7 @@ class TestGenerateSecCHUAHeaders:
 class TestGenerateAllSecurityHeaders:
     """Tests for combined header generation functions."""
 
-    def test_generate_all_security_headers(self):
+    def test_generate_all_security_headers(self) -> None:
         """Test combined Sec-Fetch-* and Sec-CH-UA-* generation."""
         context = NavigationContext(
             target_url="https://example.com/page",
@@ -784,7 +784,7 @@ class TestGenerateAllSecurityHeaders:
         # Referer
         assert headers["Referer"] == "https://google.com/search"
 
-    def test_generate_all_security_headers_no_referer(self):
+    def test_generate_all_security_headers_no_referer(self) -> None:
         """Test combined headers without referer."""
         context = NavigationContext(
             target_url="https://example.com/page",
@@ -798,7 +798,7 @@ class TestGenerateAllSecurityHeaders:
         assert headers["Sec-Fetch-Site"] == "none"
         assert "Referer" not in headers
 
-    def test_generate_complete_navigation_headers(self):
+    def test_generate_complete_navigation_headers(self) -> None:
         """Test convenience function for complete navigation headers."""
         headers = generate_complete_navigation_headers(
             target_url="https://example.com/page",
@@ -818,7 +818,7 @@ class TestGenerateAllSecurityHeaders:
         # Should have Referer
         assert "Referer" in headers
 
-    def test_generate_complete_navigation_headers_direct(self):
+    def test_generate_complete_navigation_headers_direct(self) -> None:
         """Test convenience function for direct navigation (no referer)."""
         headers = generate_complete_navigation_headers(
             target_url="https://example.com/page",
@@ -832,7 +832,7 @@ class TestGenerateAllSecurityHeaders:
 class TestSecCHUAHeadersIntegration:
     """Integration tests for Sec-CH-UA-* headers with browser impersonation."""
 
-    def test_headers_match_chrome_format(self):
+    def test_headers_match_chrome_format(self) -> None:
         """Test generated headers match real Chrome browser format."""
         config = SecCHUAConfig(
             chrome_major_version="120",
@@ -856,7 +856,7 @@ class TestSecCHUAHeadersIntegration:
         # Platform should be quoted
         assert result["Sec-CH-UA-Platform"] == '"Windows"'
 
-    def test_header_values_are_all_strings(self):
+    def test_header_values_are_all_strings(self) -> None:
         """Test all header values are strings for HTTP client compatibility."""
         headers = generate_sec_ch_ua_headers()
         result = headers.to_dict(include_optional=True)
@@ -864,7 +864,7 @@ class TestSecCHUAHeadersIntegration:
         for key, value in result.items():
             assert isinstance(value, str), f"Header {key} should be string, got {type(value)}"
 
-    def test_mobile_detection_headers(self):
+    def test_mobile_detection_headers(self) -> None:
         """Test mobile device headers are correctly set."""
         config = SecCHUAConfig(
             platform=Platform.ANDROID,
@@ -877,7 +877,7 @@ class TestSecCHUAHeadersIntegration:
         assert result["Sec-CH-UA-Mobile"] == "?1"
         assert result["Sec-CH-UA-Platform"] == '"Android"'
 
-    def test_ios_platform(self):
+    def test_ios_platform(self) -> None:
         """Test iOS platform headers."""
         config = SecCHUAConfig(
             platform=Platform.IOS,

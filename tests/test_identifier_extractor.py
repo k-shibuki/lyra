@@ -33,7 +33,7 @@ from src.utils.schemas import PaperIdentifier
 class TestIdentifierExtractor:
     """Tests for IdentifierExtractor."""
 
-    def test_extract_doi_from_doi_org(self):
+    def test_extract_doi_from_doi_org(self) -> None:
         """TC-ID-N-01: Test extracting DOI from doi.org URL.
 
         // Given: URL with doi.org
@@ -53,7 +53,7 @@ class TestIdentifierExtractor:
         assert identifier.pmid is None
         assert identifier.arxiv_id is None
 
-    def test_extract_pmid_from_pubmed(self):
+    def test_extract_pmid_from_pubmed(self) -> None:
         """TC-ID-N-02: Test extracting PMID from PubMed URL.
 
         // Given: URL with pubmed.ncbi.nlm.nih.gov
@@ -72,7 +72,7 @@ class TestIdentifierExtractor:
         assert identifier.needs_meta_extraction is True
         assert identifier.doi is None
 
-    def test_extract_arxiv_id(self):
+    def test_extract_arxiv_id(self) -> None:
         """TC-ID-N-03: Test extracting arXiv ID from URL.
 
         // Given: URL with arxiv.org
@@ -91,7 +91,7 @@ class TestIdentifierExtractor:
         assert identifier.needs_meta_extraction is True
         assert identifier.doi is None
 
-    def test_extract_jstage_doi(self):
+    def test_extract_jstage_doi(self) -> None:
         """TC-ID-N-04: Test extracting DOI from J-Stage URL.
 
         // Given: URL with jstage.jst.go.jp containing DOI
@@ -109,7 +109,7 @@ class TestIdentifierExtractor:
         # Then: URL stored (DOI extraction depends on actual URL format)
         assert identifier.url == url
 
-    def test_extract_cinii_crid(self):
+    def test_extract_cinii_crid(self) -> None:
         """TC-ID-N-05: Test extracting CRID from CiNii URL.
 
         // Given: URL with cir.nii.ac.jp/crid/
@@ -127,7 +127,7 @@ class TestIdentifierExtractor:
         assert identifier.crid == "1234567890"
         assert identifier.needs_meta_extraction is True
 
-    def test_empty_url(self):
+    def test_empty_url(self) -> None:
         """TC-ID-B-01: Test empty URL string.
 
         // Given: Empty URL string
@@ -145,7 +145,7 @@ class TestIdentifierExtractor:
         assert identifier.doi is None
         assert identifier.pmid is None
 
-    def test_none_url(self):
+    def test_none_url(self) -> None:
         """TC-ID-B-02: Test None URL.
 
         // Given: None URL
@@ -161,7 +161,7 @@ class TestIdentifierExtractor:
         # Then: PaperIdentifier with url=None
         assert identifier.url is None
 
-    def test_url_without_identifiers(self):
+    def test_url_without_identifiers(self) -> None:
         """TC-ID-B-03: Test URL without known identifiers.
 
         // Given: Generic URL without identifiers
@@ -181,7 +181,7 @@ class TestIdentifierExtractor:
         assert identifier.pmid is None
         assert identifier.arxiv_id is None
 
-    def test_invalid_url_format(self):
+    def test_invalid_url_format(self) -> None:
         """TC-ID-A-01: Test invalid URL format.
 
         // Given: Invalid URL format
@@ -198,7 +198,7 @@ class TestIdentifierExtractor:
         # Then: PaperIdentifier with url stored
         assert identifier.url == url
 
-    def test_malformed_doi_in_url(self):
+    def test_malformed_doi_in_url(self) -> None:
         """TC-ID-A-02: Test malformed DOI in URL.
 
         // Given: URL with malformed DOI pattern
@@ -216,7 +216,7 @@ class TestIdentifierExtractor:
         # Note: Actual behavior depends on regex pattern
         assert identifier.url == url
 
-    def test_extract_doi_from_text(self):
+    def test_extract_doi_from_text(self) -> None:
         """TC-ID-N-06: Test extracting DOI from text.
 
         // Given: Text containing DOI
@@ -233,7 +233,7 @@ class TestIdentifierExtractor:
         # Then: DOI extracted
         assert doi == "10.1038/nature12373"
 
-    def test_extract_doi_from_text_empty(self):
+    def test_extract_doi_from_text_empty(self) -> None:
         """TC-ID-B-04: Test extracting DOI from empty text.
 
         // Given: Empty text
@@ -249,7 +249,7 @@ class TestIdentifierExtractor:
         # Then: Returns None
         assert doi is None
 
-    def test_extract_doi_from_text_no_doi(self):
+    def test_extract_doi_from_text_no_doi(self) -> None:
         """TC-ID-B-05: Test extracting DOI from text without DOI.
 
         // Given: Text without DOI
@@ -266,7 +266,7 @@ class TestIdentifierExtractor:
         # Then: Returns None
         assert doi is None
 
-    def test_paper_identifier_get_canonical_id(self):
+    def test_paper_identifier_get_canonical_id(self) -> None:
         """Test PaperIdentifier.get_canonical_id() priority.
 
         // Given: PaperIdentifier with multiple IDs
@@ -287,7 +287,7 @@ class TestIdentifierExtractor:
         assert canonical_id.startswith("doi:")
         assert "10.1234/example" in canonical_id
 
-    def test_paper_identifier_get_canonical_id_fallback(self):
+    def test_paper_identifier_get_canonical_id_fallback(self) -> None:
         """Test PaperIdentifier.get_canonical_id() fallback order.
 
         // Given: PaperIdentifier without DOI

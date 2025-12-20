@@ -69,7 +69,7 @@ def audit_logger():
 class TestSecureLoggerNormal:
     """Test SecureLogger normal cases."""
 
-    def test_log_llm_io_normal(self, secure_logger):
+    def test_log_llm_io_normal(self, secure_logger) -> None:
         """
         TC-N-01: log_llm_io with normal input/output
 
@@ -103,7 +103,7 @@ class TestSecureLoggerNormal:
             # Verify output summary
             assert call_kwargs["output"]["length"] == len(output_text)
 
-    def test_log_exception_normal(self, secure_logger):
+    def test_log_exception_normal(self, secure_logger) -> None:
         """
         TC-N-02: log_exception with ValueError
 
@@ -124,7 +124,7 @@ class TestSecureLoggerNormal:
                 assert "Invalid input value" in result.sanitized_message
                 assert result.error_id.startswith("err_")
 
-    def test_log_sensitive_operation_normal(self, secure_logger):
+    def test_log_sensitive_operation_normal(self, secure_logger) -> None:
         """
         TC-N-03: log_sensitive_operation with normal dict
 
@@ -156,7 +156,7 @@ class TestSecureLoggerNormal:
 class TestSecureLoggerAbnormal:
     """Test SecureLogger abnormal/error cases."""
 
-    def test_log_llm_io_with_prompt_content(self, secure_logger):
+    def test_log_llm_io_with_prompt_content(self, secure_logger) -> None:
         """
         TC-A-01: log_llm_io with prompt-like content
 
@@ -174,7 +174,7 @@ class TestSecureLoggerAbnormal:
             assert "[MASKED]" in call_kwargs["input"]["preview"]
             assert call_kwargs["input"]["had_sensitive"] is True
 
-    def test_log_llm_io_with_path_content(self, secure_logger):
+    def test_log_llm_io_with_path_content(self, secure_logger) -> None:
         """
         TC-A-02: log_llm_io with path-like content
 
@@ -192,7 +192,7 @@ class TestSecureLoggerAbnormal:
             assert "[PATH]" in call_kwargs["input"]["preview"]
             assert call_kwargs["input"]["had_sensitive"] is True
 
-    def test_log_exception_with_stack_trace(self, secure_logger):
+    def test_log_exception_with_stack_trace(self, secure_logger) -> None:
         """
         TC-A-03: log_exception with stack trace
 
@@ -213,7 +213,7 @@ class TestSecureLoggerAbnormal:
             assert "Traceback" not in result.sanitized_message
             assert "/home/user" not in result.sanitized_message
 
-    def test_log_exception_with_file_path(self, secure_logger):
+    def test_log_exception_with_file_path(self, secure_logger) -> None:
         """
         TC-A-04: log_exception with file path
 
@@ -237,7 +237,7 @@ class TestSecureLoggerAbnormal:
 class TestSecureLoggerBoundary:
     """Test SecureLogger boundary cases."""
 
-    def test_log_llm_io_empty_string(self, secure_logger):
+    def test_log_llm_io_empty_string(self, secure_logger) -> None:
         """
         TC-B-01: log_llm_io with empty string
 
@@ -253,7 +253,7 @@ class TestSecureLoggerBoundary:
             assert call_kwargs["input"]["length"] == 0
             assert call_kwargs["output"]["length"] == 0
 
-    def test_log_llm_io_very_long_text(self, secure_logger):
+    def test_log_llm_io_very_long_text(self, secure_logger) -> None:
         """
         TC-B-02: log_llm_io with very long text (10000 chars)
 
@@ -273,7 +273,7 @@ class TestSecureLoggerBoundary:
             assert len(call_kwargs["input"]["preview"]) <= MAX_PREVIEW_LENGTH + 3
             assert call_kwargs["input"]["preview"].endswith("...")
 
-    def test_log_llm_io_none_input(self, secure_logger):
+    def test_log_llm_io_none_input(self, secure_logger) -> None:
         """
         TC-B-03: log_llm_io with None input
 
@@ -298,7 +298,7 @@ class TestSecureLoggerBoundary:
 class TestAuditLoggerNormal:
     """Test AuditLogger normal cases."""
 
-    def test_log_security_event_prompt_leakage(self, audit_logger):
+    def test_log_security_event_prompt_leakage(self, audit_logger) -> None:
         """
         TC-N-04: log_security_event with PROMPT_LEAKAGE
 
@@ -320,7 +320,7 @@ class TestAuditLoggerNormal:
             assert call_kwargs["event_type"] == "prompt_leakage_detected"
             assert call_kwargs["severity"] == "high"
 
-    def test_log_prompt_leakage_helper(self, audit_logger):
+    def test_log_prompt_leakage_helper(self, audit_logger) -> None:
         """
         TC-N-05: log_prompt_leakage helper
 
@@ -339,7 +339,7 @@ class TestAuditLoggerNormal:
             assert call_kwargs["event_type"] == "prompt_leakage_detected"
             assert call_kwargs["details"]["fragment_count"] == 3
 
-    def test_log_dangerous_pattern_helper(self, audit_logger):
+    def test_log_dangerous_pattern_helper(self, audit_logger) -> None:
         """
         TC-N-06: log_dangerous_pattern helper
 
@@ -367,7 +367,7 @@ class TestAuditLoggerNormal:
 class TestAuditLoggerAbnormalBoundary:
     """Test AuditLogger abnormal and boundary cases."""
 
-    def test_log_security_event_long_details(self, audit_logger):
+    def test_log_security_event_long_details(self, audit_logger) -> None:
         """
         TC-A-05: log_security_event with long details
 
@@ -388,7 +388,7 @@ class TestAuditLoggerAbnormalBoundary:
             # Long strings should be replaced with length indicator
             assert call_kwargs["details"]["long_field"] == "[100 chars]"
 
-    def test_log_security_event_none_details(self, audit_logger):
+    def test_log_security_event_none_details(self, audit_logger) -> None:
         """
         TC-B-04: log_security_event with None details
 
@@ -414,7 +414,7 @@ class TestAuditLoggerAbnormalBoundary:
 class TestStructlogProcessor:
     """Test structlog sanitization processor."""
 
-    def test_processor_normal_text(self):
+    def test_processor_normal_text(self) -> None:
         """
         TC-N-07: Event dict with normal text field
 
@@ -432,7 +432,7 @@ class TestStructlogProcessor:
 
         assert result["text"] == "This is normal text"
 
-    def test_processor_prompt_like_text(self):
+    def test_processor_prompt_like_text(self) -> None:
         """
         TC-A-06: Event dict with prompt-like text
 
@@ -450,7 +450,7 @@ class TestStructlogProcessor:
         assert "LYRA" not in result["prompt"]
         assert "[SANITIZED:" in result["prompt"]
 
-    def test_processor_long_text(self):
+    def test_processor_long_text(self) -> None:
         """
         TC-A-07: Event dict with long text (>500 chars)
 
@@ -480,7 +480,7 @@ class TestStructlogProcessor:
 class TestL7BugFix:
     """Test L7 duplicate processing bug fix."""
 
-    def test_no_duplicate_processing(self):
+    def test_no_duplicate_processing(self) -> None:
         """
         TC-N-08: Response with LLM fields at multiple levels
 
@@ -514,7 +514,7 @@ class TestL7BugFix:
         # Total = 3 (not 6 which would indicate double counting from before the fix)
         assert result.stats.llm_fields_processed == 3
 
-    def test_stats_count_correctly(self):
+    def test_stats_count_correctly(self) -> None:
         """
         TC-B-05: Verify stats.llm_fields_processed counts correctly
 
@@ -552,7 +552,7 @@ class TestL7BugFix:
 class TestDataClasses:
     """Test data class functionality."""
 
-    def test_llm_io_summary_to_dict(self):
+    def test_llm_io_summary_to_dict(self) -> None:
         """Test LLMIOSummary.to_dict()."""
         summary = LLMIOSummary(
             content_hash="abc123def456",
@@ -568,7 +568,7 @@ class TestDataClasses:
         assert result["preview"] == "Test preview..."
         assert result["had_sensitive"] is True
 
-    def test_sanitized_exception_info_to_dict(self):
+    def test_sanitized_exception_info_to_dict(self) -> None:
         """Test SanitizedExceptionInfo.to_dict()."""
         info = SanitizedExceptionInfo(
             exception_type="ValueError",
@@ -591,14 +591,14 @@ class TestDataClasses:
 class TestModuleFunctions:
     """Test module-level convenience functions."""
 
-    def test_get_secure_logger_without_name(self):
+    def test_get_secure_logger_without_name(self) -> None:
         """Test get_secure_logger returns singleton without name."""
         logger1 = get_secure_logger()
         logger2 = get_secure_logger()
 
         assert logger1 is logger2
 
-    def test_get_secure_logger_with_name(self):
+    def test_get_secure_logger_with_name(self) -> None:
         """Test get_secure_logger creates new instance with name."""
         logger1 = get_secure_logger("module1")
         logger2 = get_secure_logger("module2")
@@ -607,7 +607,7 @@ class TestModuleFunctions:
         assert logger1._name == "module1"
         assert logger2._name == "module2"
 
-    def test_get_audit_logger_singleton(self):
+    def test_get_audit_logger_singleton(self) -> None:
         """Test get_audit_logger returns singleton."""
         logger1 = get_audit_logger()
         logger2 = get_audit_logger()
@@ -623,13 +623,13 @@ class TestModuleFunctions:
 class TestSecurityEventType:
     """Test SecurityEventType enum."""
 
-    def test_all_event_types_have_values(self):
+    def test_all_event_types_have_values(self) -> None:
         """Test all event types have string values."""
         for event_type in SecurityEventType:
             assert isinstance(event_type.value, str)
             assert len(event_type.value) > 0
 
-    def test_event_type_uniqueness(self):
+    def test_event_type_uniqueness(self) -> None:
         """Test all event type values are unique."""
         values = [e.value for e in SecurityEventType]
         assert len(values) == len(set(values))

@@ -39,6 +39,7 @@ after each task completion to prevent memory leaks.
 | TC-LC-N-26 | set_llm_task_id | Equivalence – normal | task_id set | Convenience function |
 """
 
+from collections.abc import Generator
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -65,7 +66,7 @@ from src.utils.lifecycle import (
 class TestResourceInfo:
     """Tests for ResourceInfo dataclass."""
 
-    def test_resource_info_creation(self):
+    def test_resource_info_creation(self) -> None:
         """Test ResourceInfo is created with correct defaults."""
         # Given: ResourceInfo constructor with minimal args
         # When: Create ResourceInfo
@@ -80,7 +81,7 @@ class TestResourceInfo:
         assert info.created_at > 0
         assert info.last_used_at > 0
 
-    def test_resource_info_with_task_id(self):
+    def test_resource_info_with_task_id(self) -> None:
         """Test ResourceInfo with task ID."""
         # Given/When: Create ResourceInfo with task_id
         info = ResourceInfo(
@@ -92,7 +93,7 @@ class TestResourceInfo:
         # Then: task_id is stored
         assert info.task_id == "task_123"
 
-    def test_touch_updates_last_used(self):
+    def test_touch_updates_last_used(self) -> None:
         """Test touch() updates last_used_at timestamp."""
         # Given: A ResourceInfo instance
         info = ResourceInfo(
@@ -126,7 +127,7 @@ class TestProcessLifecycleManager:
         return ProcessLifecycleManager()
 
     @pytest.mark.asyncio
-    async def test_register_resource(self, manager):
+    async def test_register_resource(self, manager) -> None:
         """Test registering a resource."""
         # Given: A mock browser resource
         mock_browser = MagicMock()
@@ -145,7 +146,7 @@ class TestProcessLifecycleManager:
         assert manager.get_resource_count(task_id="task_123") == 1
 
     @pytest.mark.asyncio
-    async def test_unregister_resource(self, manager):
+    async def test_unregister_resource(self, manager) -> None:
         """Test unregistering a resource without cleanup."""
         # Given: A registered resource
         mock_browser = MagicMock()
@@ -165,7 +166,7 @@ class TestProcessLifecycleManager:
         assert manager.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_cleanup_browser_resource(self, manager):
+    async def test_cleanup_browser_resource(self, manager) -> None:
         """Test cleaning up a browser resource calls close()."""
         # Given: A registered browser resource
         mock_browser = AsyncMock()
@@ -185,7 +186,7 @@ class TestProcessLifecycleManager:
         assert manager.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_cleanup_browser_context_resource(self, manager):
+    async def test_cleanup_browser_context_resource(self, manager) -> None:
         """Test cleaning up a browser context resource."""
         # Given: A registered browser context
         mock_context = AsyncMock()
@@ -204,7 +205,7 @@ class TestProcessLifecycleManager:
         mock_context.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_cleanup_playwright_resource(self, manager):
+    async def test_cleanup_playwright_resource(self, manager) -> None:
         """Test cleaning up a Playwright instance."""
         # Given: A registered Playwright instance
         mock_playwright = AsyncMock()
@@ -223,7 +224,7 @@ class TestProcessLifecycleManager:
         mock_playwright.stop.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_cleanup_http_session_resource(self, manager):
+    async def test_cleanup_http_session_resource(self, manager) -> None:
         """Test cleaning up an HTTP session."""
         # Given: A registered HTTP session
         mock_session = AsyncMock()
@@ -243,7 +244,7 @@ class TestProcessLifecycleManager:
         mock_session.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_cleanup_tor_controller_resource(self, manager):
+    async def test_cleanup_tor_controller_resource(self, manager) -> None:
         """Test cleaning up a Tor controller."""
         # Given: A registered Tor controller
         mock_controller = MagicMock()
@@ -262,7 +263,7 @@ class TestProcessLifecycleManager:
         mock_controller.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_cleanup_task_resources(self, manager):
+    async def test_cleanup_task_resources(self, manager) -> None:
         """Test cleaning up all resources for a task."""
         # Given: Resources for two different tasks
         mock_browser = AsyncMock()
@@ -305,7 +306,7 @@ class TestProcessLifecycleManager:
         mock_browser_2.close.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_cleanup_all_resources(self, manager):
+    async def test_cleanup_all_resources(self, manager) -> None:
         """Test cleaning up all registered resources."""
         # Given: Multiple registered resources
         mock_browser = AsyncMock()
@@ -338,7 +339,7 @@ class TestProcessLifecycleManager:
         assert manager.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_cleanup_nonexistent_resource(self, manager):
+    async def test_cleanup_nonexistent_resource(self, manager) -> None:
         """Test cleaning up a resource that doesn't exist."""
         # Given: No resources registered
         # When: Try to cleanup nonexistent resource
@@ -348,7 +349,7 @@ class TestProcessLifecycleManager:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_cleanup_stale_resources(self, manager):
+    async def test_cleanup_stale_resources(self, manager) -> None:
         """Test cleaning up stale resources."""
         # Given: A resource with old timestamps
         mock_browser = AsyncMock()
@@ -375,7 +376,7 @@ class TestProcessLifecycleManager:
         mock_browser.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_register_cleanup_callback(self, manager):
+    async def test_register_cleanup_callback(self, manager) -> None:
         """Test registering and running cleanup callbacks."""
         # Given: A cleanup callback
         callback_called = False
@@ -392,7 +393,7 @@ class TestProcessLifecycleManager:
         # Then: Callback is executed
         assert callback_called is True
 
-    def test_touch_resource(self, manager):
+    def test_touch_resource(self, manager) -> None:
         """Test touching a resource updates timestamp."""
         # Given: A registered resource
         asyncio.run(
@@ -415,7 +416,7 @@ class TestProcessLifecycleManager:
         # Then: Timestamp is updated
         assert manager._resources["browser_1"].last_used_at >= initial_time
 
-    def test_get_resource_count_filters(self, manager):
+    def test_get_resource_count_filters(self, manager) -> None:
         """Test get_resource_count with filters."""
         # Given: Resources of different types and tasks
         asyncio.run(
@@ -466,7 +467,7 @@ class TestOllamaSessionCleanup:
         return ProcessLifecycleManager()
 
     @pytest.mark.asyncio
-    async def test_cleanup_ollama_session_with_unload(self, manager):
+    async def test_cleanup_ollama_session_with_unload(self, manager) -> None:
         """Test cleaning up Ollama session unloads model when configured."""
         # Given: An Ollama session resource with unload configured
         mock_session = AsyncMock()
@@ -518,7 +519,7 @@ class TestConvenienceFunctions:
     """Tests for convenience functions."""
 
     @pytest.fixture(autouse=True)
-    def reset_global_manager(self):
+    def reset_global_manager(self) -> Generator[None, None, None]:
         """Reset global lifecycle manager before each test."""
         import src.utils.lifecycle as lifecycle_module
 
@@ -526,7 +527,7 @@ class TestConvenienceFunctions:
         yield
         lifecycle_module._lifecycle_manager = None
 
-    def test_get_lifecycle_manager_singleton(self):
+    def test_get_lifecycle_manager_singleton(self) -> None:
         """Test get_lifecycle_manager returns singleton."""
         # Given/When: Get lifecycle manager twice
         manager1 = get_lifecycle_manager()
@@ -536,7 +537,7 @@ class TestConvenienceFunctions:
         assert manager1 is manager2
 
     @pytest.mark.asyncio
-    async def test_cleanup_task_convenience_function(self):
+    async def test_cleanup_task_convenience_function(self) -> None:
         """Test cleanup_task convenience function."""
         # Given: A task with registered resources
         manager = get_lifecycle_manager()
@@ -558,7 +559,7 @@ class TestConvenienceFunctions:
         mock_browser.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_cleanup_all_resources_convenience_function(self):
+    async def test_cleanup_all_resources_convenience_function(self) -> None:
         """Test cleanup_all_resources convenience function."""
         # Given: A registered resource
         manager = get_lifecycle_manager()
@@ -578,7 +579,7 @@ class TestConvenienceFunctions:
         mock_browser.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_register_browser_for_task(self):
+    async def test_register_browser_for_task(self) -> None:
         """Test register_browser_for_task helper."""
         # Given: Browser, context, and Playwright mocks
         mock_browser = MagicMock()
@@ -600,7 +601,7 @@ class TestConvenienceFunctions:
         assert manager.get_resource_count(task_id="task_123") == 3
 
     @pytest.mark.asyncio
-    async def test_register_ollama_session_for_task(self):
+    async def test_register_ollama_session_for_task(self) -> None:
         """Test register_ollama_session_for_task helper."""
         # Given: A mock Ollama session
         mock_session = MagicMock()
@@ -634,7 +635,7 @@ class TestErrorHandling:
         return ProcessLifecycleManager()
 
     @pytest.mark.asyncio
-    async def test_cleanup_handles_close_exception(self, manager):
+    async def test_cleanup_handles_close_exception(self, manager) -> None:
         """Test cleanup handles exceptions from close() gracefully.
 
         Even if close() raises, the cleanup should:
@@ -660,7 +661,7 @@ class TestErrorHandling:
         assert manager.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_cleanup_callback_exception_doesnt_stop_others(self, manager):
+    async def test_cleanup_callback_exception_doesnt_stop_others(self, manager) -> None:
         """Test exception in one callback doesn't stop other callbacks."""
         # Given: Two callbacks, one that throws
         callback1_called = False
@@ -695,7 +696,7 @@ class TestLLMCleanup:
     """Tests for LLM cleanup functions."""
 
     @pytest.fixture(autouse=True)
-    def reset_llm_client(self):
+    def reset_llm_client(self) -> Generator[None, None, None]:
         """Reset global LLM client before each test."""
         import src.filter.llm as llm_module
 
@@ -704,7 +705,7 @@ class TestLLMCleanup:
         llm_module._client = None
 
     @pytest.mark.asyncio
-    async def test_ollama_client_set_task_id(self):
+    async def test_ollama_client_set_task_id(self) -> None:
         """Test OllamaClient.set_task_id()."""
         from src.filter.llm import OllamaClient
 
@@ -753,7 +754,7 @@ class TestLLMCleanup:
         assert client._current_model is None
 
     @pytest.mark.asyncio
-    async def test_cleanup_llm_for_task(self):
+    async def test_cleanup_llm_for_task(self) -> None:
         """Test cleanup_llm_for_task function."""
         from src.filter.llm import _get_client, cleanup_llm_for_task
 
@@ -768,7 +769,7 @@ class TestLLMCleanup:
             # Then: cleanup_for_task is called
             mock_cleanup.assert_called_once_with(unload_model=True)
 
-    def test_set_llm_task_id(self):
+    def test_set_llm_task_id(self) -> None:
         """Test set_llm_task_id function."""
         from src.filter.llm import _get_client, set_llm_task_id
 

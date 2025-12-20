@@ -13,7 +13,7 @@ pytestmark = pytest.mark.unit
 class TestBM25Ranker:
     """Tests for BM25Ranker class."""
 
-    def test_bm25_ranker_init(self):
+    def test_bm25_ranker_init(self) -> None:
         """Test BM25Ranker initialization."""
         from src.filter.ranking import BM25Ranker
 
@@ -22,7 +22,7 @@ class TestBM25Ranker:
         assert ranker._index is None
         assert ranker._corpus == []
 
-    def test_bm25_tokenize_simple(self):
+    def test_bm25_tokenize_simple(self) -> None:
         """Test simple tokenization fallback."""
         from src.filter.ranking import BM25Ranker
 
@@ -33,7 +33,7 @@ class TestBM25Ranker:
 
         assert tokens == ["hello", "world", "test"]
 
-    def test_bm25_tokenize_handles_punctuation(self):
+    def test_bm25_tokenize_handles_punctuation(self) -> None:
         """Test tokenization handles punctuation."""
         from src.filter.ranking import BM25Ranker
 
@@ -44,7 +44,7 @@ class TestBM25Ranker:
 
         assert tokens == ["hello", "world", "test"]
 
-    def test_bm25_fit_creates_index(self):
+    def test_bm25_fit_creates_index(self) -> None:
         """Test fit creates BM25 index."""
         from src.filter.ranking import BM25Ranker
 
@@ -56,7 +56,7 @@ class TestBM25Ranker:
         assert ranker._index is not None
         assert ranker._corpus == corpus
 
-    def test_bm25_get_scores_requires_fit(self):
+    def test_bm25_get_scores_requires_fit(self) -> None:
         """Test get_scores raises error before fit."""
         from src.filter.ranking import BM25Ranker
 
@@ -65,7 +65,7 @@ class TestBM25Ranker:
         with pytest.raises(ValueError, match="Index not fitted"):
             ranker.get_scores("test query")
 
-    def test_bm25_get_scores_returns_scores(self):
+    def test_bm25_get_scores_returns_scores(self) -> None:
         """Test get_scores returns list of scores."""
         from src.filter.ranking import BM25Ranker
 
@@ -85,7 +85,7 @@ class TestBM25Ranker:
         assert scores[0] > scores[1]  # First doc > weather doc
         assert scores[2] > scores[1]  # Third doc > weather doc
 
-    def test_bm25_scores_normalized_format(self):
+    def test_bm25_scores_normalized_format(self) -> None:
         """Test scores are in expected format."""
         from src.filter.ranking import BM25Ranker
 
@@ -102,7 +102,7 @@ class TestBM25Ranker:
 class TestEmbeddingRanker:
     """Tests for EmbeddingRanker class."""
 
-    def test_embedding_ranker_init(self):
+    def test_embedding_ranker_init(self) -> None:
         """Test EmbeddingRanker initialization."""
         from src.filter.ranking import EmbeddingRanker
 
@@ -111,7 +111,7 @@ class TestEmbeddingRanker:
         assert ranker._model is None
         assert ranker._cache == {}
 
-    def test_get_cache_key(self):
+    def test_get_cache_key(self) -> None:
         """Test cache key generation."""
         from src.filter.ranking import EmbeddingRanker
 
@@ -126,7 +126,7 @@ class TestEmbeddingRanker:
         assert len(key1) == 32
 
     @pytest.mark.asyncio
-    async def test_encode_caches_results(self):
+    async def test_encode_caches_results(self) -> None:
         """Test that encode caches embedding results."""
         from unittest.mock import patch
 
@@ -154,7 +154,7 @@ class TestEmbeddingRanker:
             assert ranker._get_cache_key("text two") in ranker._cache
 
     @pytest.mark.asyncio
-    async def test_encode_uses_cache(self):
+    async def test_encode_uses_cache(self) -> None:
         """Test that encode uses cached results."""
         from unittest.mock import patch
 
@@ -211,7 +211,7 @@ class TestEmbeddingRanker:
 class TestReranker:
     """Tests for Reranker class."""
 
-    def test_reranker_init(self):
+    def test_reranker_init(self) -> None:
         """Test Reranker initialization."""
         from src.filter.ranking import Reranker
 
@@ -220,7 +220,7 @@ class TestReranker:
         assert reranker._model is None
 
     @pytest.mark.asyncio
-    async def test_rerank_returns_sorted_results(self):
+    async def test_rerank_returns_sorted_results(self) -> None:
         """Test rerank returns results sorted by score."""
         from unittest.mock import patch
 
@@ -253,7 +253,7 @@ class TestReranker:
             assert results[2][1] == pytest.approx(0.3)
 
     @pytest.mark.asyncio
-    async def test_rerank_respects_top_k(self):
+    async def test_rerank_respects_top_k(self) -> None:
         """Test rerank respects top_k parameter."""
         from unittest.mock import patch
 
@@ -285,7 +285,7 @@ class TestRankCandidates:
     """Tests for rank_candidates function."""
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_empty_input(self):
+    async def test_rank_candidates_empty_input(self) -> None:
         """Test rank_candidates with empty passages."""
         from src.filter.ranking import rank_candidates
 
@@ -294,7 +294,7 @@ class TestRankCandidates:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_full_pipeline(self, sample_passages):
+    async def test_rank_candidates_full_pipeline(self, sample_passages) -> None:
         """Test rank_candidates runs full ranking pipeline."""
 
         from src.filter import ranking
@@ -329,7 +329,7 @@ class TestRankCandidates:
         assert "final_rank" in results[0]
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_preserves_passage_data(self, sample_passages):
+    async def test_rank_candidates_preserves_passage_data(self, sample_passages) -> None:
         """Test rank_candidates preserves original passage data."""
 
         from src.filter import ranking
@@ -361,7 +361,7 @@ class TestRankCandidates:
 class TestBM25Integration:
     """Integration tests for BM25 ranking (using real rank-bm25)."""
 
-    def test_bm25_ranks_relevant_docs_higher(self):
+    def test_bm25_ranks_relevant_docs_higher(self) -> None:
         """Test BM25 ranks relevant documents higher."""
         from src.filter.ranking import BM25Ranker
 
@@ -383,7 +383,7 @@ class TestBM25Integration:
 
         assert all(s > js_doc_score for s in python_docs_scores)
 
-    def test_bm25_handles_empty_query(self):
+    def test_bm25_handles_empty_query(self) -> None:
         """Test BM25 handles empty query gracefully."""
         from src.filter.ranking import BM25Ranker
 
@@ -396,7 +396,7 @@ class TestBM25Integration:
         assert len(scores) == 2
         assert all(s == 0.0 for s in scores)
 
-    def test_bm25_handles_unicode(self):
+    def test_bm25_handles_unicode(self) -> None:
         """Test BM25 handles Unicode text."""
         from src.filter.ranking import BM25Ranker
 

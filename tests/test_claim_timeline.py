@@ -81,7 +81,7 @@ from src.filter.claim_timeline import (
 class TestTimelineEvent:
     """Tests for TimelineEvent dataclass."""
 
-    def test_create_event_with_all_fields(self):
+    def test_create_event_with_all_fields(self) -> None:
         """Verify TimelineEvent stores all fields correctly."""
         # Given: Timestamp and all event details
         timestamp = datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC)
@@ -107,7 +107,7 @@ class TestTimelineEvent:
         assert event.confidence == 0.95
         assert len(event.event_id) == 8
 
-    def test_to_dict_serialization(self):
+    def test_to_dict_serialization(self) -> None:
         """Verify TimelineEvent serializes to dictionary correctly."""
         # Given: TimelineEvent with data
         timestamp = datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC)
@@ -128,7 +128,7 @@ class TestTimelineEvent:
         assert result["confidence"] == 0.8
         assert "event_id" in result
 
-    def test_from_dict_deserialization(self):
+    def test_from_dict_deserialization(self) -> None:
         """Verify TimelineEvent deserializes from dictionary correctly."""
         # Given: Dictionary with event data
         data = {
@@ -153,7 +153,7 @@ class TestTimelineEvent:
         assert event.notes == "Claim withdrawn"
         assert event.confidence == 0.9
 
-    def test_from_dict_with_missing_fields(self):
+    def test_from_dict_with_missing_fields(self) -> None:
         """Verify TimelineEvent handles missing optional fields gracefully."""
         # Given: Minimal dictionary
         data = {
@@ -181,7 +181,7 @@ class TestTimelineEvent:
 class TestClaimTimeline:
     """Tests for ClaimTimeline class."""
 
-    def test_create_empty_timeline(self):
+    def test_create_empty_timeline(self) -> None:
         """Verify empty timeline has correct initial state."""
         # When:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -196,7 +196,7 @@ class TestClaimTimeline:
         assert timeline.confirmation_count == 0
         assert timeline.has_timeline is False
 
-    def test_add_first_appeared_event(self):
+    def test_add_first_appeared_event(self) -> None:
         """Verify first appearance event is added correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -217,7 +217,7 @@ class TestClaimTimeline:
         assert timeline.first_appeared.timestamp == timestamp
         assert timeline.has_timeline is True
 
-    def test_add_multiple_events_sorted_by_timestamp(self):
+    def test_add_multiple_events_sorted_by_timestamp(self) -> None:
         """Verify events are sorted chronologically."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -236,7 +236,7 @@ class TestClaimTimeline:
         assert timeline.events[1].timestamp == ts3
         assert timeline.events[2].timestamp == ts2
 
-    def test_is_retracted_flag(self):
+    def test_is_retracted_flag(self) -> None:
         """Verify retraction detection works correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -257,7 +257,7 @@ class TestClaimTimeline:
         # Then: after retraction
         assert timeline.is_retracted is True
 
-    def test_is_corrected_flag(self):
+    def test_is_corrected_flag(self) -> None:
         """Verify correction detection works correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -271,7 +271,7 @@ class TestClaimTimeline:
         # Then:
         assert timeline.is_corrected is True
 
-    def test_confirmation_count(self):
+    def test_confirmation_count(self) -> None:
         """Verify confirmation counting works correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -289,7 +289,7 @@ class TestClaimTimeline:
         # Then:
         assert timeline.confirmation_count == 3
 
-    def test_latest_event(self):
+    def test_latest_event(self) -> None:
         """Verify latest event retrieval works correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -305,7 +305,7 @@ class TestClaimTimeline:
         assert timeline.latest_event.timestamp == ts2
         assert timeline.latest_event.event_type == TimelineEventType.CONFIRMED
 
-    def test_get_events_by_type(self):
+    def test_get_events_by_type(self) -> None:
         """Verify filtering events by type works correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -321,7 +321,7 @@ class TestClaimTimeline:
         assert len(confirmations) == 2
         assert all(e.event_type == TimelineEventType.CONFIRMED for e in confirmations)
 
-    def test_get_events_in_range(self):
+    def test_get_events_in_range(self) -> None:
         """Verify filtering events by date range works correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -342,7 +342,7 @@ class TestClaimTimeline:
         assert len(events_in_range) == 1
         assert events_in_range[0].timestamp == ts2
 
-    def test_calculate_confidence_adjustment_no_events(self):
+    def test_calculate_confidence_adjustment_no_events(self) -> None:
         """Verify confidence adjustment is 1.0 for empty timeline."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -353,7 +353,7 @@ class TestClaimTimeline:
         # Then:
         assert adjustment == 1.0
 
-    def test_calculate_confidence_adjustment_retraction(self):
+    def test_calculate_confidence_adjustment_retraction(self) -> None:
         """Verify retraction applies correct penalty."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -365,7 +365,7 @@ class TestClaimTimeline:
         # Then:
         assert adjustment == RETRACTION_CONFIDENCE_PENALTY
 
-    def test_calculate_confidence_adjustment_correction(self):
+    def test_calculate_confidence_adjustment_correction(self) -> None:
         """Verify correction applies correct penalty."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -377,7 +377,7 @@ class TestClaimTimeline:
         # Then:
         assert adjustment == 0.8
 
-    def test_calculate_confidence_adjustment_confirmations(self):
+    def test_calculate_confidence_adjustment_confirmations(self) -> None:
         """Verify confirmations apply correct bonus."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -391,7 +391,7 @@ class TestClaimTimeline:
         # Then: - 3 confirmations = 30% bonus, capped at 50%
         assert adjustment == 1.3
 
-    def test_calculate_confidence_adjustment_confirmations_capped(self):
+    def test_calculate_confidence_adjustment_confirmations_capped(self) -> None:
         """Verify confirmation bonus is capped at 50%."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -404,7 +404,7 @@ class TestClaimTimeline:
         # Then: - Capped at 1.5 (50% bonus)
         assert adjustment == 1.5
 
-    def test_to_dict_serialization(self):
+    def test_to_dict_serialization(self) -> None:
         """Verify timeline serializes to dictionary correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -421,7 +421,7 @@ class TestClaimTimeline:
         assert result["summary"]["event_count"] == 1
         assert result["summary"]["is_retracted"] is False
 
-    def test_to_json_serialization(self):
+    def test_to_json_serialization(self) -> None:
         """Verify timeline serializes to JSON correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_001")
@@ -435,7 +435,7 @@ class TestClaimTimeline:
         assert data["claim_id"] == "claim_001"
         assert len(data["events"]) == 1
 
-    def test_from_dict_deserialization(self):
+    def test_from_dict_deserialization(self) -> None:
         """Verify timeline deserializes from dictionary correctly."""
         # Given:
         data = {
@@ -463,7 +463,7 @@ class TestClaimTimeline:
         assert timeline.first_appeared is not None
         assert timeline.confirmation_count == 1
 
-    def test_from_json_deserialization(self):
+    def test_from_json_deserialization(self) -> None:
         """Verify timeline deserializes from JSON correctly."""
         # Given:
         json_str = json.dumps(
@@ -487,7 +487,7 @@ class TestClaimTimeline:
         assert timeline.claim_id == "claim_003"
         assert len(timeline.events) == 1
 
-    def test_from_json_with_invalid_json(self):
+    def test_from_json_with_invalid_json(self) -> None:
         """Verify from_json returns None for invalid JSON."""
         # Given:
         invalid_json = "not valid json {"
@@ -498,7 +498,7 @@ class TestClaimTimeline:
         # Then:
         assert result is None
 
-    def test_from_json_with_none(self):
+    def test_from_json_with_none(self) -> None:
         """Verify from_json returns None for None input."""
         # When:
         result = ClaimTimeline.from_json(None)
@@ -530,7 +530,7 @@ class TestClaimTimelineManager:
         return mock
 
     @pytest.mark.asyncio
-    async def test_get_timeline_creates_new_for_nonexistent_claim(self, manager, mock_db):
+    async def test_get_timeline_creates_new_for_nonexistent_claim(self, manager, mock_db) -> None:
         """Verify get_timeline creates new timeline for non-existent claim."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -545,7 +545,7 @@ class TestClaimTimelineManager:
             assert len(timeline.events) == 0
 
     @pytest.mark.asyncio
-    async def test_get_timeline_loads_existing_from_db(self, manager, mock_db):
+    async def test_get_timeline_loads_existing_from_db(self, manager, mock_db) -> None:
         """Verify get_timeline loads existing timeline from database."""
         # Given:
         existing_timeline = {
@@ -573,7 +573,7 @@ class TestClaimTimelineManager:
             assert timeline.first_appeared is not None
 
     @pytest.mark.asyncio
-    async def test_get_timeline_uses_cache(self, manager, mock_db):
+    async def test_get_timeline_uses_cache(self, manager, mock_db) -> None:
         """Verify get_timeline uses cache for repeated requests."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -593,7 +593,7 @@ class TestClaimTimelineManager:
             assert timeline is not None
 
     @pytest.mark.asyncio
-    async def test_save_timeline_updates_database(self, manager, mock_db):
+    async def test_save_timeline_updates_database(self, manager, mock_db) -> None:
         """Verify save_timeline updates database correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_save")
@@ -611,7 +611,7 @@ class TestClaimTimelineManager:
             assert "timeline_json" in call_args[0][1]
 
     @pytest.mark.asyncio
-    async def test_add_first_appeared_creates_event(self, manager, mock_db):
+    async def test_add_first_appeared_creates_event(self, manager, mock_db) -> None:
         """Verify add_first_appeared creates first_appeared event."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -630,7 +630,7 @@ class TestClaimTimelineManager:
             assert event.source_url == "https://first.example.com"
 
     @pytest.mark.asyncio
-    async def test_add_first_appeared_skips_if_already_exists(self, manager, mock_db):
+    async def test_add_first_appeared_skips_if_already_exists(self, manager, mock_db) -> None:
         """Verify add_first_appeared doesn't duplicate if event exists."""
         # Given:
         existing = {
@@ -658,7 +658,7 @@ class TestClaimTimelineManager:
             assert event.source_url == "https://original.example.com"
 
     @pytest.mark.asyncio
-    async def test_add_confirmation_creates_event(self, manager, mock_db):
+    async def test_add_confirmation_creates_event(self, manager, mock_db) -> None:
         """Verify add_confirmation creates confirmation event."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -677,7 +677,7 @@ class TestClaimTimelineManager:
             assert event.notes == "Confirmed by independent source"
 
     @pytest.mark.asyncio
-    async def test_add_retraction_creates_event_and_adjusts_confidence(self, manager, mock_db):
+    async def test_add_retraction_creates_event_and_adjusts_confidence(self, manager, mock_db) -> None:
         """Verify add_retraction creates event and updates confidence."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -702,7 +702,7 @@ class TestClaimTimelineManager:
             assert mock_db.update.call_count >= 1
 
     @pytest.mark.asyncio
-    async def test_integrate_wayback_result_adds_events(self, manager, mock_db):
+    async def test_integrate_wayback_result_adds_events(self, manager, mock_db) -> None:
         """Verify Wayback results are integrated into timeline."""
         # Given:
         wayback_result = {
@@ -734,7 +734,7 @@ class TestClaimTimelineManager:
             assert events_added == 2  # first_appeared + updated
 
     @pytest.mark.asyncio
-    async def test_get_timeline_coverage_calculates_correctly(self, manager, mock_db):
+    async def test_get_timeline_coverage_calculates_correctly(self, manager, mock_db) -> None:
         """Verify timeline coverage metrics are calculated correctly."""
         # Given:
         claims = [
@@ -786,7 +786,7 @@ class TestClaimTimelineManager:
             assert coverage["coverage_rate"] == pytest.approx(2 / 3, abs=0.001)
             assert coverage["claims_retracted"] == 1
 
-    def test_clear_cache(self, manager):
+    def test_clear_cache(self, manager) -> None:
         """Verify cache clearing works."""
         # Given:
         manager._cache["test"] = ClaimTimeline(claim_id="test")
@@ -806,7 +806,7 @@ class TestClaimTimelineManager:
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
-    def test_get_timeline_manager_returns_singleton(self):
+    def test_get_timeline_manager_returns_singleton(self) -> None:
         """Verify get_timeline_manager returns same instance."""
         # When:
         manager1 = get_timeline_manager()
@@ -816,7 +816,7 @@ class TestConvenienceFunctions:
         assert manager1 is manager2
 
     @pytest.mark.asyncio
-    async def test_record_first_appeared_calls_manager(self):
+    async def test_record_first_appeared_calls_manager(self) -> None:
         """Verify record_first_appeared delegates to manager."""
         # Given:
         mock_db = MagicMock()
@@ -835,7 +835,7 @@ class TestConvenienceFunctions:
             assert event.event_type == TimelineEventType.FIRST_APPEARED
 
     @pytest.mark.asyncio
-    async def test_record_confirmation_calls_manager(self):
+    async def test_record_confirmation_calls_manager(self) -> None:
         """Verify record_confirmation delegates to manager."""
         # Given:
         mock_db = MagicMock()
@@ -854,7 +854,7 @@ class TestConvenienceFunctions:
             assert event.event_type == TimelineEventType.CONFIRMED
 
     @pytest.mark.asyncio
-    async def test_record_retraction_calls_manager(self):
+    async def test_record_retraction_calls_manager(self) -> None:
         """Verify record_retraction delegates to manager."""
         # Given:
         mock_db = MagicMock()
@@ -887,7 +887,7 @@ class TestConvenienceFunctions:
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    def test_timeline_with_empty_source_url(self):
+    def test_timeline_with_empty_source_url(self) -> None:
         """Verify timeline handles empty source URL."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_empty")
@@ -899,7 +899,7 @@ class TestEdgeCases:
         assert len(timeline.events) == 1
         assert timeline.has_timeline is False
 
-    def test_timeline_event_with_far_future_date(self):
+    def test_timeline_event_with_far_future_date(self) -> None:
         """Verify timeline handles far future dates."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_future")
@@ -912,7 +912,7 @@ class TestEdgeCases:
         assert timeline.first_appeared is not None
         assert timeline.first_appeared.timestamp.year == 2099
 
-    def test_timeline_event_with_past_date(self):
+    def test_timeline_event_with_past_date(self) -> None:
         """Verify timeline handles past dates."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_past")
@@ -925,7 +925,7 @@ class TestEdgeCases:
         assert timeline.first_appeared is not None
         assert timeline.first_appeared.timestamp.year == 1990
 
-    def test_from_dict_with_empty_events(self):
+    def test_from_dict_with_empty_events(self) -> None:
         """Verify from_dict handles empty events list."""
         # Given:
         data = {"claim_id": "claim_empty", "events": []}
@@ -938,7 +938,7 @@ class TestEdgeCases:
         assert len(timeline.events) == 0
         assert timeline.has_timeline is False
 
-    def test_from_dict_with_missing_claim_id(self):
+    def test_from_dict_with_missing_claim_id(self) -> None:
         """Verify from_dict handles missing claim_id."""
         # Given:
         data = {"events": []}
@@ -949,7 +949,7 @@ class TestEdgeCases:
         # Then:
         assert timeline.claim_id == ""
 
-    def test_confidence_adjustment_with_both_retraction_and_confirmations(self):
+    def test_confidence_adjustment_with_both_retraction_and_confirmations(self) -> None:
         """Verify confidence adjustment combines retraction and confirmations."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_complex")
@@ -964,7 +964,7 @@ class TestEdgeCases:
         expected = RETRACTION_CONFIDENCE_PENALTY * (1.0 + 0.2)
         assert adjustment == pytest.approx(expected, abs=0.01)
 
-    def test_get_events_in_range_with_no_matches(self):
+    def test_get_events_in_range_with_no_matches(self) -> None:
         """Verify get_events_in_range returns empty list when no matches."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_range")
@@ -979,7 +979,7 @@ class TestEdgeCases:
         # Then:
         assert len(result) == 0
 
-    def test_get_events_by_type_with_no_matches(self):
+    def test_get_events_by_type_with_no_matches(self) -> None:
         """Verify get_events_by_type returns empty list when no matches."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_type")

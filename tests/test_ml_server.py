@@ -121,7 +121,7 @@ class TestModelPaths:
 
         mp._model_paths = None
 
-    def test_get_model_paths_with_valid_json(self, tmp_path: Path):
+    def test_get_model_paths_with_valid_json(self, tmp_path: Path) -> None:
         """
         Given: A valid model_paths.json file exists
         When: get_model_paths() is called
@@ -166,7 +166,7 @@ class TestModelPaths:
             == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test"
         )
 
-    def test_get_model_paths_file_not_found(self, tmp_path: Path):
+    def test_get_model_paths_file_not_found(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json file does not exist
         When: get_model_paths() is called
@@ -184,7 +184,7 @@ class TestModelPaths:
         # Then
         assert result is None
 
-    def test_get_model_paths_invalid_json(self, tmp_path: Path):
+    def test_get_model_paths_invalid_json(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json contains invalid JSON
         When: get_model_paths() is called
@@ -203,7 +203,7 @@ class TestModelPaths:
         # Then
         assert result is None
 
-    def test_get_embedding_path_with_local_paths(self, tmp_path: Path):
+    def test_get_embedding_path_with_local_paths(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json exists with embedding path
         When: get_embedding_path() is called
@@ -234,7 +234,7 @@ class TestModelPaths:
         # Then
         assert result == "/app/models/embedding/model"
 
-    def test_get_embedding_path_fallback_to_env(self, tmp_path: Path):
+    def test_get_embedding_path_fallback_to_env(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json does not exist
         When: get_embedding_path() is called
@@ -258,7 +258,7 @@ class TestModelPaths:
         # Then
         assert result == "custom/embedding-model"
 
-    def test_get_reranker_path_with_local_paths(self, tmp_path: Path):
+    def test_get_reranker_path_with_local_paths(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json exists with reranker path
         When: get_reranker_path() is called
@@ -289,7 +289,7 @@ class TestModelPaths:
         # Then
         assert result == "/app/models/reranker/model"
 
-    def test_get_nli_fast_path_with_local_paths(self, tmp_path: Path):
+    def test_get_nli_fast_path_with_local_paths(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json exists with NLI fast path
         When: get_nli_fast_path() is called
@@ -320,7 +320,7 @@ class TestModelPaths:
         # Then
         assert result == "/app/models/nli_fast/model"
 
-    def test_get_nli_slow_path_with_local_paths(self, tmp_path: Path):
+    def test_get_nli_slow_path_with_local_paths(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json exists with NLI slow path
         When: get_nli_slow_path() is called
@@ -351,7 +351,7 @@ class TestModelPaths:
         # Then
         assert result == "/app/models/nli_slow/model"
 
-    def test_is_using_local_paths_true(self, tmp_path: Path):
+    def test_is_using_local_paths_true(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json exists with valid paths
         When: is_using_local_paths() is called
@@ -381,7 +381,7 @@ class TestModelPaths:
         # Then
         assert result is True
 
-    def test_is_using_local_paths_false(self, tmp_path: Path):
+    def test_is_using_local_paths_false(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json does not exist
         When: is_using_local_paths() is called
@@ -399,7 +399,7 @@ class TestModelPaths:
         # Then
         assert result is False
 
-    def test_path_traversal_rejected(self, tmp_path: Path):
+    def test_path_traversal_rejected(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json contains path traversal (../)
         When: get_model_paths() is called
@@ -428,7 +428,7 @@ class TestModelPaths:
         # Then
         assert result is None
 
-    def test_path_outside_allowed_directory_rejected(self, tmp_path: Path):
+    def test_path_outside_allowed_directory_rejected(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json contains path outside /app/models
         When: get_model_paths() is called
@@ -466,7 +466,7 @@ class TestModelPaths:
 class TestEmbeddingService:
     """Tests for EmbeddingService."""
 
-    def test_is_loaded_false_initially(self):
+    def test_is_loaded_false_initially(self) -> None:
         """
         Given: A new EmbeddingService instance
         When: is_loaded is checked
@@ -481,7 +481,7 @@ class TestEmbeddingService:
         assert service.is_loaded is False
 
     @pytest.mark.asyncio
-    async def test_encode_empty_list(self):
+    async def test_encode_empty_list(self) -> None:
         """
         Given: An EmbeddingService instance
         When: encode() is called with an empty list
@@ -501,7 +501,7 @@ class TestEmbeddingService:
 
     @requires_sentence_transformers
     @pytest.mark.asyncio
-    async def test_encode_with_mock_model(self):
+    async def test_encode_with_mock_model(self) -> None:
         """
         Given: EmbeddingService with mocked SentenceTransformer
         When: encode() is called with texts
@@ -540,7 +540,7 @@ class TestEmbeddingService:
 
     @requires_sentence_transformers
     @pytest.mark.asyncio
-    async def test_encode_model_load_failure(self):
+    async def test_encode_model_load_failure(self) -> None:
         """
         Given: EmbeddingService with SentenceTransformer that raises exception
         When: encode() is called
@@ -575,7 +575,7 @@ class TestEmbeddingService:
 class TestRerankerService:
     """Tests for RerankerService."""
 
-    def test_is_loaded_false_initially(self):
+    def test_is_loaded_false_initially(self) -> None:
         """
         Given: A new RerankerService instance
         When: is_loaded is checked
@@ -590,7 +590,7 @@ class TestRerankerService:
         assert service.is_loaded is False
 
     @pytest.mark.asyncio
-    async def test_rerank_empty_documents(self):
+    async def test_rerank_empty_documents(self) -> None:
         """
         Given: A RerankerService instance
         When: rerank() is called with empty documents
@@ -610,7 +610,7 @@ class TestRerankerService:
 
     @requires_sentence_transformers
     @pytest.mark.asyncio
-    async def test_rerank_with_mock_model(self):
+    async def test_rerank_with_mock_model(self) -> None:
         """
         Given: RerankerService with mocked CrossEncoder
         When: rerank() is called
@@ -645,7 +645,7 @@ class TestRerankerService:
 
     @requires_sentence_transformers
     @pytest.mark.asyncio
-    async def test_rerank_model_load_failure(self):
+    async def test_rerank_model_load_failure(self) -> None:
         """
         Given: RerankerService with CrossEncoder that raises exception
         When: rerank() is called
@@ -680,7 +680,7 @@ class TestRerankerService:
 class TestNLIService:
     """Tests for NLIService."""
 
-    def test_is_loaded_false_initially(self):
+    def test_is_loaded_false_initially(self) -> None:
         """
         Given: A new NLIService instance
         When: is_fast_loaded and is_slow_loaded are checked
@@ -695,7 +695,7 @@ class TestNLIService:
         assert service.is_fast_loaded is False
         assert service.is_slow_loaded is False
 
-    def test_map_label_entailment(self):
+    def test_map_label_entailment(self) -> None:
         """
         Given: NLIService instance
         When: _map_label() is called with entailment labels
@@ -711,7 +711,7 @@ class TestNLIService:
         assert service._map_label("entailment") == "supports"
         assert service._map_label("support") == "supports"
 
-    def test_map_label_contradiction(self):
+    def test_map_label_contradiction(self) -> None:
         """
         Given: NLIService instance
         When: _map_label() is called with contradiction labels
@@ -727,7 +727,7 @@ class TestNLIService:
         assert service._map_label("contradiction") == "refutes"
         assert service._map_label("refute") == "refutes"
 
-    def test_map_label_neutral(self):
+    def test_map_label_neutral(self) -> None:
         """
         Given: NLIService instance
         When: _map_label() is called with neutral labels
@@ -745,7 +745,7 @@ class TestNLIService:
 
     @requires_transformers
     @pytest.mark.asyncio
-    async def test_predict_with_mock_model(self):
+    async def test_predict_with_mock_model(self) -> None:
         """
         Given: NLIService with mocked pipeline
         When: predict() is called
@@ -776,7 +776,7 @@ class TestNLIService:
 
     @requires_transformers
     @pytest.mark.asyncio
-    async def test_predict_batch_with_mock_model(self):
+    async def test_predict_batch_with_mock_model(self) -> None:
         """
         Given: NLIService with mocked pipeline
         When: predict_batch() is called with multiple pairs
@@ -813,7 +813,7 @@ class TestNLIService:
 
     @requires_transformers
     @pytest.mark.asyncio
-    async def test_predict_use_slow_model(self):
+    async def test_predict_use_slow_model(self) -> None:
         """
         Given: NLIService with mocked pipeline
         When: predict() is called with use_slow=True
@@ -848,7 +848,7 @@ class TestNLIService:
 
     @requires_transformers
     @pytest.mark.asyncio
-    async def test_predict_model_load_failure(self):
+    async def test_predict_model_load_failure(self) -> None:
         """
         Given: NLIService with pipeline that raises exception
         When: predict() is called
@@ -904,7 +904,7 @@ class TestMLServerAPI:
 
         return TestClient(app)
 
-    def test_health_check(self, client):
+    def test_health_check(self, client) -> None:
         """
         Given: ML Server is running
         When: GET /health is called
@@ -919,7 +919,7 @@ class TestMLServerAPI:
         assert data["status"] == "ok"
         assert "models_loaded" in data
 
-    def test_embed_endpoint_validation(self, client):
+    def test_embed_endpoint_validation(self, client) -> None:
         """
         Given: ML Server is running
         When: POST /embed is called without texts
@@ -931,7 +931,7 @@ class TestMLServerAPI:
         # Then
         assert response.status_code == 422  # Validation error
 
-    def test_rerank_endpoint_validation(self, client):
+    def test_rerank_endpoint_validation(self, client) -> None:
         """
         Given: ML Server is running
         When: POST /rerank is called without required fields
@@ -943,7 +943,7 @@ class TestMLServerAPI:
         # Then
         assert response.status_code == 422  # Validation error
 
-    def test_nli_endpoint_validation(self, client):
+    def test_nli_endpoint_validation(self, client) -> None:
         """
         Given: ML Server is running
         When: POST /nli is called without required fields

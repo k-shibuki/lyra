@@ -75,7 +75,7 @@ from src.search.ab_test import (
 class TestQueryVariantGenerator:
     """Tests for QueryVariantGenerator."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test generator initialization (TC-QVG-N-01)."""
         # Given: No preconditions
         # When: Creating a new generator
@@ -85,7 +85,7 @@ class TestQueryVariantGenerator:
         assert generator._particle_rules is not None
         assert generator._notation_rules is not None
 
-    def test_generate_notation_variants_with_ai(self):
+    def test_generate_notation_variants_with_ai(self) -> None:
         """Test notation variant generation with AI term (TC-QVG-N-02)."""
         # Given: A generator and a query containing "AI"
         generator = QueryVariantGenerator()
@@ -99,7 +99,7 @@ class TestQueryVariantGenerator:
             assert v.variant_type == VariantType.NOTATION
             assert v.query_text != "AI技術の問題"
 
-    def test_generate_notation_variants_with_kanji(self):
+    def test_generate_notation_variants_with_kanji(self) -> None:
         """Test notation variant generation with kanji (TC-QVG-N-03)."""
         # Given: A generator and a query with kanji terms
         generator = QueryVariantGenerator()
@@ -112,7 +112,7 @@ class TestQueryVariantGenerator:
             assert variants[0].variant_type == VariantType.NOTATION
             assert variants[0].query_text != "人工知能の分析"
 
-    def test_generate_notation_variants_no_match(self):
+    def test_generate_notation_variants_no_match(self) -> None:
         """Test notation variants with no matching patterns (TC-QVG-B-01)."""
         # Given: A generator and a query with no matching patterns
         generator = QueryVariantGenerator()
@@ -123,7 +123,7 @@ class TestQueryVariantGenerator:
         # Then: Should return empty list (boundary case)
         assert variants == []
 
-    def test_generate_particle_variants(self):
+    def test_generate_particle_variants(self) -> None:
         """Test particle variant generation (TC-QVG-N-04)."""
         # Given: A generator and a query with particle の
         generator = QueryVariantGenerator()
@@ -135,7 +135,7 @@ class TestQueryVariantGenerator:
         if variants:
             assert variants[0].variant_type == VariantType.PARTICLE
 
-    def test_generate_particle_variants_with_ha(self):
+    def test_generate_particle_variants_with_ha(self) -> None:
         """Test particle variant with は (TC-QVG-N-05)."""
         # Given: A generator and a query with particle は
         generator = QueryVariantGenerator()
@@ -148,7 +148,7 @@ class TestQueryVariantGenerator:
             assert variants[0].variant_type == VariantType.PARTICLE
             assert variants[0].query_text != "AIは社会を変える"
 
-    def test_generate_order_variants_basic(self):
+    def test_generate_order_variants_basic(self) -> None:
         """Test word order variant generation (TC-QVG-N-06)."""
         # Given: A generator and a multi-word query
         generator = QueryVariantGenerator()
@@ -161,7 +161,7 @@ class TestQueryVariantGenerator:
             assert variants[0].variant_type == VariantType.ORDER
             assert variants[0].query_text != "機械学習 応用 事例"
 
-    def test_generate_order_variants_single_word(self):
+    def test_generate_order_variants_single_word(self) -> None:
         """Test order variants with single word (TC-QVG-B-02)."""
         # Given: A generator and a single word query
         generator = QueryVariantGenerator()
@@ -172,7 +172,7 @@ class TestQueryVariantGenerator:
         # Then: Single word should not generate order variants (boundary)
         assert variants == []
 
-    def test_generate_all_variants(self):
+    def test_generate_all_variants(self) -> None:
         """Test generating all variant types (TC-QVG-N-07)."""
         # Given: A generator and a query
         generator = QueryVariantGenerator()
@@ -185,7 +185,7 @@ class TestQueryVariantGenerator:
         assert variants[0].variant_type == VariantType.ORIGINAL
         assert variants[0].query_text == "AIの問題点"
 
-    def test_generate_all_variants_max_total(self):
+    def test_generate_all_variants_max_total(self) -> None:
         """Test max_total limit (TC-QVG-N-08)."""
         # Given: A generator and a query with max_total limit
         generator = QueryVariantGenerator()
@@ -196,7 +196,7 @@ class TestQueryVariantGenerator:
         # Then: Should not exceed max_total + 1 (including original)
         assert len(variants) <= 4
 
-    def test_generate_all_variants_unique(self):
+    def test_generate_all_variants_unique(self) -> None:
         """Test that variants are unique (TC-QVG-N-09)."""
         # Given: A generator and a query
         generator = QueryVariantGenerator()
@@ -212,7 +212,7 @@ class TestQueryVariantGenerator:
 class TestQueryVariant:
     """Tests for QueryVariant dataclass."""
 
-    def test_equality(self):
+    def test_equality(self) -> None:
         """Test variant equality (TC-QV-N-01)."""
         # Given: Two variants with same query text
         v1 = QueryVariant("test query", VariantType.ORIGINAL)
@@ -221,7 +221,7 @@ class TestQueryVariant:
         # When/Then: Same query text should be equal
         assert v1 == v2
 
-    def test_inequality(self):
+    def test_inequality(self) -> None:
         """Test variant inequality (TC-QV-N-02)."""
         # Given: Two variants with different query text
         v1 = QueryVariant("query one", VariantType.ORIGINAL)
@@ -230,7 +230,7 @@ class TestQueryVariant:
         # When/Then: Different query text should be unequal
         assert v1 != v2
 
-    def test_hash(self):
+    def test_hash(self) -> None:
         """Test variant hashing (TC-QV-N-03)."""
         # Given: Two variants with same query text
         v1 = QueryVariant("test", VariantType.ORIGINAL)
@@ -269,7 +269,7 @@ class TestABTestExecutor:
 
         return _search
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test executor initialization (TC-ABE-N-01)."""
         # Given: No preconditions
         # When: Creating a new executor
@@ -279,7 +279,7 @@ class TestABTestExecutor:
         assert executor._generator is not None
 
     @pytest.mark.asyncio
-    async def test_run_ab_test_basic(self, mock_db, mock_search):
+    async def test_run_ab_test_basic(self, mock_db, mock_search) -> None:
         """Test basic A/B test execution (TC-ABE-N-02)."""
         # Given: Mock database and search function
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
@@ -332,7 +332,7 @@ class TestABTestExecutor:
                 assert session.winner.harvest_rate > 0
 
     @pytest.mark.asyncio
-    async def test_run_ab_test_saves_session(self, mock_db, mock_search):
+    async def test_run_ab_test_saves_session(self, mock_db, mock_search) -> None:
         """Test that session is saved to database (TC-ABE-N-04)."""
         # Given: Mock database and search
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
@@ -349,7 +349,7 @@ class TestABTestExecutor:
                 # Then: Database should be called
                 assert mock_db.execute.called
 
-    def test_generate_session_id(self):
+    def test_generate_session_id(self) -> None:
         """Test session ID generation (TC-ABE-N-05)."""
         # Given: An executor
         executor = ABTestExecutor()
@@ -381,7 +381,7 @@ class TestHighYieldQueryCache:
         db.fetch_all = AsyncMock(return_value=[])
         return db
 
-    def test_matches_pattern_similar(self):
+    def test_matches_pattern_similar(self) -> None:
         """Test pattern matching with similar queries (TC-HYC-N-01)."""
         # Given: A cache instance
         cache = HighYieldQueryCache()
@@ -389,7 +389,7 @@ class TestHighYieldQueryCache:
         # When/Then: Similar queries should match (50% term overlap required)
         assert cache._matches_pattern("AI 技術 問題", "AI 技術 課題", "人工知能 技術 課題")
 
-    def test_matches_pattern_different(self):
+    def test_matches_pattern_different(self) -> None:
         """Test pattern matching with different queries (TC-HYC-N-02)."""
         # Given: A cache instance
         cache = HighYieldQueryCache()
@@ -397,7 +397,7 @@ class TestHighYieldQueryCache:
         # When/Then: Very different queries should not match
         assert not cache._matches_pattern("完全に異なるクエリ", "AI技術", "人工知能")
 
-    def test_matches_pattern_empty(self):
+    def test_matches_pattern_empty(self) -> None:
         """Test pattern matching with empty strings (TC-HYC-B-01)."""
         # Given: A cache instance
         cache = HighYieldQueryCache()
@@ -406,7 +406,7 @@ class TestHighYieldQueryCache:
         assert not cache._matches_pattern("", "test", "test2")
         assert not cache._matches_pattern("test", "", "test2")
 
-    def test_apply_pattern(self):
+    def test_apply_pattern(self) -> None:
         """Test pattern application (TC-HYC-N-03)."""
         # Given: A cache instance
         cache = HighYieldQueryCache()
@@ -419,7 +419,7 @@ class TestHighYieldQueryCache:
         assert result != "AI技術の問題"
 
     @pytest.mark.asyncio
-    async def test_get_improved_query_no_patterns(self, mock_db):
+    async def test_get_improved_query_no_patterns(self, mock_db) -> None:
         """Test getting improved query when no patterns exist (TC-HYC-B-02)."""
         # Given: Empty cache
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
@@ -432,7 +432,7 @@ class TestHighYieldQueryCache:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_improved_query_with_pattern(self, mock_db):
+    async def test_get_improved_query_with_pattern(self, mock_db) -> None:
         """Test getting improved query with matching pattern (TC-HYC-N-04)."""
         # Given: Cache with matching pattern
         mock_db.fetch_all.return_value = [
@@ -456,7 +456,7 @@ class TestHighYieldQueryCache:
                 assert "人工知能" in result
 
     @pytest.mark.asyncio
-    async def test_get_stats_empty(self, mock_db):
+    async def test_get_stats_empty(self, mock_db) -> None:
         """Test getting stats with empty cache (TC-HYC-N-05)."""
         # Given: Empty cache
         mock_db.fetch_one.return_value = {
@@ -484,7 +484,7 @@ class TestHighYieldQueryCache:
 class TestModuleFunctions:
     """Tests for module-level functions."""
 
-    def test_get_variant_generator_singleton(self):
+    def test_get_variant_generator_singleton(self) -> None:
         """Test that generator is a singleton (TC-MF-N-01)."""
         # Given: No preconditions
         # When: Getting generator twice
@@ -494,7 +494,7 @@ class TestModuleFunctions:
         # Then: Should be same instance
         assert g1 is g2
 
-    def test_get_ab_executor_singleton(self):
+    def test_get_ab_executor_singleton(self) -> None:
         """Test that executor is a singleton (TC-MF-N-02)."""
         # Given: No preconditions
         # When: Getting executor twice
@@ -504,7 +504,7 @@ class TestModuleFunctions:
         # Then: Should be same instance
         assert e1 is e2
 
-    def test_get_high_yield_cache_singleton(self):
+    def test_get_high_yield_cache_singleton(self) -> None:
         """Test that cache is a singleton (TC-MF-N-03)."""
         # Given: No preconditions
         # When: Getting cache twice
@@ -514,7 +514,7 @@ class TestModuleFunctions:
         # Then: Should be same instance
         assert c1 is c2
 
-    def test_generate_query_variants(self):
+    def test_generate_query_variants(self) -> None:
         """Test the convenience function (TC-MF-N-04)."""
         # Given: A query
         # When: Generating variants
@@ -524,7 +524,7 @@ class TestModuleFunctions:
         assert len(variants) >= 1
         assert variants[0].variant_type == VariantType.ORIGINAL
 
-    def test_generate_query_variants_max_variants(self):
+    def test_generate_query_variants_max_variants(self) -> None:
         """Test max_variants parameter (TC-MF-N-05)."""
         # Given: A query with max_variants limit
         # When: Generating variants
@@ -616,7 +616,7 @@ class TestABTestIntegration:
 class TestEdgeCases:
     """Tests for edge cases."""
 
-    def test_empty_query(self):
+    def test_empty_query(self) -> None:
         """Test with empty query (TC-EC-B-01)."""
         # Given: A generator
         generator = QueryVariantGenerator()
@@ -628,7 +628,7 @@ class TestEdgeCases:
         assert len(variants) >= 1
         assert variants[0].query_text == ""
 
-    def test_very_long_query(self):
+    def test_very_long_query(self) -> None:
         """Test with very long query (TC-EC-B-02)."""
         # Given: A generator
         generator = QueryVariantGenerator()
@@ -640,7 +640,7 @@ class TestEdgeCases:
         # Then: Should handle gracefully
         assert len(variants) >= 1
 
-    def test_special_characters(self):
+    def test_special_characters(self) -> None:
         """Test with special characters (TC-EC-N-01)."""
         # Given: A generator
         generator = QueryVariantGenerator()
@@ -651,7 +651,7 @@ class TestEdgeCases:
         # Then: Should handle special characters
         assert len(variants) >= 1
 
-    def test_unicode_query(self):
+    def test_unicode_query(self) -> None:
         """Test with various Unicode characters (TC-EC-N-02)."""
         # Given: A generator
         generator = QueryVariantGenerator()
@@ -662,7 +662,7 @@ class TestEdgeCases:
         # Then: Should handle Unicode
         assert len(variants) >= 1
 
-    def test_only_english(self):
+    def test_only_english(self) -> None:
         """Test with English-only query (TC-EC-N-03)."""
         # Given: A generator
         generator = QueryVariantGenerator()

@@ -75,7 +75,7 @@ from src.crawler.browser_archive import (
 class TestUrlToSurt:
     """Tests for SURT (Sort-friendly URI Reordering Transform) conversion."""
 
-    def test_simple_url(self):
+    def test_simple_url(self) -> None:
         """Test basic URL to SURT conversion (TC-SURT-N-01)."""
         # Given: A simple URL
         url = "https://example.com/page"
@@ -87,7 +87,7 @@ class TestUrlToSurt:
         assert "com,example)" in surt
         assert "/page" in surt
 
-    def test_subdomain_url(self):
+    def test_subdomain_url(self) -> None:
         """Test URL with subdomain (TC-SURT-N-02)."""
         # Given: A URL with subdomain
         url = "https://www.example.com/path/to/page"
@@ -99,7 +99,7 @@ class TestUrlToSurt:
         assert "com,example,www)" in surt
         assert "/path/to/page" in surt
 
-    def test_url_with_query(self):
+    def test_url_with_query(self) -> None:
         """Test URL with query string (TC-SURT-N-03)."""
         # Given: A URL with query parameters
         url = "https://example.com/search?q=test&lang=en"
@@ -111,7 +111,7 @@ class TestUrlToSurt:
         assert "com,example)" in surt
         assert "?q=test&lang=en" in surt
 
-    def test_deep_subdomain(self):
+    def test_deep_subdomain(self) -> None:
         """Test URL with multiple subdomain levels (TC-SURT-N-04)."""
         # Given: A URL with multiple subdomains
         url = "https://api.v2.example.co.jp/endpoint"
@@ -122,7 +122,7 @@ class TestUrlToSurt:
         # Then: All domain parts should be reversed
         assert "jp,co,example,v2,api)" in surt
 
-    def test_root_path(self):
+    def test_root_path(self) -> None:
         """Test URL with root path (TC-SURT-N-05)."""
         # Given: A URL with root path only
         url = "https://example.com/"
@@ -142,7 +142,7 @@ class TestUrlToSurt:
 class TestResourceInfo:
     """Tests for ResourceInfo data class."""
 
-    def test_resource_info_creation(self):
+    def test_resource_info_creation(self) -> None:
         """Test creating ResourceInfo with all fields (TC-RI-N-01)."""
         # Given: All field values
         # When: Creating ResourceInfo
@@ -164,7 +164,7 @@ class TestResourceInfo:
         assert resource.size == 1024
         assert resource.is_main_frame is True
 
-    def test_duration_calculation(self):
+    def test_duration_calculation(self) -> None:
         """Test request duration calculation (TC-RI-N-02)."""
         # Given: ResourceInfo with timing data
         resource = ResourceInfo(
@@ -180,7 +180,7 @@ class TestResourceInfo:
         assert duration is not None
         assert abs(duration - 500.0) < 0.1
 
-    def test_duration_none_when_incomplete(self):
+    def test_duration_none_when_incomplete(self) -> None:
         """Test that duration is None for incomplete requests (TC-RI-B-01)."""
         # Given: ResourceInfo without end_time
         resource = ResourceInfo(
@@ -193,7 +193,7 @@ class TestResourceInfo:
         # Then: Duration should be None (boundary case)
         assert resource.duration_ms is None
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values for optional fields (TC-RI-N-03)."""
         # Given: Minimal ResourceInfo
         resource = ResourceInfo(url="https://example.com/")
@@ -214,7 +214,7 @@ class TestResourceInfo:
 class TestCDXJEntry:
     """Tests for CDXJ entry creation and formatting."""
 
-    def test_cdxj_line_format(self):
+    def test_cdxj_line_format(self) -> None:
         """Test CDXJ line format output (TC-CDXJ-N-01)."""
         # Given: A complete CDXJEntry
         entry = CDXJEntry(
@@ -240,7 +240,7 @@ class TestCDXJEntry:
         assert data["mime"] == "text/html"
         assert data["status"] == "200"
 
-    def test_cdxj_with_extra_metadata(self):
+    def test_cdxj_with_extra_metadata(self) -> None:
         """Test CDXJ entry with extra metadata (TC-CDXJ-N-02)."""
         # Given: CDXJEntry with extra metadata
         entry = CDXJEntry(
@@ -269,7 +269,7 @@ class TestCDXJEntry:
 class TestNetworkEventCollector:
     """Tests for network event collection."""
 
-    def test_start_collection(self):
+    def test_start_collection(self) -> None:
         """Test starting event collection (TC-NEC-N-01)."""
         # Given: A new collector
         collector = NetworkEventCollector()
@@ -281,7 +281,7 @@ class TestNetworkEventCollector:
         assert collector._main_frame_url == "https://example.com/"
         assert len(collector.resources) == 0
 
-    def test_on_request(self):
+    def test_on_request(self) -> None:
         """Test recording a request event (TC-NEC-N-02)."""
         # Given: An active collector
         collector = NetworkEventCollector()
@@ -301,7 +301,7 @@ class TestNetworkEventCollector:
         assert resources[0].url == "https://example.com/"
         assert resources[0].is_main_frame is True
 
-    def test_on_response(self):
+    def test_on_response(self) -> None:
         """Test recording a response event (TC-NEC-N-03)."""
         # Given: Collector with a request
         collector = NetworkEventCollector()
@@ -322,7 +322,7 @@ class TestNetworkEventCollector:
         assert resources[0].status == 200
         assert resources[0].mime_type == "text/html"
 
-    def test_on_request_finished(self):
+    def test_on_request_finished(self) -> None:
         """Test recording request completion (TC-NEC-N-04)."""
         # Given: Collector with a request
         collector = NetworkEventCollector()
@@ -338,7 +338,7 @@ class TestNetworkEventCollector:
         assert resources[0].size == 1024
         assert resources[0].end_time is not None
 
-    def test_add_content_hash(self):
+    def test_add_content_hash(self) -> None:
         """Test adding content hash to resource (TC-NEC-N-05)."""
         # Given: Collector with a request
         collector = NetworkEventCollector()
@@ -352,7 +352,7 @@ class TestNetworkEventCollector:
         resources = collector.resources
         assert resources[0].content_hash is not None
 
-    def test_main_resources_filtering(self):
+    def test_main_resources_filtering(self) -> None:
         """Test filtering for main resources only (TC-NEC-N-06)."""
         # Given: Collector with various resource types
         collector = NetworkEventCollector()
@@ -403,7 +403,7 @@ class TestNetworkEventCollector:
 class TestHARGenerator:
     """Tests for HAR file generation."""
 
-    def test_empty_har_structure(self):
+    def test_empty_har_structure(self) -> None:
         """Test HAR structure with no entries (TC-HAR-N-01)."""
         # Given: A new HAR generator
         har_gen = HARGenerator(
@@ -422,7 +422,7 @@ class TestHARGenerator:
         assert len(har["log"]["pages"]) == 1
         assert har["log"]["pages"][0]["title"] == "Example Page"
 
-    def test_add_resource(self):
+    def test_add_resource(self) -> None:
         """Test adding a resource to HAR (TC-HAR-N-02)."""
         # Given: A HAR generator
         har_gen = HARGenerator(page_url="https://example.com/")
@@ -451,7 +451,7 @@ class TestHARGenerator:
         assert entry["response"]["content"]["mimeType"] == "text/html"
         assert entry["response"]["content"]["size"] == 1024
 
-    def test_har_json_output(self):
+    def test_har_json_output(self) -> None:
         """Test HAR JSON string output (TC-HAR-N-03)."""
         # Given: A HAR generator
         har_gen = HARGenerator(page_url="https://example.com/")
@@ -463,7 +463,7 @@ class TestHARGenerator:
         parsed = json.loads(json_str)
         assert "log" in parsed
 
-    def test_multiple_resources(self):
+    def test_multiple_resources(self) -> None:
         """Test adding multiple resources to HAR (TC-HAR-N-04)."""
         # Given: A HAR generator
         har_gen = HARGenerator(page_url="https://example.com/")
@@ -491,7 +491,7 @@ class TestHARGenerator:
 class TestCDXJGenerator:
     """Tests for CDXJ index generation."""
 
-    def test_add_resource_with_content(self):
+    def test_add_resource_with_content(self) -> None:
         """Test adding resource with content for hash calculation (TC-CDXJG-N-01)."""
         # Given: A CDXJ generator
         cdxj_gen = CDXJGenerator()
@@ -512,7 +512,7 @@ class TestCDXJGenerator:
         assert "sha256:" in lines[0]
         assert "com,example)/page.html" in lines[0]
 
-    def test_add_resource_with_existing_hash(self):
+    def test_add_resource_with_existing_hash(self) -> None:
         """Test adding resource with pre-computed hash (TC-CDXJG-N-02)."""
         # Given: A CDXJ generator
         cdxj_gen = CDXJGenerator()
@@ -531,7 +531,7 @@ class TestCDXJGenerator:
         assert len(lines) == 1
         assert "sha256:abc123def456" in lines[0]
 
-    def test_sorted_output(self):
+    def test_sorted_output(self) -> None:
         """Test that entries are sorted by SURT (TC-CDXJG-N-03)."""
         # Given: A CDXJ generator
         cdxj_gen = CDXJGenerator()
@@ -548,7 +548,7 @@ class TestCDXJGenerator:
         assert "com,mango)" in lines[1]
         assert "com,zebra)" in lines[2]
 
-    def test_to_string(self):
+    def test_to_string(self) -> None:
         """Test CDXJ string output (TC-CDXJG-N-04)."""
         # Given: A CDXJ generator with entries
         cdxj_gen = CDXJGenerator()
@@ -584,7 +584,7 @@ class TestBrowserArchiver:
         return BrowserArchiver(output_dir=temp_archive_dir)
 
     @pytest.mark.asyncio
-    async def test_save_archive_creates_cdxj(self, archiver, temp_archive_dir):
+    async def test_save_archive_creates_cdxj(self, archiver, temp_archive_dir) -> None:
         """Test that save_archive creates CDXJ file (TC-BA-N-01)."""
         # Given: An archiver and content
         content = b"<html><head><title>Test</title></head><body>Hello</body></html>"
@@ -608,7 +608,7 @@ class TestBrowserArchiver:
         assert "sha256:" in cdxj_content
 
     @pytest.mark.asyncio
-    async def test_save_archive_creates_har(self, archiver, temp_archive_dir):
+    async def test_save_archive_creates_har(self, archiver, temp_archive_dir) -> None:
         """Test that save_archive creates HAR file (TC-BA-N-02)."""
         # Given: An archiver and content
         content = b"<html><body>Test content</body></html>"
@@ -633,7 +633,7 @@ class TestBrowserArchiver:
         assert len(har_content["log"]["entries"]) >= 1
 
     @pytest.mark.asyncio
-    async def test_save_archive_with_collector(self, archiver, temp_archive_dir):
+    async def test_save_archive_with_collector(self, archiver, temp_archive_dir) -> None:
         """Test saving archive with network event collector (TC-BA-N-03)."""
         # Given: A collector with events
         collector = NetworkEventCollector()
@@ -676,7 +676,7 @@ class TestBrowserArchiver:
         assert len(har_content["log"]["entries"]) >= 2
 
     @pytest.mark.asyncio
-    async def test_save_archive_adds_warc_reference(self, archiver, temp_archive_dir):
+    async def test_save_archive_adds_warc_reference(self, archiver, temp_archive_dir) -> None:
         """Test that WARC path is added to CDXJ header (TC-BA-N-04)."""
         # Given: Content and WARC path
         content = b"<html></html>"
@@ -694,7 +694,7 @@ class TestBrowserArchiver:
         cdxj_content = cdxj_path.read_text()
         assert warc_path in cdxj_content
 
-    def test_create_collector(self, archiver):
+    def test_create_collector(self, archiver) -> None:
         """Test creating network event collector (TC-BA-N-05)."""
         # Given: An archiver
         # When: Creating collector
@@ -712,7 +712,7 @@ class TestBrowserArchiver:
 class TestBrowserArchiverIntegration:
     """Integration tests for browser archiver."""
 
-    def test_get_browser_archiver(self):
+    def test_get_browser_archiver(self) -> None:
         """Test getting global archiver instance (TC-INT-N-01)."""
         # Given: No preconditions
         # When: Getting archiver
@@ -722,7 +722,7 @@ class TestBrowserArchiverIntegration:
         assert isinstance(archiver, BrowserArchiver)
 
     @pytest.mark.asyncio
-    async def test_full_workflow(self, tmp_path):
+    async def test_full_workflow(self, tmp_path) -> None:
         """Test complete archive workflow (TC-INT-N-02)."""
         # Given: Archive directory and archiver
         archive_dir = tmp_path / "archive"
@@ -816,7 +816,7 @@ class TestBrowserArchiverIntegration:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_surt_invalid_url(self):
+    def test_surt_invalid_url(self) -> None:
         """Test SURT conversion with invalid URL (TC-EC-N-01)."""
         # Given: An invalid URL
         # When: Converting to SURT
@@ -825,7 +825,7 @@ class TestEdgeCases:
         # Then: Should not raise, returns something
         assert surt is not None
 
-    def test_empty_collector_resources(self):
+    def test_empty_collector_resources(self) -> None:
         """Test collector with no resources (TC-EC-B-01)."""
         # Given: A new collector
         collector = NetworkEventCollector()
@@ -835,7 +835,7 @@ class TestEdgeCases:
         assert len(collector.resources) == 0
         assert len(collector.main_resources) == 0
 
-    def test_response_without_request(self):
+    def test_response_without_request(self) -> None:
         """Test handling response without prior request (TC-EC-N-02)."""
         # Given: A collector
         collector = NetworkEventCollector()
@@ -854,7 +854,7 @@ class TestEdgeCases:
         assert collector.resources[0].status == 200
 
     @pytest.mark.asyncio
-    async def test_save_archive_empty_content(self, tmp_path):
+    async def test_save_archive_empty_content(self, tmp_path) -> None:
         """Test saving archive with empty content (TC-EC-B-02)."""
         # Given: Archive directory and archiver
         archive_dir = tmp_path / "archive"
@@ -872,7 +872,7 @@ class TestEdgeCases:
         assert result["status"] == "success"
         assert result["cdxj_path"] is not None
 
-    def test_har_resource_without_timing(self):
+    def test_har_resource_without_timing(self) -> None:
         """Test HAR generation for resource without timing data (TC-EC-N-03)."""
         # Given: A HAR generator
         har_gen = HARGenerator(page_url="https://example.com/")

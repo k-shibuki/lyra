@@ -185,7 +185,7 @@ class TestFailedSelector:
     # Given: A FailedSelector with all fields populated
     # When: Converting to dict
     # Then: All fields should be present in the output
-    def test_to_dict_all_fields(self):
+    def test_to_dict_all_fields(self) -> None:
         """Test to_dict includes all fields."""
         selector = FailedSelector(
             name="results_container",
@@ -204,7 +204,7 @@ class TestFailedSelector:
     # Given: A FailedSelector with empty diagnostic message
     # When: Converting to dict
     # Then: Empty string should be preserved
-    def test_to_dict_empty_diagnostic(self):
+    def test_to_dict_empty_diagnostic(self) -> None:
         """Test to_dict with empty diagnostic message."""
         selector = FailedSelector(
             name="title",
@@ -229,7 +229,7 @@ class TestCandidateElement:
     # Given: A CandidateElement with long sample text
     # When: Converting to dict
     # Then: Sample text should be truncated to 100 characters
-    def test_to_dict_truncates_sample_text(self):
+    def test_to_dict_truncates_sample_text(self) -> None:
         """Test to_dict truncates long sample text."""
         long_text = "A" * 200
         candidate = CandidateElement(
@@ -249,7 +249,7 @@ class TestCandidateElement:
     # Given: A CandidateElement with short sample text
     # When: Converting to dict
     # Then: Sample text should not be truncated
-    def test_to_dict_short_sample_text(self):
+    def test_to_dict_short_sample_text(self) -> None:
         """Test to_dict preserves short sample text."""
         short_text = "Short text"
         candidate = CandidateElement(
@@ -268,7 +268,7 @@ class TestCandidateElement:
     # Given: A CandidateElement with empty sample text
     # When: Converting to dict
     # Then: Empty string should be preserved
-    def test_to_dict_empty_sample_text(self):
+    def test_to_dict_empty_sample_text(self) -> None:
         """Test to_dict with empty sample text."""
         candidate = CandidateElement(
             tag="a",
@@ -295,7 +295,7 @@ class TestParserDiagnosticReport:
     # Given: A complete diagnostic report
     # When: Converting to dict
     # Then: All fields should be serialized correctly
-    def test_to_dict_complete_report(self, sample_failed_selectors):
+    def test_to_dict_complete_report(self, sample_failed_selectors) -> None:
         """Test to_dict with complete report."""
         report = ParserDiagnosticReport(
             engine="duckduckgo",
@@ -329,7 +329,7 @@ class TestParserDiagnosticReport:
     # Given: A diagnostic report with None html_path
     # When: Converting to dict
     # Then: html_path should be None in output
-    def test_to_dict_no_html_path(self):
+    def test_to_dict_no_html_path(self) -> None:
         """Test to_dict with no html_path."""
         report = ParserDiagnosticReport(
             engine="google",
@@ -347,7 +347,7 @@ class TestParserDiagnosticReport:
     # Given: A diagnostic report with candidates
     # When: Converting to log dict
     # Then: Compact representation should be returned
-    def test_to_log_dict_with_candidates(self, sample_failed_selectors):
+    def test_to_log_dict_with_candidates(self, sample_failed_selectors) -> None:
         """Test to_log_dict returns compact representation."""
         report = ParserDiagnosticReport(
             engine="brave",
@@ -378,7 +378,7 @@ class TestParserDiagnosticReport:
     # Given: A diagnostic report without candidates
     # When: Converting to log dict
     # Then: top_candidate should be None
-    def test_to_log_dict_no_candidates(self):
+    def test_to_log_dict_no_candidates(self) -> None:
         """Test to_log_dict with no candidates."""
         report = ParserDiagnosticReport(
             engine="bing",
@@ -406,7 +406,7 @@ class TestHTMLAnalyzer:
     # Given: Valid HTML with result-like elements
     # When: Getting HTML summary
     # Then: Summary should contain element counts
-    def test_get_html_summary(self, sample_html_with_results):
+    def test_get_html_summary(self, sample_html_with_results) -> None:
         """Test get_html_summary returns element counts."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -420,7 +420,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with result-pattern classes
     # When: Finding result containers
     # Then: Containers with matching classes should be found
-    def test_find_result_containers_by_class(self, sample_html_with_results):
+    def test_find_result_containers_by_class(self, sample_html_with_results) -> None:
         """Test find_result_containers finds elements by class pattern."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -434,7 +434,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with data-testid attributes
     # When: Finding result containers
     # Then: Elements with data-testid should be found
-    def test_find_result_containers_by_testid(self, sample_html_with_results):
+    def test_find_result_containers_by_testid(self, sample_html_with_results) -> None:
         """Test find_result_containers finds data-testid elements."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -447,7 +447,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with list-based results (ul/li)
     # When: Finding result containers
     # Then: List items should be identified as candidates
-    def test_find_result_containers_by_list(self, sample_html_with_list_results):
+    def test_find_result_containers_by_list(self, sample_html_with_list_results) -> None:
         """Test find_result_containers finds list-based results."""
         analyzer = HTMLAnalyzer(sample_html_with_list_results)
 
@@ -461,7 +461,7 @@ class TestHTMLAnalyzer:
     # Given: Empty HTML
     # When: Finding result containers
     # Then: Empty list should be returned
-    def test_find_result_containers_empty_html(self, empty_html):
+    def test_find_result_containers_empty_html(self, empty_html) -> None:
         """Test find_result_containers with empty HTML."""
         analyzer = HTMLAnalyzer(empty_html)
 
@@ -472,7 +472,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with headings containing links
     # When: Finding title elements
     # Then: Heading links should be found
-    def test_find_title_elements(self, sample_html_with_results):
+    def test_find_title_elements(self, sample_html_with_results) -> None:
         """Test find_title_elements finds heading links."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -486,7 +486,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with paragraph elements
     # When: Finding snippet elements
     # Then: Paragraphs with appropriate length should be found
-    def test_find_snippet_elements(self, sample_html_with_results):
+    def test_find_snippet_elements(self, sample_html_with_results) -> None:
         """Test find_snippet_elements finds paragraph content."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -500,7 +500,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with external links
     # When: Finding URL elements
     # Then: Links with http(s) URLs should be found
-    def test_find_url_elements(self, sample_html_with_results):
+    def test_find_url_elements(self, sample_html_with_results) -> None:
         """Test find_url_elements finds external links."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -522,7 +522,7 @@ class TestYAMLFixGeneration:
     # Given: A selector name and candidate element
     # When: Generating YAML fix
     # Then: Valid YAML with correct structure should be returned
-    def test_generate_yaml_fix_basic(self):
+    def test_generate_yaml_fix_basic(self) -> None:
         """Test generate_yaml_fix creates valid YAML structure."""
         candidate = CandidateElement(
             tag="div",
@@ -544,7 +544,7 @@ class TestYAMLFixGeneration:
     # Given: A candidate with special characters in selector
     # When: Generating YAML fix
     # Then: Special characters should be escaped
-    def test_generate_yaml_fix_escapes_quotes(self):
+    def test_generate_yaml_fix_escapes_quotes(self) -> None:
         """Test generate_yaml_fix escapes special characters."""
         candidate = CandidateElement(
             tag="div",
@@ -563,7 +563,7 @@ class TestYAMLFixGeneration:
     # Given: A candidate with backslash in selector (from CSS ID escape)
     # When: Generating YAML fix
     # Then: Backslash should be escaped for YAML double-quoted string
-    def test_generate_yaml_fix_escapes_backslash_in_id(self):
+    def test_generate_yaml_fix_escapes_backslash_in_id(self) -> None:
         """Test generate_yaml_fix escapes backslashes from CSS ID selectors."""
         # Selector like #result\.item (dot escaped for CSS)
         candidate = CandidateElement(
@@ -584,7 +584,7 @@ class TestYAMLFixGeneration:
     # Given: A candidate with backslash in class selector
     # When: Generating YAML fix
     # Then: Backslash should be escaped for YAML double-quoted string
-    def test_generate_yaml_fix_escapes_backslash_in_class(self):
+    def test_generate_yaml_fix_escapes_backslash_in_class(self) -> None:
         """Test generate_yaml_fix escapes backslashes from CSS class selectors."""
         # Selector like .class\.name (dot escaped for CSS)
         candidate = CandidateElement(
@@ -604,7 +604,7 @@ class TestYAMLFixGeneration:
     # Given: A candidate with both backslash and quotes in selector
     # When: Generating YAML fix
     # Then: Both backslash and quotes should be properly escaped
-    def test_generate_yaml_fix_escapes_backslash_and_quotes(self):
+    def test_generate_yaml_fix_escapes_backslash_and_quotes(self) -> None:
         """Test generate_yaml_fix escapes both backslashes and quotes."""
         # Selector with both escaped special chars and attribute with quotes
         candidate = CandidateElement(
@@ -625,7 +625,7 @@ class TestYAMLFixGeneration:
     # Given: A candidate with empty selector string
     # When: Generating YAML fix
     # Then: Empty string should be preserved in output
-    def test_generate_yaml_fix_empty_selector(self):
+    def test_generate_yaml_fix_empty_selector(self) -> None:
         """Test generate_yaml_fix handles empty selector (boundary case)."""
         candidate = CandidateElement(
             tag="div",
@@ -644,7 +644,7 @@ class TestYAMLFixGeneration:
     # Given: A candidate with only backslash in selector
     # When: Generating YAML fix
     # Then: Single backslash should be escaped to double backslash
-    def test_generate_yaml_fix_single_backslash_only(self):
+    def test_generate_yaml_fix_single_backslash_only(self) -> None:
         """Test generate_yaml_fix handles single backslash (boundary case)."""
         candidate = CandidateElement(
             tag="div",
@@ -663,7 +663,7 @@ class TestYAMLFixGeneration:
     # Given: A candidate with multiple consecutive backslashes
     # When: Generating YAML fix
     # Then: Each backslash should be escaped
-    def test_generate_yaml_fix_multiple_consecutive_backslashes(self):
+    def test_generate_yaml_fix_multiple_consecutive_backslashes(self) -> None:
         """Test generate_yaml_fix handles multiple consecutive backslashes."""
         candidate = CandidateElement(
             tag="div",
@@ -682,7 +682,7 @@ class TestYAMLFixGeneration:
     # Given: Multiple failed selectors with candidates
     # When: Generating multiple YAML fixes
     # Then: Fixes should be generated for each failed selector
-    def test_generate_multiple_yaml_fixes(self, sample_failed_selectors):
+    def test_generate_multiple_yaml_fixes(self, sample_failed_selectors) -> None:
         """Test generate_multiple_yaml_fixes creates fixes for all selectors."""
         candidates_by_type = {
             "container": [
@@ -720,7 +720,7 @@ class TestYAMLFixGeneration:
     # Given: No candidates available
     # When: Generating multiple YAML fixes
     # Then: Empty list should be returned
-    def test_generate_multiple_yaml_fixes_no_candidates(self, sample_failed_selectors):
+    def test_generate_multiple_yaml_fixes_no_candidates(self, sample_failed_selectors) -> None:
         """Test generate_multiple_yaml_fixes with no candidates."""
         fixes = generate_multiple_yaml_fixes(
             sample_failed_selectors,
@@ -742,7 +742,7 @@ class TestCreateDiagnosticReport:
     # Given: Valid HTML with result elements
     # When: Creating diagnostic report
     # Then: Report should contain candidates and suggestions
-    def test_create_report_with_results(self, sample_html_with_results, sample_failed_selectors):
+    def test_create_report_with_results(self, sample_html_with_results, sample_failed_selectors) -> None:
         """Test create_diagnostic_report with valid HTML."""
         report = create_diagnostic_report(
             engine="duckduckgo",
@@ -761,7 +761,7 @@ class TestCreateDiagnosticReport:
     # Given: Empty HTML
     # When: Creating diagnostic report
     # Then: Report should be created with empty candidates
-    def test_create_report_empty_html(self, empty_html, sample_failed_selectors):
+    def test_create_report_empty_html(self, empty_html, sample_failed_selectors) -> None:
         """Test create_diagnostic_report with empty HTML."""
         report = create_diagnostic_report(
             engine="google",
@@ -778,7 +778,7 @@ class TestCreateDiagnosticReport:
     # Given: HTML without html_path
     # When: Creating diagnostic report
     # Then: html_path should be None in report
-    def test_create_report_no_path(self, sample_html_with_results):
+    def test_create_report_no_path(self, sample_html_with_results) -> None:
         """Test create_diagnostic_report without html_path."""
         report = create_diagnostic_report(
             engine="mojeek",
@@ -802,7 +802,7 @@ class TestDebugHTMLHandling:
     # Given: Non-existent debug directory
     # When: Getting latest debug HTML
     # Then: None should be returned
-    def test_get_latest_debug_html_no_dir(self, tmp_path):
+    def test_get_latest_debug_html_no_dir(self, tmp_path) -> None:
         """Test get_latest_debug_html when directory doesn't exist."""
         # Use a non-existent directory
         fake_debug_dir = tmp_path / "nonexistent" / "search_html"
@@ -819,7 +819,7 @@ class TestDebugHTMLHandling:
     # Given: Empty debug directory
     # When: Getting latest debug HTML
     # Then: None should be returned
-    def test_get_latest_debug_html_empty_dir(self, tmp_path):
+    def test_get_latest_debug_html_empty_dir(self, tmp_path) -> None:
         """Test get_latest_debug_html with empty directory."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -837,7 +837,7 @@ class TestDebugHTMLHandling:
     # Given: Debug HTML file with metadata
     # When: Analyzing debug HTML
     # Then: Report should extract metadata and analyze content
-    def test_analyze_debug_html_with_metadata(self, tmp_path, sample_html_with_results):
+    def test_analyze_debug_html_with_metadata(self, tmp_path, sample_html_with_results) -> None:
         """Test analyze_debug_html extracts metadata."""
         # Create test file with metadata header
         html_file = tmp_path / "duckduckgo_123_test.html"
@@ -861,7 +861,7 @@ Error: Selector not found
     # Given: Non-existent HTML file
     # When: Analyzing debug HTML
     # Then: None should be returned
-    def test_analyze_debug_html_file_not_found(self, tmp_path):
+    def test_analyze_debug_html_file_not_found(self, tmp_path) -> None:
         """Test analyze_debug_html with non-existent file."""
         fake_path = tmp_path / "nonexistent.html"
 
@@ -872,7 +872,7 @@ Error: Selector not found
     # Given: HTML file without metadata header
     # When: Analyzing debug HTML
     # Then: Engine should be extracted from filename
-    def test_analyze_debug_html_no_metadata(self, tmp_path, sample_html_with_results):
+    def test_analyze_debug_html_no_metadata(self, tmp_path, sample_html_with_results) -> None:
         """Test analyze_debug_html without metadata header."""
         html_file = tmp_path / "brave_456_search.html"
         html_file.write_text(sample_html_with_results, encoding="utf-8")
@@ -894,7 +894,7 @@ class TestDiagnosticsIntegration:
     # Given: Complete diagnostic workflow
     # When: Creating and analyzing report
     # Then: All components should work together
-    def test_full_diagnostic_workflow(self, sample_html_with_results, sample_failed_selectors):
+    def test_full_diagnostic_workflow(self, sample_html_with_results, sample_failed_selectors) -> None:
         """Test complete diagnostic workflow."""
         # Step 1: Create diagnostic report
         report = create_diagnostic_report(
@@ -935,7 +935,7 @@ class TestEscapeCssAttributeValue:
     # Given: Empty string
     # When: Escaping for CSS attribute
     # Then: Returns empty quoted string
-    def test_empty_string(self):
+    def test_empty_string(self) -> None:
         """Test empty string returns empty quotes."""
         result = _escape_css_attribute_value("")
         assert result == "''"
@@ -943,7 +943,7 @@ class TestEscapeCssAttributeValue:
     # Given: String with single quotes only
     # When: Escaping for CSS attribute
     # Then: Uses double quotes and escapes single quotes
-    def test_single_quotes(self):
+    def test_single_quotes(self) -> None:
         """Test string with single quotes uses double quotes."""
         result = _escape_css_attribute_value("it's")
         assert result.startswith('"')
@@ -952,7 +952,7 @@ class TestEscapeCssAttributeValue:
     # Given: String with double quotes only
     # When: Escaping for CSS attribute
     # Then: Uses single quotes
-    def test_double_quotes(self):
+    def test_double_quotes(self) -> None:
         """Test string with double quotes uses single quotes."""
         result = _escape_css_attribute_value('say "hello"')
         assert result.startswith("'")
@@ -961,7 +961,7 @@ class TestEscapeCssAttributeValue:
     # Given: String with both single and double quotes
     # When: Escaping for CSS attribute
     # Then: Properly escaped with single quotes
-    def test_both_quotes(self):
+    def test_both_quotes(self) -> None:
         """Test string with both quotes is properly escaped."""
         result = _escape_css_attribute_value('it\'s "great"')
         # Should use single quotes and escape the single quote
@@ -970,7 +970,7 @@ class TestEscapeCssAttributeValue:
     # Given: String with backslash
     # When: Escaping for CSS attribute
     # Then: Backslash is escaped
-    def test_backslash(self):
+    def test_backslash(self) -> None:
         """Test backslash is escaped."""
         result = _escape_css_attribute_value("path\\to")
         assert "\\\\" in result
@@ -978,7 +978,7 @@ class TestEscapeCssAttributeValue:
     # Given: Normal string without special characters
     # When: Escaping for CSS attribute
     # Then: Wrapped in single quotes
-    def test_normal_string(self):
+    def test_normal_string(self) -> None:
         """Test normal string is wrapped in single quotes."""
         result = _escape_css_attribute_value("result-item")
         assert result == "'result-item'"
@@ -995,7 +995,7 @@ class TestEscapeCssId:
     # Given: Empty string
     # When: Escaping for CSS ID selector
     # Then: Returns empty string
-    def test_empty_string(self):
+    def test_empty_string(self) -> None:
         """Test empty string returns empty string."""
         result = _escape_css_id("")
         assert result == ""
@@ -1003,7 +1003,7 @@ class TestEscapeCssId:
     # Given: ID containing hash character
     # When: Escaping for CSS ID selector
     # Then: Hash is escaped with backslash
-    def test_hash_character(self):
+    def test_hash_character(self) -> None:
         """Test hash character is escaped."""
         result = _escape_css_id("id#123")
         assert "\\#" in result
@@ -1011,7 +1011,7 @@ class TestEscapeCssId:
     # Given: ID containing space
     # When: Escaping for CSS ID selector
     # Then: Space is escaped with backslash
-    def test_space_character(self):
+    def test_space_character(self) -> None:
         """Test space character is escaped."""
         result = _escape_css_id("my id")
         assert "\\ " in result
@@ -1019,7 +1019,7 @@ class TestEscapeCssId:
     # Given: ID containing dot
     # When: Escaping for CSS ID selector
     # Then: Dot is escaped with backslash
-    def test_dot_character(self):
+    def test_dot_character(self) -> None:
         """Test dot character is escaped."""
         result = _escape_css_id("id.class")
         assert "\\." in result
@@ -1027,7 +1027,7 @@ class TestEscapeCssId:
     # Given: ID containing multiple special characters
     # When: Escaping for CSS ID selector
     # Then: All special characters are escaped
-    def test_multiple_special_chars(self):
+    def test_multiple_special_chars(self) -> None:
         """Test multiple special characters are all escaped."""
         result = _escape_css_id("id#123.test")
         assert "\\#" in result
@@ -1036,7 +1036,7 @@ class TestEscapeCssId:
     # Given: Normal ID without special characters
     # When: Escaping for CSS ID selector
     # Then: ID is unchanged
-    def test_normal_id(self):
+    def test_normal_id(self) -> None:
         """Test normal ID is unchanged."""
         result = _escape_css_id("result-item")
         assert result == "result-item"
@@ -1053,7 +1053,7 @@ class TestSanitizeForYamlComment:
     # Given: Empty string
     # When: Sanitizing for YAML comment
     # Then: Returns empty string
-    def test_empty_string(self):
+    def test_empty_string(self) -> None:
         """Test empty string returns empty string."""
         result = _sanitize_for_yaml_comment("")
         assert result == ""
@@ -1061,7 +1061,7 @@ class TestSanitizeForYamlComment:
     # Given: String containing hash character
     # When: Sanitizing for YAML comment
     # Then: Hash is replaced with arrow
-    def test_hash_character(self):
+    def test_hash_character(self) -> None:
         """Test hash character is replaced with arrow."""
         result = _sanitize_for_yaml_comment("Price #50")
         assert "#" not in result
@@ -1070,7 +1070,7 @@ class TestSanitizeForYamlComment:
     # Given: String containing newline
     # When: Sanitizing for YAML comment
     # Then: Newline is replaced with space
-    def test_newline_character(self):
+    def test_newline_character(self) -> None:
         """Test newline is replaced with space."""
         result = _sanitize_for_yaml_comment("line1\nline2")
         assert "\n" not in result
@@ -1079,7 +1079,7 @@ class TestSanitizeForYamlComment:
     # Given: String exceeding max_length
     # When: Sanitizing for YAML comment
     # Then: Text is truncated with ellipsis
-    def test_max_length_exceeded(self):
+    def test_max_length_exceeded(self) -> None:
         """Test text exceeding max_length is truncated."""
         long_text = "A" * 100
         result = _sanitize_for_yaml_comment(long_text, max_length=50)
@@ -1089,7 +1089,7 @@ class TestSanitizeForYamlComment:
     # Given: String containing control characters
     # When: Sanitizing for YAML comment
     # Then: Control characters are removed
-    def test_control_characters(self):
+    def test_control_characters(self) -> None:
         """Test control characters are removed."""
         result = _sanitize_for_yaml_comment("test\x00\x01\x02text")
         assert "\x00" not in result
@@ -1100,7 +1100,7 @@ class TestSanitizeForYamlComment:
     # Given: Normal string without special characters
     # When: Sanitizing for YAML comment
     # Then: String is unchanged
-    def test_normal_string(self):
+    def test_normal_string(self) -> None:
         """Test normal string is unchanged."""
         result = _sanitize_for_yaml_comment("Normal text here")
         assert result == "Normal text here"
@@ -1117,7 +1117,7 @@ class TestSafeSelect:
     # Given: Valid CSS selector on HTML with matching elements
     # When: Calling _safe_select
     # Then: Returns list of matching elements
-    def test_valid_selector(self, sample_html_with_results):
+    def test_valid_selector(self, sample_html_with_results) -> None:
         """Test valid selector returns matching elements."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1128,7 +1128,7 @@ class TestSafeSelect:
     # Given: CSS selector that matches no elements
     # When: Calling _safe_select
     # Then: Returns empty list
-    def test_nonexistent_selector(self, sample_html_with_results):
+    def test_nonexistent_selector(self, sample_html_with_results) -> None:
         """Test non-existent selector returns empty list."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1139,7 +1139,7 @@ class TestSafeSelect:
     # Given: Invalid/malformed CSS selector
     # When: Calling _safe_select
     # Then: Returns empty list without raising exception
-    def test_invalid_selector(self, sample_html_with_results):
+    def test_invalid_selector(self, sample_html_with_results) -> None:
         """Test invalid selector returns empty list without exception."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1160,7 +1160,7 @@ class TestExceptionHandling:
     # Given: HTML that causes an internal exception during analysis
     # When: Creating diagnostic report
     # Then: Minimal report is returned with error info
-    def test_create_report_handles_exception(self):
+    def test_create_report_handles_exception(self) -> None:
         """Test create_diagnostic_report handles exceptions gracefully."""
         # Create a mock that raises an exception
         with patch.object(
@@ -1192,7 +1192,7 @@ class TestGetLatestDebugHtmlBoundary:
     # Given: engine=None
     # When: Getting latest debug HTML
     # Then: Returns any HTML file (no filter)
-    def test_engine_none(self, tmp_path):
+    def test_engine_none(self, tmp_path) -> None:
         """Test engine=None returns all HTML files."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -1212,7 +1212,7 @@ class TestGetLatestDebugHtmlBoundary:
     # Given: engine="" (empty string)
     # When: Getting latest debug HTML
     # Then: Treated as no filter (same as None)
-    def test_engine_empty_string(self, tmp_path):
+    def test_engine_empty_string(self, tmp_path) -> None:
         """Test engine='' is treated as no filter."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -1233,7 +1233,7 @@ class TestGetLatestDebugHtmlBoundary:
     # Given: Valid engine name
     # When: Getting latest debug HTML
     # Then: Returns only matching engine files
-    def test_engine_filter(self, tmp_path):
+    def test_engine_filter(self, tmp_path) -> None:
         """Test engine filter returns only matching files."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -1264,7 +1264,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector=None
     # When: Finding title elements
     # Then: Searches entire document
-    def test_container_selector_none(self, sample_html_with_results):
+    def test_container_selector_none(self, sample_html_with_results) -> None:
         """Test container_selector=None searches entire document."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1276,7 +1276,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector="" (empty string)
     # When: Finding title elements
     # Then: Treated as None (searches entire document)
-    def test_container_selector_empty_string(self, sample_html_with_results):
+    def test_container_selector_empty_string(self, sample_html_with_results) -> None:
         """Test container_selector='' is treated as None."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1288,7 +1288,7 @@ class TestContainerSelectorBoundary:
     # Given: Valid container_selector
     # When: Finding title elements
     # Then: Searches within container only
-    def test_container_selector_valid(self, sample_html_with_results):
+    def test_container_selector_valid(self, sample_html_with_results) -> None:
         """Test valid container_selector searches within container."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1300,7 +1300,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector="" for find_snippet_elements
     # When: Finding snippet elements
     # Then: Treated as None (searches entire document)
-    def test_snippet_container_empty_string(self, sample_html_with_results):
+    def test_snippet_container_empty_string(self, sample_html_with_results) -> None:
         """Test find_snippet_elements with empty container_selector."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1312,7 +1312,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector="" for find_url_elements
     # When: Finding URL elements
     # Then: Treated as None (searches entire document)
-    def test_url_container_empty_string(self, sample_html_with_results):
+    def test_url_container_empty_string(self, sample_html_with_results) -> None:
         """Test find_url_elements with empty container_selector."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 

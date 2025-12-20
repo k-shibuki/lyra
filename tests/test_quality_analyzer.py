@@ -57,7 +57,7 @@ class TestContentQualityAnalyzer:
 
     # === Thin Content Detection ===
 
-    def test_thin_content_detection_very_short(self, analyzer: ContentQualityAnalyzer):
+    def test_thin_content_detection_very_short(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of very thin content (§3.3.3)."""
         html = """
         <html>
@@ -73,7 +73,7 @@ class TestContentQualityAnalyzer:
         assert result.features.word_count < 100
         assert result.quality_score < 0.8
 
-    def test_thin_content_detection_few_paragraphs(self, analyzer: ContentQualityAnalyzer):
+    def test_thin_content_detection_few_paragraphs(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of content with too few paragraphs."""
         # Single paragraph with enough words but no structure
         html = """
@@ -92,7 +92,7 @@ class TestContentQualityAnalyzer:
         # Should detect thin content due to lack of structure
         assert result.features.paragraph_count < 3
 
-    def test_substantial_content_not_thin(self, analyzer: ContentQualityAnalyzer):
+    def test_substantial_content_not_thin(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that substantial content is not flagged as thin."""
         # Create varied paragraphs with different content to avoid repetition detection
         paragraphs = [
@@ -145,7 +145,7 @@ class TestContentQualityAnalyzer:
 
     # === Ad-Heavy Content Detection ===
 
-    def test_ad_heavy_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_ad_heavy_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of ad-heavy content (§3.1.1)."""
         html = """
         <html>
@@ -166,7 +166,7 @@ class TestContentQualityAnalyzer:
         assert result.features.ad_element_count >= 5
         assert result.penalty > 0
 
-    def test_minimal_ads_not_flagged(self, analyzer: ContentQualityAnalyzer):
+    def test_minimal_ads_not_flagged(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that minimal ads are not flagged."""
         paragraphs = [f"<p>Content paragraph {i} with meaningful text.</p>" for i in range(10)]
 
@@ -185,7 +185,7 @@ class TestContentQualityAnalyzer:
 
     # === Template-Heavy Content Detection ===
 
-    def test_template_heavy_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_template_heavy_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of template-heavy content."""
         # Lots of HTML structure, very little text
         html = (
@@ -232,7 +232,7 @@ class TestContentQualityAnalyzer:
 
     # === Repetitive Content Detection ===
 
-    def test_repetitive_content_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_repetitive_content_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of repetitive content (§3.3.3)."""
         # Highly repetitive text
         repeated_sentence = "This is a repeated sentence that appears many times. "
@@ -250,7 +250,7 @@ class TestContentQualityAnalyzer:
         assert QualityIssue.REPETITIVE in result.issues
         assert result.features.ngram_repetition_score > 0.2
 
-    def test_varied_content_not_repetitive(self, analyzer: ContentQualityAnalyzer):
+    def test_varied_content_not_repetitive(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that varied content is not flagged as repetitive."""
         html = """
         <html>
@@ -270,7 +270,7 @@ class TestContentQualityAnalyzer:
 
     # === Keyword Stuffing Detection ===
 
-    def test_keyword_stuffing_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_keyword_stuffing_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of keyword stuffing (§3.1.1)."""
         html = """
         <html>
@@ -293,7 +293,7 @@ class TestContentQualityAnalyzer:
 
     # === AI-Generated Content Detection ===
 
-    def test_ai_generated_content_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_ai_generated_content_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of AI-generated content patterns (§3.3.3)."""
         html = """
         <html>
@@ -320,7 +320,7 @@ class TestContentQualityAnalyzer:
         ai_details = result.issue_details.get("ai_generated", {})
         assert ai_details.get("pattern_matches", 0) >= 3
 
-    def test_natural_human_content_not_ai(self, analyzer: ContentQualityAnalyzer):
+    def test_natural_human_content_not_ai(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that natural human content is not flagged as AI-generated."""
         html = """
         <html>
@@ -344,7 +344,7 @@ class TestContentQualityAnalyzer:
 
     # === SEO Spam Detection ===
 
-    def test_seo_spam_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_seo_spam_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of SEO spam patterns (§3.1.1)."""
         html = """
         <html>
@@ -370,7 +370,7 @@ class TestContentQualityAnalyzer:
 
     # === Aggregator/Curation Site Detection ===
 
-    def test_aggregator_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_aggregator_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of aggregator/curation sites (§3.1.1)."""
         html = """
         <html>
@@ -390,7 +390,7 @@ class TestContentQualityAnalyzer:
         assert QualityIssue.AGGREGATOR in result.issues
         assert result.features.source_mention_count >= 3
 
-    def test_curated_list_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_curated_list_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of curated list patterns."""
         html = """
         <html>
@@ -409,7 +409,7 @@ class TestContentQualityAnalyzer:
 
     # === Clickbait Detection ===
 
-    def test_clickbait_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_clickbait_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of clickbait patterns."""
         html = """
         <html>
@@ -428,7 +428,7 @@ class TestContentQualityAnalyzer:
 
     # === Quality Score Calculation ===
 
-    def test_high_quality_content_score(self, analyzer: ContentQualityAnalyzer):
+    def test_high_quality_content_score(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that high-quality content gets a high score."""
         paragraphs = [
             f"<p>This is paragraph {i} discussing important aspects of the research topic. "
@@ -461,7 +461,7 @@ class TestContentQualityAnalyzer:
         assert len(result.issues) <= 1
         assert not result.is_low_quality
 
-    def test_low_quality_content_score(self, analyzer: ContentQualityAnalyzer):
+    def test_low_quality_content_score(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that low-quality content gets a low score."""
         html = """
         <html>
@@ -484,7 +484,7 @@ class TestContentQualityAnalyzer:
 
     # === Penalty Calculation ===
 
-    def test_penalty_calculation_multiple_issues(self, analyzer: ContentQualityAnalyzer):
+    def test_penalty_calculation_multiple_issues(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test penalty calculation with multiple issues."""
         html = """
         <html>
@@ -505,7 +505,7 @@ class TestContentQualityAnalyzer:
         assert result.penalty > 0.2
         assert result.penalty <= 0.8  # Capped at 0.8
 
-    def test_no_penalty_for_quality_content(self, analyzer: ContentQualityAnalyzer):
+    def test_no_penalty_for_quality_content(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test no penalty for quality content."""
         # Use diverse, realistic content to avoid triggering quality issues
         html = """
@@ -554,7 +554,7 @@ class TestContentQualityAnalyzer:
 
     # === Feature Extraction ===
 
-    def test_feature_extraction_text_stats(self, analyzer: ContentQualityAnalyzer):
+    def test_feature_extraction_text_stats(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test text statistics feature extraction."""
         html = """
         <html>
@@ -572,7 +572,7 @@ class TestContentQualityAnalyzer:
         assert result.features.paragraph_count >= 2
         assert result.features.avg_sentence_length > 0
 
-    def test_feature_extraction_structural(self, analyzer: ContentQualityAnalyzer):
+    def test_feature_extraction_structural(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test structural feature extraction."""
         html = """
         <html>
@@ -593,7 +593,7 @@ class TestContentQualityAnalyzer:
         assert result.features.image_count >= 1
         assert result.features.script_count >= 1
 
-    def test_feature_extraction_link_density(self, analyzer: ContentQualityAnalyzer):
+    def test_feature_extraction_link_density(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test link density calculation."""
         html = """
         <html>
@@ -610,7 +610,7 @@ class TestContentQualityAnalyzer:
 
     # === Affiliate Link Detection ===
 
-    def test_affiliate_link_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_affiliate_link_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of affiliate links."""
         html = """
         <html>
@@ -628,7 +628,7 @@ class TestContentQualityAnalyzer:
 
     # === Call-to-Action Detection ===
 
-    def test_cta_detection(self, analyzer: ContentQualityAnalyzer):
+    def test_cta_detection(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test detection of call-to-action patterns."""
         html = """
         <html>
@@ -645,7 +645,7 @@ class TestContentQualityAnalyzer:
 
     # === Reason Generation ===
 
-    def test_reason_generation_no_issues(self, analyzer: ContentQualityAnalyzer):
+    def test_reason_generation_no_issues(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test reason generation when no issues found."""
         paragraphs = [f"<p>Quality content paragraph {i}.</p>" for i in range(10)]
         html = f"<html><body>{''.join(paragraphs)}</body></html>"
@@ -655,7 +655,7 @@ class TestContentQualityAnalyzer:
         if not result.issues:
             assert "No quality issues detected" in result.reason
 
-    def test_reason_generation_with_issues(self, analyzer: ContentQualityAnalyzer):
+    def test_reason_generation_with_issues(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test reason generation with detected issues."""
         html = """
         <html>
@@ -680,14 +680,14 @@ class TestContentQualityAnalyzer:
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
-    def test_get_quality_analyzer_singleton(self):
+    def test_get_quality_analyzer_singleton(self) -> None:
         """Test that get_quality_analyzer returns singleton."""
         analyzer1 = get_quality_analyzer()
         analyzer2 = get_quality_analyzer()
 
         assert analyzer1 is analyzer2
 
-    def test_analyze_content_quality_function(self):
+    def test_analyze_content_quality_function(self) -> None:
         """Test the analyze_content_quality convenience function."""
         html = """
         <html>
@@ -702,7 +702,7 @@ class TestConvenienceFunctions:
         assert isinstance(result, QualityResult)
         assert 0.0 <= result.quality_score <= 1.0
 
-    def test_analyze_with_extracted_text(self):
+    def test_analyze_with_extracted_text(self) -> None:
         """Test analysis with pre-extracted text."""
         html = "<html><body><p>Test</p></body></html>"
         text = "This is pre-extracted text with more content than the HTML shows."
@@ -719,14 +719,14 @@ class TestEdgeCases:
     def analyzer(self) -> ContentQualityAnalyzer:
         return ContentQualityAnalyzer()
 
-    def test_empty_html(self, analyzer: ContentQualityAnalyzer):
+    def test_empty_html(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test handling of empty HTML."""
         result = analyzer.analyze("")
 
         assert result.quality_score >= 0.0
         assert isinstance(result.issues, list)
 
-    def test_html_only_tags(self, analyzer: ContentQualityAnalyzer):
+    def test_html_only_tags(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test handling of HTML with only tags, no text."""
         html = "<html><head></head><body><div><span></span></div></body></html>"
 
@@ -735,7 +735,7 @@ class TestEdgeCases:
         assert result.features.word_count == 0
         assert QualityIssue.THIN_CONTENT in result.issues
 
-    def test_very_long_content(self, analyzer: ContentQualityAnalyzer):
+    def test_very_long_content(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test handling of very long content."""
         paragraphs = [
             f"<p>This is paragraph number {i} with substantial content that "
@@ -750,7 +750,7 @@ class TestEdgeCases:
         assert result.features.word_count > 1000
         assert result.features.paragraph_count >= 100
 
-    def test_unicode_content(self, analyzer: ContentQualityAnalyzer):
+    def test_unicode_content(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test handling of Unicode/Japanese content."""
         html = """
         <html>
@@ -768,7 +768,7 @@ class TestEdgeCases:
         assert result.features.word_count > 0
         assert isinstance(result.quality_score, float)
 
-    def test_malformed_html(self, analyzer: ContentQualityAnalyzer):
+    def test_malformed_html(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test handling of malformed HTML."""
         html = "<html><body><p>Unclosed paragraph<div>Mixed tags</p></div></body>"
 
@@ -777,7 +777,7 @@ class TestEdgeCases:
         # Should not raise, should produce some result
         assert isinstance(result, QualityResult)
 
-    def test_script_and_style_removal(self, analyzer: ContentQualityAnalyzer):
+    def test_script_and_style_removal(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that script and style content is properly removed."""
         html = """
         <html>
@@ -806,7 +806,7 @@ class TestBurstinessAndUniformity:
     def analyzer(self) -> ContentQualityAnalyzer:
         return ContentQualityAnalyzer()
 
-    def test_high_burstiness_natural_text(self, analyzer: ContentQualityAnalyzer):
+    def test_high_burstiness_natural_text(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that natural text has higher burstiness."""
         html = """
         <html>
@@ -825,7 +825,7 @@ class TestBurstinessAndUniformity:
         # Natural text should have varied sentence lengths
         assert result.features.burstiness_score > 0.2
 
-    def test_low_burstiness_uniform_text(self, analyzer: ContentQualityAnalyzer):
+    def test_low_burstiness_uniform_text(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test that uniform text has lower burstiness."""
         # All sentences roughly same length
         html = """
@@ -845,7 +845,7 @@ class TestBurstinessAndUniformity:
         # Uniform text should have lower burstiness
         assert result.features.burstiness_score < 0.5
 
-    def test_uniformity_score_calculation(self, analyzer: ContentQualityAnalyzer):
+    def test_uniformity_score_calculation(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test uniformity score calculation."""
         # Highly uniform text
         html = """
@@ -871,7 +871,7 @@ class TestIntegrationWithPageClassifier:
     def analyzer(self) -> ContentQualityAnalyzer:
         return ContentQualityAnalyzer()
 
-    def test_forum_content_quality(self, analyzer: ContentQualityAnalyzer):
+    def test_forum_content_quality(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test quality analysis of forum-like content."""
         html = """
         <html>
@@ -895,7 +895,7 @@ class TestIntegrationWithPageClassifier:
         # Forum content might be thin but shouldn't be heavily penalized
         assert result.quality_score >= 0.3
 
-    def test_wiki_content_quality(self, analyzer: ContentQualityAnalyzer):
+    def test_wiki_content_quality(self, analyzer: ContentQualityAnalyzer) -> None:
         """Test quality analysis of wiki-like content."""
         html = """
         <html>

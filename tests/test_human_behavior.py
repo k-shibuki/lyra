@@ -56,7 +56,7 @@ pytestmark = pytest.mark.unit
 class TestMouseConfig:
     """Tests for MouseConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default configuration values."""
         config = MouseConfig()
         assert config.base_speed == 800.0
@@ -70,7 +70,7 @@ class TestMouseConfig:
         assert config.min_steps == 10
         assert config.max_steps == 50
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom configuration values."""
         config = MouseConfig(
             base_speed=1200.0,
@@ -90,24 +90,24 @@ class TestMouseConfig:
 class TestPoint:
     """Tests for Point dataclass."""
 
-    def test_distance_to_same_point(self):
+    def test_distance_to_same_point(self) -> None:
         """Test distance to same point is zero."""
         p = Point(10.0, 20.0)
         assert p.distance_to(p) == 0.0
 
-    def test_distance_to_horizontal(self):
+    def test_distance_to_horizontal(self) -> None:
         """Test horizontal distance calculation."""
         p1 = Point(0.0, 0.0)
         p2 = Point(100.0, 0.0)
         assert p1.distance_to(p2) == 100.0
 
-    def test_distance_to_vertical(self):
+    def test_distance_to_vertical(self) -> None:
         """Test vertical distance calculation."""
         p1 = Point(0.0, 0.0)
         p2 = Point(0.0, 50.0)
         assert p1.distance_to(p2) == 50.0
 
-    def test_distance_to_diagonal(self):
+    def test_distance_to_diagonal(self) -> None:
         """Test diagonal distance calculation (3-4-5 triangle)."""
         p1 = Point(0.0, 0.0)
         p2 = Point(3.0, 4.0)
@@ -122,7 +122,7 @@ class TestPoint:
 class TestMouseTrajectory:
     """Tests for MouseTrajectory class."""
 
-    def test_generate_path_basic(self):
+    def test_generate_path_basic(self) -> None:
         """Test basic path generation."""
         trajectory = MouseTrajectory()
         path = trajectory.generate_path(
@@ -142,7 +142,7 @@ class TestMouseTrajectory:
             assert isinstance(delay, float)
             assert delay >= 0
 
-    def test_generate_path_starts_at_start(self):
+    def test_generate_path_starts_at_start(self) -> None:
         """Test path starts near starting point."""
         trajectory = MouseTrajectory()
         path = trajectory.generate_path(
@@ -155,7 +155,7 @@ class TestMouseTrajectory:
         assert abs(x - 50.0) < 10  # Allow for jitter
         assert abs(y - 50.0) < 10
 
-    def test_generate_path_ends_at_end(self):
+    def test_generate_path_ends_at_end(self) -> None:
         """Test path ends near ending point."""
         trajectory = MouseTrajectory()
         path = trajectory.generate_path(
@@ -168,7 +168,7 @@ class TestMouseTrajectory:
         assert abs(x - 300.0) < 10
         assert abs(y - 200.0) < 10
 
-    def test_generate_path_short_distance(self):
+    def test_generate_path_short_distance(self) -> None:
         """Test path generation for very short distance."""
         trajectory = MouseTrajectory()
         path = trajectory.generate_path(
@@ -179,7 +179,7 @@ class TestMouseTrajectory:
         # Should return at least one point
         assert len(path) >= 1
 
-    def test_generate_path_same_point(self):
+    def test_generate_path_same_point(self) -> None:
         """Test path generation when start equals end."""
         trajectory = MouseTrajectory()
         path = trajectory.generate_path(
@@ -193,7 +193,7 @@ class TestMouseTrajectory:
         assert x == 100.0
         assert y == 100.0
 
-    def test_generate_path_uses_bezier(self):
+    def test_generate_path_uses_bezier(self) -> None:
         """Test path uses Bezier curve (not straight line)."""
         trajectory = MouseTrajectory(
             MouseConfig(
@@ -211,7 +211,7 @@ class TestMouseTrajectory:
         max_deviation = max(abs(y) for y in y_values)
         assert max_deviation > 0  # Should have some curve
 
-    def test_speed_factor_acceleration(self):
+    def test_speed_factor_acceleration(self) -> None:
         """Test speed factor for acceleration phase."""
         trajectory = MouseTrajectory()
 
@@ -222,7 +222,7 @@ class TestMouseTrajectory:
 
         assert factor_start < factor_mid
 
-    def test_speed_factor_deceleration(self):
+    def test_speed_factor_deceleration(self) -> None:
         """Test speed factor for deceleration phase."""
         trajectory = MouseTrajectory()
 
@@ -242,7 +242,7 @@ class TestMouseTrajectory:
 class TestHumanTyping:
     """Tests for HumanTyping class."""
 
-    def test_generate_keystrokes_basic(self):
+    def test_generate_keystrokes_basic(self) -> None:
         """Test basic keystroke generation."""
         typing = HumanTyping()
         events = typing.generate_keystrokes("hello")
@@ -256,7 +256,7 @@ class TestHumanTyping:
         )
         assert first_key_event.key == "h"
 
-    def test_generate_keystrokes_delays(self):
+    def test_generate_keystrokes_delays(self) -> None:
         """Test keystroke delays are within bounds."""
         config = TypingConfig(min_delay_ms=50.0, max_delay_ms=200.0)
         typing = HumanTyping(config)
@@ -267,7 +267,7 @@ class TestHumanTyping:
                 assert event.delay_ms >= config.min_delay_ms
                 # Note: May exceed max due to punctuation multiplier
 
-    def test_generate_keystrokes_punctuation_pause(self):
+    def test_generate_keystrokes_punctuation_pause(self) -> None:
         """Test longer pause after punctuation."""
         config = TypingConfig(
             mean_delay_ms=100.0,
@@ -286,13 +286,13 @@ class TestHumanTyping:
         # Note: Due to random distribution, we just check structure
         assert len(key_events) == 3
 
-    def test_generate_keystrokes_empty_string(self):
+    def test_generate_keystrokes_empty_string(self) -> None:
         """Test empty string generates no events."""
         typing = HumanTyping()
         events = typing.generate_keystrokes("")
         assert events == []
 
-    def test_typo_generation(self):
+    def test_typo_generation(self) -> None:
         """Test typo generation and correction."""
         config = TypingConfig(typo_probability=1.0)  # Always typo
         typing = HumanTyping(config)
@@ -305,7 +305,7 @@ class TestHumanTyping:
         assert TypingEvent.EventType.BACKSPACE in event_types
         assert len(events) >= 3
 
-    def test_no_typo_for_unknown_char(self):
+    def test_no_typo_for_unknown_char(self) -> None:
         """Test no typo for characters without adjacent keys."""
         config = TypingConfig(typo_probability=1.0)  # Always typo
         typing = HumanTyping(config)
@@ -326,7 +326,7 @@ class TestHumanTyping:
 class TestInertialScroll:
     """Tests for InertialScroll class."""
 
-    def test_generate_scroll_sequence_basic(self):
+    def test_generate_scroll_sequence_basic(self) -> None:
         """Test basic scroll sequence generation."""
         scroll = InertialScroll()
         steps = scroll.generate_scroll_sequence(
@@ -345,7 +345,7 @@ class TestInertialScroll:
             assert isinstance(step.delay_ms, float)
             assert step.delay_ms >= 0
 
-    def test_generate_scroll_sequence_reaches_bottom(self):
+    def test_generate_scroll_sequence_reaches_bottom(self) -> None:
         """Test scroll sequence reaches near page bottom."""
         scroll = InertialScroll(
             ScrollConfig(
@@ -364,7 +364,7 @@ class TestInertialScroll:
         last_position = steps[-1].position
         assert last_position >= max_scroll * 0.9  # Within 10% of max
 
-    def test_generate_scroll_sequence_no_scroll_needed(self):
+    def test_generate_scroll_sequence_no_scroll_needed(self) -> None:
         """Test when page fits in viewport (no scroll needed)."""
         scroll = InertialScroll()
         steps = scroll.generate_scroll_sequence(
@@ -376,7 +376,7 @@ class TestInertialScroll:
         # Should have no steps (or empty list)
         assert len(steps) == 0
 
-    def test_inertial_animation_ease_out(self):
+    def test_inertial_animation_ease_out(self) -> None:
         """Test inertial animation has ease-out effect."""
         scroll = InertialScroll()
         steps = scroll._generate_inertial_animation(0, 400, num_steps=10)
@@ -391,7 +391,7 @@ class TestInertialScroll:
         # Ease-out means larger steps at start, smaller at end
         assert step_sizes[0] > step_sizes[-1]
 
-    def test_generate_single_scroll_down(self):
+    def test_generate_single_scroll_down(self) -> None:
         """Test single scroll down."""
         scroll = InertialScroll()
         steps = scroll.generate_single_scroll(direction=1)
@@ -402,7 +402,7 @@ class TestInertialScroll:
         final_position = steps[-1].position
         assert final_position > 0
 
-    def test_generate_single_scroll_up(self):
+    def test_generate_single_scroll_up(self) -> None:
         """Test single scroll up."""
         scroll = InertialScroll()
         steps = scroll.generate_single_scroll(direction=-1)
@@ -422,7 +422,7 @@ class TestInertialScroll:
 class TestHumanBehaviorConfig:
     """Tests for HumanBehaviorConfig class."""
 
-    def test_default_config(self):
+    def test_default_config(self) -> None:
         """Test default configuration."""
         config = HumanBehaviorConfig()
         assert isinstance(config.mouse, MouseConfig)
@@ -431,14 +431,14 @@ class TestHumanBehaviorConfig:
         assert config.think_time_min_ms == 200.0
         assert config.think_time_max_ms == 800.0
 
-    def test_from_yaml_file_not_found(self):
+    def test_from_yaml_file_not_found(self) -> None:
         """Test loading from non-existent file returns defaults."""
         config = HumanBehaviorConfig.from_yaml("/nonexistent/path.yaml")
         assert isinstance(config, HumanBehaviorConfig)
         # Should have default values
         assert config.mouse.base_speed == 800.0
 
-    def test_from_yaml_valid_file(self, tmp_path):
+    def test_from_yaml_valid_file(self, tmp_path) -> None:
         """Test loading from valid YAML file."""
         yaml_content = """
 mouse:
@@ -469,7 +469,7 @@ think_time_min_ms: 300.0
 class TestHumanBehaviorSimulator:
     """Tests for HumanBehaviorSimulator class."""
 
-    def test_init_default(self):
+    def test_init_default(self) -> None:
         """Test default initialization."""
         simulator = HumanBehaviorSimulator()
         assert simulator._config is not None
@@ -477,7 +477,7 @@ class TestHumanBehaviorSimulator:
         assert simulator._typing is not None
         assert simulator._scroll is not None
 
-    def test_init_with_config(self):
+    def test_init_with_config(self) -> None:
         """Test initialization with custom config."""
         config = HumanBehaviorConfig(
             mouse=MouseConfig(base_speed=1500.0),
@@ -485,7 +485,7 @@ class TestHumanBehaviorSimulator:
         simulator = HumanBehaviorSimulator(config)
         assert simulator._config.mouse.base_speed == 1500.0
 
-    def test_from_config_file(self, tmp_path):
+    def test_from_config_file(self, tmp_path) -> None:
         """Test creating from config file."""
         yaml_content = """
 mouse:
@@ -497,7 +497,7 @@ mouse:
         simulator = HumanBehaviorSimulator.from_config_file(yaml_file)
         assert simulator._config.mouse.base_speed == 1000.0
 
-    def test_random_delay_bounds(self):
+    def test_random_delay_bounds(self) -> None:
         """Test random_delay respects bounds."""
         simulator = HumanBehaviorSimulator()
 
@@ -506,7 +506,7 @@ mouse:
             assert 0.5 <= delay <= 2.0
 
     @pytest.mark.asyncio
-    async def test_move_mouse(self):
+    async def test_move_mouse(self) -> None:
         """Test move_mouse with mock page."""
         simulator = HumanBehaviorSimulator()
 
@@ -525,7 +525,7 @@ mouse:
         assert page.mouse.move.call_count > 0
 
     @pytest.mark.asyncio
-    async def test_move_to_element_success(self):
+    async def test_move_to_element_success(self) -> None:
         """Test move_to_element with valid element."""
         simulator = HumanBehaviorSimulator()
 
@@ -547,7 +547,7 @@ mouse:
         assert page.mouse.move.call_count > 0
 
     @pytest.mark.asyncio
-    async def test_move_to_element_not_found(self):
+    async def test_move_to_element_not_found(self) -> None:
         """Test move_to_element with missing element."""
         simulator = HumanBehaviorSimulator()
 
@@ -559,7 +559,7 @@ mouse:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_type_text(self):
+    async def test_type_text(self) -> None:
         """Test type_text with mock page."""
         simulator = HumanBehaviorSimulator(
             HumanBehaviorConfig(
@@ -578,7 +578,7 @@ mouse:
         assert page.keyboard.type.call_count >= 2
 
     @pytest.mark.asyncio
-    async def test_scroll_page(self):
+    async def test_scroll_page(self) -> None:
         """Test scroll_page with mock page."""
         simulator = HumanBehaviorSimulator()
 
@@ -591,7 +591,7 @@ mouse:
         assert page.evaluate.call_count > 0
 
     @pytest.mark.asyncio
-    async def test_read_page(self):
+    async def test_read_page(self) -> None:
         """Test read_page with mock page."""
         simulator = HumanBehaviorSimulator()
 
@@ -610,7 +610,7 @@ mouse:
         assert page.evaluate.call_count >= 1
 
     @pytest.mark.asyncio
-    async def test_think(self):
+    async def test_think(self) -> None:
         """Test think delay."""
         simulator = HumanBehaviorSimulator(
             HumanBehaviorConfig(
@@ -639,18 +639,18 @@ class TestGlobalInstance:
         """Reset global instance before each test."""
         reset_human_behavior_simulator()
 
-    def test_get_human_behavior_simulator_default(self):
+    def test_get_human_behavior_simulator_default(self) -> None:
         """Test getting default simulator."""
         simulator = get_human_behavior_simulator()
         assert isinstance(simulator, HumanBehaviorSimulator)
 
-    def test_get_human_behavior_simulator_same_instance(self):
+    def test_get_human_behavior_simulator_same_instance(self) -> None:
         """Test same instance is returned."""
         sim1 = get_human_behavior_simulator()
         sim2 = get_human_behavior_simulator()
         assert sim1 is sim2
 
-    def test_get_human_behavior_simulator_with_config(self, tmp_path):
+    def test_get_human_behavior_simulator_with_config(self, tmp_path) -> None:
         """Test getting simulator with config file."""
         yaml_content = """
 mouse:
@@ -662,7 +662,7 @@ mouse:
         simulator = get_human_behavior_simulator(config_path=yaml_file)
         assert simulator._config.mouse.base_speed == 999.0
 
-    def test_reset_human_behavior_simulator(self):
+    def test_reset_human_behavior_simulator(self) -> None:
         """Test resetting simulator."""
         sim1 = get_human_behavior_simulator()
         reset_human_behavior_simulator()

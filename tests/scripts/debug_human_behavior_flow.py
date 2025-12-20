@@ -24,7 +24,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def test_browser_fetcher_human_behavior():
+async def test_browser_fetcher_human_behavior() -> None:
     """Test human behavior simulation in BrowserFetcher.fetch()."""
     print("\n" + "=" * 80)
     print("[Test 1] BrowserFetcher.fetch() with human behavior simulation")
@@ -65,7 +65,7 @@ async def test_browser_fetcher_human_behavior():
             pass
 
 
-async def test_browser_search_provider_human_behavior():
+async def test_browser_search_provider_human_behavior() -> None:
     """Test human behavior simulation in BrowserSearchProvider.search()."""
     print("\n" + "=" * 80)
     print("[Test 2] BrowserSearchProvider.search() with human behavior simulation")

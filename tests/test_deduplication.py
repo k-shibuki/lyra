@@ -11,7 +11,7 @@ pytestmark = pytest.mark.unit
 class TestShingleTokenizer:
     """Tests for ShingleTokenizer."""
 
-    def test_word_shingles_basic(self):
+    def test_word_shingles_basic(self) -> None:
         """Test basic word shingle extraction.
 
         Validates shingle generation for §3.3.3 MinHash deduplication.
@@ -33,7 +33,7 @@ class TestShingleTokenizer:
         assert "quick brown" in shingles, f"Expected 'quick brown' in shingles, got {shingles}"
         assert "brown fox" in shingles, f"Expected 'brown fox' in shingles, got {shingles}"
 
-    def test_word_shingles_short_text(self):
+    def test_word_shingles_short_text(self) -> None:
         """Test shingles for text shorter than shingle size."""
         from src.filter.deduplication import ShingleTokenizer
 
@@ -44,7 +44,7 @@ class TestShingleTokenizer:
         # Short text returns single shingle
         assert len(shingles) == 1
 
-    def test_character_shingles(self):
+    def test_character_shingles(self) -> None:
         """Test character-level shingles."""
         from src.filter.deduplication import ShingleTokenizer
 
@@ -57,7 +57,7 @@ class TestShingleTokenizer:
         assert "hel" in shingles
         assert "llo" in shingles
 
-    def test_empty_text(self):
+    def test_empty_text(self) -> None:
         """Test handling of empty text."""
         from src.filter.deduplication import ShingleTokenizer
 
@@ -70,7 +70,7 @@ class TestShingleTokenizer:
 class TestMinHashDeduplicator:
     """Tests for MinHashDeduplicator."""
 
-    def test_add_and_query(self):
+    def test_add_and_query(self) -> None:
         """Test adding fragments and querying.
 
         Requirements: §3.3.3 - MinHash/SimHash for duplicate detection
@@ -91,7 +91,7 @@ class TestMinHashDeduplicator:
         assert "f2" in similar, f"Identical text not found. Got: {similar}"
         assert "f3" not in similar, "Unrelated text incorrectly marked as similar"
 
-    def test_find_duplicates(self):
+    def test_find_duplicates(self) -> None:
         """Test finding duplicates of a fragment.
 
         Validates that near-duplicates are detected at production threshold.
@@ -115,7 +115,7 @@ class TestMinHashDeduplicator:
         assert "f2" in duplicate_ids, f"Identical text f2 not found. Got: {duplicate_ids}"
         assert "f3" not in duplicate_ids, "Unrelated text f3 incorrectly marked as duplicate"
 
-    def test_get_similarity(self):
+    def test_get_similarity(self) -> None:
         """Test similarity calculation."""
         from src.filter.deduplication import MinHashDeduplicator
 
@@ -130,7 +130,7 @@ class TestMinHashDeduplicator:
         # Then: Similarity is very high (>0.9) for identical texts
         assert similarity > 0.9
 
-    def test_get_clusters(self):
+    def test_get_clusters(self) -> None:
         """Test cluster generation.
 
         Validates that identical texts are clustered together.
@@ -156,7 +156,7 @@ class TestMinHashDeduplicator:
             f"Cluster should have 2 members, got {len(cluster.fragment_ids)}"
         )
 
-    def test_get_duplicate_ratio(self):
+    def test_get_duplicate_ratio(self) -> None:
         """Test duplicate ratio calculation.
 
         §7 requirement: duplicate cluster ratio ≤20%
@@ -179,7 +179,7 @@ class TestMinHashDeduplicator:
             f"Expected ratio ~{expected_ratio:.2f}, got {ratio:.2f}"
         )
 
-    def test_deduplicate_keep_first(self):
+    def test_deduplicate_keep_first(self) -> None:
         """Test deduplication with keep='first' strategy."""
         from src.filter.deduplication import MinHashDeduplicator
 
@@ -200,7 +200,7 @@ class TestMinHashDeduplicator:
         assert "f1" in result_ids  # First kept
         assert "f3" in result_ids
 
-    def test_deduplicate_keep_longest(self):
+    def test_deduplicate_keep_longest(self) -> None:
         """Test deduplication with keep='longest' strategy."""
         from src.filter.deduplication import MinHashDeduplicator
 
@@ -219,7 +219,7 @@ class TestMinHashDeduplicator:
         # Then: Unique content is preserved
         assert "f3" in result_ids
 
-    def test_clear(self):
+    def test_clear(self) -> None:
         """Test clearing the deduplicator."""
         from src.filter.deduplication import MinHashDeduplicator
 
@@ -238,7 +238,7 @@ class TestMinHashDeduplicator:
 class TestSimHash:
     """Tests for SimHash."""
 
-    def test_compute_identical_texts(self):
+    def test_compute_identical_texts(self) -> None:
         """Test SimHash for identical texts."""
         from src.filter.deduplication import SimHash
 
@@ -253,7 +253,7 @@ class TestSimHash:
         # Then: Hashes are identical
         assert h1 == h2
 
-    def test_hamming_distance_identical(self):
+    def test_hamming_distance_identical(self) -> None:
         """Test Hamming distance for identical hashes."""
         from src.filter.deduplication import SimHash
 
@@ -264,7 +264,7 @@ class TestSimHash:
         # Then: Distance is zero
         assert dist == 0
 
-    def test_hamming_distance_different(self):
+    def test_hamming_distance_different(self) -> None:
         """Test Hamming distance for different hashes."""
         from src.filter.deduplication import SimHash
 
@@ -275,7 +275,7 @@ class TestSimHash:
         # Then: Distance equals the number of differing bits
         assert dist == 2
 
-    def test_add_and_get_distance(self):
+    def test_add_and_get_distance(self) -> None:
         """Test adding fragments and getting distance."""
         from src.filter.deduplication import SimHash
 
@@ -292,7 +292,7 @@ class TestSimHash:
         # Then: Similar texts have lower distance than dissimilar texts
         assert dist_f1_f2 < dist_f1_f3
 
-    def test_is_similar(self):
+    def test_is_similar(self) -> None:
         """Test similarity check."""
         from src.filter.deduplication import SimHash
 
@@ -305,7 +305,7 @@ class TestSimHash:
         # Then: Identical texts are considered similar
         assert sh.is_similar("f1", "f2", max_distance=3)
 
-    def test_find_similar(self):
+    def test_find_similar(self) -> None:
         """Test finding similar fragments with SimHash."""
         from src.filter.deduplication import SimHash
 
@@ -327,7 +327,7 @@ class TestSimHash:
 class TestHybridDeduplicator:
     """Tests for HybridDeduplicator."""
 
-    def test_add_and_find_duplicates(self):
+    def test_add_and_find_duplicates(self) -> None:
         """Test hybrid deduplication combines MinHash and SimHash correctly."""
         from src.filter.deduplication import HybridDeduplicator
 
@@ -349,7 +349,7 @@ class TestHybridDeduplicator:
         assert len(duplicates) >= 1, "No duplicates found for identical text"
         assert "f2" in dup_ids, f"Identical text f2 not found. Got: {dup_ids}"
 
-    def test_add_batch(self):
+    def test_add_batch(self) -> None:
         """Test batch adding."""
         from src.filter.deduplication import HybridDeduplicator
 
@@ -372,7 +372,7 @@ class TestDeduplicateFragments:
     """Tests for deduplicate_fragments function."""
 
     @pytest.mark.asyncio
-    async def test_deduplicate_fragments_basic(self):
+    async def test_deduplicate_fragments_basic(self) -> None:
         """Test basic deduplication."""
         # Given: A list of fragments with duplicates
         import src.filter.deduplication as dedup_module
@@ -397,7 +397,7 @@ class TestDeduplicateFragments:
         assert result["original_count"] == 3
 
     @pytest.mark.asyncio
-    async def test_deduplicate_fragments_empty(self):
+    async def test_deduplicate_fragments_empty(self) -> None:
         """Test deduplication with empty list."""
         # Given: An empty list of fragments
         import src.filter.deduplication as dedup_module
@@ -417,7 +417,7 @@ class TestDeduplicateFragments:
 class TestDuplicateCluster:
     """Tests for DuplicateCluster dataclass."""
 
-    def test_duplicate_cluster_len(self):
+    def test_duplicate_cluster_len(self) -> None:
         """Test __len__ method."""
         from src.filter.deduplication import DuplicateCluster
 

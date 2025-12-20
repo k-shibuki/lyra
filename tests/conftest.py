@@ -117,14 +117,24 @@ Mock Strategy (§7.1.7)
 
 import os
 import tempfile
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
+
+if TYPE_CHECKING:
+    from _pytest.config import Config
+    from _pytest.fixtures import FixtureRequest
+    from _pytest.main import Session
+    from _pytest.nodes import Item
+
+    from src.storage.database import Database
+    from src.utils.config import Settings
 
 # Set test environment before importing anything else
 os.environ["LYRA_CONFIG_DIR"] = str(Path(__file__).parent.parent / "config")
@@ -290,7 +300,9 @@ def _check_core_dependencies() -> tuple[bool, list[str]]:
 _deps_available, _missing_deps = _check_core_dependencies()
 
 
-def pytest_ignore_collect(collection_path, config):
+def pytest_ignore_collect(
+    collection_path: Path, config: "Config"
+) -> bool | None:
     """Skip test modules that require unavailable dependencies.
 
     ONLY in cloud agent environments with missing dependencies,
@@ -329,7 +341,7 @@ def pytest_ignore_collect(collection_path, config):
 # =============================================================================
 
 
-def pytest_configure(config):
+def pytest_configure(config: "Config") -> None:
     """Register custom markers for test classification per §7.1.7 and §16.10.1."""
     # Primary classification markers
     config.addinivalue_line(
@@ -394,7 +406,7 @@ def pytest_configure(config):
             print("  Dependencies: Full")
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: "Config", items: list["Item"]) -> None:
     """
     Auto-apply markers and skip tests based on environment.
 
@@ -439,7 +451,7 @@ def pytest_collection_modifyitems(config, items):
                     item.add_marker(skip_slow_reason)
 
 
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish(session: "Session", exitstatus: int) -> None:
     """Clean up global async resources after all tests complete.
 
     This ensures aiosqlite connections are properly closed before
@@ -449,7 +461,7 @@ def pytest_sessionfinish(session, exitstatus):
     import asyncio
     import gc
 
-    async def cleanup_async_resources():
+    async def cleanup_async_resources() -> None:
         # Force garbage collection while event loop is still available
         # This allows aiosqlite Connection.__del__ to run properly
         gc.collect()
@@ -490,7 +502,7 @@ def temp_db_path(temp_dir: Path) -> Path:
 
 
 @pytest_asyncio.fixture
-async def test_database(temp_db_path: Path):
+async def test_database(temp_db_path: Path) -> AsyncGenerator["Database", None]:
     """Create a temporary test database.
 
     Guards against global database singleton interference by saving
@@ -517,7 +529,7 @@ async def test_database(temp_db_path: Path):
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> "Settings":
     """Create mock settings for testing."""
     from src.utils.config import (
         BrowserConfig,
@@ -567,7 +579,7 @@ def mock_settings():
 
 
 @pytest.fixture
-def sample_passages():
+def sample_passages() -> list[dict[str, str]]:
     """Sample passages for ranking tests."""
     return [
         {
@@ -594,7 +606,7 @@ def sample_passages():
 
 
 @pytest.fixture
-def mock_aiohttp_session():
+def mock_aiohttp_session() -> AsyncMock:
     """Create mock aiohttp session."""
     session = AsyncMock()
     return session
@@ -603,25 +615,30 @@ def mock_aiohttp_session():
 class MockResponse:
     """Mock aiohttp response."""
 
-    def __init__(self, json_data: dict, status: int = 200):
+    def __init__(self, json_data: dict[str, object], status: int = 200) -> None:
         self._json_data = json_data
         self.status = status
 
-    async def json(self):
+    async def json(self) -> dict[str, object]:
         return self._json_data
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "MockResponse":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         pass
 
 
 @pytest.fixture
-def make_mock_response():
+def make_mock_response() -> Callable[[dict[str, object], int], MockResponse]:
     """Factory for creating mock responses."""
 
-    def _make(json_data: dict, status: int = 200):
+    def _make(json_data: dict[str, object], status: int = 200) -> MockResponse:
         return MockResponse(json_data, status)
 
     return _make
@@ -633,7 +650,7 @@ def make_mock_response():
 
 
 @pytest.fixture(autouse=True)
-def reset_search_provider():
+def reset_search_provider() -> Generator[None, None, None]:
     """Reset search provider singletons between tests.
 
     Ensures that each test starts with a fresh provider state.
@@ -651,7 +668,7 @@ def reset_search_provider():
 
 
 @pytest.fixture(autouse=True)
-def reset_global_database():
+def reset_global_database() -> Generator[None, None, None]:
     """Reset global database singleton between tests.
 
     Prevents asyncio.Lock() from being bound to a stale event loop,
@@ -677,7 +694,7 @@ def reset_global_database():
 
 
 @pytest.fixture
-def mock_ollama():
+def mock_ollama() -> Generator[MagicMock, None, None]:
     """Mock Ollama client for unit tests.
 
     Per §7.1.7: External services (Ollama) should be mocked in unit/integration tests.
@@ -688,7 +705,7 @@ def mock_ollama():
 
 
 @pytest.fixture
-def mock_browser():
+def mock_browser() -> Generator[MagicMock, None, None]:
     """Mock Playwright browser for unit tests.
 
     Per §7.1.7: External services (Chrome) should be mocked in unit/integration tests.
@@ -710,7 +727,7 @@ def mock_browser():
 
 
 @pytest_asyncio.fixture
-async def memory_database():
+async def memory_database() -> AsyncGenerator["Database", None]:
     """Create an in-memory database for fast unit tests.
 
     Per §7.1.7: Database should use in-memory SQLite for unit tests.
@@ -747,7 +764,7 @@ def assert_dict_contains(actual: dict, expected: dict) -> None:
         )
 
 
-def assert_async_called_with(mock: AsyncMock, *args, **kwargs) -> None:
+def assert_async_called_with(mock: AsyncMock, *args: object, **kwargs: object) -> None:
     """Assert that async mock was called with specific arguments.
 
     Provides clear error messages per §7.1.2 (Diagnosability).
@@ -776,7 +793,7 @@ def assert_in_range(value: float, min_val: float, max_val: float, name: str = "v
 
 
 @pytest.fixture
-def make_fragment():
+def make_fragment() -> Callable[..., dict[str, str]]:
     """Factory for creating test fragments with realistic data.
 
     Per §7.1.3: Test data should be realistic and diverse.
@@ -787,7 +804,7 @@ def make_fragment():
         text: str,
         url: str = "https://example.com/page",
         source_tag: str = "unknown",
-    ) -> dict:
+    ) -> dict[str, str]:
         return {
             "id": fragment_id,
             "text": text,
@@ -800,7 +817,7 @@ def make_fragment():
 
 
 @pytest.fixture
-def make_claim():
+def make_claim() -> Callable[..., dict[str, str | float]]:
     """Factory for creating test claims with realistic data.
 
     Per §7.1.3: Test data should be realistic and diverse.
@@ -811,7 +828,7 @@ def make_claim():
         text: str,
         confidence: float = 0.8,
         verdict: str = "supported",
-    ) -> dict:
+    ) -> dict[str, str | float]:
         return {
             "id": claim_id,
             "text": text,
@@ -829,7 +846,7 @@ def make_claim():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def cleanup_aiohttp_sessions(request):
+def cleanup_aiohttp_sessions(request: "FixtureRequest") -> Generator[None, None, None]:
     """Cleanup global aiohttp client sessions after all tests complete.
 
     This prevents 'Unclosed client session' warnings by ensuring all

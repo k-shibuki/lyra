@@ -210,7 +210,7 @@ class TestPipelineTimeout:
             assert "timeout" in call_args[0][0].lower()
 
     @pytest.mark.asyncio
-    async def test_execute_handles_exception_during_execution(self, mock_state, mock_db):
+    async def test_execute_handles_exception_during_execution(self, mock_state, mock_db) -> None:
         """
         PT-A-02: Test that exceptions during execution are handled.
 

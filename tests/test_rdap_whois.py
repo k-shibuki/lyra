@@ -57,7 +57,7 @@ from src.crawler.rdap_whois import (
 class TestWHOISParser:
     """Tests for WHOIS text/HTML parser."""
 
-    def test_parse_text_basic(self):
+    def test_parse_text_basic(self) -> None:
         """Test parsing basic WHOIS text response (TC-WP-N-01)."""
         # Given: A WHOISParser instance and valid WHOIS text with all fields
         parser = WHOISParser()
@@ -88,7 +88,7 @@ class TestWHOISParser:
         assert len(record.nameservers) == 2
         assert record.nameservers[0].hostname == "ns1.example.com"
 
-    def test_parse_text_japanese(self):
+    def test_parse_text_japanese(self) -> None:
         """Test parsing Japanese WHOIS text response (JPRS format) (TC-WP-N-02)."""
         # Given: A WHOISParser instance and Japanese JPRS format text
         parser = WHOISParser()
@@ -112,7 +112,7 @@ class TestWHOISParser:
         assert record.created_date.year == 2020
         assert len(record.nameservers) == 2
 
-    def test_parse_text_no_data(self):
+    def test_parse_text_no_data(self) -> None:
         """Test parsing empty/no-data response (TC-WP-B-01)."""
         # Given: A WHOISParser instance and a no-match response
         parser = WHOISParser()
@@ -127,7 +127,7 @@ class TestWHOISParser:
         assert record.registrar is None
         assert record.registrant is None
 
-    def test_parse_text_redacted_fields(self):
+    def test_parse_text_redacted_fields(self) -> None:
         """Test handling of redacted/privacy-protected fields (TC-WP-N-03)."""
         # Given: A WHOISParser instance and WHOIS text with privacy-redacted fields
         parser = WHOISParser()
@@ -149,7 +149,7 @@ class TestWHOISParser:
         # Note: "REDACTED FOR PRIVACY" is not in the filter list, so it will be kept
         # This test verifies the parsing works, not the redaction filtering
 
-    def test_parse_html_with_table(self):
+    def test_parse_html_with_table(self) -> None:
         """Test parsing HTML response with table format (TC-WP-N-04)."""
         # Given: A WHOISParser instance and HTML with table-formatted WHOIS data
         parser = WHOISParser()
@@ -174,7 +174,7 @@ class TestWHOISParser:
         assert record.registrar == "Good Registrar LLC"
         assert len(record.nameservers) >= 2
 
-    def test_parse_html_with_pre(self):
+    def test_parse_html_with_pre(self) -> None:
         """Test parsing HTML response with pre-formatted text (TC-WP-N-05)."""
         # Given: A WHOISParser instance and HTML with pre-formatted WHOIS data
         parser = WHOISParser()
@@ -200,7 +200,7 @@ Name Server: ns.example.net
         assert record.created_date is not None
         assert record.created_date.year == 2019
 
-    def test_parse_date_various_formats(self):
+    def test_parse_date_various_formats(self) -> None:
         """Test date parsing with various formats (TC-WP-N-06, TC-WP-B-02)."""
         # Given: A WHOISParser instance
         parser = WHOISParser()
@@ -227,7 +227,7 @@ Name Server: ns.example.net
 class TestWHOISRecord:
     """Tests for WHOISRecord data class."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization to dictionary (TC-WR-N-01)."""
         # Given: A WHOISRecord with all fields populated
         record = WHOISRecord(
@@ -254,7 +254,7 @@ class TestWHOISRecord:
         assert "2020" in d["created_date"]
         assert len(d["nameservers"]) == 1
 
-    def test_get_registrant_org(self):
+    def test_get_registrant_org(self) -> None:
         """Test getting registrant organization (TC-WR-N-02, TC-WR-B-01, TC-WR-B-02)."""
         # Given: A WHOISRecord with both name and organization
         record = WHOISRecord(
@@ -284,7 +284,7 @@ class TestWHOISRecord:
 class TestRegistrantInfo:
     """Tests for RegistrantInfo data class."""
 
-    def test_is_empty(self):
+    def test_is_empty(self) -> None:
         """Test empty check (TC-RI-B-01, TC-RI-N-01)."""
         # Given: An empty RegistrantInfo (boundary - empty case)
         info = RegistrantInfo()
@@ -301,7 +301,7 @@ class TestRegistrantInfo:
         # When/Then: is_empty returns False
         assert not info.is_empty()
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization (TC-RI-N-02)."""
         # Given: A RegistrantInfo with all fields populated
         info = RegistrantInfo(
@@ -331,7 +331,7 @@ class TestRDAPClient:
         return fetcher
 
     @pytest.mark.asyncio
-    async def test_lookup_success(self, mock_fetcher, tmp_path):
+    async def test_lookup_success(self, mock_fetcher, tmp_path) -> None:
         """Test successful WHOIS lookup (TC-RC-N-01)."""
         # Given: A mock fetcher returning valid HTML with WHOIS data
         html_path = tmp_path / "whois.html"
@@ -360,7 +360,7 @@ class TestRDAPClient:
         assert record.registrar == "Test Registrar"
 
     @pytest.mark.asyncio
-    async def test_lookup_cache(self, mock_fetcher, tmp_path):
+    async def test_lookup_cache(self, mock_fetcher, tmp_path) -> None:
         """Test that results are cached (TC-RC-N-02)."""
         # Given: A mock fetcher and a client with caching enabled
         html_path = tmp_path / "whois.html"
@@ -387,7 +387,7 @@ class TestRDAPClient:
         assert mock_fetcher.fetch.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_lookup_no_fetcher(self):
+    async def test_lookup_no_fetcher(self) -> None:
         """Test lookup without fetcher returns None (TC-RC-A-01)."""
         # Given: An RDAPClient with no fetcher (missing dependency)
         client = RDAPClient(fetcher=None)
@@ -399,7 +399,7 @@ class TestRDAPClient:
         assert record is None
 
     @pytest.mark.asyncio
-    async def test_lookup_fetch_failure(self, mock_fetcher):
+    async def test_lookup_fetch_failure(self, mock_fetcher) -> None:
         """Test handling of fetch failure (TC-RC-A-02)."""
         # Given: A mock fetcher that returns a failure result
         result = MagicMock()
@@ -457,28 +457,28 @@ class TestRDAPClient:
 class TestNormalizeDomain:
     """Tests for domain normalization."""
 
-    def test_simple_domain(self):
+    def test_simple_domain(self) -> None:
         """Test simple domain input (TC-ND-N-01)."""
         # Given: Simple domain strings with different cases
         # When/Then: Lowercase base domain is returned
         assert normalize_domain("example.com") == "example.com"
         assert normalize_domain("EXAMPLE.COM") == "example.com"
 
-    def test_url_input(self):
+    def test_url_input(self) -> None:
         """Test URL input (TC-ND-N-02)."""
         # Given: Full URL strings
         # When/Then: Domain is extracted from the URL
         assert normalize_domain("https://example.com/path") == "example.com"
         assert normalize_domain("http://www.example.com:8080/") == "example.com"
 
-    def test_subdomain(self):
+    def test_subdomain(self) -> None:
         """Test subdomain extraction (TC-ND-N-03)."""
         # Given: Domain strings with subdomains
         # When/Then: Base domain is extracted (subdomain stripped)
         assert normalize_domain("www.example.com") == "example.com"
         assert normalize_domain("sub.domain.example.co.jp") == "example.co.jp"
 
-    def test_with_port(self):
+    def test_with_port(self) -> None:
         """Test domain with port (TC-ND-N-04)."""
         # Given: Domain string with port number
         # When/Then: Port is stripped, domain returned
@@ -488,7 +488,7 @@ class TestNormalizeDomain:
 class TestGetRDAPClient:
     """Tests for client factory function."""
 
-    def test_get_client_with_fetcher(self):
+    def test_get_client_with_fetcher(self) -> None:
         """Test getting client with fetcher (TC-GC-N-01)."""
         # Given: A mock fetcher
         mock_fetcher = MagicMock()
@@ -500,7 +500,7 @@ class TestGetRDAPClient:
         assert client is not None
         assert client._fetcher is mock_fetcher
 
-    def test_get_client_without_fetcher(self):
+    def test_get_client_without_fetcher(self) -> None:
         """Test getting client without fetcher (TC-GC-B-01)."""
         # Given: No fetcher provided (boundary - optional dependency)
         # When: Creating client via factory function

@@ -35,6 +35,8 @@ These tests verify end-to-end workflows across multiple modules.
 | TC-INT-N-24 | Full workflow simulation | Equivalence – integration | Task→Context→State→Graph works | Full pipeline |
 """
 
+from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import patch
 
 import pytest
@@ -51,7 +53,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest_asyncio.fixture
-async def integration_db(tmp_path):
+async def integration_db(tmp_path) -> AsyncGenerator[None, None]:
     """Create a test database for integration tests."""
     db_path = tmp_path / "integration_test.db"
     db = Database(str(db_path))
@@ -98,7 +100,7 @@ class TestSearchToExtractPipeline:
     """Test the search → fetch → extract pipeline."""
 
     @pytest.mark.asyncio
-    async def test_extract_content_from_html(self, mock_html_content):
+    async def test_extract_content_from_html(self, mock_html_content) -> None:
         """Verify content extraction from HTML."""
         from src.extractor.content import extract_content
 
@@ -111,7 +113,7 @@ class TestSearchToExtractPipeline:
         assert "text" in result, f"Expected 'text' in result, got keys: {list(result.keys())}"
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_bm25(self, sample_passages):
+    async def test_rank_candidates_bm25(self, sample_passages) -> None:
         """Verify BM25 ranking works."""
         from src.filter.ranking import BM25Ranker
 
@@ -140,7 +142,7 @@ class TestExplorationControlFlow:
     """Test the exploration control engine workflow per §2.1."""
 
     @pytest.mark.asyncio
-    async def test_research_context_provides_entities(self, integration_db):
+    async def test_research_context_provides_entities(self, integration_db) -> None:
         """Verify research context extracts entities from query."""
         from src.research.context import ResearchContext
 
@@ -165,7 +167,7 @@ class TestExplorationControlFlow:
         assert "applicable_templates" in result
 
     @pytest.mark.asyncio
-    async def test_exploration_state_tracking(self, integration_db):
+    async def test_exploration_state_tracking(self, integration_db) -> None:
         """Verify exploration state tracks subquery progress."""
         from src.research.state import ExplorationState, SearchStatus
 
@@ -194,7 +196,7 @@ class TestExplorationControlFlow:
         assert status["searches"][0]["status"] == SearchStatus.RUNNING.value
 
     @pytest.mark.asyncio
-    async def test_subquery_satisfaction_score(self, integration_db):
+    async def test_subquery_satisfaction_score(self, integration_db) -> None:
         """Verify satisfaction score is calculated per §3.1.7.3."""
         from src.research.state import SearchState, SearchStatus
 
@@ -224,7 +226,7 @@ class TestEvidenceGraphIntegration:
     """Test evidence graph construction and analysis."""
 
     @pytest.mark.asyncio
-    async def test_claim_evidence_flow(self, integration_db):
+    async def test_claim_evidence_flow(self, integration_db) -> None:
         """Verify claim → evidence → source relationship tracking."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
@@ -265,7 +267,7 @@ class TestEvidenceGraphIntegration:
         assert evidence[0]["relation"] == "supports"
 
     @pytest.mark.asyncio
-    async def test_citation_loop_detection(self, integration_db):
+    async def test_citation_loop_detection(self, integration_db) -> None:
         """Verify citation loop detection per §3.3.3."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
@@ -288,7 +290,7 @@ class TestEvidenceGraphIntegration:
         assert loops[0]["length"] == 3
 
     @pytest.mark.asyncio
-    async def test_primary_source_ratio(self, integration_db):
+    async def test_primary_source_ratio(self, integration_db) -> None:
         """Verify primary source ratio calculation per §7 requirements."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
@@ -312,7 +314,7 @@ class TestEvidenceGraphIntegration:
         assert ratio_info["meets_threshold"] is True
 
     @pytest.mark.asyncio
-    async def test_round_trip_detection(self, integration_db):
+    async def test_round_trip_detection(self, integration_db) -> None:
         """Verify round-trip citation detection per §3.3.3."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
@@ -342,7 +344,7 @@ class TestDeduplicationIntegration:
     """Test deduplication across the pipeline."""
 
     @pytest.mark.asyncio
-    async def test_fragment_deduplication(self):
+    async def test_fragment_deduplication(self) -> None:
         """Verify duplicate fragment detection."""
         from src.filter.deduplication import deduplicate_fragments
 
@@ -375,7 +377,7 @@ class TestDeduplicationIntegration:
         assert result["duplicate_ratio"] > 0
 
     @pytest.mark.asyncio
-    async def test_hybrid_deduplication(self):
+    async def test_hybrid_deduplication(self) -> None:
         """Verify MinHash + SimHash hybrid deduplication."""
         from src.filter.deduplication import HybridDeduplicator
 
@@ -405,7 +407,7 @@ class TestNLIIntegration:
     """Test NLI stance classification integration."""
 
     @pytest.mark.asyncio
-    async def test_nli_model_initialization(self):
+    async def test_nli_model_initialization(self) -> None:
         """Verify NLI model can be instantiated."""
         from src.filter.nli import NLIModel
 
@@ -418,7 +420,7 @@ class TestNLIIntegration:
         assert model.LABELS == ["supports", "refutes", "neutral"]
 
     @pytest.mark.asyncio
-    async def test_nli_label_mapping(self):
+    async def test_nli_label_mapping(self) -> None:
         """Verify NLI label mapping works correctly."""
         from src.filter.nli import NLIModel
 
@@ -440,7 +442,7 @@ class TestReportIntegration:
     """Test report generation integration."""
 
     @pytest.mark.asyncio
-    async def test_anchor_slug_generation(self):
+    async def test_anchor_slug_generation(self) -> None:
         """Verify deep link anchor slug generation per §3.4."""
         from src.report.generator import generate_anchor_slug
 
@@ -460,7 +462,7 @@ class TestReportIntegration:
         assert "概要" in slug_ja, f"Expected '概要' in slug: {slug_ja}"
 
     @pytest.mark.asyncio
-    async def test_report_generator_class_exists(self):
+    async def test_report_generator_class_exists(self) -> None:
         """Verify ReportGenerator can be imported and is callable."""
         from src.report.generator import ReportGenerator
 
@@ -478,7 +480,7 @@ class TestSchedulerIntegration:
     """Test job scheduler integration."""
 
     @pytest.mark.asyncio
-    async def test_job_kind_and_slot_enums(self):
+    async def test_job_kind_and_slot_enums(self) -> None:
         """Verify job enums are defined correctly."""
         from src.scheduler.jobs import JobKind, JobState, Slot
 
@@ -490,7 +492,7 @@ class TestSchedulerIntegration:
         assert JobState.PENDING == "pending"
 
     @pytest.mark.asyncio
-    async def test_budget_tracking(self, integration_db):
+    async def test_budget_tracking(self, integration_db) -> None:
         """Verify budget manager tracks resource usage."""
         from src.scheduler.budget import TaskBudget
 
@@ -512,7 +514,7 @@ class TestSchedulerIntegration:
         assert budget.can_fetch_page() is True
 
     @pytest.mark.asyncio
-    async def test_budget_exceeded_detection(self):
+    async def test_budget_exceeded_detection(self) -> None:
         """Verify budget exceeded detection."""
         from src.scheduler.budget import TaskBudget
 
@@ -537,7 +539,7 @@ class TestCalibrationIntegration:
     """Test calibration integration with LLM/NLI pipeline."""
 
     @pytest.mark.asyncio
-    async def test_calibrator_initialization(self, tmp_path):
+    async def test_calibrator_initialization(self, tmp_path) -> None:
         """Verify calibrator can be initialized."""
         with patch("src.utils.calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
@@ -562,7 +564,7 @@ class TestMetricsPolicyIntegration:
     """Test metrics collection and policy adjustment integration."""
 
     @pytest.mark.asyncio
-    async def test_metrics_collector_initialization(self):
+    async def test_metrics_collector_initialization(self) -> None:
         """Verify metrics collector can be initialized."""
         from src.utils.metrics import MetricsCollector
 
@@ -575,7 +577,7 @@ class TestMetricsPolicyIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_policy_engine_initialization(self):
+    async def test_policy_engine_initialization(self) -> None:
         """Verify policy engine can be initialized."""
         from src.utils.policy_engine import PolicyEngine
 
@@ -595,7 +597,7 @@ class TestNotificationIntegration:
     """Test notification system integration."""
 
     @pytest.mark.asyncio
-    async def test_intervention_manager_initialization(self):
+    async def test_intervention_manager_initialization(self) -> None:
         """Verify intervention manager can be initialized."""
         from src.utils.notification import InterventionManager
 
@@ -608,7 +610,7 @@ class TestNotificationIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_intervention_types(self):
+    async def test_intervention_types(self) -> None:
         """Verify intervention types are defined correctly."""
         from src.utils.notification import InterventionStatus, InterventionType
 
@@ -629,7 +631,7 @@ class TestFullPipelineSimulation:
     """Simulated end-to-end pipeline test with mocks."""
 
     @pytest.mark.asyncio
-    async def test_research_workflow_simulation(self, integration_db):
+    async def test_research_workflow_simulation(self, integration_db) -> None:
         """Simulate a complete research workflow with mocked externals."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         from src.research.context import ResearchContext

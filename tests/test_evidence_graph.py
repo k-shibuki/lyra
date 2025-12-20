@@ -64,7 +64,7 @@ from src.filter.evidence_graph import (
 class TestNodeType:
     """Tests for NodeType enum."""
 
-    def test_node_types_exist(self):
+    def test_node_types_exist(self) -> None:
         """Test all node types are defined."""
         # Given: The NodeType enum
         # When: Accessing enum values
@@ -77,7 +77,7 @@ class TestNodeType:
 class TestRelationType:
     """Tests for RelationType enum."""
 
-    def test_relation_types_exist(self):
+    def test_relation_types_exist(self) -> None:
         """Test all relation types are defined."""
         # Given: The RelationType enum
         # When: Accessing enum values
@@ -91,7 +91,7 @@ class TestRelationType:
 class TestEvidenceGraph:
     """Tests for EvidenceGraph class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test graph initialization."""
         # Given: A task ID for the graph
         # When: Creating a new EvidenceGraph
@@ -102,7 +102,7 @@ class TestEvidenceGraph:
         assert graph._graph.number_of_nodes() == 0
         assert graph._graph.number_of_edges() == 0
 
-    def test_make_node_id(self):
+    def test_make_node_id(self) -> None:
         """Test node ID generation."""
         # Given: An EvidenceGraph instance
         graph = EvidenceGraph()
@@ -116,7 +116,7 @@ class TestEvidenceGraph:
         node_id = graph._make_node_id(NodeType.FRAGMENT, "xyz789")
         assert node_id == "fragment:xyz789"
 
-    def test_parse_node_id(self):
+    def test_parse_node_id(self) -> None:
         """Test node ID parsing."""
         # Given: Node IDs in type:id format
         graph = EvidenceGraph()
@@ -132,7 +132,7 @@ class TestEvidenceGraph:
         assert node_type == NodeType.PAGE
         assert obj_id == "http://example.com"
 
-    def test_add_node(self):
+    def test_add_node(self) -> None:
         """Test adding nodes."""
         # Given: An empty EvidenceGraph
         graph = EvidenceGraph()
@@ -155,7 +155,7 @@ class TestEvidenceGraph:
         assert node_data["text"] == "Test claim"
         assert node_data["confidence"] == 0.9
 
-    def test_add_edge_creates_nodes_if_missing(self):
+    def test_add_edge_creates_nodes_if_missing(self) -> None:
         """Test adding edge creates nodes if they don't exist."""
         # Given: An empty EvidenceGraph
         graph = EvidenceGraph()
@@ -175,7 +175,7 @@ class TestEvidenceGraph:
         assert graph._graph.number_of_nodes() == 2
         assert graph._graph.number_of_edges() == 1
 
-    def test_add_edge_with_nli_data(self):
+    def test_add_edge_with_nli_data(self) -> None:
         """Test adding edge with NLI data."""
         # Given: An empty EvidenceGraph
         graph = EvidenceGraph()
@@ -248,7 +248,7 @@ class TestEvidenceRetrieval:
 
         return graph
 
-    def test_get_supporting_evidence(self, populated_graph):
+    def test_get_supporting_evidence(self, populated_graph) -> None:
         """Test getting supporting evidence."""
         # Given: A graph with supporting, refuting, and neutral evidence
         # When: Getting supporting evidence for a claim
@@ -261,7 +261,7 @@ class TestEvidenceRetrieval:
         obj_ids = {e["obj_id"] for e in evidence}
         assert obj_ids == {"frag-1", "frag-2"}
 
-    def test_get_refuting_evidence(self, populated_graph):
+    def test_get_refuting_evidence(self, populated_graph) -> None:
         """Test getting refuting evidence."""
         # Given: A graph with mixed evidence types
         # When: Getting refuting evidence for a claim
@@ -272,7 +272,7 @@ class TestEvidenceRetrieval:
         assert evidence[0]["obj_id"] == "frag-3"
         assert evidence[0]["relation"] == "refutes"
 
-    def test_get_all_evidence(self, populated_graph):
+    def test_get_all_evidence(self, populated_graph) -> None:
         """Test getting all categorized evidence."""
         # Given: A graph with all evidence types
         # When: Getting all evidence for a claim
@@ -283,7 +283,7 @@ class TestEvidenceRetrieval:
         assert len(evidence["refutes"]) == 1
         assert len(evidence["neutral"]) == 1
 
-    def test_get_evidence_for_unknown_claim(self):
+    def test_get_evidence_for_unknown_claim(self) -> None:
         """Test getting evidence for non-existent claim."""
         # Given: An empty graph
         graph = EvidenceGraph()
@@ -301,7 +301,7 @@ class TestEvidenceRetrieval:
 class TestClaimConfidence:
     """Tests for claim confidence calculation."""
 
-    def test_calculate_confidence_no_evidence(self):
+    def test_calculate_confidence_no_evidence(self) -> None:
         """Test confidence with no evidence."""
         # Given: A graph with a claim but no evidence
         graph = EvidenceGraph()
@@ -315,7 +315,7 @@ class TestClaimConfidence:
         assert result["verdict"] == "unverified"
         assert result["supporting_count"] == 0
 
-    def test_calculate_confidence_well_supported(self):
+    def test_calculate_confidence_well_supported(self) -> None:
         """Test confidence with multiple supporting evidence."""
         # Given: A graph with multiple high-confidence supporting evidence
         graph = EvidenceGraph()
@@ -338,7 +338,7 @@ class TestClaimConfidence:
         assert result["verdict"] == "well_supported"
         assert result["confidence"] > 0.8
 
-    def test_calculate_confidence_contested(self):
+    def test_calculate_confidence_contested(self) -> None:
         """Test confidence with conflicting evidence."""
         # Given: A graph with both supporting and refuting evidence
         graph = EvidenceGraph()
@@ -374,7 +374,7 @@ class TestClaimConfidence:
 class TestCitationChain:
     """Tests for citation chain tracing."""
 
-    def test_citation_chain(self):
+    def test_citation_chain(self) -> None:
         """Test tracing citation chain.
 
         Validates §3.3.3 citation chain tracing for source verification.
@@ -409,7 +409,7 @@ class TestCitationChain:
             f"Second node should be page-1, got {chain[1]['obj_id']}"
         )
 
-    def test_citation_chain_empty(self):
+    def test_citation_chain_empty(self) -> None:
         """Test citation chain for unknown node."""
         # Given: An empty graph
         graph = EvidenceGraph()
@@ -424,7 +424,7 @@ class TestCitationChain:
 class TestContradictionDetection:
     """Tests for contradiction detection."""
 
-    def test_find_contradictions(self):
+    def test_find_contradictions(self) -> None:
         """Test finding contradicting claims."""
         # Given: Two claims with a refutes relationship
         graph = EvidenceGraph()
@@ -450,7 +450,7 @@ class TestContradictionDetection:
             "claim-2",
         }
 
-    def test_find_contradictions_none(self):
+    def test_find_contradictions_none(self) -> None:
         """Test finding no contradictions."""
         # Given: Two unrelated claims
         graph = EvidenceGraph()
@@ -467,7 +467,7 @@ class TestContradictionDetection:
 class TestGraphStats:
     """Tests for graph statistics."""
 
-    def test_get_stats_empty(self):
+    def test_get_stats_empty(self) -> None:
         """Test stats for empty graph."""
         # Given: An empty graph
         graph = EvidenceGraph()
@@ -479,7 +479,7 @@ class TestGraphStats:
         assert stats["total_nodes"] == 0
         assert stats["total_edges"] == 0
 
-    def test_get_stats_populated(self):
+    def test_get_stats_populated(self) -> None:
         """Test stats for populated graph."""
         # Given: A graph with various nodes and edges
         graph = EvidenceGraph()
@@ -520,7 +520,7 @@ class TestGraphStats:
 class TestGraphExport:
     """Tests for graph export."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test exporting graph as dict."""
         # Given: A graph with nodes and edges
         graph = EvidenceGraph()
@@ -550,7 +550,7 @@ class TestGraphExport:
 class TestCitationLoopDetection:
     """Tests for citation loop detection."""
 
-    def test_detect_simple_citation_loop(self):
+    def test_detect_simple_citation_loop(self) -> None:
         """Test detecting a simple citation loop (A -> B -> C -> A).
 
         §3.3.3 requirement: detect circular citations
@@ -591,7 +591,7 @@ class TestCitationLoopDetection:
         node_ids = {n["obj_id"] for n in loops[0]["nodes"]}
         assert node_ids == {"page-1", "page-2", "page-3"}
 
-    def test_detect_no_citation_loops(self):
+    def test_detect_no_citation_loops(self) -> None:
         """Test when there are no citation loops."""
         # Given: A linear citation chain (no loops)
         graph = EvidenceGraph()
@@ -617,7 +617,7 @@ class TestCitationLoopDetection:
         # Then: No loops are found
         assert len(loops) == 0
 
-    def test_detect_citation_loops_ignores_non_citation_edges(self):
+    def test_detect_citation_loops_ignores_non_citation_edges(self) -> None:
         """Test that loop detection only considers citation edges."""
         # Given: A loop using SUPPORTS relation (not CITES)
         graph = EvidenceGraph()
@@ -647,7 +647,7 @@ class TestCitationLoopDetection:
 class TestRoundTripDetection:
     """Tests for round-trip citation detection."""
 
-    def test_detect_round_trip(self):
+    def test_detect_round_trip(self) -> None:
         """Test detecting round-trip citations (A cites B, B cites A)."""
         # Given: Mutual citation between two pages
         graph = EvidenceGraph()
@@ -675,7 +675,7 @@ class TestRoundTripDetection:
         assert round_trips[0]["type"] == "round_trip"
         assert round_trips[0]["severity"] == "high"
 
-    def test_detect_no_round_trips(self):
+    def test_detect_no_round_trips(self) -> None:
         """Test when there are no round-trips."""
         # Given: A one-way citation
         graph = EvidenceGraph()
@@ -698,7 +698,7 @@ class TestRoundTripDetection:
 class TestSelfReferenceDetection:
     """Tests for self-reference detection."""
 
-    def test_detect_direct_self_reference(self):
+    def test_detect_direct_self_reference(self) -> None:
         """Test detecting direct self-loop."""
         # Given: A page citing itself
         graph = EvidenceGraph()
@@ -719,7 +719,7 @@ class TestSelfReferenceDetection:
         assert self_refs[0]["type"] == "direct_self_reference"
         assert self_refs[0]["severity"] == "critical"
 
-    def test_detect_same_domain_citation(self):
+    def test_detect_same_domain_citation(self) -> None:
         """Test detecting same-domain citations."""
         # Given: Two pages from the same domain
         graph = EvidenceGraph()
@@ -743,7 +743,7 @@ class TestSelfReferenceDetection:
         assert self_refs[0]["type"] == "same_domain_citation"
         assert self_refs[0]["domain"] == "example.com"
 
-    def test_no_self_references(self):
+    def test_no_self_references(self) -> None:
         """Test when there are no self-references."""
         # Given: Pages from different domains
         graph = EvidenceGraph()
@@ -769,7 +769,7 @@ class TestSelfReferenceDetection:
 class TestCitationPenalties:
     """Tests for citation penalty calculation."""
 
-    def test_calculate_penalties_with_loop(self):
+    def test_calculate_penalties_with_loop(self) -> None:
         """Test penalty calculation for nodes in loops."""
         # Given: A round-trip citation loop
         graph = EvidenceGraph()
@@ -796,7 +796,7 @@ class TestCitationPenalties:
         assert penalties["page:page-1"] < 1.0
         assert penalties["page:page-2"] < 1.0
 
-    def test_calculate_penalties_no_issues(self):
+    def test_calculate_penalties_no_issues(self) -> None:
         """Test penalty calculation with clean citations."""
         # Given: A clean linear citation chain
         graph = EvidenceGraph()
@@ -820,7 +820,7 @@ class TestCitationPenalties:
 class TestCitationIntegrityReport:
     """Tests for citation integrity report."""
 
-    def test_integrity_report_clean_graph(self):
+    def test_integrity_report_clean_graph(self) -> None:
         """Test integrity report for clean graph."""
         # Given: A clean citation graph
         graph = EvidenceGraph()
@@ -842,7 +842,7 @@ class TestCitationIntegrityReport:
         assert report["round_trip_count"] == 0
         assert report["self_reference_count"] == 0
 
-    def test_integrity_report_problematic_graph(self):
+    def test_integrity_report_problematic_graph(self) -> None:
         """Test integrity report for graph with issues."""
         # Given: A graph with a round-trip citation
         graph = EvidenceGraph()
@@ -870,7 +870,7 @@ class TestCitationIntegrityReport:
         assert report["round_trip_count"] == 1
         assert report["problematic_node_count"] == 2
 
-    def test_integrity_report_empty_graph(self):
+    def test_integrity_report_empty_graph(self) -> None:
         """Test integrity report for empty graph."""
         # Given: An empty graph
         graph = EvidenceGraph()
@@ -886,7 +886,7 @@ class TestCitationIntegrityReport:
 class TestPrimarySourceRatio:
     """Tests for primary source ratio calculation."""
 
-    def test_primary_source_ratio_all_primary(self):
+    def test_primary_source_ratio_all_primary(self) -> None:
         """Test ratio when all sources are primary."""
         # Given: Pages that don't cite other pages
         graph = EvidenceGraph()
@@ -911,7 +911,7 @@ class TestPrimarySourceRatio:
         assert ratio["primary_ratio"] == 1.0
         assert ratio["meets_threshold"] is True
 
-    def test_primary_source_ratio_mixed(self):
+    def test_primary_source_ratio_mixed(self) -> None:
         """Test ratio with mixed primary/secondary sources."""
         # Given: Pages with one secondary source (cites another page)
         graph = EvidenceGraph()
@@ -936,7 +936,7 @@ class TestPrimarySourceRatio:
         assert ratio["secondary_count"] == 1  # page-1
         assert ratio["total_pages"] == 3
 
-    def test_primary_source_ratio_empty(self):
+    def test_primary_source_ratio_empty(self) -> None:
         """Test ratio for empty graph."""
         # Given: An empty graph
         graph = EvidenceGraph()
@@ -952,7 +952,7 @@ class TestPrimarySourceRatio:
 class TestLoopSeverity:
     """Tests for loop severity calculation."""
 
-    def test_severity_calculation(self):
+    def test_severity_calculation(self) -> None:
         """Test loop severity based on length."""
         # Given: An EvidenceGraph instance
         graph = EvidenceGraph()
@@ -973,7 +973,7 @@ class TestDatabaseIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_save_and_load(self, test_database):
+    async def test_save_and_load(self, test_database) -> None:
         """Test saving and loading graph from database."""
         from unittest.mock import patch
 
@@ -1003,7 +1003,7 @@ class TestDatabaseIntegration:
         assert edges[0]["relation"] == "supports"
 
     @pytest.mark.asyncio
-    async def test_add_claim_evidence_persists(self, test_database):
+    async def test_add_claim_evidence_persists(self, test_database) -> None:
         """Test add_claim_evidence persists to database."""
         from unittest.mock import patch
 
@@ -1040,7 +1040,7 @@ class TestAcademicCitationAttributes:
     added to CITES edges.
     """
 
-    def test_add_edge_with_academic_attributes(self):
+    def test_add_edge_with_academic_attributes(self) -> None:
         """Test adding edge with academic citation attributes.
 
         // Given: Academic citation with is_academic, is_influential
@@ -1069,7 +1069,7 @@ class TestAcademicCitationAttributes:
         assert edge_data["is_influential"] is True
         assert edge_data["citation_context"] == "This paper discusses..."
 
-    def test_add_citation_with_academic_attributes(self):
+    def test_add_citation_with_academic_attributes(self) -> None:
         """Test add_citation() with academic attributes.
 
         // Given: Academic citation attributes
@@ -1103,7 +1103,7 @@ class TestAcademicCitationAttributes:
             assert edge_data["is_academic"] is True
             assert edge_data["is_influential"] is True
 
-    def test_load_from_db_with_academic_attributes(self):
+    def test_load_from_db_with_academic_attributes(self) -> None:
         """Test loading edges with academic attributes from DB.
 
         // Given: Edge with academic attributes in DB
@@ -1134,7 +1134,7 @@ class TestAcademicCitationAttributes:
         assert edges[0]["citation_context"] == "Context text"
 
     @pytest.mark.asyncio
-    async def test_save_to_db_with_academic_attributes(self, test_database):
+    async def test_save_to_db_with_academic_attributes(self, test_database) -> None:
         """Test saving edges with academic attributes to DB.
 
         // Given: Edge with academic attributes
@@ -1174,7 +1174,7 @@ class TestAcademicCitationAttributes:
 class TestClaimAdoptionStatus:
     """Tests for claim adoption status tracking."""
 
-    def test_set_claim_adoption_status(self):
+    def test_set_claim_adoption_status(self) -> None:
         """
         Test setting claim adoption status.
 
@@ -1191,7 +1191,7 @@ class TestClaimAdoptionStatus:
         # Then: Status stored
         assert graph.get_claim_adoption_status("c1") == "adopted"
 
-    def test_set_claim_adoption_status_not_adopted(self):
+    def test_set_claim_adoption_status_not_adopted(self) -> None:
         """
         Test setting not_adopted status for rejected claim.
 
@@ -1208,7 +1208,7 @@ class TestClaimAdoptionStatus:
         # Then: Status is not_adopted
         assert graph.get_claim_adoption_status("rejected_claim") == "not_adopted"
 
-    def test_get_claim_adoption_status_default(self):
+    def test_get_claim_adoption_status_default(self) -> None:
         """
         Test default adoption status is pending.
 
@@ -1222,7 +1222,7 @@ class TestClaimAdoptionStatus:
         # Then: Default is pending
         assert graph.get_claim_adoption_status("c1") == "pending"
 
-    def test_get_claim_adoption_status_not_found(self):
+    def test_get_claim_adoption_status_not_found(self) -> None:
         """
         Test get adoption status for nonexistent claim.
 
@@ -1235,7 +1235,7 @@ class TestClaimAdoptionStatus:
         # Then: None for missing claim
         assert graph.get_claim_adoption_status("nonexistent") is None
 
-    def test_set_claim_adoption_status_empty_string(self):
+    def test_set_claim_adoption_status_empty_string(self) -> None:
         """
         Test setting empty string as adoption status.
 
@@ -1252,7 +1252,7 @@ class TestClaimAdoptionStatus:
         # Then: Empty string stored
         assert graph.get_claim_adoption_status("c1") == ""
 
-    def test_set_claim_adoption_status_nonexistent_claim(self):
+    def test_set_claim_adoption_status_nonexistent_claim(self) -> None:
         """
         Test setting status for nonexistent claim.
 
@@ -1268,7 +1268,7 @@ class TestClaimAdoptionStatus:
         # Then: Status is None (claim not found)
         assert graph.get_claim_adoption_status("missing_claim") is None
 
-    def test_get_claims_by_adoption_status(self):
+    def test_get_claims_by_adoption_status(self) -> None:
         """
         Test filtering claims by adoption status.
 
@@ -1295,7 +1295,7 @@ class TestClaimAdoptionStatus:
         assert not_adopted == ["c2"]
         assert pending == ["c3"]
 
-    def test_not_adopted_claim_preserved_in_graph(self):
+    def test_not_adopted_claim_preserved_in_graph(self) -> None:
         """
         Test that not_adopted claims are preserved in graph.
 
@@ -1324,7 +1324,7 @@ class TestPhaseP2DomainCategoryOnEdges:
     DomainCategory is NOT used for confidence calculation or verification decisions.
     """
 
-    def test_add_edge_with_domain_categories(self):
+    def test_add_edge_with_domain_categories(self) -> None:
         """
         TC-P2-EDGE-N-01: Add edge with source and target trust levels.
 
@@ -1352,7 +1352,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edge_data["source_domain_category"] == "academic"
         assert edge_data["target_domain_category"] == "unverified"
 
-    def test_add_edge_domain_categories_default_none(self):
+    def test_add_edge_domain_categories_default_none(self) -> None:
         """
         TC-P2-EDGE-N-02: Trust levels default to None when not provided.
 
@@ -1375,7 +1375,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edge_data.get("source_domain_category") is None
         assert edge_data.get("target_domain_category") is None
 
-    def test_to_dict_includes_domain_categories(self):
+    def test_to_dict_includes_domain_categories(self) -> None:
         """
         TC-P2-EDGE-N-03: Export includes trust levels on edges.
 
@@ -1403,7 +1403,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edge["source_domain_category"] == "trusted"
         assert edge["target_domain_category"] == "low"
 
-    def test_contradicting_edges_with_different_domain_categories(self):
+    def test_contradicting_edges_with_different_domain_categories(self) -> None:
         """
         TC-P2-EDGE-N-04: Contradicting claims with different trust levels.
 
@@ -1442,7 +1442,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edge["target_domain_category"] == "unverified"
         # High-inference AI can now prioritize academic source
 
-    def test_add_claim_evidence_with_domain_categories(self):
+    def test_add_claim_evidence_with_domain_categories(self) -> None:
         """
         TC-P2-EDGE-N-05: add_claim_evidence accepts trust levels.
 
@@ -1473,7 +1473,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edge_data["target_domain_category"] == "primary"
 
     @pytest.mark.asyncio
-    async def test_save_to_db_with_domain_categories(self, test_database):
+    async def test_save_to_db_with_domain_categories(self, test_database) -> None:
         """
         TC-P2-EDGE-I-01: Save edges with trust levels to database.
 
@@ -1506,7 +1506,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edges[0]["target_domain_category"] == "low"
 
     @pytest.mark.asyncio
-    async def test_load_from_db_with_domain_categories(self, test_database):
+    async def test_load_from_db_with_domain_categories(self, test_database) -> None:
         """
         TC-P2-EDGE-I-02: Load edges with trust levels from database.
 

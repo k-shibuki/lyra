@@ -238,7 +238,7 @@ class TestMCPIdleWarning:
             assert result["idle_seconds"] == 350
 
     @pytest.mark.asyncio
-    async def test_get_status_task_id_none_raises_error(self, mock_db):
+    async def test_get_status_task_id_none_raises_error(self, mock_db) -> None:
         """
         MH-A-01: Test that task_id=None raises InvalidParamsError.
 
@@ -257,7 +257,7 @@ class TestMCPIdleWarning:
             assert "task_id" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_get_status_task_id_empty_raises_error(self, mock_db):
+    async def test_get_status_task_id_empty_raises_error(self, mock_db) -> None:
         """
         MH-A-02: Test that task_id="" raises InvalidParamsError.
 
@@ -326,7 +326,7 @@ class TestMCPIdleWarning:
             assert "query" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_search_task_id_none_raises_error(self, mock_db):
+    async def test_search_task_id_none_raises_error(self, mock_db) -> None:
         """
         MH-A-01: Test that task_id=None in search raises InvalidParamsError.
 

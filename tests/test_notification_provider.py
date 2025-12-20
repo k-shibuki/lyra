@@ -92,6 +92,7 @@ Requirements tested:
 | TC-EC-A-01 | Timeout handling | Equivalence – abnormal | ok=False | - |
 """
 
+from collections.abc import Generator
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -153,7 +154,7 @@ def registry():
 
 
 @pytest.fixture(autouse=True)
-def reset_global_registry():
+def reset_global_registry() -> Generator[None, None, None]:
     """Reset global registry before and after each test."""
     reset_notification_registry()
     yield
@@ -169,7 +170,7 @@ def reset_global_registry():
 class TestNotificationUrgency:
     """Tests for NotificationUrgency enum."""
 
-    def test_all_urgency_levels_exist(self):
+    def test_all_urgency_levels_exist(self) -> None:
         """Verify all required urgency levels are defined."""
         expected = {"LOW": "low", "NORMAL": "normal", "CRITICAL": "critical"}
 
@@ -185,7 +186,7 @@ class TestNotificationUrgency:
 class TestPlatform:
     """Tests for Platform enum."""
 
-    def test_all_platforms_exist(self):
+    def test_all_platforms_exist(self) -> None:
         """Verify all required platforms are defined."""
         expected = {
             "LINUX": "linux",
@@ -211,7 +212,7 @@ class TestPlatform:
 class TestNotificationOptions:
     """Tests for NotificationOptions data class."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Verify default values are set correctly."""
         options = NotificationOptions()
 
@@ -225,7 +226,7 @@ class TestNotificationOptions:
         assert options.sound is True, f"Default sound should be True, got {options.sound}"
         assert options.category is None, f"Default category should be None, got {options.category}"
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test creating options with custom values."""
         options = NotificationOptions(
             timeout_seconds=30,
@@ -241,7 +242,7 @@ class TestNotificationOptions:
         assert options.sound is False
         assert options.category == "test-category"
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization to dictionary."""
         options = NotificationOptions(
             timeout_seconds=15,
@@ -269,7 +270,7 @@ class TestNotificationOptions:
 class TestNotificationResult:
     """Tests for NotificationResult data class."""
 
-    def test_success_factory(self):
+    def test_success_factory(self) -> None:
         """Test creating successful result via factory method."""
         result = NotificationResult.success(
             provider="test_provider",
@@ -283,7 +284,7 @@ class TestNotificationResult:
         assert result.error is None
         assert result.elapsed_ms == 50.5
 
-    def test_failure_factory(self):
+    def test_failure_factory(self) -> None:
         """Test creating failure result via factory method."""
         result = NotificationResult.failure(
             provider="test_provider",
@@ -297,7 +298,7 @@ class TestNotificationResult:
         assert result.message_id is None
         assert result.elapsed_ms == 100.0
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization to dictionary."""
         result = NotificationResult(
             ok=True,
@@ -324,7 +325,7 @@ class TestNotificationResult:
 class TestNotificationHealthStatus:
     """Tests for NotificationHealthStatus data class."""
 
-    def test_healthy_factory(self):
+    def test_healthy_factory(self) -> None:
         """Test creating healthy status via factory method."""
         status = NotificationHealthStatus.healthy(
             platform=Platform.LINUX,
@@ -338,7 +339,7 @@ class TestNotificationHealthStatus:
         assert status.message == "All systems operational"
         assert status.last_check is not None
 
-    def test_degraded_factory(self):
+    def test_degraded_factory(self) -> None:
         """Test creating degraded status via factory method."""
         status = NotificationHealthStatus.degraded(
             platform=Platform.WINDOWS,
@@ -352,7 +353,7 @@ class TestNotificationHealthStatus:
         assert status.success_rate == 0.7
         assert status.message == "Some failures detected"
 
-    def test_unhealthy_factory(self):
+    def test_unhealthy_factory(self) -> None:
         """Test creating unhealthy status via factory method."""
         status = NotificationHealthStatus.unhealthy(
             platform=Platform.WSL,
@@ -365,7 +366,7 @@ class TestNotificationHealthStatus:
         assert status.success_rate == 0.0
         assert status.message == "Service unavailable"
 
-    def test_unavailable_factory(self):
+    def test_unavailable_factory(self) -> None:
         """Test creating unavailable status via factory method."""
         status = NotificationHealthStatus.unavailable(
             platform=Platform.MACOS,
@@ -376,7 +377,7 @@ class TestNotificationHealthStatus:
         assert status.platform == Platform.MACOS
         assert "not available" in status.message.lower()
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization to dictionary."""
         status = NotificationHealthStatus.healthy(Platform.LINUX)
         data = status.to_dict()
@@ -397,7 +398,7 @@ class TestNotificationHealthStatus:
 class TestPlatformDetection:
     """Tests for platform detection functions."""
 
-    def test_detect_linux(self):
+    def test_detect_linux(self) -> None:
         """Test detection of Linux platform."""
         with patch("platform.system", return_value="Linux"):
             with patch("builtins.open", side_effect=FileNotFoundError()):
@@ -405,7 +406,7 @@ class TestPlatformDetection:
                     result = detect_platform()
                     assert result == Platform.LINUX
 
-    def test_detect_wsl_via_proc_version(self):
+    def test_detect_wsl_via_proc_version(self) -> None:
         """Test detection of WSL via /proc/version."""
         mock_file = MagicMock()
         mock_file.read.return_value = "Linux version 5.15.0-microsoft-standard-WSL2"
@@ -417,7 +418,7 @@ class TestPlatformDetection:
                 result = detect_platform()
                 assert result == Platform.WSL
 
-    def test_detect_wsl_via_release(self):
+    def test_detect_wsl_via_release(self) -> None:
         """Test detection of WSL via platform release when /proc/version fails."""
         with patch("platform.system", return_value="Linux"):
             with patch("builtins.open", side_effect=PermissionError()):
@@ -425,30 +426,30 @@ class TestPlatformDetection:
                     result = detect_platform()
                     assert result == Platform.WSL
 
-    def test_detect_windows(self):
+    def test_detect_windows(self) -> None:
         """Test detection of Windows platform."""
         with patch("platform.system", return_value="Windows"):
             result = detect_platform()
             assert result == Platform.WINDOWS
 
-    def test_detect_macos(self):
+    def test_detect_macos(self) -> None:
         """Test detection of macOS platform."""
         with patch("platform.system", return_value="Darwin"):
             result = detect_platform()
             assert result == Platform.MACOS
 
-    def test_detect_unknown(self):
+    def test_detect_unknown(self) -> None:
         """Test detection of unknown platform."""
         with patch("platform.system", return_value="FreeBSD"):
             result = detect_platform()
             assert result == Platform.UNKNOWN
 
-    def test_is_wsl_true(self):
+    def test_is_wsl_true(self) -> None:
         """Test is_wsl returns True on WSL."""
         with patch("src.utils.notification_provider.detect_platform", return_value=Platform.WSL):
             assert is_wsl() is True
 
-    def test_is_wsl_false(self):
+    def test_is_wsl_false(self) -> None:
         """Test is_wsl returns False on non-WSL platforms."""
         with patch("src.utils.notification_provider.detect_platform", return_value=Platform.LINUX):
             assert is_wsl() is False
@@ -463,18 +464,18 @@ class TestPlatformDetection:
 class TestLinuxNotifyProvider:
     """Tests for LinuxNotifyProvider."""
 
-    def test_provider_name(self):
+    def test_provider_name(self) -> None:
         """Test provider has correct name."""
         provider = LinuxNotifyProvider()
         assert provider.name == "linux_notify"
 
-    def test_target_platform(self):
+    def test_target_platform(self) -> None:
         """Test provider targets correct platform."""
         provider = LinuxNotifyProvider()
         assert provider.target_platform == Platform.LINUX
 
     @pytest.mark.asyncio
-    async def test_send_success(self, mock_subprocess_success):
+    async def test_send_success(self, mock_subprocess_success) -> None:
         """Test successful notification send."""
         provider = LinuxNotifyProvider()
 
@@ -488,7 +489,7 @@ class TestLinuxNotifyProvider:
         assert result.message_id.startswith("linux_")
 
     @pytest.mark.asyncio
-    async def test_send_notify_send_not_found(self):
+    async def test_send_notify_send_not_found(self) -> None:
         """Test failure when notify-send is not installed."""
         provider = LinuxNotifyProvider()
 
@@ -499,7 +500,7 @@ class TestLinuxNotifyProvider:
         assert "notify-send not found" in result.error
 
     @pytest.mark.asyncio
-    async def test_send_with_options(self, mock_subprocess_success):
+    async def test_send_with_options(self, mock_subprocess_success) -> None:
         """Test notification send with custom options."""
         provider = LinuxNotifyProvider()
         options = NotificationOptions(
@@ -524,7 +525,7 @@ class TestLinuxNotifyProvider:
         assert "critical" in call_args
 
     @pytest.mark.asyncio
-    async def test_send_failure(self, mock_subprocess_failure):
+    async def test_send_failure(self, mock_subprocess_failure) -> None:
         """Test notification send failure."""
         provider = LinuxNotifyProvider()
 
@@ -536,7 +537,7 @@ class TestLinuxNotifyProvider:
         assert "notify-send failed" in result.error
 
     @pytest.mark.asyncio
-    async def test_get_health_available(self):
+    async def test_get_health_available(self) -> None:
         """Test health check when notify-send is available."""
         provider = LinuxNotifyProvider()
 
@@ -548,7 +549,7 @@ class TestLinuxNotifyProvider:
         assert health.available is True
 
     @pytest.mark.asyncio
-    async def test_get_health_unavailable_wrong_platform(self):
+    async def test_get_health_unavailable_wrong_platform(self) -> None:
         """Test health check on wrong platform."""
         provider = LinuxNotifyProvider()
 
@@ -561,7 +562,7 @@ class TestLinuxNotifyProvider:
         assert health.available is False
 
     @pytest.mark.asyncio
-    async def test_get_health_notify_send_missing(self):
+    async def test_get_health_notify_send_missing(self) -> None:
         """Test health check when notify-send is not installed."""
         provider = LinuxNotifyProvider()
 
@@ -582,18 +583,18 @@ class TestLinuxNotifyProvider:
 class TestWindowsToastProvider:
     """Tests for WindowsToastProvider."""
 
-    def test_provider_name(self):
+    def test_provider_name(self) -> None:
         """Test provider has correct name."""
         provider = WindowsToastProvider()
         assert provider.name == "windows_toast"
 
-    def test_target_platform(self):
+    def test_target_platform(self) -> None:
         """Test provider targets correct platform."""
         provider = WindowsToastProvider()
         assert provider.target_platform == Platform.WINDOWS
 
     @pytest.mark.asyncio
-    async def test_send_success(self, mock_subprocess_success):
+    async def test_send_success(self, mock_subprocess_success) -> None:
         """Test successful notification send."""
         provider = WindowsToastProvider()
 
@@ -605,7 +606,7 @@ class TestWindowsToastProvider:
         assert result.message_id.startswith("win_")
 
     @pytest.mark.asyncio
-    async def test_send_escapes_special_characters(self, mock_subprocess_success):
+    async def test_send_escapes_special_characters(self, mock_subprocess_success) -> None:
         """Test that special characters are properly escaped."""
         provider = WindowsToastProvider()
 
@@ -621,7 +622,7 @@ class TestWindowsToastProvider:
         assert "''" in ps_command, f"Expected escaped single quote in: {ps_command[:200]}"
 
     @pytest.mark.asyncio
-    async def test_get_health_available(self):
+    async def test_get_health_available(self) -> None:
         """Test health check when on Windows."""
         provider = WindowsToastProvider()
 
@@ -635,7 +636,7 @@ class TestWindowsToastProvider:
         assert health.available is True
 
     @pytest.mark.asyncio
-    async def test_get_health_unavailable_wrong_platform(self):
+    async def test_get_health_unavailable_wrong_platform(self) -> None:
         """Test health check on wrong platform."""
         provider = WindowsToastProvider()
 
@@ -655,18 +656,18 @@ class TestWindowsToastProvider:
 class TestWSLBridgeProvider:
     """Tests for WSLBridgeProvider."""
 
-    def test_provider_name(self):
+    def test_provider_name(self) -> None:
         """Test provider has correct name."""
         provider = WSLBridgeProvider()
         assert provider.name == "wsl_bridge"
 
-    def test_target_platform(self):
+    def test_target_platform(self) -> None:
         """Test provider targets correct platform."""
         provider = WSLBridgeProvider()
         assert provider.target_platform == Platform.WSL
 
     @pytest.mark.asyncio
-    async def test_send_success(self):
+    async def test_send_success(self) -> None:
         """Test successful notification send from WSL.
 
         Note: WSL bridge doesn't wait for completion, so success is returned
@@ -683,7 +684,7 @@ class TestWSLBridgeProvider:
         assert result.message_id.startswith("wsl_")
 
     @pytest.mark.asyncio
-    async def test_send_powershell_not_found(self):
+    async def test_send_powershell_not_found(self) -> None:
         """Test failure when PowerShell is not accessible via WSL interop."""
         provider = WSLBridgeProvider()
 
@@ -694,7 +695,7 @@ class TestWSLBridgeProvider:
         assert "powershell.exe not found" in result.error
 
     @pytest.mark.asyncio
-    async def test_get_health_available(self):
+    async def test_get_health_available(self) -> None:
         """Test health check when on WSL with PowerShell available."""
         provider = WSLBridgeProvider()
 
@@ -709,7 +710,7 @@ class TestWSLBridgeProvider:
         assert health.available is True
 
     @pytest.mark.asyncio
-    async def test_get_health_unavailable_wrong_platform(self):
+    async def test_get_health_unavailable_wrong_platform(self) -> None:
         """Test health check on wrong platform."""
         provider = WSLBridgeProvider()
 
@@ -729,7 +730,7 @@ class TestWSLBridgeProvider:
 class TestBaseNotificationProvider:
     """Tests for BaseNotificationProvider abstract class."""
 
-    def test_success_rate_tracking(self):
+    def test_success_rate_tracking(self) -> None:
         """Test that success rate is properly calculated."""
         provider = LinuxNotifyProvider()
 
@@ -745,7 +746,7 @@ class TestBaseNotificationProvider:
         assert 0.66 <= provider.success_rate <= 0.67
 
     @pytest.mark.asyncio
-    async def test_close_sets_closed_flag(self):
+    async def test_close_sets_closed_flag(self) -> None:
         """Test that close() sets the is_closed flag."""
         provider = LinuxNotifyProvider()
 
@@ -754,7 +755,7 @@ class TestBaseNotificationProvider:
         assert provider.is_closed is True
 
     @pytest.mark.asyncio
-    async def test_closed_provider_raises_error(self):
+    async def test_closed_provider_raises_error(self) -> None:
         """Test that using a closed provider raises RuntimeError."""
         provider = LinuxNotifyProvider()
         await provider.close()
@@ -772,7 +773,7 @@ class TestBaseNotificationProvider:
 class TestNotificationProviderRegistry:
     """Tests for NotificationProviderRegistry."""
 
-    def test_register_provider(self, registry):
+    def test_register_provider(self, registry) -> None:
         """Test registering a provider."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
@@ -780,7 +781,7 @@ class TestNotificationProviderRegistry:
         assert "linux_notify" in registry.list_providers()
         assert registry.get("linux_notify") is provider
 
-    def test_register_duplicate_raises_error(self, registry):
+    def test_register_duplicate_raises_error(self, registry) -> None:
         """Test that registering duplicate provider raises ValueError."""
         provider1 = LinuxNotifyProvider()
         provider2 = LinuxNotifyProvider()
@@ -790,14 +791,14 @@ class TestNotificationProviderRegistry:
         with pytest.raises(ValueError, match="already registered"):
             registry.register(provider2)
 
-    def test_register_sets_default_if_first(self, registry):
+    def test_register_sets_default_if_first(self, registry) -> None:
         """Test that first registered provider becomes default."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
 
         assert registry.get_default() is provider
 
-    def test_register_set_default(self, registry):
+    def test_register_set_default(self, registry) -> None:
         """Test explicitly setting provider as default."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -807,7 +808,7 @@ class TestNotificationProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_unregister_provider(self, registry):
+    def test_unregister_provider(self, registry) -> None:
         """Test unregistering a provider."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
@@ -817,12 +818,12 @@ class TestNotificationProviderRegistry:
         assert unregistered is provider
         assert "linux_notify" not in registry.list_providers()
 
-    def test_unregister_nonexistent(self, registry):
+    def test_unregister_nonexistent(self, registry) -> None:
         """Test unregistering non-existent provider returns None."""
         result = registry.unregister("nonexistent")
         assert result is None
 
-    def test_set_default(self, registry):
+    def test_set_default(self, registry) -> None:
         """Test changing default provider."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -834,12 +835,12 @@ class TestNotificationProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_set_default_nonexistent_raises_error(self, registry):
+    def test_set_default_nonexistent_raises_error(self, registry) -> None:
         """Test setting non-existent provider as default raises ValueError."""
         with pytest.raises(ValueError, match="not registered"):
             registry.set_default("nonexistent")
 
-    def test_list_providers(self, registry):
+    def test_list_providers(self, registry) -> None:
         """Test listing all registered providers."""
         registry.register(LinuxNotifyProvider())
         registry.register(WindowsToastProvider())
@@ -851,7 +852,7 @@ class TestNotificationProviderRegistry:
         assert "windows_toast" in providers
 
     @pytest.mark.asyncio
-    async def test_get_all_health(self, registry):
+    async def test_get_all_health(self, registry) -> None:
         """Test getting health status for all providers."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -867,7 +868,7 @@ class TestNotificationProviderRegistry:
         assert "windows_toast" in health
 
     @pytest.mark.asyncio
-    async def test_send_uses_default(self, registry, mock_subprocess_success):
+    async def test_send_uses_default(self, registry, mock_subprocess_success) -> None:
         """Test that send() uses default provider."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
@@ -885,7 +886,7 @@ class TestNotificationProviderRegistry:
         assert result.provider == "linux_notify"
 
     @pytest.mark.asyncio
-    async def test_send_fallback_on_failure(self, registry, mock_subprocess_success):
+    async def test_send_fallback_on_failure(self, registry, mock_subprocess_success) -> None:
         """Test that send() falls back to next provider on failure."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -911,7 +912,7 @@ class TestNotificationProviderRegistry:
         assert result.provider == "windows_toast"
 
     @pytest.mark.asyncio
-    async def test_send_all_providers_fail(self, registry):
+    async def test_send_all_providers_fail(self, registry) -> None:
         """Test that send() returns error when all providers fail."""
         provider1 = LinuxNotifyProvider()
         registry.register(provider1)
@@ -927,13 +928,13 @@ class TestNotificationProviderRegistry:
         assert "All providers failed" in result.error
 
     @pytest.mark.asyncio
-    async def test_send_no_providers(self, registry):
+    async def test_send_no_providers(self, registry) -> None:
         """Test that send() raises error when no providers registered."""
         with pytest.raises(RuntimeError, match="No notification providers"):
             await registry.send("Test", "Message")
 
     @pytest.mark.asyncio
-    async def test_close_all(self, registry):
+    async def test_close_all(self, registry) -> None:
         """Test closing all providers."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -956,7 +957,7 @@ class TestNotificationProviderRegistry:
 class TestAutoRegistration:
     """Tests for auto-registration based on platform."""
 
-    def test_auto_register_linux(self, registry):
+    def test_auto_register_linux(self, registry) -> None:
         """Test auto-registration on Linux."""
         with patch.object(registry, "_current_platform", Platform.LINUX):
             registry.auto_register()
@@ -964,7 +965,7 @@ class TestAutoRegistration:
         assert "linux_notify" in registry.list_providers()
         assert registry.get_default().name == "linux_notify"
 
-    def test_auto_register_windows(self, registry):
+    def test_auto_register_windows(self, registry) -> None:
         """Test auto-registration on Windows."""
         with patch.object(registry, "_current_platform", Platform.WINDOWS):
             registry.auto_register()
@@ -972,7 +973,7 @@ class TestAutoRegistration:
         assert "windows_toast" in registry.list_providers()
         assert registry.get_default().name == "windows_toast"
 
-    def test_auto_register_wsl(self, registry):
+    def test_auto_register_wsl(self, registry) -> None:
         """Test auto-registration on WSL."""
         with patch.object(registry, "_current_platform", Platform.WSL):
             registry.auto_register()
@@ -993,14 +994,14 @@ class TestAutoRegistration:
 class TestGlobalRegistry:
     """Tests for global registry functions."""
 
-    def test_get_notification_registry_creates_registry(self):
+    def test_get_notification_registry_creates_registry(self) -> None:
         """Test that get_notification_registry creates and returns registry."""
         registry = get_notification_registry()
 
         assert registry is not None
         assert isinstance(registry, NotificationProviderRegistry)
 
-    def test_get_notification_registry_returns_same_instance(self):
+    def test_get_notification_registry_returns_same_instance(self) -> None:
         """Test that get_notification_registry returns singleton."""
         registry1 = get_notification_registry()
         registry2 = get_notification_registry()
@@ -1008,7 +1009,7 @@ class TestGlobalRegistry:
         assert registry1 is registry2
 
     @pytest.mark.asyncio
-    async def test_cleanup_notification_registry(self):
+    async def test_cleanup_notification_registry(self) -> None:
         """Test cleanup of global registry."""
         registry = get_notification_registry()
         assert registry is not None
@@ -1032,17 +1033,17 @@ class TestGlobalRegistry:
 class TestProtocolCompliance:
     """Tests verifying protocol compliance."""
 
-    def test_linux_provider_is_notification_provider(self):
+    def test_linux_provider_is_notification_provider(self) -> None:
         """Test LinuxNotifyProvider implements NotificationProvider protocol."""
         provider = LinuxNotifyProvider()
         assert isinstance(provider, NotificationProvider)
 
-    def test_windows_provider_is_notification_provider(self):
+    def test_windows_provider_is_notification_provider(self) -> None:
         """Test WindowsToastProvider implements NotificationProvider protocol."""
         provider = WindowsToastProvider()
         assert isinstance(provider, NotificationProvider)
 
-    def test_wsl_provider_is_notification_provider(self):
+    def test_wsl_provider_is_notification_provider(self) -> None:
         """Test WSLBridgeProvider implements NotificationProvider protocol."""
         provider = WSLBridgeProvider()
         assert isinstance(provider, NotificationProvider)
@@ -1058,7 +1059,7 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions per §7.1.4."""
 
     @pytest.mark.asyncio
-    async def test_send_empty_title_and_message(self, mock_subprocess_success):
+    async def test_send_empty_title_and_message(self, mock_subprocess_success) -> None:
         """Test sending notification with empty strings."""
         provider = LinuxNotifyProvider()
 
@@ -1070,7 +1071,7 @@ class TestEdgeCases:
         assert result.ok is True
 
     @pytest.mark.asyncio
-    async def test_send_unicode_characters(self, mock_subprocess_success):
+    async def test_send_unicode_characters(self, mock_subprocess_success) -> None:
         """Test sending notification with Unicode characters."""
         provider = LinuxNotifyProvider()
 
@@ -1081,7 +1082,7 @@ class TestEdgeCases:
         assert result.ok is True
 
     @pytest.mark.asyncio
-    async def test_send_very_long_message(self, mock_subprocess_success):
+    async def test_send_very_long_message(self, mock_subprocess_success) -> None:
         """Test sending notification with very long message."""
         provider = LinuxNotifyProvider()
         long_message = "A" * 10000  # 10k characters
@@ -1093,7 +1094,7 @@ class TestEdgeCases:
         # Should succeed (truncation is platform's responsibility)
         assert result.ok is True
 
-    def test_success_rate_with_no_operations(self):
+    def test_success_rate_with_no_operations(self) -> None:
         """Test success rate when no operations have been performed."""
         provider = LinuxNotifyProvider()
 
