@@ -477,7 +477,7 @@ class TestDomainBFSCrawler:
     """Tests for DomainBFSCrawler class."""
 
     @pytest.mark.asyncio
-    async def test_crawl_respects_max_depth(self):
+    async def test_crawl_respects_max_depth(self) -> None:
         """BFS should not exceed max_depth (TC-BFS-N-01)."""
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
@@ -486,7 +486,7 @@ class TestDomainBFSCrawler:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
-            async def mock_fetch(url):
+            async def mock_fetch(url: str) -> str:
                 return f"<html><body><a href='/level{url.count('/')}'>{url}</a></body></html>"
 
             # When: Crawling with max_depth=1
@@ -501,7 +501,7 @@ class TestDomainBFSCrawler:
             assert result.max_depth_reached <= 1
 
     @pytest.mark.asyncio
-    async def test_crawl_respects_max_urls(self):
+    async def test_crawl_respects_max_urls(self) -> None:
         """BFS should not exceed max_urls (TC-BFS-N-02)."""
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
@@ -510,7 +510,7 @@ class TestDomainBFSCrawler:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
-            async def mock_fetch(url):
+            async def mock_fetch(url: str) -> str:
                 links = "".join([f'<a href="/page{i}">Page {i}</a>' for i in range(50)])
                 return f"<html><body>{links}</body></html>"
 
@@ -526,7 +526,7 @@ class TestDomainBFSCrawler:
             assert len(result.discovered_urls) <= 10
 
     @pytest.mark.asyncio
-    async def test_crawl_checks_robots_txt(self):
+    async def test_crawl_checks_robots_txt(self) -> None:
         """BFS should check robots.txt for each URL (TC-BFS-N-03)."""
         # Given: A crawler with mocked robots manager blocking certain URLs
         crawler = DomainBFSCrawler()
@@ -534,13 +534,13 @@ class TestDomainBFSCrawler:
 
         with patch.object(crawler, "_robots_manager") as mock_robots:
 
-            async def can_fetch(url):
+            async def can_fetch(url: str) -> bool:
                 return url != blocked_url
 
             mock_robots.can_fetch = can_fetch
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
-            async def mock_fetch(url):
+            async def mock_fetch(url: str) -> str:
                 return f'<html><body><a href="{blocked_url}">Blocked</a></body></html>'
 
             # When: Crawling
@@ -575,7 +575,7 @@ class TestDomainBFSCrawler:
             assert all(len(link) == 3 for link in links)
 
     @pytest.mark.asyncio
-    async def test_result_contains_priority_urls(self):
+    async def test_result_contains_priority_urls(self) -> None:
         """Result should contain priority-sorted URLs (TC-BFS-N-05)."""
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
@@ -584,7 +584,7 @@ class TestDomainBFSCrawler:
             mock_robots.can_fetch = AsyncMock(return_value=True)
             mock_robots.get_effective_delay = AsyncMock(return_value=0.01)
 
-            async def mock_fetch(url):
+            async def mock_fetch(url: str) -> str:
                 return SAMPLE_HTML
 
             # When: Crawling

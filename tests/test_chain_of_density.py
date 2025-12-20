@@ -61,7 +61,7 @@ from src.report.chain_of_density import (
 
 
 @pytest.fixture
-def sample_fragment():
+def sample_fragment() -> dict[str, object]:
     """Create a sample fragment for testing."""
     return {
         "id": "frag_001",
@@ -75,7 +75,7 @@ def sample_fragment():
 
 
 @pytest.fixture
-def sample_fragments():
+def sample_fragments() -> list[dict[str, object]]:
     """Create multiple sample fragments."""
     return [
         {
@@ -109,7 +109,7 @@ def sample_fragments():
 
 
 @pytest.fixture
-def sample_claims():
+def sample_claims() -> list[dict[str, object]]:
     """Create sample claims for testing."""
     return [
         {
@@ -143,7 +143,7 @@ def sample_claims():
 class TestCitationInfo:
     """Tests for CitationInfo class."""
 
-    def test_from_fragment_with_complete_data(self, sample_fragment) -> None:
+    def test_from_fragment_with_complete_data(self, sample_fragment: dict[str, object]) -> None:
         """Test creating CitationInfo from a complete fragment.
 
         Verifies that all required fields (§3.3.1) are populated:
@@ -215,8 +215,8 @@ class TestCitationInfo:
         standard, registry.
         """
         # Given: Primary source tags
-        primary_tags = ["government", "academic", "official", "standard", "registry"]
-        secondary_tags = ["news", "blog", "forum", None]
+        primary_tags: list[str] = ["government", "academic", "official", "standard", "registry"]
+        secondary_tags: list[str | None] = ["news", "blog", "forum", None]
 
         # When/Then: Primary tags result in is_primary=True
         for tag in primary_tags:
@@ -240,7 +240,7 @@ class TestCitationInfo:
                 heading_context=None,
                 excerpt="Test excerpt",
                 discovered_at="2024-01-01T00:00:00Z",
-                source_tag=tag,
+                source_tag=tag,  # type: ignore[assignment]
             )
             assert citation.is_primary is False, f"Tag '{tag}' should not be primary"
 
@@ -267,7 +267,7 @@ class TestCitationInfo:
         # Then: Preserves sentence boundary
         assert "First sentence." in excerpt
 
-    def test_to_dict_serialization(self, sample_fragment) -> None:
+    def test_to_dict_serialization(self, sample_fragment: dict[str, object]) -> None:
         """Test that CitationInfo serializes correctly."""
         # Given: CitationInfo from fragment
         citation = CitationInfo.from_fragment(sample_fragment)
@@ -293,7 +293,7 @@ class TestCitationInfo:
 class TestDenseClaim:
     """Tests for DenseClaim class."""
 
-    def test_validation_with_complete_citations(self, sample_fragment) -> None:
+    def test_validation_with_complete_citations(self, sample_fragment: dict[str, object]) -> None:
         """Test validation passes with complete citation info."""
         # Given: DenseClaim with complete citation
         citation = CitationInfo.from_fragment(sample_fragment)
@@ -358,7 +358,7 @@ class TestDenseClaim:
         assert "citation[0].excerpt" in missing
         assert "citation[0].discovered_at" in missing
 
-    def test_to_dict_includes_all_fields(self, sample_fragment) -> None:
+    def test_to_dict_includes_all_fields(self, sample_fragment: dict[str, object]) -> None:
         """Test that to_dict includes all required fields."""
         # Given: DenseClaim with all fields
         citation = CitationInfo.from_fragment(sample_fragment)
@@ -395,7 +395,7 @@ class TestDenseClaim:
 class TestChainOfDensityCompressor:
     """Tests for ChainOfDensityCompressor class."""
 
-    def test_build_citation_mapping(self, sample_claims, sample_fragments) -> None:
+    def test_build_citation_mapping(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test building citation mapping from claims to fragments."""
         # Given: Compressor and sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -410,7 +410,7 @@ class TestChainOfDensityCompressor:
         urls = [c.url for c in citations_001]
         assert "https://example.gov.jp/report/2024" in urls
 
-    def test_create_dense_claims(self, sample_claims, sample_fragments) -> None:
+    def test_create_dense_claims(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test creating DenseClaim objects with citations."""
         # Given: Compressor and citation mapping
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -426,7 +426,7 @@ class TestChainOfDensityCompressor:
         assert claim_001.confidence == 0.85
         assert claim_001.text == "日本の経済成長率は2024年に2.5%を記録した"
 
-    def test_validate_claims(self, sample_claims, sample_fragments) -> None:
+    def test_validate_claims(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test validation of dense claims."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -442,7 +442,7 @@ class TestChainOfDensityCompressor:
         assert "issues" in validation
         assert validation["valid_count"] + validation["invalid_count"] == len(dense_claims)
 
-    def test_calc_primary_ratio(self, sample_claims, sample_fragments) -> None:
+    def test_calc_primary_ratio(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test calculation of primary source ratio."""
         # Given: Dense claims with primary sources
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -493,7 +493,7 @@ class TestChainOfDensityCompressor:
         # Then: Non-zero count
         assert count > 0
 
-    def test_rule_based_compress(self, sample_claims, sample_fragments) -> None:
+    def test_rule_based_compress(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test rule-based compression without LLM."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -511,7 +511,7 @@ class TestChainOfDensityCompressor:
         assert len(summary.text) >= 10, f"Expected text >=10 chars, got: {summary.text}"
         assert summary.density_score >= 0
 
-    def test_extract_all_entities(self, sample_claims, sample_fragments) -> None:
+    def test_extract_all_entities(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test entity extraction from claims and fragments."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -544,7 +544,7 @@ class TestChainOfDensityCompressor:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_compress_rule_based(self, sample_claims, sample_fragments) -> None:
+    async def test_compress_rule_based(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test full compression pipeline with rule-based method."""
         # Given: Compressor with sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -576,7 +576,7 @@ class TestChainOfDensityIntegration:
     """Integration tests for Chain-of-Density compression."""
 
     @pytest.mark.asyncio
-    async def test_compress_with_chain_of_density_function(self, sample_claims, sample_fragments) -> None:
+    async def test_compress_with_chain_of_density_function(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
         """Test the convenience function."""
         # Given: Sample claims and fragments
         # When: Using convenience function
@@ -647,7 +647,7 @@ class TestChainOfDensityIntegration:
                 "confidence_score": 0.5,
             }
         ]
-        fragments = []  # No fragments
+        fragments: list[dict[str, object]] = []  # No fragments
 
         # When: Compressing
         result = await compress_with_chain_of_density(
@@ -823,7 +823,7 @@ class TestChainOfDensityEdgeCases:
 class TestDenseSummary:
     """Tests for DenseSummary class."""
 
-    def test_to_dict(self, sample_fragment) -> None:
+    def test_to_dict(self, sample_fragment: dict[str, object]) -> None:
         """Test DenseSummary serialization."""
         # Given: DenseSummary with claims
         citation = CitationInfo.from_fragment(sample_fragment)

@@ -1264,11 +1264,11 @@ class TestMirrorQueryGeneration:
     """Tests for cross-language mirror query generation (§3.1.1)."""
 
     @pytest.fixture
-    def mock_ollama_client(self):
+    def mock_ollama_client(self) -> object:
         """Create a mock Ollama client for translation tests."""
 
         class MockOllamaClient:
-            async def generate(self, prompt, model=None, temperature=None, max_tokens=None):
+            async def generate(self, prompt: str, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None) -> str:
                 # Extract query from prompt and return translation
                 if "機械学習" in prompt:
                     return "machine learning"
@@ -1283,7 +1283,7 @@ class TestMirrorQueryGeneration:
         return MockOllamaClient()
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client) -> None:
+    async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client: object) -> None:
         """Test Japanese to English translation (§3.1.1)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
@@ -1299,7 +1299,7 @@ class TestMirrorQueryGeneration:
         assert result != "機械学習の最新動向", "Result should be different from original"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client) -> None:
+    async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client: object) -> None:
         """Test English to Japanese translation (§3.1.1)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
@@ -1334,7 +1334,7 @@ class TestMirrorQueryGeneration:
         assert result is None, "Whitespace-only input should return None"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_caching(self):
+    async def test_generate_mirror_query_caching(self) -> None:
         """Test that translations are cached."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
@@ -1343,7 +1343,7 @@ class TestMirrorQueryGeneration:
         call_count = 0
 
         class CountingMockClient:
-            async def generate(self, prompt, model=None, temperature=None, max_tokens=None):
+            async def generate(self, prompt: str, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None) -> str:
                 nonlocal call_count
                 call_count += 1
                 return "security"
@@ -1358,7 +1358,7 @@ class TestMirrorQueryGeneration:
         assert call_count == 1, f"LLM should only be called once, was called {call_count} times"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_queries_multiple_languages(self, mock_ollama_client) -> None:
+    async def test_generate_mirror_queries_multiple_languages(self, mock_ollama_client: object) -> None:
         """Test generating mirrors in multiple target languages."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_queries
 
@@ -1382,7 +1382,7 @@ class TestMirrorQueryGeneration:
         _mirror_query_cache.clear()
 
         class FailingMockClient:
-            async def generate(self, *args, **kwargs):
+            async def generate(self, *args: object, **kwargs: object) -> str:
                 raise RuntimeError("LLM unavailable")
 
         with patch("src.filter.llm._get_client", return_value=FailingMockClient()):
@@ -1391,14 +1391,14 @@ class TestMirrorQueryGeneration:
         assert result is None, "Error should return None, not raise"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_cleans_response(self):
+    async def test_generate_mirror_query_cleans_response(self) -> None:
         """Test that quoted responses are cleaned."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
         _mirror_query_cache.clear()
 
         class QuotedMockClient:
-            async def generate(self, *args, **kwargs):
+            async def generate(self, *args: object, **kwargs: object) -> str:
                 return '"quoted translation"'
 
         with patch("src.filter.llm._get_client", return_value=QuotedMockClient()):

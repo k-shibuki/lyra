@@ -48,6 +48,8 @@ Tests for src/filter/evidence_graph.py
 | TC-DB-I-02 | Add evidence | Integration | Edge persisted | DB integration |
 """
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 # Unit tests for evidence graph (no external dependencies except test fixtures)
@@ -59,6 +61,9 @@ from src.filter.evidence_graph import (
     RelationType,
     add_claim_evidence,
 )
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 
 class TestNodeType:
@@ -204,7 +209,7 @@ class TestEvidenceRetrieval:
     """Tests for evidence retrieval methods."""
 
     @pytest.fixture
-    def populated_graph(self):
+    def populated_graph(self) -> EvidenceGraph:
         """Create a graph with test data."""
         graph = EvidenceGraph(task_id="test")
 
@@ -248,7 +253,7 @@ class TestEvidenceRetrieval:
 
         return graph
 
-    def test_get_supporting_evidence(self, populated_graph) -> None:
+    def test_get_supporting_evidence(self, populated_graph: EvidenceGraph) -> None:
         """Test getting supporting evidence."""
         # Given: A graph with supporting, refuting, and neutral evidence
         # When: Getting supporting evidence for a claim
@@ -261,7 +266,7 @@ class TestEvidenceRetrieval:
         obj_ids = {e["obj_id"] for e in evidence}
         assert obj_ids == {"frag-1", "frag-2"}
 
-    def test_get_refuting_evidence(self, populated_graph) -> None:
+    def test_get_refuting_evidence(self, populated_graph: EvidenceGraph) -> None:
         """Test getting refuting evidence."""
         # Given: A graph with mixed evidence types
         # When: Getting refuting evidence for a claim
@@ -272,7 +277,7 @@ class TestEvidenceRetrieval:
         assert evidence[0]["obj_id"] == "frag-3"
         assert evidence[0]["relation"] == "refutes"
 
-    def test_get_all_evidence(self, populated_graph) -> None:
+    def test_get_all_evidence(self, populated_graph: EvidenceGraph) -> None:
         """Test getting all categorized evidence."""
         # Given: A graph with all evidence types
         # When: Getting all evidence for a claim
@@ -289,13 +294,13 @@ class TestEvidenceRetrieval:
         graph = EvidenceGraph()
 
         # When: Getting evidence for unknown claim
-        evidence = graph.get_supporting_evidence("unknown")
+        evidence: list[dict[str, object]] = graph.get_supporting_evidence("unknown")
 
         # Then: Empty results are returned
         assert evidence == []
 
-        evidence = graph.get_all_evidence("unknown")
-        assert evidence == {"supports": [], "refutes": [], "neutral": []}
+        evidence_all: dict[str, list[dict[str, object]]] = graph.get_all_evidence("unknown")
+        assert evidence_all == {"supports": [], "refutes": [], "neutral": []}
 
 
 class TestClaimConfidence:
@@ -973,7 +978,7 @@ class TestDatabaseIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_save_and_load(self, test_database) -> None:
+    async def test_save_and_load(self, test_database: "Database") -> None:
         """Test saving and loading graph from database."""
         from unittest.mock import patch
 
@@ -1003,7 +1008,7 @@ class TestDatabaseIntegration:
         assert edges[0]["relation"] == "supports"
 
     @pytest.mark.asyncio
-    async def test_add_claim_evidence_persists(self, test_database) -> None:
+    async def test_add_claim_evidence_persists(self, test_database: "Database") -> None:
         """Test add_claim_evidence persists to database."""
         from unittest.mock import patch
 
@@ -1134,7 +1139,7 @@ class TestAcademicCitationAttributes:
         assert edges[0]["citation_context"] == "Context text"
 
     @pytest.mark.asyncio
-    async def test_save_to_db_with_academic_attributes(self, test_database) -> None:
+    async def test_save_to_db_with_academic_attributes(self, test_database: "Database") -> None:
         """Test saving edges with academic attributes to DB.
 
         // Given: Edge with academic attributes
@@ -1473,7 +1478,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edge_data["target_domain_category"] == "primary"
 
     @pytest.mark.asyncio
-    async def test_save_to_db_with_domain_categories(self, test_database) -> None:
+    async def test_save_to_db_with_domain_categories(self, test_database: "Database") -> None:
         """
         TC-P2-EDGE-I-01: Save edges with trust levels to database.
 
@@ -1506,7 +1511,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edges[0]["target_domain_category"] == "low"
 
     @pytest.mark.asyncio
-    async def test_load_from_db_with_domain_categories(self, test_database) -> None:
+    async def test_load_from_db_with_domain_categories(self, test_database: "Database") -> None:
         """
         TC-P2-EDGE-I-02: Load edges with trust levels from database.
 

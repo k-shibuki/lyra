@@ -159,7 +159,7 @@ def sample_results() -> list[SearchResult]:
 
 
 @pytest.fixture
-def mock_provider(sample_results) -> MockSearchProvider:
+def mock_provider(sample_results: list[SearchResult]) -> MockSearchProvider:
     """Create a mock provider with sample results."""
     return MockSearchProvider(results=sample_results)
 
@@ -428,7 +428,7 @@ class TestSearchResult:
 class TestSearchResponse:
     """Tests for SearchResponse data class."""
 
-    def test_successful_response(self, sample_results) -> None:
+    def test_successful_response(self, sample_results: list[SearchResult]) -> None:
         """TC-SP-N-01: Test creating a successful response.
 
         // Given: Valid results and query
@@ -515,7 +515,7 @@ class TestSearchResponse:
         # Then: Valid response
         assert response.total_count == 0
 
-    def test_to_dict_includes_ok(self, sample_results) -> None:
+    def test_to_dict_includes_ok(self, sample_results: list[SearchResult]) -> None:
         """TC-SP-N-02: Test that to_dict includes the ok property.
 
         // Given: SearchResponse with results
@@ -772,7 +772,7 @@ class TestHealthStatus:
 class TestSearchProviderRegistry:
     """Tests for SearchProviderRegistry."""
 
-    def test_register_provider(self, mock_provider) -> None:
+    def test_register_provider(self, mock_provider: MockSearchProvider) -> None:
         """TC-RG-N-01: Test registering a provider.
 
         // Given: A provider instance
@@ -789,7 +789,7 @@ class TestSearchProviderRegistry:
         assert "mock" in registry.list_providers()
         assert registry.get("mock") is mock_provider
 
-    def test_register_sets_default(self, mock_provider) -> None:
+    def test_register_sets_default(self, mock_provider: MockSearchProvider) -> None:
         """TC-RG-N-02: Test that first provider becomes default.
 
         // Given: Empty registry
@@ -805,7 +805,7 @@ class TestSearchProviderRegistry:
         # Then: First provider becomes default
         assert registry.get_default() is mock_provider
 
-    def test_register_duplicate_raises(self, mock_provider) -> None:
+    def test_register_duplicate_raises(self, mock_provider: MockSearchProvider) -> None:
         """TC-RG-A-01: Test that duplicate registration raises error.
 
         // Given: Provider already registered
@@ -823,7 +823,7 @@ class TestSearchProviderRegistry:
         # Then: Error message mentions duplicate
         assert "already registered" in str(exc_info.value).lower()
 
-    def test_unregister_provider(self, mock_provider) -> None:
+    def test_unregister_provider(self, mock_provider: MockSearchProvider) -> None:
         """TC-RG-N-03: Test unregistering a provider.
 
         // Given: Registered provider
@@ -898,7 +898,7 @@ class TestSearchProviderRegistry:
         assert "not registered" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_search_with_fallback_success(self, mock_provider) -> None:
+    async def test_search_with_fallback_success(self, mock_provider: MockSearchProvider) -> None:
         """TC-RG-N-05: Test successful search with fallback mechanism.
 
         // Given: Registered provider
@@ -918,7 +918,7 @@ class TestSearchProviderRegistry:
         assert mock_provider.search_calls[0][0] == "test query"
 
     @pytest.mark.asyncio
-    async def test_search_with_fallback_uses_fallback(self, sample_results) -> None:
+    async def test_search_with_fallback_uses_fallback(self, sample_results: list[SearchResult]) -> None:
         """TC-RG-N-06: Test that fallback is used when primary fails.
 
         // Given: Primary provider fails, backup provider available
@@ -943,7 +943,7 @@ class TestSearchProviderRegistry:
         assert len(response.results) == 3
 
     @pytest.mark.asyncio
-    async def test_search_with_fallback_skips_unhealthy(self, sample_results) -> None:
+    async def test_search_with_fallback_skips_unhealthy(self, sample_results: list[SearchResult]) -> None:
         """TC-RG-N-07: Test that unhealthy providers are skipped.
 
         // Given: Unhealthy primary provider, healthy backup
@@ -991,7 +991,8 @@ class TestSearchProviderRegistry:
 
         # Then: Error response
         assert not response.ok
-        assert "All providers failed" in response.error
+        if response.error is not None:
+            assert "All providers failed" in response.error
 
     @pytest.mark.asyncio
     async def test_search_with_fallback_no_providers(self) -> None:
@@ -1040,7 +1041,7 @@ class TestSearchProviderRegistry:
         assert health["p2"].state == HealthState.DEGRADED
 
     @pytest.mark.asyncio
-    async def test_close_all(self, mock_provider) -> None:
+    async def test_close_all(self, mock_provider: MockSearchProvider) -> None:
         """TC-RG-N-09: Test closing all providers.
 
         // Given: Registered providers

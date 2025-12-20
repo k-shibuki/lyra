@@ -50,13 +50,13 @@ from src.utils.secure_logging import (
 
 
 @pytest.fixture
-def secure_logger():
+def secure_logger() -> SecureLogger:
     """Create a SecureLogger instance."""
     return SecureLogger("test_module")
 
 
 @pytest.fixture
-def audit_logger():
+def audit_logger() -> AuditLogger:
     """Create an AuditLogger instance."""
     return AuditLogger()
 
@@ -69,7 +69,7 @@ def audit_logger():
 class TestSecureLoggerNormal:
     """Test SecureLogger normal cases."""
 
-    def test_log_llm_io_normal(self, secure_logger) -> None:
+    def test_log_llm_io_normal(self, secure_logger: SecureLogger) -> None:
         """
         TC-N-01: log_llm_io with normal input/output
 
@@ -103,7 +103,7 @@ class TestSecureLoggerNormal:
             # Verify output summary
             assert call_kwargs["output"]["length"] == len(output_text)
 
-    def test_log_exception_normal(self, secure_logger) -> None:
+    def test_log_exception_normal(self, secure_logger: SecureLogger) -> None:
         """
         TC-N-02: log_exception with ValueError
 
@@ -124,7 +124,7 @@ class TestSecureLoggerNormal:
                 assert "Invalid input value" in result.sanitized_message
                 assert result.error_id.startswith("err_")
 
-    def test_log_sensitive_operation_normal(self, secure_logger) -> None:
+    def test_log_sensitive_operation_normal(self, secure_logger: SecureLogger) -> None:
         """
         TC-N-03: log_sensitive_operation with normal dict
 
@@ -156,7 +156,7 @@ class TestSecureLoggerNormal:
 class TestSecureLoggerAbnormal:
     """Test SecureLogger abnormal/error cases."""
 
-    def test_log_llm_io_with_prompt_content(self, secure_logger) -> None:
+    def test_log_llm_io_with_prompt_content(self, secure_logger: SecureLogger) -> None:
         """
         TC-A-01: log_llm_io with prompt-like content
 
@@ -174,7 +174,7 @@ class TestSecureLoggerAbnormal:
             assert "[MASKED]" in call_kwargs["input"]["preview"]
             assert call_kwargs["input"]["had_sensitive"] is True
 
-    def test_log_llm_io_with_path_content(self, secure_logger) -> None:
+    def test_log_llm_io_with_path_content(self, secure_logger: SecureLogger) -> None:
         """
         TC-A-02: log_llm_io with path-like content
 
@@ -192,7 +192,7 @@ class TestSecureLoggerAbnormal:
             assert "[PATH]" in call_kwargs["input"]["preview"]
             assert call_kwargs["input"]["had_sensitive"] is True
 
-    def test_log_exception_with_stack_trace(self, secure_logger) -> None:
+    def test_log_exception_with_stack_trace(self, secure_logger: SecureLogger) -> None:
         """
         TC-A-03: log_exception with stack trace
 
@@ -213,7 +213,7 @@ class TestSecureLoggerAbnormal:
             assert "Traceback" not in result.sanitized_message
             assert "/home/user" not in result.sanitized_message
 
-    def test_log_exception_with_file_path(self, secure_logger) -> None:
+    def test_log_exception_with_file_path(self, secure_logger: SecureLogger) -> None:
         """
         TC-A-04: log_exception with file path
 
@@ -237,7 +237,7 @@ class TestSecureLoggerAbnormal:
 class TestSecureLoggerBoundary:
     """Test SecureLogger boundary cases."""
 
-    def test_log_llm_io_empty_string(self, secure_logger) -> None:
+    def test_log_llm_io_empty_string(self, secure_logger: SecureLogger) -> None:
         """
         TC-B-01: log_llm_io with empty string
 
@@ -253,7 +253,7 @@ class TestSecureLoggerBoundary:
             assert call_kwargs["input"]["length"] == 0
             assert call_kwargs["output"]["length"] == 0
 
-    def test_log_llm_io_very_long_text(self, secure_logger) -> None:
+    def test_log_llm_io_very_long_text(self, secure_logger: SecureLogger) -> None:
         """
         TC-B-02: log_llm_io with very long text (10000 chars)
 
@@ -273,7 +273,7 @@ class TestSecureLoggerBoundary:
             assert len(call_kwargs["input"]["preview"]) <= MAX_PREVIEW_LENGTH + 3
             assert call_kwargs["input"]["preview"].endswith("...")
 
-    def test_log_llm_io_none_input(self, secure_logger) -> None:
+    def test_log_llm_io_none_input(self, secure_logger: SecureLogger) -> None:
         """
         TC-B-03: log_llm_io with None input
 
@@ -298,7 +298,7 @@ class TestSecureLoggerBoundary:
 class TestAuditLoggerNormal:
     """Test AuditLogger normal cases."""
 
-    def test_log_security_event_prompt_leakage(self, audit_logger) -> None:
+    def test_log_security_event_prompt_leakage(self, audit_logger: AuditLogger) -> None:
         """
         TC-N-04: log_security_event with PROMPT_LEAKAGE
 
@@ -320,7 +320,7 @@ class TestAuditLoggerNormal:
             assert call_kwargs["event_type"] == "prompt_leakage_detected"
             assert call_kwargs["severity"] == "high"
 
-    def test_log_prompt_leakage_helper(self, audit_logger) -> None:
+    def test_log_prompt_leakage_helper(self, audit_logger: AuditLogger) -> None:
         """
         TC-N-05: log_prompt_leakage helper
 
@@ -339,7 +339,7 @@ class TestAuditLoggerNormal:
             assert call_kwargs["event_type"] == "prompt_leakage_detected"
             assert call_kwargs["details"]["fragment_count"] == 3
 
-    def test_log_dangerous_pattern_helper(self, audit_logger) -> None:
+    def test_log_dangerous_pattern_helper(self, audit_logger: AuditLogger) -> None:
         """
         TC-N-06: log_dangerous_pattern helper
 
@@ -367,7 +367,7 @@ class TestAuditLoggerNormal:
 class TestAuditLoggerAbnormalBoundary:
     """Test AuditLogger abnormal and boundary cases."""
 
-    def test_log_security_event_long_details(self, audit_logger) -> None:
+    def test_log_security_event_long_details(self, audit_logger: AuditLogger) -> None:
         """
         TC-A-05: log_security_event with long details
 
@@ -388,7 +388,7 @@ class TestAuditLoggerAbnormalBoundary:
             # Long strings should be replaced with length indicator
             assert call_kwargs["details"]["long_field"] == "[100 chars]"
 
-    def test_log_security_event_none_details(self, audit_logger) -> None:
+    def test_log_security_event_none_details(self, audit_logger: AuditLogger) -> None:
         """
         TC-B-04: log_security_event with None details
 

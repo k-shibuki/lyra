@@ -207,12 +207,12 @@ class TestWaybackFallback:
     """Tests for WaybackFallback class."""
 
     @pytest.fixture
-    def wayback_fallback(self):
+    def wayback_fallback(self) -> WaybackFallback:
         """Create WaybackFallback instance."""
         return WaybackFallback()
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_success(self, wayback_fallback) -> None:
+    async def test_get_fallback_content_success(self, wayback_fallback: WaybackFallback) -> None:
         """Test successful fallback content retrieval."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -246,7 +246,7 @@ class TestWaybackFallback:
             assert result.attempts == 1
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_no_snapshots(self, wayback_fallback) -> None:
+    async def test_get_fallback_content_no_snapshots(self, wayback_fallback: WaybackFallback) -> None:
         """Test fallback when no snapshots available."""
         with patch.object(
             wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
@@ -260,7 +260,7 @@ class TestWaybackFallback:
             assert result.html is None
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_all_fail(self, wayback_fallback) -> None:
+    async def test_get_fallback_content_all_fail(self, wayback_fallback: WaybackFallback) -> None:
         """Test fallback when all snapshot fetches fail."""
         snapshots = [
             Snapshot(
@@ -292,7 +292,7 @@ class TestWaybackFallback:
             assert result.attempts == 3
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_second_attempt_success(self, wayback_fallback) -> None:
+    async def test_get_fallback_content_second_attempt_success(self, wayback_fallback: WaybackFallback) -> None:
         """Test fallback succeeds on second attempt."""
         snapshots = [
             Snapshot(
@@ -332,7 +332,7 @@ class TestWaybackFallback:
             assert result.snapshot == snapshots[1]
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_error_page_detection(self, wayback_fallback) -> None:
+    async def test_get_fallback_content_error_page_detection(self, wayback_fallback: WaybackFallback) -> None:
         """Test detection of Wayback error pages."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -364,7 +364,7 @@ class TestWaybackFallback:
             assert result.ok is False
 
     @pytest.mark.asyncio
-    async def test_get_fallback_content_short_content_rejected(self, wayback_fallback) -> None:
+    async def test_get_fallback_content_short_content_rejected(self, wayback_fallback: WaybackFallback) -> None:
         """Test very short content is rejected."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -389,7 +389,7 @@ class TestWaybackFallback:
             # Should fail because content is too short
             assert result.ok is False
 
-    def test_is_error_page_detection(self, wayback_fallback) -> None:
+    def test_is_error_page_detection(self, wayback_fallback: WaybackFallback) -> None:
         """Test error page detection patterns."""
         # Should detect as error page
         assert wayback_fallback._is_error_page("The Wayback Machine has not archived that URL")
@@ -404,7 +404,7 @@ class TestWaybackFallback:
         assert not wayback_fallback._is_error_page("This is a regular article about web archives")
 
     @pytest.mark.asyncio
-    async def test_get_best_snapshot_content_success(self, wayback_fallback) -> None:
+    async def test_get_best_snapshot_content_success(self, wayback_fallback: WaybackFallback) -> None:
         """Test get_best_snapshot_content returns content."""
         snapshot = Snapshot(
             url="https://example.com/page",
@@ -438,7 +438,7 @@ class TestWaybackFallback:
             assert penalty == 0.0  # 5 days old, no penalty
 
     @pytest.mark.asyncio
-    async def test_get_best_snapshot_content_failure(self, wayback_fallback) -> None:
+    async def test_get_best_snapshot_content_failure(self, wayback_fallback: WaybackFallback) -> None:
         """Test get_best_snapshot_content when no content available."""
         with patch.object(
             wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
@@ -508,7 +508,8 @@ class TestFetchResultArchiveFields:
 
         assert result.is_archived is True
         assert result.archive_date == archive_date
-        assert "web.archive.org" in result.archive_url
+        if result.archive_url is not None:
+            assert "web.archive.org" in result.archive_url
         assert result.freshness_penalty == 0.25
 
     def test_fetch_result_to_dict_includes_archive(self) -> None:
@@ -678,12 +679,12 @@ class TestCompareWithCurrent:
     """Tests for WaybackFallback.compare_with_current method."""
 
     @pytest.fixture
-    def wayback_fallback(self):
+    def wayback_fallback(self) -> WaybackFallback:
         """Create WaybackFallback instance."""
         return WaybackFallback()
 
     @pytest.mark.asyncio
-    async def test_compare_no_archive(self, wayback_fallback) -> None:
+    async def test_compare_no_archive(self, wayback_fallback: WaybackFallback) -> None:
         """Test comparison when no archive available."""
         with patch.object(
             wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
@@ -699,7 +700,7 @@ class TestCompareWithCurrent:
             assert "No archive" in result.timeline_notes
 
     @pytest.mark.asyncio
-    async def test_compare_similar_content(self, wayback_fallback) -> None:
+    async def test_compare_similar_content(self, wayback_fallback: WaybackFallback) -> None:
         """Test comparison with similar content."""
         snapshot = Snapshot(
             url="https://example.com",
@@ -730,7 +731,7 @@ class TestCompareWithCurrent:
             assert result.timeline_event_type == "content_unchanged"
 
     @pytest.mark.asyncio
-    async def test_compare_modified_content(self, wayback_fallback) -> None:
+    async def test_compare_modified_content(self, wayback_fallback: WaybackFallback) -> None:
         """Test comparison with modified content."""
         snapshot = Snapshot(
             url="https://example.com",
@@ -776,7 +777,7 @@ class TestCompareWithCurrent:
             assert "Old Section" in result.headings_removed
 
     @pytest.mark.asyncio
-    async def test_compare_applies_freshness_penalty(self, wayback_fallback) -> None:
+    async def test_compare_applies_freshness_penalty(self, wayback_fallback: WaybackFallback) -> None:
         """Test that comparison applies freshness penalty to confidence."""
         snapshot = Snapshot(
             url="https://example.com",

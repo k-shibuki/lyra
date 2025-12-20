@@ -23,7 +23,7 @@ class TestPipelineTimeout:
     """Tests for SearchPipeline timeout handling."""
 
     @pytest.fixture
-    def mock_state(self):
+    def mock_state(self) -> MagicMock:
         """Create a mock ExplorationState."""
         state = MagicMock()
         state.task_id = "test_task"
@@ -43,7 +43,7 @@ class TestPipelineTimeout:
         return state
 
     @pytest.fixture
-    def mock_db(self):
+    def mock_db(self) -> AsyncMock:
         """Create a mock database."""
         db = AsyncMock()
         db.fetch_one = AsyncMock(return_value=None)
@@ -52,7 +52,7 @@ class TestPipelineTimeout:
         return db
 
     @pytest.mark.asyncio
-    async def test_execute_respects_timeout_setting(self, mock_state, mock_db):
+    async def test_execute_respects_timeout_setting(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-A-01: Test that execute times out when execution exceeds timeout.
 
@@ -64,7 +64,7 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def slow_execute(*args, **kwargs):
+        async def slow_execute(*args: object, **kwargs: object) -> object:
             await asyncio.sleep(10)
             return args[3]
 
@@ -84,7 +84,7 @@ class TestPipelineTimeout:
             assert "0.1" in result.errors[0] or "safe stop" in result.errors[0]
 
     @pytest.mark.asyncio
-    async def test_execute_returns_partial_result_on_timeout(self, mock_state, mock_db):
+    async def test_execute_returns_partial_result_on_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-A-01: Test that partial results are returned on timeout.
 
@@ -96,7 +96,7 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def slow_execute(*args, **kwargs):
+        async def slow_execute(*args: object, **kwargs: object) -> object:
             await asyncio.sleep(10)
             return args[3]
 
@@ -115,7 +115,7 @@ class TestPipelineTimeout:
             assert result.is_partial is True
 
     @pytest.mark.asyncio
-    async def test_execute_includes_budget_on_timeout(self, mock_state, mock_db):
+    async def test_execute_includes_budget_on_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-A-01: Test that budget info is included even on timeout.
 
@@ -127,7 +127,7 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def slow_execute(*args, **kwargs):
+        async def slow_execute(*args: object, **kwargs: object) -> object:
             await asyncio.sleep(10)
             return args[3]
 
@@ -145,7 +145,7 @@ class TestPipelineTimeout:
             assert result.budget_remaining["pages"] == 110
 
     @pytest.mark.asyncio
-    async def test_execute_completes_within_timeout(self, mock_state, mock_db):
+    async def test_execute_completes_within_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-N-01: Test that fast execution completes normally.
 
@@ -157,10 +157,10 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def fast_execute(*args, **kwargs):
+        async def fast_execute(*args: object, **kwargs: object) -> object:
             result = args[3]
-            result.status = "satisfied"
-            result.pages_fetched = 5
+            result.status = "satisfied"  # type: ignore[attr-defined]
+            result.pages_fetched = 5  # type: ignore[attr-defined]
             return result
 
         with (
@@ -178,7 +178,7 @@ class TestPipelineTimeout:
             assert len(result.errors) == 0
 
     @pytest.mark.asyncio
-    async def test_execute_logs_timeout_warning(self, mock_state, mock_db):
+    async def test_execute_logs_timeout_warning(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-A-01: Test that timeout is logged as warning.
 
@@ -190,7 +190,7 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def slow_execute(*args, **kwargs):
+        async def slow_execute(*args: object, **kwargs: object) -> object:
             await asyncio.sleep(10)
             return args[3]
 
@@ -210,7 +210,7 @@ class TestPipelineTimeout:
             assert "timeout" in call_args[0][0].lower()
 
     @pytest.mark.asyncio
-    async def test_execute_handles_exception_during_execution(self, mock_state, mock_db) -> None:
+    async def test_execute_handles_exception_during_execution(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-A-02: Test that exceptions during execution are handled.
 
@@ -222,7 +222,7 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def failing_execute(*args, **kwargs):
+        async def failing_execute(*args: object, **kwargs: object) -> object:
             raise RuntimeError("Simulated failure")
 
         with (
@@ -240,7 +240,7 @@ class TestPipelineTimeout:
             assert "Simulated failure" in result.errors[0]
 
     @pytest.mark.asyncio
-    async def test_execute_boundary_just_under_timeout(self, mock_state, mock_db):
+    async def test_execute_boundary_just_under_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-B-01: Test execution just under timeout completes normally.
 
@@ -252,10 +252,10 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def fast_execute(*args, **kwargs):
+        async def fast_execute(*args: object, **kwargs: object) -> object:
             await asyncio.sleep(0.05)
             result = args[3]
-            result.status = "satisfied"
+            result.status = "satisfied"  # type: ignore[attr-defined]
             return result
 
         with (
@@ -272,7 +272,7 @@ class TestPipelineTimeout:
             assert result.is_partial is False
 
     @pytest.mark.asyncio
-    async def test_execute_boundary_just_over_timeout(self, mock_state, mock_db):
+    async def test_execute_boundary_just_over_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
         """
         PT-B-02: Test execution just over timeout triggers timeout.
 
@@ -284,7 +284,7 @@ class TestPipelineTimeout:
 
         pipeline = SearchPipeline("test_task", mock_state)
 
-        async def slow_execute(*args, **kwargs):
+        async def slow_execute(*args: object, **kwargs: object) -> object:
             await asyncio.sleep(0.2)
             return args[3]
 
