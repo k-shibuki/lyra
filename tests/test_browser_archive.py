@@ -48,13 +48,13 @@ for browser-fetched pages.
 """
 
 import json
+import time
+from pathlib import Path
 
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
-import time
-from pathlib import Path
 
 from src.crawler.browser_archive import (
     BrowserArchiver,
@@ -572,19 +572,19 @@ class TestBrowserArchiver:
     """Tests for browser archive saving."""
 
     @pytest.fixture
-    def temp_archive_dir(self, tmp_path):
+    def temp_archive_dir(self, tmp_path: Path) -> Path:
         """Create a temporary archive directory."""
         archive_dir = tmp_path / "archive"
         archive_dir.mkdir()
         return archive_dir
 
     @pytest.fixture
-    def archiver(self, temp_archive_dir):
+    def archiver(self, temp_archive_dir: Path) -> BrowserArchiver:
         """Create archiver with temp directory."""
         return BrowserArchiver(output_dir=temp_archive_dir)
 
     @pytest.mark.asyncio
-    async def test_save_archive_creates_cdxj(self, archiver, temp_archive_dir) -> None:
+    async def test_save_archive_creates_cdxj(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
         """Test that save_archive creates CDXJ file (TC-BA-N-01)."""
         # Given: An archiver and content
         content = b"<html><head><title>Test</title></head><body>Hello</body></html>"
@@ -608,7 +608,7 @@ class TestBrowserArchiver:
         assert "sha256:" in cdxj_content
 
     @pytest.mark.asyncio
-    async def test_save_archive_creates_har(self, archiver, temp_archive_dir) -> None:
+    async def test_save_archive_creates_har(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
         """Test that save_archive creates HAR file (TC-BA-N-02)."""
         # Given: An archiver and content
         content = b"<html><body>Test content</body></html>"
@@ -633,7 +633,7 @@ class TestBrowserArchiver:
         assert len(har_content["log"]["entries"]) >= 1
 
     @pytest.mark.asyncio
-    async def test_save_archive_with_collector(self, archiver, temp_archive_dir) -> None:
+    async def test_save_archive_with_collector(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
         """Test saving archive with network event collector (TC-BA-N-03)."""
         # Given: A collector with events
         collector = NetworkEventCollector()
@@ -670,13 +670,14 @@ class TestBrowserArchiver:
 
         # Then: HAR should contain multiple entries
         assert result["status"] == "success"
+        assert result["har_path"] is not None
 
         har_path = Path(result["har_path"])
         har_content = json.loads(har_path.read_text())
         assert len(har_content["log"]["entries"]) >= 2
 
     @pytest.mark.asyncio
-    async def test_save_archive_adds_warc_reference(self, archiver, temp_archive_dir) -> None:
+    async def test_save_archive_adds_warc_reference(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
         """Test that WARC path is added to CDXJ header (TC-BA-N-04)."""
         # Given: Content and WARC path
         content = b"<html></html>"
@@ -690,11 +691,12 @@ class TestBrowserArchiver:
         )
 
         # Then: WARC path should be in CDXJ
+        assert result["cdxj_path"] is not None
         cdxj_path = Path(result["cdxj_path"])
         cdxj_content = cdxj_path.read_text()
         assert warc_path in cdxj_content
 
-    def test_create_collector(self, archiver) -> None:
+    def test_create_collector(self, archiver: BrowserArchiver) -> None:
         """Test creating network event collector (TC-BA-N-05)."""
         # Given: An archiver
         # When: Creating collector
@@ -722,7 +724,7 @@ class TestBrowserArchiverIntegration:
         assert isinstance(archiver, BrowserArchiver)
 
     @pytest.mark.asyncio
-    async def test_full_workflow(self, tmp_path) -> None:
+    async def test_full_workflow(self, tmp_path: Path) -> None:
         """Test complete archive workflow (TC-INT-N-02)."""
         # Given: Archive directory and archiver
         archive_dir = tmp_path / "archive"
@@ -854,7 +856,7 @@ class TestEdgeCases:
         assert collector.resources[0].status == 200
 
     @pytest.mark.asyncio
-    async def test_save_archive_empty_content(self, tmp_path) -> None:
+    async def test_save_archive_empty_content(self, tmp_path: Path) -> None:
         """Test saving archive with empty content (TC-EC-B-02)."""
         # Given: Archive directory and archiver
         archive_dir = tmp_path / "archive"

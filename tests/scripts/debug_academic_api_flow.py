@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
-async def test_academic_query_detection():
+async def test_academic_query_detection() -> bool:
     """Step 1: Test academic query detection."""
     print("\n" + "=" * 60)
     print("[Step 1] Testing academic query detection")
@@ -66,7 +66,7 @@ async def test_academic_query_detection():
     return failed == 0
 
 
-async def test_academic_provider_initialization():
+async def test_academic_provider_initialization() -> bool:
     """Step 2: Test AcademicSearchProvider initialization."""
     print("\n" + "=" * 60)
     print("[Step 2] Testing AcademicSearchProvider initialization")
@@ -107,7 +107,7 @@ async def test_academic_provider_initialization():
     return True
 
 
-async def test_paper_model():
+async def test_paper_model() -> bool:
     """Step 3: Test Paper/Citation/Author models."""
     print("\n" + "=" * 60)
     print("[Step 3] Testing Paper/Citation/Author Pydantic models")
@@ -157,7 +157,7 @@ async def test_paper_model():
     return True
 
 
-async def test_canonical_paper_index():
+async def test_canonical_paper_index() -> bool:
     """Step 4: Test CanonicalPaperIndex deduplication."""
     print("\n" + "=" * 60)
     print("[Step 4] Testing CanonicalPaperIndex deduplication")
@@ -216,7 +216,7 @@ async def test_canonical_paper_index():
     return True
 
 
-async def test_semantic_scholar_client():
+async def test_semantic_scholar_client() -> bool:
     """Step 5: Test Semantic Scholar client (mocked)."""
     print("\n" + "=" * 60)
     print("[Step 5] Testing Semantic Scholar client")
@@ -252,7 +252,7 @@ async def test_semantic_scholar_client():
     return True
 
 
-async def test_evidence_graph_academic_edges():
+async def test_evidence_graph_academic_edges() -> bool:
     """Step 6: Test evidence graph academic edge attributes."""
     print("\n" + "=" * 60)
     print("[Step 6] Testing evidence graph academic edge attributes")
@@ -295,7 +295,7 @@ async def test_evidence_graph_academic_edges():
     return True
 
 
-async def test_live_api_search(live: bool = False):
+async def test_live_api_search(live: bool = False) -> bool:
     """Step 7: Live API search test (optional)."""
     print("\n" + "=" * 60)
     print("[Step 7] Live API search test")
@@ -336,7 +336,7 @@ async def test_live_api_search(live: bool = False):
     return True
 
 
-async def test_config_loading():
+async def test_config_loading() -> bool:
     """Step 8: Test academic APIs config loading."""
     print("\n" + "=" * 60)
     print("[Step 8] Testing academic APIs config loading")
@@ -375,7 +375,7 @@ async def test_config_loading():
     return True
 
 
-async def main():
+async def main() -> int:
     """Run all verification steps."""
     print("=" * 60)
     print(" J.2 Academic API Integration - E2E Verification")

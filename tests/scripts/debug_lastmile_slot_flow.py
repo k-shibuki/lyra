@@ -28,7 +28,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-def test_lastmile_check_result_model():
+def test_lastmile_check_result_model() -> bool:
     """Test that LastmileCheckResult model works correctly."""
     print("\n" + "=" * 80)
     print("[Test 1] LastmileCheckResult Model Validation")
@@ -71,7 +71,7 @@ def test_lastmile_check_result_model():
     return True
 
 
-def test_should_use_lastmile_method():
+def test_should_use_lastmile_method() -> bool:
     """Test _should_use_lastmile method."""
     print("\n" + "=" * 80)
     print("[Test 2] _should_use_lastmile Method")
@@ -111,7 +111,7 @@ def test_should_use_lastmile_method():
     return all_passed
 
 
-def test_exploration_state_harvest_rate():
+def test_exploration_state_harvest_rate() -> bool:
     """Test ExplorationState.get_overall_harvest_rate method."""
     print("\n" + "=" * 80)
     print("[Test 3] ExplorationState.get_overall_harvest_rate")
@@ -160,7 +160,7 @@ def test_exploration_state_harvest_rate():
     return True
 
 
-async def test_lastmile_engine_selection():
+async def test_lastmile_engine_selection() -> bool:
     """Test _select_lastmile_engine method (mocked)."""
     print("\n" + "=" * 80)
     print("[Test 4] _select_lastmile_engine Method (mocked)")
@@ -194,7 +194,7 @@ async def test_lastmile_engine_selection():
             print("  ✓ Selected first available lastmile engine: brave")
 
         # Mock daily usage (at limit)
-        async def mock_daily_usage(engine_name):
+        async def mock_daily_usage(engine_name: str) -> int:
             if engine_name == "brave":
                 return 50  # At limit
             return 0
@@ -215,7 +215,7 @@ async def test_lastmile_engine_selection():
     return True
 
 
-async def test_search_with_harvest_rate():
+async def test_search_with_harvest_rate() -> bool:
     """Test search method with harvest_rate parameter (mocked)."""
     print("\n" + "=" * 80)
     print("[Test 5] search() with harvest_rate parameter (mocked)")
@@ -229,16 +229,16 @@ async def test_search_with_harvest_rate():
 
     original_should_use = provider._should_use_lastmile
 
-    def mock_should_use_lastmile(harvest_rate, threshold=0.9):
+    def mock_should_use_lastmile(harvest_rate: float, threshold: float = 0.9) -> LastmileCheckResult:
         should_use_lastmile_calls.append((harvest_rate, threshold))
         return original_should_use(harvest_rate, threshold)
 
-    async def mock_select_lastmile():
+    async def mock_select_lastmile() -> str | None:
         select_lastmile_calls.append(True)
         return "brave"  # Return a lastmile engine
 
-    provider._should_use_lastmile = mock_should_use_lastmile
-    provider._select_lastmile_engine = mock_select_lastmile
+    provider._should_use_lastmile = mock_should_use_lastmile  # type: ignore[method-assign]
+    provider._select_lastmile_engine = mock_select_lastmile  # type: ignore[method-assign]
 
     # Test 1: harvest_rate=None (should not trigger lastmile check)
     should_use_lastmile_calls.clear()
@@ -263,7 +263,7 @@ async def test_search_with_harvest_rate():
     return True
 
 
-async def test_full_flow_simulation():
+async def test_full_flow_simulation() -> bool:
     """Simulate full lastmile slot flow."""
     print("\n" + "=" * 80)
     print("[Test 6] Full Flow Simulation")
@@ -300,7 +300,7 @@ async def test_full_flow_simulation():
     return True
 
 
-async def main():
+async def main() -> None:
     """Run all tests."""
     print("=" * 80)
     print("Lastmile Slot Selection Flow Debug Script")

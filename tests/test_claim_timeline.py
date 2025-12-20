@@ -516,12 +516,12 @@ class TestClaimTimelineManager:
     """Tests for ClaimTimelineManager class."""
 
     @pytest.fixture
-    def manager(self):
+    def manager(self) -> ClaimTimelineManager:
         """Create fresh manager for each test."""
         return ClaimTimelineManager()
 
     @pytest.fixture
-    def mock_db(self):
+    def mock_db(self) -> MagicMock:
         """Create mock database."""
         mock = MagicMock()
         mock.fetch_one = AsyncMock(return_value=None)
@@ -530,7 +530,7 @@ class TestClaimTimelineManager:
         return mock
 
     @pytest.mark.asyncio
-    async def test_get_timeline_creates_new_for_nonexistent_claim(self, manager, mock_db) -> None:
+    async def test_get_timeline_creates_new_for_nonexistent_claim(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify get_timeline creates new timeline for non-existent claim."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -545,7 +545,7 @@ class TestClaimTimelineManager:
             assert len(timeline.events) == 0
 
     @pytest.mark.asyncio
-    async def test_get_timeline_loads_existing_from_db(self, manager, mock_db) -> None:
+    async def test_get_timeline_loads_existing_from_db(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify get_timeline loads existing timeline from database."""
         # Given:
         existing_timeline = {
@@ -573,7 +573,7 @@ class TestClaimTimelineManager:
             assert timeline.first_appeared is not None
 
     @pytest.mark.asyncio
-    async def test_get_timeline_uses_cache(self, manager, mock_db) -> None:
+    async def test_get_timeline_uses_cache(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify get_timeline uses cache for repeated requests."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -593,7 +593,7 @@ class TestClaimTimelineManager:
             assert timeline is not None
 
     @pytest.mark.asyncio
-    async def test_save_timeline_updates_database(self, manager, mock_db) -> None:
+    async def test_save_timeline_updates_database(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify save_timeline updates database correctly."""
         # Given:
         timeline = ClaimTimeline(claim_id="claim_save")
@@ -611,7 +611,7 @@ class TestClaimTimelineManager:
             assert "timeline_json" in call_args[0][1]
 
     @pytest.mark.asyncio
-    async def test_add_first_appeared_creates_event(self, manager, mock_db) -> None:
+    async def test_add_first_appeared_creates_event(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify add_first_appeared creates first_appeared event."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -630,7 +630,7 @@ class TestClaimTimelineManager:
             assert event.source_url == "https://first.example.com"
 
     @pytest.mark.asyncio
-    async def test_add_first_appeared_skips_if_already_exists(self, manager, mock_db) -> None:
+    async def test_add_first_appeared_skips_if_already_exists(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify add_first_appeared doesn't duplicate if event exists."""
         # Given:
         existing = {
@@ -658,7 +658,7 @@ class TestClaimTimelineManager:
             assert event.source_url == "https://original.example.com"
 
     @pytest.mark.asyncio
-    async def test_add_confirmation_creates_event(self, manager, mock_db) -> None:
+    async def test_add_confirmation_creates_event(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify add_confirmation creates confirmation event."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -677,7 +677,7 @@ class TestClaimTimelineManager:
             assert event.notes == "Confirmed by independent source"
 
     @pytest.mark.asyncio
-    async def test_add_retraction_creates_event_and_adjusts_confidence(self, manager, mock_db) -> None:
+    async def test_add_retraction_creates_event_and_adjusts_confidence(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify add_retraction creates event and updates confidence."""
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
@@ -702,7 +702,7 @@ class TestClaimTimelineManager:
             assert mock_db.update.call_count >= 1
 
     @pytest.mark.asyncio
-    async def test_integrate_wayback_result_adds_events(self, manager, mock_db) -> None:
+    async def test_integrate_wayback_result_adds_events(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify Wayback results are integrated into timeline."""
         # Given:
         wayback_result = {
@@ -734,7 +734,7 @@ class TestClaimTimelineManager:
             assert events_added == 2  # first_appeared + updated
 
     @pytest.mark.asyncio
-    async def test_get_timeline_coverage_calculates_correctly(self, manager, mock_db) -> None:
+    async def test_get_timeline_coverage_calculates_correctly(self, manager: ClaimTimelineManager, mock_db: MagicMock) -> None:
         """Verify timeline coverage metrics are calculated correctly."""
         # Given:
         claims = [
@@ -786,7 +786,7 @@ class TestClaimTimelineManager:
             assert coverage["coverage_rate"] == pytest.approx(2 / 3, abs=0.001)
             assert coverage["claims_retracted"] == 1
 
-    def test_clear_cache(self, manager) -> None:
+    def test_clear_cache(self, manager: ClaimTimelineManager) -> None:
         """Verify cache clearing works."""
         # Given:
         manager._cache["test"] = ClaimTimeline(claim_id="test")
@@ -941,7 +941,7 @@ class TestEdgeCases:
     def test_from_dict_with_missing_claim_id(self) -> None:
         """Verify from_dict handles missing claim_id."""
         # Given:
-        data = {"events": []}
+        data: dict[str, object] = {"events": []}
 
         # When:
         timeline = ClaimTimeline.from_dict(data)

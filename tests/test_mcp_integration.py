@@ -16,11 +16,15 @@ Tests the full data flow between MCP tools:
 
 import json
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 
 @pytest.mark.integration
@@ -28,7 +32,7 @@ class TestGetStatusIntegration:
     """Integration tests for get_status with real database data."""
 
     @pytest.fixture
-    async def setup_task_with_search_data(self, memory_database) -> dict[str, Any]:
+    async def setup_task_with_search_data(self, memory_database: "Database") -> dict[str, Any]:
         """Create a task with search/exploration data.
 
         Returns dict with task_id, search_id, page_count, fragment_count.
@@ -93,7 +97,7 @@ class TestGetStatusIntegration:
 
     @pytest.mark.asyncio
     async def test_get_status_returns_task_info(
-        self, memory_database, setup_task_with_search_data
+        self, memory_database: "Database", setup_task_with_search_data: dict[str, Any]
     ) -> None:
         """
         TC-I-01: get_status returns task and search information.
@@ -122,7 +126,7 @@ class TestGetStatusIntegration:
         assert "searches" in result
 
     @pytest.mark.asyncio
-    async def test_get_status_without_exploration_returns_minimal(self, memory_database) -> None:
+    async def test_get_status_without_exploration_returns_minimal(self, memory_database: "Database") -> None:
         """
         TC-I-03: Task with no exploration data returns empty searches.
 
@@ -157,7 +161,7 @@ class TestGetMaterialsIntegration:
     """Integration tests for get_materials with real database data."""
 
     @pytest.fixture
-    async def setup_task_with_claims(self, memory_database) -> dict[str, Any]:
+    async def setup_task_with_claims(self, memory_database: "Database") -> dict[str, Any]:
         """Create a task with claims, fragments, and edges.
 
         Returns dict with task_id and expected counts.
@@ -242,7 +246,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_returns_claims_and_fragments(
-        self, memory_database, setup_task_with_claims
+        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
         TC-I-02: get_materials returns claims and fragments from DB.
@@ -277,7 +281,7 @@ class TestGetMaterialsIntegration:
         assert result["summary"]["total_claims"] == 2
 
     @pytest.mark.asyncio
-    async def test_get_materials_empty_task(self, memory_database) -> None:
+    async def test_get_materials_empty_task(self, memory_database: "Database") -> None:
         """
         TC-I-04: Task with 0 claims/fragments returns empty lists.
 
@@ -307,7 +311,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_with_evidence_graph(
-        self, memory_database, setup_task_with_claims
+        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
         TC-I-05: get_materials with include_graph=True includes evidence_graph.
@@ -345,7 +349,7 @@ class TestMCPToolDataConsistency:
     """Tests for data consistency across MCP tools."""
 
     @pytest.fixture
-    async def setup_full_exploration(self, memory_database) -> dict[str, Any]:
+    async def setup_full_exploration(self, memory_database: "Database") -> dict[str, Any]:
         """Create complete exploration data for consistency testing."""
         db = memory_database
         task_id = f"task_full_{uuid.uuid4().hex[:8]}"
@@ -426,7 +430,7 @@ class TestMCPToolDataConsistency:
 
     @pytest.mark.asyncio
     async def test_get_status_and_materials_consistent(
-        self, memory_database, setup_full_exploration
+        self, memory_database: "Database", setup_full_exploration: dict[str, Any]
     ) -> None:
         """
         Test that get_status and get_materials return consistent data.

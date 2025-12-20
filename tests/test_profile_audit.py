@@ -102,7 +102,7 @@ def auditor(tmp_path: Path) -> ProfileAuditor:
 
 
 @pytest.fixture
-def mock_page():
+def mock_page() -> AsyncMock:
     """Create a mock Playwright page."""
     page = AsyncMock()
     page.evaluate = AsyncMock()
@@ -478,7 +478,7 @@ class TestAuditExecution:
     async def test_audit_establishes_baseline_on_first_run(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
     ) -> None:
         """Test that first audit establishes baseline."""
         mock_page.evaluate.return_value = {
@@ -506,7 +506,7 @@ class TestAuditExecution:
     async def test_audit_detects_drift_from_baseline(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
         sample_fingerprint: FingerprintData,
     ) -> None:
         """Test that audit detects drift from baseline."""
@@ -539,7 +539,7 @@ class TestAuditExecution:
     async def test_audit_skipped_within_interval(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
         sample_fingerprint: FingerprintData,
     ) -> None:
         """Test that audit is skipped if called too quickly."""
@@ -555,7 +555,7 @@ class TestAuditExecution:
     async def test_audit_force_bypasses_interval(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
         sample_fingerprint: FingerprintData,
     ) -> None:
         """Test that force=True bypasses minimum interval."""
@@ -573,7 +573,7 @@ class TestAuditExecution:
     async def test_audit_handles_errors_gracefully(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
     ) -> None:
         """Test that audit handles errors without crashing."""
         mock_page.evaluate.side_effect = Exception("JavaScript error")
@@ -596,7 +596,7 @@ class TestAuditLogging:
     async def test_audit_logs_to_file(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
     ) -> None:
         """Test that audits are logged to file."""
         mock_page.evaluate.return_value = {
@@ -627,7 +627,7 @@ class TestAuditLogging:
     async def test_multiple_audits_append_to_log(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
     ) -> None:
         """Test that multiple audits append to log file."""
         mock_page.evaluate.return_value = {
@@ -664,7 +664,7 @@ class TestAuditorStats:
     async def test_stats_track_audit_count(
         self,
         auditor: ProfileAuditor,
-        mock_page,
+        mock_page: AsyncMock,
     ) -> None:
         """Test that stats track audit count."""
         mock_page.evaluate.return_value = {
@@ -701,7 +701,7 @@ class TestPerformHealthCheck:
     """Tests for the convenience function."""
 
     @pytest.mark.asyncio
-    async def test_perform_health_check_function(self, mock_page, tmp_path) -> None:
+    async def test_perform_health_check_function(self, mock_page: AsyncMock, tmp_path: Path) -> None:
         """Test the perform_health_check convenience function."""
         with patch("src.crawler.profile_audit._profile_auditor", None):
             with patch("src.crawler.profile_audit.get_profile_auditor") as mock_get:
@@ -751,6 +751,7 @@ class TestAuditResult:
             ],
             repair_actions=[RepairAction.RESTART_BROWSER],
             repair_status=RepairStatus.SUCCESS,
+            error=None,
             duration_ms=100.5,
             retry_count=1,
             timestamp=time.time(),

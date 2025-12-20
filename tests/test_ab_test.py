@@ -249,7 +249,7 @@ class TestABTestExecutor:
     """Tests for ABTestExecutor."""
 
     @pytest.fixture
-    def mock_db(self):
+    def mock_db(self) -> AsyncMock:
         """Create mock database."""
         db = AsyncMock()
         db.execute = AsyncMock()
@@ -258,10 +258,10 @@ class TestABTestExecutor:
         return db
 
     @pytest.fixture
-    def mock_search(self):
+    def mock_search(self) -> object:
         """Create mock search function."""
 
-        async def _search(*args, **kwargs):
+        async def _search(*args: object, **kwargs: object) -> list[dict[str, str]]:
             return [
                 {"title": "Result 1", "url": "http://example.com/1", "snippet": "..."},
                 {"title": "Result 2", "url": "http://example.com/2", "snippet": "..."},
@@ -279,7 +279,7 @@ class TestABTestExecutor:
         assert executor._generator is not None
 
     @pytest.mark.asyncio
-    async def test_run_ab_test_basic(self, mock_db, mock_search) -> None:
+    async def test_run_ab_test_basic(self, mock_db: AsyncMock, mock_search: object) -> None:
         """Test basic A/B test execution (TC-ABE-N-02)."""
         # Given: Mock database and search function
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
@@ -299,12 +299,12 @@ class TestABTestExecutor:
                 assert len(session.results) >= 1
 
     @pytest.mark.asyncio
-    async def test_run_ab_test_finds_winner(self, mock_db):
+    async def test_run_ab_test_finds_winner(self, mock_db: AsyncMock) -> None:
         """Test that A/B test finds a winner (TC-ABE-N-03)."""
         # Given: Mock search returning different result counts
         call_count = 0
 
-        async def _search(*args, **kwargs):
+        async def _search(*args: object, **kwargs: object) -> list[dict[str, str]]:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -332,7 +332,7 @@ class TestABTestExecutor:
                 assert session.winner.harvest_rate > 0
 
     @pytest.mark.asyncio
-    async def test_run_ab_test_saves_session(self, mock_db, mock_search) -> None:
+    async def test_run_ab_test_saves_session(self, mock_db: AsyncMock, mock_search: object) -> None:
         """Test that session is saved to database (TC-ABE-N-04)."""
         # Given: Mock database and search
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
@@ -374,7 +374,7 @@ class TestHighYieldQueryCache:
     """Tests for HighYieldQueryCache."""
 
     @pytest.fixture
-    def mock_db(self):
+    def mock_db(self) -> AsyncMock:
         """Create mock database."""
         db = AsyncMock()
         db.fetch_one = AsyncMock(return_value=None)
@@ -419,7 +419,7 @@ class TestHighYieldQueryCache:
         assert result != "AI技術の問題"
 
     @pytest.mark.asyncio
-    async def test_get_improved_query_no_patterns(self, mock_db) -> None:
+    async def test_get_improved_query_no_patterns(self, mock_db: AsyncMock) -> None:
         """Test getting improved query when no patterns exist (TC-HYC-B-02)."""
         # Given: Empty cache
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
@@ -432,7 +432,7 @@ class TestHighYieldQueryCache:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_improved_query_with_pattern(self, mock_db) -> None:
+    async def test_get_improved_query_with_pattern(self, mock_db: AsyncMock) -> None:
         """Test getting improved query with matching pattern (TC-HYC-N-04)."""
         # Given: Cache with matching pattern
         mock_db.fetch_all.return_value = [
@@ -456,7 +456,7 @@ class TestHighYieldQueryCache:
                 assert "人工知能" in result
 
     @pytest.mark.asyncio
-    async def test_get_stats_empty(self, mock_db) -> None:
+    async def test_get_stats_empty(self, mock_db: AsyncMock) -> None:
         """Test getting stats with empty cache (TC-HYC-N-05)."""
         # Given: Empty cache
         mock_db.fetch_one.return_value = {
@@ -543,7 +543,7 @@ class TestABTestIntegration:
     """Integration tests for A/B testing."""
 
     @pytest.fixture
-    def mock_db(self):
+    def mock_db(self) -> AsyncMock:
         """Create mock database with all needed methods."""
         db = AsyncMock()
         db.execute = AsyncMock()
@@ -552,17 +552,17 @@ class TestABTestIntegration:
         return db
 
     @pytest.mark.asyncio
-    async def test_full_ab_test_flow(self, mock_db):
+    async def test_full_ab_test_flow(self, mock_db: AsyncMock) -> None:
         """Test complete A/B test flow (TC-INT-N-01)."""
         # Given: Mock search returning different results per query
-        results_by_query = {
+        results_by_query: dict[str, list[dict[str, str]]] = {
             "元のクエリ": [{"title": "R1", "url": "http://a.com", "snippet": "..."}],
             "default": [
                 {"title": f"R{i}", "url": f"http://b.com/{i}", "snippet": "..."} for i in range(5)
             ],
         }
 
-        async def _search(query, **kwargs):
+        async def _search(query: str, **kwargs: object) -> list[dict[str, str]]:
             for key in results_by_query:
                 if key in query:
                     return results_by_query[key]
@@ -584,11 +584,11 @@ class TestABTestIntegration:
                 assert session.winner is not None
 
     @pytest.mark.asyncio
-    async def test_ab_test_with_real_variants(self, mock_db):
+    async def test_ab_test_with_real_variants(self, mock_db: AsyncMock) -> None:
         """Test A/B test generates real variants (TC-INT-N-02)."""
 
         # Given: Mock search
-        async def _search(*args, **kwargs):
+        async def _search(*args: object, **kwargs: object) -> list[dict[str, str]]:
             return [{"title": "Test", "url": "http://test.com", "snippet": "..."}]
 
         with patch("src.search.ab_test.get_database", new=AsyncMock(return_value=mock_db)):
