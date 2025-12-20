@@ -14,6 +14,7 @@ Tests the full data flow between MCP tools:
 | TC-I-05 | Task with include_graph=True | Equivalence – graph | get_materials includes evidence_graph | Graph feature |
 """
 
+import gc
 import json
 import uuid
 from datetime import UTC, datetime
@@ -21,6 +22,18 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+
+@pytest.fixture(autouse=True, scope="module")
+def cleanup_before_module():
+    """Force GC before this module to clean up lingering aiosqlite connections.
+
+    This prevents PytestUnraisableExceptionWarning from aiosqlite Connection.__del__
+    when connections from previous tests are garbage collected during this module.
+    """
+    gc.collect()
+    yield
+    gc.collect()
 
 
 @pytest.mark.integration
