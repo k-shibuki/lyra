@@ -4,12 +4,57 @@
 
 ## 目次
 
-1. [現状の設計](#現状の設計)
-2. [処理フロー（シーケンス図）](#処理フローシーケンス図)
-3. [課題と問題点](#課題と問題点)
-4. [関連する学術的フレームワーク](#関連する学術的フレームワーク)
-5. [改善提案](#改善提案)
-6. [実装ロードマップ](#実装ロードマップ)
+1. [用語定義](#用語定義)
+2. [現状の設計](#現状の設計)
+3. [処理フロー（シーケンス図）](#処理フローシーケンス図)
+4. [課題と問題点](#課題と問題点)
+5. [関連する学術的フレームワーク](#関連する学術的フレームワーク)
+6. [改善提案](#改善提案)
+7. [実装ロードマップ](#実装ロードマップ)
+
+---
+
+## 用語定義
+
+### 主要概念
+
+| 用語 | 英語 | 定義 |
+|------|------|------|
+| **信頼度** | Confidence | 主張が正しい確率の期待値。ベイズ更新により計算。ドメイン分類に依存しない |
+| **不確実性** | Uncertainty | 信頼度の不確実さ。エビデンス量が少ないと高い |
+| **論争度** | Controversy | 支持と反論が拮抗している度合い |
+| **ドメイン分類** | Trust Level | ソースドメインの事前分類（PRIMARY〜BLOCKED）。ランキングのみに使用 |
+
+### エビデンスグラフ関連
+
+| 用語 | 定義 |
+|------|------|
+| **主張 (Claim)** | 検証対象の事実的主張。エビデンスグラフのノード |
+| **フラグメント (Fragment)** | ソースから抽出されたテキスト断片。エッジの起点 |
+| **エッジ (Edge)** | 主張とフラグメント間の関係（SUPPORTS/REFUTES/NEUTRAL） |
+| **エッジ信頼度** | NLIモデルが出力する関係の確信度（0.0-1.0） |
+| **独立ソース数** | 主張を裏付けるユニークなソース（PAGE）の数 |
+
+### ベイズ信頼度モデル（提案）
+
+| 用語 | 定義 |
+|------|------|
+| **α (alpha)** | 支持エビデンスの累積。事前値1 + SUPPORTSエッジの重み付き合計 |
+| **β (beta)** | 反論エビデンスの累積。事前値1 + REFUTESエッジの重み付き合計 |
+| **事後分布** | Beta(α, β)。信頼度と不確実性を導出する確率分布 |
+
+### 設計原則
+
+```
+信頼度 = f(エビデンス量, エビデンス質)
+       ≠ f(ドメイン分類)
+
+ドメイン分類 = ランキング調整のみに使用
+             = 高推論AIへの参考情報（エッジに付与）
+             ≠ 信頼度計算への入力
+```
+
+**根拠**: ドメインが何であれ誤った情報は存在する（再現性危機、論文撤回、ハゲタカジャーナル）。信頼度はエビデンスの量と質のみで決定すべき。
 
 ---
 
@@ -710,6 +755,119 @@ Wikipedia は `LOW` (0.40) として設定済み（`config/domains.yaml:108-113`
 
 出典追跡機能は実装しない（通常ドメインとして扱う）。
 
+### 提案6: ベイズ信頼度モデル
+
+#### 6.1 設計思想
+
+**無情報事前分布 + ベイズ更新**により、ドメイン分類に依存しない信頼度計算を実現する。
+
+```
+事前分布: Beta(1, 1) = 一様分布（「何も知らない」状態）
+更新: エッジ（SUPPORTS/REFUTES）で逐次更新
+事後分布: Beta(α, β) → confidence, uncertainty, controversy を導出
+```
+
+#### 6.2 計算アルゴリズム
+
+```python
+import math
+
+def calculate_claim_confidence_bayesian(claim_id: str) -> dict:
+    """ベイズ更新による信頼度計算
+
+    無情報事前分布 Beta(1, 1) から開始し、
+    各エッジのNLI信頼度で重み付けして更新する。
+    """
+
+    # 無情報事前分布: Beta(1, 1)
+    alpha = 1.0  # 支持の擬似カウント
+    beta = 1.0   # 反論の擬似カウント
+
+    edges = get_edges_for_claim(claim_id)
+
+    for edge in edges:
+        weight = edge.nli_confidence  # NLIの確信度で重み付け
+
+        if edge.relation == RelationType.SUPPORTS:
+            alpha += weight
+        elif edge.relation == RelationType.REFUTES:
+            beta += weight
+        # NEUTRAL は更新しない（情報なし）
+
+    # 事後分布 Beta(α, β) から統計量を計算
+    confidence = alpha / (alpha + beta)  # 期待値
+
+    # 不確実性（標準偏差）
+    variance = (alpha * beta) / ((alpha + beta)**2 * (alpha + beta + 1))
+    uncertainty = math.sqrt(variance)
+
+    # 論争度（αとβの両方が大きい場合に高い）
+    total_evidence = alpha + beta - 2  # 事前分布を除いた実エビデンス量
+    if total_evidence > 0:
+        controversy = min(alpha - 1, beta - 1) / total_evidence
+    else:
+        controversy = 0.0
+
+    return {
+        "confidence": round(confidence, 3),
+        "uncertainty": round(uncertainty, 3),
+        "controversy": round(controversy, 3),
+        "alpha": round(alpha, 2),
+        "beta": round(beta, 2),
+        "evidence_count": len(edges),
+    }
+```
+
+#### 6.3 挙動の例
+
+| 状態 | α | β | confidence | uncertainty | controversy | 解釈 |
+|------|:-:|:-:|:----------:|:-----------:|:-----------:|------|
+| エビデンスなし | 1.0 | 1.0 | 0.50 | 0.29 | 0.00 | 何も分からない |
+| SUPPORTS ×1 (0.9) | 1.9 | 1.0 | 0.66 | 0.22 | 0.00 | やや支持寄り |
+| SUPPORTS ×3 (0.9) | 3.7 | 1.0 | 0.79 | 0.13 | 0.00 | かなり支持 |
+| SUPPORTS ×3, REFUTES ×1 | 3.7 | 1.9 | 0.66 | 0.14 | 0.24 | 支持だが論争あり |
+| SUPPORTS ×5, REFUTES ×5 | 5.5 | 5.5 | 0.50 | 0.09 | 0.45 | 五分五分、論争的 |
+
+#### 6.4 設計上の利点
+
+| 観点 | 評価 |
+|------|------|
+| ドメイン分類に依存しない | ✓ 思想と完全に一貫 |
+| エビデンス量が反映される | ✓ α+βの増加で uncertainty 低下 |
+| 論争状態を表現できる | ✓ 両方大きいと controversy 高い |
+| Lyraで計算可能 | ✓ NLI confidence とエッジ数のみ必要 |
+| 数学的に厳密 | ✓ 再現性・検証可能 |
+| 解釈が直感的 | ✓ 「50%で高uncertainty」=「分からない」 |
+
+#### 6.5 現行実装との互換性
+
+現行の `calculate_claim_confidence()` を置き換えるが、出力形式は互換性を維持：
+
+```python
+# 現行出力
+{
+    "confidence": 0.7,
+    "supporting_count": 3,
+    "refuting_count": 1,
+    "verdict": "supported",
+    "independent_sources": 2,
+}
+
+# 新出力（上位互換）
+{
+    "confidence": 0.66,           # ベイズ期待値
+    "uncertainty": 0.14,          # 新規追加
+    "controversy": 0.24,          # 新規追加
+    "alpha": 3.7,                 # 新規追加
+    "beta": 1.9,                  # 新規追加
+    "supporting_count": 3,        # 互換性維持
+    "refuting_count": 1,          # 互換性維持
+    "verdict": "supported",       # 互換性維持
+    "independent_sources": 2,     # 互換性維持
+    "evidence_count": 4,          # 新規追加
+}
+```
+
 ---
 
 ## 実装ロードマップ
@@ -770,7 +928,38 @@ def test_relevance_filtering_top_10():
     """関連性フィルタリングで上位10件が選択されることを検証"""
 ```
 
-### Phase 4: ユーザー制御（中リスク・中価値）
+### Phase 4: ベイズ信頼度モデル（中リスク・高価値）
+
+目的: 数学的に厳密な信頼度計算を導入し、不確実性と論争度を明示化
+
+**この Phase を Phase 3 の後に実装する根拠**:
+引用追跡（Phase 3）によりエビデンスグラフが充実した後にベイズモデルを導入することで、より正確なconfidence/uncertainty/controversy計算が可能になる。エビデンス量が少ない段階での導入は効果が限定的。
+
+1. [ ] `calculate_claim_confidence_bayesian()` の実装
+2. [ ] 現行 `calculate_claim_confidence()` との並行運用（A/Bテスト）
+3. [ ] 出力スキーマの拡張（uncertainty, controversy, alpha, beta 追加）
+4. [ ] MCPレスポンス（`get_materials`）への反映
+5. [ ] 既存テストの更新と新規テスト追加
+
+**テストケース**:
+```python
+def test_uninformative_prior():
+    """エビデンスなしでconfidence=0.5, uncertainty=0.29を検証"""
+
+def test_supports_increase_confidence():
+    """SUPPORTSエッジ追加でconfidence上昇を検証"""
+
+def test_controversy_detection():
+    """SUPPORTS/REFUTES拮抗時にcontroversy上昇を検証"""
+
+def test_uncertainty_decreases_with_evidence():
+    """エビデンス増加でuncertainty低下を検証"""
+
+def test_backward_compatibility():
+    """既存フィールド（supporting_count等）が維持されることを検証"""
+```
+
+### Phase 5: ユーザー制御（中リスク・中価値）
 
 目的: ブロック状態からの復活手段を提供
 
@@ -871,6 +1060,23 @@ confidence = f(supporting_count, refuting_count, independent_sources)
 
 - アカデミッククエリかどうかは優先度の違い
 - 非アカデミッククエリでも学術識別子発見時にAPI補完
+
+### 決定7: ベイズ信頼度モデル
+
+**決定**: 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算を採用
+
+**設計原則**:
+- 事前分布にドメイン分類を使用しない（純粋エビデンス主義）
+- NLI confidence で重み付けしたベイズ更新
+- confidence, uncertainty, controversy の3値を出力
+
+**技術的根拠**:
+- 数学的に厳密で再現可能
+- 「分からない」状態（高uncertainty）を明示的に表現可能
+- 論争状態（高controversy）を検出可能
+- Lyraが取得する情報（NLI confidence, エッジ数）のみで計算可能
+
+**実装タイミング**: Phase 4（引用追跡の後）
 
 ---
 
