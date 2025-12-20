@@ -880,14 +880,14 @@ class TestHTTPFetcherConditionalHeaders:
         from src.crawler.fetcher import HTTPFetcher
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
-            # Mock curl_cffi requests
+            # Mock curl_cffi requests (sync function, use MagicMock)
             mock_response = MagicMock()
             mock_response.status_code = 304
             mock_response.headers = {}
             mock_response.content = b""
             mock_response.text = ""
 
-            mock_get = AsyncMock(return_value=mock_response)
+            mock_get = MagicMock(return_value=mock_response)
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
                 # Mock session transfer to return conditional headers only when include_conditional=True
@@ -957,7 +957,7 @@ class TestHTTPFetcherConditionalHeaders:
             mock_response.content = b""
             mock_response.text = ""
 
-            mock_get = AsyncMock(return_value=mock_response)
+            mock_get = MagicMock(return_value=mock_response)
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
 
@@ -1018,7 +1018,7 @@ class TestHTTPFetcherConditionalHeaders:
             mock_response.content = b""
             mock_response.text = ""
 
-            mock_get = AsyncMock(return_value=mock_response)
+            mock_get = MagicMock(return_value=mock_response)
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
 
@@ -1073,7 +1073,7 @@ class TestHTTPFetcherConditionalHeaders:
             mock_response.content = b"<html>content</html>"
             mock_response.text = "<html>content</html>"
 
-            mock_get = AsyncMock(return_value=mock_response)
+            mock_get = MagicMock(return_value=mock_response)
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
                 mock_transfer_result = MagicMock()
