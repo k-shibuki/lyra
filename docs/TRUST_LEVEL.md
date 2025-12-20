@@ -376,92 +376,113 @@ if has_contradictions or refuting_count > 0:
 
 ## 改善提案
 
-### 提案1: 矛盾の種類を簡素化
+### 提案1: エッジへの信頼レベル情報追加
 
-**設計原則**: 対立関係をフラットに提示し、判断はLyraではしない。
+**設計原則**: 対立関係をエッジとして記録し、**解釈は高推論AIに委ねる**。
 
-```python
-class ContradictionType(Enum):
-    MISINFORMATION = "misinformation"  # 低信頼源が高信頼源と矛盾 → 低信頼側をブロック
-    CONTESTED = "contested"            # それ以外 → 両方保持、対立関係を明示
+Lyraは「AがBを反論している」という**事実**をエッジで記録する。「これは科学的論争か誤情報か」という**解釈**は高推論AIの責務であり、Lyraは踏み込まない（Thinking-Working分離の原則）。
+
+#### 1.1 スキーマ変更
+
+```sql
+-- migrations/003_add_trust_level_to_edges.sql
+ALTER TABLE edges ADD COLUMN source_trust_level TEXT;
+ALTER TABLE edges ADD COLUMN target_trust_level TEXT;
+
+-- インデックス追加（対立関係の高速検索用）
+CREATE INDEX IF NOT EXISTS idx_edges_trust_levels
+    ON edges(relation, source_trust_level, target_trust_level);
 ```
 
-**処理方針**:
-| 種類 | 判定条件 | 処理 |
-|------|---------|------|
-| MISINFORMATION | 信頼レベル差≥2、かつ低信頼側がACADEMIC未満 | 低信頼側をBLOCKED |
-| CONTESTED | 両者ともACADEMIC以上、または信頼レベル差<2 | 両方を "contested" として保持 |
-
-#### 1.1 矛盾分類ロジック
+#### 1.2 エッジ作成時の信頼レベル付与
 
 ```python
-# 信頼レベルの序列（低い→高い）
-TRUST_ORDER = [
-    TrustLevel.BLOCKED,      # 0
-    TrustLevel.UNVERIFIED,   # 1
-    TrustLevel.LOW,          # 2
-    TrustLevel.TRUSTED,      # 3
-    TrustLevel.ACADEMIC,     # 4
-    TrustLevel.GOVERNMENT,   # 5
-    TrustLevel.PRIMARY,      # 6
-]
-
-# 「高信頼」の閾値（ACADEMIC以上）
-# ACADEMIC以上同士の対立は両方の視点を保持すべき
-HIGH_TRUST_THRESHOLD = 4  # ACADEMIC, GOVERNMENT, PRIMARY
-
-def classify_contradiction(
-    claim1_trust: TrustLevel,
-    claim2_trust: TrustLevel,
-) -> ContradictionType:
-    """矛盾の種類を判定する
-
-    設計原則: 対立関係をフラットに提示し、判断はLyraではしない。
-    時間情報（どちらが新しいか）はメタデータとして提供するが、
-    自動的に「古い方を無効」とはしない。
-    """
-    idx1 = TRUST_ORDER.index(claim1_trust)
-    idx2 = TRUST_ORDER.index(claim2_trust)
-
-    both_high_trust = idx1 >= HIGH_TRUST_THRESHOLD and idx2 >= HIGH_TRUST_THRESHOLD
-    trust_gap = abs(idx1 - idx2)
-
-    # Case 1: 両者ともACADEMIC以上 → 両方の視点を保持
-    if both_high_trust:
-        return ContradictionType.CONTESTED
-
-    # Case 2: 信頼レベルに大きな差（2段階以上）→ 誤情報の可能性
-    if trust_gap >= 2:
-        return ContradictionType.MISINFORMATION
-
-    # Case 3: それ以外 → 両方を保持
-    return ContradictionType.CONTESTED
+# evidence_graph.py: add_edge() の拡張
+def add_edge(
+    self,
+    source_type: NodeType,
+    source_id: str,
+    target_type: NodeType,
+    target_id: str,
+    relation: RelationType,
+    confidence: float | None = None,
+    nli_label: str | None = None,
+    nli_confidence: float | None = None,
+    source_trust_level: str | None = None,  # 追加
+    target_trust_level: str | None = None,  # 追加
+    **attributes: Any,
+) -> str:
+    ...
 ```
 
-#### 1.2 矛盾種類別の処理
+#### 1.3 NLI評価時の呼び出し
 
 ```python
-def handle_contradiction(
-    contradiction_type: ContradictionType,
-    claim1: Claim,
-    claim2: Claim,
-) -> tuple[VerificationStatus, VerificationStatus]:
-    """矛盾種類に応じた処理を決定
+from src.utils.domain_policy import get_domain_trust_level
 
-    原則: 誤情報以外は両方の視点を保持する
-    """
-    match contradiction_type:
-        case ContradictionType.MISINFORMATION:
-            # 低信頼側をブロック、高信頼側は維持
-            if claim1.trust_level_idx < claim2.trust_level_idx:
-                return (VerificationStatus.REJECTED, VerificationStatus.VERIFIED)
-            else:
-                return (VerificationStatus.VERIFIED, VerificationStatus.REJECTED)
+# REFUTESエッジ作成時に信頼レベルを付与
+source_trust = get_domain_trust_level(source_domain)
+target_trust = get_domain_trust_level(target_domain)
 
-        case ContradictionType.CONTESTED:
-            # 両方を "contested" として保持
-            return (VerificationStatus.CONTESTED, VerificationStatus.CONTESTED)
+graph.add_edge(
+    source_type=NodeType.FRAGMENT,
+    source_id=fragment_id,
+    target_type=NodeType.CLAIM,
+    target_id=claim_id,
+    relation=RelationType.REFUTES,
+    nli_confidence=0.92,
+    source_trust_level=source_trust.value,  # "academic"
+    target_trust_level=target_trust.value,  # "unverified"
+)
 ```
+
+#### 1.4 高推論AIへの情報提供
+
+エビデンスグラフのエクスポート時、高推論AIは以下の情報を受け取る：
+
+```json
+{
+  "edges": [
+    {
+      "source": "fragment:abc123",
+      "target": "claim:def456",
+      "relation": "refutes",
+      "nli_confidence": 0.92,
+      "source_trust_level": "academic",
+      "target_trust_level": "unverified"
+    }
+  ]
+}
+```
+
+高推論AIはこれを見て：
+- 両方 ACADEMIC → 「科学的論争」と判断
+- ACADEMIC vs UNVERIFIED → 「誤情報の可能性」と判断
+
+**Lyraは判断しない。事実を記録するのみ。**
+
+#### 1.5 設計原則: 信頼度が主、ドメイン分類は従
+
+**重要**: **信頼度（confidence）がエビデンス評価の主軸**。ドメイン分類は副次的。
+
+| 概念 | 定義 | 重要度 |
+|------|------|:------:|
+| **confidence** (信頼度) | エビデンスの量・質に基づく主張の確からしさ | **主** |
+| **TrustLevel** (ドメイン分類) | ドメインの事前分類 (PRIMARY〜BLOCKED) | 従 |
+
+```python
+# 信頼度計算（evidence_graph.py: calculate_claim_confidence）
+# エビデンスの量と質で決まる（これが重要）
+confidence = f(supporting_count, refuting_count, independent_sources)
+
+# ドメイン分類は confidence 計算に寄与しない
+# 高推論AIへの参考情報としてエッジに付与するのみ
+```
+
+**ドメインを盲信しない**:
+- iso.org（PRIMARY）からの情報でも、裏付けなし → 低confidence
+- 未知ブログ（UNVERIFIED）からの情報でも、複数ソースで裏付け → 高confidence
+- エッジの`source_trust_level`/`target_trust_level`は高推論AIの判断材料
 
 ### 提案2: データソース戦略
 
@@ -648,19 +669,17 @@ user_overrides:
 
 ### 提案5: Wikipediaの扱い
 
-**決定**: Wikipedia は `LOW` (0.40) として扱う。
+**状態**: ✅ 実装済み
 
-**理由**:
-- 誰でも編集可能であり、一時的に誤情報が含まれる可能性
-- 個別記事ごとに品質が大きく異なる
-- 信頼できる内容であれば、他のソースからも裏付けが得られる（エッジが増える）
-
-**実装**: `config/domains.yaml` を更新
+Wikipedia は `LOW` (0.40) として設定済み（`config/domains.yaml:108-113`）:
 
 ```yaml
 - domain: "wikipedia.org"
-  trust_level: "low"  # trusted → low に変更
+  trust_level: "low"  # Downgraded: anyone can edit, quality varies by article
   qps: 0.5
+  headful_ratio: 0
+  max_requests_per_day: 500
+  max_pages_per_day: 250
 ```
 
 出典追跡機能は実装しない（通常ドメインとして扱う）。
@@ -678,25 +697,29 @@ user_overrides:
 3. [ ] エビデンスグラフに矛盾関係を明示的に保存
 4. [ ] 不採用主張（`not_adopted`）のグラフ保持
 
-### Phase 2: 科学的論争の区別（中リスク・高価値）【優先】
+### Phase 2: エッジへの信頼レベル情報追加（中リスク・高価値）【優先】
 
-目的: 誤情報と正当な科学的論争を区別
+目的: 対立関係の解釈に必要な情報を高推論AIに提供する
 
 **この Phase を先に実装する根拠**:
-Phase 3（引用追跡）で追加される論文が、現行の問題あるロジック（`refuting_count > 0` で即 BLOCKED）で処理されることを防ぐ。矛盾分類ロジックを先に整備することで、引用追跡で発見された対立関係が適切に処理される。
+Phase 3（引用追跡）で追加される論文間の対立関係を、高推論AIが適切に解釈できるようにする。現行の`refuting_count > 0`で即BLOCKEDとなる問題も、エッジ情報に基づく判断基準の緩和で解決する。
 
-1. [ ] `ContradictionType` enum 追加（2種: MISINFORMATION, CONTESTED）
-2. [ ] `classify_contradiction()` 関数の実装
-3. [ ] `_determine_verification_outcome` の改修
-4. [ ] HIGH_TRUST_THRESHOLD = 4 (ACADEMIC以上) の適用
+1. [ ] スキーマ変更: `edges`テーブルに`source_trust_level`, `target_trust_level`カラム追加
+2. [ ] `evidence_graph.py`: `add_edge()`にパラメータ追加
+3. [ ] NLI評価時に信頼レベルを取得してエッジに付与
+4. [ ] `_determine_verification_outcome`の改修: 即時BLOCKEDを緩和
+5. [ ] `to_dict()`でエッジの信頼レベル情報をエクスポート
 
 **テストケース**:
 ```python
-def test_academic_vs_academic_is_contested():
-    """ACADEMIC同士の対立 → CONTESTED、両方保持"""
+def test_edge_contains_trust_levels():
+    """REFUTESエッジにsource/target信頼レベルが含まれることを検証"""
 
-def test_unverified_vs_academic_is_misinformation():
-    """UNVERIFIED vs ACADEMIC → MISINFORMATION、UNVERIFIED側ブロック"""
+def test_academic_refutes_unverified_not_blocked():
+    """ACADEMIC→UNVERIFIED反論でも即BLOCKEDにならないことを検証"""
+
+def test_evidence_graph_export_includes_trust():
+    """to_dict()出力に信頼レベル情報が含まれることを検証"""
 ```
 
 ### Phase 3: 引用追跡の完全実装（中リスク・高価値）
@@ -731,24 +754,25 @@ def test_relevance_filtering_top_10():
 
 ---
 
-## VerificationStatus の拡張
+## VerificationStatus について
 
-現行の `VerificationStatus` を拡張:
+**決定**: 現行の3値（PENDING/VERIFIED/REJECTED）を維持。拡張しない。
 
 ```python
 class VerificationStatus(str, Enum):
-    """検証ステータス（拡張版）"""
-
-    # 既存
+    """検証ステータス（変更なし）"""
     PENDING = "pending"      # 検証待ち（独立ソース不足）
     VERIFIED = "verified"    # 検証済み（十分な裏付けあり）
     REJECTED = "rejected"    # 棄却（矛盾検出/危険パターン）
-
-    # 新規追加
-    CONTESTED = "contested"  # 対立関係にある（両方保持）
 ```
 
-**注**: `SUPERSEDED` は削除。時間情報はメタデータとして提供し、判断はLyraではしない。
+**CONTESTED を追加しない理由**:
+
+1. **Thinking-Working分離の原則**: 「対立している」という解釈は高推論AIの責務
+2. **エッジ情報で十分**: REFUTESエッジ + 信頼レベル情報があれば、高推論AIは判断可能
+3. **シンプルさ**: 状態の増加は複雑性を増す
+
+対立関係はエッジ（REFUTES）として記録し、そのメタデータ（source_trust_level, target_trust_level）を提供することで、高推論AIに判断材料を与える。
 
 ---
 
@@ -758,44 +782,44 @@ class VerificationStatus(str, Enum):
 
 **決定**: 11ツール体制を維持。
 
-### 決定2: HIGH_TRUST_THRESHOLD
+### 決定2: 対立関係の扱い
 
-**決定**: 4 (ACADEMIC以上)
+**決定**: Lyraは対立関係を**事実として記録**し、**解釈は高推論AIに委ねる**。
 
-| インデックス | レベル | 高信頼 |
-|:-----------:|--------|:-----:|
-| 0 | BLOCKED | - |
-| 1 | UNVERIFIED | - |
-| 2 | LOW | - |
-| 3 | TRUSTED | - |
-| 4 | ACADEMIC | ✓ |
-| 5 | GOVERNMENT | ✓ |
-| 6 | PRIMARY | ✓ |
+| 要素 | Lyraの責務 | 高推論AIの責務 |
+|------|-----------|---------------|
+| 対立の検出 | REFUTESエッジを作成 | - |
+| 信頼レベル情報 | エッジに付与 | 参照して判断 |
+| 「科学的論争か誤情報か」 | **判断しない** | 判断する |
+| BLOCKEDの決定 | 危険パターン検出時のみ | 推奨可能 |
 
-### 決定3: ContradictionType
+**ContradictionType enum は導入しない**:
+- Lyraが「MISINFORMATION」「CONTESTED」とラベル付けすることは解釈行為
+- エッジ情報（relation + trust_levels）があれば高推論AIは自ら判断可能
 
-**決定**: 2種に簡素化
+### 決定3: 信頼度が主、ドメイン分類は従
 
-- `MISINFORMATION`: 低信頼源が高信頼源と矛盾 → 低信頼側ブロック
-- `CONTESTED`: それ以外 → 両方保持、対立関係を明示
+**決定**: **信頼度（confidence）がエビデンス評価の主軸**。ドメイン分類（TrustLevel）は副次的な参考情報に過ぎない。
 
-**SUPERSEDED, METHODOLOGY_DIFFERENCE を削除する根拠**:
+```
+# 信頼度 = エビデンスの量と質で決まる（これが重要）
+confidence = f(supporting_count, refuting_count, independent_sources)
 
-1. **自動判定の困難性**: 「古い研究が覆された」かどうかを出版年だけで判断できない
-   - 古い論文が正しく、新しい論文が誤っている場合がある
-   - メタ分析が「覆す」のか「補足する」のかも曖昧
+# ドメイン分類 ≠ 信頼度
+# 高信頼ドメインでも裏付けがなければ低confidence
+# 低信頼ドメインでも十分な裏付けがあれば高confidence
+```
 
-2. **責任分離の原則**: Lyraはエビデンスを収集・整理するツールであり、科学的判断を下すツールではない
-   - Lyra: 「論文Aと論文Bは対立関係にある」（CONTESTED） + メタデータ提供
-   - 高推論AI/操作者: メタデータ（出版年、引用数、方法論）を見て判断
-
-時間情報や方法論の差異はメタデータとして提供し、判断は操作者である高推論AIに委ねる。
+**ドメインを盲信しない**:
+- iso.org（PRIMARY）からの情報でも、裏付けなし → 低confidence
+- 未知ブログ（UNVERIFIED）からの情報でも、複数ソースで裏付け → 高confidence
+- TrustLevelは「出自の参考情報」として高推論AIに提供するのみ
 
 ### 決定4: Wikipedia
 
-**決定**: `LOW` (0.40)
+**状態**: ✅ 実装済み
 
-TRUSTEDから降格。出典追跡機能は実装しない。
+`LOW` (0.40) として設定済み（`config/domains.yaml`）。
 
 ### 決定5: 引用追跡の関連性フィルタリング
 
