@@ -147,8 +147,8 @@ class TestGetStatusWithExplorationState:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
 
-        mock_state = AsyncMock()
-        mock_state.get_status.return_value = mock_exploration_status
+        mock_state = MagicMock()
+        mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
@@ -179,8 +179,8 @@ class TestGetStatusWithExplorationState:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
 
-        mock_state = AsyncMock()
-        mock_state.get_status.return_value = mock_exploration_status
+        mock_state = MagicMock()
+        mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
@@ -228,8 +228,8 @@ class TestGetStatusWithExplorationState:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
 
-        mock_state = AsyncMock()
-        mock_state.get_status.return_value = mock_exploration_status
+        mock_state = MagicMock()
+        mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
@@ -261,8 +261,8 @@ class TestGetStatusWithExplorationState:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
 
-        mock_state = AsyncMock()
-        mock_state.get_status.return_value = mock_exploration_status
+        mock_state = MagicMock()
+        mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
@@ -377,8 +377,8 @@ class TestGetStatusStatusMapping:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
 
-        mock_state = AsyncMock()
-        mock_state.get_status.return_value = mock_exploration
+        mock_state = MagicMock()
+        mock_state.get_status = AsyncMock(return_value=mock_exploration)
 
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
