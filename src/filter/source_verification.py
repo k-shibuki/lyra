@@ -77,6 +77,12 @@ class DomainVerificationState:
     rejected_claims: list[str] = field(default_factory=list)
     pending_claims: list[str] = field(default_factory=list)
     last_updated: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    # Block information (added for transparency)
+    is_blocked: bool = False
+    blocked_at: str | None = None
+    block_reason: str | None = None
+    block_cause_id: str | None = None
+    original_trust_level: TrustLevel | None = None
 
     @property
     def total_claims(self) -> int:
@@ -119,8 +125,8 @@ class SourceVerifier:
         self._blocked_domains: set[str] = set()
         # K.3-8: Pending blocked notifications (processed via send_pending_notifications)
         self._pending_blocked_notifications: list[
-            tuple[str, str, str | None]
-        ] = []  # (domain, reason, task_id)
+            tuple[str, str, str | None, str | None]
+        ] = []  # (domain, reason, task_id, cause_id)
 
     def verify_claim(
         self,
@@ -158,10 +164,10 @@ class SourceVerifier:
 
         # If dangerous pattern detected, block immediately
         if has_dangerous_pattern:
-            self._blocked_domains.add(domain)
+            reason = "Dangerous pattern detected (L2/L4)"
+            self._mark_domain_blocked(domain, reason)
             self._update_domain_state(domain, claim_id, VerificationStatus.REJECTED)
 
-            reason = "Dangerous pattern detected (L2/L4)"
             logger.warning(
                 "Domain blocked due to dangerous pattern",
                 domain=domain,
@@ -226,7 +232,7 @@ class SourceVerifier:
 
         # K.3-8: If demoted to BLOCKED via contradictions, queue notification
         if promotion_result == PromotionResult.DEMOTED and new_trust_level == TrustLevel.BLOCKED:
-            self._blocked_domains.add(domain)
+            self._mark_domain_blocked(domain, reason)
             self._queue_blocked_notification(domain, reason, task_id=None)
 
         # Update domain state
@@ -245,10 +251,10 @@ class SourceVerifier:
                 and domain_state
                 and domain_state.rejection_rate > self.MAX_REJECTION_RATE_BEFORE_BLOCK
             ):
-                self._blocked_domains.add(domain)
+                reason = f"High rejection rate ({domain_state.rejection_rate:.0%})"
+                self._mark_domain_blocked(domain, reason)
                 new_trust_level = TrustLevel.BLOCKED
                 promotion_result = PromotionResult.DEMOTED
-                reason = f"High rejection rate ({domain_state.rejection_rate:.0%})"
 
                 logger.warning(
                     "Domain blocked due to high rejection rate",
@@ -402,11 +408,85 @@ class SourceVerifier:
         """
         return list(self._blocked_domains)
 
+    def get_blocked_domains_info(self) -> list[dict[str, Any]]:
+        """Get structured info about blocked domains for get_status response.
+
+        Returns:
+            List of blocked domain info dicts with:
+            - domain: Domain name
+            - blocked_at: ISO timestamp when blocked
+            - reason: Reason for blocking
+            - cause_id: Causal trace ID (if available)
+            - original_trust_level: Trust level before blocking
+            - can_restore: Whether domain can be manually restored
+            - restore_via: How to restore (config file path)
+        """
+        result = []
+        for domain in self._blocked_domains:
+            state = self._domain_states.get(domain)
+            if state and state.is_blocked:
+                result.append({
+                    "domain": domain,
+                    "blocked_at": state.blocked_at,
+                    "reason": state.block_reason,
+                    "cause_id": state.block_cause_id,
+                    "original_trust_level": (
+                        state.original_trust_level.value
+                        if state.original_trust_level
+                        else None
+                    ),
+                    "can_restore": True,
+                    "restore_via": "config/domains.yaml user_overrides",
+                })
+            else:
+                # Domain is blocked but no detailed state available
+                result.append({
+                    "domain": domain,
+                    "blocked_at": None,
+                    "reason": "Domain is blocked",
+                    "cause_id": None,
+                    "original_trust_level": None,
+                    "can_restore": True,
+                    "restore_via": "config/domains.yaml user_overrides",
+                })
+        return result
+
+    def _mark_domain_blocked(
+        self,
+        domain: str,
+        reason: str,
+        cause_id: str | None = None,
+    ) -> None:
+        """Mark a domain as blocked and record state.
+
+        Args:
+            domain: Domain to block.
+            reason: Reason for blocking.
+            cause_id: Causal trace ID (optional).
+        """
+        self._blocked_domains.add(domain)
+
+        # Ensure domain state exists
+        if domain not in self._domain_states:
+            self._domain_states[domain] = DomainVerificationState(
+                domain=domain,
+                trust_level=get_domain_trust_level(domain),
+            )
+
+        state = self._domain_states[domain]
+        state.original_trust_level = state.trust_level
+        state.trust_level = TrustLevel.BLOCKED
+        state.is_blocked = True
+        state.blocked_at = datetime.now(UTC).isoformat()
+        state.block_reason = reason
+        state.block_cause_id = cause_id
+
     def _queue_blocked_notification(
         self,
         domain: str,
         reason: str,
         task_id: str | None = None,
+        cause_id: str | None = None,
     ) -> None:
         """Queue a blocked domain notification (K.3-8).
 
@@ -416,16 +496,18 @@ class SourceVerifier:
             domain: Domain that was blocked.
             reason: Reason for blocking.
             task_id: Associated task ID (optional).
+            cause_id: Causal trace ID for log correlation (optional).
         """
         # Avoid duplicate notifications for the same domain
-        existing_domains = {d for d, _, _ in self._pending_blocked_notifications}
+        existing_domains = {d for d, _, _, _ in self._pending_blocked_notifications}
         if domain not in existing_domains:
-            self._pending_blocked_notifications.append((domain, reason, task_id))
-            logger.debug(
-                "Blocked domain notification queued",
+            self._pending_blocked_notifications.append((domain, reason, task_id, cause_id))
+            logger.warning(
+                "Domain blocked",
                 domain=domain,
                 reason=reason,
                 task_id=task_id,
+                cause_id=cause_id,
             )
 
     async def send_pending_notifications(self, task_id: str | None = None) -> list[dict]:
@@ -449,7 +531,7 @@ class SourceVerifier:
         notifications_to_send = self._pending_blocked_notifications.copy()
         self._pending_blocked_notifications.clear()
 
-        for domain, reason, queued_task_id in notifications_to_send:
+        for domain, reason, queued_task_id, cause_id in notifications_to_send:
             try:
                 result = await notify_domain_blocked(
                     domain=domain,
@@ -462,12 +544,14 @@ class SourceVerifier:
                     "Failed to send blocked domain notification",
                     domain=domain,
                     error=str(e),
+                    cause_id=cause_id,
                 )
                 results.append(
                     {
                         "error": str(e),
                         "domain": domain,
                         "reason": reason,
+                        "cause_id": cause_id,
                     }
                 )
 

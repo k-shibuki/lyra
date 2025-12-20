@@ -1329,7 +1329,7 @@ class TestBlockedDomainNotification:
         assert verifier.get_pending_notification_count() == 1
         pending = verifier._pending_blocked_notifications
         assert len(pending) == 1
-        domain, reason, task_id = pending[0]
+        domain, reason, task_id, cause_id = pending[0]
         assert domain == "dangerous-pattern.com"
         assert "Dangerous pattern" in reason
 
@@ -1524,3 +1524,156 @@ class TestBlockedDomainNotification:
         verifier._queue_blocked_notification("b.com", "R", None)
         verifier._queue_blocked_notification("c.com", "R", None)
         assert verifier.get_pending_notification_count() == 3
+
+
+class TestDomainBlockingTransparency:
+    """Tests for domain blocking transparency features."""
+
+    @pytest.fixture
+    def verifier(self):
+        """Fresh SourceVerifier instance."""
+        return SourceVerifier()
+
+    def test_mark_domain_blocked_records_details(self, verifier):
+        """
+        TC-P1-1.2-N-01: _mark_domain_blocked records block details.
+
+        // Given: A SourceVerifier
+        // When: _mark_domain_blocked is called
+        // Then: Domain state is updated with blocked_at, block_reason, original_trust_level
+        """
+        verifier._mark_domain_blocked(
+            domain="example.com",
+            reason="High rejection rate",
+            cause_id="claim_abc",
+        )
+
+        # Then: Domain is blocked
+        assert "example.com" in verifier.get_blocked_domains()
+
+        # And: State is recorded correctly
+        state = verifier.get_domain_state("example.com")
+        assert state is not None
+        assert state.trust_level == TrustLevel.BLOCKED
+        assert state.block_reason == "High rejection rate"
+        assert state.original_trust_level is not None  # Preserved from before blocking
+        assert state.blocked_at is not None
+        assert state.block_cause_id == "claim_abc"
+
+    def test_mark_domain_blocked_stores_cause_id(self, verifier):
+        """
+        TC-P1-1.2-N-02: _mark_domain_blocked stores cause_id in state.
+
+        // Given: A SourceVerifier
+        // When: _mark_domain_blocked is called with cause_id
+        // Then: State includes block_cause_id
+        """
+        verifier._mark_domain_blocked(
+            domain="spam.org",
+            reason="Dangerous pattern detected",
+            cause_id="claim_xyz",
+        )
+
+        # Then: Domain is blocked
+        assert "spam.org" in verifier.get_blocked_domains()
+
+        # And: State includes cause_id
+        state = verifier.get_domain_state("spam.org")
+        assert state.block_cause_id == "claim_xyz"
+        assert state.block_reason == "Dangerous pattern detected"
+        assert state.is_blocked is True
+
+    def test_mark_domain_blocked_updates_existing_state(self, verifier):
+        """
+        TC-P1-1.2-N-03: _mark_domain_blocked updates existing domain state.
+
+        // Given: A domain with existing state
+        // When: _mark_domain_blocked is called
+        // Then: State is updated with block info while preserving domain
+        """
+        # Setup existing state
+        verifier._domain_states["existing.com"] = DomainVerificationState(
+            domain="existing.com",
+            trust_level=TrustLevel.LOW,
+            verified_claims=["claim_1"],
+        )
+
+        # When: Mark as blocked
+        verifier._mark_domain_blocked(
+            domain="existing.com",
+            reason="Repeated contradictions",
+        )
+
+        # Then: State is updated
+        state = verifier.get_domain_state("existing.com")
+        assert state.trust_level == TrustLevel.BLOCKED
+        assert state.block_reason == "Repeated contradictions"
+        assert state.original_trust_level == TrustLevel.LOW  # Preserved from before
+        assert state.verified_claims == ["claim_1"]  # Preserved
+        assert state.is_blocked is True
+
+    def test_get_blocked_domains_with_details(self, verifier):
+        """
+        TC-P1-1.1-N-02: get_blocked_domains returns all blocked domains.
+
+        // Given: Multiple blocked domains
+        // When: get_blocked_domains is called
+        // Then: All blocked domains are returned
+        """
+        verifier._mark_domain_blocked("block1.com", "Reason 1")
+        verifier._mark_domain_blocked("block2.com", "Reason 2")
+        verifier._mark_domain_blocked("block3.com", "Reason 3")
+
+        blocked = verifier.get_blocked_domains()
+
+        assert len(blocked) == 3
+        assert "block1.com" in blocked
+        assert "block2.com" in blocked
+        assert "block3.com" in blocked
+
+    def test_domain_state_preserves_original_trust_level_after_block(self, verifier):
+        """
+        TC-P1-1.1-N-03: Original trust level is preserved after blocking.
+
+        // Given: A domain with specific trust level
+        // When: Domain is blocked
+        // Then: original_trust_level is preserved for potential restoration
+        """
+        # Setup existing state with specific trust level
+        verifier._domain_states["academic.edu"] = DomainVerificationState(
+            domain="academic.edu",
+            trust_level=TrustLevel.ACADEMIC,
+        )
+
+        verifier._mark_domain_blocked(
+            domain="academic.edu",
+            reason="Misinformation detected",
+        )
+
+        state = verifier.get_domain_state("academic.edu")
+
+        # Current trust is BLOCKED
+        assert state.trust_level == TrustLevel.BLOCKED
+
+        # But original is preserved
+        assert state.original_trust_level == TrustLevel.ACADEMIC
+
+    def test_queue_blocked_notification_includes_cause_id(self, verifier):
+        """
+        TC-P1-1.2-N-04: _queue_blocked_notification stores cause_id.
+
+        // Given: A SourceVerifier
+        // When: _queue_blocked_notification is called with cause_id
+        // Then: cause_id is stored in the notification tuple
+        """
+        verifier._queue_blocked_notification(
+            domain="test.com",
+            reason="Test reason",
+            task_id="task_test",
+            cause_id="cause_evidence_123",
+        )
+
+        assert verifier.get_pending_notification_count() == 1
+        notification = verifier._pending_blocked_notifications[0]
+        assert len(notification) == 4
+        assert notification[3] == "cause_evidence_123"
