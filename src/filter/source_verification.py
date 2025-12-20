@@ -23,7 +23,7 @@ from src.mcp.response_meta import (
     VerificationDetails,
     VerificationStatus,
 )
-from src.utils.domain_policy import TrustLevel, get_domain_trust_level
+from src.utils.domain_policy import DomainCategory, get_domain_category
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -33,11 +33,25 @@ logger = get_logger(__name__)
 
 
 class PromotionResult(str, Enum):
-    """Result of trust level promotion/demotion check."""
+    """Result of domain category promotion/demotion check."""
 
     PROMOTED = "promoted"  # Promoted to LOW from UNVERIFIED
     DEMOTED = "demoted"  # Demoted to BLOCKED
-    UNCHANGED = "unchanged"  # No change in trust level
+    UNCHANGED = "unchanged"  # No change in domain category
+
+
+class ReasonCode(str, Enum):
+    """Factual reason codes for verification outcomes.
+
+    These codes describe evidence state, not interpretation.
+    DomainCategory is NOT used in verification decisions.
+    """
+
+    CONFLICTING_EVIDENCE = "conflicting_evidence"  # Refuting evidence exists
+    WELL_SUPPORTED = "well_supported"  # Multiple independent sources support
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"  # Not enough evidence
+    DANGEROUS_PATTERN = "dangerous_pattern"  # L2/L4 security detection
+    ALREADY_BLOCKED = "already_blocked"  # Domain was already blocked
 
 
 @dataclass
@@ -46,23 +60,23 @@ class VerificationResult:
 
     claim_id: str
     domain: str
-    original_trust_level: TrustLevel
-    new_trust_level: TrustLevel
+    original_domain_category: DomainCategory
+    new_domain_category: DomainCategory
     verification_status: VerificationStatus
     promotion_result: PromotionResult
     details: VerificationDetails
-    reason: str = ""
+    reason: ReasonCode | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging/serialization."""
         return {
             "claim_id": self.claim_id,
             "domain": self.domain,
-            "original_trust_level": self.original_trust_level.value,
-            "new_trust_level": self.new_trust_level.value,
+            "original_domain_category": self.original_domain_category.value,
+            "new_domain_category": self.new_domain_category.value,
             "verification_status": self.verification_status.value,
             "promotion_result": self.promotion_result.value,
-            "reason": self.reason,
+            "reason": self.reason.value if self.reason else None,
             "details": self.details.to_dict(),
         }
 
@@ -72,7 +86,7 @@ class DomainVerificationState:
     """Tracks verification state for a domain across claims."""
 
     domain: str
-    trust_level: TrustLevel
+    domain_category: DomainCategory
     verified_claims: list[str] = field(default_factory=list)
     rejected_claims: list[str] = field(default_factory=list)
     pending_claims: list[str] = field(default_factory=list)
@@ -82,7 +96,7 @@ class DomainVerificationState:
     blocked_at: str | None = None
     block_reason: str | None = None
     block_cause_id: str | None = None
-    original_trust_level: TrustLevel | None = None
+    original_domain_category: DomainCategory | None = None
 
     @property
     def total_claims(self) -> int:
@@ -146,26 +160,25 @@ class SourceVerifier:
         Returns:
             VerificationResult with status and trust level changes.
         """
-        # Get current trust level
-        original_trust_level = get_domain_trust_level(domain)
+        # Get current domain category
+        original_domain_category = get_domain_category(domain)
 
         # If already blocked, reject immediately
-        if original_trust_level == TrustLevel.BLOCKED or domain in self._blocked_domains:
+        if original_domain_category == DomainCategory.BLOCKED or domain in self._blocked_domains:
             return VerificationResult(
                 claim_id=claim_id,
                 domain=domain,
-                original_trust_level=original_trust_level,
-                new_trust_level=TrustLevel.BLOCKED,
+                original_domain_category=original_domain_category,
+                new_domain_category=DomainCategory.BLOCKED,
                 verification_status=VerificationStatus.REJECTED,
                 promotion_result=PromotionResult.UNCHANGED,
                 details=VerificationDetails(),
-                reason="Domain is blocked",
+                reason=ReasonCode.ALREADY_BLOCKED,
             )
 
         # If dangerous pattern detected, block immediately
         if has_dangerous_pattern:
-            reason = "Dangerous pattern detected (L2/L4)"
-            self._mark_domain_blocked(domain, reason)
+            self._mark_domain_blocked(domain, "Dangerous pattern detected (L2/L4)")
             self._update_domain_state(domain, claim_id, VerificationStatus.REJECTED)
 
             logger.warning(
@@ -175,17 +188,19 @@ class SourceVerifier:
             )
 
             # K.3-8: Queue notification for blocked domain
-            self._queue_blocked_notification(domain, reason, task_id=None)
+            self._queue_blocked_notification(
+                domain, "Dangerous pattern detected (L2/L4)", task_id=None
+            )
 
             return VerificationResult(
                 claim_id=claim_id,
                 domain=domain,
-                original_trust_level=original_trust_level,
-                new_trust_level=TrustLevel.BLOCKED,
+                original_domain_category=original_domain_category,
+                new_domain_category=DomainCategory.BLOCKED,
                 verification_status=VerificationStatus.REJECTED,
                 promotion_result=PromotionResult.DEMOTED,
                 details=VerificationDetails(),
-                reason=reason,
+                reason=ReasonCode.DANGEROUS_PATTERN,
             )
 
         # Get confidence from EvidenceGraph
@@ -221,34 +236,28 @@ class SourceVerifier:
             },
         )
 
-        # Determine verification status
-        verification_status, new_trust_level, promotion_result, reason = (
+        # Determine verification status (evidence only, no DomainCategory dependency)
+        verification_status, new_domain_category, promotion_result, reason_code = (
             self._determine_verification_outcome(
-                original_trust_level=original_trust_level,
+                original_domain_category=original_domain_category,
                 confidence_info=confidence_info,
                 has_contradictions=len(claim_contradictions) > 0,
             )
         )
 
-        # K.3-8: If demoted to BLOCKED via contradictions, queue notification
-        if promotion_result == PromotionResult.DEMOTED and new_trust_level == TrustLevel.BLOCKED:
-            self._mark_domain_blocked(domain, reason)
-            self._queue_blocked_notification(domain, reason, task_id=None)
-
         # Update domain state
         self._update_domain_state(domain, claim_id, verification_status)
 
         # Check if domain should be blocked based on aggregate stats
-        # Phase P.2: Only auto-block UNVERIFIED or LOW trust domains after
-        # repeated rejections (at least 3 rejected claims with high rejection rate).
+        # Only auto-block after repeated rejections (at least 3 rejected claims with high rejection rate).
         # Single contradictions are NOT sufficient for blocking.
         if verification_status == VerificationStatus.REJECTED:
             domain_state = self._domain_states.get(domain)
-            can_auto_block = original_trust_level in (
-                TrustLevel.UNVERIFIED,
-                TrustLevel.LOW,
+            can_auto_block = original_domain_category in (
+                DomainCategory.UNVERIFIED,
+                DomainCategory.LOW,
             )
-            # Phase P.2: Require at least 3 rejected claims before auto-blocking
+            # Require at least 3 rejected claims before auto-blocking
             min_rejections_for_block = 3
             if (
                 can_auto_block
@@ -256,10 +265,13 @@ class SourceVerifier:
                 and len(domain_state.rejected_claims) >= min_rejections_for_block
                 and domain_state.rejection_rate > self.MAX_REJECTION_RATE_BEFORE_BLOCK
             ):
-                reason = f"High rejection rate ({domain_state.rejection_rate:.0%}) with {len(domain_state.rejected_claims)} rejections"
-                self._mark_domain_blocked(domain, reason)
-                new_trust_level = TrustLevel.BLOCKED
+                self._mark_domain_blocked(
+                    domain,
+                    f"High rejection rate ({domain_state.rejection_rate:.0%}) with {len(domain_state.rejected_claims)} rejections",
+                )
+                new_domain_category = DomainCategory.BLOCKED
                 promotion_result = PromotionResult.DEMOTED
+                reason_code = ReasonCode.DANGEROUS_PATTERN  # Repeated rejections = pattern
 
                 logger.warning(
                     "Domain blocked due to high rejection rate",
@@ -269,90 +281,79 @@ class SourceVerifier:
                 )
 
                 # K.3-8: Queue notification for blocked domain
-                self._queue_blocked_notification(domain, reason, task_id=None)
+                self._queue_blocked_notification(
+                    domain,
+                    f"High rejection rate ({domain_state.rejection_rate:.0%})",
+                    task_id=None,
+                )
 
         return VerificationResult(
             claim_id=claim_id,
             domain=domain,
-            original_trust_level=original_trust_level,
-            new_trust_level=new_trust_level,
+            original_domain_category=original_domain_category,
+            new_domain_category=new_domain_category,
             verification_status=verification_status,
             promotion_result=promotion_result,
             details=details,
-            reason=reason,
+            reason=reason_code,
         )
 
     def _determine_verification_outcome(
         self,
-        original_trust_level: TrustLevel,
+        original_domain_category: DomainCategory,
         confidence_info: dict[str, Any],
         has_contradictions: bool,
-    ) -> tuple[VerificationStatus, TrustLevel, PromotionResult, str]:
-        """Determine verification outcome based on evidence.
+    ) -> tuple[VerificationStatus, DomainCategory, PromotionResult, ReasonCode]:
+        """Determine verification outcome based on evidence only.
 
-        Phase P.2: Relaxed immediate blocking. When contradictions are detected,
-        we no longer immediately BLOCK the domain. Instead, we record the
-        contradiction with trust levels on edges, allowing high-inference AI
-        to make nuanced judgments about whether conflicts represent genuine
-        scientific controversy vs. misinformation.
+        DomainCategory is NOT used in verification decisions.
+        Only evidence (NLI confidence, independent sources) is considered.
 
         Args:
-            original_trust_level: Current trust level of domain.
+            original_domain_category: Current domain category (for tracking only).
             confidence_info: Confidence assessment from EvidenceGraph.
             has_contradictions: Whether contradictions were found.
 
         Returns:
-            Tuple of (status, new_trust_level, promotion_result, reason).
+            Tuple of (status, new_domain_category, promotion_result, reason_code).
         """
         independent_sources = confidence_info.get("independent_sources", 0)
-        confidence_info.get("verdict", "unverified")
         refuting_count = confidence_info.get("refuting_count", 0)
 
-        # Case 1: Contradiction detected → CONTESTED (Phase P.2: no immediate block)
-        # Trust levels are recorded on edges for high-inference AI to interpret
+        # Case 1: Conflicting evidence → PENDING (no automatic BLOCKED)
+        # DomainCategory is recorded on edges for high-inference AI to interpret
         if has_contradictions or refuting_count > 0:
-            if original_trust_level == TrustLevel.UNVERIFIED:
-                # Phase P.2: Demote to LOW instead of BLOCKED
-                # The contradiction is recorded with trust levels on the edge,
-                # allowing high-inference AI to evaluate the evidence quality
-                return (
-                    VerificationStatus.REJECTED,
-                    TrustLevel.LOW,  # Was: BLOCKED - now relaxed per Phase P.2
-                    PromotionResult.DEMOTED,
-                    "Contradiction detected (contested - awaiting AI evaluation)",
-                )
-            else:
-                # Higher trust levels remain unchanged - contradiction recorded on edge
-                return (
-                    VerificationStatus.REJECTED,
-                    original_trust_level,
-                    PromotionResult.UNCHANGED,
-                    "Contradiction detected (trusted source - recorded for AI evaluation)",
-                )
+            # Keep original category, return PENDING for AI evaluation
+            return (
+                VerificationStatus.PENDING,
+                original_domain_category,
+                PromotionResult.UNCHANGED,
+                ReasonCode.CONFLICTING_EVIDENCE,
+            )
 
         # Case 2: Well supported → VERIFIED, possibly promoted
         if independent_sources >= self.MIN_INDEPENDENT_SOURCES_FOR_PROMOTION:
-            if original_trust_level == TrustLevel.UNVERIFIED:
+            if original_domain_category == DomainCategory.UNVERIFIED:
                 return (
                     VerificationStatus.VERIFIED,
-                    TrustLevel.LOW,
+                    DomainCategory.LOW,
                     PromotionResult.PROMOTED,
-                    f"Corroborated by {independent_sources} independent sources",
+                    ReasonCode.WELL_SUPPORTED,
                 )
             else:
                 return (
                     VerificationStatus.VERIFIED,
-                    original_trust_level,
+                    original_domain_category,
                     PromotionResult.UNCHANGED,
-                    f"Corroborated by {independent_sources} independent sources",
+                    ReasonCode.WELL_SUPPORTED,
                 )
 
         # Case 3: Insufficient evidence → PENDING
         return (
             VerificationStatus.PENDING,
-            original_trust_level,
+            original_domain_category,
             PromotionResult.UNCHANGED,
-            f"Insufficient evidence ({independent_sources} sources)",
+            ReasonCode.INSUFFICIENT_EVIDENCE,
         )
 
     def _update_domain_state(
@@ -371,7 +372,7 @@ class SourceVerifier:
         if domain not in self._domain_states:
             self._domain_states[domain] = DomainVerificationState(
                 domain=domain,
-                trust_level=get_domain_trust_level(domain),
+                domain_category=get_domain_category(domain),
             )
 
         state = self._domain_states[domain]
@@ -414,7 +415,7 @@ class SourceVerifier:
         """
         if domain in self._blocked_domains:
             return True
-        return get_domain_trust_level(domain) == TrustLevel.BLOCKED
+        return get_domain_category(domain) == DomainCategory.BLOCKED
 
     def get_blocked_domains(self) -> list[str]:
         """Get list of blocked domains.
@@ -433,7 +434,7 @@ class SourceVerifier:
             - blocked_at: ISO timestamp when blocked
             - reason: Reason for blocking
             - cause_id: Causal trace ID (if available)
-            - original_trust_level: Trust level before blocking
+            - original_domain_category: Domain category before blocking
             - can_restore: Whether domain can be manually restored
             - restore_via: How to restore (config file path)
         """
@@ -447,8 +448,10 @@ class SourceVerifier:
                         "blocked_at": state.blocked_at,
                         "reason": state.block_reason,
                         "cause_id": state.block_cause_id,
-                        "original_trust_level": (
-                            state.original_trust_level.value if state.original_trust_level else None
+                        "original_domain_category": (
+                            state.original_domain_category.value
+                            if state.original_domain_category
+                            else None
                         ),
                         "can_restore": True,
                         "restore_via": "config/domains.yaml user_overrides",
@@ -462,7 +465,7 @@ class SourceVerifier:
                         "blocked_at": None,
                         "reason": "Domain is blocked",
                         "cause_id": None,
-                        "original_trust_level": None,
+                        "original_domain_category": None,
                         "can_restore": True,
                         "restore_via": "config/domains.yaml user_overrides",
                     }
@@ -488,12 +491,12 @@ class SourceVerifier:
         if domain not in self._domain_states:
             self._domain_states[domain] = DomainVerificationState(
                 domain=domain,
-                trust_level=get_domain_trust_level(domain),
+                domain_category=get_domain_category(domain),
             )
 
         state = self._domain_states[domain]
-        state.original_trust_level = state.trust_level
-        state.trust_level = TrustLevel.BLOCKED
+        state.original_domain_category = state.domain_category
+        state.domain_category = DomainCategory.BLOCKED
         state.is_blocked = True
         state.blocked_at = datetime.now(UTC).isoformat()
         state.block_reason = reason
@@ -603,7 +606,7 @@ class SourceVerifier:
             # Add claim metadata
             claim_meta = ClaimMeta(
                 claim_id=result.claim_id,
-                source_trust_level=result.new_trust_level.value,
+                source_domain_category=result.new_domain_category.value,
                 verification_status=result.verification_status,
                 verification_details=result.details,
                 source_domain=result.domain,
@@ -611,10 +614,10 @@ class SourceVerifier:
             builder.add_claim_meta(claim_meta)
 
             # Track blocked/unverified domains
-            if result.new_trust_level == TrustLevel.BLOCKED:
+            if result.new_domain_category == DomainCategory.BLOCKED:
                 builder.add_blocked_domain(result.domain)
                 has_degraded = True
-            elif result.new_trust_level == TrustLevel.UNVERIFIED:
+            elif result.new_domain_category == DomainCategory.UNVERIFIED:
                 builder.add_unverified_domain(result.domain)
 
             # Add security warnings for demotions

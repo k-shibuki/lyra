@@ -1029,7 +1029,7 @@ prompt = render_prompt("extract_claims", text="...", context="リサーチクエ
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
 | `_lyra_meta` 付与 | `src/mcp/response_meta.py` (新規) | ✅ |
-| claim検証状態付与 | `source_trust_level`, `verification_status` | ✅ |
+| claim検証状態付与 | `source_domain_category`, `verification_status` | ✅ |
 | `create_task` 応答拡張 | `src/mcp/server.py` | ✅ |
 | `get_status` 応答拡張 | `src/mcp/server.py` | ✅ |
 
@@ -1071,28 +1071,28 @@ EvidenceGraph連携による自動検証と昇格/降格ロジック。
 
 **テスト:** `tests/test_source_verification.py` (27件)
 
-##### K.3.7 TrustLevel変更 ✅
+##### K.3.7 DomainCategory変更 ✅
 
-`UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。
+`UNKNOWN` / `SUSPICIOUS` を廃止し、検証状態を明確にする。また`DomainCategory`はランキング調整専用であることを明確化。
 
 | 項目 | 実装 | 状態 |
 |------|------|:----:|
-| TrustLevel enum再定義 | `src/utils/domain_policy.py` | ✅ |
-| 信頼度ウェイト更新 | `DEFAULT_TRUST_WEIGHTS` | ✅ |
+| DomainCategory enum再定義 | `src/utils/domain_policy.py` | ✅ |
+| カテゴリウェイト更新 | `CATEGORY_WEIGHTS` | ✅ |
 | domains.yaml更新 | `config/domains.yaml` | ✅ |
 
 **実装内容:**
-- TrustLevel enum変更:
+- DomainCategory enum変更:
   - 廃止: `UNKNOWN`, `SUSPICIOUS`
   - 追加: `LOW` (検証済み低信頼), `UNVERIFIED` (未検証), `BLOCKED` (除外)
-- 新しいウェイト:
+- 新しいウェイト（ランキング調整用）:
   - PRIMARY: 1.0, GOVERNMENT: 0.95, ACADEMIC: 0.90, TRUSTED: 0.75
   - LOW: 0.40, UNVERIFIED: 0.30, BLOCKED: 0.0
-- 影響範囲: `TrustLevel`は`domain_policy.py`内のみで使用されており、他ファイルの`UNKNOWN`は別のEnum
+- 影響範囲: `DomainCategory`はランキング調整のみに使用。信頼度計算や検証判定には使用しない。
 
 **変更ファイル:**
-- `src/utils/domain_policy.py`: TrustLevel enum再定義, DEFAULT_TRUST_WEIGHTS更新
-- `config/domains.yaml`: default trust_level を `"unverified"` に変更
+- `src/utils/domain_policy.py`: DomainCategory enum再定義, CATEGORY_WEIGHTS更新
+- `config/domains.yaml`: default domain_category を `"unverified"` に変更
 - `tests/test_domain_policy.py`: テストの期待値更新
 
 ##### K.3.8 BLOCKED通知（InterventionQueue連携）✅
@@ -2310,9 +2310,10 @@ python scripts/migrate.py create NAME  # 新規作成
 
 **主な変更内容**:
 
-1. **エッジへの信頼レベル情報追加**
-   - `edges`テーブルに`source_trust_level`, `target_trust_level`カラム追加
-   - REFUTESエッジに信頼レベル情報を付与し、高推論AIが「科学的論争か誤情報か」を判断可能にする
+1. **エッジへのドメインカテゴリ情報追加**
+   - `edges`テーブルに`source_domain_category`, `target_domain_category`カラム追加
+   - REFUTESエッジにドメインカテゴリ情報を付与し、高推論AIが「科学的論争か誤情報か」を判断可能にする
+   - ドメインカテゴリはランキング調整用であり、信頼度計算や検証判定には使用しない
 
 2. **ベイズ信頼度モデルの導入**
    - 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算

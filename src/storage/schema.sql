@@ -160,17 +160,17 @@ CREATE TABLE IF NOT EXISTS edges (
     confidence REAL,
     nli_label TEXT,  -- From NLI model
     nli_confidence REAL,
-    -- Trust level information for high-reasoning AI (Phase P.2)
-    source_trust_level TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
-    target_trust_level TEXT,
+    -- Domain category information for ranking adjustment and high-reasoning AI (Phase P.2)
+    source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
+    target_domain_category TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     cause_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_type, source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation);
--- Index for efficient querying of contradiction relationships by trust levels
-CREATE INDEX IF NOT EXISTS idx_edges_trust_levels ON edges(relation, source_trust_level, target_trust_level);
+-- Index for efficient querying of contradiction relationships by domain categories
+CREATE INDEX IF NOT EXISTS idx_edges_domain_categories ON edges(relation, source_domain_category, target_domain_category);
 
 -- ============================================================
 -- Domain & Engine Management

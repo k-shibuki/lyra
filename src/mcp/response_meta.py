@@ -108,7 +108,7 @@ class ClaimMeta:
     """Per-claim metadata for verification status (§4.4.1 L5/L6)."""
 
     claim_id: str
-    source_trust_level: str  # TrustLevel value
+    source_domain_category: str  # DomainCategory value
     verification_status: VerificationStatus = VerificationStatus.PENDING
     verification_details: VerificationDetails | None = None
     source_domain: str | None = None
@@ -117,7 +117,7 @@ class ClaimMeta:
         """Convert to dictionary for JSON serialization."""
         result: dict[str, Any] = {
             "claim_id": self.claim_id,
-            "source_trust_level": self.source_trust_level,
+            "source_domain_category": self.source_domain_category,
             "verification_status": self.verification_status.value,
         }
 

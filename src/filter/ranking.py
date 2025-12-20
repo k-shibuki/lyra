@@ -8,8 +8,10 @@ via HTTP calls to the lyra-ml container on internal network.
 
 import hashlib
 from typing import Any, cast
+from urllib.parse import urlparse
 
 from src.utils.config import get_settings
+from src.utils.domain_policy import CATEGORY_WEIGHTS, get_domain_category
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -398,7 +400,7 @@ async def rank_candidates(
     rerank_texts = [texts[idx] for idx, _, _, _ in rerank_candidates]
     reranked = await _reranker.rerank(query, rerank_texts, top_k=top_k)
 
-    # Build final results
+    # Build final results with category weight adjustment
     results = []
     for rank_idx, (rerank_pos, rerank_score) in enumerate(reranked):
         orig_idx, bm25_score, embed_score, _ = rerank_candidates[rerank_pos]
@@ -407,9 +409,29 @@ async def rank_candidates(
         passage["score_bm25"] = bm25_score
         passage["score_embed"] = embed_score
         passage["score_rerank"] = float(rerank_score)
+
+        # Stage 4: Apply category weight adjustment
+        url = passage.get("url") or passage.get("page_url") or ""
+        category_weight = 1.0  # Default weight
+        if url:
+            try:
+                parsed = urlparse(url)
+                domain = parsed.netloc.lower()
+                category = get_domain_category(domain)
+                category_weight = CATEGORY_WEIGHTS.get(category, 0.3)
+            except Exception:
+                pass
+
+        passage["category_weight"] = category_weight
+        passage["final_score"] = float(rerank_score) * category_weight
         passage["final_rank"] = rank_idx + 1
 
         results.append(passage)
+
+    # Re-sort by final_score (after category weight adjustment)
+    results.sort(key=lambda x: x["final_score"], reverse=True)
+    for rank_idx, passage in enumerate(results):
+        passage["final_rank"] = rank_idx + 1
 
     logger.info(
         "Ranking completed",

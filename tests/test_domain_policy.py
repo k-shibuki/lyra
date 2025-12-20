@@ -48,8 +48,8 @@ Test design follows §7.1 Test Code Quality Standards:
 | TC-LU-N-08 | Normalized domain | Equivalence – normal | All match | - |
 | TC-CV-N-01 | should_skip deny | Equivalence – normal | True | - |
 | TC-CV-N-02 | should_skip allow | Equivalence – normal | False | - |
-| TC-CV-N-03 | get_trust_level | Equivalence – normal | Correct level | - |
-| TC-CV-N-04 | get_trust_weight | Equivalence – normal | Correct weight | - |
+| TC-CV-N-03 | get_domain_category | Equivalence – normal | Correct category | - |
+| TC-CV-N-04 | get_category_weight | Equivalence – normal | Correct weight | - |
 | TC-CV-N-05 | get_qps_limit | Equivalence – normal | Correct QPS | - |
 | TC-IS-N-01 | Template exists | Equivalence – normal | Template returned | - |
 | TC-IS-A-01 | Template missing | Equivalence – abnormal | None | - |
@@ -119,6 +119,7 @@ from src.utils.domain_policy import (
     AllowlistEntrySchema,
     DefaultPolicySchema,
     DenylistEntrySchema,
+    DomainCategory,
     DomainPolicy,
     DomainPolicyConfigSchema,
     DomainPolicyManager,
@@ -128,7 +129,6 @@ from src.utils.domain_policy import (
     PolicyBoundsSchema,
     SearchEnginePolicySchema,
     SkipReason,
-    TrustLevel,
     get_domain_policy_manager,
     reset_domain_policy_manager,
 )
@@ -149,7 +149,7 @@ default_policy:
   tor_allowed: true
   cooldown_minutes: 60
   max_retries: 3
-  trust_level: "unverified"
+  domain_category: "unverified"
   max_requests_per_day: 200
   max_pages_per_day: 100
 
@@ -182,25 +182,25 @@ policy_bounds:
 
 allowlist:
   - domain: "go.jp"
-    trust_level: "government"
+    domain_category: "government"
     qps: 0.15
   - domain: "arxiv.org"
-    trust_level: "academic"
+    domain_category: "academic"
     internal_search: true
     qps: 0.25
   - domain: "wikipedia.org"
-    trust_level: "trusted"
+    domain_category: "trusted"
     qps: 0.5
     headful_ratio: 0
     max_requests_per_day: 500
     max_pages_per_day: 250
   - domain: "example-primary.com"
-    trust_level: "primary"
+    domain_category: "primary"
     qps: 0.1
 
 graylist:
   - domain_pattern: "*.medium.com"
-    trust_level: "unverified"
+    domain_category: "unverified"
     qps: 0.1
   - domain_pattern: "*.twitter.com"
     skip: true
@@ -282,7 +282,7 @@ class TestDefaultPolicySchema:
         assert schema.tor_allowed is True
         assert schema.cooldown_minutes == 60
         assert schema.max_retries == 3
-        assert schema.trust_level == TrustLevel.UNVERIFIED
+        assert schema.domain_category == DomainCategory.UNVERIFIED
         # Daily budget limits (§4.3 - Problem 11)
         assert schema.max_requests_per_day == 200
         assert schema.max_pages_per_day == 100
@@ -297,7 +297,7 @@ class TestDefaultPolicySchema:
             tor_allowed=False,
             cooldown_minutes=120,
             max_retries=5,
-            trust_level=TrustLevel.GOVERNMENT,
+            domain_category=DomainCategory.GOVERNMENT,
             max_requests_per_day=500,
             max_pages_per_day=250,
         )
@@ -309,7 +309,7 @@ class TestDefaultPolicySchema:
         assert schema.tor_allowed is False
         assert schema.cooldown_minutes == 120
         assert schema.max_retries == 5
-        assert schema.trust_level == TrustLevel.GOVERNMENT
+        assert schema.domain_category == DomainCategory.GOVERNMENT
         # Daily budget limits (§4.3 - Problem 11)
         assert schema.max_requests_per_day == 500
         assert schema.max_pages_per_day == 250
@@ -343,14 +343,14 @@ class TestAllowlistEntrySchema:
         # Arrange & Act
         entry = AllowlistEntrySchema(
             domain="example.go.jp",
-            trust_level=TrustLevel.GOVERNMENT,
+            domain_category=DomainCategory.GOVERNMENT,
             internal_search=True,
             qps=0.15,
         )
 
         # Then
         assert entry.domain == "example.go.jp"
-        assert entry.trust_level == TrustLevel.GOVERNMENT
+        assert entry.domain_category == DomainCategory.GOVERNMENT
         assert entry.internal_search is True
         assert entry.qps == 0.15
 
@@ -488,37 +488,37 @@ class TestDomainPolicyConfigSchema:
 class TestDomainPolicy:
     """Tests for DomainPolicy data class."""
 
-    def test_trust_weight_primary(self):
+    def test_category_weight_primary(self):
         """Verify PRIMARY trust level has weight 1.0."""
         # Arrange & Act
-        policy = DomainPolicy(domain="gov.example", trust_level=TrustLevel.PRIMARY)
+        policy = DomainPolicy(domain="gov.example", domain_category=DomainCategory.PRIMARY)
 
         # Then
-        assert policy.trust_weight == 1.0
+        assert policy.category_weight == 1.0
 
-    def test_trust_weight_government(self):
+    def test_category_weight_government(self):
         """Verify GOVERNMENT trust level has weight 0.95."""
         # Arrange & Act
-        policy = DomainPolicy(domain="gov.example", trust_level=TrustLevel.GOVERNMENT)
+        policy = DomainPolicy(domain="gov.example", domain_category=DomainCategory.GOVERNMENT)
 
         # Then
-        assert policy.trust_weight == 0.95
+        assert policy.category_weight == 0.95
 
-    def test_trust_weight_academic(self):
+    def test_category_weight_academic(self):
         """Verify ACADEMIC trust level has weight 0.90."""
         # Arrange & Act
-        policy = DomainPolicy(domain="uni.example", trust_level=TrustLevel.ACADEMIC)
+        policy = DomainPolicy(domain="uni.example", domain_category=DomainCategory.ACADEMIC)
 
         # Then
-        assert policy.trust_weight == 0.90
+        assert policy.category_weight == 0.90
 
-    def test_trust_weight_unknown(self):
+    def test_category_weight_unknown(self):
         """Verify UNKNOWN trust level has weight 0.30."""
         # Arrange & Act
-        policy = DomainPolicy(domain="unknown.example", trust_level=TrustLevel.UNVERIFIED)
+        policy = DomainPolicy(domain="unknown.example", domain_category=DomainCategory.UNVERIFIED)
 
         # Then
-        assert policy.trust_weight == 0.30
+        assert policy.category_weight == 0.30
 
     def test_min_request_interval(self):
         """Verify min_request_interval is calculated correctly from QPS."""
@@ -560,7 +560,7 @@ class TestDomainPolicy:
         policy = DomainPolicy(
             domain="example.com",
             qps=0.2,
-            trust_level=TrustLevel.GOVERNMENT,
+            domain_category=DomainCategory.GOVERNMENT,
         )
 
         # When
@@ -569,8 +569,8 @@ class TestDomainPolicy:
         # Then
         assert result["domain"] == "example.com"
         assert result["qps"] == 0.2
-        assert result["trust_level"] == "government"
-        assert "trust_weight" in result
+        assert result["domain_category"] == "government"
+        assert "category_weight" in result
         assert "min_request_interval" in result
         assert "is_in_cooldown" in result
         # Daily budget limits (§4.3 - Problem 11)
@@ -651,7 +651,7 @@ class TestDomainPolicyManagerLookup:
         policy = policy_manager.get_policy("arxiv.org")
 
         # Then
-        assert policy.trust_level == TrustLevel.ACADEMIC
+        assert policy.domain_category == DomainCategory.ACADEMIC
         assert policy.qps == 0.25
         assert policy.internal_search is True
         assert policy.source == "allowlist"
@@ -662,7 +662,7 @@ class TestDomainPolicyManagerLookup:
         policy = policy_manager.get_policy("example.go.jp")
 
         # Then
-        assert policy.trust_level == TrustLevel.GOVERNMENT
+        assert policy.domain_category == DomainCategory.GOVERNMENT
         assert policy.qps == 0.15
         assert policy.source == "allowlist"
 
@@ -713,7 +713,7 @@ class TestDomainPolicyManagerLookup:
 
         # Then
         assert policy.qps == 0.2
-        assert policy.trust_level == TrustLevel.UNVERIFIED
+        assert policy.domain_category == DomainCategory.UNVERIFIED
         assert policy.source == "default"
 
     def test_get_policy_normalized_domain(self, policy_manager: DomainPolicyManager):
@@ -724,9 +724,9 @@ class TestDomainPolicyManagerLookup:
         policy3 = policy_manager.get_policy("arxiv.org")
 
         # Then - all should match the allowlist entry
-        assert policy1.trust_level == TrustLevel.ACADEMIC
-        assert policy2.trust_level == TrustLevel.ACADEMIC
-        assert policy3.trust_level == TrustLevel.ACADEMIC
+        assert policy1.domain_category == DomainCategory.ACADEMIC
+        assert policy2.domain_category == DomainCategory.ACADEMIC
+        assert policy3.domain_category == DomainCategory.ACADEMIC
 
     def test_get_policy_daily_budget_from_allowlist(self, policy_manager: DomainPolicyManager):
         """Verify daily budget limits from allowlist are applied (§4.3 - Problem 11)."""
@@ -762,18 +762,18 @@ class TestDomainPolicyManagerConvenienceMethods:
         # Then
         assert policy_manager.should_skip("arxiv.org") is False
 
-    def test_get_trust_level(self, policy_manager: DomainPolicyManager):
-        """Verify get_trust_level returns correct level."""
+    def test_get_domain_category(self, policy_manager: DomainPolicyManager):
+        """Verify get_domain_category returns correct level."""
         # Then
-        assert policy_manager.get_trust_level("arxiv.org") == TrustLevel.ACADEMIC
-        assert policy_manager.get_trust_level("example.go.jp") == TrustLevel.GOVERNMENT
-        assert policy_manager.get_trust_level("unknown.com") == TrustLevel.UNVERIFIED
+        assert policy_manager.get_domain_category("arxiv.org") == DomainCategory.ACADEMIC
+        assert policy_manager.get_domain_category("example.go.jp") == DomainCategory.GOVERNMENT
+        assert policy_manager.get_domain_category("unknown.com") == DomainCategory.UNVERIFIED
 
-    def test_get_trust_weight(self, policy_manager: DomainPolicyManager):
-        """Verify get_trust_weight returns correct weight."""
+    def test_get_category_weight(self, policy_manager: DomainPolicyManager):
+        """Verify get_category_weight returns correct weight."""
         # Then
-        assert policy_manager.get_trust_weight("arxiv.org") == 0.90  # academic
-        assert policy_manager.get_trust_weight("example.go.jp") == 0.95  # government
+        assert policy_manager.get_category_weight("arxiv.org") == 0.90  # academic
+        assert policy_manager.get_category_weight("example.go.jp") == 0.95  # government
 
     def test_get_qps_limit(self, policy_manager: DomainPolicyManager):
         """Verify get_qps_limit returns correct QPS."""
@@ -837,19 +837,19 @@ class TestDomainPolicyManagerLists:
         assert "wikipedia.org" in domains
         assert "example-primary.com" in domains
 
-    def test_get_domains_by_trust_level_government(self, policy_manager: DomainPolicyManager):
+    def test_get_domains_by_category_government(self, policy_manager: DomainPolicyManager):
         """Verify domains with GOVERNMENT trust level are returned."""
         # When
-        domains = policy_manager.get_domains_by_trust_level(TrustLevel.GOVERNMENT)
+        domains = policy_manager.get_domains_by_category(DomainCategory.GOVERNMENT)
 
         # Then
         assert len(domains) == 1
         assert "go.jp" in domains
 
-    def test_get_domains_by_trust_level_academic(self, policy_manager: DomainPolicyManager):
+    def test_get_domains_by_category_academic(self, policy_manager: DomainPolicyManager):
         """Verify domains with ACADEMIC trust level are returned."""
         # When
-        domains = policy_manager.get_domains_by_trust_level(TrustLevel.ACADEMIC)
+        domains = policy_manager.get_domains_by_category(DomainCategory.ACADEMIC)
 
         # Then
         assert len(domains) == 1
@@ -954,7 +954,7 @@ default_policy:
   qps: 0.2
 allowlist:
   - domain: "example.com"
-    trust_level: "unverified"
+    domain_category: "unverified"
 """
         config_path.write_text(initial_config, encoding="utf-8")
 
@@ -966,7 +966,7 @@ allowlist:
 
         # Verify initial state
         policy = manager.get_policy("example.com")
-        assert policy.trust_level == TrustLevel.UNVERIFIED
+        assert policy.domain_category == DomainCategory.UNVERIFIED
 
         # When - modify config
         time.sleep(0.2)  # Ensure mtime changes
@@ -975,7 +975,7 @@ default_policy:
   qps: 0.3
 allowlist:
   - domain: "example.com"
-    trust_level: "government"
+    domain_category: "government"
 """
         config_path.write_text(updated_config, encoding="utf-8")
 
@@ -985,7 +985,7 @@ allowlist:
 
         # Then
         updated_policy = manager.get_policy("example.com")
-        assert updated_policy.trust_level == TrustLevel.GOVERNMENT
+        assert updated_policy.domain_category == DomainCategory.GOVERNMENT
 
     def test_reload_callback_called(self, tmp_path: Path):
         """Verify reload callbacks are called on config reload."""
@@ -1095,11 +1095,11 @@ class TestPatternMatching:
         """Verify suffix match works for go.jp domains."""
         # Then - go.jp should match ministry.go.jp
         policy = policy_manager.get_policy("ministry.go.jp")
-        assert policy.trust_level == TrustLevel.GOVERNMENT
+        assert policy.domain_category == DomainCategory.GOVERNMENT
 
         # Also test deeply nested
         policy2 = policy_manager.get_policy("sub.ministry.go.jp")
-        assert policy2.trust_level == TrustLevel.GOVERNMENT
+        assert policy2.domain_category == DomainCategory.GOVERNMENT
 
     def test_no_match_partial_domain(self, policy_manager: DomainPolicyManager):
         """Verify partial domain doesn't match (arxiv.org vs myarxiv.org)."""
@@ -1113,10 +1113,10 @@ class TestPatternMatching:
 # =============================================================================
 
 
-class TestTrustLevelPriority:
-    """Tests for trust level hierarchy and weights."""
+class TestDomainCategoryPriority:
+    """Tests for domain category hierarchy and weights."""
 
-    def test_trust_level_hierarchy(self, policy_manager: DomainPolicyManager):
+    def test_domain_category_hierarchy(self, policy_manager: DomainPolicyManager):
         """Verify trust level weights follow expected hierarchy."""
         # Given
         primary_policy = policy_manager.get_policy("example-primary.com")
@@ -1126,10 +1126,10 @@ class TestTrustLevelPriority:
         unknown_policy = policy_manager.get_policy("unknown.com")
 
         # Then - PRIMARY > GOVERNMENT > ACADEMIC > TRUSTED > UNKNOWN
-        assert primary_policy.trust_weight > gov_policy.trust_weight
-        assert gov_policy.trust_weight > academic_policy.trust_weight
-        assert academic_policy.trust_weight > trusted_policy.trust_weight
-        assert trusted_policy.trust_weight > unknown_policy.trust_weight
+        assert primary_policy.category_weight > gov_policy.category_weight
+        assert gov_policy.category_weight > academic_policy.category_weight
+        assert academic_policy.category_weight > trusted_policy.category_weight
+        assert trusted_policy.category_weight > unknown_policy.category_weight
 
 
 # =============================================================================
@@ -1146,7 +1146,7 @@ class TestResolutionPriority:
         config = """
 allowlist:
   - domain: "test.blogspot.com"
-    trust_level: "trusted"
+    domain_category: "trusted"
 denylist:
   - domain_pattern: "*.blogspot.com"
     reason: "low_quality_aggregator"
@@ -1169,7 +1169,7 @@ denylist:
         config = """
 allowlist:
   - domain: "example-protected.com"
-    trust_level: "trusted"
+    domain_category: "trusted"
 cloudflare_sites:
   - domain_pattern: "*.protected.com"
     headful_required: true

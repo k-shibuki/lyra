@@ -43,17 +43,20 @@ logger = get_logger(__name__)
 # =============================================================================
 
 
-class TrustLevel(str, Enum):
-    """Trust level for domain classification (§3.3 Trust Scoring, §4.4.1 L6).
+class DomainCategory(str, Enum):
+    """Domain category for ranking adjustment (§3.3 Trust Scoring, §4.4.1 L6).
 
-    Levels (high to low trust):
+    Categories (for ranking weight adjustment only, NOT for confidence calculation):
     - PRIMARY: Public institutions, standards bodies (iso.org, ietf.org)
     - GOVERNMENT: Government agencies (go.jp, gov)
     - ACADEMIC: Academic institutions (arxiv.org, ac.jp, pubmed)
     - TRUSTED: Trusted media, knowledge bases (wikipedia.org)
     - LOW: Verified low-trust (promoted from UNVERIFIED via L6 verification)
     - UNVERIFIED: Unknown domains (provisional use, pending verification)
-    - BLOCKED: Excluded (contradiction detected, dangerous patterns)
+    - BLOCKED: Excluded (dangerous patterns detected)
+
+    Note: DomainCategory is used ONLY for ranking score adjustment (category_weight).
+    It is NOT used for confidence calculation or verification decisions.
     """
 
     PRIMARY = "primary"
@@ -76,15 +79,16 @@ class SkipReason(str, Enum):
     PERSISTENT_CAPTCHA = "persistent_captcha"
 
 
-# Default trust level weights (§3.3 Trust Scoring, §4.4.1 L6)
-DEFAULT_TRUST_WEIGHTS: dict[TrustLevel, float] = {
-    TrustLevel.PRIMARY: 1.0,
-    TrustLevel.GOVERNMENT: 0.95,
-    TrustLevel.ACADEMIC: 0.90,
-    TrustLevel.TRUSTED: 0.75,
-    TrustLevel.LOW: 0.40,  # Verified but low trust
-    TrustLevel.UNVERIFIED: 0.30,  # Provisional use
-    TrustLevel.BLOCKED: 0.0,  # Excluded from scoring
+# Category weights for ranking adjustment (§3.3 Trust Scoring, §4.4.1 L6)
+# Used ONLY for ranking score adjustment, NOT for confidence calculation
+CATEGORY_WEIGHTS: dict[DomainCategory, float] = {
+    DomainCategory.PRIMARY: 1.0,
+    DomainCategory.GOVERNMENT: 0.95,
+    DomainCategory.ACADEMIC: 0.90,
+    DomainCategory.TRUSTED: 0.75,
+    DomainCategory.LOW: 0.40,  # Verified but low trust
+    DomainCategory.UNVERIFIED: 0.30,  # Provisional use
+    DomainCategory.BLOCKED: 0.0,  # Excluded from scoring
 }
 
 
@@ -104,7 +108,9 @@ class DefaultPolicySchema(BaseModel):
         default=60, ge=1, le=1440, description="Cooldown after failure (min)"
     )
     max_retries: int = Field(default=3, ge=0, le=10, description="Max retry attempts")
-    trust_level: TrustLevel = Field(default=TrustLevel.UNVERIFIED, description="Trust level")
+    domain_category: DomainCategory = Field(
+        default=DomainCategory.UNVERIFIED, description="Domain category"
+    )
     # Daily budget limits (§4.3 - IP block prevention)
     max_requests_per_day: int = Field(
         default=200, ge=0, description="Max requests per day (0=unlimited)"
@@ -116,7 +122,7 @@ class AllowlistEntrySchema(BaseModel):
     """Schema for allowlist domain entries."""
 
     domain: str = Field(..., description="Domain name (exact or suffix match)")
-    trust_level: TrustLevel = Field(default=TrustLevel.UNVERIFIED)
+    domain_category: DomainCategory = Field(default=DomainCategory.UNVERIFIED)
     internal_search: bool = Field(default=False, description="Has usable internal search UI")
     qps: float | None = Field(default=None, ge=0.01, le=2.0)
     headful_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -145,7 +151,7 @@ class GraylistEntrySchema(BaseModel):
     """Schema for graylist domain entries (pattern-based)."""
 
     domain_pattern: str = Field(..., description="Domain pattern (supports glob wildcards)")
-    trust_level: TrustLevel | None = Field(default=None)
+    domain_category: DomainCategory | None = Field(default=None)
     headful_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
     cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
     qps: float | None = Field(default=None, ge=0.01, le=2.0)
@@ -333,7 +339,7 @@ class DomainPolicy:
     tor_allowed: bool = True
     cooldown_minutes: int = 60
     max_retries: int = 3
-    trust_level: TrustLevel = TrustLevel.UNVERIFIED
+    domain_category: DomainCategory = DomainCategory.UNVERIFIED
     internal_search: bool = False
     skip: bool = False
     skip_reason: str | None = None
@@ -357,9 +363,9 @@ class DomainPolicy:
     source: str = "default"  # "allowlist", "graylist", "denylist", "cloudflare", "default"
 
     @property
-    def trust_weight(self) -> float:
-        """Get trust weight for this domain (§3.3)."""
-        return DEFAULT_TRUST_WEIGHTS.get(self.trust_level, 0.3)
+    def category_weight(self) -> float:
+        """Get category weight for ranking adjustment (§3.3)."""
+        return CATEGORY_WEIGHTS.get(self.domain_category, 0.3)
 
     @property
     def min_request_interval(self) -> float:
@@ -383,9 +389,9 @@ class DomainPolicy:
             "tor_allowed": self.tor_allowed,
             "cooldown_minutes": self.cooldown_minutes,
             "max_retries": self.max_retries,
-            "trust_level": self.trust_level.value
-            if isinstance(self.trust_level, TrustLevel)
-            else self.trust_level,
+            "domain_category": self.domain_category.value
+            if isinstance(self.domain_category, DomainCategory)
+            else self.domain_category,
             "internal_search": self.internal_search,
             "skip": self.skip,
             "skip_reason": self.skip_reason,
@@ -401,7 +407,7 @@ class DomainPolicy:
             "last_captcha_at": self.last_captcha_at.isoformat() if self.last_captcha_at else None,
             "cooldown_until": self.cooldown_until.isoformat() if self.cooldown_until else None,
             "source": self.source,
-            "trust_weight": self.trust_weight,
+            "category_weight": self.category_weight,
             "min_request_interval": self.min_request_interval,
             "is_in_cooldown": self.is_in_cooldown,
         }
@@ -690,7 +696,7 @@ class DomainPolicyManager:
             tor_allowed=default.tor_allowed,
             cooldown_minutes=default.cooldown_minutes,
             max_retries=default.max_retries,
-            trust_level=default.trust_level,
+            domain_category=default.domain_category,
             max_requests_per_day=default.max_requests_per_day,
             max_pages_per_day=default.max_pages_per_day,
             source="default",
@@ -742,7 +748,7 @@ class DomainPolicyManager:
                 if allow_entry.max_pages_per_day is not None:
                     policy.max_pages_per_day = allow_entry.max_pages_per_day
 
-                policy.trust_level = allow_entry.trust_level
+                policy.domain_category = allow_entry.domain_category
                 policy.internal_search = allow_entry.internal_search
                 policy.source = "allowlist"
                 break
@@ -752,8 +758,8 @@ class DomainPolicyManager:
             for gray_entry in config.graylist:
                 if self._match_pattern(domain, gray_entry.domain_pattern):
                     # Apply graylist overrides
-                    if gray_entry.trust_level is not None:
-                        policy.trust_level = gray_entry.trust_level
+                    if gray_entry.domain_category is not None:
+                        policy.domain_category = gray_entry.domain_category
                     if gray_entry.headful_ratio is not None:
                         policy.headful_ratio = gray_entry.headful_ratio
                     if gray_entry.cooldown_minutes is not None:
@@ -782,13 +788,13 @@ class DomainPolicyManager:
         """Check if domain should be skipped."""
         return self.get_policy(domain).skip
 
-    def get_trust_level(self, domain: str) -> TrustLevel:
-        """Get trust level for domain."""
-        return self.get_policy(domain).trust_level
+    def get_domain_category(self, domain: str) -> DomainCategory:
+        """Get domain category for domain."""
+        return self.get_policy(domain).domain_category
 
-    def get_trust_weight(self, domain: str) -> float:
-        """Get trust weight for domain (§3.3)."""
-        return self.get_policy(domain).trust_weight
+    def get_category_weight(self, domain: str) -> float:
+        """Get category weight for ranking adjustment (§3.3)."""
+        return self.get_policy(domain).category_weight
 
     def get_qps_limit(self, domain: str) -> float:
         """Get QPS limit for domain."""
@@ -820,9 +826,11 @@ class DomainPolicyManager:
         """Get list of all allowlist domains."""
         return [entry.domain for entry in self.config.allowlist]
 
-    def get_domains_by_trust_level(self, trust_level: TrustLevel) -> list[str]:
-        """Get domains with specific trust level from allowlist."""
-        return [entry.domain for entry in self.config.allowlist if entry.trust_level == trust_level]
+    def get_domains_by_category(self, category: DomainCategory) -> list[str]:
+        """Get domains with specific category from allowlist."""
+        return [
+            entry.domain for entry in self.config.allowlist if entry.domain_category == category
+        ]
 
     def update_learning_state(self, domain: str, state: dict[str, Any]) -> None:
         """
@@ -1018,9 +1026,9 @@ def should_skip_domain(domain: str) -> bool:
     return get_domain_policy_manager().should_skip(domain)
 
 
-def get_domain_trust_level(domain: str) -> TrustLevel:
-    """Get trust level for domain (convenience function)."""
-    return get_domain_policy_manager().get_trust_level(domain)
+def get_domain_category(domain: str) -> DomainCategory:
+    """Get domain category for domain (convenience function)."""
+    return get_domain_policy_manager().get_domain_category(domain)
 
 
 def get_domain_qps(domain: str) -> float:
