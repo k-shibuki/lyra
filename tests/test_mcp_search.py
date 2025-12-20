@@ -36,7 +36,7 @@ Tests the search pipeline and task stopping per §3.2.1.
 """
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -191,6 +191,7 @@ class TestSearchBoundaryValues:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         captured_options = {}
 
@@ -229,6 +230,7 @@ class TestSearchBoundaryValues:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         captured_options = {}
 
@@ -267,6 +269,7 @@ class TestSearchBoundaryValues:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         long_query = "a" * 4000  # Max input length per §4.4.1
 
@@ -337,6 +340,7 @@ class TestSearchExecution:
         mock_db.fetch_one.return_value = mock_task
 
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
@@ -372,6 +376,7 @@ class TestSearchExecution:
         mock_db.fetch_one.return_value = mock_task
 
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         refutation_result = {
             "ok": True,
@@ -422,6 +427,7 @@ class TestSearchExecution:
         mock_db.fetch_one.return_value = mock_task
 
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         captured_options = {}
 
@@ -544,6 +550,7 @@ class TestStopTaskExecution:
         mock_db.execute = AsyncMock()
 
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         captured_reason = None
 
@@ -581,6 +588,7 @@ class TestStopTaskExecution:
         mock_db.execute = AsyncMock()
 
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         captured_reason = None
 
@@ -622,6 +630,7 @@ class TestStopTaskExecution:
         mock_db.execute = AsyncMock()
 
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
@@ -988,6 +997,7 @@ class TestSearchWithAutoStart:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         with patch("src.mcp.server._ensure_chrome_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
@@ -1022,6 +1032,7 @@ class TestSearchWithAutoStart:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         ensure_called = False
 
@@ -1107,6 +1118,7 @@ class TestSearchErrorHandling:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         error_result = {
             "ok": False,
@@ -1154,6 +1166,7 @@ class TestSearchErrorHandling:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         error_result = {
             "ok": False,
@@ -1199,6 +1212,7 @@ class TestSearchErrorHandling:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         error_result = {
             "ok": False,
@@ -1246,6 +1260,7 @@ class TestSearchErrorHandling:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         error_result = {
             "ok": False,
@@ -1288,6 +1303,7 @@ class TestSearchErrorHandling:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
         mock_state = AsyncMock()
+        mock_state.record_activity = MagicMock()
 
         success_result = {
             "ok": True,
