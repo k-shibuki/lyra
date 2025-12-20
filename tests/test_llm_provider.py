@@ -73,7 +73,7 @@ def reset_registry() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def mock_aiohttp_session():
+def mock_aiohttp_session() -> AsyncMock:
     """Create a mock aiohttp session."""
     session = AsyncMock()
     session.closed = False
@@ -81,7 +81,7 @@ def mock_aiohttp_session():
 
 
 @pytest.fixture
-def ollama_provider():
+def ollama_provider() -> OllamaProvider:
     """Create an OllamaProvider for testing."""
     return OllamaProvider(
         host="http://localhost:11434",
