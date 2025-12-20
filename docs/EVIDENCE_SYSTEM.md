@@ -1267,82 +1267,647 @@ def calculate_claim_confidence_bayesian(claim_id: str) -> dict:
 
 ## 実装ロードマップ
 
+### フェーズ間の依存関係
+
+```mermaid
+graph TD
+    P1[Phase 1: 透明性の向上]
+    P2[Phase 2: エッジへの信頼レベル情報追加]
+    P3[Phase 3: 引用追跡の完全実装]
+    P4[Phase 4: ベイズ信頼度モデル]
+    P5[Phase 5: ユーザー制御]
+
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P1 --> P5
+
+    subgraph core [コア機能]
+        P2
+        P3
+        P4
+    end
+
+    subgraph support [サポート機能]
+        P1
+        P5
+    end
+```
+
+**依存関係の説明**:
+- Phase 2 は Phase 1 の `blocked_domains` 情報を前提とする
+- Phase 3 は Phase 2 のエッジ信頼レベル情報を使って対立関係を記録
+- Phase 4 は Phase 3 で充実したエビデンスグラフを前提とする
+- Phase 5 は Phase 1 と並行可能（独立）
+
+---
+
 ### Phase 1: 透明性の向上（低リスク・高価値）
 
-目的: 判断根拠の可視化と監査可能性の確保
+**目的**: 判断根拠の可視化と監査可能性の確保
 
-1. [ ] `get_status` への `blocked_domains` 情報追加
-2. [ ] ブロック理由のログ強化（`cause_id` 連携）
-3. [ ] エビデンスグラフに矛盾関係を明示的に保存
-4. [ ] 不採用主張（`not_adopted`）のグラフ保持
+#### タスク一覧
+
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 1.1 | `get_status` への `blocked_domains` 情報追加 | `src/mcp/server.py` | `tests/test_mcp_get_status.py` |
+| 1.2 | ブロック理由のログ強化（`cause_id` 連携） | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
+| 1.3 | エビデンスグラフに矛盾関係を明示的に保存 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 1.4 | 不採用主張（`not_adopted`）のグラフ保持 | `src/filter/evidence_graph.py`, `src/storage/schema.sql` | `tests/test_evidence_graph.py` |
+
+#### タスク詳細
+
+**1.1 `get_status` への `blocked_domains` 情報追加**
+
+`_handle_get_status()` で `SourceVerifier.get_blocked_domains()` を呼び出し、MCP応答に含める。
+
+```python
+# src/mcp/server.py: _handle_get_status()
+from src.filter.source_verification import SourceVerifier
+
+# タスクに紐づくSourceVerifierインスタンスを取得
+verifier = await _get_source_verifier(task_id)
+
+response = {
+    ...
+    "blocked_domains": [
+        {
+            "domain": domain,
+            "blocked_at": state.blocked_at.isoformat() if state.blocked_at else None,
+            "reason": state.block_reason,
+            "original_trust_level": state.original_trust_level,
+        }
+        for domain in verifier.get_blocked_domains()
+        if (state := verifier.get_domain_state(domain))
+    ],
+}
+```
+
+**1.2 ブロック理由のログ強化（`cause_id` 連携）**
+
+ブロック時に `cause_id` を記録し、後からトレース可能にする。
+
+```python
+# src/filter/source_verification.py
+def _queue_blocked_notification(self, domain: str, reason: str, task_id: str | None, cause_id: str | None = None):
+    logger.warning(
+        "Domain blocked",
+        domain=domain,
+        reason=reason,
+        task_id=task_id,
+        cause_id=cause_id,  # 追加
+    )
+```
+
+**1.3 エビデンスグラフに矛盾関係を明示的に保存**
+
+`find_contradictions()` の結果を永続化するため、`edges` テーブルに `is_contradiction` フラグを追加。
+
+```sql
+-- migrations/004_add_contradiction_flag.sql
+ALTER TABLE edges ADD COLUMN is_contradiction BOOLEAN DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_edges_contradiction ON edges(is_contradiction) WHERE is_contradiction = 1;
+```
+
+```python
+# src/filter/evidence_graph.py
+def mark_contradictions(self) -> int:
+    """矛盾関係を検出してエッジにフラグを立てる。"""
+    contradictions = self.find_contradictions()
+    for c in contradictions:
+        # 両方向のエッジにフラグを立てる
+        self._graph.edges[c["claim1_node"], c["claim2_node"]]["is_contradiction"] = True
+    return len(contradictions)
+```
+
+**1.4 不採用主張（`not_adopted`）のグラフ保持**
+
+検証で棄却された主張もグラフに残し、`adoption_status` で区別する。
+
+```sql
+-- migrations/004_add_contradiction_flag.sql（同一マイグレーション）
+ALTER TABLE claims ADD COLUMN adoption_status TEXT DEFAULT 'pending';
+-- 値: 'pending', 'adopted', 'not_adopted'
+```
+
+```python
+# src/filter/evidence_graph.py
+def set_claim_adoption_status(self, claim_id: str, status: str) -> None:
+    """主張の採用状態を設定する。"""
+    node_id = self._make_node_id(NodeType.CLAIM, claim_id)
+    if node_id in self._graph:
+        self._graph.nodes[node_id]["adoption_status"] = status
+```
+
+#### テストケース
+
+```python
+# tests/test_mcp_get_status.py
+def test_get_status_includes_blocked_domains():
+    """get_status応答にblocked_domainsが含まれることを検証"""
+
+def test_blocked_domain_has_reason():
+    """ブロックされたドメインに理由が含まれることを検証"""
+
+# tests/test_evidence_graph.py
+def test_mark_contradictions_persists():
+    """矛盾関係がis_contradictionフラグで永続化されることを検証"""
+
+def test_not_adopted_claim_preserved():
+    """棄却された主張がadoption_status='not_adopted'で保持されることを検証"""
+```
 
 ### Phase 2: エッジへの信頼レベル情報追加（中リスク・高価値）【優先】
 
-目的: 対立関係の解釈に必要な情報を高推論AIに提供する
+**目的**: 対立関係の解釈に必要な情報を高推論AIに提供する
+
+> **重要**: 信頼レベル情報は**高推論AI向けの参考情報**であり、**ベイズ信頼度計算（Phase 4）には使用しない**。
+> ベイズモデルは NLI confidence のみを使用する（§決定3、§決定7参照）。
 
 **この Phase を先に実装する根拠**:
 Phase 3（引用追跡）で追加される論文間の対立関係を、高推論AIが適切に解釈できるようにする。現行の`refuting_count > 0`で即BLOCKEDとなる問題も、エッジ情報に基づく判断基準の緩和で解決する。
 
-1. [ ] スキーマ変更: `edges`テーブルに`source_trust_level`, `target_trust_level`カラム追加
-2. [ ] `evidence_graph.py`: `add_edge()`にパラメータ追加
-3. [ ] NLI評価時に信頼レベルを取得してエッジに付与
-4. [ ] `_determine_verification_outcome`の改修: 即時BLOCKEDを緩和
-5. [ ] `to_dict()`でエッジの信頼レベル情報をエクスポート
+#### タスク一覧
 
-**テストケース**:
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 2.1 | スキーマ変更 | `migrations/003_add_trust_level_to_edges.sql` | `tests/test_migrations.py` |
+| 2.2 | `add_edge()` にパラメータ追加 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 2.3 | NLI評価時に信頼レベル付与 | `src/filter/nli.py` | `tests/test_nli.py` |
+| 2.4 | 即時BLOCKEDを緩和 | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
+| 2.5 | `to_dict()` でエクスポート | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+
+#### タスク詳細
+
+**2.1 スキーマ変更**
+
+```sql
+-- migrations/003_add_trust_level_to_edges.sql
+ALTER TABLE edges ADD COLUMN source_trust_level TEXT;
+ALTER TABLE edges ADD COLUMN target_trust_level TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_edges_trust_levels
+    ON edges(relation, source_trust_level, target_trust_level);
+```
+
+**2.2 `add_edge()` にパラメータ追加**
+
 ```python
+# src/filter/evidence_graph.py
+def add_edge(
+    self,
+    source_type: NodeType,
+    source_id: str,
+    target_type: NodeType,
+    target_id: str,
+    relation: RelationType,
+    confidence: float | None = None,
+    nli_label: str | None = None,
+    nli_confidence: float | None = None,
+    source_trust_level: str | None = None,  # 追加
+    target_trust_level: str | None = None,  # 追加
+    **attributes: Any,
+) -> str:
+```
+
+**2.3 NLI評価時に信頼レベル付与**
+
+```python
+# src/filter/nli.py: nli_judge() の呼び出し元で
+from src.utils.domain_policy import get_domain_trust_level
+
+source_trust = get_domain_trust_level(source_domain)
+target_trust = get_domain_trust_level(target_domain)
+
+graph.add_edge(
+    ...
+    source_trust_level=source_trust.value,
+    target_trust_level=target_trust.value,
+)
+```
+
+**2.4 即時BLOCKEDを緩和**
+
+```python
+# src/filter/source_verification.py: _determine_verification_outcome()
+
+# 変更前: refuting_count > 0 で即BLOCKED
+# 変更後: 信頼レベルを考慮した判定
+
+def _determine_verification_outcome(...) -> tuple[...]:
+    # Case 1: ACADEMIC vs ACADEMIC の対立 → 両方保持、論争として記録
+    if source_trust_level in (TrustLevel.PRIMARY, TrustLevel.ACADEMIC, TrustLevel.GOVERNMENT):
+        if target_trust_level in (TrustLevel.PRIMARY, TrustLevel.ACADEMIC, TrustLevel.GOVERNMENT):
+            return (VerificationStatus.PENDING, original_trust_level, PromotionResult.UNCHANGED, "Scientific controversy")
+
+    # Case 2: 高信頼 vs 低信頼 の対立 → 低信頼側を REJECTED（BLOCKEDではない）
+    # Case 3: 低信頼 vs 低信頼 の対立 → 両方 REJECTED
+```
+
+**2.5 `to_dict()` でエクスポート**
+
+```python
+# src/filter/evidence_graph.py
+def to_dict(self) -> dict[str, Any]:
+    ...
+    for u, v, data in self._graph.edges(data=True):
+        edges.append({
+            ...
+            "source_trust_level": data.get("source_trust_level"),
+            "target_trust_level": data.get("target_trust_level"),
+        })
+```
+
+#### テストケース
+
+```python
+# tests/test_evidence_graph.py
 def test_edge_contains_trust_levels():
     """REFUTESエッジにsource/target信頼レベルが含まれることを検証"""
 
-def test_academic_refutes_unverified_not_blocked():
-    """ACADEMIC→UNVERIFIED反論でも即BLOCKEDにならないことを検証"""
-
 def test_evidence_graph_export_includes_trust():
     """to_dict()出力に信頼レベル情報が含まれることを検証"""
+
+# tests/test_source_verification.py
+def test_academic_refutes_academic_not_blocked():
+    """ACADEMIC vs ACADEMIC 対立で両方が保持されることを検証"""
+
+def test_academic_refutes_unverified_rejected_not_blocked():
+    """ACADEMIC→UNVERIFIED反論でREJECTED（BLOCKEDではない）を検証"""
+
+def test_scientific_controversy_marked():
+    """科学的論争がPENDINGとして記録されることを検証"""
 ```
 
 ### Phase 3: 引用追跡の完全実装（中リスク・高価値）
 
-目的: 孤立ノード問題を解決し、エビデンスグラフを充実
+**目的**: 孤立ノード問題を解決し、エビデンスグラフを充実
 
-1. [ ] OpenAlex `get_references()` / `get_citations()` 実装
-2. [ ] 引用先論文のpagesテーブル自動追加
-3. [ ] 関連性フィルタリング（B+C hybrid）実装
-4. [ ] AcademicProvider でS2/OpenAlex両方からの引用グラフ統合
-5. [ ] 非アカデミッククエリでも学術識別子発見時にAPI補完
+#### タスク一覧
 
-**テストケース**:
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 3.1 | OpenAlex `get_references()` / `get_citations()` 実装 | `src/search/apis/openalex.py` | `tests/test_openalex.py` |
+| 3.2 | 引用先論文のpagesテーブル自動追加 | `src/search/academic_provider.py` | `tests/test_academic_provider.py` |
+| 3.3 | 関連性フィルタリング（Embedding → LLM 2段階） | `src/search/citation_filter.py`（新規） | `tests/test_citation_filter.py` |
+| 3.4 | S2/OpenAlex 引用グラフ統合 | `src/search/academic_provider.py` | `tests/test_academic_provider.py` |
+| 3.5 | 非アカデミッククエリでも学術識別子発見時にAPI補完 | `src/research/pipeline.py` | `tests/test_pipeline_academic.py` |
+
+#### タスク詳細
+
+**3.1 OpenAlex `get_references()` / `get_citations()` 実装**
+
+現在の `openalex.py` は「does not support detailed references」としてスタブのみ。
+`referenced_works` フィールドを使って実装する。
+
 ```python
+# src/search/apis/openalex.py
+async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    """Get references via referenced_works field."""
+    session = await self._get_session()
+
+    # 1. 論文のメタデータを取得
+    paper_data = await self._get_work(paper_id)
+    if not paper_data:
+        return []
+
+    # 2. referenced_works (Work ID のリスト) を取得
+    referenced_ids = paper_data.get("referenced_works", [])
+
+    # 3. 各 Work ID を Paper に変換（上位20件）
+    results = []
+    for work_id in referenced_ids[:20]:
+        # work_id は "https://openalex.org/W1234567890" 形式
+        ref_paper = await self.get_paper(work_id)
+        if ref_paper and ref_paper.abstract:
+            # OpenAlex は is_influential フラグを持たない → False
+            results.append((ref_paper, False))
+
+    return results
+
+async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    """Get citing papers via filter=cites:{work_id}."""
+    session = await self._get_session()
+
+    async def _search() -> dict[str, Any]:
+        response = await session.get(
+            f"{self.base_url}/works",
+            params={
+                "filter": f"cites:{paper_id}",
+                "per-page": 20,
+                "select": "id,title,abstract_inverted_index,publication_year,authorships,doi",
+            },
+        )
+        response.raise_for_status()
+        return response.json()
+
+    data = await retry_api_call(_search, ACADEMIC_API_POLICY)
+    papers = [self._parse_paper(item) for item in data.get("results", [])]
+    return [(p, False) for p in papers if p and p.abstract]
+```
+
+**3.3 関連性フィルタリング（Embedding → LLM 2段階）**
+
+新規ファイル `src/search/citation_filter.py` を作成。
+
+```python
+# src/search/citation_filter.py
+from src.filter.ollama_provider import create_ollama_provider
+from src.ml_client import MLClient
+from src.utils.prompt_manager import render_prompt
+
+async def filter_relevant_citations(
+    source_paper: Paper,
+    related_papers: list[tuple[Paper, bool]],
+    query: str,
+    max_count: int = 10,
+) -> list[tuple[Paper, float]]:
+    """
+    2段階の関連性フィルタリング
+
+    Stage 1: Embedding + is_influential で粗フィルタ（上位30件）
+    Stage 2: LLM で精密評価（上位10件）
+    """
+    ml_client = MLClient()
+
+    # ============================================
+    # Stage 1: Embedding で粗フィルタ（高速）
+    # ============================================
+    candidates = []
+
+    # バッチで埋め込みを計算
+    abstracts = [source_paper.abstract] + [p.abstract for p, _ in related_papers if p.abstract]
+    embeddings = await ml_client.embed(abstracts)
+    source_embedding = embeddings[0]
+
+    for i, (paper, is_influential) in enumerate(related_papers):
+        if not paper.abstract:
+            continue
+
+        # Embedding類似度
+        embed_sim = _cosine_similarity(source_embedding, embeddings[i + 1])
+
+        # スコア計算: is_influential 0.5 + embed_sim 0.5
+        score = (0.5 if is_influential else 0.0) + embed_sim * 0.5
+        candidates.append((paper, score, is_influential))
+
+    # 上位30件を抽出
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    candidates = candidates[:30]
+
+    # ============================================
+    # Stage 2: LLM で精密評価（高精度）
+    # ============================================
+    llm_scores = []
+    provider = create_ollama_provider()
+
+    try:
+        for paper, embed_score, is_influential in candidates:
+            llm_relevance = await _evaluate_relevance_with_llm(
+                provider, query, source_paper.abstract, paper.abstract
+            )
+
+            # 最終スコア: LLM 0.5 + Embedding 0.3 + is_influential 0.2
+            final_score = (
+                llm_relevance * 0.5 +
+                embed_score * 0.3 +
+                (0.2 if is_influential else 0.0)
+            )
+            llm_scores.append((paper, final_score))
+    finally:
+        await provider.close()
+
+    llm_scores.sort(key=lambda x: x[1], reverse=True)
+    return llm_scores[:max_count]
+
+
+async def _evaluate_relevance_with_llm(
+    provider,
+    query: str,
+    source_abstract: str,
+    target_abstract: str,
+) -> float:
+    """ローカルLLM（Qwen2.5 3B）で関連性を0-1スコアで評価"""
+    prompt = render_prompt(
+        "relevance_evaluation",  # 新規テンプレート
+        query=query,
+        source_abstract=source_abstract[:500],
+        target_abstract=target_abstract[:500],
+    )
+
+    try:
+        response = await provider.generate(prompt)
+        if response.status == "success":
+            score = int(response.text.strip()) / 10.0
+            return min(max(score, 0.0), 1.0)
+    except Exception:
+        pass
+
+    return 0.5  # パース失敗時はデフォルト
+```
+
+**プロンプトテンプレート（新規）**:
+
+```jinja2
+{# config/prompts/relevance_evaluation.j2 #}
+以下の研究クエリと2つの論文アブストラクトを読んで、
+引用先論文がクエリと元論文にどの程度関連するかを0-10で評価してください。
+
+**クエリ**: {{ query }}
+
+**元論文アブストラクト**:
+{{ source_abstract }}
+
+**引用先論文アブストラクト**:
+{{ target_abstract }}
+
+**評価基準**:
+- 10: クエリに直接答える、または元論文の主張を強く支持/反論
+- 7-9: 密接に関連、重要な背景情報を提供
+- 4-6: 部分的に関連
+- 1-3: わずかに関連
+- 0: 無関係
+
+回答は数字のみ:
+```
+
+#### テストケース
+
+```python
+# tests/test_openalex.py
+def test_get_references_returns_papers():
+    """referenced_worksから論文が取得できることを検証"""
+
+def test_get_citations_returns_citing_papers():
+    """被引用論文が取得できることを検証"""
+
+# tests/test_citation_filter.py
+def test_stage1_embedding_filter():
+    """Embedding粗フィルタで上位30件が選択されることを検証"""
+
+def test_stage2_llm_evaluation():
+    """LLM精密評価が0-1スコアを返すことを検証"""
+
+def test_relevance_filtering_top_10():
+    """最終的に上位10件が選択されることを検証"""
+
+def test_is_influential_boost():
+    """is_influentialフラグがスコアを上げることを検証"""
+
+# tests/test_academic_provider.py
 def test_citation_tracking_adds_referenced_papers():
     """引用先論文がpagesに追加されることを検証"""
 
 def test_new_theory_not_isolated():
     """新理論が孤立ノードにならないことを検証"""
-
-def test_relevance_filtering_top_10():
-    """関連性フィルタリングで上位10件が選択されることを検証"""
 ```
 
 ### Phase 4: ベイズ信頼度モデル（中リスク・高価値）
 
-目的: 数学的に厳密な信頼度計算を導入し、不確実性と論争度を明示化
+**目的**: 数学的に厳密な信頼度計算を導入し、不確実性と論争度を明示化
+
+> **重要設計決定**: ベイズモデルは **NLI confidence のみ** を使用する。
+> - ドメイン分類（TrustLevel）は**使用しない**（§決定3、§決定7参照）
+> - LLM関連性スコアは**使用しない**（Phase 3 の引用フィルタリングのみで使用）
+>
+> **理由**: ドメインが何であれ誤った情報は存在する（再現性危機、論文撤回、ハゲタカジャーナル）。
+> 信頼度はエビデンスの量と質のみで決定すべき。
 
 **この Phase を Phase 3 の後に実装する根拠**:
 引用追跡（Phase 3）によりエビデンスグラフが充実した後にベイズモデルを導入することで、より正確なconfidence/uncertainty/controversy計算が可能になる。エビデンス量が少ない段階での導入は効果が限定的。
 
-1. [ ] `calculate_claim_confidence_bayesian()` の実装
-2. [ ] 現行 `calculate_claim_confidence()` との並行運用（A/Bテスト）
-3. [ ] 出力スキーマの拡張（uncertainty, controversy, alpha, beta 追加）
-4. [ ] MCPレスポンス（`get_materials`）への反映
-5. [ ] 既存テストの更新と新規テスト追加
+#### タスク一覧
 
-**テストケース**:
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 4.1 | `calculate_claim_confidence_bayesian()` 実装 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 4.2 | 現行との並行運用（フラグ切替） | `src/utils/config.py` | `tests/test_evidence_graph.py` |
+| 4.3 | 出力スキーマ拡張 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 4.4 | MCPレスポンスへの反映 | `src/mcp/server.py` | `tests/test_mcp_get_materials.py` |
+| 4.5 | 既存テスト更新 | - | `tests/test_evidence_graph.py` |
+
+#### タスク詳細
+
+**4.1 `calculate_claim_confidence_bayesian()` 実装**
+
 ```python
+# src/filter/evidence_graph.py
+import math
+
+def calculate_claim_confidence_bayesian(self, claim_id: str) -> dict[str, Any]:
+    """ベイズ更新による信頼度計算
+
+    無情報事前分布 Beta(1, 1) から開始し、
+    各エッジの NLI confidence で重み付けして更新する。
+
+    注意: ドメイン分類（TrustLevel）は使用しない。
+          LLM関連性スコアも使用しない。
+          NLI confidence のみを使用する。
+    """
+    # 無情報事前分布: Beta(1, 1)
+    alpha = 1.0  # 支持の擬似カウント
+    beta = 1.0   # 反論の擬似カウント
+
+    evidence = self.get_all_evidence(claim_id)
+
+    for e in evidence["supports"]:
+        weight = e.get("nli_confidence", 0.5)  # NLI confidence のみ使用
+        alpha += weight
+
+    for e in evidence["refutes"]:
+        weight = e.get("nli_confidence", 0.5)  # NLI confidence のみ使用
+        beta += weight
+
+    # NEUTRAL は更新しない（情報なし）
+
+    # 事後分布 Beta(α, β) から統計量を計算
+    confidence = alpha / (alpha + beta)  # 期待値
+
+    # 不確実性（標準偏差）
+    variance = (alpha * beta) / ((alpha + beta)**2 * (alpha + beta + 1))
+    uncertainty = math.sqrt(variance)
+
+    # 論争度（αとβの両方が大きい場合に高い）
+    total_evidence = alpha + beta - 2  # 事前分布を除いた実エビデンス量
+    if total_evidence > 0:
+        controversy = min(alpha - 1, beta - 1) / total_evidence
+    else:
+        controversy = 0.0
+
+    return {
+        "confidence": round(confidence, 3),
+        "uncertainty": round(uncertainty, 3),
+        "controversy": round(controversy, 3),
+        "alpha": round(alpha, 2),
+        "beta": round(beta, 2),
+        # 後方互換性のため既存フィールドも維持
+        "supporting_count": len(evidence["supports"]),
+        "refuting_count": len(evidence["refutes"]),
+        "neutral_count": len(evidence["neutral"]),
+        "verdict": self._determine_verdict(confidence, controversy),
+        "independent_sources": self._count_unique_sources(evidence),
+        "evidence_count": sum(len(v) for v in evidence.values()),
+    }
+
+def _determine_verdict(self, confidence: float, controversy: float) -> str:
+    """confidence と controversy からverdictを決定"""
+    if controversy > 0.3:
+        return "contested"
+    if confidence >= 0.75:
+        return "well_supported"
+    if confidence >= 0.6:
+        return "supported"
+    if confidence <= 0.25:
+        return "likely_false"
+    return "unverified"
+```
+
+**4.2 現行との並行運用**
+
+```python
+# src/utils/config.py
+class EvidenceGraphConfig:
+    use_bayesian_confidence: bool = False  # フラグで切替可能
+
+# src/filter/evidence_graph.py
+def calculate_claim_confidence(self, claim_id: str) -> dict[str, Any]:
+    """統一エントリポイント"""
+    from src.utils.config import get_config
+    config = get_config()
+
+    if config.evidence_graph.use_bayesian_confidence:
+        return self.calculate_claim_confidence_bayesian(claim_id)
+    else:
+        return self._calculate_claim_confidence_legacy(claim_id)
+```
+
+#### 挙動の例（再掲）
+
+| 状態 | α | β | confidence | uncertainty | controversy | 解釈 |
+|------|:-:|:-:|:----------:|:-----------:|:-----------:|------|
+| エビデンスなし | 1.0 | 1.0 | 0.50 | 0.29 | 0.00 | 何も分からない |
+| SUPPORTS ×1 (0.9) | 1.9 | 1.0 | 0.66 | 0.22 | 0.00 | やや支持寄り |
+| SUPPORTS ×3 (0.9) | 3.7 | 1.0 | 0.79 | 0.13 | 0.00 | かなり支持 |
+| SUPPORTS ×3, REFUTES ×1 | 3.7 | 1.9 | 0.66 | 0.14 | 0.24 | 支持だが論争あり |
+| SUPPORTS ×5, REFUTES ×5 | 5.5 | 5.5 | 0.50 | 0.09 | 0.45 | 五分五分、論争的 |
+
+#### テストケース
+
+```python
+# tests/test_evidence_graph.py
 def test_uninformative_prior():
-    """エビデンスなしでconfidence=0.5, uncertainty=0.29を検証"""
+    """エビデンスなしでconfidence=0.5, uncertainty≈0.29を検証"""
+    graph = EvidenceGraph()
+    graph.add_node(NodeType.CLAIM, "c1")
+    result = graph.calculate_claim_confidence_bayesian("c1")
+    assert result["confidence"] == 0.5
+    assert 0.28 <= result["uncertainty"] <= 0.30
 
 def test_supports_increase_confidence():
     """SUPPORTSエッジ追加でconfidence上昇を検証"""
+
+def test_refutes_decrease_confidence():
+    """REFUTESエッジ追加でconfidence低下を検証"""
 
 def test_controversy_detection():
     """SUPPORTS/REFUTES拮抗時にcontroversy上昇を検証"""
@@ -1350,17 +1915,113 @@ def test_controversy_detection():
 def test_uncertainty_decreases_with_evidence():
     """エビデンス増加でuncertainty低下を検証"""
 
+def test_nli_confidence_weight():
+    """NLI confidenceが重み付けに使用されることを検証"""
+
+def test_domain_trust_not_used():
+    """ドメイン分類がベイズ計算に使用されないことを検証"""
+
 def test_backward_compatibility():
     """既存フィールド（supporting_count等）が維持されることを検証"""
+
+def test_flag_switches_implementation():
+    """use_bayesian_confidenceフラグで実装が切り替わることを検証"""
 ```
 
 ### Phase 5: ユーザー制御（中リスク・中価値）
 
-目的: ブロック状態からの復活手段を提供
+**目的**: ブロック状態からの復活手段を提供
 
-1. [ ] `get_status` 応答に `can_restore` フラグを追加
-2. [ ] `config/domains.yaml` に `user_overrides` セクション追加
-3. [ ] 設定ファイルのhot-reload対応確認
+> **注**: Phase 5 は Phase 1〜4 と独立して実装可能。優先度は低い。
+
+#### タスク一覧
+
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 5.1 | `get_status` に `can_restore` フラグ追加 | `src/mcp/server.py` | `tests/test_mcp_get_status.py` |
+| 5.2 | `user_overrides` セクション追加 | `config/domains.yaml`, `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+| 5.3 | hot-reload対応確認 | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+
+#### タスク詳細
+
+**5.1 `get_status` に `can_restore` フラグ追加**
+
+```python
+# src/mcp/server.py: _handle_get_status()
+"blocked_domains": [
+    {
+        "domain": domain,
+        "blocked_at": ...,
+        "reason": ...,
+        "original_trust_level": ...,
+        "can_restore": True,  # 追加
+        "restore_via": "config/domains.yaml user_overrides",  # 追加
+    }
+    ...
+]
+```
+
+**5.2 `user_overrides` セクション追加**
+
+```yaml
+# config/domains.yaml
+user_overrides:
+  - domain: "blocked-but-valid.org"
+    trust_level: "low"
+    reason: "Manual review completed - false positive"
+    added_at: "2024-01-15"
+```
+
+```python
+# src/utils/domain_policy.py
+def get_domain_trust_level(domain: str) -> TrustLevel:
+    # 1. user_overrides を最優先でチェック
+    overrides = _get_user_overrides()
+    if domain in overrides:
+        return TrustLevel(overrides[domain]["trust_level"])
+
+    # 2. 通常のドメインリストをチェック
+    ...
+```
+
+#### テストケース
+
+```python
+# tests/test_mcp_get_status.py
+def test_blocked_domain_has_can_restore():
+    """ブロックされたドメインにcan_restore=Trueが含まれることを検証"""
+
+# tests/test_domain_policy.py
+def test_user_override_takes_precedence():
+    """user_overridesが通常のドメインリストより優先されることを検証"""
+
+def test_user_override_restores_blocked():
+    """user_overridesでBLOCKEDドメインを復活できることを検証"""
+```
+
+---
+
+### テスト戦略（全Phase共通）
+
+#### テスト種別
+
+| 種別 | マーカー | 説明 | 実行環境 |
+|------|----------|------|----------|
+| Unit | `@pytest.mark.unit` | モック使用、外部依存なし | どこでも |
+| Integration | `@pytest.mark.integration` | DB/ファイル使用、ネットワークなし | どこでも |
+| E2E | `@pytest.mark.e2e` | 実サービス使用 | 開発環境 |
+
+#### Phase別テスト戦略
+
+| Phase | Unit | Integration | E2E |
+|-------|:----:|:-----------:|:---:|
+| 1 | MCP応答形式、ログ出力 | DB永続化、SourceVerifier統合 | - |
+| 2 | add_edge()パラメータ、to_dict()出力 | NLI→エッジ信頼レベル付与 | MCP経由でグラフ取得 |
+| 3 | OpenAlex API、関連性フィルタ | 引用追跡→pages追加 | 実際の論文で引用追跡 |
+| 4 | ベイズ計算、verdict判定 | フラグ切替 | MCP経由でconfidence取得 |
+| 5 | user_overrides解析 | hot-reload | - |
+
+---
 
 ### ドキュメント更新（全Phase共通）
 
@@ -1374,8 +2035,25 @@ def test_backward_compatibility():
 | `docs/ARCHITECTURE.md` | ベイズモデル・エッジメタデータの設計説明 |
 
 **Phase別の重点更新**:
+- **Phase 1**: `get_status`の`blocked_domains`フィールド仕様
 - **Phase 2**: エッジの信頼レベル情報（source_trust_level, target_trust_level）のスキーマ説明
+- **Phase 3**: 引用追跡の動作説明、`relevance_evaluation.j2`プロンプト
 - **Phase 4**: ベイズ信頼度モデル（confidence, uncertainty, controversy）の解説と出力例
+- **Phase 5**: `user_overrides`の使用方法
+
+---
+
+### マイグレーション一覧
+
+| Phase | マイグレーションファイル | 内容 |
+|-------|------------------------|------|
+| 2 | `migrations/003_add_trust_level_to_edges.sql` | edges に source_trust_level, target_trust_level 追加 |
+| 1 | `migrations/004_add_contradiction_flag.sql` | edges に is_contradiction、claims に adoption_status 追加 |
+
+**実行方法**:
+```bash
+python scripts/migrate.py up
+```
 
 ---
 
