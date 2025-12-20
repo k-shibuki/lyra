@@ -1359,33 +1359,12 @@ def _queue_blocked_notification(self, domain: str, reason: str, task_id: str | N
     )
 ```
 
-**1.3 エビデンスグラフに矛盾関係を明示的に保存**
-
-`find_contradictions()` の結果を永続化するため、`edges` テーブルに `is_contradiction` フラグを追加。
-
-```sql
--- migrations/004_add_contradiction_flag.sql
-ALTER TABLE edges ADD COLUMN is_contradiction BOOLEAN DEFAULT 0;
-CREATE INDEX IF NOT EXISTS idx_edges_contradiction ON edges(is_contradiction) WHERE is_contradiction = 1;
-```
-
-```python
-# src/filter/evidence_graph.py
-def mark_contradictions(self) -> int:
-    """矛盾関係を検出してエッジにフラグを立てる。"""
-    contradictions = self.find_contradictions()
-    for c in contradictions:
-        # 両方向のエッジにフラグを立てる
-        self._graph.edges[c["claim1_node"], c["claim2_node"]]["is_contradiction"] = True
-    return len(contradictions)
-```
-
-**1.4 不採用主張（`not_adopted`）のグラフ保持**
+**1.3 不採用主張（`not_adopted`）のグラフ保持**
 
 検証で棄却された主張もグラフに残し、`adoption_status` で区別する。
 
 ```sql
--- migrations/004_add_contradiction_flag.sql（同一マイグレーション）
+-- migrations/004_add_adoption_status.sql
 ALTER TABLE claims ADD COLUMN adoption_status TEXT DEFAULT 'pending';
 -- 値: 'pending', 'adopted', 'not_adopted'
 ```
@@ -1410,9 +1389,6 @@ def test_blocked_domain_has_reason():
     """ブロックされたドメインに理由が含まれることを検証"""
 
 # tests/test_evidence_graph.py
-def test_mark_contradictions_persists():
-    """矛盾関係がis_contradictionフラグで永続化されることを検証"""
-
 def test_not_adopted_claim_preserved():
     """棄却された主張がadoption_status='not_adopted'で保持されることを検証"""
 ```
@@ -2048,7 +2024,7 @@ def test_user_override_restores_blocked():
 | Phase | マイグレーションファイル | 内容 |
 |-------|------------------------|------|
 | 2 | `migrations/003_add_trust_level_to_edges.sql` | edges に source_trust_level, target_trust_level 追加 |
-| 1 | `migrations/004_add_contradiction_flag.sql` | edges に is_contradiction、claims に adoption_status 追加 |
+| 1 | `migrations/004_add_adoption_status.sql` | claims に adoption_status 追加 |
 
 **実行方法**:
 ```bash
@@ -2099,6 +2075,31 @@ class VerificationStatus(str, Enum):
 **ContradictionType enum は導入しない**:
 - Lyraが「MISINFORMATION」「CONTESTED」とラベル付けすることは解釈行為
 - エッジ情報（relation + trust_levels）があれば高推論AIは自ら判断可能
+
+### 決定9: is_contradiction フラグの廃止
+
+**決定**: `is_contradiction` フラグを廃止し、REFUTESエッジ + 信頼レベル情報による設計に一本化する。
+
+**廃止理由**:
+
+1. **DRY原則違反**: REFUTESエッジで既に同じ情報が表現されている。`is_contradiction` フラグは情報の重複に過ぎない。
+
+2. **Thinking-Working分離原則との矛盾**: 「これは矛盾である」というフラグを立てる行為は解釈行為であり、決定2の設計思想に反する。Lyraは事実を記録し、解釈は高推論AIに委ねるべき。
+
+3. **「矛盾」の定義が曖昧**: `find_contradictions()` は信頼レベルを考慮せず、REFUTESエッジがあれば一律に「矛盾」とマークする。ACADEMIC vs ACADEMIC の科学的論争と、ACADEMIC vs UNVERIFIED の誤情報を区別できない。
+
+4. **Phase 2 で代替可能**: `source_trust_level` / `target_trust_level` をエッジに付与することで、高推論AIは適切に判断可能。
+
+**削除対象**:
+- `edges.is_contradiction` カラム
+- `EvidenceGraph.mark_contradictions()` メソッド
+- `EvidenceGraph.get_contradiction_edges()` メソッド
+- 関連テストケース（`TestContradictionMarking` クラス）
+
+**代替手段**: Phase 2 で導入する `source_trust_level` / `target_trust_level` により、高推論AIは以下のように判断可能：
+- 両方ACADEMIC → 科学的論争
+- ACADEMIC vs UNVERIFIED → 誤情報の可能性
+- 同一ソース内の自己矛盾 → 論理的矛盾
 
 ### 決定3: 信頼度が主、ドメイン分類は従
 
