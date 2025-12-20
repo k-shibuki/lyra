@@ -479,10 +479,29 @@ confidence = f(supporting_count, refuting_count, independent_sources)
 # 高推論AIへの参考情報としてエッジに付与するのみ
 ```
 
-**ドメインを盲信しない**:
-- iso.org（PRIMARY）からの情報でも、裏付けなし → 低confidence
-- 未知ブログ（UNVERIFIED）からの情報でも、複数ソースで裏付け → 高confidence
-- エッジの`source_trust_level`/`target_trust_level`は高推論AIの判断材料
+#### 1.6 技術的根拠: なぜドメインを盲信しないか
+
+**査読済み論文 ≠ 正しい情報**:
+
+| 事実 | 含意 |
+|------|------|
+| 再現性危機（Replication Crisis） | 心理学研究の60%以上が再現不可能 |
+| 論文撤回 | 年間数千件の査読済み論文が撤回 |
+| プレプリント | arXiv等は査読なし |
+| 低品質ジャーナル | ハゲタカジャーナル（predatory journals）の存在 |
+
+**「ACADEMICドメインだから正しい」は技術的に誤り**。
+
+```
+単一論文 = 仮説
+複数の独立ソースで裏付け = 蓋然性の高い主張
+```
+
+**設計への反映**:
+- Nature論文でも裏付けなし → 低confidence（正しい動作）
+- 無名ブログでも5つの独立ソースで裏付け → 高confidence（正しい動作）
+- ドメイン分類は「出自のヒント」であり、信頼性の保証ではない
+- エッジの`source_trust_level`/`target_trust_level`は高推論AIの参考情報
 
 ### 提案2: データソース戦略
 
@@ -801,19 +820,27 @@ class VerificationStatus(str, Enum):
 
 **決定**: **信頼度（confidence）がエビデンス評価の主軸**。ドメイン分類（TrustLevel）は副次的な参考情報に過ぎない。
 
+**根拠**: 査読済み論文 ≠ 正しい情報
+
+- 再現性危機: 心理学研究の60%以上が再現不可能
+- 年間数千件の論文が撤回される
+- arXiv等のプレプリントは査読なし
+- ハゲタカジャーナル（predatory journals）の存在
+
+**「ACADEMICドメインだから正しい」は技術的に誤り。クソ論文はいくらでもある。**
+
 ```
 # 信頼度 = エビデンスの量と質で決まる（これが重要）
 confidence = f(supporting_count, refuting_count, independent_sources)
 
-# ドメイン分類 ≠ 信頼度
-# 高信頼ドメインでも裏付けがなければ低confidence
-# 低信頼ドメインでも十分な裏付けがあれば高confidence
+# 単一論文 = 仮説
+# 複数の独立ソースで裏付け = 蓋然性の高い主張
 ```
 
-**ドメインを盲信しない**:
-- iso.org（PRIMARY）からの情報でも、裏付けなし → 低confidence
-- 未知ブログ（UNVERIFIED）からの情報でも、複数ソースで裏付け → 高confidence
-- TrustLevelは「出自の参考情報」として高推論AIに提供するのみ
+**設計への反映**:
+- Nature論文でも裏付けなし → 低confidence
+- 無名ブログでも5つの独立ソースで裏付け → 高confidence
+- TrustLevelは「出自のヒント」であり、信頼性の保証ではない
 
 ### 決定4: Wikipedia
 
