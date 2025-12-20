@@ -1483,16 +1483,16 @@ class ReasonCode(str, Enum):
 
 def _determine_verification_outcome(...) -> tuple[...]:
     """エビデンスのみで判定。DomainCategory は使用しない。"""
-    
+
     if has_dangerous_pattern:
         return (REJECTED, BLOCKED, DEMOTED, ReasonCode.DANGEROUS_PATTERN)
-    
+
     if independent_sources < MIN_THRESHOLD:
         return (PENDING, original, UNCHANGED, ReasonCode.INSUFFICIENT_EVIDENCE)
-    
+
     if independent_sources >= MIN_THRESHOLD and refuting_count == 0:
         return (VERIFIED, ..., ReasonCode.WELL_SUPPORTED)
-    
+
     # 対立あり → PENDING（自動 BLOCKED しない）
     if refuting_count > 0:
         return (PENDING, original, UNCHANGED, ReasonCode.CONFLICTING_EVIDENCE)
@@ -1722,7 +1722,7 @@ async def _evaluate_relevance_with_llm(
 - 1-3: 間接的な関連のみ
 - 0: 無関係
 
-**注意**: 
+**注意**:
 - 支持/反論の判断は行わないでください。主題的な近さのみを評価してください。
 - 回答は半角数字のみとしてください。
 
