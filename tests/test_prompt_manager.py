@@ -31,7 +31,7 @@ from src.utils.prompt_manager import (
 
 
 @pytest.fixture
-def temp_prompts_dir() -> Generator[None, None, None]:
+def temp_prompts_dir() -> Generator[Path, None, None]:
     """Create a temporary prompts directory with test templates."""
     with tempfile.TemporaryDirectory() as tmpdir:
         prompts_dir = Path(tmpdir) / "prompts"
@@ -46,13 +46,13 @@ def temp_prompts_dir() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def manager(temp_prompts_dir):
+def manager(temp_prompts_dir: Path) -> PromptManager:
     """Create a PromptManager with temporary templates."""
     return PromptManager(prompts_dir=temp_prompts_dir)
 
 
 @pytest.fixture
-def real_manager():
+def real_manager() -> PromptManager:
     """Create a PromptManager with real config/prompts/ templates."""
     reset_prompt_manager()
     return get_prompt_manager()
@@ -74,7 +74,7 @@ def reset_singleton() -> Generator[None, None, None]:
 class TestPromptManagerInit:
     """Tests for PromptManager initialization."""
 
-    def test_init_with_custom_dir(self, temp_prompts_dir) -> None:
+    def test_init_with_custom_dir(self, temp_prompts_dir: Path) -> None:
         """Test initialization with custom prompts directory."""
         manager = PromptManager(prompts_dir=temp_prompts_dir)
         assert manager.prompts_dir == temp_prompts_dir
@@ -86,7 +86,7 @@ class TestPromptManagerInit:
         assert manager.prompts_dir.name == "prompts"
         assert manager.prompts_dir.parent.name == "config"
 
-    def test_init_with_env_var(self, temp_prompts_dir) -> None:
+    def test_init_with_env_var(self, temp_prompts_dir: Path) -> None:
         """Test initialization respects LYRA_CONFIG_DIR env var."""
         with patch.dict(os.environ, {"LYRA_CONFIG_DIR": str(temp_prompts_dir.parent)}):
             reset_prompt_manager()
@@ -98,15 +98,17 @@ class TestPromptManagerInit:
 class TestTemplateLoading:
     """Tests for template loading."""
 
-    def test_template_exists_true(self, manager, temp_prompts_dir) -> None:
+    def test_template_exists_true(
+        self, manager: PromptManager, temp_prompts_dir: Path
+    ) -> None:
         """Test template_exists returns True for existing template."""
         assert manager.template_exists("simple")
 
-    def test_template_exists_false(self, manager) -> None:
+    def test_template_exists_false(self, manager: PromptManager) -> None:
         """Test template_exists returns False for non-existing template."""
         assert not manager.template_exists("nonexistent")
 
-    def test_list_templates(self, manager) -> None:
+    def test_list_templates(self, manager: PromptManager) -> None:
         """Test listing all available templates."""
         templates = manager.list_templates()
         assert "simple" in templates
@@ -120,7 +122,9 @@ class TestTemplateLoading:
             manager = PromptManager(prompts_dir=empty_dir)
             assert manager.list_templates() == []
 
-    def test_get_template_path(self, manager, temp_prompts_dir) -> None:
+    def test_get_template_path(
+        self, manager: PromptManager, temp_prompts_dir: Path
+    ) -> None:
         """Test getting template path."""
         path = manager.get_template_path("simple")
         assert path == temp_prompts_dir / "simple.j2"
@@ -134,27 +138,27 @@ class TestTemplateLoading:
 class TestRendering:
     """Tests for template rendering."""
 
-    def test_render_simple_template(self, manager) -> None:
+    def test_render_simple_template(self, manager: PromptManager) -> None:
         """Test rendering a simple template with one variable."""
         result = manager.render("simple", name="World")
         assert result == "Hello, World!"
 
-    def test_render_multiple_variables(self, manager) -> None:
+    def test_render_multiple_variables(self, manager: PromptManager) -> None:
         """Test rendering with multiple variables."""
         result = manager.render("multi_var", greeting="Hi", name="Alice")
         assert result == "Hi, Alice!"
 
-    def test_render_no_variables(self, manager) -> None:
+    def test_render_no_variables(self, manager: PromptManager) -> None:
         """Test rendering template without variables."""
         result = manager.render("no_vars")
         assert result == "Static template content."
 
-    def test_render_with_extra_variables(self, manager) -> None:
+    def test_render_with_extra_variables(self, manager: PromptManager) -> None:
         """Test that extra variables are ignored."""
         result = manager.render("simple", name="World", extra="ignored")
         assert result == "Hello, World!"
 
-    def test_render_with_unicode(self, manager) -> None:
+    def test_render_with_unicode(self, manager: PromptManager) -> None:
         """Test rendering with unicode characters."""
         result = manager.render("simple", name="世界")
         assert result == "Hello, 世界!"
@@ -168,13 +172,13 @@ class TestRendering:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_render_nonexistent_template(self, manager) -> None:
+    def test_render_nonexistent_template(self, manager: PromptManager) -> None:
         """Test rendering non-existent template raises TemplateNotFoundError."""
         with pytest.raises(TemplateNotFoundError) as exc_info:
             manager.render("nonexistent")
         assert "nonexistent.j2" in str(exc_info.value)
 
-    def test_render_missing_variable(self, manager) -> None:
+    def test_render_missing_variable(self, manager: PromptManager) -> None:
         """Test rendering with missing required variable raises TemplateRenderError."""
         with pytest.raises(TemplateRenderError) as exc_info:
             manager.render("simple")  # Missing 'name' variable
@@ -197,7 +201,7 @@ class TestErrorHandling:
 class TestCaching:
     """Tests for template caching."""
 
-    def test_environment_cached(self, manager) -> None:
+    def test_environment_cached(self, manager: PromptManager) -> None:
         """Test that Jinja2 environment is cached."""
         manager.render("simple", name="A")
         env1 = manager._env
@@ -205,7 +209,7 @@ class TestCaching:
         env2 = manager._env
         assert env1 is env2
 
-    def test_clear_cache(self, manager) -> None:
+    def test_clear_cache(self, manager: PromptManager) -> None:
         """Test clearing the cache."""
         manager.render("simple", name="A")
         assert manager._env is not None
@@ -234,7 +238,7 @@ class TestSingleton:
         manager2 = get_prompt_manager()
         assert manager1 is not manager2
 
-    def test_render_prompt_convenience(self, temp_prompts_dir) -> None:
+    def test_render_prompt_convenience(self, temp_prompts_dir: Path) -> None:
         """Test render_prompt convenience function."""
         # Use a custom manager for this test
         reset_prompt_manager()
@@ -252,33 +256,33 @@ class TestSingleton:
 class TestRealTemplates:
     """Tests for actual prompt templates in config/prompts/."""
 
-    def test_extract_facts_template_exists(self, real_manager) -> None:
+    def test_extract_facts_template_exists(self, real_manager: PromptManager) -> None:
         """Test extract_facts template exists."""
         assert real_manager.template_exists("extract_facts")
 
-    def test_extract_claims_template_exists(self, real_manager) -> None:
+    def test_extract_claims_template_exists(self, real_manager: PromptManager) -> None:
         """Test extract_claims template exists."""
         assert real_manager.template_exists("extract_claims")
 
-    def test_summarize_template_exists(self, real_manager) -> None:
+    def test_summarize_template_exists(self, real_manager: PromptManager) -> None:
         """Test summarize template exists."""
         assert real_manager.template_exists("summarize")
 
-    def test_translate_template_exists(self, real_manager) -> None:
+    def test_translate_template_exists(self, real_manager: PromptManager) -> None:
         """Test translate template exists."""
         assert real_manager.template_exists("translate")
 
-    def test_decompose_template_exists(self, real_manager) -> None:
+    def test_decompose_template_exists(self, real_manager: PromptManager) -> None:
         """Test decompose template exists."""
         assert real_manager.template_exists("decompose")
 
-    def test_extract_facts_renders(self, real_manager) -> None:
+    def test_extract_facts_renders(self, real_manager: PromptManager) -> None:
         """Test extract_facts template renders correctly."""
         result = real_manager.render("extract_facts", text="Sample text for testing.")
         assert "Sample text for testing." in result
         assert "情報抽出" in result or "事実" in result
 
-    def test_extract_claims_renders(self, real_manager) -> None:
+    def test_extract_claims_renders(self, real_manager: PromptManager) -> None:
         """Test extract_claims template renders correctly."""
         result = real_manager.render(
             "extract_claims", text="Sample text", context="Research question"
@@ -286,19 +290,19 @@ class TestRealTemplates:
         assert "Sample text" in result
         assert "Research question" in result
 
-    def test_summarize_renders(self, real_manager) -> None:
+    def test_summarize_renders(self, real_manager: PromptManager) -> None:
         """Test summarize template renders correctly."""
         result = real_manager.render("summarize", text="Long text to summarize.")
         assert "Long text to summarize." in result
         assert "要約" in result
 
-    def test_translate_renders(self, real_manager) -> None:
+    def test_translate_renders(self, real_manager: PromptManager) -> None:
         """Test translate template renders correctly."""
         result = real_manager.render("translate", text="Hello", target_lang="日本語")
         assert "Hello" in result
         assert "日本語" in result
 
-    def test_decompose_renders(self, real_manager) -> None:
+    def test_decompose_renders(self, real_manager: PromptManager) -> None:
         """Test decompose template renders correctly."""
         result = real_manager.render("decompose", question="What is AI?")
         assert "What is AI?" in result
@@ -335,7 +339,7 @@ class TestTemplateValidation:
     # TC-N-01 to TC-N-05: Normal cases - template rendering
     # -------------------------------------------------------------------------
 
-    def test_extract_facts_renders_correctly(self, real_manager) -> None:
+    def test_extract_facts_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-01: Test extract_facts template renders with valid input."""
         # Given: Valid text input
         text = "This is a sample text for testing."
@@ -348,7 +352,7 @@ class TestTemplateValidation:
         assert "情報抽出" in result or "事実" in result
         assert "JSON" in result
 
-    def test_extract_claims_renders_correctly(self, real_manager) -> None:
+    def test_extract_claims_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-02: Test extract_claims template renders with valid input."""
         # Given: Valid text and context input
         text = "Sample claim text."
@@ -362,7 +366,7 @@ class TestTemplateValidation:
         assert context in result
         assert "主張" in result or "claim" in result
 
-    def test_decompose_renders_correctly(self, real_manager) -> None:
+    def test_decompose_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-03: Test decompose template renders with valid input."""
         # Given: Valid question input
         question = "What are the benefits of renewable energy?"
@@ -374,7 +378,7 @@ class TestTemplateValidation:
         assert question in result
         assert "atomic" in result.lower() or "原子" in result
 
-    def test_summarize_renders_correctly(self, real_manager) -> None:
+    def test_summarize_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-04: Test summarize template renders with valid input."""
         # Given: Valid text input
         text = "Long document text that needs summarization."
@@ -386,7 +390,7 @@ class TestTemplateValidation:
         assert text in result
         assert "要約" in result
 
-    def test_translate_renders_correctly(self, real_manager) -> None:
+    def test_translate_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-05: Test translate template renders with valid input."""
         # Given: Valid text and target language
         text = "Hello, world!"
@@ -404,7 +408,7 @@ class TestTemplateValidation:
     # TC-B-01 to TC-B-04: Boundary cases
     # -------------------------------------------------------------------------
 
-    def test_empty_string_input(self, real_manager) -> None:
+    def test_empty_string_input(self, real_manager: PromptManager) -> None:
         """TC-B-01: Test template renders with empty string input."""
         # Given: Empty string for text
         text = ""
@@ -416,7 +420,7 @@ class TestTemplateValidation:
         assert "テキスト:" in result
         assert result.count("テキスト:") >= 1
 
-    def test_very_long_text_input(self, real_manager) -> None:
+    def test_very_long_text_input(self, real_manager: PromptManager) -> None:
         """TC-B-02: Test template renders with very long text (4000+ chars)."""
         # Given: Very long text input
         text = "A" * 5000  # 5000 characters
@@ -428,7 +432,7 @@ class TestTemplateValidation:
         assert text in result
         assert len(result) > 5000
 
-    def test_special_characters_in_input(self, real_manager) -> None:
+    def test_special_characters_in_input(self, real_manager: PromptManager) -> None:
         """TC-B-03: Test template renders with special characters (JSON, braces)."""
         # Given: Text containing JSON-like content and special characters
         text = '{"key": "value"} and {braces} and {{double_braces}}'
@@ -441,7 +445,7 @@ class TestTemplateValidation:
         # JSON example in template should still use single braces
         assert '{"fact":' in result
 
-    def test_unicode_and_emoji_input(self, real_manager) -> None:
+    def test_unicode_and_emoji_input(self, real_manager: PromptManager) -> None:
         """TC-B-04: Test template renders with unicode and emoji."""
         # Given: Text with unicode characters and emoji
         text = "日本語テスト 🎉 émojis и кириллица"
@@ -456,7 +460,7 @@ class TestTemplateValidation:
     # TC-A-01 to TC-A-02: Error cases - missing variables
     # -------------------------------------------------------------------------
 
-    def test_missing_required_variable_extract_facts(self, real_manager) -> None:
+    def test_missing_required_variable_extract_facts(self, real_manager: PromptManager) -> None:
         """TC-A-01: Test extract_facts raises error when 'text' is missing."""
         # Given: No text variable provided
         # When: Attempting to render without required variable
@@ -467,7 +471,7 @@ class TestTemplateValidation:
         assert "extract_facts" in str(exc_info.value)
         assert "text" in str(exc_info.value).lower() or "undefined" in str(exc_info.value).lower()
 
-    def test_missing_required_variable_extract_claims(self, real_manager) -> None:
+    def test_missing_required_variable_extract_claims(self, real_manager: PromptManager) -> None:
         """TC-A-02: Test extract_claims raises error when 'context' is missing."""
         # Given: Only text provided, context missing
         # When: Attempting to render without context variable
@@ -481,7 +485,7 @@ class TestTemplateValidation:
     # TC-V-01 to TC-V-03: JSON format validation (single braces, not double)
     # -------------------------------------------------------------------------
 
-    def test_json_format_extract_facts(self, real_manager) -> None:
+    def test_json_format_extract_facts(self, real_manager: PromptManager) -> None:
         """TC-V-01: Verify extract_facts JSON example uses single braces."""
         # Given: Valid input
         result = real_manager.render("extract_facts", text="test")
@@ -491,7 +495,7 @@ class TestTemplateValidation:
         assert '{"fact":' in result, "JSON example should use single braces"
         assert '{{"fact":' not in result, "JSON example should NOT use double braces"
 
-    def test_json_format_extract_claims(self, real_manager) -> None:
+    def test_json_format_extract_claims(self, real_manager: PromptManager) -> None:
         """TC-V-02: Verify extract_claims JSON example uses single braces."""
         # Given: Valid input
         result = real_manager.render("extract_claims", text="test", context="context")
@@ -501,7 +505,7 @@ class TestTemplateValidation:
         assert '{"claim":' in result, "JSON example should use single braces"
         assert '{{"claim":' not in result, "JSON example should NOT use double braces"
 
-    def test_json_format_decompose(self, real_manager) -> None:
+    def test_json_format_decompose(self, real_manager: PromptManager) -> None:
         """TC-V-03: Verify decompose JSON example uses single braces."""
         # Given: Valid input
         result = real_manager.render("decompose", question="test question")

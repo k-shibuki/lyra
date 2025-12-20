@@ -44,7 +44,7 @@ from src.utils.schemas import Author, CanonicalEntry, Citation, Paper
 
 
 @pytest.fixture
-def sample_paper_with_abstract():
+def sample_paper_with_abstract() -> Paper:
     """Paper with abstract (should skip fetch)."""
     return Paper(
         id="s2:test123",
@@ -65,7 +65,7 @@ def sample_paper_with_abstract():
 
 
 @pytest.fixture
-def sample_paper_without_abstract():
+def sample_paper_without_abstract() -> Paper:
     """Paper without abstract (should need fetch)."""
     return Paper(
         id="s2:test456",
@@ -80,7 +80,7 @@ def sample_paper_without_abstract():
 
 
 @pytest.fixture
-def sample_citations():
+def sample_citations() -> list[Citation]:
     """Sample citation relationships."""
     return [
         Citation(
@@ -107,7 +107,7 @@ class TestAbstractOnlyStrategy:
     """Tests for Abstract Only strategy implementation."""
 
     @pytest.mark.asyncio
-    async def test_persist_abstract_as_fragment(self, sample_paper_with_abstract) -> None:
+    async def test_persist_abstract_as_fragment(self, sample_paper_with_abstract: Paper) -> None:
         """
         Test: _persist_abstract_as_fragment() creates page and fragment.
 
@@ -154,7 +154,7 @@ class TestAbstractOnlyStrategy:
             assert fragments_data["text_content"] == sample_paper_with_abstract.abstract
 
     @pytest.mark.asyncio
-    async def test_paper_with_abstract_skips_fetch(self, sample_paper_with_abstract) -> None:
+    async def test_paper_with_abstract_skips_fetch(self, sample_paper_with_abstract: Paper) -> None:
         """
         Test: Papers with abstracts from API skip fetch.
 
@@ -174,7 +174,7 @@ class TestAbstractOnlyStrategy:
         assert entry.needs_fetch is False
 
     @pytest.mark.asyncio
-    async def test_paper_without_abstract_needs_fetch(self, sample_paper_without_abstract) -> None:
+    async def test_paper_without_abstract_needs_fetch(self, sample_paper_without_abstract: Paper) -> None:
         """
         Test: Papers without abstracts need fetch.
 
@@ -231,7 +231,7 @@ class TestEvidenceGraphIntegration:
     """Tests for evidence graph integration with academic citations."""
 
     @pytest.mark.asyncio
-    async def test_add_academic_page_with_citations(self, sample_citations) -> None:
+    async def test_add_academic_page_with_citations(self, sample_citations: list[Citation]) -> None:
         """
         Test: add_academic_page_with_citations() adds nodes and edges.
 
@@ -296,7 +296,7 @@ class TestPaperMetadataPersistence:
     """Tests for paper metadata JSON persistence."""
 
     @pytest.mark.asyncio
-    async def test_paper_metadata_json_structure(self, sample_paper_with_abstract) -> None:
+    async def test_paper_metadata_json_structure(self, sample_paper_with_abstract: Paper) -> None:
         """
         Test: paper_metadata JSON has correct structure.
 
@@ -343,7 +343,7 @@ class TestPaperMetadataPersistence:
 class TestCanonicalEntryNeedsFetch:
     """Tests for CanonicalEntry.needs_fetch property."""
 
-    def test_needs_fetch_with_abstract(self, sample_paper_with_abstract) -> None:
+    def test_needs_fetch_with_abstract(self, sample_paper_with_abstract: Paper) -> None:
         """
         Given: Paper with abstract
         When: Checking needs_fetch
@@ -357,7 +357,7 @@ class TestCanonicalEntryNeedsFetch:
         )
         assert entry.needs_fetch is False
 
-    def test_needs_fetch_without_abstract(self, sample_paper_without_abstract) -> None:
+    def test_needs_fetch_without_abstract(self, sample_paper_without_abstract: Paper) -> None:
         """
         Given: Paper without abstract
         When: Checking needs_fetch
@@ -385,7 +385,7 @@ class TestCanonicalEntryNeedsFetch:
         )
         assert entry.needs_fetch is True
 
-    def test_needs_fetch_api_source_no_abstract(self, sample_paper_without_abstract) -> None:
+    def test_needs_fetch_api_source_no_abstract(self, sample_paper_without_abstract: Paper) -> None:
         """
         TC-PA-N-05: Entry with source="api", paper.abstract=None needs fetch.
 
@@ -404,7 +404,7 @@ class TestCanonicalEntryNeedsFetch:
         # Then: needs_fetch should be True
         assert entry.needs_fetch is True
 
-    def test_needs_fetch_both_source_no_abstract(self, sample_paper_without_abstract) -> None:
+    def test_needs_fetch_both_source_no_abstract(self, sample_paper_without_abstract: Paper) -> None:
         """
         TC-PA-N-04: Entry with source="both", paper.abstract=None needs fetch.
 
@@ -547,7 +547,7 @@ class TestSemanticScholarIDNormalization:
         assert normalized == paper_id
 
     @pytest.mark.asyncio
-    async def test_get_references_uses_normalized_id(self):
+    async def test_get_references_uses_normalized_id(self) -> None:
         """
         TC-SS-A-01: get_references() uses normalized ID format.
 
@@ -572,7 +572,7 @@ class TestSemanticScholarIDNormalization:
         mock_http.get = AsyncMock(return_value=mock_response)
 
         # Mock retry_api_call to directly execute the _fetch function
-        async def mock_retry_api_call(func, *args, **kwargs):
+        async def mock_retry_api_call(func: object, *args: object, **kwargs: object) -> object:
             """Execute the function directly without retry logic."""
             # func is the _fetch function, which is async
             # We need to await it to get the result
@@ -594,7 +594,7 @@ class TestSemanticScholarIDNormalization:
             assert "CorpusId:" not in url
 
     @pytest.mark.asyncio
-    async def test_get_citations_uses_normalized_id(self):
+    async def test_get_citations_uses_normalized_id(self) -> None:
         """
         TC-SS-A-02: get_citations() uses normalized ID format.
 
@@ -619,7 +619,7 @@ class TestSemanticScholarIDNormalization:
         mock_http.get = AsyncMock(return_value=mock_response)
 
         # Mock retry_api_call to directly execute the _fetch function
-        async def mock_retry_api_call(func, *args, **kwargs):
+        async def mock_retry_api_call(func: object, *args: object, **kwargs: object) -> object:
             """Execute the function directly without retry logic."""
             # func is the _fetch function, which is async
             # We need to await it to get the result
@@ -649,7 +649,7 @@ class TestSemanticScholarIDNormalization:
 class TestExecuteComplementarySearchIntegration:
     """End-to-end tests for _execute_complementary_search() processing flow."""
 
-    def test_paper_without_abstract_triggers_browser_fallback(self, sample_paper_without_abstract) -> None:
+    def test_paper_without_abstract_triggers_browser_fallback(self, sample_paper_without_abstract: Paper) -> None:
         """
         TC-PA-N-02: Paper without abstract triggers browser search fallback.
 
@@ -669,7 +669,7 @@ class TestExecuteComplementarySearchIntegration:
         assert entry.needs_fetch is True
 
     def test_mixed_entries_processing(
-        self, sample_paper_with_abstract, sample_paper_without_abstract
+        self, sample_paper_with_abstract: Paper, sample_paper_without_abstract: Paper
     ) -> None:
         """
         Test: Mixed entries (with/without abstract) are processed correctly.
@@ -707,7 +707,7 @@ class TestExceptionHandling:
     """Tests for exception handling in academic integration."""
 
     @pytest.mark.asyncio
-    async def test_persist_abstract_exception_handled(self, sample_paper_with_abstract) -> None:
+    async def test_persist_abstract_exception_handled(self, sample_paper_with_abstract: Paper) -> None:
         """
         TC-PA-A-01: Exception in _persist_abstract_as_fragment() is handled.
 
@@ -745,7 +745,7 @@ class TestExecuteComplementarySearchE2E:
 
     @pytest.mark.asyncio
     async def test_abstract_only_strategy_with_mixed_entries(
-        self, sample_paper_with_abstract, sample_paper_without_abstract
+        self, sample_paper_with_abstract: Paper, sample_paper_without_abstract: Paper
     ) -> None:
         """
         TC-PA-N-06: Abstract Only strategy processes mixed entries correctly.
@@ -781,7 +781,7 @@ class TestExecuteComplementarySearchE2E:
         assert entry_without_abstract.needs_fetch is True
 
     @pytest.mark.asyncio
-    async def test_browser_fallback_for_entries_needing_fetch(self, sample_paper_without_abstract) -> None:
+    async def test_browser_fallback_for_entries_needing_fetch(self, sample_paper_without_abstract: Paper) -> None:
         """
         TC-PA-N-07: Browser search fallback is triggered for entries needing fetch.
 
@@ -803,7 +803,7 @@ class TestExecuteComplementarySearchE2E:
         assert entries_needing_fetch[0].paper == sample_paper_without_abstract
 
     @pytest.mark.asyncio
-    async def test_citation_graph_integration_with_normalized_id(self, sample_paper_with_abstract) -> None:
+    async def test_citation_graph_integration_with_normalized_id(self, sample_paper_with_abstract: Paper) -> None:
         """
         TC-PA-N-08: Citation graph integration uses normalized paper IDs.
 
@@ -902,7 +902,7 @@ class TestExecuteComplementarySearchE2E:
                 pass
 
     @pytest.mark.asyncio
-    async def test_api_timeout_handled(self):
+    async def test_api_timeout_handled(self) -> None:
         """
         TC-PA-A-04: API timeout is handled gracefully.
 
@@ -916,7 +916,7 @@ class TestExecuteComplementarySearchE2E:
 
         provider = AcademicSearchProvider()
 
-        async def slow_api_call():
+        async def slow_api_call() -> list[object]:
             await asyncio.sleep(10)  # Simulate timeout
             return []
 
@@ -941,7 +941,7 @@ class TestExecuteComplementarySearchE2E:
                 pass
 
     @pytest.mark.asyncio
-    async def test_paper_to_page_map_tracking(self, sample_paper_with_abstract) -> None:
+    async def test_paper_to_page_map_tracking(self, sample_paper_with_abstract: Paper) -> None:
         """
         TC-PA-N-09: paper_to_page_map correctly tracks paper_id -> page_id mapping.
 
@@ -971,7 +971,7 @@ class TestExecuteComplementarySearchE2E:
 
     @pytest.mark.asyncio
     async def test_citation_graph_only_for_papers_with_abstracts(
-        self, sample_paper_with_abstract, sample_paper_without_abstract
+        self, sample_paper_with_abstract: Paper, sample_paper_without_abstract: Paper
     ) -> None:
         """
         TC-PA-N-10: Citation graph is only retrieved for papers with abstracts.
@@ -1001,7 +1001,7 @@ class TestExecuteComplementarySearchE2E:
 
     @pytest.mark.asyncio
     async def test_execute_complementary_search_processing_flow(
-        self, sample_paper_with_abstract, sample_paper_without_abstract
+        self, sample_paper_with_abstract: Paper, sample_paper_without_abstract: Paper
     ) -> None:
         """
         TC-PA-N-11: _execute_complementary_search() processes entries according to needs_fetch.
@@ -1082,7 +1082,7 @@ class TestExecuteComplementarySearchE2E:
 
     @pytest.mark.asyncio
     async def test_citation_graph_integration_requires_page_id_mapping(
-        self, sample_paper_with_abstract
+        self, sample_paper_with_abstract: Paper
     ) -> None:
         """
         TC-PA-N-13: Citation graph integration requires paper_id in paper_to_page_map.
@@ -1118,7 +1118,7 @@ class TestExecuteComplementarySearchE2E:
         assert papers_with_abstracts[0].id in paper_to_page_map
 
     @pytest.mark.asyncio
-    async def test_citation_graph_excluded_if_not_in_page_map(self, sample_paper_with_abstract) -> None:
+    async def test_citation_graph_excluded_if_not_in_page_map(self, sample_paper_with_abstract: Paper) -> None:
         """
         TC-PA-N-14: Citation graph is excluded if paper_id not in paper_to_page_map.
 
@@ -1147,7 +1147,7 @@ class TestExecuteComplementarySearchE2E:
 
     @pytest.mark.asyncio
     async def test_stats_accumulation_with_mixed_entries(
-        self, sample_paper_with_abstract, sample_paper_without_abstract
+        self, sample_paper_with_abstract: Paper, sample_paper_without_abstract: Paper
     ) -> None:
         """
         TC-PA-N-15: Stats are accumulated correctly with mixed entries.

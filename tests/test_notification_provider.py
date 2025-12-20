@@ -128,7 +128,7 @@ from src.utils.notification_provider import (
 
 
 @pytest.fixture
-def mock_subprocess_success():
+def mock_subprocess_success() -> AsyncMock:
     """Mock subprocess that returns success."""
     process = AsyncMock()
     process.returncode = 0
@@ -138,7 +138,7 @@ def mock_subprocess_success():
 
 
 @pytest.fixture
-def mock_subprocess_failure():
+def mock_subprocess_failure() -> AsyncMock:
     """Mock subprocess that returns failure."""
     process = AsyncMock()
     process.returncode = 1
@@ -148,7 +148,7 @@ def mock_subprocess_failure():
 
 
 @pytest.fixture
-def registry():
+def registry() -> NotificationProviderRegistry:
     """Create a fresh registry for testing."""
     return NotificationProviderRegistry()
 
@@ -475,7 +475,7 @@ class TestLinuxNotifyProvider:
         assert provider.target_platform == Platform.LINUX
 
     @pytest.mark.asyncio
-    async def test_send_success(self, mock_subprocess_success) -> None:
+    async def test_send_success(self, mock_subprocess_success: AsyncMock) -> None:
         """Test successful notification send."""
         provider = LinuxNotifyProvider()
 
@@ -500,7 +500,7 @@ class TestLinuxNotifyProvider:
         assert "notify-send not found" in result.error
 
     @pytest.mark.asyncio
-    async def test_send_with_options(self, mock_subprocess_success) -> None:
+    async def test_send_with_options(self, mock_subprocess_success: AsyncMock) -> None:
         """Test notification send with custom options."""
         provider = LinuxNotifyProvider()
         options = NotificationOptions(
@@ -525,7 +525,7 @@ class TestLinuxNotifyProvider:
         assert "critical" in call_args
 
     @pytest.mark.asyncio
-    async def test_send_failure(self, mock_subprocess_failure) -> None:
+    async def test_send_failure(self, mock_subprocess_failure: AsyncMock) -> None:
         """Test notification send failure."""
         provider = LinuxNotifyProvider()
 
@@ -594,7 +594,7 @@ class TestWindowsToastProvider:
         assert provider.target_platform == Platform.WINDOWS
 
     @pytest.mark.asyncio
-    async def test_send_success(self, mock_subprocess_success) -> None:
+    async def test_send_success(self, mock_subprocess_success: AsyncMock) -> None:
         """Test successful notification send."""
         provider = WindowsToastProvider()
 
@@ -606,7 +606,7 @@ class TestWindowsToastProvider:
         assert result.message_id.startswith("win_")
 
     @pytest.mark.asyncio
-    async def test_send_escapes_special_characters(self, mock_subprocess_success) -> None:
+    async def test_send_escapes_special_characters(self, mock_subprocess_success: AsyncMock) -> None:
         """Test that special characters are properly escaped."""
         provider = WindowsToastProvider()
 
@@ -773,7 +773,7 @@ class TestBaseNotificationProvider:
 class TestNotificationProviderRegistry:
     """Tests for NotificationProviderRegistry."""
 
-    def test_register_provider(self, registry) -> None:
+    def test_register_provider(self, registry: NotificationProviderRegistry) -> None:
         """Test registering a provider."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
@@ -781,7 +781,7 @@ class TestNotificationProviderRegistry:
         assert "linux_notify" in registry.list_providers()
         assert registry.get("linux_notify") is provider
 
-    def test_register_duplicate_raises_error(self, registry) -> None:
+    def test_register_duplicate_raises_error(self, registry: NotificationProviderRegistry) -> None:
         """Test that registering duplicate provider raises ValueError."""
         provider1 = LinuxNotifyProvider()
         provider2 = LinuxNotifyProvider()
@@ -791,14 +791,14 @@ class TestNotificationProviderRegistry:
         with pytest.raises(ValueError, match="already registered"):
             registry.register(provider2)
 
-    def test_register_sets_default_if_first(self, registry) -> None:
+    def test_register_sets_default_if_first(self, registry: NotificationProviderRegistry) -> None:
         """Test that first registered provider becomes default."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
 
         assert registry.get_default() is provider
 
-    def test_register_set_default(self, registry) -> None:
+    def test_register_set_default(self, registry: NotificationProviderRegistry) -> None:
         """Test explicitly setting provider as default."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -808,7 +808,7 @@ class TestNotificationProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_unregister_provider(self, registry) -> None:
+    def test_unregister_provider(self, registry: NotificationProviderRegistry) -> None:
         """Test unregistering a provider."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
@@ -818,12 +818,12 @@ class TestNotificationProviderRegistry:
         assert unregistered is provider
         assert "linux_notify" not in registry.list_providers()
 
-    def test_unregister_nonexistent(self, registry) -> None:
+    def test_unregister_nonexistent(self, registry: NotificationProviderRegistry) -> None:
         """Test unregistering non-existent provider returns None."""
         result = registry.unregister("nonexistent")
         assert result is None
 
-    def test_set_default(self, registry) -> None:
+    def test_set_default(self, registry: NotificationProviderRegistry) -> None:
         """Test changing default provider."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -835,12 +835,12 @@ class TestNotificationProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_set_default_nonexistent_raises_error(self, registry) -> None:
+    def test_set_default_nonexistent_raises_error(self, registry: NotificationProviderRegistry) -> None:
         """Test setting non-existent provider as default raises ValueError."""
         with pytest.raises(ValueError, match="not registered"):
             registry.set_default("nonexistent")
 
-    def test_list_providers(self, registry) -> None:
+    def test_list_providers(self, registry: NotificationProviderRegistry) -> None:
         """Test listing all registered providers."""
         registry.register(LinuxNotifyProvider())
         registry.register(WindowsToastProvider())
@@ -852,7 +852,7 @@ class TestNotificationProviderRegistry:
         assert "windows_toast" in providers
 
     @pytest.mark.asyncio
-    async def test_get_all_health(self, registry) -> None:
+    async def test_get_all_health(self, registry: NotificationProviderRegistry) -> None:
         """Test getting health status for all providers."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -868,7 +868,7 @@ class TestNotificationProviderRegistry:
         assert "windows_toast" in health
 
     @pytest.mark.asyncio
-    async def test_send_uses_default(self, registry, mock_subprocess_success) -> None:
+    async def test_send_uses_default(self, registry: NotificationProviderRegistry, mock_subprocess_success: AsyncMock) -> None:
         """Test that send() uses default provider."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
@@ -886,7 +886,7 @@ class TestNotificationProviderRegistry:
         assert result.provider == "linux_notify"
 
     @pytest.mark.asyncio
-    async def test_send_fallback_on_failure(self, registry, mock_subprocess_success) -> None:
+    async def test_send_fallback_on_failure(self, registry: NotificationProviderRegistry, mock_subprocess_success: AsyncMock) -> None:
         """Test that send() falls back to next provider on failure."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -912,7 +912,7 @@ class TestNotificationProviderRegistry:
         assert result.provider == "windows_toast"
 
     @pytest.mark.asyncio
-    async def test_send_all_providers_fail(self, registry) -> None:
+    async def test_send_all_providers_fail(self, registry: NotificationProviderRegistry) -> None:
         """Test that send() returns error when all providers fail."""
         provider1 = LinuxNotifyProvider()
         registry.register(provider1)
@@ -928,13 +928,13 @@ class TestNotificationProviderRegistry:
         assert "All providers failed" in result.error
 
     @pytest.mark.asyncio
-    async def test_send_no_providers(self, registry) -> None:
+    async def test_send_no_providers(self, registry: NotificationProviderRegistry) -> None:
         """Test that send() raises error when no providers registered."""
         with pytest.raises(RuntimeError, match="No notification providers"):
             await registry.send("Test", "Message")
 
     @pytest.mark.asyncio
-    async def test_close_all(self, registry) -> None:
+    async def test_close_all(self, registry: NotificationProviderRegistry) -> None:
         """Test closing all providers."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()
@@ -957,7 +957,7 @@ class TestNotificationProviderRegistry:
 class TestAutoRegistration:
     """Tests for auto-registration based on platform."""
 
-    def test_auto_register_linux(self, registry) -> None:
+    def test_auto_register_linux(self, registry: NotificationProviderRegistry) -> None:
         """Test auto-registration on Linux."""
         with patch.object(registry, "_current_platform", Platform.LINUX):
             registry.auto_register()
@@ -965,7 +965,7 @@ class TestAutoRegistration:
         assert "linux_notify" in registry.list_providers()
         assert registry.get_default().name == "linux_notify"
 
-    def test_auto_register_windows(self, registry) -> None:
+    def test_auto_register_windows(self, registry: NotificationProviderRegistry) -> None:
         """Test auto-registration on Windows."""
         with patch.object(registry, "_current_platform", Platform.WINDOWS):
             registry.auto_register()
@@ -973,7 +973,7 @@ class TestAutoRegistration:
         assert "windows_toast" in registry.list_providers()
         assert registry.get_default().name == "windows_toast"
 
-    def test_auto_register_wsl(self, registry) -> None:
+    def test_auto_register_wsl(self, registry: NotificationProviderRegistry) -> None:
         """Test auto-registration on WSL."""
         with patch.object(registry, "_current_platform", Platform.WSL):
             registry.auto_register()
@@ -1059,7 +1059,7 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions per §7.1.4."""
 
     @pytest.mark.asyncio
-    async def test_send_empty_title_and_message(self, mock_subprocess_success) -> None:
+    async def test_send_empty_title_and_message(self, mock_subprocess_success: AsyncMock) -> None:
         """Test sending notification with empty strings."""
         provider = LinuxNotifyProvider()
 
@@ -1071,7 +1071,7 @@ class TestEdgeCases:
         assert result.ok is True
 
     @pytest.mark.asyncio
-    async def test_send_unicode_characters(self, mock_subprocess_success) -> None:
+    async def test_send_unicode_characters(self, mock_subprocess_success: AsyncMock) -> None:
         """Test sending notification with Unicode characters."""
         provider = LinuxNotifyProvider()
 
@@ -1082,7 +1082,7 @@ class TestEdgeCases:
         assert result.ok is True
 
     @pytest.mark.asyncio
-    async def test_send_very_long_message(self, mock_subprocess_success) -> None:
+    async def test_send_very_long_message(self, mock_subprocess_success: AsyncMock) -> None:
         """Test sending notification with very long message."""
         provider = LinuxNotifyProvider()
         long_message = "A" * 10000  # 10k characters
@@ -1102,11 +1102,11 @@ class TestEdgeCases:
         assert provider.success_rate == 1.0
 
     @pytest.mark.asyncio
-    async def test_timeout_handling(self):
+    async def test_timeout_handling(self) -> None:
         """Test handling of subprocess timeout."""
         provider = LinuxNotifyProvider()
 
-        async def slow_wait(*args, **kwargs):
+        async def slow_wait(*args: object, **kwargs: object) -> tuple[bytes, bytes]:
             await asyncio.sleep(10)
             return (b"", b"")
 

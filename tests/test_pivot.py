@@ -41,7 +41,7 @@ class TestPivotExpander:
     """Tests for PivotExpander class."""
 
     @pytest.fixture
-    def expander(self):
+    def expander(self) -> PivotExpander:
         """Create a PivotExpander instance."""
         return PivotExpander()
 
@@ -49,7 +49,7 @@ class TestPivotExpander:
     # Organization Expansion Tests (§3.1.1)
     # ==========================================================================
 
-    def test_expand_organization_returns_suggestions(self, expander) -> None:
+    def test_expand_organization_returns_suggestions(self, expander: PivotExpander) -> None:
         """Organization entity should generate multiple pivot suggestions."""
         suggestions = expander.expand_entity(
             entity_text="株式会社トヨタ自動車",
@@ -60,7 +60,7 @@ class TestPivotExpander:
         assert len(suggestions) >= 2, f"Expected >=2 suggestions, got {len(suggestions)}"
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
 
-    def test_expand_organization_includes_subsidiary_pivot(self, expander) -> None:
+    def test_expand_organization_includes_subsidiary_pivot(self, expander: PivotExpander) -> None:
         """Organization should have subsidiary pivot."""
         suggestions = expander.expand_entity(
             entity_text="ソニーグループ",
@@ -73,7 +73,7 @@ class TestPivotExpander:
         subsidiary_pivot = next(s for s in suggestions if s.pivot_type == PivotType.ORG_SUBSIDIARY)
         assert "子会社" in " ".join(subsidiary_pivot.query_examples)
 
-    def test_expand_organization_includes_officer_pivot(self, expander) -> None:
+    def test_expand_organization_includes_officer_pivot(self, expander: PivotExpander) -> None:
         """Organization should have officer pivot."""
         suggestions = expander.expand_entity(
             entity_text="株式会社日立製作所",
@@ -86,7 +86,7 @@ class TestPivotExpander:
         officer_pivot = next(s for s in suggestions if s.pivot_type == PivotType.ORG_OFFICER)
         assert officer_pivot.target_entity_type == EntityType.PERSON
 
-    def test_expand_organization_includes_location_pivot(self, expander) -> None:
+    def test_expand_organization_includes_location_pivot(self, expander: PivotExpander) -> None:
         """Organization should have location pivot."""
         suggestions = expander.expand_entity(
             entity_text="任天堂株式会社",
@@ -96,7 +96,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.ORG_LOCATION in pivot_types
 
-    def test_expand_organization_includes_domain_pivot(self, expander) -> None:
+    def test_expand_organization_includes_domain_pivot(self, expander: PivotExpander) -> None:
         """Organization should have domain pivot (official site)."""
         suggestions = expander.expand_entity(
             entity_text="楽天グループ株式会社",
@@ -106,7 +106,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.ORG_DOMAIN in pivot_types
 
-    def test_expand_organization_includes_registration_pivot(self, expander) -> None:
+    def test_expand_organization_includes_registration_pivot(self, expander: PivotExpander) -> None:
         """Organization should have registration pivot (corporate registry)."""
         suggestions = expander.expand_entity(
             entity_text="パナソニック株式会社",
@@ -122,7 +122,7 @@ class TestPivotExpander:
         # Should recommend government sites
         assert "site:houjin-bangou.nta.go.jp" in registration_pivot.operators
 
-    def test_expand_organization_english(self, expander) -> None:
+    def test_expand_organization_english(self, expander: PivotExpander) -> None:
         """English organization names should also work."""
         suggestions = expander.expand_entity(
             entity_text="Google Inc",
@@ -141,7 +141,7 @@ class TestPivotExpander:
     # Domain Expansion Tests (§3.1.1)
     # ==========================================================================
 
-    def test_expand_domain_returns_suggestions(self, expander) -> None:
+    def test_expand_domain_returns_suggestions(self, expander: PivotExpander) -> None:
         """Domain entity should generate multiple pivot suggestions."""
         suggestions = expander.expand_entity(
             entity_text="example.co.jp",
@@ -152,7 +152,7 @@ class TestPivotExpander:
         assert len(suggestions) >= 1, f"Expected >=1 suggestions for domain, got {len(suggestions)}"
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
 
-    def test_expand_domain_includes_certificate_pivot(self, expander) -> None:
+    def test_expand_domain_includes_certificate_pivot(self, expander: PivotExpander) -> None:
         """Domain should have certificate transparency pivot."""
         suggestions = expander.expand_entity(
             entity_text="toyota.co.jp",
@@ -165,7 +165,7 @@ class TestPivotExpander:
         cert_pivot = next(s for s in suggestions if s.pivot_type == PivotType.DOMAIN_CERTIFICATE)
         assert "crt.sh" in " ".join(cert_pivot.query_examples)
 
-    def test_expand_domain_includes_whois_pivot(self, expander) -> None:
+    def test_expand_domain_includes_whois_pivot(self, expander: PivotExpander) -> None:
         """Domain should have WHOIS pivot."""
         suggestions = expander.expand_entity(
             entity_text="sony.com",
@@ -175,7 +175,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.DOMAIN_WHOIS in pivot_types
 
-    def test_expand_domain_includes_organization_pivot(self, expander) -> None:
+    def test_expand_domain_includes_organization_pivot(self, expander: PivotExpander) -> None:
         """Domain should have organization pivot (operating company)."""
         suggestions = expander.expand_entity(
             entity_text="rakuten.co.jp",
@@ -188,7 +188,7 @@ class TestPivotExpander:
         org_pivot = next(s for s in suggestions if s.pivot_type == PivotType.DOMAIN_ORGANIZATION)
         assert org_pivot.target_entity_type == EntityType.ORGANIZATION
 
-    def test_expand_domain_normalizes_url(self, expander) -> None:
+    def test_expand_domain_normalizes_url(self, expander: PivotExpander) -> None:
         """Domain with protocol should be normalized."""
         suggestions = expander.expand_entity(
             entity_text="https://www.example.com/",
@@ -206,7 +206,7 @@ class TestPivotExpander:
     # Person Expansion Tests (§3.1.1)
     # ==========================================================================
 
-    def test_expand_person_returns_suggestions(self, expander) -> None:
+    def test_expand_person_returns_suggestions(self, expander: PivotExpander) -> None:
         """Person entity should generate multiple pivot suggestions."""
         suggestions = expander.expand_entity(
             entity_text="山田太郎",
@@ -217,7 +217,7 @@ class TestPivotExpander:
         assert len(suggestions) >= 1, f"Expected >=1 suggestions for person, got {len(suggestions)}"
         assert all(isinstance(s, PivotSuggestion) for s in suggestions)
 
-    def test_expand_person_includes_alias_pivot(self, expander) -> None:
+    def test_expand_person_includes_alias_pivot(self, expander: PivotExpander) -> None:
         """Person should have alias pivot."""
         suggestions = expander.expand_entity(
             entity_text="田中一郎",
@@ -227,7 +227,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.PERSON_ALIAS in pivot_types
 
-    def test_expand_person_includes_affiliation_pivot(self, expander) -> None:
+    def test_expand_person_includes_affiliation_pivot(self, expander: PivotExpander) -> None:
         """Person should have affiliation pivot."""
         suggestions = expander.expand_entity(
             entity_text="佐藤花子",
@@ -242,7 +242,7 @@ class TestPivotExpander:
         )
         assert affiliation_pivot.target_entity_type == EntityType.ORGANIZATION
 
-    def test_expand_person_includes_publication_pivot(self, expander) -> None:
+    def test_expand_person_includes_publication_pivot(self, expander: PivotExpander) -> None:
         """Person should have publication pivot (papers/books)."""
         suggestions = expander.expand_entity(
             entity_text="鈴木教授",
@@ -252,7 +252,7 @@ class TestPivotExpander:
         pivot_types = [s.pivot_type for s in suggestions]
         assert PivotType.PERSON_PUBLICATION in pivot_types
 
-    def test_expand_person_handle_is_low_priority(self, expander) -> None:
+    def test_expand_person_handle_is_low_priority(self, expander: PivotExpander) -> None:
         """Person handle pivot should be low priority (social media caution)."""
         suggestions = expander.expand_entity(
             entity_text="高橋次郎",
@@ -271,7 +271,7 @@ class TestPivotExpander:
     # Priority Filtering Tests
     # ==========================================================================
 
-    def test_exclude_low_priority_by_default(self, expander) -> None:
+    def test_exclude_low_priority_by_default(self, expander: PivotExpander) -> None:
         """Low priority pivots should be excluded by default."""
         suggestions = expander.expand_entity(
             entity_text="example.com",
@@ -281,7 +281,7 @@ class TestPivotExpander:
         priorities = [s.priority for s in suggestions]
         assert "low" not in priorities
 
-    def test_include_low_priority_when_requested(self, expander) -> None:
+    def test_include_low_priority_when_requested(self, expander: PivotExpander) -> None:
         """Low priority pivots should be included when requested."""
         suggestions = expander.expand_entity(
             entity_text="example.com",
@@ -293,7 +293,7 @@ class TestPivotExpander:
         # DNS pivot is low priority
         assert PivotType.DOMAIN_DNS in pivot_types
 
-    def test_suggestions_sorted_by_priority(self, expander) -> None:
+    def test_suggestions_sorted_by_priority(self, expander: PivotExpander) -> None:
         """Suggestions should be sorted by priority (high > medium > low)."""
         suggestions = expander.expand_entity(
             entity_text="テスト株式会社",
@@ -310,7 +310,7 @@ class TestPivotExpander:
     # Multi-Entity Tests
     # ==========================================================================
 
-    def test_expand_all_entities(self, expander) -> None:
+    def test_expand_all_entities(self, expander: PivotExpander) -> None:
         """Should expand multiple entities."""
         entities = [
             {"text": "株式会社ABC", "type": "organization"},
@@ -324,7 +324,7 @@ class TestPivotExpander:
         assert "example.com" in results
         assert "山田太郎" in results
 
-    def test_get_priority_pivots(self, expander) -> None:
+    def test_get_priority_pivots(self, expander: PivotExpander) -> None:
         """Should get top priority pivots across entities."""
         entities = [
             {"text": "ソニー株式会社", "type": "organization"},
@@ -377,7 +377,7 @@ class TestPivotExpander:
     # String Entity Type Tests
     # ==========================================================================
 
-    def test_accept_string_entity_type(self, expander) -> None:
+    def test_accept_string_entity_type(self, expander: PivotExpander) -> None:
         """Should accept string entity types."""
         suggestions = expander.expand_entity(
             entity_text="テスト株式会社",
@@ -389,7 +389,7 @@ class TestPivotExpander:
             f"Expected >=1 suggestions with string type, got {len(suggestions)}"
         )
 
-    def test_handle_unknown_string_entity_type(self, expander) -> None:
+    def test_handle_unknown_string_entity_type(self, expander: PivotExpander) -> None:
         """Should handle unknown string entity types gracefully."""
         suggestions = expander.expand_entity(
             entity_text="テスト",
@@ -402,7 +402,7 @@ class TestPivotExpander:
     # Query Template Tests
     # ==========================================================================
 
-    def test_query_examples_contain_entity(self, expander) -> None:
+    def test_query_examples_contain_entity(self, expander: PivotExpander) -> None:
         """Query examples should contain the entity text."""
         entity = "テスト企業株式会社"
         suggestions = expander.expand_entity(
@@ -415,7 +415,7 @@ class TestPivotExpander:
             has_entity = any(entity in ex for ex in suggestion.query_examples)
             assert has_entity, f"No example contains entity in {suggestion.pivot_type}"
 
-    def test_operators_are_valid(self, expander) -> None:
+    def test_operators_are_valid(self, expander: PivotExpander) -> None:
         """Suggested operators should be valid search operators."""
         suggestions = expander.expand_entity(
             entity_text="テスト株式会社",

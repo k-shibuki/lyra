@@ -7,8 +7,13 @@ as integration tests per §7.1.7.
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 # All tests in this module are integration tests (use database)
 pytestmark = pytest.mark.integration
@@ -18,7 +23,7 @@ class TestDatabase:
     """Tests for Database class."""
 
     @pytest.mark.asyncio
-    async def test_connect_creates_database_file(self, temp_db_path) -> None:
+    async def test_connect_creates_database_file(self, temp_db_path: Path) -> None:
         """Test that connect creates the database file."""
         from src.storage.database import Database
 
@@ -30,7 +35,7 @@ class TestDatabase:
         await db.close()
 
     @pytest.mark.asyncio
-    async def test_initialize_schema_creates_tables(self, test_database) -> None:
+    async def test_initialize_schema_creates_tables(self, test_database: Database) -> None:
         """Test that initialize_schema creates all required tables."""
         tables = await test_database.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")
         table_names = {t["name"] for t in tables}
@@ -57,7 +62,7 @@ class TestDatabase:
             assert table in table_names, f"Table '{table}' not found"
 
     @pytest.mark.asyncio
-    async def test_insert_and_fetch_one(self, test_database) -> None:
+    async def test_insert_and_fetch_one(self, test_database: Database) -> None:
         """Test insert and fetch_one operations."""
         task_id = await test_database.insert(
             "tasks",
@@ -76,7 +81,7 @@ class TestDatabase:
         assert result["status"] == "pending"
 
     @pytest.mark.asyncio
-    async def test_insert_without_auto_id(self, test_database) -> None:
+    async def test_insert_without_auto_id(self, test_database: Database) -> None:
         """Test insert with auto_id=False."""
         await test_database.insert(
             "domains",
@@ -92,7 +97,7 @@ class TestDatabase:
         assert result["domain"] == "example.com"
 
     @pytest.mark.asyncio
-    async def test_insert_or_replace(self, test_database) -> None:
+    async def test_insert_or_replace(self, test_database: Database) -> None:
         """Test INSERT OR REPLACE behavior."""
         await test_database.insert(
             "domains",
@@ -114,7 +119,7 @@ class TestDatabase:
         assert result["qps_limit"] == 0.5
 
     @pytest.mark.asyncio
-    async def test_fetch_all(self, test_database) -> None:
+    async def test_fetch_all(self, test_database: Database) -> None:
         """Test fetch_all returns multiple rows."""
         for i in range(3):
             await test_database.insert(
@@ -132,7 +137,7 @@ class TestDatabase:
         assert len(results) == 3
 
     @pytest.mark.asyncio
-    async def test_update(self, test_database) -> None:
+    async def test_update(self, test_database: Database) -> None:
         """Test update operation."""
         task_id = await test_database.insert(
             "tasks",
@@ -155,7 +160,7 @@ class TestDatabase:
         assert result["status"] == "running"
 
     @pytest.mark.asyncio
-    async def test_execute_many(self, test_database) -> None:
+    async def test_execute_many(self, test_database: Database) -> None:
         """Test execute_many for batch inserts."""
         await test_database.execute_many(
             "INSERT INTO domains (domain, qps_limit) VALUES (?, ?)",
@@ -174,7 +179,7 @@ class TestTaskOperations:
     """Tests for task-related database operations."""
 
     @pytest.mark.asyncio
-    async def test_create_task(self, test_database) -> None:
+    async def test_create_task(self, test_database: Database) -> None:
         """Test create_task creates a new task."""
         task_id = await test_database.create_task(
             query="What is AI?",
@@ -190,7 +195,7 @@ class TestTaskOperations:
         assert json.loads(result["config_json"]) == {"depth": 3}
 
     @pytest.mark.asyncio
-    async def test_update_task_status_to_running(self, test_database) -> None:
+    async def test_update_task_status_to_running(self, test_database: Database) -> None:
         """Test updating task status to running sets started_at."""
         task_id = await test_database.create_task("test query")
 
@@ -202,7 +207,7 @@ class TestTaskOperations:
         assert result["started_at"] is not None
 
     @pytest.mark.asyncio
-    async def test_update_task_status_to_completed(self, test_database) -> None:
+    async def test_update_task_status_to_completed(self, test_database: Database) -> None:
         """Test updating task status to completed sets completed_at."""
         task_id = await test_database.create_task("test query")
 
@@ -214,7 +219,7 @@ class TestTaskOperations:
         assert result["completed_at"] is not None
 
     @pytest.mark.asyncio
-    async def test_update_task_status_with_error(self, test_database) -> None:
+    async def test_update_task_status_with_error(self, test_database: Database) -> None:
         """Test updating task status with error message."""
         task_id = await test_database.create_task("test query")
 
@@ -232,7 +237,7 @@ class TestEventLogging:
     """Tests for event logging."""
 
     @pytest.mark.asyncio
-    async def test_log_event(self, test_database) -> None:
+    async def test_log_event(self, test_database: Database) -> None:
         """Test logging an event."""
         task_id = await test_database.create_task("test query")
 
@@ -259,7 +264,7 @@ class TestDomainMetrics:
     """Tests for domain metrics operations."""
 
     @pytest.mark.asyncio
-    async def test_update_domain_metrics_creates_domain(self, test_database) -> None:
+    async def test_update_domain_metrics_creates_domain(self, test_database: Database) -> None:
         """Test that update_domain_metrics creates domain if not exists."""
         await test_database.update_domain_metrics(
             domain="newdomain.com",
@@ -275,7 +280,7 @@ class TestDomainMetrics:
         assert result["total_success"] == 1
 
     @pytest.mark.asyncio
-    async def test_update_domain_metrics_success(self, test_database) -> None:
+    async def test_update_domain_metrics_success(self, test_database: Database) -> None:
         """Test domain metrics update on success."""
         await test_database.insert(
             "domains",
@@ -293,7 +298,7 @@ class TestDomainMetrics:
         assert result["success_rate_1h"] == pytest.approx(0.55, rel=0.01)
 
     @pytest.mark.asyncio
-    async def test_update_domain_metrics_failure(self, test_database) -> None:
+    async def test_update_domain_metrics_failure(self, test_database: Database) -> None:
         """Test domain metrics update on failure."""
         await test_database.insert(
             "domains",
@@ -312,7 +317,7 @@ class TestDomainMetrics:
         assert result["total_failures"] == 1
 
     @pytest.mark.asyncio
-    async def test_update_domain_metrics_captcha(self, test_database) -> None:
+    async def test_update_domain_metrics_captcha(self, test_database: Database) -> None:
         """Test domain metrics update with CAPTCHA."""
         await test_database.insert(
             "domains",
@@ -335,7 +340,7 @@ class TestDomainCooldown:
     """Tests for domain cooldown operations."""
 
     @pytest.mark.asyncio
-    async def test_set_domain_cooldown(self, test_database) -> None:
+    async def test_set_domain_cooldown(self, test_database: Database) -> None:
         """Test setting domain cooldown."""
         await test_database.insert(
             "domains",
@@ -357,7 +362,7 @@ class TestDomainCooldown:
         assert result["skip_reason"] == "Rate limited"
 
     @pytest.mark.asyncio
-    async def test_is_domain_cooled_down_active(self, test_database) -> None:
+    async def test_is_domain_cooled_down_active(self, test_database: Database) -> None:
         """Test is_domain_cooled_down returns True when in cooldown."""
         await test_database.insert(
             "domains",
@@ -371,7 +376,7 @@ class TestDomainCooldown:
         assert is_cooled is True
 
     @pytest.mark.asyncio
-    async def test_is_domain_cooled_down_expired(self, test_database) -> None:
+    async def test_is_domain_cooled_down_expired(self, test_database: Database) -> None:
         """Test is_domain_cooled_down returns False when cooldown expired."""
         past_time = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
 
@@ -386,7 +391,7 @@ class TestDomainCooldown:
         assert is_cooled is False
 
     @pytest.mark.asyncio
-    async def test_is_domain_cooled_down_no_cooldown(self, test_database) -> None:
+    async def test_is_domain_cooled_down_no_cooldown(self, test_database: Database) -> None:
         """Test is_domain_cooled_down returns False when no cooldown set."""
         await test_database.insert(
             "domains",
@@ -399,7 +404,7 @@ class TestDomainCooldown:
         assert is_cooled is False
 
     @pytest.mark.asyncio
-    async def test_is_domain_cooled_down_unknown_domain(self, test_database) -> None:
+    async def test_is_domain_cooled_down_unknown_domain(self, test_database: Database) -> None:
         """Test is_domain_cooled_down returns False for unknown domain."""
         is_cooled = await test_database.is_domain_cooled_down("unknown.com")
 
@@ -410,7 +415,7 @@ class TestEngineHealth:
     """Tests for engine health operations."""
 
     @pytest.mark.asyncio
-    async def test_update_engine_health_creates_engine(self, test_database) -> None:
+    async def test_update_engine_health_creates_engine(self, test_database: Database) -> None:
         """Test that update_engine_health creates engine if not exists."""
         await test_database.update_engine_health(
             engine="google",
@@ -427,7 +432,7 @@ class TestEngineHealth:
         assert result["status"] == "closed"
 
     @pytest.mark.asyncio
-    async def test_update_engine_health_circuit_breaker_opens(self, test_database) -> None:
+    async def test_update_engine_health_circuit_breaker_opens(self, test_database: Database) -> None:
         """Test circuit breaker opens after consecutive failures."""
         await test_database.insert(
             "engine_health",
@@ -447,7 +452,7 @@ class TestEngineHealth:
         assert result["cooldown_until"] is not None
 
     @pytest.mark.asyncio
-    async def test_update_engine_health_success_resets_failures(self, test_database) -> None:
+    async def test_update_engine_health_success_resets_failures(self, test_database: Database) -> None:
         """Test success resets consecutive failures."""
         await test_database.insert(
             "engine_health",
@@ -465,7 +470,7 @@ class TestEngineHealth:
         assert result["consecutive_failures"] == 0
 
     @pytest.mark.asyncio
-    async def test_get_active_engines(self, test_database) -> None:
+    async def test_get_active_engines(self, test_database: Database) -> None:
         """Test get_active_engines returns only non-open engines."""
         # Add various engines
         await test_database.insert(

@@ -69,7 +69,7 @@ def reset_manager() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def manager():
+def manager() -> DomainDailyBudgetManager:
     """Get a fresh DomainDailyBudgetManager instance."""
     return DomainDailyBudgetManager()
 
@@ -163,7 +163,7 @@ class TestDomainDailyBudgetSchema:
 class TestDomainDailyBudgetManager:
     """Tests for DomainDailyBudgetManager."""
 
-    def test_tc_db_n_01_first_request(self, manager) -> None:
+    def test_tc_db_n_01_first_request(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-01: First request to domain is allowed."""
         # Given: Fresh manager with no requests
         # When: Checking first request
@@ -175,7 +175,7 @@ class TestDomainDailyBudgetManager:
         assert result.requests_remaining == DEFAULT_MAX_REQUESTS_PER_DAY
         assert result.pages_remaining == DEFAULT_MAX_PAGES_PER_DAY
 
-    def test_tc_db_n_02_within_budget(self, manager) -> None:
+    def test_tc_db_n_02_within_budget(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-02: Requests within budget are allowed."""
         # Given: Some requests already made
         for _ in range(10):
@@ -188,7 +188,7 @@ class TestDomainDailyBudgetManager:
         assert result.allowed is True
         assert result.requests_remaining == DEFAULT_MAX_REQUESTS_PER_DAY - 10
 
-    def test_tc_db_b_01_budget_reached(self, manager) -> None:
+    def test_tc_db_b_01_budget_reached(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-B-01: Request denied when budget is reached."""
         # Given: Budget exactly at limit
         budget = manager._get_or_create_budget("example.com")
@@ -199,10 +199,11 @@ class TestDomainDailyBudgetManager:
 
         # Then: Denied
         assert result.allowed is False
+        assert result.reason is not None
         assert "request_limit_exceeded" in result.reason
         assert result.requests_remaining == 0
 
-    def test_tc_db_b_02_unlimited_budget(self, manager) -> None:
+    def test_tc_db_b_02_unlimited_budget(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-B-02: Unlimited budget always allows requests."""
         # Given: Domain with unlimited budget (0 means unlimited)
         with patch.object(manager, "_get_domain_limits") as mock_limits:
@@ -219,7 +220,7 @@ class TestDomainDailyBudgetManager:
         # Then: All allowed
         assert result.allowed is True
 
-    def test_tc_db_b_03_budget_one(self, manager) -> None:
+    def test_tc_db_b_03_budget_one(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-B-03: Budget=1 allows exactly one request."""
         # Given: Domain with budget of 1
         with patch.object(manager, "_get_domain_limits") as mock_limits:
@@ -237,7 +238,7 @@ class TestDomainDailyBudgetManager:
         assert result1.allowed is True
         assert result2.allowed is False
 
-    def test_tc_db_a_01_date_change_resets(self, manager) -> None:
+    def test_tc_db_a_01_date_change_resets(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-A-01: Date change resets counters."""
         # Given: Budget with some requests
         manager.record_domain_request("example.com")
@@ -253,7 +254,7 @@ class TestDomainDailyBudgetManager:
             assert budget_after.requests_today == 0
             assert budget_after.date == "2099-01-01"
 
-    def test_tc_db_n_03_multiple_domains_independent(self, manager) -> None:
+    def test_tc_db_n_03_multiple_domains_independent(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-03: Different domains have independent budgets."""
         # Given: Two domains
         manager.record_domain_request("domain1.com")
@@ -268,7 +269,7 @@ class TestDomainDailyBudgetManager:
         assert budget1.requests_today == 2
         assert budget2.requests_today == 1
 
-    def test_tc_db_n_04_domain_override(self, manager) -> None:
+    def test_tc_db_n_04_domain_override(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-04: Domain-specific limits are respected."""
         # Given: Domain with override limits
         with patch.object(manager, "_get_domain_limits") as mock_limits:
@@ -282,7 +283,7 @@ class TestDomainDailyBudgetManager:
         assert budget.max_requests_per_day == 50
         assert budget.max_pages_per_day == 25
 
-    def test_tc_db_a_02_unknown_domain_uses_defaults(self, manager) -> None:
+    def test_tc_db_a_02_unknown_domain_uses_defaults(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-A-02: Unknown domain uses default limits."""
         # Given: Unknown domain
         # When: Getting budget
@@ -292,7 +293,7 @@ class TestDomainDailyBudgetManager:
         assert budget.max_requests_per_day == DEFAULT_MAX_REQUESTS_PER_DAY
         assert budget.max_pages_per_day == DEFAULT_MAX_PAGES_PER_DAY
 
-    def test_tc_db_n_05_record_request(self, manager) -> None:
+    def test_tc_db_n_05_record_request(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-05: Recording request increments counter."""
         # Given: Fresh budget
         budget_before = manager.get_domain_budget("example.com")
@@ -306,7 +307,7 @@ class TestDomainDailyBudgetManager:
         assert budget_after.requests_today == 1
         assert budget_after.pages_today == 0
 
-    def test_tc_db_n_06_record_page(self, manager) -> None:
+    def test_tc_db_n_06_record_page(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-06: Recording page increments both counters."""
         # Given: Fresh budget
         # When: Recording page
@@ -317,7 +318,7 @@ class TestDomainDailyBudgetManager:
         assert budget.requests_today == 1
         assert budget.pages_today == 1
 
-    def test_tc_db_e_01_exception_failopen(self, manager) -> None:
+    def test_tc_db_e_01_exception_failopen(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-E-01: Exception during check results in fail-open."""
         # Given: Manager that will raise exception
         with patch.object(manager, "_get_or_create_budget", side_effect=RuntimeError("Test error")):
@@ -326,9 +327,10 @@ class TestDomainDailyBudgetManager:
 
         # Then: Fail-open allows request
         assert result.allowed is True
+        assert result.reason is not None
         assert "check_error_failopen" in result.reason
 
-    def test_tc_db_n_07_page_budget_reached(self, manager) -> None:
+    def test_tc_db_n_07_page_budget_reached(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-07: Request denied when page budget is reached."""
         # Given: Page budget at limit, request budget still available
         budget = manager._get_or_create_budget("example.com")
@@ -340,9 +342,10 @@ class TestDomainDailyBudgetManager:
 
         # Then: Denied due to page limit
         assert result.allowed is False
+        assert result.reason is not None
         assert "page_limit_exceeded" in result.reason
 
-    def test_tc_db_n_08_stats(self, manager) -> None:
+    def test_tc_db_n_08_stats(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-08: Stats return correct values."""
         # Given: Multiple domains with requests
         manager.record_domain_request("domain1.com", is_page=True)
@@ -358,7 +361,7 @@ class TestDomainDailyBudgetManager:
         assert stats["total_pages_today"] == 2
         assert stats["exceeded_domains"] == []
 
-    def test_tc_db_n_09_get_all_budgets(self, manager) -> None:
+    def test_tc_db_n_09_get_all_budgets(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-09: Get all budgets returns all domains."""
         # Given: Multiple domains
         manager.record_domain_request("domain1.com")
@@ -374,7 +377,7 @@ class TestDomainDailyBudgetManager:
         assert "domain2.com" in budgets
         assert "domain3.com" in budgets
 
-    def test_tc_db_n_10_clear_budgets(self, manager) -> None:
+    def test_tc_db_n_10_clear_budgets(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-10: Clear budgets removes all tracking."""
         # Given: Some budgets
         manager.record_domain_request("domain1.com")
@@ -469,7 +472,7 @@ class TestConvenienceFunctions:
 class TestIntegration:
     """Integration tests for domain budget with policy manager."""
 
-    def test_integration_with_domain_policy(self, manager) -> None:
+    def test_integration_with_domain_policy(self, manager: DomainDailyBudgetManager) -> None:
         """Test that domain policy limits are read correctly."""
         # Given: Manager with policy manager mock
         with patch("src.scheduler.domain_budget.get_domain_policy_manager") as mock_pm:
@@ -486,7 +489,7 @@ class TestIntegration:
         assert budget.max_requests_per_day == 300
         assert budget.max_pages_per_day == 150
 
-    def test_budget_persists_across_requests(self, manager) -> None:
+    def test_budget_persists_across_requests(self, manager: DomainDailyBudgetManager) -> None:
         """Test that budget state persists correctly."""
         # Given: Initial requests
         for i in range(5):
@@ -499,7 +502,7 @@ class TestIntegration:
         assert budget.requests_today == 5
         assert budget.pages_today == 3  # 0, 2, 4 are pages
 
-    def test_domain_normalization(self, manager) -> None:
+    def test_domain_normalization(self, manager: DomainDailyBudgetManager) -> None:
         """Test that domains are normalized correctly."""
         # Given: Same domain with different cases
         manager.record_domain_request("Example.COM")
@@ -522,7 +525,7 @@ class TestIntegration:
 class TestBudgetBoundaries:
     """Boundary tests for budget limits."""
 
-    def test_boundary_requests_minus_one(self, manager) -> None:
+    def test_boundary_requests_minus_one(self, manager: DomainDailyBudgetManager) -> None:
         """Test: requests_today = max - 1 is allowed."""
         # Given: Budget one below limit
         budget = manager._get_or_create_budget("boundary.com")
@@ -535,7 +538,7 @@ class TestBudgetBoundaries:
         assert result.allowed is True
         assert result.requests_remaining == 1
 
-    def test_boundary_requests_at_limit(self, manager) -> None:
+    def test_boundary_requests_at_limit(self, manager: DomainDailyBudgetManager) -> None:
         """Test: requests_today = max is denied."""
         # Given: Budget at limit
         budget = manager._get_or_create_budget("boundary.com")
@@ -548,7 +551,7 @@ class TestBudgetBoundaries:
         assert result.allowed is False
         assert result.requests_remaining == 0
 
-    def test_boundary_pages_minus_one(self, manager) -> None:
+    def test_boundary_pages_minus_one(self, manager: DomainDailyBudgetManager) -> None:
         """Test: pages_today = max - 1 is allowed."""
         # Given: Page budget one below limit
         budget = manager._get_or_create_budget("boundary.com")
@@ -561,7 +564,7 @@ class TestBudgetBoundaries:
         assert result.allowed is True
         assert result.pages_remaining == 1
 
-    def test_boundary_pages_at_limit(self, manager) -> None:
+    def test_boundary_pages_at_limit(self, manager: DomainDailyBudgetManager) -> None:
         """Test: pages_today = max is denied."""
         # Given: Page budget at limit
         budget = manager._get_or_create_budget("boundary.com")
@@ -583,7 +586,7 @@ class TestBudgetBoundaries:
 class TestExceptionHandling:
     """Tests for exception handling."""
 
-    def test_record_exception_is_silent(self, manager) -> None:
+    def test_record_exception_is_silent(self, manager: DomainDailyBudgetManager) -> None:
         """Test that exceptions during recording don't propagate."""
         # Given: Manager with exception in budget access
         with patch.object(manager, "_get_or_create_budget", side_effect=RuntimeError("Test error")):
@@ -592,7 +595,7 @@ class TestExceptionHandling:
 
         # Then: No exception raised (implicit pass)
 
-    def test_get_limits_exception_uses_defaults(self, manager) -> None:
+    def test_get_limits_exception_uses_defaults(self, manager: DomainDailyBudgetManager) -> None:
         """Test that exception in get_limits uses defaults."""
         # Given: Policy manager that raises
         with patch("src.scheduler.domain_budget.get_domain_policy_manager") as mock_pm:

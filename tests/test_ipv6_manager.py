@@ -60,7 +60,7 @@ from src.crawler.ipv6_manager import (
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> MagicMock:
     """Mock settings with IPv6 configuration."""
     settings = MagicMock()
     settings.ipv6.enabled = True
@@ -73,7 +73,7 @@ def mock_settings():
 
 
 @pytest.fixture
-def ipv6_manager(mock_settings):
+def ipv6_manager(mock_settings: MagicMock) -> IPv6ConnectionManager:
     """Create a fresh IPv6 connection manager."""
     with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
         manager = IPv6ConnectionManager()
@@ -512,7 +512,7 @@ class TestIPv6ConnectionManager:
     """Tests for IPv6ConnectionManager class."""
 
     @pytest.mark.asyncio
-    async def test_get_domain_stats_creates_new(self, ipv6_manager) -> None:
+    async def test_get_domain_stats_creates_new(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """get_domain_stats should create new stats for unknown domain."""
         stats = await ipv6_manager.get_domain_stats("newdomain.com")
 
@@ -521,7 +521,7 @@ class TestIPv6ConnectionManager:
         assert stats.ipv6_success_rate == 0.5
 
     @pytest.mark.asyncio
-    async def test_get_domain_stats_returns_existing(self, ipv6_manager) -> None:
+    async def test_get_domain_stats_returns_existing(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """get_domain_stats should return existing stats."""
         # Create stats
         stats1 = await ipv6_manager.get_domain_stats("example.com")
@@ -534,7 +534,7 @@ class TestIPv6ConnectionManager:
         assert stats2.ipv6_success_rate == 0.9
 
     @pytest.mark.asyncio
-    async def test_resolve_addresses_with_mock(self, mock_settings) -> None:
+    async def test_resolve_addresses_with_mock(self, mock_settings: MagicMock) -> None:
         """resolve_addresses should return IPv6 and IPv4 addresses."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -556,7 +556,7 @@ class TestIPv6ConnectionManager:
         assert ipv4_addrs[0].family == AddressFamily.IPV4
 
     @pytest.mark.asyncio
-    async def test_get_preferred_addresses_ipv6_first(self, mock_settings) -> None:
+    async def test_get_preferred_addresses_ipv6_first(self, mock_settings: MagicMock) -> None:
         """get_preferred_addresses should return IPv6 first when preferred."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -574,7 +574,7 @@ class TestIPv6ConnectionManager:
         assert addresses[1].family == AddressFamily.IPV4
 
     @pytest.mark.asyncio
-    async def test_get_preferred_addresses_ipv4_first(self, mock_settings) -> None:
+    async def test_get_preferred_addresses_ipv4_first(self, mock_settings: MagicMock) -> None:
         """get_preferred_addresses should return IPv4 first when preferred."""
         mock_settings.ipv6.preference = "ipv4_first"
         mock_addr_info = [
@@ -593,7 +593,7 @@ class TestIPv6ConnectionManager:
         assert addresses[1].family == AddressFamily.IPV6
 
     @pytest.mark.asyncio
-    async def test_record_connection_result_updates_stats(self, ipv6_manager) -> None:
+    async def test_record_connection_result_updates_stats(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """record_connection_result should update domain stats."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -612,7 +612,7 @@ class TestIPv6ConnectionManager:
         assert stats.ipv6_successes == 1
 
     @pytest.mark.asyncio
-    async def test_record_connection_result_with_switch(self, ipv6_manager) -> None:
+    async def test_record_connection_result_with_switch(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """record_connection_result should track switches."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -631,7 +631,7 @@ class TestIPv6ConnectionManager:
         assert stats.switch_success_count == 1
 
     @pytest.mark.asyncio
-    async def test_auto_disable_ipv6_on_low_success(self, mock_settings) -> None:
+    async def test_auto_disable_ipv6_on_low_success(self, mock_settings: MagicMock) -> None:
         """IPv6 should be auto-disabled when success rate drops below threshold."""
         mock_settings.ipv6.learning_threshold = 0.3
         mock_settings.ipv6.min_samples = 5
@@ -659,14 +659,16 @@ class TestIPv6ConnectionManager:
             assert stats.ipv6_enabled is False
 
     @pytest.mark.asyncio
-    async def test_try_connect_with_fallback_success_primary(self, mock_settings):
+    async def test_try_connect_with_fallback_success_primary(
+        self, mock_settings: MagicMock
+    ) -> None:
         """try_connect_with_fallback should succeed on primary family."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
-        async def mock_connect(address, family):
+        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -683,7 +685,9 @@ class TestIPv6ConnectionManager:
         assert result.switched is False
 
     @pytest.mark.asyncio
-    async def test_try_connect_with_fallback_to_secondary(self, mock_settings):
+    async def test_try_connect_with_fallback_to_secondary(
+        self, mock_settings: MagicMock
+    ) -> None:
         """try_connect_with_fallback should fallback when primary fails."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -692,7 +696,7 @@ class TestIPv6ConnectionManager:
 
         call_count = 0
 
-        async def mock_connect(address, family):
+        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
             nonlocal call_count
             call_count += 1
             # First call (IPv6) fails, second (IPv4) succeeds
@@ -715,14 +719,16 @@ class TestIPv6ConnectionManager:
         assert result.switch_success is True
 
     @pytest.mark.asyncio
-    async def test_try_connect_with_fallback_all_fail(self, mock_settings):
+    async def test_try_connect_with_fallback_all_fail(
+        self, mock_settings: MagicMock
+    ) -> None:
         """try_connect_with_fallback should fail when all attempts fail."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
-        async def mock_connect(address, family):
+        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
             return False, "Connection refused"
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -740,10 +746,10 @@ class TestIPv6ConnectionManager:
         assert result.error == "Connection refused"
 
     @pytest.mark.asyncio
-    async def test_try_connect_no_addresses(self, mock_settings):
+    async def test_try_connect_no_addresses(self, mock_settings: MagicMock) -> None:
         """try_connect_with_fallback should handle no resolved addresses."""
 
-        async def mock_connect(address, family):
+        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -758,12 +764,12 @@ class TestIPv6ConnectionManager:
         assert result.success is False
         assert result.error == "No addresses resolved"
 
-    def test_is_ipv6_enabled(self, ipv6_manager) -> None:
+    def test_is_ipv6_enabled(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """is_ipv6_enabled should return global setting."""
         assert ipv6_manager.is_ipv6_enabled() is True
 
     @pytest.mark.asyncio
-    async def test_is_ipv6_enabled_for_domain(self, ipv6_manager) -> None:
+    async def test_is_ipv6_enabled_for_domain(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """is_ipv6_enabled_for_domain should check domain-specific setting."""
         # Default should be enabled
         assert await ipv6_manager.is_ipv6_enabled_for_domain("example.com") is True
@@ -774,7 +780,7 @@ class TestIPv6ConnectionManager:
         assert await ipv6_manager.is_ipv6_enabled_for_domain("example.com") is False
 
     @pytest.mark.asyncio
-    async def test_set_domain_preference(self, ipv6_manager) -> None:
+    async def test_set_domain_preference(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """set_domain_preference should update preference."""
         await ipv6_manager.set_domain_preference("example.com", IPv6Preference.IPV4_FIRST)
 
@@ -782,7 +788,7 @@ class TestIPv6ConnectionManager:
 
         assert stats.ipv6_preference == IPv6Preference.IPV4_FIRST
 
-    def test_metrics_property(self, ipv6_manager) -> None:
+    def test_metrics_property(self, ipv6_manager: IPv6ConnectionManager) -> None:
         """metrics property should return metrics object."""
         metrics = ipv6_manager.metrics
 
@@ -798,7 +804,7 @@ class TestIPv6ConnectionManager:
 class TestGlobalFunctions:
     """Tests for global convenience functions."""
 
-    def test_get_ipv6_manager_singleton(self, mock_settings) -> None:
+    def test_get_ipv6_manager_singleton(self, mock_settings: MagicMock) -> None:
         """get_ipv6_manager should return singleton."""
         import src.crawler.ipv6_manager as ipv6_module
 
@@ -814,7 +820,7 @@ class TestGlobalFunctions:
         ipv6_module._ipv6_manager = None
 
     @pytest.mark.asyncio
-    async def test_resolve_with_ipv6_preference(self, mock_settings) -> None:
+    async def test_resolve_with_ipv6_preference(self, mock_settings: MagicMock) -> None:
         """resolve_with_ipv6_preference should use manager."""
         import src.crawler.ipv6_manager as ipv6_module
 
@@ -844,7 +850,7 @@ class TestIPv6ManagerIntegration:
     """Integration tests for IPv6ConnectionManager."""
 
     @pytest.mark.asyncio
-    async def test_learning_improves_preference(self, mock_settings) -> None:
+    async def test_learning_improves_preference(self, mock_settings: MagicMock) -> None:
         """Repeated successes should improve preference for that family (§4.3).
 
         EMA calculation with alpha=0.1, initial=0.5, 5 successes:
@@ -883,7 +889,7 @@ class TestIPv6ManagerIntegration:
             assert stats.ipv6_enabled is True, "IPv6 should remain enabled after successes"
 
     @pytest.mark.asyncio
-    async def test_switch_tracking_for_acceptance_criteria(self, mock_settings) -> None:
+    async def test_switch_tracking_for_acceptance_criteria(self, mock_settings: MagicMock) -> None:
         """Switch success rate should be trackable per acceptance criteria."""
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             manager = IPv6ConnectionManager()
@@ -920,7 +926,7 @@ class TestIPv6ManagerIntegration:
             assert metrics.switch_success_rate == pytest.approx(0.8)
 
     @pytest.mark.asyncio
-    async def test_happy_eyeballs_interleaving(self, mock_settings) -> None:
+    async def test_happy_eyeballs_interleaving(self, mock_settings: MagicMock) -> None:
         """Addresses should be interleaved for Happy Eyeballs (§4.3)."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -951,7 +957,7 @@ class TestIPv6BoundaryConditions:
     """Boundary condition tests per §7.1.2.4."""
 
     @pytest.mark.asyncio
-    async def test_empty_address_resolution(self, mock_settings) -> None:
+    async def test_empty_address_resolution(self, mock_settings: MagicMock) -> None:
         """Empty DNS resolution should return empty lists."""
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             with patch("socket.getaddrinfo", return_value=[]):
@@ -962,7 +968,7 @@ class TestIPv6BoundaryConditions:
         assert ipv4_addrs == [], "IPv4 addresses should be empty"
 
     @pytest.mark.asyncio
-    async def test_single_ipv6_address_only(self, mock_settings) -> None:
+    async def test_single_ipv6_address_only(self, mock_settings: MagicMock) -> None:
         """Single IPv6-only resolution should work correctly."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -980,7 +986,7 @@ class TestIPv6BoundaryConditions:
         assert addresses[0].address == "2001:db8::1", "Address should match"
 
     @pytest.mark.asyncio
-    async def test_single_ipv4_address_only(self, mock_settings) -> None:
+    async def test_single_ipv4_address_only(self, mock_settings: MagicMock) -> None:
         """Single IPv4-only resolution should work correctly."""
         mock_addr_info = [
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
@@ -998,14 +1004,14 @@ class TestIPv6BoundaryConditions:
         assert addresses[0].address == "192.168.1.1", "Address should match"
 
     @pytest.mark.asyncio
-    async def test_ipv6_only_with_ipv6_first_preference(self, mock_settings):
+    async def test_ipv6_only_with_ipv6_first_preference(self, mock_settings: MagicMock) -> None:
         """IPv6-only host with IPv6-first preference should succeed without fallback."""
         mock_settings.ipv6.preference = "ipv6_first"
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
         ]
 
-        async def mock_connect(address, family):
+        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -1022,14 +1028,14 @@ class TestIPv6BoundaryConditions:
         assert result.switched is False, "Should not switch (no fallback available)"
 
     @pytest.mark.asyncio
-    async def test_ipv4_only_with_ipv6_first_preference(self, mock_settings):
+    async def test_ipv4_only_with_ipv6_first_preference(self, mock_settings: MagicMock) -> None:
         """IPv4-only host with IPv6-first preference should succeed with IPv4."""
         mock_settings.ipv6.preference = "ipv6_first"
         mock_addr_info = [
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
-        async def mock_connect(address, family):
+        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -1063,7 +1069,7 @@ class TestIPv6BoundaryConditions:
         assert stats.ipv4_success_rate == 0.5, "Default IPv4 success rate should be 0.5"
 
     @pytest.mark.asyncio
-    async def test_duplicate_address_deduplication(self, mock_settings) -> None:
+    async def test_duplicate_address_deduplication(self, mock_settings: MagicMock) -> None:
         """Duplicate addresses should be deduplicated."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
