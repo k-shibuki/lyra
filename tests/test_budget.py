@@ -62,14 +62,14 @@ Test quality: Follows §7.1 test code quality standards.
 """
 
 from collections.abc import Generator
-import pytest
-
-# All tests in this module are unit tests (no external dependencies)
-pytestmark = pytest.mark.unit
+from types import SimpleNamespace
 import time
 from unittest.mock import patch
 
 import pytest
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 
 from src.scheduler.budget import (
     BudgetExceededReason,
@@ -405,10 +405,8 @@ class TestBudgetManager:
     """Tests for BudgetManager class (§3.2.2)."""
 
     @pytest.fixture
-    def mock_settings(self):
+    def mock_settings(self) -> SimpleNamespace:
         """Mock settings for budget manager."""
-        from types import SimpleNamespace
-
         return SimpleNamespace(
             task_limits=SimpleNamespace(
                 max_pages_per_task=100,
@@ -419,14 +417,14 @@ class TestBudgetManager:
         )
 
     @pytest.fixture
-    def budget_manager(self, mock_settings):
+    def budget_manager(self, mock_settings: SimpleNamespace) -> BudgetManager:
         """Create budget manager with mocked settings."""
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
             manager = BudgetManager()
         return manager
 
     @pytest.mark.asyncio
-    async def test_create_budget(self, budget_manager) -> None:
+    async def test_create_budget(self, budget_manager: BudgetManager) -> None:
         """Test budget creation."""
         # Given: BudgetManager with mock settings
         # When: Creating budget for task-1
@@ -439,7 +437,7 @@ class TestBudgetManager:
         assert budget.is_active is True
 
     @pytest.mark.asyncio
-    async def test_create_budget_idempotent(self, budget_manager) -> None:
+    async def test_create_budget_idempotent(self, budget_manager: BudgetManager) -> None:
         """Test that creating same budget returns existing one."""
         # Given: BudgetManager
         # When: Creating budget twice for same task
@@ -450,7 +448,7 @@ class TestBudgetManager:
         assert budget1 is budget2
 
     @pytest.mark.asyncio
-    async def test_get_budget(self, budget_manager) -> None:
+    async def test_get_budget(self, budget_manager: BudgetManager) -> None:
         """Test budget retrieval."""
         # Given: BudgetManager
         # When: Getting non-existent budget
@@ -466,7 +464,7 @@ class TestBudgetManager:
         assert budget.task_id == "task-1"
 
     @pytest.mark.asyncio
-    async def test_check_and_update_record_page(self, budget_manager) -> None:
+    async def test_check_and_update_record_page(self, budget_manager: BudgetManager) -> None:
         """Test page recording through check_and_update."""
         # Given: Budget for task-1
         await budget_manager.create_budget("task-1")
@@ -482,10 +480,11 @@ class TestBudgetManager:
         assert reason is None
 
         budget = await budget_manager.get_budget("task-1")
+        assert budget is not None
         assert budget.pages_fetched == 1
 
     @pytest.mark.asyncio
-    async def test_check_and_update_record_llm(self, budget_manager) -> None:
+    async def test_check_and_update_record_llm(self, budget_manager: BudgetManager) -> None:
         """Test LLM time recording through check_and_update."""
         # Given: Budget for task-1
         await budget_manager.create_budget("task-1")
@@ -500,10 +499,11 @@ class TestBudgetManager:
         assert can_continue is True
 
         budget = await budget_manager.get_budget("task-1")
+        assert budget is not None
         assert budget.llm_time_seconds == 5.0
 
     @pytest.mark.asyncio
-    async def test_check_and_update_exceeds_pages(self, budget_manager) -> None:
+    async def test_check_and_update_exceeds_pages(self, budget_manager: BudgetManager) -> None:
         """Test budget stop when pages exceeded."""
         # Given: Budget at 99 pages (one below limit of 100)
         budget = await budget_manager.create_budget("task-1")
@@ -523,7 +523,7 @@ class TestBudgetManager:
         assert budget.is_active is False
 
     @pytest.mark.asyncio
-    async def test_can_fetch_page(self, budget_manager) -> None:
+    async def test_can_fetch_page(self, budget_manager: BudgetManager) -> None:
         """Test page fetch check."""
         # Given: Budget for task-1
         await budget_manager.create_budget("task-1")
@@ -534,12 +534,13 @@ class TestBudgetManager:
 
         # When: At page limit
         budget = await budget_manager.get_budget("task-1")
+        assert budget is not None
         budget.pages_fetched = 100
         # Then: Cannot fetch
         assert await budget_manager.can_fetch_page("task-1") is False
 
     @pytest.mark.asyncio
-    async def test_can_run_llm(self, budget_manager) -> None:
+    async def test_can_run_llm(self, budget_manager: BudgetManager) -> None:
         """Test LLM run check (after 30s threshold)."""
         # Given: Budget with 100 seconds elapsed
         budget = await budget_manager.create_budget("task-1")
@@ -555,7 +556,7 @@ class TestBudgetManager:
         assert await budget_manager.can_run_llm("task-1", 10.0) is False
 
     @pytest.mark.asyncio
-    async def test_get_remaining_budget(self, budget_manager) -> None:
+    async def test_get_remaining_budget(self, budget_manager: BudgetManager) -> None:
         """Test remaining budget retrieval."""
         # Given: Budget for task-1
         await budget_manager.create_budget("task-1")
@@ -571,7 +572,7 @@ class TestBudgetManager:
         assert "available_llm_time" in remaining
 
     @pytest.mark.asyncio
-    async def test_stop_budget(self, budget_manager) -> None:
+    async def test_stop_budget(self, budget_manager: BudgetManager) -> None:
         """Test budget stopping."""
         # Given: Active budget
         budget = await budget_manager.create_budget("task-1")
@@ -585,7 +586,7 @@ class TestBudgetManager:
         assert budget.exceeded_reason == BudgetExceededReason.TIME_LIMIT
 
     @pytest.mark.asyncio
-    async def test_remove_budget(self, budget_manager) -> None:
+    async def test_remove_budget(self, budget_manager: BudgetManager) -> None:
         """Test budget removal."""
         # Given: Budget for task-1
         await budget_manager.create_budget("task-1")
@@ -600,7 +601,7 @@ class TestBudgetManager:
         assert budget is None
 
     @pytest.mark.asyncio
-    async def test_get_all_active_budgets(self, budget_manager) -> None:
+    async def test_get_all_active_budgets(self, budget_manager: BudgetManager) -> None:
         """Test getting all active budgets."""
         # Given: Two budgets, one stopped
         await budget_manager.create_budget("task-1")
@@ -615,7 +616,7 @@ class TestBudgetManager:
         assert active[0]["task_id"] == "task-2"
 
     @pytest.mark.asyncio
-    async def test_enforce_limits_no_action(self, budget_manager) -> None:
+    async def test_enforce_limits_no_action(self, budget_manager: BudgetManager) -> None:
         """Test enforce_limits when within budget."""
         # Given: Fresh budget within limits
         await budget_manager.create_budget("task-1")
@@ -628,7 +629,7 @@ class TestBudgetManager:
         assert "budget" in result
 
     @pytest.mark.asyncio
-    async def test_enforce_limits_page_exceeded(self, budget_manager) -> None:
+    async def test_enforce_limits_page_exceeded(self, budget_manager: BudgetManager) -> None:
         """Test enforce_limits when pages exceeded."""
         # Given: Budget at page limit
         budget = await budget_manager.create_budget("task-1")
@@ -643,7 +644,7 @@ class TestBudgetManager:
         assert budget.is_active is False
 
     @pytest.mark.asyncio
-    async def test_no_budget_returns_true(self, budget_manager) -> None:
+    async def test_no_budget_returns_true(self, budget_manager: BudgetManager) -> None:
         """Test that non-existent budget allows all operations."""
         # Given: No budget for "nonexistent"
         # When: Performing operations
@@ -672,10 +673,8 @@ class TestConvenienceFunctions:
         budget_module._budget_manager = None
 
     @pytest.fixture
-    def mock_settings(self):
+    def mock_settings(self) -> SimpleNamespace:
         """Mock settings."""
-        from types import SimpleNamespace
-
         return SimpleNamespace(
             task_limits=SimpleNamespace(
                 max_pages_per_task=50,
@@ -686,7 +685,7 @@ class TestConvenienceFunctions:
         )
 
     @pytest.mark.asyncio
-    async def test_create_task_budget(self, mock_settings) -> None:
+    async def test_create_task_budget(self, mock_settings: SimpleNamespace) -> None:
         """Test create_task_budget function."""
         # Given: Mock settings
         # When: Creating task budget via convenience function
@@ -698,7 +697,7 @@ class TestConvenienceFunctions:
         assert budget.max_pages == 50
 
     @pytest.mark.asyncio
-    async def test_check_budget(self, mock_settings) -> None:
+    async def test_check_budget(self, mock_settings: SimpleNamespace) -> None:
         """Test check_budget function."""
         # Given: Existing budget
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
@@ -715,7 +714,7 @@ class TestConvenienceFunctions:
             assert reason is None
 
     @pytest.mark.asyncio
-    async def test_can_fetch_page_function(self, mock_settings) -> None:
+    async def test_can_fetch_page_function(self, mock_settings: SimpleNamespace) -> None:
         """Test can_fetch_page function."""
         # Given: Existing budget
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
@@ -727,7 +726,7 @@ class TestConvenienceFunctions:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_can_run_llm_function(self, mock_settings) -> None:
+    async def test_can_run_llm_function(self, mock_settings: SimpleNamespace) -> None:
         """Test can_run_llm function."""
         # Given: Existing budget
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
@@ -739,7 +738,7 @@ class TestConvenienceFunctions:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_stop_task_budget_function(self, mock_settings) -> None:
+    async def test_stop_task_budget_function(self, mock_settings: SimpleNamespace) -> None:
         """Test stop_task_budget function."""
         # Given: Active budget
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
@@ -789,14 +788,12 @@ class TestBudgetIntegrationScenarios:
     """Integration-style tests for budget control scenarios (§3.1, §3.2.2)."""
 
     @pytest.fixture
-    def mock_settings(self):
+    def mock_settings(self) -> SimpleNamespace:
         """Settings for integration tests.
 
         Uses reduced limits for faster test execution while
         maintaining realistic proportions.
         """
-        from types import SimpleNamespace
-
         return SimpleNamespace(
             task_limits=SimpleNamespace(
                 max_pages_per_task=10,
@@ -807,7 +804,7 @@ class TestBudgetIntegrationScenarios:
         )
 
     @pytest.mark.asyncio
-    async def test_typical_task_lifecycle(self, mock_settings) -> None:
+    async def test_typical_task_lifecycle(self, mock_settings: SimpleNamespace) -> None:
         """Test a typical task budget lifecycle.
 
         Simulates a research task that:
@@ -867,7 +864,7 @@ class TestBudgetIntegrationScenarios:
             assert reason == BudgetExceededReason.PAGE_LIMIT, "reason should be PAGE_LIMIT"
 
     @pytest.mark.asyncio
-    async def test_llm_ratio_enforcement(self, mock_settings) -> None:
+    async def test_llm_ratio_enforcement(self, mock_settings: SimpleNamespace) -> None:
         """Test LLM ratio enforcement scenario.
 
         Note: LLM ratio check only applies after MIN_ELAPSED_FOR_RATIO_CHECK (30s).

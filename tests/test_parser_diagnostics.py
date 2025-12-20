@@ -295,7 +295,7 @@ class TestParserDiagnosticReport:
     # Given: A complete diagnostic report
     # When: Converting to dict
     # Then: All fields should be serialized correctly
-    def test_to_dict_complete_report(self, sample_failed_selectors) -> None:
+    def test_to_dict_complete_report(self, sample_failed_selectors: list[FailedSelector]) -> None:
         """Test to_dict with complete report."""
         report = ParserDiagnosticReport(
             engine="duckduckgo",
@@ -347,7 +347,7 @@ class TestParserDiagnosticReport:
     # Given: A diagnostic report with candidates
     # When: Converting to log dict
     # Then: Compact representation should be returned
-    def test_to_log_dict_with_candidates(self, sample_failed_selectors) -> None:
+    def test_to_log_dict_with_candidates(self, sample_failed_selectors: list[FailedSelector]) -> None:
         """Test to_log_dict returns compact representation."""
         report = ParserDiagnosticReport(
             engine="brave",
@@ -406,7 +406,7 @@ class TestHTMLAnalyzer:
     # Given: Valid HTML with result-like elements
     # When: Getting HTML summary
     # Then: Summary should contain element counts
-    def test_get_html_summary(self, sample_html_with_results) -> None:
+    def test_get_html_summary(self, sample_html_with_results: str) -> None:
         """Test get_html_summary returns element counts."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -420,7 +420,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with result-pattern classes
     # When: Finding result containers
     # Then: Containers with matching classes should be found
-    def test_find_result_containers_by_class(self, sample_html_with_results) -> None:
+    def test_find_result_containers_by_class(self, sample_html_with_results: str) -> None:
         """Test find_result_containers finds elements by class pattern."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -434,7 +434,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with data-testid attributes
     # When: Finding result containers
     # Then: Elements with data-testid should be found
-    def test_find_result_containers_by_testid(self, sample_html_with_results) -> None:
+    def test_find_result_containers_by_testid(self, sample_html_with_results: str) -> None:
         """Test find_result_containers finds data-testid elements."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -447,7 +447,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with list-based results (ul/li)
     # When: Finding result containers
     # Then: List items should be identified as candidates
-    def test_find_result_containers_by_list(self, sample_html_with_list_results) -> None:
+    def test_find_result_containers_by_list(self, sample_html_with_list_results: str) -> None:
         """Test find_result_containers finds list-based results."""
         analyzer = HTMLAnalyzer(sample_html_with_list_results)
 
@@ -461,7 +461,7 @@ class TestHTMLAnalyzer:
     # Given: Empty HTML
     # When: Finding result containers
     # Then: Empty list should be returned
-    def test_find_result_containers_empty_html(self, empty_html) -> None:
+    def test_find_result_containers_empty_html(self, empty_html: str) -> None:
         """Test find_result_containers with empty HTML."""
         analyzer = HTMLAnalyzer(empty_html)
 
@@ -472,7 +472,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with headings containing links
     # When: Finding title elements
     # Then: Heading links should be found
-    def test_find_title_elements(self, sample_html_with_results) -> None:
+    def test_find_title_elements(self, sample_html_with_results: str) -> None:
         """Test find_title_elements finds heading links."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -486,7 +486,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with paragraph elements
     # When: Finding snippet elements
     # Then: Paragraphs with appropriate length should be found
-    def test_find_snippet_elements(self, sample_html_with_results) -> None:
+    def test_find_snippet_elements(self, sample_html_with_results: str) -> None:
         """Test find_snippet_elements finds paragraph content."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -500,7 +500,7 @@ class TestHTMLAnalyzer:
     # Given: HTML with external links
     # When: Finding URL elements
     # Then: Links with http(s) URLs should be found
-    def test_find_url_elements(self, sample_html_with_results) -> None:
+    def test_find_url_elements(self, sample_html_with_results: str) -> None:
         """Test find_url_elements finds external links."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -682,7 +682,7 @@ class TestYAMLFixGeneration:
     # Given: Multiple failed selectors with candidates
     # When: Generating multiple YAML fixes
     # Then: Fixes should be generated for each failed selector
-    def test_generate_multiple_yaml_fixes(self, sample_failed_selectors) -> None:
+    def test_generate_multiple_yaml_fixes(self, sample_failed_selectors: list[FailedSelector]) -> None:
         """Test generate_multiple_yaml_fixes creates fixes for all selectors."""
         candidates_by_type = {
             "container": [
@@ -720,7 +720,7 @@ class TestYAMLFixGeneration:
     # Given: No candidates available
     # When: Generating multiple YAML fixes
     # Then: Empty list should be returned
-    def test_generate_multiple_yaml_fixes_no_candidates(self, sample_failed_selectors) -> None:
+    def test_generate_multiple_yaml_fixes_no_candidates(self, sample_failed_selectors: list[FailedSelector]) -> None:
         """Test generate_multiple_yaml_fixes with no candidates."""
         fixes = generate_multiple_yaml_fixes(
             sample_failed_selectors,
@@ -742,7 +742,7 @@ class TestCreateDiagnosticReport:
     # Given: Valid HTML with result elements
     # When: Creating diagnostic report
     # Then: Report should contain candidates and suggestions
-    def test_create_report_with_results(self, sample_html_with_results, sample_failed_selectors) -> None:
+    def test_create_report_with_results(self, sample_html_with_results: str, sample_failed_selectors: list[FailedSelector]) -> None:
         """Test create_diagnostic_report with valid HTML."""
         report = create_diagnostic_report(
             engine="duckduckgo",
@@ -761,7 +761,7 @@ class TestCreateDiagnosticReport:
     # Given: Empty HTML
     # When: Creating diagnostic report
     # Then: Report should be created with empty candidates
-    def test_create_report_empty_html(self, empty_html, sample_failed_selectors) -> None:
+    def test_create_report_empty_html(self, empty_html: str, sample_failed_selectors: list[FailedSelector]) -> None:
         """Test create_diagnostic_report with empty HTML."""
         report = create_diagnostic_report(
             engine="google",
@@ -778,7 +778,7 @@ class TestCreateDiagnosticReport:
     # Given: HTML without html_path
     # When: Creating diagnostic report
     # Then: html_path should be None in report
-    def test_create_report_no_path(self, sample_html_with_results) -> None:
+    def test_create_report_no_path(self, sample_html_with_results: str) -> None:
         """Test create_diagnostic_report without html_path."""
         report = create_diagnostic_report(
             engine="mojeek",
@@ -802,7 +802,7 @@ class TestDebugHTMLHandling:
     # Given: Non-existent debug directory
     # When: Getting latest debug HTML
     # Then: None should be returned
-    def test_get_latest_debug_html_no_dir(self, tmp_path) -> None:
+    def test_get_latest_debug_html_no_dir(self, tmp_path: Path) -> None:
         """Test get_latest_debug_html when directory doesn't exist."""
         # Use a non-existent directory
         fake_debug_dir = tmp_path / "nonexistent" / "search_html"
@@ -819,7 +819,7 @@ class TestDebugHTMLHandling:
     # Given: Empty debug directory
     # When: Getting latest debug HTML
     # Then: None should be returned
-    def test_get_latest_debug_html_empty_dir(self, tmp_path) -> None:
+    def test_get_latest_debug_html_empty_dir(self, tmp_path: Path) -> None:
         """Test get_latest_debug_html with empty directory."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -837,7 +837,7 @@ class TestDebugHTMLHandling:
     # Given: Debug HTML file with metadata
     # When: Analyzing debug HTML
     # Then: Report should extract metadata and analyze content
-    def test_analyze_debug_html_with_metadata(self, tmp_path, sample_html_with_results) -> None:
+    def test_analyze_debug_html_with_metadata(self, tmp_path: Path, sample_html_with_results: str) -> None:
         """Test analyze_debug_html extracts metadata."""
         # Create test file with metadata header
         html_file = tmp_path / "duckduckgo_123_test.html"
@@ -861,7 +861,7 @@ Error: Selector not found
     # Given: Non-existent HTML file
     # When: Analyzing debug HTML
     # Then: None should be returned
-    def test_analyze_debug_html_file_not_found(self, tmp_path) -> None:
+    def test_analyze_debug_html_file_not_found(self, tmp_path: Path) -> None:
         """Test analyze_debug_html with non-existent file."""
         fake_path = tmp_path / "nonexistent.html"
 
@@ -872,7 +872,7 @@ Error: Selector not found
     # Given: HTML file without metadata header
     # When: Analyzing debug HTML
     # Then: Engine should be extracted from filename
-    def test_analyze_debug_html_no_metadata(self, tmp_path, sample_html_with_results) -> None:
+    def test_analyze_debug_html_no_metadata(self, tmp_path: Path, sample_html_with_results: str) -> None:
         """Test analyze_debug_html without metadata header."""
         html_file = tmp_path / "brave_456_search.html"
         html_file.write_text(sample_html_with_results, encoding="utf-8")
@@ -894,7 +894,7 @@ class TestDiagnosticsIntegration:
     # Given: Complete diagnostic workflow
     # When: Creating and analyzing report
     # Then: All components should work together
-    def test_full_diagnostic_workflow(self, sample_html_with_results, sample_failed_selectors) -> None:
+    def test_full_diagnostic_workflow(self, sample_html_with_results: str, sample_failed_selectors: list[FailedSelector]) -> None:
         """Test complete diagnostic workflow."""
         # Step 1: Create diagnostic report
         report = create_diagnostic_report(
@@ -1117,7 +1117,7 @@ class TestSafeSelect:
     # Given: Valid CSS selector on HTML with matching elements
     # When: Calling _safe_select
     # Then: Returns list of matching elements
-    def test_valid_selector(self, sample_html_with_results) -> None:
+    def test_valid_selector(self, sample_html_with_results: str) -> None:
         """Test valid selector returns matching elements."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1128,7 +1128,7 @@ class TestSafeSelect:
     # Given: CSS selector that matches no elements
     # When: Calling _safe_select
     # Then: Returns empty list
-    def test_nonexistent_selector(self, sample_html_with_results) -> None:
+    def test_nonexistent_selector(self, sample_html_with_results: str) -> None:
         """Test non-existent selector returns empty list."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1139,7 +1139,7 @@ class TestSafeSelect:
     # Given: Invalid/malformed CSS selector
     # When: Calling _safe_select
     # Then: Returns empty list without raising exception
-    def test_invalid_selector(self, sample_html_with_results) -> None:
+    def test_invalid_selector(self, sample_html_with_results: str) -> None:
         """Test invalid selector returns empty list without exception."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1192,7 +1192,7 @@ class TestGetLatestDebugHtmlBoundary:
     # Given: engine=None
     # When: Getting latest debug HTML
     # Then: Returns any HTML file (no filter)
-    def test_engine_none(self, tmp_path) -> None:
+    def test_engine_none(self, tmp_path: Path) -> None:
         """Test engine=None returns all HTML files."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -1212,7 +1212,7 @@ class TestGetLatestDebugHtmlBoundary:
     # Given: engine="" (empty string)
     # When: Getting latest debug HTML
     # Then: Treated as no filter (same as None)
-    def test_engine_empty_string(self, tmp_path) -> None:
+    def test_engine_empty_string(self, tmp_path: Path) -> None:
         """Test engine='' is treated as no filter."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -1233,7 +1233,7 @@ class TestGetLatestDebugHtmlBoundary:
     # Given: Valid engine name
     # When: Getting latest debug HTML
     # Then: Returns only matching engine files
-    def test_engine_filter(self, tmp_path) -> None:
+    def test_engine_filter(self, tmp_path: Path) -> None:
         """Test engine filter returns only matching files."""
         debug_dir = tmp_path / "debug" / "search_html"
         debug_dir.mkdir(parents=True)
@@ -1264,7 +1264,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector=None
     # When: Finding title elements
     # Then: Searches entire document
-    def test_container_selector_none(self, sample_html_with_results) -> None:
+    def test_container_selector_none(self, sample_html_with_results: str) -> None:
         """Test container_selector=None searches entire document."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1276,7 +1276,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector="" (empty string)
     # When: Finding title elements
     # Then: Treated as None (searches entire document)
-    def test_container_selector_empty_string(self, sample_html_with_results) -> None:
+    def test_container_selector_empty_string(self, sample_html_with_results: str) -> None:
         """Test container_selector='' is treated as None."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1288,7 +1288,7 @@ class TestContainerSelectorBoundary:
     # Given: Valid container_selector
     # When: Finding title elements
     # Then: Searches within container only
-    def test_container_selector_valid(self, sample_html_with_results) -> None:
+    def test_container_selector_valid(self, sample_html_with_results: str) -> None:
         """Test valid container_selector searches within container."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1300,7 +1300,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector="" for find_snippet_elements
     # When: Finding snippet elements
     # Then: Treated as None (searches entire document)
-    def test_snippet_container_empty_string(self, sample_html_with_results) -> None:
+    def test_snippet_container_empty_string(self, sample_html_with_results: str) -> None:
         """Test find_snippet_elements with empty container_selector."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 
@@ -1312,7 +1312,7 @@ class TestContainerSelectorBoundary:
     # Given: container_selector="" for find_url_elements
     # When: Finding URL elements
     # Then: Treated as None (searches entire document)
-    def test_url_container_empty_string(self, sample_html_with_results) -> None:
+    def test_url_container_empty_string(self, sample_html_with_results: str) -> None:
         """Test find_url_elements with empty container_selector."""
         analyzer = HTMLAnalyzer(sample_html_with_results)
 

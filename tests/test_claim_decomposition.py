@@ -46,6 +46,7 @@ Per §3.3.1: Question-to-Claim Decomposition functionality.
 """
 
 import pytest
+from pytest import MonkeyPatch
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
@@ -277,12 +278,12 @@ class TestClaimDecomposerRuleBased:
     """Tests for rule-based claim decomposition."""
 
     @pytest.fixture
-    def decomposer(self):
+    def decomposer(self) -> ClaimDecomposer:
         """Create a rule-based decomposer."""
         return ClaimDecomposer(use_llm=False)
 
     @pytest.mark.asyncio
-    async def test_empty_question(self, decomposer) -> None:
+    async def test_empty_question(self, decomposer: ClaimDecomposer) -> None:
         """Test handling of empty question."""
         # Given: Empty string
         # When: Decomposing
@@ -294,7 +295,7 @@ class TestClaimDecomposerRuleBased:
         assert len(result.claims) == 0
 
     @pytest.mark.asyncio
-    async def test_simple_question(self, decomposer) -> None:
+    async def test_simple_question(self, decomposer: ClaimDecomposer) -> None:
         """Test decomposition of a simple question."""
         # Given: Simple question
         # When: Decomposing
@@ -311,7 +312,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.granularity is not None
 
     @pytest.mark.asyncio
-    async def test_compound_question_decomposition(self, decomposer) -> None:
+    async def test_compound_question_decomposition(self, decomposer: ClaimDecomposer) -> None:
         """Test decomposition of compound question with conjunctions."""
         # Given: Question with conjunction
         # When: Decomposing
@@ -324,7 +325,7 @@ class TestClaimDecomposerRuleBased:
         assert len(result.claims) >= 1
 
     @pytest.mark.asyncio
-    async def test_temporal_claim_detection(self, decomposer) -> None:
+    async def test_temporal_claim_detection(self, decomposer: ClaimDecomposer) -> None:
         """Test detection of temporal claims."""
         # Given: Question with year
         # When: Decomposing
@@ -337,7 +338,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.claim_type == ClaimType.TEMPORAL
 
     @pytest.mark.asyncio
-    async def test_quantitative_claim_detection(self, decomposer) -> None:
+    async def test_quantitative_claim_detection(self, decomposer: ClaimDecomposer) -> None:
         """Test detection of quantitative claims."""
         # Given: Question with numbers
         # When: Decomposing
@@ -350,7 +351,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.claim_type == ClaimType.QUANTITATIVE
 
     @pytest.mark.asyncio
-    async def test_comparative_claim_detection(self, decomposer) -> None:
+    async def test_comparative_claim_detection(self, decomposer: ClaimDecomposer) -> None:
         """Test detection of comparative claims."""
         # Given: Question with comparison
         # When: Decomposing
@@ -363,7 +364,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.claim_type == ClaimType.COMPARATIVE
 
     @pytest.mark.asyncio
-    async def test_causal_claim_detection(self, decomposer) -> None:
+    async def test_causal_claim_detection(self, decomposer: ClaimDecomposer) -> None:
         """Test detection of causal claims."""
         # Given: Question with causal relationship
         # When: Decomposing
@@ -376,7 +377,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.claim_type == ClaimType.CAUSAL
 
     @pytest.mark.asyncio
-    async def test_definitional_claim_detection(self, decomposer) -> None:
+    async def test_definitional_claim_detection(self, decomposer: ClaimDecomposer) -> None:
         """Test detection of definitional claims."""
         # Given: Question asking for definition
         # When: Decomposing
@@ -389,7 +390,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.claim_type == ClaimType.DEFINITIONAL
 
     @pytest.mark.asyncio
-    async def test_negative_polarity_detection(self, decomposer) -> None:
+    async def test_negative_polarity_detection(self, decomposer: ClaimDecomposer) -> None:
         """Test detection of negative polarity."""
         # Given: Negative statement
         # When: Decomposing
@@ -402,7 +403,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.expected_polarity == ClaimPolarity.NEGATIVE
 
     @pytest.mark.asyncio
-    async def test_neutral_polarity_for_question(self, decomposer) -> None:
+    async def test_neutral_polarity_for_question(self, decomposer: ClaimDecomposer) -> None:
         """Test neutral polarity for questions."""
         # Given: Open question
         # When: Decomposing
@@ -415,7 +416,7 @@ class TestClaimDecomposerRuleBased:
         assert claim.expected_polarity == ClaimPolarity.NEUTRAL
 
     @pytest.mark.asyncio
-    async def test_keyword_extraction(self, decomposer) -> None:
+    async def test_keyword_extraction(self, decomposer: ClaimDecomposer) -> None:
         """Test keyword extraction from claims."""
         # Given: Question with specific terms
         # When: Decomposing
@@ -432,7 +433,7 @@ class TestClaimDecomposerRuleBased:
         assert has_openai or has_gpt, f"Expected 'openai' or 'gpt' in keywords: {claim.keywords}"
 
     @pytest.mark.asyncio
-    async def test_verification_hints_generation(self, decomposer) -> None:
+    async def test_verification_hints_generation(self, decomposer: ClaimDecomposer) -> None:
         """Test verification hints are generated."""
         # Given: Question mentioning official source
         # When: Decomposing
@@ -447,7 +448,7 @@ class TestClaimDecomposerRuleBased:
         )
 
     @pytest.mark.asyncio
-    async def test_source_question_preserved(self, decomposer) -> None:
+    async def test_source_question_preserved(self, decomposer: ClaimDecomposer) -> None:
         """Test original question is preserved in claims."""
         # Given: Test question
         question = "テスト用の質問です"
@@ -465,7 +466,7 @@ class TestClaimDecomposerLLM:
     """Tests for LLM-based claim decomposition (mocked)."""
 
     @pytest.mark.asyncio
-    async def test_llm_decomposition(self, monkeypatch) -> None:
+    async def test_llm_decomposition(self, monkeypatch: MonkeyPatch) -> None:
         """Test LLM-based decomposition with mocked response."""
         from unittest.mock import AsyncMock, MagicMock
 
@@ -513,7 +514,7 @@ class TestClaimDecomposerLLM:
         assert claim2.claim_type == ClaimType.FACTUAL
 
     @pytest.mark.asyncio
-    async def test_llm_fallback_on_invalid_json(self, monkeypatch) -> None:
+    async def test_llm_fallback_on_invalid_json(self, monkeypatch: MonkeyPatch) -> None:
         """Test fallback to rule-based when LLM returns invalid JSON."""
         from unittest.mock import AsyncMock, MagicMock
 
@@ -534,7 +535,7 @@ class TestClaimDecomposerLLM:
         assert len(result.claims) >= 1
 
     @pytest.mark.asyncio
-    async def test_llm_fallback_on_error(self, monkeypatch) -> None:
+    async def test_llm_fallback_on_error(self, monkeypatch: MonkeyPatch) -> None:
         """Test fallback to rule-based when LLM raises an error."""
         from unittest.mock import AsyncMock, MagicMock
 
@@ -592,12 +593,12 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
     @pytest.fixture
-    def decomposer(self):
+    def decomposer(self) -> ClaimDecomposer:
         """Create a rule-based decomposer."""
         return ClaimDecomposer(use_llm=False)
 
     @pytest.mark.asyncio
-    async def test_whitespace_only_question(self, decomposer) -> None:
+    async def test_whitespace_only_question(self, decomposer: ClaimDecomposer) -> None:
         """Test handling of whitespace-only question."""
         # Given: Whitespace-only input
         # When: Decomposing
@@ -608,7 +609,7 @@ class TestEdgeCases:
         assert result.error == "Empty question provided"
 
     @pytest.mark.asyncio
-    async def test_very_long_question(self, decomposer) -> None:
+    async def test_very_long_question(self, decomposer: ClaimDecomposer) -> None:
         """Test handling of very long question."""
         # Given: Very long input (2000 chars)
         long_question = "AI" * 1000
@@ -621,7 +622,7 @@ class TestEdgeCases:
         assert len(result.claims) >= 1
 
     @pytest.mark.asyncio
-    async def test_special_characters(self, decomposer) -> None:
+    async def test_special_characters(self, decomposer: ClaimDecomposer) -> None:
         """Test handling of special characters in question."""
         # Given: Question with special characters
         # When: Decomposing
@@ -632,7 +633,7 @@ class TestEdgeCases:
         assert len(result.claims) >= 1
 
     @pytest.mark.asyncio
-    async def test_english_question(self, decomposer) -> None:
+    async def test_english_question(self, decomposer: ClaimDecomposer) -> None:
         """Test handling of English question."""
         # Given: English question
         # When: Decomposing
@@ -643,7 +644,7 @@ class TestEdgeCases:
         assert len(result.claims) >= 1
 
     @pytest.mark.asyncio
-    async def test_mixed_language_question(self, decomposer) -> None:
+    async def test_mixed_language_question(self, decomposer: ClaimDecomposer) -> None:
         """Test handling of mixed Japanese/English question."""
         # Given: Mixed language question
         # When: Decomposing
@@ -654,7 +655,7 @@ class TestEdgeCases:
         assert len(result.claims) >= 1
 
     @pytest.mark.asyncio
-    async def test_numeric_only_question(self, decomposer) -> None:
+    async def test_numeric_only_question(self, decomposer: ClaimDecomposer) -> None:
         """Test handling of numeric content (quantitative detection)."""
         # Given: Question with large number (no year)
         # When: Decomposing

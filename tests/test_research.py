@@ -57,11 +57,15 @@ Test Quality Standards (§7.1):
 | TC-ES-B-01 | pages_limit=0 | Boundary – zero limit | Immediate budget exceeded | - |
 """
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 pytestmark = pytest.mark.unit
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 # E402: Intentionally import after pytestmark for test configuration
 from src.research.context import (
@@ -89,7 +93,7 @@ class TestResearchContext:
     """
 
     @pytest.mark.asyncio
-    async def test_get_context_returns_entities(self, test_database) -> None:
+    async def test_get_context_returns_entities(self, test_database: Database) -> None:
         """
         Verify that get_context extracts and returns entities from the query.
 
@@ -113,7 +117,7 @@ class TestResearchContext:
         assert isinstance(result["extracted_entities"], list)
 
     @pytest.mark.asyncio
-    async def test_get_context_returns_applicable_templates(self, test_database) -> None:
+    async def test_get_context_returns_applicable_templates(self, test_database: Database) -> None:
         """
         Verify that get_context returns applicable vertical templates.
 
@@ -137,7 +141,7 @@ class TestResearchContext:
         assert "academic" in template_names
 
     @pytest.mark.asyncio
-    async def test_get_context_does_not_return_subquery_candidates(self, test_database) -> None:
+    async def test_get_context_does_not_return_subquery_candidates(self, test_database: Database) -> None:
         """
         Verify that get_context does NOT return subquery candidates.
 
@@ -161,7 +165,7 @@ class TestResearchContext:
         assert "generated_queries" not in result
 
     @pytest.mark.asyncio
-    async def test_get_context_returns_recommended_engines(self, test_database) -> None:
+    async def test_get_context_returns_recommended_engines(self, test_database: Database) -> None:
         """
         Verify that get_context returns recommended search engines.
         """
@@ -182,7 +186,7 @@ class TestResearchContext:
         )
 
     @pytest.mark.asyncio
-    async def test_get_context_task_not_found(self, test_database) -> None:
+    async def test_get_context_task_not_found(self, test_database: Database) -> None:
         """
         Verify that get_context returns error for non-existent task.
         """
@@ -613,7 +617,7 @@ class TestExplorationState:
     """
 
     @pytest.mark.asyncio
-    async def test_register_and_start_subquery(self, test_database) -> None:
+    async def test_register_and_start_subquery(self, test_database: Database) -> None:
         """
         Verify subquery registration and starting.
         """
@@ -637,7 +641,7 @@ class TestExplorationState:
         assert sq.status == SubqueryStatus.RUNNING
 
     @pytest.mark.asyncio
-    async def test_budget_tracking(self, test_database) -> None:
+    async def test_budget_tracking(self, test_database: Database) -> None:
         """
         Verify page budget is tracked correctly.
         """
@@ -661,7 +665,7 @@ class TestExplorationState:
         assert "上限" in warning
 
     @pytest.mark.asyncio
-    async def test_get_status_returns_all_required_fields(self, test_database) -> None:
+    async def test_get_status_returns_all_required_fields(self, test_database: Database) -> None:
         """
         Verify get_status returns all required fields per §3.2.1.
         Now async per §16.7.1 changes.
@@ -687,7 +691,7 @@ class TestExplorationState:
         assert "warnings" in status
 
     @pytest.mark.asyncio
-    async def test_get_status_includes_authentication_queue(self, test_database) -> None:
+    async def test_get_status_includes_authentication_queue(self, test_database: Database) -> None:
         """
         Verify get_status includes authentication_queue when pending items exist.
 
@@ -732,7 +736,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_auth_queue_warning_threshold(self, test_database) -> None:
+    async def test_auth_queue_warning_threshold(self, test_database: Database) -> None:
         """
         Verify warning alert is generated when pending >= 3.
 
@@ -771,7 +775,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_auth_queue_critical_threshold_by_count(self, test_database) -> None:
+    async def test_auth_queue_critical_threshold_by_count(self, test_database: Database) -> None:
         """
         Verify critical alert is generated when pending >= 5.
 
@@ -816,7 +820,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_auth_queue_critical_threshold_by_high_priority(self, test_database) -> None:
+    async def test_auth_queue_critical_threshold_by_high_priority(self, test_database: Database) -> None:
         """
         Verify critical alert is generated when high_priority >= 2.
 
@@ -855,7 +859,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_finalize_returns_summary(self, test_database) -> None:
+    async def test_finalize_returns_summary(self, test_database: Database) -> None:
         """
         Verify finalize returns proper summary with unsatisfied subqueries.
         """
@@ -897,7 +901,7 @@ class TestExplorationStateBoundaryValues:
     """
 
     @pytest.mark.asyncio
-    async def test_zero_pages_limit_immediately_exceeded(self, test_database) -> None:
+    async def test_zero_pages_limit_immediately_exceeded(self, test_database: Database) -> None:
         """TC-ES-B-01: Zero pages_limit is immediately exceeded.
 
         // Given: pages_limit = 0
@@ -918,7 +922,7 @@ class TestExplorationStateBoundaryValues:
         assert warning is not None
 
     @pytest.mark.asyncio
-    async def test_pages_limit_exactly_at_boundary(self, test_database) -> None:
+    async def test_pages_limit_exactly_at_boundary(self, test_database: Database) -> None:
         """TC-ES-B-02: Exactly at pages_limit triggers exceeded.
 
         // Given: pages_limit = 5, pages_used = 5
@@ -939,7 +943,7 @@ class TestExplorationStateBoundaryValues:
         assert within_budget is False
 
     @pytest.mark.asyncio
-    async def test_pages_limit_one_below_boundary(self, test_database) -> None:
+    async def test_pages_limit_one_below_boundary(self, test_database: Database) -> None:
         """TC-ES-B-03: One below pages_limit is within budget.
 
         // Given: pages_limit = 5, pages_used = 4
@@ -960,7 +964,7 @@ class TestExplorationStateBoundaryValues:
         assert within_budget is True
 
     @pytest.mark.asyncio
-    async def test_budget_warning_at_80_percent(self, test_database) -> None:
+    async def test_budget_warning_at_80_percent(self, test_database: Database) -> None:
         """TC-ES-B-04: Warning at 80% budget usage.
 
         // Given: pages_limit = 100, pages_used = 81 (81% usage)
@@ -1006,7 +1010,7 @@ class TestSubqueryExecutor:
         assert "who.int" in PRIMARY_SOURCE_DOMAINS
 
     @pytest.mark.asyncio
-    async def test_expand_query_mechanical_only(self, test_database) -> None:
+    async def test_expand_query_mechanical_only(self, test_database: Database) -> None:
         """
         Verify query expansion is mechanical (operators, not new ideas).
 
@@ -1077,7 +1081,7 @@ class TestRefutationExecutor:
         assert "limitations" in REFUTATION_SUFFIXES
 
     @pytest.mark.asyncio
-    async def test_generate_reverse_queries_mechanical(self, test_database) -> None:
+    async def test_generate_reverse_queries_mechanical(self, test_database: Database) -> None:
         """
         Verify reverse query generation is mechanical (suffix-based).
         """
@@ -1101,7 +1105,7 @@ class TestRefutationExecutor:
             assert has_suffix, f"Query '{rq}' doesn't use mechanical suffix"
 
     @pytest.mark.asyncio
-    async def test_refutation_result_structure(self, test_database) -> None:
+    async def test_refutation_result_structure(self, test_database: Database) -> None:
         """
         Verify RefutationResult has correct structure per §3.2.1.
         """
@@ -1137,7 +1141,7 @@ class TestExplorationIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_full_exploration_workflow(self, test_database) -> None:
+    async def test_full_exploration_workflow(self, test_database: Database) -> None:
         """
         Verify complete exploration workflow: context → execute → status → finalize.
 
@@ -1233,7 +1237,7 @@ class TestResponsibilityBoundary:
         assert all(isinstance(s, str) for s in REFUTATION_SUFFIXES)
 
     @pytest.mark.asyncio
-    async def test_context_notes_are_informational_only(self, test_database) -> None:
+    async def test_context_notes_are_informational_only(self, test_database: Database) -> None:
         """
         Verify context notes are hints, not directives.
 
@@ -1268,7 +1272,7 @@ class TestStopTaskAction:
     """
 
     @pytest.mark.asyncio
-    async def test_stop_task_handles_missing_summary(self, test_database):
+    async def test_stop_task_handles_missing_summary(self, test_database: "Database") -> None:
         """
         TC-PIPE-A-01: stop_task_action handles missing summary key.
 
@@ -1284,7 +1288,7 @@ class TestStopTaskAction:
         state._db = test_database
 
         # Patch finalize to return incomplete result
-        async def mock_finalize():
+        async def mock_finalize() -> dict[str, object]:
             return {
                 "ok": True,
                 "final_status": "completed",
@@ -1303,7 +1307,7 @@ class TestStopTaskAction:
         assert result["summary"]["primary_source_ratio"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_stop_task_handles_empty_nested_dicts(self, test_database):
+    async def test_stop_task_handles_empty_nested_dicts(self, test_database: "Database") -> None:
         """
         TC-PIPE-A-02: stop_task_action handles empty nested dicts.
 
@@ -1319,7 +1323,7 @@ class TestStopTaskAction:
         state._db = test_database
 
         # Patch finalize to return empty nested dicts
-        async def mock_finalize():
+        async def mock_finalize() -> dict[str, object]:
             return {
                 "ok": True,
                 "final_status": "partial",
@@ -1340,7 +1344,7 @@ class TestStopTaskAction:
         assert result["summary"]["primary_source_ratio"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_stop_task_normal_finalize(self, test_database):
+    async def test_stop_task_normal_finalize(self, test_database: "Database") -> None:
         """
         TC-PIPE-N-01: stop_task_action works with complete finalize_result.
 
@@ -1359,7 +1363,7 @@ class TestStopTaskAction:
         state.register_search("sq_001", "test query")
 
         # Patch finalize to return complete result
-        async def mock_finalize():
+        async def mock_finalize() -> dict[str, object]:
             return {
                 "ok": True,
                 "final_status": "completed",

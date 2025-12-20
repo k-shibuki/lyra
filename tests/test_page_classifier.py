@@ -41,7 +41,7 @@ from src.extractor.page_classifier import (
 
 
 @pytest.fixture
-def classifier():
+def classifier() -> PageClassifier:
     """Create a PageClassifier instance for testing."""
     return PageClassifier()
 
@@ -54,7 +54,7 @@ def classifier():
 class TestArticleClassification:
     """Tests for article page type detection."""
 
-    def test_article_with_article_tag(self, classifier) -> None:
+    def test_article_with_article_tag(self, classifier: PageClassifier) -> None:
         """Article tag is a strong indicator of article type."""
         html = """
         <html>
@@ -79,7 +79,7 @@ class TestArticleClassification:
         assert result.features["structure"]["has_article_tag"] is True
         assert result.features["semantic"]["has_date"] is True
 
-    def test_article_with_og_type(self, classifier) -> None:
+    def test_article_with_og_type(self, classifier: PageClassifier) -> None:
         """og:type=article metadata should boost article classification."""
         html = """
         <html>
@@ -104,7 +104,7 @@ class TestArticleClassification:
         assert result.page_type == PageType.ARTICLE
         assert result.features["meta"]["meta_og_type"] == "article"
 
-    def test_article_url_hint(self, classifier) -> None:
+    def test_article_url_hint(self, classifier: PageClassifier) -> None:
         """URL patterns like /blog/ or /article/ hint at article type."""
         html = """
         <html>
@@ -133,7 +133,7 @@ class TestArticleClassification:
 class TestKnowledgeClassification:
     """Tests for knowledge/wiki page type detection."""
 
-    def test_wiki_with_toc(self, classifier) -> None:
+    def test_wiki_with_toc(self, classifier: PageClassifier) -> None:
         """Table of contents is a strong wiki/knowledge indicator."""
         html = """
         <html>
@@ -163,7 +163,7 @@ class TestKnowledgeClassification:
         assert result.page_type == PageType.KNOWLEDGE
         assert result.features["knowledge"]["has_toc"] is True
 
-    def test_wiki_with_mediawiki_structure(self, classifier) -> None:
+    def test_wiki_with_mediawiki_structure(self, classifier: PageClassifier) -> None:
         """MediaWiki class patterns indicate wiki pages."""
         html = """
         <html>
@@ -190,7 +190,7 @@ class TestKnowledgeClassification:
         assert result.features["knowledge"]["has_edit_links"] is True
         assert result.features["knowledge"]["has_infobox"] is True
 
-    def test_documentation_page(self, classifier) -> None:
+    def test_documentation_page(self, classifier: PageClassifier) -> None:
         """Documentation pages should be classified as knowledge."""
         html = """
         <html>
@@ -228,7 +228,7 @@ class TestKnowledgeClassification:
 class TestForumClassification:
     """Tests for forum/discussion page type detection."""
 
-    def test_forum_with_thread_structure(self, classifier) -> None:
+    def test_forum_with_thread_structure(self, classifier: PageClassifier) -> None:
         """Thread structure indicates forum pages."""
         html = """
         <html>
@@ -260,7 +260,7 @@ class TestForumClassification:
         assert result.features["forum"]["has_vote_buttons"] is True
         assert result.features["forum"]["has_user_avatars"] is True
 
-    def test_qa_page(self, classifier) -> None:
+    def test_qa_page(self, classifier: PageClassifier) -> None:
         """Q&A sites should be classified as forum."""
         html = """
         <html>
@@ -302,7 +302,7 @@ class TestForumClassification:
 class TestLoginWallClassification:
     """Tests for login wall/paywall page type detection."""
 
-    def test_login_form_detection(self, classifier) -> None:
+    def test_login_form_detection(self, classifier: PageClassifier) -> None:
         """Login form with password field should classify as login_wall."""
         html = """
         <html>
@@ -326,7 +326,7 @@ class TestLoginWallClassification:
         assert result.features["login"]["has_login_form"] is True
         assert result.features["login"]["has_password_field"] is True
 
-    def test_paywall_detection(self, classifier) -> None:
+    def test_paywall_detection(self, classifier: PageClassifier) -> None:
         """Paywall indicators should classify as login_wall."""
         html = """
         <html>
@@ -348,7 +348,7 @@ class TestLoginWallClassification:
         assert result.page_type == PageType.LOGIN_WALL
         assert result.features["login"]["has_paywall_indicator"] is True
 
-    def test_japanese_members_only(self, classifier) -> None:
+    def test_japanese_members_only(self, classifier: PageClassifier) -> None:
         """Japanese members-only pages should be detected."""
         html = """
         <html>
@@ -379,7 +379,7 @@ class TestLoginWallClassification:
 class TestIndexClassification:
     """Tests for index/listing page type detection."""
 
-    def test_category_page(self, classifier) -> None:
+    def test_category_page(self, classifier: PageClassifier) -> None:
         """Category pages with many links should classify as index."""
         html = """
         <html>
@@ -417,7 +417,7 @@ class TestIndexClassification:
         assert result.features["semantic"]["has_breadcrumb"] is True
         assert result.features["content"]["list_item_count"] >= 10
 
-    def test_search_results(self, classifier) -> None:
+    def test_search_results(self, classifier: PageClassifier) -> None:
         """Search results pages should classify as index."""
         html = """
         <html>
@@ -442,7 +442,7 @@ class TestIndexClassification:
         assert result.page_type == PageType.INDEX
         assert result.features["semantic"]["has_pagination"] is True
 
-    def test_archive_page(self, classifier) -> None:
+    def test_archive_page(self, classifier: PageClassifier) -> None:
         """Archive pages should classify as index."""
         html = """
         <html>
@@ -477,7 +477,7 @@ class TestIndexClassification:
 class TestNoticeClassification:
     """Tests for notice/announcement page type detection."""
 
-    def test_press_release(self, classifier) -> None:
+    def test_press_release(self, classifier: PageClassifier) -> None:
         """Press release pages should classify as notice."""
         html = """
         <html>
@@ -497,7 +497,7 @@ class TestNoticeClassification:
         assert result.page_type == PageType.NOTICE
         assert "press" in result.features["meta"]["url_hints"]
 
-    def test_official_announcement(self, classifier) -> None:
+    def test_official_announcement(self, classifier: PageClassifier) -> None:
         """Official announcements should classify as notice."""
         html = """
         <html>
@@ -527,7 +527,7 @@ class TestNoticeClassification:
 class TestFeatureExtraction:
     """Tests for feature extraction accuracy."""
 
-    def test_text_to_html_ratio(self, classifier) -> None:
+    def test_text_to_html_ratio(self, classifier: PageClassifier) -> None:
         """Text-to-HTML ratio should be calculated correctly."""
         # High text ratio (article-like)
         html_high = """
@@ -541,7 +541,7 @@ class TestFeatureExtraction:
 
         assert result_high.features["ratios"]["text_to_html_ratio"] > 0.3
 
-    def test_link_density(self, classifier) -> None:
+    def test_link_density(self, classifier: PageClassifier) -> None:
         """Link density should be calculated correctly."""
         # High link density (index-like)
         html = """
@@ -559,7 +559,7 @@ class TestFeatureExtraction:
 
         assert result.features["ratios"]["link_density"] > 0.5
 
-    def test_empty_html(self, classifier) -> None:
+    def test_empty_html(self, classifier: PageClassifier) -> None:
         """Empty or minimal HTML should classify as OTHER."""
         html = "<html><body></body></html>"
         result = classifier.classify(html)
@@ -567,7 +567,7 @@ class TestFeatureExtraction:
         assert result.page_type == PageType.OTHER
         assert result.features["content"]["paragraph_count"] == 0
 
-    def test_heading_count(self, classifier) -> None:
+    def test_heading_count(self, classifier: PageClassifier) -> None:
         """Heading count should be extracted correctly."""
         html = """
         <html><body>
@@ -603,7 +603,7 @@ class TestClassifierUtilities:
         assert isinstance(result.page_type, PageType)
         assert 0.0 <= result.confidence <= 1.0
 
-    def test_url_hint_extraction(self, classifier) -> None:
+    def test_url_hint_extraction(self, classifier: PageClassifier) -> None:
         """URL hints should be extracted from various URL patterns."""
         # Wiki URL
         result_wiki = classifier.classify(
@@ -617,7 +617,7 @@ class TestClassifierUtilities:
         )
         assert "forum" in result_forum.features["meta"]["url_hints"]
 
-    def test_reason_generation(self, classifier) -> None:
+    def test_reason_generation(self, classifier: PageClassifier) -> None:
         """Classification reasons should be generated."""
         html = """
         <html><body>
@@ -638,7 +638,7 @@ class TestClassifierUtilities:
 class TestMixedSignals:
     """Tests for pages with mixed classification signals."""
 
-    def test_article_with_comments(self, classifier) -> None:
+    def test_article_with_comments(self, classifier: PageClassifier) -> None:
         """Articles with comments should still classify as article."""
         html = """
         <html><body>
@@ -663,7 +663,7 @@ class TestMixedSignals:
         # Should still classify as article despite comments section
         assert result.page_type == PageType.ARTICLE
 
-    def test_wiki_with_navigation(self, classifier) -> None:
+    def test_wiki_with_navigation(self, classifier: PageClassifier) -> None:
         """Wiki pages with navigation should classify as knowledge."""
         html = """
         <html><body>
@@ -697,7 +697,7 @@ class TestMixedSignals:
 class TestJapaneseContent:
     """Tests for Japanese content classification."""
 
-    def test_japanese_toc(self, classifier) -> None:
+    def test_japanese_toc(self, classifier: PageClassifier) -> None:
         """Japanese 目次 (table of contents) should be detected."""
         html = """
         <html><body>
@@ -724,7 +724,7 @@ class TestJapaneseContent:
         assert result.page_type == PageType.KNOWLEDGE
         assert result.features["knowledge"]["has_toc"] is True
 
-    def test_japanese_registration_required(self, classifier) -> None:
+    def test_japanese_registration_required(self, classifier: PageClassifier) -> None:
         """Japanese 登録が必要 (registration required) should trigger login_wall."""
         html = """
         <html><body>
@@ -752,7 +752,7 @@ class TestJapaneseContent:
 class TestAcademicClassification:
     """Tests for academic paper page type detection."""
 
-    def test_arxiv_paper(self, classifier) -> None:
+    def test_arxiv_paper(self, classifier: PageClassifier) -> None:
         """arXiv-style academic paper should classify as academic."""
         html = """
         <html><body>
@@ -777,7 +777,7 @@ class TestAcademicClassification:
         assert result.features["academic"]["has_abstract"] is True
         assert result.features["academic"]["has_doi"] is True
 
-    def test_jstage_paper(self, classifier) -> None:
+    def test_jstage_paper(self, classifier: PageClassifier) -> None:
         """J-STAGE academic paper should classify as academic."""
         html = """
         <html><body>
@@ -807,7 +807,7 @@ class TestAcademicClassification:
 class TestReportClassification:
     """Tests for report/whitepaper page type detection."""
 
-    def test_annual_report(self, classifier) -> None:
+    def test_annual_report(self, classifier: PageClassifier) -> None:
         """Annual report should classify as report."""
         html = """
         <html><body>
@@ -832,7 +832,7 @@ class TestReportClassification:
         assert result.page_type == PageType.REPORT
         assert result.features["report"]["has_executive_summary"] is True
 
-    def test_japanese_disclosure(self, classifier) -> None:
+    def test_japanese_disclosure(self, classifier: PageClassifier) -> None:
         """Japanese financial disclosure should classify as report."""
         html = """
         <html><body>
@@ -863,7 +863,7 @@ class TestReportClassification:
 class TestLegalClassification:
     """Tests for legal document page type detection."""
 
-    def test_statute(self, classifier) -> None:
+    def test_statute(self, classifier: PageClassifier) -> None:
         """Legal statute should classify as legal."""
         html = """
         <html><body>
@@ -883,7 +883,7 @@ class TestLegalClassification:
         assert result.page_type == PageType.LEGAL
         assert result.features["legal"]["has_legal_structure"] is True
 
-    def test_japanese_law(self, classifier) -> None:
+    def test_japanese_law(self, classifier: PageClassifier) -> None:
         """Japanese law document should classify as legal."""
         html = """
         <html><body>
@@ -910,7 +910,7 @@ class TestLegalClassification:
 class TestProductClassification:
     """Tests for product page type detection."""
 
-    def test_ecommerce_product(self, classifier) -> None:
+    def test_ecommerce_product(self, classifier: PageClassifier) -> None:
         """E-commerce product page should classify as product."""
         html = """
         <html><body>
@@ -936,7 +936,7 @@ class TestProductClassification:
         assert result.features["product"]["has_price"] is True
         assert result.features["product"]["has_add_to_cart"] is True
 
-    def test_japanese_product(self, classifier) -> None:
+    def test_japanese_product(self, classifier: PageClassifier) -> None:
         """Japanese product page should classify as product."""
         html = """
         <html><body>
@@ -965,7 +965,7 @@ class TestProductClassification:
 class TestProfileClassification:
     """Tests for profile page type detection."""
 
-    def test_company_about(self, classifier) -> None:
+    def test_company_about(self, classifier: PageClassifier) -> None:
         """Company about page should classify as profile."""
         html = """
         <html><body>
@@ -994,7 +994,7 @@ class TestProfileClassification:
         assert result.features["profile"]["has_about_section"] is True
         assert result.features["profile"]["has_team_section"] is True
 
-    def test_japanese_company_profile(self, classifier) -> None:
+    def test_japanese_company_profile(self, classifier: PageClassifier) -> None:
         """Japanese company profile should classify as profile."""
         html = """
         <html><body>
@@ -1029,7 +1029,7 @@ class TestProfileClassification:
 class TestOtherClassification:
     """Tests for OTHER page type (unclassifiable pages)."""
 
-    def test_minimal_content(self, classifier) -> None:
+    def test_minimal_content(self, classifier: PageClassifier) -> None:
         """Minimal content should classify as OTHER."""
         html = """
         <html><body>

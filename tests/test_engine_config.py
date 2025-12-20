@@ -29,14 +29,13 @@ Per §7.1 of docs/REQUIREMENTS.md:
 """
 
 from collections.abc import Generator
-import pytest
-
-# All tests in this module are unit tests (no external dependencies)
-pytestmark = pytest.mark.unit
-import time
+from pathlib import Path
 
 import pytest
 import yaml
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 
 from src.search.engine_config import (
     EngineConfig,
@@ -58,7 +57,7 @@ from src.search.engine_config import (
 
 
 @pytest.fixture
-def sample_config_data():
+def sample_config_data() -> dict[str, object]:
     """Sample engines.yaml configuration data."""
     return {
         # Engine selection policy (root level)
@@ -139,7 +138,9 @@ def sample_config_data():
 
 
 @pytest.fixture
-def temp_config_file(sample_config_data, tmp_path):
+def temp_config_file(
+    sample_config_data: dict[str, object], tmp_path: Path
+) -> Path:
     """Create a temporary config file."""
     config_path = tmp_path / "engines.yaml"
     with open(config_path, "w", encoding="utf-8") as f:
@@ -148,7 +149,7 @@ def temp_config_file(sample_config_data, tmp_path):
 
 
 @pytest.fixture
-def manager(temp_config_file) -> Generator[None, None, None]:
+def manager(temp_config_file: Path) -> Generator[SearchEngineConfigManager, None, None]:
     """Create a SearchEngineConfigManager with test config."""
     manager = SearchEngineConfigManager(
         config_path=temp_config_file,
@@ -249,7 +250,9 @@ class TestEngineDefinitionSchema:
 class TestConfigLoading:
     """Tests for configuration loading."""
 
-    def test_load_valid_config(self, manager, sample_config_data) -> None:
+    def test_load_valid_config(
+        self, manager: SearchEngineConfigManager, sample_config_data: dict[str, object]
+    ) -> None:
         """Test loading valid configuration file."""
         # Verify default engines
         default_engines = manager.get_default_engines()
@@ -264,7 +267,7 @@ class TestConfigLoading:
         all_engines = manager.get_all_engines()
         assert len(all_engines) == 5
 
-    def test_load_missing_config(self, tmp_path) -> None:
+    def test_load_missing_config(self, tmp_path: Path) -> None:
         """Test loading non-existent config file uses defaults."""
         manager = SearchEngineConfigManager(
             config_path=tmp_path / "nonexistent.yaml",
@@ -275,7 +278,7 @@ class TestConfigLoading:
         assert manager.config is not None
         assert len(manager.get_all_engines()) == 0
 
-    def test_load_invalid_yaml(self, tmp_path) -> None:
+    def test_load_invalid_yaml(self, tmp_path: Path) -> None:
         """Test loading invalid YAML gracefully fails."""
         config_path = tmp_path / "invalid.yaml"
         with open(config_path, "w") as f:
@@ -298,7 +301,7 @@ class TestConfigLoading:
 class TestEngineConfiguration:
     """Tests for engine configuration retrieval."""
 
-    def test_get_engine_by_name(self, manager) -> None:
+    def test_get_engine_by_name(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving engine by name."""
         config = manager.get_engine("duckduckgo")
 
@@ -310,7 +313,7 @@ class TestEngineConfiguration:
         assert config.qps == 0.2
         assert config.block_resistant is False
 
-    def test_get_engine_case_insensitive(self, manager) -> None:
+    def test_get_engine_case_insensitive(self, manager: SearchEngineConfigManager) -> None:
         """Test engine lookup is case-insensitive."""
         config1 = manager.get_engine("DuckDuckGo")
         config2 = manager.get_engine("DUCKDUCKGO")
@@ -319,12 +322,12 @@ class TestEngineConfiguration:
         assert config1 is not None
         assert config1.name == config2.name == config3.name
 
-    def test_get_nonexistent_engine(self, manager) -> None:
+    def test_get_nonexistent_engine(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving non-existent engine returns None."""
         config = manager.get_engine("nonexistent")
         assert config is None
 
-    def test_engine_status_disabled(self, manager) -> None:
+    def test_engine_status_disabled(self, manager: SearchEngineConfigManager) -> None:
         """Test disabled engine has correct status."""
         config = manager.get_engine("google")
 
@@ -332,7 +335,7 @@ class TestEngineConfiguration:
         assert config.status == EngineStatus.DISABLED
         assert config.is_available is False
 
-    def test_engine_status_lastmile(self, manager) -> None:
+    def test_engine_status_lastmile(self, manager: SearchEngineConfigManager) -> None:
         """Test lastmile engine has correct status."""
         config = manager.get_engine("brave")
 
@@ -340,7 +343,7 @@ class TestEngineConfiguration:
         assert config.status == EngineStatus.LASTMILE
         assert config.is_lastmile is True
 
-    def test_engine_min_interval(self, manager) -> None:
+    def test_engine_min_interval(self, manager: SearchEngineConfigManager) -> None:
         """Test min_interval calculation from QPS."""
         config = manager.get_engine("duckduckgo")
 
@@ -348,14 +351,14 @@ class TestEngineConfiguration:
         assert config.qps == 0.2
         assert config.min_interval == 5.0  # 1 / 0.2 = 5.0
 
-    def test_engine_daily_limit(self, manager) -> None:
+    def test_engine_daily_limit(self, manager: SearchEngineConfigManager) -> None:
         """Test daily limit configuration."""
         config = manager.get_engine("brave")
 
         assert config is not None
         assert config.daily_limit == 50
 
-    def test_get_all_engines(self, manager) -> None:
+    def test_get_all_engines(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving all engines."""
         engines = manager.get_all_engines()
 
@@ -363,7 +366,7 @@ class TestEngineConfiguration:
         names = {e.name for e in engines}
         assert names == {"duckduckgo", "wikipedia", "arxiv", "brave", "google"}
 
-    def test_get_available_engines(self, manager) -> None:
+    def test_get_available_engines(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving only available engines."""
         available = manager.get_available_engines(include_lastmile=False)
 
@@ -374,7 +377,7 @@ class TestEngineConfiguration:
         assert "duckduckgo" in names
         assert "wikipedia" in names
 
-    def test_get_available_engines_with_lastmile(self, manager) -> None:
+    def test_get_available_engines_with_lastmile(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving available engines including lastmile."""
         available = manager.get_available_engines(include_lastmile=True)
 
@@ -382,7 +385,7 @@ class TestEngineConfiguration:
         assert "brave" in names
         assert "google" not in names  # Still disabled
 
-    def test_get_block_resistant_engines(self, manager) -> None:
+    def test_get_block_resistant_engines(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving block-resistant engines."""
         resistant = manager.get_block_resistant_engines()
 
@@ -400,7 +403,7 @@ class TestEngineConfiguration:
 class TestCategoryManagement:
     """Tests for category-based engine retrieval."""
 
-    def test_get_engines_for_category(self, manager) -> None:
+    def test_get_engines_for_category(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving engines for a category."""
         academic = manager.get_engines_for_category("academic")
 
@@ -420,7 +423,7 @@ class TestCategoryManagement:
         for engine in academic:
             assert engine.name in available_parsers, f"Engine {engine.name} should have a parser"
 
-    def test_get_engines_for_category_fallback(self, manager) -> None:
+    def test_get_engines_for_category_fallback(self, manager: SearchEngineConfigManager) -> None:
         """Test category lookup falls back to engine categories."""
         technical = manager.get_engines_for_category("technical")
 
@@ -436,7 +439,7 @@ class TestCategoryManagement:
         # arxiv should NOT be in the result since it has no parser
         assert "arxiv" not in names
 
-    def test_get_all_categories(self, manager) -> None:
+    def test_get_all_categories(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving all categories."""
         categories = manager.get_all_categories()
 
@@ -445,7 +448,7 @@ class TestCategoryManagement:
         assert "technical" in categories
         assert "knowledge" in categories
 
-    def test_get_engines_by_priority(self, manager) -> None:
+    def test_get_engines_by_priority(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving engines sorted by priority."""
         engines = manager.get_engines_by_priority(max_priority=3)
 
@@ -464,32 +467,32 @@ class TestCategoryManagement:
 class TestOperatorMapping:
     """Tests for operator mapping retrieval."""
 
-    def test_get_operator_mapping_default(self, manager) -> None:
+    def test_get_operator_mapping_default(self, manager: SearchEngineConfigManager) -> None:
         """Test getting default operator mapping."""
         mapping = manager.get_operator_mapping("site")
 
         assert mapping == "site:{domain}"
 
-    def test_get_operator_mapping_engine_specific(self, manager) -> None:
+    def test_get_operator_mapping_engine_specific(self, manager: SearchEngineConfigManager) -> None:
         """Test getting engine-specific operator mapping."""
         mapping = manager.get_operator_mapping("site", "google")
 
         assert mapping == "site:{domain}"
 
-    def test_get_operator_mapping_fallback_to_default(self, manager) -> None:
+    def test_get_operator_mapping_fallback_to_default(self, manager: SearchEngineConfigManager) -> None:
         """Test fallback to default when engine-specific not available."""
         # filetype is defined for google but not duckduckgo
         mapping = manager.get_operator_mapping("filetype", "duckduckgo")
 
         assert mapping == "filetype:{type}"  # Falls back to default
 
-    def test_get_operator_mapping_nonexistent(self, manager) -> None:
+    def test_get_operator_mapping_nonexistent(self, manager: SearchEngineConfigManager) -> None:
         """Test getting non-existent operator returns None."""
         mapping = manager.get_operator_mapping("nonexistent")
 
         assert mapping is None
 
-    def test_get_all_operator_mappings(self, manager) -> None:
+    def test_get_all_operator_mappings(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving all operator mappings."""
         mappings = manager.get_all_operator_mappings()
 
@@ -497,7 +500,7 @@ class TestOperatorMapping:
         assert "filetype" in mappings
         assert "exact" in mappings
 
-    def test_get_supported_operators(self, manager) -> None:
+    def test_get_supported_operators(self, manager: SearchEngineConfigManager) -> None:
         """Test getting supported operators for an engine."""
         supported = manager.get_supported_operators("google")
 
@@ -514,7 +517,7 @@ class TestOperatorMapping:
 class TestDirectSources:
     """Tests for direct source configuration."""
 
-    def test_get_direct_sources_all(self, manager) -> None:
+    def test_get_direct_sources_all(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving all direct sources."""
         sources = manager.get_direct_sources()
 
@@ -523,14 +526,14 @@ class TestDirectSources:
         assert "arxiv.org" in domains
         assert "pubmed.ncbi.nlm.nih.gov" in domains
 
-    def test_get_direct_sources_by_category(self, manager) -> None:
+    def test_get_direct_sources_by_category(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving direct sources by category."""
         sources = manager.get_direct_sources("academic")
 
         assert len(sources) == 2
         assert all(s.category == "academic" for s in sources)
 
-    def test_get_direct_source_for_domain(self, manager) -> None:
+    def test_get_direct_source_for_domain(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving direct source for specific domain."""
         source = manager.get_direct_source_for_domain("arxiv.org")
 
@@ -539,7 +542,7 @@ class TestDirectSources:
         assert source.priority == 1
         assert source.search_url == "https://arxiv.org/search/?query={query}"
 
-    def test_get_direct_source_nonexistent(self, manager) -> None:
+    def test_get_direct_source_nonexistent(self, manager: SearchEngineConfigManager) -> None:
         """Test retrieving non-existent direct source returns None."""
         source = manager.get_direct_source_for_domain("example.com")
 
@@ -554,7 +557,9 @@ class TestDirectSources:
 class TestHotReload:
     """Tests for hot-reload functionality."""
 
-    def test_hot_reload_detects_changes(self, temp_config_file, sample_config_data) -> None:
+    def test_hot_reload_detects_changes(
+        self, temp_config_file: Path, sample_config_data: dict[str, object]
+    ) -> None:
         """Test that hot-reload detects config file changes."""
         import os
 
@@ -581,7 +586,9 @@ class TestHotReload:
         manager._last_check = 0  # Force check
         assert len(manager.get_default_engines()) == 3
 
-    def test_hot_reload_disabled(self, temp_config_file, sample_config_data) -> None:
+    def test_hot_reload_disabled(
+        self, temp_config_file: Path, sample_config_data: dict[str, object]
+    ) -> None:
         """Test that hot-reload can be disabled."""
         manager = SearchEngineConfigManager(
             config_path=temp_config_file,
@@ -599,7 +606,9 @@ class TestHotReload:
         # Should NOT reload
         assert len(manager.get_default_engines()) == 2
 
-    def test_manual_reload(self, temp_config_file, sample_config_data) -> None:
+    def test_manual_reload(
+        self, temp_config_file: Path, sample_config_data: dict[str, object]
+    ) -> None:
         """Test manual reload works."""
         manager = SearchEngineConfigManager(
             config_path=temp_config_file,
@@ -616,16 +625,18 @@ class TestHotReload:
 
         assert len(manager.get_default_engines()) == 3
 
-    def test_reload_callback(self, temp_config_file, sample_config_data) -> None:
+    def test_reload_callback(
+        self, temp_config_file: Path, sample_config_data: dict[str, object]
+    ) -> None:
         """Test reload callbacks are called."""
         manager = SearchEngineConfigManager(
             config_path=temp_config_file,
             enable_hot_reload=False,
         )
 
-        callback_called = []
+        callback_called: list[SearchEngineConfigSchema] = []
 
-        def on_reload(config):
+        def on_reload(config: SearchEngineConfigSchema) -> None:
             callback_called.append(config)
 
         manager.add_reload_callback(on_reload)
@@ -645,7 +656,7 @@ class TestHotReload:
 class TestCache:
     """Tests for caching functionality."""
 
-    def test_engine_caching(self, manager) -> None:
+    def test_engine_caching(self, manager: SearchEngineConfigManager) -> None:
         """Test engines are cached after first retrieval."""
         # First call creates cache
         config1 = manager.get_engine("duckduckgo")
@@ -655,7 +666,7 @@ class TestCache:
 
         assert config1 is config2  # Same object from cache
 
-    def test_cache_clear(self, manager) -> None:
+    def test_cache_clear(self, manager: SearchEngineConfigManager) -> None:
         """Test cache clearing works."""
         # Populate cache
         manager.get_engine("duckduckgo")
@@ -669,7 +680,7 @@ class TestCache:
         stats = manager.get_cache_stats()
         assert stats["cached_engines"] == 0
 
-    def test_usage_tracking(self, manager) -> None:
+    def test_usage_tracking(self, manager: SearchEngineConfigManager) -> None:
         """Test daily usage tracking."""
         config = manager.get_engine("duckduckgo")
         assert config is not None
@@ -681,7 +692,7 @@ class TestCache:
         config = manager.get_engine("duckduckgo")
         assert config.current_usage_today == 5
 
-    def test_reset_daily_usage(self, manager) -> None:
+    def test_reset_daily_usage(self, manager: SearchEngineConfigManager) -> None:
         """Test resetting daily usage."""
         manager.update_engine_usage("duckduckgo", 5)
         manager.reset_daily_usage()
@@ -698,7 +709,7 @@ class TestCache:
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
-    def test_get_engine_config_function(self, temp_config_file) -> None:
+    def test_get_engine_config_function(self, temp_config_file: Path) -> None:
         """Test get_engine_config convenience function."""
         # Reset module-level singleton and set up with test config
         reset_engine_config_manager()
@@ -712,7 +723,7 @@ class TestConvenienceFunctions:
         assert config is not None
         assert config.name == "duckduckgo"
 
-    def test_get_available_search_engines_function(self, temp_config_file) -> None:
+    def test_get_available_search_engines_function(self, temp_config_file: Path) -> None:
         """Test get_available_search_engines convenience function."""
         reset_engine_config_manager()
         get_engine_config_manager(
@@ -727,7 +738,7 @@ class TestConvenienceFunctions:
         names = {e.name for e in engines}
         assert "google" not in names  # Disabled in test fixture
 
-    def test_get_engine_operator_mapping_function(self, temp_config_file) -> None:
+    def test_get_engine_operator_mapping_function(self, temp_config_file: Path) -> None:
         """Test get_engine_operator_mapping convenience function."""
         reset_engine_config_manager()
         get_engine_config_manager(
@@ -739,7 +750,7 @@ class TestConvenienceFunctions:
 
         assert mapping == "site:{domain}"
 
-    def test_is_search_engine_available_function(self, temp_config_file) -> None:
+    def test_is_search_engine_available_function(self, temp_config_file: Path) -> None:
         """Test is_search_engine_available convenience function."""
         reset_engine_config_manager()
         get_engine_config_manager(
@@ -759,7 +770,7 @@ class TestConvenienceFunctions:
 class TestEngineConfigDataClass:
     """Tests for EngineConfig data class."""
 
-    def test_to_dict(self, manager) -> None:
+    def test_to_dict(self, manager: SearchEngineConfigManager) -> None:
         """Test EngineConfig serialization."""
         config = manager.get_engine("wikipedia")
         assert config is not None
@@ -794,7 +805,7 @@ class TestEngineConfigDataClass:
 class TestIntegration:
     """Tests for integration with existing code."""
 
-    def test_query_operator_processor_uses_manager(self, temp_config_file) -> None:
+    def test_query_operator_processor_uses_manager(self, temp_config_file: Path) -> None:
         """Test QueryOperatorProcessor uses SearchEngineConfigManager."""
         # Reset and set up
         reset_engine_config_manager()

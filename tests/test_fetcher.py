@@ -13,10 +13,15 @@ Covers:
 
 import gzip
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from warcio.archiveiterator import ArchiveIterator
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
+    from src.utils.config import Settings
 
 
 @pytest.mark.unit
@@ -31,13 +36,13 @@ class TestSaveWarc:
         return warc_path
 
     @pytest.fixture
-    def mock_warc_settings(self, mock_settings, warc_dir: Path):
+    def mock_warc_settings(self, mock_settings: "Settings", warc_dir: Path) -> "Settings":
         """Mock settings with temporary WARC directory."""
         mock_settings.storage.warc_dir = str(warc_dir)
         return mock_settings
 
     @pytest.mark.asyncio
-    async def test_save_warc_creates_file(self, mock_warc_settings, warc_dir: Path) -> None:
+    async def test_save_warc_creates_file(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
         """Test that _save_warc creates a WARC file."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -58,7 +63,7 @@ class TestSaveWarc:
             assert "warc" in result.name.lower()
 
     @pytest.mark.asyncio
-    async def test_save_warc_contains_response_record(self, mock_warc_settings, warc_dir: Path) -> None:
+    async def test_save_warc_contains_response_record(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
         """Test that WARC file contains valid response record."""
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
@@ -86,7 +91,7 @@ class TestSaveWarc:
             assert b"200 OK" in raw_warc
 
     @pytest.mark.asyncio
-    async def test_save_warc_with_request_headers(self, mock_warc_settings, warc_dir: Path) -> None:
+    async def test_save_warc_with_request_headers(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
         """Test WARC file includes request record when headers provided."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -115,7 +120,7 @@ class TestSaveWarc:
             assert "response" in record_types
 
     @pytest.mark.asyncio
-    async def test_save_warc_different_status_codes(self, mock_warc_settings, warc_dir: Path) -> None:
+    async def test_save_warc_different_status_codes(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
         """Test WARC saves various HTTP status codes correctly."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -138,7 +143,7 @@ class TestSaveWarc:
                 assert warc_path.exists()
 
     @pytest.mark.asyncio
-    async def test_save_warc_unicode_content(self, mock_warc_settings, warc_dir: Path) -> None:
+    async def test_save_warc_unicode_content(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
         """Test WARC handles Unicode content correctly."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -664,7 +669,7 @@ class TestTorController:
         assert len(controller._last_renewal) == 0
 
     @pytest.mark.asyncio
-    async def test_tor_controller_disabled(self, mock_settings) -> None:
+    async def test_tor_controller_disabled(self, mock_settings: Settings) -> None:
         """Test TorController when Tor is disabled."""
         mock_settings.tor.enabled = False
 
@@ -686,7 +691,7 @@ class TestDatabaseFetchCache:
     """
 
     @pytest.mark.asyncio
-    async def test_set_and_get_fetch_cache(self, memory_database) -> None:
+    async def test_set_and_get_fetch_cache(self, memory_database: Database) -> None:
         """Test storing and retrieving fetch cache entry."""
         db = memory_database
         url = "https://example.com/page"
@@ -720,7 +725,7 @@ class TestDatabaseFetchCache:
         )
 
     @pytest.mark.asyncio
-    async def test_get_fetch_cache_missing_url(self, memory_database) -> None:
+    async def test_get_fetch_cache_missing_url(self, memory_database: Database) -> None:
         """Test cache miss returns None."""
         db = memory_database
 
@@ -729,7 +734,7 @@ class TestDatabaseFetchCache:
         assert cached is None
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_url_normalization(self, memory_database) -> None:
+    async def test_fetch_cache_url_normalization(self, memory_database: Database) -> None:
         """Test cache lookup uses normalized URLs.
 
         URLs differing only in query param order or fragment should match.
@@ -751,7 +756,7 @@ class TestDatabaseFetchCache:
         )
 
     @pytest.mark.asyncio
-    async def test_update_fetch_cache_validation(self, memory_database) -> None:
+    async def test_update_fetch_cache_validation(self, memory_database: Database) -> None:
         """Test updating cache validation timestamp."""
         db = memory_database
         url = "https://example.com/page"
@@ -766,7 +771,7 @@ class TestDatabaseFetchCache:
         assert cached["etag"] == '"new-etag"'
 
     @pytest.mark.asyncio
-    async def test_invalidate_fetch_cache(self, memory_database) -> None:
+    async def test_invalidate_fetch_cache(self, memory_database: Database) -> None:
         """Test cache invalidation."""
         db = memory_database
         url = "https://example.com/page"
@@ -778,7 +783,7 @@ class TestDatabaseFetchCache:
         assert await db.get_fetch_cache(url) is None
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_with_only_etag(self, memory_database) -> None:
+    async def test_fetch_cache_with_only_etag(self, memory_database: Database) -> None:
         """Test cache entry with only ETag (no Last-Modified)."""
         db = memory_database
 
@@ -793,7 +798,7 @@ class TestDatabaseFetchCache:
         assert cached["last_modified"] is None
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_with_only_last_modified(self, memory_database) -> None:
+    async def test_fetch_cache_with_only_last_modified(self, memory_database: Database) -> None:
         """Test cache entry with only Last-Modified (no ETag)."""
         db = memory_database
 
@@ -808,7 +813,7 @@ class TestDatabaseFetchCache:
         assert cached["last_modified"] == "Wed, 01 Jan 2024 00:00:00 GMT"
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_stats(self, memory_database) -> None:
+    async def test_fetch_cache_stats(self, memory_database: Database) -> None:
         """Test fetch cache statistics.
 
         Setup:
@@ -837,7 +842,7 @@ class TestDatabaseFetchCache:
         )
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_replace_existing(self, memory_database) -> None:
+    async def test_fetch_cache_replace_existing(self, memory_database: Database) -> None:
         """Test that setting cache replaces existing entry (upsert behavior)."""
         db = memory_database
         url = "https://example.com/page"
@@ -869,7 +874,7 @@ class TestHTTPFetcherConditionalHeaders:
     """
 
     @pytest.mark.asyncio
-    async def test_url_specific_etag_takes_precedence(self, mock_settings):
+    async def test_url_specific_etag_takes_precedence(self, mock_settings: "Settings") -> None:
         """Test that URL-specific cached_etag is not overwritten by session headers.
 
         TC-CH-01: When cached_etag is provided, session transfer headers should
@@ -891,7 +896,7 @@ class TestHTTPFetcherConditionalHeaders:
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
                 # Mock session transfer to return conditional headers only when include_conditional=True
-                def mock_get_transfer_side_effect(url, include_conditional=True):
+                def mock_get_transfer_side_effect(url: str, include_conditional: bool = True) -> MagicMock:
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
                     mock_transfer_result.session_id = "session_123"
@@ -940,7 +945,7 @@ class TestHTTPFetcherConditionalHeaders:
                     )
 
     @pytest.mark.asyncio
-    async def test_url_specific_last_modified_takes_precedence(self, mock_settings):
+    async def test_url_specific_last_modified_takes_precedence(self, mock_settings: "Settings") -> None:
         """Test that URL-specific cached_last_modified is not overwritten.
 
         TC-CH-02: When cached_last_modified is provided, session transfer headers
@@ -961,7 +966,7 @@ class TestHTTPFetcherConditionalHeaders:
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
 
-                def mock_get_transfer_side_effect(url, include_conditional=True):
+                def mock_get_transfer_side_effect(url: str, include_conditional: bool = True) -> MagicMock:
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
                     mock_transfer_result.session_id = "session_123"
@@ -1002,7 +1007,7 @@ class TestHTTPFetcherConditionalHeaders:
                     )
 
     @pytest.mark.asyncio
-    async def test_both_cached_values_exclude_session_conditionals(self, mock_settings):
+    async def test_both_cached_values_exclude_session_conditionals(self, mock_settings: "Settings") -> None:
         """Test that both cached_etag and cached_last_modified exclude session conditionals.
 
         TC-CH-03: When both are provided, session should not include either conditional header.
@@ -1022,7 +1027,7 @@ class TestHTTPFetcherConditionalHeaders:
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
 
-                def mock_get_transfer_side_effect(url, include_conditional=True):
+                def mock_get_transfer_side_effect(url: str, include_conditional: bool = True) -> MagicMock:
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
                     mock_transfer_result.session_id = "session_123"
@@ -1056,7 +1061,7 @@ class TestHTTPFetcherConditionalHeaders:
                     )
 
     @pytest.mark.asyncio
-    async def test_no_cached_values_includes_session_conditionals(self, mock_settings) -> None:
+    async def test_no_cached_values_includes_session_conditionals(self, mock_settings: Settings) -> None:
         """Test that session conditional headers are included when no cached values provided.
 
         TC-CH-04: When cached_etag and cached_last_modified are None, session should
@@ -1479,7 +1484,7 @@ class TestFetchUrlCumulativeTimeout:
     """
 
     @pytest.mark.asyncio
-    async def test_fetch_completes_within_timeout(self, mock_settings) -> None:
+    async def test_fetch_completes_within_timeout(self, mock_settings: Settings) -> None:
         """
         TC-TO-01: Fast fetch completes successfully.
 
@@ -1510,7 +1515,7 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["status"] == 200
 
     @pytest.mark.asyncio
-    async def test_fetch_times_out_returns_cumulative_timeout(self, mock_settings):
+    async def test_fetch_times_out_returns_cumulative_timeout(self, mock_settings: "Settings") -> None:
         """
         TC-TO-02: Slow fetch exceeds timeout.
 
@@ -1523,7 +1528,7 @@ class TestFetchUrlCumulativeTimeout:
 
         mock_settings.crawler.max_fetch_time = 1  # 1 second timeout
 
-        async def slow_fetch(*args, **kwargs):
+        async def slow_fetch(*args: object, **kwargs: object) -> dict[str, object]:
             await asyncio.sleep(5)  # Much longer than timeout
             return {"ok": True, "url": args[0]}
 
@@ -1538,7 +1543,7 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["method"] == "timeout"
 
     @pytest.mark.asyncio
-    async def test_fetch_zero_timeout_immediate_failure(self, mock_settings):
+    async def test_fetch_zero_timeout_immediate_failure(self, mock_settings: "Settings") -> None:
         """
         TC-TO-03: Zero timeout boundary.
 
@@ -1551,7 +1556,7 @@ class TestFetchUrlCumulativeTimeout:
 
         mock_settings.crawler.max_fetch_time = 0  # Immediate timeout
 
-        async def any_fetch(*args, **kwargs):
+        async def any_fetch(*args: object, **kwargs: object) -> dict[str, object]:
             await asyncio.sleep(0.1)  # Even a small delay
             return {"ok": True, "url": args[0]}
 
@@ -1566,7 +1571,7 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["reason"] == "cumulative_timeout"
 
     @pytest.mark.asyncio
-    async def test_policy_override_max_fetch_time(self, mock_settings):
+    async def test_policy_override_max_fetch_time(self, mock_settings: "Settings") -> None:
         """
         TC-TO-04: Policy overrides default max_fetch_time.
 
@@ -1579,7 +1584,7 @@ class TestFetchUrlCumulativeTimeout:
 
         mock_settings.crawler.max_fetch_time = 30  # Default is high
 
-        async def medium_fetch(*args, **kwargs):
+        async def medium_fetch(*args: object, **kwargs: object) -> dict[str, object]:
             await asyncio.sleep(3)  # 3 seconds
             return {"ok": True, "url": args[0]}
 
@@ -1597,7 +1602,7 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["reason"] == "cumulative_timeout"
 
     @pytest.mark.asyncio
-    async def test_cumulative_timeout_aborts_escalation(self, mock_settings):
+    async def test_cumulative_timeout_aborts_escalation(self, mock_settings: "Settings") -> None:
         """
         TC-TO-05: Timeout aborts multi-stage escalation.
 
@@ -1610,9 +1615,9 @@ class TestFetchUrlCumulativeTimeout:
 
         mock_settings.crawler.max_fetch_time = 2  # Short timeout
 
-        escalation_stages = []
+        escalation_stages: list[str] = []
 
-        async def multi_stage_fetch(*args, **kwargs):
+        async def multi_stage_fetch(*args: object, **kwargs: object) -> dict[str, object]:
             for stage in ["http", "browser_headless", "browser_headful"]:
                 escalation_stages.append(stage)
                 await asyncio.sleep(1)  # Each stage takes 1 second
