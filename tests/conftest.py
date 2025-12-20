@@ -447,8 +447,13 @@ def pytest_sessionfinish(session, exitstatus):
     unawaited coroutines in Connection.__del__.
     """
     import asyncio
+    import gc
 
     async def cleanup_async_resources():
+        # Force garbage collection while event loop is still available
+        # This allows aiosqlite Connection.__del__ to run properly
+        gc.collect()
+
         try:
             from src.storage import database as db_module
 
@@ -459,6 +464,9 @@ def pytest_sessionfinish(session, exitstatus):
             pass
         except Exception:
             pass  # Best effort cleanup
+
+        # Another GC pass after cleanup
+        gc.collect()
 
     # Run async cleanup in a new event loop
     try:
