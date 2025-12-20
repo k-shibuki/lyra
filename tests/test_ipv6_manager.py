@@ -88,15 +88,15 @@ def ipv6_manager(mock_settings):
 class TestAddressFamily:
     """Tests for AddressFamily enum."""
 
-    def test_ipv4_value(self):
+    def test_ipv4_value(self) -> None:
         """IPv4 should have correct value."""
         assert AddressFamily.IPV4.value == "ipv4"
 
-    def test_ipv6_value(self):
+    def test_ipv6_value(self) -> None:
         """IPv6 should have correct value."""
         assert AddressFamily.IPV6.value == "ipv6"
 
-    def test_any_value(self):
+    def test_any_value(self) -> None:
         """ANY should have correct value."""
         assert AddressFamily.ANY.value == "any"
 
@@ -109,15 +109,15 @@ class TestAddressFamily:
 class TestIPv6Preference:
     """Tests for IPv6Preference enum."""
 
-    def test_ipv6_first_value(self):
+    def test_ipv6_first_value(self) -> None:
         """IPV6_FIRST should have correct value."""
         assert IPv6Preference.IPV6_FIRST.value == "ipv6_first"
 
-    def test_ipv4_first_value(self):
+    def test_ipv4_first_value(self) -> None:
         """IPV4_FIRST should have correct value."""
         assert IPv6Preference.IPV4_FIRST.value == "ipv4_first"
 
-    def test_auto_value(self):
+    def test_auto_value(self) -> None:
         """AUTO should have correct value."""
         assert IPv6Preference.AUTO.value == "auto"
 
@@ -130,13 +130,13 @@ class TestIPv6Preference:
 class TestIPv6Address:
     """Tests for IPv6Address dataclass."""
 
-    def test_ipv6_address_is_ipv6(self):
+    def test_ipv6_address_is_ipv6(self) -> None:
         """IPv6 address should correctly report is_ipv6."""
         addr = IPv6Address(address="2001:db8::1", family=AddressFamily.IPV6)
         assert addr.is_ipv6 is True
         assert addr.is_ipv4 is False
 
-    def test_ipv4_address_is_ipv4(self):
+    def test_ipv4_address_is_ipv4(self) -> None:
         """IPv4 address should correctly report is_ipv4."""
         addr = IPv6Address(address="192.168.1.1", family=AddressFamily.IPV4)
         assert addr.is_ipv4 is True
@@ -151,7 +151,7 @@ class TestIPv6Address:
 class TestIPv6ConnectionResult:
     """Tests for IPv6ConnectionResult dataclass."""
 
-    def test_successful_result(self):
+    def test_successful_result(self) -> None:
         """Successful connection result should have correct fields."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -166,7 +166,7 @@ class TestIPv6ConnectionResult:
         assert result.family_used == AddressFamily.IPV6
         assert result.switched is False
 
-    def test_switched_result(self):
+    def test_switched_result(self) -> None:
         """Switched connection result should have correct fields."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -182,7 +182,7 @@ class TestIPv6ConnectionResult:
         assert result.family_attempted == AddressFamily.IPV6
         assert result.family_used == AddressFamily.IPV4
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """to_dict should return correct dictionary."""
         addresses = [
             IPv6Address("2001:db8::1", AddressFamily.IPV6),
@@ -216,7 +216,7 @@ class TestIPv6ConnectionResult:
 class TestDomainIPv6Stats:
     """Tests for DomainIPv6Stats dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Default values should be correctly set."""
         stats = DomainIPv6Stats(domain="example.com")
 
@@ -227,7 +227,7 @@ class TestDomainIPv6Stats:
         assert stats.ipv6_preference == IPv6Preference.AUTO
         assert stats.switch_count == 0
 
-    def test_get_preferred_family_ipv6_first(self):
+    def test_get_preferred_family_ipv6_first(self) -> None:
         """get_preferred_family should return IPv6 when preference is IPv6_FIRST."""
         stats = DomainIPv6Stats(
             domain="example.com",
@@ -238,7 +238,7 @@ class TestDomainIPv6Stats:
 
         assert result == AddressFamily.IPV6
 
-    def test_get_preferred_family_ipv4_first(self):
+    def test_get_preferred_family_ipv4_first(self) -> None:
         """get_preferred_family should return IPv4 when preference is IPv4_FIRST."""
         stats = DomainIPv6Stats(
             domain="example.com",
@@ -249,7 +249,7 @@ class TestDomainIPv6Stats:
 
         assert result == AddressFamily.IPV4
 
-    def test_get_preferred_family_disabled_ipv6(self):
+    def test_get_preferred_family_disabled_ipv6(self) -> None:
         """get_preferred_family should return IPv4 when IPv6 is disabled."""
         stats = DomainIPv6Stats(
             domain="example.com",
@@ -260,7 +260,7 @@ class TestDomainIPv6Stats:
 
         assert result == AddressFamily.IPV4
 
-    def test_get_preferred_family_auto_with_better_ipv6(self):
+    def test_get_preferred_family_auto_with_better_ipv6(self) -> None:
         """Auto preference should choose IPv6 when it has better success rate."""
         stats = DomainIPv6Stats(
             domain="example.com",
@@ -275,7 +275,7 @@ class TestDomainIPv6Stats:
 
         assert result == AddressFamily.IPV6
 
-    def test_get_preferred_family_auto_with_better_ipv4(self):
+    def test_get_preferred_family_auto_with_better_ipv4(self) -> None:
         """Auto preference should choose IPv4 when it has significantly better success rate."""
         stats = DomainIPv6Stats(
             domain="example.com",
@@ -290,7 +290,7 @@ class TestDomainIPv6Stats:
 
         assert result == AddressFamily.IPV4
 
-    def test_update_success_rate_ipv6_success(self):
+    def test_update_success_rate_ipv6_success(self) -> None:
         """update_success_rate should update IPv6 success rate on success."""
         stats = DomainIPv6Stats(domain="example.com", ipv6_success_rate=0.5)
 
@@ -305,7 +305,7 @@ class TestDomainIPv6Stats:
             f"Expected numeric timestamp, got {type(stats.last_ipv6_success_at)}"
         )
 
-    def test_update_success_rate_ipv6_failure(self):
+    def test_update_success_rate_ipv6_failure(self) -> None:
         """update_success_rate should update IPv6 success rate on failure."""
         stats = DomainIPv6Stats(domain="example.com", ipv6_success_rate=0.5)
 
@@ -320,7 +320,7 @@ class TestDomainIPv6Stats:
             f"Expected numeric timestamp, got {type(stats.last_ipv6_failure_at)}"
         )
 
-    def test_update_success_rate_ipv4(self):
+    def test_update_success_rate_ipv4(self) -> None:
         """update_success_rate should update IPv4 success rate."""
         stats = DomainIPv6Stats(domain="example.com", ipv4_success_rate=0.5)
 
@@ -330,7 +330,7 @@ class TestDomainIPv6Stats:
         assert stats.ipv4_attempts == 1
         assert stats.ipv4_successes == 1
 
-    def test_record_switch_success(self):
+    def test_record_switch_success(self) -> None:
         """record_switch should track successful switches."""
         stats = DomainIPv6Stats(domain="example.com")
 
@@ -340,7 +340,7 @@ class TestDomainIPv6Stats:
         assert stats.switch_success_count == 1
         assert stats.switch_success_rate == 1.0
 
-    def test_record_switch_failure(self):
+    def test_record_switch_failure(self) -> None:
         """record_switch should track failed switches."""
         stats = DomainIPv6Stats(domain="example.com")
 
@@ -350,7 +350,7 @@ class TestDomainIPv6Stats:
         assert stats.switch_success_count == 0
         assert stats.switch_success_rate == 0.0
 
-    def test_switch_success_rate_multiple(self):
+    def test_switch_success_rate_multiple(self) -> None:
         """switch_success_rate should calculate correctly for multiple switches."""
         stats = DomainIPv6Stats(domain="example.com")
 
@@ -363,7 +363,7 @@ class TestDomainIPv6Stats:
         assert stats.switch_success_count == 3
         assert stats.switch_success_rate == pytest.approx(0.75)
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """to_dict should return correct dictionary."""
         stats = DomainIPv6Stats(
             domain="example.com",
@@ -377,7 +377,7 @@ class TestDomainIPv6Stats:
         assert d["ipv6_success_rate"] == 0.8
         assert d["switch_count"] == 5
 
-    def test_from_dict(self):
+    def test_from_dict(self) -> None:
         """from_dict should create correct object."""
         data = {
             "domain": "example.com",
@@ -405,7 +405,7 @@ class TestDomainIPv6Stats:
 class TestIPv6Metrics:
     """Tests for IPv6Metrics dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Default values should be zero."""
         metrics = IPv6Metrics()
 
@@ -413,7 +413,7 @@ class TestIPv6Metrics:
         assert metrics.total_ipv6_successes == 0
         assert metrics.ipv6_success_rate == 0.0
 
-    def test_record_ipv6_attempt_success(self):
+    def test_record_ipv6_attempt_success(self) -> None:
         """record_attempt should track IPv6 success."""
         metrics = IPv6Metrics()
 
@@ -423,7 +423,7 @@ class TestIPv6Metrics:
         assert metrics.total_ipv6_successes == 1
         assert metrics.ipv6_success_rate == 1.0
 
-    def test_record_ipv6_attempt_failure(self):
+    def test_record_ipv6_attempt_failure(self) -> None:
         """record_attempt should track IPv6 failure."""
         metrics = IPv6Metrics()
 
@@ -433,7 +433,7 @@ class TestIPv6Metrics:
         assert metrics.total_ipv6_successes == 0
         assert metrics.ipv6_success_rate == 0.0
 
-    def test_record_ipv4_attempt(self):
+    def test_record_ipv4_attempt(self) -> None:
         """record_attempt should track IPv4 attempts."""
         metrics = IPv6Metrics()
 
@@ -443,7 +443,7 @@ class TestIPv6Metrics:
         assert metrics.total_ipv4_successes == 1
         assert metrics.ipv4_success_rate == 1.0
 
-    def test_record_switch(self):
+    def test_record_switch(self) -> None:
         """record_attempt should track switches."""
         metrics = IPv6Metrics()
 
@@ -458,7 +458,7 @@ class TestIPv6Metrics:
         assert metrics.total_switch_successes == 1
         assert metrics.switch_success_rate == 1.0
 
-    def test_switch_success_rate_acceptance_criteria(self):
+    def test_switch_success_rate_acceptance_criteria(self) -> None:
         """Switch success rate should be trackable for acceptance criteria (≥80%)."""
         metrics = IPv6Metrics()
 
@@ -481,7 +481,7 @@ class TestIPv6Metrics:
         assert metrics.switch_success_rate == pytest.approx(0.85)
         assert metrics.switch_success_rate >= 0.80  # Acceptance criteria
 
-    def test_avg_latency(self):
+    def test_avg_latency(self) -> None:
         """avg_latency_ms should calculate correctly."""
         metrics = IPv6Metrics()
 
@@ -491,7 +491,7 @@ class TestIPv6Metrics:
 
         assert metrics.avg_latency_ms == pytest.approx(20.0)
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """to_dict should return correct dictionary."""
         metrics = IPv6Metrics()
         metrics.record_attempt(AddressFamily.IPV6, success=True, latency_ms=50.0)
@@ -512,7 +512,7 @@ class TestIPv6ConnectionManager:
     """Tests for IPv6ConnectionManager class."""
 
     @pytest.mark.asyncio
-    async def test_get_domain_stats_creates_new(self, ipv6_manager):
+    async def test_get_domain_stats_creates_new(self, ipv6_manager) -> None:
         """get_domain_stats should create new stats for unknown domain."""
         stats = await ipv6_manager.get_domain_stats("newdomain.com")
 
@@ -521,7 +521,7 @@ class TestIPv6ConnectionManager:
         assert stats.ipv6_success_rate == 0.5
 
     @pytest.mark.asyncio
-    async def test_get_domain_stats_returns_existing(self, ipv6_manager):
+    async def test_get_domain_stats_returns_existing(self, ipv6_manager) -> None:
         """get_domain_stats should return existing stats."""
         # Create stats
         stats1 = await ipv6_manager.get_domain_stats("example.com")
@@ -534,7 +534,7 @@ class TestIPv6ConnectionManager:
         assert stats2.ipv6_success_rate == 0.9
 
     @pytest.mark.asyncio
-    async def test_resolve_addresses_with_mock(self, mock_settings):
+    async def test_resolve_addresses_with_mock(self, mock_settings) -> None:
         """resolve_addresses should return IPv6 and IPv4 addresses."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -556,7 +556,7 @@ class TestIPv6ConnectionManager:
         assert ipv4_addrs[0].family == AddressFamily.IPV4
 
     @pytest.mark.asyncio
-    async def test_get_preferred_addresses_ipv6_first(self, mock_settings):
+    async def test_get_preferred_addresses_ipv6_first(self, mock_settings) -> None:
         """get_preferred_addresses should return IPv6 first when preferred."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -574,7 +574,7 @@ class TestIPv6ConnectionManager:
         assert addresses[1].family == AddressFamily.IPV4
 
     @pytest.mark.asyncio
-    async def test_get_preferred_addresses_ipv4_first(self, mock_settings):
+    async def test_get_preferred_addresses_ipv4_first(self, mock_settings) -> None:
         """get_preferred_addresses should return IPv4 first when preferred."""
         mock_settings.ipv6.preference = "ipv4_first"
         mock_addr_info = [
@@ -593,7 +593,7 @@ class TestIPv6ConnectionManager:
         assert addresses[1].family == AddressFamily.IPV6
 
     @pytest.mark.asyncio
-    async def test_record_connection_result_updates_stats(self, ipv6_manager):
+    async def test_record_connection_result_updates_stats(self, ipv6_manager) -> None:
         """record_connection_result should update domain stats."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -612,7 +612,7 @@ class TestIPv6ConnectionManager:
         assert stats.ipv6_successes == 1
 
     @pytest.mark.asyncio
-    async def test_record_connection_result_with_switch(self, ipv6_manager):
+    async def test_record_connection_result_with_switch(self, ipv6_manager) -> None:
         """record_connection_result should track switches."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -631,7 +631,7 @@ class TestIPv6ConnectionManager:
         assert stats.switch_success_count == 1
 
     @pytest.mark.asyncio
-    async def test_auto_disable_ipv6_on_low_success(self, mock_settings):
+    async def test_auto_disable_ipv6_on_low_success(self, mock_settings) -> None:
         """IPv6 should be auto-disabled when success rate drops below threshold."""
         mock_settings.ipv6.learning_threshold = 0.3
         mock_settings.ipv6.min_samples = 5
@@ -758,12 +758,12 @@ class TestIPv6ConnectionManager:
         assert result.success is False
         assert result.error == "No addresses resolved"
 
-    def test_is_ipv6_enabled(self, ipv6_manager):
+    def test_is_ipv6_enabled(self, ipv6_manager) -> None:
         """is_ipv6_enabled should return global setting."""
         assert ipv6_manager.is_ipv6_enabled() is True
 
     @pytest.mark.asyncio
-    async def test_is_ipv6_enabled_for_domain(self, ipv6_manager):
+    async def test_is_ipv6_enabled_for_domain(self, ipv6_manager) -> None:
         """is_ipv6_enabled_for_domain should check domain-specific setting."""
         # Default should be enabled
         assert await ipv6_manager.is_ipv6_enabled_for_domain("example.com") is True
@@ -774,7 +774,7 @@ class TestIPv6ConnectionManager:
         assert await ipv6_manager.is_ipv6_enabled_for_domain("example.com") is False
 
     @pytest.mark.asyncio
-    async def test_set_domain_preference(self, ipv6_manager):
+    async def test_set_domain_preference(self, ipv6_manager) -> None:
         """set_domain_preference should update preference."""
         await ipv6_manager.set_domain_preference("example.com", IPv6Preference.IPV4_FIRST)
 
@@ -782,7 +782,7 @@ class TestIPv6ConnectionManager:
 
         assert stats.ipv6_preference == IPv6Preference.IPV4_FIRST
 
-    def test_metrics_property(self, ipv6_manager):
+    def test_metrics_property(self, ipv6_manager) -> None:
         """metrics property should return metrics object."""
         metrics = ipv6_manager.metrics
 
@@ -798,7 +798,7 @@ class TestIPv6ConnectionManager:
 class TestGlobalFunctions:
     """Tests for global convenience functions."""
 
-    def test_get_ipv6_manager_singleton(self, mock_settings):
+    def test_get_ipv6_manager_singleton(self, mock_settings) -> None:
         """get_ipv6_manager should return singleton."""
         import src.crawler.ipv6_manager as ipv6_module
 
@@ -814,7 +814,7 @@ class TestGlobalFunctions:
         ipv6_module._ipv6_manager = None
 
     @pytest.mark.asyncio
-    async def test_resolve_with_ipv6_preference(self, mock_settings):
+    async def test_resolve_with_ipv6_preference(self, mock_settings) -> None:
         """resolve_with_ipv6_preference should use manager."""
         import src.crawler.ipv6_manager as ipv6_module
 
@@ -844,7 +844,7 @@ class TestIPv6ManagerIntegration:
     """Integration tests for IPv6ConnectionManager."""
 
     @pytest.mark.asyncio
-    async def test_learning_improves_preference(self, mock_settings):
+    async def test_learning_improves_preference(self, mock_settings) -> None:
         """Repeated successes should improve preference for that family (§4.3).
 
         EMA calculation with alpha=0.1, initial=0.5, 5 successes:
@@ -883,7 +883,7 @@ class TestIPv6ManagerIntegration:
             assert stats.ipv6_enabled is True, "IPv6 should remain enabled after successes"
 
     @pytest.mark.asyncio
-    async def test_switch_tracking_for_acceptance_criteria(self, mock_settings):
+    async def test_switch_tracking_for_acceptance_criteria(self, mock_settings) -> None:
         """Switch success rate should be trackable per acceptance criteria."""
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             manager = IPv6ConnectionManager()
@@ -920,7 +920,7 @@ class TestIPv6ManagerIntegration:
             assert metrics.switch_success_rate == pytest.approx(0.8)
 
     @pytest.mark.asyncio
-    async def test_happy_eyeballs_interleaving(self, mock_settings):
+    async def test_happy_eyeballs_interleaving(self, mock_settings) -> None:
         """Addresses should be interleaved for Happy Eyeballs (§4.3)."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -951,7 +951,7 @@ class TestIPv6BoundaryConditions:
     """Boundary condition tests per §7.1.2.4."""
 
     @pytest.mark.asyncio
-    async def test_empty_address_resolution(self, mock_settings):
+    async def test_empty_address_resolution(self, mock_settings) -> None:
         """Empty DNS resolution should return empty lists."""
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
             with patch("socket.getaddrinfo", return_value=[]):
@@ -962,7 +962,7 @@ class TestIPv6BoundaryConditions:
         assert ipv4_addrs == [], "IPv4 addresses should be empty"
 
     @pytest.mark.asyncio
-    async def test_single_ipv6_address_only(self, mock_settings):
+    async def test_single_ipv6_address_only(self, mock_settings) -> None:
         """Single IPv6-only resolution should work correctly."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -980,7 +980,7 @@ class TestIPv6BoundaryConditions:
         assert addresses[0].address == "2001:db8::1", "Address should match"
 
     @pytest.mark.asyncio
-    async def test_single_ipv4_address_only(self, mock_settings):
+    async def test_single_ipv4_address_only(self, mock_settings) -> None:
         """Single IPv4-only resolution should work correctly."""
         mock_addr_info = [
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
@@ -1045,14 +1045,14 @@ class TestIPv6BoundaryConditions:
         assert result.family_used == AddressFamily.IPV4, "Should use IPv4 (only option)"
         assert result.switched is False, "Should not count as switch (IPv4 is first available)"
 
-    def test_domain_stats_zero_switch_count(self):
+    def test_domain_stats_zero_switch_count(self) -> None:
         """switch_success_rate should be 0.0 when no switches occurred."""
         stats = DomainIPv6Stats(domain="example.com")
 
         assert stats.switch_count == 0, "Initial switch count should be 0"
         assert stats.switch_success_rate == 0.0, "Rate should be 0.0 with no switches"
 
-    def test_domain_stats_zero_attempts(self):
+    def test_domain_stats_zero_attempts(self) -> None:
         """Success rates with zero attempts should use default values."""
         stats = DomainIPv6Stats(domain="example.com")
 
@@ -1063,7 +1063,7 @@ class TestIPv6BoundaryConditions:
         assert stats.ipv4_success_rate == 0.5, "Default IPv4 success rate should be 0.5"
 
     @pytest.mark.asyncio
-    async def test_duplicate_address_deduplication(self, mock_settings):
+    async def test_duplicate_address_deduplication(self, mock_settings) -> None:
         """Duplicate addresses should be deduplicated."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -1080,13 +1080,13 @@ class TestIPv6BoundaryConditions:
         assert len(ipv6_addrs) == 1, "Duplicate IPv6 addresses should be deduplicated"
         assert len(ipv4_addrs) == 1, "Duplicate IPv4 addresses should be deduplicated"
 
-    def test_metrics_empty_latency_list(self):
+    def test_metrics_empty_latency_list(self) -> None:
         """avg_latency_ms should return 0.0 for empty latency list."""
         metrics = IPv6Metrics()
 
         assert metrics.avg_latency_ms == 0.0, "Average latency should be 0.0 with no data"
 
-    def test_metrics_latency_window_limit(self):
+    def test_metrics_latency_window_limit(self) -> None:
         """Latency window should be limited to last 100 entries."""
         metrics = IPv6Metrics()
 

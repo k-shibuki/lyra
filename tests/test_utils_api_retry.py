@@ -47,7 +47,7 @@ from src.utils.backoff import BackoffConfig
 class TestHTTPStatusError:
     """Tests for HTTPStatusError exception."""
 
-    def test_status_attribute(self):
+    def test_status_attribute(self) -> None:
         """Test that status attribute is set correctly."""
         # Given: HTTP 429 status
         # When: Creating exception
@@ -57,7 +57,7 @@ class TestHTTPStatusError:
         assert error.status == 429
         assert "Rate limited" in str(error)
 
-    def test_default_message(self):
+    def test_default_message(self) -> None:
         """Test default message format."""
         # Given: Status only
         # When: Creating exception
@@ -70,7 +70,7 @@ class TestHTTPStatusError:
 class TestAPIRetryError:
     """Tests for APIRetryError exception."""
 
-    def test_attributes(self):
+    def test_attributes(self) -> None:
         """Test that all attributes are set correctly."""
         # Given: Error details
         inner_error = ConnectionError("Connection refused")
@@ -89,7 +89,7 @@ class TestAPIRetryError:
         assert error.last_status is None
         assert "Failed after retries" in str(error)
 
-    def test_with_status(self):
+    def test_with_status(self) -> None:
         """Test exception with last HTTP status."""
         # Given: HTTP error details
         # When: Creating exception
@@ -106,7 +106,7 @@ class TestAPIRetryError:
 class TestAPIRetryPolicy:
     """Tests for APIRetryPolicy dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """TC-P-01: Default policy has correct values."""
         # Given: No arguments
         # When: Creating default policy
@@ -122,7 +122,7 @@ class TestAPIRetryPolicy:
         assert 503 in policy.retryable_status_codes
         assert 403 in policy.non_retryable_status_codes
 
-    def test_overlap_raises_error(self):
+    def test_overlap_raises_error(self) -> None:
         """TC-P-02: Overlapping status codes raise ValueError."""
         # Given: Same status in both sets
         # When/Then: ValueError is raised
@@ -132,14 +132,14 @@ class TestAPIRetryPolicy:
                 non_retryable_status_codes=frozenset({403}),
             )
 
-    def test_negative_max_retries_raises_error(self):
+    def test_negative_max_retries_raises_error(self) -> None:
         """Test that negative max_retries raises ValueError."""
         # Given: Negative max_retries
         # When/Then: ValueError is raised
         with pytest.raises(ValueError, match="max_retries must be non-negative"):
             APIRetryPolicy(max_retries=-1)
 
-    def test_should_retry_exception_connection_error(self):
+    def test_should_retry_exception_connection_error(self) -> None:
         """TC-P-03: ConnectionError is retryable."""
         # Given: Policy and ConnectionError
         policy = APIRetryPolicy()
@@ -149,7 +149,7 @@ class TestAPIRetryPolicy:
         # Then: Returns True
         assert policy.should_retry_exception(exc) is True
 
-    def test_should_retry_exception_timeout_error(self):
+    def test_should_retry_exception_timeout_error(self) -> None:
         """TC-P-04: TimeoutError is retryable."""
         # Given: Policy and TimeoutError
         policy = APIRetryPolicy()
@@ -159,7 +159,7 @@ class TestAPIRetryPolicy:
         # Then: Returns True
         assert policy.should_retry_exception(exc) is True
 
-    def test_should_retry_exception_value_error(self):
+    def test_should_retry_exception_value_error(self) -> None:
         """TC-P-05: ValueError is not retryable."""
         # Given: Policy and ValueError
         policy = APIRetryPolicy()
@@ -169,7 +169,7 @@ class TestAPIRetryPolicy:
         # Then: Returns False
         assert policy.should_retry_exception(exc) is False
 
-    def test_should_retry_status_429(self):
+    def test_should_retry_status_429(self) -> None:
         """TC-P-06: Status 429 is retryable."""
         # Given: Policy
         policy = APIRetryPolicy()
@@ -178,7 +178,7 @@ class TestAPIRetryPolicy:
         # Then: Returns True
         assert policy.should_retry_status(429) is True
 
-    def test_should_retry_status_503(self):
+    def test_should_retry_status_503(self) -> None:
         """TC-P-07: Status 503 is retryable."""
         # Given: Policy
         policy = APIRetryPolicy()
@@ -187,7 +187,7 @@ class TestAPIRetryPolicy:
         # Then: Returns True
         assert policy.should_retry_status(503) is True
 
-    def test_should_retry_status_404(self):
+    def test_should_retry_status_404(self) -> None:
         """TC-P-08: Status 404 is not retryable."""
         # Given: Policy
         policy = APIRetryPolicy()
@@ -196,7 +196,7 @@ class TestAPIRetryPolicy:
         # Then: Returns False
         assert policy.should_retry_status(404) is False
 
-    def test_should_retry_status_403(self):
+    def test_should_retry_status_403(self) -> None:
         """TC-P-09: Status 403 is not retryable."""
         # Given: Policy
         policy = APIRetryPolicy()
@@ -205,7 +205,7 @@ class TestAPIRetryPolicy:
         # Then: Returns False
         assert policy.should_retry_status(403) is False
 
-    def test_should_retry_status_unknown(self):
+    def test_should_retry_status_unknown(self) -> None:
         """Test that unknown status codes are not retryable."""
         # Given: Policy
         policy = APIRetryPolicy()
@@ -257,7 +257,7 @@ class TestRetryApiCall:
         assert call_count == 3
 
     @pytest.mark.asyncio
-    async def test_all_retries_exhausted(self):
+    async def test_all_retries_exhausted(self) -> None:
         """TC-R-03: Raises APIRetryError when all retries exhausted."""
 
         # Given: Function that always fails
@@ -276,7 +276,7 @@ class TestRetryApiCall:
         assert isinstance(exc_info.value.last_error, ConnectionError)
 
     @pytest.mark.asyncio
-    async def test_non_retryable_exception(self):
+    async def test_non_retryable_exception(self) -> None:
         """TC-R-04: Non-retryable exceptions are re-raised immediately."""
 
         # Given: Function that raises ValueError
@@ -289,7 +289,7 @@ class TestRetryApiCall:
             await retry_api_call(raises_value_error, policy=policy)
 
     @pytest.mark.asyncio
-    async def test_non_retryable_http_status(self):
+    async def test_non_retryable_http_status(self) -> None:
         """TC-R-05: Non-retryable HTTP status is re-raised immediately."""
 
         # Given: Function that returns 404
@@ -328,7 +328,7 @@ class TestRetryApiCall:
         assert call_count == 3
 
     @pytest.mark.asyncio
-    async def test_operation_name_in_error(self):
+    async def test_operation_name_in_error(self) -> None:
         """Test that operation name appears in error."""
 
         # Given: Function that always fails
@@ -351,7 +351,7 @@ class TestRetryApiCall:
         assert "fetch_data" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_last_status_in_error(self):
+    async def test_last_status_in_error(self) -> None:
         """Test that last HTTP status is recorded in error."""
 
         # Given: Function that always returns 503
@@ -414,7 +414,7 @@ class TestWithApiRetryDecorator:
         assert call_count == 2
 
     @pytest.mark.asyncio
-    async def test_decorator_custom_policy(self):
+    async def test_decorator_custom_policy(self) -> None:
         """TC-D-02: Decorator uses custom policy."""
         # Given: Custom policy with 0 retries
         policy = APIRetryPolicy(max_retries=0)
@@ -445,7 +445,7 @@ class TestWithApiRetryDecorator:
         assert "This is my function" in my_function.__doc__
 
     @pytest.mark.asyncio
-    async def test_decorator_with_operation_name(self):
+    async def test_decorator_with_operation_name(self) -> None:
         """Test decorator with custom operation name."""
         # Given: Decorated function with custom name
         policy = APIRetryPolicy(
@@ -467,7 +467,7 @@ class TestWithApiRetryDecorator:
 class TestPreConfiguredPolicies:
     """Tests for pre-configured policies."""
 
-    def test_japan_gov_api_policy(self):
+    def test_japan_gov_api_policy(self) -> None:
         """Test JAPAN_GOV_API_POLICY configuration."""
         # Given: Pre-configured policy
         policy = JAPAN_GOV_API_POLICY
@@ -477,7 +477,7 @@ class TestPreConfiguredPolicies:
         assert policy.backoff.base_delay == 2.0
         assert policy.backoff.max_delay == 60.0
 
-    def test_academic_api_policy(self):
+    def test_academic_api_policy(self) -> None:
         """Test ACADEMIC_API_POLICY configuration."""
         # Given: Pre-configured policy
         policy = ACADEMIC_API_POLICY
@@ -487,7 +487,7 @@ class TestPreConfiguredPolicies:
         assert policy.backoff.base_delay == 1.0
         assert policy.backoff.max_delay == 120.0
 
-    def test_entity_api_policy(self):
+    def test_entity_api_policy(self) -> None:
         """Test ENTITY_API_POLICY configuration."""
         # Given: Pre-configured policy
         policy = ENTITY_API_POLICY
@@ -501,7 +501,7 @@ class TestPreConfiguredPolicies:
 class TestSpecCompliance:
     """Tests for compliance with specification sections."""
 
-    def test_spec_3_1_3_no_bot_detection_for_official_apis(self):
+    def test_spec_3_1_3_no_bot_detection_for_official_apis(self) -> None:
         """Test that policy is designed for official APIs without bot detection (§3.1.3)."""
         # Given: Default policy
         policy = APIRetryPolicy()
@@ -513,7 +513,7 @@ class TestSpecCompliance:
         # Then: Does NOT retry 403 (in case API uses it for auth errors)
         assert not policy.should_retry_status(403)
 
-    def test_spec_4_3_5_network_transient_retry(self):
+    def test_spec_4_3_5_network_transient_retry(self) -> None:
         """Test that policy handles network transient errors (§4.3.5)."""
         # Given: Policy
         policy = APIRetryPolicy()
@@ -525,7 +525,7 @@ class TestSpecCompliance:
         assert 503 in policy.retryable_status_codes  # Service unavailable
         assert 504 in policy.retryable_status_codes  # Gateway timeout
 
-    def test_spec_4_3_5_not_for_search_engines(self):
+    def test_spec_4_3_5_not_for_search_engines(self) -> None:
         """Test that 403 is NOT retryable (search engine protection) per §4.3.5."""
         # Given: Policy
         policy = APIRetryPolicy()

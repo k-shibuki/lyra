@@ -34,7 +34,7 @@ from src.crawler.robots import (
 class TestRobotsRule:
     """Tests for RobotsRule dataclass."""
 
-    def test_is_expired_fresh(self):
+    def test_is_expired_fresh(self) -> None:
         """Fresh RobotsRule should not be expired."""
         rule = RobotsRule(
             domain="example.com",
@@ -42,7 +42,7 @@ class TestRobotsRule:
         )
         assert not rule.is_expired(ttl_hours=24)
 
-    def test_is_expired_old(self):
+    def test_is_expired_old(self) -> None:
         """Old RobotsRule should be expired."""
         rule = RobotsRule(
             domain="example.com",
@@ -50,7 +50,7 @@ class TestRobotsRule:
         )
         assert rule.is_expired(ttl_hours=24)
 
-    def test_is_expired_custom_ttl(self):
+    def test_is_expired_custom_ttl(self) -> None:
         """Custom TTL should be respected."""
         rule = RobotsRule(
             domain="example.com",
@@ -68,17 +68,17 @@ class TestRobotsRule:
 class TestSitemapEntry:
     """Tests for SitemapEntry dataclass."""
 
-    def test_default_score(self):
+    def test_default_score(self) -> None:
         """Default score should be priority value."""
         entry = SitemapEntry(loc="https://example.com/page")
         assert entry.score() == 0.5
 
-    def test_high_priority_score(self):
+    def test_high_priority_score(self) -> None:
         """High priority should increase score."""
         entry = SitemapEntry(loc="https://example.com/page", priority=1.0)
         assert entry.score() >= 1.0
 
-    def test_recent_content_boost(self):
+    def test_recent_content_boost(self) -> None:
         """Recent content should boost score."""
         entry = SitemapEntry(
             loc="https://example.com/page",
@@ -87,7 +87,7 @@ class TestSitemapEntry:
         )
         assert entry.score() > 0.5  # Should have boost
 
-    def test_frequent_change_boost(self):
+    def test_frequent_change_boost(self) -> None:
         """Frequently changing content should boost score."""
         entry = SitemapEntry(
             loc="https://example.com/page",
@@ -96,7 +96,7 @@ class TestSitemapEntry:
         )
         assert entry.score() > 0.5
 
-    def test_score_capped_at_one(self):
+    def test_score_capped_at_one(self) -> None:
         """Score should be capped at 1.0."""
         entry = SitemapEntry(
             loc="https://example.com/page",
@@ -115,12 +115,12 @@ class TestSitemapEntry:
 class TestSitemapResult:
     """Tests for SitemapResult dataclass."""
 
-    def test_get_priority_urls_empty(self):
+    def test_get_priority_urls_empty(self) -> None:
         """Empty result should return empty list."""
         result = SitemapResult(domain="example.com")
         assert result.get_priority_urls() == []
 
-    def test_get_priority_urls_sorted(self):
+    def test_get_priority_urls_sorted(self) -> None:
         """URLs should be sorted by score descending."""
         entries = [
             SitemapEntry(loc="https://example.com/low", priority=0.3),
@@ -134,7 +134,7 @@ class TestSitemapResult:
         assert urls[0][0] == "https://example.com/high"
         assert urls[-1][0] == "https://example.com/low"
 
-    def test_get_priority_urls_limit(self):
+    def test_get_priority_urls_limit(self) -> None:
         """Limit should be respected."""
         entries = [
             SitemapEntry(loc=f"https://example.com/page{i}", priority=0.8) for i in range(10)
@@ -144,7 +144,7 @@ class TestSitemapResult:
 
         assert len(urls) == 3
 
-    def test_get_priority_urls_min_score_filter(self):
+    def test_get_priority_urls_min_score_filter(self) -> None:
         """URLs below min_score should be filtered."""
         entries = [
             SitemapEntry(loc="https://example.com/low", priority=0.3),
@@ -165,28 +165,28 @@ class TestSitemapResult:
 class TestRobotsChecker:
     """Tests for RobotsChecker class."""
 
-    def test_path_matches_exact(self):
+    def test_path_matches_exact(self) -> None:
         """Exact path should match."""
         assert RobotsChecker._path_matches("/admin/", "/admin/")
         assert not RobotsChecker._path_matches("/admin/", "/other/")
 
-    def test_path_matches_prefix(self):
+    def test_path_matches_prefix(self) -> None:
         """Prefix should match longer paths."""
         assert RobotsChecker._path_matches("/admin/page", "/admin/")
         assert RobotsChecker._path_matches("/admin/", "/admin/")
 
-    def test_path_matches_wildcard(self):
+    def test_path_matches_wildcard(self) -> None:
         """Wildcard * should match any characters."""
         assert RobotsChecker._path_matches("/page.html", "/*.html")
         assert RobotsChecker._path_matches("/subdir/page.html", "/*.html")
         assert not RobotsChecker._path_matches("/page.txt", "/*.html")
 
-    def test_path_matches_end_anchor(self):
+    def test_path_matches_end_anchor(self) -> None:
         """Dollar sign should anchor to end."""
         assert RobotsChecker._path_matches("/page.html", "/page.html$")
         assert not RobotsChecker._path_matches("/page.html/extra", "/page.html$")
 
-    def test_parse_robots_txt_basic(self):
+    def test_parse_robots_txt_basic(self) -> None:
         """Basic robots.txt parsing."""
         checker = RobotsChecker()
         content = """
@@ -206,7 +206,7 @@ Sitemap: https://example.com/sitemap.xml
         assert rules.crawl_delay == 2.0
         assert "https://example.com/sitemap.xml" in rules.sitemap_urls
 
-    def test_parse_robots_txt_multiple_sitemaps(self):
+    def test_parse_robots_txt_multiple_sitemaps(self) -> None:
         """Multiple Sitemap directives should be collected."""
         checker = RobotsChecker()
         content = """
@@ -219,7 +219,7 @@ Sitemap: https://example.com/sitemap2.xml
 
         assert len(rules.sitemap_urls) == 2
 
-    def test_parse_robots_txt_user_agent_specific(self):
+    def test_parse_robots_txt_user_agent_specific(self) -> None:
         """Specific user-agent rules should be respected."""
         checker = RobotsChecker()
         content = """
@@ -236,7 +236,7 @@ Disallow: /general-blocked/
         assert "/lyra-blocked/" in rules.disallowed_paths
         assert rules.crawl_delay == 5.0
 
-    def test_parse_robots_txt_comments(self):
+    def test_parse_robots_txt_comments(self) -> None:
         """Comments should be ignored per RFC 9309.
 
         Both standalone comments and inline comments (# ...) should be stripped.
@@ -259,7 +259,7 @@ Disallow: /admin/  # inline comment
         )
 
     @pytest.mark.asyncio
-    async def test_can_fetch_allowed(self):
+    async def test_can_fetch_allowed(self) -> None:
         """Allowed URLs should pass check."""
         checker = RobotsChecker()
 
@@ -274,7 +274,7 @@ Disallow: /admin/  # inline comment
         assert not await checker.can_fetch("https://example.com/admin/settings")
 
     @pytest.mark.asyncio
-    async def test_can_fetch_allow_overrides_disallow(self):
+    async def test_can_fetch_allow_overrides_disallow(self) -> None:
         """More specific Allow should override Disallow."""
         checker = RobotsChecker()
 
@@ -290,7 +290,7 @@ Disallow: /admin/  # inline comment
         assert not await checker.can_fetch("https://example.com/admin/private/")
 
     @pytest.mark.asyncio
-    async def test_get_crawl_delay(self):
+    async def test_get_crawl_delay(self) -> None:
         """Crawl delay should be retrieved from cache."""
         checker = RobotsChecker()
 
@@ -303,7 +303,7 @@ Disallow: /admin/  # inline comment
         assert delay == 3.0
 
     @pytest.mark.asyncio
-    async def test_get_sitemaps(self):
+    async def test_get_sitemaps(self) -> None:
         """Sitemap URLs should be retrieved from cache."""
         checker = RobotsChecker()
 
@@ -324,7 +324,7 @@ Disallow: /admin/  # inline comment
 class TestSitemapParser:
     """Tests for SitemapParser class."""
 
-    def test_parse_datetime_iso(self):
+    def test_parse_datetime_iso(self) -> None:
         """ISO 8601 datetime parsing."""
         dt = SitemapParser._parse_datetime("2024-01-15T10:30:00Z")
         assert dt is not None
@@ -332,18 +332,18 @@ class TestSitemapParser:
         assert dt.month == 1
         assert dt.day == 15
 
-    def test_parse_datetime_date_only(self):
+    def test_parse_datetime_date_only(self) -> None:
         """Date-only format parsing."""
         dt = SitemapParser._parse_datetime("2024-01-15")
         assert dt is not None
         assert dt.year == 2024
 
-    def test_parse_datetime_invalid(self):
+    def test_parse_datetime_invalid(self) -> None:
         """Invalid date should return None."""
         dt = SitemapParser._parse_datetime("not-a-date")
         assert dt is None
 
-    def test_extract_url_entries_basic(self):
+    def test_extract_url_entries_basic(self) -> None:
         """Basic URL entry extraction."""
         import xml.etree.ElementTree as ET
 
@@ -371,7 +371,7 @@ class TestSitemapParser:
         assert entries[0].changefreq == "weekly"
         assert entries[1].loc == "https://example.com/page2"
 
-    def test_extract_sitemap_urls_from_index(self):
+    def test_extract_sitemap_urls_from_index(self) -> None:
         """Sitemap index URL extraction."""
         import xml.etree.ElementTree as ET
 
@@ -403,7 +403,7 @@ class TestRobotsManager:
     """Tests for RobotsManager integration class."""
 
     @pytest.mark.asyncio
-    async def test_can_fetch_integration(self):
+    async def test_can_fetch_integration(self) -> None:
         """Integration test for URL compliance checking."""
         manager = RobotsManager()
 
@@ -417,7 +417,7 @@ class TestRobotsManager:
         assert not await manager.can_fetch("https://example.com/admin/settings")
 
     @pytest.mark.asyncio
-    async def test_get_effective_delay(self):
+    async def test_get_effective_delay(self) -> None:
         """Effective delay should consider multiple sources."""
         manager = RobotsManager()
 
@@ -431,7 +431,7 @@ class TestRobotsManager:
         # Should be at least 10.0 from robots.txt
         assert delay >= 10.0
 
-    def test_clear_cache(self):
+    def test_clear_cache(self) -> None:
         """Cache clearing should work."""
         manager = RobotsManager()
 
@@ -454,7 +454,7 @@ class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
     @pytest.mark.asyncio
-    async def test_check_robots_compliance(self):
+    async def test_check_robots_compliance(self) -> None:
         """check_robots_compliance should return structured result."""
         # Mock the manager
         with patch("src.crawler.robots.get_robots_manager") as mock_get_manager:
@@ -477,7 +477,7 @@ class TestMCPToolFunctions:
             assert result["effective_delay"] == 2.0
 
     @pytest.mark.asyncio
-    async def test_get_sitemap_urls(self):
+    async def test_get_sitemap_urls(self) -> None:
         """get_sitemap_urls should return URL list."""
         with patch("src.crawler.robots.get_robots_manager") as mock_get_manager:
             mock_manager = MagicMock()
@@ -497,7 +497,7 @@ class TestMCPToolFunctions:
             assert result["urls"][0]["url"] == "https://example.com/high"
 
     @pytest.mark.asyncio
-    async def test_get_sitemap_urls_with_keywords(self):
+    async def test_get_sitemap_urls_with_keywords(self) -> None:
         """Keywords should filter URLs."""
         with patch("src.crawler.robots.get_robots_manager") as mock_get_manager:
             mock_manager = MagicMock()
@@ -529,7 +529,7 @@ class TestMCPToolFunctions:
 class TestEdgeCases:
     """Edge case tests."""
 
-    def test_empty_robots_txt(self):
+    def test_empty_robots_txt(self) -> None:
         """Empty robots.txt should allow all."""
         checker = RobotsChecker()
         rules = checker._parse_robots_txt("example.com", "")
@@ -537,7 +537,7 @@ class TestEdgeCases:
         assert rules.domain == "example.com"
         assert len(rules.disallowed_paths) == 0
 
-    def test_robots_txt_without_user_agent(self):
+    def test_robots_txt_without_user_agent(self) -> None:
         """robots.txt without User-agent should be handled.
 
         Sitemap directives are global and should be extracted regardless.
@@ -559,7 +559,7 @@ Sitemap: https://example.com/sitemap.xml
             f"Expected exactly 1 sitemap URL, got {len(rules.sitemap_urls)}"
         )
 
-    def test_sitemap_entry_score_old_content(self):
+    def test_sitemap_entry_score_old_content(self) -> None:
         """Old content should not get recency boost."""
         entry = SitemapEntry(
             loc="https://example.com/page",
@@ -569,10 +569,10 @@ Sitemap: https://example.com/sitemap.xml
         # Score should be close to base priority
         assert entry.score() == pytest.approx(0.5, abs=0.1)
 
-    def test_path_matches_empty_pattern(self):
+    def test_path_matches_empty_pattern(self) -> None:
         """Empty pattern should not match."""
         assert not RobotsChecker._path_matches("/page", "")
 
-    def test_path_matches_root(self):
+    def test_path_matches_root(self) -> None:
         """Root pattern should match all."""
         assert RobotsChecker._path_matches("/any/path", "/")

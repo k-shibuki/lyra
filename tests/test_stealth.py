@@ -40,7 +40,7 @@ from src.crawler.stealth import (
 class TestStealthJS:
     """Test stealth JavaScript injection scripts."""
 
-    def test_stealth_js_contains_webdriver_override(self):
+    def test_stealth_js_contains_webdriver_override(self) -> None:
         """Verify STEALTH_JS overrides navigator.webdriver per §4.3."""
         assert "navigator" in STEALTH_JS
         assert "webdriver" in STEALTH_JS
@@ -48,7 +48,7 @@ class TestStealthJS:
         # Should use Object.defineProperty for reliable override
         assert "Object.defineProperty" in STEALTH_JS
 
-    def test_stealth_js_removes_automation_markers(self):
+    def test_stealth_js_removes_automation_markers(self) -> None:
         """Verify STEALTH_JS removes automation-related properties."""
         automation_markers = [
             "__webdriver_script_fn",
@@ -59,28 +59,28 @@ class TestStealthJS:
         for marker in automation_markers:
             assert marker in STEALTH_JS
 
-    def test_stealth_js_overrides_plugins(self):
+    def test_stealth_js_overrides_plugins(self) -> None:
         """Verify STEALTH_JS provides realistic plugin array."""
         assert "plugins" in STEALTH_JS
         assert "Chrome PDF Plugin" in STEALTH_JS
 
-    def test_stealth_js_sets_languages(self):
+    def test_stealth_js_sets_languages(self) -> None:
         """Verify STEALTH_JS sets realistic languages array."""
         assert "languages" in STEALTH_JS
         assert "ja-JP" in STEALTH_JS
 
-    def test_stealth_js_removes_playwright_markers(self):
+    def test_stealth_js_removes_playwright_markers(self) -> None:
         """Verify STEALTH_JS removes Playwright detection markers."""
         assert "__playwright" in STEALTH_JS
         assert "__puppeteer" in STEALTH_JS
 
-    def test_cdp_stealth_js_exists(self):
+    def test_cdp_stealth_js_exists(self) -> None:
         """Verify CDP-specific stealth script exists."""
         assert CDP_STEALTH_JS is not None
         # CDP stealth script should contain webdriver detection bypass
         assert "webdriver" in CDP_STEALTH_JS, "Expected 'webdriver' in CDP_STEALTH_JS"
 
-    def test_cdp_stealth_js_removes_cdp_markers(self):
+    def test_cdp_stealth_js_removes_cdp_markers(self) -> None:
         """Verify CDP stealth removes CDP-specific detection markers."""
         # These are Chrome DevTools Protocol markers
         assert "cdc_" in CDP_STEALTH_JS
@@ -90,7 +90,7 @@ class TestStealthJS:
 class TestViewportJitterConfig:
     """Test ViewportJitterConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default configuration values."""
         config = ViewportJitterConfig()
 
@@ -101,7 +101,7 @@ class TestViewportJitterConfig:
         assert config.hysteresis_seconds == 300.0
         assert config.enabled is True
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom configuration values."""
         config = ViewportJitterConfig(
             base_width=1280,
@@ -124,7 +124,7 @@ class TestViewportJitterConfig:
 class TestViewportJitter:
     """Test ViewportJitter class per §4.3."""
 
-    def test_jitter_returns_dict_with_width_and_height(self):
+    def test_jitter_returns_dict_with_width_and_height(self) -> None:
         """Test get_viewport returns dict with required keys."""
         jitter = ViewportJitter()
         viewport = jitter.get_viewport(force_update=True)
@@ -134,7 +134,7 @@ class TestViewportJitter:
         assert isinstance(viewport["width"], int)
         assert isinstance(viewport["height"], int)
 
-    def test_jitter_applies_narrow_range(self):
+    def test_jitter_applies_narrow_range(self) -> None:
         """Test jitter is within configured narrow range per §4.3."""
         config = ViewportJitterConfig(
             base_width=1920,
@@ -153,7 +153,7 @@ class TestViewportJitter:
             # Height should be within ±15 of base
             assert 1065 <= viewport["height"] <= 1095
 
-    def test_hysteresis_prevents_rapid_changes(self):
+    def test_hysteresis_prevents_rapid_changes(self) -> None:
         """Test hysteresis prevents viewport changes within threshold per §4.3."""
         config = ViewportJitterConfig(
             base_width=1920,
@@ -171,7 +171,7 @@ class TestViewportJitter:
         assert viewport1["width"] == viewport2["width"]
         assert viewport1["height"] == viewport2["height"]
 
-    def test_force_update_bypasses_hysteresis(self):
+    def test_force_update_bypasses_hysteresis(self) -> None:
         """Test force_update=True bypasses hysteresis."""
         config = ViewportJitterConfig(
             base_width=1920,
@@ -190,7 +190,7 @@ class TestViewportJitter:
         # State's last_change_time should be updated
         assert jitter._state.last_change_time > 0
 
-    def test_disabled_jitter_returns_base_dimensions(self):
+    def test_disabled_jitter_returns_base_dimensions(self) -> None:
         """Test disabled jitter returns exact base dimensions."""
         config = ViewportJitterConfig(
             base_width=1920,
@@ -204,7 +204,7 @@ class TestViewportJitter:
         assert viewport["width"] == 1920
         assert viewport["height"] == 1080
 
-    def test_reset_clears_state(self):
+    def test_reset_clears_state(self) -> None:
         """Test reset() clears viewport state."""
         jitter = ViewportJitter()
 
@@ -224,7 +224,7 @@ class TestViewportJitter:
 class TestGetStealthArgs:
     """Test get_stealth_args function."""
 
-    def test_returns_list(self):
+    def test_returns_list(self) -> None:
         """Test returns a list of arguments."""
         args = get_stealth_args()
 
@@ -232,19 +232,19 @@ class TestGetStealthArgs:
         # Should have at least 1 stealth argument
         assert len(args) >= 1, f"Expected >=1 stealth args, got {len(args)}"
 
-    def test_contains_automation_controlled_disable(self):
+    def test_contains_automation_controlled_disable(self) -> None:
         """Test includes --disable-blink-features=AutomationControlled."""
         args = get_stealth_args()
 
         assert "--disable-blink-features=AutomationControlled" in args
 
-    def test_contains_infobars_disable(self):
+    def test_contains_infobars_disable(self) -> None:
         """Test includes --disable-infobars."""
         args = get_stealth_args()
 
         assert "--disable-infobars" in args
 
-    def test_contains_window_size(self):
+    def test_contains_window_size(self) -> None:
         """Test includes window size argument."""
         args = get_stealth_args()
 
@@ -257,7 +257,7 @@ class TestGetStealthArgs:
 class TestVerifyStealth:
     """Test verify_stealth function."""
 
-    def test_clean_page_passes(self):
+    def test_clean_page_passes(self) -> None:
         """Test clean page content passes verification."""
         content = "<html><body><h1>Normal Page</h1></body></html>"
 
@@ -267,7 +267,7 @@ class TestVerifyStealth:
         assert results["no_automation_detected"] is True
         assert results["no_headless_detected"] is True
 
-    def test_page_with_bot_detection_fails(self):
+    def test_page_with_bot_detection_fails(self) -> None:
         """Test page with bot detection markers fails verification."""
         content = "<html><body><h1>Bot Detected</h1><p>webdriver detected</p></body></html>"
 
@@ -276,7 +276,7 @@ class TestVerifyStealth:
         # This should detect the marker
         assert results["no_webdriver_detected"] is False
 
-    def test_page_with_headless_mention_fails(self):
+    def test_page_with_headless_mention_fails(self) -> None:
         """Test page mentioning headless fails that check."""
         content = "<html><body><p>Running in headless mode</p></body></html>"
 
@@ -289,13 +289,13 @@ class TestVerifyStealth:
 class TestGetViewportJitter:
     """Test get_viewport_jitter singleton function."""
 
-    def test_returns_viewport_jitter_instance(self):
+    def test_returns_viewport_jitter_instance(self) -> None:
         """Test returns ViewportJitter instance."""
         jitter = get_viewport_jitter()
 
         assert isinstance(jitter, ViewportJitter)
 
-    def test_custom_config_creates_new_instance(self):
+    def test_custom_config_creates_new_instance(self) -> None:
         """Test custom config creates new instance."""
         config = ViewportJitterConfig(base_width=1280, base_height=720)
         jitter = get_viewport_jitter(config)
@@ -308,7 +308,7 @@ class TestGetViewportJitter:
 class TestViewportState:
     """Test ViewportState dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default state values."""
         state = ViewportState()
 
@@ -316,7 +316,7 @@ class TestViewportState:
         assert state.current_height == 1080
         assert state.last_change_time == 0.0
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom state values."""
         state = ViewportState(
             current_width=1280,

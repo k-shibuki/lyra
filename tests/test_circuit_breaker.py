@@ -56,7 +56,7 @@ from src.search.circuit_breaker import (
 class TestCircuitState:
     """Tests for CircuitState enum."""
 
-    def test_states_exist(self):
+    def test_states_exist(self) -> None:
         """Test all states are defined."""
         # Given: CircuitState enum
         # When: Accessing state values
@@ -69,7 +69,7 @@ class TestCircuitState:
 class TestEngineCircuitBreaker:
     """Tests for EngineCircuitBreaker class."""
 
-    def test_init_defaults(self):
+    def test_init_defaults(self) -> None:
         """Test initialization with defaults."""
         # Given: Engine name only
         # When: Creating breaker with defaults
@@ -81,7 +81,7 @@ class TestEngineCircuitBreaker:
         assert breaker.is_available is True
         assert breaker._consecutive_failures == 0
 
-    def test_init_custom_thresholds(self):
+    def test_init_custom_thresholds(self) -> None:
         """Test initialization with custom thresholds."""
         # Given: Custom threshold values
         # When: Creating breaker with custom config
@@ -97,7 +97,7 @@ class TestEngineCircuitBreaker:
         assert breaker.cooldown_min == 60
         assert breaker.cooldown_max == 240
 
-    def test_record_success_updates_metrics(self):
+    def test_record_success_updates_metrics(self) -> None:
         """Test recording success updates metrics."""
         # Given: Breaker with 0.5 success rate
         breaker = EngineCircuitBreaker("test")
@@ -110,7 +110,7 @@ class TestEngineCircuitBreaker:
         assert breaker._success_rate_1h == pytest.approx(0.55, rel=0.01)
         assert breaker._consecutive_failures == 0
 
-    def test_record_success_updates_latency(self):
+    def test_record_success_updates_latency(self) -> None:
         """Test recording success updates latency EMA."""
         # Given: Breaker with 1000ms latency EMA
         breaker = EngineCircuitBreaker("test")
@@ -122,7 +122,7 @@ class TestEngineCircuitBreaker:
         # Then: EMA updated (0.1 * 200 + 0.9 * 1000 = 920)
         assert breaker._latency_ema == pytest.approx(920.0, rel=0.01)
 
-    def test_record_failure_increments_count(self):
+    def test_record_failure_increments_count(self) -> None:
         """Test recording failure increments consecutive count."""
         # Given: Fresh breaker
         breaker = EngineCircuitBreaker("test")
@@ -134,7 +134,7 @@ class TestEngineCircuitBreaker:
         assert breaker._consecutive_failures == 1
         assert breaker.state == CircuitState.CLOSED
 
-    def test_circuit_opens_after_threshold(self):
+    def test_circuit_opens_after_threshold(self) -> None:
         """Test circuit opens after consecutive failures reach threshold."""
         # Given: Breaker with threshold=2
         breaker = EngineCircuitBreaker("test", failure_threshold=2)
@@ -149,7 +149,7 @@ class TestEngineCircuitBreaker:
         assert breaker.state == CircuitState.OPEN
         assert breaker.is_available is False
 
-    def test_circuit_half_opens_after_cooldown(self):
+    def test_circuit_half_opens_after_cooldown(self) -> None:
         """Test circuit transitions to half-open after cooldown."""
         # Given: Open circuit with expired cooldown
         breaker = EngineCircuitBreaker("test", failure_threshold=2, cooldown_min=1)
@@ -164,7 +164,7 @@ class TestEngineCircuitBreaker:
         assert breaker.state == CircuitState.HALF_OPEN
         assert breaker.is_available is True
 
-    def test_half_open_closes_on_success(self):
+    def test_half_open_closes_on_success(self) -> None:
         """Test half-open circuit closes on successful probe."""
         # Given: Half-open circuit
         breaker = EngineCircuitBreaker("test", failure_threshold=2)
@@ -176,7 +176,7 @@ class TestEngineCircuitBreaker:
         # Then: Circuit closes
         assert breaker.state == CircuitState.CLOSED
 
-    def test_half_open_reopens_on_failure(self):
+    def test_half_open_reopens_on_failure(self) -> None:
         """Test half-open circuit reopens on failed probe."""
         # Given: Half-open circuit
         breaker = EngineCircuitBreaker("test", failure_threshold=2)
@@ -188,7 +188,7 @@ class TestEngineCircuitBreaker:
         # Then: Circuit reopens
         assert breaker.state == CircuitState.OPEN
 
-    def test_captcha_updates_captcha_rate(self):
+    def test_captcha_updates_captcha_rate(self) -> None:
         """Test CAPTCHA failure updates captcha rate."""
         # Given: Breaker with 0% captcha rate
         breaker = EngineCircuitBreaker("test")
@@ -200,7 +200,7 @@ class TestEngineCircuitBreaker:
         # Then: Captcha rate EMA updated (0.1 * 1.0 + 0.9 * 0.0 = 0.1)
         assert breaker._captcha_rate == pytest.approx(0.1, rel=0.01)
 
-    def test_force_open(self):
+    def test_force_open(self) -> None:
         """Test force opening circuit."""
         # Given: Fresh breaker
         breaker = EngineCircuitBreaker("test")
@@ -214,7 +214,7 @@ class TestEngineCircuitBreaker:
             f"Expected datetime for cooldown, got {type(breaker._cooldown_until)}"
         )
 
-    def test_force_close(self):
+    def test_force_close(self) -> None:
         """Test force closing circuit."""
         # Given: Open circuit
         breaker = EngineCircuitBreaker("test", failure_threshold=2)
@@ -230,7 +230,7 @@ class TestEngineCircuitBreaker:
         assert breaker._consecutive_failures == 0
         assert breaker._cooldown_until is None
 
-    def test_get_metrics(self):
+    def test_get_metrics(self) -> None:
         """Test getting metrics."""
         # Given: Breaker with some activity
         breaker = EngineCircuitBreaker("test_engine")
@@ -246,7 +246,7 @@ class TestEngineCircuitBreaker:
         assert "latency_ema_ms" in metrics
         assert metrics["is_available"] is True
 
-    def test_calculate_cooldown_exponential_backoff(self):
+    def test_calculate_cooldown_exponential_backoff(self) -> None:
         """Test cooldown calculation with exponential backoff."""
         # Given: Breaker with cooldown range [30, 120]
         breaker = EngineCircuitBreaker("test", cooldown_min=30, cooldown_max=120)
@@ -268,7 +268,7 @@ class TestCircuitBreakerManager:
     """Tests for CircuitBreakerManager class."""
 
     @pytest.mark.asyncio
-    async def test_get_breaker_creates_new(self):
+    async def test_get_breaker_creates_new(self) -> None:
         """Test get_breaker creates new breaker if not exists."""
         # Given: Fresh manager with mocked database
         manager = CircuitBreakerManager()
@@ -284,7 +284,7 @@ class TestCircuitBreakerManager:
         assert "new_engine" in manager._breakers
 
     @pytest.mark.asyncio
-    async def test_get_breaker_returns_cached(self):
+    async def test_get_breaker_returns_cached(self) -> None:
         """Test get_breaker returns cached breaker."""
         # Given: Manager with one cached breaker
         manager = CircuitBreakerManager()
@@ -300,7 +300,7 @@ class TestCircuitBreakerManager:
         assert breaker1 is breaker2
 
     @pytest.mark.asyncio
-    async def test_record_success(self):
+    async def test_record_success(self) -> None:
         """Test recording success through manager."""
         # Given: Fresh manager
         manager = CircuitBreakerManager()
@@ -317,7 +317,7 @@ class TestCircuitBreakerManager:
             assert breaker._consecutive_failures == 0
 
     @pytest.mark.asyncio
-    async def test_record_failure(self):
+    async def test_record_failure(self) -> None:
         """Test recording failure through manager."""
         # Given: Fresh manager
         manager = CircuitBreakerManager()
@@ -334,7 +334,7 @@ class TestCircuitBreakerManager:
             assert breaker._consecutive_failures == 1
 
     @pytest.mark.asyncio
-    async def test_get_available_engines(self):
+    async def test_get_available_engines(self) -> None:
         """Test getting available engines."""
         # Given: Manager with breakers in different states
         manager = CircuitBreakerManager()
@@ -367,7 +367,7 @@ class TestDatabasePersistence:
     """
 
     @pytest.mark.asyncio
-    async def test_save_to_db(self, test_database):
+    async def test_save_to_db(self, test_database) -> None:
         """Test saving circuit state to database."""
         # Given: Breaker with one failure
         from src.search import circuit_breaker
@@ -389,7 +389,7 @@ class TestDatabasePersistence:
         assert row["consecutive_failures"] == 1
 
     @pytest.mark.asyncio
-    async def test_load_from_db(self, test_database):
+    async def test_load_from_db(self, test_database) -> None:
         """Test loading circuit state from database."""
         # Given: Existing database record
         from src.search import circuit_breaker
@@ -415,7 +415,7 @@ class TestDatabasePersistence:
         assert breaker._consecutive_failures == 3
 
     @pytest.mark.asyncio
-    async def test_load_from_db_not_found(self, test_database):
+    async def test_load_from_db_not_found(self, test_database) -> None:
         """Test loading returns False when engine not found."""
         # Given: Empty database
         from src.search import circuit_breaker
@@ -434,7 +434,7 @@ class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
     @pytest.mark.asyncio
-    async def test_check_engine_available(self):
+    async def test_check_engine_available(self) -> None:
         """Test check_engine_available function."""
         # Given: Mocked manager returning available breaker
         from src.search import circuit_breaker
@@ -452,7 +452,7 @@ class TestConvenienceFunctions:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_record_engine_result_success(self):
+    async def test_record_engine_result_success(self) -> None:
         """Test record_engine_result for success."""
         # Given: Mocked manager
         from src.search import circuit_breaker
@@ -468,7 +468,7 @@ class TestConvenienceFunctions:
             mock_manager.record_success.assert_called_once_with("test", 100)
 
     @pytest.mark.asyncio
-    async def test_record_engine_result_failure(self):
+    async def test_record_engine_result_failure(self) -> None:
         """Test record_engine_result for failure."""
         # Given: Mocked manager
         from src.search import circuit_breaker
@@ -492,7 +492,7 @@ class TestConvenienceFunctions:
 class TestStateTransitionScenarios:
     """Integration tests for state transition scenarios."""
 
-    def test_full_cycle_closed_open_halfopen_closed(self):
+    def test_full_cycle_closed_open_halfopen_closed(self) -> None:
         """Test full state transition cycle."""
         # Given: Fresh breaker with low threshold
         breaker = EngineCircuitBreaker("test", failure_threshold=2, cooldown_min=1)
@@ -519,7 +519,7 @@ class TestStateTransitionScenarios:
         # Then: Closes
         assert breaker.state == CircuitState.CLOSED
 
-    def test_half_open_failure_returns_to_open(self):
+    def test_half_open_failure_returns_to_open(self) -> None:
         """Test half-open failure returns to open."""
         # Given: Breaker in half-open state
         breaker = EngineCircuitBreaker("test", failure_threshold=2, cooldown_min=1)
@@ -535,7 +535,7 @@ class TestStateTransitionScenarios:
         assert breaker.state == CircuitState.OPEN
         assert breaker._cooldown_until > datetime.now(UTC)
 
-    def test_success_resets_failure_count(self):
+    def test_success_resets_failure_count(self) -> None:
         """Test success resets consecutive failure count."""
         # Given: Breaker with 2 failures (below threshold of 3)
         breaker = EngineCircuitBreaker("test", failure_threshold=3)

@@ -37,7 +37,7 @@ class TestSaveWarc:
         return mock_settings
 
     @pytest.mark.asyncio
-    async def test_save_warc_creates_file(self, mock_warc_settings, warc_dir: Path):
+    async def test_save_warc_creates_file(self, mock_warc_settings, warc_dir: Path) -> None:
         """Test that _save_warc creates a WARC file."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -58,7 +58,7 @@ class TestSaveWarc:
             assert "warc" in result.name.lower()
 
     @pytest.mark.asyncio
-    async def test_save_warc_contains_response_record(self, mock_warc_settings, warc_dir: Path):
+    async def test_save_warc_contains_response_record(self, mock_warc_settings, warc_dir: Path) -> None:
         """Test that WARC file contains valid response record."""
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
@@ -86,7 +86,7 @@ class TestSaveWarc:
             assert b"200 OK" in raw_warc
 
     @pytest.mark.asyncio
-    async def test_save_warc_with_request_headers(self, mock_warc_settings, warc_dir: Path):
+    async def test_save_warc_with_request_headers(self, mock_warc_settings, warc_dir: Path) -> None:
         """Test WARC file includes request record when headers provided."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -115,7 +115,7 @@ class TestSaveWarc:
             assert "response" in record_types
 
     @pytest.mark.asyncio
-    async def test_save_warc_different_status_codes(self, mock_warc_settings, warc_dir: Path):
+    async def test_save_warc_different_status_codes(self, mock_warc_settings, warc_dir: Path) -> None:
         """Test WARC saves various HTTP status codes correctly."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -138,7 +138,7 @@ class TestSaveWarc:
                 assert warc_path.exists()
 
     @pytest.mark.asyncio
-    async def test_save_warc_unicode_content(self, mock_warc_settings, warc_dir: Path):
+    async def test_save_warc_unicode_content(self, mock_warc_settings, warc_dir: Path) -> None:
         """Test WARC handles Unicode content correctly."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -164,7 +164,7 @@ class TestSaveWarc:
 class TestGetHttpStatusText:
     """Tests for HTTP status text helper."""
 
-    def test_common_status_codes(self):
+    def test_common_status_codes(self) -> None:
         """Test common HTTP status codes return correct text."""
         from src.crawler.fetcher import _get_http_status_text
 
@@ -174,7 +174,7 @@ class TestGetHttpStatusText:
         assert _get_http_status_text(301) == "Moved Permanently"
         assert _get_http_status_text(403) == "Forbidden"
 
-    def test_unknown_status_code(self):
+    def test_unknown_status_code(self) -> None:
         """Test unknown status code returns 'Unknown'."""
         from src.crawler.fetcher import _get_http_status_text
 
@@ -186,7 +186,7 @@ class TestGetHttpStatusText:
 class TestFetchResult:
     """Tests for FetchResult class."""
 
-    def test_fetch_result_to_dict_includes_warc_path(self):
+    def test_fetch_result_to_dict_includes_warc_path(self) -> None:
         """Test FetchResult.to_dict() includes warc_path."""
         from src.crawler.fetcher import FetchResult
 
@@ -210,7 +210,7 @@ class TestFetchResult:
 class TestIsChallengePageFunction:
     """Tests for challenge page detection (§3.5 - CAPTCHA/challenge handling)."""
 
-    def test_detect_cloudflare_challenge(self):
+    def test_detect_cloudflare_challenge(self) -> None:
         """Test detection of Cloudflare challenge pages."""
         from src.crawler.fetcher import _is_challenge_page
 
@@ -225,7 +225,7 @@ class TestIsChallengePageFunction:
 
         assert _is_challenge_page(cf_content, {}) is True
 
-    def test_detect_recaptcha(self):
+    def test_detect_recaptcha(self) -> None:
         """Test detection of reCAPTCHA."""
         from src.crawler.fetcher import _is_challenge_page
 
@@ -239,7 +239,7 @@ class TestIsChallengePageFunction:
 
         assert _is_challenge_page(captcha_content, {}) is True
 
-    def test_normal_page_not_detected(self):
+    def test_normal_page_not_detected(self) -> None:
         """Test normal page is not detected as challenge."""
         from src.crawler.fetcher import _is_challenge_page
 
@@ -260,7 +260,7 @@ class TestIsChallengePageFunction:
 class TestFetchResultCacheFields:
     """Tests for FetchResult cache-related fields (§3.1.2 - 304 support)."""
 
-    def test_fetch_result_default_cache_fields(self):
+    def test_fetch_result_default_cache_fields(self) -> None:
         """Test FetchResult has correct defaults for cache fields."""
         from src.crawler.fetcher import FetchResult
 
@@ -270,7 +270,7 @@ class TestFetchResultCacheFields:
         assert result.etag is None
         assert result.last_modified is None
 
-    def test_fetch_result_with_cache_fields(self):
+    def test_fetch_result_with_cache_fields(self) -> None:
         """Test FetchResult with cache fields populated."""
         from src.crawler.fetcher import FetchResult
 
@@ -287,7 +287,7 @@ class TestFetchResultCacheFields:
         assert result.etag == '"abc123"'
         assert result.last_modified == "Wed, 01 Jan 2024 00:00:00 GMT"
 
-    def test_fetch_result_to_dict_includes_cache_fields(self):
+    def test_fetch_result_to_dict_includes_cache_fields(self) -> None:
         """Test FetchResult.to_dict() includes cache-related fields."""
         from src.crawler.fetcher import FetchResult
 
@@ -307,7 +307,7 @@ class TestFetchResultCacheFields:
         assert result_dict["etag"] == '"xyz789"'
         assert result_dict["last_modified"] == "Thu, 15 Jan 2024 12:00:00 GMT"
 
-    def test_fetch_result_304_response(self):
+    def test_fetch_result_304_response(self) -> None:
         """Test FetchResult for 304 Not Modified response.
 
         Per §4.3: 304 utilization rate ≥70% requires proper 304 handling.
@@ -333,7 +333,7 @@ class TestFetchResultCacheFields:
 class TestFetchResultAuthFields:
     """Tests for FetchResult authentication-related fields (§16.7.4)."""
 
-    def test_fetch_result_default_auth_fields(self):
+    def test_fetch_result_default_auth_fields(self) -> None:
         """Test FetchResult has correct defaults for auth fields."""
         from src.crawler.fetcher import FetchResult
 
@@ -348,7 +348,7 @@ class TestFetchResultAuthFields:
         assert result.auth_type is None
         assert result.estimated_effort is None
 
-    def test_fetch_result_with_auth_fields(self):
+    def test_fetch_result_with_auth_fields(self) -> None:
         """Test FetchResult with auth fields populated.
 
         Per §16.7.4: auth_type and estimated_effort should be included.
@@ -372,7 +372,7 @@ class TestFetchResultAuthFields:
         assert result.auth_type == "cloudflare"
         assert result.estimated_effort == "low"
 
-    def test_fetch_result_to_dict_includes_auth_type_when_set(self):
+    def test_fetch_result_to_dict_includes_auth_type_when_set(self) -> None:
         """Test FetchResult.to_dict() includes auth_type when set.
 
         Per §16.7.4: Include auth details only when relevant.
@@ -393,7 +393,7 @@ class TestFetchResultAuthFields:
         assert result_dict["auth_type"] == "captcha"
         assert result_dict["estimated_effort"] == "high"
 
-    def test_fetch_result_to_dict_omits_auth_type_when_none(self):
+    def test_fetch_result_to_dict_omits_auth_type_when_none(self) -> None:
         """Test FetchResult.to_dict() omits auth fields when None.
 
         Per §16.7.4: Include auth details only when relevant.
@@ -417,56 +417,56 @@ class TestFetchResultAuthFields:
 class TestEstimateAuthEffort:
     """Tests for _estimate_auth_effort function (§16.7.4)."""
 
-    def test_cloudflare_is_low_effort(self):
+    def test_cloudflare_is_low_effort(self) -> None:
         """Test Cloudflare challenge is estimated as low effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("cloudflare")
         assert effort == "low", f"cloudflare should be 'low' effort, got '{effort}'"
 
-    def test_js_challenge_is_low_effort(self):
+    def test_js_challenge_is_low_effort(self) -> None:
         """Test JS challenge is estimated as low effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("js_challenge")
         assert effort == "low", f"js_challenge should be 'low' effort, got '{effort}'"
 
-    def test_turnstile_is_medium_effort(self):
+    def test_turnstile_is_medium_effort(self) -> None:
         """Test Turnstile is estimated as medium effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("turnstile")
         assert effort == "medium", f"turnstile should be 'medium' effort, got '{effort}'"
 
-    def test_captcha_is_high_effort(self):
+    def test_captcha_is_high_effort(self) -> None:
         """Test generic CAPTCHA is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("captcha")
         assert effort == "high", f"captcha should be 'high' effort, got '{effort}'"
 
-    def test_recaptcha_is_high_effort(self):
+    def test_recaptcha_is_high_effort(self) -> None:
         """Test reCAPTCHA is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("recaptcha")
         assert effort == "high", f"recaptcha should be 'high' effort, got '{effort}'"
 
-    def test_hcaptcha_is_high_effort(self):
+    def test_hcaptcha_is_high_effort(self) -> None:
         """Test hCaptcha is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("hcaptcha")
         assert effort == "high", f"hcaptcha should be 'high' effort, got '{effort}'"
 
-    def test_login_is_high_effort(self):
+    def test_login_is_high_effort(self) -> None:
         """Test login requirement is estimated as high effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
         effort = _estimate_auth_effort("login")
         assert effort == "high", f"login should be 'high' effort, got '{effort}'"
 
-    def test_unknown_type_defaults_to_medium(self):
+    def test_unknown_type_defaults_to_medium(self) -> None:
         """Test unknown challenge type defaults to medium effort."""
         from src.crawler.fetcher import _estimate_auth_effort
 
@@ -481,7 +481,7 @@ class TestDatabaseUrlNormalization:
     Per §5.1.2: cache_fetch key should be normalized URL.
     """
 
-    def test_normalize_url_lowercase_scheme_and_host(self):
+    def test_normalize_url_lowercase_scheme_and_host(self) -> None:
         """Test URL scheme and host are lowercased."""
         from src.storage.database import Database
 
@@ -491,7 +491,7 @@ class TestDatabaseUrlNormalization:
         assert Database._normalize_url(url1) == Database._normalize_url(url2)
         assert "example.com" in Database._normalize_url(url1)
 
-    def test_normalize_url_removes_fragment(self):
+    def test_normalize_url_removes_fragment(self) -> None:
         """Test URL fragment is removed."""
         from src.storage.database import Database
 
@@ -500,7 +500,7 @@ class TestDatabaseUrlNormalization:
 
         assert Database._normalize_url(url1) == Database._normalize_url(url2)
 
-    def test_normalize_url_sorts_query_params(self):
+    def test_normalize_url_sorts_query_params(self) -> None:
         """Test query parameters are sorted for consistent caching."""
         from src.storage.database import Database
 
@@ -509,7 +509,7 @@ class TestDatabaseUrlNormalization:
 
         assert Database._normalize_url(url1) == Database._normalize_url(url2)
 
-    def test_normalize_url_preserves_path(self):
+    def test_normalize_url_preserves_path(self) -> None:
         """Test URL path is preserved (case-sensitive)."""
         from src.storage.database import Database
 
@@ -518,7 +518,7 @@ class TestDatabaseUrlNormalization:
 
         assert "/CaseSensitive/Path" in normalized
 
-    def test_normalize_url_empty_query_string(self):
+    def test_normalize_url_empty_query_string(self) -> None:
         """Test URL with no query string."""
         from src.storage.database import Database
 
@@ -532,7 +532,7 @@ class TestDatabaseUrlNormalization:
 class TestHumanBehavior:
     """Tests for human-like behavior simulation (§4.3 - stealth requirements)."""
 
-    def test_random_delay_within_bounds(self):
+    def test_random_delay_within_bounds(self) -> None:
         """Test random delay stays within specified bounds."""
         from src.crawler.fetcher import HumanBehavior
 
@@ -540,7 +540,7 @@ class TestHumanBehavior:
             delay = HumanBehavior.random_delay(0.5, 3.0)
             assert 0.5 <= delay <= 3.0, f"Delay {delay} out of bounds"
 
-    def test_random_delay_default_bounds(self):
+    def test_random_delay_default_bounds(self) -> None:
         """Test random delay with default bounds."""
         from src.crawler.fetcher import HumanBehavior
 
@@ -548,7 +548,7 @@ class TestHumanBehavior:
             delay = HumanBehavior.random_delay()
             assert 0.5 <= delay <= 2.0, f"Delay {delay} out of default bounds"
 
-    def test_scroll_pattern_generation(self):
+    def test_scroll_pattern_generation(self) -> None:
         """Test scroll pattern generates reasonable positions.
 
         For page_height=3000 and viewport_height=1080, scrollable area is 1920px.
@@ -581,7 +581,7 @@ class TestHumanBehavior:
             # Delays are now in seconds (converted from ms)
             assert delay >= 0, f"Position {idx}: delay={delay} should be non-negative"
 
-    def test_scroll_pattern_short_page(self):
+    def test_scroll_pattern_short_page(self) -> None:
         """Test scroll pattern for page shorter than viewport."""
         from src.crawler.fetcher import HumanBehavior
 
@@ -593,7 +593,7 @@ class TestHumanBehavior:
         # Short page should have no scrolling needed
         assert len(positions) == 0, "Short page should not need scrolling"
 
-    def test_mouse_path_generation(self):
+    def test_mouse_path_generation(self) -> None:
         """Test mouse path generates smooth bezier curve.
 
         Path should start near origin and end near destination,
@@ -637,7 +637,7 @@ class TestHumanBehavior:
             f"Last point y={path[-1][1]} too far from end_y={end_y}"
         )
 
-    def test_mouse_path_has_jitter(self):
+    def test_mouse_path_has_jitter(self) -> None:
         """Test mouse paths are not identical (random jitter)."""
         from src.crawler.fetcher import HumanBehavior
 
@@ -654,7 +654,7 @@ class TestHumanBehavior:
 class TestTorController:
     """Tests for Tor circuit controller (§4.3 - network layer)."""
 
-    def test_tor_controller_initialization(self):
+    def test_tor_controller_initialization(self) -> None:
         """Test TorController initializes correctly."""
         from src.crawler.fetcher import TorController
 
@@ -664,7 +664,7 @@ class TestTorController:
         assert len(controller._last_renewal) == 0
 
     @pytest.mark.asyncio
-    async def test_tor_controller_disabled(self, mock_settings):
+    async def test_tor_controller_disabled(self, mock_settings) -> None:
         """Test TorController when Tor is disabled."""
         mock_settings.tor.enabled = False
 
@@ -686,7 +686,7 @@ class TestDatabaseFetchCache:
     """
 
     @pytest.mark.asyncio
-    async def test_set_and_get_fetch_cache(self, memory_database):
+    async def test_set_and_get_fetch_cache(self, memory_database) -> None:
         """Test storing and retrieving fetch cache entry."""
         db = memory_database
         url = "https://example.com/page"
@@ -720,7 +720,7 @@ class TestDatabaseFetchCache:
         )
 
     @pytest.mark.asyncio
-    async def test_get_fetch_cache_missing_url(self, memory_database):
+    async def test_get_fetch_cache_missing_url(self, memory_database) -> None:
         """Test cache miss returns None."""
         db = memory_database
 
@@ -729,7 +729,7 @@ class TestDatabaseFetchCache:
         assert cached is None
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_url_normalization(self, memory_database):
+    async def test_fetch_cache_url_normalization(self, memory_database) -> None:
         """Test cache lookup uses normalized URLs.
 
         URLs differing only in query param order or fragment should match.
@@ -751,7 +751,7 @@ class TestDatabaseFetchCache:
         )
 
     @pytest.mark.asyncio
-    async def test_update_fetch_cache_validation(self, memory_database):
+    async def test_update_fetch_cache_validation(self, memory_database) -> None:
         """Test updating cache validation timestamp."""
         db = memory_database
         url = "https://example.com/page"
@@ -766,7 +766,7 @@ class TestDatabaseFetchCache:
         assert cached["etag"] == '"new-etag"'
 
     @pytest.mark.asyncio
-    async def test_invalidate_fetch_cache(self, memory_database):
+    async def test_invalidate_fetch_cache(self, memory_database) -> None:
         """Test cache invalidation."""
         db = memory_database
         url = "https://example.com/page"
@@ -778,7 +778,7 @@ class TestDatabaseFetchCache:
         assert await db.get_fetch_cache(url) is None
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_with_only_etag(self, memory_database):
+    async def test_fetch_cache_with_only_etag(self, memory_database) -> None:
         """Test cache entry with only ETag (no Last-Modified)."""
         db = memory_database
 
@@ -793,7 +793,7 @@ class TestDatabaseFetchCache:
         assert cached["last_modified"] is None
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_with_only_last_modified(self, memory_database):
+    async def test_fetch_cache_with_only_last_modified(self, memory_database) -> None:
         """Test cache entry with only Last-Modified (no ETag)."""
         db = memory_database
 
@@ -808,7 +808,7 @@ class TestDatabaseFetchCache:
         assert cached["last_modified"] == "Wed, 01 Jan 2024 00:00:00 GMT"
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_stats(self, memory_database):
+    async def test_fetch_cache_stats(self, memory_database) -> None:
         """Test fetch cache statistics.
 
         Setup:
@@ -837,7 +837,7 @@ class TestDatabaseFetchCache:
         )
 
     @pytest.mark.asyncio
-    async def test_fetch_cache_replace_existing(self, memory_database):
+    async def test_fetch_cache_replace_existing(self, memory_database) -> None:
         """Test that setting cache replaces existing entry (upsert behavior)."""
         db = memory_database
         url = "https://example.com/page"
@@ -1056,7 +1056,7 @@ class TestHTTPFetcherConditionalHeaders:
                     )
 
     @pytest.mark.asyncio
-    async def test_no_cached_values_includes_session_conditionals(self, mock_settings):
+    async def test_no_cached_values_includes_session_conditionals(self, mock_settings) -> None:
         """Test that session conditional headers are included when no cached values provided.
 
         TC-CH-04: When cached_etag and cached_last_modified are None, session should
@@ -1105,7 +1105,7 @@ class TestBrowserFetcherHumanBehavior:
     """Tests for human-like behavior integration in BrowserFetcher.fetch() (§4.3.4)."""
 
     @pytest.mark.asyncio
-    async def test_fetch_with_human_behavior_enabled(self):
+    async def test_fetch_with_human_behavior_enabled(self) -> None:
         """Test BrowserFetcher.fetch() applies human behavior when simulate_human=True.
 
         Given: simulate_human=True, page has interactive elements
@@ -1198,7 +1198,7 @@ class TestBrowserFetcherHumanBehavior:
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_fetch_with_human_behavior_disabled(self):
+    async def test_fetch_with_human_behavior_disabled(self) -> None:
         """Test BrowserFetcher.fetch() skips human behavior when simulate_human=False.
 
         Given: simulate_human=False
@@ -1285,7 +1285,7 @@ class TestBrowserFetcherHumanBehavior:
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_fetch_with_no_elements(self):
+    async def test_fetch_with_no_elements(self) -> None:
         """Test BrowserFetcher.fetch() handles pages with no interactive elements.
 
         Given: simulate_human=True, page has no interactive elements
@@ -1373,7 +1373,7 @@ class TestBrowserFetcherHumanBehavior:
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_fetch_with_element_search_exception(self):
+    async def test_fetch_with_element_search_exception(self) -> None:
         """Test BrowserFetcher.fetch() handles exceptions during element search gracefully.
 
         Given: simulate_human=True, query_selector_all raises exception
@@ -1479,7 +1479,7 @@ class TestFetchUrlCumulativeTimeout:
     """
 
     @pytest.mark.asyncio
-    async def test_fetch_completes_within_timeout(self, mock_settings):
+    async def test_fetch_completes_within_timeout(self, mock_settings) -> None:
         """
         TC-TO-01: Fast fetch completes successfully.
 

@@ -12,7 +12,7 @@ from unittest.mock import patch
 class TestCloudAgentDetection:
     """Test cloud agent environment detection."""
 
-    def test_detect_environment_returns_environment_info(self):
+    def test_detect_environment_returns_environment_info(self) -> None:
         """Test that detect_environment returns proper EnvironmentInfo."""
         from tests.conftest import EnvironmentInfo, detect_environment
 
@@ -25,7 +25,7 @@ class TestCloudAgentDetection:
         assert isinstance(env.is_container, bool)
         assert isinstance(env.has_display, bool)
 
-    def test_cursor_cloud_agent_detection(self):
+    def test_cursor_cloud_agent_detection(self) -> None:
         """Test Cursor Cloud Agent environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
@@ -34,7 +34,7 @@ class TestCloudAgentDetection:
             assert env.is_cloud_agent is True
             assert env.cloud_agent_type == CloudAgentType.CURSOR
 
-    def test_cursor_session_id_detection(self):
+    def test_cursor_session_id_detection(self) -> None:
         """Test Cursor detection via CURSOR_SESSION_ID."""
         from tests.conftest import CloudAgentType, detect_environment
 
@@ -50,7 +50,7 @@ class TestCloudAgentDetection:
                 assert env.is_cloud_agent is True
                 assert env.cloud_agent_type == CloudAgentType.CURSOR
 
-    def test_claude_code_detection(self):
+    def test_claude_code_detection(self) -> None:
         """Test Claude Code environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
@@ -75,7 +75,7 @@ class TestCloudAgentDetection:
             assert env.is_cloud_agent is True
             assert env.cloud_agent_type == CloudAgentType.CLAUDE_CODE
 
-    def test_github_actions_detection(self):
+    def test_github_actions_detection(self) -> None:
         """Test GitHub Actions environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
@@ -99,7 +99,7 @@ class TestCloudAgentDetection:
             assert env.is_cloud_agent is True
             assert env.cloud_agent_type == CloudAgentType.GITHUB_ACTIONS
 
-    def test_gitlab_ci_detection(self):
+    def test_gitlab_ci_detection(self) -> None:
         """Test GitLab CI environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
@@ -123,7 +123,7 @@ class TestCloudAgentDetection:
             assert env.is_cloud_agent is True
             assert env.cloud_agent_type == CloudAgentType.GITLAB_CI
 
-    def test_generic_ci_detection(self):
+    def test_generic_ci_detection(self) -> None:
         """Test generic CI environment detection."""
         from tests.conftest import CloudAgentType, detect_environment
 
@@ -147,21 +147,21 @@ class TestCloudAgentDetection:
             assert env.is_cloud_agent is True
             assert env.cloud_agent_type == CloudAgentType.GENERIC_CI
 
-    def test_is_cloud_agent_function(self):
+    def test_is_cloud_agent_function(self) -> None:
         """Test is_cloud_agent helper function."""
         from tests.conftest import is_cloud_agent
 
         result = is_cloud_agent()
         assert isinstance(result, bool)
 
-    def test_is_e2e_capable_function(self):
+    def test_is_e2e_capable_function(self) -> None:
         """Test is_e2e_capable helper function."""
         from tests.conftest import is_e2e_capable
 
         result = is_e2e_capable()
         assert isinstance(result, bool)
 
-    def test_cloud_agent_type_enum_values(self):
+    def test_cloud_agent_type_enum_values(self) -> None:
         """Test CloudAgentType enum has expected values."""
         from tests.conftest import CloudAgentType
 
@@ -184,7 +184,7 @@ class TestCloudAgentDetection:
 class TestEnvironmentInfoDataclass:
     """Test EnvironmentInfo dataclass."""
 
-    def test_environment_info_fields(self):
+    def test_environment_info_fields(self) -> None:
         """Test EnvironmentInfo has all expected fields."""
         from tests.conftest import CloudAgentType, EnvironmentInfo
 
@@ -208,7 +208,7 @@ class TestEnvironmentInfoDataclass:
 class TestDependencyChecking:
     """Test dependency checking functionality."""
 
-    def test_check_core_dependencies_returns_tuple(self):
+    def test_check_core_dependencies_returns_tuple(self) -> None:
         """Test _check_core_dependencies returns expected format."""
         # Given: The function exists in conftest
         from tests.conftest import _check_core_dependencies
@@ -222,7 +222,7 @@ class TestDependencyChecking:
         assert isinstance(result[0], bool)
         assert isinstance(result[1], list)
 
-    def test_deps_available_is_boolean(self):
+    def test_deps_available_is_boolean(self) -> None:
         """Test _deps_available module-level variable is boolean."""
         # Given/When: Import the variable
         from tests.conftest import _deps_available
@@ -230,7 +230,7 @@ class TestDependencyChecking:
         # Then: It's a boolean
         assert isinstance(_deps_available, bool)
 
-    def test_missing_deps_is_list(self):
+    def test_missing_deps_is_list(self) -> None:
         """Test _missing_deps module-level variable is a list."""
         # Given/When: Import the variable
         from tests.conftest import _missing_deps
@@ -238,7 +238,7 @@ class TestDependencyChecking:
         # Then: It's a list
         assert isinstance(_missing_deps, list)
 
-    def test_pytest_ignore_collect_exists(self):
+    def test_pytest_ignore_collect_exists(self) -> None:
         """Test pytest_ignore_collect hook is defined."""
         # Given/When: Import the hook
         from tests.conftest import pytest_ignore_collect
@@ -246,7 +246,7 @@ class TestDependencyChecking:
         # Then: It's callable
         assert callable(pytest_ignore_collect)
 
-    def test_minimal_safe_files_include_this_file(self):
+    def test_minimal_safe_files_include_this_file(self) -> None:
         """Test that test_cloud_agent_detection.py is in minimal safe files."""
         # Given: Cloud agent environment with missing dependencies
         from unittest.mock import MagicMock
@@ -278,7 +278,7 @@ class TestDependencyChecking:
             conftest_module._deps_available = original_deps
             conftest_module._env_info = original_env
 
-    def test_other_test_files_skipped_in_cloud_agent_when_deps_missing(self):
+    def test_other_test_files_skipped_in_cloud_agent_when_deps_missing(self) -> None:
         """Test that other test files are skipped in cloud agent when deps missing."""
         # Given: Cloud agent with missing dependencies
         from unittest.mock import MagicMock
@@ -309,7 +309,7 @@ class TestDependencyChecking:
             conftest_module._deps_available = original_deps
             conftest_module._env_info = original_env
 
-    def test_files_not_skipped_in_local_even_with_missing_deps(self):
+    def test_files_not_skipped_in_local_even_with_missing_deps(self) -> None:
         """Test that files are NOT skipped in local env even with missing deps."""
         # Given: Local environment (not cloud agent) with missing deps
         from unittest.mock import MagicMock
@@ -340,7 +340,7 @@ class TestDependencyChecking:
             conftest_module._deps_available = original_deps
             conftest_module._env_info = original_env
 
-    def test_files_not_skipped_when_deps_available(self):
+    def test_files_not_skipped_when_deps_available(self) -> None:
         """Test that no files are skipped when all dependencies are available."""
         # Given: All dependencies available (any environment)
         from unittest.mock import MagicMock

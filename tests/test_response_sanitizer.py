@@ -24,6 +24,7 @@ Test Perspectives Table:
 | TC-B-03 | Long text (10000 chars) | Boundary – long text | Normal processing | - |
 """
 
+from collections.abc import Generator
 from unittest.mock import patch
 
 import pytest
@@ -56,7 +57,7 @@ def sanitizer_with_prompt():
 
 
 @pytest.fixture(autouse=True)
-def clear_schema_cache():
+def clear_schema_cache() -> Generator[None, None, None]:
     """Clear schema cache before each test."""
     clear_cache()
     yield
@@ -71,7 +72,7 @@ def clear_schema_cache():
 class TestNormalCases:
     """Test normal/expected use cases."""
 
-    def test_create_task_response_passes_through(self, sanitizer):
+    def test_create_task_response_passes_through(self, sanitizer) -> None:
         """
         TC-N-01: Valid create_task response
 
@@ -96,7 +97,7 @@ class TestNormalCases:
         assert result.stats.fields_removed == 0
         assert not result.was_modified
 
-    def test_get_status_response_passes_through(self, sanitizer):
+    def test_get_status_response_passes_through(self, sanitizer) -> None:
         """
         TC-N-02: Valid get_status response
 
@@ -147,7 +148,7 @@ class TestNormalCases:
         assert result.sanitized_response["status"] == "exploring"
         assert len(result.sanitized_response["searches"]) == 1
 
-    def test_search_response_with_claims(self, sanitizer):
+    def test_search_response_with_claims(self, sanitizer) -> None:
         """
         TC-N-03: Valid search response with claims
 
@@ -182,7 +183,7 @@ class TestNormalCases:
         assert "Python" in result.sanitized_response["claims_found"][0]["text"]
         assert result.stats.llm_fields_processed >= 1
 
-    def test_error_response_format(self, sanitizer):
+    def test_error_response_format(self, sanitizer) -> None:
         """
         TC-N-04: Valid error response
 
@@ -202,7 +203,7 @@ class TestNormalCases:
         assert result.sanitized_response["ok"] is False
         assert result.sanitized_response["error_code"] == "TASK_NOT_FOUND"
 
-    def test_calibrate_one_of_schema_matching(self, sanitizer):
+    def test_calibrate_one_of_schema_matching(self, sanitizer) -> None:
         """
         TC-N-05: oneOf schema (calibrate) matches correct variant
 
@@ -233,7 +234,7 @@ class TestNormalCases:
 class TestAbnormalCases:
     """Test error and edge cases."""
 
-    def test_unknown_field_removed(self, sanitizer):
+    def test_unknown_field_removed(self, sanitizer) -> None:
         """
         TC-A-01: Unknown field in response
 
@@ -261,7 +262,7 @@ class TestAbnormalCases:
         assert result.stats.fields_removed == 3
         assert result.was_modified
 
-    def test_llm_field_with_url_detected(self, sanitizer):
+    def test_llm_field_with_url_detected(self, sanitizer) -> None:
         """
         TC-A-02: LLM field with URL
 
@@ -291,7 +292,7 @@ class TestAbnormalCases:
             # The important thing is that it's logged
             assert result.stats.llm_fields_processed >= 1
 
-    def test_llm_field_with_prompt_leakage_masked(self, sanitizer_with_prompt):
+    def test_llm_field_with_prompt_leakage_masked(self, sanitizer_with_prompt) -> None:
         """
         TC-A-03: LLM field with prompt fragment
 
@@ -320,7 +321,7 @@ class TestAbnormalCases:
         # Check that leakage was detected
         assert result.stats.leakage_detected > 0 or result.stats.llm_fields_processed > 0
 
-    def test_error_with_stack_trace_sanitized(self, sanitizer):
+    def test_error_with_stack_trace_sanitized(self, sanitizer) -> None:
         """
         TC-A-04: Error with stack trace
 
@@ -340,7 +341,7 @@ class TestAbnormalCases:
         assert "Traceback" not in result["error"]
         assert "/home/user" not in result["error"]
 
-    def test_error_with_file_path_sanitized(self, sanitizer):
+    def test_error_with_file_path_sanitized(self, sanitizer) -> None:
         """
         TC-A-05: Error with file path
 
@@ -358,7 +359,7 @@ class TestAbnormalCases:
         assert "/home/statuser" not in result["error"]
         assert "[PATH]" in result["error"] or "secret.txt" not in result["error"]
 
-    def test_tool_without_schema_passes_through(self, sanitizer):
+    def test_tool_without_schema_passes_through(self, sanitizer) -> None:
         """
         TC-A-06: Tool without schema
 
@@ -378,7 +379,7 @@ class TestAbnormalCases:
             # Warning should be logged
             mock_logger.warning.assert_called()
 
-    def test_empty_response(self, sanitizer):
+    def test_empty_response(self, sanitizer) -> None:
         """
         TC-A-07: Empty response
 
@@ -393,7 +394,7 @@ class TestAbnormalCases:
         # Empty response should pass through
         assert result.sanitized_response == {}
 
-    def test_null_field_value_preserved(self, sanitizer):
+    def test_null_field_value_preserved(self, sanitizer) -> None:
         """
         TC-A-08: Field with NULL value
 
@@ -439,7 +440,7 @@ class TestAbnormalCases:
 class TestBoundaryCases:
     """Test boundary and limit cases."""
 
-    def test_nested_objects_sanitized(self, sanitizer):
+    def test_nested_objects_sanitized(self, sanitizer) -> None:
         """
         TC-B-01: Nested objects
 
@@ -465,7 +466,7 @@ class TestBoundaryCases:
         # Unknown nested field should be removed
         assert "secret_nested" not in result.sanitized_response.get("budget", {})
 
-    def test_large_array_processed(self, sanitizer):
+    def test_large_array_processed(self, sanitizer) -> None:
         """
         TC-B-02: Large array (100 elements)
 
@@ -516,7 +517,7 @@ class TestBoundaryCases:
 
         assert len(result.sanitized_response["searches"]) == 100
 
-    def test_long_text_processed(self, sanitizer):
+    def test_long_text_processed(self, sanitizer) -> None:
         """
         TC-B-03: Long text (10000 chars)
 
@@ -555,24 +556,24 @@ class TestBoundaryCases:
 class TestHelperFunctions:
     """Test helper functions."""
 
-    def test_count_fields_simple(self):
+    def test_count_fields_simple(self) -> None:
         """Test field counting for simple dict."""
         obj = {"a": 1, "b": 2, "c": 3}
         assert _count_fields(obj) == 3
 
-    def test_count_fields_nested(self):
+    def test_count_fields_nested(self) -> None:
         """Test field counting for nested dict."""
         obj = {"a": 1, "b": {"c": 2, "d": 3}}
         # 2 top-level + 2 nested = 4
         assert _count_fields(obj) == 4
 
-    def test_count_fields_with_array(self):
+    def test_count_fields_with_array(self) -> None:
         """Test field counting with arrays."""
         obj = {"a": [{"b": 1}, {"c": 2}]}
         # 1 top-level + 1 in first item + 1 in second item = 3
         assert _count_fields(obj) == 3
 
-    def test_generate_error_id_format(self):
+    def test_generate_error_id_format(self) -> None:
         """Test error ID generation format."""
         error_id = _generate_error_id()
 
@@ -588,7 +589,7 @@ class TestHelperFunctions:
 class TestConvenienceFunctions:
     """Test module-level convenience functions."""
 
-    def test_sanitize_response_function(self):
+    def test_sanitize_response_function(self) -> None:
         """Test sanitize_response convenience function."""
         response = {
             "ok": True,
@@ -603,7 +604,7 @@ class TestConvenienceFunctions:
         assert result["ok"] is True
         assert result["task_id"] == "task_abc"
 
-    def test_sanitize_error_function(self):
+    def test_sanitize_error_function(self) -> None:
         """Test sanitize_error convenience function."""
         try:
             raise ValueError("Test error message")
@@ -613,7 +614,7 @@ class TestConvenienceFunctions:
         assert result["ok"] is False
         assert result["error_id"] == "err_test123"
 
-    def test_get_sanitizer_singleton(self):
+    def test_get_sanitizer_singleton(self) -> None:
         """Test get_sanitizer returns consistent instance."""
         s1 = get_sanitizer()
         s2 = get_sanitizer()
@@ -621,7 +622,7 @@ class TestConvenienceFunctions:
         # Without system_prompt, should return same instance
         assert s1 is s2
 
-    def test_get_sanitizer_with_prompt_creates_new(self):
+    def test_get_sanitizer_with_prompt_creates_new(self) -> None:
         """Test get_sanitizer with prompt creates new instance."""
         s1 = get_sanitizer()
         s2 = get_sanitizer(system_prompt="test prompt")
@@ -639,7 +640,7 @@ class TestConvenienceFunctions:
 class TestSchemas:
     """Test schema loading and validation."""
 
-    def test_all_tool_schemas_exist(self):
+    def test_all_tool_schemas_exist(self) -> None:
         """Test that schemas exist for all MCP tools."""
         tools = [
             "create_task",
@@ -661,7 +662,7 @@ class TestSchemas:
             assert schema is not None, f"Schema missing for tool: {tool}"
             assert "$schema" in schema or "type" in schema or "oneOf" in schema
 
-    def test_schema_caching(self):
+    def test_schema_caching(self) -> None:
         """Test that schemas are cached after first load."""
         from src.mcp.schemas import _schema_cache
 
@@ -685,7 +686,7 @@ class TestIntegration:
     """Integration tests with actual MCP server flow."""
 
     @pytest.mark.asyncio
-    async def test_sanitizer_integration_with_mcp_flow(self):
+    async def test_sanitizer_integration_with_mcp_flow(self) -> None:
         """
         Test sanitizer works in MCP call flow.
 
@@ -722,7 +723,7 @@ class TestIntegration:
 class TestSecurityCases:
     """Security-focused test cases for L7."""
 
-    def test_injection_attempt_in_error(self, sanitizer):
+    def test_injection_attempt_in_error(self, sanitizer) -> None:
         """
         Test that injection attempts in errors are sanitized.
 
@@ -741,7 +742,7 @@ class TestSecurityCases:
         # Path should be removed
         assert "/home/user" not in result["error"]
 
-    def test_nested_unknown_fields_all_removed(self, sanitizer):
+    def test_nested_unknown_fields_all_removed(self, sanitizer) -> None:
         """
         Test that deeply nested unknown fields are removed.
 
@@ -792,7 +793,7 @@ class TestSecurityCases:
         # Unknown nested field should be removed
         assert "internal_data" not in result.sanitized_response["searches"][0]
 
-    def test_nested_query_field_sanitized(self, sanitizer_with_prompt):
+    def test_nested_query_field_sanitized(self, sanitizer_with_prompt) -> None:
         """
         TC-S-01: Nested query fields in searches array are sanitized.
 
@@ -846,7 +847,7 @@ class TestSecurityCases:
         # Note: The main "query" and nested "query" should both be processed
         assert result.stats.llm_fields_processed >= 2
 
-    def test_query_field_in_llm_content_fields(self):
+    def test_query_field_in_llm_content_fields(self) -> None:
         """
         TC-S-02: Verify query is in LLM_CONTENT_FIELDS.
 

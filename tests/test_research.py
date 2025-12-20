@@ -89,7 +89,7 @@ class TestResearchContext:
     """
 
     @pytest.mark.asyncio
-    async def test_get_context_returns_entities(self, test_database):
+    async def test_get_context_returns_entities(self, test_database) -> None:
         """
         Verify that get_context extracts and returns entities from the query.
 
@@ -113,7 +113,7 @@ class TestResearchContext:
         assert isinstance(result["extracted_entities"], list)
 
     @pytest.mark.asyncio
-    async def test_get_context_returns_applicable_templates(self, test_database):
+    async def test_get_context_returns_applicable_templates(self, test_database) -> None:
         """
         Verify that get_context returns applicable vertical templates.
 
@@ -137,7 +137,7 @@ class TestResearchContext:
         assert "academic" in template_names
 
     @pytest.mark.asyncio
-    async def test_get_context_does_not_return_subquery_candidates(self, test_database):
+    async def test_get_context_does_not_return_subquery_candidates(self, test_database) -> None:
         """
         Verify that get_context does NOT return subquery candidates.
 
@@ -161,7 +161,7 @@ class TestResearchContext:
         assert "generated_queries" not in result
 
     @pytest.mark.asyncio
-    async def test_get_context_returns_recommended_engines(self, test_database):
+    async def test_get_context_returns_recommended_engines(self, test_database) -> None:
         """
         Verify that get_context returns recommended search engines.
         """
@@ -182,7 +182,7 @@ class TestResearchContext:
         )
 
     @pytest.mark.asyncio
-    async def test_get_context_task_not_found(self, test_database):
+    async def test_get_context_task_not_found(self, test_database) -> None:
         """
         Verify that get_context returns error for non-existent task.
         """
@@ -211,7 +211,7 @@ class TestSubqueryState:
     §3.1.7.4: Novelty score = novel fragments / recent fragments
     """
 
-    def test_satisfaction_score_with_three_sources(self):
+    def test_satisfaction_score_with_three_sources(self) -> None:
         """
         Verify satisfaction score is 0.7 with exactly 3 independent sources.
 
@@ -228,7 +228,7 @@ class TestSubqueryState:
         # Then: Score is 0.7
         assert score == 0.7
 
-    def test_satisfaction_score_with_primary_source(self):
+    def test_satisfaction_score_with_primary_source(self) -> None:
         """
         Verify satisfaction score includes 0.3 bonus for primary source.
 
@@ -246,7 +246,7 @@ class TestSubqueryState:
         expected = (2 / 3) * 0.7 + 0.3
         assert abs(score - expected) < 0.01
 
-    def test_is_satisfied_threshold(self):
+    def test_is_satisfied_threshold(self) -> None:
         """
         Verify is_satisfied returns True when score >= 0.8.
 
@@ -265,7 +265,7 @@ class TestSubqueryState:
         assert sq_satisfied.is_satisfied() is True
         assert sq_not_satisfied.is_satisfied() is False
 
-    def test_novelty_score_calculation(self):
+    def test_novelty_score_calculation(self) -> None:
         """
         Verify novelty score is calculated from recent fragments.
 
@@ -284,7 +284,7 @@ class TestSubqueryState:
         # Then: Novelty is 0.7 (7/10)
         assert novelty == 0.7
 
-    def test_status_transitions(self):
+    def test_status_transitions(self) -> None:
         """
         Verify status transitions from PENDING to SATISFIED.
         """
@@ -300,7 +300,7 @@ class TestSubqueryState:
         # Then: Status becomes SATISFIED
         assert sq.status == SubqueryStatus.SATISFIED
 
-    def test_status_partial_with_some_sources(self):
+    def test_status_partial_with_some_sources(self) -> None:
         """
         Verify status is PARTIAL when 1-2 sources found.
         """
@@ -328,7 +328,7 @@ class TestSearchStatePydanticValidation:
     and proper error messages for invalid inputs.
     """
 
-    def test_valid_creation_with_required_fields_only(self):
+    def test_valid_creation_with_required_fields_only(self) -> None:
         """TC-SS-N-01: Create SearchState with only required fields.
 
         // Given: Only id and text provided
@@ -349,7 +349,7 @@ class TestSearchStatePydanticValidation:
         assert sq.novelty_score == 1.0
         assert sq.satisfaction_score == 0.0
 
-    def test_invalid_priority_raises_validation_error(self):
+    def test_invalid_priority_raises_validation_error(self) -> None:
         """TC-SS-A-01: Invalid priority value raises ValidationError.
 
         // Given: Invalid priority value 'critical'
@@ -367,7 +367,7 @@ class TestSearchStatePydanticValidation:
         error_str = str(exc_info.value)
         assert "priority" in error_str.lower()
 
-    def test_negative_pages_fetched_raises_validation_error(self):
+    def test_negative_pages_fetched_raises_validation_error(self) -> None:
         """TC-SS-A-02: Negative pages_fetched raises ValidationError.
 
         // Given: Negative pages_fetched value
@@ -385,7 +385,7 @@ class TestSearchStatePydanticValidation:
         error_str = str(exc_info.value)
         assert "pages_fetched" in error_str.lower() or "greater than" in error_str.lower()
 
-    def test_invalid_refutation_status_raises_validation_error(self):
+    def test_invalid_refutation_status_raises_validation_error(self) -> None:
         """TC-SS-A-03: Invalid refutation_status raises ValidationError.
 
         // Given: Invalid refutation_status value
@@ -403,7 +403,7 @@ class TestSearchStatePydanticValidation:
         error_str = str(exc_info.value)
         assert "refutation_status" in error_str.lower()
 
-    def test_negative_independent_sources_raises_validation_error(self):
+    def test_negative_independent_sources_raises_validation_error(self) -> None:
         """TC-SS-A-04: Negative independent_sources raises ValidationError.
 
         // Given: Negative independent_sources value
@@ -417,7 +417,7 @@ class TestSearchStatePydanticValidation:
         with pytest.raises(ValidationError):
             SubqueryState(id="sq_001", text="test", independent_sources=-1)
 
-    def test_harvest_rate_negative_raises_validation_error(self):
+    def test_harvest_rate_negative_raises_validation_error(self) -> None:
         """TC-SS-A-05: Negative harvest_rate raises ValidationError.
 
         // Given: harvest_rate = -0.5 (negative)
@@ -434,7 +434,7 @@ class TestSearchStatePydanticValidation:
         with pytest.raises(ValidationError):
             SubqueryState(id="sq_001", text="test", harvest_rate=-0.5)
 
-    def test_harvest_rate_above_one_is_valid(self):
+    def test_harvest_rate_above_one_is_valid(self) -> None:
         """TC-SS-N-06: harvest_rate > 1.0 is valid.
 
         // Given: harvest_rate = 2.5 (multiple fragments per page)
@@ -461,7 +461,7 @@ class TestSearchStateBoundaryValues:
     Per test-strategy.mdc: Tests for 0, min, max, ±1, empty, NULL.
     """
 
-    def test_satisfaction_score_with_zero_sources(self):
+    def test_satisfaction_score_with_zero_sources(self) -> None:
         """TC-SS-B-01: Score is 0.0 with zero independent sources.
 
         // Given: independent_sources = 0, no primary source
@@ -479,7 +479,7 @@ class TestSearchStateBoundaryValues:
         # Then: Score is 0.0
         assert score == 0.0
 
-    def test_satisfaction_score_capped_with_many_sources(self):
+    def test_satisfaction_score_capped_with_many_sources(self) -> None:
         """TC-SS-B-02: Score is capped at 1.0 with many sources.
 
         // Given: independent_sources = 10, primary source
@@ -497,7 +497,7 @@ class TestSearchStateBoundaryValues:
         # Then: Score is capped at 1.0
         assert score == 1.0
 
-    def test_novelty_score_zero_boundary(self):
+    def test_novelty_score_zero_boundary(self) -> None:
         """TC-SS-B-03: novelty_score = 0.0 is valid.
 
         // Given: novelty_score = 0.0
@@ -510,7 +510,7 @@ class TestSearchStateBoundaryValues:
         # Then: Valid state
         assert sq.novelty_score == 0.0
 
-    def test_novelty_score_max_boundary(self):
+    def test_novelty_score_max_boundary(self) -> None:
         """TC-SS-B-04: novelty_score = 1.0 is valid.
 
         // Given: novelty_score = 1.0
@@ -523,7 +523,7 @@ class TestSearchStateBoundaryValues:
         # Then: Valid state
         assert sq.novelty_score == 1.0
 
-    def test_satisfaction_threshold_exactly_0_8(self):
+    def test_satisfaction_threshold_exactly_0_8(self) -> None:
         """TC-SS-B-05: Exact threshold 0.8 satisfies condition.
 
         // Given: Exact score of 0.8 (3 sources + no primary = 0.7, so need adjustment)
@@ -542,7 +542,7 @@ class TestSearchStateBoundaryValues:
         assert is_satisfied is True
         assert sq.satisfaction_score == 1.0
 
-    def test_satisfaction_threshold_just_below_0_8(self):
+    def test_satisfaction_threshold_just_below_0_8(self) -> None:
         """TC-SS-B-06: Score just below 0.8 does not satisfy.
 
         // Given: Score of 0.7 (3 sources, no primary)
@@ -561,7 +561,7 @@ class TestSearchStateBoundaryValues:
         assert is_satisfied is False
         assert sq.satisfaction_score == 0.7
 
-    def test_empty_source_domains_list(self):
+    def test_empty_source_domains_list(self) -> None:
         """TC-SS-B-07: Empty source_domains list is valid.
 
         // Given: Default source_domains (empty list)
@@ -575,7 +575,7 @@ class TestSearchStateBoundaryValues:
         assert sq.source_domains == []
         assert isinstance(sq.source_domains, list)
 
-    def test_budget_pages_none_is_valid(self):
+    def test_budget_pages_none_is_valid(self) -> None:
         """TC-SS-B-08: budget_pages = None is valid.
 
         // Given: budget_pages not specified
@@ -588,7 +588,7 @@ class TestSearchStateBoundaryValues:
         # Then: None is valid
         assert sq.budget_pages is None
 
-    def test_budget_pages_zero_is_valid(self):
+    def test_budget_pages_zero_is_valid(self) -> None:
         """TC-SS-B-09: budget_pages = 0 is valid (boundary).
 
         // Given: budget_pages = 0
@@ -613,7 +613,7 @@ class TestExplorationState:
     """
 
     @pytest.mark.asyncio
-    async def test_register_and_start_subquery(self, test_database):
+    async def test_register_and_start_subquery(self, test_database) -> None:
         """
         Verify subquery registration and starting.
         """
@@ -637,7 +637,7 @@ class TestExplorationState:
         assert sq.status == SubqueryStatus.RUNNING
 
     @pytest.mark.asyncio
-    async def test_budget_tracking(self, test_database):
+    async def test_budget_tracking(self, test_database) -> None:
         """
         Verify page budget is tracked correctly.
         """
@@ -661,7 +661,7 @@ class TestExplorationState:
         assert "上限" in warning
 
     @pytest.mark.asyncio
-    async def test_get_status_returns_all_required_fields(self, test_database):
+    async def test_get_status_returns_all_required_fields(self, test_database) -> None:
         """
         Verify get_status returns all required fields per §3.2.1.
         Now async per §16.7.1 changes.
@@ -687,7 +687,7 @@ class TestExplorationState:
         assert "warnings" in status
 
     @pytest.mark.asyncio
-    async def test_get_status_includes_authentication_queue(self, test_database):
+    async def test_get_status_includes_authentication_queue(self, test_database) -> None:
         """
         Verify get_status includes authentication_queue when pending items exist.
 
@@ -732,7 +732,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_auth_queue_warning_threshold(self, test_database):
+    async def test_auth_queue_warning_threshold(self, test_database) -> None:
         """
         Verify warning alert is generated when pending >= 3.
 
@@ -771,7 +771,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_auth_queue_critical_threshold_by_count(self, test_database):
+    async def test_auth_queue_critical_threshold_by_count(self, test_database) -> None:
         """
         Verify critical alert is generated when pending >= 5.
 
@@ -816,7 +816,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_auth_queue_critical_threshold_by_high_priority(self, test_database):
+    async def test_auth_queue_critical_threshold_by_high_priority(self, test_database) -> None:
         """
         Verify critical alert is generated when high_priority >= 2.
 
@@ -855,7 +855,7 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_finalize_returns_summary(self, test_database):
+    async def test_finalize_returns_summary(self, test_database) -> None:
         """
         Verify finalize returns proper summary with unsatisfied subqueries.
         """
@@ -897,7 +897,7 @@ class TestExplorationStateBoundaryValues:
     """
 
     @pytest.mark.asyncio
-    async def test_zero_pages_limit_immediately_exceeded(self, test_database):
+    async def test_zero_pages_limit_immediately_exceeded(self, test_database) -> None:
         """TC-ES-B-01: Zero pages_limit is immediately exceeded.
 
         // Given: pages_limit = 0
@@ -918,7 +918,7 @@ class TestExplorationStateBoundaryValues:
         assert warning is not None
 
     @pytest.mark.asyncio
-    async def test_pages_limit_exactly_at_boundary(self, test_database):
+    async def test_pages_limit_exactly_at_boundary(self, test_database) -> None:
         """TC-ES-B-02: Exactly at pages_limit triggers exceeded.
 
         // Given: pages_limit = 5, pages_used = 5
@@ -939,7 +939,7 @@ class TestExplorationStateBoundaryValues:
         assert within_budget is False
 
     @pytest.mark.asyncio
-    async def test_pages_limit_one_below_boundary(self, test_database):
+    async def test_pages_limit_one_below_boundary(self, test_database) -> None:
         """TC-ES-B-03: One below pages_limit is within budget.
 
         // Given: pages_limit = 5, pages_used = 4
@@ -960,7 +960,7 @@ class TestExplorationStateBoundaryValues:
         assert within_budget is True
 
     @pytest.mark.asyncio
-    async def test_budget_warning_at_80_percent(self, test_database):
+    async def test_budget_warning_at_80_percent(self, test_database) -> None:
         """TC-ES-B-04: Warning at 80% budget usage.
 
         // Given: pages_limit = 100, pages_used = 81 (81% usage)
@@ -995,7 +995,7 @@ class TestSubqueryExecutor:
     §2.1.3: Lyra only performs mechanical expansions, not query design.
     """
 
-    def test_primary_source_detection(self):
+    def test_primary_source_detection(self) -> None:
         """
         Verify primary source domains are correctly identified.
         """
@@ -1006,7 +1006,7 @@ class TestSubqueryExecutor:
         assert "who.int" in PRIMARY_SOURCE_DOMAINS
 
     @pytest.mark.asyncio
-    async def test_expand_query_mechanical_only(self, test_database):
+    async def test_expand_query_mechanical_only(self, test_database) -> None:
         """
         Verify query expansion is mechanical (operators, not new ideas).
 
@@ -1027,7 +1027,7 @@ class TestSubqueryExecutor:
         for eq in expanded:
             assert "機械学習" in eq, f"Expected '機械学習' in expanded query: {eq}"
 
-    def test_generate_refutation_queries_mechanical(self):
+    def test_generate_refutation_queries_mechanical(self) -> None:
         """
         Verify refutation queries use mechanical suffix patterns only.
 
@@ -1064,7 +1064,7 @@ class TestRefutationExecutor:
     §2.1.4: No LLM-based reverse query design.
     """
 
-    def test_refutation_suffixes_defined(self):
+    def test_refutation_suffixes_defined(self) -> None:
         """
         Verify all required refutation suffixes are defined.
 
@@ -1077,7 +1077,7 @@ class TestRefutationExecutor:
         assert "limitations" in REFUTATION_SUFFIXES
 
     @pytest.mark.asyncio
-    async def test_generate_reverse_queries_mechanical(self, test_database):
+    async def test_generate_reverse_queries_mechanical(self, test_database) -> None:
         """
         Verify reverse query generation is mechanical (suffix-based).
         """
@@ -1101,7 +1101,7 @@ class TestRefutationExecutor:
             assert has_suffix, f"Query '{rq}' doesn't use mechanical suffix"
 
     @pytest.mark.asyncio
-    async def test_refutation_result_structure(self, test_database):
+    async def test_refutation_result_structure(self, test_database) -> None:
         """
         Verify RefutationResult has correct structure per §3.2.1.
         """
@@ -1137,7 +1137,7 @@ class TestExplorationIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_full_exploration_workflow(self, test_database):
+    async def test_full_exploration_workflow(self, test_database) -> None:
         """
         Verify complete exploration workflow: context → execute → status → finalize.
 
@@ -1203,7 +1203,7 @@ class TestResponsibilityBoundary:
     as defined in §2.1.
     """
 
-    def test_lyra_does_not_design_queries(self):
+    def test_lyra_does_not_design_queries(self) -> None:
         """
         Verify Lyra components don't have query design capabilities.
 
@@ -1218,7 +1218,7 @@ class TestResponsibilityBoundary:
         assert not hasattr(SubqueryExecutor, "design_query")
         assert not hasattr(SubqueryExecutor, "generate_query")
 
-    def test_refutation_uses_only_mechanical_patterns(self):
+    def test_refutation_uses_only_mechanical_patterns(self) -> None:
         """
         Verify refutation only uses predefined suffixes, not LLM.
 
@@ -1233,7 +1233,7 @@ class TestResponsibilityBoundary:
         assert all(isinstance(s, str) for s in REFUTATION_SUFFIXES)
 
     @pytest.mark.asyncio
-    async def test_context_notes_are_informational_only(self, test_database):
+    async def test_context_notes_are_informational_only(self, test_database) -> None:
         """
         Verify context notes are hints, not directives.
 
@@ -1409,7 +1409,7 @@ class TestGetOverallHarvestRate:
     | TC-HR-B-03 | High rate (>=0.9) | Boundary - lastmile trigger | Returns rate >= 0.9 | - |
     """
 
-    def test_get_overall_harvest_rate_no_searches(self):
+    def test_get_overall_harvest_rate_no_searches(self) -> None:
         """TC-HR-B-01: Test returns 0.0 when no searches registered."""
         # Given: An ExplorationState with no searches
         from src.research.state import ExplorationState
@@ -1422,7 +1422,7 @@ class TestGetOverallHarvestRate:
         # Then: Returns 0.0
         assert rate == 0.0
 
-    def test_get_overall_harvest_rate_zero_pages(self):
+    def test_get_overall_harvest_rate_zero_pages(self) -> None:
         """TC-HR-B-02: Test returns 0.0 when searches have no pages fetched."""
         # Given: An ExplorationState with searches but no pages fetched
         from src.research.state import ExplorationState
@@ -1437,7 +1437,7 @@ class TestGetOverallHarvestRate:
         # Then: Returns 0.0 (no division by zero)
         assert rate == 0.0
 
-    def test_get_overall_harvest_rate_single_search(self):
+    def test_get_overall_harvest_rate_single_search(self) -> None:
         """TC-HR-N-01: Test calculates correct rate for single search."""
         # Given: An ExplorationState with one search
         from src.research.state import ExplorationState
@@ -1453,7 +1453,7 @@ class TestGetOverallHarvestRate:
         # Then: Returns correct rate (8/10 = 0.8)
         assert rate == 0.8
 
-    def test_get_overall_harvest_rate_multiple_searches(self):
+    def test_get_overall_harvest_rate_multiple_searches(self) -> None:
         """TC-HR-N-02: Test aggregates rate across multiple searches."""
         # Given: An ExplorationState with multiple searches
         from src.research.state import ExplorationState
@@ -1475,7 +1475,7 @@ class TestGetOverallHarvestRate:
         expected = 18 / 30
         assert abs(rate - expected) < 0.001
 
-    def test_get_overall_harvest_rate_high_rate(self):
+    def test_get_overall_harvest_rate_high_rate(self) -> None:
         """TC-HR-B-03: Test returns rate >= 0.9 for high harvest."""
         # Given: An ExplorationState with high harvest rate
         from src.research.state import ExplorationState
@@ -1523,7 +1523,7 @@ class TestAcademicQueryDetection:
     | TC-AQ-B-03 | Expand empty query | Boundary – empty | Returns list with empty query | - |
     """
 
-    def test_is_academic_query_with_keyword(self):
+    def test_is_academic_query_with_keyword(self) -> None:
         """TC-AQ-N-01: Test query with academic keyword.
 
         // Given: Query containing academic keyword
@@ -1544,7 +1544,7 @@ class TestAcademicQueryDetection:
         # Then: Returns True
         assert is_academic is True
 
-    def test_is_academic_query_with_site_operator(self):
+    def test_is_academic_query_with_site_operator(self) -> None:
         """TC-AQ-N-02: Test query with site:arxiv.org.
 
         // Given: Query with site:arxiv.org operator
@@ -1565,7 +1565,7 @@ class TestAcademicQueryDetection:
         # Then: Returns True
         assert is_academic is True
 
-    def test_is_academic_query_with_doi_pattern(self):
+    def test_is_academic_query_with_doi_pattern(self) -> None:
         """TC-AQ-N-03: Test query with DOI pattern.
 
         // Given: Query containing DOI pattern
@@ -1586,7 +1586,7 @@ class TestAcademicQueryDetection:
         # Then: Returns True
         assert is_academic is True
 
-    def test_is_academic_query_empty(self):
+    def test_is_academic_query_empty(self) -> None:
         """TC-AQ-B-01: Test empty query string.
 
         // Given: Empty query string
@@ -1606,7 +1606,7 @@ class TestAcademicQueryDetection:
         # Then: Returns False
         assert is_academic is False
 
-    def test_is_academic_query_general(self):
+    def test_is_academic_query_general(self) -> None:
         """TC-AQ-B-02: Test query without academic indicators.
 
         // Given: General query without academic indicators
@@ -1627,7 +1627,7 @@ class TestAcademicQueryDetection:
         # Then: Returns False
         assert is_academic is False
 
-    def test_expand_academic_query(self):
+    def test_expand_academic_query(self) -> None:
         """TC-AQ-N-04: Test expanding academic query.
 
         // Given: Academic query
@@ -1651,7 +1651,7 @@ class TestAcademicQueryDetection:
         # Should include site: operators
         assert any("site:arxiv.org" in q or "site:pubmed" in q for q in expanded)
 
-    def test_expand_academic_query_empty(self):
+    def test_expand_academic_query_empty(self) -> None:
         """TC-AQ-B-03: Test expanding empty query.
 
         // Given: Empty query

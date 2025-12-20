@@ -46,7 +46,7 @@ from migrate import (
 class TestMigrationInfrastructure:
     """Tests for migration infrastructure components."""
 
-    def test_get_connection_creates_db(self, tmp_path: Path):
+    def test_get_connection_creates_db(self, tmp_path: Path) -> None:
         """
         TC-A-01: Test DB creation for non-existent path.
 
@@ -69,7 +69,7 @@ class TestMigrationInfrastructure:
         conn.close()
         assert db_path.exists()
 
-    def test_ensure_migrations_table_creates_table(self, tmp_path: Path):
+    def test_ensure_migrations_table_creates_table(self, tmp_path: Path) -> None:
         """
         TC-N-01 (setup): Test schema_migrations table creation.
 
@@ -95,7 +95,7 @@ class TestMigrationInfrastructure:
 
         conn.close()
 
-    def test_get_applied_migrations_empty(self, tmp_path: Path):
+    def test_get_applied_migrations_empty(self, tmp_path: Path) -> None:
         """
         TC-A-03: Test empty migrations.
 
@@ -115,7 +115,7 @@ class TestMigrationInfrastructure:
         assert applied == set()
         conn.close()
 
-    def test_get_applied_migrations_with_data(self, tmp_path: Path):
+    def test_get_applied_migrations_with_data(self, tmp_path: Path) -> None:
         """
         TC-N-02: Test with existing applied migrations.
 
@@ -142,7 +142,7 @@ class TestMigrationInfrastructure:
 class TestMigrationDiscovery:
     """Tests for migration file discovery."""
 
-    def test_get_pending_migrations_no_dir(self, tmp_path: Path):
+    def test_get_pending_migrations_no_dir(self, tmp_path: Path) -> None:
         """
         TC-A-03: Test with non-existent migrations directory.
 
@@ -163,7 +163,7 @@ class TestMigrationDiscovery:
         assert pending == []
         conn.close()
 
-    def test_get_pending_migrations_finds_files(self, tmp_path: Path):
+    def test_get_pending_migrations_finds_files(self, tmp_path: Path) -> None:
         """
         TC-N-01: Test migration file discovery.
 
@@ -194,7 +194,7 @@ class TestMigrationDiscovery:
         assert pending[1][1] == "second"
         conn.close()
 
-    def test_get_pending_excludes_applied(self, tmp_path: Path):
+    def test_get_pending_excludes_applied(self, tmp_path: Path) -> None:
         """
         TC-N-02: Test that applied migrations are excluded.
 
@@ -227,7 +227,7 @@ class TestMigrationDiscovery:
 class TestMigrationExecution:
     """Tests for migration execution."""
 
-    def test_apply_migration_simple(self, tmp_path: Path):
+    def test_apply_migration_simple(self, tmp_path: Path) -> None:
         """
         TC-N-01: Test applying a simple migration.
 
@@ -263,7 +263,7 @@ class TestMigrationExecution:
         assert 1 in applied
         conn.close()
 
-    def test_apply_migration_alter_table(self, tmp_path: Path):
+    def test_apply_migration_alter_table(self, tmp_path: Path) -> None:
         """
         TC-N-04: Test migration with ALTER TABLE.
 
@@ -295,7 +295,7 @@ class TestMigrationExecution:
         assert "new_column" in columns
         conn.close()
 
-    def test_apply_migration_duplicate_column_graceful(self, tmp_path: Path):
+    def test_apply_migration_duplicate_column_graceful(self, tmp_path: Path) -> None:
         """
         TC-A-04: Test idempotent handling of duplicate column.
 
@@ -326,7 +326,7 @@ class TestMigrationExecution:
         assert 1 in applied
         conn.close()
 
-    def test_apply_migration_empty_file(self, tmp_path: Path):
+    def test_apply_migration_empty_file(self, tmp_path: Path) -> None:
         """
         TC-B-03: Test empty migration file.
 
@@ -352,7 +352,7 @@ class TestMigrationExecution:
         assert 1 in applied
         conn.close()
 
-    def test_apply_migration_malformed_sql(self, tmp_path: Path):
+    def test_apply_migration_malformed_sql(self, tmp_path: Path) -> None:
         """
         TC-A-02: Test malformed SQL migration.
 
@@ -380,7 +380,7 @@ class TestMigrationExecution:
 class TestMigrationCommands:
     """Tests for CLI commands."""
 
-    def test_cmd_up_applies_pending(self, tmp_path: Path):
+    def test_cmd_up_applies_pending(self, tmp_path: Path) -> None:
         """
         TC-N-01: Test cmd_up applies pending migrations.
 
@@ -410,7 +410,7 @@ class TestMigrationCommands:
         assert "schema_migrations" in tables
         conn.close()
 
-    def test_cmd_up_no_pending(self, tmp_path: Path):
+    def test_cmd_up_no_pending(self, tmp_path: Path) -> None:
         """
         TC-N-02: Test cmd_up with no pending migrations.
 
@@ -430,7 +430,7 @@ class TestMigrationCommands:
         # Then: Success
         assert result == 0
 
-    def test_cmd_status_shows_applied(self, tmp_path: Path, capsys):
+    def test_cmd_status_shows_applied(self, tmp_path: Path, capsys) -> None:
         """
         TC-N-02: Test cmd_status shows applied migrations.
 
@@ -460,7 +460,7 @@ class TestMigrationCommands:
         assert "Applied: 1" in captured.out
         assert "Pending: 0" in captured.out
 
-    def test_cmd_create_new_migration(self, tmp_path: Path, capsys):
+    def test_cmd_create_new_migration(self, tmp_path: Path, capsys) -> None:
         """
         TC-N-01: Test cmd_create creates new migration file.
 
@@ -485,7 +485,7 @@ class TestMigrationCommands:
         content = files[0].read_text()
         assert "add_test_column" in content
 
-    def test_cmd_create_increments_version(self, tmp_path: Path):
+    def test_cmd_create_increments_version(self, tmp_path: Path) -> None:
         """
         TC-N-03: Test cmd_create increments version number.
 
@@ -511,7 +511,7 @@ class TestMigrationCommands:
 class TestBoundaryConditions:
     """Tests for boundary conditions."""
 
-    def test_migration_version_zero(self, tmp_path: Path):
+    def test_migration_version_zero(self, tmp_path: Path) -> None:
         """
         TC-B-01: Test migration version 0.
 
@@ -537,7 +537,7 @@ class TestBoundaryConditions:
         assert pending[0][0] == 0
         conn.close()
 
-    def test_migration_version_large(self, tmp_path: Path):
+    def test_migration_version_large(self, tmp_path: Path) -> None:
         """
         TC-B-02: Test large migration version number.
 
@@ -563,7 +563,7 @@ class TestBoundaryConditions:
         assert pending[0][0] == 999
         conn.close()
 
-    def test_multiple_statements_in_migration(self, tmp_path: Path):
+    def test_multiple_statements_in_migration(self, tmp_path: Path) -> None:
         """
         TC-N-03: Test migration with multiple SQL statements.
 

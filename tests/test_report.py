@@ -35,63 +35,63 @@ from src.report.generator import (
 class TestGenerateAnchorSlug:
     """Tests for generate_anchor_slug function."""
 
-    def test_simple_english_heading(self):
+    def test_simple_english_heading(self) -> None:
         """Test basic English heading slug generation."""
         result = generate_anchor_slug("Introduction")
         assert result == "introduction"
 
-    def test_heading_with_spaces(self):
+    def test_heading_with_spaces(self) -> None:
         """Test heading with spaces becomes hyphenated."""
         result = generate_anchor_slug("Getting Started Guide")
         assert result == "getting-started-guide"
 
-    def test_heading_with_special_characters(self):
+    def test_heading_with_special_characters(self) -> None:
         """Test special characters are removed."""
         result = generate_anchor_slug("What's New? (2024)")
         assert result == "whats-new-2024"
 
-    def test_japanese_heading(self):
+    def test_japanese_heading(self) -> None:
         """Test Japanese heading is preserved."""
         result = generate_anchor_slug("はじめに")
         assert result == "はじめに"
 
-    def test_japanese_heading_with_spaces(self):
+    def test_japanese_heading_with_spaces(self) -> None:
         """Test Japanese heading with spaces."""
         result = generate_anchor_slug("第1章 概要")
         assert result == "第1章-概要"
 
-    def test_mixed_language_heading(self):
+    def test_mixed_language_heading(self) -> None:
         """Test mixed Japanese/English heading."""
         result = generate_anchor_slug("API仕様 Overview")
         assert result == "api仕様-overview"
 
-    def test_empty_heading(self):
+    def test_empty_heading(self) -> None:
         """Test empty heading returns empty string."""
         result = generate_anchor_slug("")
         assert result == ""
 
-    def test_none_heading(self):
+    def test_none_heading(self) -> None:
         """Test None heading returns empty string."""
         result = generate_anchor_slug(None)  # type: ignore
         assert result == ""
 
-    def test_heading_with_multiple_spaces(self):
+    def test_heading_with_multiple_spaces(self) -> None:
         """Test multiple spaces collapse to single hyphen."""
         result = generate_anchor_slug("Section   One")
         assert result == "section-one"
 
-    def test_heading_with_underscores(self):
+    def test_heading_with_underscores(self) -> None:
         """Test underscores become hyphens."""
         result = generate_anchor_slug("getting_started_guide")
         assert result == "getting-started-guide"
 
-    def test_heading_unicode_normalization(self):
+    def test_heading_unicode_normalization(self) -> None:
         """Test unicode normalization (NFKC)."""
         # Full-width characters should be normalized
         result = generate_anchor_slug("ＡＢＣ")
         assert result == "abc"
 
-    def test_heading_with_numbers(self):
+    def test_heading_with_numbers(self) -> None:
         """Test numbers are preserved."""
         result = generate_anchor_slug("Chapter 123")
         assert result == "chapter-123"
@@ -100,37 +100,37 @@ class TestGenerateAnchorSlug:
 class TestGenerateDeepLink:
     """Tests for generate_deep_link function."""
 
-    def test_basic_deep_link(self):
+    def test_basic_deep_link(self) -> None:
         """Test basic deep link generation."""
         result = generate_deep_link("https://example.com/page", "Introduction")
         assert result == "https://example.com/page#introduction"
 
-    def test_deep_link_with_japanese_heading(self):
+    def test_deep_link_with_japanese_heading(self) -> None:
         """Test deep link with Japanese heading."""
         result = generate_deep_link("https://example.com/doc", "はじめに")
         assert result == "https://example.com/doc#はじめに"
 
-    def test_deep_link_no_heading(self):
+    def test_deep_link_no_heading(self) -> None:
         """Test deep link without heading returns original URL."""
         result = generate_deep_link("https://example.com/page", None)
         assert result == "https://example.com/page"
 
-    def test_deep_link_empty_heading(self):
+    def test_deep_link_empty_heading(self) -> None:
         """Test deep link with empty heading returns original URL."""
         result = generate_deep_link("https://example.com/page", "")
         assert result == "https://example.com/page"
 
-    def test_deep_link_preserves_existing_fragment(self):
+    def test_deep_link_preserves_existing_fragment(self) -> None:
         """Test existing fragment is not overwritten."""
         result = generate_deep_link("https://example.com/page#existing", "New Section")
         assert result == "https://example.com/page#existing"
 
-    def test_deep_link_with_query_params(self):
+    def test_deep_link_with_query_params(self) -> None:
         """Test deep link preserves query parameters."""
         result = generate_deep_link("https://example.com/page?q=test&lang=ja", "Results")
         assert result == "https://example.com/page?q=test&lang=ja#results"
 
-    def test_deep_link_with_path(self):
+    def test_deep_link_with_path(self) -> None:
         """Test deep link with complex path."""
         result = generate_deep_link("https://example.com/docs/api/v2/reference", "Authentication")
         assert result == "https://example.com/docs/api/v2/reference#authentication"
@@ -139,7 +139,7 @@ class TestGenerateDeepLink:
 class TestCitation:
     """Tests for Citation class."""
 
-    def test_citation_creation(self):
+    def test_citation_creation(self) -> None:
         """Test basic citation creation."""
         citation = Citation(
             url="https://example.com/doc",
@@ -148,7 +148,7 @@ class TestCitation:
         assert citation.url == "https://example.com/doc"
         assert citation.title == "Test Document"
 
-    def test_citation_deep_link(self):
+    def test_citation_deep_link(self) -> None:
         """Test citation deep_link property."""
         citation = Citation(
             url="https://example.com/doc",
@@ -157,7 +157,7 @@ class TestCitation:
         )
         assert citation.deep_link == "https://example.com/doc#introduction"
 
-    def test_citation_deep_link_no_heading(self):
+    def test_citation_deep_link_no_heading(self) -> None:
         """Test citation deep_link without heading returns original URL."""
         citation = Citation(
             url="https://example.com/doc",
@@ -165,7 +165,7 @@ class TestCitation:
         )
         assert citation.deep_link == "https://example.com/doc"
 
-    def test_citation_is_primary_source_government(self):
+    def test_citation_is_primary_source_government(self) -> None:
         """Test government sources are primary."""
         citation = Citation(
             url="https://gov.example.com/report",
@@ -174,7 +174,7 @@ class TestCitation:
         )
         assert citation.is_primary_source is True
 
-    def test_citation_is_primary_source_academic(self):
+    def test_citation_is_primary_source_academic(self) -> None:
         """Test academic sources are primary."""
         citation = Citation(
             url="https://arxiv.org/paper",
@@ -183,7 +183,7 @@ class TestCitation:
         )
         assert citation.is_primary_source is True
 
-    def test_citation_is_primary_source_blog(self):
+    def test_citation_is_primary_source_blog(self) -> None:
         """Test blog sources are not primary."""
         citation = Citation(
             url="https://blog.example.com/post",
@@ -192,7 +192,7 @@ class TestCitation:
         )
         assert citation.is_primary_source is False
 
-    def test_citation_is_primary_source_none(self):
+    def test_citation_is_primary_source_none(self) -> None:
         """Test no source_tag means not primary."""
         citation = Citation(
             url="https://example.com/page",
@@ -200,7 +200,7 @@ class TestCitation:
         )
         assert citation.is_primary_source is False
 
-    def test_citation_to_markdown_basic(self):
+    def test_citation_to_markdown_basic(self) -> None:
         """Test basic markdown output."""
         citation = Citation(
             url="https://example.com/doc",
@@ -209,7 +209,7 @@ class TestCitation:
         result = citation.to_markdown(1, include_excerpt=False)
         assert "1. [Test Document](https://example.com/doc)" in result
 
-    def test_citation_to_markdown_with_heading(self):
+    def test_citation_to_markdown_with_heading(self) -> None:
         """Test markdown output includes section reference."""
         citation = Citation(
             url="https://example.com/doc",
@@ -222,7 +222,7 @@ class TestCitation:
         # Should include section label
         assert "セクション: 第1章 概要" in result
 
-    def test_citation_to_markdown_with_source_tag(self):
+    def test_citation_to_markdown_with_source_tag(self) -> None:
         """Test markdown output includes source type."""
         citation = Citation(
             url="https://gov.example.com/report",
@@ -232,7 +232,7 @@ class TestCitation:
         result = citation.to_markdown(1, include_excerpt=False)
         assert "政府・公的機関" in result
 
-    def test_citation_to_markdown_with_excerpt(self):
+    def test_citation_to_markdown_with_excerpt(self) -> None:
         """Test markdown output includes excerpt when requested."""
         citation = Citation(
             url="https://example.com/doc",
@@ -242,7 +242,7 @@ class TestCitation:
         result = citation.to_markdown(1, include_excerpt=True)
         assert "This is a test excerpt" in result
 
-    def test_citation_to_markdown_truncates_long_excerpt(self):
+    def test_citation_to_markdown_truncates_long_excerpt(self) -> None:
         """Test long excerpts are truncated."""
         long_text = "a" * 200
         citation = Citation(
@@ -274,7 +274,7 @@ class TestCitationSourcePriority:
             (None, False),
         ],
     )
-    def test_primary_source_classification(self, source_tag, expected):
+    def test_primary_source_classification(self, source_tag, expected) -> None:
         """Test all source types are classified correctly."""
         citation = Citation(
             url="https://example.com/page",

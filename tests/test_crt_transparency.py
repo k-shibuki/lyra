@@ -45,7 +45,7 @@ from src.crawler.crt_transparency import (
 class TestCertificateInfo:
     """Tests for CertificateInfo data class."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization to dictionary."""
         # Given: CertificateInfo with all fields
         cert = CertificateInfo(
@@ -68,7 +68,7 @@ class TestCertificateInfo:
         assert len(d["san_dns"]) == 2
         assert "2024" in d["not_before"]
 
-    def test_is_valid_current(self):
+    def test_is_valid_current(self) -> None:
         """Test validity check for current certificate."""
         # Given: Certificate with current validity period
         now = datetime.now(UTC)
@@ -83,7 +83,7 @@ class TestCertificateInfo:
         # When/Then: is_valid=True
         assert cert.is_valid
 
-    def test_is_valid_expired(self):
+    def test_is_valid_expired(self) -> None:
         """Test validity check for expired certificate."""
         # Given: Certificate with past not_after
         now = datetime.now(UTC)
@@ -98,7 +98,7 @@ class TestCertificateInfo:
         # When/Then: is_valid=False
         assert not cert.is_valid
 
-    def test_is_valid_not_yet_valid(self):
+    def test_is_valid_not_yet_valid(self) -> None:
         """Test validity check for future certificate."""
         # Given: Certificate with future not_before
         now = datetime.now(UTC)
@@ -113,7 +113,7 @@ class TestCertificateInfo:
         # When/Then: is_valid=False
         assert not cert.is_valid
 
-    def test_is_wildcard(self):
+    def test_is_wildcard(self) -> None:
         """Test wildcard certificate detection."""
         # Given: Wildcard certificate
         cert = CertificateInfo(
@@ -132,7 +132,7 @@ class TestCertificateInfo:
         )
         assert not cert.is_wildcard
 
-    def test_get_all_domains(self):
+    def test_get_all_domains(self) -> None:
         """Test getting all domains from cert."""
         cert = CertificateInfo(
             cert_id="1",
@@ -153,7 +153,7 @@ class TestCertificateInfo:
 class TestCertSearchResult:
     """Tests for CertSearchResult data class."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization."""
         result = CertSearchResult(
             query_domain="example.com",
@@ -178,7 +178,7 @@ class TestCertSearchResult:
 class TestCertTimeline:
     """Tests for CertTimeline data class."""
 
-    def test_add_entry(self):
+    def test_add_entry(self) -> None:
         """Test adding timeline entries."""
         timeline = CertTimeline(domain="example.com")
 
@@ -198,7 +198,7 @@ class TestCertTimeline:
         assert timeline.entries[0][0].year == 2023  # Earlier first
         assert timeline.entries[1][0].year == 2024
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test serialization."""
         timeline = CertTimeline(domain="example.com")
         timeline.add_entry(
@@ -217,7 +217,7 @@ class TestCertTimeline:
 class TestCertTransparencyParser:
     """Tests for crt.sh HTML parser."""
 
-    def test_parse_search_results(self):
+    def test_parse_search_results(self) -> None:
         """Test parsing crt.sh search results table."""
         parser = CertTransparencyParser()
 
@@ -259,7 +259,7 @@ class TestCertTransparencyParser:
         assert cert1.common_name == "example.com"
         assert "www.example.com" in cert1.san_dns
 
-    def test_parse_search_results_empty(self):
+    def test_parse_search_results_empty(self) -> None:
         """Test parsing empty results."""
         parser = CertTransparencyParser()
 
@@ -276,7 +276,7 @@ class TestCertTransparencyParser:
         assert result.query_domain == "nonexistent.com"
         assert len(result.certificates) == 0
 
-    def test_parse_cert_detail(self):
+    def test_parse_cert_detail(self) -> None:
         """Test parsing certificate detail page."""
         parser = CertTransparencyParser()
 
@@ -307,7 +307,7 @@ Certificate:
         assert len(cert.san_dns) == 3
         assert "api.example.com" in cert.san_dns
 
-    def test_parse_sans(self):
+    def test_parse_sans(self) -> None:
         """Test parsing Subject Alternative Names."""
         parser = CertTransparencyParser()
 
@@ -325,7 +325,7 @@ Certificate:
         assert "example.com" in sans
         assert "192.168.1.1" not in sans
 
-    def test_extract_org_from_issuer(self):
+    def test_extract_org_from_issuer(self) -> None:
         """Test extracting organization from issuer string."""
         parser = CertTransparencyParser()
 
@@ -335,7 +335,7 @@ Certificate:
 
         assert parser._extract_org_from_issuer("Unknown Issuer") is None
 
-    def test_aggregate_discoveries(self):
+    def test_aggregate_discoveries(self) -> None:
         """Test aggregating discovered entities from certs."""
         parser = CertTransparencyParser()
 
@@ -389,7 +389,7 @@ class TestCertTransparencyClient:
         return AsyncMock()
 
     @pytest.mark.asyncio
-    async def test_search_success(self, mock_fetcher, tmp_path):
+    async def test_search_success(self, mock_fetcher, tmp_path) -> None:
         """Test successful certificate search."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""
@@ -420,7 +420,7 @@ class TestCertTransparencyClient:
         assert len(search_result.certificates) == 1
 
     @pytest.mark.asyncio
-    async def test_search_cache(self, mock_fetcher, tmp_path):
+    async def test_search_cache(self, mock_fetcher, tmp_path) -> None:
         """Test that results are cached."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""
@@ -444,7 +444,7 @@ class TestCertTransparencyClient:
         assert mock_fetcher.fetch.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_search_no_fetcher(self):
+    async def test_search_no_fetcher(self) -> None:
         """Test search without fetcher returns None."""
         client = CertTransparencyClient(fetcher=None)
         result = await client.search("example.com")
@@ -452,7 +452,7 @@ class TestCertTransparencyClient:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_discover_related_domains(self, mock_fetcher, tmp_path):
+    async def test_discover_related_domains(self, mock_fetcher, tmp_path) -> None:
         """Test discovering related domains."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""
@@ -483,7 +483,7 @@ class TestCertTransparencyClient:
         assert "example.com" not in domains  # Should not include query domain
 
     @pytest.mark.asyncio
-    async def test_build_timeline(self, mock_fetcher, tmp_path):
+    async def test_build_timeline(self, mock_fetcher, tmp_path) -> None:
         """Test building certificate timeline."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""
@@ -525,7 +525,7 @@ class TestCertTransparencyClient:
 class TestGetCertTransparencyClient:
     """Tests for client factory function."""
 
-    def test_get_client_with_fetcher(self):
+    def test_get_client_with_fetcher(self) -> None:
         """Test getting client with fetcher."""
         mock_fetcher = MagicMock()
         client = get_cert_transparency_client(mock_fetcher)
@@ -533,7 +533,7 @@ class TestGetCertTransparencyClient:
         assert client is not None
         assert client._fetcher is mock_fetcher
 
-    def test_get_client_without_fetcher(self):
+    def test_get_client_without_fetcher(self) -> None:
         """Test getting client without fetcher."""
         client = get_cert_transparency_client()
 

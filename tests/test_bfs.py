@@ -125,7 +125,7 @@ SAMPLE_HTML_WITH_FRAGMENTS = """
 class TestExtractedLink:
     """Tests for ExtractedLink dataclass."""
 
-    def test_hash_by_url(self):
+    def test_hash_by_url(self) -> None:
         """Links should be hashable by URL (TC-EL-N-01)."""
         # Given: Two links with same URL but different text/type
         link1 = ExtractedLink(url="https://example.com/page", text="Page", link_type=LinkType.BODY)
@@ -136,7 +136,7 @@ class TestExtractedLink:
         # When/Then: Hash should be same (based on URL)
         assert hash(link1) == hash(link2)
 
-    def test_equality_by_url(self):
+    def test_equality_by_url(self) -> None:
         """Links should be equal if URLs match (TC-EL-N-02)."""
         # Given: Links with same/different URLs
         link1 = ExtractedLink(url="https://example.com/page", text="Page", link_type=LinkType.BODY)
@@ -151,7 +151,7 @@ class TestExtractedLink:
         assert link1 == link2
         assert link1 != link3
 
-    def test_in_set(self):
+    def test_in_set(self) -> None:
         """Links can be used in sets (deduplication) (TC-EL-N-03)."""
         # Given: Links with duplicate URLs
         links = {
@@ -172,7 +172,7 @@ class TestExtractedLink:
 class TestBFSResult:
     """Tests for BFSResult dataclass."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """to_dict should return serializable dictionary (TC-BR-N-01)."""
         # Given: A BFSResult with data
         result = BFSResult(
@@ -201,7 +201,7 @@ class TestBFSResult:
 class TestLinkExtractor:
     """Tests for LinkExtractor class."""
 
-    def test_extract_same_domain_links(self):
+    def test_extract_same_domain_links(self) -> None:
         """Should extract only same-domain links (TC-LE-N-01)."""
         # Given: HTML with internal and external links
         extractor = LinkExtractor()
@@ -218,7 +218,7 @@ class TestLinkExtractor:
         assert not any("external.com" in url for url in urls)
         assert any("/detail" in url for url in urls)
 
-    def test_classify_navigation_links(self):
+    def test_classify_navigation_links(self) -> None:
         """Navigation links should be classified as NAVIGATION (TC-LE-N-02)."""
         # Given: HTML with nav element containing links
         extractor = LinkExtractor()
@@ -237,7 +237,7 @@ class TestLinkExtractor:
         assert "https://example.com/about" in nav_urls
         assert len(nav_links) == 2
 
-    def test_classify_toc_links(self):
+    def test_classify_toc_links(self) -> None:
         """TOC links should be classified as TOC (TC-LE-N-03)."""
         # Given: HTML with TOC div containing links
         extractor = LinkExtractor()
@@ -256,7 +256,7 @@ class TestLinkExtractor:
         assert "https://example.com/section2" in toc_urls
         assert len(toc_links) == 2
 
-    def test_classify_heading_links(self):
+    def test_classify_heading_links(self) -> None:
         """Links in headings should be classified as HEADING (TC-LE-N-04)."""
         # Given: HTML with link inside h1
         extractor = LinkExtractor()
@@ -274,7 +274,7 @@ class TestLinkExtractor:
         assert "https://example.com/main-topic" in heading_urls
         assert len(heading_links) == 1
 
-    def test_classify_related_links(self):
+    def test_classify_related_links(self) -> None:
         """Related article links should be classified as RELATED (TC-LE-N-05)."""
         # Given: HTML with related-articles div
         extractor = LinkExtractor()
@@ -293,7 +293,7 @@ class TestLinkExtractor:
         assert "https://example.com/related2" in related_urls
         assert len(related_links) == 2
 
-    def test_classify_sidebar_links(self):
+    def test_classify_sidebar_links(self) -> None:
         """Sidebar links should be classified as SIDEBAR (TC-LE-N-06)."""
         # Given: HTML with aside.sidebar containing link
         extractor = LinkExtractor()
@@ -311,7 +311,7 @@ class TestLinkExtractor:
         assert "https://example.com/sidebar-link" in sidebar_urls
         assert len(sidebar_links) == 1
 
-    def test_classify_pagination_links(self):
+    def test_classify_pagination_links(self) -> None:
         """Pagination links should be classified as PAGINATION (TC-LE-N-07)."""
         # Given: HTML with pagination div
         extractor = LinkExtractor()
@@ -327,7 +327,7 @@ class TestLinkExtractor:
         assert isinstance(links, list)
         assert len(links) >= 5
 
-    def test_skip_anchor_only_links(self):
+    def test_skip_anchor_only_links(self) -> None:
         """Anchor-only links (#section) should be skipped (TC-LE-N-08)."""
         # Given: HTML with anchor-only links
         extractor = LinkExtractor()
@@ -343,7 +343,7 @@ class TestLinkExtractor:
         urls = [link.url for link in links]
         assert not any(url.endswith("#section1") and "page" not in url for url in urls)
 
-    def test_skip_javascript_links(self):
+    def test_skip_javascript_links(self) -> None:
         """JavaScript links should be skipped (TC-LE-N-09)."""
         # Given: HTML with javascript: links
         extractor = LinkExtractor()
@@ -359,7 +359,7 @@ class TestLinkExtractor:
         urls = [link.url for link in links]
         assert not any("javascript:" in url for url in urls)
 
-    def test_skip_mailto_links(self):
+    def test_skip_mailto_links(self) -> None:
         """Mailto links should be skipped (TC-LE-N-10)."""
         # Given: HTML with mailto: links
         extractor = LinkExtractor()
@@ -375,7 +375,7 @@ class TestLinkExtractor:
         urls = [link.url for link in links]
         assert not any("mailto:" in url for url in urls)
 
-    def test_remove_fragment_from_urls(self):
+    def test_remove_fragment_from_urls(self) -> None:
         """URL fragments should be removed (TC-LE-N-11)."""
         # Given: HTML with URLs containing fragments
         extractor = LinkExtractor()
@@ -392,7 +392,7 @@ class TestLinkExtractor:
         for link in page_links:
             assert "#" not in link.url
 
-    def test_priority_boost_for_detail_links(self):
+    def test_priority_boost_for_detail_links(self) -> None:
         """Links with '詳細' text should get priority boost (TC-LE-N-12)."""
         # Given: HTML with link containing 詳細 text
         extractor = LinkExtractor()
@@ -410,7 +410,7 @@ class TestLinkExtractor:
         assert detail_link.url == "https://example.com/detail"
         assert detail_link.priority >= 0.65
 
-    def test_priority_boost_for_official_links(self):
+    def test_priority_boost_for_official_links(self) -> None:
         """Links with '公式' text should get priority boost (TC-LE-N-13)."""
         # Given: HTML with link containing 公式 text
         extractor = LinkExtractor()
@@ -428,7 +428,7 @@ class TestLinkExtractor:
         assert official_link.url == "https://example.com/official"
         assert official_link.priority >= 0.7
 
-    def test_links_sorted_by_priority(self):
+    def test_links_sorted_by_priority(self) -> None:
         """Extracted links should be sorted by priority descending (TC-LE-N-14)."""
         # Given: HTML with multiple links
         extractor = LinkExtractor()
@@ -444,7 +444,7 @@ class TestLinkExtractor:
         priorities = [link.priority for link in links]
         assert priorities == sorted(priorities, reverse=True)
 
-    def test_deduplicate_urls(self):
+    def test_deduplicate_urls(self) -> None:
         """Duplicate URLs should be deduplicated (TC-LE-N-15)."""
         # Given: HTML with duplicate links
         html = """
@@ -555,7 +555,7 @@ class TestDomainBFSCrawler:
             assert blocked_url in result.blocked_by_robots
 
     @pytest.mark.asyncio
-    async def test_get_priority_links(self):
+    async def test_get_priority_links(self) -> None:
         """get_priority_links should return prioritized links (TC-BFS-N-04)."""
         # Given: A crawler with mocked robots manager
         crawler = DomainBFSCrawler()
@@ -610,7 +610,7 @@ class TestMCPToolFunctions:
     """Tests for MCP tool integration functions."""
 
     @pytest.mark.asyncio
-    async def test_explore_domain(self):
+    async def test_explore_domain(self) -> None:
         """explore_domain should return structured result (TC-MCP-N-01)."""
         # Given: Mocked BFS crawler
         with patch("src.crawler.bfs.get_bfs_crawler") as mock_get:
@@ -634,7 +634,7 @@ class TestMCPToolFunctions:
             assert len(result["discovered_urls"]) == 1
 
     @pytest.mark.asyncio
-    async def test_extract_page_links(self):
+    async def test_extract_page_links(self) -> None:
         """extract_page_links should return link list (TC-MCP-N-02)."""
         # Given: Mocked BFS crawler
         with patch("src.crawler.bfs.get_bfs_crawler") as mock_get:
@@ -667,7 +667,7 @@ class TestMCPToolFunctions:
 class TestEdgeCases:
     """Edge case tests."""
 
-    def test_empty_html(self):
+    def test_empty_html(self) -> None:
         """Empty HTML should return empty list (TC-EC-B-01)."""
         # Given: An extractor
         extractor = LinkExtractor()
@@ -682,7 +682,7 @@ class TestEdgeCases:
         # Then: Should return empty list
         assert links == []
 
-    def test_html_without_links(self):
+    def test_html_without_links(self) -> None:
         """HTML without links should return empty list (TC-EC-B-02)."""
         # Given: An extractor
         extractor = LinkExtractor()
@@ -697,7 +697,7 @@ class TestEdgeCases:
         # Then: Should return empty list
         assert links == []
 
-    def test_malformed_urls(self):
+    def test_malformed_urls(self) -> None:
         """Malformed URLs should be handled gracefully (TC-EC-N-01)."""
         # Given: An extractor
         extractor = LinkExtractor()
@@ -719,7 +719,7 @@ class TestEdgeCases:
         # Then: Should not raise exception
         assert isinstance(links, list)
 
-    def test_relative_url_resolution(self):
+    def test_relative_url_resolution(self) -> None:
         """Relative URLs should be resolved correctly (TC-EC-N-02)."""
         # Given: An extractor
         extractor = LinkExtractor()
@@ -744,7 +744,7 @@ class TestEdgeCases:
         assert "https://example.com/dir/page" in urls
         assert "https://example.com/absolute" in urls
 
-    def test_case_insensitive_domain_matching(self):
+    def test_case_insensitive_domain_matching(self) -> None:
         """Domain matching should be case-insensitive (TC-EC-N-03)."""
         # Given: An extractor
         extractor = LinkExtractor()

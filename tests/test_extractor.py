@@ -65,7 +65,7 @@ class TestExtractContent:
     """Tests for extract_content function."""
 
     @pytest.mark.asyncio
-    async def test_extract_content_requires_input(self):
+    async def test_extract_content_requires_input(self) -> None:
         """Test that extract_content requires either input_path or html."""
         from src.extractor.content import extract_content
 
@@ -75,7 +75,7 @@ class TestExtractContent:
         assert "must be provided" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_extract_html_from_string(self):
+    async def test_extract_html_from_string(self) -> None:
         """Test HTML extraction from raw string."""
         from src.extractor.content import extract_content
 
@@ -107,7 +107,7 @@ class TestExtractContent:
         )
 
     @pytest.mark.asyncio
-    async def test_extract_html_detects_headings(self):
+    async def test_extract_html_detects_headings(self) -> None:
         """Test that HTML extraction detects headings."""
         from src.extractor.content import extract_content
 
@@ -137,7 +137,7 @@ class TestExtractContent:
         assert "Section One" in heading_texts
 
     @pytest.mark.asyncio
-    async def test_extract_html_detects_tables(self):
+    async def test_extract_html_detects_tables(self) -> None:
         """Test that HTML extraction detects tables."""
         from src.extractor.content import extract_content
 
@@ -165,7 +165,7 @@ class TestExtractContent:
         assert len(result["tables"][0]["rows"]) >= 2
 
     @pytest.mark.asyncio
-    async def test_auto_detect_pdf_type(self):
+    async def test_auto_detect_pdf_type(self) -> None:
         """Test auto-detection of PDF content type."""
         from src.extractor.content import extract_content
 
@@ -192,7 +192,7 @@ class TestExtractContent:
 class TestOCRAvailability:
     """Tests for OCR engine availability checking."""
 
-    def test_paddleocr_availability_check_returns_bool(self):
+    def test_paddleocr_availability_check_returns_bool(self) -> None:
         """Test PaddleOCR availability check returns boolean."""
         from src.extractor import content
 
@@ -205,7 +205,7 @@ class TestOCRAvailability:
         # Then: Result is a boolean (depends on system installation)
         assert isinstance(result, bool)
 
-    def test_paddleocr_availability_check_when_unavailable(self):
+    def test_paddleocr_availability_check_when_unavailable(self) -> None:
         """Test PaddleOCR availability check when module is unavailable."""
         from src.extractor import content
 
@@ -219,7 +219,7 @@ class TestOCRAvailability:
         # Then: Returns False (cached unavailable status)
         assert result is False
 
-    def test_tesseract_availability_check(self):
+    def test_tesseract_availability_check(self) -> None:
         """Test Tesseract availability check."""
         from src.extractor import content
 
@@ -238,7 +238,7 @@ class TestPDFExtraction:
     """Tests for PDF extraction with OCR support."""
 
     @pytest.mark.asyncio
-    async def test_pdf_extraction_basic(self, tmp_path):
+    async def test_pdf_extraction_basic(self, tmp_path) -> None:
         """Test basic PDF extraction without OCR."""
         from src.extractor.content import _extract_pdf
 
@@ -268,7 +268,7 @@ class TestPDFExtraction:
         assert result["meta"]["page_count"] == 1
 
     @pytest.mark.asyncio
-    async def test_pdf_extraction_triggers_ocr_for_low_text(self):
+    async def test_pdf_extraction_triggers_ocr_for_low_text(self) -> None:
         """Test that OCR is triggered when text content is low (scanned PDF detection)."""
         from src.extractor.content import _extract_pdf
 
@@ -300,7 +300,7 @@ class TestPDFExtraction:
         mock_ocr.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_pdf_extraction_force_ocr(self):
+    async def test_pdf_extraction_force_ocr(self) -> None:
         """Test force_ocr parameter."""
         from src.extractor.content import _extract_pdf
 
@@ -339,7 +339,7 @@ class TestOCREngines:
     """Tests for individual OCR engines."""
 
     @pytest.mark.asyncio
-    async def test_paddleocr_extraction(self):
+    async def test_paddleocr_extraction(self) -> None:
         """Test PaddleOCR text extraction."""
         # Given: A test image and mocked PaddleOCR returning results
         from PIL import Image
@@ -371,7 +371,7 @@ class TestOCREngines:
         assert "More text" in result
 
     @pytest.mark.asyncio
-    async def test_tesseract_extraction_via_ocr_image(self):
+    async def test_tesseract_extraction_via_ocr_image(self) -> None:
         """Test Tesseract text extraction via ocr_image function.
 
         Tests the fallback path when PaddleOCR is unavailable.
@@ -401,7 +401,7 @@ class TestOCREngines:
         assert result["engine"] == "tesseract"
 
     @pytest.mark.asyncio
-    async def test_paddleocr_filters_low_confidence(self):
+    async def test_paddleocr_filters_low_confidence(self) -> None:
         """Test that PaddleOCR filters low confidence results."""
         # Given: OCR results with mixed confidence levels
         from PIL import Image
@@ -437,7 +437,7 @@ class TestOCRImage:
     """Tests for standalone image OCR function."""
 
     @pytest.mark.asyncio
-    async def test_ocr_image_requires_input(self):
+    async def test_ocr_image_requires_input(self) -> None:
         """Test that ocr_image requires either image_path or image_data."""
         from src.extractor.content import ocr_image
 
@@ -451,7 +451,7 @@ class TestOCRImage:
 
     @requires_pil
     @pytest.mark.asyncio
-    async def test_ocr_image_from_data(self):
+    async def test_ocr_image_from_data(self) -> None:
         """Test OCR from image data."""
         # Given: Image data and available PaddleOCR
         from PIL import Image
@@ -476,7 +476,7 @@ class TestOCRImage:
 
     @requires_pil
     @pytest.mark.asyncio
-    async def test_ocr_image_falls_back_to_tesseract(self):
+    async def test_ocr_image_falls_back_to_tesseract(self) -> None:
         """Test OCR falls back to Tesseract when PaddleOCR fails."""
         # Given: Image data with PaddleOCR unavailable
         from PIL import Image
@@ -502,7 +502,7 @@ class TestOCRImage:
 
     @requires_pil
     @pytest.mark.asyncio
-    async def test_ocr_image_no_engine_available(self):
+    async def test_ocr_image_no_engine_available(self) -> None:
         """Test OCR when no engine is available."""
         # Given: Image data with no OCR engines available
         from PIL import Image
@@ -528,7 +528,7 @@ class TestFallbackExtraction:
     """Tests for fallback HTML extraction methods."""
 
     @pytest.mark.asyncio
-    async def test_fallback_uses_readability(self):
+    async def test_fallback_uses_readability(self) -> None:
         """Test fallback extraction uses readability-lxml."""
         from src.extractor.content import _fallback_extract_html
 
@@ -554,7 +554,7 @@ class TestFallbackExtraction:
         )
 
     @pytest.mark.asyncio
-    async def test_fallback_handles_empty_html(self):
+    async def test_fallback_handles_empty_html(self) -> None:
         """Test fallback handles empty/minimal HTML gracefully."""
         from src.extractor.content import _fallback_extract_html
 

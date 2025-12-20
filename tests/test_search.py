@@ -29,7 +29,7 @@ import pytest
 class TestNormalizeQuery:
     """Tests for query normalization."""
 
-    def test_normalize_query_basic(self):
+    def test_normalize_query_basic(self) -> None:
         """Test basic query normalization."""
         from src.search.search_api import _normalize_query
 
@@ -41,7 +41,7 @@ class TestNormalizeQuery:
 class TestGetCacheKey:
     """Tests for cache key generation."""
 
-    def test_cache_key_deterministic(self):
+    def test_cache_key_deterministic(self) -> None:
         """Test cache key is deterministic for same inputs."""
         from src.search.search_api import _get_cache_key
 
@@ -50,7 +50,7 @@ class TestGetCacheKey:
 
         assert key1 == key2
 
-    def test_cache_key_different_for_different_queries(self):
+    def test_cache_key_different_for_different_queries(self) -> None:
         """Test cache key differs for different queries."""
         from src.search.search_api import _get_cache_key
 
@@ -59,7 +59,7 @@ class TestGetCacheKey:
 
         assert key1 != key2
 
-    def test_cache_key_different_for_different_engines(self):
+    def test_cache_key_different_for_different_engines(self) -> None:
         """Test cache key differs for different engines."""
         from src.search.search_api import _get_cache_key
 
@@ -68,7 +68,7 @@ class TestGetCacheKey:
 
         assert key1 != key2
 
-    def test_cache_key_engine_order_independent(self):
+    def test_cache_key_engine_order_independent(self) -> None:
         """Test cache key is same regardless of engine order."""
         from src.search.search_api import _get_cache_key
 
@@ -81,7 +81,7 @@ class TestGetCacheKey:
 class TestClassifySource:
     """Tests for source classification."""
 
-    def test_classify_academic(self):
+    def test_classify_academic(self) -> None:
         """Test academic source classification."""
         from src.search.search_api import _classify_source
 
@@ -89,7 +89,7 @@ class TestClassifySource:
         assert _classify_source("https://pubmed.ncbi.nlm.nih.gov/12345") == "academic"
         assert _classify_source("https://www.jstage.jst.go.jp/article/xxx") == "academic"
 
-    def test_classify_government(self):
+    def test_classify_government(self) -> None:
         """Test government source classification."""
         from src.search.search_api import _classify_source
 
@@ -97,7 +97,7 @@ class TestClassifySource:
         assert _classify_source("https://www.gov.uk/policy") == "government"
         assert _classify_source("https://example.gov/data") == "government"
 
-    def test_classify_standards(self):
+    def test_classify_standards(self) -> None:
         """Test standards source classification."""
         from src.search.search_api import _classify_source
 
@@ -105,14 +105,14 @@ class TestClassifySource:
         assert _classify_source("https://tools.ietf.org/html/rfc1234") == "standards"
         assert _classify_source("https://www.w3.org/TR/html5") == "standards"
 
-    def test_classify_knowledge(self):
+    def test_classify_knowledge(self) -> None:
         """Test knowledge source classification."""
         from src.search.search_api import _classify_source
 
         assert _classify_source("https://en.wikipedia.org/wiki/Test") == "knowledge"
         assert _classify_source("https://www.wikidata.org/wiki/Q123") == "knowledge"
 
-    def test_classify_news(self):
+    def test_classify_news(self) -> None:
         """Test news source classification."""
         from src.search.search_api import _classify_source
 
@@ -120,7 +120,7 @@ class TestClassifySource:
         assert _classify_source("https://www.reuters.com/article/xyz") == "news"
         assert _classify_source("https://www.nhk.or.jp/news/html/xxx") == "news"
 
-    def test_classify_technical(self):
+    def test_classify_technical(self) -> None:
         """Test technical source classification."""
         from src.search.search_api import _classify_source
 
@@ -128,7 +128,7 @@ class TestClassifySource:
         assert _classify_source("https://stackoverflow.com/questions/123") == "technical"
         assert _classify_source("https://docs.python.org/3/") == "technical"
 
-    def test_classify_blog(self):
+    def test_classify_blog(self) -> None:
         """Test blog source classification."""
         from src.search.search_api import _classify_source
 
@@ -137,7 +137,7 @@ class TestClassifySource:
         assert _classify_source("https://zenn.dev/user/articles/xxx") == "blog"
         assert _classify_source("https://example.com/blog/post") == "blog"
 
-    def test_classify_unknown(self):
+    def test_classify_unknown(self) -> None:
         """Test unknown source classification."""
         from src.search.search_api import _classify_source
 
@@ -152,7 +152,7 @@ class TestClassifySource:
 class TestQueryExpander:
     """Tests for QueryExpander class."""
 
-    def test_tokenize_basic(self):
+    def test_tokenize_basic(self) -> None:
         """Test basic tokenization."""
         from src.search.search_api import QueryExpander
 
@@ -164,7 +164,7 @@ class TestQueryExpander:
         assert len(tokens) >= 2, f"Expected >=2 tokens for Japanese text, got {len(tokens)}"
         assert all("surface" in t for t in tokens)
 
-    def test_get_synonyms_known_word(self):
+    def test_get_synonyms_known_word(self) -> None:
         """Test getting synonyms for known words.
 
         Validates §3.1.1 synonym expansion for search query diversification.
@@ -181,7 +181,7 @@ class TestQueryExpander:
         assert "エーアイ" in synonyms, f"Expected 'エーアイ' in synonyms, got {synonyms}"
         assert "機械知能" in synonyms, f"Expected '機械知能' in synonyms, got {synonyms}"
 
-    def test_get_synonyms_unknown_word(self):
+    def test_get_synonyms_unknown_word(self) -> None:
         """Test getting synonyms for unknown words."""
         from src.search.search_api import QueryExpander
 
@@ -193,7 +193,7 @@ class TestQueryExpander:
         # Should return empty for unknown words
         assert synonyms == []
 
-    def test_expand_with_normalized_forms(self):
+    def test_expand_with_normalized_forms(self) -> None:
         """Test normalized form expansion.
 
         Validates query variant generation for §3.1.1 search diversification.
@@ -214,7 +214,7 @@ class TestQueryExpander:
         )
         assert query in variants, f"Original query '{query}' must be in variants"
 
-    def test_expand_with_synonyms(self):
+    def test_expand_with_synonyms(self) -> None:
         """Test synonym-based expansion.
 
         Validates §3.1.1 query diversification via synonyms.
@@ -234,7 +234,7 @@ class TestQueryExpander:
             f"Expected at least 2 variants (original + synonym), got {len(variants)}"
         )
 
-    def test_generate_variants_all(self):
+    def test_generate_variants_all(self) -> None:
         """Test generating all variants.
 
         Validates combined query expansion for §3.1.1.
@@ -259,7 +259,7 @@ class TestQueryExpander:
         # STRICT: Should have synonym variants (人工知能 has synonyms in dict)
         assert len(variants) >= 2, f"Expected at least 2 variants, got {len(variants)}"
 
-    def test_generate_variants_respects_max_results(self):
+    def test_generate_variants_respects_max_results(self) -> None:
         """Test that variant generation respects max_results."""
         from src.search.search_api import QueryExpander
 
@@ -279,7 +279,7 @@ class TestExpandQuery:
     """Tests for expand_query function."""
 
     @pytest.mark.asyncio
-    async def test_expand_query_returns_base(self):
+    async def test_expand_query_returns_base(self) -> None:
         """Test expand_query returns at least the base query."""
         from src.search.search_api import expand_query
 
@@ -288,7 +288,7 @@ class TestExpandQuery:
         assert "test query" in results
 
     @pytest.mark.asyncio
-    async def test_expand_query_japanese(self):
+    async def test_expand_query_japanese(self) -> None:
         """Test expand_query with Japanese query.
 
         Validates §3.1.1 query expansion for Japanese text.
@@ -306,7 +306,7 @@ class TestExpandQuery:
         )
 
     @pytest.mark.asyncio
-    async def test_expand_query_synonyms_only(self):
+    async def test_expand_query_synonyms_only(self) -> None:
         """Test expand_query with synonyms expansion only."""
         from src.search.search_api import expand_query
 
@@ -315,7 +315,7 @@ class TestExpandQuery:
         assert "AI" in results
 
     @pytest.mark.asyncio
-    async def test_expand_query_normalized_only(self):
+    async def test_expand_query_normalized_only(self) -> None:
         """Test expand_query with normalized expansion only."""
         from src.search.search_api import expand_query
 
@@ -324,7 +324,7 @@ class TestExpandQuery:
         assert "テスト" in results
 
     @pytest.mark.asyncio
-    async def test_expand_query_non_japanese(self):
+    async def test_expand_query_non_japanese(self) -> None:
         """Test expand_query with non-Japanese language returns original."""
         from src.search.search_api import expand_query
 
@@ -334,7 +334,7 @@ class TestExpandQuery:
         assert results == ["artificial intelligence"]
 
     @pytest.mark.asyncio
-    async def test_expand_query_empty_string(self):
+    async def test_expand_query_empty_string(self) -> None:
         """Test expand_query with empty string."""
         from src.search.search_api import expand_query
 
@@ -343,7 +343,7 @@ class TestExpandQuery:
         assert results == [""]
 
     @pytest.mark.asyncio
-    async def test_expand_query_max_results(self):
+    async def test_expand_query_max_results(self) -> None:
         """Test expand_query respects max_results."""
         from src.search.search_api import expand_query
 
@@ -370,7 +370,7 @@ class TestGenerateMirrorQuery:
     """
 
     @pytest.mark.asyncio
-    async def test_valid_query_with_llm_success(self):
+    async def test_valid_query_with_llm_success(self) -> None:
         """MQ-N-01: Test successful translation with LLM."""
         from unittest.mock import patch
 
@@ -391,7 +391,7 @@ class TestGenerateMirrorQuery:
         assert result == "test query"
 
     @pytest.mark.asyncio
-    async def test_same_language_returns_original(self):
+    async def test_same_language_returns_original(self) -> None:
         """MQ-N-02: Test same language returns original query without LLM call."""
         from src.search.search_api import generate_mirror_query
 
@@ -405,7 +405,7 @@ class TestGenerateMirrorQuery:
         assert result == query
 
     @pytest.mark.asyncio
-    async def test_cache_hit_returns_cached_value(self):
+    async def test_cache_hit_returns_cached_value(self) -> None:
         """MQ-N-03: Test cache hit returns cached value."""
         from unittest.mock import patch
 
@@ -429,7 +429,7 @@ class TestGenerateMirrorQuery:
         mock_client.generate.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_double_quote_removal(self):
+    async def test_double_quote_removal(self) -> None:
         """MQ-N-04: Test double quote removal from LLM response."""
         from unittest.mock import patch
 
@@ -450,7 +450,7 @@ class TestGenerateMirrorQuery:
         assert result == "quoted response"
 
     @pytest.mark.asyncio
-    async def test_single_quote_removal(self):
+    async def test_single_quote_removal(self) -> None:
         """MQ-N-05: Test single quote removal from LLM response."""
         from unittest.mock import patch
 
@@ -471,7 +471,7 @@ class TestGenerateMirrorQuery:
         assert result == "single quoted"
 
     @pytest.mark.asyncio
-    async def test_empty_string_returns_none(self):
+    async def test_empty_string_returns_none(self) -> None:
         """MQ-A-01: Test empty string returns None."""
         from src.search.search_api import generate_mirror_query
 
@@ -485,7 +485,7 @@ class TestGenerateMirrorQuery:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_whitespace_only_returns_none(self):
+    async def test_whitespace_only_returns_none(self) -> None:
         """MQ-A-02: Test whitespace-only string returns None."""
         from src.search.search_api import generate_mirror_query
 
@@ -499,7 +499,7 @@ class TestGenerateMirrorQuery:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_llm_exception_returns_none(self):
+    async def test_llm_exception_returns_none(self) -> None:
         """MQ-A-03: Test LLM exception returns None."""
         from unittest.mock import patch
 
@@ -520,7 +520,7 @@ class TestGenerateMirrorQuery:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_llm_empty_response_returns_none(self):
+    async def test_llm_empty_response_returns_none(self) -> None:
         """MQ-A-04: Test LLM returning empty string returns None."""
         from unittest.mock import patch
 
@@ -541,7 +541,7 @@ class TestGenerateMirrorQuery:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_llm_same_as_original_returns_none(self):
+    async def test_llm_same_as_original_returns_none(self) -> None:
         """MQ-A-05: Test LLM returning same query as original returns None."""
         from unittest.mock import patch
 
@@ -574,7 +574,7 @@ class TestParsedOperator:
     Validates the data structure for parsed search operators (§3.1.1).
     """
 
-    def test_parsed_operator_creation(self):
+    def test_parsed_operator_creation(self) -> None:
         """Test basic ParsedOperator creation.
 
         Verifies that ParsedOperator correctly stores operator_type, value,
@@ -604,7 +604,7 @@ class TestParsedQuery:
     Validates the data structure for parsed queries with operators (§3.1.1).
     """
 
-    def test_parsed_query_has_operator(self):
+    def test_parsed_query_has_operator(self) -> None:
         """Test ParsedQuery.has_operator method.
 
         Verifies that has_operator correctly identifies presence/absence
@@ -628,7 +628,7 @@ class TestParsedQuery:
             "Expected has_operator('intitle') to be False"
         )
 
-    def test_parsed_query_get_operators(self):
+    def test_parsed_query_get_operators(self) -> None:
         """Test ParsedQuery.get_operators method.
 
         Verifies that get_operators returns correct list of operators
@@ -663,7 +663,7 @@ class TestQueryOperatorProcessor:
     and §3.1.4 (engine normalization: mapping operators to engine-specific syntax).
     """
 
-    def test_parse_site_operator(self):
+    def test_parse_site_operator(self) -> None:
         """Test parsing site: operator.
 
         Validates §3.1.1: site: operator for domain restriction (e.g., site:go.jp).
@@ -684,7 +684,7 @@ class TestQueryOperatorProcessor:
             f"Expected value='go.jp', got '{parsed.operators[0].value}'"
         )
 
-    def test_parse_filetype_operator(self):
+    def test_parse_filetype_operator(self) -> None:
         """Test parsing filetype: operator.
 
         Validates §3.1.1: filetype: operator for file type restriction.
@@ -705,7 +705,7 @@ class TestQueryOperatorProcessor:
             f"Expected value='pdf', got '{parsed.operators[0].value}'"
         )
 
-    def test_parse_intitle_operator_unquoted(self):
+    def test_parse_intitle_operator_unquoted(self) -> None:
         """Test parsing intitle: operator with unquoted value.
 
         Validates §3.1.1: intitle: operator for title search.
@@ -726,7 +726,7 @@ class TestQueryOperatorProcessor:
             f"Expected value='重要', got '{parsed.operators[0].value}'"
         )
 
-    def test_parse_intitle_operator_quoted(self):
+    def test_parse_intitle_operator_quoted(self) -> None:
         """Test parsing intitle: operator with quoted value.
 
         Validates §3.1.1: intitle:"phrase" for multi-word title search.
@@ -747,7 +747,7 @@ class TestQueryOperatorProcessor:
             f"Expected value='重要なお知らせ', got '{parsed.operators[0].value}'"
         )
 
-    def test_parse_exact_phrase(self):
+    def test_parse_exact_phrase(self) -> None:
         """Test parsing exact phrase with quotes.
 
         Validates §3.1.1: Phrase fixing ("...") for exact phrase matching.
@@ -768,7 +768,7 @@ class TestQueryOperatorProcessor:
             f"Expected value='人工知能の発展', got '{parsed.operators[0].value}'"
         )
 
-    def test_parse_exclude_operator(self):
+    def test_parse_exclude_operator(self) -> None:
         """Test parsing exclude (-) operator.
 
         Validates §3.1.1: Required/Exclude (+/-) for term exclusion.
@@ -785,7 +785,7 @@ class TestQueryOperatorProcessor:
         assert "spam" in exclude_values, f"Expected 'spam' in exclude values, got {exclude_values}"
         assert "広告" in exclude_values, f"Expected '広告' in exclude values, got {exclude_values}"
 
-    def test_parse_required_operator(self):
+    def test_parse_required_operator(self) -> None:
         """Test parsing required (+) operator.
 
         Validates §3.1.1: Required/Exclude (+/-) for required terms.
@@ -808,7 +808,7 @@ class TestQueryOperatorProcessor:
             f"Expected 'TensorFlow' in required values, got {required_values}"
         )
 
-    def test_parse_date_after_operator(self):
+    def test_parse_date_after_operator(self) -> None:
         """Test parsing after: operator for date filtering.
 
         Validates §3.1.1: after: operator for time range filtering.
@@ -829,7 +829,7 @@ class TestQueryOperatorProcessor:
             f"Expected value='2024-01-01', got '{parsed.operators[0].value}'"
         )
 
-    def test_parse_date_after_year_only(self):
+    def test_parse_date_after_year_only(self) -> None:
         """Test parsing after: with year only.
 
         Validates §3.1.1: after: operator with abbreviated date format.
@@ -846,7 +846,7 @@ class TestQueryOperatorProcessor:
             f"Expected value='2023', got '{parsed.operators[0].value}'"
         )
 
-    def test_parse_multiple_operators(self):
+    def test_parse_multiple_operators(self) -> None:
         """Test parsing query with multiple operators.
 
         Validates §3.1.1: systematic application of multiple operators in a single query.
@@ -883,7 +883,7 @@ class TestQueryOperatorProcessor:
             f"Expected filetype value='pdf', got '{filetype_op.value}'"
         )
 
-    def test_parse_no_operators(self):
+    def test_parse_no_operators(self) -> None:
         """Test parsing query without operators.
 
         Verifies that plain text queries are handled correctly without operator extraction.
@@ -898,7 +898,7 @@ class TestQueryOperatorProcessor:
         )
         assert len(parsed.operators) == 0, f"Expected 0 operators, got {len(parsed.operators)}"
 
-    def test_parse_exclude_not_negative_number(self):
+    def test_parse_exclude_not_negative_number(self) -> None:
         """Test that negative numbers are not treated as exclude operators.
 
         Validates edge case: -10 (negative number) should not be parsed as exclude operator.
@@ -914,7 +914,7 @@ class TestQueryOperatorProcessor:
             f"'10' should not be in exclude values, got {exclude_values}"
         )
 
-    def test_transform_for_google(self):
+    def test_transform_for_google(self) -> None:
         """Test transforming query for Google engine.
 
         Validates §3.1.4: Google supports all standard operators including after:.
@@ -938,7 +938,7 @@ class TestQueryOperatorProcessor:
         assert "filetype:pdf" in result, f"Expected 'filetype:pdf' in result, got '{result}'"
         assert "after:2024" in result, f"Expected 'after:2024' in result, got '{result}'"
 
-    def test_transform_for_duckduckgo(self):
+    def test_transform_for_duckduckgo(self) -> None:
         """Test transforming query for DuckDuckGo engine.
 
         Validates §3.1.4: DuckDuckGo doesn't support date_after operator,
@@ -964,7 +964,7 @@ class TestQueryOperatorProcessor:
             f"'after:2024' should be omitted for DuckDuckGo, got '{result}'"
         )
 
-    def test_transform_preserves_exact_phrases(self):
+    def test_transform_preserves_exact_phrases(self) -> None:
         """Test that exact phrases are preserved with quotes.
 
         Validates §3.1.4: exact phrase quotes must be preserved in transformation.
@@ -983,7 +983,7 @@ class TestQueryOperatorProcessor:
 
         assert '"人工知能"' in result, f"Expected '\"人工知能\"' in result, got '{result}'"
 
-    def test_process_query_end_to_end(self):
+    def test_process_query_end_to_end(self) -> None:
         """Test process_query convenience method.
 
         Validates end-to-end query processing: parse + transform in one call.
@@ -1002,7 +1002,7 @@ class TestQueryOperatorProcessor:
         assert "filetype:pdf" in result, f"Expected 'filetype:pdf' in result, got '{result}'"
         assert "-spam" in result, f"Expected '-spam' in result, got '{result}'"
 
-    def test_build_query_programmatic(self):
+    def test_build_query_programmatic(self) -> None:
         """Test building queries programmatically.
 
         Validates §3.1.1: systematic query construction using build_query API.
@@ -1027,7 +1027,7 @@ class TestQueryOperatorProcessor:
         assert '"ガイドライン"' in result, f"Expected '\"ガイドライン\"' in result, got '{result}'"
         assert "-draft" in result, f"Expected '-draft' in result, got '{result}'"
 
-    def test_build_query_multiple_exact_phrases(self):
+    def test_build_query_multiple_exact_phrases(self) -> None:
         """Test building query with multiple exact phrases.
 
         Validates that multiple exact phrases are correctly quoted and included.
@@ -1045,7 +1045,7 @@ class TestQueryOperatorProcessor:
         assert '"phrase one"' in result, f"Expected '\"phrase one\"' in result, got '{result}'"
         assert '"phrase two"' in result, f"Expected '\"phrase two\"' in result, got '{result}'"
 
-    def test_get_supported_operators(self):
+    def test_get_supported_operators(self) -> None:
         """Test getting list of supported operators for engine.
 
         Validates §3.1.4: operator support varies by engine.
@@ -1076,7 +1076,7 @@ class TestQueryOperatorHelperFunctions:
     Validates convenience functions for query operator processing.
     """
 
-    def test_parse_query_operators_function(self):
+    def test_parse_query_operators_function(self) -> None:
         """Test parse_query_operators helper function.
 
         Validates the module-level parse_query_operators() function.
@@ -1088,7 +1088,7 @@ class TestQueryOperatorHelperFunctions:
         assert parsed.base_query == "test", f"Expected base_query='test', got '{parsed.base_query}'"
         assert parsed.has_operator("site") is True, "Expected has_operator('site') to be True"
 
-    def test_transform_query_for_engine_function(self):
+    def test_transform_query_for_engine_function(self) -> None:
         """Test transform_query_for_engine helper function.
 
         Validates the module-level transform_query_for_engine() function.
@@ -1100,7 +1100,7 @@ class TestQueryOperatorHelperFunctions:
         assert "AI" in result, f"Expected 'AI' in result, got '{result}'"
         assert "site:go.jp" in result, f"Expected 'site:go.jp' in result, got '{result}'"
 
-    def test_build_search_query_function(self):
+    def test_build_search_query_function(self) -> None:
         """Test build_search_query helper function.
 
         Validates §3.1.1/§3.1.3: programmatic query construction for Academic Research templates.
@@ -1119,7 +1119,7 @@ class TestQueryOperatorHelperFunctions:
         assert "site:go.jp" in result, f"Expected 'site:go.jp' in result, got '{result}'"
         assert "filetype:pdf" in result, f"Expected 'filetype:pdf' in result, got '{result}'"
 
-    def test_build_search_query_with_date_filter(self):
+    def test_build_search_query_with_date_filter(self) -> None:
         """Test build_search_query with date filter.
 
         Validates §3.1.1: after: operator for time-based filtering.
@@ -1145,7 +1145,7 @@ class TestQueryOperatorEdgeCases:
     Validates boundary conditions and unusual inputs per §7.1.2.
     """
 
-    def test_empty_query(self):
+    def test_empty_query(self) -> None:
         """Test handling of empty query.
 
         Boundary condition: empty string input should produce empty result.
@@ -1158,7 +1158,7 @@ class TestQueryOperatorEdgeCases:
         assert parsed.base_query == "", f"Expected empty base_query, got '{parsed.base_query}'"
         assert len(parsed.operators) == 0, f"Expected 0 operators, got {len(parsed.operators)}"
 
-    def test_only_operators_no_base(self):
+    def test_only_operators_no_base(self) -> None:
         """Test query with only operators, no base text.
 
         Boundary condition: query consisting only of operators.
@@ -1174,7 +1174,7 @@ class TestQueryOperatorEdgeCases:
         )
         assert len(parsed.operators) == 2, f"Expected 2 operators, got {len(parsed.operators)}"
 
-    def test_special_characters_in_domain(self):
+    def test_special_characters_in_domain(self) -> None:
         """Test handling of special characters in site domain.
 
         Validates parsing of complex domain names with subdomains and hyphens.
@@ -1188,7 +1188,7 @@ class TestQueryOperatorEdgeCases:
             f"Expected value='sub.domain-name.co.jp', got '{parsed.operators[0].value}'"
         )
 
-    def test_unicode_in_operators(self):
+    def test_unicode_in_operators(self) -> None:
         """Test handling of Unicode characters in operators.
 
         Validates Japanese text in intitle: and exact phrase operators.
@@ -1208,7 +1208,7 @@ class TestQueryOperatorEdgeCases:
             f"Expected exact value='検索テスト', got '{exact_op.value}'"
         )
 
-    def test_multiple_exact_phrases(self):
+    def test_multiple_exact_phrases(self) -> None:
         """Test parsing multiple exact phrases.
 
         Validates that multiple quoted phrases are correctly extracted.
@@ -1225,7 +1225,7 @@ class TestQueryOperatorEdgeCases:
         assert "phrase one" in values, f"Expected 'phrase one' in values, got {values}"
         assert "phrase two" in values, f"Expected 'phrase two' in values, got {values}"
 
-    def test_case_insensitive_operators(self):
+    def test_case_insensitive_operators(self) -> None:
         """Test that operators are case-insensitive.
 
         Validates that SITE:, Site:, and site: are all recognized as site operator.
@@ -1283,7 +1283,7 @@ class TestMirrorQueryGeneration:
         return MockOllamaClient()
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client):
+    async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client) -> None:
         """Test Japanese to English translation (§3.1.1)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
@@ -1299,7 +1299,7 @@ class TestMirrorQueryGeneration:
         assert result != "機械学習の最新動向", "Result should be different from original"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client):
+    async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client) -> None:
         """Test English to Japanese translation (§3.1.1)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
@@ -1314,7 +1314,7 @@ class TestMirrorQueryGeneration:
         assert result != "machine learning trends", "Result should be different from original"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_same_language(self):
+    async def test_generate_mirror_query_same_language(self) -> None:
         """Test that same-language returns original query."""
         from src.search.search_api import generate_mirror_query
 
@@ -1323,7 +1323,7 @@ class TestMirrorQueryGeneration:
         assert result == "test query", "Same language should return original"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_empty_input(self):
+    async def test_generate_mirror_query_empty_input(self) -> None:
         """Test handling of empty input."""
         from src.search.search_api import generate_mirror_query
 
@@ -1358,7 +1358,7 @@ class TestMirrorQueryGeneration:
         assert call_count == 1, f"LLM should only be called once, was called {call_count} times"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_queries_multiple_languages(self, mock_ollama_client):
+    async def test_generate_mirror_queries_multiple_languages(self, mock_ollama_client) -> None:
         """Test generating mirrors in multiple target languages."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_queries
 
@@ -1375,7 +1375,7 @@ class TestMirrorQueryGeneration:
         assert len(results) >= 1, "Should have at least source language"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_error_handling(self):
+    async def test_generate_mirror_query_error_handling(self) -> None:
         """Test graceful handling of LLM errors."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 

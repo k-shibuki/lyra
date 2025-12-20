@@ -49,7 +49,7 @@ pytestmark = pytest.mark.unit
 class TestDecisionType:
     """Tests for DecisionType enum."""
 
-    def test_all_decision_types_exist(self):
+    def test_all_decision_types_exist(self) -> None:
         """Test that expected decision types are defined."""
         expected = [
             "query_generated",
@@ -71,7 +71,7 @@ class TestDecisionType:
 class TestDecision:
     """Tests for Decision dataclass."""
 
-    def test_decision_creation(self):
+    def test_decision_creation(self) -> None:
         """Test creating a decision record."""
         decision = Decision(
             decision_id="test-001",
@@ -90,7 +90,7 @@ class TestDecision:
         assert decision.task_id == "task-123"
         assert decision.duration_ms == 50
 
-    def test_decision_to_dict(self):
+    def test_decision_to_dict(self) -> None:
         """Test converting decision to dictionary."""
         decision = Decision(
             decision_id="test-002",
@@ -113,7 +113,7 @@ class TestDecision:
         assert d["output_data"]["selected"] == "google"
         assert "timestamp" in d
 
-    def test_decision_from_dict(self):
+    def test_decision_from_dict(self) -> None:
         """Test creating decision from dictionary."""
         data = {
             "decision_id": "test-003",
@@ -138,14 +138,14 @@ class TestDecision:
 class TestDecisionLogger:
     """Tests for DecisionLogger class."""
 
-    async def test_logger_creation(self):
+    async def test_logger_creation(self) -> None:
         """Test creating a decision logger."""
         logger = DecisionLogger(task_id="test-task-1")
 
         assert logger.task_id == "test-task-1"
         assert len(logger._decisions) == 0
 
-    async def test_log_decision(self):
+    async def test_log_decision(self) -> None:
         """Test logging a decision."""
         logger = DecisionLogger(task_id="test-task-2")
 
@@ -162,7 +162,7 @@ class TestDecisionLogger:
         assert decision.decision_type == DecisionType.QUERY_GENERATED
         assert len(logger._decisions) == 1
 
-    async def test_multiple_decisions(self):
+    async def test_multiple_decisions(self) -> None:
         """Test logging multiple decisions."""
         logger = DecisionLogger(task_id="test-task-3")
 
@@ -184,7 +184,7 @@ class TestDecisionLogger:
 
         assert len(logger._decisions) == 3
 
-    async def test_export_decisions(self):
+    async def test_export_decisions(self) -> None:
         """Test exporting decisions to list."""
         logger = DecisionLogger(task_id="test-task-4")
 
@@ -199,7 +199,7 @@ class TestDecisionLogger:
         assert len(exported) == 1
         assert exported[0]["decision_type"] == "claim_extracted"
 
-    async def test_decision_ids_unique(self):
+    async def test_decision_ids_unique(self) -> None:
         """Test that decision IDs are unique."""
         logger = DecisionLogger(task_id="test-task-5")
 
@@ -215,7 +215,7 @@ class TestDecisionLogger:
         ids = [d.decision_id for d in decisions]
         assert len(ids) == len(set(ids)), "Decision IDs should be unique"
 
-    async def test_save_to_file(self, tmp_path):
+    async def test_save_to_file(self, tmp_path) -> None:
         """Test saving decisions to file."""
         logger = DecisionLogger(task_id="test-task-6")
 
@@ -242,13 +242,13 @@ class TestDecisionLogger:
 class TestReplayEngine:
     """Tests for ReplayEngine class."""
 
-    async def test_engine_creation(self):
+    async def test_engine_creation(self) -> None:
         """Test creating replay engine."""
         engine = ReplayEngine()
 
         assert len(engine._sessions) == 0
 
-    async def test_create_replay_session(self):
+    async def test_create_replay_session(self) -> None:
         """Test creating a replay session."""
         engine = ReplayEngine()
 
@@ -264,7 +264,7 @@ class TestReplayEngine:
             assert session.status == "pending"
             assert session.session_id in engine._sessions
 
-    async def test_compare_decisions_same(self):
+    async def test_compare_decisions_same(self) -> None:
         """Test comparing identical decisions."""
         engine = ReplayEngine()
 
@@ -295,7 +295,7 @@ class TestReplayEngine:
         assert result["diverged"] is False
         assert len(result["differences"]) == 0
 
-    async def test_compare_decisions_diverged(self):
+    async def test_compare_decisions_diverged(self) -> None:
         """Test comparing diverged decisions.
 
         When output_data differs between original and replayed decisions,
@@ -335,7 +335,7 @@ class TestReplayEngine:
             f"Difference should be in output_data, got {result['differences'][0]['field']}"
         )
 
-    async def test_load_decisions_from_file(self, tmp_path):
+    async def test_load_decisions_from_file(self, tmp_path) -> None:
         """Test loading decisions from file."""
         engine = ReplayEngine()
 
@@ -380,7 +380,7 @@ class TestReplayEngine:
         assert decisions[0].decision_type == DecisionType.QUERY_GENERATED
         assert decisions[1].decision_type == DecisionType.ENGINE_SELECTED
 
-    async def test_export_session_report(self, tmp_path):
+    async def test_export_session_report(self, tmp_path) -> None:
         """Test exporting session report."""
         engine = ReplayEngine()
 
@@ -408,7 +408,7 @@ class TestReplayEngine:
 class TestReplaySession:
     """Tests for ReplaySession dataclass."""
 
-    def test_session_creation(self):
+    def test_session_creation(self) -> None:
         """Test creating a replay session."""
         session = ReplaySession(
             session_id="session-001",
@@ -422,7 +422,7 @@ class TestReplaySession:
         assert session.decisions_diverged == 0
 
 
-def test_get_decision_logger():
+def test_get_decision_logger() -> None:
     """Test get_decision_logger helper function."""
     # Reset global state
     import src.utils.replay as replay
@@ -437,7 +437,7 @@ def test_get_decision_logger():
     assert logger1 is not logger3
 
 
-def test_get_replay_engine_singleton():
+def test_get_replay_engine_singleton() -> None:
     """Test get_replay_engine returns singleton."""
     # Reset global state
     import src.utils.replay as replay
@@ -454,7 +454,7 @@ def test_get_replay_engine_singleton():
 
 
 @pytest.mark.asyncio
-async def test_cleanup_decision_logger():
+async def test_cleanup_decision_logger() -> None:
     """Test cleanup_decision_logger helper."""
     import src.utils.replay as replay
 

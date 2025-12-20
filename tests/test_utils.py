@@ -38,7 +38,7 @@ import yaml
 class TestDeepMerge:
     """Tests for _deep_merge function."""
 
-    def test_deep_merge_simple(self):
+    def test_deep_merge_simple(self) -> None:
         """Test merging simple dicts."""
         from src.utils.config import _deep_merge
 
@@ -49,7 +49,7 @@ class TestDeepMerge:
 
         assert result == {"a": 1, "b": 3, "c": 4}
 
-    def test_deep_merge_nested(self):
+    def test_deep_merge_nested(self) -> None:
         """Test merging nested dicts."""
         from src.utils.config import _deep_merge
 
@@ -70,7 +70,7 @@ class TestDeepMerge:
 
         assert result == {"level1": {"a": 1, "b": 3, "c": 4}}
 
-    def test_deep_merge_preserves_original(self):
+    def test_deep_merge_preserves_original(self) -> None:
         """Test that deep merge doesn't modify original dicts."""
         from src.utils.config import _deep_merge
 
@@ -85,7 +85,7 @@ class TestDeepMerge:
 class TestSettings:
     """Tests for Settings and related config classes."""
 
-    def test_default_settings(self):
+    def test_default_settings(self) -> None:
         """Test default settings values."""
         from src.utils.config import Settings
 
@@ -96,7 +96,7 @@ class TestSettings:
         assert settings.search.exploration_depth == 3
         assert settings.crawler.domain_qps == 0.2
 
-    def test_settings_from_dict(self):
+    def test_settings_from_dict(self) -> None:
         """Test creating settings from dict."""
         from src.utils.config import Settings
 
@@ -112,7 +112,7 @@ class TestSettings:
         # Defaults preserved
         assert settings.crawler.domain_qps == 0.2
 
-    def test_task_limits_config(self):
+    def test_task_limits_config(self) -> None:
         """Test TaskLimitsConfig defaults."""
         from src.utils.config import TaskLimitsConfig
 
@@ -122,7 +122,7 @@ class TestSettings:
         assert config.max_time_minutes_gpu == 60
         assert config.llm_time_ratio_max == 0.30
 
-    def test_search_config(self):
+    def test_search_config(self) -> None:
         """Test SearchConfig defaults."""
         from src.utils.config import SearchConfig
 
@@ -132,7 +132,7 @@ class TestSettings:
         assert config.results_per_query == 7
         assert config.min_independent_sources == 3
 
-    def test_crawler_config(self):
+    def test_crawler_config(self) -> None:
         """Test CrawlerConfig defaults."""
         from src.utils.config import CrawlerConfig
 
@@ -142,7 +142,7 @@ class TestSettings:
         assert config.domain_concurrent == 1
         assert config.request_timeout == 30
 
-    def test_quality_config_source_weights(self):
+    def test_quality_config_source_weights(self) -> None:
         """Test QualityConfig source weights."""
         from src.utils.config import QualityConfig
 
@@ -156,7 +156,7 @@ class TestSettings:
 class TestLoadYamlConfig:
     """Tests for YAML config loading."""
 
-    def test_load_yaml_config_from_file(self):
+    def test_load_yaml_config_from_file(self) -> None:
         """Test loading config from YAML file."""
         from src.utils.config import _load_yaml_config
 
@@ -177,7 +177,7 @@ class TestLoadYamlConfig:
             assert config["general"]["log_level"] == "DEBUG"
             assert config["search"]["exploration_depth"] == 5
 
-    def test_load_yaml_config_missing_file(self):
+    def test_load_yaml_config_missing_file(self) -> None:
         """Test loading config when file doesn't exist."""
         from src.utils.config import _load_yaml_config
 
@@ -192,7 +192,7 @@ class TestLoadYamlConfig:
 class TestApplyEnvOverrides:
     """Tests for environment variable overrides."""
 
-    def test_apply_env_overrides_simple(self):
+    def test_apply_env_overrides_simple(self) -> None:
         """Test simple env var override."""
         from src.utils.config import _apply_env_overrides
 
@@ -203,7 +203,7 @@ class TestApplyEnvOverrides:
 
         assert result["general"]["log_level"] == "DEBUG"
 
-    def test_apply_env_overrides_creates_nested(self):
+    def test_apply_env_overrides_creates_nested(self) -> None:
         """Test env var override creates nested keys."""
         from src.utils.config import _apply_env_overrides
 
@@ -214,7 +214,7 @@ class TestApplyEnvOverrides:
 
         assert result["search"]["exploration_depth"] == 10
 
-    def test_apply_env_overrides_bool(self):
+    def test_apply_env_overrides_bool(self) -> None:
         """Test env var override parses bool values."""
         from src.utils.config import _apply_env_overrides
 
@@ -232,7 +232,7 @@ class TestApplyEnvOverrides:
         assert result["tor"]["enabled"] is False
         assert result["browser"]["block_ads"] is True
 
-    def test_apply_env_overrides_float(self):
+    def test_apply_env_overrides_float(self) -> None:
         """Test env var override parses float values."""
         from src.utils.config import _apply_env_overrides
 
@@ -243,7 +243,7 @@ class TestApplyEnvOverrides:
 
         assert result["crawler"]["domain_qps"] == 0.5
 
-    def test_apply_env_overrides_string(self):
+    def test_apply_env_overrides_string(self) -> None:
         """Test env var override preserves string values."""
         from src.utils.config import _apply_env_overrides
 
@@ -254,7 +254,7 @@ class TestApplyEnvOverrides:
 
         assert result["llm"]["model"] == "llama3:8b"
 
-    def test_apply_env_overrides_ignores_non_lyra(self):
+    def test_apply_env_overrides_ignores_non_lyra(self) -> None:
         """Test that non-LYRA_ env vars are ignored."""
         from src.utils.config import _apply_env_overrides
 
@@ -276,7 +276,7 @@ class TestApplyEnvOverrides:
 class TestGetProjectRoot:
     """Tests for get_project_root function."""
 
-    def test_get_project_root(self):
+    def test_get_project_root(self) -> None:
         """Test get_project_root returns expected path."""
         from src.utils.config import get_project_root
 
@@ -290,7 +290,7 @@ class TestGetProjectRoot:
 class TestEnsureDirectories:
     """Tests for ensure_directories function."""
 
-    def test_ensure_directories_creates_dirs(self):
+    def test_ensure_directories_creates_dirs(self) -> None:
         """Test ensure_directories creates required directories."""
         from src.utils.config import ensure_directories, get_settings
 
@@ -309,7 +309,7 @@ class TestEnsureDirectories:
 class TestLogging:
     """Tests for logging configuration."""
 
-    def test_get_logger(self):
+    def test_get_logger(self) -> None:
         """Test get_logger returns a logger."""
         from src.utils.logging import get_logger
 
@@ -320,7 +320,7 @@ class TestLogging:
         assert hasattr(logger, "error")
         assert hasattr(logger, "debug")
 
-    def test_add_timestamp_processor(self):
+    def test_add_timestamp_processor(self) -> None:
         """Test _add_timestamp processor adds timestamp."""
         from src.utils.logging import _add_timestamp
 
@@ -330,7 +330,7 @@ class TestLogging:
         assert "timestamp" in result
         assert result["timestamp"].endswith("Z")
 
-    def test_add_log_level_processor(self):
+    def test_add_log_level_processor(self) -> None:
         """Test _add_log_level processor adds level."""
         from src.utils.logging import _add_log_level
 
@@ -343,7 +343,7 @@ class TestLogging:
 class TestLogContext:
     """Tests for LogContext context manager."""
 
-    def test_log_context_binds_and_unbinds(self):
+    def test_log_context_binds_and_unbinds(self) -> None:
         """Test LogContext binds and unbinds context variables."""
         import structlog
 
@@ -367,7 +367,7 @@ class TestLogContext:
 class TestCausalTrace:
     """Tests for CausalTrace class."""
 
-    def test_causal_trace_generates_id(self):
+    def test_causal_trace_generates_id(self) -> None:
         """Test CausalTrace generates unique trace ID."""
         from src.utils.logging import CausalTrace
 
@@ -376,7 +376,7 @@ class TestCausalTrace:
         assert trace.id is not None
         assert len(trace.id) == 36  # UUID format
 
-    def test_causal_trace_stores_parent(self):
+    def test_causal_trace_stores_parent(self) -> None:
         """Test CausalTrace stores parent cause ID."""
         from src.utils.logging import CausalTrace
 
@@ -385,7 +385,7 @@ class TestCausalTrace:
 
         assert trace.parent_id == parent_id
 
-    def test_causal_trace_context_manager(self):
+    def test_causal_trace_context_manager(self) -> None:
         """Test CausalTrace as context manager."""
         import structlog
 
@@ -404,7 +404,7 @@ class TestCausalTrace:
 class TestBindUnbindContext:
     """Tests for bind_context and unbind_context functions."""
 
-    def test_bind_context(self):
+    def test_bind_context(self) -> None:
         """Test bind_context adds context vars."""
         import structlog
 
@@ -418,7 +418,7 @@ class TestBindUnbindContext:
 
         clear_context()
 
-    def test_unbind_context(self):
+    def test_unbind_context(self) -> None:
         """Test unbind_context removes context vars."""
         import structlog
 
@@ -434,7 +434,7 @@ class TestBindUnbindContext:
 
         structlog.contextvars.clear_contextvars()
 
-    def test_clear_context(self):
+    def test_clear_context(self) -> None:
         """Test clear_context removes all context vars."""
         import structlog
 

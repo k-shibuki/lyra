@@ -31,7 +31,7 @@ from src.utils.schemas import Author, Paper, PaperIdentifier
 class TestPaperIdentityResolver:
     """Tests for PaperIdentityResolver."""
 
-    def test_resolve_identity_with_doi(self):
+    def test_resolve_identity_with_doi(self) -> None:
         """Test resolving identity with DOI.
 
         // Given: Paper with DOI
@@ -54,7 +54,7 @@ class TestPaperIdentityResolver:
         assert canonical_id.startswith("doi:")
         assert "10.1234/example" in canonical_id.lower()
 
-    def test_resolve_identity_with_title_author_year(self):
+    def test_resolve_identity_with_title_author_year(self) -> None:
         """Test resolving identity with title + author + year.
 
         // Given: Paper without DOI, with title/author/year
@@ -77,7 +77,7 @@ class TestPaperIdentityResolver:
         # Then: Returns meta: prefix
         assert canonical_id.startswith("meta:")
 
-    def test_resolve_identity_from_identifier(self):
+    def test_resolve_identity_from_identifier(self) -> None:
         """Test resolving identity from PaperIdentifier.
 
         // Given: PaperIdentifier with DOI
@@ -94,7 +94,7 @@ class TestPaperIdentityResolver:
         # Then: Returns canonical_id
         assert canonical_id.startswith("doi:")
 
-    def test_normalize_title(self):
+    def test_normalize_title(self) -> None:
         """Test title normalization.
 
         // Given: Title with punctuation and articles
@@ -113,7 +113,7 @@ class TestPaperIdentityResolver:
         assert ":" not in normalized
         assert normalized == normalized.lower()
 
-    def test_extract_first_author_surname_first_last_format(self):
+    def test_extract_first_author_surname_first_last_format(self) -> None:
         """Test extracting surname from 'First Last' format.
 
         // Given: Author name in "First Last" format
@@ -130,7 +130,7 @@ class TestPaperIdentityResolver:
         # Then: Returns "smith"
         assert surname == "smith"
 
-    def test_extract_first_author_surname_last_first_format(self):
+    def test_extract_first_author_surname_last_first_format(self) -> None:
         """Test extracting surname from 'Last, First' format.
 
         // Given: Author name in "Last, First" format
@@ -147,7 +147,7 @@ class TestPaperIdentityResolver:
         # Then: Returns "smith" (NOT "john")
         assert surname == "smith"
 
-    def test_extract_first_author_surname_single_name(self):
+    def test_extract_first_author_surname_single_name(self) -> None:
         """Test extracting surname from single name.
 
         // Given: Single name author
@@ -164,7 +164,7 @@ class TestPaperIdentityResolver:
         # Then: Returns "madonna"
         assert surname == "madonna"
 
-    def test_extract_first_author_surname_empty(self):
+    def test_extract_first_author_surname_empty(self) -> None:
         """Test extracting surname from empty authors list.
 
         // Given: Empty authors list
@@ -185,7 +185,7 @@ class TestPaperIdentityResolver:
 class TestCanonicalPaperIndex:
     """Tests for CanonicalPaperIndex."""
 
-    def test_register_paper(self):
+    def test_register_paper(self) -> None:
         """TC-CI-N-01: Test registering a paper.
 
         // Given: Paper with DOI
@@ -211,7 +211,7 @@ class TestCanonicalPaperIndex:
         assert entries[0].paper == paper
         assert entries[0].source == "api"
 
-    def test_register_duplicate_paper(self):
+    def test_register_duplicate_paper(self) -> None:
         """TC-CI-N-02: Test registering duplicate paper (same DOI).
 
         // Given: Paper already registered
@@ -244,7 +244,7 @@ class TestCanonicalPaperIndex:
         # Higher priority source (semantic_scholar) is kept
         assert entries[0].paper.source_api == "semantic_scholar"
 
-    def test_register_serp_result(self):
+    def test_register_serp_result(self) -> None:
         """TC-CI-N-03: Test registering SERP result.
 
         // Given: SERP SearchResult
@@ -272,7 +272,7 @@ class TestCanonicalPaperIndex:
         assert entries[0].source == "serp"
         assert len(entries[0].serp_results) == 1
 
-    def test_register_serp_matching_existing_paper(self):
+    def test_register_serp_matching_existing_paper(self) -> None:
         """TC-CI-N-04: Test registering SERP matching existing paper.
 
         // Given: Paper already registered, SERP result with same DOI
@@ -307,7 +307,7 @@ class TestCanonicalPaperIndex:
         assert entries[0].source == "both"
         assert len(entries[0].serp_results) == 1
 
-    def test_find_by_title_similarity(self):
+    def test_find_by_title_similarity(self) -> None:
         """TC-CI-N-05: Test finding by title similarity.
 
         // Given: Paper registered, similar title
@@ -331,7 +331,7 @@ class TestCanonicalPaperIndex:
         assert match is not None
         assert match.paper == paper
 
-    def test_empty_index(self):
+    def test_empty_index(self) -> None:
         """TC-CI-B-01: Test empty index stats.
 
         // Given: Empty index
@@ -350,7 +350,7 @@ class TestCanonicalPaperIndex:
         assert stats["serp_only"] == 0
         assert stats["both"] == 0
 
-    def test_clear_index(self):
+    def test_clear_index(self) -> None:
         """TC-CI-B-02: Test clearing index.
 
         // Given: Index with entries
@@ -374,7 +374,7 @@ class TestCanonicalPaperIndex:
         assert len(index.get_all_entries()) == 0
         assert index.get_stats()["total"] == 0
 
-    def test_register_paper_without_doi_or_title(self):
+    def test_register_paper_without_doi_or_title(self) -> None:
         """TC-CI-A-01: Test registering paper without DOI or title.
 
         // Given: Paper without DOI or title
@@ -395,7 +395,7 @@ class TestCanonicalPaperIndex:
         # Then: Fallback canonical_id generated
         assert canonical_id.startswith("unknown:") or canonical_id.startswith("title:")
 
-    def test_get_stats(self):
+    def test_get_stats(self) -> None:
         """TC-CI-N-06: Test getting stats.
 
         // Given: Index with mixed entries
@@ -440,7 +440,7 @@ class TestCanonicalPaperIndex:
         assert stats["serp_only"] == 1
         assert stats["both"] == 1
 
-    def test_multiple_sources_tracking(self):
+    def test_multiple_sources_tracking(self) -> None:
         """TC-CI-N-07: Test multiple sources tracking.
 
         // Given: Same paper from multiple APIs

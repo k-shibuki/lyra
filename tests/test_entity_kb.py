@@ -31,6 +31,8 @@ References:
 | TC-KB-09 | Get related entities | Equivalence – graph | Returns linked entities | - |
 """
 
+from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 import pytest
 
 # All tests in this module are integration tests (use database)
@@ -72,7 +74,7 @@ def identifier_normalizer():
 
 
 @pytest_asyncio.fixture
-async def entity_kb(tmp_path):
+async def entity_kb(tmp_path) -> AsyncGenerator[None, None]:
     """Create EntityKB with in-memory database."""
     import aiosqlite
 
@@ -155,7 +157,7 @@ async def entity_kb(tmp_path):
 class TestNameNormalizer:
     """Tests for NameNormalizer class."""
 
-    def test_normalize_basic_organization_name(self, name_normalizer):
+    def test_normalize_basic_organization_name(self, name_normalizer) -> None:
         """Test basic organization name normalization.
 
         Verifies that simple organization names are properly normalized
@@ -176,7 +178,7 @@ class TestNameNormalizer:
         assert "corp" in result.canonical
         assert "example" in result.tokens
 
-    def test_normalize_japanese_corporation(self, name_normalizer):
+    def test_normalize_japanese_corporation(self, name_normalizer) -> None:
         """Test Japanese corporation name normalization.
 
         Verifies that Japanese corporate suffixes (株式会社) are
@@ -194,7 +196,7 @@ class TestNameNormalizer:
         assert "kk" in result.canonical.lower()
         assert result.language == "ja"
 
-    def test_normalize_with_parenthetical_suffix(self, name_normalizer):
+    def test_normalize_with_parenthetical_suffix(self, name_normalizer) -> None:
         """Test organization name with parenthetical suffix.
 
         Verifies that (株) and similar formats are handled.
@@ -209,7 +211,7 @@ class TestNameNormalizer:
         assert result.suffix_type == "KK"
         assert result.language == "ja"
 
-    def test_normalize_english_variations(self, name_normalizer):
+    def test_normalize_english_variations(self, name_normalizer) -> None:
         """Test various English corporate suffix variations.
 
         Verifies that Inc., Ltd., LLC etc. are all normalized consistently.
@@ -231,7 +233,7 @@ class TestNameNormalizer:
             # Assert
             assert result.suffix_type == expected_suffix, f"Failed for {name}"
 
-    def test_normalize_fullwidth_characters(self, name_normalizer):
+    def test_normalize_fullwidth_characters(self, name_normalizer) -> None:
         """Test full-width to half-width ASCII conversion.
 
         Verifies that full-width characters are converted to half-width.
@@ -245,7 +247,7 @@ class TestNameNormalizer:
         # Assert
         assert "abcd" in result.canonical.lower()
 
-    def test_normalize_person_name(self, name_normalizer):
+    def test_normalize_person_name(self, name_normalizer) -> None:
         """Test person name normalization (no suffix extraction).
 
         Verifies that person names don't have corporate suffixes extracted.
@@ -262,7 +264,7 @@ class TestNameNormalizer:
         assert result.canonical == "john smith"
         assert result.tokens == ["john", "smith"]
 
-    def test_compute_similarity_exact_match(self, name_normalizer):
+    def test_compute_similarity_exact_match(self, name_normalizer) -> None:
         """Test similarity computation for exact canonical matches.
 
         Verifies that identical canonical names return similarity 1.0.
@@ -277,7 +279,7 @@ class TestNameNormalizer:
         # Assert
         assert similarity == 1.0
 
-    def test_compute_similarity_same_name_different_suffix(self, name_normalizer):
+    def test_compute_similarity_same_name_different_suffix(self, name_normalizer) -> None:
         """Test similarity computation for same name with different suffix formats.
 
         Verifies that Example Corp and Example Corporation are recognized
@@ -294,7 +296,7 @@ class TestNameNormalizer:
         # Both have suffix_type "corp", so similarity gets a boost
         assert similarity >= 0.6  # High similarity due to same suffix type
 
-    def test_compute_similarity_partial_match(self, name_normalizer):
+    def test_compute_similarity_partial_match(self, name_normalizer) -> None:
         """Test similarity computation for partial matches.
 
         Verifies that partially matching names have similarity < 1.0.
@@ -309,7 +311,7 @@ class TestNameNormalizer:
         # Assert
         assert 0.3 < similarity < 0.8  # Partial overlap
 
-    def test_compute_similarity_no_match(self, name_normalizer):
+    def test_compute_similarity_no_match(self, name_normalizer) -> None:
         """Test similarity computation for completely different names.
 
         Verifies that unrelated names have low similarity.
@@ -324,7 +326,7 @@ class TestNameNormalizer:
         # Assert
         assert similarity < 0.3
 
-    def test_detect_language_japanese(self, name_normalizer):
+    def test_detect_language_japanese(self, name_normalizer) -> None:
         """Test Japanese language detection."""
         # Arrange & Act
         result = name_normalizer.normalize("東京株式会社", EntityType.ORGANIZATION)
@@ -332,7 +334,7 @@ class TestNameNormalizer:
         # Assert
         assert result.language == "ja"
 
-    def test_detect_language_english(self, name_normalizer):
+    def test_detect_language_english(self, name_normalizer) -> None:
         """Test English language detection."""
         # Arrange & Act
         result = name_normalizer.normalize("Tokyo Corporation", EntityType.ORGANIZATION)
@@ -340,7 +342,7 @@ class TestNameNormalizer:
         # Assert
         assert result.language == "en"
 
-    def test_detect_language_korean(self, name_normalizer):
+    def test_detect_language_korean(self, name_normalizer) -> None:
         """Test Korean language detection."""
         # Arrange & Act
         result = name_normalizer.normalize("삼성전자", EntityType.ORGANIZATION)
@@ -357,7 +359,7 @@ class TestNameNormalizer:
 class TestAddressNormalizer:
     """Tests for AddressNormalizer class."""
 
-    def test_normalize_basic_address(self, address_normalizer):
+    def test_normalize_basic_address(self, address_normalizer) -> None:
         """Test basic address normalization."""
         # Arrange
         address = "123 Main Street, Tokyo, Japan"
@@ -369,7 +371,7 @@ class TestAddressNormalizer:
         assert result.original == "123 Main Street, Tokyo, Japan"
         assert result.country_code == "jp"
 
-    def test_normalize_japanese_postal_code(self, address_normalizer):
+    def test_normalize_japanese_postal_code(self, address_normalizer) -> None:
         """Test Japanese postal code extraction.
 
         Verifies that 〒123-4567 format is correctly extracted.
@@ -383,7 +385,7 @@ class TestAddressNormalizer:
         # Assert
         assert result.postal_code == "100-0001"
 
-    def test_normalize_us_postal_code(self, address_normalizer):
+    def test_normalize_us_postal_code(self, address_normalizer) -> None:
         """Test US postal code extraction.
 
         Verifies that 5-digit and 5+4 ZIP codes are extracted.
@@ -398,7 +400,7 @@ class TestAddressNormalizer:
         assert result.postal_code == "10001"
         assert result.country_code == "us"
 
-    def test_normalize_country_code_from_hint(self, address_normalizer):
+    def test_normalize_country_code_from_hint(self, address_normalizer) -> None:
         """Test country code from explicit hint."""
         # Arrange
         address = "123 Main Street"
@@ -409,7 +411,7 @@ class TestAddressNormalizer:
         # Assert
         assert result.country_code == "jp"
 
-    def test_normalize_country_variations(self, address_normalizer):
+    def test_normalize_country_variations(self, address_normalizer) -> None:
         """Test various country name formats.
 
         Verifies that different country representations are normalized.
@@ -430,7 +432,7 @@ class TestAddressNormalizer:
             # Assert
             assert result.country_code == expected_code, f"Failed for {address}"
 
-    def test_normalize_empty_address(self, address_normalizer):
+    def test_normalize_empty_address(self, address_normalizer) -> None:
         """Test handling of empty address."""
         # Arrange & Act
         result = address_normalizer.normalize("")
@@ -449,7 +451,7 @@ class TestAddressNormalizer:
 class TestIdentifierNormalizer:
     """Tests for IdentifierNormalizer class."""
 
-    def test_normalize_domain_basic(self, identifier_normalizer):
+    def test_normalize_domain_basic(self, identifier_normalizer) -> None:
         """Test basic domain normalization."""
         # Arrange & Act
         result = identifier_normalizer.normalize_domain("Example.COM")
@@ -457,7 +459,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "example.com"
 
-    def test_normalize_domain_with_trailing_dot(self, identifier_normalizer):
+    def test_normalize_domain_with_trailing_dot(self, identifier_normalizer) -> None:
         """Test domain with trailing dot."""
         # Arrange & Act
         result = identifier_normalizer.normalize_domain("example.com.")
@@ -465,7 +467,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "example.com"
 
-    def test_normalize_domain_from_url(self, identifier_normalizer):
+    def test_normalize_domain_from_url(self, identifier_normalizer) -> None:
         """Test domain extraction from URL."""
         # Arrange & Act
         result = identifier_normalizer.normalize_domain("https://www.example.com/path")
@@ -473,7 +475,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "www.example.com"
 
-    def test_normalize_domain_with_port(self, identifier_normalizer):
+    def test_normalize_domain_with_port(self, identifier_normalizer) -> None:
         """Test domain with port number."""
         # Arrange & Act
         result = identifier_normalizer.normalize_domain("example.com:8080")
@@ -481,7 +483,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "example.com"
 
-    def test_normalize_email_basic(self, identifier_normalizer):
+    def test_normalize_email_basic(self, identifier_normalizer) -> None:
         """Test basic email normalization."""
         # Arrange & Act
         result = identifier_normalizer.normalize_email("User@Example.COM")
@@ -489,7 +491,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "user@example.com"
 
-    def test_normalize_phone_japanese(self, identifier_normalizer):
+    def test_normalize_phone_japanese(self, identifier_normalizer) -> None:
         """Test Japanese phone number normalization."""
         # Arrange & Act
         result = identifier_normalizer.normalize_phone("03-1234-5678", country_code="jp")
@@ -497,7 +499,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "+81312345678"
 
-    def test_normalize_phone_with_plus(self, identifier_normalizer):
+    def test_normalize_phone_with_plus(self, identifier_normalizer) -> None:
         """Test phone number with international prefix."""
         # Arrange & Act
         result = identifier_normalizer.normalize_phone("+1-555-123-4567")
@@ -505,7 +507,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "+15551234567"
 
-    def test_normalize_ip_v4(self, identifier_normalizer):
+    def test_normalize_ip_v4(self, identifier_normalizer) -> None:
         """Test IPv4 address normalization."""
         # Arrange & Act
         result = identifier_normalizer.normalize_ip("192.168.001.001")
@@ -513,7 +515,7 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "192.168.1.1"
 
-    def test_normalize_ip_v6(self, identifier_normalizer):
+    def test_normalize_ip_v6(self, identifier_normalizer) -> None:
         """Test IPv6 address normalization."""
         # Arrange & Act
         result = identifier_normalizer.normalize_ip("2001:DB8::1")
@@ -531,7 +533,7 @@ class TestIdentifierNormalizer:
 class TestEntityKB:
     """Integration tests for EntityKB class."""
 
-    async def test_add_entity_basic(self, entity_kb):
+    async def test_add_entity_basic(self, entity_kb) -> None:
         """Test adding a basic entity.
 
         Verifies that entities can be added and retrieved.
@@ -552,7 +554,7 @@ class TestEntityKB:
         assert entity.entity_type == EntityType.ORGANIZATION
         assert entity.confidence == 0.9
 
-    async def test_add_entity_with_address(self, entity_kb):
+    async def test_add_entity_with_address(self, entity_kb) -> None:
         """Test adding entity with address normalization."""
         # Arrange
         name = "Japan Corp"
@@ -571,7 +573,7 @@ class TestEntityKB:
         assert entity.normalized_address.postal_code == "100-0001"
         assert entity.normalized_address.country_code == "jp"
 
-    async def test_add_entity_with_identifiers(self, entity_kb):
+    async def test_add_entity_with_identifiers(self, entity_kb) -> None:
         """Test adding entity with identifiers."""
         # Arrange
         name = "Example Inc"
@@ -595,7 +597,7 @@ class TestEntityKB:
         assert len(domain_ids) == 1
         assert domain_ids[0].identifier_normalized == "example.com"
 
-    async def test_add_entity_with_aliases(self, entity_kb):
+    async def test_add_entity_with_aliases(self, entity_kb) -> None:
         """Test adding entity with aliases."""
         # Arrange
         name = "International Business Machines Corporation"
@@ -616,7 +618,7 @@ class TestEntityKB:
         assert "IBM" in alias_texts
         assert "Big Blue" in alias_texts
 
-    async def test_find_entity_by_canonical_name(self, entity_kb):
+    async def test_find_entity_by_canonical_name(self, entity_kb) -> None:
         """Test finding entity by canonical name match."""
         # Arrange
         await entity_kb.add_entity(
@@ -635,7 +637,7 @@ class TestEntityKB:
         assert matches[0].match_score == 1.0
         assert matches[0].match_type == "canonical"
 
-    async def test_find_entity_by_alias(self, entity_kb):
+    async def test_find_entity_by_alias(self, entity_kb) -> None:
         """Test finding entity by alias."""
         # Arrange
         await entity_kb.add_entity(
@@ -654,7 +656,7 @@ class TestEntityKB:
         assert len(matches) >= 1
         assert matches[0].match_type == "alias"
 
-    async def test_find_entity_by_identifier(self, entity_kb):
+    async def test_find_entity_by_identifier(self, entity_kb) -> None:
         """Test finding entity by identifier."""
         # Arrange
         await entity_kb.add_entity(
@@ -673,7 +675,7 @@ class TestEntityKB:
         assert matches[0].match_score == 1.0
         assert matches[0].match_type == "identifier"
 
-    async def test_deduplication_by_name(self, entity_kb):
+    async def test_deduplication_by_name(self, entity_kb) -> None:
         """Test entity deduplication by name.
 
         Verifies that adding the same entity twice returns the existing one.
@@ -696,7 +698,7 @@ class TestEntityKB:
         # Assert
         assert entity2.id == entity1.id  # Same entity
 
-    async def test_deduplication_by_identifier(self, entity_kb):
+    async def test_deduplication_by_identifier(self, entity_kb) -> None:
         """Test entity deduplication by identifier.
 
         Verifies that adding entity with same identifier returns existing one.
@@ -719,7 +721,7 @@ class TestEntityKB:
         # Assert
         assert entity2.id == entity1.id
 
-    async def test_add_relationship(self, entity_kb):
+    async def test_add_relationship(self, entity_kb) -> None:
         """Test adding relationship between entities."""
         # Arrange
         org = await entity_kb.add_entity(
@@ -748,7 +750,7 @@ class TestEntityKB:
         assert related[0][1] == "owns"
         assert related[0][2] == 0.9
 
-    async def test_get_related_entities_filtered(self, entity_kb):
+    async def test_get_related_entities_filtered(self, entity_kb) -> None:
         """Test getting related entities with type filter."""
         # Arrange
         org = await entity_kb.add_entity(
@@ -774,7 +776,7 @@ class TestEntityKB:
         assert len(owns_relations) == 1
         assert owns_relations[0][0].id == sub1.id
 
-    async def test_domain_entity_with_identifiers(self, entity_kb):
+    async def test_domain_entity_with_identifiers(self, entity_kb) -> None:
         """Test domain entity with multiple identifiers."""
         # Arrange
         identifiers = [
@@ -806,7 +808,7 @@ class TestEntityKB:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_normalize_empty_name(self, name_normalizer):
+    def test_normalize_empty_name(self, name_normalizer) -> None:
         """Test handling of empty name."""
         # Arrange & Act
         result = name_normalizer.normalize("", EntityType.ORGANIZATION)
@@ -817,7 +819,7 @@ class TestEdgeCases:
         assert result.canonical == ""
         assert result.tokens == []
 
-    def test_normalize_whitespace_only_name(self, name_normalizer):
+    def test_normalize_whitespace_only_name(self, name_normalizer) -> None:
         """Test handling of whitespace-only name."""
         # Arrange & Act
         result = name_normalizer.normalize("   ", EntityType.ORGANIZATION)
@@ -826,7 +828,7 @@ class TestEdgeCases:
         assert result.original == ""
         assert result.canonical == ""
 
-    def test_normalize_name_with_special_characters(self, name_normalizer):
+    def test_normalize_name_with_special_characters(self, name_normalizer) -> None:
         """Test handling of names with special characters."""
         # Arrange
         name = "O'Reilly & Associates, Inc."
@@ -838,7 +840,7 @@ class TestEdgeCases:
         assert result.suffix_type == "inc"
         assert "o'reilly" in result.canonical
 
-    def test_normalize_domain_empty(self, identifier_normalizer):
+    def test_normalize_domain_empty(self, identifier_normalizer) -> None:
         """Test handling of empty domain."""
         # Arrange & Act
         result = identifier_normalizer.normalize_domain("")
@@ -846,7 +848,7 @@ class TestEdgeCases:
         # Assert
         assert result == ""
 
-    def test_normalize_email_invalid(self, identifier_normalizer):
+    def test_normalize_email_invalid(self, identifier_normalizer) -> None:
         """Test handling of invalid email (no @)."""
         # Arrange & Act
         result = identifier_normalizer.normalize_email("not-an-email")
@@ -854,7 +856,7 @@ class TestEdgeCases:
         # Assert
         assert result == "not-an-email"  # Returns as-is
 
-    def test_similarity_empty_tokens(self, name_normalizer):
+    def test_similarity_empty_tokens(self, name_normalizer) -> None:
         """Test similarity computation with empty tokens."""
         # Arrange
         name1 = NormalizedName(
@@ -880,7 +882,7 @@ class TestEdgeCases:
 class TestBoundaryConditions:
     """Tests for boundary conditions per §7.1.2."""
 
-    def test_similarity_single_token(self, name_normalizer):
+    def test_similarity_single_token(self, name_normalizer) -> None:
         """Test similarity with single-token names."""
         # Arrange
         name1 = name_normalizer.normalize("IBM", EntityType.ORGANIZATION)
@@ -892,7 +894,7 @@ class TestBoundaryConditions:
         # Assert
         assert similarity == 1.0
 
-    def test_similarity_many_tokens(self, name_normalizer):
+    def test_similarity_many_tokens(self, name_normalizer) -> None:
         """Test similarity with many-token names.
 
         Long names with the same core content but different suffixes
@@ -917,7 +919,7 @@ class TestBoundaryConditions:
         assert similarity >= 0.6  # Significant overlap expected
 
     @pytest.mark.asyncio
-    async def test_find_entity_no_matches(self, entity_kb):
+    async def test_find_entity_no_matches(self, entity_kb) -> None:
         """Test find_entity when no matches exist."""
         # Arrange - Empty KB
 
@@ -931,7 +933,7 @@ class TestBoundaryConditions:
         assert matches == []
 
     @pytest.mark.asyncio
-    async def test_get_entity_nonexistent(self, entity_kb):
+    async def test_get_entity_nonexistent(self, entity_kb) -> None:
         """Test get_entity with nonexistent ID."""
         # Arrange & Act
         entity = await entity_kb.get_entity("nonexistent-id")
@@ -940,7 +942,7 @@ class TestBoundaryConditions:
         assert entity is None
 
     @pytest.mark.asyncio
-    async def test_get_identifiers_no_entity(self, entity_kb):
+    async def test_get_identifiers_no_entity(self, entity_kb) -> None:
         """Test get_entity_identifiers with nonexistent entity."""
         # Arrange & Act
         identifiers = await entity_kb.get_entity_identifiers("nonexistent-id")
@@ -949,7 +951,7 @@ class TestBoundaryConditions:
         assert identifiers == []
 
     @pytest.mark.asyncio
-    async def test_get_aliases_no_entity(self, entity_kb):
+    async def test_get_aliases_no_entity(self, entity_kb) -> None:
         """Test get_entity_aliases with nonexistent entity."""
         # Arrange & Act
         aliases = await entity_kb.get_entity_aliases("nonexistent-id")

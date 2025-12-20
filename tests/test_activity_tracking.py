@@ -35,7 +35,7 @@ class TestActivityTracking:
         db.execute = AsyncMock()
         return db
 
-    def test_initial_activity_timestamp(self):
+    def test_initial_activity_timestamp(self) -> None:
         """
         AT-N-01: Test that activity timestamp is set on initialization.
 
@@ -52,7 +52,7 @@ class TestActivityTracking:
             assert state._last_activity_at > 0
             assert time.time() - state._last_activity_at < 1
 
-    def test_record_activity_updates_timestamp(self):
+    def test_record_activity_updates_timestamp(self) -> None:
         """
         AT-N-02: Test that record_activity updates the timestamp.
 
@@ -71,7 +71,7 @@ class TestActivityTracking:
 
             assert state._last_activity_at > initial_time
 
-    def test_get_idle_seconds_returns_elapsed_time(self):
+    def test_get_idle_seconds_returns_elapsed_time(self) -> None:
         """
         AT-N-03: Test that get_idle_seconds returns correct elapsed time.
 
@@ -91,7 +91,7 @@ class TestActivityTracking:
             assert idle >= 0.05
             assert idle < 1
 
-    def test_get_idle_seconds_boundary_zero(self):
+    def test_get_idle_seconds_boundary_zero(self) -> None:
         """
         AT-B-01: Test idle_seconds is approximately 0 immediately after activity.
 
@@ -109,7 +109,7 @@ class TestActivityTracking:
             assert idle >= 0
             assert idle < 0.01  # Less than 10ms
 
-    def test_get_idle_seconds_resets_after_record_activity(self):
+    def test_get_idle_seconds_resets_after_record_activity(self) -> None:
         """
         AT-N-02: Test that idle seconds reset after recording activity.
 
@@ -132,7 +132,7 @@ class TestActivityTracking:
             assert idle_after < 0.05
 
     @pytest.mark.asyncio
-    async def test_get_status_includes_idle_seconds(self, mock_db):
+    async def test_get_status_includes_idle_seconds(self, mock_db) -> None:
         """
         AT-N-03: Test that get_status includes idle_seconds field.
 
@@ -156,7 +156,7 @@ class TestActivityTracking:
                 assert status["idle_seconds"] >= 0
 
     @pytest.mark.asyncio
-    async def test_get_status_boundary_just_under_timeout_no_warning(self, mock_db):
+    async def test_get_status_boundary_just_under_timeout_no_warning(self, mock_db) -> None:
         """
         AT-B-02: Test no warning when idle time is just under timeout.
 
@@ -182,7 +182,7 @@ class TestActivityTracking:
                 assert len(idle_warnings) == 0
 
     @pytest.mark.asyncio
-    async def test_get_status_boundary_exact_timeout_warning(self, mock_db):
+    async def test_get_status_boundary_exact_timeout_warning(self, mock_db) -> None:
         """
         AT-B-03: Test warning when idle time equals timeout exactly.
 
@@ -208,7 +208,7 @@ class TestActivityTracking:
                 assert len(idle_warnings) > 0
 
     @pytest.mark.asyncio
-    async def test_get_status_boundary_over_timeout_warning(self, mock_db):
+    async def test_get_status_boundary_over_timeout_warning(self, mock_db) -> None:
         """
         AT-B-04: Test warning when idle time exceeds timeout.
 
@@ -236,7 +236,7 @@ class TestActivityTracking:
                 assert str(timeout) in idle_warning[0]
 
     @pytest.mark.asyncio
-    async def test_get_status_no_warning_when_active(self, mock_db):
+    async def test_get_status_no_warning_when_active(self, mock_db) -> None:
         """
         AT-B-01: Test that no idle warning when activity is recent.
 
@@ -260,7 +260,7 @@ class TestActivityTracking:
                 idle_warnings = [w for w in status["warnings"] if "idle" in w.lower()]
                 assert len(idle_warnings) == 0
 
-    def test_multiple_record_activity_calls(self):
+    def test_multiple_record_activity_calls(self) -> None:
         """
         AT-N-02: Test that multiple record_activity calls work correctly.
 

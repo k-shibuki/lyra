@@ -46,7 +46,7 @@ from src.crawler.undetected import (
 class TestUndetectedFetchResult:
     """Tests for UndetectedFetchResult."""
 
-    def test_successful_result(self):
+    def test_successful_result(self) -> None:
         """Test creating a successful result."""
         result = UndetectedFetchResult(
             ok=True,
@@ -64,7 +64,7 @@ class TestUndetectedFetchResult:
         assert result.content == "<html>Test</html>"
         assert result.method == "undetected_chromedriver"
 
-    def test_failed_result(self):
+    def test_failed_result(self) -> None:
         """Test creating a failed result."""
         result = UndetectedFetchResult(
             ok=False,
@@ -75,7 +75,7 @@ class TestUndetectedFetchResult:
         assert result.ok is False
         assert result.reason == "cloudflare_bypass_timeout"
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test converting result to dictionary."""
         result = UndetectedFetchResult(
             ok=True,
@@ -101,7 +101,7 @@ class TestUndetectedFetchResult:
 class TestUndetectedChromeFetcher:
     """Tests for UndetectedChromeFetcher."""
 
-    def test_is_available_when_installed(self):
+    def test_is_available_when_installed(self) -> None:
         """Test availability check when library is installed."""
         fetcher = UndetectedChromeFetcher()
 
@@ -112,7 +112,7 @@ class TestUndetectedChromeFetcher:
             result = fetcher.is_available()
             assert result is True
 
-    def test_is_available_when_not_installed(self):
+    def test_is_available_when_not_installed(self) -> None:
         """Test availability check when library is not installed."""
         fetcher = UndetectedChromeFetcher()
 
@@ -141,7 +141,7 @@ class TestUndetectedChromeFetcher:
             if original is not None:
                 sys.modules["undetected_chromedriver"] = original
 
-    def test_create_options(self):
+    def test_create_options(self) -> None:
         """Test Chrome options creation."""
         fetcher = UndetectedChromeFetcher()
 
@@ -158,7 +158,7 @@ class TestUndetectedChromeFetcher:
             # Verify arguments were added
             assert mock_options.add_argument.called
 
-    def test_simulate_human_delay(self):
+    def test_simulate_human_delay(self) -> None:
         """Test human delay simulation."""
         fetcher = UndetectedChromeFetcher()
 
@@ -170,7 +170,7 @@ class TestUndetectedChromeFetcher:
 
         assert 0.1 <= elapsed <= 0.3  # Allow some tolerance
 
-    def test_fetch_sync_not_available(self):
+    def test_fetch_sync_not_available(self) -> None:
         """Test fetch when library is not available."""
         fetcher = UndetectedChromeFetcher()
         fetcher._available = False
@@ -180,7 +180,7 @@ class TestUndetectedChromeFetcher:
         assert result.ok is False
         assert result.reason == "undetected_chromedriver_not_available"
 
-    def test_save_content(self, tmp_path):
+    def test_save_content(self, tmp_path) -> None:
         """Test content saving."""
         fetcher = UndetectedChromeFetcher()
 
@@ -200,7 +200,7 @@ class TestUndetectedChromeFetcher:
             assert "_uc.html" in filepath.name
 
     @pytest.mark.asyncio
-    async def test_fetch_async_wraps_sync(self):
+    async def test_fetch_async_wraps_sync(self) -> None:
         """Test async fetch wraps sync method."""
         fetcher = UndetectedChromeFetcher()
 
@@ -218,7 +218,7 @@ class TestUndetectedChromeFetcher:
             assert result.ok is True
             assert result.url == "https://example.com"
 
-    def test_get_cookies_no_driver(self):
+    def test_get_cookies_no_driver(self) -> None:
         """Test getting cookies when no driver is active."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = None
@@ -227,7 +227,7 @@ class TestUndetectedChromeFetcher:
 
         assert cookies == []
 
-    def test_get_cookies_with_driver(self):
+    def test_get_cookies_with_driver(self) -> None:
         """Test getting cookies with active driver."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -240,7 +240,7 @@ class TestUndetectedChromeFetcher:
         assert len(cookies) == 1
         assert cookies[0]["name"] == "session"
 
-    def test_add_cookies_no_driver(self):
+    def test_add_cookies_no_driver(self) -> None:
         """Test adding cookies when no driver is active."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = None
@@ -248,7 +248,7 @@ class TestUndetectedChromeFetcher:
         # Should not raise
         fetcher.add_cookies([{"name": "test", "value": "123"}])
 
-    def test_add_cookies_with_driver(self):
+    def test_add_cookies_with_driver(self) -> None:
         """Test adding cookies with active driver."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -262,7 +262,7 @@ class TestUndetectedChromeFetcher:
 
         assert fetcher._driver.add_cookie.call_count == 2
 
-    def test_close_driver(self):
+    def test_close_driver(self) -> None:
         """Test closing the driver."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -271,7 +271,7 @@ class TestUndetectedChromeFetcher:
 
         assert fetcher._driver is None
 
-    def test_close_driver_error_handled(self):
+    def test_close_driver_error_handled(self) -> None:
         """Test that close handles errors gracefully."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -283,7 +283,7 @@ class TestUndetectedChromeFetcher:
         assert fetcher._driver is None
 
     @pytest.mark.asyncio
-    async def test_close_async(self):
+    async def test_close_async(self) -> None:
         """Test async close."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -292,7 +292,7 @@ class TestUndetectedChromeFetcher:
 
         assert fetcher._driver is None
 
-    def test_context_manager(self):
+    def test_context_manager(self) -> None:
         """Test context manager usage."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -312,7 +312,7 @@ class TestUndetectedChromeFetcher:
 class TestCloudflareBypass:
     """Tests for Cloudflare bypass functionality."""
 
-    def test_wait_for_cloudflare_success(self):
+    def test_wait_for_cloudflare_success(self) -> None:
         """Test successful Cloudflare bypass detection."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -324,7 +324,7 @@ class TestCloudflareBypass:
 
         assert result is True
 
-    def test_wait_for_cloudflare_timeout(self):
+    def test_wait_for_cloudflare_timeout(self) -> None:
         """Test Cloudflare bypass timeout."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -336,7 +336,7 @@ class TestCloudflareBypass:
 
         assert result is False
 
-    def test_wait_for_cloudflare_indicators(self):
+    def test_wait_for_cloudflare_indicators(self) -> None:
         """Test detection of various Cloudflare indicators."""
         fetcher = UndetectedChromeFetcher()
         fetcher._driver = MagicMock()
@@ -365,7 +365,7 @@ class TestCloudflareBypass:
 class TestGlobalInstance:
     """Tests for global instance management."""
 
-    def test_get_undetected_fetcher(self):
+    def test_get_undetected_fetcher(self) -> None:
         """Test getting global fetcher instance."""
         # Reset global
         import src.crawler.undetected as uc_module
@@ -379,7 +379,7 @@ class TestGlobalInstance:
         assert fetcher1 is fetcher2
 
     @pytest.mark.asyncio
-    async def test_close_undetected_fetcher(self):
+    async def test_close_undetected_fetcher(self) -> None:
         """Test closing global fetcher instance."""
         import src.crawler.undetected as uc_module
 
@@ -400,7 +400,7 @@ class TestGlobalInstance:
 class TestFetcherIntegration:
     """Integration tests with mocked components."""
 
-    def test_full_fetch_flow_success(self, tmp_path):
+    def test_full_fetch_flow_success(self, tmp_path) -> None:
         """Test successful fetch flow with all components mocked."""
         fetcher = UndetectedChromeFetcher()
 
@@ -439,7 +439,7 @@ class TestFetcherIntegration:
                 assert result.content == "<html><body>Success!</body></html>"
                 assert result.html_path is not None
 
-    def test_fetch_with_cloudflare_detection(self):
+    def test_fetch_with_cloudflare_detection(self) -> None:
         """Test fetch with Cloudflare challenge detection."""
         fetcher = UndetectedChromeFetcher()
         fetcher._available = True
@@ -473,7 +473,7 @@ class TestFetcherIntegration:
 class TestConfig:
     """Tests for configuration integration."""
 
-    def test_undetected_chromedriver_config_defaults(self):
+    def test_undetected_chromedriver_config_defaults(self) -> None:
         """Test default configuration values."""
         from src.utils.config import UndetectedChromeDriverConfig
 
@@ -485,7 +485,7 @@ class TestConfig:
         assert config.cloudflare_timeout == 45
         assert config.prefer_headless is False
 
-    def test_browser_config_includes_undetected(self):
+    def test_browser_config_includes_undetected(self) -> None:
         """Test that BrowserConfig includes undetected config."""
         from src.utils.config import BrowserConfig
 

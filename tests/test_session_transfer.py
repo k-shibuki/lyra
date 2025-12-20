@@ -55,7 +55,7 @@ from src.crawler.session_transfer import (
 class TestCookieData:
     """Tests for CookieData class."""
 
-    def test_cookie_not_expired_session_cookie(self):
+    def test_cookie_not_expired_session_cookie(self) -> None:
         """Session cookies (no expires) should not be expired."""
         cookie = CookieData(
             name="session_id",
@@ -65,7 +65,7 @@ class TestCookieData:
         )
         assert not cookie.is_expired()
 
-    def test_cookie_not_expired_future(self):
+    def test_cookie_not_expired_future(self) -> None:
         """Cookies with future expiration should not be expired."""
         cookie = CookieData(
             name="session_id",
@@ -75,7 +75,7 @@ class TestCookieData:
         )
         assert not cookie.is_expired()
 
-    def test_cookie_expired_past(self):
+    def test_cookie_expired_past(self) -> None:
         """Cookies with past expiration should be expired."""
         cookie = CookieData(
             name="session_id",
@@ -85,7 +85,7 @@ class TestCookieData:
         )
         assert cookie.is_expired()
 
-    def test_cookie_matches_exact_domain(self):
+    def test_cookie_matches_exact_domain(self) -> None:
         """Cookie should match exact domain."""
         cookie = CookieData(
             name="session_id",
@@ -94,7 +94,7 @@ class TestCookieData:
         )
         assert cookie.matches_domain("example.com")
 
-    def test_cookie_matches_subdomain(self):
+    def test_cookie_matches_subdomain(self) -> None:
         """Cookie should match subdomains."""
         cookie = CookieData(
             name="session_id",
@@ -105,7 +105,7 @@ class TestCookieData:
         assert cookie.matches_domain("api.example.com")
         assert cookie.matches_domain("example.com")
 
-    def test_cookie_no_match_different_domain(self):
+    def test_cookie_no_match_different_domain(self) -> None:
         """Cookie should not match different domains."""
         cookie = CookieData(
             name="session_id",
@@ -115,7 +115,7 @@ class TestCookieData:
         assert not cookie.matches_domain("other.com")
         assert not cookie.matches_domain("notexample.com")
 
-    def test_cookie_to_header_value(self):
+    def test_cookie_to_header_value(self) -> None:
         """Cookie should format correctly for Cookie header."""
         cookie = CookieData(
             name="session_id",
@@ -124,7 +124,7 @@ class TestCookieData:
         )
         assert cookie.to_header_value() == "session_id=abc123"
 
-    def test_cookie_from_playwright(self):
+    def test_cookie_from_playwright(self) -> None:
         """Cookie should be created from Playwright format."""
         playwright_cookie = {
             "name": "csrf_token",
@@ -154,7 +154,7 @@ class TestCookieData:
 class TestSessionData:
     """Tests for SessionData class."""
 
-    def test_session_valid_for_same_domain(self):
+    def test_session_valid_for_same_domain(self) -> None:
         """Session should be valid for same registrable domain."""
         session = SessionData(domain="example.com")
 
@@ -162,14 +162,14 @@ class TestSessionData:
         assert session.is_valid_for_url("https://www.example.com/page")
         assert session.is_valid_for_url("https://api.example.com/v1/data")
 
-    def test_session_invalid_for_different_domain(self):
+    def test_session_invalid_for_different_domain(self) -> None:
         """Session should be invalid for different domain (§3.1.2 restriction)."""
         session = SessionData(domain="example.com")
 
         assert not session.is_valid_for_url("https://other.com/page")
         assert not session.is_valid_for_url("https://example.org/page")
 
-    def test_get_cookies_filters_by_domain(self):
+    def test_get_cookies_filters_by_domain(self) -> None:
         """get_cookies_for_url should filter by domain."""
         session = SessionData(
             domain="example.com",
@@ -183,7 +183,7 @@ class TestSessionData:
         assert len(cookies) == 1
         assert cookies[0].name == "c1"
 
-    def test_get_cookies_filters_expired(self):
+    def test_get_cookies_filters_expired(self) -> None:
         """get_cookies_for_url should filter expired cookies."""
         session = SessionData(
             domain="example.com",
@@ -207,7 +207,7 @@ class TestSessionData:
         assert len(cookies) == 1
         assert cookies[0].name == "valid"
 
-    def test_get_cookie_header(self):
+    def test_get_cookie_header(self) -> None:
         """get_cookie_header should format multiple cookies."""
         session = SessionData(
             domain="example.com",
@@ -223,14 +223,14 @@ class TestSessionData:
         assert "b=2" in header
         assert "; " in header
 
-    def test_get_cookie_header_none_if_no_cookies(self):
+    def test_get_cookie_header_none_if_no_cookies(self) -> None:
         """get_cookie_header should return None if no valid cookies."""
         session = SessionData(domain="example.com", cookies=[])
 
         header = session.get_cookie_header("https://example.com/page")
         assert header is None
 
-    def test_update_from_response(self):
+    def test_update_from_response(self) -> None:
         """update_from_response should update session data."""
         session = SessionData(domain="example.com")
         original_used_at = session.last_used_at
@@ -247,7 +247,7 @@ class TestSessionData:
         assert session.last_modified == "Wed, 01 Jan 2025 00:00:00 GMT"
         assert session.last_used_at > original_used_at
 
-    def test_serialization_round_trip(self):
+    def test_serialization_round_trip(self) -> None:
         """Session should serialize and deserialize correctly."""
         original = SessionData(
             domain="example.com",
@@ -280,7 +280,7 @@ class TestSessionData:
 class TestSessionTransferManager:
     """Tests for SessionTransferManager class."""
 
-    def test_generate_transfer_headers_success(self):
+    def test_generate_transfer_headers_success(self) -> None:
         """Should generate headers from valid session."""
         manager = SessionTransferManager()
 
@@ -316,7 +316,7 @@ class TestSessionTransferManager:
         assert "Sec-CH-UA" in result.headers
         assert "Referer" in result.headers
 
-    def test_generate_transfer_headers_domain_mismatch(self):
+    def test_generate_transfer_headers_domain_mismatch(self) -> None:
         """Should reject transfer to different domain (§3.1.2)."""
         manager = SessionTransferManager()
 
@@ -332,7 +332,7 @@ class TestSessionTransferManager:
         assert result.ok is False
         assert result.reason == "domain_mismatch"
 
-    def test_generate_transfer_headers_session_not_found(self):
+    def test_generate_transfer_headers_session_not_found(self) -> None:
         """Should handle missing session gracefully."""
         manager = SessionTransferManager()
 
@@ -344,7 +344,7 @@ class TestSessionTransferManager:
         assert result.ok is False
         assert result.reason == "session_not_found"
 
-    def test_session_expiration(self):
+    def test_session_expiration(self) -> None:
         """Expired sessions should not be returned."""
         manager = SessionTransferManager(session_ttl_seconds=0.01)  # Very short TTL
 
@@ -361,7 +361,7 @@ class TestSessionTransferManager:
         # Session should be expired
         assert manager.get_session(session_id) is None
 
-    def test_get_session_for_domain(self):
+    def test_get_session_for_domain(self) -> None:
         """Should find most recent session for domain."""
         manager = SessionTransferManager()
 
@@ -382,7 +382,7 @@ class TestSessionTransferManager:
         session_id, session = result
         assert session.last_used_at == session2.last_used_at  # Most recent
 
-    def test_invalidate_session(self):
+    def test_invalidate_session(self) -> None:
         """Should remove session on invalidation."""
         manager = SessionTransferManager()
 
@@ -393,7 +393,7 @@ class TestSessionTransferManager:
         assert manager.invalidate_session(session_id) is True
         assert manager.get_session(session_id) is None
 
-    def test_invalidate_domain_sessions(self):
+    def test_invalidate_domain_sessions(self) -> None:
         """Should remove all sessions for a domain."""
         manager = SessionTransferManager()
 
@@ -410,7 +410,7 @@ class TestSessionTransferManager:
         assert len([s for s in manager._sessions.values() if s.domain == "example.com"]) == 0
         assert len([s for s in manager._sessions.values() if s.domain == "other.com"]) == 1
 
-    def test_max_sessions_enforcement(self):
+    def test_max_sessions_enforcement(self) -> None:
         """Should enforce max sessions limit."""
         manager = SessionTransferManager(max_sessions=3)
 
@@ -426,7 +426,7 @@ class TestSessionTransferManager:
 
         assert len(manager._sessions) == 3
 
-    def test_update_session_from_response(self):
+    def test_update_session_from_response(self) -> None:
         """Should update session with response data."""
         manager = SessionTransferManager()
 
@@ -446,7 +446,7 @@ class TestSessionTransferManager:
         assert updated.etag == '"new-etag"'
         assert updated.last_modified == "Thu, 02 Jan 2025 00:00:00 GMT"
 
-    def test_session_stats(self):
+    def test_session_stats(self) -> None:
         """Should return accurate session statistics."""
         manager = SessionTransferManager(max_sessions=10, session_ttl_seconds=3600)
 
@@ -474,7 +474,7 @@ class TestSessionTransferManager:
 class TestBrowserSessionCapture:
     """Tests for browser session capture functionality."""
 
-    async def test_capture_from_browser_context(self):
+    async def test_capture_from_browser_context(self) -> None:
         """Should capture session from Playwright browser context."""
         manager = SessionTransferManager()
 
@@ -523,7 +523,7 @@ class TestBrowserSessionCapture:
         assert session.etag == '"response-etag"'
         assert session.last_modified == "Wed, 01 Jan 2025 00:00:00 GMT"
 
-    async def test_capture_with_no_cookies(self):
+    async def test_capture_with_no_cookies(self) -> None:
         """Should handle context with no cookies."""
         manager = SessionTransferManager()
 
@@ -550,14 +550,14 @@ class TestBrowserSessionCapture:
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
-    def test_get_session_transfer_manager_singleton(self):
+    def test_get_session_transfer_manager_singleton(self) -> None:
         """get_session_transfer_manager should return singleton."""
         manager1 = get_session_transfer_manager()
         manager2 = get_session_transfer_manager()
 
         assert manager1 is manager2
 
-    def test_get_transfer_headers_with_session_id(self):
+    def test_get_transfer_headers_with_session_id(self) -> None:
         """get_transfer_headers should work with session ID."""
         manager = get_session_transfer_manager()
 
@@ -582,7 +582,7 @@ class TestConvenienceFunctions:
         # Cleanup
         manager.invalidate_session(session_id)
 
-    def test_get_transfer_headers_finds_domain_session(self):
+    def test_get_transfer_headers_finds_domain_session(self) -> None:
         """get_transfer_headers should find session by domain if ID not provided."""
         manager = get_session_transfer_manager()
 
@@ -601,7 +601,7 @@ class TestConvenienceFunctions:
         # Cleanup
         manager.invalidate_domain_sessions("auto-find.com")
 
-    def test_get_transfer_headers_no_session(self):
+    def test_get_transfer_headers_no_session(self) -> None:
         """get_transfer_headers should fail gracefully if no session."""
         result = get_transfer_headers(
             "https://no-session-domain.com/page",
@@ -620,7 +620,7 @@ class TestConvenienceFunctions:
 class TestSecFetchHeaderConsistency:
     """Tests for sec-fetch-* header consistency in transfers."""
 
-    def test_headers_include_sec_fetch(self):
+    def test_headers_include_sec_fetch(self) -> None:
         """Transfer headers should include proper Sec-Fetch-* headers."""
         manager = SessionTransferManager()
 
@@ -649,7 +649,7 @@ class TestSecFetchHeaderConsistency:
         assert headers["Sec-Fetch-Mode"] == "navigate"
         assert headers["Sec-Fetch-Dest"] == "document"
 
-    def test_headers_include_sec_ch_ua(self):
+    def test_headers_include_sec_ch_ua(self) -> None:
         """Transfer headers should include Sec-CH-UA-* headers."""
         manager = SessionTransferManager()
 
@@ -669,7 +669,7 @@ class TestSecFetchHeaderConsistency:
         assert "Sec-CH-UA-Mobile" in headers
         assert "Sec-CH-UA-Platform" in headers
 
-    def test_referer_from_last_url(self):
+    def test_referer_from_last_url(self) -> None:
         """Transfer headers should use session's last_url as Referer."""
         manager = SessionTransferManager()
 
@@ -696,7 +696,7 @@ class TestSecFetchHeaderConsistency:
 class TestPydanticValidation:
     """Tests for Pydantic model validation after migration from dataclass."""
 
-    def test_cookie_data_missing_required_fields(self):
+    def test_cookie_data_missing_required_fields(self) -> None:
         """
         CookieData should raise ValidationError when required fields are missing.
 
@@ -715,7 +715,7 @@ class TestPydanticValidation:
         assert "value" in error_str
         assert "domain" in error_str
 
-    def test_session_data_missing_required_field(self):
+    def test_session_data_missing_required_field(self) -> None:
         """
         SessionData should raise ValidationError when domain is missing.
 
@@ -731,7 +731,7 @@ class TestPydanticValidation:
         error_str = str(exc_info.value)
         assert "domain" in error_str
 
-    def test_transfer_result_missing_required_field(self):
+    def test_transfer_result_missing_required_field(self) -> None:
         """
         TransferResult should raise ValidationError when ok is missing.
 
@@ -747,7 +747,7 @@ class TestPydanticValidation:
         error_str = str(exc_info.value)
         assert "ok" in error_str
 
-    def test_cookie_data_default_values(self):
+    def test_cookie_data_default_values(self) -> None:
         """
         CookieData should apply default values for optional fields.
 
@@ -763,7 +763,7 @@ class TestPydanticValidation:
         assert cookie.same_site == "Lax"
         assert cookie.expires is None
 
-    def test_session_data_default_values(self):
+    def test_session_data_default_values(self) -> None:
         """
         SessionData should apply default values for optional fields.
 
@@ -782,7 +782,7 @@ class TestPydanticValidation:
         assert session.created_at > 0
         assert session.last_used_at > 0
 
-    def test_transfer_result_default_values(self):
+    def test_transfer_result_default_values(self) -> None:
         """
         TransferResult should apply default values for optional fields.
 
@@ -796,7 +796,7 @@ class TestPydanticValidation:
         assert result.reason is None
         assert result.session_id is None
 
-    def test_cookie_data_model_dump(self):
+    def test_cookie_data_model_dump(self) -> None:
         """
         CookieData should support Pydantic model_dump method.
 
@@ -820,7 +820,7 @@ class TestPydanticValidation:
         assert dump["path"] == "/app"
         assert dump["secure"] is False
 
-    def test_session_data_model_dump_with_cookies(self):
+    def test_session_data_model_dump_with_cookies(self) -> None:
         """
         SessionData should correctly serialize nested CookieData.
 

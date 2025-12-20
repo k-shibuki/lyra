@@ -26,7 +26,7 @@ from src.mcp.response_meta import (
 class TestVerificationDetails:
     """Tests for VerificationDetails dataclass."""
 
-    def test_to_dict_default_values(self):
+    def test_to_dict_default_values(self) -> None:
         """
         TC-N-01: VerificationDetails with default values.
 
@@ -42,7 +42,7 @@ class TestVerificationDetails:
         assert result["contradicting_claims"] == []
         assert result["nli_scores"] == {}
 
-    def test_to_dict_with_values(self):
+    def test_to_dict_with_values(self) -> None:
         """
         TC-N-02: VerificationDetails with populated values.
 
@@ -67,7 +67,7 @@ class TestVerificationDetails:
 class TestSecurityWarning:
     """Tests for SecurityWarning dataclass."""
 
-    def test_to_dict_default_severity(self):
+    def test_to_dict_default_severity(self) -> None:
         """
         TC-N-03: SecurityWarning with default severity.
 
@@ -85,7 +85,7 @@ class TestSecurityWarning:
         assert result["message"] == "External URL detected"
         assert result["severity"] == "warning"
 
-    def test_to_dict_custom_severity(self):
+    def test_to_dict_custom_severity(self) -> None:
         """
         TC-N-04: SecurityWarning with custom severity.
 
@@ -106,7 +106,7 @@ class TestSecurityWarning:
 class TestLyraMeta:
     """Tests for LyraMeta dataclass."""
 
-    def test_to_dict_minimal(self):
+    def test_to_dict_minimal(self) -> None:
         """
         TC-N-05: LyraMeta with minimal fields (empty lists).
 
@@ -124,7 +124,7 @@ class TestLyraMeta:
         assert "blocked_domains" not in result
         assert "unverified_domains" not in result
 
-    def test_to_dict_with_warnings(self):
+    def test_to_dict_with_warnings(self) -> None:
         """
         TC-N-06: LyraMeta with security warnings.
 
@@ -143,7 +143,7 @@ class TestLyraMeta:
         assert len(result["security_warnings"]) == 1
         assert result["security_warnings"][0]["type"] == "test"
 
-    def test_to_dict_with_domains(self):
+    def test_to_dict_with_domains(self) -> None:
         """
         TC-N-07: LyraMeta with blocked and unverified domains.
 
@@ -160,7 +160,7 @@ class TestLyraMeta:
         assert result["blocked_domains"] == ["blocked.com"]
         assert result["unverified_domains"] == ["unknown.com", "new.com"]
 
-    def test_timestamp_is_iso_format(self):
+    def test_timestamp_is_iso_format(self) -> None:
         """
         TC-N-08: Timestamp is in ISO format.
 
@@ -176,7 +176,7 @@ class TestLyraMeta:
 class TestClaimMeta:
     """Tests for ClaimMeta dataclass."""
 
-    def test_to_dict_minimal(self):
+    def test_to_dict_minimal(self) -> None:
         """
         TC-N-09: ClaimMeta with minimal required fields.
 
@@ -196,7 +196,7 @@ class TestClaimMeta:
         assert "verification_details" not in result
         assert "source_domain" not in result
 
-    def test_to_dict_with_all_fields(self):
+    def test_to_dict_with_all_fields(self) -> None:
         """
         TC-N-10: ClaimMeta with all fields populated.
 
@@ -222,7 +222,7 @@ class TestClaimMeta:
 class TestResponseMetaBuilder:
     """Tests for ResponseMetaBuilder."""
 
-    def test_builder_chain_methods(self):
+    def test_builder_chain_methods(self) -> None:
         """
         TC-N-11: Builder methods return self for chaining.
 
@@ -244,7 +244,7 @@ class TestResponseMetaBuilder:
         result = builder.set_data_quality("degraded")
         assert result is builder
 
-    def test_build_empty(self):
+    def test_build_empty(self) -> None:
         """
         TC-A-01: Build with no additions.
 
@@ -258,7 +258,7 @@ class TestResponseMetaBuilder:
         assert "timestamp" in result
         assert result["data_quality"] == "normal"
 
-    def test_build_with_warnings(self):
+    def test_build_with_warnings(self) -> None:
         """
         TC-N-12: Build with multiple security warnings.
 
@@ -275,7 +275,7 @@ class TestResponseMetaBuilder:
         assert len(result["security_warnings"]) == 2
         assert result["security_warnings"][1]["severity"] == "critical"
 
-    def test_build_with_claims(self):
+    def test_build_with_claims(self) -> None:
         """
         TC-N-13: Build with claim metadata.
 
@@ -303,7 +303,7 @@ class TestResponseMetaBuilder:
         assert len(result["claims"]) == 2
         assert result["claims"][0]["claim_id"] == "claim_1"
 
-    def test_add_blocked_domain_deduplication(self):
+    def test_add_blocked_domain_deduplication(self) -> None:
         """
         TC-A-02: Duplicate blocked domains are deduplicated.
 
@@ -319,7 +319,7 @@ class TestResponseMetaBuilder:
 
         assert len(result["blocked_domains"]) == 1
 
-    def test_add_unverified_domain_deduplication(self):
+    def test_add_unverified_domain_deduplication(self) -> None:
         """
         TC-A-03: Duplicate unverified domains are deduplicated.
 
@@ -339,7 +339,7 @@ class TestResponseMetaBuilder:
 class TestHelperFunctions:
     """Tests for module-level helper functions."""
 
-    def test_create_response_meta_returns_builder(self):
+    def test_create_response_meta_returns_builder(self) -> None:
         """
         TC-N-14: create_response_meta returns new builder.
 
@@ -350,7 +350,7 @@ class TestHelperFunctions:
         builder = create_response_meta()
         assert isinstance(builder, ResponseMetaBuilder)
 
-    def test_attach_meta_adds_key(self):
+    def test_attach_meta_adds_key(self) -> None:
         """
         TC-B-01: attach_meta adds _lyra_meta key.
 
@@ -367,7 +367,7 @@ class TestHelperFunctions:
         assert "_lyra_meta" in result
         assert result["_lyra_meta"]["timestamp"] == "2024-01-01T00:00:00Z"
 
-    def test_create_minimal_meta_structure(self):
+    def test_create_minimal_meta_structure(self) -> None:
         """
         TC-B-02: create_minimal_meta returns minimal structure.
 
@@ -385,7 +385,7 @@ class TestHelperFunctions:
 class TestVerificationStatusEnum:
     """Tests for VerificationStatus enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """
         TC-N-15: VerificationStatus enum values.
 
@@ -397,7 +397,7 @@ class TestVerificationStatusEnum:
         assert VerificationStatus.VERIFIED.value == "verified"
         assert VerificationStatus.REJECTED.value == "rejected"
 
-    def test_enum_is_str(self):
+    def test_enum_is_str(self) -> None:
         """
         TC-N-16: VerificationStatus is string enum.
 
@@ -413,7 +413,7 @@ class TestVerificationStatusEnum:
 class TestBoundaryAndEdgeCases:
     """Boundary value and edge case tests."""
 
-    def test_claim_meta_empty_claim_id(self):
+    def test_claim_meta_empty_claim_id(self) -> None:
         """
         TC-A-04: ClaimMeta with empty claim_id.
 
@@ -429,7 +429,7 @@ class TestBoundaryAndEdgeCases:
 
         assert result["claim_id"] == ""
 
-    def test_security_warning_empty_fields(self):
+    def test_security_warning_empty_fields(self) -> None:
         """
         TC-A-05: SecurityWarning with empty type and message.
 
@@ -443,7 +443,7 @@ class TestBoundaryAndEdgeCases:
         assert result["type"] == ""
         assert result["message"] == ""
 
-    def test_verification_details_negative_sources(self):
+    def test_verification_details_negative_sources(self) -> None:
         """
         TC-A-06: VerificationDetails with negative independent_sources.
 
@@ -456,7 +456,7 @@ class TestBoundaryAndEdgeCases:
 
         assert result["independent_sources"] == -1
 
-    def test_lyra_meta_many_warnings(self):
+    def test_lyra_meta_many_warnings(self) -> None:
         """
         TC-B-03: LyraMeta with many security warnings.
 
@@ -470,7 +470,7 @@ class TestBoundaryAndEdgeCases:
 
         assert len(result["security_warnings"]) == 100
 
-    def test_attach_meta_modifies_response_in_place(self):
+    def test_attach_meta_modifies_response_in_place(self) -> None:
         """
         TC-B-04: attach_meta modifies response in place.
 
@@ -486,7 +486,7 @@ class TestBoundaryAndEdgeCases:
         assert result is response
         assert response["_lyra_meta"] == meta
 
-    def test_builder_add_claim_meta_returns_self(self):
+    def test_builder_add_claim_meta_returns_self(self) -> None:
         """
         TC-N-17: add_claim_meta returns self for chaining.
 
@@ -501,7 +501,7 @@ class TestBoundaryAndEdgeCases:
 
         assert result is builder
 
-    def test_verification_details_empty_lists(self):
+    def test_verification_details_empty_lists(self) -> None:
         """
         TC-A-07: VerificationDetails with explicitly empty lists.
 
@@ -521,7 +521,7 @@ class TestBoundaryAndEdgeCases:
         assert result["contradicting_claims"] == []
         assert result["nli_scores"] == {}
 
-    def test_claim_meta_all_verification_statuses(self):
+    def test_claim_meta_all_verification_statuses(self) -> None:
         """
         TC-A-08: ClaimMeta with each verification status.
 
@@ -538,7 +538,7 @@ class TestBoundaryAndEdgeCases:
             result = claim.to_dict()
             assert result["verification_status"] == status.value
 
-    def test_data_quality_values(self):
+    def test_data_quality_values(self) -> None:
         """
         TC-A-09: LyraMeta with different data_quality values.
 

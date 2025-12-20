@@ -24,7 +24,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def test_category_detection():
+async def test_category_detection() -> None:
     """Test category detection logic."""
     print("\n" + "=" * 80)
     print("[Test 1] Category Detection")
@@ -53,7 +53,7 @@ async def test_category_detection():
     print("\n  ✓ All category detection tests passed")
 
 
-async def test_engine_selection_with_category():
+async def test_engine_selection_with_category() -> None:
     """Test engine selection based on category."""
     print("\n" + "=" * 80)
     print("[Test 2] Engine Selection with Category")
@@ -86,7 +86,7 @@ async def test_engine_selection_with_category():
     print("\n  ✓ Engine selection with category tests completed")
 
 
-async def test_circuit_breaker_integration():
+async def test_circuit_breaker_integration() -> None:
     """Test circuit breaker integration."""
     print("\n" + "=" * 80)
     print("[Test 3] Circuit Breaker Integration")
@@ -102,7 +102,7 @@ async def test_circuit_breaker_integration():
     print("\n  ✓ Circuit breaker integration tests completed")
 
 
-async def test_engine_health_recording():
+async def test_engine_health_recording() -> None:
     """Test engine health recording."""
     print("\n" + "=" * 80)
     print("[Test 4] Engine Health Recording")
@@ -160,7 +160,7 @@ async def test_engine_health_recording():
     print("\n  ✓ Engine health recording tests completed")
 
 
-async def test_full_engine_selection_flow():
+async def test_full_engine_selection_flow() -> None:
     """Test full engine selection flow (without actual search)."""
     print("\n" + "=" * 80)
     print("[Test 5] Full Engine Selection Flow")

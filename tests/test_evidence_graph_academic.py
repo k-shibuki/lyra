@@ -98,7 +98,7 @@ def sample_citations():
 class TestEvidenceGraphAcademicEdges:
     """Tests for adding academic citations to evidence graph."""
 
-    def test_add_edge_with_is_academic_attribute(self, evidence_graph):
+    def test_add_edge_with_is_academic_attribute(self, evidence_graph) -> None:
         """
         Test: add_edge() accepts is_academic attribute.
 
@@ -133,7 +133,7 @@ class TestEvidenceGraphAcademicEdges:
         edge_data = evidence_graph._graph.edges[source_node, target_node]
         assert edge_data.get("is_academic") is True
 
-    def test_add_edge_with_is_influential_attribute(self, evidence_graph):
+    def test_add_edge_with_is_influential_attribute(self, evidence_graph) -> None:
         """
         Test: add_edge() accepts is_influential attribute.
 
@@ -164,7 +164,7 @@ class TestEvidenceGraphAcademicEdges:
         edge_data = evidence_graph._graph.edges[source_node, target_node]
         assert edge_data.get("is_influential") is True
 
-    def test_add_edge_with_citation_context(self, evidence_graph):
+    def test_add_edge_with_citation_context(self, evidence_graph) -> None:
         """
         Test: add_edge() accepts citation_context attribute.
 
@@ -206,7 +206,7 @@ class TestAddAcademicPageWithCitations:
     """Tests for add_academic_page_with_citations() function."""
 
     @pytest.mark.asyncio
-    async def test_adds_page_node_with_metadata(self, sample_paper_metadata):
+    async def test_adds_page_node_with_metadata(self, sample_paper_metadata) -> None:
         """
         Test: Function adds PAGE node with academic metadata.
 
@@ -245,7 +245,7 @@ class TestAddAcademicPageWithCitations:
             assert node_data.get("citation_count") == sample_paper_metadata["citation_count"]
 
     @pytest.mark.asyncio
-    async def test_adds_citation_edges(self, sample_paper_metadata, sample_citations):
+    async def test_adds_citation_edges(self, sample_paper_metadata, sample_citations) -> None:
         """
         Test: Function adds CITES edges for citations.
 
@@ -294,7 +294,7 @@ class TestAddAcademicPageWithCitations:
                 assert edge_data["is_academic"] == 1
 
     @pytest.mark.asyncio
-    async def test_preserves_is_influential_flag(self, sample_paper_metadata, sample_citations):
+    async def test_preserves_is_influential_flag(self, sample_paper_metadata, sample_citations) -> None:
         """
         Test: Function preserves is_influential from Citation objects.
 
@@ -337,7 +337,7 @@ class TestAddAcademicPageWithCitations:
                 assert edge_data["is_influential"] == expected
 
     @pytest.mark.asyncio
-    async def test_handles_empty_citations_list(self, sample_paper_metadata):
+    async def test_handles_empty_citations_list(self, sample_paper_metadata) -> None:
         """
         Test: Function handles empty citations list gracefully.
 
@@ -377,7 +377,7 @@ class TestAddAcademicPageWithCitations:
 class TestAcademicEdgeQuery:
     """Tests for querying academic edges."""
 
-    def test_filter_academic_citations(self, evidence_graph):
+    def test_filter_academic_citations(self, evidence_graph) -> None:
         """
         Test: Can filter edges by is_academic attribute.
 
@@ -415,7 +415,7 @@ class TestAcademicEdgeQuery:
         assert len(academic_edges) == 1
         assert academic_edges[0][0] == evidence_graph._make_node_id(NodeType.PAGE, "page1")
 
-    def test_filter_influential_citations(self, evidence_graph):
+    def test_filter_influential_citations(self, evidence_graph) -> None:
         """
         Test: Can filter edges by is_influential attribute.
 
@@ -464,7 +464,7 @@ class TestBoundaryValues:
     """Tests for boundary values and edge cases."""
 
     @pytest.mark.asyncio
-    async def test_citation_context_none(self, sample_paper_metadata):
+    async def test_citation_context_none(self, sample_paper_metadata) -> None:
         """
         TC-EG-B-02: citation_context=None is handled correctly.
 
@@ -500,7 +500,7 @@ class TestBoundaryValues:
         assert edge_data.get("citation_context") is None
 
     @pytest.mark.asyncio
-    async def test_empty_paper_metadata(self):
+    async def test_empty_paper_metadata(self) -> None:
         """
         TC-EG-B-03: Empty paper_metadata dict is handled correctly.
 
@@ -545,7 +545,7 @@ class TestExceptionHandlingEvidenceGraph:
     """Tests for exception handling in evidence graph operations."""
 
     @pytest.mark.asyncio
-    async def test_invalid_citation_object_skipped(self, sample_paper_metadata):
+    async def test_invalid_citation_object_skipped(self, sample_paper_metadata) -> None:
         """
         TC-EG-A-01: Invalid Citation object in list is skipped.
 
@@ -596,7 +596,7 @@ class TestExceptionHandlingEvidenceGraph:
             assert mock_db_instance.insert.call_count == valid_citation_count
 
     @pytest.mark.asyncio
-    async def test_db_insert_failure_handled(self, sample_paper_metadata, sample_citations):
+    async def test_db_insert_failure_handled(self, sample_paper_metadata, sample_citations) -> None:
         """
         TC-EG-A-02: DB insert failure is handled gracefully.
 
@@ -631,7 +631,7 @@ class TestExceptionHandlingEvidenceGraph:
             assert "DB error" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_cited_paper_id_empty_string_handled(self, sample_paper_metadata):
+    async def test_cited_paper_id_empty_string_handled(self, sample_paper_metadata) -> None:
         """
         TC-EG-A-03: cited_paper_id is empty string is handled.
 
@@ -666,7 +666,7 @@ class TestExceptionHandlingEvidenceGraph:
             assert mock_db_instance.insert.call_count == 0  # Skipped because not in map
 
     @pytest.mark.asyncio
-    async def test_skips_citations_without_page_mapping(self, sample_paper_metadata):
+    async def test_skips_citations_without_page_mapping(self, sample_paper_metadata) -> None:
         """
         TC-EG-N-11: Citations without page_id mapping are skipped.
 
@@ -713,7 +713,7 @@ class TestExceptionHandlingEvidenceGraph:
             assert mock_db_instance.insert.call_count == 0
 
     @pytest.mark.asyncio
-    async def test_maps_cited_paper_id_to_page_id(self, sample_paper_metadata):
+    async def test_maps_cited_paper_id_to_page_id(self, sample_paper_metadata) -> None:
         """
         TC-EG-N-12: cited_paper_id is correctly mapped to page_id.
 

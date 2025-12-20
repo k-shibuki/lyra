@@ -48,7 +48,7 @@ def _mock_rankers(passages_count: int, rerank_result: list[tuple[int, float]]):
 
 
 @pytest.mark.asyncio
-async def test_category_weight_applied_in_ranking():
+async def test_category_weight_applied_in_ranking() -> None:
     """
     TC-RANK-N-01: Category weight is applied to final score.
 
@@ -93,7 +93,7 @@ async def test_category_weight_applied_in_ranking():
 
 
 @pytest.mark.asyncio
-async def test_category_weight_defaults_to_one_without_url():
+async def test_category_weight_defaults_to_one_without_url() -> None:
     """
     TC-RANK-N-02: Category weight defaults to 1.0 when URL is missing.
 
@@ -121,7 +121,7 @@ async def test_category_weight_defaults_to_one_without_url():
 
 
 @pytest.mark.asyncio
-async def test_category_weight_with_invalid_url():
+async def test_category_weight_with_invalid_url() -> None:
     """
     TC-RANK-N-03: Category weight uses UNVERIFIED when URL has no valid domain.
 
@@ -151,7 +151,7 @@ async def test_category_weight_with_invalid_url():
 
 
 @pytest.mark.asyncio
-async def test_rank_candidates_empty_input():
+async def test_rank_candidates_empty_input() -> None:
     """
     TC-RANK-N-04: Empty passages list returns empty results.
 
@@ -165,7 +165,7 @@ async def test_rank_candidates_empty_input():
 
 
 @pytest.mark.asyncio
-async def test_category_weight_all_categories():
+async def test_category_weight_all_categories() -> None:
     """
     TC-RANK-N-05: All domain categories have correct weights.
 

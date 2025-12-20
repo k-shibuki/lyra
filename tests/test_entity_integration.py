@@ -162,7 +162,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_whois_record,
-    ):
+    ) -> None:
         """Test that WHOIS extraction creates domain entity.
 
         Verifies that the domain itself is registered as an entity.
@@ -188,7 +188,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_whois_record,
-    ):
+    ) -> None:
         """Test that WHOIS extraction creates registrant organization entity."""
         # Arrange
         extractor = EntityExtractor(mock_entity_kb)
@@ -211,7 +211,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_whois_record,
-    ):
+    ) -> None:
         """Test that WHOIS extraction creates nameserver domain entities."""
         # Arrange
         extractor = EntityExtractor(mock_entity_kb)
@@ -227,7 +227,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_whois_record,
-    ):
+    ) -> None:
         """Test that WHOIS extraction creates entity relationships."""
         # Arrange
         extractor = EntityExtractor(mock_entity_kb)
@@ -243,7 +243,7 @@ class TestEntityExtractor:
         assert "registered_by" in rel_types
         assert "uses_nameserver" in rel_types
 
-    async def test_extract_from_whois_without_registrant(self, mock_entity_kb):
+    async def test_extract_from_whois_without_registrant(self, mock_entity_kb) -> None:
         """Test WHOIS extraction when registrant info is missing."""
         # Arrange
         record = WHOISRecord(
@@ -266,7 +266,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_cert_result,
-    ):
+    ) -> None:
         """Test that CT extraction creates main domain entity."""
         # Arrange
         extractor = EntityExtractor(mock_entity_kb)
@@ -282,7 +282,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_cert_result,
-    ):
+    ) -> None:
         """Test that CT extraction creates certificate issuer entities."""
         # Arrange
         extractor = EntityExtractor(mock_entity_kb)
@@ -297,7 +297,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_cert_result,
-    ):
+    ) -> None:
         """Test that CT extraction creates related domain entities from SANs."""
         # Arrange
         extractor = EntityExtractor(mock_entity_kb)
@@ -313,7 +313,7 @@ class TestEntityExtractor:
         self,
         mock_entity_kb,
         sample_cert_result,
-    ):
+    ) -> None:
         """Test that CT extraction creates entity relationships."""
         # Arrange
         extractor = EntityExtractor(mock_entity_kb)
@@ -340,7 +340,7 @@ class TestRegistryEntityIntegration:
         self,
         mock_entity_kb,
         sample_whois_record,
-    ):
+    ) -> None:
         """Test processing domain with only WHOIS data."""
         # Arrange
         mock_rdap = MagicMock()
@@ -367,7 +367,7 @@ class TestRegistryEntityIntegration:
         self,
         mock_entity_kb,
         sample_cert_result,
-    ):
+    ) -> None:
         """Test processing domain with only CT data."""
         # Arrange
         mock_ct = MagicMock()
@@ -395,7 +395,7 @@ class TestRegistryEntityIntegration:
         mock_entity_kb,
         sample_whois_record,
         sample_cert_result,
-    ):
+    ) -> None:
         """Test processing domain with both WHOIS and CT data."""
         # Arrange
         mock_rdap = MagicMock()
@@ -422,7 +422,7 @@ class TestRegistryEntityIntegration:
         mock_rdap.lookup.assert_called_once()
         mock_ct.search.assert_called_once()
 
-    async def test_process_domain_with_failed_whois(self, mock_entity_kb):
+    async def test_process_domain_with_failed_whois(self, mock_entity_kb) -> None:
         """Test processing domain when WHOIS lookup fails."""
         # Arrange
         mock_rdap = MagicMock()
@@ -448,7 +448,7 @@ class TestRegistryEntityIntegration:
         self,
         mock_entity_kb,
         sample_whois_record,
-    ):
+    ) -> None:
         """Test batch processing of multiple domains."""
         # Arrange
         mock_rdap = MagicMock()
@@ -484,7 +484,7 @@ class TestRegistryEntityIntegration:
 class TestEntityExtractionResult:
     """Tests for EntityExtractionResult data class."""
 
-    def test_to_dict_empty(self):
+    def test_to_dict_empty(self) -> None:
         """Test to_dict with empty result."""
         # Arrange
         result = EntityExtractionResult()
@@ -499,7 +499,7 @@ class TestEntityExtractionResult:
         assert data["relationships"] == []
         assert data["entities_created"] == 0
 
-    def test_to_dict_with_data(self):
+    def test_to_dict_with_data(self) -> None:
         """Test to_dict with populated result."""
         # Arrange
         result = EntityExtractionResult(
@@ -534,7 +534,7 @@ class TestEntityExtractionResult:
 class TestEdgeCases:
     """Tests for edge cases in entity integration."""
 
-    async def test_extract_whois_empty_registrant_name(self, mock_entity_kb):
+    async def test_extract_whois_empty_registrant_name(self, mock_entity_kb) -> None:
         """Test extraction when registrant has no name or organization."""
         # Arrange
         record = WHOISRecord(
@@ -556,7 +556,7 @@ class TestEdgeCases:
         assert len(result.organizations) == 0  # No valid registrant
         assert len(result.domains) == 1  # Only main domain
 
-    async def test_extract_cert_empty_issuers(self, mock_entity_kb):
+    async def test_extract_cert_empty_issuers(self, mock_entity_kb) -> None:
         """Test extraction when no issuers are discovered."""
         # Arrange
         cert_result = CertSearchResult(
@@ -574,7 +574,7 @@ class TestEdgeCases:
         assert len(result.organizations) == 0
         assert len(result.domains) == 1  # Only main domain
 
-    async def test_extract_cert_limits_discovered_domains(self, mock_entity_kb):
+    async def test_extract_cert_limits_discovered_domains(self, mock_entity_kb) -> None:
         """Test that discovered domains are limited to prevent explosion."""
         # Arrange
         cert_result = CertSearchResult(

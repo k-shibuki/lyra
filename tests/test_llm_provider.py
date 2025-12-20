@@ -33,6 +33,7 @@ Follows §7.1 test quality standards:
 | TC-PR-03 | Fallback provider | Equivalence – fallback | Uses fallback | - |
 """
 
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -64,7 +65,7 @@ from src.filter.provider import (
 
 
 @pytest.fixture(autouse=True)
-def reset_registry():
+def reset_registry() -> Generator[None, None, None]:
     """Reset global registry before each test."""
     reset_llm_registry()
     yield
@@ -96,7 +97,7 @@ def ollama_provider():
 class TestLLMOptions:
     """Tests for LLMOptions dataclass (§3.2.1 MCP Tool IF Spec)."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """LLMOptions should have None defaults for optional fields."""
         options = LLMOptions()
 
@@ -109,7 +110,7 @@ class TestLLMOptions:
         assert options.system is None, "system should default to None"
         assert options.timeout is None, "timeout should default to None"
 
-    def test_to_dict_excludes_none(self):
+    def test_to_dict_excludes_none(self) -> None:
         """to_dict should exclude None values for clean API payloads."""
         options = LLMOptions(model="test", temperature=0.7)
         result = options.to_dict()
@@ -117,7 +118,7 @@ class TestLLMOptions:
         assert result == {"model": "test", "temperature": 0.7}, f"Got {result}"
         assert "max_tokens" not in result, "None values should be excluded"
 
-    def test_to_dict_includes_all_set_values(self):
+    def test_to_dict_includes_all_set_values(self) -> None:
         """to_dict should include all explicitly set values."""
         options = LLMOptions(
             model="gpt-4",
@@ -138,7 +139,7 @@ class TestLLMOptions:
 class TestChatMessage:
     """Tests for ChatMessage dataclass."""
 
-    def test_basic_message(self):
+    def test_basic_message(self) -> None:
         """ChatMessage should store role and content."""
         msg = ChatMessage(role="user", content="Hello")
 
@@ -146,21 +147,21 @@ class TestChatMessage:
         assert msg.content == "Hello"
         assert msg.name is None
 
-    def test_to_dict_basic(self):
+    def test_to_dict_basic(self) -> None:
         """to_dict should return role and content."""
         msg = ChatMessage(role="assistant", content="Hi there")
         result = msg.to_dict()
 
         assert result == {"role": "assistant", "content": "Hi there"}
 
-    def test_to_dict_with_name(self):
+    def test_to_dict_with_name(self) -> None:
         """to_dict should include name when set."""
         msg = ChatMessage(role="user", content="Test", name="alice")
         result = msg.to_dict()
 
         assert result["name"] == "alice"
 
-    def test_from_dict(self):
+    def test_from_dict(self) -> None:
         """from_dict should reconstruct ChatMessage."""
         data = {"role": "system", "content": "You are helpful"}
         msg = ChatMessage.from_dict(data)
@@ -168,7 +169,7 @@ class TestChatMessage:
         assert msg.role == "system"
         assert msg.content == "You are helpful"
 
-    def test_from_dict_defaults(self):
+    def test_from_dict_defaults(self) -> None:
         """from_dict should use defaults for missing keys."""
         msg = ChatMessage.from_dict({})
 
@@ -179,7 +180,7 @@ class TestChatMessage:
 class TestLLMResponse:
     """Tests for LLMResponse dataclass (§3.2.1 MCP Tool IF Spec)."""
 
-    def test_success_response(self):
+    def test_success_response(self) -> None:
         """success() should create a successful response with all fields set."""
         response = LLMResponse.success(
             text="Generated text",
@@ -202,7 +203,7 @@ class TestLLMResponse:
         )
         assert response.error is None, f"Error should be None for success, got '{response.error}'"
 
-    def test_error_response(self):
+    def test_error_response(self) -> None:
         """make_error() should create an error response with empty text."""
         response = LLMResponse.make_error(
             error="Connection failed",
@@ -217,7 +218,7 @@ class TestLLMResponse:
         )
         assert response.status == LLMResponseStatus.ERROR, f"Expected ERROR, got {response.status}"
 
-    def test_timeout_error(self):
+    def test_timeout_error(self) -> None:
         """make_error() with TIMEOUT status should indicate timeout (§4.3 Resilience)."""
         response = LLMResponse.make_error(
             error="Request timed out",
@@ -231,7 +232,7 @@ class TestLLMResponse:
         )
         assert response.ok is False, "Timeout response should have ok=False"
 
-    def test_to_dict_serialization(self):
+    def test_to_dict_serialization(self) -> None:
         """to_dict should include ok property for MCP response serialization."""
         response = LLMResponse.success(
             text="Test",
@@ -248,7 +249,7 @@ class TestLLMResponse:
 class TestEmbeddingResponse:
     """Tests for EmbeddingResponse dataclass."""
 
-    def test_success_embedding(self):
+    def test_success_embedding(self) -> None:
         """success() should create a successful embedding response."""
         embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
         response = EmbeddingResponse.success(
@@ -261,7 +262,7 @@ class TestEmbeddingResponse:
         assert response.embeddings == embeddings
         assert len(response.embeddings) == 2
 
-    def test_error_embedding(self):
+    def test_error_embedding(self) -> None:
         """error() should create an error embedding response."""
         response = EmbeddingResponse.error_response(
             error="Embedding failed",
@@ -277,7 +278,7 @@ class TestEmbeddingResponse:
 class TestModelInfo:
     """Tests for ModelInfo dataclass."""
 
-    def test_basic_model_info(self):
+    def test_basic_model_info(self) -> None:
         """ModelInfo should store model metadata."""
         info = ModelInfo(
             name="qwen2.5:3b",
@@ -290,7 +291,7 @@ class TestModelInfo:
         assert ModelCapability.TEXT_GENERATION in info.capabilities
         assert ModelCapability.CHAT in info.capabilities
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """to_dict should serialize capabilities as strings."""
         info = ModelInfo(
             name="test",
@@ -304,7 +305,7 @@ class TestModelInfo:
 class TestLLMHealthStatus:
     """Tests for LLMHealthStatus dataclass."""
 
-    def test_healthy_status(self):
+    def test_healthy_status(self) -> None:
         """healthy() should create a healthy status."""
         status = LLMHealthStatus.healthy(
             available_models=["model1", "model2"],
@@ -317,7 +318,7 @@ class TestLLMHealthStatus:
         assert status.latency_ms == 50.0
         assert status.last_check is not None
 
-    def test_degraded_status(self):
+    def test_degraded_status(self) -> None:
         """degraded() should indicate partial health."""
         status = LLMHealthStatus.degraded(
             success_rate=0.7,
@@ -328,7 +329,7 @@ class TestLLMHealthStatus:
         assert status.success_rate == 0.7
         assert status.message == "High latency detected"
 
-    def test_unhealthy_status(self):
+    def test_unhealthy_status(self) -> None:
         """unhealthy() should indicate complete failure."""
         status = LLMHealthStatus.unhealthy(message="Connection refused")
 
@@ -490,7 +491,7 @@ class TestBaseLLMProvider:
 class TestOllamaProviderInit:
     """Tests for OllamaProvider initialization (Phase O.3 hybrid mode)."""
 
-    def test_default_configuration(self):
+    def test_default_configuration(self) -> None:
         """
         TC-OI-01: OllamaProvider uses proxy URL in hybrid mode.
 
@@ -509,7 +510,7 @@ class TestOllamaProviderInit:
             assert provider.host == "http://localhost:8080/ollama"
             assert provider.model == "custom-model"
 
-    def test_explicit_configuration(self):
+    def test_explicit_configuration(self) -> None:
         """
         TC-OI-02: OllamaProvider accepts explicit host/model configuration.
 
@@ -525,7 +526,7 @@ class TestOllamaProviderInit:
         assert provider.host == "http://custom:11434"
         assert provider.model == "my-model:3b"
 
-    def test_provider_name(self):
+    def test_provider_name(self) -> None:
         """
         TC-OI-03: OllamaProvider has correct provider name.
 
@@ -541,7 +542,7 @@ class TestOllamaProviderGenerate:
     """Tests for OllamaProvider.generate() (Ollama /api/generate endpoint)."""
 
     @pytest.mark.asyncio
-    async def test_generate_success(self, ollama_provider):
+    async def test_generate_success(self, ollama_provider) -> None:
         """generate() should return success response on HTTP 200 with Ollama format."""
         # Ollama API response format: response, prompt_eval_count, eval_count
         mock_response = MagicMock()
@@ -618,7 +619,7 @@ class TestOllamaProviderGenerate:
         assert captured_payload["system"] == "You are helpful"
 
     @pytest.mark.asyncio
-    async def test_generate_api_error(self, ollama_provider):
+    async def test_generate_api_error(self, ollama_provider) -> None:
         """generate() should return error response on non-200 (§4.3 Resilience)."""
         mock_response = MagicMock()
         mock_response.status = 500
@@ -643,7 +644,7 @@ class TestOllamaProviderGenerate:
         )
 
     @pytest.mark.asyncio
-    async def test_generate_tracks_model(self, ollama_provider):
+    async def test_generate_tracks_model(self, ollama_provider) -> None:
         """generate() should track current model for cleanup."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -666,7 +667,7 @@ class TestOllamaProviderChat:
     """Tests for OllamaProvider.chat() (Ollama /api/chat endpoint)."""
 
     @pytest.mark.asyncio
-    async def test_chat_success(self, ollama_provider):
+    async def test_chat_success(self, ollama_provider) -> None:
         """chat() should return assistant response with content extracted."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -730,7 +731,7 @@ class TestOllamaProviderEmbed:
     """Tests for OllamaProvider.embed()."""
 
     @pytest.mark.asyncio
-    async def test_embed_success(self, ollama_provider):
+    async def test_embed_success(self, ollama_provider) -> None:
         """embed() should return embedding vectors."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -759,7 +760,7 @@ class TestOllamaProviderHealth:
     """Tests for OllamaProvider.get_health()."""
 
     @pytest.mark.asyncio
-    async def test_health_healthy(self, ollama_provider):
+    async def test_health_healthy(self, ollama_provider) -> None:
         """get_health() should return healthy when API responds."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -784,7 +785,7 @@ class TestOllamaProviderHealth:
         assert "model2" in health.available_models
 
     @pytest.mark.asyncio
-    async def test_health_unhealthy_on_error(self, ollama_provider):
+    async def test_health_unhealthy_on_error(self, ollama_provider) -> None:
         """get_health() should return unhealthy on connection error."""
         mock_cm = AsyncMock()
         mock_cm.__aenter__.side_effect = Exception("Connection refused")
@@ -799,7 +800,7 @@ class TestOllamaProviderHealth:
         assert "Connection refused" in health.message
 
     @pytest.mark.asyncio
-    async def test_health_closed_provider(self, ollama_provider):
+    async def test_health_closed_provider(self, ollama_provider) -> None:
         """get_health() should return unhealthy when closed."""
         ollama_provider._is_closed = True
 
@@ -842,7 +843,7 @@ class TestOllamaProviderUnload:
         assert ollama_provider._current_model is None
 
     @pytest.mark.asyncio
-    async def test_unload_no_current_model(self, ollama_provider):
+    async def test_unload_no_current_model(self, ollama_provider) -> None:
         """unload_model() should return False when no model loaded."""
         ollama_provider._current_model = None
 
@@ -855,7 +856,7 @@ class TestOllamaProviderListModels:
     """Tests for OllamaProvider.list_models()."""
 
     @pytest.mark.asyncio
-    async def test_list_models_success(self, ollama_provider):
+    async def test_list_models_success(self, ollama_provider) -> None:
         """list_models() should return available models."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -892,7 +893,7 @@ class TestOllamaProviderListModels:
 class TestLLMProviderRegistry:
     """Tests for LLMProviderRegistry (§5.2 Plugin Mechanism)."""
 
-    def test_register_provider(self):
+    def test_register_provider(self) -> None:
         """register() should add provider to registry."""
         registry = LLMProviderRegistry()
         provider = OllamaProvider()
@@ -905,7 +906,7 @@ class TestLLMProviderRegistry:
             "get() should return the registered provider instance"
         )
 
-    def test_register_sets_default(self):
+    def test_register_sets_default(self) -> None:
         """First registered provider should become default (§4.3.1 Fallback)."""
         registry = LLMProviderRegistry()
         provider = OllamaProvider()
@@ -915,7 +916,7 @@ class TestLLMProviderRegistry:
         default = registry.get_default()
         assert default is provider, f"Expected default to be the registered provider, got {default}"
 
-    def test_register_duplicate_raises(self):
+    def test_register_duplicate_raises(self) -> None:
         """register() should raise on duplicate name."""
         registry = LLMProviderRegistry()
         provider1 = OllamaProvider()
@@ -926,7 +927,7 @@ class TestLLMProviderRegistry:
         with pytest.raises(ValueError, match="already registered"):
             registry.register(provider2)
 
-    def test_unregister_provider(self):
+    def test_unregister_provider(self) -> None:
         """unregister() should remove provider."""
         registry = LLMProviderRegistry()
         provider = OllamaProvider()
@@ -997,7 +998,7 @@ class TestLLMProviderRegistry:
 
         assert registry.get_default() is p2
 
-    def test_set_default_nonexistent_raises(self):
+    def test_set_default_nonexistent_raises(self) -> None:
         """set_default() should raise for unknown provider."""
         registry = LLMProviderRegistry()
 
@@ -1163,7 +1164,7 @@ class TestLLMProviderRegistry:
         )
 
     @pytest.mark.asyncio
-    async def test_generate_with_fallback_no_providers(self):
+    async def test_generate_with_fallback_no_providers(self) -> None:
         """generate_with_fallback() should raise when no providers."""
         registry = LLMProviderRegistry()
 
@@ -1210,14 +1211,14 @@ class TestLLMProviderRegistry:
 class TestGlobalRegistry:
     """Tests for global registry functions."""
 
-    def test_get_llm_registry_creates_singleton(self):
+    def test_get_llm_registry_creates_singleton(self) -> None:
         """get_llm_registry() should return same instance."""
         r1 = get_llm_registry()
         r2 = get_llm_registry()
 
         assert r1 is r2
 
-    def test_reset_llm_registry(self):
+    def test_reset_llm_registry(self) -> None:
         """reset_llm_registry() should create new instance."""
         r1 = get_llm_registry()
         reset_llm_registry()
@@ -1235,7 +1236,7 @@ class TestLLMModuleIntegration:
     """Integration tests for llm.py module functions."""
 
     @pytest.mark.asyncio
-    async def test_llm_extract_with_provider(self):
+    async def test_llm_extract_with_provider(self) -> None:
         """llm_extract should work with provider abstraction."""
         from src.filter.llm import llm_extract
 
@@ -1264,7 +1265,7 @@ class TestLLMModuleIntegration:
         assert result["facts"][0]["fact"] == "Test fact"
 
     @pytest.mark.asyncio
-    async def test_generate_with_provider_function(self):
+    async def test_generate_with_provider_function(self) -> None:
         """generate_with_provider should use registry."""
         from src.filter.llm import generate_with_provider
 
@@ -1296,27 +1297,27 @@ class TestLLMModuleIntegration:
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    def test_empty_chat_messages(self):
+    def test_empty_chat_messages(self) -> None:
         """ChatMessage.from_dict should handle empty dict."""
         msg = ChatMessage.from_dict({})
         assert msg.role == "user"
         assert msg.content == ""
 
-    def test_llm_options_all_none(self):
+    def test_llm_options_all_none(self) -> None:
         """LLMOptions.to_dict should return empty dict when all None."""
         options = LLMOptions()
         result = options.to_dict()
         assert result == {}
 
     @pytest.mark.asyncio
-    async def test_provider_check_closed(self, ollama_provider):
+    async def test_provider_check_closed(self, ollama_provider) -> None:
         """Closed provider should raise on operations."""
         ollama_provider._is_closed = True
 
         with pytest.raises(RuntimeError, match="closed"):
             await ollama_provider.generate("test")
 
-    def test_model_info_empty_capabilities(self):
+    def test_model_info_empty_capabilities(self) -> None:
         """ModelInfo should handle empty capabilities."""
         info = ModelInfo(name="test")
         assert info.capabilities == []

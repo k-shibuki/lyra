@@ -119,7 +119,7 @@ def mock_page():
 class TestFingerprintData:
     """Tests for FingerprintData dataclass."""
 
-    def test_to_dict(self, sample_fingerprint: FingerprintData):
+    def test_to_dict(self, sample_fingerprint: FingerprintData) -> None:
         """Test serialization to dictionary."""
         data = sample_fingerprint.to_dict()
 
@@ -129,7 +129,7 @@ class TestFingerprintData:
         assert data["language"] == "ja-JP"
         assert data["timezone"] == "Asia/Tokyo"
 
-    def test_from_dict(self, sample_fingerprint: FingerprintData):
+    def test_from_dict(self, sample_fingerprint: FingerprintData) -> None:
         """Test deserialization from dictionary."""
         data = sample_fingerprint.to_dict()
         restored = FingerprintData.from_dict(data)
@@ -139,14 +139,14 @@ class TestFingerprintData:
         assert restored.fonts == sample_fingerprint.fonts
         assert restored.language == sample_fingerprint.language
 
-    def test_fonts_sorted_in_dict(self, sample_fingerprint: FingerprintData):
+    def test_fonts_sorted_in_dict(self, sample_fingerprint: FingerprintData) -> None:
         """Test that fonts are sorted when serialized."""
         data = sample_fingerprint.to_dict()
 
         # Should be sorted alphabetically
         assert data["fonts"] == sorted(sample_fingerprint.fonts)
 
-    def test_empty_fingerprint(self):
+    def test_empty_fingerprint(self) -> None:
         """Test default empty fingerprint."""
         fp = FingerprintData()
 
@@ -167,7 +167,7 @@ class TestDriftDetection:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test that identical fingerprints show no drift."""
         drifts = auditor.compare_fingerprints(
             sample_fingerprint,
@@ -181,7 +181,7 @@ class TestDriftDetection:
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
         drifted_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test UA major version drift detection."""
         drifts = auditor.compare_fingerprints(
             sample_fingerprint,
@@ -199,7 +199,7 @@ class TestDriftDetection:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test language drift detection."""
         changed = FingerprintData(
             user_agent=sample_fingerprint.user_agent,
@@ -223,7 +223,7 @@ class TestDriftDetection:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test timezone drift detection."""
         changed = FingerprintData(
             user_agent=sample_fingerprint.user_agent,
@@ -245,7 +245,7 @@ class TestDriftDetection:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test significant font set drift detection (>20% difference)."""
         # Remove most fonts (significant drift)
         changed = FingerprintData(
@@ -269,7 +269,7 @@ class TestDriftDetection:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test that minor font differences are tolerated (<20%)."""
         # Add one font (minor change, <20% difference)
         changed = FingerprintData(
@@ -293,7 +293,7 @@ class TestDriftDetection:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test canvas fingerprint drift detection."""
         changed = FingerprintData(
             user_agent=sample_fingerprint.user_agent,
@@ -316,7 +316,7 @@ class TestDriftDetection:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test detection of multiple simultaneous drifts."""
         changed = FingerprintData(
             user_agent="Mozilla/5.0 Chrome/121.0.0.0",
@@ -348,13 +348,13 @@ class TestDriftDetection:
 class TestRepairActions:
     """Tests for repair action determination."""
 
-    def test_no_repair_for_no_drifts(self, auditor: ProfileAuditor):
+    def test_no_repair_for_no_drifts(self, auditor: ProfileAuditor) -> None:
         """Test that no repair is needed when no drifts exist."""
         actions = auditor.determine_repair_actions([])
 
         assert actions == [RepairAction.NONE]
 
-    def test_restart_browser_for_ua_drift(self, auditor: ProfileAuditor):
+    def test_restart_browser_for_ua_drift(self, auditor: ProfileAuditor) -> None:
         """Test browser restart is recommended for UA drift."""
         drifts = [
             DriftInfo(
@@ -370,7 +370,7 @@ class TestRepairActions:
 
         assert RepairAction.RESTART_BROWSER in actions
 
-    def test_resync_fonts_for_font_drift(self, auditor: ProfileAuditor):
+    def test_resync_fonts_for_font_drift(self, auditor: ProfileAuditor) -> None:
         """Test font resync is recommended for font drift."""
         drifts = [
             DriftInfo(
@@ -386,7 +386,7 @@ class TestRepairActions:
 
         assert RepairAction.RESYNC_FONTS in actions
 
-    def test_multiple_actions_ordered(self, auditor: ProfileAuditor):
+    def test_multiple_actions_ordered(self, auditor: ProfileAuditor) -> None:
         """Test that multiple repair actions are ordered by severity."""
         drifts = [
             DriftInfo(
@@ -423,7 +423,7 @@ class TestBaselineManagement:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test saving and loading baseline fingerprint."""
         auditor._save_baseline(sample_fingerprint)
 
@@ -438,7 +438,7 @@ class TestBaselineManagement:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test resetting baseline fingerprint."""
         auditor._save_baseline(sample_fingerprint)
         assert auditor._baseline is not None
@@ -452,7 +452,7 @@ class TestBaselineManagement:
         self,
         auditor: ProfileAuditor,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test that baseline is saved as valid JSON."""
         auditor._save_baseline(sample_fingerprint)
 
@@ -479,7 +479,7 @@ class TestAuditExecution:
         self,
         auditor: ProfileAuditor,
         mock_page,
-    ):
+    ) -> None:
         """Test that first audit establishes baseline."""
         mock_page.evaluate.return_value = {
             "user_agent": "Chrome/120",
@@ -508,7 +508,7 @@ class TestAuditExecution:
         auditor: ProfileAuditor,
         mock_page,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test that audit detects drift from baseline."""
         # Set baseline
         auditor._save_baseline(sample_fingerprint)
@@ -541,7 +541,7 @@ class TestAuditExecution:
         auditor: ProfileAuditor,
         mock_page,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test that audit is skipped if called too quickly."""
         auditor._save_baseline(sample_fingerprint)
         auditor._last_audit_time = time.time()  # Just audited
@@ -557,7 +557,7 @@ class TestAuditExecution:
         auditor: ProfileAuditor,
         mock_page,
         sample_fingerprint: FingerprintData,
-    ):
+    ) -> None:
         """Test that force=True bypasses minimum interval."""
         auditor._save_baseline(sample_fingerprint)
         auditor._last_audit_time = time.time()  # Just audited
@@ -574,7 +574,7 @@ class TestAuditExecution:
         self,
         auditor: ProfileAuditor,
         mock_page,
-    ):
+    ) -> None:
         """Test that audit handles errors without crashing."""
         mock_page.evaluate.side_effect = Exception("JavaScript error")
 
@@ -597,7 +597,7 @@ class TestAuditLogging:
         self,
         auditor: ProfileAuditor,
         mock_page,
-    ):
+    ) -> None:
         """Test that audits are logged to file."""
         mock_page.evaluate.return_value = {
             "user_agent": "Chrome/120",
@@ -628,7 +628,7 @@ class TestAuditLogging:
         self,
         auditor: ProfileAuditor,
         mock_page,
-    ):
+    ) -> None:
         """Test that multiple audits append to log file."""
         mock_page.evaluate.return_value = {
             "user_agent": "Chrome/120",
@@ -665,7 +665,7 @@ class TestAuditorStats:
         self,
         auditor: ProfileAuditor,
         mock_page,
-    ):
+    ) -> None:
         """Test that stats track audit count."""
         mock_page.evaluate.return_value = {
             "user_agent": "Chrome/120",
@@ -682,7 +682,7 @@ class TestAuditorStats:
         assert stats["audit_count"] == 1
         assert stats["has_baseline"] is True
 
-    def test_stats_initial_state(self, auditor: ProfileAuditor):
+    def test_stats_initial_state(self, auditor: ProfileAuditor) -> None:
         """Test initial stats state."""
         stats = auditor.get_stats()
 
@@ -701,7 +701,7 @@ class TestPerformHealthCheck:
     """Tests for the convenience function."""
 
     @pytest.mark.asyncio
-    async def test_perform_health_check_function(self, mock_page, tmp_path):
+    async def test_perform_health_check_function(self, mock_page, tmp_path) -> None:
         """Test the perform_health_check convenience function."""
         with patch("src.crawler.profile_audit._profile_auditor", None):
             with patch("src.crawler.profile_audit.get_profile_auditor") as mock_get:
@@ -734,7 +734,7 @@ class TestPerformHealthCheck:
 class TestAuditResult:
     """Tests for AuditResult serialization."""
 
-    def test_audit_result_to_dict(self, sample_fingerprint: FingerprintData):
+    def test_audit_result_to_dict(self, sample_fingerprint: FingerprintData) -> None:
         """Test AuditResult serialization."""
         result = AuditResult(
             status=AuditStatus.DRIFT,

@@ -39,7 +39,7 @@ pytestmark = pytest.mark.unit
 class TestTorUsageMetrics:
     """Tests for TorUsageMetrics Pydantic model."""
 
-    def test_usage_ratio_zero_requests(self):
+    def test_usage_ratio_zero_requests(self) -> None:
         """
         Usage ratio should be 0.0 when no requests have been made.
 
@@ -57,7 +57,7 @@ class TestTorUsageMetrics:
 
         assert metrics.usage_ratio == 0.0
 
-    def test_usage_ratio_calculation(self):
+    def test_usage_ratio_calculation(self) -> None:
         """
         Usage ratio should be correctly calculated.
 
@@ -75,7 +75,7 @@ class TestTorUsageMetrics:
 
         assert metrics.usage_ratio == 0.2
 
-    def test_validation_non_negative(self):
+    def test_validation_non_negative(self) -> None:
         """
         TorUsageMetrics should reject negative values.
 
@@ -103,7 +103,7 @@ class TestTorUsageMetrics:
 class TestDomainTorMetrics:
     """Tests for DomainTorMetrics Pydantic model."""
 
-    def test_domain_usage_ratio(self):
+    def test_domain_usage_ratio(self) -> None:
         """
         Domain usage ratio should be correctly calculated.
 
@@ -139,7 +139,7 @@ class TestMetricsCollectorTorTracking:
 
         return MetricsCollector()
 
-    def test_get_today_tor_metrics_initial(self, fresh_collector):
+    def test_get_today_tor_metrics_initial(self, fresh_collector) -> None:
         """
         Initial Tor metrics should have zero counts.
 
@@ -153,7 +153,7 @@ class TestMetricsCollectorTorTracking:
         assert metrics.tor_requests == 0
         assert metrics.date == date.today().isoformat()
 
-    def test_record_request_increments_total(self, fresh_collector):
+    def test_record_request_increments_total(self, fresh_collector) -> None:
         """
         record_request should increment total_requests.
 
@@ -167,7 +167,7 @@ class TestMetricsCollectorTorTracking:
         assert metrics.total_requests == 1
         assert metrics.tor_requests == 0
 
-    def test_record_tor_usage_increments_tor(self, fresh_collector):
+    def test_record_tor_usage_increments_tor(self, fresh_collector) -> None:
         """
         record_tor_usage should increment tor_requests.
 
@@ -180,7 +180,7 @@ class TestMetricsCollectorTorTracking:
         metrics = fresh_collector.get_today_tor_metrics()
         assert metrics.tor_requests == 1
 
-    def test_domain_metrics_tracking(self, fresh_collector):
+    def test_domain_metrics_tracking(self, fresh_collector) -> None:
         """
         Domain-specific metrics should be tracked separately.
 
@@ -201,7 +201,7 @@ class TestMetricsCollectorTorTracking:
         assert other_metrics.total_requests == 1
         assert other_metrics.tor_requests == 0
 
-    def test_domain_case_insensitive(self, fresh_collector):
+    def test_domain_case_insensitive(self, fresh_collector) -> None:
         """
         Domain metrics should be case-insensitive.
 
@@ -216,7 +216,7 @@ class TestMetricsCollectorTorTracking:
         assert metrics.total_requests == 2
         assert metrics.domain == "example.com"
 
-    def test_date_reset_on_new_day(self, fresh_collector):
+    def test_date_reset_on_new_day(self, fresh_collector) -> None:
         """
         Metrics should reset when date changes.
 
@@ -246,7 +246,7 @@ class TestCanUseTor:
     """Tests for _can_use_tor() function."""
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_zero_usage(self):
+    async def test_can_use_tor_zero_usage(self) -> None:
         """
         _can_use_tor should return True when no Tor has been used.
 
@@ -265,7 +265,7 @@ class TestCanUseTor:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_below_limit(self):
+    async def test_can_use_tor_below_limit(self) -> None:
         """
         _can_use_tor should return True when usage is below 20%.
 
@@ -286,7 +286,7 @@ class TestCanUseTor:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_at_limit(self):
+    async def test_can_use_tor_at_limit(self) -> None:
         """
         _can_use_tor should return False when usage is at 20%.
 
@@ -307,7 +307,7 @@ class TestCanUseTor:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_above_limit(self):
+    async def test_can_use_tor_above_limit(self) -> None:
         """
         _can_use_tor should return False when usage exceeds 20%.
 
@@ -328,7 +328,7 @@ class TestCanUseTor:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_domain_blocked(self):
+    async def test_can_use_tor_domain_blocked(self) -> None:
         """
         _can_use_tor should return False when domain has Tor blocked.
 
@@ -356,7 +356,7 @@ class TestCanUseTor:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_domain_usage_limit(self):
+    async def test_can_use_tor_domain_usage_limit(self) -> None:
         """
         _can_use_tor should check domain-specific usage limit.
 
@@ -386,7 +386,7 @@ class TestCanUseTor:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_fail_open(self):
+    async def test_can_use_tor_fail_open(self) -> None:
         """
         _can_use_tor should return True on error (fail-open).
 
@@ -402,7 +402,7 @@ class TestCanUseTor:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_first_request(self):
+    async def test_can_use_tor_first_request(self) -> None:
         """
         _can_use_tor should return True for first request of day.
 
@@ -431,7 +431,7 @@ class TestTorLimitIntegration:
     """Integration tests for Tor daily limit."""
 
     @pytest.mark.asyncio
-    async def test_can_use_tor_with_real_collector(self):
+    async def test_can_use_tor_with_real_collector(self) -> None:
         """
         Full flow: _can_use_tor with real MetricsCollector.
 
@@ -470,7 +470,7 @@ class TestTorLimitIntegration:
                 result = await _can_use_tor("example.com")
                 assert result is False
 
-    def test_metrics_collector_global_singleton(self):
+    def test_metrics_collector_global_singleton(self) -> None:
         """
         Global MetricsCollector maintains state across calls.
 

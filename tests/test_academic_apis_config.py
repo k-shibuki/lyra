@@ -23,6 +23,7 @@ Tests configuration file loading and backward compatibility.
 | TC-BC-B-01 | Config file missing, all clients | Boundary – NULL | All clients initialize with defaults | 後方互換性 |
 """
 
+from collections.abc import Generator
 import os
 import tempfile
 from pathlib import Path
@@ -43,7 +44,7 @@ from src.utils.config import (
 
 
 @pytest.fixture
-def temp_config_dir():
+def temp_config_dir() -> Generator[None, None, None]:
     """Create temporary config directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
@@ -89,7 +90,7 @@ defaults:
 class TestConfigLoading:
     """Test configuration loading from YAML file."""
 
-    def test_load_config_from_file(self, temp_config_dir, sample_config_yaml):
+    def test_load_config_from_file(self, temp_config_dir, sample_config_yaml) -> None:
         """TC-CFG-N-01: Valid academic_apis.yaml with all APIs."""
         # Given: Valid YAML config file exists
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -120,7 +121,7 @@ class TestConfigLoading:
         assert config.defaults.search_apis == ["semantic_scholar", "openalex"]
         assert config.defaults.citation_graph_api == "semantic_scholar"
 
-    def test_config_file_not_found(self):
+    def test_config_file_not_found(self) -> None:
         """TC-CFG-B-02: Config file missing."""
         # Given: Config file does not exist
         # When: Loading configuration
@@ -132,7 +133,7 @@ class TestConfigLoading:
         assert isinstance(config, AcademicAPIsConfig)
         assert len(config.apis) == 0
 
-    def test_empty_config_file(self, temp_config_dir):
+    def test_empty_config_file(self, temp_config_dir) -> None:
         """TC-CFG-B-01: Empty config file."""
         # Given: Empty config file exists
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -147,7 +148,7 @@ class TestConfigLoading:
         assert isinstance(config, AcademicAPIsConfig)
         assert len(config.apis) == 0
 
-    def test_invalid_yaml_syntax(self, temp_config_dir):
+    def test_invalid_yaml_syntax(self, temp_config_dir) -> None:
         """TC-CFG-A-01: Invalid YAML syntax."""
         # Given: Config file with invalid YAML syntax
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -167,7 +168,7 @@ class TestConfigLoading:
                 # If exception raised, it should be a YAML-related error
                 assert "yaml" in str(e).lower() or "parse" in str(e).lower()
 
-    def test_empty_apis_section(self, temp_config_dir):
+    def test_empty_apis_section(self, temp_config_dir) -> None:
         """TC-CFG-B-03: Empty apis section."""
         # Given: Config file with empty apis section
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -182,7 +183,7 @@ class TestConfigLoading:
         assert isinstance(config, AcademicAPIsConfig)
         assert len(config.apis) == 0
 
-    def test_empty_defaults_section(self, temp_config_dir):
+    def test_empty_defaults_section(self, temp_config_dir) -> None:
         """TC-CFG-B-04: Empty defaults section."""
         # Given: Config file with empty defaults
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -203,7 +204,7 @@ class TestConfigLoading:
 class TestBackwardCompatibility:
     """Test backward compatibility when config file is missing."""
 
-    def test_api_clients_without_config(self):
+    def test_api_clients_without_config(self) -> None:
         """TC-BC-N-01: API clients initialized without config file."""
         # Given: Config file does not exist
         # When: Initializing API clients
@@ -232,7 +233,7 @@ class TestBackwardCompatibility:
 class TestEnvironmentVariableOverride:
     """Test environment variable overrides."""
 
-    def test_email_override(self, temp_config_dir, sample_config_yaml):
+    def test_email_override(self, temp_config_dir, sample_config_yaml) -> None:
         """TC-CFG-N-03: Environment variable override for email."""
         # Given: Config file with email and environment variable override
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -257,7 +258,7 @@ class TestEnvironmentVariableOverride:
 class TestConfigValidation:
     """Test configuration validation."""
 
-    def test_defaults_validation(self):
+    def test_defaults_validation(self) -> None:
         """Test that defaults are properly validated."""
         # Given: Valid defaults configuration
         # When: Creating defaults config
@@ -274,7 +275,7 @@ class TestConfigValidation:
         assert defaults.max_citation_depth == 2
         assert defaults.max_papers_per_search == 50
 
-    def test_api_config_validation(self):
+    def test_api_config_validation(self) -> None:
         """Test that API config is properly validated."""
         # Given: Valid API configuration
         # When: Creating API config
