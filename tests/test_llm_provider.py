@@ -346,7 +346,7 @@ class TestLLMHealthStatus:
 class TestLLMProviderProtocol:
     """Tests for LLMProvider protocol."""
 
-    def test_protocol_is_runtime_checkable(self):
+    def test_protocol_is_runtime_checkable(self) -> None:
         """LLMProvider should be runtime checkable."""
 
         # A minimal implementation that satisfies the protocol
@@ -355,28 +355,34 @@ class TestLLMProviderProtocol:
             def name(self) -> str:
                 return "minimal"
 
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def embed(self, texts, model=None):
+            async def embed(
+                self, texts: list[str], model: str | None = None
+            ) -> EmbeddingResponse:
                 return EmbeddingResponse.success([], "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
-            async def unload_model(self, model=None):
+            async def unload_model(self, model: str | None = None) -> bool:
                 return True
 
-            async def close(self):
+            async def close(self) -> None:
                 pass
 
         provider = MinimalProvider()
@@ -386,46 +392,54 @@ class TestLLMProviderProtocol:
 class TestBaseLLMProvider:
     """Tests for BaseLLMProvider abstract base class."""
 
-    def test_init_sets_name(self):
+    def test_init_sets_name(self) -> None:
         """BaseLLMProvider should set provider name."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         provider = TestProvider("my-provider")
         assert provider.name == "my-provider"
         assert provider.is_closed is False
 
-    def test_set_task_id(self):
+    def test_set_task_id(self) -> None:
         """set_task_id should track current task."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         provider = TestProvider("test")
@@ -433,23 +447,27 @@ class TestBaseLLMProvider:
         assert provider._current_task_id == "task-123"
 
     @pytest.mark.asyncio
-    async def test_close_marks_closed(self):
+    async def test_close_marks_closed(self) -> None:
         """close() should mark provider as closed."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         provider = TestProvider("test")
@@ -457,23 +475,27 @@ class TestBaseLLMProvider:
         assert provider.is_closed is True
 
     @pytest.mark.asyncio
-    async def test_embed_default_not_supported(self):
+    async def test_embed_default_not_supported(self) -> None:
         """Default embed implementation should return error."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         provider = TestProvider("test")
@@ -542,7 +564,7 @@ class TestOllamaProviderGenerate:
     """Tests for OllamaProvider.generate() (Ollama /api/generate endpoint)."""
 
     @pytest.mark.asyncio
-    async def test_generate_success(self, ollama_provider) -> None:
+    async def test_generate_success(self, ollama_provider: OllamaProvider) -> None:
         """generate() should return success response on HTTP 200 with Ollama format."""
         # Ollama API response format: response, prompt_eval_count, eval_count
         mock_response = MagicMock()
@@ -584,20 +606,22 @@ class TestOllamaProviderGenerate:
         )
 
     @pytest.mark.asyncio
-    async def test_generate_with_options(self, ollama_provider):
+    async def test_generate_with_options(self, ollama_provider: OllamaProvider) -> None:
         """generate() should pass options to API."""
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value={"response": "OK"})
 
-        captured_payload = {}
+        captured_payload: dict[str, object] = {}
 
         # Create a proper async context manager
         mock_cm = AsyncMock()
         mock_cm.__aenter__.return_value = mock_response
         mock_cm.__aexit__.return_value = None
 
-        def capture_post(url, json, timeout=None):
+        def capture_post(
+            url: str, json: dict[str, object], timeout: float | None = None
+        ) -> AsyncMock:
             captured_payload.update(json)
             return mock_cm
 
@@ -619,7 +643,7 @@ class TestOllamaProviderGenerate:
         assert captured_payload["system"] == "You are helpful"
 
     @pytest.mark.asyncio
-    async def test_generate_api_error(self, ollama_provider) -> None:
+    async def test_generate_api_error(self, ollama_provider: OllamaProvider) -> None:
         """generate() should return error response on non-200 (§4.3 Resilience)."""
         mock_response = MagicMock()
         mock_response.status = 500
@@ -644,7 +668,7 @@ class TestOllamaProviderGenerate:
         )
 
     @pytest.mark.asyncio
-    async def test_generate_tracks_model(self, ollama_provider) -> None:
+    async def test_generate_tracks_model(self, ollama_provider: OllamaProvider) -> None:
         """generate() should track current model for cleanup."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -667,7 +691,7 @@ class TestOllamaProviderChat:
     """Tests for OllamaProvider.chat() (Ollama /api/chat endpoint)."""
 
     @pytest.mark.asyncio
-    async def test_chat_success(self, ollama_provider) -> None:
+    async def test_chat_success(self, ollama_provider: OllamaProvider) -> None:
         """chat() should return assistant response with content extracted."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -696,9 +720,9 @@ class TestOllamaProviderChat:
         )
 
     @pytest.mark.asyncio
-    async def test_chat_converts_messages(self, ollama_provider):
+    async def test_chat_converts_messages(self, ollama_provider: OllamaProvider) -> None:
         """chat() should convert ChatMessage to dict format."""
-        captured_payload = {}
+        captured_payload: dict[str, object] = {}
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -708,7 +732,9 @@ class TestOllamaProviderChat:
         mock_cm.__aenter__.return_value = mock_response
         mock_cm.__aexit__.return_value = None
 
-        def capture_post(url, json, timeout=None):
+        def capture_post(
+            url: str, json: dict[str, object], timeout: float | None = None
+        ) -> AsyncMock:
             captured_payload.update(json)
             return mock_cm
 
@@ -731,7 +757,7 @@ class TestOllamaProviderEmbed:
     """Tests for OllamaProvider.embed()."""
 
     @pytest.mark.asyncio
-    async def test_embed_success(self, ollama_provider) -> None:
+    async def test_embed_success(self, ollama_provider: OllamaProvider) -> None:
         """embed() should return embedding vectors."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -760,7 +786,7 @@ class TestOllamaProviderHealth:
     """Tests for OllamaProvider.get_health()."""
 
     @pytest.mark.asyncio
-    async def test_health_healthy(self, ollama_provider) -> None:
+    async def test_health_healthy(self, ollama_provider: OllamaProvider) -> None:
         """get_health() should return healthy when API responds."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -785,7 +811,7 @@ class TestOllamaProviderHealth:
         assert "model2" in health.available_models
 
     @pytest.mark.asyncio
-    async def test_health_unhealthy_on_error(self, ollama_provider) -> None:
+    async def test_health_unhealthy_on_error(self, ollama_provider: OllamaProvider) -> None:
         """get_health() should return unhealthy on connection error."""
         mock_cm = AsyncMock()
         mock_cm.__aenter__.side_effect = Exception("Connection refused")
@@ -800,7 +826,7 @@ class TestOllamaProviderHealth:
         assert "Connection refused" in health.message
 
     @pytest.mark.asyncio
-    async def test_health_closed_provider(self, ollama_provider) -> None:
+    async def test_health_closed_provider(self, ollama_provider: OllamaProvider) -> None:
         """get_health() should return unhealthy when closed."""
         ollama_provider._is_closed = True
 
@@ -814,7 +840,7 @@ class TestOllamaProviderUnload:
     """Tests for OllamaProvider.unload_model()."""
 
     @pytest.mark.asyncio
-    async def test_unload_success(self, ollama_provider):
+    async def test_unload_success(self, ollama_provider: OllamaProvider) -> None:
         """unload_model() should call API with keep_alive=0."""
         ollama_provider._current_model = "test-model"
 
@@ -827,7 +853,9 @@ class TestOllamaProviderUnload:
         mock_cm.__aenter__.return_value = mock_response
         mock_cm.__aexit__.return_value = None
 
-        def capture_post(url, json, timeout=None):
+        def capture_post(
+            url: str, json: dict[str, object], timeout: float | None = None
+        ) -> AsyncMock:
             captured_payload.update(json)
             return mock_cm
 
@@ -843,7 +871,7 @@ class TestOllamaProviderUnload:
         assert ollama_provider._current_model is None
 
     @pytest.mark.asyncio
-    async def test_unload_no_current_model(self, ollama_provider) -> None:
+    async def test_unload_no_current_model(self, ollama_provider: OllamaProvider) -> None:
         """unload_model() should return False when no model loaded."""
         ollama_provider._current_model = None
 
@@ -856,7 +884,7 @@ class TestOllamaProviderListModels:
     """Tests for OllamaProvider.list_models()."""
 
     @pytest.mark.asyncio
-    async def test_list_models_success(self, ollama_provider) -> None:
+    async def test_list_models_success(self, ollama_provider: OllamaProvider) -> None:
         """list_models() should return available models."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -938,24 +966,28 @@ class TestLLMProviderRegistry:
         assert removed is provider
         assert "ollama" not in registry.list_providers()
 
-    def test_unregister_updates_default(self):
+    def test_unregister_updates_default(self) -> None:
         """unregister() should update default when default is removed."""
         registry = LLMProviderRegistry()
 
         class Provider1(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         p1 = Provider1("provider1")
@@ -968,24 +1000,28 @@ class TestLLMProviderRegistry:
 
         assert registry.get_default() is p2
 
-    def test_set_default(self):
+    def test_set_default(self) -> None:
         """set_default() should change default provider."""
         registry = LLMProviderRegistry()
 
         class Provider1(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         p1 = Provider1("provider1")
@@ -1006,24 +1042,28 @@ class TestLLMProviderRegistry:
             registry.set_default("unknown")
 
     @pytest.mark.asyncio
-    async def test_generate_with_fallback_success(self):
+    async def test_generate_with_fallback_success(self) -> None:
         """generate_with_fallback() should return on first success (§4.3.1 Fallback)."""
         registry = LLMProviderRegistry()
 
         class SuccessProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("Success!", "m", self._name)
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         registry.register(SuccessProvider("good"))
@@ -1037,40 +1077,48 @@ class TestLLMProviderRegistry:
         assert response.provider == "good", f"Expected provider 'good', got '{response.provider}'"
 
     @pytest.mark.asyncio
-    async def test_generate_with_fallback_tries_multiple(self):
+    async def test_generate_with_fallback_tries_multiple(self) -> None:
         """generate_with_fallback() should try next provider on failure (§4.3.1 Fallback)."""
         registry = LLMProviderRegistry()
 
         class FailProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.make_error("Failed", "m", self._name)
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         class SuccessProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("OK", "m", self._name)
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         registry.register(FailProvider("fail"))
@@ -1086,40 +1134,48 @@ class TestLLMProviderRegistry:
         )
 
     @pytest.mark.asyncio
-    async def test_generate_with_fallback_skips_unhealthy(self):
+    async def test_generate_with_fallback_skips_unhealthy(self) -> None:
         """generate_with_fallback() should skip unhealthy providers (§4.3.1 Health Check)."""
         registry = LLMProviderRegistry()
 
         class UnhealthyProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("Should not reach", "m", self._name)
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.unhealthy("Down for maintenance")
 
         class HealthyProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("From healthy", "m", self._name)
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         registry.register(UnhealthyProvider("unhealthy"))
@@ -1133,24 +1189,28 @@ class TestLLMProviderRegistry:
         )
 
     @pytest.mark.asyncio
-    async def test_generate_with_fallback_all_fail(self):
+    async def test_generate_with_fallback_all_fail(self) -> None:
         """generate_with_fallback() should return error when all fail (§4.3 Error Cases)."""
         registry = LLMProviderRegistry()
 
         class FailProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.make_error("Failed", "m", self._name)
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         registry.register(FailProvider("fail1"))
@@ -1172,29 +1232,33 @@ class TestLLMProviderRegistry:
             await registry.generate_with_fallback("Test")
 
     @pytest.mark.asyncio
-    async def test_close_all(self):
+    async def test_close_all(self) -> None:
         """close_all() should close all providers."""
         registry = LLMProviderRegistry()
 
-        close_called = []
+        close_called: list[str] = []
 
         class TrackingProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
-            async def close(self):
+            async def close(self) -> None:
                 close_called.append(self._name)
                 await super().close()
 
@@ -1310,7 +1374,7 @@ class TestEdgeCases:
         assert result == {}
 
     @pytest.mark.asyncio
-    async def test_provider_check_closed(self, ollama_provider) -> None:
+    async def test_provider_check_closed(self, ollama_provider: OllamaProvider) -> None:
         """Closed provider should raise on operations."""
         ollama_provider._is_closed = True
 
@@ -1324,24 +1388,28 @@ class TestEdgeCases:
         assert info.to_dict()["capabilities"] == []
 
     @pytest.mark.asyncio
-    async def test_registry_chat_with_fallback(self):
+    async def test_registry_chat_with_fallback(self) -> None:
         """chat_with_fallback should work like generate_with_fallback."""
         registry = LLMProviderRegistry()
 
         class ChatProvider(BaseLLMProvider):
-            async def generate(self, prompt, options=None):
+            async def generate(
+                self, prompt: str, options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def chat(self, messages, options=None):
+            async def chat(
+                self, messages: list[ChatMessage], options: LLMOptions | None = None
+            ) -> LLMResponse:
                 return LLMResponse.success("Chat response", "m", self._name)
 
-            async def get_model_info(self, model):
+            async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self):
+            async def list_models(self) -> list[str]:
                 return []
 
-            async def get_health(self):
+            async def get_health(self) -> LLMHealthStatus:
                 return LLMHealthStatus.healthy()
 
         registry.register(ChatProvider("chat"))
