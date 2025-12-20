@@ -592,6 +592,12 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             pages_limit = budget.get("pages_limit", 120)
             remaining_percent = int((1 - pages_used / max(1, pages_limit)) * 100)
 
+            # Get blocked domains info for transparency
+            from src.filter.source_verification import get_source_verifier
+
+            verifier = get_source_verifier()
+            blocked_domains = verifier.get_blocked_domains_info()
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -616,10 +622,17 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "auth_queue": exploration_status.get("authentication_queue"),
                 "warnings": exploration_status.get("warnings", []),
                 "idle_seconds": exploration_status.get("idle_seconds", 0),  # §2.1.5
+                "blocked_domains": blocked_domains,  # Added for transparency
             }
             return attach_meta(response, create_minimal_meta())
         else:
             # No exploration state - return minimal info
+            # Get blocked domains info for transparency
+            from src.filter.source_verification import get_source_verifier
+
+            verifier = get_source_verifier()
+            blocked_domains = verifier.get_blocked_domains_info()
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -643,6 +656,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 },
                 "auth_queue": None,
                 "warnings": [],
+                "blocked_domains": blocked_domains,  # Added for transparency
             }
             return attach_meta(response, create_minimal_meta())
 

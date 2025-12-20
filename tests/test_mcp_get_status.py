@@ -4,7 +4,7 @@ Tests the unified task and exploration status endpoint per §3.2.1.
 """
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -420,3 +420,135 @@ class TestGetStatusToolDefinition:
 
         assert tool is not None
         assert "§3.2.1" in tool.description
+
+
+class TestGetStatusBlockedDomains:
+    """Tests for blocked_domains in get_status response."""
+
+    @pytest.fixture
+    def mock_task(self) -> dict[str, Any]:
+        """Create mock task data."""
+        return {
+            "id": "task_blocked_test",
+            "query": "Test blocked domains",
+            "status": "exploring",
+            "created_at": "2024-01-15T10:00:00Z",
+        }
+
+    @pytest.mark.asyncio
+    async def test_get_status_includes_blocked_domains(self, mock_task: dict[str, Any]) -> None:
+        """
+        Test that get_status response includes blocked_domains.
+
+        // Given: Task exists and verifier has blocked domains
+        // When: Calling get_status
+        // Then: Response includes blocked_domains array
+        """
+        from src.mcp.server import _handle_get_status
+
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+
+        mock_verifier = MagicMock()
+        mock_verifier.get_blocked_domains_info.return_value = [
+            {
+                "domain": "spam-site.com",
+                "blocked_at": "2024-01-15T10:30:00Z",
+                "reason": "High rejection rate (40%)",
+                "cause_id": None,
+                "original_trust_level": "unverified",
+                "can_restore": True,
+                "restore_via": "config/domains.yaml user_overrides",
+            }
+        ]
+
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch(
+                "src.mcp.server._get_exploration_state",
+                side_effect=KeyError("No state"),
+            ):
+                with patch(
+                    "src.filter.source_verification.get_source_verifier",
+                    return_value=mock_verifier,
+                ):
+                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+
+        assert "blocked_domains" in result
+        assert len(result["blocked_domains"]) == 1
+        assert result["blocked_domains"][0]["domain"] == "spam-site.com"
+        assert result["blocked_domains"][0]["can_restore"] is True
+
+    @pytest.mark.asyncio
+    async def test_get_status_empty_blocked_domains(self, mock_task: dict[str, Any]) -> None:
+        """
+        Test that blocked_domains is empty when no domains blocked.
+
+        // Given: Task exists and no blocked domains
+        // When: Calling get_status
+        // Then: Response includes empty blocked_domains array
+        """
+        from src.mcp.server import _handle_get_status
+
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+
+        mock_verifier = MagicMock()
+        mock_verifier.get_blocked_domains_info.return_value = []
+
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch(
+                "src.mcp.server._get_exploration_state",
+                side_effect=KeyError("No state"),
+            ):
+                with patch(
+                    "src.filter.source_verification.get_source_verifier",
+                    return_value=mock_verifier,
+                ):
+                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+
+        assert "blocked_domains" in result
+        assert result["blocked_domains"] == []
+
+    @pytest.mark.asyncio
+    async def test_blocked_domain_has_reason(self, mock_task: dict[str, Any]) -> None:
+        """
+        Test that blocked domain info includes reason.
+
+        // Given: Task exists with blocked domain
+        // When: Calling get_status
+        // Then: Blocked domain has reason field
+        """
+        from src.mcp.server import _handle_get_status
+
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+
+        mock_verifier = MagicMock()
+        mock_verifier.get_blocked_domains_info.return_value = [
+            {
+                "domain": "bad-site.com",
+                "blocked_at": "2024-01-15T11:00:00Z",
+                "reason": "Contradiction detected with pubmed.gov",
+                "cause_id": "abc123",
+                "original_trust_level": "unverified",
+                "can_restore": True,
+                "restore_via": "config/domains.yaml user_overrides",
+            }
+        ]
+
+        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch(
+                "src.mcp.server._get_exploration_state",
+                side_effect=KeyError("No state"),
+            ):
+                with patch(
+                    "src.filter.source_verification.get_source_verifier",
+                    return_value=mock_verifier,
+                ):
+                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+
+        assert len(result["blocked_domains"]) == 1
+        blocked = result["blocked_domains"][0]
+        assert "reason" in blocked
+        assert "Contradiction" in blocked["reason"]
+        assert blocked["cause_id"] == "abc123"

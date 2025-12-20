@@ -1169,3 +1169,210 @@ class TestAcademicCitationAttributes:
         assert edges[0]["is_academic"] == 1
         assert edges[0]["is_influential"] == 1
         assert edges[0]["citation_context"] == "Academic citation context"
+
+
+class TestContradictionMarking:
+    """Tests for marking contradictions with is_contradiction flag."""
+
+    def test_mark_contradictions_persists_flag(self):
+        """
+        Test that mark_contradictions sets is_contradiction flag.
+
+        // Given: Graph with contradicting claims
+        // When: Calling mark_contradictions()
+        // Then: Edges are marked with is_contradiction=True
+        """
+        # Given: Two claims that refute each other
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "c1", text="Claim A is true")
+        graph.add_node(NodeType.CLAIM, "c2", text="Claim A is false")
+        graph.add_edge(
+            NodeType.CLAIM, "c1",
+            NodeType.CLAIM, "c2",
+            RelationType.REFUTES,
+            confidence=0.9,
+        )
+
+        # When: Mark contradictions
+        count = graph.mark_contradictions()
+
+        # Then: One contradiction pair marked
+        assert count == 1
+        edge_data = graph._graph.edges.get(("claim:c1", "claim:c2"), {})
+        assert edge_data.get("is_contradiction") is True
+
+    def test_mark_contradictions_no_contradictions(self):
+        """
+        Test mark_contradictions with clean graph.
+
+        // Given: Graph with no contradictions
+        // When: Calling mark_contradictions()
+        // Then: Returns 0, no edges marked
+        """
+        # Given: Two claims that support each other
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "c1", text="Claim A")
+        graph.add_node(NodeType.CLAIM, "c2", text="Claim B supports A")
+        graph.add_edge(
+            NodeType.CLAIM, "c1",
+            NodeType.CLAIM, "c2",
+            RelationType.SUPPORTS,
+            confidence=0.8,
+        )
+
+        # When: Mark contradictions
+        count = graph.mark_contradictions()
+
+        # Then: No contradictions
+        assert count == 0
+
+    def test_get_contradiction_edges(self):
+        """
+        Test get_contradiction_edges returns only contradiction edges.
+
+        // Given: Graph with some contradiction edges
+        // When: Calling get_contradiction_edges()
+        // Then: Only contradiction edges returned
+        """
+        # Given: Mix of edges
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "c1")
+        graph.add_node(NodeType.CLAIM, "c2")
+        graph.add_node(NodeType.CLAIM, "c3")
+
+        # Contradiction edge
+        graph.add_edge(
+            NodeType.CLAIM, "c1",
+            NodeType.CLAIM, "c2",
+            RelationType.REFUTES,
+            confidence=0.9,
+        )
+        # Normal edge
+        graph.add_edge(
+            NodeType.CLAIM, "c1",
+            NodeType.CLAIM, "c3",
+            RelationType.SUPPORTS,
+            confidence=0.8,
+        )
+
+        # Mark contradictions
+        graph.mark_contradictions()
+
+        # When: Get contradiction edges
+        contradiction_edges = graph.get_contradiction_edges()
+
+        # Then: Only one edge
+        assert len(contradiction_edges) == 1
+        assert "is_contradiction" in contradiction_edges[0]
+
+
+class TestClaimAdoptionStatus:
+    """Tests for claim adoption status tracking."""
+
+    def test_set_claim_adoption_status(self):
+        """
+        Test setting claim adoption status.
+
+        // Given: Claim in graph
+        // When: Setting adoption status
+        // Then: Status is stored
+        """
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "c1", text="Test claim")
+
+        # When: Set status
+        graph.set_claim_adoption_status("c1", "adopted")
+
+        # Then: Status stored
+        assert graph.get_claim_adoption_status("c1") == "adopted"
+
+    def test_set_claim_adoption_status_not_adopted(self):
+        """
+        Test setting not_adopted status for rejected claim.
+
+        // Given: Claim that was rejected
+        // When: Setting adoption_status to not_adopted
+        // Then: Status is preserved in graph
+        """
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "rejected_claim", text="Rejected claim")
+
+        # When: Set not_adopted status
+        graph.set_claim_adoption_status("rejected_claim", "not_adopted")
+
+        # Then: Status is not_adopted
+        assert graph.get_claim_adoption_status("rejected_claim") == "not_adopted"
+
+    def test_get_claim_adoption_status_default(self):
+        """
+        Test default adoption status is pending.
+
+        // Given: Claim without explicit status
+        // When: Getting adoption status
+        // Then: Returns pending
+        """
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "c1", text="New claim")
+
+        # Then: Default is pending
+        assert graph.get_claim_adoption_status("c1") == "pending"
+
+    def test_get_claim_adoption_status_not_found(self):
+        """
+        Test get adoption status for nonexistent claim.
+
+        // Given: Claim not in graph
+        // When: Getting adoption status
+        // Then: Returns None
+        """
+        graph = EvidenceGraph()
+
+        # Then: None for missing claim
+        assert graph.get_claim_adoption_status("nonexistent") is None
+
+    def test_get_claims_by_adoption_status(self):
+        """
+        Test filtering claims by adoption status.
+
+        // Given: Claims with different statuses
+        // When: Filtering by status
+        // Then: Only matching claims returned
+        """
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "c1", text="Claim 1")
+        graph.add_node(NodeType.CLAIM, "c2", text="Claim 2")
+        graph.add_node(NodeType.CLAIM, "c3", text="Claim 3")
+
+        graph.set_claim_adoption_status("c1", "adopted")
+        graph.set_claim_adoption_status("c2", "not_adopted")
+        # c3 stays pending
+
+        # When: Get adopted claims
+        adopted = graph.get_claims_by_adoption_status("adopted")
+        not_adopted = graph.get_claims_by_adoption_status("not_adopted")
+        pending = graph.get_claims_by_adoption_status("pending")
+
+        # Then: Correct filtering
+        assert adopted == ["c1"]
+        assert not_adopted == ["c2"]
+        assert pending == ["c3"]
+
+    def test_not_adopted_claim_preserved_in_graph(self):
+        """
+        Test that not_adopted claims are preserved in graph.
+
+        // Given: Claim marked as not_adopted
+        // When: Exporting graph
+        // Then: Claim and status preserved
+        """
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "rejected", text="Rejected claim text")
+        graph.set_claim_adoption_status("rejected", "not_adopted")
+
+        # When: Export graph
+        data = graph.to_dict()
+
+        # Then: Claim preserved with status
+        claim_nodes = [n for n in data["nodes"] if n.get("node_type") == "claim"]
+        assert len(claim_nodes) == 1
+        assert claim_nodes[0]["adoption_status"] == "not_adopted"

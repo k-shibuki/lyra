@@ -447,6 +447,98 @@ class EvidenceGraph:
 
         return contradictions
 
+    def mark_contradictions(self) -> int:
+        """Mark detected contradictions with is_contradiction flag.
+
+        Detects contradicting edges and marks them with is_contradiction=True
+        for persistence and later querying.
+
+        Returns:
+            Number of contradiction pairs marked.
+        """
+        contradictions = self.find_contradictions()
+
+        for c in contradictions:
+            claim1_node = self._make_node_id(NodeType.CLAIM, c["claim1_id"])
+            claim2_node = self._make_node_id(NodeType.CLAIM, c["claim2_id"])
+
+            # Mark edges in both directions if they exist
+            if (claim1_node, claim2_node) in self._graph.edges:
+                self._graph.edges[claim1_node, claim2_node]["is_contradiction"] = True
+            if (claim2_node, claim1_node) in self._graph.edges:
+                self._graph.edges[claim2_node, claim1_node]["is_contradiction"] = True
+
+        return len(contradictions)
+
+    def set_claim_adoption_status(self, claim_id: str, status: str) -> None:
+        """Set adoption status for a claim.
+
+        Args:
+            claim_id: Claim object ID.
+            status: Adoption status ('pending', 'adopted', 'not_adopted').
+        """
+        node_id = self._make_node_id(NodeType.CLAIM, claim_id)
+        if node_id in self._graph:
+            self._graph.nodes[node_id]["adoption_status"] = status
+            logger.debug(
+                "Claim adoption status updated",
+                claim_id=claim_id,
+                adoption_status=status,
+            )
+        else:
+            logger.warning(
+                "Cannot set adoption status: claim not found",
+                claim_id=claim_id,
+            )
+
+    def get_claim_adoption_status(self, claim_id: str) -> str | None:
+        """Get adoption status for a claim.
+
+        Args:
+            claim_id: Claim object ID.
+
+        Returns:
+            Adoption status or None if claim not found.
+        """
+        node_id = self._make_node_id(NodeType.CLAIM, claim_id)
+        if node_id in self._graph:
+            return self._graph.nodes[node_id].get("adoption_status", "pending")
+        return None
+
+    def get_claims_by_adoption_status(self, status: str) -> list[str]:
+        """Get all claim IDs with a specific adoption status.
+
+        Args:
+            status: Adoption status to filter by.
+
+        Returns:
+            List of claim IDs.
+        """
+        result = []
+        for node_id in self._graph.nodes():
+            node_data = self._graph.nodes[node_id]
+            if node_data.get("node_type") == NodeType.CLAIM.value:
+                if node_data.get("adoption_status", "pending") == status:
+                    _, obj_id = self._parse_node_id(node_id)
+                    result.append(obj_id)
+        return result
+
+    def get_contradiction_edges(self) -> list[dict[str, Any]]:
+        """Get all edges marked as contradictions.
+
+        Returns:
+            List of contradiction edge data.
+        """
+        result = []
+        for source, target, data in self._graph.edges(data=True):
+            if data.get("is_contradiction"):
+                result.append({
+                    "source": source,
+                    "target": target,
+                    **data,
+                })
+        return result
+
     def detect_citation_loops(self) -> list[dict[str, Any]]:
         """Detect citation loops (cycles) in the graph.
 
