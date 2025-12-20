@@ -439,6 +439,35 @@ def pytest_collection_modifyitems(config, items):
                     item.add_marker(skip_slow_reason)
 
 
+def pytest_sessionfinish(session, exitstatus):
+    """Clean up global async resources after all tests complete.
+
+    This ensures aiosqlite connections are properly closed before
+    the event loop is destroyed, preventing RuntimeWarning about
+    unawaited coroutines in Connection.__del__.
+    """
+    import asyncio
+
+    async def cleanup_async_resources():
+        try:
+            from src.storage import database as db_module
+
+            if db_module._db is not None:
+                await db_module._db.close()
+                db_module._db = None
+        except ImportError:
+            pass
+        except Exception:
+            pass  # Best effort cleanup
+
+    # Run async cleanup in a new event loop
+    try:
+        asyncio.run(cleanup_async_resources())
+    except RuntimeError:
+        # Event loop already closed or not available
+        pass
+
+
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test files."""
