@@ -2306,7 +2306,7 @@ python scripts/migrate.py create NAME  # 新規作成
 
 **目的**: トラストレベルとエビデンスグラフの設計を改善し、科学的論争と誤情報を適切に区別し、高推論AIへの情報提供を充実させる。
 
-**詳細ドキュメント**: `docs/TRUST_LEVEL.md`
+**詳細ドキュメント**: `docs/EVIDENCE_SYSTEM.md`
 
 **主な変更内容**:
 
@@ -2328,7 +2328,7 @@ python scripts/migrate.py create NAME  # 新規作成
    - 即時BLOCKEDを緩和
    - エッジ情報に基づく判断基準の導入
 
-**実装ロードマップ**: `docs/TRUST_LEVEL.md` §実装ロードマップ参照
+**実装ロードマップ**: `docs/EVIDENCE_SYSTEM.md` §実装ロードマップ参照
 
 **状態**: ⏳ 設計完了、実装待ち
 
