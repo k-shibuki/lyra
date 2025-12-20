@@ -74,7 +74,7 @@
 | `UNVERIFIED` | 未知のドメイン（デフォルト） | 0.30 |
 | `BLOCKED` | 除外（矛盾検出/危険パターン） | 0.0 |
 
-**注**: この重み係数は**ランキング時のスコア調整**に使用される（`ranking.py`）。主張の信頼度（confidence）計算には使用しない。信頼度は独立ソース数に基づく（§決定3参照）。
+**注**: この重み係数は**ランキング時のスコア調整**に使用される（`ranking.py`）。主張の信頼度（confidence）計算には使用しない。信頼度はベイズ更新により計算する（§提案6、§決定7参照）。
 
 ### 割り当てフロー
 
@@ -288,7 +288,7 @@ if has_contradictions or refuting_count > 0:
      │               │ │  ┌─────────────────────────────────────────────────────┐│
      │               │ │  │ NLI評価 → SUPPORTS/REFUTES/NEUTRAL エッジ作成       ││
      │               │ │  │ エッジに source_trust_level/target_trust_level 付与 ││
-     │               │ │  │ claim_confidence計算（独立ソース数ベース）          ││
+     │               │ │  │ claim_confidence計算（ベイズ更新: §提案6）          ││
      │               │ │  └─────────────────────────────────────────────────────┘│
      │               │ └────────────────┬────────────────────────────────────────┘
      │               │                  │
@@ -523,9 +523,9 @@ graph.add_edge(
 | **TrustLevel** (ドメイン分類) | ドメインの事前分類 (PRIMARY〜BLOCKED) | 従 |
 
 ```python
-# 信頼度計算（evidence_graph.py: calculate_claim_confidence）
-# エビデンスの量と質で決まる（これが重要）
-confidence = f(supporting_count, refuting_count, independent_sources)
+# 信頼度計算（ベイズ更新: §提案6）
+# 無情報事前分布 Beta(1,1) + NLI confidenceによる重み付け更新
+confidence = alpha / (alpha + beta)  # Beta分布の期待値
 
 # ドメイン分類は confidence 計算に寄与しない
 # 高推論AIへの参考情報としてエッジに付与するのみ
@@ -545,13 +545,13 @@ confidence = f(supporting_count, refuting_count, independent_sources)
 **「ACADEMICドメインだから正しい」は技術的に誤り**。
 
 ```
-単一論文 = 仮説
-複数の独立ソースで裏付け = 蓋然性の高い主張
+単一エビデンス = 高uncertainty（分からない）
+複数の独立エビデンスで裏付け = 低uncertainty（蓋然性が高い）
 ```
 
 **設計への反映**:
-- Nature論文でも裏付けなし → 低confidence（正しい動作）
-- 無名ブログでも5つの独立ソースで裏付け → 高confidence（正しい動作）
+- Nature論文でも単独 → 高uncertainty（正しい動作）
+- 無名ブログでも5つの独立エビデンスで裏付け → 低uncertainty（正しい動作）
 - ドメイン分類は「出自のヒント」であり、信頼性の保証ではない
 - エッジの`source_trust_level`/`target_trust_level`は高推論AIの参考情報
 
@@ -967,6 +967,21 @@ def test_backward_compatibility():
 2. [ ] `config/domains.yaml` に `user_overrides` セクション追加
 3. [ ] 設定ファイルのhot-reload対応確認
 
+### ドキュメント更新（全Phase共通）
+
+各Phaseの実装完了時に、以下のドキュメントを更新する必要がある:
+
+| ドキュメント | 更新内容 |
+|-------------|----------|
+| `README.md` | 新機能の概要説明、出力例の更新 |
+| `docs/REQUIREMENTS.md` | §4.4.1 L6フローの更新、新フィールド仕様 |
+| `docs/MCP_TOOLS.md` | MCPレスポンススキーマの変更反映 |
+| `docs/ARCHITECTURE.md` | ベイズモデル・エッジメタデータの設計説明 |
+
+**Phase別の重点更新**:
+- **Phase 2**: エッジの信頼レベル情報（source_trust_level, target_trust_level）のスキーマ説明
+- **Phase 4**: ベイズ信頼度モデル（confidence, uncertainty, controversy）の解説と出力例
+
 ---
 
 ## VerificationStatus について
@@ -976,7 +991,7 @@ def test_backward_compatibility():
 ```python
 class VerificationStatus(str, Enum):
     """検証ステータス（変更なし）"""
-    PENDING = "pending"      # 検証待ち（独立ソース不足）
+    PENDING = "pending"      # 検証待ち（エビデンス不足 / 高不確実性）
     VERIFIED = "verified"    # 検証済み（十分な裏付けあり）
     REJECTED = "rejected"    # 棄却（矛盾検出/危険パターン）
 ```
@@ -1026,16 +1041,18 @@ class VerificationStatus(str, Enum):
 **「ACADEMICドメインだから正しい」は技術的に誤り。クソ論文はいくらでもある。**
 
 ```
-# 信頼度 = エビデンスの量と質で決まる（これが重要）
-confidence = f(supporting_count, refuting_count, independent_sources)
+# 信頼度 = ベイズ更新で計算（§提案6、§決定7）
+confidence = alpha / (alpha + beta)  # Beta分布の期待値
+uncertainty = sqrt(variance)          # 不確実性
+controversy = ...                     # 論争度
 
-# 単一論文 = 仮説
-# 複数の独立ソースで裏付け = 蓋然性の高い主張
+# 単一エビデンス = 高uncertainty（分からない）
+# 複数の独立エビデンスで裏付け = 低uncertainty（蓋然性が高い）
 ```
 
 **設計への反映**:
-- Nature論文でも裏付けなし → 低confidence
-- 無名ブログでも5つの独立ソースで裏付け → 高confidence
+- Nature論文でも単独 → 高uncertainty（信頼度は確定しない）
+- 無名ブログでも5つの独立エビデンスで裏付け → 低uncertainty
 - TrustLevelは「出自のヒント」であり、信頼性の保証ではない
 
 ### 決定4: Wikipedia
