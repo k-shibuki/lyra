@@ -458,6 +458,7 @@ async def test_database(temp_db_path: Path):
 
     Guards against global database singleton interference by saving
     and restoring the global state around the test.
+    Uses try/finally to ensure connection is closed even if test fails.
     """
     from src.storage import database as db_module
     from src.storage.database import Database
@@ -470,12 +471,12 @@ async def test_database(temp_db_path: Path):
     await db.connect()
     await db.initialize_schema()
 
-    yield db
-
-    await db.close()
-
-    # Restore global (should be None anyway, but be defensive)
-    db_module._db = saved_global
+    try:
+        yield db
+    finally:
+        await db.close()
+        # Restore global (should be None anyway, but be defensive)
+        db_module._db = saved_global
 
 
 @pytest.fixture
@@ -676,6 +677,7 @@ async def memory_database():
     """Create an in-memory database for fast unit tests.
 
     Per §7.1.7: Database should use in-memory SQLite for unit tests.
+    Uses try/finally to ensure connection is closed even if test fails.
     """
     from src.storage.database import Database
 
@@ -683,9 +685,10 @@ async def memory_database():
     await db.connect()
     await db.initialize_schema()
 
-    yield db
-
-    await db.close()
+    try:
+        yield db
+    finally:
+        await db.close()
 
 
 # =============================================================================
