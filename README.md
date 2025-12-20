@@ -243,10 +243,11 @@ Sources are classified by institutional authority:
 
 1. **Pre-assigned (allowlist)**: Known domains in `config/domains.yaml` have fixed trust levels
 2. **Unknown domains**: Start as `UNVERIFIED`
-3. **L6 verification** promotes/demotes `UNVERIFIED` domains based on evidence:
-   - Corroborated by ≥3 independent sources → promoted to `LOW`
-   - Contradiction detected → demoted to `BLOCKED`
-   - Higher trust levels (PRIMARY–TRUSTED) are not auto-demoted
+3. **L6 verification** promotes/demotes based on evidence (see `src/filter/source_verification.py`):
+   - Corroborated by ≥2 independent sources → `UNVERIFIED` promoted to `LOW`
+   - Contradiction detected → `UNVERIFIED` demoted to `BLOCKED`
+   - Rejection rate >30% → `UNVERIFIED`/`LOW` demoted to `BLOCKED`
+   - Higher trust levels (PRIMARY–TRUSTED): marked REJECTED but not auto-demoted
 
 ### Security Architecture (8 Layers)
 
