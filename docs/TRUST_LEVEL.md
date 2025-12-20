@@ -472,6 +472,23 @@ def handle_contradiction(
 | **Semantic Scholar** | ✓ | ✓ | 完了 |
 | **OpenAlex** | ✓ | 要実装 | 検索のみ |
 
+**OpenAlex引用追跡を実装する根拠**:
+
+学術研究によるカバレッジ比較（2024-2025）:
+
+| 指標 | OpenAlex | Semantic Scholar |
+|------|:--------:|:----------------:|
+| カバレッジ（PCOS Case Study） | **98.6%** | 98.3% |
+| メタデータ精度 | **高い** | 中程度 |
+| 社会科学・人文学 | **優れている** | 弱い |
+| 地理的・言語的バイアス | **少ない** | あり |
+| `isInfluential` フラグ | なし | **あり** |
+
+- [Analysis of Publication and Document Types (arXiv 2024)](https://arxiv.org/abs/2406.15154)
+- [PCOS Guidelines Coverage Study (2025)](https://www.sciencedirect.com/science/article/pii/S0895435625001222)
+
+S2単独では社会科学・人文学・非英語圏の論文カバレッジが不足する。両者を併用し、DOIベースで重複排除することで最大カバレッジを達成する。
+
 **OpenAlex引用取得の実装**:
 ```python
 async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
@@ -661,9 +678,30 @@ user_overrides:
 3. [ ] エビデンスグラフに矛盾関係を明示的に保存
 4. [ ] 不採用主張（`not_adopted`）のグラフ保持
 
-### Phase 2: 引用追跡の完全実装（中リスク・高価値）【優先】
+### Phase 2: 科学的論争の区別（中リスク・高価値）【優先】
 
-目的: 孤立ノード問題を解決し、対立判定の基盤を整備
+目的: 誤情報と正当な科学的論争を区別
+
+**この Phase を先に実装する根拠**:
+Phase 3（引用追跡）で追加される論文が、現行の問題あるロジック（`refuting_count > 0` で即 BLOCKED）で処理されることを防ぐ。矛盾分類ロジックを先に整備することで、引用追跡で発見された対立関係が適切に処理される。
+
+1. [ ] `ContradictionType` enum 追加（2種: MISINFORMATION, CONTESTED）
+2. [ ] `classify_contradiction()` 関数の実装
+3. [ ] `_determine_verification_outcome` の改修
+4. [ ] HIGH_TRUST_THRESHOLD = 4 (ACADEMIC以上) の適用
+
+**テストケース**:
+```python
+def test_academic_vs_academic_is_contested():
+    """ACADEMIC同士の対立 → CONTESTED、両方保持"""
+
+def test_unverified_vs_academic_is_misinformation():
+    """UNVERIFIED vs ACADEMIC → MISINFORMATION、UNVERIFIED側ブロック"""
+```
+
+### Phase 3: 引用追跡の完全実装（中リスク・高価値）
+
+目的: 孤立ノード問題を解決し、エビデンスグラフを充実
 
 1. [ ] OpenAlex `get_references()` / `get_citations()` 実装
 2. [ ] 引用先論文のpagesテーブル自動追加
@@ -681,24 +719,6 @@ def test_new_theory_not_isolated():
 
 def test_relevance_filtering_top_10():
     """関連性フィルタリングで上位10件が選択されることを検証"""
-```
-
-### Phase 3: 科学的論争の区別（中リスク・高価値）
-
-目的: 誤情報と正当な科学的論争を区別
-
-1. [ ] `ContradictionType` enum 追加（2種: MISINFORMATION, CONTESTED）
-2. [ ] `classify_contradiction()` 関数の実装
-3. [ ] `_determine_verification_outcome` の改修
-4. [ ] HIGH_TRUST_THRESHOLD = 4 (ACADEMIC以上) の適用
-
-**テストケース**:
-```python
-def test_academic_vs_academic_is_contested():
-    """ACADEMIC同士の対立 → CONTESTED、両方保持"""
-
-def test_unverified_vs_academic_is_misinformation():
-    """UNVERIFIED vs ACADEMIC → MISINFORMATION、UNVERIFIED側ブロック"""
 ```
 
 ### Phase 4: ユーザー制御（中リスク・中価値）
@@ -759,7 +779,17 @@ class VerificationStatus(str, Enum):
 - `MISINFORMATION`: 低信頼源が高信頼源と矛盾 → 低信頼側ブロック
 - `CONTESTED`: それ以外 → 両方保持、対立関係を明示
 
-SUPERSEDED, METHODOLOGY_DIFFERENCE は削除。時間情報や方法論の差異はメタデータとして提供し、判断はCursor AI/ユーザーに委ねる。
+**SUPERSEDED, METHODOLOGY_DIFFERENCE を削除する根拠**:
+
+1. **自動判定の困難性**: 「古い研究が覆された」かどうかを出版年だけで判断できない
+   - 古い論文が正しく、新しい論文が誤っている場合がある
+   - メタ分析が「覆す」のか「補足する」のかも曖昧
+
+2. **責任分離の原則**: Lyraはエビデンスを収集・整理するツールであり、科学的判断を下すツールではない
+   - Lyra: 「論文Aと論文Bは対立関係にある」（CONTESTED） + メタデータ提供
+   - 高推論AI/操作者: メタデータ（出版年、引用数、方法論）を見て判断
+
+時間情報や方法論の差異はメタデータとして提供し、判断は操作者である高推論AIに委ねる。
 
 ### 決定4: Wikipedia
 
