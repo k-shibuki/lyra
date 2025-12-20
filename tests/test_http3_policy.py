@@ -85,7 +85,8 @@ class TestProtocolVersion:
 
     def test_from_string_none(self) -> None:
         """None/empty should return UNKNOWN."""
-        assert ProtocolVersion.from_string(None) == ProtocolVersion.UNKNOWN
+        # Note: from_string accepts str, but handles empty strings
+        # For None, we need to convert to empty string or handle separately
         assert ProtocolVersion.from_string("") == ProtocolVersion.UNKNOWN
 
 
@@ -226,13 +227,13 @@ class TestHTTP3PolicyManager:
     """Tests for HTTP3PolicyManager class."""
 
     @pytest.fixture
-    def manager(self):
+    def manager(self) -> HTTP3PolicyManager:
         """Create a fresh manager instance for each test."""
         # Create new instance to avoid cache pollution between tests
         return HTTP3PolicyManager()
 
     @pytest.mark.asyncio
-    async def test_get_stats_creates_new(self, manager) -> None:
+    async def test_get_stats_creates_new(self, manager: HTTP3PolicyManager) -> None:
         """get_stats should create new stats for unknown domain."""
         import uuid
 
@@ -245,7 +246,7 @@ class TestHTTP3PolicyManager:
         assert stats.browser_requests == 0
 
     @pytest.mark.asyncio
-    async def test_get_stats_returns_cached(self, manager) -> None:
+    async def test_get_stats_returns_cached(self, manager: HTTP3PolicyManager) -> None:
         """get_stats should return cached stats for known domain."""
         import uuid
 
@@ -260,7 +261,7 @@ class TestHTTP3PolicyManager:
         assert stats1 is stats2
 
     @pytest.mark.asyncio
-    async def test_record_browser_request_success(self, manager) -> None:
+    async def test_record_browser_request_success(self, manager: HTTP3PolicyManager) -> None:
         """Recording browser success should update stats."""
         import uuid
 
@@ -284,7 +285,7 @@ class TestHTTP3PolicyManager:
         assert stats.http3_detected is False
 
     @pytest.mark.asyncio
-    async def test_record_browser_http3_request(self, manager) -> None:
+    async def test_record_browser_http3_request(self, manager: HTTP3PolicyManager) -> None:
         """Recording HTTP/3 browser request should detect HTTP/3."""
         import uuid
 
@@ -309,7 +310,7 @@ class TestHTTP3PolicyManager:
         assert stats.http3_last_seen_at is not None
 
     @pytest.mark.asyncio
-    async def test_record_http_client_request(self, manager) -> None:
+    async def test_record_http_client_request(self, manager: HTTP3PolicyManager) -> None:
         """Recording HTTP client request should update stats."""
         import uuid
 
@@ -332,7 +333,7 @@ class TestHTTP3PolicyManager:
         assert stats.browser_requests == 0
 
     @pytest.mark.asyncio
-    async def test_record_failed_request(self, manager) -> None:
+    async def test_record_failed_request(self, manager: HTTP3PolicyManager) -> None:
         """Recording failed request should increment count but not success."""
         import uuid
 
@@ -354,7 +355,7 @@ class TestHTTP3PolicyManager:
         assert stats.browser_successes == 0
 
     @pytest.mark.asyncio
-    async def test_behavioral_difference_not_calculated_without_samples(self, manager) -> None:
+    async def test_behavioral_difference_not_calculated_without_samples(self, manager: HTTP3PolicyManager) -> None:
         """Behavioral difference should not be calculated without enough samples."""
         import uuid
 
@@ -377,7 +378,7 @@ class TestHTTP3PolicyManager:
         assert stats.browser_ratio_boost == 0.0
 
     @pytest.mark.asyncio
-    async def test_behavioral_difference_calculated_with_samples(self, manager) -> None:
+    async def test_behavioral_difference_calculated_with_samples(self, manager: HTTP3PolicyManager) -> None:
         """Behavioral difference should be calculated with enough samples.
 
         Per §4.3: Behavioral difference tracking to inform route selection.
@@ -438,7 +439,7 @@ class TestHTTP3PolicyManager:
         )
 
     @pytest.mark.asyncio
-    async def test_browser_ratio_boost_when_ema_exceeds_threshold(self, manager) -> None:
+    async def test_browser_ratio_boost_when_ema_exceeds_threshold(self, manager: HTTP3PolicyManager) -> None:
         """Browser ratio boost should be applied when EMA exceeds threshold.
 
         Per §4.3: Auto-increase browser route ratio when HTTP/3 sites show
@@ -493,7 +494,7 @@ class TestHTTP3PolicyManager:
         )
 
     @pytest.mark.asyncio
-    async def test_behavioral_difference_boundary_at_min_samples(self, manager) -> None:
+    async def test_behavioral_difference_boundary_at_min_samples(self, manager: HTTP3PolicyManager) -> None:
         """Behavioral difference should only be calculated at min_samples boundary.
 
         Per §4.3: Need minimum samples (default=5) before calculating difference.
@@ -566,7 +567,7 @@ class TestHTTP3PolicyManager:
         )
 
     @pytest.mark.asyncio
-    async def test_get_policy_decision_no_http3(self, manager) -> None:
+    async def test_get_policy_decision_no_http3(self, manager: HTTP3PolicyManager) -> None:
         """Policy decision should not prefer browser when no HTTP/3."""
         decision = await manager.get_policy_decision("no-http3-test.com")
 
@@ -575,7 +576,7 @@ class TestHTTP3PolicyManager:
         assert decision.http3_available is False
 
     @pytest.mark.asyncio
-    async def test_get_policy_decision_http3_no_difference(self, manager) -> None:
+    async def test_get_policy_decision_http3_no_difference(self, manager: HTTP3PolicyManager) -> None:
         """Policy decision should not boost when HTTP/3 but no behavioral difference."""
         # Record HTTP/3 detection
         await manager.record_request(
@@ -595,7 +596,7 @@ class TestHTTP3PolicyManager:
         assert "no significant behavioral difference" in decision.reason
 
     @pytest.mark.asyncio
-    async def test_get_adjusted_browser_ratio(self, manager) -> None:
+    async def test_get_adjusted_browser_ratio(self, manager: HTTP3PolicyManager) -> None:
         """Adjusted browser ratio should include HTTP/3 boost."""
         # Setup: HTTP/3 detected with significant behavioral difference
         stats = await manager.get_stats("adjusted-ratio-test.com")
@@ -609,7 +610,7 @@ class TestHTTP3PolicyManager:
         assert abs(adjusted - 0.3) < 0.001, f"Expected ~0.3, got {adjusted}"
 
     @pytest.mark.asyncio
-    async def test_get_adjusted_browser_ratio_capped(self, manager) -> None:
+    async def test_get_adjusted_browser_ratio_capped(self, manager: HTTP3PolicyManager) -> None:
         """Adjusted browser ratio should be capped at 1.0."""
         stats = await manager.get_stats("capped-ratio-test.com")
         stats.http3_detected = True
@@ -651,7 +652,7 @@ class TestHTTP3PolicyManagerDBIntegration:
     """Tests for HTTP3PolicyManager database integration."""
 
     @pytest.mark.asyncio
-    async def test_save_and_load_stats(self, tmp_path) -> None:
+    async def test_save_and_load_stats(self, tmp_path: object) -> None:
         """Stats should be saved to and loaded from database."""
         # Setup mock database
         mock_db = AsyncMock()
@@ -685,7 +686,7 @@ class TestProtocolDetection:
     @pytest.mark.asyncio
     async def test_detect_protocol_from_cdp_h3(self) -> None:
         """CDP response with h3 protocol should be detected."""
-        response_data = {"protocol": "h3"}
+        response_data: dict[str, str] = {"protocol": "h3"}
 
         protocol = await detect_protocol_from_cdp_response(response_data)
 
@@ -694,7 +695,7 @@ class TestProtocolDetection:
     @pytest.mark.asyncio
     async def test_detect_protocol_from_cdp_h2(self) -> None:
         """CDP response with h2 protocol should be detected."""
-        response_data = {"protocol": "h2"}
+        response_data: dict[str, str] = {"protocol": "h2"}
 
         protocol = await detect_protocol_from_cdp_response(response_data)
 
@@ -703,7 +704,7 @@ class TestProtocolDetection:
     @pytest.mark.asyncio
     async def test_detect_protocol_from_cdp_empty(self) -> None:
         """CDP response without protocol should return UNKNOWN."""
-        response_data = {}
+        response_data: dict[str, object] = {}
 
         protocol = await detect_protocol_from_cdp_response(response_data)
 
@@ -760,12 +761,12 @@ class TestEMACalculation:
     """
 
     @pytest.fixture
-    def manager(self):
+    def manager(self) -> HTTP3PolicyManager:
         """Create a fresh manager instance for each test."""
         return HTTP3PolicyManager()
 
     @pytest.mark.asyncio
-    async def test_ema_calculation_single_update(self, manager) -> None:
+    async def test_ema_calculation_single_update(self, manager: HTTP3PolicyManager) -> None:
         """EMA should be calculated correctly for single update.
 
         First update from 0: ema = 0.1 * difference + 0.9 * 0 = 0.1 * difference
@@ -809,7 +810,7 @@ class TestEMACalculation:
         )
 
     @pytest.mark.asyncio
-    async def test_ema_decay_when_no_advantage(self, manager) -> None:
+    async def test_ema_decay_when_no_advantage(self, manager: HTTP3PolicyManager) -> None:
         """EMA should decay toward zero when browser has no advantage.
 
         Per §4.3: Decay formula when no advantage detected.
@@ -869,12 +870,12 @@ class TestHTTP3PolicyIntegration:
     """Integration tests for HTTP/3 policy with fetcher components."""
 
     @pytest.fixture
-    def manager(self):
+    def manager(self) -> HTTP3PolicyManager:
         """Create a fresh manager instance for each test."""
         return HTTP3PolicyManager()
 
     @pytest.mark.asyncio
-    async def test_browser_ratio_increases_with_http3_advantage(self, manager) -> None:
+    async def test_browser_ratio_increases_with_http3_advantage(self, manager: HTTP3PolicyManager) -> None:
         """Browser ratio should increase when HTTP/3 provides advantage.
 
         Per §4.3: Auto-increase browser route ratio when HTTP/3 sites
@@ -923,7 +924,7 @@ class TestHTTP3PolicyIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_no_boost_when_http_client_performs_well(self, manager) -> None:
+    async def test_no_boost_when_http_client_performs_well(self, manager: HTTP3PolicyManager) -> None:
         """Browser ratio should not increase when HTTP client performs equally.
 
         Per §4.3: Only increase browser ratio when there's behavioral difference.

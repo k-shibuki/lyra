@@ -219,11 +219,11 @@ class TestRetryApiCall:
     """Tests for retry_api_call function."""
 
     @pytest.mark.asyncio
-    async def test_success_on_first_try(self):
+    async def test_success_on_first_try(self) -> None:
         """TC-R-01: Returns result when function succeeds immediately."""
 
         # Given: Function that succeeds
-        async def success_func():
+        async def success_func() -> dict[str, str]:
             return {"data": "test"}
 
         # When: Calling with retry
@@ -233,12 +233,12 @@ class TestRetryApiCall:
         assert result == {"data": "test"}
 
     @pytest.mark.asyncio
-    async def test_success_after_retries(self):
+    async def test_success_after_retries(self) -> None:
         """TC-R-02: Returns result after transient failures."""
         # Given: Function that fails twice then succeeds
         call_count = 0
 
-        async def flaky_func():
+        async def flaky_func() -> dict[str, bool]:
             nonlocal call_count
             call_count += 1
             if call_count < 3:
@@ -261,7 +261,7 @@ class TestRetryApiCall:
         """TC-R-03: Raises APIRetryError when all retries exhausted."""
 
         # Given: Function that always fails
-        async def always_fails():
+        async def always_fails() -> None:
             raise ConnectionError("Connection refused")
 
         # When/Then: APIRetryError is raised
@@ -280,7 +280,7 @@ class TestRetryApiCall:
         """TC-R-04: Non-retryable exceptions are re-raised immediately."""
 
         # Given: Function that raises ValueError
-        async def raises_value_error():
+        async def raises_value_error() -> None:
             raise ValueError("Invalid input")
 
         # When/Then: ValueError is raised immediately
@@ -293,7 +293,7 @@ class TestRetryApiCall:
         """TC-R-05: Non-retryable HTTP status is re-raised immediately."""
 
         # Given: Function that returns 404
-        async def returns_404():
+        async def returns_404() -> None:
             raise HTTPStatusError(404, "Not found")
 
         # When/Then: HTTPStatusError is raised immediately
@@ -304,12 +304,12 @@ class TestRetryApiCall:
         assert exc_info.value.status == 404
 
     @pytest.mark.asyncio
-    async def test_retryable_http_status_429(self):
+    async def test_retryable_http_status_429(self) -> None:
         """TC-R-06: Status 429 triggers retry with backoff."""
         # Given: Function that returns 429 twice then succeeds
         call_count = 0
 
-        async def rate_limited_func():
+        async def rate_limited_func() -> dict[str, str]:
             nonlocal call_count
             call_count += 1
             if call_count < 3:
@@ -332,7 +332,7 @@ class TestRetryApiCall:
         """Test that operation name appears in error."""
 
         # Given: Function that always fails
-        async def my_special_func():
+        async def my_special_func() -> None:
             raise ConnectionError("Failed")
 
         # When: Calling with custom operation name
@@ -355,7 +355,7 @@ class TestRetryApiCall:
         """Test that last HTTP status is recorded in error."""
 
         # Given: Function that always returns 503
-        async def server_error():
+        async def server_error() -> None:
             raise HTTPStatusError(503, "Service unavailable")
 
         # When: Calling with retry
@@ -370,11 +370,11 @@ class TestRetryApiCall:
         assert exc_info.value.last_status == 503
 
     @pytest.mark.asyncio
-    async def test_with_args_and_kwargs(self):
+    async def test_with_args_and_kwargs(self) -> None:
         """Test that args and kwargs are passed correctly."""
 
         # Given: Function with parameters
-        async def func_with_params(a, b, c=None):
+        async def func_with_params(a: int, b: int, c: int | None = None) -> dict[str, int | None]:
             return {"a": a, "b": b, "c": c}
 
         # When: Calling with args and kwargs
@@ -388,7 +388,7 @@ class TestWithApiRetryDecorator:
     """Tests for @with_api_retry decorator."""
 
     @pytest.mark.asyncio
-    async def test_decorator_basic(self):
+    async def test_decorator_basic(self) -> None:
         """TC-D-01: Decorator adds retry logic."""
         # Given: Decorated function
         call_count = 0
@@ -399,7 +399,7 @@ class TestWithApiRetryDecorator:
         )
 
         @with_api_retry(policy)
-        async def flaky_func():
+        async def flaky_func() -> str:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
@@ -420,7 +420,7 @@ class TestWithApiRetryDecorator:
         policy = APIRetryPolicy(max_retries=0)
 
         @with_api_retry(policy)
-        async def always_fails():
+        async def always_fails() -> None:
             raise ConnectionError("Failed")
 
         # When/Then: Fails immediately (no retries)
@@ -430,18 +430,19 @@ class TestWithApiRetryDecorator:
         assert exc_info.value.attempts == 1
 
     @pytest.mark.asyncio
-    async def test_decorator_preserves_function_metadata(self):
+    async def test_decorator_preserves_function_metadata(self) -> None:
         """Test that decorator preserves function metadata."""
 
         # Given: Decorated function with docstring
         @with_api_retry()
-        async def my_function():
+        async def my_function() -> str:
             """This is my function."""
             return "result"
 
         # When: Checking function metadata
         # Then: Metadata is preserved
         assert my_function.__name__ == "my_function"
+        assert my_function.__doc__ is not None
         assert "This is my function" in my_function.__doc__
 
     @pytest.mark.asyncio
@@ -454,7 +455,7 @@ class TestWithApiRetryDecorator:
         )
 
         @with_api_retry(policy, operation_name="custom_operation")
-        async def my_func():
+        async def my_func() -> None:
             raise ConnectionError("Failed")
 
         # When/Then: Error includes custom name
@@ -536,13 +537,13 @@ class TestSpecCompliance:
         assert not policy.should_retry_status(403)
 
     @pytest.mark.asyncio
-    async def test_spec_backoff_applied(self):
+    async def test_spec_backoff_applied(self) -> None:
         """Test that exponential backoff is applied per §4.3.5."""
         # Given: Track timing
-        timestamps = []
+        timestamps: list[float] = []
         call_count = 0
 
-        async def failing_func():
+        async def failing_func() -> str:
             nonlocal call_count
             timestamps.append(asyncio.get_running_loop().time())
             call_count += 1
