@@ -37,6 +37,28 @@ search:
   novelty_threshold: 0.10  # 10%未満で2サイクル継続→停止
   novelty_cycles_to_stop: 2
 
+  # Phase 3: citation graph integration
+  citation_graph_top_n_papers: 5
+  citation_graph_depth: 1
+  citation_graph_direction: "both"  # references, citations, both
+  citation_filter:
+    # Stage 1: embedding + impact_score (citation_count-based, source-agnostic)
+    stage1_top_k: 30
+    stage1_weight_embedding: 0.5
+    stage1_weight_impact: 0.5
+
+    # Stage 2: LLM evidence-usefulness + Stage 1 signals
+    stage2_top_k: 10
+    stage2_weight_llm: 0.5
+    stage2_weight_embedding: 0.3
+    stage2_weight_impact: 0.2
+
+    # Prompt/input limits
+    max_source_abstract_chars: 1200
+    max_target_abstract_chars: 1200
+    llm_timeout_seconds: 60.0
+    llm_max_tokens: 16
+
 # === Crawler Settings ===
 crawler:
   # Rate limiting

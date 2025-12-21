@@ -1218,9 +1218,11 @@ async def add_academic_page_with_citations(
         }
     )
 
-    # Add citation edges
+    # Add citation edges (respect direction: citing -> cited)
     if paper_to_page_map is None:
         paper_to_page_map = {}
+
+    current_paper_id = paper_metadata.get("paper_id")
 
     edges_created = 0
     edges_skipped = 0
@@ -1229,32 +1231,43 @@ async def add_academic_page_with_citations(
         if not isinstance(citation, Citation):
             continue
 
-        # Map cited_paper_id (paper ID) to cited_page_id (page ID)
-        cited_paper_id = citation.cited_paper_id
-        cited_page_id = paper_to_page_map.get(cited_paper_id)
+        # Determine edge endpoints.
+        # If current_paper_id is provided, only add edges adjacent to current paper:
+        # - outgoing references: current(citing) -> cited
+        # - incoming citations: citing -> current(cited)
+        if current_paper_id:
+            if citation.citing_paper_id == current_paper_id:
+                source_page_id = page_id
+                target_page_id = paper_to_page_map.get(citation.cited_paper_id)
+            elif citation.cited_paper_id == current_paper_id:
+                source_page_id = paper_to_page_map.get(citation.citing_paper_id)
+                target_page_id = page_id
+            else:
+                edges_skipped += 1
+                continue
+        else:
+            # Backward-compatible fallback: treat citations as outgoing from page_id.
+            source_page_id = page_id
+            target_page_id = paper_to_page_map.get(citation.cited_paper_id)
 
-        # Skip citations where the cited paper doesn't have a corresponding page
-        # (e.g., papers that weren't persisted because they had no abstract)
-        if not cited_page_id:
-            logger.debug(
-                "Skipping citation: cited paper not in pages table",
-                cited_paper_id=cited_paper_id,
-                page_id=page_id,
-            )
+        if not target_page_id or not source_page_id:
             edges_skipped += 1
             continue
 
-        # Ensure cited PAGE node exists
-        cited_node = graph._make_node_id(NodeType.PAGE, cited_page_id)
-        if not graph._graph.has_node(cited_node):
-            graph.add_node(NodeType.PAGE, cited_page_id)
+        # Ensure both PAGE nodes exist
+        source_node = graph._make_node_id(NodeType.PAGE, source_page_id)
+        if not graph._graph.has_node(source_node):
+            graph.add_node(NodeType.PAGE, source_page_id)
+        target_node = graph._make_node_id(NodeType.PAGE, target_page_id)
+        if not graph._graph.has_node(target_node):
+            graph.add_node(NodeType.PAGE, target_page_id)
 
         # Add CITES edge with academic attributes
         edge_id = graph.add_edge(
             source_type=NodeType.PAGE,
-            source_id=page_id,
+            source_id=source_page_id,
             target_type=NodeType.PAGE,
-            target_id=cited_page_id,
+            target_id=target_page_id,
             relation=RelationType.CITES,
             confidence=1.0,
             is_academic=True,
@@ -1268,9 +1281,9 @@ async def add_academic_page_with_citations(
             {
                 "id": edge_id,
                 "source_type": NodeType.PAGE.value,
-                "source_id": page_id,
+                "source_id": source_page_id,
                 "target_type": NodeType.PAGE.value,
-                "target_id": cited_page_id,
+                "target_id": target_page_id,
                 "relation": RelationType.CITES.value,
                 "confidence": 1.0,
                 "is_academic": 1,
