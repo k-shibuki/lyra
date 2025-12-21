@@ -4,7 +4,7 @@ alwaysApply: false
 ---
 # 品質確認（quality-check）の規約
 
-本ルールは `/quality-check` 実行時に適用される「規約（ポリシー）」である。  
+本ルールは `/quality-check` 実行時に適用される「規約（ポリシー）」である。
 手順（どのコマンドをどう叩くか）は `@.cursor/commands/quality-check.md` を参照する。
 
 ## 基本原則
