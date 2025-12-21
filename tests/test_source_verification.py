@@ -117,7 +117,9 @@ class TestSourceVerifierBasic:
         assert result.new_domain_category == DomainCategory.LOW
         assert result.promotion_result == PromotionResult.PROMOTED
 
-    def test_verify_claim_with_contradictions_stays_pending(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_verify_claim_with_contradictions_stays_pending(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-02: Claim with contradictions stays PENDING.
 
@@ -166,7 +168,9 @@ class TestSourceVerifierBasic:
 class TestSourceVerifierEdgeCases:
     """Edge cases and boundary tests."""
 
-    def test_already_blocked_domain_rejected_immediately(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_already_blocked_domain_rejected_immediately(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-01: Already blocked domain gets rejected immediately.
 
@@ -188,7 +192,9 @@ class TestSourceVerifierEdgeCases:
         assert result.new_domain_category == DomainCategory.BLOCKED
         assert result.reason == ReasonCode.ALREADY_BLOCKED
 
-    def test_dangerous_pattern_causes_immediate_block(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_dangerous_pattern_causes_immediate_block(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-02: Dangerous pattern detected causes immediate block.
 
@@ -212,7 +218,9 @@ class TestSourceVerifierEdgeCases:
         assert result.promotion_result == PromotionResult.DEMOTED
         assert verifier.is_domain_blocked("dangerous-site.com")
 
-    def test_one_independent_source_stays_pending(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_one_independent_source_stays_pending(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-B-03: Claim with exactly 1 independent source stays PENDING.
 
@@ -242,7 +250,9 @@ class TestSourceVerifierEdgeCases:
         assert result.verification_status == VerificationStatus.PENDING
         assert result.promotion_result == PromotionResult.UNCHANGED
 
-    def test_exactly_two_independent_sources_promotes(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_exactly_two_independent_sources_promotes(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-B-02: Claim with exactly 2 independent sources gets promoted.
 
@@ -273,7 +283,9 @@ class TestSourceVerifierEdgeCases:
         assert result.new_domain_category == DomainCategory.LOW
         assert result.promotion_result == PromotionResult.PROMOTED
 
-    def test_zero_independent_sources_stays_pending(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_zero_independent_sources_stays_pending(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-B-01: Claim with 0 independent sources stays PENDING.
 
@@ -307,7 +319,9 @@ class TestSourceVerifierEdgeCases:
 class TestDomainStateTracking:
     """Tests for domain verification state tracking."""
 
-    def test_domain_state_created_on_first_verification(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_domain_state_created_on_first_verification(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-04: Domain state created on first verification.
 
@@ -330,7 +344,9 @@ class TestDomainStateTracking:
         assert state.domain == "new-domain.com"
         assert "first_claim" in state.pending_claims
 
-    def test_domain_state_tracks_verified_claims(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_domain_state_tracks_verified_claims(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-05: Verified claims tracked in domain state.
 
@@ -361,7 +377,9 @@ class TestDomainStateTracking:
         assert state is not None
         assert "verified_claim" in state.verified_claims
 
-    def test_high_rejection_rate_blocks_domain(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_high_rejection_rate_blocks_domain(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-03: High rejection rate causes domain block.
 
@@ -518,7 +536,9 @@ class TestVerificationResult:
 class TestResponseMetaBuilding:
     """Tests for building response metadata from verification results."""
 
-    def test_build_response_meta_with_verified_claims(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_build_response_meta_with_verified_claims(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-E-02: build_response_meta generates correct metadata.
 
@@ -651,7 +671,9 @@ class TestTrustedDomainBehavior:
         assert result.promotion_result == PromotionResult.UNCHANGED
         assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
-    def test_trusted_domain_verified_stays_trusted(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_trusted_domain_verified_stays_trusted(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-14: Trusted domain with verification stays TRUSTED (no promotion).
 
@@ -686,7 +708,9 @@ class TestTrustedDomainBehavior:
 class TestBoundaryValues:
     """Boundary value tests for thresholds and edge cases."""
 
-    def test_rejection_rate_exactly_at_threshold_not_blocked(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_rejection_rate_exactly_at_threshold_not_blocked(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-B-05: Rejection rate at threshold with dangerous pattern triggers block.
 
@@ -730,7 +754,9 @@ class TestBoundaryValues:
         # Dangerous pattern blocks immediately
         assert result.new_domain_category == DomainCategory.BLOCKED
 
-    def test_contradiction_stays_pending_not_demoted(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradiction_stays_pending_not_demoted(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-B-06: Contradiction stays PENDING without demotion.
 
@@ -777,7 +803,9 @@ class TestBoundaryValues:
         assert result.new_domain_category == DomainCategory.UNVERIFIED
         assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
-    def test_three_independent_sources_well_above_threshold(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_three_independent_sources_well_above_threshold(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-B-07: Claim with 3 independent sources (above threshold).
 
@@ -820,7 +848,9 @@ class TestBoundaryValues:
 
         assert result is None
 
-    def test_verify_same_claim_twice_no_duplicate(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_verify_same_claim_twice_no_duplicate(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-16: Verifying same claim twice doesn't create duplicates.
 
@@ -886,7 +916,9 @@ class TestExternalDependencyFailures:
                     evidence_graph=mock_graph,
                 )
 
-    def test_get_domain_category_exception(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_get_domain_category_exception(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-05: get_domain_category raises exception.
 
@@ -909,7 +941,9 @@ class TestExternalDependencyFailures:
 class TestEmptyInputs:
     """Tests for empty/edge input values."""
 
-    def test_verify_claim_empty_claim_id(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_verify_claim_empty_claim_id(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-06: verify_claim with empty claim_id.
 
@@ -930,7 +964,9 @@ class TestEmptyInputs:
         assert result.claim_id == ""
         assert result.verification_status == VerificationStatus.PENDING
 
-    def test_verify_claim_empty_domain(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_verify_claim_empty_domain(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-07: verify_claim with empty domain.
 
@@ -984,7 +1020,9 @@ class TestEmptyInputs:
 class TestPendingToOtherStatusTransition:
     """Tests for claim status transitions from PENDING."""
 
-    def test_claim_moves_from_pending_to_verified(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_claim_moves_from_pending_to_verified(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-20: Claim transitions from PENDING to VERIFIED.
 
@@ -1091,7 +1129,9 @@ class TestDomainBlockedList:
 
         assert result == []
 
-    def test_get_blocked_domains_after_blocking(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_get_blocked_domains_after_blocking(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-18: get_blocked_domains returns blocked domains.
 
@@ -1114,7 +1154,9 @@ class TestDomainBlockedList:
 
         assert "blocked-via-pattern.com" in blocked
 
-    def test_is_domain_blocked_checks_both_internal_and_domain_category(self, verifier: SourceVerifier) -> None:
+    def test_is_domain_blocked_checks_both_internal_and_domain_category(
+        self, verifier: SourceVerifier
+    ) -> None:
         """
         TC-N-19: is_domain_blocked checks internal set and DomainCategory.
 
@@ -1134,7 +1176,9 @@ class TestDomainBlockedList:
 class TestContradictingClaimsExtraction:
     """Tests for contradicting_claims extraction to prevent None values."""
 
-    def test_contradicting_claims_filters_out_none_values(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradicting_claims_filters_out_none_values(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-20: contradicting_claims should not contain None values.
 
@@ -1168,7 +1212,9 @@ class TestContradictingClaimsExtraction:
         # Should not contain None
         assert None not in result.details.contradicting_claims
 
-    def test_contradicting_claims_with_missing_claim2_id(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradicting_claims_with_missing_claim2_id(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-21: Handle contradiction with missing claim2_id.
 
@@ -1204,7 +1250,9 @@ class TestContradictingClaimsExtraction:
         # Should be empty since there's no "other" claim ID to add
         assert result.details.contradicting_claims == []
 
-    def test_contradicting_claims_extracts_correct_other_claim(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradicting_claims_extracts_correct_other_claim(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-22: Extract correct "other" claim ID from contradiction.
 
@@ -1238,7 +1286,9 @@ class TestContradictingClaimsExtraction:
         assert "claim_002" in result.details.contradicting_claims
         assert "claim_001" not in result.details.contradicting_claims
 
-    def test_contradicting_claims_when_claim_is_claim2(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradicting_claims_when_claim_is_claim2(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-N-23: Extract correct claim when current claim is claim2_id.
 
@@ -1272,7 +1322,9 @@ class TestContradictingClaimsExtraction:
         assert "claim_001" in result.details.contradicting_claims
         assert "claim_002" not in result.details.contradicting_claims
 
-    def test_contradicting_claims_empty_contradiction_dict(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradicting_claims_empty_contradiction_dict(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-A-24: Handle empty contradiction dict.
 
@@ -1326,7 +1378,9 @@ class TestBlockedDomainNotification:
     | TC-BN-N-06 | get_pending_notification_count | Equiv – normal | Correct count | - |
     """
 
-    def test_dangerous_pattern_queues_notification(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_dangerous_pattern_queues_notification(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-BN-N-01: Dangerous pattern detection queues blocked notification.
 
@@ -1353,7 +1407,9 @@ class TestBlockedDomainNotification:
         assert domain == "dangerous-pattern.com"
         assert "Dangerous pattern" in reason
 
-    def test_high_rejection_rate_queues_notification(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_high_rejection_rate_queues_notification(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-BN-N-02: Repeated dangerous patterns blocks domain and queues notification.
 
@@ -1393,7 +1449,9 @@ class TestBlockedDomainNotification:
         # And notification should be queued (at least one for the block)
         assert verifier.get_pending_notification_count() >= 1
 
-    def test_contradiction_stays_pending_no_demotion(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradiction_stays_pending_no_demotion(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-BN-N-03: Contradiction on UNVERIFIED domain stays PENDING.
 
@@ -1437,7 +1495,9 @@ class TestBlockedDomainNotification:
         assert verifier.get_pending_notification_count() == 0
 
     @pytest.mark.asyncio
-    async def test_send_pending_notifications_sends_all(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    async def test_send_pending_notifications_sends_all(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-BN-N-04: send_pending_notifications sends all queued and clears.
 
@@ -1481,7 +1541,9 @@ class TestBlockedDomainNotification:
         results = await verifier.send_pending_notifications()
         assert results == []
 
-    def test_duplicate_domain_not_queued_twice(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_duplicate_domain_not_queued_twice(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-BN-N-05: Same domain blocked twice does not queue duplicate notifications.
 
@@ -1496,9 +1558,7 @@ class TestBlockedDomainNotification:
         assert verifier.get_pending_notification_count() == 1
 
     @pytest.mark.asyncio
-    async def test_send_pending_notifications_with_failure(
-        self, verifier: SourceVerifier
-    ) -> None:
+    async def test_send_pending_notifications_with_failure(self, verifier: SourceVerifier) -> None:
         """
         TC-BN-A-01: send_pending_notifications handles notification failure.
 
@@ -1668,7 +1728,9 @@ class TestDomainBlockingTransparency:
         assert "block2.com" in blocked
         assert "block3.com" in blocked
 
-    def test_domain_state_preserves_original_domain_category_after_block(self, verifier: SourceVerifier) -> None:
+    def test_domain_state_preserves_original_domain_category_after_block(
+        self, verifier: SourceVerifier
+    ) -> None:
         """
         TC-P1-1.1-N-03: Original trust level is preserved after blocking.
 
@@ -1762,7 +1824,9 @@ class TestPhaseP2RelaxedBlocking:
     - Trust levels are now recorded on edges for high-inference AI evaluation
     """
 
-    def test_contradiction_unverified_domain_demoted_to_low(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradiction_unverified_domain_demoted_to_low(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-P2-N-01: Contradiction from UNVERIFIED domain demotes to LOW (not BLOCKED).
 
@@ -1798,7 +1862,9 @@ class TestPhaseP2RelaxedBlocking:
         assert result.promotion_result == PromotionResult.UNCHANGED
         assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
-    def test_contradiction_academic_domain_stays_unchanged(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradiction_academic_domain_stays_unchanged(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-P2-N-02: Contradiction from ACADEMIC domain stays unchanged.
 
@@ -1834,7 +1900,9 @@ class TestPhaseP2RelaxedBlocking:
         assert result.promotion_result == PromotionResult.UNCHANGED
         assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
-    def test_contradiction_trusted_domain_stays_unchanged(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_contradiction_trusted_domain_stays_unchanged(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-P2-N-03: Contradiction from TRUSTED domain stays unchanged.
 
@@ -1870,7 +1938,9 @@ class TestPhaseP2RelaxedBlocking:
         assert result.promotion_result == PromotionResult.UNCHANGED
         assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
-    def test_refuting_count_triggers_contested_not_blocked(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_refuting_count_triggers_contested_not_blocked(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-P2-N-04: Refuting evidence (no explicit contradiction) also triggers contested handling.
 
@@ -1905,7 +1975,9 @@ class TestPhaseP2RelaxedBlocking:
         assert result.promotion_result == PromotionResult.UNCHANGED
         assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
 
-    def test_dangerous_pattern_still_blocks_immediately(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_dangerous_pattern_still_blocks_immediately(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-P2-N-05: Dangerous patterns (L2/L4) still cause immediate blocking.
 
@@ -1931,7 +2003,9 @@ class TestPhaseP2RelaxedBlocking:
         assert result.reason == ReasonCode.DANGEROUS_PATTERN
         assert verifier.is_domain_blocked("malware-site.com")
 
-    def test_verification_ignores_domain_category(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
+    def test_verification_ignores_domain_category(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
         """
         TC-P2-N-06: Verification decisions do NOT depend on DomainCategory.
 

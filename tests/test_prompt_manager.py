@@ -8,9 +8,9 @@ Verifies:
 - Jinja2 template validation (JSON format, edge cases)
 """
 
-from collections.abc import Generator
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -98,9 +98,7 @@ class TestPromptManagerInit:
 class TestTemplateLoading:
     """Tests for template loading."""
 
-    def test_template_exists_true(
-        self, manager: PromptManager, temp_prompts_dir: Path
-    ) -> None:
+    def test_template_exists_true(self, manager: PromptManager, temp_prompts_dir: Path) -> None:
         """Test template_exists returns True for existing template."""
         assert manager.template_exists("simple")
 
@@ -122,9 +120,7 @@ class TestTemplateLoading:
             manager = PromptManager(prompts_dir=empty_dir)
             assert manager.list_templates() == []
 
-    def test_get_template_path(
-        self, manager: PromptManager, temp_prompts_dir: Path
-    ) -> None:
+    def test_get_template_path(self, manager: PromptManager, temp_prompts_dir: Path) -> None:
         """Test getting template path."""
         path = manager.get_template_path("simple")
         assert path == temp_prompts_dir / "simple.j2"

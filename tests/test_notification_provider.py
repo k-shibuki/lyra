@@ -92,8 +92,8 @@ Requirements tested:
 | TC-EC-A-01 | Timeout handling | Equivalence – abnormal | ok=False | - |
 """
 
-from collections.abc import Generator
 import asyncio
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -611,7 +611,9 @@ class TestWindowsToastProvider:
         assert result.message_id.startswith("win_")
 
     @pytest.mark.asyncio
-    async def test_send_escapes_special_characters(self, mock_subprocess_success: AsyncMock) -> None:
+    async def test_send_escapes_special_characters(
+        self, mock_subprocess_success: AsyncMock
+    ) -> None:
         """Test that special characters are properly escaped."""
         provider = WindowsToastProvider()
 
@@ -842,7 +844,9 @@ class TestNotificationProviderRegistry:
 
         assert registry.get_default() is provider2
 
-    def test_set_default_nonexistent_raises_error(self, registry: NotificationProviderRegistry) -> None:
+    def test_set_default_nonexistent_raises_error(
+        self, registry: NotificationProviderRegistry
+    ) -> None:
         """Test setting non-existent provider as default raises ValueError."""
         with pytest.raises(ValueError, match="not registered"):
             registry.set_default("nonexistent")
@@ -875,7 +879,9 @@ class TestNotificationProviderRegistry:
         assert "windows_toast" in health
 
     @pytest.mark.asyncio
-    async def test_send_uses_default(self, registry: NotificationProviderRegistry, mock_subprocess_success: AsyncMock) -> None:
+    async def test_send_uses_default(
+        self, registry: NotificationProviderRegistry, mock_subprocess_success: AsyncMock
+    ) -> None:
         """Test that send() uses default provider."""
         provider = LinuxNotifyProvider()
         registry.register(provider)
@@ -893,7 +899,9 @@ class TestNotificationProviderRegistry:
         assert result.provider == "linux_notify"
 
     @pytest.mark.asyncio
-    async def test_send_fallback_on_failure(self, registry: NotificationProviderRegistry, mock_subprocess_success: AsyncMock) -> None:
+    async def test_send_fallback_on_failure(
+        self, registry: NotificationProviderRegistry, mock_subprocess_success: AsyncMock
+    ) -> None:
         """Test that send() falls back to next provider on failure."""
         provider1 = LinuxNotifyProvider()
         provider2 = WindowsToastProvider()

@@ -304,7 +304,9 @@ class TestAcademicSearchProviderIntegration:
     """Test Unpaywall integration in AcademicSearchProvider."""
 
     @pytest.mark.asyncio
-    async def test_resolve_oa_url_for_paper_with_existing_oa_url(self, sample_paper_with_oa_url: Paper) -> None:
+    async def test_resolve_oa_url_for_paper_with_existing_oa_url(
+        self, sample_paper_with_oa_url: Paper
+    ) -> None:
         """TC-UP-N-03: Paper with existing OA URL."""
         # Given: Paper with existing OA URL
         provider = AcademicSearchProvider()
@@ -316,7 +318,9 @@ class TestAcademicSearchProviderIntegration:
         assert oa_url == "https://example.com/paper.pdf"
 
     @pytest.mark.asyncio
-    async def test_resolve_oa_url_for_paper_without_doi(self, sample_paper_without_doi: Paper) -> None:
+    async def test_resolve_oa_url_for_paper_without_doi(
+        self, sample_paper_without_doi: Paper
+    ) -> None:
         """TC-UP-A-08: Paper without DOI."""
         # Given: Paper without DOI
         provider = AcademicSearchProvider()
@@ -371,7 +375,9 @@ class TestAcademicSearchProviderIntegration:
         assert oa_url is None
 
     @pytest.mark.asyncio
-    async def test_resolve_oa_url_for_paper_exception_handling(self, sample_paper_with_doi: Paper) -> None:
+    async def test_resolve_oa_url_for_paper_exception_handling(
+        self, sample_paper_with_doi: Paper
+    ) -> None:
         """Test exception handling during OA URL resolution."""
         # Given: Paper with DOI and client initialization failure
         provider = AcademicSearchProvider()

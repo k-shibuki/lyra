@@ -361,8 +361,9 @@ class MCPIntegrationVerifier:
             )
 
         try:
-            from src.mcp.server import _dispatch_tool
             from typing import Any
+
+            from src.mcp.server import _dispatch_tool
 
             args: dict[str, Any] = {
                 "task_id": self.test_task_id,

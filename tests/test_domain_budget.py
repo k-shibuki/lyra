@@ -254,7 +254,9 @@ class TestDomainDailyBudgetManager:
             assert budget_after.requests_today == 0
             assert budget_after.date == "2099-01-01"
 
-    def test_tc_db_n_03_multiple_domains_independent(self, manager: DomainDailyBudgetManager) -> None:
+    def test_tc_db_n_03_multiple_domains_independent(
+        self, manager: DomainDailyBudgetManager
+    ) -> None:
         """TC-DB-N-03: Different domains have independent budgets."""
         # Given: Two domains
         manager.record_domain_request("domain1.com")
@@ -283,7 +285,9 @@ class TestDomainDailyBudgetManager:
         assert budget.max_requests_per_day == 50
         assert budget.max_pages_per_day == 25
 
-    def test_tc_db_a_02_unknown_domain_uses_defaults(self, manager: DomainDailyBudgetManager) -> None:
+    def test_tc_db_a_02_unknown_domain_uses_defaults(
+        self, manager: DomainDailyBudgetManager
+    ) -> None:
         """TC-DB-A-02: Unknown domain uses default limits."""
         # Given: Unknown domain
         # When: Getting budget

@@ -46,9 +46,9 @@ class AcademicSearchDebugger:
         Returns:
             Metrics dictionary
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Query: {query}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Execute search
         options = SearchOptions(limit=limit)
@@ -59,7 +59,7 @@ class AcademicSearchDebugger:
             "query": query,
             "total_results": len(response.results),
             "provider": response.provider,
-            "error": response.error if hasattr(response, 'error') else None,
+            "error": response.error if hasattr(response, "error") else None,
         }
 
         # Analyze results
@@ -69,11 +69,11 @@ class AcademicSearchDebugger:
 
         for result in response.results:
             # Count by source
-            source = getattr(result, 'engine', 'unknown')
+            source = getattr(result, "engine", "unknown")
             source_counts[source] = source_counts.get(source, 0) + 1
 
             # Check for DOI in URL
-            if result.url and 'doi.org' in result.url:
+            if result.url and "doi.org" in result.url:
                 doi_count += 1
 
             # Check for abstract
@@ -96,7 +96,7 @@ class AcademicSearchDebugger:
         # Print top 5 results
         print("\nTop 5 Results:")
         for i, result in enumerate(response.results[:5]):
-            print(f"  {i+1}. {result.title[:60]}...")
+            print(f"  {i + 1}. {result.title[:60]}...")
             print(f"     URL: {result.url[:60]}..." if result.url else "     URL: N/A")
             print()
 
@@ -108,9 +108,9 @@ class AcademicSearchDebugger:
         Returns:
             Test results
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Identifier Extraction Tests")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         test_urls = [
             ("https://doi.org/10.1038/nature12373", "doi", "10.1038/nature12373"),
@@ -153,9 +153,9 @@ class AcademicSearchDebugger:
         Returns:
             Test results
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Canonical Index Deduplication Tests")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         from src.search.provider import SearchResult
         from src.utils.schemas import Author, Paper, PaperIdentifier
@@ -208,7 +208,9 @@ class AcademicSearchDebugger:
             engine="google",
             rank=1,
         )
-        identifier = PaperIdentifier(doi="10.1234/test1", pmid=None, arxiv_id=None, crid=None, url=None)
+        identifier = PaperIdentifier(
+            doi="10.1234/test1", pmid=None, arxiv_id=None, crid=None, url=None
+        )
         id3 = index.register_serp_result(serp1, identifier)
         serp_link_success = id1 == id3
         print(f"  3. SERP result linked to existing: {'✓' if serp_link_success else '✗'}")
@@ -235,9 +237,9 @@ class AcademicSearchDebugger:
         Returns:
             Test results
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Abstract Only Strategy Tests")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         from src.search.canonical_index import CanonicalPaperIndex
         from src.utils.schemas import Author, Paper
@@ -326,9 +328,9 @@ class AcademicSearchDebugger:
         Returns:
             Test results
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Citation Graph Tests")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Use a known paper ID from Semantic Scholar
         # "Attention Is All You Need" paper
@@ -398,9 +400,9 @@ class AcademicSearchDebugger:
         results["search_tests"] = search_tests
 
         # Summary
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Summary")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         def _as_int(value: object, default: int = 0) -> int:
             return value if isinstance(value, int) else default
@@ -490,4 +492,3 @@ async def main() -> int:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

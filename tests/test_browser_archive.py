@@ -584,7 +584,9 @@ class TestBrowserArchiver:
         return BrowserArchiver(output_dir=temp_archive_dir)
 
     @pytest.mark.asyncio
-    async def test_save_archive_creates_cdxj(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
+    async def test_save_archive_creates_cdxj(
+        self, archiver: BrowserArchiver, temp_archive_dir: Path
+    ) -> None:
         """Test that save_archive creates CDXJ file (TC-BA-N-01)."""
         # Given: An archiver and content
         content = b"<html><head><title>Test</title></head><body>Hello</body></html>"
@@ -608,7 +610,9 @@ class TestBrowserArchiver:
         assert "sha256:" in cdxj_content
 
     @pytest.mark.asyncio
-    async def test_save_archive_creates_har(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
+    async def test_save_archive_creates_har(
+        self, archiver: BrowserArchiver, temp_archive_dir: Path
+    ) -> None:
         """Test that save_archive creates HAR file (TC-BA-N-02)."""
         # Given: An archiver and content
         content = b"<html><body>Test content</body></html>"
@@ -633,7 +637,9 @@ class TestBrowserArchiver:
         assert len(har_content["log"]["entries"]) >= 1
 
     @pytest.mark.asyncio
-    async def test_save_archive_with_collector(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
+    async def test_save_archive_with_collector(
+        self, archiver: BrowserArchiver, temp_archive_dir: Path
+    ) -> None:
         """Test saving archive with network event collector (TC-BA-N-03)."""
         # Given: A collector with events
         collector = NetworkEventCollector()
@@ -677,7 +683,9 @@ class TestBrowserArchiver:
         assert len(har_content["log"]["entries"]) >= 2
 
     @pytest.mark.asyncio
-    async def test_save_archive_adds_warc_reference(self, archiver: BrowserArchiver, temp_archive_dir: Path) -> None:
+    async def test_save_archive_adds_warc_reference(
+        self, archiver: BrowserArchiver, temp_archive_dir: Path
+    ) -> None:
         """Test that WARC path is added to CDXJ header (TC-BA-N-04)."""
         # Given: Content and WARC path
         content = b"<html></html>"

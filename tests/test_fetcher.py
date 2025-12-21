@@ -11,6 +11,8 @@ Covers:
 - Fetch cache database operations (§5.1.2)
 """
 
+from __future__ import annotations
+
 import gzip
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -36,13 +38,15 @@ class TestSaveWarc:
         return warc_path
 
     @pytest.fixture
-    def mock_warc_settings(self, mock_settings: "Settings", warc_dir: Path) -> "Settings":
+    def mock_warc_settings(self, mock_settings: Settings, warc_dir: Path) -> Settings:
         """Mock settings with temporary WARC directory."""
         mock_settings.storage.warc_dir = str(warc_dir)
         return mock_settings
 
     @pytest.mark.asyncio
-    async def test_save_warc_creates_file(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
+    async def test_save_warc_creates_file(
+        self, mock_warc_settings: Settings, warc_dir: Path
+    ) -> None:
         """Test that _save_warc creates a WARC file."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -63,7 +67,9 @@ class TestSaveWarc:
             assert "warc" in result.name.lower()
 
     @pytest.mark.asyncio
-    async def test_save_warc_contains_response_record(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
+    async def test_save_warc_contains_response_record(
+        self, mock_warc_settings: Settings, warc_dir: Path
+    ) -> None:
         """Test that WARC file contains valid response record."""
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
@@ -92,7 +98,9 @@ class TestSaveWarc:
             assert b"200 OK" in raw_warc
 
     @pytest.mark.asyncio
-    async def test_save_warc_with_request_headers(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
+    async def test_save_warc_with_request_headers(
+        self, mock_warc_settings: Settings, warc_dir: Path
+    ) -> None:
         """Test WARC file includes request record when headers provided."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -122,7 +130,9 @@ class TestSaveWarc:
             assert "response" in record_types
 
     @pytest.mark.asyncio
-    async def test_save_warc_different_status_codes(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
+    async def test_save_warc_different_status_codes(
+        self, mock_warc_settings: Settings, warc_dir: Path
+    ) -> None:
         """Test WARC saves various HTTP status codes correctly."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -145,7 +155,9 @@ class TestSaveWarc:
                 assert warc_path.exists()
 
     @pytest.mark.asyncio
-    async def test_save_warc_unicode_content(self, mock_warc_settings: "Settings", warc_dir: Path) -> None:
+    async def test_save_warc_unicode_content(
+        self, mock_warc_settings: Settings, warc_dir: Path
+    ) -> None:
         """Test WARC handles Unicode content correctly."""
         with patch("src.crawler.fetcher.get_settings", return_value=mock_warc_settings):
             from src.crawler.fetcher import _save_warc
@@ -880,7 +892,7 @@ class TestHTTPFetcherConditionalHeaders:
     """
 
     @pytest.mark.asyncio
-    async def test_url_specific_etag_takes_precedence(self, mock_settings: "Settings") -> None:
+    async def test_url_specific_etag_takes_precedence(self, mock_settings: Settings) -> None:
         """Test that URL-specific cached_etag is not overwritten by session headers.
 
         TC-CH-01: When cached_etag is provided, session transfer headers should
@@ -902,7 +914,9 @@ class TestHTTPFetcherConditionalHeaders:
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
                 # Mock session transfer to return conditional headers only when include_conditional=True
-                def mock_get_transfer_side_effect(url: str, include_conditional: bool = True) -> MagicMock:
+                def mock_get_transfer_side_effect(
+                    url: str, include_conditional: bool = True
+                ) -> MagicMock:
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
                     mock_transfer_result.session_id = "session_123"
@@ -951,7 +965,9 @@ class TestHTTPFetcherConditionalHeaders:
                     )
 
     @pytest.mark.asyncio
-    async def test_url_specific_last_modified_takes_precedence(self, mock_settings: "Settings") -> None:
+    async def test_url_specific_last_modified_takes_precedence(
+        self, mock_settings: Settings
+    ) -> None:
         """Test that URL-specific cached_last_modified is not overwritten.
 
         TC-CH-02: When cached_last_modified is provided, session transfer headers
@@ -972,7 +988,9 @@ class TestHTTPFetcherConditionalHeaders:
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
 
-                def mock_get_transfer_side_effect(url: str, include_conditional: bool = True) -> MagicMock:
+                def mock_get_transfer_side_effect(
+                    url: str, include_conditional: bool = True
+                ) -> MagicMock:
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
                     mock_transfer_result.session_id = "session_123"
@@ -1013,7 +1031,9 @@ class TestHTTPFetcherConditionalHeaders:
                     )
 
     @pytest.mark.asyncio
-    async def test_both_cached_values_exclude_session_conditionals(self, mock_settings: "Settings") -> None:
+    async def test_both_cached_values_exclude_session_conditionals(
+        self, mock_settings: Settings
+    ) -> None:
         """Test that both cached_etag and cached_last_modified exclude session conditionals.
 
         TC-CH-03: When both are provided, session should not include either conditional header.
@@ -1033,7 +1053,9 @@ class TestHTTPFetcherConditionalHeaders:
 
             with patch("src.crawler.session_transfer.get_transfer_headers") as mock_get_transfer:
 
-                def mock_get_transfer_side_effect(url: str, include_conditional: bool = True) -> MagicMock:
+                def mock_get_transfer_side_effect(
+                    url: str, include_conditional: bool = True
+                ) -> MagicMock:
                     mock_transfer_result = MagicMock()
                     mock_transfer_result.ok = True
                     mock_transfer_result.session_id = "session_123"
@@ -1067,7 +1089,9 @@ class TestHTTPFetcherConditionalHeaders:
                     )
 
     @pytest.mark.asyncio
-    async def test_no_cached_values_includes_session_conditionals(self, mock_settings: Settings) -> None:
+    async def test_no_cached_values_includes_session_conditionals(
+        self, mock_settings: Settings
+    ) -> None:
         """Test that session conditional headers are included when no cached values provided.
 
         TC-CH-04: When cached_etag and cached_last_modified are None, session should
@@ -1521,7 +1545,9 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["status"] == 200
 
     @pytest.mark.asyncio
-    async def test_fetch_times_out_returns_cumulative_timeout(self, mock_settings: "Settings") -> None:
+    async def test_fetch_times_out_returns_cumulative_timeout(
+        self, mock_settings: Settings
+    ) -> None:
         """
         TC-TO-02: Slow fetch exceeds timeout.
 
@@ -1549,7 +1575,7 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["method"] == "timeout"
 
     @pytest.mark.asyncio
-    async def test_fetch_zero_timeout_immediate_failure(self, mock_settings: "Settings") -> None:
+    async def test_fetch_zero_timeout_immediate_failure(self, mock_settings: Settings) -> None:
         """
         TC-TO-03: Zero timeout boundary.
 
@@ -1577,7 +1603,7 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["reason"] == "cumulative_timeout"
 
     @pytest.mark.asyncio
-    async def test_policy_override_max_fetch_time(self, mock_settings: "Settings") -> None:
+    async def test_policy_override_max_fetch_time(self, mock_settings: Settings) -> None:
         """
         TC-TO-04: Policy overrides default max_fetch_time.
 
@@ -1608,7 +1634,7 @@ class TestFetchUrlCumulativeTimeout:
                 assert result["reason"] == "cumulative_timeout"
 
     @pytest.mark.asyncio
-    async def test_cumulative_timeout_aborts_escalation(self, mock_settings: "Settings") -> None:
+    async def test_cumulative_timeout_aborts_escalation(self, mock_settings: Settings) -> None:
         """
         TC-TO-05: Timeout aborts multi-stage escalation.
 

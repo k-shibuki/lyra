@@ -521,7 +521,9 @@ class TestIPv6ConnectionManager:
         assert stats.ipv6_success_rate == 0.5
 
     @pytest.mark.asyncio
-    async def test_get_domain_stats_returns_existing(self, ipv6_manager: IPv6ConnectionManager) -> None:
+    async def test_get_domain_stats_returns_existing(
+        self, ipv6_manager: IPv6ConnectionManager
+    ) -> None:
         """get_domain_stats should return existing stats."""
         # Create stats
         stats1 = await ipv6_manager.get_domain_stats("example.com")
@@ -593,7 +595,9 @@ class TestIPv6ConnectionManager:
         assert addresses[1].family == AddressFamily.IPV6
 
     @pytest.mark.asyncio
-    async def test_record_connection_result_updates_stats(self, ipv6_manager: IPv6ConnectionManager) -> None:
+    async def test_record_connection_result_updates_stats(
+        self, ipv6_manager: IPv6ConnectionManager
+    ) -> None:
         """record_connection_result should update domain stats."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -612,7 +616,9 @@ class TestIPv6ConnectionManager:
         assert stats.ipv6_successes == 1
 
     @pytest.mark.asyncio
-    async def test_record_connection_result_with_switch(self, ipv6_manager: IPv6ConnectionManager) -> None:
+    async def test_record_connection_result_with_switch(
+        self, ipv6_manager: IPv6ConnectionManager
+    ) -> None:
         """record_connection_result should track switches."""
         result = IPv6ConnectionResult(
             hostname="example.com",
@@ -668,7 +674,9 @@ class TestIPv6ConnectionManager:
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
-        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
+        async def mock_connect(
+            address: tuple[str, int], family: AddressFamily
+        ) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -685,9 +693,7 @@ class TestIPv6ConnectionManager:
         assert result.switched is False
 
     @pytest.mark.asyncio
-    async def test_try_connect_with_fallback_to_secondary(
-        self, mock_settings: MagicMock
-    ) -> None:
+    async def test_try_connect_with_fallback_to_secondary(self, mock_settings: MagicMock) -> None:
         """try_connect_with_fallback should fallback when primary fails."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
@@ -696,7 +702,9 @@ class TestIPv6ConnectionManager:
 
         call_count = 0
 
-        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
+        async def mock_connect(
+            address: tuple[str, int], family: AddressFamily
+        ) -> tuple[bool, str | None]:
             nonlocal call_count
             call_count += 1
             # First call (IPv6) fails, second (IPv4) succeeds
@@ -719,16 +727,16 @@ class TestIPv6ConnectionManager:
         assert result.switch_success is True
 
     @pytest.mark.asyncio
-    async def test_try_connect_with_fallback_all_fail(
-        self, mock_settings: MagicMock
-    ) -> None:
+    async def test_try_connect_with_fallback_all_fail(self, mock_settings: MagicMock) -> None:
         """try_connect_with_fallback should fail when all attempts fail."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
-        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
+        async def mock_connect(
+            address: tuple[str, int], family: AddressFamily
+        ) -> tuple[bool, str | None]:
             return False, "Connection refused"
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -749,7 +757,9 @@ class TestIPv6ConnectionManager:
     async def test_try_connect_no_addresses(self, mock_settings: MagicMock) -> None:
         """try_connect_with_fallback should handle no resolved addresses."""
 
-        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
+        async def mock_connect(
+            address: tuple[str, int], family: AddressFamily
+        ) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -1011,7 +1021,9 @@ class TestIPv6BoundaryConditions:
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
         ]
 
-        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
+        async def mock_connect(
+            address: tuple[str, int], family: AddressFamily
+        ) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):
@@ -1035,7 +1047,9 @@ class TestIPv6BoundaryConditions:
             (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.168.1.1", 0)),
         ]
 
-        async def mock_connect(address: tuple[str, int], family: AddressFamily) -> tuple[bool, str | None]:
+        async def mock_connect(
+            address: tuple[str, int], family: AddressFamily
+        ) -> tuple[bool, str | None]:
             return True, None
 
         with patch("src.crawler.ipv6_manager.get_settings", return_value=mock_settings):

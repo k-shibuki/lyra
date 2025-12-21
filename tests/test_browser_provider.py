@@ -64,6 +64,7 @@ Tests cover:
 """
 
 from collections.abc import Generator
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -675,7 +676,9 @@ class TestBrowserProviderRegistry:
         assert len(provider1.navigate_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_navigate_with_fallback_tries_next_on_failure(self, reset_registry: object) -> None:
+    async def test_navigate_with_fallback_tries_next_on_failure(
+        self, reset_registry: object
+    ) -> None:
         """navigate_with_fallback() tries next provider on failure."""
         registry = BrowserProviderRegistry()
         failing_provider = MockBrowserProvider("failing", should_succeed=False)

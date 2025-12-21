@@ -58,6 +58,7 @@ BrowserSearchProvider tests are in test_browser_search_provider.py.
 """
 
 from collections.abc import Generator
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -918,7 +919,9 @@ class TestSearchProviderRegistry:
         assert mock_provider.search_calls[0][0] == "test query"
 
     @pytest.mark.asyncio
-    async def test_search_with_fallback_uses_fallback(self, sample_results: list[SearchResult]) -> None:
+    async def test_search_with_fallback_uses_fallback(
+        self, sample_results: list[SearchResult]
+    ) -> None:
         """TC-RG-N-06: Test that fallback is used when primary fails.
 
         // Given: Primary provider fails, backup provider available
@@ -943,7 +946,9 @@ class TestSearchProviderRegistry:
         assert len(response.results) == 3
 
     @pytest.mark.asyncio
-    async def test_search_with_fallback_skips_unhealthy(self, sample_results: list[SearchResult]) -> None:
+    async def test_search_with_fallback_skips_unhealthy(
+        self, sample_results: list[SearchResult]
+    ) -> None:
         """TC-RG-N-07: Test that unhealthy providers are skipped.
 
         // Given: Unhealthy primary provider, healthy backup

@@ -105,6 +105,7 @@ Test design follows §7.1 Test Code Quality Standards:
 """
 
 from collections.abc import Generator
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -729,7 +730,9 @@ class TestDomainPolicyManagerLookup:
         assert policy2.domain_category == DomainCategory.ACADEMIC
         assert policy3.domain_category == DomainCategory.ACADEMIC
 
-    def test_get_policy_daily_budget_from_allowlist(self, policy_manager: DomainPolicyManager) -> None:
+    def test_get_policy_daily_budget_from_allowlist(
+        self, policy_manager: DomainPolicyManager
+    ) -> None:
         """Verify daily budget limits from allowlist are applied (§4.3 - Problem 11)."""
         # When - wikipedia.org has custom limits in config/domains.yaml
         policy = policy_manager.get_policy("wikipedia.org")
@@ -799,7 +802,9 @@ class TestDomainPolicyManagerInternalSearch:
         assert template.search_button == "button[type='submit']"
         assert template.results_selector == ".arxiv-result"
 
-    def test_get_internal_search_template_not_exists(self, policy_manager: DomainPolicyManager) -> None:
+    def test_get_internal_search_template_not_exists(
+        self, policy_manager: DomainPolicyManager
+    ) -> None:
         """Verify None is returned for domain without template."""
         # When
         template = policy_manager.get_internal_search_template("unknown.com")
@@ -807,12 +812,16 @@ class TestDomainPolicyManagerInternalSearch:
         # Then
         assert template is None
 
-    def test_has_internal_search_true_from_allowlist(self, policy_manager: DomainPolicyManager) -> None:
+    def test_has_internal_search_true_from_allowlist(
+        self, policy_manager: DomainPolicyManager
+    ) -> None:
         """Verify has_internal_search returns True for allowlist internal_search=True."""
         # Then
         assert policy_manager.has_internal_search("arxiv.org") is True
 
-    def test_has_internal_search_true_from_template(self, policy_manager: DomainPolicyManager) -> None:
+    def test_has_internal_search_true_from_template(
+        self, policy_manager: DomainPolicyManager
+    ) -> None:
         """Verify has_internal_search returns True for domain with template."""
         # Then
         assert policy_manager.has_internal_search("pubmed.ncbi.nlm.nih.gov") is True
@@ -1392,7 +1401,9 @@ class TestSearchEnginePolicyAccess:
         # Then
         assert cooldown == 120
 
-    def test_get_circuit_breaker_failure_threshold(self, policy_manager: DomainPolicyManager) -> None:
+    def test_get_circuit_breaker_failure_threshold(
+        self, policy_manager: DomainPolicyManager
+    ) -> None:
         """Verify get_circuit_breaker_failure_threshold returns correct value."""
         # When
         threshold = policy_manager.get_circuit_breaker_failure_threshold()
@@ -1419,7 +1430,9 @@ class TestPolicyBoundsAccess:
         assert bounds.engine_weight is not None
         assert bounds.domain_qps is not None
 
-    def test_get_bounds_for_parameter_engine_weight(self, policy_manager: DomainPolicyManager) -> None:
+    def test_get_bounds_for_parameter_engine_weight(
+        self, policy_manager: DomainPolicyManager
+    ) -> None:
         """Verify get_bounds_for_parameter returns correct bounds for engine_weight."""
         # When
         bounds = policy_manager.get_bounds_for_parameter("engine_weight")
@@ -1443,7 +1456,9 @@ class TestPolicyBoundsAccess:
         assert bounds.max == 0.3
         assert bounds.default == 0.2
 
-    def test_get_bounds_for_parameter_nonexistent(self, policy_manager: DomainPolicyManager) -> None:
+    def test_get_bounds_for_parameter_nonexistent(
+        self, policy_manager: DomainPolicyManager
+    ) -> None:
         """Verify get_bounds_for_parameter returns None for unknown parameter."""
         # When
         bounds = policy_manager.get_bounds_for_parameter("nonexistent_param")

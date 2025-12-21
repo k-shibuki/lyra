@@ -30,8 +30,10 @@ See also:
 =============================================================================
 """
 
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
+
 import pytest
+
 from src.ml_client import MLClient
 
 # =============================================================================

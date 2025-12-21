@@ -1141,7 +1141,9 @@ class TestCalibrationEvaluator:
                 return CalibrationEvaluator(db=mock_db)
 
     @pytest.mark.asyncio
-    async def test_save_evaluation(self, evaluator: CalibrationEvaluator, mock_db: MagicMock) -> None:
+    async def test_save_evaluation(
+        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
+    ) -> None:
         """save_evaluation should calculate metrics and save to DB."""
         predictions = [0.1, 0.4, 0.6, 0.9, 0.2, 0.8, 0.3, 0.7, 0.5, 0.95]
         labels = [0, 0, 1, 1, 0, 1, 0, 1, 0, 1]
@@ -1156,7 +1158,9 @@ class TestCalibrationEvaluator:
         mock_db.execute.assert_called()
 
     @pytest.mark.asyncio
-    async def test_save_evaluation_stores_correct_brier(self, evaluator: CalibrationEvaluator, mock_db: MagicMock) -> None:
+    async def test_save_evaluation_stores_correct_brier(
+        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
+    ) -> None:
         """save_evaluation should calculate correct Brier score."""
         # Perfect predictions
         predictions = [0.0, 0.0, 1.0, 1.0]
@@ -1175,7 +1179,9 @@ class TestCalibrationEvaluator:
         assert id1.startswith("eval_")
 
     @pytest.mark.asyncio
-    async def test_get_evaluations_empty(self, evaluator: CalibrationEvaluator, mock_db: MagicMock) -> None:
+    async def test_get_evaluations_empty(
+        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
+    ) -> None:
         """get_evaluations should return empty list when no data."""
         mock_cursor = MagicMock()
         mock_cursor.fetchall = AsyncMock(return_value=[])
@@ -1186,7 +1192,9 @@ class TestCalibrationEvaluator:
         assert evaluations == []
 
     @pytest.mark.asyncio
-    async def test_get_reliability_diagram_data_no_evaluation(self, evaluator: CalibrationEvaluator, mock_db: MagicMock) -> None:
+    async def test_get_reliability_diagram_data_no_evaluation(
+        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
+    ) -> None:
         """get_reliability_diagram_data should return error when no evaluation."""
         mock_cursor = MagicMock()
         mock_cursor.fetchall = AsyncMock(return_value=[])
@@ -1198,7 +1206,9 @@ class TestCalibrationEvaluator:
         assert result["reason"] == "no_evaluation_found"
 
     @pytest.mark.asyncio
-    async def test_count_evaluations(self, evaluator: CalibrationEvaluator, mock_db: MagicMock) -> None:
+    async def test_count_evaluations(
+        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
+    ) -> None:
         """count_evaluations should return count."""
         mock_cursor = MagicMock()
         mock_cursor.fetchone = AsyncMock(return_value=(5,))

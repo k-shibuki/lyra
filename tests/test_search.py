@@ -1268,7 +1268,13 @@ class TestMirrorQueryGeneration:
         """Create a mock Ollama client for translation tests."""
 
         class MockOllamaClient:
-            async def generate(self, prompt: str, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None) -> str:
+            async def generate(
+                self,
+                prompt: str,
+                model: str | None = None,
+                temperature: float | None = None,
+                max_tokens: int | None = None,
+            ) -> str:
                 # Extract query from prompt and return translation
                 if "機械学習" in prompt:
                     return "machine learning"
@@ -1343,7 +1349,13 @@ class TestMirrorQueryGeneration:
         call_count = 0
 
         class CountingMockClient:
-            async def generate(self, prompt: str, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None) -> str:
+            async def generate(
+                self,
+                prompt: str,
+                model: str | None = None,
+                temperature: float | None = None,
+                max_tokens: int | None = None,
+            ) -> str:
                 nonlocal call_count
                 call_count += 1
                 return "security"
@@ -1358,7 +1370,9 @@ class TestMirrorQueryGeneration:
         assert call_count == 1, f"LLM should only be called once, was called {call_count} times"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_queries_multiple_languages(self, mock_ollama_client: object) -> None:
+    async def test_generate_mirror_queries_multiple_languages(
+        self, mock_ollama_client: object
+    ) -> None:
         """Test generating mirrors in multiple target languages."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_queries
 

@@ -251,20 +251,28 @@ class SearchFetchVerifier:
                     print(f"    ✓ Status: {fetch_result.status}")
                     if fetch_result.html_path:
                         from pathlib import Path
-                        content_length = Path(fetch_result.html_path).stat().st_size if Path(fetch_result.html_path).exists() else 0
+
+                        content_length = (
+                            Path(fetch_result.html_path).stat().st_size
+                            if Path(fetch_result.html_path).exists()
+                            else 0
+                        )
                         print(f"    ✓ Content: {content_length} bytes")
                     successful_fetches += 1
 
                     # BrowserFetcher.fetch automatically captures session
                     # Check if session was captured by verifying session stats increased
                     final_stats = manager.get_session_stats()
-                    session_captured = final_stats["total_sessions"] > initial_stats["total_sessions"]
+                    session_captured = (
+                        final_stats["total_sessions"] > initial_stats["total_sessions"]
+                    )
 
                     # Get session for domain if captured
                     session_id: str | None = None
                     if session_captured:
                         parsed = urlparse(url)
                         from src.crawler.sec_fetch import _get_registrable_domain
+
                         domain = _get_registrable_domain(parsed.netloc)
                         session_for_domain = manager.get_session_for_domain(domain)
                         session_id = session_for_domain[0] if session_for_domain else None
@@ -618,7 +626,9 @@ class SearchFetchVerifier:
                     if result.ok and result.results:
                         print(f"    ✓ {engine}: {len(result.results)} results")
                         successful_engines.append(engine)
-                    elif result.error and ("captcha" in result.error.lower() or "challenge" in result.error.lower()):
+                    elif result.error and (
+                        "captcha" in result.error.lower() or "challenge" in result.error.lower()
+                    ):
                         print(f"    ! {engine}: CAPTCHA detected (expected behavior)")
                         successful_engines.append(engine)  # Detection is success
                     else:

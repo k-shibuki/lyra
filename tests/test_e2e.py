@@ -38,11 +38,11 @@ Usage:
 | TC-E2E-N-16 | LLM extract with simple passage | Equivalence – LLM extraction | Extraction succeeds | LLM integration |
 """
 
-from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING
 import os
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
@@ -163,7 +163,9 @@ class TestSearchToReportPipeline:
     """
 
     @pytest.mark.asyncio
-    async def test_search_returns_results(self, check_browser_search: bool, e2e_database: "Database") -> None:
+    async def test_search_returns_results(
+        self, check_browser_search: bool, e2e_database: "Database"
+    ) -> None:
         """
         Verify browser-based search returns normalized results.
 
@@ -202,7 +204,9 @@ class TestSearchToReportPipeline:
         print(f"[E2E] First result: {first_result['title'][:50]}...")
 
     @pytest.mark.asyncio
-    async def test_fetch_and_extract_content(self, check_browser_search: bool, e2e_database: "Database") -> None:
+    async def test_fetch_and_extract_content(
+        self, check_browser_search: bool, e2e_database: "Database"
+    ) -> None:
         """
         Verify URL fetching and content extraction.
 
@@ -255,7 +259,9 @@ class TestSearchToReportPipeline:
             pytest.skip("Could not retrieve HTML content for extraction test")
 
     @pytest.mark.asyncio
-    async def test_full_pipeline_simulation(self, check_browser_search: bool, e2e_database: "Database") -> None:
+    async def test_full_pipeline_simulation(
+        self, check_browser_search: bool, e2e_database: "Database"
+    ) -> None:
         """
         Simulate a complete research pipeline.
 
@@ -322,7 +328,9 @@ class TestSearchToReportPipeline:
         print(f"[E2E] Subquery status: {status['subqueries'][0]['status']}")
 
     @pytest.mark.asyncio
-    async def test_report_materials_generation(self, check_browser_search: bool, e2e_database: "Database") -> None:
+    async def test_report_materials_generation(
+        self, check_browser_search: bool, e2e_database: "Database"
+    ) -> None:
         """
         Test report materials can be generated from research data.
 
@@ -916,7 +924,9 @@ class TestCompleteResearchFlow:
     """
 
     @pytest.mark.asyncio
-    async def test_end_to_end_research_workflow(self, check_browser_search: bool, e2e_database: "Database") -> None:
+    async def test_end_to_end_research_workflow(
+        self, check_browser_search: bool, e2e_database: "Database"
+    ) -> None:
         """
         Complete E2E test of the research workflow.
 

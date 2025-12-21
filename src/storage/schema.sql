@@ -160,6 +160,13 @@ CREATE TABLE IF NOT EXISTS edges (
     confidence REAL,
     nli_label TEXT,  -- From NLI model
     nli_confidence REAL,
+    -- Academic / citation metadata
+    is_academic BOOLEAN DEFAULT 0,
+    is_influential BOOLEAN DEFAULT 0,
+    citation_context TEXT,
+    -- Trust level snapshots (optional)
+    source_trust_level TEXT,
+    target_trust_level TEXT,
     -- Domain category information for ranking adjustment and high-reasoning AI (Phase P.2)
     source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
     target_domain_category TEXT,

@@ -52,7 +52,9 @@ class TestPipelineTimeout:
         return db
 
     @pytest.mark.asyncio
-    async def test_execute_respects_timeout_setting(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_respects_timeout_setting(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-A-01: Test that execute times out when execution exceeds timeout.
 
@@ -84,7 +86,9 @@ class TestPipelineTimeout:
             assert "0.1" in result.errors[0] or "safe stop" in result.errors[0]
 
     @pytest.mark.asyncio
-    async def test_execute_returns_partial_result_on_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_returns_partial_result_on_timeout(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-A-01: Test that partial results are returned on timeout.
 
@@ -115,7 +119,9 @@ class TestPipelineTimeout:
             assert result.is_partial is True
 
     @pytest.mark.asyncio
-    async def test_execute_includes_budget_on_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_includes_budget_on_timeout(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-A-01: Test that budget info is included even on timeout.
 
@@ -145,7 +151,9 @@ class TestPipelineTimeout:
             assert result.budget_remaining["pages"] == 110
 
     @pytest.mark.asyncio
-    async def test_execute_completes_within_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_completes_within_timeout(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-N-01: Test that fast execution completes normally.
 
@@ -178,7 +186,9 @@ class TestPipelineTimeout:
             assert len(result.errors) == 0
 
     @pytest.mark.asyncio
-    async def test_execute_logs_timeout_warning(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_logs_timeout_warning(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-A-01: Test that timeout is logged as warning.
 
@@ -210,7 +220,9 @@ class TestPipelineTimeout:
             assert "timeout" in call_args[0][0].lower()
 
     @pytest.mark.asyncio
-    async def test_execute_handles_exception_during_execution(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_handles_exception_during_execution(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-A-02: Test that exceptions during execution are handled.
 
@@ -240,7 +252,9 @@ class TestPipelineTimeout:
             assert "Simulated failure" in result.errors[0]
 
     @pytest.mark.asyncio
-    async def test_execute_boundary_just_under_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_boundary_just_under_timeout(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-B-01: Test execution just under timeout completes normally.
 
@@ -272,7 +286,9 @@ class TestPipelineTimeout:
             assert result.is_partial is False
 
     @pytest.mark.asyncio
-    async def test_execute_boundary_just_over_timeout(self, mock_state: MagicMock, mock_db: AsyncMock) -> None:
+    async def test_execute_boundary_just_over_timeout(
+        self, mock_state: MagicMock, mock_db: AsyncMock
+    ) -> None:
         """
         PT-B-02: Test execution just over timeout triggers timeout.
 

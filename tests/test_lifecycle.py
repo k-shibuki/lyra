@@ -39,8 +39,8 @@ after each task completion to prevent memory leaks.
 | TC-LC-N-26 | set_llm_task_id | Equivalence – normal | task_id set | Convenience function |
 """
 
-from collections.abc import Generator
 import asyncio
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -467,7 +467,9 @@ class TestOllamaSessionCleanup:
         return ProcessLifecycleManager()
 
     @pytest.mark.asyncio
-    async def test_cleanup_ollama_session_with_unload(self, manager: ProcessLifecycleManager) -> None:
+    async def test_cleanup_ollama_session_with_unload(
+        self, manager: ProcessLifecycleManager
+    ) -> None:
         """Test cleaning up Ollama session unloads model when configured."""
         # Given: An Ollama session resource with unload configured
         mock_session = AsyncMock()
@@ -661,7 +663,9 @@ class TestErrorHandling:
         assert manager.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_cleanup_callback_exception_doesnt_stop_others(self, manager: ProcessLifecycleManager) -> None:
+    async def test_cleanup_callback_exception_doesnt_stop_others(
+        self, manager: ProcessLifecycleManager
+    ) -> None:
         """Test exception in one callback doesn't stop other callbacks."""
         # Given: Two callbacks, one that throws
         callback1_called = False

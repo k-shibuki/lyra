@@ -31,7 +31,6 @@ import pytest
 pytestmark = pytest.mark.unit
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from src.crawler.crt_transparency import (

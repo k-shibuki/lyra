@@ -72,7 +72,9 @@ class TestMCPIdleWarning:
         return state
 
     @pytest.mark.asyncio
-    async def test_get_status_includes_idle_seconds(self, mock_db: AsyncMock, mock_state: MagicMock) -> None:
+    async def test_get_status_includes_idle_seconds(
+        self, mock_db: AsyncMock, mock_state: MagicMock
+    ) -> None:
         """
         MH-N-02: Test that get_status response includes idle_seconds field.
 
@@ -139,7 +141,9 @@ class TestMCPIdleWarning:
             mock_state.record_activity.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_stop_task_records_activity(self, mock_db: AsyncMock, mock_state: MagicMock) -> None:
+    async def test_stop_task_records_activity(
+        self, mock_db: AsyncMock, mock_state: MagicMock
+    ) -> None:
         """
         MH-N-01: Test that stop_task handler records activity.
 
@@ -276,7 +280,9 @@ class TestMCPIdleWarning:
             assert "task_id" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_search_query_none_raises_error(self, mock_db: AsyncMock, mock_state: MagicMock) -> None:
+    async def test_search_query_none_raises_error(
+        self, mock_db: AsyncMock, mock_state: MagicMock
+    ) -> None:
         """
         MH-A-03: Test that query=None raises InvalidParamsError.
 
@@ -301,7 +307,9 @@ class TestMCPIdleWarning:
             assert "query" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_search_query_empty_raises_error(self, mock_db: AsyncMock, mock_state: MagicMock) -> None:
+    async def test_search_query_empty_raises_error(
+        self, mock_db: AsyncMock, mock_state: MagicMock
+    ) -> None:
         """
         MH-A-04: Test that query="" raises InvalidParamsError.
 

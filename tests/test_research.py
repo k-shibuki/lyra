@@ -57,6 +57,8 @@ Test Quality Standards (§7.1):
 | TC-ES-B-01 | pages_limit=0 | Boundary – zero limit | Immediate budget exceeded | - |
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -141,7 +143,9 @@ class TestResearchContext:
         assert "academic" in template_names
 
     @pytest.mark.asyncio
-    async def test_get_context_does_not_return_subquery_candidates(self, test_database: Database) -> None:
+    async def test_get_context_does_not_return_subquery_candidates(
+        self, test_database: Database
+    ) -> None:
         """
         Verify that get_context does NOT return subquery candidates.
 
@@ -820,7 +824,9 @@ class TestExplorationState:
         )
 
     @pytest.mark.asyncio
-    async def test_auth_queue_critical_threshold_by_high_priority(self, test_database: Database) -> None:
+    async def test_auth_queue_critical_threshold_by_high_priority(
+        self, test_database: Database
+    ) -> None:
         """
         Verify critical alert is generated when high_priority >= 2.
 
@@ -1272,7 +1278,7 @@ class TestStopTaskAction:
     """
 
     @pytest.mark.asyncio
-    async def test_stop_task_handles_missing_summary(self, test_database: "Database") -> None:
+    async def test_stop_task_handles_missing_summary(self, test_database: Database) -> None:
         """
         TC-PIPE-A-01: stop_task_action handles missing summary key.
 
@@ -1306,7 +1312,7 @@ class TestStopTaskAction:
         assert result["summary"]["primary_source_ratio"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_stop_task_handles_empty_nested_dicts(self, test_database: "Database") -> None:
+    async def test_stop_task_handles_empty_nested_dicts(self, test_database: Database) -> None:
         """
         TC-PIPE-A-02: stop_task_action handles empty nested dicts.
 
@@ -1342,7 +1348,7 @@ class TestStopTaskAction:
         assert result["summary"]["primary_source_ratio"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_stop_task_normal_finalize(self, test_database: "Database") -> None:
+    async def test_stop_task_normal_finalize(self, test_database: Database) -> None:
         """
         TC-PIPE-N-01: stop_task_action works with complete finalize_result.
 

@@ -251,7 +251,9 @@ class TestTemporalConsistencyChecker:
         """Fixed current time for testing."""
         return datetime(2024, 6, 15, tzinfo=UTC)
 
-    def test_consistent_claim(self, checker: TemporalConsistencyChecker, current_time: datetime) -> None:
+    def test_consistent_claim(
+        self, checker: TemporalConsistencyChecker, current_time: datetime
+    ) -> None:
         """Claim dated before page should be consistent."""
         claim_text = "This was announced in 2023."
         page_metadata = {"published_date": "2024-01-01"}
@@ -261,7 +263,9 @@ class TestTemporalConsistencyChecker:
         assert result.level == ConsistencyLevel.CONSISTENT
         assert result.trust_decay > 0.9
 
-    def test_inconsistent_claim_future_date(self, checker: TemporalConsistencyChecker, current_time: datetime) -> None:
+    def test_inconsistent_claim_future_date(
+        self, checker: TemporalConsistencyChecker, current_time: datetime
+    ) -> None:
         """Claim referencing future event should be inconsistent."""
         claim_text = "This will happen in 2025-12-01."
         page_metadata = {"published_date": "2024-01-01"}
@@ -283,7 +287,9 @@ class TestTemporalConsistencyChecker:
         assert result.age_days is not None
         assert result.age_days > 365 * 5
 
-    def test_uncertain_no_dates(self, checker: TemporalConsistencyChecker, current_time: datetime) -> None:
+    def test_uncertain_no_dates(
+        self, checker: TemporalConsistencyChecker, current_time: datetime
+    ) -> None:
         """Missing dates should result in uncertain."""
         claim_text = "This is a claim without any dates."
         page_metadata: dict[str, Any] = {}
@@ -324,7 +330,9 @@ class TestTemporalConsistencyChecker:
         # 2010 claim matches page date but is stale relative to current_time (2024)
         assert results[1].level == ConsistencyLevel.STALE
 
-    def test_batch_check_no_dates(self, checker: TemporalConsistencyChecker, current_time: datetime) -> None:
+    def test_batch_check_no_dates(
+        self, checker: TemporalConsistencyChecker, current_time: datetime
+    ) -> None:
         """Should handle claims with no dates."""
         claims = [
             {"text": "No date mentioned"},

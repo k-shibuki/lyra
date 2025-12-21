@@ -27,6 +27,7 @@ Follows test-strategy.mdc:
 
 from collections.abc import Generator
 from typing import Any
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -165,7 +166,9 @@ def reset_provider() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def browser_search_provider(mock_human_behavior_simulator: MagicMock) -> Generator[BrowserSearchProvider, None, None]:
+def browser_search_provider(
+    mock_human_behavior_simulator: MagicMock,
+) -> Generator[BrowserSearchProvider, None, None]:
     """Create a properly managed BrowserSearchProvider for tests.
 
     Ensures the provider is properly closed after each test to prevent
@@ -481,7 +484,9 @@ class TestBrowserSearchProvider:
         await provider.close()
 
     @pytest.mark.asyncio
-    async def test_search_timeout(self, mock_playwright: AsyncMock, mock_context: AsyncMock) -> None:
+    async def test_search_timeout(
+        self, mock_playwright: AsyncMock, mock_context: AsyncMock
+    ) -> None:
         """Test search timeout handling.
 
         Given: Page navigation times out
@@ -570,7 +575,9 @@ class TestBrowserSearchProvider:
         assert health.state == HealthState.UNHEALTHY
 
     @pytest.mark.asyncio
-    async def test_close_provider(self, mock_playwright: AsyncMock, mock_browser: AsyncMock, mock_context: AsyncMock) -> None:
+    async def test_close_provider(
+        self, mock_playwright: AsyncMock, mock_browser: AsyncMock, mock_context: AsyncMock
+    ) -> None:
         """Test provider cleanup."""
         provider = BrowserSearchProvider()
 
@@ -1038,7 +1045,9 @@ class TestBrowserSearchProviderHumanBehavior:
     """Tests for human-like behavior integration in BrowserSearchProvider.search() (§4.3.4)."""
 
     @pytest.mark.asyncio
-    async def test_search_applies_human_behavior(self, mock_playwright: AsyncMock, mock_parse_result: ParseResult) -> None:
+    async def test_search_applies_human_behavior(
+        self, mock_playwright: AsyncMock, mock_parse_result: ParseResult
+    ) -> None:
         """Test BrowserSearchProvider.search() applies human behavior to results page.
 
         Given: Search executed, results page has links
@@ -1098,7 +1107,9 @@ class TestBrowserSearchProviderHumanBehavior:
         await provider.close()
 
     @pytest.mark.asyncio
-    async def test_search_with_no_links(self, mock_playwright: AsyncMock, mock_parse_result: ParseResult) -> None:
+    async def test_search_with_no_links(
+        self, mock_playwright: AsyncMock, mock_parse_result: ParseResult
+    ) -> None:
         """Test BrowserSearchProvider.search() handles pages with no result links.
 
         Given: Search executed, results page has no links
@@ -1154,7 +1165,9 @@ class TestBrowserSearchProviderHumanBehavior:
         await provider.close()
 
     @pytest.mark.asyncio
-    async def test_search_with_link_search_exception(self, mock_playwright: AsyncMock, mock_parse_result: ParseResult) -> None:
+    async def test_search_with_link_search_exception(
+        self, mock_playwright: AsyncMock, mock_parse_result: ParseResult
+    ) -> None:
         """Test BrowserSearchProvider.search() handles exceptions during link search gracefully.
 
         Given: Search executed, query_selector_all raises exception
@@ -1210,7 +1223,9 @@ class TestBrowserSearchProviderHumanBehavior:
         await provider.close()
 
     @pytest.mark.asyncio
-    async def test_search_with_simulate_reading_exception(self, mock_playwright: AsyncMock, mock_parse_result: ParseResult) -> None:
+    async def test_search_with_simulate_reading_exception(
+        self, mock_playwright: AsyncMock, mock_parse_result: ParseResult
+    ) -> None:
         """Test BrowserSearchProvider.search() handles exceptions during simulate_reading gracefully.
 
         Given: Search executed, simulate_reading raises exception
@@ -3128,8 +3143,16 @@ class TestDynamicWeightUsage:
                             with patch.object(provider, "_save_session", AsyncMock()):
                                 with patch.object(provider, "_rate_limit", AsyncMock()):
                                     with patch.object(provider, "_human_behavior"):
-                                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()):
-                                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()):
+                                        with patch.object(
+                                            provider._human_behavior,
+                                            "simulate_reading",
+                                            AsyncMock(),
+                                        ):
+                                            with patch.object(
+                                                provider._human_behavior,
+                                                "move_mouse_to_element",
+                                                AsyncMock(),
+                                            ):
                                                 # When: search() is called
                                                 response = await provider.search("test query")
 
@@ -3137,9 +3160,7 @@ class TestDynamicWeightUsage:
                                                 mock_policy_engine.get_dynamic_engine_weight.assert_called()
 
                                                 # Verify engine and category were passed
-                                                call_args = (
-                                                    mock_policy_engine.get_dynamic_engine_weight.call_args
-                                                )
+                                                call_args = mock_policy_engine.get_dynamic_engine_weight.call_args
                                                 assert call_args[0][0] == "duckduckgo"  # engine
 
                                                 assert response.ok is True
@@ -3273,8 +3294,16 @@ class TestDynamicWeightUsage:
                             with patch.object(provider, "_save_session", AsyncMock()):
                                 with patch.object(provider, "_rate_limit", AsyncMock()):
                                     with patch.object(provider, "_human_behavior"):
-                                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()):
-                                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()):
+                                        with patch.object(
+                                            provider._human_behavior,
+                                            "simulate_reading",
+                                            AsyncMock(),
+                                        ):
+                                            with patch.object(
+                                                provider._human_behavior,
+                                                "move_mouse_to_element",
+                                                AsyncMock(),
+                                            ):
                                                 # When: search() is called
                                                 response = await provider.search("test query")
 
@@ -3384,15 +3413,26 @@ class TestDynamicWeightUsage:
                             with patch.object(provider, "_save_session", AsyncMock()):
                                 with patch.object(provider, "_rate_limit", AsyncMock()):
                                     with patch.object(provider, "_human_behavior"):
-                                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()):
-                                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()):
+                                        with patch.object(
+                                            provider._human_behavior,
+                                            "simulate_reading",
+                                            AsyncMock(),
+                                        ):
+                                            with patch.object(
+                                                provider._human_behavior,
+                                                "move_mouse_to_element",
+                                                AsyncMock(),
+                                            ):
                                                 # When: search() is called (PolicyEngine will throw)
                                                 # Then: No available engines due to error
                                                 response = await provider.search("test query")
 
                                                 # Response should indicate no engines available
                                                 # (the error during weight calculation removes the engine)
-                                                assert response.error is not None or response.ok is False
+                                                assert (
+                                                    response.error is not None
+                                                    or response.ok is False
+                                                )
 
         await provider.close()
 

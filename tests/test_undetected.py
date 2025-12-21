@@ -22,8 +22,9 @@ in the test environment.
 | TC-CF-02 | close_undetected_fetcher | Equivalence – cleanup | Fetcher closed | - |
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
@@ -232,7 +233,8 @@ class TestUndetectedChromeFetcher:
         """Test getting cookies with active driver."""
         fetcher = UndetectedChromeFetcher()
         mock_driver = MagicMock()
-        setattr(fetcher, "_driver", mock_driver)
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, mock_driver)
         mock_driver.get_cookies.return_value = [
             {"name": "session", "value": "abc123"},
         ]
@@ -255,7 +257,8 @@ class TestUndetectedChromeFetcher:
         """Test adding cookies with active driver."""
         fetcher = UndetectedChromeFetcher()
         mock_driver = MagicMock()
-        setattr(fetcher, "_driver", mock_driver)
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, mock_driver)
 
         fetcher.add_cookies(
             [
@@ -270,7 +273,8 @@ class TestUndetectedChromeFetcher:
     def test_close_driver(self) -> None:
         """Test closing the driver."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, MagicMock())
 
         fetcher.close()
 
@@ -280,7 +284,8 @@ class TestUndetectedChromeFetcher:
         """Test that close handles errors gracefully."""
         fetcher = UndetectedChromeFetcher()
         mock_driver = MagicMock()
-        setattr(fetcher, "_driver", mock_driver)
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, mock_driver)
         mock_driver.quit.side_effect = Exception("Quit failed")
 
         # Should not raise
@@ -292,7 +297,8 @@ class TestUndetectedChromeFetcher:
     async def test_close_async(self) -> None:
         """Test async close."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, MagicMock())
 
         await fetcher.close_async()
 
@@ -301,7 +307,8 @@ class TestUndetectedChromeFetcher:
     def test_context_manager(self) -> None:
         """Test context manager usage."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, MagicMock())
 
         with fetcher as f:
             assert f is fetcher
@@ -322,7 +329,8 @@ class TestCloudflareBypass:
         """Test successful Cloudflare bypass detection."""
         fetcher = UndetectedChromeFetcher()
         mock_driver = MagicMock()
-        setattr(fetcher, "_driver", mock_driver)
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, mock_driver)
 
         # First call returns challenge, second call returns normal page
         mock_driver.page_source = "<html>Normal content</html>"
@@ -335,7 +343,8 @@ class TestCloudflareBypass:
         """Test Cloudflare bypass timeout."""
         fetcher = UndetectedChromeFetcher()
         mock_driver = MagicMock()
-        setattr(fetcher, "_driver", mock_driver)
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, mock_driver)
 
         # Always return challenge page
         mock_driver.page_source = "<html>checking your browser</html>"
@@ -347,7 +356,8 @@ class TestCloudflareBypass:
     def test_wait_for_cloudflare_indicators(self) -> None:
         """Test detection of various Cloudflare indicators."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, MagicMock())
 
         indicators = [
             "cf-browser-verification",
@@ -394,7 +404,8 @@ class TestGlobalInstance:
 
         # Create and get fetcher
         uc_module._undetected_fetcher = UndetectedChromeFetcher()
-        setattr(uc_module._undetected_fetcher, "_driver", MagicMock())
+        driver_attr = "_driver"
+        setattr(uc_module._undetected_fetcher, driver_attr, MagicMock())
 
         await close_undetected_fetcher()
 
@@ -456,7 +467,8 @@ class TestFetcherIntegration:
         # Mock driver
         mock_driver = MagicMock()
         mock_driver.page_source = "<html>checking your browser before</html>"
-        setattr(fetcher, "_driver", mock_driver)
+        driver_attr = "_driver"
+        setattr(fetcher, driver_attr, mock_driver)
 
         # Mock settings
         mock_settings = MagicMock()

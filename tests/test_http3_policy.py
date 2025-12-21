@@ -355,7 +355,9 @@ class TestHTTP3PolicyManager:
         assert stats.browser_successes == 0
 
     @pytest.mark.asyncio
-    async def test_behavioral_difference_not_calculated_without_samples(self, manager: HTTP3PolicyManager) -> None:
+    async def test_behavioral_difference_not_calculated_without_samples(
+        self, manager: HTTP3PolicyManager
+    ) -> None:
         """Behavioral difference should not be calculated without enough samples."""
         import uuid
 
@@ -378,7 +380,9 @@ class TestHTTP3PolicyManager:
         assert stats.browser_ratio_boost == 0.0
 
     @pytest.mark.asyncio
-    async def test_behavioral_difference_calculated_with_samples(self, manager: HTTP3PolicyManager) -> None:
+    async def test_behavioral_difference_calculated_with_samples(
+        self, manager: HTTP3PolicyManager
+    ) -> None:
         """Behavioral difference should be calculated with enough samples.
 
         Per §4.3: Behavioral difference tracking to inform route selection.
@@ -439,7 +443,9 @@ class TestHTTP3PolicyManager:
         )
 
     @pytest.mark.asyncio
-    async def test_browser_ratio_boost_when_ema_exceeds_threshold(self, manager: HTTP3PolicyManager) -> None:
+    async def test_browser_ratio_boost_when_ema_exceeds_threshold(
+        self, manager: HTTP3PolicyManager
+    ) -> None:
         """Browser ratio boost should be applied when EMA exceeds threshold.
 
         Per §4.3: Auto-increase browser route ratio when HTTP/3 sites show
@@ -494,7 +500,9 @@ class TestHTTP3PolicyManager:
         )
 
     @pytest.mark.asyncio
-    async def test_behavioral_difference_boundary_at_min_samples(self, manager: HTTP3PolicyManager) -> None:
+    async def test_behavioral_difference_boundary_at_min_samples(
+        self, manager: HTTP3PolicyManager
+    ) -> None:
         """Behavioral difference should only be calculated at min_samples boundary.
 
         Per §4.3: Need minimum samples (default=5) before calculating difference.
@@ -576,7 +584,9 @@ class TestHTTP3PolicyManager:
         assert decision.http3_available is False
 
     @pytest.mark.asyncio
-    async def test_get_policy_decision_http3_no_difference(self, manager: HTTP3PolicyManager) -> None:
+    async def test_get_policy_decision_http3_no_difference(
+        self, manager: HTTP3PolicyManager
+    ) -> None:
         """Policy decision should not boost when HTTP/3 but no behavioral difference."""
         # Record HTTP/3 detection
         await manager.record_request(
@@ -875,7 +885,9 @@ class TestHTTP3PolicyIntegration:
         return HTTP3PolicyManager()
 
     @pytest.mark.asyncio
-    async def test_browser_ratio_increases_with_http3_advantage(self, manager: HTTP3PolicyManager) -> None:
+    async def test_browser_ratio_increases_with_http3_advantage(
+        self, manager: HTTP3PolicyManager
+    ) -> None:
         """Browser ratio should increase when HTTP/3 provides advantage.
 
         Per §4.3: Auto-increase browser route ratio when HTTP/3 sites
@@ -924,7 +936,9 @@ class TestHTTP3PolicyIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_no_boost_when_http_client_performs_well(self, manager: HTTP3PolicyManager) -> None:
+    async def test_no_boost_when_http_client_performs_well(
+        self, manager: HTTP3PolicyManager
+    ) -> None:
         """Browser ratio should not increase when HTTP client performs equally.
 
         Per §4.3: Only increase browser ratio when there's behavioral difference.

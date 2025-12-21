@@ -61,9 +61,9 @@ Test quality: Follows §7.1 test code quality standards.
 | TC-INT-02 | LLM ratio enforcement | Integration – ratio | LLM restricted after threshold | - |
 """
 
+import time
 from collections.abc import Generator
 from types import SimpleNamespace
-import time
 from unittest.mock import patch
 
 import pytest

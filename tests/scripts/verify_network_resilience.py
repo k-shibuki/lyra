@@ -80,7 +80,7 @@ class NetworkResilienceVerifier:
         try:
             from src.crawler.fetcher import HTTPFetcher
 
-            fetcher = HTTPFetcher()
+            HTTPFetcher()
             print("  ✓ HTTP fetcher available")
             # HTTPFetcher doesn't have close() method
         except Exception as e:
@@ -189,7 +189,9 @@ class NetworkResilienceVerifier:
 
             print(f"    IPv6 attempts: {metrics.total_ipv6_attempts}")
             print(f"    IPv6 successes: {metrics.total_ipv6_successes}")
-            print(f"    IPv6 failures: {metrics.total_ipv6_attempts - metrics.total_ipv6_successes}")
+            print(
+                f"    IPv6 failures: {metrics.total_ipv6_attempts - metrics.total_ipv6_successes}"
+            )
 
             if metrics.total_ipv6_attempts == 0:
                 print("    ! No IPv6 attempts recorded yet")

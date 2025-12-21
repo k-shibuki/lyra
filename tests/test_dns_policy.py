@@ -625,7 +625,9 @@ class TestGlobalFunctions:
             dns_module._dns_policy_manager = None
 
     @pytest.mark.asyncio
-    async def test_get_socks_proxy_for_request_none_when_not_using_tor(self, mock_settings: MagicMock) -> None:
+    async def test_get_socks_proxy_for_request_none_when_not_using_tor(
+        self, mock_settings: MagicMock
+    ) -> None:
         """get_socks_proxy_for_request should return None when not using Tor."""
         import src.crawler.dns_policy as dns_module
 

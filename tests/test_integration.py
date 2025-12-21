@@ -35,7 +35,7 @@ These tests verify end-to-end workflows across multiple modules.
 | TC-INT-N-24 | Full workflow simulation | Equivalence – integration | Task→Context→State→Graph works | Full pipeline |
 """
 
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from unittest.mock import patch
 
