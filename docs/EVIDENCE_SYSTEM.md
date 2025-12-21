@@ -29,7 +29,7 @@
 | Phase | 目的 | 状態 | 参照 |
 |------:|------|------|------|
 | 1 | 透明性の向上（blocked_domains / cause_id / adoption_status） | DONE | `82ce42e` |
-| 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | PARTIAL | `82ce42e` |
+| 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | DONE | `[commit hash]` |
 | 3 | 引用追跡の完全実装（決定11: Budgeted Citation Expansion / S2 + OpenAlex / pages追加 / CITES） | TODO | - |
 | 4 | ベイズ信頼度モデル（confidence/uncertainty/controversy） | TODO | - |
 | 5 | ユーザー制御（user_overrides / 復元） | TODO | - |
@@ -43,14 +43,25 @@
 **検証**:
 - ruff / mypy / tests: PASS（ローカル回帰: 3225 passed）
 
-### Phase 2 進捗（PARTIAL）
+### Phase 2 完了内容（DONE）
 
-完了:
 - `edges` に `source_domain_category` / `target_domain_category` を保存・ロードできる（EvidenceGraph / schema）
+- NLI→エッジ生成の実運用パスで、**常に source/target_domain_category を付与する**実装を完了
+  - `executor.py`: fragment→claim supportsエッジに付与
+  - `refutation.py`: refutesエッジに`target_domain_category`を付与（claimのorigin domainから算出）
+  - `add_academic_page_with_citations`: CITESエッジで実際のページドメインから`domain_category`を算出
+- 決定12: `is_influential` の完全削除
+  - `schema.sql`: `edges.is_influential`カラム削除（DB再作成が必要）
+  - `schemas.py`: `Citation.is_influential`フィールド削除
+  - `base.py`: `get_references/get_citations`戻り値を`list[Paper]`に統一
+  - `semantic_scholar.py`: `isInfluential`フィールド取得を削除
+  - `academic_provider.py`: `Citation`生成から`is_influential`を削除
+  - `evidence_graph.py`: `add_citation/add_academic_page_with_citations`から`is_influential`を削除
+  - テストファイル: `is_influential`参照を削除
 
-未完:
-- NLI→エッジ生成の実運用パスで、**常に source/target_domain_category を付与する**実装の網羅性確認（設計意図の完全達成）
-- 決定12: `is_influential` の完全削除（型・スキーマ・呼び出し元・テストの整合。そもそもAPIから取得しないように変更する。）
+**検証**:
+- ruff / mypy / tests: PASS（60 passed）
+- `grep -r "\bis_influential\b" src/` で残骸ゼロを確認
 
 ---
 

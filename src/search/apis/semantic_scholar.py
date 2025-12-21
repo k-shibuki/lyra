@@ -120,8 +120,8 @@ class SemanticScholarClient(BaseAcademicClient):
         # If no prefix, assume it's already a paperId (40-char hash) and use directly
         return paper_id
 
-    async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
-        """Get references (papers cited by this paper) with influential citation flag."""
+    async def get_references(self, paper_id: str) -> list[Paper]:
+        """Get references (papers cited by this paper)."""
         session = await self._get_session()
 
         # Normalize paper ID for API
@@ -130,7 +130,7 @@ class SemanticScholarClient(BaseAcademicClient):
         async def _fetch() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/paper/{normalized_id}/references",
-                params={"fields": self.FIELDS + ",isInfluential"},
+                params={"fields": self.FIELDS},
             )
             response.raise_for_status()
             return cast(dict[str, Any], response.json())
@@ -141,14 +141,13 @@ class SemanticScholarClient(BaseAcademicClient):
             for ref in data.get("data", []):
                 if ref.get("citedPaper"):
                     paper = self._parse_paper(ref["citedPaper"])
-                    is_influential = ref.get("isInfluential", False)
-                    results.append((paper, is_influential))
+                    results.append(paper)
             return results
         except Exception as e:
             logger.warning("Failed to get references", paper_id=paper_id, error=str(e))
             return []
 
-    async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_citations(self, paper_id: str) -> list[Paper]:
         """Get citations (papers that cite this paper)."""
         session = await self._get_session()
 
@@ -158,7 +157,7 @@ class SemanticScholarClient(BaseAcademicClient):
         async def _fetch() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/paper/{normalized_id}/citations",
-                params={"fields": self.FIELDS + ",isInfluential"},
+                params={"fields": self.FIELDS},
             )
             response.raise_for_status()
             return cast(dict[str, Any], response.json())
@@ -169,8 +168,7 @@ class SemanticScholarClient(BaseAcademicClient):
             for cit in data.get("data", []):
                 if cit.get("citingPaper"):
                     paper = self._parse_paper(cit["citingPaper"])
-                    is_influential = cit.get("isInfluential", False)
-                    results.append((paper, is_influential))
+                    results.append(paper)
             return results
         except Exception as e:
             logger.warning("Failed to get citations", paper_id=paper_id, error=str(e))

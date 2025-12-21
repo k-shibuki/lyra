@@ -918,7 +918,6 @@ class EvidenceGraph:
                         "nli_label": data.get("nli_label"),
                         "nli_confidence": data.get("nli_confidence"),
                         "is_academic": 1 if data.get("is_academic") else 0,
-                        "is_influential": 1 if data.get("is_influential") else 0,
                         "citation_context": data.get("citation_context"),
                         "source_domain_category": data.get("source_domain_category"),
                         "target_domain_category": data.get("target_domain_category"),
@@ -1115,7 +1114,6 @@ async def add_citation(
     page_id: str,
     task_id: str | None = None,
     is_academic: bool = False,
-    is_influential: bool = False,
     citation_context: str | None = None,
     source_domain_category: str | None = None,
     target_domain_category: str | None = None,
@@ -1128,7 +1126,6 @@ async def add_citation(
         page_id: Page being cited.
         task_id: Task ID.
         is_academic: Whether this is an academic citation.
-        is_influential: Whether this is an influential citation (Semantic Scholar).
         citation_context: Citation context text.
         source_domain_category: Domain category of source domain.
         target_domain_category: Domain category of cited page's domain.
@@ -1146,7 +1143,6 @@ async def add_citation(
         relation=RelationType.CITES,
         confidence=1.0,
         is_academic=is_academic,
-        is_influential=is_influential,
         citation_context=citation_context,
         source_domain_category=source_domain_category,
         target_domain_category=target_domain_category,
@@ -1165,7 +1161,6 @@ async def add_citation(
             "relation": RelationType.CITES.value,
             "confidence": 1.0,
             "is_academic": 1 if is_academic else 0,
-            "is_influential": 1 if is_influential else 0,
             "citation_context": citation_context,
             "source_domain_category": source_domain_category,
             "target_domain_category": target_domain_category,
@@ -1265,6 +1260,34 @@ async def add_academic_page_with_citations(
         if not graph._graph.has_node(target_node):
             graph.add_node(NodeType.PAGE, target_page_id)
 
+        # Derive domain categories from pages' actual domains
+        source_domain_category: str | None = None
+        target_domain_category: str | None = None
+        try:
+            from src.utils.domain_policy import get_domain_category
+
+            # Get source page URL
+            source_page_row = await db.fetch_one(
+                "SELECT url, domain FROM pages WHERE id = ?", (source_page_id,)
+            )
+            if source_page_row:
+                source_domain = source_page_row.get("domain", "").lower()
+                if source_domain:
+                    source_domain_category = get_domain_category(source_domain).value
+
+            # Get target page URL
+            target_page_row = await db.fetch_one(
+                "SELECT url, domain FROM pages WHERE id = ?", (target_page_id,)
+            )
+            if target_page_row:
+                target_domain = target_page_row.get("domain", "").lower()
+                if target_domain:
+                    target_domain_category = get_domain_category(target_domain).value
+        except Exception:
+            # Fallback to "academic" if domain lookup fails
+            source_domain_category = "academic"
+            target_domain_category = "academic"
+
         # Add CITES edge with academic attributes
         edge_id = graph.add_edge(
             source_type=NodeType.PAGE,
@@ -1274,8 +1297,9 @@ async def add_academic_page_with_citations(
             relation=RelationType.CITES,
             confidence=1.0,
             is_academic=True,
-            is_influential=citation.is_influential,
             citation_context=citation.context,
+            source_domain_category=source_domain_category,
+            target_domain_category=target_domain_category,
         )
 
         # Persist edge to database
@@ -1290,8 +1314,9 @@ async def add_academic_page_with_citations(
                 "relation": RelationType.CITES.value,
                 "confidence": 1.0,
                 "is_academic": 1,
-                "is_influential": 1 if citation.is_influential else 0,
                 "citation_context": citation.context,
+                "source_domain_category": source_domain_category,
+                "target_domain_category": target_domain_category,
             },
             or_replace=True,
         )

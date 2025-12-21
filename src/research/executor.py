@@ -772,11 +772,28 @@ class SearchExecutor:
 
             # Insert edge linking fragment to claim
             edge_id = f"e_{uuid.uuid4().hex[:8]}"
+
+            # Determine domain category from source URL
+            source_domain_category = None
+            try:
+                from urllib.parse import urlparse
+                from src.utils.domain_policy import get_domain_category
+
+                parsed = urlparse(source_url)
+                domain = parsed.netloc.lower()
+                source_domain_category = get_domain_category(domain).value
+            except Exception:
+                pass
+
+            # Target domain category is the same as source for claim origin
+            target_domain_category = source_domain_category
+
             await db.execute(
                 """
                 INSERT OR IGNORE INTO edges
-                (id, source_type, source_id, target_type, target_id, relation, confidence, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                (id, source_type, source_id, target_type, target_id, relation, confidence,
+                 source_domain_category, target_domain_category, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
                 (
                     edge_id,
@@ -786,6 +803,8 @@ class SearchExecutor:
                     claim_id,
                     "supports",
                     float(confidence),
+                    source_domain_category,
+                    target_domain_category,
                 ),
             )
         except Exception as e:

@@ -374,6 +374,25 @@ class RefutationExecutor:
             except Exception:
                 pass
 
+        # Derive target_domain_category from claim's origin domain
+        # Claims store source_url in verification_notes as "source_url=..."
+        target_domain_category: str | None = None
+        try:
+            claim_row = await self._db.fetch_one(
+                "SELECT verification_notes FROM claims WHERE id = ?", (claim_id,)
+            )
+            if claim_row:
+                verification_notes = claim_row.get("verification_notes", "") or ""
+                if "source_url=" in verification_notes:
+                    claim_source_url = (
+                        verification_notes.split("source_url=")[1].split(";")[0].strip()
+                    )
+                    parsed = urlparse(claim_source_url)
+                    domain = parsed.netloc.lower()
+                    target_domain_category = get_domain_category(domain).value
+        except Exception:
+            pass
+
         await self._db.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
@@ -388,7 +407,7 @@ class RefutationExecutor:
                 refutation.get("nli_confidence", 0),
                 refutation.get("nli_confidence", 0),
                 source_domain_category,
-                None,  # target_domain_category: claim origin unknown at this point
+                target_domain_category,
             ),
         )
 
@@ -397,4 +416,5 @@ class RefutationExecutor:
             claim_id=claim_id,
             source_url=refutation.get("source_url", "")[:50],
             source_domain_category=source_domain_category,
+            target_domain_category=target_domain_category,
         )

@@ -97,26 +97,26 @@ class BaseAcademicClient(ABC):
         pass
 
     @abstractmethod
-    async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_references(self, paper_id: str) -> list[Paper]:
         """Get references (papers cited by this paper).
 
         Args:
             paper_id: Paper ID
 
         Returns:
-            List of (Paper, is_influential) tuples
+            List of Paper objects
         """
         pass
 
     @abstractmethod
-    async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_citations(self, paper_id: str) -> list[Paper]:
         """Get citations (papers that cite this paper).
 
         Args:
             paper_id: Paper ID
 
         Returns:
-            List of (Paper, is_influential) tuples
+            List of Paper objects
         """
         pass
 

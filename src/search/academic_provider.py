@@ -230,7 +230,7 @@ class AcademicSearchProvider(BaseSearchProvider):
             # Get references
             if direction in ("references", "both"):
                 refs = await client.get_references(current_id)
-                for ref_paper, is_influential in refs:
+                for ref_paper in refs:
                     papers[ref_paper.id] = ref_paper
                     from src.utils.schemas import Citation
 
@@ -239,7 +239,6 @@ class AcademicSearchProvider(BaseSearchProvider):
                             citing_paper_id=current_id,
                             cited_paper_id=ref_paper.id,
                             context=None,
-                            is_influential=is_influential,
                         )
                     )
                     if current_depth + 1 < depth:
@@ -248,7 +247,7 @@ class AcademicSearchProvider(BaseSearchProvider):
             # Get citations
             if direction in ("citations", "both"):
                 cits = await client.get_citations(current_id)
-                for cit_paper, is_influential in cits:
+                for cit_paper in cits:
                     papers[cit_paper.id] = cit_paper
                     from src.utils.schemas import Citation
 
@@ -257,7 +256,6 @@ class AcademicSearchProvider(BaseSearchProvider):
                             citing_paper_id=cit_paper.id,
                             cited_paper_id=current_id,
                             context=None,
-                            is_influential=is_influential,
                         )
                     )
                     if current_depth + 1 < depth:

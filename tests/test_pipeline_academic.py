@@ -95,13 +95,11 @@ def sample_citations() -> list[Citation]:
         Citation(
             citing_paper_id="s2:test123",
             cited_paper_id="s2:ref1",
-            is_influential=True,
             context=None,
         ),
         Citation(
             citing_paper_id="s2:test123",
             cited_paper_id="s2:ref2",
-            is_influential=False,
             context="As shown in previous work...",
         ),
     ]
