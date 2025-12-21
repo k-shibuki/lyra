@@ -82,7 +82,7 @@ class NetworkResilienceVerifier:
 
             fetcher = HTTPFetcher()
             print("  ✓ HTTP fetcher available")
-            await fetcher.close()
+            # HTTPFetcher doesn't have close() method
         except Exception as e:
             print(f"  ✗ HTTP fetcher failed: {e}")
             return False
@@ -94,7 +94,7 @@ class NetworkResilienceVerifier:
         """§7 Recovery: ≥70% success within 3 retries after 429/403."""
         print("\n[1/5] Verifying recovery after 429/403 (§7 Recovery ≥70%)...")
 
-        from src.crawler.fetcher import FetchPolicy, HTTPFetcher
+        from src.crawler.fetcher import HTTPFetcher
 
         fetcher = HTTPFetcher()
 
@@ -120,7 +120,7 @@ class NetworkResilienceVerifier:
 
                     if result.ok:
                         recovery_successes += 1
-                        print(f"      ✓ Attempt {attempt + 1}: Success ({result.status_code})")
+                        print(f"      ✓ Attempt {attempt + 1}: Success ({result.status})")
                         break
                     else:
                         print(f"      - Attempt {attempt + 1}: {result.reason}")
@@ -172,7 +172,8 @@ class NetworkResilienceVerifier:
                 error=str(e),
             )
         finally:
-            await fetcher.close()
+            # HTTPFetcher doesn't have close() method
+            pass
 
     async def verify_ipv6_success_rate(self) -> VerificationResult:
         """§7 IPv6: ≥80% success rate on IPv6-capable sites."""
@@ -184,7 +185,7 @@ class NetworkResilienceVerifier:
             manager = get_ipv6_manager()
 
             # Get current metrics
-            metrics = manager.get_metrics()
+            metrics = manager.metrics
 
             print(f"    IPv6 attempts: {metrics.ipv6_attempts}")
             print(f"    IPv6 successes: {metrics.ipv6_successes}")
@@ -251,7 +252,7 @@ class NetworkResilienceVerifier:
             from src.crawler.ipv6_manager import get_ipv6_manager
 
             manager = get_ipv6_manager()
-            metrics = manager.get_metrics()
+            metrics = manager.metrics
 
             print(f"    Switch attempts: {metrics.switch_attempts}")
             print(f"    Switch successes: {metrics.switch_successes}")
@@ -317,7 +318,7 @@ class NetworkResilienceVerifier:
             from src.crawler.dns_policy import get_dns_policy_manager
 
             manager = get_dns_policy_manager()
-            metrics = manager.get_metrics()
+            metrics = manager.metrics
 
             leaks_detected = metrics.leaks_detected
             tor_requests = metrics.tor_requests
@@ -375,7 +376,7 @@ class NetworkResilienceVerifier:
         """§7 304: ≥70% utilization rate on revisits."""
         print("\n[5/5] Verifying 304 utilization rate (§7 304 ≥70%)...")
 
-        from src.crawler.fetcher import FetchPolicy, HTTPFetcher
+        from src.crawler.fetcher import HTTPFetcher
         from src.crawler.session_transfer import get_session_transfer_manager
 
         fetcher = HTTPFetcher()
@@ -401,7 +402,7 @@ class NetworkResilienceVerifier:
                     print(f"      - Initial fetch failed: {result1.reason}")
                     continue
 
-                print(f"      ✓ Initial fetch: {result1.status_code}")
+                print(f"      ✓ Initial fetch: {result1.status}")
 
                 # Check for ETag/Last-Modified
                 headers = result1.headers or {}
@@ -429,11 +430,11 @@ class NetworkResilienceVerifier:
 
                 total_revisits += 1
 
-                if result2.status_code == 304:
+                if result2.status == 304:
                     got_304 += 1
                     print("      ✓ Revisit: 304 Not Modified")
                 else:
-                    print(f"      - Revisit: {result2.status_code} (expected 304)")
+                    print(f"      - Revisit: {result2.status} (expected 304)")
 
             if total_revisits == 0:
                 return VerificationResult(
@@ -481,7 +482,8 @@ class NetworkResilienceVerifier:
                 error=str(e),
             )
         finally:
-            await fetcher.close()
+            # HTTPFetcher doesn't have close() method
+            pass
 
     async def run_all(self) -> int:
         """Run all verifications and output results."""

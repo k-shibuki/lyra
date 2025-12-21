@@ -68,9 +68,10 @@ class SessionTransferVerifier:
 
         # Check browser connectivity
         try:
-            from src.crawler.browser_provider import get_browser_provider
+            from src.crawler.browser_provider import get_browser_registry
 
-            provider = await get_browser_provider()
+            registry = get_browser_registry()
+            provider = registry.get_default()
             if provider:
                 self.browser_available = True
                 print("  ✓ Browser provider available")
@@ -100,7 +101,7 @@ class SessionTransferVerifier:
         """§3.1.2: Browser session capture."""
         print("\n[1/6] Verifying browser session capture (§3.1.2 セッションキャプチャ)...")
 
-        from src.crawler.fetcher import BrowserFetcher, FetchPolicy
+        from src.crawler.fetcher import BrowserFetcher
         from src.crawler.session_transfer import get_session_transfer_manager
 
         fetcher = BrowserFetcher()
@@ -126,19 +127,22 @@ class SessionTransferVerifier:
                     error=f"Fetch failed: {result.reason}",
                 )
 
-            print(f"    ✓ Fetch successful: {result.status_code}")
+            print(f"    ✓ Fetch successful: {result.status}")
 
-            # Capture session
-            if fetcher._browser and fetcher._context:
-                response_headers = {}
-                if hasattr(result, "headers") and result.headers:
-                    response_headers = dict(result.headers)
+            # Capture session (BrowserFetcher.fetch automatically captures session)
+            # Check if session was captured by verifying session stats increased
+            response_headers = {}
+            if hasattr(result, "headers") and result.headers:
+                response_headers = dict(result.headers)
 
-                session_id = await manager.capture_from_browser(
-                    fetcher._context,
-                    test_url,
-                    response_headers,
-                )
+            # BrowserFetcher.fetch automatically captures session, so we just verify it exists
+            final_stats = manager.get_session_stats()
+            session_captured = final_stats["total_sessions"] > initial_stats["total_sessions"]
+            
+            if session_captured:
+                # Get the most recent session
+                sessions = manager.get_all_sessions()
+                session_id = list(sessions.keys())[-1] if sessions else None
 
                 if not session_id:
                     return VerificationResult(
@@ -199,7 +203,7 @@ class SessionTransferVerifier:
                     name="Browser Session Capture",
                     spec_ref="§3.1.2 セッションキャプチャ",
                     passed=False,
-                    error="Browser context not available",
+                    error="Session not captured",
                 )
 
         except Exception as e:
@@ -562,7 +566,7 @@ class SessionTransferVerifier:
         """§3.1.2 Prefer 304 Revisit: Receive 304 with conditional requests."""
         print("\n[5/6] Verifying 304 revisit (§3.1.2 304再訪)...")
 
-        from src.crawler.fetcher import BrowserFetcher, FetchPolicy, HTTPFetcher
+        from src.crawler.fetcher import BrowserFetcher, HTTPFetcher
         from src.crawler.session_transfer import get_session_transfer_manager
 
         if not self.browser_available:
@@ -593,34 +597,31 @@ class SessionTransferVerifier:
                     error=f"Initial fetch failed: {result1.reason}",
                 )
 
-            print(f"    ✓ Initial fetch: {result1.status_code}")
+            print(f"    ✓ Initial fetch: {result1.status}")
 
-            # Capture session with response headers
-            if browser_fetcher._browser and browser_fetcher._context:
-                response_headers = {}
-                if hasattr(result1, "headers") and result1.headers:
-                    response_headers = dict(result1.headers)
-                    etag = response_headers.get("etag") or response_headers.get("ETag")
-                    last_mod = response_headers.get("last-modified") or response_headers.get(
-                        "Last-Modified"
-                    )
-                    print(
-                        f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})"
-                    )
-
-                session_id = await manager.capture_from_browser(
-                    browser_fetcher._context,
-                    test_url,
-                    response_headers,
+            # Capture session with response headers (BrowserFetcher.fetch automatically captures)
+            response_headers = {}
+            if hasattr(result1, "headers") and result1.headers:
+                response_headers = dict(result1.headers)
+                etag = response_headers.get("etag") or response_headers.get("ETag")
+                last_mod = response_headers.get("last-modified") or response_headers.get(
+                    "Last-Modified"
+                )
+                print(
+                    f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})"
                 )
 
-                if not session_id:
-                    return VerificationResult(
-                        name="304 Revisit",
-                        spec_ref="§3.1.2 304再訪",
-                        passed=False,
-                        error="Failed to capture session",
-                    )
+            # BrowserFetcher.fetch automatically captures session
+            sessions = manager.get_all_sessions()
+            session_id = list(sessions.keys())[-1] if sessions else None
+
+            if not session_id:
+                return VerificationResult(
+                    name="304 Revisit",
+                    spec_ref="§3.1.2 304再訪",
+                    passed=False,
+                    error="Failed to capture session",
+                )
             else:
                 return VerificationResult(
                     name="304 Revisit",
@@ -671,7 +672,7 @@ class SessionTransferVerifier:
             # Make HTTP request with conditional headers
             result2 = await http_fetcher.fetch(test_url)
 
-            print(f"    ✓ Revisit status: {result2.status_code}")
+            print(f"    ✓ Revisit status: {result2.status}")
 
             # Update session from response
             if result2.headers:
@@ -682,19 +683,19 @@ class SessionTransferVerifier:
                 )
 
             # 304 is ideal, but 200 is also acceptable if content hasn't changed
-            if result2.status_code == 304:
+            if result2.status == 304:
                 print("    ✓ Got 304 Not Modified (perfect)")
                 return VerificationResult(
                     name="304 Revisit",
                     spec_ref="§3.1.2 304再訪",
                     passed=True,
                     details={
-                        "first_status": result1.status_code,
+                        "first_status": result1.status,
                         "second_status": 304,
                         "conditional_headers_used": True,
                     },
                 )
-            elif result2.status_code == 200:
+            elif result2.status == 200:
                 # Still valid - content may have changed
                 print("    ✓ Got 200 OK (content may have changed, conditional headers were sent)")
                 return VerificationResult(
@@ -702,7 +703,7 @@ class SessionTransferVerifier:
                     spec_ref="§3.1.2 304再訪",
                     passed=True,
                     details={
-                        "first_status": result1.status_code,
+                        "first_status": result1.status,
                         "second_status": 200,
                         "conditional_headers_used": True,
                         "note": "Content changed or server doesn't honor conditional",
@@ -713,7 +714,7 @@ class SessionTransferVerifier:
                     name="304 Revisit",
                     spec_ref="§3.1.2 304再訪",
                     passed=False,
-                    error=f"Unexpected status: {result2.status_code}",
+                    error=f"Unexpected status: {result2.status}",
                 )
 
         except Exception as e:
@@ -726,7 +727,6 @@ class SessionTransferVerifier:
             )
         finally:
             await browser_fetcher.close()
-            await http_fetcher.close()
 
     async def verify_session_lifecycle(self) -> VerificationResult:
         """Session lifecycle: TTL and max count control."""
