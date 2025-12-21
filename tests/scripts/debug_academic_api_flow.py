@@ -152,10 +152,8 @@ async def test_paper_model() -> bool:
     citation = Citation(
         citing_paper_id="s2:12345",
         cited_paper_id="s2:67890",
-        is_influential=True,
         context="This work extends the previous study [1].",
     )
-    assert citation.is_influential is True
     print(f"  ✓ Citation model: {citation.citing_paper_id} -> {citation.cited_paper_id}")
 
     return True
@@ -295,7 +293,6 @@ async def test_evidence_graph_academic_edges() -> bool:
         target_id="page2",
         relation=RelationType.CITES,
         is_academic=True,
-        is_influential=True,
         citation_context="This work builds upon [1].",
     )
 
@@ -306,9 +303,6 @@ async def test_evidence_graph_academic_edges() -> bool:
 
     assert edge_data.get("is_academic") is True
     print(f"  ✓ is_academic attribute: {edge_data.get('is_academic')}")
-
-    assert edge_data.get("is_influential") is True
-    print(f"  ✓ is_influential attribute: {edge_data.get('is_influential')}")
 
     assert edge_data.get("citation_context") == "This work builds upon [1]."
     print(f"  ✓ citation_context attribute: '{edge_data.get('citation_context')[:30]}...'")

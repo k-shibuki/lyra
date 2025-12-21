@@ -2,17 +2,17 @@
 Tests for academic citation integration in evidence graph.
 
 Tests the add_academic_page_with_citations() function and
-is_academic/is_influential edge attributes.
+is_academic, citation_context edge attributes.
+Note: is_influential was removed per decision 12 (Phase 2).
 
 ## Test Perspectives Table
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
 | TC-EG-N-01 | Add edge with is_academic=True | Equivalence – normal | Edge created with is_academic attribute | - |
-| TC-EG-N-02 | Add edge with is_influential=True | Equivalence – normal | Edge created with is_influential attribute | - |
-| TC-EG-N-03 | Add edge with citation_context | Equivalence – normal | Edge created with citation_context | - |
-| TC-EG-N-04 | add_academic_page_with_citations() with citations | Equivalence – normal | PAGE node and CITES edges created | - |
-| TC-EG-N-05 | add_academic_page_with_citations() without citations | Equivalence – normal | PAGE node created, no edges | - |
+| TC-EG-N-02 | Add edge with citation_context | Equivalence – normal | Edge created with citation_context | - |
+| TC-EG-N-03 | add_academic_page_with_citations() with citations | Equivalence – normal | PAGE node and CITES edges created | - |
+| TC-EG-N-04 | add_academic_page_with_citations() without citations | Equivalence – normal | PAGE node created, no edges | - |
 | TC-EG-B-01 | citations=[] (empty list) | Boundary – empty | No edges created | - |
 | TC-EG-B-02 | citation_context=None | Boundary – NULL | Edge created with None context | - |
 | TC-EG-B-03 | paper_metadata={} (empty dict) | Boundary – empty | Node created with default values | - |
@@ -72,19 +72,16 @@ def sample_citations() -> list[Citation]:
         Citation(
             citing_paper_id="page_123",
             cited_paper_id="s2:ref1",
-            is_influential=True,
             context="As shown in prior work...",
         ),
         Citation(
             citing_paper_id="page_123",
             cited_paper_id="s2:ref2",
-            is_influential=False,
             context=None,
         ),
         Citation(
             citing_paper_id="page_123",
             cited_paper_id="s2:ref3",
-            is_influential=True,
             context="Building on the foundational research...",
         ),
     ]
@@ -132,37 +129,6 @@ class TestEvidenceGraphAcademicEdges:
 
         edge_data = evidence_graph._graph.edges[source_node, target_node]
         assert edge_data.get("is_academic") is True
-
-    def test_add_edge_with_is_influential_attribute(self, evidence_graph: EvidenceGraph) -> None:
-        """
-        Test: add_edge() accepts is_influential attribute.
-
-        Given: Source and target PAGE nodes
-        When: Adding CITES edge with is_influential=True
-        Then: Edge is created with is_influential attribute
-        """
-        # Given
-        source_id = "page_source"
-        target_id = "page_target"
-
-        # When
-        evidence_graph.add_edge(
-            source_type=NodeType.PAGE,
-            source_id=source_id,
-            target_type=NodeType.PAGE,
-            target_id=target_id,
-            relation=RelationType.CITES,
-            confidence=1.0,
-            is_academic=True,
-            is_influential=True,
-        )
-
-        # Then
-        source_node = evidence_graph._make_node_id(NodeType.PAGE, source_id)
-        target_node = evidence_graph._make_node_id(NodeType.PAGE, target_id)
-
-        edge_data = evidence_graph._graph.edges[source_node, target_node]
-        assert edge_data.get("is_influential") is True
 
     def test_add_edge_with_citation_context(self, evidence_graph: EvidenceGraph) -> None:
         """
@@ -296,51 +262,9 @@ class TestAddAcademicPageWithCitations:
                 assert edge_data["target_type"] == NodeType.PAGE.value
                 assert edge_data["relation"] == RelationType.CITES.value
                 assert edge_data["is_academic"] == 1
-
-    @pytest.mark.asyncio
-    async def test_preserves_is_influential_flag(
-        self, sample_paper_metadata: dict[str, object], sample_citations: list[Citation]
-    ) -> None:
-        """
-        Test: Function preserves is_influential from Citation objects.
-
-        Given: Citations with varying is_influential values
-        When: add_academic_page_with_citations() is called
-        Then: is_influential is correctly set on edges
-        """
-        with (
-            patch("src.filter.evidence_graph.get_database") as mock_db,
-            patch("src.filter.evidence_graph._graph", None),
-        ):
-            mock_db_instance = AsyncMock()
-            mock_db.return_value = mock_db_instance
-            mock_db_instance.insert = AsyncMock()
-            mock_db_instance.fetch_all = AsyncMock(return_value=[])
-
-            # Given: paper_to_page_map
-            paper_to_page_map = {
-                "s2:ref1": "page_ref1",
-                "s2:ref2": "page_ref2",
-                "s2:ref3": "page_ref3",
-            }
-            page_id = "page_123"
-
-            # When
-            await add_academic_page_with_citations(
-                page_id=page_id,
-                paper_metadata=sample_paper_metadata,
-                citations=sample_citations,
-                task_id="test_task",
-                paper_to_page_map=paper_to_page_map,
-            )
-
-            # Then: Verify is_influential matches original citations
-            calls = mock_db_instance.insert.call_args_list
-
-            for i, citation in enumerate(sample_citations):
-                edge_data = calls[i][0][1]
-                expected = 1 if citation.is_influential else 0
-                assert edge_data["is_influential"] == expected
+                # Phase 2: domain_category should be present (from pages table domain)
+                assert "source_domain_category" in edge_data
+                assert "target_domain_category" in edge_data
 
     @pytest.mark.asyncio
     async def test_handles_empty_citations_list(
@@ -375,6 +299,60 @@ class TestAddAcademicPageWithCitations:
 
             # Then: No edge inserts
             assert mock_db_instance.insert.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_domain_category_from_page_domains(
+        self, sample_paper_metadata: dict[str, object], sample_citations: list[Citation]
+    ) -> None:
+        """
+        TC-P2-ACAD-N-01: Domain categories derived from actual page domains.
+
+        Given: Pages with known domains in database
+        When: add_academic_page_with_citations() is called
+        Then: source_domain_category and target_domain_category are calculated from pages table
+        """
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+
+            # Mock fetch_one to return page domain information
+            async def mock_fetch_one(query: str, params: tuple) -> dict | None:
+                if "page_123" in params:
+                    return {"url": "https://arxiv.org/abs/1234", "domain": "arxiv.org"}
+                elif "page_ref1" in params:
+                    return {"url": "https://doi.org/10.1234/test", "domain": "doi.org"}
+                return None
+
+            mock_db_instance.fetch_one = AsyncMock(side_effect=mock_fetch_one)
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+
+            # Given: paper_to_page_map
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",
+            }
+            page_id = "page_123"
+
+            # When
+            await add_academic_page_with_citations(
+                page_id=page_id,
+                paper_metadata=sample_paper_metadata,
+                citations=[sample_citations[0]],  # Single citation
+                task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
+            )
+
+            # Then: Verify domain categories were calculated from pages
+            assert mock_db_instance.insert.call_count == 1
+            call = mock_db_instance.insert.call_args_list[0]
+            edge_data = call[0][1]
+            assert "source_domain_category" in edge_data
+            assert "target_domain_category" in edge_data
+            # Domain categories should be calculated (not hardcoded "academic")
+            # Actual values depend on domain_policy configuration
 
 
 # =============================================================================
@@ -423,45 +401,6 @@ class TestAcademicEdgeQuery:
         assert len(academic_edges) == 1
         assert academic_edges[0][0] == evidence_graph._make_node_id(NodeType.PAGE, "page1")
 
-    def test_filter_influential_citations(self, evidence_graph: EvidenceGraph) -> None:
-        """
-        Test: Can filter edges by is_influential attribute.
-
-        Given: Graph with influential and non-influential edges
-        When: Filtering for influential edges
-        Then: Only influential edges are returned
-        """
-        # Given: Add mix of edges
-        evidence_graph.add_edge(
-            NodeType.PAGE,
-            "page1",
-            NodeType.PAGE,
-            "ref1",
-            RelationType.CITES,
-            is_academic=True,
-            is_influential=True,
-        )
-
-        evidence_graph.add_edge(
-            NodeType.PAGE,
-            "page1",
-            NodeType.PAGE,
-            "ref2",
-            RelationType.CITES,
-            is_academic=True,
-            is_influential=False,
-        )
-
-        # When: Filter for influential edges
-        influential_edges = [
-            (u, v, d)
-            for u, v, d in evidence_graph._graph.edges(data=True)
-            if d.get("is_influential") is True
-        ]
-
-        # Then
-        assert len(influential_edges) == 1
-
 
 # =============================================================================
 # Test: Boundary Values and Edge Cases
@@ -483,7 +422,6 @@ class TestBoundaryValues:
         Citation(
             citing_paper_id="page_123",
             cited_paper_id="s2:ref1",
-            is_influential=False,
             context=None,  # None context
         )
 
@@ -574,7 +512,6 @@ class TestExceptionHandlingEvidenceGraph:
                 Citation(
                     citing_paper_id="page_123",
                     cited_paper_id="s2:ref1",
-                    is_influential=True,
                     context=None,
                 ),
                 "not_a_citation",  # Invalid object
@@ -582,7 +519,6 @@ class TestExceptionHandlingEvidenceGraph:
                 Citation(
                     citing_paper_id="page_123",
                     cited_paper_id="s2:ref2",
-                    is_influential=False,
                     context=None,
                 ),
             ]
@@ -659,7 +595,6 @@ class TestExceptionHandlingEvidenceGraph:
         citation_with_empty = Citation(
             citing_paper_id="page_123",
             cited_paper_id="",  # Empty string (valid but edge case)
-            is_influential=False,
             context=None,
         )
 
@@ -709,13 +644,11 @@ class TestExceptionHandlingEvidenceGraph:
                 Citation(
                     citing_paper_id="page_123",
                     cited_paper_id="s2:unmapped1",  # Not in paper_to_page_map
-                    is_influential=False,
                     context=None,
                 ),
                 Citation(
                     citing_paper_id="page_123",
                     cited_paper_id="s2:unmapped2",  # Not in paper_to_page_map
-                    is_influential=True,
                     context=None,
                 ),
             ]
@@ -760,7 +693,6 @@ class TestExceptionHandlingEvidenceGraph:
                 Citation(
                     citing_paper_id="page_123",
                     cited_paper_id="s2:ref1",  # Maps to page_ref1
-                    is_influential=False,
                     context=None,
                 ),
             ]

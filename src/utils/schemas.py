@@ -451,7 +451,6 @@ class Citation(BaseModel):
     citing_paper_id: str = Field(..., description="Citing paper ID")
     cited_paper_id: str = Field(..., description="Cited paper ID")
     context: str | None = Field(None, description="Citation context text")
-    is_influential: bool = Field(default=False, description="Semantic Scholar influential citation")
 
 
 class AcademicSearchResult(BaseModel):

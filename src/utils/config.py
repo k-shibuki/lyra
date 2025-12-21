@@ -54,8 +54,8 @@ class CitationFilterConfig(BaseModel):
     Design:
     - Stage 1 uses Embedding similarity + impact_score (source-agnostic).
     - Stage 2 uses LLM "evidence usefulness" score + Stage 1 signals.
-    - `is_influential` is stored as metadata but not relied on for scoring
-      because it is only available via Semantic Scholar.
+    - Impact score is calculated from Paper.citation_count (local normalization)
+      and is source-agnostic (works with Semantic Scholar, OpenAlex, etc.).
     """
 
     # Stage 1: fast coarse filtering

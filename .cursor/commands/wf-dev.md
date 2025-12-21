@@ -6,7 +6,7 @@ Orchestrate development work: read the provided context, select the next task, a
 
 ## Contract (must follow)
 
-1. Read all user-attached `@...` context first (especially `@docs/IMPLEMENTATION_PLAN.md` and `@docs/REQUIREMENTS.md`).
+1. Read all user-attached `@...` context first.
    - If required context is missing, ask for the exact `@...` files/info and stop.
 2. Summarize: goal, chosen task (one), constraints/risks.
 3. Produce a Plan-mode checklist To-do, where tasks include “run another Cursor command”.
@@ -14,13 +14,6 @@ Orchestrate development work: read the provided context, select the next task, a
 5. This command **does not auto-transition**:
    - Do **not** output a slash command as a standalone line.
    - Use `NEXT_COMMAND: /...` (inline) to make it easy to copy without auto-running.
-
-## Inputs (ask if missing)
-
-- `@docs/IMPLEMENTATION_PLAN.md` (required)
-- `@docs/REQUIREMENTS.md` (recommended)
-- Desired change summary (if not obvious from the plan)
-- If already started: current branch, diff summary, failing tests/logs
 
 ## Standard workflow (encode as To-dos)
 
@@ -45,14 +38,15 @@ Orchestrate development work: read the provided context, select the next task, a
 - Chosen task (one) + rationale
 - Risks/constraints
 
+- [ ] First: run `NEXT_COMMAND: /docs-discover` (discover relevant docs; attach what’s needed)
+- [ ] Run: `/task-select`
+
 ### Plan (To-do)
 
 - [ ] ... (include purpose / inputs / done criteria per item)
 
 Must include these phases (as To-dos):
 
-- [ ] First: run `NEXT_COMMAND: /docs-discover` (discover relevant docs; attach what’s needed)
-- [ ] Run: `/task-select`
 - [ ] Run: `/implement`
 - [ ] Run: `/test-create`
 - [ ] Run: `/test-review`

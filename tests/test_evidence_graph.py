@@ -1040,14 +1040,14 @@ class TestDatabaseIntegration:
 class TestAcademicCitationAttributes:
     """Tests for academic citation attributes (J2).
 
-    Tests for is_academic, is_influential, citation_context attributes
-    added to CITES edges.
+    Tests for is_academic, citation_context attributes added to CITES edges.
+    Note: is_influential was removed per decision 12 (Phase 2).
     """
 
     def test_add_edge_with_academic_attributes(self) -> None:
         """Test adding edge with academic citation attributes.
 
-        // Given: Academic citation with is_academic, is_influential
+        // Given: Academic citation with is_academic, citation_context
         // When: Adding edge
         // Then: Attributes stored correctly
         """
@@ -1063,14 +1063,12 @@ class TestAcademicCitationAttributes:
             relation=RelationType.CITES,
             confidence=1.0,
             is_academic=True,
-            is_influential=True,
             citation_context="This paper discusses...",
         )
 
         # Then: Attributes stored correctly
         edge_data = graph._graph.edges["fragment:frag-1", "page:page-1"]
         assert edge_data["is_academic"] is True
-        assert edge_data["is_influential"] is True
         assert edge_data["citation_context"] == "This paper discusses..."
 
     def test_add_citation_with_academic_attributes(self) -> None:
@@ -1097,7 +1095,6 @@ class TestAcademicCitationAttributes:
                 target_id="page-1",
                 relation=RelationType.CITES,
                 is_academic=True,
-                is_influential=True,
                 citation_context="Test context",
             )
 
@@ -1105,7 +1102,6 @@ class TestAcademicCitationAttributes:
             assert edge_id is not None
             edge_data = graph._graph.edges["fragment:frag-1", "page:page-1"]
             assert edge_data["is_academic"] is True
-            assert edge_data["is_influential"] is True
 
     def test_load_from_db_with_academic_attributes(self) -> None:
         """Test loading edges with academic attributes from DB.
@@ -1123,7 +1119,6 @@ class TestAcademicCitationAttributes:
             target_id="page-1",
             relation=RelationType.CITES,
             is_academic=True,
-            is_influential=False,
             citation_context="Context text",
         )
 
@@ -1134,7 +1129,6 @@ class TestAcademicCitationAttributes:
         edges = data["edges"]
         assert len(edges) == 1
         assert edges[0]["is_academic"] is True
-        assert edges[0]["is_influential"] is False
         assert edges[0]["citation_context"] == "Context text"
 
     @pytest.mark.asyncio
@@ -1159,7 +1153,6 @@ class TestAcademicCitationAttributes:
             relation=RelationType.CITES,
             confidence=1.0,
             is_academic=True,
-            is_influential=True,
             citation_context="Academic citation context",
         )
 
@@ -1171,7 +1164,6 @@ class TestAcademicCitationAttributes:
         edges = await test_database.fetch_all("SELECT * FROM edges")
         assert len(edges) == 1
         assert edges[0]["is_academic"] == 1
-        assert edges[0]["is_influential"] == 1
         assert edges[0]["citation_context"] == "Academic citation context"
 
 
