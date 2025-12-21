@@ -203,7 +203,10 @@ class AcademicSearchProvider(BaseSearchProvider):
         depth: int = 1,
         direction: str = "both",  # "references", "citations", "both"
     ) -> tuple[list[Paper], list]:
-        """Get citation graph.
+        """Get citation graph from S2 + OpenAlex (integrated).
+
+        Fetches citations from both Semantic Scholar and OpenAlex in parallel,
+        then deduplicates using CanonicalPaperIndex.
 
         Args:
             paper_id: Starting paper ID
@@ -213,11 +216,18 @@ class AcademicSearchProvider(BaseSearchProvider):
         Returns:
             (papers, citations) tuple
         """
-        # Prefer Semantic Scholar (best citation graph coverage)
-        client = await self._get_client("semantic_scholar")
+        import asyncio
 
-        papers: dict[str, Paper] = {}
+        from src.utils.schemas import Citation
+
+        # Get both clients
+        s2_client = await self._get_client("semantic_scholar")
+        oa_client = await self._get_client("openalex")
+
+        # Use CanonicalPaperIndex for deduplication
+        index = CanonicalPaperIndex()
         citations = []
+        citation_pairs = set()  # Track citation pairs to avoid duplicates across APIs
         to_explore = [(paper_id, 0)]  # (paper_id, current_depth)
         explored = set()
 
@@ -227,41 +237,151 @@ class AcademicSearchProvider(BaseSearchProvider):
                 continue
             explored.add(current_id)
 
-            # Get references
+            # Get references from both APIs in parallel
             if direction in ("references", "both"):
-                refs = await client.get_references(current_id)
-                for ref_paper in refs:
-                    papers[ref_paper.id] = ref_paper
-                    from src.utils.schemas import Citation
+                s2_refs_task = s2_client.get_references(current_id)
+                oa_refs_task = oa_client.get_references(current_id)
 
-                    citations.append(
-                        Citation(
-                            citing_paper_id=current_id,
-                            cited_paper_id=ref_paper.id,
-                            context=None,
-                        )
+                try:
+                    results = await asyncio.gather(
+                        s2_refs_task, oa_refs_task, return_exceptions=True
                     )
+                    s2_refs_raw, oa_refs_raw = results
+                except Exception as e:
+                    logger.debug(
+                        "Failed to get references in parallel", paper_id=current_id, error=str(e)
+                    )
+                    s2_refs_raw = []
+                    oa_refs_raw = []
+
+                # Handle exceptions
+                if isinstance(s2_refs_raw, Exception):
+                    logger.debug("S2 references failed", paper_id=current_id, error=str(s2_refs_raw))
+                    s2_refs: list[Paper] = []
+                elif isinstance(s2_refs_raw, list):
+                    s2_refs = s2_refs_raw
+                else:
+                    s2_refs = []
+                if isinstance(oa_refs_raw, Exception):
+                    logger.debug(
+                        "OpenAlex references failed", paper_id=current_id, error=str(oa_refs_raw)
+                    )
+                    oa_refs: list[Paper] = []
+                elif isinstance(oa_refs_raw, list):
+                    oa_refs = oa_refs_raw
+                else:
+                    oa_refs = []
+
+                # Register all references in index (deduplication happens automatically)
+                for ref_paper in s2_refs:
+                    index.register_paper(ref_paper, source_api="semantic_scholar")
+                    pair_key = (current_id, ref_paper.id)
+                    if pair_key not in citation_pairs:
+                        citations.append(
+                            Citation(
+                                citing_paper_id=current_id,
+                                cited_paper_id=ref_paper.id,
+                                context=None,
+                            )
+                        )
+                        citation_pairs.add(pair_key)
                     if current_depth + 1 < depth:
                         to_explore.append((ref_paper.id, current_depth + 1))
 
-            # Get citations
-            if direction in ("citations", "both"):
-                cits = await client.get_citations(current_id)
-                for cit_paper in cits:
-                    papers[cit_paper.id] = cit_paper
-                    from src.utils.schemas import Citation
-
-                    citations.append(
-                        Citation(
-                            citing_paper_id=cit_paper.id,
-                            cited_paper_id=current_id,
-                            context=None,
+                for ref_paper in oa_refs:
+                    index.register_paper(ref_paper, source_api="openalex")
+                    pair_key = (current_id, ref_paper.id)
+                    if pair_key not in citation_pairs:
+                        citations.append(
+                            Citation(
+                                citing_paper_id=current_id,
+                                cited_paper_id=ref_paper.id,
+                                context=None,
+                            )
                         )
+                        citation_pairs.add(pair_key)
+                    if current_depth + 1 < depth:
+                        to_explore.append((ref_paper.id, current_depth + 1))
+
+            # Get citations from both APIs in parallel
+            if direction in ("citations", "both"):
+                s2_cits_task = s2_client.get_citations(current_id)
+                oa_cits_task = oa_client.get_citations(current_id)
+
+                try:
+                    results = await asyncio.gather(
+                        s2_cits_task, oa_cits_task, return_exceptions=True
                     )
+                    s2_cits_raw, oa_cits_raw = results
+                except Exception as e:
+                    logger.debug(
+                        "Failed to get citations in parallel", paper_id=current_id, error=str(e)
+                    )
+                    s2_cits_raw = []
+                    oa_cits_raw = []
+
+                # Handle exceptions
+                if isinstance(s2_cits_raw, Exception):
+                    logger.debug("S2 citations failed", paper_id=current_id, error=str(s2_cits_raw))
+                    s2_cits: list[Paper] = []
+                elif isinstance(s2_cits_raw, list):
+                    s2_cits = s2_cits_raw
+                else:
+                    s2_cits = []
+                if isinstance(oa_cits_raw, Exception):
+                    logger.debug(
+                        "OpenAlex citations failed", paper_id=current_id, error=str(oa_cits_raw)
+                    )
+                    oa_cits: list[Paper] = []
+                elif isinstance(oa_cits_raw, list):
+                    oa_cits = oa_cits_raw
+                else:
+                    oa_cits = []
+
+                # Register all citations in index (deduplication happens automatically)
+                for cit_paper in s2_cits:
+                    index.register_paper(cit_paper, source_api="semantic_scholar")
+                    pair_key = (cit_paper.id, current_id)
+                    if pair_key not in citation_pairs:
+                        citations.append(
+                            Citation(
+                                citing_paper_id=cit_paper.id,
+                                cited_paper_id=current_id,
+                                context=None,
+                            )
+                        )
+                        citation_pairs.add(pair_key)
                     if current_depth + 1 < depth:
                         to_explore.append((cit_paper.id, current_depth + 1))
 
-        return list(papers.values()), citations
+                for cit_paper in oa_cits:
+                    index.register_paper(cit_paper, source_api="openalex")
+                    pair_key = (cit_paper.id, current_id)
+                    if pair_key not in citation_pairs:
+                        citations.append(
+                            Citation(
+                                citing_paper_id=cit_paper.id,
+                                cited_paper_id=current_id,
+                                context=None,
+                            )
+                        )
+                        citation_pairs.add(pair_key)
+                    if current_depth + 1 < depth:
+                        to_explore.append((cit_paper.id, current_depth + 1))
+
+        # Get unique papers from index
+        unique_entries = index.get_all_entries()
+        papers = [entry.paper for entry in unique_entries if entry.paper]
+
+        logger.info(
+            "Citation graph integrated",
+            paper_id=paper_id,
+            unique_papers=len(papers),
+            total_citations=len(citations),
+            s2_oa_integrated=True,
+        )
+
+        return papers, citations
 
     async def resolve_oa_url_for_paper(self, paper: Paper) -> str | None:
         """Resolve OA URL for a paper using Unpaywall if not already available.

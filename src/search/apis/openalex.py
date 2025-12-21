@@ -92,8 +92,8 @@ class OpenAlexClient(BaseAcademicClient):
             logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
             return None
 
-    async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
-        """Get references via referenced_works field (no influential flag)."""
+    async def get_references(self, paper_id: str) -> list[Paper]:
+        """Get references via referenced_works field."""
         pid = self._normalize_work_id(paper_id)
 
         paper = await self.get_paper(pid)
@@ -133,10 +133,10 @@ class OpenAlexClient(BaseAcademicClient):
                 return None
 
         papers = await asyncio.gather(*[_get_one(r) for r in refs], return_exceptions=False)
-        return [(p, False) for p in papers if p and p.abstract]
+        return [p for p in papers if p and p.abstract]
 
-    async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
-        """Get citing papers via filter=cites:{work_id} (no influential flag)."""
+    async def get_citations(self, paper_id: str) -> list[Paper]:
+        """Get citing papers via filter=cites:{work_id}."""
         pid = self._normalize_work_id(paper_id)
         session = await self._get_session()
 
@@ -155,7 +155,7 @@ class OpenAlexClient(BaseAcademicClient):
         try:
             data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
             papers = [self._parse_paper(w) for w in data.get("results", [])]
-            return [(p, False) for p in papers if p and p.abstract]
+            return [p for p in papers if p and p.abstract]
         except Exception as e:
             logger.debug("OpenAlex citations fetch failed", paper_id=paper_id, error=str(e))
             return []

@@ -88,14 +88,14 @@ class CrossrefClient(BaseAcademicClient):
             logger.warning("Failed to get paper by DOI", doi=doi, error=str(e))
             return None
 
-    async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_references(self, paper_id: str) -> list[Paper]:
         """Get references (Crossref does not support detailed references)."""
         # Crossref API has a references endpoint but detailed retrieval is complex
         # Simple implementation: only referenced_works_count is available via get_paper
         logger.debug("Crossref references not fully implemented", paper_id=paper_id)
         return []
 
-    async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_citations(self, paper_id: str) -> list[Paper]:
         """Get citations (Crossref does not support citations)."""
         # Crossref API does not have citation information
         logger.debug("Crossref does not support citations", paper_id=paper_id)
