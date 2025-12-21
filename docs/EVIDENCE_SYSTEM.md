@@ -387,19 +387,19 @@ if refuting_count > 0:
      │               │                  │<───────────────────────────────────────│                   │
      │               │                  │                    │                   │                   │
      │               │                  │ ┌──────────────────┴───────────────────┴───────────────────┐
-     │               │                  │ │ Phase 2-4: 統合・重複排除                               │
+     │               │                  │ │ Step 2-4: 統合・重複排除                                │
      │               │                  │ │  - 識別子抽出 (DOI/PMID/ArXiv)                          │
      │               │                  │ │  - CanonicalPaperIndex で統合                           │
      │               │                  │ └──────────────────┬───────────────────────────────────────┘
      │               │                  │                    │                   │                   │
      │               │                  │ ┌──────────────────┴───────────────────┐                   │
-     │               │                  │ │ Phase 5: Abstract Only               │                   │
+     │               │                  │ │ Step 5: Abstract Only                │                   │
      │               │                  │ │  - abstractあり → pages保存          │                   │
      │               │                  │ │  - abstractなし → 未処理 ⚠️          │                   │
      │               │                  │ └──────────────────┬───────────────────┘                   │
      │               │                  │                    │                   │                   │
      │               │                  │ ┌──────────────────┴───────────────────┐                   │
-     │               │                  │ │ Phase 6: 引用グラフ (Top 5のみ) ⚠️   │                   │
+     │               │                  │ │ Step 6: 引用グラフ (Top 5のみ) ⚠️    │                   │
      │               │                  │ │  - get_citation_graph (S2のみ)       │                   │
      │               │                  │ │  - related_papers はpagesに追加されない│                   │
      │               │                  │ │  - エッジがスキップされる             │                   │
@@ -466,7 +466,7 @@ if refuting_count > 0:
 ```
 
 **現状の使用箇所**:
-- `main.py` Phase 4: 検索結果のランキング
+- `main.py` Step 4: 検索結果のランキング
 - `scheduler/jobs.py`: JobKind.EMBED / JobKind.RERANK
 
 ### 現行のローカルLLM使用
@@ -507,10 +507,10 @@ DEFAULT_EMBED_MODEL = "nomic-embed-text"
 
 | 項目 | 説明 |
 |------|------|
-| **役割** | **Phase 2（学術API検索）の発動条件**に過ぎない |
-| **True の場合** | Phase 2 を実行（学術APIを最初から叩く） |
-| **False の場合** | Phase 2 をスキップ（ブラウザ検索のみで開始） |
-| **共通処理** | **Phase 3-7 はクエリ種別に関係なく実行** |
+| **役割** | **Step 2（学術API検索）の発動条件**に過ぎない |
+| **True の場合** | Step 2 を実行（学術APIを最初から叩く） |
+| **False の場合** | Step 2 をスキップ（ブラウザ検索のみで開始） |
+| **共通処理** | **Step 3-7 はクエリ種別に関係なく実行** |
 
 **核心**: アカデミッククエリかどうかは**「どこから探索を始めるか」の優先度調整**であり、**論文に出会った後の処理は完全に共通**である。非アカデミッククエリでも学術論文に出会えば学術APIを活用する。
 
@@ -519,43 +519,43 @@ DEFAULT_EMBED_MODEL = "nomic-embed-text"
 ```
 search(query)
     │
-    ├─ Phase 1: ブラウザ検索 ──────────────────────────── 常に実行
+    ├─ Step 1: ブラウザ検索 ───────────────────────────── 常に実行
     │     └─ SERP取得 + 識別子抽出（DOI/PMID/ArXiv）
     │
-    ├─ Phase 2: 学術API検索 ───── is_academic_query() ─── 条件付き
+    ├─ Step 2: 学術API検索 ───── is_academic_query() ──── 条件付き
     │     └─ True → S2 + OpenAlex 並列検索               ★ここだけ分岐
     │     └─ False → スキップ
     │
     ├───────────────────────────────────────────────────── ここで合流
     │
-    ├─ Phase 3: 学術識別子によるAPI補完 ──────────────── 常に実行
+    ├─ Step 3: 学術識別子によるAPI補完 ───────────────── 常に実行
     │     └─ DOI/PMID/ArXiv発見 → メタデータ取得
     │
-    ├─ Phase 4: pages登録 + ランキング ────────────────── 常に実行
+    ├─ Step 4: pages登録 + ランキング ─────────────────── 常に実行
     │     └─ 【ML Server】BM25 → Embedding → Reranker
     │
-    ├─ Phase 5: 引用追跡 + 関連性評価 ─────────────────── 常に実行
+    ├─ Step 5: 引用追跡 + 関連性評価 ──────────────────── 常に実行
     │     └─ 【ML Server】Embedding（粗フィルタ）
     │     └─ 【Ollama】LLM（精密評価）← Qwen2.5 3B
     │
-    ├─ Phase 6: ブラウザfetch + コンテンツ処理 ─────────── 常に実行
-    │     └─ ページ内DOI発見 → Phase 3 へループ
+    ├─ Step 6: ブラウザfetch + コンテンツ処理 ──────────── 常に実行
+    │     └─ ページ内DOI発見 → Step 3 へループ
     │     └─ 【Ollama】Fact/Claim抽出、要約
     │
-    └─ Phase 7: エビデンスグラフ構築 ─────────────────── 常に実行
+    └─ Step 7: エビデンスグラフ構築 ───────────────────── 常に実行
           └─ 【ML Server】NLI → SUPPORTS/REFUTES判定
           └─ ベイズ更新 → confidence/uncertainty/controversy
 ```
 
 **MLコンポーネントの配置**:
-| Phase | ML Server | Ollama (LLM) |
+| Step | ML Server | Ollama (LLM) |
 |:-----:|:---------:|:------------:|
 | 4 | Embedding, Reranker | - |
 | 5 | Embedding（粗） | LLM（精密） |
 | 6 | - | Fact/Claim抽出 |
 | 7 | NLI | - |
 
-**重要**: Phase 2 の分岐以外、すべての処理は共通パスを通る。
+**重要**: Step 2 の分岐以外、すべての処理は共通パスを通る。
 
 #### シーケンス図（MLコンポーネント統合）
 
@@ -574,7 +574,7 @@ search(query)
      │───────────>│               │                 │                │                 │                 │
      │            │               │                 │                │                 │                 │
      │            │ ┌─────────────┴─────────────────┴─────────────────┴─────────────────┴─────────────────┐
-     │            │ │   Phase 1: ブラウザ検索 【常に実行】                                               │
+     │            │ │   Step 1: ブラウザ検索 【常に実行】                                                │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
      │            │ │  │ search_serp(query) ─────────────────────────> Browser                        ││
      │            │ │  │   ← SERP items                                                               ││
@@ -583,7 +583,7 @@ search(query)
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Phase 2: 学術API検索 【条件付き: is_academic_query】                            │
+     │            │ │   Step 2: 学術API検索 【条件付き: is_academic_query】                             │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
      │            │ │  │ if _is_academic_query(query):  ★唯一の分岐点                                 ││
      │            │ │  │   → S2 + OpenAlex 並列検索 ──────────────> Academic API                      ││
@@ -598,7 +598,7 @@ search(query)
      │            │   ════════════╪════════════════════════════════════════════════════════════════════
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Phase 3: 学術識別子によるAPI補完 【常に実行】                                   │
+     │            │ │   Step 3: 学術識別子によるAPI補完 【常に実行】                                    │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
      │            │ │  │ SERP/API結果内のDOI/PMID/ArXiv付きエントリに対して:                           ││
      │            │ │  │   → S2/OpenAlex でメタデータ取得 ────────> Academic API                      ││
@@ -607,7 +607,7 @@ search(query)
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Phase 4: pages登録 + ランキング 【常に実行】                                    │
+     │            │ │   Step 4: pages登録 + ランキング 【常に実行】                                     │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
      │            │ │  │ abstractあり → pages/fragments保存                                           ││
      │            │ │  │ abstractなし → ブラウザfetch候補に追加                                       ││
@@ -622,7 +622,7 @@ search(query)
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Phase 5: 引用追跡 + 関連性評価 【常に実行・全学術論文に対して】                 │
+     │            │ │   Step 5: 引用追跡 + 関連性評価 【常に実行・全学術論文に対して】                  │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
      │            │ │  │ 全papers（発見経路に関係なく）に対して:                                       ││
      │            │ │  │   1. get_citation_graph(depth=1) ────────> Academic API [S2 + OpenAlex]      ││
@@ -644,13 +644,13 @@ search(query)
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Phase 6: ブラウザfetch + コンテンツ処理 【常に実行・必要な場合】                │
+     │            │ │   Step 6: ブラウザfetch + コンテンツ処理 【常に実行・必要な場合】                 │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
      │            │ │  │ abstractなしエントリ / 非学術URL:                                            ││
      │            │ │  │   → Playwright fetch ────────────────────> Browser                          ││
      │            │ │  │   ← HTML content                                                             ││
      │            │ │  │   → コンテンツ抽出                                                           ││
-     │            │ │  │   → ページ内DOI/学術リンク抽出 → Phase 3へループ                             ││
+     │            │ │  │   → ページ内DOI/学術リンク抽出 → Step 3へループ                              ││
      │            │ │  │                                                                              ││
      │            │ │  │ 【Ollama】Fact/Claim抽出:                                                    ││
      │            │ │  │   → extract_facts() ─────────────────────> Ollama /api/generate             ││
@@ -661,7 +661,7 @@ search(query)
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Phase 7: エビデンスグラフ構築 【常に実行】                                      │
+     │            │ │   Step 7: エビデンスグラフ構築 【常に実行】                                       │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
      │            │ │  │ 【ML Server】NLI評価:                                                        ││
      │            │ │  │   → (premise, hypothesis) pairs ─────────> ML Server /nli                   ││
@@ -712,10 +712,10 @@ search(query)
    │                 │  │                 │  │                 │
    │ 1. 検索ランキング│ │ 1. 検索ランキング│ │ 1. エビデンス   │
    │    (Stage 2)    │  │    (Stage 3)    │  │    グラフ構築   │
-   │                 │  │                 │  │    (Phase 7)    │
+   │                 │  │                 │  │    (Step 7)     │
    │ 2. 引用追跡     │  │ ─              │  │                 │
    │    粗フィルタ   │  │                 │  │ ※関連性評価    │
-   │    (Phase 5)    │  │                 │  │   には使わない  │
+   │    (Step 5)     │  │                 │  │   には使わない  │
    └─────────────────┘  └─────────────────┘  └─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -733,7 +733,7 @@ search(query)
  │                 │               │                         │           │                         │
  │ 1. Fact/Claim  │               │ 2. 引用追跡             │           │ 3. コンテンツ要約       │
  │    抽出        │               │    関連性評価 【新規】   │           │                         │
- │    (現行維持)   │               │    (Phase 5 精密評価)   │           │    (現行維持)           │
+ │    (現行維持)   │               │    (Step 5 精密評価)    │           │    (現行維持)           │
  └─────────────────┘               └─────────────────────────┘           └─────────────────────────┘
 ```
 
@@ -775,13 +775,13 @@ search(query)
 
 #### 改善後の最適配置
 
-| Phase | 処理内容 | 使用モデル | 改善点 |
+| Step | 処理内容 | 使用モデル | 改善点 |
 |:-----:|----------|------------|--------|
 | **Ranking** | 検索結果ランキング | BM25 → Embed → Rerank | 現行維持 |
-| **Phase 5** | 引用追跡の関連性評価 | Embed (粗) → **LLM (精密)** | **2段階に変更** |
-| **Phase 7** | エビデンスグラフ構築 | NLI | 現行維持 |
+| **Step 5** | 引用追跡の関連性評価 | Embed (粗) → **LLM (精密)** | **2段階に変更** |
+| **Step 7** | エビデンスグラフ構築 | NLI | 現行維持 |
 
-**Phase 5 での2段階評価の根拠**:
+**Step 5 での2段階評価の根拠**:
 - Stage 1 (Embedding): 高速に候補を30件程度に絞り込み
 - Stage 2 (LLM): “有用なエビデンス/重要な背景になり得るか”を精密評価し、上位10件を選択
 - impact_score（`Paper.citation_count` のローカル正規化）を併用し、S2/OpenAlexの非対称性を避けつつ頑健化
@@ -792,22 +792,22 @@ search(query)
 
 | 観点 | 現状 | 改善後 |
 |------|------|--------|
-| **役割** | 完全に別ルートへ分岐 | **Phase 2 の発動条件のみ** |
-| **True時** | API＋ブラウザ並列 | Phase 2 実行（API検索を先に） |
-| **False時** | ブラウザのみ（学術処理なし） | Phase 2 スキップ（**Phase 3以降は共通**） |
+| **役割** | 完全に別ルートへ分岐 | **Step 2 の発動条件のみ** |
+| **True時** | API＋ブラウザ並列 | Step 2 実行（API検索を先に） |
+| **False時** | ブラウザのみ（学術処理なし） | Step 2 スキップ（**Step 3以降は共通**） |
 | **論文発見後** | ルートにより処理が異なる | **完全に共通パス** |
 
-#### 各Phaseの変更
+#### 各Stepの変更
 
 | 観点 | 現状 | 改善後 |
 |------|------|--------|
-| ブラウザ検索 | アカデミッククエリ時のみ並列 | 常に実行（Phase 1） |
-| 学術API検索 | アカデミッククエリ時のみ | 同（Phase 2・条件付き） |
-| 学術API補完 | アカデミッククエリ時のみ | **識別子発見で常に発動（Phase 3）** |
-| 引用追跡 | Top 5論文、S2のみ、アカデミック時のみ | **全学術論文、S2 + OpenAlex、常に実行（Phase 5）** |
+| ブラウザ検索 | アカデミッククエリ時のみ並列 | 常に実行（Step 1） |
+| 学術API検索 | アカデミッククエリ時のみ | 同（Step 2・条件付き） |
+| 学術API補完 | アカデミッククエリ時のみ | **識別子発見で常に発動（Step 3）** |
+| 引用追跡 | Top 5論文、S2のみ、アカデミック時のみ | **全学術論文、S2 + OpenAlex、常に実行（Step 5）** |
 | 引用先論文 | pagesに追加されない | 関連性上位10件を追加 |
 | 関連性判定 | なし | B+C hybrid |
-| ページ内リンク | 無視 | DOI/学術リンク抽出 → Phase 3へループ |
+| ページ内リンク | 無視 | DOI/学術リンク抽出 → Step 3へループ |
 
 #### 偽陰性への対策
 
@@ -815,9 +815,9 @@ search(query)
 
 | クエリ例 | 現状判定 | 論文含有 | 改善後の対策 |
 |----------|:--------:|:--------:|-------------|
-| 「機械学習の最新動向」 | False | 高 | Phase 3で補完 |
-| 「COVID-19 治療法」 | False | 高 | Phase 3で補完 |
-| 「量子コンピュータ 実用化」 | False | 高 | Phase 3で補完 |
+| 「機械学習の最新動向」 | False | 高 | Step 3で補完 |
+| 「COVID-19 治療法」 | False | 高 | Step 3で補完 |
+| 「量子コンピュータ 実用化」 | False | 高 | Step 3で補完 |
 
 **対策の核心**: `is_academic_query()` の精度に依存しない設計。論文を発見した時点で自動的に学術処理パスに入る。
 
@@ -2038,96 +2038,13 @@ def test_new_theory_not_isolated():
 
 **4.1 `calculate_claim_confidence_bayesian()` 実装**
 
-```python
-# src/filter/evidence_graph.py
-import math
-
-def calculate_claim_confidence_bayesian(self, claim_id: str) -> dict[str, Any]:
-    """ベイズ更新による信頼度計算
-
-    無情報事前分布 Beta(1, 1) から開始し、
-    各エッジの NLI confidence で重み付けして更新する。
-
-    注意: ドメイン分類（DomainCategory）は使用しない。
-          LLM関連性スコアも使用しない。
-          NLI confidence のみを使用する。
-    """
-    # 無情報事前分布: Beta(1, 1)
-    alpha = 1.0  # 支持の擬似カウント
-    beta = 1.0   # 反論の擬似カウント
-
-    evidence = self.get_all_evidence(claim_id)
-
-    for e in evidence["supports"]:
-        weight = e.get("nli_confidence", 0.5)  # NLI confidence のみ使用
-        alpha += weight
-
-    for e in evidence["refutes"]:
-        weight = e.get("nli_confidence", 0.5)  # NLI confidence のみ使用
-        beta += weight
-
-    # NEUTRAL は更新しない（情報なし）
-
-    # 事後分布 Beta(α, β) から統計量を計算
-    confidence = alpha / (alpha + beta)  # 期待値
-
-    # 不確実性（標準偏差）
-    variance = (alpha * beta) / ((alpha + beta)**2 * (alpha + beta + 1))
-    uncertainty = math.sqrt(variance)
-
-    # 論争度（αとβの両方が大きい場合に高い）
-    total_evidence = alpha + beta - 2  # 事前分布を除いた実エビデンス量
-    if total_evidence > 0:
-        controversy = min(alpha - 1, beta - 1) / total_evidence
-    else:
-        controversy = 0.0
-
-    return {
-        "confidence": round(confidence, 3),
-        "uncertainty": round(uncertainty, 3),
-        "controversy": round(controversy, 3),
-        "alpha": round(alpha, 2),
-        "beta": round(beta, 2),
-        # 後方互換性のため既存フィールドも維持
-        "supporting_count": len(evidence["supports"]),
-        "refuting_count": len(evidence["refutes"]),
-        "neutral_count": len(evidence["neutral"]),
-        "verdict": self._determine_verdict(confidence, controversy),
-        "independent_sources": self._count_unique_sources(evidence),
-        "evidence_count": sum(len(v) for v in evidence.values()),
-    }
-
-def _determine_verdict(self, confidence: float, controversy: float) -> str:
-    """confidence と controversy からverdictを決定"""
-    if controversy > 0.3:
-        return "contested"
-    if confidence >= 0.75:
-        return "well_supported"
-    if confidence >= 0.6:
-        return "supported"
-    if confidence <= 0.25:
-        return "likely_false"
-    return "unverified"
-```
+- 無情報事前分布 Beta(1, 1) から開始し、`SUPPORTS/REFUTES` エッジの **NLI confidence** でベイズ更新する
+- 出力は `confidence/uncertainty/controversy`（＋デバッグ用に `alpha/beta`）を想定
+- **DomainCategory / LLM関連性スコアは計算に使用しない**（決定3・決定7）
 
 **4.2 現行との並行運用**
 
-```python
-# src/utils/config.py
-class EvidenceGraphConfig:
-    use_bayesian_confidence: bool = False  # フラグで切替可能
-
-# src/filter/evidence_graph.py
-def calculate_claim_confidence(self, claim_id: str) -> dict[str, Any]:
-    """統一エントリポイント"""
-    from src.utils.config import get_config
-    config = get_config()
-
-    if config.evidence_graph.use_bayesian_confidence:
-        return self.calculate_claim_confidence_bayesian(claim_id)
-    else:
-        return self._calculate_claim_confidence_legacy(claim_id)
-```
+- 設定フラグ（例: `use_bayesian_confidence`）で、旧実装とベイズ実装を切り替え可能にする
 
 #### 挙動の例（再掲）
 
@@ -2141,40 +2058,11 @@ def calculate_claim_confidence(self, claim_id: str) -> dict[str, Any]:
 
 #### テストケース
 
-```python
-# tests/test_evidence_graph.py
-def test_uninformative_prior():
-    """エビデンスなしでconfidence=0.5, uncertainty≈0.29を検証"""
-    graph = EvidenceGraph()
-    graph.add_node(NodeType.CLAIM, "c1")
-    result = graph.calculate_claim_confidence_bayesian("c1")
-    assert result["confidence"] == 0.5
-    assert 0.28 <= result["uncertainty"] <= 0.30
-
-def test_supports_increase_confidence():
-    """SUPPORTSエッジ追加でconfidence上昇を検証"""
-
-def test_refutes_decrease_confidence():
-    """REFUTESエッジ追加でconfidence低下を検証"""
-
-def test_controversy_detection():
-    """SUPPORTS/REFUTES拮抗時にcontroversy上昇を検証"""
-
-def test_uncertainty_decreases_with_evidence():
-    """エビデンス増加でuncertainty低下を検証"""
-
-def test_nli_confidence_weight():
-    """NLI confidenceが重み付けに使用されることを検証"""
-
-def test_domain_trust_not_used():
-    """ドメイン分類がベイズ計算に使用されないことを検証"""
-
-def test_backward_compatibility():
-    """既存フィールド（supporting_count等）が維持されることを検証"""
-
-def test_flag_switches_implementation():
-    """use_bayesian_confidenceフラグで実装が切り替わることを検証"""
-```
+- ベイズ更新（SUPPORTS/REFUTESの追加）で `confidence` が期待通りに変化すること
+- エビデンス量の増加で `uncertainty` が低下すること
+- 拮抗時に `controversy` が上昇すること
+- **DomainCategoryが計算に混入しない**こと（設計決定の担保）
+- 切替フラグで旧/新の実装が切り替わること
 
 ### Phase 5: ユーザー制御（中リスク・中価値）
 
@@ -2194,58 +2082,18 @@ def test_flag_switches_implementation():
 
 **5.1 `get_status` に `can_restore` フラグ追加**
 
-```python
-# src/mcp/server.py: _handle_get_status()
-"blocked_domains": [
-    {
-        "domain": domain,
-        "blocked_at": ...,
-        "reason": ...,
-        "original_domain_category": ...,
-        "can_restore": True,  # 追加
-        "restore_via": "config/domains.yaml user_overrides",  # 追加
-    }
-    ...
-]
-```
+- `get_status` の `blocked_domains` 要素に `can_restore` / `restore_via` を追加する
 
 **5.2 `user_overrides` セクション追加**
 
-```yaml
-# config/domains.yaml
-user_overrides:
-  - domain: "blocked-but-valid.org"
-    domain_category: "low"
-    reason: "Manual review completed - false positive"
-    added_at: "2024-01-15"
-```
-
-```python
-# src/utils/domain_policy.py
-def get_domain_category(domain: str) -> DomainCategory:
-    # 1. user_overrides を最優先でチェック
-    overrides = _get_user_overrides()
-    if domain in overrides:
-        return DomainCategory(overrides[domain]["domain_category"])
-
-    # 2. 通常のドメインリストをチェック
-    ...
-```
+- `config/domains.yaml` に `user_overrides` を追加し、ドメインカテゴリを手動上書きできるようにする
+- `DomainPolicy` 側で `user_overrides` が最優先になるよう反映する
 
 #### テストケース
 
-```python
-# tests/test_mcp_get_status.py
-def test_blocked_domain_has_can_restore():
-    """ブロックされたドメインにcan_restore=Trueが含まれることを検証"""
-
-# tests/test_domain_policy.py
-def test_user_override_takes_precedence():
-    """user_overridesが通常のドメインリストより優先されることを検証"""
-
-def test_user_override_restores_blocked():
-    """user_overridesでBLOCKEDドメインを復活できることを検証"""
-```
+- `get_status` の `blocked_domains` に `can_restore` / `restore_via` が含まれること
+- `user_overrides` が通常設定より優先されること
+- `user_overrides` により `BLOCKED` 相当のドメインを復元できること
 
 ---
 
@@ -2303,23 +2151,16 @@ def test_user_override_restores_blocked():
 | - | （現状なし / 任意） | 必要になった時点で `scripts/migrate.py create ...` で追加 |
 
 **実行方法**:
-```bash
-python scripts/migrate.py up
-```
+- `python scripts/migrate.py up`
 
 ---
 
 ## VerificationStatus について
 
 **決定**: 現行の3値（PENDING/VERIFIED/REJECTED）を維持。拡張しない。
-
-```python
-class VerificationStatus(str, Enum):
-    """検証ステータス（変更なし）"""
-    PENDING = "pending"      # 検証待ち（エビデンス不足 / 高不確実性）
-    VERIFIED = "verified"    # 検証済み（十分な裏付けあり）
-    REJECTED = "rejected"    # 棄却（矛盾検出/危険パターン）
-```
+- `pending`: 検証待ち（エビデンス不足 / 高不確実性）
+- `verified`: 検証済み（十分な裏付けあり）
+- `rejected`: 棄却（矛盾検出/危険パターン）
 
 **CONTESTED を追加しない理由**:
 
