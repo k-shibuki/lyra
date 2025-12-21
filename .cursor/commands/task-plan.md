@@ -79,7 +79,6 @@ feature/phase-{N}-{M}-{short-description}
 - **Verification plan**:
   - What to run (recommend `/test-create`, `/test-review`, `/quality-check`, `/regression-test`)
 - **Branch name**: proposed (and created if approved)
-- **Next (manual)**: `NEXT_COMMAND: /implement`
 
 ## Related rules
 

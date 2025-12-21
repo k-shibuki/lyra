@@ -37,4 +37,4 @@ WIP: suspended
 - **Done**: what is finished
 - **TODO**: what remains
 - **Resume notes**: any pitfalls, commands, or context needed
-- **Next (manual)**: resume with the appropriate single-purpose command (e.g. `NEXT_COMMAND: /implement`, `NEXT_COMMAND: /bug-analysis`, `NEXT_COMMAND: /test-create`)
+- 

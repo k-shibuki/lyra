@@ -39,7 +39,6 @@ This command focuses on the concrete deliverables and how to produce them.
 - **Data contracts**: Pydantic models
 - **Debug script**: runnable script + how to run it
 - **Verification**: what was checked and results
-- **Next (manual)**: `NEXT_COMMAND: /quality-check`
 
 ## Related rules
 

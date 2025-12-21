@@ -27,7 +27,7 @@ Tests S2/OpenAlex integration and API return type consistency.
 | TC-API-B-02 | OpenAlex get_citations() with no abstract | Boundary – empty | Empty list (abstract required) | - |
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -555,9 +555,10 @@ class TestAPIReturnTypes:
             source_api="openalex",
         )
 
-        with patch.object(client, "get_paper", return_value=mock_paper), patch(
-            "src.search.apis.openalex.retry_api_call"
-        ) as mock_retry:
+        with (
+            patch.object(client, "get_paper", return_value=mock_paper),
+            patch("src.search.apis.openalex.retry_api_call") as mock_retry,
+        ):
             mock_retry.return_value = {
                 "referenced_works": ["W123"],
             }
@@ -628,7 +629,8 @@ class TestAPIReturnTypes:
 
         client = OpenAlexClient()
 
-        mock_response = AsyncMock()
+        # httpx.Response.json() is sync; use MagicMock to avoid creating an un-awaited coroutine
+        mock_response = MagicMock()
         mock_response.json.return_value = {
             "results": [
                 {
@@ -675,7 +677,8 @@ class TestAPIReturnTypes:
         client = OpenAlexClient()
 
         with patch.object(client, "_get_session") as mock_session:
-            mock_response = AsyncMock()
+            # httpx.Response.json() is sync; use MagicMock to avoid creating an un-awaited coroutine
+            mock_response = MagicMock()
             mock_response.json.return_value = {
                 "results": [
                     {

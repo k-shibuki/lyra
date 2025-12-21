@@ -185,6 +185,7 @@ The MCP client (Cursor AI, Claude Desktop) provides frontier reasoning for strat
 |--------|----------|----------------|
 | **MCP Server** | `src/mcp/` | 11 tools for MCP client integration |
 | **Search Providers** | `src/search/` | Multi-engine search, academic APIs |
+| **Citation Filter** | `src/search/citation_filter.py` | 2-stage relevance filtering (embedding + LLM) for citation tracking |
 | **Crawler** | `src/crawler/` | Browser automation, HTTP fetching, session management |
 | **Filter** | `src/filter/` | LLM extraction, NLI analysis, ranking |
 | **Research Pipeline** | `src/research/` | Orchestration, state management |
@@ -446,6 +447,28 @@ task_limits:
 search:
   min_independent_sources: 3     # Required for claim satisfaction
   novelty_threshold: 0.10        # Stop when novelty drops below 10%
+  
+  # Citation tracking (Phase 3)
+  citation_graph_top_n_papers: 5  # Number of papers to process for citation expansion
+  citation_graph_depth: 1         # Citation graph depth
+  citation_graph_direction: "both" # "references", "citations", or "both"
+  citation_filter:
+    # Stage 1: Embedding + impact_score (fast coarse filter)
+    stage1_top_k: 30
+    stage1_weight_embedding: 0.5
+    stage1_weight_impact: 0.5
+    
+    # Stage 2: LLM evidence-usefulness + Stage 1 signals (precise selection)
+    stage2_top_k: 10
+    stage2_weight_llm: 0.5
+    stage2_weight_embedding: 0.3
+    stage2_weight_impact: 0.2
+    
+    # Prompt/input limits
+    max_source_abstract_chars: 1200
+    max_target_abstract_chars: 1200
+    llm_timeout_seconds: 60.0
+    llm_max_tokens: 16
 
 crawler:
   engine_qps: 0.25               # Requests per second per engine

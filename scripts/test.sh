@@ -211,9 +211,7 @@ filter_node_errors() {
 }
 
 # Function: cmd_check
-# Description: Check if tests are completed by checking:
-#             1. Test result keywords (passed/failed/skipped/deselected)
-#             2. File modification time (fallback: if no updates for COMPLETION_THRESHOLD seconds)
+# Description: Check if tests are completed by checking pytest summary line
 # Returns:
 #   0: Tests completed or still running
 #   1: Result file not found
@@ -225,9 +223,6 @@ cmd_check() {
         return 1
     fi
 
-    local mtime
-    local now
-    local age
     local last_line
     local result_content
 
@@ -244,17 +239,8 @@ cmd_check() {
         return 0
     fi
 
-    # Fallback: Check file modification time
-    mtime=$(stat -c %Y "$TEST_RESULT_FILE" 2>/dev/null || echo 0)
-    now=$(date +%s)
-    age=$((now - mtime))
-
-    if [ "$age" -gt "$COMPLETION_THRESHOLD" ]; then
-        echo "DONE (${age}s ago)"
-        tail -5 "$TEST_RESULT_FILE" 2>/dev/null | filter_node_errors || echo "No output"
-    else
-        echo "RUNNING | $last_line"
-    fi
+    # Still running
+    echo "RUNNING | $last_line"
 }
 
 # Function: cmd_get

@@ -45,7 +45,6 @@ Note: `--config-file pyproject.toml` applies `[tool.mypy]` settings (e.g., `warn
 - **Issues found**: grouped by tool/code
 - **Fixes applied**: summary + file list
 - **Intentional exceptions**: list + reason
-- **Next (manual)**: `NEXT_COMMAND: /regression-test`
 
 ## Related rules
 

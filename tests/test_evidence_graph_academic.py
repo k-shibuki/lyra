@@ -189,6 +189,8 @@ class TestAddAcademicPageWithCitations:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
+            # add_academic_page_with_citations() awaits fetch_one; ensure it returns a dict/None (not AsyncMock)
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # Given
@@ -230,6 +232,8 @@ class TestAddAcademicPageWithCitations:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
+            # add_academic_page_with_citations() awaits fetch_one; ensure it returns a dict/None (not AsyncMock)
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # Given: paper_to_page_map mapping cited_paper_id to page_id
@@ -320,7 +324,8 @@ class TestAddAcademicPageWithCitations:
             mock_db_instance.insert = AsyncMock()
 
             # Mock fetch_one to return page domain information
-            async def mock_fetch_one(query: str, params: tuple) -> dict | None:
+            # NOTE: Use sync side_effect with AsyncMock to avoid returning a coroutine (which triggers "never awaited")
+            def mock_fetch_one(query: str, params: tuple) -> dict | None:
                 if "page_123" in params:
                     return {"url": "https://arxiv.org/abs/1234", "domain": "arxiv.org"}
                 elif "page_ref1" in params:
@@ -503,6 +508,7 @@ class TestBoundaryValues:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # Given: Empty metadata
@@ -550,6 +556,8 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
+            # add_academic_page_with_citations() awaits fetch_one; return None to avoid AsyncMock dict-like usage
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # Given: Citations list with invalid object
@@ -603,6 +611,7 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock(side_effect=Exception("DB error"))
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # Given: paper_to_page_map so citations are not skipped
@@ -647,6 +656,7 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # When: Adding citation with empty ID
@@ -682,6 +692,7 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # Given: Citations with paper IDs not in mapping
@@ -731,6 +742,7 @@ class TestExceptionHandlingEvidenceGraph:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
             mock_db_instance.fetch_all = AsyncMock(return_value=[])
 
             # Given: Citations with paper IDs mapped to page IDs

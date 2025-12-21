@@ -80,7 +80,6 @@ Deliverables:
 - **Plan (To-do)**: checklist with per-file tasks
 - **Changes applied**: what changed, grouped by area
 - **Verification**: what was run/checked
-- **Next (manual)**: usually `NEXT_COMMAND: /quality-check`
 
 ## Related rules
 

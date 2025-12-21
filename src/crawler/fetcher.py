@@ -933,12 +933,11 @@ class BrowserFetcher:
                                 await asyncio.sleep(poll_interval)
 
                     if not cdp_connected:
-                        logger.warning(
-                            "CDP connection failed after auto-start, launching local headful browser",
-                            error=str(cdp_error),
-                        )
-                        self._headful_browser = await self._playwright.chromium.launch(
-                            headless=False
+                        # Per spec §4.3.3: CDP connection is required, no fallback
+                        # BrowserFetcher requires real Chrome profile for fingerprint consistency
+                        raise RuntimeError(
+                            f"CDP connection failed: {cdp_error}. "
+                            "Start Chrome with: ./scripts/chrome.sh start"
                         )
 
                 # Register browser for lifecycle management
@@ -988,50 +987,12 @@ class BrowserFetcher:
 
             return self._headful_browser, self._headful_context
         else:
-            # Headless mode - default
-            if self._headless_browser is None:
-                self._headless_browser = await self._playwright.chromium.launch(
-                    headless=True,
-                    args=[
-                        "--disable-blink-features=AutomationControlled",
-                        "--disable-dev-shm-usage",
-                    ],
-                )
-                logger.info("Launched headless browser")
-
-                # Register browser for lifecycle management
-                if task_id:
-                    await self._lifecycle_manager.register_resource(
-                        f"browser_headless_{id(self._headless_browser)}",
-                        ResourceType.BROWSER,
-                        self._headless_browser,
-                        task_id,
-                    )
-
-                self._headless_context = await self._headless_browser.new_context(
-                    viewport={
-                        "width": browser_settings.viewport_width,
-                        "height": browser_settings.viewport_height,
-                    },
-                    locale="ja-JP",
-                    timezone_id="Asia/Tokyo",
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                )
-                await self._setup_blocking(self._headless_context)
-
-                # Register context for lifecycle management
-                if task_id:
-                    await self._lifecycle_manager.register_resource(
-                        f"context_headless_{id(self._headless_context)}",
-                        ResourceType.BROWSER_CONTEXT,
-                        self._headless_context,
-                        task_id,
-                    )
-
-                # Perform profile health audit on browser session initialization
-                await self._perform_health_audit(self._headless_context, task_id)
-
-            return self._headless_browser, self._headless_context
+            # Per spec §4.3.3: Headless mode is prohibited
+            # Lyra uses "real profile consistency" design, not "headless disguised as human"
+            raise RuntimeError(
+                "Headless mode is prohibited per spec §4.3.3. "
+                "Use headful=True with CDP connection to real Chrome profile."
+            )
 
     async def _perform_health_audit(
         self,
@@ -1091,11 +1052,36 @@ class BrowserFetcher:
                 error=str(e),
             )
 
+    def _get_chrome_executable_path(self) -> str | None:
+        """Get system Chrome executable path.
+
+        Returns:
+            Chrome executable path if found, None otherwise.
+        """
+        import os
+        import shutil
+
+        # Try to find Chrome/Chromium in PATH
+        chrome_names = ["google-chrome", "chromium-browser", "chromium", "chrome"]
+        for name in chrome_names:
+            chrome_path = shutil.which(name)
+            if chrome_path:
+                return chrome_path
+
+        # WSL: Try Windows Chrome path (but won't work directly from WSL)
+        # Note: WSL should use CDP connection instead of direct launch
+        if os.name == "nt" or os.environ.get("WSL_DISTRO_NAME"):
+            # Windows Chrome path (for reference, but CDP is preferred)
+            windows_chrome = "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+            if os.path.exists(windows_chrome):
+                return windows_chrome
+
+        return None
+
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
 
-        Per docs/requirements.md §3.2.1: CDP未接続を検知した場合、Lyraは
-        ./scripts/chrome.sh start を自動実行する。
+        # Per docs/requirements.md §3.2.1: When a CDP (Chrome DevTools Protocol) connection is not detected, Lyra automatically executes ./scripts/chrome.sh start.
 
         Returns:
             True if chrome.sh start succeeded, False otherwise.

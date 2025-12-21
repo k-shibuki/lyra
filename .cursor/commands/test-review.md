@@ -43,7 +43,6 @@ Review tests against `@.cursor/rules/test-strategy.mdc` and improve them until t
 - **Review summary**: pass/fail + reasoning
 - **Missing coverage**: bullet list
 - **Fixes applied** (if any): list of changes
-- **Next (manual)**: `NEXT_COMMAND: /quality-check`
 
 ## Related rules
 

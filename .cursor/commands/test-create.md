@@ -49,7 +49,6 @@ Use `scripts/test.sh` (async + polling):
 - **Test matrix**: table (updated if scope changes)
 - **New/updated test files**: list of paths
 - **Notes**: gaps, flakiness risks, runtime concerns
-- **Next (manual)**: `NEXT_COMMAND: /test-review`
 
 ## Related rules
 

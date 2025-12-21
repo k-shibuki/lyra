@@ -44,7 +44,6 @@ grep -r "ERROR\\|Exception" logs/
 - **Root cause**: what, where, why
 - **Fix**: summary + files changed
 - **Verification**: what you ran/checked and results
-- **Next (manual)**: `NEXT_COMMAND: /quality-check`
 
 ## Related rules
 

@@ -60,7 +60,6 @@ Use multiple signals (don’t rely on one):
 - **Chosen docs to update**: list + rationale
 - **Edits made**: per doc file, bullet summary
 - **Skipped docs**: list + reason
-- **Next (manual)**: usually `NEXT_COMMAND: /quality-check` or `NEXT_COMMAND: /commit` (depending on stage)
 
 ## Related rules
 
