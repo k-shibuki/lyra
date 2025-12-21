@@ -1235,6 +1235,9 @@ async def add_academic_page_with_citations(
         # If current_paper_id is provided, only add edges adjacent to current paper:
         # - outgoing references: current(citing) -> cited
         # - incoming citations: citing -> current(cited)
+        source_page_id: str | None = None
+        target_page_id: str | None = None
+
         if current_paper_id:
             if citation.citing_paper_id == current_paper_id:
                 source_page_id = page_id

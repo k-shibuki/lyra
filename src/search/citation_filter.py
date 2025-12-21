@@ -216,4 +216,3 @@ async def filter_relevant_citations(
 
     results.sort(key=lambda x: x.final_score, reverse=True)
     return results[: cfg.stage2_top_k]
-

@@ -91,4 +91,3 @@ def test_local_impact_scores_singleton() -> None:
     )
     scores = _local_impact_scores([p])
     assert scores["p1"] == 0.5
-
