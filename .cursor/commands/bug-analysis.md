@@ -1,93 +1,51 @@
 # bug-analysis
 
-一般的なバグパターン・アンチパターンを調査し、修正する。
+## Purpose
 
-## 関連ルール
-- コード実行時: @.cursor/rules/code-execution.mdc
-- リファクタ関連: @.cursor/rules/refactoring.mdc
+Investigate a bug systematically, identify root cause, implement a fix, and verify it.
 
-## ワークフロー概要
+## When to use
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. 症状の特定    エラーメッセージ・再現手順を確認           │
-│         ↓                                                    │
-│  2. 原因調査      ログ・スタックトレースを分析               │
-│         ↓                                                    │
-│  3. パターン分類  既知のバグパターンに分類                   │
-│         ↓                                                    │
-│  4. 修正実装      パターンに基づいた修正                     │
-│         ↓                                                    │
-│  5. 検証          修正後の動作確認・回帰テスト               │
-└─────────────────────────────────────────────────────────────┘
-```
+- A “normal” bug (not primarily a parser-selector issue, not primarily cross-module contract design)
+- Exceptions, resource leaks, race conditions, incorrect edge-case handling
 
-## よくあるバグパターン
+## Inputs (attach as `@...`)
 
-### 1. 非同期処理の問題
+- Error message / stack trace / logs (required; paste or attach files)
+- Repro steps (minimal) (required)
+- Relevant code (`@src/...`) and tests (`@tests/...`) (recommended)
 
-| パターン | 症状 | 修正方法 |
-|---------|------|---------|
-| await忘れ | 処理が完了前に次へ進む | `await` を追加 |
-| 競合状態 | 結果が不安定 | ロック or 直列化 |
-| デッドロック | 処理がハング | タイムアウト追加 |
+## Investigation workflow
 
-### 2. 型・データの問題
+1. Confirm the symptom and reproduce (or explain why it is not reproducible).
+2. Collect evidence: stack trace, logs, inputs, environment assumptions.
+3. Form hypotheses and validate them against evidence.
+4. Implement the smallest correct fix.
+5. Verify: targeted tests + (if needed) regression tests.
 
-| パターン | 症状 | 修正方法 |
-|---------|------|---------|
-| None参照 | AttributeError | Optional チェック追加 |
-| 型不一致 | TypeError | 型変換 or 型定義修正 |
-| 空データ | IndexError, KeyError | 空チェック追加 |
+## Common bug patterns (examples)
 
-### 3. リソース管理の問題
+- **Async/concurrency**: missing `await`, race condition, deadlock → add awaits, serialize/lock, add timeouts
+- **Type/data**: `None` access, type mismatch, empty data → guard Optional, validate inputs, handle empties
+- **Resource management**: leaked file/connection, pool exhaustion → use context managers, `finally`, tune pooling
+- **Error handling**: swallowed exceptions, over-broad except, missing retry → catch specific errors, log, retry safely
 
-| パターン | 症状 | 修正方法 |
-|---------|------|---------|
-| リソースリーク | メモリ増加 | `with` 文 or `finally` |
-| 接続枯渇 | タイムアウト | コネクションプール |
-| ファイルロック | 書き込み失敗 | 排他制御 |
-
-### 4. エラーハンドリングの問題
-
-| パターン | 症状 | 修正方法 |
-|---------|------|---------|
-| 握りつぶし | 無言で失敗 | 適切な例外処理 |
-| 広すぎるcatch | デバッグ困難 | 具体的な例外型 |
-| リトライなし | 一時エラーで失敗 | リトライロジック追加 |
-
-## 調査手順
-
-### 1. 症状の特定
+## Useful log commands (optional)
 
 ```bash
-# 最近のエラーログを確認
 podman exec lyra cat logs/app.log | tail -100
-
-# 特定のエラーを検索
-podman exec lyra grep -r "ERROR\|Exception" logs/
+podman exec lyra grep -r "ERROR\\|Exception" logs/
 ```
 
-### 2. 原因調査
+## Output (response format)
 
-```bash
-# スタックトレースを確認
-# 関連するコードを読む
-# 変数の状態を確認（printデバッグ or デバッガ）
-```
+- **Symptom**: expected vs actual
+- **Root cause**: what, where, why
+- **Fix**: summary + files changed
+- **Verification**: what you ran/checked and results
+- **Next (manual)**: `NEXT_COMMAND: /quality-check`
 
-### 3. パターンに基づいた修正
+## Related rules
 
-上記のパターン表を参照し、該当するパターンの修正方法を適用。
-
-## 完了条件
-- [ ] バグの原因が特定できた
-- [ ] パターンに基づいた修正を実装した
-- [ ] 修正後にバグが再現しないことを確認した
-- [ ] 回帰テストがパスした
-
-## 出力
-- バグの症状と原因
-- 該当したパターン
-- 修正内容
-- 検証結果
+- `@.cursor/rules/code-execution.mdc`
+- `@.cursor/rules/refactoring.mdc`

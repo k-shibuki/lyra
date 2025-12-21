@@ -1,31 +1,49 @@
 # test-review
 
-既存テストが @.cursor/rules/test-strategy.mdc の観点に即して合格と言えるか、網羅的に見直す。
+## Purpose
 
-## 関連ルール
-- テスト関連タスク: @.cursor/rules/test-strategy.mdc
-- コード実行時: @.cursor/rules/code-execution.mdc
+Review tests against `@.cursor/rules/test-strategy.mdc` and improve them until they meet the bar.
 
-## 事前確認
-必要に応じて @docs/REQUIREMENTS.md の仕様とコードベースを `grep` 等のツールで確認せよ。
-コード中のコメントで @docs/IMPLEMENTATION_PLAN.md を参照させることは禁止する。
+## When to use
 
-## レビュー観点
-1. テスト観点表の有無と網羅性
-2. 正常系・異常系のバランス（異常系 >= 正常系）
-3. 境界値テスト（0, 最小, 最大, ±1, 空, NULL）
-4. Given / When / Then コメントの有無
-5. 例外の型とメッセージの検証
-6. 分岐網羅率
+- After creating tests (typically after `test-create`)
+- Any time test quality is questionable (coverage gaps, flakiness, unclear assertions)
 
-## 作業フロー
-1. スコープ確定（レビュー対象のテストファイル特定）
-2. レビュー実施
-3. 修正計画策定
-4. 修正・実装
+## Inputs (attach as `@...`)
 
-## 出力
-- レビュー結果サマリ
-- 不足している観点一覧
-- 修正内容（実施した場合）
+- `@docs/REQUIREMENTS.md` (recommended)
+- The test files to review (`@tests/...`) (required)
+- Relevant implementation files (`@src/...`) (recommended)
 
+## Constraints
+
+- Do **not** reference `@docs/IMPLEMENTATION_PLAN.md` in code comments.
+- Negative tests must be **>=** positive tests (unless there is a clear reason).
+
+## Review checklist
+
+1. Test matrix exists and matches the change surface.
+2. Positive/negative balance is acceptable.
+3. Boundary cases are covered (0, min, max, ±1, empty, NULL/None).
+4. Given/When/Then comments exist.
+5. Exceptions validate both type and message where meaningful.
+6. Branch/behavioral coverage is reasonable (focus on meaningful branches).
+
+## Steps
+
+1. Confirm scope: which tests are in/out.
+2. Review and list issues by severity.
+3. Propose a fix plan (smallest effective edits first).
+4. Apply fixes if approved (or if the workflow expects auto-fix).
+
+## Output (response format)
+
+- **Review summary**: pass/fail + reasoning
+- **Missing coverage**: bullet list
+- **Fixes applied** (if any): list of changes
+- **Next (manual)**: `NEXT_COMMAND: /quality-check`
+
+## Related rules
+
+- `@.cursor/rules/test-strategy.mdc`
+- `@.cursor/rules/code-execution.mdc`

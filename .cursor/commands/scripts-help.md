@@ -1,84 +1,85 @@
 # scripts-help
 
-開発用スクリプトの使い方リファレンス。
+## Purpose
 
-## dev.sh（開発環境管理）
+Reference for project helper scripts (`scripts/*.sh`).
+
+## `dev.sh` (development environment)
+
 ```bash
-./scripts/dev.sh up        # コンテナ起動
-./scripts/dev.sh down      # コンテナ停止
-./scripts/dev.sh shell     # 開発シェルに入る
-./scripts/dev.sh build     # コンテナビルド
-./scripts/dev.sh rebuild   # キャッシュなしでリビルド
-./scripts/dev.sh logs      # ログ表示（最新50行、ハングしない）
-./scripts/dev.sh logs -f   # ログをフォロー（Ctrl+Cで終了）
-./scripts/dev.sh status    # コンテナ状態確認
-./scripts/dev.sh test      # コンテナ内でテスト実行
-./scripts/dev.sh mcp       # MCPサーバー起動
-./scripts/dev.sh research  # リサーチクエリ実行
-./scripts/dev.sh clean     # コンテナ・イメージ削除
+./scripts/dev.sh up        # Start container
+./scripts/dev.sh down      # Stop container
+./scripts/dev.sh shell     # Open dev shell
+./scripts/dev.sh build     # Build container
+./scripts/dev.sh rebuild   # Rebuild without cache
+./scripts/dev.sh logs      # Show logs (last 50 lines, non-hanging)
+./scripts/dev.sh logs -f   # Follow logs (Ctrl+C to stop)
+./scripts/dev.sh status    # Container status
+./scripts/dev.sh test      # Run tests inside container
+./scripts/dev.sh mcp       # Start MCP server
+./scripts/dev.sh research  # Run research query
+./scripts/dev.sh clean     # Remove container/images
 ```
 
-## test.sh（テスト実行・AI向け）
+## `test.sh` (test runner, AI-friendly)
+
 ```bash
-./scripts/test.sh run [target]  # テスト開始（デフォルト: tests/）
-./scripts/test.sh check         # 完了確認（DONE/RUNNING）
-./scripts/test.sh get           # 結果取得（最後の20行）
-./scripts/test.sh kill          # pytestプロセス強制終了
+./scripts/test.sh run [target]  # Start tests (default: tests/)
+./scripts/test.sh check         # Status (DONE/RUNNING)
+./scripts/test.sh get           # Fetch results (tail)
+./scripts/test.sh kill          # Kill pytest
 ```
 
-バックグラウンド実行→ポーリングで結果確認のパターン。
-
-### ポーリング例（推奨）
+Polling pattern:
 
 ```bash
-# テスト開始
 ./scripts/test.sh run tests/
-
-# 完了までポーリング（最大5分、5秒間隔）
 for i in {1..60}; do
     sleep 5
     status=$(./scripts/test.sh check 2>&1)
     echo "[$i] $status"
-    # 完了判定: "DONE"またはテスト結果キーワード（passed/failed/skipped）が含まれる
     if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
         break
     fi
 done
-
-# 結果取得
 ./scripts/test.sh get
 ```
 
-**完了判定の仕組み**:
-- `check`コマンドは、テスト結果に`passed`/`failed`/`skipped`/`deselected`などのキーワードが含まれていれば自動的に`DONE`を返す
-- キーワードが見つからない場合は、ファイル更新時刻で判定（5秒以上更新がなければ`DONE`）
+Completion logic:
 
-## chrome.sh（Chrome管理）
+- `check` returns `DONE` when output contains `passed`/`failed`/`skipped`/`deselected`
+- Otherwise it uses file modification time (no updates for 5s => `DONE`)
+
+## `chrome.sh` (Chrome management)
+
 ```bash
-./scripts/chrome.sh check [port]     # 接続可能か確認（デフォルト）
-./scripts/chrome.sh start [port]     # Chrome起動（独立プロファイル）
-./scripts/chrome.sh stop [port]      # Chrome停止
-./scripts/chrome.sh diagnose [port]  # 接続問題の診断（WSL用）
-./scripts/chrome.sh fix [port]       # WSL2ネットワーク設定の自動修正
+./scripts/chrome.sh check [port]     # Check connectivity
+./scripts/chrome.sh start [port]     # Start Chrome (isolated profile)
+./scripts/chrome.sh stop [port]      # Stop Chrome
+./scripts/chrome.sh diagnose [port]  # Diagnose connectivity (WSL)
+./scripts/chrome.sh fix [port]       # Auto-fix WSL2 networking
 ```
 
-デフォルトポート: `.env`の`LYRA_BROWSER__CHROME_PORT`で設定（デフォルト: 9222）。
-専用プロファイル`LyraChrome`で起動し、既存セッションに影響なし。
+Default port: `.env` key `LYRA_BROWSER__CHROME_PORT` (default: 9222).
+Chrome uses a dedicated `LyraChrome` profile to avoid affecting existing sessions.
 
-## mcp.sh（MCP Server）
+## `mcp.sh` (MCP server)
+
 ```bash
-./scripts/mcp.sh  # MCPサーバー起動（Cursor連携用）
+./scripts/mcp.sh
 ```
 
-コンテナ未起動時は自動で `dev.sh up` を実行。検索ツール使用時はChrome接続が必要で、未接続ならエラーメッセージで `chrome.sh start` を案内。
+If the container is not running, it will run `dev.sh up`. Search tools require Chrome connectivity; if missing, follow the error guidance to run `chrome.sh start`.
 
-## common.sh（共通ユーティリティ）
+## `common.sh` (shared utilities)
+
 ```bash
-source scripts/common.sh  # 直接実行しない - 他スクリプトからsource
+source scripts/common.sh  # Do not execute directly; source from other scripts
 ```
 
-提供機能:
-- `.env`からの環境変数読み込み
-- ログ関数（`log_info`, `log_warn`, `log_error`）
-- コンテナユーティリティ（`check_container_running`, `wait_for_container`）
-- 共通定数（`CHROME_PORT`, `SOCAT_PORT`, `CONTAINER_NAME`等）
+Provides:
+
+- `.env` loading
+- Logging helpers (`log_info`, `log_warn`, `log_error`)
+- Container helpers (`check_container_running`, `wait_for_container`)
+- Shared constants (`CHROME_PORT`, `SOCAT_PORT`, `CONTAINER_NAME`, etc.)
