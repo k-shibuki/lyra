@@ -3583,7 +3583,7 @@ class TestLastmileSlotSelection:
         """TC-LM-N-04: Test search uses lastmile engine when harvest_rate >= 0.9."""
         # Given: A BrowserSearchProvider and harvest_rate triggering lastmile
         provider = BrowserSearchProvider()
-        provider._closed = False
+        provider._is_closed = False
 
         lastmile_engine_selected = []
 
@@ -3651,7 +3651,7 @@ class TestLastmileSlotSelection:
         """TC-LM-A-03: Test search uses normal engine selection when harvest_rate=None."""
         # Given: A BrowserSearchProvider
         provider = BrowserSearchProvider()
-        provider._closed = False
+        provider._is_closed = False
 
         should_use_lastmile_calls: list[tuple[object, ...]] = []
 

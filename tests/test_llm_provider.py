@@ -48,6 +48,7 @@ from src.filter.provider import (
     EmbeddingResponse,
     LLMHealthState,
     LLMHealthStatus,
+    ModelInfo,
     LLMOptions,
     LLMProvider,
     LLMProviderRegistry,
@@ -373,7 +374,7 @@ class TestLLMProviderProtocol:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -409,7 +410,7 @@ class TestBaseLLMProvider:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -436,7 +437,7 @@ class TestBaseLLMProvider:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -464,7 +465,7 @@ class TestBaseLLMProvider:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -492,7 +493,7 @@ class TestBaseLLMProvider:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -984,7 +985,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1018,7 +1019,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1060,7 +1061,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1095,7 +1096,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1115,7 +1116,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1152,7 +1153,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1172,7 +1173,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1207,7 +1208,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1252,7 +1253,7 @@ class TestLLMProviderRegistry:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:
@@ -1406,7 +1407,7 @@ class TestEdgeCases:
             async def get_model_info(self, model: str) -> ModelInfo | None:
                 return None
 
-            async def list_models(self) -> list[str]:
+            async def list_models(self) -> list[ModelInfo]:
                 return []
 
             async def get_health(self) -> LLMHealthStatus:

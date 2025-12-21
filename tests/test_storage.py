@@ -115,6 +115,7 @@ class TestDatabase:
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
+        assert result is not None
 
         assert result["qps_limit"] == 0.5
 
@@ -157,6 +158,7 @@ class TestDatabase:
         assert rows_affected == 1
 
         result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        assert result is not None
         assert result["status"] == "running"
 
     @pytest.mark.asyncio
@@ -189,6 +191,7 @@ class TestTaskOperations:
         assert task_id is not None
 
         result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        assert result is not None
 
         assert result["query"] == "What is AI?"
         assert result["status"] == "pending"
@@ -202,6 +205,7 @@ class TestTaskOperations:
         await test_database.update_task_status(task_id, "running")
 
         result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        assert result is not None
 
         assert result["status"] == "running"
         assert result["started_at"] is not None
@@ -214,6 +218,7 @@ class TestTaskOperations:
         await test_database.update_task_status(task_id, "completed")
 
         result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        assert result is not None
 
         assert result["status"] == "completed"
         assert result["completed_at"] is not None
@@ -228,6 +233,7 @@ class TestTaskOperations:
         )
 
         result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        assert result is not None
 
         assert result["status"] == "failed"
         assert result["error_message"] == "Connection timeout"
@@ -274,8 +280,8 @@ class TestDomainMetrics:
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("newdomain.com",)
         )
-
         assert result is not None
+
         assert result["total_requests"] == 1
         assert result["total_success"] == 1
 
@@ -293,6 +299,7 @@ class TestDomainMetrics:
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
+        assert result is not None
 
         # EMA should increase: 0.1 * 1.0 + 0.9 * 0.5 = 0.55
         assert result["success_rate_1h"] == pytest.approx(0.55, rel=0.01)
@@ -311,6 +318,7 @@ class TestDomainMetrics:
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
+        assert result is not None
 
         # EMA should decrease: 0.1 * 0.0 + 0.9 * 1.0 = 0.9
         assert result["success_rate_1h"] == pytest.approx(0.9, rel=0.01)
@@ -330,6 +338,7 @@ class TestDomainMetrics:
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
+        assert result is not None
 
         # Captcha rate should increase: 0.1 * 1.0 + 0.9 * 0.0 = 0.1
         assert result["captcha_rate"] == pytest.approx(0.1, rel=0.01)
@@ -357,6 +366,7 @@ class TestDomainCooldown:
         result = await test_database.fetch_one(
             "SELECT * FROM domains WHERE domain = ?", ("test.com",)
         )
+        assert result is not None
 
         assert result["cooldown_until"] is not None
         assert result["skip_reason"] == "Rate limited"
@@ -426,8 +436,8 @@ class TestEngineHealth:
         result = await test_database.fetch_one(
             "SELECT * FROM engine_health WHERE engine = ?", ("google",)
         )
-
         assert result is not None
+
         assert result["total_queries"] == 1
         assert result["status"] == "closed"
 
@@ -446,6 +456,7 @@ class TestEngineHealth:
         result = await test_database.fetch_one(
             "SELECT * FROM engine_health WHERE engine = ?", ("test_engine",)
         )
+        assert result is not None
 
         assert result["status"] == "open"
         assert result["consecutive_failures"] == 2
@@ -465,6 +476,7 @@ class TestEngineHealth:
         result = await test_database.fetch_one(
             "SELECT * FROM engine_health WHERE engine = ?", ("test_engine",)
         )
+        assert result is not None
 
         assert result["status"] == "closed"
         assert result["consecutive_failures"] == 0

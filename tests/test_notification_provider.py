@@ -375,6 +375,7 @@ class TestNotificationHealthStatus:
         assert status.state == NotificationHealthState.UNHEALTHY
         assert status.available is False
         assert status.platform == Platform.MACOS
+        assert status.message is not None
         assert "not available" in status.message.lower()
 
     def test_to_dict(self) -> None:
@@ -497,6 +498,7 @@ class TestLinuxNotifyProvider:
             result = await provider.send("Test Title", "Test Message")
 
         assert result.ok is False
+        assert result.error is not None
         assert "notify-send not found" in result.error
 
     @pytest.mark.asyncio
@@ -603,6 +605,7 @@ class TestWindowsToastProvider:
 
         assert result.ok is True
         assert result.provider == "windows_toast"
+        assert result.message_id is not None
         assert result.message_id.startswith("win_")
 
     @pytest.mark.asyncio
@@ -681,6 +684,7 @@ class TestWSLBridgeProvider:
 
         assert result.ok is True
         assert result.provider == "wsl_bridge"
+        assert result.message_id is not None
         assert result.message_id.startswith("wsl_")
 
     @pytest.mark.asyncio
@@ -692,6 +696,7 @@ class TestWSLBridgeProvider:
             result = await provider.send("Test Title", "Test Message")
 
         assert result.ok is False
+        assert result.error is not None
         assert "powershell.exe not found" in result.error
 
     @pytest.mark.asyncio
@@ -963,7 +968,9 @@ class TestAutoRegistration:
             registry.auto_register()
 
         assert "linux_notify" in registry.list_providers()
-        assert registry.get_default().name == "linux_notify"
+        default_provider = registry.get_default()
+        assert default_provider is not None
+        assert default_provider.name == "linux_notify"
 
     def test_auto_register_windows(self, registry: NotificationProviderRegistry) -> None:
         """Test auto-registration on Windows."""
@@ -971,7 +978,9 @@ class TestAutoRegistration:
             registry.auto_register()
 
         assert "windows_toast" in registry.list_providers()
-        assert registry.get_default().name == "windows_toast"
+        default_provider = registry.get_default()
+        assert default_provider is not None
+        assert default_provider.name == "windows_toast"
 
     def test_auto_register_wsl(self, registry: NotificationProviderRegistry) -> None:
         """Test auto-registration on WSL."""
@@ -982,7 +991,9 @@ class TestAutoRegistration:
         providers = registry.list_providers()
         assert "wsl_bridge" in providers
         assert "linux_notify" in providers
-        assert registry.get_default().name == "wsl_bridge"
+        default_provider = registry.get_default()
+        assert default_provider is not None
+        assert default_provider.name == "wsl_bridge"
 
 
 # =============================================================================
@@ -1118,4 +1129,5 @@ class TestEdgeCases:
                 result = await provider.send("Test", "Message")
 
         assert result.ok is False
+        assert result.error is not None
         assert "timed out" in result.error

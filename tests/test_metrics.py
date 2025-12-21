@@ -294,6 +294,7 @@ class TestMetricsCollector:
 
         # Then: Query count is 2
         metrics = await collector.get_task_metrics("test-task-3")
+        assert metrics is not None
         assert metrics.total_queries == 2
 
     async def test_record_page_fetch(self) -> None:
@@ -313,6 +314,7 @@ class TestMetricsCollector:
 
         # Then: All fields are updated
         metrics = await collector.get_task_metrics("test-task-4")
+        assert metrics is not None
         assert metrics.total_pages_fetched == 1
         assert metrics.tor_requests == 1
         assert metrics.primary_sources == 1
@@ -330,6 +332,7 @@ class TestMetricsCollector:
 
         # Then: Error counts are updated
         metrics = await collector.get_task_metrics("test-task-5")
+        assert metrics is not None
         assert metrics.error_403_count == 1
         assert metrics.captcha_count == 1
 
@@ -344,6 +347,7 @@ class TestMetricsCollector:
 
         # Then: Fragment counts are set
         metrics = await collector.get_task_metrics("test-task-6")
+        assert metrics is not None
         assert metrics.total_fragments == 20
         assert metrics.useful_fragments == 15
 

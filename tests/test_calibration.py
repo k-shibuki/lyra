@@ -885,7 +885,9 @@ class TestCalibratorRollback:
         rolled_back = calibrator.rollback("test", reason="manual")
 
         assert rolled_back is not None
-        assert calibrator.get_params("test").version == rolled_back.version
+        params = calibrator.get_params("test")
+        assert params is not None
+        assert params.version == rolled_back.version
 
     def test_rollback_to_version(self, calibrator: Calibrator) -> None:
         """rollback_to_version should go to specific version."""

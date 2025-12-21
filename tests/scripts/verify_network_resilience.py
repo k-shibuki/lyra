@@ -187,11 +187,11 @@ class NetworkResilienceVerifier:
             # Get current metrics
             metrics = manager.metrics
 
-            print(f"    IPv6 attempts: {metrics.ipv6_attempts}")
-            print(f"    IPv6 successes: {metrics.ipv6_successes}")
-            print(f"    IPv6 failures: {metrics.ipv6_failures}")
+            print(f"    IPv6 attempts: {metrics.total_ipv6_attempts}")
+            print(f"    IPv6 successes: {metrics.total_ipv6_successes}")
+            print(f"    IPv6 failures: {metrics.total_ipv6_attempts - metrics.total_ipv6_successes}")
 
-            if metrics.ipv6_attempts == 0:
+            if metrics.total_ipv6_attempts == 0:
                 print("    ! No IPv6 attempts recorded yet")
                 return VerificationResult(
                     name="IPv6 Success Rate",
@@ -215,8 +215,8 @@ class NetworkResilienceVerifier:
                     details={
                         "success_rate": success_rate,
                         "threshold": threshold,
-                        "attempts": metrics.ipv6_attempts,
-                        "successes": metrics.ipv6_successes,
+                        "attempts": metrics.total_ipv6_attempts,
+                        "successes": metrics.total_ipv6_successes,
                     },
                 )
             else:
@@ -254,10 +254,10 @@ class NetworkResilienceVerifier:
             manager = get_ipv6_manager()
             metrics = manager.metrics
 
-            print(f"    Switch attempts: {metrics.switch_attempts}")
-            print(f"    Switch successes: {metrics.switch_successes}")
+            print(f"    Switch attempts: {metrics.total_switches}")
+            print(f"    Switch successes: {metrics.total_switch_successes}")
 
-            if metrics.switch_attempts == 0:
+            if metrics.total_switches == 0:
                 print("    ! No switch attempts recorded yet")
                 return VerificationResult(
                     name="IPv6 Switch Rate",
@@ -281,8 +281,8 @@ class NetworkResilienceVerifier:
                     details={
                         "switch_rate": switch_rate,
                         "threshold": threshold,
-                        "attempts": metrics.switch_attempts,
-                        "successes": metrics.switch_successes,
+                        "attempts": metrics.total_switches,
+                        "successes": metrics.total_switch_successes,
                     },
                 )
             else:
@@ -321,12 +321,12 @@ class NetworkResilienceVerifier:
             metrics = manager.metrics
 
             leaks_detected = metrics.leaks_detected
-            tor_requests = metrics.tor_requests
+            tor_resolutions = metrics.tor_resolutions
 
-            print(f"    Tor requests: {tor_requests}")
+            print(f"    Tor resolutions: {tor_resolutions}")
             print(f"    DNS leaks detected: {leaks_detected}")
 
-            if tor_requests == 0:
+            if tor_resolutions == 0:
                 print("    ! No Tor requests recorded yet")
                 return VerificationResult(
                     name="DNS Leak Detection",
@@ -344,7 +344,7 @@ class NetworkResilienceVerifier:
                     passed=True,
                     details={
                         "leaks_detected": 0,
-                        "tor_requests": tor_requests,
+                        "tor_resolutions": tor_resolutions,
                     },
                 )
             else:
