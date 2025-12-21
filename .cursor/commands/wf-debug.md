@@ -47,11 +47,12 @@ In those cases, propose:
 
 ## Standard To-dos to include
 
+- [ ] First: run `NEXT_COMMAND: /docs-discover` (discover relevant docs; attach what’s needed)
 - [ ] Run the classification-specific command (A/B/C)
 - [ ] Run quality checks (`NEXT_COMMAND: /quality-check`)
 - [ ] Run regression tests (`NEXT_COMMAND: /regression-test`)
 - [ ] Commit (`NEXT_COMMAND: /commit`)
-- [ ] If needed: merge + push (`NEXT_COMMAND: /merge-complete`, then `NEXT_COMMAND: /push`)
+- [ ] If needed: merge + push (`NEXT_COMMAND: /merge`, then `NEXT_COMMAND: /push`)
 
 ## Output (response format)
 
