@@ -66,6 +66,7 @@ Test Quality Standards (§7.1):
 | TC-GQ-N-02 | Singleton | Equivalence – normal | Same instance | - |
 """
 
+from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
@@ -558,6 +559,14 @@ class TestStartSession:
     - User calls complete_authentication when done
     - No timeout enforcement (user-driven completion)
     """
+
+    @pytest.fixture(autouse=True)
+    def mock_browser_fetcher(self) -> Generator[None, None, None]:
+        """Mock BrowserFetcher to prevent actual CDP connection in unit tests."""
+        with patch("src.crawler.fetcher.BrowserFetcher") as mock_fetcher_class:
+            mock_fetcher = mock_fetcher_class.return_value
+            mock_fetcher._ensure_browser = AsyncMock(return_value=(None, None))
+            yield
 
     @pytest.mark.asyncio
     async def test_start_session_empty_queue(

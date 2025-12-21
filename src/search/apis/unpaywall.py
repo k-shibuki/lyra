@@ -122,12 +122,12 @@ class UnpaywallClient(BaseAcademicClient):
         logger.debug("Unpaywall does not support get_paper", paper_id=paper_id)
         return None
 
-    async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_references(self, paper_id: str) -> list[Paper]:
         """References are not supported by Unpaywall API."""
         logger.debug("Unpaywall does not support references", paper_id=paper_id)
         return []
 
-    async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_citations(self, paper_id: str) -> list[Paper]:
         """Citations are not supported by Unpaywall API."""
         logger.debug("Unpaywall does not support citations", paper_id=paper_id)
         return []

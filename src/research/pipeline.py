@@ -297,7 +297,11 @@ class SearchPipeline:
         options: SearchOptions,
         result: SearchResult,
     ) -> SearchResult:
-        """Execute browser search only."""
+        """Execute browser search only.
+
+        After executor execution, extracts identifiers from SERP results and
+        complements with academic API if identifiers are found (Phase 3, Task 3.5).
+        """
         executor = SearchExecutor(self.task_id, self.state)
         budget_pages = options.max_pages
 
@@ -336,7 +340,374 @@ class SearchPipeline:
         if exec_result.errors:
             result.errors.extend(exec_result.errors)
 
+        # Phase 3: Extract identifiers from SERP and complement with academic API
+        # (Task 3.5: Non-academic queries should also trigger API complement)
+        try:
+            from src.search.search_api import search_serp
+
+            serp_items = await search_serp(
+                query=query,
+                limit=options.max_pages or 20,
+                task_id=self.task_id,
+                engines=options.engines,
+            )
+
+            if serp_items:
+                index, papers_found = await self._process_serp_with_identifiers(
+                    search_id=search_id,
+                    query=query,
+                    serp_items=serp_items,
+                    options=options,
+                )
+
+                if papers_found:
+                    # Process citation graph for papers with abstracts
+                    await self._process_citation_graph(
+                        search_id=search_id,
+                        query=query,
+                        index=index,
+                        options=options,
+                        result=result,
+                    )
+
+        except Exception as e:
+            logger.debug(
+                "Identifier extraction and API complement failed",
+                query=query[:100],
+                error=str(e),
+            )
+
         return result
+
+    async def _process_serp_with_identifiers(
+        self,
+        search_id: str,
+        query: str,
+        serp_items: list[dict[str, Any]],
+        options: SearchOptions,
+    ) -> tuple[Any, list[Any]]:
+        """Process SERP items to extract identifiers and complement with academic API.
+
+        Args:
+            search_id: Search ID
+            query: Search query
+            serp_items: SERP search results
+            options: Search options
+
+        Returns:
+            Tuple of (CanonicalPaperIndex, list of Paper objects found)
+        """
+        from src.search.academic_provider import AcademicSearchProvider
+        from src.search.canonical_index import CanonicalPaperIndex
+        from src.search.id_resolver import IDResolver
+        from src.search.identifier_extractor import IdentifierExtractor
+        from src.search.provider import SearchResult as ProviderSearchResult
+
+        index = CanonicalPaperIndex()
+        extractor = IdentifierExtractor()
+        resolver = IDResolver()
+        academic_provider = AcademicSearchProvider()
+
+        papers_found: list[Any] = []
+
+        try:
+            # Extract identifiers from SERP items
+            serp_count = 0
+            for item in serp_items:
+                if not isinstance(item, dict):
+                    continue
+
+                url = item.get("url", "")
+                if not url:
+                    continue
+
+                identifier = extractor.extract(url)
+
+                # Resolve DOI if needed
+                if identifier.needs_meta_extraction and not identifier.doi:
+                    try:
+                        if identifier.pmid:
+                            identifier.doi = await resolver.resolve_pmid_to_doi(identifier.pmid)
+                        elif identifier.arxiv_id:
+                            identifier.doi = await resolver.resolve_arxiv_to_doi(
+                                identifier.arxiv_id
+                            )
+                    except Exception as e:
+                        logger.debug("DOI resolution failed", url=url, error=str(e))
+
+                # Convert dict to SearchResult
+                serp_result = ProviderSearchResult(
+                    title=item.get("title", ""),
+                    url=url,
+                    snippet=item.get("snippet", ""),
+                    engine=item.get("engine", "unknown"),
+                    rank=item.get("rank", 0),
+                    date=item.get("date"),
+                )
+
+                index.register_serp_result(serp_result, identifier)
+                serp_count += 1
+
+            # Complement with academic API if identifiers found
+            unique_entries = index.get_all_entries()
+            identifiers_found = False
+
+            for entry in unique_entries:
+                if entry.paper:
+                    # Already has Paper object from API
+                    papers_found.append(entry.paper)
+                    identifiers_found = True
+                    continue
+
+                # Check if identifier exists
+                entry_identifier: Any = None
+                if entry.serp_results:
+                    url = entry.serp_results[0].url
+                    entry_identifier = extractor.extract(url)
+
+                if entry_identifier and (
+                    entry_identifier.doi or entry_identifier.pmid or entry_identifier.arxiv_id
+                ):
+                    identifiers_found = True
+                    try:
+                        # Try to get paper metadata from academic API
+                        paper_id = None
+                        if entry_identifier.doi:
+                            paper_id = f"DOI:{entry_identifier.doi}"
+                        elif entry_identifier.pmid:
+                            paper_id = f"PMID:{entry_identifier.pmid}"
+                        elif entry_identifier.arxiv_id:
+                            paper_id = f"ArXiv:{entry_identifier.arxiv_id}"
+
+                        if paper_id:
+                            # Try to get paper from academic API clients
+                            paper = None
+                            for api_name in ["semantic_scholar", "openalex"]:
+                                try:
+                                    client = await academic_provider._get_client(api_name)
+                                    paper = await client.get_paper(paper_id)
+                                    if paper:
+                                        break
+                                except Exception:
+                                    continue
+
+                            if paper and paper.abstract:
+                                # Register paper in index
+                                index.register_paper(paper, source_api=paper.source_api)
+                                papers_found.append(paper)
+                                logger.debug(
+                                    "Complemented SERP result with academic API",
+                                    url=url,
+                                    paper_id=paper.id,
+                                )
+                    except Exception as e:
+                        logger.debug(
+                            "Failed to complement with academic API",
+                            url=url,
+                            error=str(e),
+                        )
+
+            if identifiers_found or serp_count > 0:
+                logger.info(
+                    "Processed SERP with identifiers",
+                    query=query[:100],
+                    serp_count=serp_count,
+                    papers_found=len(papers_found),
+                )
+
+            return index, papers_found
+        finally:
+            await resolver.close()
+            await academic_provider.close()
+
+    async def _process_citation_graph(
+        self,
+        search_id: str,
+        query: str,
+        index: Any,
+        options: SearchOptions,
+        result: SearchResult,
+    ) -> None:
+        """Process citation graph for papers with abstracts.
+
+        Args:
+            search_id: Search ID
+            query: Search query
+            index: CanonicalPaperIndex with papers
+            options: Search options
+            result: SearchResult to update
+        """
+        from src.filter.evidence_graph import (
+            NodeType,
+            add_academic_page_with_citations,
+            get_evidence_graph,
+        )
+        from src.search.academic_provider import AcademicSearchProvider
+        from src.utils.config import get_settings
+
+        academic_provider = AcademicSearchProvider()
+        paper_to_page_map: dict[str, str] = {}
+
+        try:
+            unique_entries = index.get_all_entries()
+
+            # Phase 5: Process unique entries (Abstract Only strategy)
+            pages_created = 0
+            fragments_created = 0
+
+            for entry in unique_entries:
+                if entry.paper and entry.paper.abstract:
+                    # Try to resolve OA URL via Unpaywall if not available
+                    if not entry.paper.oa_url and entry.paper.doi:
+                        try:
+                            resolved_oa_url = await academic_provider.resolve_oa_url_for_paper(
+                                entry.paper
+                            )
+                            if resolved_oa_url:
+                                entry.paper.oa_url = resolved_oa_url
+                                entry.paper.is_open_access = True
+                        except Exception as e:
+                            logger.debug(
+                                "Failed to resolve OA URL via Unpaywall",
+                                doi=entry.paper.doi,
+                                error=str(e),
+                            )
+
+                    # Abstract Only: Skip fetch, persist abstract directly
+                    try:
+                        page_id, fragment_id = await self._persist_abstract_as_fragment(
+                            paper=entry.paper,
+                            task_id=self.task_id,
+                            search_id=search_id,
+                        )
+                        pages_created += 1
+                        fragments_created += 1
+
+                        # Track mapping for citation graph
+                        paper_to_page_map[entry.paper.id] = page_id
+
+                        # Add to evidence graph
+                        graph = await get_evidence_graph(self.task_id)
+                        graph.add_node(NodeType.PAGE, page_id)
+
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to persist abstract", error=str(e), paper_id=entry.paper.id
+                        )
+
+            # Update result stats
+            result.pages_fetched += pages_created
+            result.useful_fragments += fragments_created
+
+            # Phase 6: Citation graph integration
+            papers_with_abstracts = [
+                entry.paper
+                for entry in unique_entries
+                if entry.paper and entry.paper.abstract and entry.paper.id in paper_to_page_map
+            ]
+
+            settings = get_settings()
+            top_n = settings.search.citation_graph_top_n_papers
+            depth = settings.search.citation_graph_depth
+            direction = settings.search.citation_graph_direction
+
+            papers_with_abstracts = papers_with_abstracts[:top_n]
+
+            for paper in papers_with_abstracts:
+                try:
+                    # Get citation graph
+                    related_papers, citations = await academic_provider.get_citation_graph(
+                        paper_id=paper.id,
+                        depth=depth,
+                        direction=direction,
+                    )
+
+                    # Relevance filtering + auto-persist top citations
+                    try:
+                        from src.search.citation_filter import filter_relevant_citations
+
+                        filtered = await filter_relevant_citations(
+                            query=query,
+                            source_paper=paper,
+                            candidate_papers=related_papers,
+                        )
+                    except Exception as e:
+                        logger.debug(
+                            "Citation relevance filtering failed; skipping persist",
+                            paper_id=paper.id,
+                            error=str(e),
+                        )
+                        filtered = []
+
+                    # Persist relevant citation papers (Abstract Only)
+                    for scored in filtered:
+                        rp = scored.paper
+                        if rp.id in paper_to_page_map:
+                            continue
+                        if not rp.abstract:
+                            continue
+                        try:
+                            (
+                                cited_page_id,
+                                _cited_fragment_id,
+                            ) = await self._persist_abstract_as_fragment(
+                                paper=rp,
+                                task_id=self.task_id,
+                                search_id=search_id,
+                            )
+                            paper_to_page_map[rp.id] = cited_page_id
+                            graph = await get_evidence_graph(self.task_id)
+                            graph.add_node(NodeType.PAGE, cited_page_id)
+                        except Exception as e:
+                            logger.debug(
+                                "Failed to persist citation paper",
+                                paper_id=rp.id,
+                                error=str(e),
+                            )
+
+                    # Look up page_id from mapping
+                    mapped_page_id = paper_to_page_map.get(paper.id)
+
+                    if mapped_page_id and citations:
+                        # Build paper_metadata
+                        paper_metadata = {
+                            "paper_id": paper.id,
+                            "doi": paper.doi,
+                            "arxiv_id": paper.arxiv_id,
+                            "authors": [
+                                {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
+                                for a in paper.authors
+                            ],
+                            "year": paper.year,
+                            "venue": paper.venue,
+                            "citation_count": paper.citation_count,
+                            "reference_count": paper.reference_count,
+                            "is_open_access": paper.is_open_access,
+                            "oa_url": paper.oa_url,
+                            "pdf_url": paper.pdf_url,
+                            "source_api": paper.source_api,
+                        }
+
+                        await add_academic_page_with_citations(
+                            page_id=mapped_page_id,
+                            paper_metadata=paper_metadata,
+                            citations=citations,
+                            task_id=self.task_id,
+                            paper_to_page_map=paper_to_page_map,
+                        )
+
+                        logger.debug(
+                            "Added citation graph",
+                            paper_id=paper.id,
+                            page_id=mapped_page_id,
+                            citation_count=len(citations),
+                        )
+
+                except Exception as e:
+                    logger.warning("Failed to get citation graph", paper_id=paper.id, error=str(e))
+
+        finally:
+            await academic_provider.close()
 
     async def _execute_complementary_search(
         self,
@@ -451,9 +822,48 @@ class SearchPipeline:
                 index.register_serp_result(serp_result, identifier)
                 serp_count += 1
 
+                # Complement with academic API if identifier found
+                if identifier and (identifier.doi or identifier.pmid or identifier.arxiv_id):
+                    try:
+                        paper_id = None
+                        if identifier.doi:
+                            paper_id = f"DOI:{identifier.doi}"
+                        elif identifier.pmid:
+                            paper_id = f"PMID:{identifier.pmid}"
+                        elif identifier.arxiv_id:
+                            paper_id = f"ArXiv:{identifier.arxiv_id}"
+
+                        if paper_id:
+                            # Try to get paper from academic API clients
+                            paper = None
+                            for api_name in ["semantic_scholar", "openalex"]:
+                                try:
+                                    client = await academic_provider._get_client(api_name)
+                                    paper = await client.get_paper(paper_id)
+                                    if paper:
+                                        break
+                                except Exception:
+                                    continue
+
+                            if paper and paper.abstract:
+                                index.register_paper(paper, source_api=paper.source_api)
+                                logger.debug(
+                                    "Complemented SERP result with academic API",
+                                    url=url,
+                                    paper_id=paper.id,
+                                )
+                    except Exception as e:
+                        logger.debug(
+                            "Failed to complement with academic API",
+                            url=url,
+                            error=str(e),
+                        )
+
             # Phase 4: Get deduplication stats
             stats = index.get_stats()
             unique_entries = index.get_all_entries()
+
+            serp_count = len(serp_items)
 
             logger.info(
                 "Complementary search deduplication",
@@ -466,176 +876,14 @@ class SearchPipeline:
                 serp_only=stats["serp_only"],
             )
 
-            # Phase 5: Process unique entries (Abstract Only strategy)
-            # - Skip fetch for entries with abstracts from API
-            # - Fetch and extract for SERP-only entries
-
-            from src.filter.evidence_graph import (
-                NodeType,
-                add_academic_page_with_citations,
-                get_evidence_graph,
+            # Phase 5-6: Process unique entries and citation graph (using common method)
+            await self._process_citation_graph(
+                search_id=search_id,
+                query=query,
+                index=index,
+                options=options,
+                result=result,
             )
-
-            pages_created = 0
-            fragments_created = 0
-            paper_to_page_map: dict[str, str] = {}  # paper_id -> page_id mapping for citation graph
-
-            for entry in unique_entries:
-                if entry.paper and entry.paper.abstract:
-                    # Try to resolve OA URL via Unpaywall if not available
-                    if not entry.paper.oa_url and entry.paper.doi:
-                        try:
-                            resolved_oa_url = await academic_provider.resolve_oa_url_for_paper(
-                                entry.paper
-                            )
-                            if resolved_oa_url:
-                                # Update paper object with resolved OA URL
-                                entry.paper.oa_url = resolved_oa_url
-                                entry.paper.is_open_access = True
-                        except Exception as e:
-                            logger.debug(
-                                "Failed to resolve OA URL via Unpaywall",
-                                doi=entry.paper.doi,
-                                error=str(e),
-                            )
-
-                    # Abstract Only: Skip fetch, persist abstract directly
-                    try:
-                        page_id, fragment_id = await self._persist_abstract_as_fragment(
-                            paper=entry.paper,
-                            task_id=self.task_id,
-                            search_id=search_id,
-                        )
-                        pages_created += 1
-                        fragments_created += 1
-
-                        # Track mapping for citation graph
-                        paper_to_page_map[entry.paper.id] = page_id
-
-                        # Add to evidence graph
-                        graph = await get_evidence_graph(self.task_id)
-                        graph.add_node(NodeType.PAGE, page_id)
-
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to persist abstract", error=str(e), paper_id=entry.paper.id
-                        )
-                elif entry.needs_fetch:
-                    # Entry needs fetch: either no paper or paper without abstract
-                    # Collect URLs for browser search fallback
-                    pass  # Will be handled by browser search fallback below
-
-            # Update result stats
-            result.pages_fetched += pages_created
-            result.useful_fragments += fragments_created
-
-            # Phase 6: Citation graph integration
-            # Get citation graphs for top N papers with abstracts
-
-            papers_with_abstracts = [
-                entry.paper
-                for entry in unique_entries
-                if entry.paper and entry.paper.abstract and entry.paper.id in paper_to_page_map
-            ]
-
-            from src.utils.config import get_settings
-
-            settings = get_settings()
-            top_n = settings.search.citation_graph_top_n_papers
-            depth = settings.search.citation_graph_depth
-            direction = settings.search.citation_graph_direction
-
-            papers_with_abstracts = papers_with_abstracts[:top_n]
-
-            for paper in papers_with_abstracts:
-                try:
-                    # Get citation graph
-                    related_papers, citations = await academic_provider.get_citation_graph(
-                        paper_id=paper.id,
-                        depth=depth,
-                        direction=direction,
-                    )
-
-                    # Phase 3: Relevance filtering + auto-persist top citations
-                    try:
-                        from src.search.citation_filter import filter_relevant_citations
-
-                        filtered = await filter_relevant_citations(
-                            query=query,
-                            source_paper=paper,
-                            candidate_papers=related_papers,
-                        )
-                    except Exception as e:
-                        logger.debug(
-                            "Citation relevance filtering failed; skipping persist",
-                            paper_id=paper.id,
-                            error=str(e),
-                        )
-                        filtered = []
-
-                    # Persist relevant citation papers (Abstract Only) so edges are not skipped
-                    for scored in filtered:
-                        rp = scored.paper
-                        if rp.id in paper_to_page_map:
-                            continue
-                        if not rp.abstract:
-                            continue
-                        try:
-                            cited_page_id, _cited_fragment_id = await self._persist_abstract_as_fragment(
-                                paper=rp,
-                                task_id=self.task_id,
-                                search_id=search_id,
-                            )
-                            paper_to_page_map[rp.id] = cited_page_id
-                            graph = await get_evidence_graph(self.task_id)
-                            graph.add_node(NodeType.PAGE, cited_page_id)
-                        except Exception as e:
-                            logger.debug(
-                                "Failed to persist citation paper",
-                                paper_id=rp.id,
-                                error=str(e),
-                            )
-
-                    # Look up page_id from mapping
-                    mapped_page_id = paper_to_page_map.get(paper.id)
-
-                    if mapped_page_id and citations:
-                        # Build paper_metadata
-                        paper_metadata = {
-                            "paper_id": paper.id,
-                            "doi": paper.doi,
-                            "arxiv_id": paper.arxiv_id,
-                            "authors": [
-                                {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
-                                for a in paper.authors
-                            ],
-                            "year": paper.year,
-                            "venue": paper.venue,
-                            "citation_count": paper.citation_count,
-                            "reference_count": paper.reference_count,
-                            "is_open_access": paper.is_open_access,
-                            "oa_url": paper.oa_url,
-                            "pdf_url": paper.pdf_url,
-                            "source_api": paper.source_api,
-                        }
-
-                        await add_academic_page_with_citations(
-                            page_id=mapped_page_id,
-                            paper_metadata=paper_metadata,
-                            citations=citations,
-                            task_id=self.task_id,
-                            paper_to_page_map=paper_to_page_map,
-                        )
-
-                        logger.debug(
-                            "Added citation graph",
-                            paper_id=paper.id,
-                            page_id=mapped_page_id,
-                            citation_count=len(citations),
-                        )
-
-                except Exception as e:
-                    logger.warning("Failed to get citation graph", paper_id=paper.id, error=str(e))
 
             # For entries that need fetch (no abstract available), fall back to browser search
             # This includes: SERP-only entries, and entries with paper but no abstract

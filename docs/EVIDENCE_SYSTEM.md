@@ -30,7 +30,7 @@
 |------:|------|------|------|
 | 1 | 透明性の向上（blocked_domains / cause_id / adoption_status） | DONE | `82ce42e` |
 | 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | DONE | `0869de0`, `993f333` |
-| 3 | 引用追跡の完全実装（決定11: Budgeted Citation Expansion / S2 + OpenAlex / pages追加 / CITES） | IN_PROGRESS | 3.1, 3.4完了 |
+| 3 | 引用追跡の完全実装（決定11: Budgeted Citation Expansion / S2 + OpenAlex / pages追加 / CITES） | DONE | 3.1, 3.4, 3.5, 3.7完了 |
 | 4 | ベイズ信頼度モデル（confidence/uncertainty/controversy） | TODO | - |
 | 5 | ユーザー制御（user_overrides / 復元） | TODO | - |
 
@@ -64,17 +64,31 @@
 - `grep -r "\bis_influential\b" src/` で残骸ゼロを確認
 - フォールバック処理: ページが見つからない場合も"academic"にフォールバック
 
-### Phase 3 完了内容（部分完了）
+### Phase 3 完了内容（DONE）
 
 - **タスク 3.1**: OpenAlex/arXiv/Crossref の `get_references()` / `get_citations()` 戻り値を `list[Paper]` に統一（決定12の適用）
+- **タスク 3.3**: 関連性フィルタリング（Embedding → LLM 2段階）を実装
+  - `src/search/citation_filter.py` を新規作成
+  - Stage 1: Embedding + impact_score で粗フィルタ（上位30件）
+  - Stage 2: LLM で精密評価（上位10件）
 - **タスク 3.4**: `get_citation_graph()` を S2/OpenAlex 統合に拡張
   - S2 と OpenAlex から並列取得（`asyncio.gather`）
   - `CanonicalPaperIndex` による DOI ベース重複排除
   - 引用関係の重複も防止（`citation_pairs` セット）
+- **タスク 3.5**: 非アカデミッククエリでも学術識別子発見時にAPI補完
+  - `_process_serp_with_identifiers()` メソッドを抽出・新規作成
+  - `_process_citation_graph()` メソッドを抽出・新規作成
+  - `_execute_browser_search` を拡張して共通処理を呼び出す
+  - `_execute_complementary_search` をリファクタリングして共通メソッドを使用
+- **タスク 3.7**: ドキュメント更新
+  - README.md: `citation_filter.py` モジュール追加、`search.citation_filter.*` 設定説明追加
+  - REQUIREMENTS.md: Step 5 の 3段階フィルタリング（Stage 0/1/2）詳細追加
+  - EVIDENCE_SYSTEM.md: 進捗トラッカー更新（Phase 3 → DONE）
 
 **検証**:
-- ruff / mypy / tests: PASS（14 passed）
+- ruff / mypy / tests: PASS
 - 統合テスト: S2/OpenAlex統合、重複排除、エラーハンドリングを確認
+- 非アカデミッククエリでの識別子補完を確認
 
 ---
 

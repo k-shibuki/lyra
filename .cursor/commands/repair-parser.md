@@ -102,7 +102,6 @@ Candidate interpretation:
 - **Proposed YAML patch**: minimal, explicit
 - **Files changed**: list
 - **Verification**: E2E results
-- **Next (manual)**: `NEXT_COMMAND: /quality-check`
 
 ## Related rules
 

@@ -29,7 +29,6 @@ Constraints:
 - **Merged branch**: name + merge result (success/conflicts)
 - **Changed files**: list (if available)
 - **Notes**: any conflicts and how they were resolved (if applicable)
-- **Next (manual)**: `NEXT_COMMAND: /push`
 
 ## Related rules
 

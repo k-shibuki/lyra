@@ -28,8 +28,8 @@ Polling example:
 
 ```bash
 ./scripts/test.sh run tests/
-for i in {1..60}; do
-    sleep 5
+for i in {1..180}; do
+    sleep 1
     status=$(./scripts/test.sh check 2>&1)
     echo "[$i] $status"
     if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
@@ -48,7 +48,6 @@ Completion logic:
 
 - **Summary**: passed / failed / skipped
 - **Failures** (if any): list + first actionable traceback snippets
-- **Next (manual)**: `NEXT_COMMAND: /commit`
 
 ## Related rules
 

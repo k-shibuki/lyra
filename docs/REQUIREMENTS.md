@@ -1030,9 +1030,17 @@ Cursor AI                          Lyra MCP
   - 学術引用グラフ統合（§3.1.3 学術API連携）:
     - `PAPER`ノード: 学術論文（DOI、著者、発行年、被引用数等のメタデータ付き）
     - `academic_cites`エッジ: 正式な学術引用関係
-    - 引用先選抜: 3段階フィルタリング（Embedding + impact_score + LLM有用性評価）により、重要かつ関連性の高い引用のみをグラフに取り込む
-    - Semantic Scholarの `isInfluential` フラグは使用しない（impact_scoreで代替）
+    - 引用先選抜: 3段階フィルタリング（Stage 0/1/2）により、重要かつ関連性の高い引用のみをグラフに取り込む
+      - **Stage 0（メタデータ即時フィルタ）**: abstract無し除外、DOI重複マージ、citation_count閾値チェック（設定可能）
+      - **Stage 1（粗フィルタ）**: Embedding類似度（0.5） + impact_score（0.5）で上位30件を抽出
+        - impact_score: `Paper.citation_count` からローカル正規化（`log1p` + percentile-rank）で算出
+        - 候補が1件のみの場合は impact_score = 0.5（比較不能なので中立）
+      - **Stage 2（精密評価）**: LLM関連性評価（0.5） + Embedding類似度（0.3） + impact_score（0.2）で上位10件を選択
+        - LLM評価: ローカルLLM（Qwen2.5 3B）で「有用なエビデンスまたは重要な背景になり得るか」を0-10スコアで評価
+        - **注意**: LLM評価では支持/反論（SUPPORTS/REFUTES）の判定は行わない（責務分離: 決定8）
+    - Semantic Scholarの `isInfluential` フラグは使用しない（impact_scoreで代替、決定12）
     - 引用チェーン深度≤1を推奨（直接の重要引用のみを追跡）
+    - 設定パラメータ: `config/settings.yaml` の `search.citation_filter.*` で管理
 
 #### 3.3.2. 新規性と停止条件
 - 新規性スコア:

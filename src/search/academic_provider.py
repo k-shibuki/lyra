@@ -256,7 +256,9 @@ class AcademicSearchProvider(BaseSearchProvider):
 
                 # Handle exceptions
                 if isinstance(s2_refs_raw, Exception):
-                    logger.debug("S2 references failed", paper_id=current_id, error=str(s2_refs_raw))
+                    logger.debug(
+                        "S2 references failed", paper_id=current_id, error=str(s2_refs_raw)
+                    )
                     s2_refs: list[Paper] = []
                 elif isinstance(s2_refs_raw, list):
                     s2_refs = s2_refs_raw

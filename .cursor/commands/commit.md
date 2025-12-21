@@ -58,7 +58,6 @@ Constraints:
 - **Commit message**: final message used
 - **Commit hash**: short hash
 - **Last commit**: `git log -1 --oneline`
-- **Next (manual)**: `NEXT_COMMAND: /merge or /push` 
 
 ## Related rules
 

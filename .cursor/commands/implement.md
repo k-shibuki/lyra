@@ -41,7 +41,6 @@ Implement the selected task (code changes only; no tests in this step).
 - **Files changed**: list of paths
 - **Context discovered**: key files/patterns found via search (if relevant)
 - **Notes**: any trade-offs, follow-ups, or risks
-- **Next (manual)**: `NEXT_COMMAND: /test-create`
 
 ## Related rules
 
