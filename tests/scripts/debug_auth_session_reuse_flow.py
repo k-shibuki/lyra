@@ -24,7 +24,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def main():
+async def main() -> int:
     """一直線で認証セッション再利用フローを実行."""
     print("=" * 70)
     print("デバッグ: 認証セッション再利用フロー（問題3）")

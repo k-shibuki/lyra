@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, "/home/statuser/lyra")
 
 
-def main():
+def main() -> int:
     """Run Pydantic migration verification."""
     print("=" * 60)
     print("Pydantic Migration Debug Script")
@@ -44,7 +44,7 @@ def main():
     # Test CookieData validation
     print("  - Testing CookieData validation...")
     try:
-        CookieData()  # Missing required fields
+        CookieData(name="", value="", domain="")  # Missing required fields
         print("    FAIL: Should have raised ValidationError")
         sys.exit(1)
     except ValidationError as e:

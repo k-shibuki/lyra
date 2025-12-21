@@ -37,12 +37,16 @@ Tests for src/search/circuit_breaker.py
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 # All tests in this module are unit tests (except TestDatabasePersistence)
 pytestmark = pytest.mark.unit
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 from src.search.circuit_breaker import (
     CircuitBreakerManager,
@@ -367,7 +371,7 @@ class TestDatabasePersistence:
     """
 
     @pytest.mark.asyncio
-    async def test_save_to_db(self, test_database) -> None:
+    async def test_save_to_db(self, test_database: Database) -> None:
         """Test saving circuit state to database."""
         # Given: Breaker with one failure
         from src.search import circuit_breaker
@@ -389,7 +393,7 @@ class TestDatabasePersistence:
         assert row["consecutive_failures"] == 1
 
     @pytest.mark.asyncio
-    async def test_load_from_db(self, test_database) -> None:
+    async def test_load_from_db(self, test_database: Database) -> None:
         """Test loading circuit state from database."""
         # Given: Existing database record
         from src.search import circuit_breaker
@@ -415,7 +419,7 @@ class TestDatabasePersistence:
         assert breaker._consecutive_failures == 3
 
     @pytest.mark.asyncio
-    async def test_load_from_db_not_found(self, test_database) -> None:
+    async def test_load_from_db_not_found(self, test_database: Database) -> None:
         """Test loading returns False when engine not found."""
         # Given: Empty database
         from src.search import circuit_breaker

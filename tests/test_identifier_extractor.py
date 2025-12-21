@@ -278,6 +278,8 @@ class TestIdentifierExtractor:
             doi="10.1234/example",
             pmid="12345678",
             arxiv_id="2301.12345",
+            crid=None,
+            url=None,
         )
 
         # When: Calling get_canonical_id()
@@ -296,8 +298,11 @@ class TestIdentifierExtractor:
         """
         # Given: PaperIdentifier without DOI
         identifier = PaperIdentifier(
+            doi=None,
             pmid="12345678",
             arxiv_id="2301.12345",
+            crid=None,
+            url=None,
         )
 
         # When: Calling get_canonical_id()

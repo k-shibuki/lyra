@@ -22,7 +22,7 @@ import uuid
 sys.path.insert(0, "/home/statuser/lyra")
 
 
-async def main():
+async def main() -> int:
     """Run E2E MCP flow verification."""
     print("=" * 70)
     print("E2E MCP Flow Integration Test (O.7.6)")

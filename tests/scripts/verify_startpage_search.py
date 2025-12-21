@@ -47,24 +47,28 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.utils.logging import configure_logging, get_logger
 
+if TYPE_CHECKING:
+    from src.search.provider import SearchResponse
+
 logger = get_logger(__name__)
 
 
-def _is_captcha_error(result) -> bool:
+def _is_captcha_error(result: "SearchResponse") -> bool:
     """Check if search result indicates CAPTCHA detection."""
     return result.error is not None and "CAPTCHA detected" in result.error
 
 
-def _get_captcha_type(result) -> str | None:
+def _get_captcha_type(result: "SearchResponse") -> str | None:
     """Extract CAPTCHA type from error message."""
     if result.error and "CAPTCHA detected:" in result.error:
-        return result.error.split("CAPTCHA detected:", 1)[1].strip()
+        return str(result.error.split("CAPTCHA detected:", 1)[1].strip())
     return None
 
 
@@ -87,7 +91,7 @@ class StartpageSearchVerifier:
     ENGINE_NAME = "startpage"
     ENGINE_DISPLAY = "Startpage"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.browser_available = False
 
@@ -187,7 +191,6 @@ class StartpageSearchVerifier:
             options = SearchOptions(
                 engines=[self.ENGINE_NAME],
                 limit=5,
-                time_range=None,
             )
 
             start_time = time.time()
@@ -453,7 +456,7 @@ class StartpageSearchVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     configure_logging(log_level="INFO", json_format=False)
 
     verifier = StartpageSearchVerifier()

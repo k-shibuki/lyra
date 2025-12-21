@@ -63,7 +63,7 @@ class SecurityE2EVerifier:
     Tests all security layers (L1-L8) defined in Phase K.3.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.test_task_id: str | None = None
         self.ollama_available = False
@@ -513,7 +513,7 @@ class SecurityE2EVerifier:
                 SourceVerifier,
             )
             from src.mcp.response_meta import VerificationStatus
-            from src.utils.domain_policy import TrustLevel
+            from src.utils.domain_policy import DomainCategory
 
             # Create a verifier instance
             verifier = SourceVerifier()
@@ -527,7 +527,7 @@ class SecurityE2EVerifier:
             # Test 2: Record verification (simulate with correct DomainVerificationState structure)
             verifier._domain_states["example-test-domain.com"] = DomainVerificationState(
                 domain="example-test-domain.com",
-                trust_level=TrustLevel.UNVERIFIED,
+                domain_category=DomainCategory.UNVERIFIED,
                 verified_claims=["claim1", "claim2"],
                 rejected_claims=[],
                 pending_claims=["claim3"],
@@ -553,8 +553,8 @@ class SecurityE2EVerifier:
             mock_result = VR(
                 claim_id="test-claim",
                 domain="example.com",
-                original_trust_level=TrustLevel.UNVERIFIED,
-                new_trust_level=TrustLevel.LOW,
+                original_domain_category=DomainCategory.UNVERIFIED,
+                new_domain_category=DomainCategory.LOW,
                 verification_status=VerificationStatus.VERIFIED,
                 promotion_result=PromotionResult.PROMOTED,
                 details=VerificationDetails(
@@ -742,7 +742,7 @@ class SecurityE2EVerifier:
             # Capture log output by using a custom processor
             log_entries = []
 
-            def capture_processor(logger, method_name, event_dict):
+            def capture_processor(logger: object, method_name: str, event_dict: dict[str, object]) -> dict[str, object]:
                 log_entries.append(event_dict.copy())
                 return event_dict
 
@@ -916,7 +916,7 @@ class SecurityE2EVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     """Main entry point."""
     configure_logging(log_level="INFO", json_format=False)
 

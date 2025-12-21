@@ -55,19 +55,23 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.utils.logging import configure_logging, get_logger
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.search.provider import SearchResponse
 
 logger = get_logger(__name__)
 
 
-def _is_captcha_error(result) -> bool:
+def _is_captcha_error(result: "SearchResponse") -> bool:
     """Check if search result indicates CAPTCHA detection."""
     return result.error is not None and "CAPTCHA detected" in result.error
 
 
-def _get_captcha_type(result) -> str | None:
+def _get_captcha_type(result: "SearchResponse") -> str | None:
     """Extract CAPTCHA type from error message."""
     if result.error and "CAPTCHA detected:" in result.error:
-        return result.error.split("CAPTCHA detected:", 1)[1].strip()
+        return str(result.error.split("CAPTCHA detected:", 1)[1].strip())
     return None
 
 
@@ -90,7 +94,7 @@ class BingSearchVerifier:
     ENGINE_NAME = "bing"
     ENGINE_DISPLAY = "Bing"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.browser_available = False
 
@@ -480,7 +484,7 @@ class BingSearchVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     configure_logging(log_level="INFO", json_format=False)
 
     verifier = BingSearchVerifier()

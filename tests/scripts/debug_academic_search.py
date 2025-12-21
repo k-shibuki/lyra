@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 class AcademicSearchDebugger:
     """Debugger for academic search with deduplication metrics."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.provider = AcademicSearchProvider()
         self.extractor = IdentifierExtractor()
         self.resolver = IDResolver()
@@ -166,9 +166,15 @@ class AcademicSearchDebugger:
         paper1 = Paper(
             id="test:1",
             title="Test Paper 1",
-            doi="10.1234/test1",
-            authors=[Author(name="John Doe")],
+            abstract=None,
+            authors=[Author(name="John Doe", affiliation=None, orcid=None)],
             year=2024,
+            published_date=None,
+            doi="10.1234/test1",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
         id1 = index.register_paper(paper1, source_api="semantic_scholar")
@@ -178,9 +184,15 @@ class AcademicSearchDebugger:
         paper2 = Paper(
             id="test:2",
             title="Test Paper 1 (duplicate)",
-            doi="10.1234/test1",
-            authors=[Author(name="John Doe")],
+            abstract=None,
+            authors=[Author(name="John Doe", affiliation=None, orcid=None)],
             year=2024,
+            published_date=None,
+            doi="10.1234/test1",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="openalex",
         )
         id2 = index.register_paper(paper2, source_api="openalex")
@@ -196,7 +208,7 @@ class AcademicSearchDebugger:
             engine="google",
             rank=1,
         )
-        identifier = PaperIdentifier(doi="10.1234/test1")
+        identifier = PaperIdentifier(doi="10.1234/test1", pmid=None, arxiv_id=None, crid=None, url=None)
         id3 = index.register_serp_result(serp1, identifier)
         serp_link_success = id1 == id3
         print(f"  3. SERP result linked to existing: {'✓' if serp_link_success else '✗'}")
@@ -235,12 +247,16 @@ class AcademicSearchDebugger:
             id="test:abstract_paper",
             title="Test Paper With Abstract",
             abstract="This is a test abstract for the Abstract Only strategy validation.",
-            doi="10.1234/test_abstract",
-            authors=[Author(name="Test Author")],
+            authors=[Author(name="Test Author", affiliation=None, orcid=None)],
             year=2024,
-            source_api="semantic_scholar",
+            published_date=None,
+            doi="10.1234/test_abstract",
+            arxiv_id=None,
+            venue=None,
             is_open_access=True,
             oa_url="https://example.com/paper.pdf",
+            pdf_url=None,
+            source_api="semantic_scholar",
         )
 
         # Test 2: Paper without abstract (should need fetch)
@@ -248,9 +264,14 @@ class AcademicSearchDebugger:
             id="test:no_abstract_paper",
             title="Test Paper Without Abstract",
             abstract=None,
-            doi="10.1234/test_no_abstract",
-            authors=[Author(name="Test Author")],
+            authors=[Author(name="Test Author", affiliation=None, orcid=None)],
             year=2024,
+            published_date=None,
+            doi="10.1234/test_no_abstract",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
 
@@ -403,13 +424,13 @@ class AcademicSearchDebugger:
 
         return results
 
-    async def close(self):
+    async def close(self) -> None:
         """Cleanup resources."""
         await self.provider.close()
         await self.resolver.close()
 
 
-async def main():
+async def main() -> int:
     parser = argparse.ArgumentParser(description="Debug Academic Search Integration")
     parser.add_argument("query", nargs="?", help="Search query")
     parser.add_argument("--test-cases", action="store_true", help="Run all test cases")

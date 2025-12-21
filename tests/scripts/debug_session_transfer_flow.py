@@ -24,7 +24,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def main():
+async def main() -> int:
     """一直線でセッション転送フローを実行."""
     print("=" * 70)
     print("デバッグ: セッション転送フロー（問題12）")

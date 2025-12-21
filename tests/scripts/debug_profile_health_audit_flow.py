@@ -27,7 +27,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-async def test_browser_fetcher_health_check():
+async def test_browser_fetcher_health_check() -> bool:
     """Test health check in BrowserFetcher._ensure_browser()."""
     print("\n[Step 1] Testing BrowserFetcher._ensure_browser() with health check")
 
@@ -106,7 +106,7 @@ async def test_browser_fetcher_health_check():
         return False
 
 
-async def test_browser_search_provider_health_check():
+async def test_browser_search_provider_health_check() -> bool:
     """Test health check in BrowserSearchProvider._ensure_browser()."""
     print("\n[Step 2] Testing BrowserSearchProvider._ensure_browser() with health check")
     print("  Note: This test requires Chrome CDP connection")
@@ -233,7 +233,7 @@ async def test_browser_search_provider_health_check():
         return False
 
 
-async def test_health_check_error_handling():
+async def test_health_check_error_handling() -> bool:
     """Test error handling in health check."""
     print("\n[Step 3] Testing health check error handling")
 
@@ -255,7 +255,7 @@ async def test_health_check_error_handling():
         return False
 
 
-async def main():
+async def main() -> int:
     """Run all tests."""
     print("=" * 70)
     print("Profile Health Audit Flow Debug Script")

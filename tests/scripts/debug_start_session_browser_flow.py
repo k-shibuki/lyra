@@ -24,7 +24,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def main():
+async def main() -> int:
     """一直線でstart_sessionブラウザ起動フローを実行."""
     print("=" * 70)
     print("デバッグ: start_sessionブラウザ起動フロー（問題5）")

@@ -74,7 +74,7 @@ class EnvironmentVerifier:
     - Notification system
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
 
     async def verify_container_status(self) -> VerificationResult:
@@ -636,7 +636,7 @@ class EnvironmentVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     """Main entry point."""
     configure_logging(log_level="INFO", json_format=False)
 

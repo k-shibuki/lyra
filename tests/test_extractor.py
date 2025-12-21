@@ -9,6 +9,7 @@ OCR functionality tests (§5.1.1):
 
 import io
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -238,7 +239,7 @@ class TestPDFExtraction:
     """Tests for PDF extraction with OCR support."""
 
     @pytest.mark.asyncio
-    async def test_pdf_extraction_basic(self, tmp_path) -> None:
+    async def test_pdf_extraction_basic(self, tmp_path: Path) -> None:
         """Test basic PDF extraction without OCR."""
         from src.extractor.content import _extract_pdf
 

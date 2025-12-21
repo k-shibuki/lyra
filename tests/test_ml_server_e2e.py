@@ -44,7 +44,7 @@ class TestMLServerE2E:
     """E2E tests for ML Server API."""
 
     @pytest.fixture
-    async def ml_client(self) -> AsyncGenerator[None, None]:
+    async def ml_client(self) -> AsyncGenerator["MLClient", None]:
         """Create ML client (async fixture for proper cleanup)."""
         from src.ml_client import MLClient
 
@@ -54,7 +54,7 @@ class TestMLServerE2E:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_health_check(self, ml_client) -> None:
+    async def test_health_check(self, ml_client: "MLClient") -> None:
         """
         Given: ML Server container is running
         When: Health check endpoint is called
@@ -69,7 +69,7 @@ class TestMLServerE2E:
         assert "models_loaded" in result
 
     @pytest.mark.asyncio
-    async def test_embed_e2e(self, ml_client) -> None:
+    async def test_embed_e2e(self, ml_client: "MLClient") -> None:
         """
         Given: ML Server container is running with embedding model loaded
         When: embed() is called with texts
@@ -87,7 +87,7 @@ class TestMLServerE2E:
         assert all(isinstance(v, float) for v in result[0])
 
     @pytest.mark.asyncio
-    async def test_rerank_e2e(self, ml_client) -> None:
+    async def test_rerank_e2e(self, ml_client: "MLClient") -> None:
         """
         Given: ML Server container is running with reranker model loaded
         When: rerank() is called with query and documents
@@ -115,7 +115,7 @@ class TestMLServerE2E:
         assert scores[0] >= scores[1]
 
     @pytest.mark.asyncio
-    async def test_nli_e2e(self, ml_client) -> None:
+    async def test_nli_e2e(self, ml_client: "MLClient") -> None:
         """
         Given: ML Server container is running with NLI model loaded
         When: nli() is called with premise-hypothesis pairs
@@ -148,7 +148,7 @@ class TestMLServerE2E:
             assert 0.0 <= r["confidence"] <= 1.0
 
     @pytest.mark.asyncio
-    async def test_offline_mode_verification(self, ml_client) -> None:
+    async def test_offline_mode_verification(self, ml_client: "MLClient") -> None:
         """
         Given: ML Server is running in offline mode
         When: Multiple API calls are made
@@ -173,7 +173,7 @@ class TestMLServerE2E:
         assert nli_results is not None
 
     @pytest.mark.asyncio
-    async def test_model_paths_loaded(self, ml_client) -> None:
+    async def test_model_paths_loaded(self, ml_client: "MLClient") -> None:
         """
         Given: ML Server container is running
         When: Health check is called

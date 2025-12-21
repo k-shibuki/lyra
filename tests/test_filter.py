@@ -187,7 +187,7 @@ class TestEmbeddingRanker:
             )
 
     @pytest.mark.asyncio
-    async def test_get_scores_returns_similarities(self):
+    async def test_get_scores_returns_similarities(self) -> None:
         """Test get_scores returns similarity scores."""
 
         from src.filter.ranking import EmbeddingRanker
@@ -195,7 +195,7 @@ class TestEmbeddingRanker:
         ranker = EmbeddingRanker()
 
         # Mock encode to return normalized vectors
-        async def mock_encode(texts):
+        async def mock_encode(texts: list[str]) -> list[list[float]]:
             # Return simple embeddings that produce predictable scores
             return [[1, 0, 0]] + [[0.9, 0.1, 0]] * (len(texts) - 1)
 
@@ -294,7 +294,7 @@ class TestRankCandidates:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_full_pipeline(self, sample_passages) -> None:
+    async def test_rank_candidates_full_pipeline(self, sample_passages: list[dict[str, str]]) -> None:
         """Test rank_candidates runs full ranking pipeline."""
 
         from src.filter import ranking
@@ -329,7 +329,7 @@ class TestRankCandidates:
         assert "final_rank" in results[0]
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_preserves_passage_data(self, sample_passages) -> None:
+    async def test_rank_candidates_preserves_passage_data(self, sample_passages: list[dict[str, str]]) -> None:
         """Test rank_candidates preserves original passage data."""
 
         from src.filter import ranking

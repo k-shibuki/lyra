@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 sys.path.insert(0, "/home/statuser/lyra")
 
 
-async def main():
+async def main() -> int:
     """Run get_status verification."""
     print("=" * 70)
     print("get_status Flow Debug Script (O.7)")

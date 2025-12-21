@@ -274,7 +274,7 @@ class TestCitationSourcePriority:
             (None, False),
         ],
     )
-    def test_primary_source_classification(self, source_tag, expected) -> None:
+    def test_primary_source_classification(self, source_tag: str | None, expected: bool) -> None:
         """Test all source types are classified correctly."""
         citation = Citation(
             url="https://example.com/page",

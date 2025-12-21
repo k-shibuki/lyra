@@ -127,11 +127,15 @@ async def test_paper_model() -> bool:
         abstract="This is a test abstract.",
         authors=[author],
         year=2024,
+        published_date=None,
         doi="10.1234/test",
+        arxiv_id=None,
+        venue=None,
         citation_count=42,
         reference_count=10,
         is_open_access=True,
         oa_url="https://example.com/paper.pdf",
+        pdf_url=None,
         source_api="semantic_scholar",
     )
     assert paper.id == "s2:12345"
@@ -173,9 +177,17 @@ async def test_canonical_paper_index() -> bool:
         id="s2:12345",
         title="Attention Is All You Need",
         abstract="We propose a new model architecture...",
+        authors=[],
         year=2017,
+        published_date=None,
         doi="10.5555/3295222.3295349",
+        arxiv_id=None,
+        venue=None,
         citation_count=100000,
+        reference_count=0,
+        is_open_access=False,
+        oa_url=None,
+        pdf_url=None,
         source_api="semantic_scholar",
     )
     id1 = index.register_paper(paper1, source_api="semantic_scholar")
@@ -186,9 +198,17 @@ async def test_canonical_paper_index() -> bool:
         id="openalex:W2963403868",
         title="Attention Is All You Need",
         abstract="The dominant sequence transduction models...",
+        authors=[],
         year=2017,
+        published_date=None,
         doi="10.5555/3295222.3295349",  # Same DOI
+        arxiv_id=None,
+        venue=None,
         citation_count=95000,
+        reference_count=0,
+        is_open_access=False,
+        oa_url=None,
+        pdf_url=None,
         source_api="openalex",
     )
     id2 = index.register_paper(paper2, source_api="openalex")

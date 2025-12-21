@@ -44,14 +44,14 @@ from src.utils.config import (
 
 
 @pytest.fixture
-def temp_config_dir() -> Generator[None, None, None]:
+def temp_config_dir() -> Generator[Path, None, None]:
     """Create temporary config directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
 
 @pytest.fixture
-def sample_config_yaml():
+def sample_config_yaml() -> str:
     """Sample academic_apis.yaml content."""
     return """
 apis:
@@ -90,7 +90,7 @@ defaults:
 class TestConfigLoading:
     """Test configuration loading from YAML file."""
 
-    def test_load_config_from_file(self, temp_config_dir, sample_config_yaml) -> None:
+    def test_load_config_from_file(self, temp_config_dir: Path, sample_config_yaml: str) -> None:
         """TC-CFG-N-01: Valid academic_apis.yaml with all APIs."""
         # Given: Valid YAML config file exists
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -133,7 +133,7 @@ class TestConfigLoading:
         assert isinstance(config, AcademicAPIsConfig)
         assert len(config.apis) == 0
 
-    def test_empty_config_file(self, temp_config_dir) -> None:
+    def test_empty_config_file(self, temp_config_dir: Path) -> None:
         """TC-CFG-B-01: Empty config file."""
         # Given: Empty config file exists
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -148,7 +148,7 @@ class TestConfigLoading:
         assert isinstance(config, AcademicAPIsConfig)
         assert len(config.apis) == 0
 
-    def test_invalid_yaml_syntax(self, temp_config_dir) -> None:
+    def test_invalid_yaml_syntax(self, temp_config_dir: Path) -> None:
         """TC-CFG-A-01: Invalid YAML syntax."""
         # Given: Config file with invalid YAML syntax
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -168,7 +168,7 @@ class TestConfigLoading:
                 # If exception raised, it should be a YAML-related error
                 assert "yaml" in str(e).lower() or "parse" in str(e).lower()
 
-    def test_empty_apis_section(self, temp_config_dir) -> None:
+    def test_empty_apis_section(self, temp_config_dir: Path) -> None:
         """TC-CFG-B-03: Empty apis section."""
         # Given: Config file with empty apis section
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -183,7 +183,7 @@ class TestConfigLoading:
         assert isinstance(config, AcademicAPIsConfig)
         assert len(config.apis) == 0
 
-    def test_empty_defaults_section(self, temp_config_dir) -> None:
+    def test_empty_defaults_section(self, temp_config_dir: Path) -> None:
         """TC-CFG-B-04: Empty defaults section."""
         # Given: Config file with empty defaults
         config_file = temp_config_dir / "academic_apis.yaml"
@@ -233,7 +233,7 @@ class TestBackwardCompatibility:
 class TestEnvironmentVariableOverride:
     """Test environment variable overrides."""
 
-    def test_email_override(self, temp_config_dir, sample_config_yaml) -> None:
+    def test_email_override(self, temp_config_dir: Path, sample_config_yaml: str) -> None:
         """TC-CFG-N-03: Environment variable override for email."""
         # Given: Config file with email and environment variable override
         config_file = temp_config_dir / "academic_apis.yaml"

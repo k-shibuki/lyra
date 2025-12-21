@@ -25,7 +25,7 @@ class TestActivityTracking:
     """Tests for ExplorationState activity tracking."""
 
     @pytest.fixture
-    def mock_db(self):
+    def mock_db(self) -> AsyncMock:
         """Create a mock database."""
         db = AsyncMock()
         db.fetch_one = AsyncMock(
@@ -132,7 +132,7 @@ class TestActivityTracking:
             assert idle_after < 0.05
 
     @pytest.mark.asyncio
-    async def test_get_status_includes_idle_seconds(self, mock_db) -> None:
+    async def test_get_status_includes_idle_seconds(self, mock_db: AsyncMock) -> None:
         """
         AT-N-03: Test that get_status includes idle_seconds field.
 
@@ -156,7 +156,7 @@ class TestActivityTracking:
                 assert status["idle_seconds"] >= 0
 
     @pytest.mark.asyncio
-    async def test_get_status_boundary_just_under_timeout_no_warning(self, mock_db) -> None:
+    async def test_get_status_boundary_just_under_timeout_no_warning(self, mock_db: AsyncMock) -> None:
         """
         AT-B-02: Test no warning when idle time is just under timeout.
 
@@ -182,7 +182,7 @@ class TestActivityTracking:
                 assert len(idle_warnings) == 0
 
     @pytest.mark.asyncio
-    async def test_get_status_boundary_exact_timeout_warning(self, mock_db) -> None:
+    async def test_get_status_boundary_exact_timeout_warning(self, mock_db: AsyncMock) -> None:
         """
         AT-B-03: Test warning when idle time equals timeout exactly.
 
@@ -208,7 +208,7 @@ class TestActivityTracking:
                 assert len(idle_warnings) > 0
 
     @pytest.mark.asyncio
-    async def test_get_status_boundary_over_timeout_warning(self, mock_db) -> None:
+    async def test_get_status_boundary_over_timeout_warning(self, mock_db: AsyncMock) -> None:
         """
         AT-B-04: Test warning when idle time exceeds timeout.
 
@@ -236,7 +236,7 @@ class TestActivityTracking:
                 assert str(timeout) in idle_warning[0]
 
     @pytest.mark.asyncio
-    async def test_get_status_no_warning_when_active(self, mock_db) -> None:
+    async def test_get_status_no_warning_when_active(self, mock_db: AsyncMock) -> None:
         """
         AT-B-01: Test that no idle warning when activity is recent.
 

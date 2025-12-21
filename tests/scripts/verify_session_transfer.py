@@ -57,7 +57,7 @@ class VerificationResult:
 class SessionTransferVerifier:
     """Verifier for §3.1.2 session transfer utility."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.browser_available = False
         self.captured_session_id: str | None = None
@@ -116,9 +116,7 @@ class SessionTransferVerifier:
 
             # Fetch with browser
             print(f"    Fetching {test_url} with browser...")
-            policy = FetchPolicy(use_browser=True, allow_headful=False)
-
-            result = await fetcher.fetch(test_url, policy=policy)
+            result = await fetcher.fetch(test_url)
 
             if not result.ok:
                 return VerificationResult(
@@ -586,9 +584,7 @@ class SessionTransferVerifier:
         try:
             # Step 1: First fetch with browser
             print(f"    Step 1: Initial browser fetch of {test_url}")
-            policy = FetchPolicy(use_browser=True, allow_headful=False)
-
-            result1 = await browser_fetcher.fetch(test_url, policy=policy)
+            result1 = await browser_fetcher.fetch(test_url)
             if not result1.ok:
                 return VerificationResult(
                     name="304 Revisit",
@@ -673,12 +669,7 @@ class SessionTransferVerifier:
             )
 
             # Make HTTP request with conditional headers
-            policy = FetchPolicy(
-                use_browser=False,
-                extra_headers=transfer_result.headers,
-            )
-
-            result2 = await http_fetcher.fetch(test_url, policy=policy)
+            result2 = await http_fetcher.fetch(test_url)
 
             print(f"    ✓ Revisit status: {result2.status_code}")
 
@@ -888,7 +879,7 @@ class SessionTransferVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     configure_logging(log_level="INFO", json_format=False)
 
     verifier = SessionTransferVerifier()

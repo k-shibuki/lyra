@@ -30,6 +30,8 @@ import pytest
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from src.crawler.crt_transparency import (
@@ -384,12 +386,12 @@ class TestCertTransparencyClient:
     """Tests for CertTransparencyClient."""
 
     @pytest.fixture
-    def mock_fetcher(self):
+    def mock_fetcher(self) -> AsyncMock:
         """Create mock fetcher."""
         return AsyncMock()
 
     @pytest.mark.asyncio
-    async def test_search_success(self, mock_fetcher, tmp_path) -> None:
+    async def test_search_success(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test successful certificate search."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""
@@ -420,7 +422,7 @@ class TestCertTransparencyClient:
         assert len(search_result.certificates) == 1
 
     @pytest.mark.asyncio
-    async def test_search_cache(self, mock_fetcher, tmp_path) -> None:
+    async def test_search_cache(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test that results are cached."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""
@@ -452,7 +454,7 @@ class TestCertTransparencyClient:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_discover_related_domains(self, mock_fetcher, tmp_path) -> None:
+    async def test_discover_related_domains(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test discovering related domains."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""
@@ -483,7 +485,7 @@ class TestCertTransparencyClient:
         assert "example.com" not in domains  # Should not include query domain
 
     @pytest.mark.asyncio
-    async def test_build_timeline(self, mock_fetcher, tmp_path) -> None:
+    async def test_build_timeline(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test building certificate timeline."""
         html_path = tmp_path / "crt.html"
         html_path.write_text("""

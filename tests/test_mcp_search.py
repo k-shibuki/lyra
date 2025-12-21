@@ -195,7 +195,7 @@ class TestSearchBoundaryValues:
 
         captured_options = {}
 
-        async def capture_action(task_id, query, state, options):
+        async def capture_action(task_id: str, query: str, state: Any, options: dict[str, Any] | None) -> dict[str, Any]:
             captured_options.update(options or {})
             return mock_search_result
 
@@ -234,7 +234,7 @@ class TestSearchBoundaryValues:
 
         captured_options = {}
 
-        async def capture_action(task_id, query, state, options):
+        async def capture_action(task_id: str, query: str, state: Any, options: dict[str, Any] | None) -> dict[str, Any]:
             captured_options.update(options or {})
             return mock_search_result
 
@@ -431,7 +431,7 @@ class TestSearchExecution:
 
         captured_options = {}
 
-        async def capture_search_action(task_id, query, state, options):
+        async def capture_search_action(task_id: str, query: str, state: Any, options: dict[str, Any] | None) -> dict[str, Any]:
             captured_options.update(options or {})
             return {
                 "ok": True,
@@ -554,7 +554,7 @@ class TestStopTaskExecution:
 
         captured_reason = None
 
-        async def capture_stop_action(task_id, state, reason):
+        async def capture_stop_action(task_id: str, state: Any, reason: str) -> dict[str, Any]:
             nonlocal captured_reason
             captured_reason = reason
             return mock_stop_result
@@ -592,7 +592,7 @@ class TestStopTaskExecution:
 
         captured_reason = None
 
-        async def capture_stop_action(task_id, state, reason):
+        async def capture_stop_action(task_id: str, state: Any, reason: str) -> dict[str, Any]:
             nonlocal captured_reason
             captured_reason = reason
             return mock_stop_result
@@ -919,7 +919,7 @@ class TestEnsureChromeReady:
 
         call_count = 0
 
-        async def cdp_check_side_effect():
+        async def cdp_check_side_effect() -> bool:
             nonlocal call_count
             call_count += 1
             # First call: not ready, subsequent calls: ready
@@ -1036,7 +1036,7 @@ class TestSearchWithAutoStart:
 
         ensure_called = False
 
-        async def mock_ensure():
+        async def mock_ensure() -> bool:
             nonlocal ensure_called
             ensure_called = True
             return True
