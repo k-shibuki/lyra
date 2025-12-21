@@ -138,7 +138,7 @@ class BrowserSearchVerifier:
                 )
 
             # Get browser info
-            browser_info = {}
+            browser_info: dict[str, int | bool] = {}
             browser = provider._browser
             browser_info["connected"] = bool(browser.is_connected())
             contexts = browser.contexts

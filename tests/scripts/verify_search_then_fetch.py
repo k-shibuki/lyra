@@ -37,6 +37,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -55,7 +56,7 @@ class VerificationResult:
     passed: bool
     skipped: bool = False
     skip_reason: str | None = None
-    details: dict = field(default_factory=dict)
+    details: dict[str, object] = field(default_factory=dict)
     error: str | None = None
 
 
@@ -65,7 +66,7 @@ class SearchFetchVerifier:
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.browser_available = False
-        self.search_results: list[dict] = []
+        self.search_results: list[dict[str, object]] = []
         self.search_session_id: str | None = None
 
     async def check_prerequisites(self) -> bool:
@@ -77,11 +78,11 @@ class SearchFetchVerifier:
             from src.crawler.browser_provider import get_browser_registry
 
             registry = get_browser_registry()
-            provider = registry.get_default()
-            if provider:
+            browser_provider = registry.get_default()
+            if browser_provider:
                 self.browser_available = True
                 print("  ✓ Browser provider available")
-                await provider.close()
+                await browser_provider.close()
             else:
                 print("  ✗ Browser provider not available")
                 print("    → Run Chrome with: --remote-debugging-port=9222")
@@ -94,10 +95,10 @@ class SearchFetchVerifier:
         try:
             from src.search.browser_search_provider import BrowserSearchProvider
 
-            provider: BrowserSearchProvider = BrowserSearchProvider()
-            engines = provider.get_available_engines()  # type: ignore[attr-defined]
+            search_provider = BrowserSearchProvider()
+            engines = search_provider.get_available_engines()
             print(f"  ✓ Search provider available (engines: {engines})")
-            await provider.close()
+            await search_provider.close()
         except Exception as e:
             print(f"  ✗ Search provider failed: {e}")
             return False
@@ -236,7 +237,12 @@ class SearchFetchVerifier:
             total_fetches = min(2, len(self.search_results))
 
             for i, result in enumerate(self.search_results[:total_fetches], 1):
-                url = result["url"]
+                url_obj = result.get("url")
+                if not isinstance(url_obj, str):
+                    print(f"\n    [{i}/{total_fetches}] Skipping: invalid url type")
+                    continue
+
+                url = url_obj
                 print(f"\n    [{i}/{total_fetches}] Fetching: {url[:60]}...")
 
                 fetch_result = await fetcher.fetch(url)
@@ -255,16 +261,16 @@ class SearchFetchVerifier:
                     session_captured = final_stats["total_sessions"] > initial_stats["total_sessions"]
                     
                     # Get session for domain if captured
+                    session_id: str | None = None
                     if session_captured:
                         parsed = urlparse(url)
                         from src.crawler.sec_fetch import _get_registrable_domain
                         domain = _get_registrable_domain(parsed.netloc)
-                        result = manager.get_session_for_domain(domain)
-                        session_id: str | None = result[0] if result else None
-                    else:
-                        session_id = None
-                        if session_id:
-                            print(f"    ✓ Session captured: {session_id[:12]}...")
+                        session_for_domain = manager.get_session_for_domain(domain)
+                        session_id = session_for_domain[0] if session_for_domain else None
+
+                    if session_id:
+                        print(f"    ✓ Session captured: {session_id[:12]}...")
                 else:
                     print(f"    ✗ Failed: {fetch_result.reason}")
                     if fetch_result.auth_type:

@@ -18,6 +18,7 @@ import asyncio
 import sys
 import uuid
 from datetime import UTC, datetime
+from typing import TypedDict
 
 # Add project root to path
 sys.path.insert(0, "/home/statuser/lyra")
@@ -141,7 +142,21 @@ async def main() -> int:
     pipeline = SearchPipeline(task_id=task_id, state=state)
 
     # Simulate raw claims from executor
-    raw_claims = [
+    class RawClaim(TypedDict, total=False):
+        source_url: str
+        title: str
+        claim: str
+        snippet: str
+        confidence: float
+
+    class TransformedClaim(TypedDict):
+        id: str
+        text: str
+        confidence: float
+        source_url: str
+        is_primary_source: bool
+
+    raw_claims: list[RawClaim] = [
         {
             "source_url": "https://www.fda.gov/safety/report",
             "title": "FDA Safety Report",
@@ -156,15 +171,18 @@ async def main() -> int:
         },
     ]
 
-    transformed_claims = []
+    transformed_claims: list[TransformedClaim] = []
     for claim in raw_claims:
+        text = claim["claim"] if "claim" in claim else (claim["snippet"] if "snippet" in claim else "")
+        source_url = claim["source_url"] if "source_url" in claim else ""
+        confidence = claim["confidence"] if "confidence" in claim else 0.5
         transformed_claims.append(
             {
                 "id": f"c_{uuid.uuid4().hex[:8]}",
-                "text": claim.get("claim", claim.get("snippet", ""))[:200],
-                "confidence": claim.get("confidence", 0.5),
-                "source_url": claim.get("source_url", ""),
-                "is_primary_source": pipeline._is_primary_source(claim.get("source_url", "")),
+                "text": text[:200],
+                "confidence": confidence,
+                "source_url": source_url,
+                "is_primary_source": pipeline._is_primary_source(source_url),
             }
         )
 
@@ -292,7 +310,7 @@ async def main() -> int:
     print("\n[7] Testing state.record_* methods...")
 
     search_id = "s_test_debug"
-    search_state = state.register_search(
+    registered_search = state.register_search(
         search_id=search_id,
         text="debug search",
         priority="medium",
@@ -320,6 +338,7 @@ async def main() -> int:
 
     # Check state
     search_state = state.get_search(search_id)
+    assert search_state is not None
     print(f"  - pages_fetched: {search_state.pages_fetched}")
     print(f"  - useful_fragments: {search_state.useful_fragments}")
     print(f"  - harvest_rate: {search_state.harvest_rate:.2f}")

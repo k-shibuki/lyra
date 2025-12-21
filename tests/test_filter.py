@@ -197,7 +197,7 @@ class TestEmbeddingRanker:
         # Mock encode to return normalized vectors
         async def mock_encode(texts: list[str]) -> list[list[float]]:
             # Return simple embeddings that produce predictable scores
-            return [[1, 0, 0]] + [[0.9, 0.1, 0]] * (len(texts) - 1)
+            return [[1.0, 0.0, 0.0]] + [[0.9, 0.1, 0.0]] * (len(texts) - 1)
 
         with patch.object(ranker, "encode", mock_encode):
             scores = await ranker.get_scores("query", ["doc1", "doc2"])

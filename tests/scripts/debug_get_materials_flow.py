@@ -149,7 +149,7 @@ async def main() -> int:
     from src.research.materials import get_materials_action
 
     # Request with include_graph=True to build evidence graph
-    result = await get_materials_action(task_id, {"include_graph": True})
+    result = await get_materials_action(task_id, include_graph=True)
 
     print(f"  - ok: {result.get('ok')}")
     print(f"  - task_id: {result.get('task_id')}")

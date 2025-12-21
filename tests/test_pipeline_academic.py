@@ -29,6 +29,8 @@ in the SearchPipeline._execute_complementary_search() method.
 """
 
 import json
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -37,6 +39,8 @@ from src.research.pipeline import SearchPipeline
 from src.research.state import ExplorationState
 from src.search.provider import SearchResult as ProviderSearchResult
 from src.utils.schemas import Author, CanonicalEntry, Citation, Paper
+
+T = TypeVar("T")
 
 # =============================================================================
 # Test Fixtures
@@ -585,11 +589,13 @@ class TestSemanticScholarIDNormalization:
         mock_http.get = AsyncMock(return_value=mock_response)
 
         # Mock retry_api_call to directly execute the _fetch function
-        async def mock_retry_api_call(func: object, *args: object, **kwargs: object) -> object:
+        async def mock_retry_api_call(
+            func: Callable[..., Awaitable[T]],
+            *args: object,
+            **kwargs: object,
+        ) -> T:
             """Execute the function directly without retry logic."""
-            # func is the _fetch function, which is async
-            # We need to await it to get the result
-            return await func()
+            return await func(*args, **kwargs)
 
         with (
             patch.object(client, "_get_session", return_value=mock_http),
@@ -632,11 +638,13 @@ class TestSemanticScholarIDNormalization:
         mock_http.get = AsyncMock(return_value=mock_response)
 
         # Mock retry_api_call to directly execute the _fetch function
-        async def mock_retry_api_call(func: object, *args: object, **kwargs: object) -> object:
+        async def mock_retry_api_call(
+            func: Callable[..., Awaitable[T]],
+            *args: object,
+            **kwargs: object,
+        ) -> T:
             """Execute the function directly without retry logic."""
-            # func is the _fetch function, which is async
-            # We need to await it to get the result
-            return await func()
+            return await func(*args, **kwargs)
 
         with (
             patch.object(client, "_get_session", return_value=mock_http),
