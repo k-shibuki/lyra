@@ -29,7 +29,7 @@
 | Phase | 目的 | 状態 | 参照 |
 |------:|------|------|------|
 | 1 | 透明性の向上（blocked_domains / cause_id / adoption_status） | DONE | `82ce42e` |
-| 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | DONE | `[commit hash]` |
+| 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | DONE | `0869de0`, `993f333` |
 | 3 | 引用追跡の完全実装（決定11: Budgeted Citation Expansion / S2 + OpenAlex / pages追加 / CITES） | TODO | - |
 | 4 | ベイズ信頼度モデル（confidence/uncertainty/controversy） | TODO | - |
 | 5 | ユーザー制御（user_overrides / 復元） | TODO | - |
@@ -60,8 +60,9 @@
   - テストファイル: `is_influential`参照を削除
 
 **検証**:
-- ruff / mypy / tests: PASS（60 passed）
+- ruff / mypy / tests: PASS（3228 passed）
 - `grep -r "\bis_influential\b" src/` で残骸ゼロを確認
+- フォールバック処理: ページが見つからない場合も"academic"にフォールバック
 
 ---
 

@@ -26,7 +26,7 @@
 | **O** | **ハイブリッド構成リファクタ** | ✅ | ✅ | **完了（O.2-O.8）** | §6 |
 | **P** | **トラストレベル・エビデンスグラフ設計変更** | - | - | ⏳ | §6 |
 
-**現在のテスト数**: 3022件（全パス、K.2でPromptManagerテスト45件に更新）
+**現在のテスト数**: 3228件（全パス、Phase 2でテスト追加）
 
 ---
 
@@ -842,7 +842,7 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | J.2.3 | OpenAlex APIクライアント | ✅ 完了 |
 | J.2.4 | Crossref APIクライアント | ✅ 完了 |
 | J.2.5 | arXiv APIクライアント | ✅ 完了 |
-| J.2.6 | エビデンスグラフ拡張（CITESエッジにis_academic/is_influential属性追加） | ✅ 完了 |
+| J.2.6 | エビデンスグラフ拡張（CITESエッジにis_academic属性追加、is_influentialはPhase 2で削除） | ✅ 完了 |
 | J.2.7 | 検索パイプライン統合（補完的検索戦略） | ✅ 完了 |
 | J.2.8 | テスト・E2E検証 | ✅ 完了 |
 
@@ -2328,10 +2328,11 @@ python scripts/migrate.py create NAME  # 新規作成
    - **pages自動追加**: 選抜された引用先論文をpagesテーブルに自動登録
    - **設定**: `search.citation_filter.*` および `citation_graph_top_n_papers`
 
-3. **is_influential の完全排除（決定12）** ⏳
+3. **is_influential の完全排除（決定12）** ✅
    - Semantic Scholar専用フラグ `is_influential` をスキーマ・コードから削除
    - 代替として `Paper.citation_count` から算出する `impact_score`（ローカル正規化）を使用
    - Phase J.2 で導入された `is_influential` 関連コードを清掃
+   - コミット: `0869de0`
 
 4. **ベイズ信頼度モデルの導入（決定7）** ⏳
    - 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算
@@ -2344,7 +2345,7 @@ python scripts/migrate.py create NAME  # 新規作成
 
 **実装ロードマップ**: `docs/EVIDENCE_SYSTEM.md` §実装ロードマップ参照
 
-**状態**: ⏳ Phase 2 完了、Phase 3-4 実装待ち
+**状態**: ✅ Phase 2 完了（`0869de0`, `993f333`）、Phase 3-4 実装待ち
 
 ---
 
