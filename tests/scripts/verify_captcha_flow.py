@@ -508,8 +508,6 @@ class CAPTCHAFlowVerifier:
 
         from src.utils.notification import InterventionManager
 
-        manager = InterventionManager()
-
         try:
             # TODO: InterventionManager.bring_to_front(url, reason) API is not implemented
             # The current implementation has _bring_tab_to_front(page) which is a private method
@@ -530,6 +528,7 @@ class CAPTCHAFlowVerifier:
             )
 
             # Original test code (commented out until API is available):
+            # manager = InterventionManager()
             # for i in range(foreground_count):
             #     success = await manager.bring_to_front(
             #         url="https://example.com",
