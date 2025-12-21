@@ -36,7 +36,7 @@ class AcademicSearchDebugger:
         self.extractor = IdentifierExtractor()
         self.resolver = IDResolver()
 
-    async def run_search(self, query: str, limit: int = 20) -> dict:
+    async def run_search(self, query: str, limit: int = 20) -> dict[str, object]:
         """Run academic search and return detailed metrics.
 
         Args:
@@ -362,25 +362,24 @@ class AcademicSearchDebugger:
             print(f"  ✗ Citation graph failed: {e}")
             return {"paper_id": test_paper_id, "error": str(e), "passed": False}
 
-    async def run_all_tests(self) -> dict:
+    async def run_all_tests(self) -> dict[str, object]:
         """Run all diagnostic tests.
 
         Returns:
             All test results
         """
-        results = {}
+        results: dict[str, object] = {}
 
-        # Test identifier extraction
-        results["identifier_extraction"] = await self.test_identifier_extraction()
+        # Run core tests (keep local variables for type-safe summary)
+        id_tests = await self.test_identifier_extraction()
+        ci_tests = await self.test_canonical_index()
+        ao_tests = await self.test_abstract_only_strategy()
+        cg_test = await self.test_citation_graph()
 
-        # Test canonical index
-        results["canonical_index"] = await self.test_canonical_index()
-
-        # Test Abstract Only strategy
-        results["abstract_only"] = await self.test_abstract_only_strategy()
-
-        # Test citation graph
-        results["citation_graph"] = await self.test_citation_graph()
+        results["identifier_extraction"] = id_tests
+        results["canonical_index"] = ci_tests
+        results["abstract_only"] = ao_tests
+        results["citation_graph"] = cg_test
 
         # Test actual search
         test_queries = [
@@ -388,39 +387,70 @@ class AcademicSearchDebugger:
             "CRISPR gene editing",
         ]
 
-        results["search_tests"] = []
+        search_tests: list[dict[str, object]] = []
         for query in test_queries:
             try:
                 metrics = await self.run_search(query, limit=10)
-                results["search_tests"].append(metrics)
+                search_tests.append(metrics)
             except Exception as e:
                 print(f"\n  ✗ Search failed for '{query}': {e}")
-                results["search_tests"].append({"query": query, "error": str(e)})
+                search_tests.append({"query": query, "error": str(e)})
+        results["search_tests"] = search_tests
 
         # Summary
         print(f"\n{'='*60}")
         print("Summary")
         print(f"{'='*60}\n")
 
-        id_tests = results["identifier_extraction"]
-        print(f"Identifier Extraction: {id_tests['passed']}/{id_tests['total']} passed")
+        def _as_int(value: object, default: int = 0) -> int:
+            return value if isinstance(value, int) else default
 
-        ci_tests = results["canonical_index"]
-        print(f"Canonical Index: dedup={'✓' if ci_tests['dedup_success'] else '✗'}, "
-              f"serp_link={'✓' if ci_tests['serp_link_success'] else '✗'}")
+        def _as_bool(value: object, default: bool = False) -> bool:
+            return value if isinstance(value, bool) else default
 
-        ao_tests = results["abstract_only"]
-        print(f"Abstract Only: {ao_tests['passed']}/{ao_tests['total']} passed")
+        if isinstance(id_tests, dict):
+            passed = _as_int(id_tests.get("passed"))
+            total = _as_int(id_tests.get("total"))
+            print(f"Identifier Extraction: {passed}/{total} passed")
+        else:
+            print("Identifier Extraction: (invalid result)")
 
-        cg_test = results["citation_graph"]
-        print(f"Citation Graph: {'✓' if cg_test.get('passed', False) else '✗'}")
+        if isinstance(ci_tests, dict):
+            dedup_success = _as_bool(ci_tests.get("dedup_success"))
+            serp_link_success = _as_bool(ci_tests.get("serp_link_success"))
+            print(
+                f"Canonical Index: dedup={'✓' if dedup_success else '✗'}, "
+                f"serp_link={'✓' if serp_link_success else '✗'}"
+            )
+        else:
+            print("Canonical Index: (invalid result)")
 
-        for search_result in results["search_tests"]:
-            if "error" in search_result and search_result["error"]:
-                print(f"Search '{search_result['query'][:30]}...': ✗ Error")
+        if isinstance(ao_tests, dict):
+            passed = _as_int(ao_tests.get("passed"))
+            total = _as_int(ao_tests.get("total"))
+            print(f"Abstract Only: {passed}/{total} passed")
+        else:
+            print("Abstract Only: (invalid result)")
+
+        if isinstance(cg_test, dict):
+            passed = _as_bool(cg_test.get("passed"))
+            print(f"Citation Graph: {'✓' if passed else '✗'}")
+        else:
+            print("Citation Graph: (invalid result)")
+
+        for search_result in search_tests:
+            query_obj = search_result.get("query")
+            query = query_obj if isinstance(query_obj, str) else ""
+
+            error_obj = search_result.get("error")
+            error = error_obj if isinstance(error_obj, str) else ""
+
+            if error:
+                print(f"Search '{query[:30]}...': ✗ Error")
             else:
-                print(f"Search '{search_result['query'][:30]}...': "
-                      f"{search_result.get('total_results', 0)} results")
+                total_obj = search_result.get("total_results")
+                total = _as_int(total_obj)
+                print(f"Search '{query[:30]}...': {total} results")
 
         return results
 

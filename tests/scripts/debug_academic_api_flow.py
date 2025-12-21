@@ -250,6 +250,7 @@ async def test_semantic_scholar_client() -> bool:
     assert client.name == "semantic_scholar"
     print(f"  ✓ Client name: {client.name}")
 
+    assert client.base_url is not None
     assert "semanticscholar.org" in client.base_url
     print(f"  ✓ Base URL: {client.base_url}")
 

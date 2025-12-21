@@ -145,7 +145,7 @@ async def test_time_decay() -> bool:
 
     # Check that weights increase with time decay (closer to base_weight)
     print("\n  Time decay effect on weight:")
-    prev_weight = 0
+    prev_weight = 0.0
     for name, weight, _confidence in results:
         trend = "↑" if weight > prev_weight else "=" if weight == prev_weight else "↓"
         print(f"    {name}: weight={weight:.3f} {trend}")

@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 """
-Verification target: §7 Acceptance Criteria - Profile Health
+Profile health verification script.
 
 Verification items:
-1. Health check auto-execution success rate (§7: ≥99%)
-2. Deviation detection accuracy
-3. Auto-repair success rate (§7: ≥90%)
-4. Audit logging completeness
+1. Health check auto-execution success rate (sample-based)
+2. Deviation detection behavior
+3. Auto-repair action selection coverage
+4. Audit logging completeness (JSONL)
 
 Prerequisites:
-- Chrome running with remote debugging on Windows
+- Chrome running with remote debugging enabled
 - config/settings.yaml browser.chrome_host configured
-- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
-
-Acceptance criteria (§7):
-- Health check: ≥99% auto-execution success rate at task start
-- Auto-repair: ≥90% success rate when deviation detected
 
 Usage:
     python tests/scripts/verify_profile_health.py
@@ -30,6 +25,7 @@ import asyncio
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -48,12 +44,12 @@ class VerificationResult:
     passed: bool
     skipped: bool = False
     skip_reason: str | None = None
-    details: dict = field(default_factory=dict)
+    details: dict[str, object] = field(default_factory=dict)
     error: str | None = None
 
 
 class ProfileHealthVerifier:
-    """Verifier for §7 profile health acceptance criteria."""
+    """Verifier for profile health behavior."""
 
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
@@ -63,20 +59,18 @@ class ProfileHealthVerifier:
         """Check environment prerequisites."""
         print("\n[Prerequisites] Checking environment...")
 
-        # Check browser connectivity
+        # Check browser search provider connectivity (creates a Playwright context)
         try:
-            from src.crawler.browser_provider import get_browser_registry
+            from src.search.browser_search_provider import BrowserSearchProvider
 
-            registry = get_browser_registry()
-            provider = registry.get_default()
-            if provider:
+            provider = BrowserSearchProvider()
+            try:
+                await asyncio.wait_for(provider._ensure_browser(), timeout=10.0)
+                assert provider._context is not None
                 self.browser_available = True
-                print("  ✓ Browser provider available")
+                print("  ✓ Browser search provider available")
+            finally:
                 await provider.close()
-            else:
-                print("  ✗ Browser provider not available")
-                print("    → Run Chrome with: --remote-debugging-port=9222")
-                return False
         except Exception as e:
             print(f"  ✗ Browser check failed: {e}")
             return False
@@ -94,41 +88,42 @@ class ProfileHealthVerifier:
         return True
 
     async def verify_health_check_execution(self) -> VerificationResult:
-        """§7: Health check auto-execution success rate ≥99%."""
-        print("\n[1/4] Verifying health check execution (§7 ≥99% success)...")
+        """Verify health check execution success rate (sample-based)."""
+        print("\n[1/4] Verifying health check execution (sample-based)...")
 
-        from src.crawler.browser_provider import get_browser_registry
-        from src.crawler.profile_audit import ProfileAuditor
+        from src.crawler.profile_audit import AuditStatus, ProfileAuditor
+        from src.search.browser_search_provider import BrowserSearchProvider
 
         try:
             # Run multiple health checks to measure success rate
             check_count = 5
             success_count = 0
 
-            for i in range(check_count):
-                print(f"    Check {i + 1}/{check_count}...", end=" ")
+            provider = BrowserSearchProvider()
+            try:
+                await asyncio.wait_for(provider._ensure_browser(), timeout=10.0)
+                assert provider._context is not None
 
-                registry = get_browser_registry()
-                provider = registry.get_default()
-                if not provider:
-                    print("✗ (no provider)")
-                    continue
+                auditor = ProfileAuditor()
 
-                try:
-                    auditor = ProfileAuditor()
-                    result = await auditor.audit(provider)
+                for i in range(check_count):
+                    print(f"    Check {i + 1}/{check_count}...", end=" ")
+                    page = await provider._context.new_page()
+                    try:
+                        await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
+                        result = await auditor.audit(page, force=True)
 
-                    from src.crawler.profile_audit import AuditStatus
-                    if result.status == AuditStatus.PASS:
-                        success_count += 1
-                        print(f"✓ (healthy: {result.status == AuditStatus.PASS})")
-                    else:
-                        print(f"✗ ({result.error})")
+                        if result.status == AuditStatus.PASS:
+                            success_count += 1
+                            print("✓")
+                        else:
+                            print(f"✗ ({result.error})")
+                    finally:
+                        await page.close()
 
-                finally:
-                    await provider.close()
-
-                await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.5)
+            finally:
+                await provider.close()
 
             success_rate = success_count / check_count
             threshold = 0.99
@@ -140,22 +135,22 @@ class ProfileHealthVerifier:
             # Note: With only 5 checks, we can't truly verify 99%
             # In production, this would be tracked over many task starts
             if success_rate >= 0.80:  # Lower threshold for small sample
-                print(f"    ✓ Acceptable for sample size (production target: ≥{threshold:.0%})")
+                print(f"    ✓ Acceptable for sample size (target: ≥{threshold:.0%})")
                 return VerificationResult(
                     name="Health Check Execution",
-                    spec_ref="§7 Health Check ≥99%",
+                    spec_ref="Health check execution",
                     passed=True,
                     details={
                         "success_rate": success_rate,
                         "threshold": threshold,
                         "sample_size": check_count,
-                        "note": "Small sample; production tracking needed for ≥99%",
+                        "note": "Small sample; long-running tracking required for strict thresholds",
                     },
                 )
             else:
                 return VerificationResult(
                     name="Health Check Execution",
-                    spec_ref="§7 Health Check ≥99%",
+                    spec_ref="Health check execution",
                     passed=False,
                     error=f"Success rate {success_rate:.0%} too low even for small sample",
                 )
@@ -164,7 +159,7 @@ class ProfileHealthVerifier:
             logger.exception("Health check execution verification failed")
             return VerificationResult(
                 name="Health Check Execution",
-                spec_ref="§7 Health Check ≥99%",
+                spec_ref="Health check execution",
                 passed=False,
                 error=str(e),
             )
@@ -173,29 +168,27 @@ class ProfileHealthVerifier:
         """Verify deviation detection accuracy."""
         print("\n[2/4] Verifying deviation detection...")
 
-        from src.crawler.browser_provider import get_browser_registry
-        from src.crawler.profile_audit import ProfileAuditor
+        from src.crawler.profile_audit import AuditStatus, ProfileAuditor
+        from src.search.browser_search_provider import BrowserSearchProvider
 
         try:
-            registry = get_browser_registry()
-            provider = registry.get_default()
-            if not provider:
-                return VerificationResult(
-                    name="Deviation Detection",
-                    spec_ref="§4.3.1 Profile Audit",
-                    passed=False,
-                    error="Browser provider not available",
-                )
-
+            provider = BrowserSearchProvider()
             try:
-                auditor = ProfileAuditor()
-                result = await auditor.audit(provider)
+                await asyncio.wait_for(provider._ensure_browser(), timeout=10.0)
+                assert provider._context is not None
 
-                from src.crawler.profile_audit import AuditStatus
+                auditor = ProfileAuditor()
+                page = await provider._context.new_page()
+                try:
+                    await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
+                    result = await auditor.audit(page, force=True)
+                finally:
+                    await page.close()
+
                 if result.status == AuditStatus.FAIL:
                     return VerificationResult(
                         name="Deviation Detection",
-                        spec_ref="§4.3.1 Profile Audit",
+                        spec_ref="Deviation detection",
                         passed=False,
                         error=f"Audit failed: {result.error}",
                     )
@@ -226,7 +219,7 @@ class ProfileHealthVerifier:
 
                 return VerificationResult(
                     name="Deviation Detection",
-                    spec_ref="§4.3.1 Profile Audit",
+                    spec_ref="Deviation detection",
                     passed=True,
                     details={
                         "is_healthy": result.status == AuditStatus.PASS,
@@ -242,14 +235,14 @@ class ProfileHealthVerifier:
             logger.exception("Deviation detection verification failed")
             return VerificationResult(
                 name="Deviation Detection",
-                spec_ref="§4.3.1 Profile Audit",
+                spec_ref="Deviation detection",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_auto_repair(self) -> VerificationResult:
-        """§7: Auto-repair success rate ≥90%."""
-        print("\n[3/4] Verifying auto-repair capability (§7 ≥90% success)...")
+        """Verify auto-repair action selection coverage."""
+        print("\n[3/4] Verifying auto-repair capability...")
 
         from src.crawler.profile_audit import ProfileAuditor, RepairAction
 
@@ -290,7 +283,7 @@ class ProfileHealthVerifier:
             if repair_attempts == 0:
                 return VerificationResult(
                     name="Auto-Repair",
-                    spec_ref="§7 Auto-Repair ≥90%",
+                    spec_ref="Auto-repair action selection",
                     passed=True,
                     skipped=True,
                     skip_reason="No repair scenarios to test",
@@ -309,7 +302,7 @@ class ProfileHealthVerifier:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
                 return VerificationResult(
                     name="Auto-Repair",
-                    spec_ref="§7 Auto-Repair ≥90%",
+                    spec_ref="Auto-repair action selection",
                     passed=True,
                     details={
                         "repair_rate": repair_rate,
@@ -320,7 +313,7 @@ class ProfileHealthVerifier:
             else:
                 return VerificationResult(
                     name="Auto-Repair",
-                    spec_ref="§7 Auto-Repair ≥90%",
+                    spec_ref="Auto-repair action selection",
                     passed=False,
                     error=f"Repair rate {repair_rate:.0%} < {threshold:.0%}",
                 )
@@ -329,7 +322,7 @@ class ProfileHealthVerifier:
             logger.exception("Auto-repair verification failed")
             return VerificationResult(
                 name="Auto-Repair",
-                spec_ref="§7 Auto-Repair ≥90%",
+                spec_ref="Auto-repair action selection",
                 passed=False,
                 error=str(e),
             )
@@ -341,93 +334,94 @@ class ProfileHealthVerifier:
         import json
         import tempfile
 
-        from src.crawler.browser_provider import get_browser_registry
         from src.crawler.profile_audit import ProfileAuditor
+        from src.search.browser_search_provider import BrowserSearchProvider
+        from src.utils.config import get_settings
 
         try:
-            # Create temporary log file
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
-                log_path = Path(f.name)
+            settings = get_settings()
+            profile_name = settings.browser.profile_name
 
-            registry = get_browser_registry()
-            provider = registry.get_default()
-            if not provider:
-                return VerificationResult(
-                    name="Audit Logging",
-                    spec_ref="§4.3.1 Audit Log",
-                    passed=False,
-                    error="Browser provider not available",
-                )
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                profile_dir = Path(tmp_dir)
+                log_path = profile_dir / f"{profile_name}_audit_log.jsonl"
 
-            try:
-                auditor = ProfileAuditor()
-                # Note: auditor.audit() requires a Page object, not BrowserProvider
-                # This test may need to be redesigned to use Page instead
-                await auditor.audit(provider)  # type: ignore[arg-type]
+                provider = BrowserSearchProvider()
+                try:
+                    await asyncio.wait_for(provider._ensure_browser(), timeout=10.0)
+                    assert provider._context is not None
 
-                # Check if log was written
-                if log_path.exists():
-                    with open(log_path) as f:
-                        log_lines = f.readlines()
+                    page = await provider._context.new_page()
+                    try:
+                        await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
+                        auditor = ProfileAuditor(profile_dir=profile_dir)
+                        await auditor.audit(page, force=True)
+                    finally:
+                        await page.close()
+                finally:
+                    await provider.close()
 
-                    if log_lines:
-                        print(f"    ✓ Audit log written: {len(log_lines)} entries")
-
-                        # Parse and verify log structure
-                        entry = json.loads(log_lines[-1])
-                        required_fields = ["timestamp", "task_id", "is_healthy"]
-                        missing = [f for f in required_fields if f not in entry]
-
-                        if missing:
-                            print(f"    ✗ Missing log fields: {missing}")
-                            return VerificationResult(
-                                name="Audit Logging",
-                                spec_ref="§4.3.1 Audit Log",
-                                passed=False,
-                                error=f"Missing log fields: {missing}",
-                            )
-
-                        print("    ✓ Log structure valid")
-                        print(f"      - timestamp: {entry.get('timestamp')}")
-                        print(f"      - is_healthy: {entry.get('is_healthy')}")
-
-                        return VerificationResult(
-                            name="Audit Logging",
-                            spec_ref="§4.3.1 Audit Log",
-                            passed=True,
-                            details={
-                                "log_entries": len(log_lines),
-                                "fields_present": list(entry.keys()),
-                            },
-                        )
-                    else:
-                        print("    ✗ Audit log empty")
-                        return VerificationResult(
-                            name="Audit Logging",
-                            spec_ref="§4.3.1 Audit Log",
-                            passed=False,
-                            error="Audit log was empty",
-                        )
-                else:
+                if not log_path.exists():
                     print("    ✗ Audit log not created")
                     return VerificationResult(
                         name="Audit Logging",
-                        spec_ref="§4.3.1 Audit Log",
+                        spec_ref="Audit logging",
                         passed=False,
                         error="Audit log file not created",
                     )
 
-            finally:
-                await provider.close()
-                # Cleanup
-                if log_path.exists():
-                    log_path.unlink()
+                with open(log_path, encoding="utf-8") as log_file:
+                    log_lines = log_file.readlines()
+
+                if not log_lines:
+                    print("    ✗ Audit log empty")
+                    return VerificationResult(
+                        name="Audit Logging",
+                        spec_ref="Audit logging",
+                        passed=False,
+                        error="Audit log was empty",
+                    )
+
+                print(f"    ✓ Audit log written: {len(log_lines)} entries")
+                entry = json.loads(log_lines[-1])
+                if not isinstance(entry, dict):
+                    return VerificationResult(
+                        name="Audit Logging",
+                        spec_ref="Audit logging",
+                        passed=False,
+                        error="Audit log entry was not a JSON object",
+                    )
+
+                required_fields = ["timestamp", "task_id", "is_healthy"]
+                missing = [k for k in required_fields if k not in entry]
+                if missing:
+                    print(f"    ✗ Missing log fields: {missing}")
+                    return VerificationResult(
+                        name="Audit Logging",
+                        spec_ref="Audit logging",
+                        passed=False,
+                        error=f"Missing log fields: {missing}",
+                    )
+
+                print("    ✓ Log structure valid")
+                print(f"      - timestamp: {entry.get('timestamp')}")
+                print(f"      - is_healthy: {entry.get('is_healthy')}")
+
+                return VerificationResult(
+                    name="Audit Logging",
+                    spec_ref="Audit logging",
+                    passed=True,
+                    details={
+                        "log_entries": len(log_lines),
+                        "fields_present": list(entry.keys()),
+                    },
+                )
 
         except Exception as e:
             logger.exception("Audit logging verification failed")
             return VerificationResult(
                 name="Audit Logging",
-                spec_ref="§4.3.1 Audit Log",
+                spec_ref="Audit logging",
                 passed=False,
                 error=str(e),
             )
@@ -436,7 +430,7 @@ class ProfileHealthVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("E2E: Profile Health Verification")
-        print("Target: §7 Acceptance Criteria - Profile Health")
+        print("Target: Profile Health")
         print("=" * 70)
 
         # Prerequisites

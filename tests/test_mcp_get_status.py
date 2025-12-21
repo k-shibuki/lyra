@@ -408,7 +408,7 @@ class TestGetStatusToolDefinition:
 
     def test_get_status_description_mentions_section(self) -> None:
         """
-        Test that description references §3.2.1.
+        Test that description references section 3.2.1.
 
         // Given: get_status tool definition
         // When: Reading description
@@ -419,7 +419,8 @@ class TestGetStatusToolDefinition:
         tool = next((t for t in TOOLS if t.name == "get_status"), None)
 
         assert tool is not None
-        assert "§3.2.1" in tool.description
+        assert tool.description is not None
+        assert "3.2.1" in tool.description
 
 
 class TestGetStatusBlockedDomains:
