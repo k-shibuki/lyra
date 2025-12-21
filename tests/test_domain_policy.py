@@ -244,7 +244,7 @@ def temp_config_file(sample_config_yaml: str, tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def policy_manager(temp_config_file: Path) -> DomainPolicyManager:
+def policy_manager(temp_config_file: Path) -> Generator[DomainPolicyManager, None, None]:
     """Create DomainPolicyManager with test config."""
     reset_domain_policy_manager()
     manager = DomainPolicyManager(

@@ -263,7 +263,7 @@ class TestApplyEnvOverrides:
         """Test that non-LYRA_ env vars are ignored."""
         from src.utils.config import _apply_env_overrides
 
-        config = {}
+        config: dict[str, object] = {}
 
         with patch.dict(
             os.environ,

@@ -23,6 +23,7 @@ in the test environment.
 """
 
 import pytest
+from pathlib import Path
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit

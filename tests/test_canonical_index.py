@@ -577,6 +577,6 @@ class TestCanonicalPaperIndex:
         entries = index.get_all_entries()
         assert len(entries) == 1
         # Higher priority (semantic_scholar=1) kept over openalex=2
-        paper = entries[0].paper
+        paper: Paper | None = entries[0].paper
         assert paper is not None
         assert paper.source_api == "semantic_scholar"
