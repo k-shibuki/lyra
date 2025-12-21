@@ -2,33 +2,14 @@
 Tests for SearchEngineConfigManager.
 
 Tests:
-"""
-import time
 - Configuration loading and parsing
 - Engine configuration retrieval
 - Operator mapping
 - Category management
 - Hot-reload support
 - Direct source configuration
-
-Per §7.1 of docs/REQUIREMENTS.md:
-- No conditional assertions
-- Specific expected values
-- Clear test documentation
-
-## Test Perspectives Table
-| Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
-|---------|----------------------|---------------------------------------|-----------------|-------|
-| TC-EC-01 | Load default config | Equivalence – normal | Config loaded with engines | - |
-| TC-EC-02 | Load custom config file | Equivalence – custom | Custom config parsed | - |
-| TC-EC-03 | Get engine by name | Equivalence – retrieval | Returns engine config | - |
-| TC-EC-04 | Get non-existent engine | Boundary – not found | Returns None | - |
-| TC-EC-05 | Get operator mapping | Equivalence – mapping | Returns operators dict | - |
-| TC-EC-06 | Get engines by category | Equivalence – filtering | Returns engines in category | - |
-| TC-EC-07 | Get direct sources | Equivalence – direct | Returns direct source configs | - |
-| TC-EC-08 | Hot reload config | Equivalence – reload | Config reloaded from file | - |
-| TC-EC-09 | Invalid config file | Abnormal – parse error | Handles gracefully | - |
 """
+import time
 
 from collections.abc import Generator
 from pathlib import Path
