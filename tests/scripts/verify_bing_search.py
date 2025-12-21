@@ -54,8 +54,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.utils.logging import configure_logging, get_logger
 from typing import TYPE_CHECKING
+
+from src.utils.logging import configure_logging, get_logger
 
 if TYPE_CHECKING:
     from src.search.provider import SearchResponse

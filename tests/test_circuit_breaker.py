@@ -36,6 +36,8 @@ Tests for src/search/circuit_breaker.py
 | TC-ST-N-03 | Success resets count | Equivalence – normal | Counter reset | - |
 """
 
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch

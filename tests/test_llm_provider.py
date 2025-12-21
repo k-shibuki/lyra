@@ -48,7 +48,6 @@ from src.filter.provider import (
     EmbeddingResponse,
     LLMHealthState,
     LLMHealthStatus,
-    ModelInfo,
     LLMOptions,
     LLMProvider,
     LLMProviderRegistry,
@@ -356,9 +355,7 @@ class TestLLMProviderProtocol:
             def name(self) -> str:
                 return "minimal"
 
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -366,9 +363,7 @@ class TestLLMProviderProtocol:
             ) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
-            async def embed(
-                self, texts: list[str], model: str | None = None
-            ) -> EmbeddingResponse:
+            async def embed(self, texts: list[str], model: str | None = None) -> EmbeddingResponse:
                 return EmbeddingResponse.success([], "m", "p")
 
             async def get_model_info(self, model: str) -> ModelInfo | None:
@@ -397,9 +392,7 @@ class TestBaseLLMProvider:
         """BaseLLMProvider should set provider name."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -424,9 +417,7 @@ class TestBaseLLMProvider:
         """set_task_id should track current task."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -452,9 +443,7 @@ class TestBaseLLMProvider:
         """close() should mark provider as closed."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -480,9 +469,7 @@ class TestBaseLLMProvider:
         """Default embed implementation should return error."""
 
         class TestProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -984,9 +971,7 @@ class TestLLMProviderRegistry:
         registry = LLMProviderRegistry()
 
         class Provider1(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -1018,9 +1003,7 @@ class TestLLMProviderRegistry:
         registry = LLMProviderRegistry()
 
         class Provider1(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -1060,9 +1043,7 @@ class TestLLMProviderRegistry:
         registry = LLMProviderRegistry()
 
         class SuccessProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("Success!", "m", self._name)
 
             async def chat(
@@ -1095,9 +1076,7 @@ class TestLLMProviderRegistry:
         registry = LLMProviderRegistry()
 
         class FailProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.make_error("Failed", "m", self._name)
 
             async def chat(
@@ -1115,9 +1094,7 @@ class TestLLMProviderRegistry:
                 return LLMHealthStatus.healthy()
 
         class SuccessProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("OK", "m", self._name)
 
             async def chat(
@@ -1152,9 +1129,7 @@ class TestLLMProviderRegistry:
         registry = LLMProviderRegistry()
 
         class UnhealthyProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("Should not reach", "m", self._name)
 
             async def chat(
@@ -1172,9 +1147,7 @@ class TestLLMProviderRegistry:
                 return LLMHealthStatus.unhealthy("Down for maintenance")
 
         class HealthyProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("From healthy", "m", self._name)
 
             async def chat(
@@ -1207,9 +1180,7 @@ class TestLLMProviderRegistry:
         registry = LLMProviderRegistry()
 
         class FailProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.make_error("Failed", "m", self._name)
 
             async def chat(
@@ -1253,9 +1224,7 @@ class TestLLMProviderRegistry:
         close_called: list[str] = []
 
         class TrackingProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(
@@ -1407,9 +1376,7 @@ class TestEdgeCases:
         registry = LLMProviderRegistry()
 
         class ChatProvider(BaseLLMProvider):
-            async def generate(
-                self, prompt: str, options: LLMOptions | None = None
-            ) -> LLMResponse:
+            async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
                 return LLMResponse.success("", "m", "p")
 
             async def chat(

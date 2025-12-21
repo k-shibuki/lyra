@@ -604,9 +604,7 @@ class SessionTransferVerifier:
                 last_mod = response_headers.get("last-modified") or response_headers.get(
                     "Last-Modified"
                 )
-                print(
-                    f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})"
-                )
+                print(f"    ✓ Response headers captured (ETag: {etag}, Last-Modified: {last_mod})")
 
             # BrowserFetcher.fetch automatically captures session
             sessions = manager._sessions

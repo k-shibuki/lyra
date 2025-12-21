@@ -5,6 +5,8 @@ All tests in this module use a temporary database and are classified
 as integration tests per §7.1.7.
 """
 
+from __future__ import annotations
+
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -442,7 +444,9 @@ class TestEngineHealth:
         assert result["status"] == "closed"
 
     @pytest.mark.asyncio
-    async def test_update_engine_health_circuit_breaker_opens(self, test_database: Database) -> None:
+    async def test_update_engine_health_circuit_breaker_opens(
+        self, test_database: Database
+    ) -> None:
         """Test circuit breaker opens after consecutive failures."""
         await test_database.insert(
             "engine_health",
@@ -463,7 +467,9 @@ class TestEngineHealth:
         assert result["cooldown_until"] is not None
 
     @pytest.mark.asyncio
-    async def test_update_engine_health_success_resets_failures(self, test_database: Database) -> None:
+    async def test_update_engine_health_success_resets_failures(
+        self, test_database: Database
+    ) -> None:
         """Test success resets consecutive failures."""
         await test_database.insert(
             "engine_health",

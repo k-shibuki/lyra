@@ -18,6 +18,7 @@ Follows §7.1 test code quality standards:
 """
 
 from collections.abc import Generator
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)

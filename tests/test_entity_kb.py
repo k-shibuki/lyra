@@ -31,7 +31,7 @@ References:
 | TC-KB-09 | Get related entities | Equivalence – graph | Returns linked entities | - |
 """
 
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import pytest
@@ -77,8 +77,9 @@ def identifier_normalizer() -> IdentifierNormalizer:
 @pytest_asyncio.fixture
 async def entity_kb(tmp_path: Path) -> AsyncGenerator[EntityKB, None]:
     """Create EntityKB with in-memory database."""
-    import aiosqlite
     from pathlib import Path
+
+    import aiosqlite
 
     # Create in-memory database
     db_path = tmp_path / "test_entities.db"
@@ -177,9 +178,7 @@ async def entity_kb(tmp_path: Path) -> AsyncGenerator[EntityKB, None]:
 class TestNameNormalizer:
     """Tests for NameNormalizer class."""
 
-    def test_normalize_basic_organization_name(
-        self, name_normalizer: NameNormalizer
-    ) -> None:
+    def test_normalize_basic_organization_name(self, name_normalizer: NameNormalizer) -> None:
         """Test basic organization name normalization.
 
         Verifies that simple organization names are properly normalized
@@ -200,9 +199,7 @@ class TestNameNormalizer:
         assert "corp" in result.canonical
         assert "example" in result.tokens
 
-    def test_normalize_japanese_corporation(
-        self, name_normalizer: NameNormalizer
-    ) -> None:
+    def test_normalize_japanese_corporation(self, name_normalizer: NameNormalizer) -> None:
         """Test Japanese corporation name normalization.
 
         Verifies that Japanese corporate suffixes (株式会社) are
@@ -303,7 +300,9 @@ class TestNameNormalizer:
         # Assert
         assert similarity == 1.0
 
-    def test_compute_similarity_same_name_different_suffix(self, name_normalizer: NameNormalizer) -> None:
+    def test_compute_similarity_same_name_different_suffix(
+        self, name_normalizer: NameNormalizer
+    ) -> None:
         """Test similarity computation for same name with different suffix formats.
 
         Verifies that Example Corp and Example Corporation are recognized
@@ -483,7 +482,9 @@ class TestIdentifierNormalizer:
         # Assert
         assert result == "example.com"
 
-    def test_normalize_domain_with_trailing_dot(self, identifier_normalizer: IdentifierNormalizer) -> None:
+    def test_normalize_domain_with_trailing_dot(
+        self, identifier_normalizer: IdentifierNormalizer
+    ) -> None:
         """Test domain with trailing dot."""
         # Arrange & Act
         result = identifier_normalizer.normalize_domain("example.com.")

@@ -347,7 +347,9 @@ class TestParserDiagnosticReport:
     # Given: A diagnostic report with candidates
     # When: Converting to log dict
     # Then: Compact representation should be returned
-    def test_to_log_dict_with_candidates(self, sample_failed_selectors: list[FailedSelector]) -> None:
+    def test_to_log_dict_with_candidates(
+        self, sample_failed_selectors: list[FailedSelector]
+    ) -> None:
         """Test to_log_dict returns compact representation."""
         report = ParserDiagnosticReport(
             engine="brave",
@@ -682,7 +684,9 @@ class TestYAMLFixGeneration:
     # Given: Multiple failed selectors with candidates
     # When: Generating multiple YAML fixes
     # Then: Fixes should be generated for each failed selector
-    def test_generate_multiple_yaml_fixes(self, sample_failed_selectors: list[FailedSelector]) -> None:
+    def test_generate_multiple_yaml_fixes(
+        self, sample_failed_selectors: list[FailedSelector]
+    ) -> None:
         """Test generate_multiple_yaml_fixes creates fixes for all selectors."""
         candidates_by_type = {
             "container": [
@@ -720,7 +724,9 @@ class TestYAMLFixGeneration:
     # Given: No candidates available
     # When: Generating multiple YAML fixes
     # Then: Empty list should be returned
-    def test_generate_multiple_yaml_fixes_no_candidates(self, sample_failed_selectors: list[FailedSelector]) -> None:
+    def test_generate_multiple_yaml_fixes_no_candidates(
+        self, sample_failed_selectors: list[FailedSelector]
+    ) -> None:
         """Test generate_multiple_yaml_fixes with no candidates."""
         fixes = generate_multiple_yaml_fixes(
             sample_failed_selectors,
@@ -742,7 +748,9 @@ class TestCreateDiagnosticReport:
     # Given: Valid HTML with result elements
     # When: Creating diagnostic report
     # Then: Report should contain candidates and suggestions
-    def test_create_report_with_results(self, sample_html_with_results: str, sample_failed_selectors: list[FailedSelector]) -> None:
+    def test_create_report_with_results(
+        self, sample_html_with_results: str, sample_failed_selectors: list[FailedSelector]
+    ) -> None:
         """Test create_diagnostic_report with valid HTML."""
         report = create_diagnostic_report(
             engine="duckduckgo",
@@ -761,7 +769,9 @@ class TestCreateDiagnosticReport:
     # Given: Empty HTML
     # When: Creating diagnostic report
     # Then: Report should be created with empty candidates
-    def test_create_report_empty_html(self, empty_html: str, sample_failed_selectors: list[FailedSelector]) -> None:
+    def test_create_report_empty_html(
+        self, empty_html: str, sample_failed_selectors: list[FailedSelector]
+    ) -> None:
         """Test create_diagnostic_report with empty HTML."""
         report = create_diagnostic_report(
             engine="google",
@@ -837,7 +847,9 @@ class TestDebugHTMLHandling:
     # Given: Debug HTML file with metadata
     # When: Analyzing debug HTML
     # Then: Report should extract metadata and analyze content
-    def test_analyze_debug_html_with_metadata(self, tmp_path: Path, sample_html_with_results: str) -> None:
+    def test_analyze_debug_html_with_metadata(
+        self, tmp_path: Path, sample_html_with_results: str
+    ) -> None:
         """Test analyze_debug_html extracts metadata."""
         # Create test file with metadata header
         html_file = tmp_path / "duckduckgo_123_test.html"
@@ -872,7 +884,9 @@ Error: Selector not found
     # Given: HTML file without metadata header
     # When: Analyzing debug HTML
     # Then: Engine should be extracted from filename
-    def test_analyze_debug_html_no_metadata(self, tmp_path: Path, sample_html_with_results: str) -> None:
+    def test_analyze_debug_html_no_metadata(
+        self, tmp_path: Path, sample_html_with_results: str
+    ) -> None:
         """Test analyze_debug_html without metadata header."""
         html_file = tmp_path / "brave_456_search.html"
         html_file.write_text(sample_html_with_results, encoding="utf-8")
@@ -894,7 +908,9 @@ class TestDiagnosticsIntegration:
     # Given: Complete diagnostic workflow
     # When: Creating and analyzing report
     # Then: All components should work together
-    def test_full_diagnostic_workflow(self, sample_html_with_results: str, sample_failed_selectors: list[FailedSelector]) -> None:
+    def test_full_diagnostic_workflow(
+        self, sample_html_with_results: str, sample_failed_selectors: list[FailedSelector]
+    ) -> None:
         """Test complete diagnostic workflow."""
         # Step 1: Create diagnostic report
         report = create_diagnostic_report(

@@ -183,7 +183,9 @@ class TestAbstractOnlyStrategy:
         assert entry.needs_fetch is False
 
     @pytest.mark.asyncio
-    async def test_paper_without_abstract_needs_fetch(self, sample_paper_without_abstract: Paper) -> None:
+    async def test_paper_without_abstract_needs_fetch(
+        self, sample_paper_without_abstract: Paper
+    ) -> None:
         """
         Test: Papers without abstracts need fetch.
 
@@ -413,7 +415,9 @@ class TestCanonicalEntryNeedsFetch:
         # Then: needs_fetch should be True
         assert entry.needs_fetch is True
 
-    def test_needs_fetch_both_source_no_abstract(self, sample_paper_without_abstract: Paper) -> None:
+    def test_needs_fetch_both_source_no_abstract(
+        self, sample_paper_without_abstract: Paper
+    ) -> None:
         """
         TC-PA-N-04: Entry with source="both", paper.abstract=None needs fetch.
 
@@ -595,6 +599,9 @@ class TestSemanticScholarIDNormalization:
             **kwargs: object,
         ) -> T:
             """Execute the function directly without retry logic."""
+            # retry_api_call consumes these kwargs; the inner function doesn't accept them
+            kwargs.pop("policy", None)
+            kwargs.pop("operation_name", None)
             return await func(*args, **kwargs)
 
         with (
@@ -644,6 +651,9 @@ class TestSemanticScholarIDNormalization:
             **kwargs: object,
         ) -> T:
             """Execute the function directly without retry logic."""
+            # retry_api_call consumes these kwargs; the inner function doesn't accept them
+            kwargs.pop("policy", None)
+            kwargs.pop("operation_name", None)
             return await func(*args, **kwargs)
 
         with (
@@ -670,7 +680,9 @@ class TestSemanticScholarIDNormalization:
 class TestExecuteComplementarySearchIntegration:
     """End-to-end tests for _execute_complementary_search() processing flow."""
 
-    def test_paper_without_abstract_triggers_browser_fallback(self, sample_paper_without_abstract: Paper) -> None:
+    def test_paper_without_abstract_triggers_browser_fallback(
+        self, sample_paper_without_abstract: Paper
+    ) -> None:
         """
         TC-PA-N-02: Paper without abstract triggers browser search fallback.
 
@@ -728,7 +740,9 @@ class TestExceptionHandling:
     """Tests for exception handling in academic integration."""
 
     @pytest.mark.asyncio
-    async def test_persist_abstract_exception_handled(self, sample_paper_with_abstract: Paper) -> None:
+    async def test_persist_abstract_exception_handled(
+        self, sample_paper_with_abstract: Paper
+    ) -> None:
         """
         TC-PA-A-01: Exception in _persist_abstract_as_fragment() is handled.
 
@@ -802,7 +816,9 @@ class TestExecuteComplementarySearchE2E:
         assert entry_without_abstract.needs_fetch is True
 
     @pytest.mark.asyncio
-    async def test_browser_fallback_for_entries_needing_fetch(self, sample_paper_without_abstract: Paper) -> None:
+    async def test_browser_fallback_for_entries_needing_fetch(
+        self, sample_paper_without_abstract: Paper
+    ) -> None:
         """
         TC-PA-N-07: Browser search fallback is triggered for entries needing fetch.
 
@@ -824,7 +840,9 @@ class TestExecuteComplementarySearchE2E:
         assert entries_needing_fetch[0].paper == sample_paper_without_abstract
 
     @pytest.mark.asyncio
-    async def test_citation_graph_integration_with_normalized_id(self, sample_paper_with_abstract: Paper) -> None:
+    async def test_citation_graph_integration_with_normalized_id(
+        self, sample_paper_with_abstract: Paper
+    ) -> None:
         """
         TC-PA-N-08: Citation graph integration uses normalized paper IDs.
 
@@ -1155,7 +1173,9 @@ class TestExecuteComplementarySearchE2E:
         assert papers_with_abstracts[0].id in paper_to_page_map
 
     @pytest.mark.asyncio
-    async def test_citation_graph_excluded_if_not_in_page_map(self, sample_paper_with_abstract: Paper) -> None:
+    async def test_citation_graph_excluded_if_not_in_page_map(
+        self, sample_paper_with_abstract: Paper
+    ) -> None:
         """
         TC-PA-N-14: Citation graph is excluded if paper_id not in paper_to_page_map.
 

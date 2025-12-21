@@ -232,7 +232,8 @@ class TestReranker:
         # Mock model
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.5, 0.9, 0.3])
-        setattr(reranker, "_model", mock_model)
+        model_attr = "_model"
+        setattr(reranker, model_attr, mock_model)
 
         # Ensure local mode (not remote)
         with patch.object(reranker._settings.ml, "use_remote", False):
@@ -264,7 +265,8 @@ class TestReranker:
 
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.5, 0.9, 0.3, 0.7, 0.1])
-        setattr(reranker, "_model", mock_model)
+        model_attr = "_model"
+        setattr(reranker, model_attr, mock_model)
 
         # Ensure local mode (not remote)
         with patch.object(reranker._settings.ml, "use_remote", False):
@@ -293,7 +295,9 @@ class TestRankCandidates:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_full_pipeline(self, sample_passages: list[dict[str, str]]) -> None:
+    async def test_rank_candidates_full_pipeline(
+        self, sample_passages: list[dict[str, str]]
+    ) -> None:
         """Test rank_candidates runs full ranking pipeline."""
 
         from src.filter import ranking
@@ -328,7 +332,9 @@ class TestRankCandidates:
         assert "final_rank" in results[0]
 
     @pytest.mark.asyncio
-    async def test_rank_candidates_preserves_passage_data(self, sample_passages: list[dict[str, str]]) -> None:
+    async def test_rank_candidates_preserves_passage_data(
+        self, sample_passages: list[dict[str, str]]
+    ) -> None:
         """Test rank_candidates preserves original passage data."""
 
         from src.filter import ranking

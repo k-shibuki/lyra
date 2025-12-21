@@ -173,7 +173,9 @@ async def main() -> int:
 
     transformed_claims: list[TransformedClaim] = []
     for claim in raw_claims:
-        text = claim["claim"] if "claim" in claim else (claim["snippet"] if "snippet" in claim else "")
+        text = (
+            claim["claim"] if "claim" in claim else (claim["snippet"] if "snippet" in claim else "")
+        )
         source_url = claim["source_url"] if "source_url" in claim else ""
         confidence = claim["confidence"] if "confidence" in claim else 0.5
         transformed_claims.append(

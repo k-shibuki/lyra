@@ -300,9 +300,7 @@ def _check_core_dependencies() -> tuple[bool, list[str]]:
 _deps_available, _missing_deps = _check_core_dependencies()
 
 
-def pytest_ignore_collect(
-    collection_path: Path, config: "Config"
-) -> bool | None:
+def pytest_ignore_collect(collection_path: Path, config: "Config") -> bool | None:
     """Skip test modules that require unavailable dependencies.
 
     ONLY in cloud agent environments with missing dependencies,

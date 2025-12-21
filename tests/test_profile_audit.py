@@ -701,7 +701,9 @@ class TestPerformHealthCheck:
     """Tests for the convenience function."""
 
     @pytest.mark.asyncio
-    async def test_perform_health_check_function(self, mock_page: AsyncMock, tmp_path: Path) -> None:
+    async def test_perform_health_check_function(
+        self, mock_page: AsyncMock, tmp_path: Path
+    ) -> None:
         """Test the perform_health_check convenience function."""
         with patch("src.crawler.profile_audit._profile_auditor", None):
             with patch("src.crawler.profile_audit.get_profile_auditor") as mock_get:

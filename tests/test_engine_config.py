@@ -9,8 +9,8 @@ Tests:
 - Hot-reload support
 - Direct source configuration
 """
-import time
 
+import time
 from collections.abc import Generator
 from pathlib import Path
 
@@ -121,9 +121,7 @@ def sample_config_data() -> dict[str, object]:
 
 
 @pytest.fixture
-def temp_config_file(
-    sample_config_data: dict[str, object], tmp_path: Path
-) -> Path:
+def temp_config_file(sample_config_data: dict[str, object], tmp_path: Path) -> Path:
     """Create a temporary config file."""
     config_path = tmp_path / "engines.yaml"
     with open(config_path, "w", encoding="utf-8") as f:
@@ -464,7 +462,9 @@ class TestOperatorMapping:
 
         assert mapping == "site:{domain}"
 
-    def test_get_operator_mapping_fallback_to_default(self, manager: SearchEngineConfigManager) -> None:
+    def test_get_operator_mapping_fallback_to_default(
+        self, manager: SearchEngineConfigManager
+    ) -> None:
         """Test fallback to default when engine-specific not available."""
         # filetype is defined for google but not duckduckgo
         mapping = manager.get_operator_mapping("filetype", "duckduckgo")

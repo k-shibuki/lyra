@@ -430,7 +430,9 @@ class TestMigrationCommands:
         # Then: Success
         assert result == 0
 
-    def test_cmd_status_shows_applied(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_cmd_status_shows_applied(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """
         TC-N-02: Test cmd_status shows applied migrations.
 
@@ -460,7 +462,9 @@ class TestMigrationCommands:
         assert "Applied: 1" in captured.out
         assert "Pending: 0" in captured.out
 
-    def test_cmd_create_new_migration(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_cmd_create_new_migration(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """
         TC-N-01: Test cmd_create creates new migration file.
 

@@ -24,7 +24,9 @@ pytestmark = pytest.mark.unit
 from src.filter import ranking
 
 
-def _mock_rankers(passages_count: int, rerank_result: list[tuple[int, float]]) -> tuple[MagicMock, MagicMock, MagicMock]:
+def _mock_rankers(
+    passages_count: int, rerank_result: list[tuple[int, float]]
+) -> tuple[MagicMock, MagicMock, MagicMock]:
     """Create mock rankers for testing.
 
     Args:

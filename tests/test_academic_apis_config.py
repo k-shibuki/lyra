@@ -23,9 +23,9 @@ Tests configuration file loading and backward compatibility.
 | TC-BC-B-01 | Config file missing, all clients | Boundary – NULL | All clients initialize with defaults | 後方互換性 |
 """
 
-from collections.abc import Generator
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import patch
 

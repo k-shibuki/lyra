@@ -396,7 +396,9 @@ class TestDenseClaim:
 class TestChainOfDensityCompressor:
     """Tests for ChainOfDensityCompressor class."""
 
-    def test_build_citation_mapping(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    def test_build_citation_mapping(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test building citation mapping from claims to fragments."""
         # Given: Compressor and sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -411,7 +413,9 @@ class TestChainOfDensityCompressor:
         urls = [c.url for c in citations_001]
         assert "https://example.gov.jp/report/2024" in urls
 
-    def test_create_dense_claims(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    def test_create_dense_claims(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test creating DenseClaim objects with citations."""
         # Given: Compressor and citation mapping
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -427,7 +431,9 @@ class TestChainOfDensityCompressor:
         assert claim_001.confidence == 0.85
         assert claim_001.text == "日本の経済成長率は2024年に2.5%を記録した"
 
-    def test_validate_claims(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    def test_validate_claims(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test validation of dense claims."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -443,7 +449,9 @@ class TestChainOfDensityCompressor:
         assert "issues" in validation
         assert validation["valid_count"] + validation["invalid_count"] == len(dense_claims)
 
-    def test_calc_primary_ratio(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    def test_calc_primary_ratio(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test calculation of primary source ratio."""
         # Given: Dense claims with primary sources
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -494,7 +502,9 @@ class TestChainOfDensityCompressor:
         # Then: Non-zero count
         assert count > 0
 
-    def test_rule_based_compress(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    def test_rule_based_compress(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test rule-based compression without LLM."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -512,7 +522,9 @@ class TestChainOfDensityCompressor:
         assert len(summary.text) >= 10, f"Expected text >=10 chars, got: {summary.text}"
         assert summary.density_score >= 0
 
-    def test_extract_all_entities(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    def test_extract_all_entities(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test entity extraction from claims and fragments."""
         # Given: Dense claims
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -545,7 +557,9 @@ class TestChainOfDensityCompressor:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_compress_rule_based(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    async def test_compress_rule_based(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test full compression pipeline with rule-based method."""
         # Given: Compressor with sample data
         compressor = ChainOfDensityCompressor(use_llm=False)
@@ -577,7 +591,9 @@ class TestChainOfDensityIntegration:
     """Integration tests for Chain-of-Density compression."""
 
     @pytest.mark.asyncio
-    async def test_compress_with_chain_of_density_function(self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]) -> None:
+    async def test_compress_with_chain_of_density_function(
+        self, sample_claims: list[dict[str, object]], sample_fragments: list[dict[str, object]]
+    ) -> None:
         """Test the convenience function."""
         # Given: Sample claims and fragments
         # When: Using convenience function

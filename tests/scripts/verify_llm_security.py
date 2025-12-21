@@ -742,7 +742,9 @@ class SecurityE2EVerifier:
             # Capture log output by using a custom processor
             log_entries = []
 
-            def capture_processor(logger: object, method_name: str, event_dict: dict[str, object]) -> dict[str, object]:
+            def capture_processor(
+                logger: object, method_name: str, event_dict: dict[str, object]
+            ) -> dict[str, object]:
                 log_entries.append(event_dict.copy())
                 return event_dict
 

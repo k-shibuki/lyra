@@ -229,7 +229,9 @@ async def test_search_with_harvest_rate() -> bool:
 
     original_should_use = provider._should_use_lastmile
 
-    def mock_should_use_lastmile(harvest_rate: float, threshold: float = 0.9) -> LastmileCheckResult:
+    def mock_should_use_lastmile(
+        harvest_rate: float, threshold: float = 0.9
+    ) -> LastmileCheckResult:
         should_use_lastmile_calls.append((harvest_rate, threshold))
         return original_should_use(harvest_rate, threshold)
 

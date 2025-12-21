@@ -16,7 +16,6 @@ Tests the full data flow between MCP tools:
 
 import json
 import uuid
-from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
@@ -126,7 +125,9 @@ class TestGetStatusIntegration:
         assert "searches" in result
 
     @pytest.mark.asyncio
-    async def test_get_status_without_exploration_returns_minimal(self, memory_database: "Database") -> None:
+    async def test_get_status_without_exploration_returns_minimal(
+        self, memory_database: "Database"
+    ) -> None:
         """
         TC-I-03: Task with no exploration data returns empty searches.
 

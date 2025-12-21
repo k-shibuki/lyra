@@ -25,7 +25,6 @@ import asyncio
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -259,11 +258,12 @@ class ProfileHealthVerifier:
             repair_attempts = 0
             repair_successes = 0
 
-            for field, deviation_type in test_deviations:
+            for field, _deviation_type in test_deviations:
                 repair_attempts += 1
 
                 # Get recommended repair action (create mock drift for testing)
                 from src.crawler.profile_audit import DriftInfo, RepairAction
+
                 mock_drift = DriftInfo(
                     attribute=field,
                     baseline_value="baseline",

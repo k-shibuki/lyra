@@ -156,7 +156,9 @@ class TestActivityTracking:
                 assert status["idle_seconds"] >= 0
 
     @pytest.mark.asyncio
-    async def test_get_status_boundary_just_under_timeout_no_warning(self, mock_db: AsyncMock) -> None:
+    async def test_get_status_boundary_just_under_timeout_no_warning(
+        self, mock_db: AsyncMock
+    ) -> None:
         """
         AT-B-02: Test no warning when idle time is just under timeout.
 

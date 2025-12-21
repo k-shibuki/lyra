@@ -292,7 +292,9 @@ class TestAbnormalCases:
             # The important thing is that it's logged
             assert result.stats.llm_fields_processed >= 1
 
-    def test_llm_field_with_prompt_leakage_masked(self, sanitizer_with_prompt: ResponseSanitizer) -> None:
+    def test_llm_field_with_prompt_leakage_masked(
+        self, sanitizer_with_prompt: ResponseSanitizer
+    ) -> None:
         """
         TC-A-03: LLM field with prompt fragment
 

@@ -195,7 +195,9 @@ class TestSearchBoundaryValues:
 
         captured_options = {}
 
-        async def capture_action(task_id: str, query: str, state: Any, options: dict[str, Any] | None) -> dict[str, Any]:
+        async def capture_action(
+            task_id: str, query: str, state: Any, options: dict[str, Any] | None
+        ) -> dict[str, Any]:
             captured_options.update(options or {})
             return mock_search_result
 
@@ -234,7 +236,9 @@ class TestSearchBoundaryValues:
 
         captured_options = {}
 
-        async def capture_action(task_id: str, query: str, state: Any, options: dict[str, Any] | None) -> dict[str, Any]:
+        async def capture_action(
+            task_id: str, query: str, state: Any, options: dict[str, Any] | None
+        ) -> dict[str, Any]:
             captured_options.update(options or {})
             return mock_search_result
 
@@ -431,7 +435,9 @@ class TestSearchExecution:
 
         captured_options = {}
 
-        async def capture_search_action(task_id: str, query: str, state: Any, options: dict[str, Any] | None) -> dict[str, Any]:
+        async def capture_search_action(
+            task_id: str, query: str, state: Any, options: dict[str, Any] | None
+        ) -> dict[str, Any]:
             captured_options.update(options or {})
             return {
                 "ok": True,
