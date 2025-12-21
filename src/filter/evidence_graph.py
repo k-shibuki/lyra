@@ -1261,8 +1261,9 @@ async def add_academic_page_with_citations(
             graph.add_node(NodeType.PAGE, target_page_id)
 
         # Derive domain categories from pages' actual domains
-        source_domain_category: str | None = None
-        target_domain_category: str | None = None
+        # Fallback to "academic" if pages not found or domain lookup fails
+        source_domain_category: str | None = "academic"
+        target_domain_category: str | None = "academic"
         try:
             from src.utils.domain_policy import get_domain_category
 
@@ -1284,9 +1285,8 @@ async def add_academic_page_with_citations(
                 if target_domain:
                     target_domain_category = get_domain_category(target_domain).value
         except Exception:
-            # Fallback to "academic" if domain lookup fails
-            source_domain_category = "academic"
-            target_domain_category = "academic"
+            # Keep "academic" fallback if domain lookup fails
+            pass
 
         # Add CITES edge with academic attributes
         edge_id = graph.add_edge(

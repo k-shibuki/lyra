@@ -777,6 +777,7 @@ class SearchExecutor:
             source_domain_category = None
             try:
                 from urllib.parse import urlparse
+
                 from src.utils.domain_policy import get_domain_category
 
                 parsed = urlparse(source_url)
