@@ -403,9 +403,14 @@ search(task_id="task_abc123", query="liraglutide LEADER trial results")
 search(task_id="task_abc123", query="liraglutide cardiovascular risk", refute=True)
 # Returns: {"claims_found": [...], "refutations_found": 2, "harvest_rate": 0.45}
 
-# 4. Check progress
+# 4. Check progress (includes blocked domains and timing info)
 get_status(task_id="task_abc123")
-# Returns: {"searches": [...], "budget": {"remaining_percent": 45}}
+# Returns: {
+#   "searches": [...],
+#   "budget": {"remaining_percent": 45},
+#   "blocked_domains": [{"domain": "example.com", "reason": "...", "cause_id": "..."}],
+#   "idle_seconds": 12.5
+# }
 
 # 5. Retrieve materials for report composition
 get_materials(task_id="task_abc123", include_graph=True)

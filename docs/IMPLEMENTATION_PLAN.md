@@ -60,7 +60,7 @@
 - Phase I: 保守性改善 ✅
 - Phase K: ローカルLLM関連実装強化 ✅
 - Phase M: MCPツールリファクタリング ✅
-- **Phase J.2: 学術API統合（エビデンスグラフ強化）⏳**
+- **Phase P: エビデンスシステム刷新（引用追跡・信頼度モデル）⏳**
 - **Phase N: E2Eケーススタディ（論文投稿向け）⏳**
 
 #### Phase 2（論文投稿後）
@@ -2319,17 +2319,26 @@ python scripts/migrate.py create NAME  # 新規作成
    - 検証判定ロジックからドメインカテゴリ依存を除去（Thinking-Working分離）
    - `category_weight` をランキングに適用
 
-2. **ベイズ信頼度モデルの導入**
+2. **引用追跡の完全実装（決定11: Budgeted Citation Expansion）** ⏳
+   - **OpenAlex統合**: `get_references()` / `get_citations()` 実装、S2との統合
+   - **3段階フィルタリング**:
+     - Stage 0: メタデータ即時フィルタ
+     - Stage 1: Embedding + impact_score（粗フィルタ）
+     - Stage 2: LLM有用性評価（精密フィルタ、Qwen2.5 3B使用）
+   - **pages自動追加**: 選抜された引用先論文をpagesテーブルに自動登録
+   - **設定**: `search.citation_filter.*` および `citation_graph_top_n_papers`
+
+3. **is_influential の完全排除（決定12）** ⏳
+   - Semantic Scholar専用フラグ `is_influential` をスキーマ・コードから削除
+   - 代替として `Paper.citation_count` から算出する `impact_score`（ローカル正規化）を使用
+   - Phase J.2 で導入された `is_influential` 関連コードを清掃
+
+4. **ベイズ信頼度モデルの導入（決定7）** ⏳
    - 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算
    - confidence, uncertainty, controversy の3値を出力
    - ドメイン分類に依存しない純粋エビデンス主義
 
-3. **引用追跡の完全実装**
-   - OpenAlex `get_references()` / `get_citations()` 実装
-   - 引用先論文のpagesテーブル自動追加
-   - 関連性フィルタリング（B+C hybrid）実装
-
-4. **矛盾検出ロジックの改善**
+5. **矛盾検出ロジックの改善** ⏳
    - 即時BLOCKEDを緩和
    - エッジ情報に基づく判断基準の導入
 
