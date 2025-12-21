@@ -353,6 +353,51 @@ class TestAddAcademicPageWithCitations:
             assert "target_domain_category" in edge_data
             # Domain categories should be calculated (not hardcoded "academic")
             # Actual values depend on domain_policy configuration
+            assert edge_data["source_domain_category"] is not None
+            assert edge_data["target_domain_category"] is not None
+
+    @pytest.mark.asyncio
+    async def test_domain_category_fallback_when_page_not_found(
+        self, sample_paper_metadata: dict[str, object], sample_citations: list[Citation]
+    ) -> None:
+        """
+        TC-P2-ACAD-B-01: Domain categories fallback to "academic" when page not found.
+
+        Given: Pages not found in database
+        When: add_academic_page_with_citations() is called
+        Then: Domain categories fallback to "academic"
+        """
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)  # Page not found
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+
+            # Given: paper_to_page_map
+            paper_to_page_map = {
+                "s2:ref1": "page_ref1",
+            }
+            page_id = "page_123"
+
+            # When
+            await add_academic_page_with_citations(
+                page_id=page_id,
+                paper_metadata=sample_paper_metadata,
+                citations=[sample_citations[0]],
+                task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
+            )
+
+            # Then: Verify fallback to "academic"
+            assert mock_db_instance.insert.call_count == 1
+            call = mock_db_instance.insert.call_args_list[0]
+            edge_data = call[0][1]
+            assert edge_data["source_domain_category"] == "academic"
+            assert edge_data["target_domain_category"] == "academic"
 
 
 # =============================================================================

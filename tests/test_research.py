@@ -1111,6 +1111,98 @@ class TestRefutationExecutor:
             assert has_suffix, f"Query '{rq}' doesn't use mechanical suffix"
 
     @pytest.mark.asyncio
+    async def test_record_refutation_edge_with_target_domain_category(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-P2-REF-N-01: _record_refutation_edge calculates target_domain_category from claim.
+
+        Given: Claim with source_url in verification_notes
+        When: Recording refutation edge
+        Then: target_domain_category is calculated from claim's origin domain
+        """
+        from src.research.refutation import RefutationExecutor
+
+        # Given: Claim with source_url in verification_notes
+        task_id = await test_database.create_task(query="test")
+        claim_id = "claim_test_123"
+        await test_database.execute(
+            """
+            INSERT INTO claims (id, task_id, claim_text, verification_notes)
+            VALUES (?, ?, ?, ?)
+            """,
+            (claim_id, task_id, "Test claim", "source_url=https://arxiv.org/abs/1234"),
+        )
+
+        state = ExplorationState(task_id)
+        state._db = test_database
+        executor = RefutationExecutor(task_id, state)
+        executor._db = test_database
+
+        refutation = {
+            "source_url": "https://example.com/refutation",
+            "nli_confidence": 0.85,
+        }
+
+        # When: Recording refutation edge
+        await executor._record_refutation_edge(claim_id, refutation)
+
+        # Then: Verify target_domain_category is calculated from claim's domain
+        edges = await test_database.fetch_all(
+            "SELECT * FROM edges WHERE target_id = ? AND relation = 'refutes'", (claim_id,)
+        )
+        assert len(edges) == 1
+        assert edges[0]["source_domain_category"] is not None
+        assert edges[0]["target_domain_category"] is not None
+        # target_domain_category should be from arxiv.org (claim's origin)
+        assert edges[0]["target_domain_category"] == "academic"
+
+    @pytest.mark.asyncio
+    async def test_record_refutation_edge_without_claim_source_url(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-P2-REF-B-01: _record_refutation_edge handles missing claim source_url.
+
+        Given: Claim without source_url in verification_notes
+        When: Recording refutation edge
+        Then: target_domain_category is None
+        """
+        from src.research.refutation import RefutationExecutor
+
+        # Given: Claim without source_url
+        task_id = await test_database.create_task(query="test")
+        claim_id = "claim_test_456"
+        await test_database.execute(
+            """
+            INSERT INTO claims (id, task_id, claim_text, verification_notes)
+            VALUES (?, ?, ?, ?)
+            """,
+            (claim_id, task_id, "Test claim", "no_source_url"),
+        )
+
+        state = ExplorationState(task_id)
+        state._db = test_database
+        executor = RefutationExecutor(task_id, state)
+        executor._db = test_database
+
+        refutation = {
+            "source_url": "https://example.com/refutation",
+            "nli_confidence": 0.85,
+        }
+
+        # When: Recording refutation edge
+        await executor._record_refutation_edge(claim_id, refutation)
+
+        # Then: Verify target_domain_category is None
+        edges = await test_database.fetch_all(
+            "SELECT * FROM edges WHERE target_id = ? AND relation = 'refutes'", (claim_id,)
+        )
+        assert len(edges) == 1
+        assert edges[0]["source_domain_category"] is not None
+        assert edges[0]["target_domain_category"] is None
+
+    @pytest.mark.asyncio
     async def test_refutation_result_structure(self, test_database: Database) -> None:
         """
         Verify RefutationResult has correct structure per §3.2.1.
