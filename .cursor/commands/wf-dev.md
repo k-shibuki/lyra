@@ -24,6 +24,7 @@ Orchestrate development work: read the provided context, select the next task, a
 
 ## Standard workflow (encode as To-dos)
 
+- `docs-discover` (discover related docs first)
 - `task-select`
 - `implement`
 - `test-create`
@@ -31,7 +32,7 @@ Orchestrate development work: read the provided context, select the next task, a
 - `quality-check`
 - `regression-test`
 - `commit`
-- `merge-complete`
+- `merge`
 - `push`
 - `suspend` (if needed)
 
@@ -50,6 +51,7 @@ Orchestrate development work: read the provided context, select the next task, a
 
 Must include these phases (as To-dos):
 
+- [ ] First: run `NEXT_COMMAND: /docs-discover` (discover relevant docs; attach what’s needed)
 - [ ] Run: `/task-select`
 - [ ] Run: `/implement`
 - [ ] Run: `/test-create`
@@ -57,12 +59,12 @@ Must include these phases (as To-dos):
 - [ ] Run: `/quality-check`
 - [ ] Run: `/regression-test`
 - [ ] Run: `/commit`
-- [ ] Run: `/merge-complete`
+- [ ] Run: `/merge`
 - [ ] Run: `/push`
 
 ### Next (manual)
 
-- `NEXT_COMMAND: /task-select`
+- `NEXT_COMMAND: /docs-discover`
 
 ## Related rules
 

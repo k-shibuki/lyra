@@ -6,12 +6,12 @@ Push `main` to `origin/main` safely.
 
 ## When to use
 
-- After merging to `main` (typically after `merge-complete`)
+- After merging to `main` (typically after `merge`)
 - When local `main` is ahead of `origin/main`
 
 ## Preconditions
 
-- If this is immediately after `merge-complete`, quality/tests are typically already done.
+- If this is immediately after `merge`, quality/tests are typically already done.
 - If running directly, run quality checks and regression tests first.
 
 ## Steps (non-interactive)

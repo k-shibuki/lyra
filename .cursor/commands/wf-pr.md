@@ -55,10 +55,11 @@ To avoid missing things:
 Must include (at minimum):
 
 - [ ] Confirm PR / branch state (git commands)
+- [ ] First: run `NEXT_COMMAND: /docs-discover` (discover relevant docs; attach what’s needed)
 - [ ] Run: `/quality-check`
 - [ ] Run: `/regression-test`
 - [ ] Make merge decision (with reasons)
-- [ ] After approval only: merge (`NEXT_COMMAND: /merge-complete` or manual merge steps)
+- [ ] After approval only: merge (`NEXT_COMMAND: /merge` or manual merge steps)
 - [ ] After approval only: push (`NEXT_COMMAND: /push`)
 
 ### Next (manual)
@@ -415,7 +416,7 @@ Note: `check` returns `DONE` if output includes `passed`/`failed`/`skipped`/`des
 
 ## 6. Merge execution (Scenario A only)
 
-Execute only after explicit user approval. Follow the same procedure as `merge-complete`.
+Execute only after explicit user approval. Follow the same procedure as `merge`.
 
 ### 6.1 Pre-merge checks
 

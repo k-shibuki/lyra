@@ -65,6 +65,7 @@ In those cases, propose:
 
 ## Standard To-dos to include
 
+- [ ] First: run `NEXT_COMMAND: /docs-discover` (discover relevant docs; attach what’s needed)
 - [ ] Run: `/refactoring` (Mode A or B)
 - [ ] If Mode A: run `NEXT_COMMAND: /integration-design` (contracts/sequence/type alignment)
 - [ ] Run quality checks (`NEXT_COMMAND: /quality-check`)

@@ -31,6 +31,7 @@ flowchart LR
     wfDbg[wf-debug<br/>デバッグ]
     wfPR[wf-pr<br/>PR運用]
     wfRef[wf-refactor<br/>リファクタ]
+    wfShip[wf-ship<br/>出荷]
   end
 
   subgraph CMD[Commands（単独コマンド）]
@@ -40,8 +41,9 @@ flowchart LR
     tr[test-review]
     qcc[quality-check]
     rt[regression-test]
+    docsDisc[docs-discover]
     commit[commit]
-    mc[merge-complete]
+    mc[merge]
     push[push]
     susp[suspend]
     sh[scripts-help]
@@ -57,7 +59,7 @@ flowchart LR
   v5 --> CMD
 
   %% ========== Workflow -> commands ==========
-  wfDev --> taskSel --> impl --> tc --> tr --> qcc --> rt --> commit --> mc --> push
+  wfDev --> docsDisc --> taskSel --> impl --> tc --> tr --> qcc --> rt --> commit --> mc --> push
   wfDbg --> integ
   wfDbg --> bug
   wfDbg --> pr
@@ -70,9 +72,19 @@ flowchart LR
   wfPR --> commit
   wfPR --> mc
   wfPR --> push
+  wfShip --> docsDisc --> qcc --> rt --> commit --> mc --> push
+
+  %% All workflows start by discovering related docs
+  wfDbg --> docsDisc
+  wfRef --> docsDisc
+  wfPR  --> docsDisc
+
+  %% Commit guarantees doc alignment before recording changes
+  commit -.-> docsDisc
 
   %% ========== Handoff ==========
   wfDbg <--> wfRef
+  wfDev --> wfShip
 
   %% ========== Command -> rules ==========
   CMD --> ce
@@ -97,6 +109,7 @@ flowchart LR
 | `/wf-debug` | デバッグ（原因特定→修正→検証） | A/B/C分類（連携/一般バグ/パーサ）＋ **`wf-refactor` へのハンドオフ** | `NEXT_COMMAND: /bug-analysis` 等 / `NEXT_COMMAND: /wf-refactor` |
 | `/wf-refactor` | リファクタ（構造改善） | Mode A/B（契約/境界の整理 vs 肥大化分割）＋ **`wf-debug` へのハンドオフ** | `NEXT_COMMAND: /refactoring` / `NEXT_COMMAND: /integration-design` |
 | `/wf-pr` | PR運用（レビュー→品質/回帰→判断→（承認後）マージ/プッシュ） | Scenario A/B（未マージPR vs 既マージ未プッシュ） | `NEXT_COMMAND: /quality-check` |
+| `/wf-ship` | 出荷（最終チェック→回帰→コミット→マージ→プッシュ） | A/B/C/D分類（未コミット/未マージ/未プッシュ/出荷なし） | `NEXT_COMMAND: /quality-check` |
 
 ## 単独コマンド（`@.cursor/commands/*.md`）
 
@@ -111,7 +124,7 @@ flowchart LR
 | `/quality-check` | lint/format/type の実行 | `quality-check.mdc`, `code-execution.mdc` |
 | `/regression-test` | 全テスト実行 | `code-execution.mdc` |
 | `/commit` | コミット（非対話型） | `commit-message-format.mdc` |
-| `/merge-complete` | mainマージ＋完了報告（計画書更新含む） | （必要に応じて）`code-execution.mdc` |
+| `/merge` | mainマージ | （必要に応じて）`code-execution.mdc` |
 | `/push` | main を origin/main へプッシュ | `code-execution.mdc` |
 | `/suspend` | 中断＋WIPコミット | （必要に応じて）`commit-message-format.mdc` |
 
@@ -134,6 +147,7 @@ flowchart LR
 | コマンド | 役割 |
 |---------|------|
 | `/scripts-help` | `scripts/*.sh` の使い方 |
+| `/docs-discover` | 関連ドキュメントの特定と更新（添付docsだけに限定しない） |
 
 ## ルール（規約 / `@.cursor/rules/*.mdc`）
 
@@ -169,4 +183,7 @@ flowchart LR
 
 # PR運用
 /wf-pr
+
+# マージ
+/merge
 ```
