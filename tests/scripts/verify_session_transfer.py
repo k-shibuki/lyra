@@ -131,10 +131,6 @@ class SessionTransferVerifier:
 
             # Capture session (BrowserFetcher.fetch automatically captures session)
             # Check if session was captured by verifying session stats increased
-            response_headers = {}
-            if hasattr(result, "headers") and result.headers:
-                response_headers = dict(result.headers)
-
             # BrowserFetcher.fetch automatically captures session, so we just verify it exists
             final_stats = manager.get_session_stats()
             session_captured = final_stats["total_sessions"] > initial_stats["total_sessions"]
