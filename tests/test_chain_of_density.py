@@ -232,7 +232,8 @@ class TestCitationInfo:
             assert citation.is_primary is True, f"Tag '{tag}' should be primary"
 
         # When/Then: Secondary tags result in is_primary=False
-        for tag in secondary_tags:
+        secondary_tag: str | None
+        for secondary_tag in secondary_tags:
             citation = CitationInfo(
                 url="https://example.com",
                 deep_link="https://example.com",
@@ -240,9 +241,9 @@ class TestCitationInfo:
                 heading_context=None,
                 excerpt="Test excerpt",
                 discovered_at="2024-01-01T00:00:00Z",
-                source_tag=tag,  # type: ignore[arg-type]
+                source_tag=secondary_tag,
             )
-            assert citation.is_primary is False, f"Tag '{tag}' should not be primary"
+            assert citation.is_primary is False, f"Tag '{secondary_tag}' should not be primary"
 
     def test_excerpt_truncation(self) -> None:
         """Test that excerpts are properly truncated."""

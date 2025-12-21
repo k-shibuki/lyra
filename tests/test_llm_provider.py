@@ -641,10 +641,10 @@ class TestOllamaProviderGenerate:
 
         assert isinstance(captured_payload["model"], str)
         assert captured_payload["model"] == "custom-model"
-        options = captured_payload["options"]
-        assert isinstance(options, dict)
-        assert options["temperature"] == 0.8
-        assert options["num_predict"] == 500
+        options_dict = captured_payload["options"]
+        assert isinstance(options_dict, dict)
+        assert options_dict["temperature"] == 0.8
+        assert options_dict["num_predict"] == 500
         assert isinstance(captured_payload["system"], str)
         assert captured_payload["system"] == "You are helpful"
 
