@@ -21,8 +21,7 @@ This command intentionally avoids duplicating the policy (format/prefixes/langua
 
 Before committing, ensure documentation is aligned with the change.
 
-- Run `NEXT_COMMAND: /docs-discover` in **Mode 2 (Update)** to update relevant docs.
-- If the user did not attach any docs, `docs-discover` should still search under `docs/` and update what is relevant.
+- Update any relevant documents as needed.
 - If no docs changes are needed, explicitly state “No docs updates needed” and proceed.
 
 ## Non-interactive workflow (recommended)
@@ -41,7 +40,7 @@ git diff
 
 ## Update related docs (recommended)
 
-Run `NEXT_COMMAND: /docs-discover` (Mode 2: Update). If it edits docs, include those edits in this commit.
+If documentation needs updates, update the relevant files and include those edits in this commit.
 
 git add -A
 git commit -m "<message>"
@@ -59,7 +58,7 @@ Constraints:
 - **Commit message**: final message used
 - **Commit hash**: short hash
 - **Last commit**: `git log -1 --oneline`
-- **Next (manual)**: `NEXT_COMMAND: /merge`
+- **Next (manual)**: `NEXT_COMMAND: /merge or /push` 
 
 ## Related rules
 

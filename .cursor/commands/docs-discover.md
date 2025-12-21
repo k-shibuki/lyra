@@ -7,12 +7,12 @@ Identify which project documents are relevant to the current work, and ensure th
 This command is designed to be usable both:
 
 - Standalone (run it directly), and
-- As the first phase in all `wf-*` workflows, and as a required pre-commit step in `commit`.
+- As an optional pre-commit step before running `commit` (recommended when changes are user-facing or contract-changing).
 
 ## When to use
 
 - You changed behavior, APIs, data contracts, or workflows and documentation likely needs to follow.
-- You are preparing to ship (`wf-ship`) and want to avoid “code changed but docs didn’t”.
+- You are preparing to merge/ship and want to avoid “code changed but docs didn’t”.
 - You have some docs attached and want to ensure all related docs are updated, not only one file.
 
 ## Modes
