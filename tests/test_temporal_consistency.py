@@ -585,6 +585,7 @@ class TestIntegrationScenarios:
         result = checker.check_consistency(claim_text, page_metadata, current_time)
 
         assert result.level == ConsistencyLevel.STALE
+        assert result.age_days is not None
         assert result.age_days > 365 * 5
         assert result.trust_decay < 0.8
 

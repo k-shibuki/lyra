@@ -141,7 +141,7 @@ class SessionTransferVerifier:
             
             if session_captured:
                 # Get the most recent session
-                sessions = manager.get_all_sessions()
+                sessions = manager._sessions
                 session_id = list(sessions.keys())[-1] if sessions else None
 
                 if not session_id:
@@ -612,7 +612,7 @@ class SessionTransferVerifier:
                 )
 
             # BrowserFetcher.fetch automatically captures session
-            sessions = manager.get_all_sessions()
+            sessions = manager._sessions
             session_id = list(sessions.keys())[-1] if sessions else None
 
             if not session_id:

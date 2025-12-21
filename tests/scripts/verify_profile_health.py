@@ -177,7 +177,8 @@ class ProfileHealthVerifier:
         from src.crawler.profile_audit import ProfileAuditor
 
         try:
-            provider = await get_browser_provider()
+            registry = get_browser_registry()
+            provider = registry.get_default()
             if not provider:
                 return VerificationResult(
                     name="Deviation Detection",
@@ -348,7 +349,8 @@ class ProfileHealthVerifier:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
                 log_path = Path(f.name)
 
-            provider = await get_browser_provider()
+            registry = get_browser_registry()
+            provider = registry.get_default()
             if not provider:
                 return VerificationResult(
                     name="Audit Logging",

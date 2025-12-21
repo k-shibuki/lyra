@@ -442,6 +442,7 @@ class TestSessionTransferManager:
 
         assert success is True
         updated = manager.get_session(session_id)
+        assert updated is not None
         assert updated.last_url == "https://example.com/new-page"
         assert updated.etag == '"new-etag"'
         assert updated.last_modified == "Thu, 02 Jan 2025 00:00:00 GMT"
