@@ -1,0 +1,1052 @@
+# 非同期アーキテクチャ改善提案 v2.0（修正版）
+
+## Executive Summary
+
+**問題の本質:** 現在の`search`ツールは同期的にパイプライン全体を実行するため、MCPクライアント（Cursor AI）がブロックされる。これでは複数検索の並列実行が不可能。
+
+**解決策:** ツールを増やすのではなく、**非同期セマンティクスに変更する**
+- `search`ツールを内部化（MCPツールから削除）
+- `queue_searches`ツールで複数クエリをキューに投入（即座に応答）
+- バックグラウンドワーカーがキューからシーケンシャルに処理
+- `get_status`にsleep機能を追加（MCPクライアントは時間感覚がないため）
+
+**結果:** ツール数 11個 → **9個に削減**、クライアントはノンブロッキング、シンプルで効率的
+
+---
+
+## 1. 現状の問題点
+
+### 1.1 同期的なsearchツール
+
+**現在のフロー:**
+```
+MCPクライアント
+  ↓
+  call_tool("search", {task_id, query})
+  ↓ (ブロック - 数十秒〜数分待機)
+MCPサーバ: _handle_search
+  ↓ await search_action
+  ↓ SearchPipeline.execute
+  ↓   SERP検索 → フェッチ → 抽出 → LLM → エビデンス
+  ↑ 応答
+MCPクライアント (ようやく次の操作が可能)
+```
+
+**問題点:**
+1. **クライアントがブロックされる** - 検索完了まで他の操作ができない
+2. **複数検索の並列実行が不可能** - 1つずつシーケンシャルに呼び出す必要がある
+3. **MCPクライアントに時間感覚がない** - 適切なポーリング間隔を設定できない
+
+### 1.2 具体例：3つの検索を実行したい場合
+
+**現在（非効率）:**
+```python
+# 各searchは数十秒かかる
+result1 = await call_tool("search", {task_id, query: "Q1"})  # 30秒
+result2 = await call_tool("search", {task_id, query: "Q2"})  # 40秒
+result3 = await call_tool("search", {task_id, query: "Q3"})  # 35秒
+# 合計: 105秒（シーケンシャル実行）
+```
+
+**あるべき姿（効率的）:**
+```python
+# キューに投入（即座に応答）
+await call_tool("queue_searches", {
+    task_id: "task_xxx",
+    queries: ["Q1", "Q2", "Q3"]
+})  # 応答: 即座（< 1秒）
+
+# バックグラウンドで処理（クライアントはブロックされない）
+# 内部: Q1 → Q2 → Q3（シーケンシャル実行）
+
+# 適切な間隔でポーリング
+status = await call_tool("get_status", {
+    task_id: "task_xxx",
+    sleep_seconds: 10  # 10秒待ってから確認
+})
+# 応答: {searches: [{id: s1, status: completed}, {id: s2, status: running}, ...]}
+```
+
+---
+
+## 2. 新しいアーキテクチャ
+
+### 2.1 ツール構成（11個 → 9個に削減）
+
+#### **削除するツール:**
+1. ~~`search`~~ → 内部関数化（`search_action`は残す）
+2. ~~`notify_user`~~ → 不要（`get_status`のwarningsで十分）
+3. ~~`wait_for_user`~~ → 不要（ポーリングで対応）
+
+#### **変更するツール:**
+1. **`get_status`** → sleep機能を追加
+
+#### **追加するツール:**
+1. **`queue_searches`** → 複数クエリをキューに投入
+
+#### **最終構成（9ツール）:**
+
+| # | ツール名 | 目的 | 変更 |
+|---|---------|------|------|
+| 1 | `create_task` | タスク作成 | 変更なし |
+| 2 | `queue_searches` | 検索キューに投入 | **新規** |
+| 3 | `get_status` | タスク状態確認 | **sleep追加** |
+| 4 | `stop_task` | タスク終了 | 変更なし |
+| 5 | `get_materials` | レポート素材取得 | 変更なし |
+| 6 | `calibrate` | モデル較正 | 変更なし |
+| 7 | `calibrate_rollback` | 較正ロールバック | 変更なし |
+| 8 | `get_auth_queue` | 認証キュー取得 | 変更なし |
+| 9 | `resolve_auth` | 認証解決 | 変更なし |
+
+### 2.2 アーキテクチャフロー
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ MCPクライアント (Cursor AI)                                   │
+└─────────────────────────────────────────────────────────────┘
+         │
+         │ ① queue_searches(task_id, queries: ["Q1", "Q2", "Q3"])
+         ↓
+┌─────────────────────────────────────────────────────────────┐
+│ MCPサーバ: _handle_queue_searches                            │
+│   - キューにクエリを追加（DB: search_queue テーブル）         │
+│   - 即座に応答 {ok: true, queued_count: 3}                   │
+└─────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────┐
+│ バックグラウンドワーカー (SearchQueueWorker)                  │
+│   ① キューから取得: Q1                                       │
+│   ② search_action(task_id, "Q1") → SearchPipeline           │
+│      - SERP → フェッチ → 抽出 → LLM → エビデンス              │
+│   ③ 完了後、次のキュー取得: Q2                               │
+│   ④ search_action(task_id, "Q2") → ...                       │
+│   ⑤ Q3も同様                                                 │
+│   ※ シーケンシャル実行（1つずつ処理）                         │
+└─────────────────────────────────────────────────────────────┘
+         ↑
+         │ ステータス監視
+         │
+┌─────────────────────────────────────────────────────────────┐
+│ MCPクライアント                                               │
+│   ② get_status(task_id, sleep_seconds: 10)                   │
+│      ↓ (10秒待機)                                            │
+│   ③ 応答受信: {                                              │
+│        searches: [                                           │
+│          {id: s1, query: "Q1", status: "completed"},         │
+│          {id: s2, query: "Q2", status: "running"},           │
+│          {id: s3, query: "Q3", status: "queued"}             │
+│        ],                                                    │
+│        queue_depth: 1                                        │
+│      }                                                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. 実装仕様
+
+### 3.1 新しいツール: `queue_searches`
+
+#### ツール定義
+```python
+Tool(
+    name="queue_searches",
+    description="Queue multiple search queries for a task. Queries are executed sequentially in background. Returns immediately.",
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "task_id": {
+                "type": "string",
+                "description": "Task ID"
+            },
+            "queries": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Search queries to execute"
+            },
+            "options": {
+                "type": "object",
+                "description": "Optional search options applied to all queries",
+                "properties": {
+                    "engines": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "max_pages": {"type": "integer"},
+                    "priority": {
+                        "type": "string",
+                        "enum": ["high", "normal", "low"],
+                        "default": "normal"
+                    }
+                }
+            }
+        },
+        "required": ["task_id", "queries"]
+    }
+)
+```
+
+#### ハンドラ実装
+```python
+async def _handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    キューに検索クエリを追加（即座に応答）
+
+    Args:
+        task_id: タスクID
+        queries: 検索クエリのリスト
+        options: 検索オプション（全クエリに適用）
+
+    Returns:
+        {ok: true, queued_count: N, search_ids: [...]}
+    """
+    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
+
+    task_id = args.get("task_id")
+    queries = args.get("queries", [])
+    options = args.get("options", {})
+
+    # バリデーション
+    if not task_id:
+        raise InvalidParamsError("task_id is required")
+    if not queries or len(queries) == 0:
+        raise InvalidParamsError("queries must not be empty")
+
+    # タスク存在確認
+    db = await get_database()
+    task = await db.fetch_one("SELECT id FROM tasks WHERE id = ?", (task_id,))
+    if task is None:
+        raise TaskNotFoundError(task_id)
+
+    # キューに追加
+    search_ids = []
+    priority = options.get("priority", "normal")
+    priority_value = {"high": 10, "normal": 50, "low": 90}.get(priority, 50)
+
+    for query in queries:
+        search_id = f"s_{uuid.uuid4().hex[:12]}"
+        await db.execute(
+            """
+            INSERT INTO search_queue
+                (id, task_id, query, options, priority, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                search_id,
+                task_id,
+                query,
+                json.dumps(options),
+                priority_value,
+                "queued",
+                datetime.now(UTC).isoformat()
+            )
+        )
+        search_ids.append(search_id)
+
+    logger.info(
+        "Searches queued",
+        task_id=task_id,
+        count=len(search_ids),
+        queries=queries
+    )
+
+    # バックグラウンドワーカーを起動（まだ動いていなければ）
+    await _ensure_search_worker_running()
+
+    return {
+        "ok": True,
+        "queued_count": len(search_ids),
+        "search_ids": search_ids,
+        "message": f"{len(search_ids)} searches queued. Use get_status to monitor progress."
+    }
+```
+
+### 3.2 バックグラウンドワーカー: `SearchQueueWorker`
+
+#### 実装
+```python
+# グローバル変数でワーカータスクを管理
+_search_worker_task: asyncio.Task | None = None
+
+async def _ensure_search_worker_running():
+    """検索ワーカーが起動していることを確認"""
+    global _search_worker_task
+
+    if _search_worker_task is None or _search_worker_task.done():
+        _search_worker_task = asyncio.create_task(_search_queue_worker())
+        logger.info("Search queue worker started")
+
+async def _search_queue_worker():
+    """
+    検索キューワーカー
+
+    キューから検索を取得し、シーケンシャルに実行する。
+    タスク単位でキューを管理し、1つのタスクの検索が終わったら次のタスクへ。
+    """
+    from src.research.pipeline import search_action
+
+    db = await get_database()
+
+    while True:
+        try:
+            # キューから次の検索を取得（優先度順）
+            row = await db.fetch_one(
+                """
+                SELECT id, task_id, query, options
+                FROM search_queue
+                WHERE status = 'queued'
+                ORDER BY priority ASC, created_at ASC
+                LIMIT 1
+                """
+            )
+
+            if row is None:
+                # キューが空 - 1秒待機
+                await asyncio.sleep(1)
+                continue
+
+            search_id = row["id"]
+            task_id = row["task_id"]
+            query = row["query"]
+            options = json.loads(row["options"]) if row["options"] else {}
+
+            # ステータスを"running"に更新
+            await db.execute(
+                "UPDATE search_queue SET status = ?, started_at = ? WHERE id = ?",
+                ("running", datetime.now(UTC).isoformat(), search_id)
+            )
+
+            logger.info(
+                "Processing search from queue",
+                search_id=search_id,
+                task_id=task_id,
+                query=query
+            )
+
+            # 探索状態を取得
+            state = await _get_exploration_state(task_id)
+
+            # 検索を実行（既存のsearch_actionを使用）
+            try:
+                result = await search_action(
+                    task_id=task_id,
+                    query=query,
+                    state=state,
+                    options=options
+                )
+
+                # 成功 - ステータスを"completed"に更新
+                await db.execute(
+                    """
+                    UPDATE search_queue
+                    SET status = ?, completed_at = ?, result = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        "completed",
+                        datetime.now(UTC).isoformat(),
+                        json.dumps(result),
+                        search_id
+                    )
+                )
+
+                logger.info(
+                    "Search completed from queue",
+                    search_id=search_id,
+                    task_id=task_id
+                )
+
+            except Exception as e:
+                # エラー - ステータスを"failed"に更新
+                await db.execute(
+                    """
+                    UPDATE search_queue
+                    SET status = ?, completed_at = ?, error = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        "failed",
+                        datetime.now(UTC).isoformat(),
+                        str(e),
+                        search_id
+                    )
+                )
+
+                logger.error(
+                    "Search failed from queue",
+                    search_id=search_id,
+                    task_id=task_id,
+                    error=str(e),
+                    exc_info=True
+                )
+
+        except Exception as e:
+            # ワーカー自体のエラー - ログして続行
+            logger.error(
+                "Search queue worker error",
+                error=str(e),
+                exc_info=True
+            )
+            await asyncio.sleep(5)  # エラー時は5秒待機
+```
+
+### 3.3 変更するツール: `get_status` (sleep機能追加)
+
+#### 新しいツール定義
+```python
+Tool(
+    name="get_status",
+    description="Get unified task and exploration status. Optionally sleep before checking. Returns task info, search states (including queued searches), metrics, budget, and auth queue. Per §3.2.1: No recommendations - data only.",
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "task_id": {
+                "type": "string",
+                "description": "Task ID to get status for"
+            },
+            "sleep_seconds": {
+                "type": "integer",
+                "description": "Seconds to sleep before checking status (default: 0). Useful for polling without tight loops.",
+                "default": 0,
+                "minimum": 0,
+                "maximum": 60
+            }
+        },
+        "required": ["task_id"]
+    }
+)
+```
+
+#### 新しいハンドラ実装
+```python
+async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    タスクステータスを取得（オプションでsleep）
+
+    Args:
+        task_id: タスクID
+        sleep_seconds: チェック前のスリープ秒数（デフォルト: 0）
+
+    Returns:
+        タスク状態、検索状態（キュー含む）、メトリクス、バジェット、認証キュー
+    """
+    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
+
+    task_id = args.get("task_id")
+    sleep_seconds = args.get("sleep_seconds", 0)
+
+    if not task_id:
+        raise InvalidParamsError("task_id is required")
+
+    # スリープ（MCPクライアントの時間感覚補助）
+    if sleep_seconds > 0:
+        logger.debug(f"Sleeping {sleep_seconds}s before status check", task_id=task_id)
+        await asyncio.sleep(sleep_seconds)
+
+    # タスク存在確認
+    db = await get_database()
+    task = await db.fetch_one(
+        "SELECT id, query, status FROM tasks WHERE id = ?",
+        (task_id,)
+    )
+
+    if task is None:
+        raise TaskNotFoundError(task_id)
+
+    # 探索状態を取得
+    state = await _get_exploration_state(task_id)
+
+    # 既存のステータス取得ロジック
+    status_data = await state.get_status()
+
+    # ★ 新規: 検索キューの状態を追加
+    queue_items = await db.fetch_all(
+        """
+        SELECT id, query, status, priority, created_at, started_at, completed_at
+        FROM search_queue
+        WHERE task_id = ?
+        ORDER BY priority ASC, created_at ASC
+        """,
+        (task_id,)
+    )
+
+    queued_searches = [
+        {
+            "id": row["id"],
+            "query": row["query"],
+            "status": row["status"],  # "queued", "running", "completed", "failed"
+            "priority": row["priority"],
+            "created_at": row["created_at"],
+            "started_at": row["started_at"],
+            "completed_at": row["completed_at"]
+        }
+        for row in queue_items
+    ]
+
+    # 既存の検索状態（state.get_status()から）とキューを統合
+    all_searches = status_data.get("searches", [])
+
+    # キュー深度を計算
+    queue_depth = sum(1 for s in queued_searches if s["status"] == "queued")
+    running_count = sum(1 for s in queued_searches if s["status"] == "running")
+
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "status": task["status"],
+        "query": task["query"],
+        "searches": all_searches,  # 実行中/完了した検索
+        "queue": {
+            "depth": queue_depth,       # キューに残っている数
+            "running": running_count,   # 実行中の数
+            "items": queued_searches    # キューの全アイテム
+        },
+        "metrics": status_data.get("metrics", {}),
+        "budget": status_data.get("budget", {}),
+        "auth_queue": status_data.get("auth_queue", []),
+        "warnings": status_data.get("warnings", []),
+        "idle_seconds": status_data.get("idle_seconds", 0)
+    }
+```
+
+### 3.4 データベーススキーマ: `search_queue`テーブル
+
+```sql
+CREATE TABLE IF NOT EXISTS search_queue (
+    id TEXT PRIMARY KEY,                -- 検索ID (s_xxxx)
+    task_id TEXT NOT NULL,              -- タスクID
+    query TEXT NOT NULL,                -- 検索クエリ
+    options TEXT,                       -- JSON: 検索オプション
+    priority INTEGER NOT NULL,          -- 優先度 (低い値が高優先)
+    status TEXT NOT NULL,               -- "queued", "running", "completed", "failed"
+    created_at TEXT NOT NULL,           -- 作成日時
+    started_at TEXT,                    -- 開始日時
+    completed_at TEXT,                  -- 完了日時
+    result TEXT,                        -- JSON: 検索結果（completedの場合）
+    error TEXT,                         -- エラーメッセージ（failedの場合）
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_queue_task_id ON search_queue(task_id);
+CREATE INDEX IF NOT EXISTS idx_search_queue_status_priority ON search_queue(status, priority, created_at);
+```
+
+---
+
+## 4. 使用例
+
+### 4.1 典型的なワークフロー
+
+```python
+# ① タスク作成
+response = await call_tool("create_task", {
+    "query": "量子コンピュータの最新動向を調査"
+})
+task_id = response["task_id"]  # "task_abc123"
+
+# ② 複数の検索をキューに投入（即座に応答）
+await call_tool("queue_searches", {
+    "task_id": task_id,
+    "queries": [
+        "量子コンピュータ 2025 最新論文",
+        "量子エラー訂正 実用化",
+        "量子アルゴリズム 機械学習応用"
+    ],
+    "options": {
+        "priority": "high",
+        "max_pages": 10
+    }
+})
+# 応答: {ok: true, queued_count: 3, search_ids: ["s_1", "s_2", "s_3"]}
+
+# ③ ステータスをポーリング（10秒待機してから確認）
+while True:
+    status = await call_tool("get_status", {
+        "task_id": task_id,
+        "sleep_seconds": 10  # ← MCPクライアントに時間感覚を提供
+    })
+
+    # キューの状態を確認
+    queue_depth = status["queue"]["depth"]
+    running = status["queue"]["running"]
+
+    print(f"Queue: {queue_depth}, Running: {running}")
+
+    # 全て完了したか確認
+    if queue_depth == 0 and running == 0:
+        break
+
+# ④ レポート素材を取得
+materials = await call_tool("get_materials", {
+    "task_id": task_id
+})
+
+# ⑤ タスク終了
+await call_tool("stop_task", {
+    "task_id": task_id,
+    "reason": "completed"
+})
+```
+
+### 4.2 優先度付き検索
+
+```python
+# 高優先度の検索を先に実行
+await call_tool("queue_searches", {
+    "task_id": task_id,
+    "queries": ["緊急: 重要な調査"],
+    "options": {"priority": "high"}
+})
+
+# 通常優先度の検索（後から実行される）
+await call_tool("queue_searches", {
+    "task_id": task_id,
+    "queries": ["補足調査1", "補足調査2"],
+    "options": {"priority": "normal"}
+})
+```
+
+### 4.3 ステータスレスポンス例
+
+```json
+{
+  "ok": true,
+  "task_id": "task_abc123",
+  "status": "exploring",
+  "query": "量子コンピュータの最新動向を調査",
+  "searches": [
+    {
+      "id": "s_1",
+      "query": "量子コンピュータ 2025 最新論文",
+      "status": "completed",
+      "pages_fetched": 8,
+      "useful_fragments": 15,
+      "satisfaction_score": 0.92
+    }
+  ],
+  "queue": {
+    "depth": 1,
+    "running": 1,
+    "items": [
+      {
+        "id": "s_2",
+        "query": "量子エラー訂正 実用化",
+        "status": "running",
+        "priority": 10,
+        "created_at": "2025-12-21T10:00:00Z",
+        "started_at": "2025-12-21T10:05:00Z"
+      },
+      {
+        "id": "s_3",
+        "query": "量子アルゴリズム 機械学習応用",
+        "status": "queued",
+        "priority": 10,
+        "created_at": "2025-12-21T10:00:01Z"
+      }
+    ]
+  },
+  "metrics": {
+    "total_searches": 1,
+    "satisfied_count": 1,
+    "total_pages": 8,
+    "total_fragments": 15
+  },
+  "budget": {
+    "pages_used": 8,
+    "pages_limit": 120,
+    "remaining_percent": 93
+  }
+}
+```
+
+---
+
+## 5. アーキテクチャの利点
+
+### 5.1 MCPクライアント視点
+
+| 項目 | 現在（同期search） | 新しい設計（queue_searches） |
+|------|-------------------|------------------------------|
+| **ブロッキング** | あり（数十秒〜数分） | なし（即座に応答） |
+| **複数検索** | シーケンシャル呼び出し必要 | 1回の呼び出しで複数投入 |
+| **ポーリング** | タイミングが難しい | sleep_secondsで制御可能 |
+| **ツール数** | 11個 | **9個（削減）** |
+| **複雑さ** | 中程度 | **シンプル** |
+
+### 5.2 サーバ内部視点
+
+| 項目 | 利点 |
+|------|------|
+| **非同期処理** | 既存のsearch_actionを再利用、変更最小限 |
+| **リソース管理** | ジョブスケジューラとの統合が容易 |
+| **エラーハンドリング** | キュー単位でリトライ・スキップが可能 |
+| **監視** | search_queueテーブルで全体像を把握 |
+| **スケーラビリティ** | ワーカー数を増やせば並列度向上可能（将来） |
+
+### 5.3 MCPクライアントの時間感覚問題の解決
+
+**問題:** Cursor AIなどのMCPクライアントは適切なポーリング間隔を判断できない
+
+**解決策:** `get_status`の`sleep_seconds`パラメータ
+```python
+# クライアント側（Cursor AI）
+# サーバ側で10秒待機してから状態確認
+# → クライアントは無駄なループを回さない
+status = await call_tool("get_status", {
+    "task_id": task_id,
+    "sleep_seconds": 10
+})
+```
+
+**効果:**
+- クライアント側のコードがシンプル
+- サーバ側で適切な待機時間を制御
+- ネットワーク/CPU負荷の削減
+
+---
+
+## 6. 実装ロードマップ
+
+### Phase 1: コア機能実装（1週間）
+
+1. **データベーススキーマ**
+   - `search_queue`テーブル作成
+   - マイグレーションスクリプト
+
+2. **バックグラウンドワーカー**
+   - `SearchQueueWorker`実装
+   - エラーハンドリング
+
+3. **新しいツール**
+   - `queue_searches`実装
+   - バリデーション
+
+4. **既存ツールの変更**
+   - `get_status`にsleep_seconds追加
+   - キュー状態の統合
+
+### Phase 2: 既存ツールの削除（3日）
+
+1. **`search`ツールの削除**
+   - MCPツール定義から削除
+   - `_handle_search`を内部関数化（または完全削除）
+   - `search_action`は維持（ワーカーが使用）
+
+2. **`notify_user`と`wait_for_user`の削除**
+   - MCPツール定義から削除
+   - ハンドラ削除
+
+3. **ドキュメント更新**
+   - `docs/REQUIREMENTS.md` §3.2.1 更新（11ツール → 9ツール）
+   - `docs/CURSOR_RULES_COMMANDS.md` 更新
+
+### Phase 3: テストと最適化（3日）
+
+1. **統合テスト**
+   - キュー投入 → ワーカー処理 → ステータス確認のフロー
+   - 複数タスクの並行処理
+   - エラーケース（タスク不在、バジェット超過など）
+
+2. **パフォーマンステスト**
+   - 大量キュー（100+検索）
+   - ワーカーの安定性
+
+3. **Cursor AI統合テスト**
+   - 実際のワークフローで動作確認
+
+---
+
+## 7. 将来の拡張性
+
+### 7.1 並列ワーカー（Phase 4以降）
+
+現在はシーケンシャル実行だが、将来は並列実行も可能:
+
+```python
+# 複数ワーカーを起動（タスク間で並列）
+for i in range(3):
+    asyncio.create_task(_search_queue_worker(worker_id=i))
+```
+
+**注意:** 同一タスク内の検索は依然としてシーケンシャル（探索状態の整合性のため）
+
+### 7.2 検索キューの優先度制御
+
+- ユーザ指定の優先度（high/normal/low）
+- 動的優先度調整（バジェット残量に応じて）
+- デッドライン指定（特定時刻までに完了）
+
+### 7.3 検索結果のストリーミング
+
+SSE転送を使用した場合、検索進捗をリアルタイムで通知:
+
+```python
+# 将来の可能性（SSE使用）
+async for event in subscribe_search_progress(task_id):
+    print(event)  # {type: "page_fetched", page_num: 5, ...}
+```
+
+---
+
+## 8. まとめ
+
+### 8.1 主要な変更点
+
+| 変更 | 内容 |
+|------|------|
+| **削除** | `search`, `notify_user`, `wait_for_user` |
+| **追加** | `queue_searches` |
+| **変更** | `get_status` (sleep_seconds追加、キュー状態統合) |
+| **内部** | `SearchQueueWorker` (バックグラウンド処理) |
+
+### 8.2 ツール数の変化
+
+```
+11ツール → 9ツール（18%削減）
+
+削除: 3個
+追加: 1個
+変更: 1個
+維持: 7個
+```
+
+### 8.3 効果
+
+1. **シンプル化** - ツール数削減、概念的にも明快
+2. **非同期化** - クライアントがブロックされない
+3. **効率化** - sleep_secondsで無駄なポーリングを削減
+4. **拡張性** - 将来の並列化やストリーミングに対応可能
+
+### 8.4 移行の容易さ
+
+- **既存コードへの影響最小限**
+  - `search_action`は維持（内部で使用）
+  - ジョブスケジューラとの統合は既存の仕組みを利用
+  - ExplorationStateは変更不要
+
+- **段階的移行**
+  - Phase 1でキュー機能を追加
+  - Phase 2で古いツールを削除
+  - 互換性を保ちながら移行可能
+
+---
+
+## 9. 認証キュー統合の設計判断
+
+### 9.1 検討課題
+
+9ツール構成において、`get_auth_queue`と`resolve_auth`を維持すべきか、それとも`get_status`に統合すべきかを検討した。
+
+**背景:**
+- `get_status`は既に認証キューのサマリー情報を返している
+- `get_auth_queue`はより詳細な認証キュー情報を提供
+- 部分的な機能重複が存在
+
+### 9.2 詳細分析
+
+#### A. 現在の実装の特徴
+
+**`get_status`の認証情報（サマリー）:**
+```json
+{
+  "auth_queue": {
+    "pending_count": 5,
+    "high_priority_count": 2,
+    "domains": ["arxiv.org", "jstor.org"],
+    "by_auth_type": {"cloudflare": 3, "login": 2}
+  },
+  "warnings": [
+    "[critical] 認証待ち5件（高優先度2件）: 一次資料アクセスがブロック中"
+  ]
+}
+```
+
+**`get_auth_queue`の詳細情報:**
+```json
+{
+  "group_by": "domain",
+  "groups": {
+    "arxiv.org": [
+      {
+        "id": "iq_abc123",
+        "url": "https://arxiv.org/pdf/...",
+        "auth_type": "cloudflare",
+        "priority": "high"
+      }
+    ]
+  }
+}
+```
+
+**`get_auth_queue`特有の機能:**
+1. **全タスク横断取得** - `task_id`省略で全タスクの認証キューを取得
+2. **グループ化** - ドメイン別/タイプ別にグループ化
+3. **優先度フィルタリング** - 高優先度のみ取得など
+4. **個別アイテム詳細** - queue_id、URL、認証タイプなど
+
+#### B. MCPクライアントUXワークフロー
+
+```python
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# フェーズ1: 監視（高頻度ポーリング - 10秒ごと）
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+while exploring:
+    status = await get_status(task_id, sleep_seconds=10)
+
+    # 警告から認証の必要性を検出
+    if "[critical] 認証待ち" in status.warnings:
+        break  # → 認証解決フェーズへ
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# フェーズ2: 認証解決（認証発生時のみ）
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 詳細を取得してユーザーに提示
+auth_details = await get_auth_queue(
+    task_id=task_id,
+    group_by="domain",
+    priority_filter="high"
+)
+
+# ユーザーがブラウザで認証完了後
+await resolve_auth(
+    target="domain",
+    domain="arxiv.org",
+    action="complete",
+    success=True
+)
+```
+
+**ワークフローの特徴:**
+- **2段階設計**: 監視（頻繁）→ 解決（必要時のみ）
+- **関心の分離**: ダッシュボード（get_status）vs 認証ワークフロー（get_auth_queue + resolve_auth）
+- **パフォーマンス**: get_statusは軽量（グループ化処理なし）
+
+### 9.3 統合オプションの評価
+
+#### Option A: 統合しない（現状維持）
+
+**設計:**
+- `get_status` - タスクダッシュボード（認証サマリー + 警告生成）
+- `get_auth_queue` - 認証解決専用（詳細、グループ化、フィルタリング）
+- `resolve_auth` - 認証完了報告
+
+**Pros:**
+- ✅ **関心の分離**: 監視と解決の責務が明確
+- ✅ **パフォーマンス**: get_statusは軽量（10秒ごとのポーリングに最適）
+- ✅ **柔軟性**: get_auth_queueで全タスク横断取得が可能
+- ✅ **UX**: 2段階ワークフロー（監視→解決）が自然
+
+**Cons:**
+- ⚠️ ツール数が9個（ただし許容範囲）
+
+#### Option B: get_statusに統合
+
+**設計:**
+- `get_status` - すべての情報（認証詳細、グループ化も含む）
+- `resolve_auth` - 認証完了報告
+
+**Pros:**
+- ✅ ツール数削減（8個）
+
+**Cons:**
+- ❌ **パラメータ複雑化**: auth_group_by, auth_priority_filterなどが追加される
+- ❌ **パフォーマンス低下**: 毎回グループ化処理（不要な場合も実行）
+- ❌ **全タスク取得不可**: get_statusはtask_id必須
+- ❌ **責務の混在**: ダッシュボードと認証解決ワークフローが混ざる
+
+### 9.4 設計判断
+
+**決定: Option A（統合しない・現状維持）**
+
+**判断理由:**
+
+1. **UXの観点**
+   - 2段階ワークフロー（監視→解決）がCursor AIの使用パターンに最適
+   - get_statusは「状況把握」、get_auth_queueは「問題解決」という明確な役割分担
+
+2. **パフォーマンス**
+   - get_statusは10秒ごとに呼ばれる高頻度ポーリング対象
+   - グループ化やフィルタリングなどの重い処理を含めるべきではない
+
+3. **柔軟性**
+   - get_auth_queue(task_id=null)で全タスクの認証キューを取得可能
+   - 複数タスク並行実行時に重要な機能
+
+4. **ツール数の妥当性**
+   - 9ツールは十分少ない（11ツールから18%削減済み）
+   - 機能的に必要なツールを無理に削減する必要はない
+   - シンプルさと機能性のバランスが重要
+
+**結論:**
+`get_auth_queue`と`resolve_auth`は独立したツールとして維持する。これにより、MCPクライアントのUX、パフォーマンス、柔軟性のバランスが最適化される。
+
+### 9.5 最終ツール構成の確定
+
+**9ツール（確定版）:**
+
+| # | ツール名 | 目的 | 設計判断 |
+|---|---------|------|---------|
+| 1 | `create_task` | タスク作成 | 維持 |
+| 2 | `queue_searches` | 検索キューに投入 | **新規（v2）** |
+| 3 | `get_status` | タスク状態確認 | **sleep追加（v2）** + 認証サマリー維持 |
+| 4 | `stop_task` | タスク終了 | 維持 |
+| 5 | `get_materials` | レポート素材取得 | 維持 |
+| 6 | `calibrate` | モデル較正 | 維持 |
+| 7 | `calibrate_rollback` | 較正ロールバック | 維持 |
+| 8 | `get_auth_queue` | 認証キュー詳細取得 | **維持（統合しない）** |
+| 9 | `resolve_auth` | 認証完了報告 | 維持 |
+
+**削除されたツール:**
+- `search` - 内部化（queue_searchesに置き換え）
+- `notify_user` - 不要（get_statusのwarningsで代替）
+- `wait_for_user` - 不要（ポーリングで代替）
+
+**ツール削減率:** 11ツール → 9ツール（**18%削減**）
+
+---
+
+## 10. 結論
+
+**現在の`search`ツールは同期的でクライアントをブロックする**という本質的な問題を、**ツールを増やすのではなく非同期セマンティクスに変更する**ことで解決します。
+
+### 主要な設計決定
+
+1. **非同期セマンティクス**
+   - `queue_searches` - 即座に応答、バックグラウンド処理
+   - SearchQueueWorkerがキューからシーケンシャルに処理
+
+2. **時間感覚の提供**
+   - `get_status` with `sleep_seconds` - MCPクライアントに時間感覚を提供
+   - サーバ側で適切な待機時間を制御
+
+3. **ツール統合の方針**
+   - ツール数削減（11 → 9）を達成
+   - しかし、機能的に必要なツールは維持（get_auth_queue、resolve_auth）
+   - シンプルさと機能性のバランスを重視
+
+4. **関心の分離**
+   - 監視ツール（get_status）- 軽量、高頻度ポーリング
+   - ワークフロー専用ツール（get_auth_queue、queue_searches）- 詳細、必要時のみ
+   - 明確な責務分担でUXとパフォーマンスを最適化
+
+### 実現される効果
+
+- ✅ **ノンブロッキング**: クライアントはキュー投入後すぐに次の操作が可能
+- ✅ **効率的**: sleep_secondsで無駄なポーリングを削減
+- ✅ **シンプル**: 18%のツール削減、概念的にも明快
+- ✅ **拡張性**: 将来の並列化やストリーミングに対応可能
+- ✅ **バランス**: 機能性を損なわず、適切な粒度でツールを設計
+
+この設計により、**効率的で拡張性があり、MCPプロトコルの制約内で最大限のパフォーマンス**を実現できます。
+
+---
+
+**文書バージョン:** 2.1
+**作成日:** 2025-12-21
+**最終更新:** 2025-12-21（認証キュー統合判断追加）
+**著者:** Claude (Sonnet 4.5)
+**レビュー状態:** 設計確定 - 実装準備完了
+
+**関連ドキュメント:**
+- `docs/AUTH_QUEUE_INTEGRATION_ANALYSIS.md` - 認証キュー統合の詳細分析
+- `docs/ASYNC_ARCHITECTURE_ANALYSIS.md` - 現状の非同期アーキテクチャ分析
