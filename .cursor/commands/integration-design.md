@@ -12,9 +12,11 @@ Design and verify cross-module integration (interfaces, types, and data flow).
 
 ## Inputs (attach as `@...`)
 
-- Relevant requirements/spec (`@docs/REQUIREMENTS.md`) (recommended)
-- The involved modules/files (`@src/...`) (recommended)
-- Any failing logs/scripts/tests (`@tests/...`) (recommended)
+- Any context documents (requirements, specs, design docs) relevant to the integration
+- The involved modules/files (`@src/...`) if known
+- Any failing logs/scripts/tests (`@tests/...`) if available
+
+**Note**: Specific document attachments are optional. This command will search the codebase to discover involved modules, existing contracts, and integration points.
 
 ## Policy (rules)
 

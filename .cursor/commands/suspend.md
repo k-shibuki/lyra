@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Pause work safely: record progress, document what’s incomplete, and create a WIP commit.
+Pause work safely: record progress, document what's incomplete, and create a WIP commit.
 
 ## When to use
 
@@ -11,17 +11,19 @@ Pause work safely: record progress, document what’s incomplete, and create a W
 
 ## Inputs (attach as `@...`)
 
-- `@docs/IMPLEMENTATION_PLAN.md` (recommended)
+- Any planning/tracking documents where progress should be recorded (optional)
+
+**Note**: If no tracking document is attached, progress will be recorded in the WIP commit message only.
 
 ## Steps
 
-1. Record current progress in `@docs/IMPLEMENTATION_PLAN.md` (use a clear “in progress” marker).
+1. If a tracking document is attached, record current progress there (use a clear "in progress" marker).
 2. Create a WIP commit that explicitly lists completed vs incomplete items.
 
 ## WIP commit message example
 
 ```text
-chore: WIP - Phase X.Y <task name>
+chore: WIP - <task name>
 
 - Done: implemented xxx
 - TODO: add tests

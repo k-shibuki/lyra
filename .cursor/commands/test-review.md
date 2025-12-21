@@ -11,13 +11,15 @@ Review tests against `@.cursor/rules/test-strategy.mdc` and improve them until t
 
 ## Inputs (attach as `@...`)
 
-- `@docs/REQUIREMENTS.md` (recommended)
-- The test files to review (`@tests/...`) (required)
-- Relevant implementation files (`@src/...`) (recommended)
+- The test files to review (`@tests/...`) — required if known; otherwise specify scope
+- Any context documents (requirements, specs) for understanding expected behavior
+- Relevant implementation files (`@src/...`) if known
+
+**Note**: This command will search the codebase to find related implementation files and understand the expected behavior if not explicitly attached.
 
 ## Constraints
 
-- Do **not** reference `@docs/IMPLEMENTATION_PLAN.md` in code comments.
+- Do **not** reference planning documents in code comments.
 - Negative tests must be **>=** positive tests (unless there is a clear reason).
 
 ## Review checklist

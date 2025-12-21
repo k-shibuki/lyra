@@ -12,10 +12,12 @@ Execute a refactor end-to-end (not just a design suggestion): scope impact, appl
 
 ## Inputs (attach as `@...`)
 
-- Goal and constraints (required)
-- Relevant code paths (`@src/...`) (recommended)
-- Any failing tests/logs (`@tests/...`, output snippets) (recommended)
-- Requirements/spec if behavior must remain aligned (`@docs/REQUIREMENTS.md`) (recommended)
+- Goal and constraints (required — can be user instruction or attached doc)
+- Relevant code paths (`@src/...`) if known
+- Any failing tests/logs (`@tests/...`, output snippets) if available
+- Any context documents (requirements, specs) if behavior alignment is important
+
+**Note**: This command will actively search the codebase to identify all impacted files, existing patterns, and dependencies.
 
 ## Modes (pick one)
 

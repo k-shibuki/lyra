@@ -31,7 +31,7 @@ flowchart LR
     tr[test-review]
     qcc[quality-check]
     rt[regression-test]
-    docsDisc[docs-discover]
+    docsDisc[discover-docs]
     commit[commit]
     mc[merge]
     push[push]
@@ -100,7 +100,7 @@ flowchart LR
 | コマンド | 役割 |
 |---------|------|
 | `/scripts-help` | `scripts/*.sh` の使い方 |
-| `/docs-discover` | 関連ドキュメントの特定と更新（添付docsだけに限定しない） |
+| `/discover-docs` | 関連ドキュメントの特定と更新（添付docsだけに限定しない） |
 
 ## ルール（規約 / `@.cursor/rules/*.mdc`）
 
