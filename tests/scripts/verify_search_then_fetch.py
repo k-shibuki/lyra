@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Verification target: §3.2 Agent Execution (Search -> Fetch Consistency)
+"""
+from urllib.parse import urlparse
 
 Verification items:
 1. Browser search execution (§3.2 Search Engine Integration)

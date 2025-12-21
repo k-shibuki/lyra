@@ -272,7 +272,7 @@ class TestDependencyChecking:
             )
 
             # Then: This file should NOT be skipped (returns None)
-            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            result = conftest_module.pytest_ignore_collect(mock_path, None)  # type: ignore[arg-type]
             assert result is None
         finally:
             conftest_module._deps_available = original_deps

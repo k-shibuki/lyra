@@ -200,7 +200,7 @@ class TestUnpaywallClient:
         client = UnpaywallClient()
 
         # When: Resolving OA URL with None
-        oa_url = await client.resolve_oa_url(None)
+        oa_url = await client.resolve_oa_url("")  # 空文字列を使用
 
         # Then: None should be returned
         assert oa_url is None

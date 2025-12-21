@@ -277,6 +277,8 @@ async def main() -> int:
             print(f"  {status}: {test_name}")
             if not passed:
                 all_passed = False
+        
+        return 0 if all_passed else 1
 
         print("\n" + "=" * 80)
         if all_passed:

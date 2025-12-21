@@ -187,7 +187,6 @@ class BrowserSearchVerifier:
             options = SearchOptions(
                 engines=["duckduckgo"],
                 limit=5,
-                time_range=None,
             )
 
             start_time = time.time()

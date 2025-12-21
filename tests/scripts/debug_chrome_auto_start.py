@@ -18,7 +18,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def main() -> None:
+async def main() -> int:
     print("=" * 70)
     print("デバッグ: Chrome自動起動機能")
     print("=" * 70)

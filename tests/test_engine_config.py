@@ -2,6 +2,8 @@
 Tests for SearchEngineConfigManager.
 
 Tests:
+"""
+import time
 - Configuration loading and parsing
 - Engine configuration retrieval
 - Operator mapping
@@ -320,6 +322,8 @@ class TestEngineConfiguration:
         config3 = manager.get_engine("duckduckgo")
 
         assert config1 is not None
+        assert config2 is not None
+        assert config3 is not None
         assert config1.name == config2.name == config3.name
 
     def test_get_nonexistent_engine(self, manager: SearchEngineConfigManager) -> None:
@@ -690,6 +694,7 @@ class TestCache:
 
         # Get again from cache
         config = manager.get_engine("duckduckgo")
+        assert config is not None
         assert config.current_usage_today == 5
 
     def test_reset_daily_usage(self, manager: SearchEngineConfigManager) -> None:
@@ -698,6 +703,7 @@ class TestCache:
         manager.reset_daily_usage()
 
         config = manager.get_engine("duckduckgo")
+        assert config is not None
         assert config.current_usage_today == 0
 
 

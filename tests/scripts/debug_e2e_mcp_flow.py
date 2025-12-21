@@ -232,6 +232,7 @@ async def main() -> int:
     print("\n" + "=" * 70)
     print("E2E test completed successfully.")
     print("=" * 70)
+    return 0
 
 
 if __name__ == "__main__":

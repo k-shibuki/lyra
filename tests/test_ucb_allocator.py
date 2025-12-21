@@ -443,6 +443,7 @@ class TestUCBAllocatorIntegration:
         state = ExplorationState(task_id="test_task", enable_ucb_allocation=True)
         state.register_search("sq_001", "test query", priority="high")
 
+        assert state._ucb_allocator is not None
         assert "sq_001" in state._ucb_allocator._arms
         assert state._ucb_allocator._arms["sq_001"].priority_boost == 1.5
 
@@ -456,6 +457,7 @@ class TestUCBAllocatorIntegration:
 
         state.record_fragment("sq_001", "hash123", is_useful=True, is_novel=True)
 
+        assert state._ucb_allocator is not None
         arm = state._ucb_allocator._arms["sq_001"]
         assert arm.pulls == 1
         assert arm.total_reward == 1.0
