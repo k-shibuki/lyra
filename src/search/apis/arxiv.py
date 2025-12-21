@@ -91,12 +91,12 @@ class ArxivClient(BaseAcademicClient):
             logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
             return None
 
-    async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_references(self, paper_id: str) -> list[Paper]:
         """Get references (arXiv API does not support references)."""
         logger.debug("arXiv does not support references", paper_id=paper_id)
         return []
 
-    async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    async def get_citations(self, paper_id: str) -> list[Paper]:
         """Get citations (arXiv API does not support citations)."""
         logger.debug("arXiv does not support citations", paper_id=paper_id)
         return []

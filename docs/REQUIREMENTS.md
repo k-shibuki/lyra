@@ -309,10 +309,14 @@ Lyra内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**�
   - Unpaywall: OA版リンク解決。ペイウォール回避用
   - 引用グラフ取得:
     - 上位N件の元論文（citation_graph_top_n_papers）に対してのみ引用追跡を実行（Budgeted Citation Expansion）
-    - S2とOpenAlexの引用データを統合・重複排除
+    - **S2とOpenAlexの引用データを並列取得・統合・重複排除**（Phase 3.4実装済み）
+      - `get_citation_graph()` が両APIから並列取得（`asyncio.gather`）
+      - `CanonicalPaperIndex` による DOI ベース重複排除
+      - 一方のAPI失敗時も他方の結果を返却（フォールバック）
     - 3段階フィルタリング（Stage 0: メタデータ, Stage 1: Embedding+impact, Stage 2: LLM有用性評価）でTopX件を選抜
     - 深度≤1を既定（関連性の高い引用のみを取り込む）
   - 重複排除: DOIベースで論文を一意識別。DOIなしはタイトル+年+著者でマッチング
+  - API戻り値型: すべてのAPI（S2/OpenAlex/arXiv/Crossref）が `get_references()` / `get_citations()` で `list[Paper]` を返す（決定12、Phase 3.1実装済み）
 
 #### 3.1.4. 検索エンジン健全性・正規化レイヤ
 - ヘルスチェック/サーキットブレーカ:

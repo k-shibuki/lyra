@@ -225,17 +225,21 @@ sequenceDiagram
             end
         end
         
-        Note over Pipeline: Phase 6: Citation graph integration
+        Note over Pipeline: Phase 6: Citation graph integration (S2 + OpenAlex)
         loop For top 5 papers
             Pipeline->>ASP: get_citation_graph(paper_id, depth=1)
-            ASP->>SS: get_references(paper_id)
-            SS-->>ASP: [(Paper, is_influential), ...]
-            ASP->>SS: get_citations(paper_id)
-            SS-->>ASP: [(Paper, is_influential), ...]
+            par S2 and OpenAlex parallel
+                ASP->>SS: get_references(paper_id)
+                SS-->>ASP: [Paper, ...]
+            and
+                ASP->>OA: get_references(paper_id)
+                OA-->>ASP: [Paper, ...]
+            end
+            ASP->>ASP: CanonicalPaperIndex deduplication (DOI-based)
             ASP-->>Pipeline: (papers, citations)
             
             loop For each citation
-                Pipeline->>EG: add_edge(CITES, is_academic=True, is_influential=...)
+                Pipeline->>EG: add_edge(CITES, ...)
                 Pipeline->>DB: INSERT INTO edges
             end
         end
