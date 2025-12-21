@@ -277,7 +277,9 @@ class TestCanonicalPaperIndex:
         entries = index.get_all_entries()
         assert len(entries) == 1  # Only one entry
         # Higher priority source (semantic_scholar) is kept
-        assert entries[0].paper.source_api == "semantic_scholar"
+        paper = entries[0].paper
+        assert paper is not None
+        assert paper.source_api == "semantic_scholar"
 
     def test_register_serp_result(self) -> None:
         """TC-CI-N-03: Test registering SERP result.
@@ -575,4 +577,6 @@ class TestCanonicalPaperIndex:
         entries = index.get_all_entries()
         assert len(entries) == 1
         # Higher priority (semantic_scholar=1) kept over openalex=2
-        assert entries[0].paper.source_api == "semantic_scholar"
+        paper = entries[0].paper
+        assert paper is not None
+        assert paper.source_api == "semantic_scholar"

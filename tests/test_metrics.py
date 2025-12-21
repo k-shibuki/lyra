@@ -364,6 +364,7 @@ class TestMetricsCollector:
 
         # Then: Claim counts are updated
         metrics = await collector.get_task_metrics("test-task-7")
+        assert metrics is not None
         assert metrics.total_claims == 3
         assert metrics.claims_with_timeline == 1
         assert metrics.contradictions_found == 1

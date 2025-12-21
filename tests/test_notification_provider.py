@@ -536,6 +536,7 @@ class TestLinuxNotifyProvider:
                 result = await provider.send("Test Title", "Test Message")
 
         assert result.ok is False
+        assert result.error is not None
         assert "notify-send failed" in result.error
 
     @pytest.mark.asyncio
@@ -573,6 +574,7 @@ class TestLinuxNotifyProvider:
                 health = await provider.get_health()
 
         assert health.state == NotificationHealthState.UNHEALTHY
+        assert health.message is not None
         assert "not found" in health.message
 
 
@@ -930,6 +932,7 @@ class TestNotificationProviderRegistry:
             result = await registry.send("Test", "Message")
 
         assert result.ok is False
+        assert result.error is not None
         assert "All providers failed" in result.error
 
     @pytest.mark.asyncio

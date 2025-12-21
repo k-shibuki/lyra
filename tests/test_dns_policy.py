@@ -295,6 +295,7 @@ class TestDNSPolicyManagerProxyGeneration:
                 use_tor=True,
                 resolve_dns_through_proxy=False,
             )
+            assert proxy_url is not None
             assert proxy_url.startswith("socks5://")
 
             # Config says True, and we explicitly set True
@@ -302,6 +303,7 @@ class TestDNSPolicyManagerProxyGeneration:
                 use_tor=True,
                 resolve_dns_through_proxy=True,
             )
+            assert proxy_url is not None
             assert proxy_url.startswith("socks5h://")
 
     def test_no_proxy_when_use_tor_false(self, mock_settings: MagicMock) -> None:
@@ -693,6 +695,7 @@ class TestDNSPolicyIntegration:
 
             # When using Tor with default settings, should use socks5h://
             proxy_url = manager.get_socks_proxy_url(use_tor=True)
+            assert proxy_url is not None
 
             # socks5h:// ensures DNS is resolved through the SOCKS proxy
             # This is the key mechanism for preventing DNS leaks

@@ -339,10 +339,12 @@ class TestLogging:
 
     def test_add_log_level_processor(self) -> None:
         """Test _add_log_level processor adds level."""
+        import logging
         from src.utils.logging import _add_log_level
 
         event_dict = {"event": "test"}
-        result = _add_log_level(None, "warning", event_dict)
+        logger = logging.getLogger(__name__)
+        result = _add_log_level(logger, "warning", event_dict)
 
         assert result["level"] == "WARNING"
 
