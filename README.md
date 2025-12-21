@@ -31,12 +31,14 @@ This **thinking-working separation** keeps the AI's context clean for strategic 
 
 **Embedded ML Components:**
 
-| Component | Model | Purpose |
-|-----------|-------|---------|
-| Local LLM | Qwen2.5-3B (Ollama) | Fact/claim extraction, quality assessment |
-| Embedding | bge-m3 | Semantic similarity for candidate ranking |
-| Reranker | bge-reranker-v2-m3 | Cross-encoder reranking of search results |
-| NLI | DeBERTa-v3 | Stance detection (supports/refutes/neutral) |
+| Component | Model | License | Purpose |
+|-----------|-------|---------|---------|
+| Local LLM | Qwen2.5-3B (Ollama) | Qwen Research* | Fact/claim extraction, quality assessment |
+| Embedding | bge-m3 | MIT | Semantic similarity for candidate ranking |
+| Reranker | bge-reranker-v2-m3 | Apache-2.0 | Cross-encoder reranking of search results |
+| NLI | DeBERTa-v3 | Apache-2.0 | Stance detection (supports/refutes/neutral) |
+
+*\*Qwen2.5-3B uses the Qwen Research License (non-commercial). See [Model Licenses](#model-licenses) for alternatives.*
 
 **Core Design Principles:**
 
@@ -597,6 +599,28 @@ ruff check src/ tests/
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+### Model Licenses
+
+Lyra depends on external ML models with their own licenses:
+
+| Model | License | Commercial Use | Source |
+|-------|---------|----------------|--------|
+| Qwen2.5-3B | Qwen Research License | ❌ No | [Hugging Face](https://huggingface.co/Qwen/Qwen2.5-3B) |
+| Qwen2.5-7B | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/Qwen/Qwen2.5-7B) |
+| bge-m3 | MIT | ✅ Yes | [Hugging Face](https://huggingface.co/BAAI/bge-m3) |
+| bge-reranker-v2-m3 | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/BAAI/bge-reranker-v2-m3) |
+| nli-deberta-v3-xsmall | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/cross-encoder/nli-deberta-v3-xsmall) |
+| nli-deberta-v3-small | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/cross-encoder/nli-deberta-v3-small) |
+
+**Note**: The default LLM (Qwen2.5-3B) uses a research-only license. For commercial use, configure an alternative model in `config/settings.yaml`:
+
+```yaml
+llm:
+  model: "qwen2.5:7b"    # Apache-2.0, commercial OK
+  # or
+  model: "llama3.2:3b"   # Llama License, commercial OK
+```
 
 ---
 
