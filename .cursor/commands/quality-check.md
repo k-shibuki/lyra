@@ -34,7 +34,7 @@ podman exec lyra ruff format src/ tests/  # auto-fix
 Mypy:
 
 ```bash
-podman exec lyra mypy src --config-file pyproject.toml
+podman exec lyra mypy src/ tests/ --config-file pyproject.toml
 ```
 
 Note: `--config-file pyproject.toml` applies `[tool.mypy]` settings (e.g., `warn_return_any = true`).
