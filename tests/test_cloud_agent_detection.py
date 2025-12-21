@@ -303,7 +303,8 @@ class TestDependencyChecking:
             )
 
             # When/Then: Other test files should be skipped
-            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            mock_config = MagicMock()
+            result = conftest_module.pytest_ignore_collect(mock_path, mock_config)
             assert result is True
         finally:
             conftest_module._deps_available = original_deps
@@ -334,7 +335,8 @@ class TestDependencyChecking:
             )
 
             # When/Then: Should NOT skip (show normal import errors)
-            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            mock_config = MagicMock()
+            result = conftest_module.pytest_ignore_collect(mock_path, mock_config)
             assert result is None
         finally:
             conftest_module._deps_available = original_deps
@@ -355,7 +357,8 @@ class TestDependencyChecking:
             conftest_module._deps_available = True
 
             # When/Then: No files should be skipped
-            result = conftest_module.pytest_ignore_collect(mock_path, None)
+            mock_config = MagicMock()
+            result = conftest_module.pytest_ignore_collect(mock_path, mock_config)
             assert result is None
         finally:
             conftest_module._deps_available = original_deps

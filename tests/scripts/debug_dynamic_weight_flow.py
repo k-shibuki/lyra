@@ -342,6 +342,7 @@ async def test_pydantic_models() -> bool:
         EngineHealthMetrics(
             engine="test",
             success_rate_1h=1.5,  # Invalid: > 1.0
+            last_used_at=None,
         )
         print("    ✗ Validation should have failed for success_rate > 1.0")
         all_passed = False

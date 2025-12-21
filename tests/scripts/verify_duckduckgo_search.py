@@ -140,7 +140,7 @@ class BrowserSearchVerifier:
             # Get browser info
             browser_info = {}
             browser = provider._browser
-            browser_info["connected"] = browser.is_connected()
+            browser_info["connected"] = bool(browser.is_connected())
             contexts = browser.contexts
             browser_info["contexts"] = len(contexts)
 

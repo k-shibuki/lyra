@@ -94,7 +94,7 @@ class SearchFetchVerifier:
         try:
             from src.search.browser_search_provider import BrowserSearchProvider
 
-            provider = BrowserSearchProvider()
+            provider: BrowserSearchProvider = BrowserSearchProvider()
             engines = provider.get_available_engines()  # type: ignore[attr-defined]
             print(f"  ✓ Search provider available (engines: {engines})")
             await provider.close()
@@ -260,7 +260,7 @@ class SearchFetchVerifier:
                         from src.crawler.sec_fetch import _get_registrable_domain
                         domain = _get_registrable_domain(parsed.netloc)
                         result = manager.get_session_for_domain(domain)
-                        session_id = result[0] if result else None
+                        session_id: str | None = result[0] if result else None
                     else:
                         session_id = None
                         if session_id:

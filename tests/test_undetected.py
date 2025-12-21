@@ -231,8 +231,9 @@ class TestUndetectedChromeFetcher:
     def test_get_cookies_with_driver(self) -> None:
         """Test getting cookies with active driver."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
-        fetcher._driver.get_cookies.return_value = [
+        mock_driver = MagicMock()
+        setattr(fetcher, "_driver", mock_driver)
+        mock_driver.get_cookies.return_value = [
             {"name": "session", "value": "abc123"},
         ]
 
@@ -240,6 +241,7 @@ class TestUndetectedChromeFetcher:
 
         assert len(cookies) == 1
         assert cookies[0]["name"] == "session"
+        assert fetcher._driver is not None
 
     def test_add_cookies_no_driver(self) -> None:
         """Test adding cookies when no driver is active."""
@@ -252,7 +254,8 @@ class TestUndetectedChromeFetcher:
     def test_add_cookies_with_driver(self) -> None:
         """Test adding cookies with active driver."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
+        mock_driver = MagicMock()
+        setattr(fetcher, "_driver", mock_driver)
 
         fetcher.add_cookies(
             [
@@ -261,6 +264,7 @@ class TestUndetectedChromeFetcher:
             ]
         )
 
+        assert fetcher._driver is not None
         assert fetcher._driver.add_cookie.call_count == 2
 
     def test_close_driver(self) -> None:
@@ -275,8 +279,9 @@ class TestUndetectedChromeFetcher:
     def test_close_driver_error_handled(self) -> None:
         """Test that close handles errors gracefully."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
-        fetcher._driver.quit.side_effect = Exception("Quit failed")
+        mock_driver = MagicMock()
+        setattr(fetcher, "_driver", mock_driver)
+        mock_driver.quit.side_effect = Exception("Quit failed")
 
         # Should not raise
         fetcher.close()
@@ -316,10 +321,11 @@ class TestCloudflareBypass:
     def test_wait_for_cloudflare_success(self) -> None:
         """Test successful Cloudflare bypass detection."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
+        mock_driver = MagicMock()
+        setattr(fetcher, "_driver", mock_driver)
 
         # First call returns challenge, second call returns normal page
-        fetcher._driver.page_source = "<html>Normal content</html>"
+        mock_driver.page_source = "<html>Normal content</html>"
 
         result = fetcher._wait_for_cloudflare(timeout=2)
 
@@ -328,10 +334,11 @@ class TestCloudflareBypass:
     def test_wait_for_cloudflare_timeout(self) -> None:
         """Test Cloudflare bypass timeout."""
         fetcher = UndetectedChromeFetcher()
-        setattr(fetcher, "_driver", MagicMock())
+        mock_driver = MagicMock()
+        setattr(fetcher, "_driver", mock_driver)
 
         # Always return challenge page
-        fetcher._driver.page_source = "<html>checking your browser</html>"
+        mock_driver.page_source = "<html>checking your browser</html>"
 
         result = fetcher._wait_for_cloudflare(timeout=1)
 
@@ -350,6 +357,7 @@ class TestCloudflareBypass:
             "cf-turnstile",
         ]
 
+        assert fetcher._driver is not None
         for indicator in indicators:
             fetcher._driver.page_source = f"<html>{indicator}</html>"
 

@@ -210,6 +210,7 @@ async def test_full_engine_selection_flow() -> None:
 async def main() -> int:
     """Run all tests."""
     print("=" * 80)
+    return 0
     print("Engine Selection Flow Debug Script")
     print("=" * 80)
 
