@@ -50,7 +50,7 @@ Suggested primary command:
 
 ## Handoff to `wf-debug` (when the problem is not clearly a refactor yet)
 
-Use `wf-refactor` when the goal and constraints are clear and you are ready to restructure.  
+Use `wf-refactor` when the goal and constraints are clear and you are ready to restructure.
 If the issue is primarily “something is broken” and you do not yet have a stable reproduction/evidence, hand off to debugging first.
 
 Handoff signals (examples):
