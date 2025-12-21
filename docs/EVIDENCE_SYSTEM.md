@@ -14,6 +14,44 @@
 
 ---
 
+## 作業状況トラッカー（Progress）
+
+**最終更新**: 2025-12-21
+
+このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
+更新ルール:
+- Phaseの開始/完了、または仕様変更（破壊的変更を含む）を行ったタイミングで更新する
+- 実装が一部のみの場合は、**どこまでが完了で、何が未完か**を明記する（誤認防止）
+
+### 現在のステータス
+
+| Phase | 目的 | 状態 | 参照 |
+|------:|------|------|------|
+| 1 | 透明性の向上（blocked_domains / cause_id / adoption_status） | DONE | `82ce42e` |
+| 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | PARTIAL | `82ce42e` |
+| 3 | 引用追跡の完全実装（S2 + OpenAlex / pages追加 / CITES） | TODO | - |
+| 4 | ベイズ信頼度モデル（confidence/uncertainty/controversy） | TODO | - |
+| 5 | ユーザー制御（user_overrides / 復元） | TODO | - |
+
+### Phase 1 完了内容（DONE）
+
+- `trust_level` 概念を排除し、**domain_category に完全統一**（後方互換なし）
+- `get_status` に `blocked_domains`（＋`idle_seconds`）を追加し、ブロック理由を可視化
+- `claims.adoption_status` を追加し、`pending/adopted/not_adopted` を保持できるようにした
+
+**検証**:
+- ruff / mypy / tests: PASS（ローカル回帰: 3225 passed）
+
+### Phase 2 進捗（PARTIAL）
+
+完了:
+- `edges` に `source_domain_category` / `target_domain_category` を保存・ロードできる（EvidenceGraph / schema）
+
+未完:
+- NLI→エッジ生成の実運用パスで、**常に source/target_domain_category を付与する**実装の網羅性確認（設計意図の完全達成）
+
+---
+
 ## 用語定義
 
 ### 主要概念
