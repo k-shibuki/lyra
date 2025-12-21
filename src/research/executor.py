@@ -755,8 +755,8 @@ class SearchExecutor:
                 """
                 INSERT OR IGNORE INTO claims
                 (id, task_id, claim_text, claim_type, confidence_score,
-                 source_fragment_ids, verification_notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                 source_fragment_ids, adoption_status, verification_notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
                 (
                     claim_id,
@@ -765,6 +765,7 @@ class SearchExecutor:
                     "fact",
                     confidence,
                     json.dumps([source_fragment_id]),  # JSON array
+                    "pending",
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
@@ -774,8 +775,8 @@ class SearchExecutor:
             await db.execute(
                 """
                 INSERT OR IGNORE INTO edges
-                (id, source_type, source_id, target_type, target_id, relation, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                (id, source_type, source_id, target_type, target_id, relation, confidence, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
                 (
                     edge_id,
@@ -784,6 +785,7 @@ class SearchExecutor:
                     "claim",
                     claim_id,
                     "supports",
+                    float(confidence),
                 ),
             )
         except Exception as e:

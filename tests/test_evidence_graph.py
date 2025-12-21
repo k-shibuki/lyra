@@ -430,8 +430,8 @@ class TestContradictionDetection:
     """Tests for contradiction detection."""
 
     def test_find_contradictions(self) -> None:
-        """Test finding contradicting claims."""
-        # Given: Two claims with a refutes relationship
+        """Test finding refuting evidence on a claim ("contradiction" = REFUTES evidence)."""
+        # Given: Two claims with a refutes relationship (claim-2 has incoming REFUTES)
         graph = EvidenceGraph()
         graph.add_node(NodeType.CLAIM, "claim-1", text="A is true")
         graph.add_node(NodeType.CLAIM, "claim-2", text="A is false")
@@ -448,12 +448,11 @@ class TestContradictionDetection:
         # When: Finding contradictions
         contradictions = graph.find_contradictions()
 
-        # Then: The contradiction pair is found
+        # Then: The claim with refuting evidence is reported
         assert len(contradictions) == 1
-        assert {contradictions[0]["claim1_id"], contradictions[0]["claim2_id"]} == {
-            "claim-1",
-            "claim-2",
-        }
+        assert contradictions[0]["claim_id"] == "claim-2"
+        assert contradictions[0]["refuting_count"] == 1
+        assert contradictions[0]["max_confidence"] == pytest.approx(0.9)
 
     def test_find_contradictions_none(self) -> None:
         """Test finding no contradictions."""
@@ -1331,11 +1330,11 @@ class TestPhaseP2DomainCategoryOnEdges:
 
     def test_add_edge_with_domain_categories(self) -> None:
         """
-        TC-P2-EDGE-N-01: Add edge with source and target trust levels.
+        TC-P2-EDGE-N-01: Add edge with source and target domain categories.
 
-        // Given: Evidence from different trust level sources
-        // When: Adding edge with trust levels
-        // Then: Trust levels stored on edge
+        // Given: Evidence from different domain category sources
+        // When: Adding edge with domain categories
+        // Then: Domain categories stored on edge
         """
         graph = EvidenceGraph()
 
@@ -1359,11 +1358,11 @@ class TestPhaseP2DomainCategoryOnEdges:
 
     def test_add_edge_domain_categories_default_none(self) -> None:
         """
-        TC-P2-EDGE-N-02: Trust levels default to None when not provided.
+        TC-P2-EDGE-N-02: Domain categories default to None when not provided.
 
-        // Given: Edge added without trust levels
+        // Given: Edge added without domain categories
         // When: Inspecting edge data
-        // Then: Trust levels are None
+        // Then: Domain categories are None
         """
         graph = EvidenceGraph()
 
@@ -1382,11 +1381,11 @@ class TestPhaseP2DomainCategoryOnEdges:
 
     def test_to_dict_includes_domain_categories(self) -> None:
         """
-        TC-P2-EDGE-N-03: Export includes trust levels on edges.
+        TC-P2-EDGE-N-03: Export includes domain categories on edges.
 
-        // Given: Graph with edge containing trust levels
+        // Given: Graph with edge containing domain categories
         // When: Exporting to dict
-        // Then: Trust levels included in export
+        // Then: Domain categories included in export
         """
         graph = EvidenceGraph()
 
@@ -1410,11 +1409,11 @@ class TestPhaseP2DomainCategoryOnEdges:
 
     def test_contradicting_edges_with_different_domain_categories(self) -> None:
         """
-        TC-P2-EDGE-N-04: Contradicting claims with different trust levels.
+        TC-P2-EDGE-N-04: Refuting evidence edges preserve domain categories.
 
-        // Given: Two claims that contradict each other
+        // Given: Two claims and a REFUTES edge
         // When: One is from ACADEMIC, one from UNVERIFIED
-        // Then: Trust levels allow AI to evaluate credibility
+        // Then: Domain categories allow AI to evaluate credibility
         """
         graph = EvidenceGraph()
 
@@ -1424,7 +1423,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         # Unverified source claims opposite
         graph.add_node(NodeType.CLAIM, "claim-unverified", text="Climate change is a hoax")
 
-        # Add refutes edge with trust levels
+        # Add REFUTES edge with domain categories
         graph.add_edge(
             source_type=NodeType.CLAIM,
             source_id="claim-academic",
@@ -1439,8 +1438,9 @@ class TestPhaseP2DomainCategoryOnEdges:
         # Find contradictions
         contradictions = graph.find_contradictions()
         assert len(contradictions) == 1
+        assert contradictions[0]["claim_id"] == "claim-unverified"
 
-        # Export and verify trust levels preserved
+        # Export and verify domain categories preserved
         data = graph.to_dict()
         edge = data["edges"][0]
         assert edge["source_domain_category"] == "academic"
@@ -1449,11 +1449,11 @@ class TestPhaseP2DomainCategoryOnEdges:
 
     def test_add_claim_evidence_with_domain_categories(self) -> None:
         """
-        TC-P2-EDGE-N-05: add_claim_evidence accepts trust levels.
+        TC-P2-EDGE-N-05: add_claim_evidence accepts domain categories.
 
-        // Given: Need to add evidence with trust level info
-        // When: Calling add_claim_evidence with trust levels
-        // Then: Trust levels stored in graph
+        // Given: Need to add evidence with domain category info
+        // When: Adding edge with domain categories
+        // Then: Domain categories stored in graph
         """
 
         graph = EvidenceGraph(task_id="test")
@@ -1480,11 +1480,11 @@ class TestPhaseP2DomainCategoryOnEdges:
     @pytest.mark.asyncio
     async def test_save_to_db_with_domain_categories(self, test_database: "Database") -> None:
         """
-        TC-P2-EDGE-I-01: Save edges with trust levels to database.
+        TC-P2-EDGE-I-01: Save edges with domain categories to database.
 
-        // Given: Edge with trust levels
+        // Given: Edge with domain categories
         // When: Saving to database
-        // Then: Trust levels persisted
+        // Then: Domain categories persisted
         """
         from unittest.mock import patch
 
@@ -1513,11 +1513,11 @@ class TestPhaseP2DomainCategoryOnEdges:
     @pytest.mark.asyncio
     async def test_load_from_db_with_domain_categories(self, test_database: "Database") -> None:
         """
-        TC-P2-EDGE-I-02: Load edges with trust levels from database.
+        TC-P2-EDGE-I-02: Load edges with domain categories from database.
 
-        // Given: Edges with trust levels in database
+        // Given: Edges with domain categories in database
         // When: Loading graph from database
-        // Then: Trust levels restored
+        // Then: Domain categories restored
         """
         from unittest.mock import patch
 
@@ -1539,7 +1539,7 @@ class TestPhaseP2DomainCategoryOnEdges:
             """
         )
 
-        # Insert edge with trust levels
+        # Insert edge with domain categories
         await test_database.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
@@ -1554,7 +1554,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         with patch.object(evidence_graph, "get_database", return_value=test_database):
             await graph.load_from_db("test-task")
 
-        # Check edge was loaded with trust levels
+        # Check edge was loaded with domain categories
         edge_data = graph._graph.edges.get(("fragment:frag-1", "claim:claim-1"))
         assert edge_data is not None
         assert edge_data["source_domain_category"] == "government"

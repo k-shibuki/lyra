@@ -11,6 +11,9 @@
     "task_id": {
       "type": "string"
     },
+    "query": {
+      "type": "string"
+    },
     "claims": {
       "type": "array",
       "items": {
@@ -19,8 +22,8 @@
           "id": {"type": "string"},
           "text": {"type": "string"},
           "confidence": {"type": "number"},
-          "support_count": {"type": "integer"},
-          "refute_count": {"type": "integer"},
+          "evidence_count": {"type": "integer"},
+          "has_refutation": {"type": "boolean"},
           "sources": {
             "type": "array",
             "items": {
@@ -29,7 +32,8 @@
                 "url": {"type": "string"},
                 "title": {"type": "string"},
                 "domain": {"type": "string"},
-                "trust_level": {"type": "string"}
+                "domain_category": {"type": ["string", "null"]},
+                "is_primary": {"type": "boolean"}
               },
               "additionalProperties": false
             }
@@ -47,12 +51,22 @@
           "id": {"type": "string"},
           "text": {"type": "string"},
           "source_url": {"type": "string"},
-          "source_title": {"type": "string"},
-          "relevance_score": {"type": "number"}
+          "context": {"type": "string"},
+          "is_primary": {"type": "boolean"}
         },
         "additionalProperties": false
       },
       "description": "Extracted text fragments (L4 sanitized)"
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_claims": {"type": "integer"},
+        "verified_claims": {"type": "integer"},
+        "refuted_claims": {"type": "integer"},
+        "primary_source_ratio": {"type": "number"}
+      },
+      "additionalProperties": false
     },
     "evidence_graph": {
       "type": ["object", "null"],
@@ -73,7 +87,7 @@
       "enum": ["structured", "narrative"]
     }
   },
-  "required": ["ok", "task_id"],
+  "required": ["ok", "task_id", "query", "claims", "fragments", "summary"],
   "additionalProperties": false
 }
 

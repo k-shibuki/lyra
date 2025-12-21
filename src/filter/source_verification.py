@@ -206,29 +206,13 @@ class SourceVerifier:
         # Get confidence from EvidenceGraph
         confidence_info = evidence_graph.calculate_claim_confidence(claim_id)
 
-        # Check for contradictions
-        contradictions = evidence_graph.find_contradictions()
-        claim_contradictions = [
-            c
-            for c in contradictions
-            if c.get("claim1_id") == claim_id or c.get("claim2_id") == claim_id
-        ]
-
-        # Build verification details
-        # Extract contradicting claim IDs, filtering out None values
-        contradicting_claim_ids = []
-        for c in claim_contradictions:
-            claim1_id = c.get("claim1_id")
-            claim2_id = c.get("claim2_id")
-            # Get the "other" claim ID (not the current claim)
-            other_id = claim2_id if claim1_id == claim_id else claim1_id
-            if other_id is not None:
-                contradicting_claim_ids.append(other_id)
-
         details = VerificationDetails(
             independent_sources=confidence_info.get("independent_sources", 0),
             corroborating_claims=[],  # Would need additional EvidenceGraph query
-            contradicting_claims=contradicting_claim_ids,
+            # Single-user refactor: treat "contradiction" as "refuting evidence exists".
+            # We do not attempt to infer "contradicting_claims" (claim-vs-claim pairs)
+            # from fragment-based evidence.
+            contradicting_claims=[],
             nli_scores={
                 "supporting": confidence_info.get("supporting_count", 0),
                 "refuting": confidence_info.get("refuting_count", 0),
@@ -241,7 +225,6 @@ class SourceVerifier:
             self._determine_verification_outcome(
                 original_domain_category=original_domain_category,
                 confidence_info=confidence_info,
-                has_contradictions=len(claim_contradictions) > 0,
             )
         )
 
@@ -302,7 +285,6 @@ class SourceVerifier:
         self,
         original_domain_category: DomainCategory,
         confidence_info: dict[str, Any],
-        has_contradictions: bool,
     ) -> tuple[VerificationStatus, DomainCategory, PromotionResult, ReasonCode]:
         """Determine verification outcome based on evidence only.
 
@@ -312,8 +294,6 @@ class SourceVerifier:
         Args:
             original_domain_category: Current domain category (for tracking only).
             confidence_info: Confidence assessment from EvidenceGraph.
-            has_contradictions: Whether contradictions were found.
-
         Returns:
             Tuple of (status, new_domain_category, promotion_result, reason_code).
         """
@@ -322,7 +302,7 @@ class SourceVerifier:
 
         # Case 1: Conflicting evidence → PENDING (no automatic BLOCKED)
         # DomainCategory is recorded on edges for high-inference AI to interpret
-        if has_contradictions or refuting_count > 0:
+        if refuting_count > 0:
             # Keep original category, return PENDING for AI evaluation
             return (
                 VerificationStatus.PENDING,

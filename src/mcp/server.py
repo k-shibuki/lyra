@@ -656,6 +656,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 },
                 "auth_queue": None,
                 "warnings": [],
+                "idle_seconds": 0,  # §2.1.5 (no exploration state)
                 "blocked_domains": blocked_domains,  # Added for transparency
             }
             return attach_meta(response, create_minimal_meta())

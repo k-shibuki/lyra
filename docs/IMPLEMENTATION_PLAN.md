@@ -2314,7 +2314,7 @@ python scripts/migrate.py create NAME  # 新規作成
    - `edges`テーブルに`source_domain_category`, `target_domain_category`カラム追加
    - REFUTESエッジにドメインカテゴリ情報を付与し、高推論AIが「科学的論争か誤情報か」を判断可能にする
    - ドメインカテゴリはランキング調整用であり、信頼度計算や検証判定には使用しない
-   - `TrustLevel` → `DomainCategory` にリネーム（設計原則の明確化）
+   - ドメイン分類は `DomainCategory` に統一（ランキング調整専用であることを明確化）
    - `ReasonCode` enum 導入（事実ベースの理由コード）
    - 検証判定ロジックからドメインカテゴリ依存を除去（Thinking-Working分離）
    - `category_weight` をランキングに適用

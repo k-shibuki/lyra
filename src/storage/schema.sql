@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS claims (
     confidence_score REAL,
     calibrated_score REAL,
     source_fragment_ids TEXT,  -- JSON array
+    adoption_status TEXT DEFAULT 'pending',  -- pending, adopted, not_adopted (single-user mode; breaking changes allowed)
     supporting_count INTEGER DEFAULT 0,
     refuting_count INTEGER DEFAULT 0,
     neutral_count INTEGER DEFAULT 0,
@@ -164,9 +165,6 @@ CREATE TABLE IF NOT EXISTS edges (
     is_academic BOOLEAN DEFAULT 0,
     is_influential BOOLEAN DEFAULT 0,
     citation_context TEXT,
-    -- Trust level snapshots (optional)
-    source_trust_level TEXT,
-    target_trust_level TEXT,
     -- Domain category information for ranking adjustment and high-reasoning AI (Phase P.2)
     source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
     target_domain_category TEXT,
@@ -186,7 +184,7 @@ CREATE INDEX IF NOT EXISTS idx_edges_domain_categories ON edges(relation, source
 -- Domains: Per-domain policy and learning state
 CREATE TABLE IF NOT EXISTS domains (
     domain TEXT PRIMARY KEY,
-    trust_level TEXT DEFAULT 'unknown',
+    domain_category TEXT DEFAULT 'unverified',
     qps_limit REAL DEFAULT 0.2,
     concurrent_limit INTEGER DEFAULT 1,
     headful_ratio REAL DEFAULT 0.1,
