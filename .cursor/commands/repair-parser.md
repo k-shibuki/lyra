@@ -35,7 +35,8 @@ Repair failing HTML parsers/selectors for search engines with AI-assisted diagno
 Analyze latest failure:
 
 ```bash
-podman exec lyra python -c "
+# Run from WSL venv (hybrid mode)
+python -c "
 from src.search.parser_diagnostics import get_latest_debug_html, analyze_debug_html
 import json
 
@@ -52,7 +53,7 @@ else:
 Analyze a specific engine:
 
 ```bash
-podman exec lyra python -c "
+python -c "
 from src.search.parser_diagnostics import get_latest_debug_html, analyze_debug_html
 import json
 
@@ -67,9 +68,9 @@ if path:
 Verify after applying changes:
 
 ```bash
-podman exec lyra python tests/scripts/verify_duckduckgo_search.py
-podman exec lyra python tests/scripts/verify_ecosia_search.py
-podman exec lyra python tests/scripts/verify_startpage_search.py
+python tests/scripts/verify_duckduckgo_search.py
+python tests/scripts/verify_ecosia_search.py
+python tests/scripts/verify_startpage_search.py
 ```
 
 ## Reading the diagnostics report

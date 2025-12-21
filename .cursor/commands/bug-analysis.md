@@ -33,8 +33,9 @@ Investigate a bug systematically, identify root cause, implement a fix, and veri
 ## Useful log commands (optional)
 
 ```bash
-podman exec lyra cat logs/app.log | tail -100
-podman exec lyra grep -r "ERROR\\|Exception" logs/
+# Run from WSL venv (hybrid mode)
+cat logs/app.log | tail -100
+grep -r "ERROR\\|Exception" logs/
 ```
 
 ## Output (response format)

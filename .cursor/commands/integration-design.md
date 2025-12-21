@@ -28,7 +28,10 @@ This command focuses on the concrete deliverables and how to produce them.
 
 ## Steps (deliverables)
 
-1. Produce a Mermaid sequence diagram and save it under `docs/sequences/`.\n+2. Define shared data contracts as Pydantic models in `src/{module}/schemas.py`.\n+3. Add a debug script at `tests/scripts/debug_{feature}_flow.py` that validates the end-to-end flow.\n+4. Run/verify the flow and update the sequence diagram to match reality.
+1. Produce a Mermaid sequence diagram and save it under `docs/sequences/`.
+2. Define shared data contracts as Pydantic models in `src/{module}/schemas.py`.
+3. Add a debug script at `tests/scripts/debug_{feature}_flow.py` that validates the end-to-end flow.
+4. Run/verify the flow and update the sequence diagram to match reality.
 
 ## Output (response format)
 

@@ -38,9 +38,10 @@ fi
 2. Pre-push checks (do not push with warnings):
 
 ```bash
-podman exec lyra ruff check src/ tests/
-podman exec lyra mypy src/ tests/
-podman exec lyra ruff check --fix src/ tests/  # if needed
+# Run from WSL venv (hybrid mode)
+ruff check src/ tests/
+mypy src/ tests/ --config-file pyproject.toml
+ruff check --fix src/ tests/  # if needed
 
 git diff origin/main..main --check
 ```

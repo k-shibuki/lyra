@@ -6,7 +6,7 @@ Implement the selected task (code changes only; no tests in this step).
 
 ## When to use
 
-- After selecting a task and creating a branch (typically after `task-select`)
+- After selecting a task and agreeing on an implementation plan (typically after `task-plan`)
 - Any time you need to implement a scoped change that is already agreed on
 
 ## Inputs (attach as `@...`)
@@ -26,7 +26,7 @@ Implement the selected task (code changes only; no tests in this step).
 1. Confirm scope and acceptance criteria (1–3 bullet points) based on:
    - Attached documents (if any)
    - User instructions
-   - Previous `task-select` output (if available in conversation)
+   - Previous `task-plan` output (if available in conversation)
 2. **Actively search the codebase** to understand:
    - Existing code paths and patterns
    - Related modules and dependencies

@@ -82,4 +82,4 @@ Provides:
 - `.env` loading
 - Logging helpers (`log_info`, `log_warn`, `log_error`)
 - Container helpers (`check_container_running`, `wait_for_container`)
-- Shared constants (`CHROME_PORT`, `SOCAT_PORT`, `CONTAINER_NAME`, etc.)
+- Shared constants (`CHROME_PORT`, `CONTAINER_NAME`, etc.)

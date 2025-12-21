@@ -1,4 +1,4 @@
-# docs-discover
+# discover-docs
 
 ## Purpose
 

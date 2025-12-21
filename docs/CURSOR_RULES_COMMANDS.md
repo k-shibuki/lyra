@@ -25,7 +25,7 @@ flowchart LR
   end
 
   subgraph CMD[Commands（単独コマンド）]
-    taskSel[task-select]
+    taskPlan[task-plan]
     impl[implement]
     tc[test-create]
     tr[test-review]
@@ -49,6 +49,9 @@ flowchart LR
 
   %% ========== Command -> rules ==========
   CMD --> ce
+  taskPlan --> ts
+  taskPlan --> id
+  taskPlan --> qc
   qcc --> qc
   rt --> ce
   commit --> cm
@@ -70,7 +73,7 @@ flowchart LR
 
 | コマンド | 役割 | 主に参照する規約（rules） |
 |---------|------|---------------------------|
-| `/task-select` | タスク選定とブランチ作成 | `code-execution.mdc` |
+| `/task-plan` | タスク選定 → 情報収集 → 実装計画（コード+テスト）作成（必要ならブランチ作成） | `code-execution.mdc`, `integration-design.mdc`, `test-strategy.mdc`, `quality-check.mdc` |
 | `/implement` | 実装（テストは別） | `code-execution.mdc`, `refactoring.mdc` |
 | `/test-create` | テスト作成 | `test-strategy.mdc`, `code-execution.mdc` |
 | `/test-review` | テスト品質レビュー | `test-strategy.mdc`, `code-execution.mdc` |
@@ -116,7 +119,7 @@ flowchart LR
 
 ## 運用メモ
 
-- **入口は単独コマンド**（`/task-select` など）を状況に応じて選ぶ。
+ - **入口は単独コマンド**（`/task-plan` など）を状況に応じて選ぶ。
 - **よくある切り替え**:
   - デバッグが構造問題に見えてきたら `/refactoring` や `/integration-design` に寄せる。
   - 設計/整理の途中で再現・根拠が必要になったら `/bug-analysis` に戻る。
@@ -126,7 +129,7 @@ flowchart LR
 
 ```bash
 # 開発（例）
-/task-select
+/task-plan
 /implement
 /test-create
 /test-review

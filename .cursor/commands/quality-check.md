@@ -20,21 +20,22 @@ Follow the quality policy here:
 Ruff lint:
 
 ```bash
-podman exec lyra ruff check src/ tests/
-podman exec lyra ruff check --fix src/ tests/  # if applicable
+# Run from WSL venv (hybrid mode)
+ruff check src/ tests/
+ruff check --fix src/ tests/  # if applicable
 ```
 
 Ruff format:
 
 ```bash
-podman exec lyra ruff format --check src/ tests/
-podman exec lyra ruff format src/ tests/  # auto-fix
+ruff format --check src/ tests/
+ruff format src/ tests/  # auto-fix
 ```
 
 Mypy:
 
 ```bash
-podman exec lyra mypy src/ tests/ --config-file pyproject.toml
+mypy src/ tests/ --config-file pyproject.toml
 ```
 
 Note: `--config-file pyproject.toml` applies `[tool.mypy]` settings (e.g., `warn_return_any = true`).
@@ -49,4 +50,4 @@ Note: `--config-file pyproject.toml` applies `[tool.mypy]` settings (e.g., `warn
 ## Related rules
 
 - `@.cursor/rules/code-execution.mdc`
- - `@.cursor/rules/quality-check.mdc`
+- `@.cursor/rules/quality-check.mdc`
