@@ -70,9 +70,10 @@ class CAPTCHAFlowVerifier:
 
         # Check browser connectivity
         try:
-            from src.crawler.browser_provider import get_browser_provider
+            from src.crawler.browser_provider import get_browser_registry
 
-            provider = await get_browser_provider()
+            registry = get_browser_registry()
+            provider = registry.get_default()
             if provider:
                 self.browser_available = True
                 print("  ✓ Browser provider available")
@@ -290,7 +291,7 @@ class CAPTCHAFlowVerifier:
         """§3.6.1 Parallel: Continue exploring auth-free sources while waiting."""
         print("\n[3/7] Verifying parallel processing (§3.6.1 並行処理)...")
 
-        from src.crawler.fetcher import BrowserFetcher, FetchPolicy
+        from src.crawler.fetcher import BrowserFetcher
         from src.utils.notification import get_intervention_queue
 
         queue = get_intervention_queue()
@@ -310,11 +311,9 @@ class CAPTCHAFlowVerifier:
             # Verify we can still fetch unblocked URLs
             fetcher = BrowserFetcher()
             try:
-                policy = FetchPolicy(use_browser=True, allow_headful=False)
-
                 # Fetch a known-good URL
                 start_time = time.time()
-                result = await fetcher.fetch("https://example.com", policy=policy)
+                result = await fetcher.fetch("https://example.com")
                 elapsed = time.time() - start_time
 
                 if result.ok:

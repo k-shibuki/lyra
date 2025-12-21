@@ -74,9 +74,10 @@ class SearchFetchVerifier:
 
         # Check browser connectivity
         try:
-            from src.crawler.browser_provider import get_browser_provider
+            from src.crawler.browser_provider import get_browser_registry
 
-            provider = await get_browser_provider()
+            registry = get_browser_registry()
+            provider = registry.get_default()
             if provider:
                 self.browser_available = True
                 print("  ✓ Browser provider available")
@@ -94,7 +95,7 @@ class SearchFetchVerifier:
             from src.search.browser_search_provider import BrowserSearchProvider
 
             provider = BrowserSearchProvider()
-            engines = provider.get_available_engines()
+            engines = provider.get_available_engines()  # type: ignore[attr-defined]
             print(f"  ✓ Search provider available (engines: {engines})")
             await provider.close()
         except Exception as e:
@@ -132,9 +133,11 @@ class SearchFetchVerifier:
             elapsed = time.time() - start_time
 
             if not result.ok:
-                # Check if it's a CAPTCHA
-                if result.captcha_detected:
-                    print(f"    ! CAPTCHA detected: {result.captcha_type}")
+                # Check if it's a CAPTCHA (check error message)
+                error_msg = result.error or ""
+                is_captcha = "captcha" in error_msg.lower() or "challenge" in error_msg.lower()
+                if is_captcha:
+                    print(f"    ! CAPTCHA detected: {error_msg}")
                     print("      This is expected behavior - CAPTCHA detection works!")
                     return VerificationResult(
                         name="Browser Search",
@@ -142,7 +145,7 @@ class SearchFetchVerifier:
                         passed=True,
                         details={
                             "captcha_detected": True,
-                            "captcha_type": result.captcha_type,
+                            "error": error_msg,
                             "note": "CAPTCHA detection working correctly",
                         },
                     )
@@ -221,13 +224,14 @@ class SearchFetchVerifier:
                 skip_reason="No search results available",
             )
 
-        from src.crawler.fetcher import BrowserFetcher, FetchPolicy
+        from src.crawler.fetcher import BrowserFetcher
         from src.crawler.session_transfer import get_session_transfer_manager
 
         fetcher = BrowserFetcher()
         manager = get_session_transfer_manager()
 
         try:
+            initial_stats = manager.get_session_stats()
             successful_fetches = 0
             total_fetches = min(2, len(self.search_results))
 
@@ -235,35 +239,36 @@ class SearchFetchVerifier:
                 url = result["url"]
                 print(f"\n    [{i}/{total_fetches}] Fetching: {url[:60]}...")
 
-                policy = FetchPolicy(
-                    use_browser=True,
-                    allow_headful=False,
-                )
-
-                fetch_result = await fetcher.fetch(url, policy=policy)
+                fetch_result = await fetcher.fetch(url)
 
                 if fetch_result.ok:
-                    print(f"    ✓ Status: {fetch_result.status_code}")
-                    print(f"    ✓ Content: {len(fetch_result.content or '')} chars")
+                    print(f"    ✓ Status: {fetch_result.status}")
+                    if fetch_result.html_path:
+                        from pathlib import Path
+                        content_length = Path(fetch_result.html_path).stat().st_size if Path(fetch_result.html_path).exists() else 0
+                        print(f"    ✓ Content: {content_length} bytes")
                     successful_fetches += 1
 
-                    # Capture session
-                    if fetcher._browser and fetcher._context:
-                        response_headers = {}
-                        if hasattr(fetch_result, "headers") and fetch_result.headers:
-                            response_headers = dict(fetch_result.headers)
-
-                        session_id = await manager.capture_from_browser(
-                            fetcher._context,
-                            url,
-                            response_headers,
-                        )
+                    # BrowserFetcher.fetch automatically captures session
+                    # Check if session was captured by verifying session stats increased
+                    final_stats = manager.get_session_stats()
+                    session_captured = final_stats["total_sessions"] > initial_stats["total_sessions"]
+                    
+                    # Get session for domain if captured
+                    if session_captured:
+                        parsed = urlparse(url)
+                        from src.crawler.sec_fetch import _get_registrable_domain
+                        domain = _get_registrable_domain(parsed.netloc)
+                        result = manager.get_session_for_domain(domain)
+                        session_id = result[0] if result else None
+                    else:
+                        session_id = None
                         if session_id:
                             print(f"    ✓ Session captured: {session_id[:12]}...")
                 else:
                     print(f"    ✗ Failed: {fetch_result.reason}")
-                    if fetch_result.challenge_detected:
-                        print(f"      Challenge: {fetch_result.challenge_type}")
+                    if fetch_result.auth_type:
+                        print(f"      Challenge: {fetch_result.auth_type}")
 
                 # Brief delay between fetches
                 await asyncio.sleep(1.0)
@@ -486,7 +491,7 @@ class SearchFetchVerifier:
         """§3.2 CAPTCHA Continuity: CAPTCHA detection and manual intervention."""
         print("\n[5/6] Verifying CAPTCHA detection (§3.2 CAPTCHA対応)...")
 
-        from src.crawler.fetcher import BrowserFetcher, FetchPolicy
+        from src.crawler.fetcher import BrowserFetcher
 
         fetcher = BrowserFetcher()
 
@@ -497,30 +502,20 @@ class SearchFetchVerifier:
             print("    Testing CAPTCHA detection logic...")
 
             # Check if fetcher has challenge detection
-            policy = FetchPolicy(
-                use_browser=True,
-                allow_headful=False,
-                queue_auth=True,  # Enable auth queueing
-            )
-
             # Fetch a safe URL to verify the flow works
-            result = await fetcher.fetch("https://example.com", policy=policy)
+            result = await fetcher.fetch("https://example.com")
 
             # Verify the result has challenge detection fields
-            has_challenge_field = hasattr(result, "challenge_detected")
-            has_challenge_type = hasattr(result, "challenge_type")
+            has_auth_type = hasattr(result, "auth_type")
             has_queue_auth = hasattr(result, "auth_queued")
 
-            print(f"    ✓ challenge_detected field: {has_challenge_field}")
-            print(f"    ✓ challenge_type field: {has_challenge_type}")
+            print(f"    ✓ auth_type field: {has_auth_type}")
             print(f"    ✓ auth_queued field: {has_queue_auth}")
 
-            if not all([has_challenge_field, has_challenge_type, has_queue_auth]):
+            if not all([has_auth_type, has_queue_auth]):
                 missing = []
-                if not has_challenge_field:
-                    missing.append("challenge_detected")
-                if not has_challenge_type:
-                    missing.append("challenge_type")
+                if not has_auth_type:
+                    missing.append("auth_type")
                 if not has_queue_auth:
                     missing.append("auth_queued")
 
@@ -532,7 +527,7 @@ class SearchFetchVerifier:
                 )
 
             # Verify challenge detection doesn't false positive on clean page
-            if result.ok and not result.challenge_detected:
+            if result.ok and not result.auth_type:
                 print("    ✓ No false positive on clean page")
                 return VerificationResult(
                     name="CAPTCHA Detection",
@@ -544,8 +539,8 @@ class SearchFetchVerifier:
                         "note": "Detection logic present, no false positives",
                     },
                 )
-            elif result.challenge_detected:
-                print(f"    ! CAPTCHA detected on example.com: {result.challenge_type}")
+            elif result.auth_type:
+                print(f"    ! CAPTCHA detected on example.com: {result.auth_type}")
                 print("      This is unusual but shows detection is working")
                 return VerificationResult(
                     name="CAPTCHA Detection",
@@ -554,7 +549,7 @@ class SearchFetchVerifier:
                     details={
                         "has_detection_fields": True,
                         "captcha_detected": True,
-                        "captcha_type": result.challenge_type,
+                        "auth_type": result.auth_type,
                     },
                 )
             else:
@@ -617,7 +612,7 @@ class SearchFetchVerifier:
                     if result.ok and result.results:
                         print(f"    ✓ {engine}: {len(result.results)} results")
                         successful_engines.append(engine)
-                    elif result.captcha_detected:
+                    elif result.error and ("captcha" in result.error.lower() or "challenge" in result.error.lower()):
                         print(f"    ! {engine}: CAPTCHA detected (expected behavior)")
                         successful_engines.append(engine)  # Detection is success
                     else:
