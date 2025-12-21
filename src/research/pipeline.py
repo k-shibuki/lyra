@@ -536,16 +536,65 @@ class SearchPipeline:
                 entry.paper
                 for entry in unique_entries
                 if entry.paper and entry.paper.abstract and entry.paper.id in paper_to_page_map
-            ][:5]  # Top 5 papers
+            ]
+
+            from src.utils.config import get_settings
+
+            settings = get_settings()
+            top_n = settings.search.citation_graph_top_n_papers
+            depth = settings.search.citation_graph_depth
+            direction = settings.search.citation_graph_direction
+
+            papers_with_abstracts = papers_with_abstracts[:top_n]
 
             for paper in papers_with_abstracts:
                 try:
                     # Get citation graph
                     related_papers, citations = await academic_provider.get_citation_graph(
                         paper_id=paper.id,
-                        depth=1,
-                        direction="both",
+                        depth=depth,
+                        direction=direction,
                     )
+
+                    # Phase 3: Relevance filtering + auto-persist top citations
+                    try:
+                        from src.search.citation_filter import filter_relevant_citations
+
+                        filtered = await filter_relevant_citations(
+                            query=query,
+                            source_paper=paper,
+                            candidate_papers=related_papers,
+                        )
+                    except Exception as e:
+                        logger.debug(
+                            "Citation relevance filtering failed; skipping persist",
+                            paper_id=paper.id,
+                            error=str(e),
+                        )
+                        filtered = []
+
+                    # Persist relevant citation papers (Abstract Only) so edges are not skipped
+                    for scored in filtered:
+                        rp = scored.paper
+                        if rp.id in paper_to_page_map:
+                            continue
+                        if not rp.abstract:
+                            continue
+                        try:
+                            cited_page_id, _cited_fragment_id = await self._persist_abstract_as_fragment(
+                                paper=rp,
+                                task_id=self.task_id,
+                                search_id=search_id,
+                            )
+                            paper_to_page_map[rp.id] = cited_page_id
+                            graph = await get_evidence_graph(self.task_id)
+                            graph.add_node(NodeType.PAGE, cited_page_id)
+                        except Exception as e:
+                            logger.debug(
+                                "Failed to persist citation paper",
+                                paper_id=rp.id,
+                                error=str(e),
+                            )
 
                     # Look up page_id from mapping
                     mapped_page_id = paper_to_page_map.get(paper.id)
@@ -553,6 +602,7 @@ class SearchPipeline:
                     if mapped_page_id and citations:
                         # Build paper_metadata
                         paper_metadata = {
+                            "paper_id": paper.id,
                             "doi": paper.doi,
                             "arxiv_id": paper.arxiv_id,
                             "authors": [

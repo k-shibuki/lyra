@@ -52,6 +52,198 @@
 
 ---
 
+## 設計決定事項
+
+### 決定1: MCPツール体制
+
+**決定**: 11ツール体制を維持。
+
+### 決定2: 対立関係の扱い
+
+**決定**: Lyraは対立関係を**事実として記録**し、**解釈は高推論AIに委ねる**。
+
+| 要素 | Lyraの責務 | 高推論AIの責務 |
+|------|-----------|---------------|
+| 対立の検出 | REFUTESエッジを作成 | - |
+| ドメイン分類情報 | エッジに付与 | 参照して判断 |
+| 「科学的論争か誤情報か」 | **判断しない** | 判断する |
+| BLOCKEDの決定 | 危険パターン検出時のみ | 推奨可能 |
+
+**ContradictionType enum は導入しない**:
+- Lyraが「MISINFORMATION」「CONTESTED」とラベル付けすることは解釈行為
+- エッジ情報（relation + domain_categories）があれば高推論AIは自ら判断可能
+
+### 決定3: 信頼度が主、ドメインカテゴリは従
+
+**決定**: **信頼度（confidence）がエビデンス評価の主軸**。ドメインカテゴリ（DomainCategory）は副次的な参考情報に過ぎない。
+
+**根拠**: 査読済み論文 ≠ 正しい情報
+
+- 再現性危機: 心理学研究の60%以上が再現不可能
+- 年間数千件の論文が撤回される
+- arXiv等のプレプリントは査読なし
+- ハゲタカジャーナル（predatory journals）の存在
+
+**「ACADEMICドメインだから正しい」は技術的に誤り。間違った論文・不正な論文はいくらでもある。**
+
+```
+# 信頼度 = ベイズ更新で計算（§提案6、§決定7）
+confidence = alpha / (alpha + beta)  # Beta分布の期待値
+uncertainty = sqrt(variance)          # 不確実性
+controversy = ...                     # 論争度
+
+# 単一エビデンス = 高uncertainty（分からない）
+# 複数の独立エビデンスで裏付け = 低uncertainty（蓋然性が高い）
+```
+
+**設計への反映**:
+- Nature論文でも単独 → 高uncertainty（信頼度は確定しない）
+- 無名ブログでも5つの独立エビデンスで裏付け → 低uncertainty
+- DomainCategoryは「出自のヒント」であり、信頼性の保証ではない
+- DomainCategoryはランキング調整（category_weight）にのみ使用
+- DomainCategoryは検証判定（VERIFIED/REJECTED）には使用しない（決定10）
+
+### 決定4: Wikipedia
+
+**状態**: ✅ 実装済み
+
+`LOW` (0.40) として設定済み（`config/domains.yaml`）。
+
+### 決定5: 引用追跡の関連性フィルタリング
+
+**決定**: 2段階フィルタリング（Embedding → LLM）、上位10件
+
+**設計更新（重要）**:
+- `is_influential` は Semantic Scholar のみが提供する **エッジ属性**であり、OpenAlex では同等のフラグが存在しない。
+- そのため関連性フィルタリングでは、ソース非依存で利用可能な `Paper.citation_count` を用いた **impact_score（ローカル正規化）**を採用する。
+- `is_influential` はメタデータとして保存してよいが、スコアリングの主要入力としては依存しない（非対称性の回避）。
+
+**Stage 1: Embedding + is_influential（粗フィルタ）**
+| 要素 | 重み | 備考 |
+|------|:----:|------|
+| impact_score (citation_count) | 0.5 | S2/OpenAlex 共通（ローカル正規化） |
+| embedding similarity | 0.5 | 高速、セマンティック類似度 |
+
+→ 上位30件を抽出
+
+**Stage 2: LLM（精密評価）**
+| 要素 | 重み | 備考 |
+|------|:----:|------|
+| LLM relevance (Qwen2.5 3B) | 0.5 | 意味的関連性を直接評価 |
+| embedding similarity | 0.3 | Stage 1のスコアを引き継ぎ |
+| impact_score (citation_count) | 0.2 | S2/OpenAlex 共通（ローカル正規化） |
+
+→ 上位10件を選択
+
+**NLIを使用しない理由**:
+- NLIは「AはBを支持/反論するか」（論理的含意関係）を判定するモデル
+- 「AはBに関連があるか」の判定には**不適切**
+- LLMはプロンプトで評価基準を柔軟に指定でき、関連性評価に適している
+
+### 決定6: データソース戦略
+
+**決定**: S2 + OpenAlex を完全実装、他はブラウザ補完
+
+- アカデミッククエリかどうかは優先度の違い
+- 非アカデミッククエリでも学術識別子発見時にAPI補完
+
+### 決定7: ベイズ信頼度モデル
+
+**決定**: 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算を採用
+
+**設計原則**:
+- 事前分布にドメイン分類を使用しない（純粋エビデンス主義）
+- NLI confidence で重み付けしたベイズ更新
+- confidence, uncertainty, controversy の3値を出力
+
+**技術的根拠**:
+- 数学的に厳密で再現可能
+- 「分からない」状態（高uncertainty）を明示的に表現可能
+- 論争状態（高controversy）を検出可能
+- Lyraが取得する情報（NLI confidence, エッジ数）のみで計算可能
+
+**実装タイミング**: Phase 4（引用追跡の後）
+
+### 決定8: MLコンポーネントの使い分け
+
+**決定**: 用途に応じてML Server（lyra-ml）とローカルLLM（Ollama）を使い分ける
+
+| 用途 | Embedding | Reranker | NLI | LLM (Qwen) | 根拠 |
+|------|:---------:|:--------:|:---:|:----------:|------|
+| **検索結果ランキング** | Stage 2 | Stage 3 | - | - | 精度最大化 |
+| **引用追跡の粗フィルタ** | ✓ | - | - | - | 高速処理 |
+| **引用追跡の精密評価** | - | - | - | ✓ | 意味的関連性 |
+| **エビデンスグラフ構築** | - | - | ✓ | - | 論理的含意関係 |
+| **Fact/Claim抽出** | - | - | - | ✓ | 柔軟な抽出 |
+| **コンテンツ要約** | - | - | - | ✓ | 自然言語生成 |
+
+**NLI vs LLM の設計原則**:
+
+| モデル | 判定内容 | 適切な用途 | 不適切な用途 |
+|--------|----------|------------|--------------|
+| **NLI** | entailment/contradiction/neutral | SUPPORTS/REFUTES判定 | 関連性評価 |
+| **LLM** | 意味的関連性スコア (0-10) | 関連性評価、抽出、要約 | 大量バッチ処理 |
+
+**技術的根拠**:
+- NLIは3クラス分類モデルであり、「関連性」という連続的な概念を判定するには不適切
+- LLMはプロンプトで評価基準を柔軟に指定でき、関連性の「程度」を評価可能
+- Qwen2.5 3Bは§K.1に準拠した単一モデルであり、追加の依存関係は不要
+
+**関連性評価 vs 含意関係判定の責務分離**:
+
+| 処理 | 責務 | 判定内容 | 使用モデル | Phase |
+|------|------|----------|------------|:-----:|
+| 引用フィルタリング | 関連性評価 | 主題的な近さ | LLM | 3 |
+| エビデンスグラフ構築 | 含意関係判定 | SUPPORTS/REFUTES | NLI | 4 |
+
+関連性評価のプロンプトには「支持/反論」の判断を含めない（有用性＝“証拠になりうる/背景として重要”まで）。
+これらは責務が異なり、混同は設計の一貫性を損なう。
+
+### 決定9: is_contradiction フラグの廃止
+
+**決定**: `is_contradiction` フラグを廃止し、REFUTESエッジ + ドメイン分類情報による設計に一本化する。
+
+**廃止理由**:
+
+1. **DRY原則違反**: REFUTESエッジで既に同じ情報が表現されている。`is_contradiction` フラグは情報の重複に過ぎない。
+
+2. **Thinking-Working分離原則との矛盾**: 「これは矛盾である」というフラグを立てる行為は解釈行為であり、決定2の設計思想に反する。Lyraは事実を記録し、解釈は高推論AIに委ねるべき。
+
+3. **「矛盾」の定義が曖昧**: `find_contradictions()` はドメインカテゴリを考慮せず、REFUTESエッジがあれば一律に「矛盾」とマークする。ACADEMIC vs ACADEMIC の科学的論争と、ACADEMIC vs UNVERIFIED の誤情報を区別できない。
+
+4. **Phase 2 で代替可能**: `source_domain_category` / `target_domain_category` をエッジに付与することで、高推論AIは適切に判断可能。
+
+**削除対象**:
+- `edges.is_contradiction` カラム
+- `EvidenceGraph.mark_contradictions()` メソッド
+- `EvidenceGraph.get_contradiction_edges()` メソッド
+- 関連テストケース（`TestContradictionMarking` クラス）
+
+**代替手段**: Phase 2 で導入する `source_domain_category` / `target_domain_category` により、高推論AIは以下のように判断可能：
+- 両方ACADEMIC → 科学的論争
+- ACADEMIC vs UNVERIFIED → 誤情報の可能性
+- 同一ソース内の自己矛盾 → 論理的矛盾
+
+### 決定10: ReasonCode は事実のみ記述
+
+**決定**: `_determine_verification_outcome()` の reason は解釈を含まない `ReasonCode` enum とする。
+
+| コード | 意味（事実） | Lyra が判断しないこと |
+|--------|-------------|---------------------|
+| `conflicting_evidence` | 対立エビデンスが存在 | 「科学的論争である」「誤情報である」 |
+| `well_supported` | 複数の独立ソースで裏付け | 「正しい」 |
+| `insufficient_evidence` | エビデンス不足 | 「信頼できない」 |
+| `dangerous_pattern` | L2/L4 で危険パターン検出 | -（セキュリティ判断） |
+
+**根拠**:
+- 決定2: Lyra は事実を記録し、解釈は高推論 AI に委ねる
+- 決定9: `is_contradiction` フラグ廃止と同じ理由
+- ドメインカテゴリは判定に使用しない（決定3）
+
+高推論 AI はエッジの `source_domain_category` / `target_domain_category` を参照し、文脈に応じて「科学的論争」「誤情報」等の解釈を行う。Lyra は `ReasonCode` で事実のみを記述する。
+
+---
+
 ## 用語定義
 
 ### 主要概念
@@ -438,7 +630,7 @@ search(query)
      │            │ │  │                                                                              ││
      │            │ │  │ 【2段階フィルタリング】:                                                      ││
      │            │ │  │   Stage 1: 粗フィルタ（上位30件）                                            ││
-     │            │ │  │     → is_influential (S2): 0.5                                              ││
+     │            │ │  │     → impact_score (citation_count, ローカル正規化): 0.5                    ││
      │            │ │  │     → Embedding similarity ──────────────> ML Server /embed                 ││
      │            │ │  │     ← embeddings[]                                                           ││
      │            │ │  │                                                                              ││
@@ -591,8 +783,8 @@ search(query)
 
 **Phase 5 での2段階評価の根拠**:
 - Stage 1 (Embedding): 高速に候補を30件程度に絞り込み
-- Stage 2 (LLM): 意味的関連性を正確に評価、上位10件を選択
-- is_influential (S2) との組み合わせで堅牢な判定
+- Stage 2 (LLM): “有用なエビデンス/重要な背景になり得るか”を精密評価し、上位10件を選択
+- impact_score（`Paper.citation_count` のローカル正規化）を併用し、S2/OpenAlexの非対称性を避けつつ頑健化
 
 ### 改善のポイント
 
@@ -1112,11 +1304,15 @@ async def evaluate_relevance_with_llm(
 {target_abstract[:500]}
 
 **評価基準**:
-- 10: クエリに直接答える、または元論文の主張を強く支持/反論
-- 7-9: 密接に関連、重要な背景情報を提供
-- 4-6: 部分的に関連
+- 10: クエリの中心に直接関係し、検証・比較・根拠付けに使える（同じ問い・アウトカム・仮説・主要変数・データ/手法）
+- 7-9: 近接領域で重要な背景・関連研究・方法論として有用
+- 4-6: ある程度関連するが間接的
 - 1-3: わずかに関連
 - 0: 無関係
+
+**注意**:
+- 支持/反論（SUPPORTS/REFUTES）の判定はしないでください。
+- “主題的な近さ”だけでなく、「評価の材料として使えるか」という観点で有用性を判断してください。
 
 回答は数字のみ:"""
 
@@ -1758,9 +1954,11 @@ async def _evaluate_relevance_with_llm(
 ```jinja2
 {# config/prompts/relevance_evaluation.j2 #}
 以下の研究クエリと2つの論文アブストラクトを読んで、
-引用先論文がクエリと元論文にどの程度**主題的に関連**するかを0-10で評価してください。
+「引用先論文が、クエリに答えるため／主張を評価するための**有用なエビデンスまたは重要な背景**になり得るか」を
+0-10で評価してください。
 
-**クエリ**: {{ query }}
+**クエリ**:
+{{ query }}
 
 **元論文アブストラクト**:
 {{ source_abstract }}
@@ -1768,17 +1966,17 @@ async def _evaluate_relevance_with_llm(
 **引用先論文アブストラクト**:
 {{ target_abstract }}
 
-**評価基準**:
-- 10: 同一の研究課題を扱っている
-- 7-9: 同一分野で密接に関連する課題を扱っている
-- 4-6: 関連する分野または手法を共有している
-- 1-3: 間接的な関連のみ
+**評価基準（“有用性”）**:
+- 10: クエリの中心に直接関係し、検証・比較・根拠付けに使える
+- 7-9: 近接領域で重要な背景・関連研究・方法論として有用
+- 4-6: ある程度関連するが間接的
+- 1-3: わずかに関連
 - 0: 無関係
 
-**注意**:
-- 支持/反論の判断は行わないでください。主題的な近さのみを評価してください。
-- 回答は半角数字のみとしてください。
-
+**注意（重要）**:
+- 支持/反論（SUPPORTS/REFUTES）の判定はしないでください。方向づけは不要です。
+- “主題的な近さ”だけでなく、「評価の材料として使えるか」という観点で有用性を判断してください。
+- 回答は半角数字のみ（0〜10）で返してください。
 ```
 
 #### テストケース
@@ -1801,8 +1999,8 @@ def test_stage2_llm_evaluation():
 def test_relevance_filtering_top_10():
     """最終的に上位10件が選択されることを検証"""
 
-def test_is_influential_boost():
-    """is_influentialフラグがスコアを上げることを検証"""
+def test_local_impact_scores_percentile_rank():
+    """impact_score（citation_countのローカル正規化）が順位を反映することを検証"""
 
 # tests/test_academic_provider.py
 def test_citation_tracking_adds_referenced_papers():
@@ -2130,193 +2328,6 @@ class VerificationStatus(str, Enum):
 3. **シンプルさ**: 状態の増加は複雑性を増す
 
 対立関係はエッジ（REFUTES）として記録し、そのメタデータ（source_domain_category, target_domain_category）を提供することで、高推論AIに判断材料を与える。
-
----
-
-## 設計決定事項
-
-### 決定1: MCPツール体制
-
-**決定**: 11ツール体制を維持。
-
-### 決定2: 対立関係の扱い
-
-**決定**: Lyraは対立関係を**事実として記録**し、**解釈は高推論AIに委ねる**。
-
-| 要素 | Lyraの責務 | 高推論AIの責務 |
-|------|-----------|---------------|
-| 対立の検出 | REFUTESエッジを作成 | - |
-| ドメイン分類情報 | エッジに付与 | 参照して判断 |
-| 「科学的論争か誤情報か」 | **判断しない** | 判断する |
-| BLOCKEDの決定 | 危険パターン検出時のみ | 推奨可能 |
-
-**ContradictionType enum は導入しない**:
-- Lyraが「MISINFORMATION」「CONTESTED」とラベル付けすることは解釈行為
-- エッジ情報（relation + domain_categories）があれば高推論AIは自ら判断可能
-
-### 決定9: is_contradiction フラグの廃止
-
-**決定**: `is_contradiction` フラグを廃止し、REFUTESエッジ + ドメイン分類情報による設計に一本化する。
-
-**廃止理由**:
-
-1. **DRY原則違反**: REFUTESエッジで既に同じ情報が表現されている。`is_contradiction` フラグは情報の重複に過ぎない。
-
-2. **Thinking-Working分離原則との矛盾**: 「これは矛盾である」というフラグを立てる行為は解釈行為であり、決定2の設計思想に反する。Lyraは事実を記録し、解釈は高推論AIに委ねるべき。
-
-3. **「矛盾」の定義が曖昧**: `find_contradictions()` はドメインカテゴリを考慮せず、REFUTESエッジがあれば一律に「矛盾」とマークする。ACADEMIC vs ACADEMIC の科学的論争と、ACADEMIC vs UNVERIFIED の誤情報を区別できない。
-
-4. **Phase 2 で代替可能**: `source_domain_category` / `target_domain_category` をエッジに付与することで、高推論AIは適切に判断可能。
-
-**削除対象**:
-- `edges.is_contradiction` カラム
-- `EvidenceGraph.mark_contradictions()` メソッド
-- `EvidenceGraph.get_contradiction_edges()` メソッド
-- 関連テストケース（`TestContradictionMarking` クラス）
-
-**代替手段**: Phase 2 で導入する `source_domain_category` / `target_domain_category` により、高推論AIは以下のように判断可能：
-- 両方ACADEMIC → 科学的論争
-- ACADEMIC vs UNVERIFIED → 誤情報の可能性
-- 同一ソース内の自己矛盾 → 論理的矛盾
-
-### 決定10: ReasonCode は事実のみ記述
-
-**決定**: `_determine_verification_outcome()` の reason は解釈を含まない `ReasonCode` enum とする。
-
-| コード | 意味（事実） | Lyra が判断しないこと |
-|--------|-------------|---------------------|
-| `conflicting_evidence` | 対立エビデンスが存在 | 「科学的論争である」「誤情報である」 |
-| `well_supported` | 複数の独立ソースで裏付け | 「正しい」 |
-| `insufficient_evidence` | エビデンス不足 | 「信頼できない」 |
-| `dangerous_pattern` | L2/L4 で危険パターン検出 | -（セキュリティ判断） |
-
-**根拠**:
-- 決定2: Lyra は事実を記録し、解釈は高推論 AI に委ねる
-- 決定9: `is_contradiction` フラグ廃止と同じ理由
-- ドメインカテゴリは判定に使用しない（決定3）
-
-高推論 AI はエッジの `source_domain_category` / `target_domain_category` を参照し、文脈に応じて「科学的論争」「誤情報」等の解釈を行う。Lyra は `ReasonCode` で事実のみを記述する。
-
-### 決定3: 信頼度が主、ドメインカテゴリは従
-
-**決定**: **信頼度（confidence）がエビデンス評価の主軸**。ドメインカテゴリ（DomainCategory）は副次的な参考情報に過ぎない。
-
-**根拠**: 査読済み論文 ≠ 正しい情報
-
-- 再現性危機: 心理学研究の60%以上が再現不可能
-- 年間数千件の論文が撤回される
-- arXiv等のプレプリントは査読なし
-- ハゲタカジャーナル（predatory journals）の存在
-
-**「ACADEMICドメインだから正しい」は技術的に誤り。間違った論文・不正な論文はいくらでもある。**
-
-```
-# 信頼度 = ベイズ更新で計算（§提案6、§決定7）
-confidence = alpha / (alpha + beta)  # Beta分布の期待値
-uncertainty = sqrt(variance)          # 不確実性
-controversy = ...                     # 論争度
-
-# 単一エビデンス = 高uncertainty（分からない）
-# 複数の独立エビデンスで裏付け = 低uncertainty（蓋然性が高い）
-```
-
-**設計への反映**:
-- Nature論文でも単独 → 高uncertainty（信頼度は確定しない）
-- 無名ブログでも5つの独立エビデンスで裏付け → 低uncertainty
-- DomainCategoryは「出自のヒント」であり、信頼性の保証ではない
-- DomainCategoryはランキング調整（category_weight）にのみ使用
-- DomainCategoryは検証判定（VERIFIED/REJECTED）には使用しない（決定10）
-
-### 決定4: Wikipedia
-
-**状態**: ✅ 実装済み
-
-`LOW` (0.40) として設定済み（`config/domains.yaml`）。
-
-### 決定5: 引用追跡の関連性フィルタリング
-
-**決定**: 2段階フィルタリング（Embedding → LLM）、上位10件
-
-**Stage 1: Embedding + is_influential（粗フィルタ）**
-| 要素 | 重み | 備考 |
-|------|:----:|------|
-| is_influential (S2) | 0.5 | S2のみ |
-| embedding similarity | 0.5 | 高速、セマンティック類似度 |
-
-→ 上位30件を抽出
-
-**Stage 2: LLM（精密評価）**
-| 要素 | 重み | 備考 |
-|------|:----:|------|
-| LLM relevance (Qwen2.5 3B) | 0.5 | 意味的関連性を直接評価 |
-| embedding similarity | 0.3 | Stage 1のスコアを引き継ぎ |
-| is_influential (S2) | 0.2 | S2のみ |
-
-→ 上位10件を選択
-
-**NLIを使用しない理由**:
-- NLIは「AはBを支持/反論するか」（論理的含意関係）を判定するモデル
-- 「AはBに関連があるか」の判定には**不適切**
-- LLMはプロンプトで評価基準を柔軟に指定でき、関連性評価に適している
-
-### 決定6: データソース戦略
-
-**決定**: S2 + OpenAlex を完全実装、他はブラウザ補完
-
-- アカデミッククエリかどうかは優先度の違い
-- 非アカデミッククエリでも学術識別子発見時にAPI補完
-
-### 決定7: ベイズ信頼度モデル
-
-**決定**: 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算を採用
-
-**設計原則**:
-- 事前分布にドメイン分類を使用しない（純粋エビデンス主義）
-- NLI confidence で重み付けしたベイズ更新
-- confidence, uncertainty, controversy の3値を出力
-
-**技術的根拠**:
-- 数学的に厳密で再現可能
-- 「分からない」状態（高uncertainty）を明示的に表現可能
-- 論争状態（高controversy）を検出可能
-- Lyraが取得する情報（NLI confidence, エッジ数）のみで計算可能
-
-**実装タイミング**: Phase 4（引用追跡の後）
-
-### 決定8: MLコンポーネントの使い分け
-
-**決定**: 用途に応じてML Server（lyra-ml）とローカルLLM（Ollama）を使い分ける
-
-| 用途 | Embedding | Reranker | NLI | LLM (Qwen) | 根拠 |
-|------|:---------:|:--------:|:---:|:----------:|------|
-| **検索結果ランキング** | Stage 2 | Stage 3 | - | - | 精度最大化 |
-| **引用追跡の粗フィルタ** | ✓ | - | - | - | 高速処理 |
-| **引用追跡の精密評価** | - | - | - | ✓ | 意味的関連性 |
-| **エビデンスグラフ構築** | - | - | ✓ | - | 論理的含意関係 |
-| **Fact/Claim抽出** | - | - | - | ✓ | 柔軟な抽出 |
-| **コンテンツ要約** | - | - | - | ✓ | 自然言語生成 |
-
-**NLI vs LLM の設計原則**:
-
-| モデル | 判定内容 | 適切な用途 | 不適切な用途 |
-|--------|----------|------------|--------------|
-| **NLI** | entailment/contradiction/neutral | SUPPORTS/REFUTES判定 | 関連性評価 |
-| **LLM** | 意味的関連性スコア (0-10) | 関連性評価、抽出、要約 | 大量バッチ処理 |
-
-**技術的根拠**:
-- NLIは3クラス分類モデルであり、「関連性」という連続的な概念を判定するには不適切
-- LLMはプロンプトで評価基準を柔軟に指定でき、関連性の「程度」を評価可能
-- Qwen2.5 3Bは§K.1に準拠した単一モデルであり、追加の依存関係は不要
-
-**関連性評価 vs 含意関係判定の責務分離**:
-
-| 処理 | 責務 | 判定内容 | 使用モデル | Phase |
-|------|------|----------|------------|:-----:|
-| 引用フィルタリング | 関連性評価 | 主題的な近さ | LLM | 3 |
-| エビデンスグラフ構築 | 含意関係判定 | SUPPORTS/REFUTES | NLI | 4 |
-
-関連性評価のプロンプトには「支持/反論」の判断を含めない。
-これらは責務が異なり、混同は設計の一貫性を損なう。
 
 ---
 

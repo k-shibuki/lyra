@@ -4,6 +4,7 @@ OpenAlex API client.
 Large-scale search API (priority=2).
 """
 
+import asyncio
 from typing import Any, cast
 
 from src.search.apis.base import BaseAcademicClient
@@ -72,15 +73,13 @@ class OpenAlexClient(BaseAcademicClient):
         """Get paper metadata."""
         session = await self._get_session()
 
+        pid = self._normalize_work_id(paper_id)
+
         async def _fetch() -> dict[str, Any]:
-            # paper_id is "W123456789" format or "https://openalex.org/W123456789"
-            pid = paper_id
-            if pid.startswith("https://"):
-                pid = pid.split("/")[-1]
             response = await session.get(
                 f"{self.base_url}/works/{pid}",
                 params={
-                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location"
+                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,referenced_works,open_access,primary_location"
                 },
             )
             response.raise_for_status()
@@ -94,18 +93,81 @@ class OpenAlexClient(BaseAcademicClient):
             return None
 
     async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
-        """Get references (OpenAlex does not support detailed references)."""
-        # OpenAlex API does not have a references endpoint
-        # Detailed references retrieval is delegated to Semantic Scholar
-        logger.debug("OpenAlex does not support detailed references", paper_id=paper_id)
-        return []
+        """Get references via referenced_works field (no influential flag)."""
+        pid = self._normalize_work_id(paper_id)
+
+        paper = await self.get_paper(pid)
+        if paper is None:
+            return []
+
+        # Fetch full work JSON to obtain referenced_works list (IDs/URLs)
+        session = await self._get_session()
+
+        async def _fetch() -> dict[str, Any]:
+            response = await session.get(
+                f"{self.base_url}/works/{pid}",
+                params={"select": "id,referenced_works"},
+            )
+            response.raise_for_status()
+            return cast(dict[str, Any], response.json())
+
+        try:
+            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+        except Exception as e:
+            logger.debug("OpenAlex referenced_works fetch failed", paper_id=paper_id, error=str(e))
+            return []
+
+        refs = data.get("referenced_works") or []
+        if not isinstance(refs, list):
+            return []
+
+        # Limit fan-out for performance
+        refs = refs[:20]
+
+        async def _get_one(ref: Any) -> Paper | None:
+            if not isinstance(ref, str):
+                return None
+            try:
+                return await self.get_paper(ref)
+            except Exception:
+                return None
+
+        papers = await asyncio.gather(*[_get_one(r) for r in refs], return_exceptions=False)
+        return [(p, False) for p in papers if p and p.abstract]
 
     async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
-        """Get citations (OpenAlex does not support detailed citations)."""
-        # OpenAlex API does not have a citations endpoint
-        # Detailed citations retrieval is delegated to Semantic Scholar
-        logger.debug("OpenAlex does not support detailed citations", paper_id=paper_id)
-        return []
+        """Get citing papers via filter=cites:{work_id} (no influential flag)."""
+        pid = self._normalize_work_id(paper_id)
+        session = await self._get_session()
+
+        async def _search() -> dict[str, Any]:
+            response = await session.get(
+                f"{self.base_url}/works",
+                params={
+                    "filter": f"cites:{pid}",
+                    "per-page": 20,
+                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
+                },
+            )
+            response.raise_for_status()
+            return cast(dict[str, Any], response.json())
+
+        try:
+            data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
+            papers = [self._parse_paper(w) for w in data.get("results", [])]
+            return [(p, False) for p in papers if p and p.abstract]
+        except Exception as e:
+            logger.debug("OpenAlex citations fetch failed", paper_id=paper_id, error=str(e))
+            return []
+
+    def _normalize_work_id(self, paper_id: str) -> str:
+        """Normalize OpenAlex work identifiers for API usage."""
+        pid = paper_id.strip()
+        if pid.startswith("openalex:"):
+            pid = pid.split("openalex:", 1)[1]
+        if pid.startswith("https://"):
+            pid = pid.split("/")[-1]
+        return pid
 
     def _parse_paper(self, data: dict) -> Paper:
         """Convert API response to Paper model."""

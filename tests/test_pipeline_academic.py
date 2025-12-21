@@ -264,6 +264,7 @@ class TestEvidenceGraphIntegration:
             # Given
             page_id = "page_test123"
             paper_metadata = {
+                "paper_id": "s2:test123",
                 "doi": "10.1234/test",
                 "citation_count": 42,
                 "year": 2024,
@@ -273,6 +274,7 @@ class TestEvidenceGraphIntegration:
 
             # Given: paper_to_page_map for citations
             paper_to_page_map = {
+                "s2:test123": page_id,
                 "s2:ref1": "page_ref1",
                 "s2:ref2": "page_ref2",
                 "s2:ref3": "page_ref3",

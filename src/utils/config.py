@@ -41,6 +41,40 @@ class SearchConfig(BaseModel):
     novelty_threshold: float = 0.10
     novelty_cycles_to_stop: int = 2
 
+    # Academic citation graph integration (Phase 3)
+    citation_graph_top_n_papers: int = 5
+    citation_graph_depth: int = 1
+    citation_graph_direction: str = "both"  # references, citations, both
+    citation_filter: "CitationFilterConfig" = Field(default_factory=lambda: CitationFilterConfig())
+
+
+class CitationFilterConfig(BaseModel):
+    """Citation relevance filtering configuration (Phase 3).
+
+    Design:
+    - Stage 1 uses Embedding similarity + impact_score (source-agnostic).
+    - Stage 2 uses LLM "evidence usefulness" score + Stage 1 signals.
+    - `is_influential` is stored as metadata but not relied on for scoring
+      because it is only available via Semantic Scholar.
+    """
+
+    # Stage 1: fast coarse filtering
+    stage1_top_k: int = 30
+    stage1_weight_embedding: float = 0.5
+    stage1_weight_impact: float = 0.5
+
+    # Stage 2: precise LLM evaluation
+    stage2_top_k: int = 10
+    stage2_weight_llm: float = 0.5
+    stage2_weight_embedding: float = 0.3
+    stage2_weight_impact: float = 0.2
+
+    # LLM prompt/input limits (to control cost)
+    max_source_abstract_chars: int = 1200
+    max_target_abstract_chars: int = 1200
+    llm_timeout_seconds: float = 60.0
+    llm_max_tokens: int = 16
+
 
 class CrawlerConfig(BaseModel):
     """Crawler configuration."""
