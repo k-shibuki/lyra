@@ -26,6 +26,7 @@ Follows test-strategy.mdc:
 """
 
 from collections.abc import Generator
+from typing import Any
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -139,7 +140,7 @@ def mock_playwright(mock_browser: AsyncMock) -> AsyncMock:
 
 
 @pytest.fixture(autouse=True)
-def mock_human_behavior_simulator() -> Generator[None, None, None]:
+def mock_human_behavior_simulator() -> Generator[Any, None, None]:
     """Mock get_human_behavior_simulator to avoid coroutine warnings."""
     mock_simulator = MagicMock()
     mock_simulator.read_page = AsyncMock()
