@@ -1400,7 +1400,7 @@ def test_not_adopted_claim_preserved():
 
 > **重要**: ドメインカテゴリ情報は**高推論AI向けの参考情報**であり、**ベイズ信頼度計算（Phase 4）には使用しない**。
 > ベイズモデルは NLI confidence のみを使用する（§決定3、§決定7参照）。
-> また、**検証判定（VERIFIED/REJECTED）にも使用しない**（§決定10参照）。
+> また、**検証判定（VERIFIED/REJECTED）にも使用しない**。
 
 **この Phase を先に実装する根拠**:
 Phase 3（引用追跡）で追加される論文間の対立関係を、高推論AIが適切に解釈できるようにする。現行の`refuting_count > 0`で即BLOCKEDとなる問題も、エッジ情報に基づく判断基準の緩和で解決する。

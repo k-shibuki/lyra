@@ -310,7 +310,7 @@ async def main() -> int:
     print("\n[7] Testing state.record_* methods...")
 
     search_id = "s_test_debug"
-    registered_search = state.register_search(
+    state.register_search(
         search_id=search_id,
         text="debug search",
         priority="medium",

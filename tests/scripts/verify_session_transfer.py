@@ -138,7 +138,7 @@ class SessionTransferVerifier:
             # BrowserFetcher.fetch automatically captures session, so we just verify it exists
             final_stats = manager.get_session_stats()
             session_captured = final_stats["total_sessions"] > initial_stats["total_sessions"]
-            
+
             if session_captured:
                 # Get the most recent session
                 sessions = manager._sessions

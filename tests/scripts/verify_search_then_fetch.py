@@ -259,7 +259,7 @@ class SearchFetchVerifier:
                     # Check if session was captured by verifying session stats increased
                     final_stats = manager.get_session_stats()
                     session_captured = final_stats["total_sessions"] > initial_stats["total_sessions"]
-                    
+
                     # Get session for domain if captured
                     session_id: str | None = None
                     if session_captured:
