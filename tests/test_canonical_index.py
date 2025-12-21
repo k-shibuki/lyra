@@ -187,7 +187,7 @@ class TestPaperIdentityResolver:
         """
         # Given: Empty authors list
         resolver = PaperIdentityResolver()
-        authors = []
+        authors: list[str] = []
 
         # When: Extracting surname
         surname = resolver._extract_first_author_surname(authors)

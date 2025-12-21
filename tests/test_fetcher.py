@@ -78,6 +78,7 @@ class TestSaveWarc:
             }
 
             warc_path = await _save_warc(url, content, status_code, response_headers)
+            assert warc_path is not None
 
             # Read raw gzipped WARC content to verify
             with gzip.open(warc_path, "rb") as f:
@@ -108,6 +109,7 @@ class TestSaveWarc:
             warc_path = await _save_warc(
                 url, content, status_code, response_headers, request_headers=request_headers
             )
+            assert warc_path is not None
 
             # Count record types
             record_types = []
