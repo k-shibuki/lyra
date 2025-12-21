@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 sys.path.insert(0, "/home/statuser/lyra")
 
 
-async def main():
+async def main() -> int:
     """Run other tools verification."""
     print("=" * 70)
     print("Other MCP Tools Debug Script (O.7)")

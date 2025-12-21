@@ -62,7 +62,7 @@ class VerificationResult:
 class SearchFetchVerifier:
     """Verifier for §3.2 search -> fetch consistency."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.browser_available = False
         self.search_results: list[dict] = []
@@ -125,7 +125,6 @@ class SearchFetchVerifier:
             options = SearchOptions(
                 engines=[test_engine],
                 limit=5,
-                time_range=None,
             )
 
             start_time = time.time()
@@ -743,7 +742,7 @@ class SearchFetchVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     configure_logging(log_level="INFO", json_format=False)
 
     verifier = SearchFetchVerifier()

@@ -29,7 +29,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def test_parse_operators():
+async def test_parse_operators() -> bool:
     """Test that query operators are correctly parsed."""
     print("\n" + "=" * 80)
     print("[Test 1] Query Operator Parsing")
@@ -106,7 +106,7 @@ async def test_parse_operators():
     return all_passed
 
 
-async def test_transform_for_google():
+async def test_transform_for_google() -> bool:
     """Test query transformation for Google engine."""
     print("\n" + "=" * 80)
     print("[Test 2] Transform for Google")
@@ -144,7 +144,7 @@ async def test_transform_for_google():
     return all_passed
 
 
-async def test_transform_for_duckduckgo():
+async def test_transform_for_duckduckgo() -> bool:
     """Test query transformation for DuckDuckGo engine."""
     print("\n" + "=" * 80)
     print("[Test 3] Transform for DuckDuckGo")
@@ -191,7 +191,7 @@ async def test_transform_for_duckduckgo():
     return all_passed
 
 
-async def test_transform_for_mojeek():
+async def test_transform_for_mojeek() -> bool:
     """Test query transformation for Mojeek engine."""
     print("\n" + "=" * 80)
     print("[Test 4] Transform for Mojeek")
@@ -237,7 +237,7 @@ async def test_transform_for_mojeek():
     return all_passed
 
 
-async def test_edge_cases():
+async def test_edge_cases() -> bool:
     """Test edge cases for query transformation."""
     print("\n" + "=" * 80)
     print("[Test 5] Edge Cases")
@@ -283,7 +283,7 @@ async def test_edge_cases():
     return all_passed
 
 
-async def test_supported_operators():
+async def test_supported_operators() -> bool:
     """Test getting supported operators for engines."""
     print("\n" + "=" * 80)
     print("[Test 6] Supported Operators by Engine")
@@ -327,7 +327,7 @@ async def test_supported_operators():
     return all_passed
 
 
-async def test_full_flow():
+async def test_full_flow() -> bool:
     """Test full query normalization flow."""
     print("\n" + "=" * 80)
     print("[Test 7] Full Query Normalization Flow")
@@ -366,7 +366,7 @@ async def test_full_flow():
     return all_passed
 
 
-async def main():
+async def main() -> int:
     """Run all tests."""
     print("=" * 80)
     print("Query Normalizer Flow Debug Script")
@@ -403,8 +403,7 @@ async def main():
             print("✗ Some tests failed")
         print("=" * 80)
 
-        if not all_passed:
-            sys.exit(1)
+        return 0 if all_passed else 1
 
     except Exception as e:
         print("\n" + "=" * 80)
@@ -413,8 +412,9 @@ async def main():
         import traceback
 
         traceback.print_exc()
-        sys.exit(1)
+        return 1
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)

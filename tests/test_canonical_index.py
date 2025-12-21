@@ -43,7 +43,14 @@ class TestPaperIdentityResolver:
         paper = Paper(
             id="test:123",
             title="Test Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="test",
         )
 
@@ -66,8 +73,15 @@ class TestPaperIdentityResolver:
         paper = Paper(
             id="test:456",
             title="Test Paper Title",
-            authors=[Author(name="John Smith")],
+            abstract=None,
+            authors=[Author(name="John Smith", affiliation=None, orcid=None)],
             year=2024,
+            published_date=None,
+            doi=None,
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="test",
         )
 
@@ -86,7 +100,7 @@ class TestPaperIdentityResolver:
         """
         # Given: PaperIdentifier with DOI
         resolver = PaperIdentityResolver()
-        identifier = PaperIdentifier(doi="10.1234/example")
+        identifier = PaperIdentifier(doi="10.1234/example", pmid=None, arxiv_id=None, crid=None, url=None)
 
         # When: Resolving identity
         canonical_id = resolver.resolve_identity_from_identifier(identifier)
@@ -122,7 +136,7 @@ class TestPaperIdentityResolver:
         """
         # Given: Author name in "First Last" format
         resolver = PaperIdentityResolver()
-        authors = [Author(name="John Smith")]
+        authors = [Author(name="John Smith", affiliation=None, orcid=None)]
 
         # When: Extracting surname
         surname = resolver._extract_first_author_surname(authors)
@@ -139,7 +153,7 @@ class TestPaperIdentityResolver:
         """
         # Given: Author name in "Last, First" format
         resolver = PaperIdentityResolver()
-        authors = [Author(name="Smith, John")]
+        authors = [Author(name="Smith, John", affiliation=None, orcid=None)]
 
         # When: Extracting surname
         surname = resolver._extract_first_author_surname(authors)
@@ -156,7 +170,7 @@ class TestPaperIdentityResolver:
         """
         # Given: Single name
         resolver = PaperIdentityResolver()
-        authors = [Author(name="Madonna")]
+        authors = [Author(name="Madonna", affiliation=None, orcid=None)]
 
         # When: Extracting surname
         surname = resolver._extract_first_author_surname(authors)
@@ -197,7 +211,14 @@ class TestCanonicalPaperIndex:
         paper = Paper(
             id="test:123",
             title="Test Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
 
@@ -223,13 +244,27 @@ class TestCanonicalPaperIndex:
         paper1 = Paper(
             id="test:123",
             title="Test Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
         paper2 = Paper(
             id="test:456",
             title="Test Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="openalex",
         )
 
@@ -260,7 +295,7 @@ class TestCanonicalPaperIndex:
             engine="google",
             rank=1,
         )
-        identifier = PaperIdentifier(url=serp_result.url)
+        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id=None, crid=None, url=serp_result.url)
 
         # When: Registering SERP result
         canonical_id = index.register_serp_result(serp_result, identifier)
@@ -284,7 +319,14 @@ class TestCanonicalPaperIndex:
         paper = Paper(
             id="test:123",
             title="Test Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
         index.register_paper(paper, source_api="semantic_scholar")
@@ -296,7 +338,7 @@ class TestCanonicalPaperIndex:
             engine="google",
             rank=1,
         )
-        identifier = PaperIdentifier(doi="10.1234/example")
+        identifier = PaperIdentifier(doi="10.1234/example", pmid=None, arxiv_id=None, crid=None, url=None)
 
         # When: Registering SERP result
         index.register_serp_result(serp_result, identifier)
@@ -319,6 +361,14 @@ class TestCanonicalPaperIndex:
         paper = Paper(
             id="test:123",
             title="Machine Learning Research Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
+            doi=None,
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="test",
         )
         index.register_paper(paper, source_api="test")
@@ -362,7 +412,14 @@ class TestCanonicalPaperIndex:
         paper = Paper(
             id="test:123",
             title="Test",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="test",
         )
         index.register_paper(paper, source_api="test")
@@ -386,6 +443,14 @@ class TestCanonicalPaperIndex:
         paper = Paper(
             id="test:123",
             title="",  # Empty title
+            abstract=None,
+            year=None,
+            published_date=None,
+            doi=None,
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="test",
         )
 
@@ -406,7 +471,19 @@ class TestCanonicalPaperIndex:
         index = CanonicalPaperIndex()
 
         # API-only entry
-        paper1 = Paper(id="test:1", title="Paper 1", doi="10.1/1", source_api="test")
+        paper1 = Paper(
+            id="test:1",
+            title="Paper 1",
+            abstract=None,
+            year=None,
+            published_date=None,
+            doi="10.1/1",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
+            source_api="test",
+        )
         index.register_paper(paper1, source_api="test")
 
         # SERP-only entry
@@ -417,10 +494,22 @@ class TestCanonicalPaperIndex:
             engine="google",
             rank=1,
         )
-        index.register_serp_result(serp, PaperIdentifier(url=serp.url))
+        index.register_serp_result(serp, PaperIdentifier(doi=None, pmid=None, arxiv_id=None, crid=None, url=serp.url))
 
         # Both entry
-        paper3 = Paper(id="test:3", title="Paper 3", doi="10.3/3", source_api="test")
+        paper3 = Paper(
+            id="test:3",
+            title="Paper 3",
+            abstract=None,
+            year=None,
+            published_date=None,
+            doi="10.3/3",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
+            source_api="test",
+        )
         index.register_paper(paper3, source_api="test")
         serp3 = SearchResult(
             title="Paper 3",
@@ -429,7 +518,7 @@ class TestCanonicalPaperIndex:
             engine="google",
             rank=1,
         )
-        index.register_serp_result(serp3, PaperIdentifier(doi="10.3/3"))
+        index.register_serp_result(serp3, PaperIdentifier(doi="10.3/3", pmid=None, arxiv_id=None, crid=None, url=None))
 
         # When: Getting stats
         stats = index.get_stats()
@@ -452,7 +541,14 @@ class TestCanonicalPaperIndex:
         paper = Paper(
             id="test:123",
             title="Test Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
 
@@ -462,7 +558,14 @@ class TestCanonicalPaperIndex:
         paper2 = Paper(
             id="test:456",
             title="Test Paper",
+            abstract=None,
+            year=None,
+            published_date=None,
             doi="10.1234/example",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="openalex",
         )
         id2 = index.register_paper(paper2, source_api="openalex")

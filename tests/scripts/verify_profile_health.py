@@ -55,7 +55,7 @@ class VerificationResult:
 class ProfileHealthVerifier:
     """Verifier for §7 profile health acceptance criteria."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.browser_available = False
 
@@ -477,7 +477,7 @@ class ProfileHealthVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     configure_logging(log_level="INFO", json_format=False)
 
     verifier = ProfileHealthVerifier()

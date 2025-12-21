@@ -491,7 +491,7 @@ class TestParserErrorHandling:
             f"Expected 'results_container' in error message: {error_text}"
         )
 
-    def test_html_saved_on_failure(self, tmp_path) -> None:
+    def test_html_saved_on_failure(self, tmp_path: Path) -> None:
         """Test HTML is saved when parsing fails."""
         # Configure to save to temp directory
         with patch.object(

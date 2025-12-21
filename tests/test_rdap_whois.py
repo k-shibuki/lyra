@@ -41,6 +41,8 @@ import pytest
 pytestmark = pytest.mark.unit
 # E402: Intentionally import after pytestmark for test configuration
 from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from src.crawler.rdap_whois import (
@@ -325,13 +327,13 @@ class TestRDAPClient:
     """Tests for RDAP client."""
 
     @pytest.fixture
-    def mock_fetcher(self):
+    def mock_fetcher(self) -> AsyncMock:
         """Create mock fetcher."""
         fetcher = AsyncMock()
         return fetcher
 
     @pytest.mark.asyncio
-    async def test_lookup_success(self, mock_fetcher, tmp_path) -> None:
+    async def test_lookup_success(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test successful WHOIS lookup (TC-RC-N-01)."""
         # Given: A mock fetcher returning valid HTML with WHOIS data
         html_path = tmp_path / "whois.html"
@@ -360,7 +362,7 @@ class TestRDAPClient:
         assert record.registrar == "Test Registrar"
 
     @pytest.mark.asyncio
-    async def test_lookup_cache(self, mock_fetcher, tmp_path) -> None:
+    async def test_lookup_cache(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test that results are cached (TC-RC-N-02)."""
         # Given: A mock fetcher and a client with caching enabled
         html_path = tmp_path / "whois.html"
@@ -399,7 +401,7 @@ class TestRDAPClient:
         assert record is None
 
     @pytest.mark.asyncio
-    async def test_lookup_fetch_failure(self, mock_fetcher) -> None:
+    async def test_lookup_fetch_failure(self, mock_fetcher: AsyncMock) -> None:
         """Test handling of fetch failure (TC-RC-A-02)."""
         # Given: A mock fetcher that returns a failure result
         result = MagicMock()
@@ -416,7 +418,7 @@ class TestRDAPClient:
         assert record is None
 
     @pytest.mark.asyncio
-    async def test_lookup_batch(self, mock_fetcher, tmp_path):
+    async def test_lookup_batch(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test batch lookup of multiple domains (TC-RC-N-03)."""
         # Given: A mock fetcher and multiple domains to look up
         for i, domain in enumerate(["a.com", "b.com", "c.com"]):
@@ -430,7 +432,7 @@ class TestRDAPClient:
 
         call_count = [0]
 
-        async def mock_fetch(url, trace=None):
+        async def mock_fetch(url: str, trace: Any | None = None) -> MagicMock:
             result = MagicMock()
             result.ok = True
             result.html_path = str(tmp_path / f"whois_{call_count[0] % 3}.html")

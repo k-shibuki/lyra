@@ -29,7 +29,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def test_calculate_dynamic_weight_basic():
+async def test_calculate_dynamic_weight_basic() -> bool:
     """Test basic dynamic weight calculation."""
     print("\n" + "=" * 80)
     print("[Test 1] Basic Dynamic Weight Calculation")
@@ -84,7 +84,7 @@ async def test_calculate_dynamic_weight_basic():
     return ideal_ok and degraded_ok
 
 
-async def test_time_decay():
+async def test_time_decay() -> bool:
     """Test time decay for stale metrics."""
     print("\n" + "=" * 80)
     print("[Test 2] Time Decay for Stale Metrics")
@@ -162,7 +162,7 @@ async def test_time_decay():
     return all_passed and time_decay_ok
 
 
-async def test_boundary_values():
+async def test_boundary_values() -> bool:
     """Test boundary value handling."""
     print("\n" + "=" * 80)
     print("[Test 3] Boundary Value Handling")
@@ -227,7 +227,7 @@ async def test_boundary_values():
     return all_passed
 
 
-async def test_get_dynamic_engine_weight():
+async def test_get_dynamic_engine_weight() -> bool:
     """Test getting dynamic weight for actual engines."""
     print("\n" + "=" * 80)
     print("[Test 4] Get Dynamic Engine Weight")
@@ -272,7 +272,7 @@ async def test_get_dynamic_engine_weight():
     return all_passed
 
 
-async def test_fallback_on_error():
+async def test_fallback_on_error() -> bool:
     """Test fallback to base weight on error."""
     print("\n" + "=" * 80)
     print("[Test 5] Fallback on Error")
@@ -294,7 +294,7 @@ async def test_fallback_on_error():
     return fallback_ok
 
 
-async def test_pydantic_models():
+async def test_pydantic_models() -> bool:
     """Test Pydantic model validation."""
     print("\n" + "=" * 80)
     print("[Test 6] Pydantic Model Validation")
@@ -351,7 +351,7 @@ async def test_pydantic_models():
     return all_passed
 
 
-async def main():
+async def main() -> int:
     """Run all debug tests."""
     print("\n" + "=" * 80)
     print("Dynamic Weight Learning Flow Debug Script")

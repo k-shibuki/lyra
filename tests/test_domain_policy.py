@@ -997,7 +997,7 @@ allowlist:
         manager = DomainPolicyManager(config_path=config_path)
         callback_called = []
 
-        def callback(config: DomainPolicyConfigSchema):
+        def callback(config: DomainPolicyConfigSchema) -> None:
             callback_called.append(config.default_policy.qps)
 
         manager.add_reload_callback(callback)
@@ -1018,7 +1018,7 @@ allowlist:
         manager = DomainPolicyManager(config_path=config_path)
         callback_count = [0]
 
-        def callback(config: DomainPolicyConfigSchema):
+        def callback(config: DomainPolicyConfigSchema) -> None:
             callback_count[0] += 1
 
         manager.add_reload_callback(callback)

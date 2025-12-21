@@ -68,7 +68,7 @@ class MCPIntegrationVerifier:
     Tests all 11 MCP tools defined in Phase M.
     """
 
-    def __init__(self, basic_mode: bool = False):
+    def __init__(self, basic_mode: bool = False) -> None:
         """
         Initialize verifier.
 
@@ -362,8 +362,9 @@ class MCPIntegrationVerifier:
 
         try:
             from src.mcp.server import _dispatch_tool
+            from typing import Any
 
-            args = {
+            args: dict[str, Any] = {
                 "task_id": self.test_task_id,
                 "query": "Python programming best practices",
                 "options": {
@@ -1235,7 +1236,7 @@ class MCPIntegrationVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     """Main entry point."""
     configure_logging(log_level="INFO", json_format=False)
 

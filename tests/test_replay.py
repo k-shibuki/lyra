@@ -215,7 +215,7 @@ class TestDecisionLogger:
         ids = [d.decision_id for d in decisions]
         assert len(ids) == len(set(ids)), "Decision IDs should be unique"
 
-    async def test_save_to_file(self, tmp_path) -> None:
+    async def test_save_to_file(self, tmp_path: Path) -> None:
         """Test saving decisions to file."""
         logger = DecisionLogger(task_id="test-task-6")
 
@@ -335,7 +335,7 @@ class TestReplayEngine:
             f"Difference should be in output_data, got {result['differences'][0]['field']}"
         )
 
-    async def test_load_decisions_from_file(self, tmp_path) -> None:
+    async def test_load_decisions_from_file(self, tmp_path: Path) -> None:
         """Test loading decisions from file."""
         engine = ReplayEngine()
 
@@ -380,7 +380,7 @@ class TestReplayEngine:
         assert decisions[0].decision_type == DecisionType.QUERY_GENERATED
         assert decisions[1].decision_type == DecisionType.ENGINE_SELECTED
 
-    async def test_export_session_report(self, tmp_path) -> None:
+    async def test_export_session_report(self, tmp_path: Path) -> None:
         """Test exporting session report."""
         engine = ReplayEngine()
 

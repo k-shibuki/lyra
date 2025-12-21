@@ -180,7 +180,7 @@ class TestUndetectedChromeFetcher:
         assert result.ok is False
         assert result.reason == "undetected_chromedriver_not_available"
 
-    def test_save_content(self, tmp_path) -> None:
+    def test_save_content(self, tmp_path: Path) -> None:
         """Test content saving."""
         fetcher = UndetectedChromeFetcher()
 
@@ -400,7 +400,7 @@ class TestGlobalInstance:
 class TestFetcherIntegration:
     """Integration tests with mocked components."""
 
-    def test_full_fetch_flow_success(self, tmp_path) -> None:
+    def test_full_fetch_flow_success(self, tmp_path: Path) -> None:
         """Test successful fetch flow with all components mocked."""
         fetcher = UndetectedChromeFetcher()
 

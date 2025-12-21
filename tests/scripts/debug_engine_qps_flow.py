@@ -27,7 +27,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-async def test_engine_config_qps():
+async def test_engine_config_qps() -> bool:
     """Test that engine configs have QPS settings."""
     print("\n" + "=" * 80)
     print("[Test 1] Engine Config QPS Settings")
@@ -73,7 +73,7 @@ async def test_engine_config_qps():
     return all_passed
 
 
-async def test_last_search_times_tracking():
+async def test_last_search_times_tracking() -> bool:
     """Test that _last_search_times tracks per-engine times."""
     print("\n" + "=" * 80)
     print("[Test 2] Per-Engine Last Search Times Tracking")
@@ -100,7 +100,7 @@ async def test_last_search_times_tracking():
     return True
 
 
-async def test_rate_limit_engine_parameter():
+async def test_rate_limit_engine_parameter() -> bool:
     """Test that _rate_limit() accepts engine parameter."""
     print("\n" + "=" * 80)
     print("[Test 3] _rate_limit() Engine Parameter")
@@ -148,7 +148,7 @@ async def test_rate_limit_engine_parameter():
     return True
 
 
-async def test_per_engine_interval():
+async def test_per_engine_interval() -> bool:
     """Test that different engines use different intervals."""
     print("\n" + "=" * 80)
     print("[Test 4] Per-Engine Interval Application")
@@ -185,7 +185,7 @@ async def test_per_engine_interval():
         return False
 
 
-async def test_unknown_engine_fallback():
+async def test_unknown_engine_fallback() -> bool:
     """Test fallback behavior for unknown engines."""
     print("\n" + "=" * 80)
     print("[Test 5] Unknown Engine Fallback")
@@ -207,7 +207,7 @@ async def test_unknown_engine_fallback():
         return False
 
 
-async def test_full_qps_flow():
+async def test_full_qps_flow() -> bool:
     """Test full QPS rate limiting flow."""
     print("\n" + "=" * 80)
     print("[Test 6] Full QPS Rate Limiting Flow")
@@ -249,7 +249,7 @@ async def test_full_qps_flow():
         return False
 
 
-async def main():
+async def main() -> int:
     """Run all tests."""
     print("=" * 80)
     print("Engine QPS Rate Limiting Flow Debug Script")

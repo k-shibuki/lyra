@@ -707,7 +707,7 @@ class TestPydanticValidation:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            CookieData()
+            CookieData()  # type: ignore[call-arg]
 
         # Check that error mentions missing required fields
         error_str = str(exc_info.value)
@@ -726,7 +726,7 @@ class TestPydanticValidation:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            SessionData()
+            SessionData()  # type: ignore[call-arg]
 
         error_str = str(exc_info.value)
         assert "domain" in error_str
@@ -742,7 +742,7 @@ class TestPydanticValidation:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            TransferResult()
+            TransferResult()  # type: ignore[call-arg]
 
         error_str = str(exc_info.value)
         assert "ok" in error_str

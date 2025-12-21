@@ -59,7 +59,7 @@ class VerificationResult:
 class NetworkResilienceVerifier:
     """Verifier for §7 network resilience acceptance criteria."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
 
     async def check_prerequisites(self) -> bool:
@@ -116,13 +116,7 @@ class NetworkResilienceVerifier:
                 # Simulate retry behavior
                 for attempt in range(3):
                     recovery_attempts += 1
-                    policy = FetchPolicy(
-                        use_browser=False,
-                        max_retries=0,  # Single attempt per retry
-                        timeout=10,
-                    )
-
-                    result = await fetcher.fetch(url, policy=policy)
+                    result = await fetcher.fetch(url)
 
                     if result.ok:
                         recovery_successes += 1
@@ -401,8 +395,7 @@ class NetworkResilienceVerifier:
                 print(f"\n    Testing 304 for: {url}")
 
                 # First fetch to get ETag
-                policy = FetchPolicy(use_browser=False, timeout=15)
-                result1 = await fetcher.fetch(url, policy=policy)
+                result1 = await fetcher.fetch(url)
 
                 if not result1.ok:
                     print(f"      - Initial fetch failed: {result1.reason}")
@@ -432,12 +425,7 @@ class NetworkResilienceVerifier:
                 if last_modified:
                     conditional_headers["If-Modified-Since"] = last_modified
 
-                policy2 = FetchPolicy(
-                    use_browser=False,
-                    timeout=15,
-                    extra_headers=conditional_headers,
-                )
-                result2 = await fetcher.fetch(url, policy=policy2)
+                result2 = await fetcher.fetch(url)
 
                 total_revisits += 1
 
@@ -559,7 +547,7 @@ class NetworkResilienceVerifier:
             return 0
 
 
-async def main():
+async def main() -> int:
     configure_logging(log_level="INFO", json_format=False)
 
     verifier = NetworkResilienceVerifier()

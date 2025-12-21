@@ -27,6 +27,7 @@ import asyncio
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -52,7 +53,7 @@ class VerificationResult:
 class MCPToolsVerifier:
     """Verifier for MCP server tool functionality (H.3)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.results: list[VerificationResult] = []
         self.browser_available = False
 
@@ -102,20 +103,23 @@ class MCPToolsVerifier:
         print("\n[1] Verifying search_serp handler...")
 
         try:
-            from src.mcp.server import _handle_search_serp
+            from src.mcp.server import _handle_search
 
             # Test with valid arguments
-            args = {
+            args: dict[str, Any] = {
+                "task_id": "test_task_serp",
                 "query": "Python programming",
-                "engines": ["mojeek"],  # Block-resistant engine
-                "limit": 3,
-                "time_range": "all",
+                "options": {
+                    "engines": ["mojeek"],  # Block-resistant engine
+                    "limit": 3,
+                    "time_range": "all",
+                },
             }
 
             print(f"    Query: {args['query']}")
-            print(f"    Engines: {args['engines']}")
+            print(f"    Engines: {args['options']['engines']}")
 
-            result = await _handle_search_serp(args)
+            result = await _handle_search(args)
 
             # Verify result structure
             if not isinstance(result, dict):
@@ -541,7 +545,7 @@ def print_summary(results: list[VerificationResult]) -> int:
         return 0  # All passed
 
 
-async def main():
+async def main() -> int:
     """Main entry point."""
     configure_logging(log_level="INFO")
 

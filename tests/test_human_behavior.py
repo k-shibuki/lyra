@@ -25,6 +25,7 @@ Tests MouseTrajectory, HumanTyping, InertialScroll, and HumanBehaviorSimulator.
 """
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -438,7 +439,7 @@ class TestHumanBehaviorConfig:
         # Should have default values
         assert config.mouse.base_speed == 800.0
 
-    def test_from_yaml_valid_file(self, tmp_path) -> None:
+    def test_from_yaml_valid_file(self, tmp_path: Path) -> None:
         """Test loading from valid YAML file."""
         yaml_content = """
 mouse:
@@ -485,7 +486,7 @@ class TestHumanBehaviorSimulator:
         simulator = HumanBehaviorSimulator(config)
         assert simulator._config.mouse.base_speed == 1500.0
 
-    def test_from_config_file(self, tmp_path) -> None:
+    def test_from_config_file(self, tmp_path: Path) -> None:
         """Test creating from config file."""
         yaml_content = """
 mouse:
@@ -635,7 +636,7 @@ mouse:
 class TestGlobalInstance:
     """Tests for global simulator instance."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Reset global instance before each test."""
         reset_human_behavior_simulator()
 
@@ -650,7 +651,7 @@ class TestGlobalInstance:
         sim2 = get_human_behavior_simulator()
         assert sim1 is sim2
 
-    def test_get_human_behavior_simulator_with_config(self, tmp_path) -> None:
+    def test_get_human_behavior_simulator_with_config(self, tmp_path: Path) -> None:
         """Test getting simulator with config file."""
         yaml_content = """
 mouse:

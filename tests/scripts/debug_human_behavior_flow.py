@@ -102,7 +102,7 @@ async def test_browser_search_provider_human_behavior() -> None:
             pass
 
 
-async def check_chrome_cdp():
+async def check_chrome_cdp() -> bool:
     """Check Chrome CDP connection and auto-start if needed.
 
     Returns:
@@ -143,7 +143,7 @@ async def check_chrome_cdp():
         return False
 
 
-async def main():
+async def main() -> int:
     """Run all tests."""
     print("\n" + "=" * 80)
     print("Human Behavior Simulation Flow - Debug Script")
