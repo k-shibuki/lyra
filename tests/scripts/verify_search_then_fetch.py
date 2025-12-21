@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-Verification target: §3.2 Agent Execution (Search -> Fetch Consistency)
-"""
-from urllib.parse import urlparse
+Verification target: Section 3.2 Agent Execution (Search -> Fetch Consistency)
 
 Verification items:
-1. Browser search execution (§3.2 Search Engine Integration)
+1. Browser search execution (Section 3.2 Search Engine Integration)
 2. Search result URL fetching
-3. Same-session result page fetching (§3.1.2 Session Transfer)
+3. Same-session result page fetching (Section 3.1.2 Session Transfer)
 4. Session consistency (Cookie/fingerprint maintenance)
-5. CAPTCHA continuity (§3.2, §3.6.1)
+5. CAPTCHA continuity (Section 3.2, Section 3.6.1)
 6. Multi-engine operation
 
 Prerequisites:
