@@ -537,7 +537,7 @@ class TestResponseMetaBuilding:
                 verification_status=VerificationStatus.VERIFIED,
                 promotion_result=PromotionResult.PROMOTED,
                 details=VerificationDetails(independent_sources=2),
-                reason="Corroborated",
+                reason=ReasonCode.WELL_SUPPORTED,
             ),
             VerificationResult(
                 claim_id="claim_2",
@@ -547,7 +547,7 @@ class TestResponseMetaBuilding:
                 verification_status=VerificationStatus.REJECTED,
                 promotion_result=PromotionResult.DEMOTED,
                 details=VerificationDetails(),
-                reason="Contradiction",
+                reason=ReasonCode.CONFLICTING_EVIDENCE,
             ),
         ]
 
@@ -1064,7 +1064,7 @@ class TestBuildResponseMetaUnverified:
                 verification_status=VerificationStatus.PENDING,
                 promotion_result=PromotionResult.UNCHANGED,
                 details=VerificationDetails(independent_sources=1),
-                reason="Insufficient evidence",
+                reason=ReasonCode.INSUFFICIENT_EVIDENCE,
             ),
         ]
 
@@ -1748,6 +1748,7 @@ class TestDomainBlockingTransparency:
         )
 
         state = verifier.get_domain_state("empty-reason.com")
+        assert state is not None
         assert state.block_reason == ""
         assert state.is_blocked is True
 

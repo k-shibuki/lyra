@@ -199,13 +199,12 @@ class TestEmbeddingRanker:
             # Return simple embeddings that produce predictable scores
             return [[1, 0, 0]] + [[0.9, 0.1, 0]] * (len(texts) - 1)
 
-        ranker.encode = mock_encode
+        with patch.object(ranker, "encode", mock_encode):
+            scores = await ranker.get_scores("query", ["doc1", "doc2"])
 
-        scores = await ranker.get_scores("query", ["doc1", "doc2"])
-
-        assert len(scores) == 2
-        # Scores should be cosine similarities
-        assert all(-1 <= s <= 1 for s in scores)
+            assert len(scores) == 2
+            # Scores should be cosine similarities
+            assert all(-1 <= s <= 1 for s in scores)
 
 
 class TestReranker:
@@ -233,7 +232,7 @@ class TestReranker:
         # Mock model
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.5, 0.9, 0.3])
-        reranker._model = mock_model
+        setattr(reranker, "_model", mock_model)
 
         # Ensure local mode (not remote)
         with patch.object(reranker._settings.ml, "use_remote", False):
@@ -265,7 +264,7 @@ class TestReranker:
 
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.5, 0.9, 0.3, 0.7, 0.1])
-        reranker._model = mock_model
+        setattr(reranker, "_model", mock_model)
 
         # Ensure local mode (not remote)
         with patch.object(reranker._settings.ml, "use_remote", False):

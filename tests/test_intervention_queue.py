@@ -965,6 +965,7 @@ class TestGetSessionForDomain:
         session = await queue_with_db.get_session_for_domain(domain=domain)
 
         # Then
+        assert session is not None
         assert session["version"] == "new", (
             f"Should return most recent session, got version '{session['version']}'"
         )

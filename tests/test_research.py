@@ -1295,13 +1295,12 @@ class TestStopTaskAction:
                 # Missing "summary" and "evidence_graph_summary"
             }
 
-        state.finalize = mock_finalize
+        with patch.object(state, "finalize", mock_finalize):
+            # When: Call stop_task_action
+            result = await stop_task_action(task_id, state, "completed")
 
-        # When: Call stop_task_action
-        result = await stop_task_action(task_id, state, "completed")
-
-        # Then: Should succeed with default values
-        assert result["ok"] is True
+            # Then: Should succeed with default values
+            assert result["ok"] is True
         assert result["summary"]["satisfied_searches"] == 0
         assert result["summary"]["total_claims"] == 0
         assert result["summary"]["primary_source_ratio"] == 0.0
@@ -1331,13 +1330,12 @@ class TestStopTaskAction:
                 "evidence_graph_summary": {},  # Empty graph summary
             }
 
-        state.finalize = mock_finalize
+        with patch.object(state, "finalize", mock_finalize):
+            # When: Call stop_task_action
+            result = await stop_task_action(task_id, state, "budget_exhausted")
 
-        # When: Call stop_task_action
-        result = await stop_task_action(task_id, state, "budget_exhausted")
-
-        # Then: Should succeed with default values
-        assert result["ok"] is True
+            # Then: Should succeed with default values
+            assert result["ok"] is True
         assert result["final_status"] == "partial"
         assert result["summary"]["satisfied_searches"] == 0
         assert result["summary"]["total_claims"] == 0
@@ -1376,13 +1374,12 @@ class TestStopTaskAction:
                 },
             }
 
-        state.finalize = mock_finalize
+        with patch.object(state, "finalize", mock_finalize):
+            # When: Call stop_task_action
+            result = await stop_task_action(task_id, state, "completed")
 
-        # When: Call stop_task_action
-        result = await stop_task_action(task_id, state, "completed")
-
-        # Then: Should use values from finalize_result
-        assert result["ok"] is True
+            # Then: Should use values from finalize_result
+            assert result["ok"] is True
         assert result["final_status"] == "completed"
         assert result["summary"]["total_searches"] == 1  # One registered search
         assert result["summary"]["satisfied_searches"] == 5

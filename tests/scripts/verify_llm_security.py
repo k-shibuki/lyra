@@ -688,7 +688,7 @@ class SecurityE2EVerifier:
                 name="MCP Response Sanitization",
                 layer="L7",
                 spec_ref="§4.4.1 L7",
-                passed=all_passed,
+                passed=bool(all_passed),  # boolにキャスト
                 details=details,
             )
 

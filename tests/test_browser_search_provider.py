@@ -426,6 +426,7 @@ class TestBrowserSearchProvider:
                                 response = await provider.search("test query")
 
                                 assert response.ok is False
+                                assert response.error is not None
                                 assert "CAPTCHA" in response.error
 
         await provider.close()
@@ -472,6 +473,7 @@ class TestBrowserSearchProvider:
                 response = await provider.search("test query")
 
                 assert response.ok is False
+                assert response.error is not None
                 assert "No parser available" in response.error
 
         await provider.close()
@@ -517,6 +519,7 @@ class TestBrowserSearchProvider:
         health = await provider.get_health()
 
         assert health.state == HealthState.UNKNOWN
+        assert health.message is not None
         assert "No searches" in health.message
 
     @pytest.mark.asyncio
@@ -702,6 +705,7 @@ class TestCDPConnection:
                 # Verify error response
                 assert response.ok is False
                 assert response.error is not None
+                assert response.error is not None
                 assert "CDP connection failed" in response.error
                 assert "chrome.sh" in response.error
                 assert response.connection_mode is None
@@ -857,6 +861,7 @@ class TestCDPConnection:
                                 response = await provider.search("test query")
 
                                 assert response.ok is False
+                                assert response.error is not None
                                 assert "CAPTCHA" in response.error
                                 # CAPTCHA detected via CDP connection, so mode is 'cdp'
                                 assert response.connection_mode == "cdp"
@@ -1935,6 +1940,7 @@ class TestBrowserSearchProviderHumanBehavior:
 
                 # Then: Error response is returned
                 assert response.ok is False
+                assert response.error is not None
                 # Error message can be "No available engines" or "No engines with parsers available"
                 assert (
                     "No available engines" in response.error
@@ -1972,6 +1978,7 @@ class TestBrowserSearchProviderHumanBehavior:
 
                 # Then: Error response is returned
                 assert response.ok is False
+                assert response.error is not None
                 assert "No available engines" in response.error
 
         await provider.close()
@@ -2017,6 +2024,7 @@ class TestBrowserSearchProviderHumanBehavior:
 
                 # Exception is caught during filtering, resulting in no available engines
                 assert response.ok is False
+                assert response.error is not None
                 assert "No available engines" in response.error
 
         await provider.close()
@@ -2054,6 +2062,7 @@ class TestBrowserSearchProviderHumanBehavior:
 
                 # Then: Engine is skipped (None check), resulting in no available engines
                 assert response.ok is False
+                assert response.error is not None
                 assert "No available engines" in response.error
 
         await provider.close()
@@ -3117,22 +3126,21 @@ class TestDynamicWeightUsage:
                             with patch.object(provider, "_save_session", AsyncMock()):
                                 with patch.object(provider, "_rate_limit", AsyncMock()):
                                     with patch.object(provider, "_human_behavior"):
-                                        provider._human_behavior.simulate_reading = AsyncMock()
-                                        provider._human_behavior.move_mouse_to_element = AsyncMock()
+                                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()):
+                                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()):
+                                                # When: search() is called
+                                                response = await provider.search("test query")
 
-                                        # When: search() is called
-                                        response = await provider.search("test query")
+                                                # Then: get_dynamic_engine_weight was called
+                                                mock_policy_engine.get_dynamic_engine_weight.assert_called()
 
-                                        # Then: get_dynamic_engine_weight was called
-                                        mock_policy_engine.get_dynamic_engine_weight.assert_called()
+                                                # Verify engine and category were passed
+                                                call_args = (
+                                                    mock_policy_engine.get_dynamic_engine_weight.call_args
+                                                )
+                                                assert call_args[0][0] == "duckduckgo"  # engine
 
-                                        # Verify engine and category were passed
-                                        call_args = (
-                                            mock_policy_engine.get_dynamic_engine_weight.call_args
-                                        )
-                                        assert call_args[0][0] == "duckduckgo"  # engine
-
-                                        assert response.ok is True
+                                                assert response.ok is True
 
         await provider.close()
 
@@ -3263,17 +3271,16 @@ class TestDynamicWeightUsage:
                             with patch.object(provider, "_save_session", AsyncMock()):
                                 with patch.object(provider, "_rate_limit", AsyncMock()):
                                     with patch.object(provider, "_human_behavior"):
-                                        provider._human_behavior.simulate_reading = AsyncMock()
-                                        provider._human_behavior.move_mouse_to_element = AsyncMock()
+                                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()):
+                                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()):
+                                                # When: search() is called
+                                                response = await provider.search("test query")
 
-                                        # When: search() is called
-                                        response = await provider.search("test query")
+                                                # Then: duckduckgo should be selected (higher dynamic weight)
+                                                # Verify by checking which parser was requested
+                                                mock_get_parser.assert_called_with("duckduckgo")
 
-                                        # Then: duckduckgo should be selected (higher dynamic weight)
-                                        # Verify by checking which parser was requested
-                                        mock_get_parser.assert_called_with("duckduckgo")
-
-                                        assert response.ok is True
+                                                assert response.ok is True
 
         await provider.close()
 
@@ -3375,16 +3382,15 @@ class TestDynamicWeightUsage:
                             with patch.object(provider, "_save_session", AsyncMock()):
                                 with patch.object(provider, "_rate_limit", AsyncMock()):
                                     with patch.object(provider, "_human_behavior"):
-                                        provider._human_behavior.simulate_reading = AsyncMock()
-                                        provider._human_behavior.move_mouse_to_element = AsyncMock()
+                                        with patch.object(provider._human_behavior, "simulate_reading", AsyncMock()):
+                                            with patch.object(provider._human_behavior, "move_mouse_to_element", AsyncMock()):
+                                                # When: search() is called (PolicyEngine will throw)
+                                                # Then: No available engines due to error
+                                                response = await provider.search("test query")
 
-                                        # When: search() is called (PolicyEngine will throw)
-                                        # Then: No available engines due to error
-                                        response = await provider.search("test query")
-
-                                        # Response should indicate no engines available
-                                        # (the error during weight calculation removes the engine)
-                                        assert response.error is not None or response.ok is False
+                                                # Response should indicate no engines available
+                                                # (the error during weight calculation removes the engine)
+                                                assert response.error is not None or response.ok is False
 
         await provider.close()
 

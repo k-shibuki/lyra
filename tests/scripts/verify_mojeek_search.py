@@ -190,7 +190,6 @@ class MojeekSearchVerifier:
             options = SearchOptions(
                 engines=[self.ENGINE_NAME],
                 limit=5,
-                time_range=None,
             )
 
             start_time = time.time()

@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, "/home/statuser/lyra")
 
 
-async def main() -> None:
+async def main() -> int:
     """Run Tor daily limit verification."""
     print("=" * 60)
     print("Tor Daily Limit Flow Debug Script")

@@ -63,7 +63,7 @@ class AcademicSearchDebugger:
         }
 
         # Analyze results
-        source_counts = {}
+        source_counts: dict[str, int] = {}
         doi_count = 0
         abstract_count = 0
 
@@ -449,10 +449,11 @@ async def main() -> int:
         else:
             print("Usage: python scripts/debug_academic_search.py <query>")
             print("       python scripts/debug_academic_search.py --test-cases")
-            return
+            return 0
 
         if args.json:
             print(json.dumps(results, indent=2, default=str))
+        return 0
     finally:
         await debugger.close()
 

@@ -1162,7 +1162,7 @@ class TestExecuteComplementarySearchE2E:
         index.register_paper(sample_paper_with_abstract, "semantic_scholar")
 
         unique_entries = index.get_all_entries()
-        paper_to_page_map = {}  # Empty mapping (simulating persistence failure)
+        paper_to_page_map: dict[str, object] = {}  # Empty mapping (simulating persistence failure)
 
         # When: Filtering papers for citation graph
         papers_with_abstracts = [
