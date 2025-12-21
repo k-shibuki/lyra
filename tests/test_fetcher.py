@@ -770,6 +770,7 @@ class TestDatabaseFetchCache:
         await db.update_fetch_cache_validation(url, etag='"new-etag"')
 
         cached = await db.get_fetch_cache(url)
+        assert cached is not None
         assert cached["etag"] == '"new-etag"'
 
     @pytest.mark.asyncio
@@ -795,6 +796,7 @@ class TestDatabaseFetchCache:
         )
 
         cached = await db.get_fetch_cache("https://example.com/page")
+        assert cached is not None
 
         assert cached["etag"] == '"etag-only"'
         assert cached["last_modified"] is None
@@ -810,6 +812,7 @@ class TestDatabaseFetchCache:
         )
 
         cached = await db.get_fetch_cache("https://example.com/page")
+        assert cached is not None
 
         assert cached["etag"] is None
         assert cached["last_modified"] == "Wed, 01 Jan 2024 00:00:00 GMT"
@@ -858,6 +861,7 @@ class TestDatabaseFetchCache:
         await db.set_fetch_cache(url, etag=new_etag, content_path=new_path)
 
         cached = await db.get_fetch_cache(url)
+        assert cached is not None
 
         assert cached["etag"] == new_etag, (
             f"ETag should be replaced: expected {new_etag}, got {cached['etag']}"

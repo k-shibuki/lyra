@@ -876,7 +876,9 @@ class TestCalibratorRollback:
         ]
 
         calibrator.fit(samples, "test")
-        _first_temp = calibrator.get_params("test").temperature  # noqa: F841
+        params = calibrator.get_params("test")
+        assert params is not None
+        _first_temp = params.temperature  # noqa: F841
 
         # Fit again (may have different params)
         calibrator.fit(samples, "test")

@@ -503,6 +503,7 @@ class TestBaseLLMProvider:
         response = await provider.embed(["hello"])
 
         assert response.ok is False
+        assert response.error is not None
         assert "not supported" in response.error.lower()
 
 
@@ -638,9 +639,13 @@ class TestOllamaProviderGenerate:
             )
             await ollama_provider.generate("Test", options)
 
+        assert isinstance(captured_payload["model"], str)
         assert captured_payload["model"] == "custom-model"
-        assert captured_payload["options"]["temperature"] == 0.8
-        assert captured_payload["options"]["num_predict"] == 500
+        options = captured_payload["options"]
+        assert isinstance(options, dict)
+        assert options["temperature"] == 0.8
+        assert options["num_predict"] == 500
+        assert isinstance(captured_payload["system"], str)
         assert captured_payload["system"] == "You are helpful"
 
     @pytest.mark.asyncio
@@ -661,6 +666,7 @@ class TestOllamaProviderGenerate:
             response = await ollama_provider.generate("Test prompt")
 
         assert response.ok is False, f"API error should have ok=False, got {response.ok}"
+        assert response.error is not None
         assert "500" in response.error, (
             f"Error message should contain status code 500: {response.error}"
         )
@@ -828,6 +834,7 @@ class TestOllamaProviderHealth:
             health = await ollama_provider.get_health()
 
         assert health.state == LLMHealthState.UNHEALTHY
+        assert health.message is not None
         assert "Connection refused" in health.message
 
     @pytest.mark.asyncio
@@ -838,6 +845,7 @@ class TestOllamaProviderHealth:
         health = await ollama_provider.get_health()
 
         assert health.state == LLMHealthState.UNHEALTHY
+        assert health.message is not None
         assert "closed" in health.message.lower()
 
 
@@ -1224,6 +1232,7 @@ class TestLLMProviderRegistry:
         response = await registry.generate_with_fallback("Test")
 
         assert response.ok is False, f"All providers failed should have ok=False, got {response.ok}"
+        assert response.error is not None
         assert "All providers failed" in response.error, (
             f"Error should mention 'All providers failed': {response.error}"
         )

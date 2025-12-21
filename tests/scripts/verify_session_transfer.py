@@ -182,6 +182,7 @@ class SessionTransferVerifier:
 
                 print(f"    ✓ Domain: {session.domain}")
                 print(f"    ✓ Cookies: {len(session.cookies)}")
+                assert session.user_agent is not None
                 print(f"    ✓ User-Agent: {session.user_agent[:50]}...")
                 print(f"    ✓ ETag: {session.etag or 'N/A'}")
                 print(f"    ✓ Last-Modified: {session.last_modified or 'N/A'}")

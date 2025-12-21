@@ -358,6 +358,7 @@ class TestDomainStateTracking:
             )
 
         state = verifier.get_domain_state("verified-domain.com")
+        assert state is not None
         assert "verified_claim" in state.verified_claims
 
     def test_high_rejection_rate_blocks_domain(self, verifier: SourceVerifier, mock_evidence_graph: MagicMock) -> None:
@@ -855,6 +856,7 @@ class TestBoundaryValues:
             )
 
         state = verifier.get_domain_state("dup-test.com")
+        assert state is not None
         # Should only appear once
         assert state.verified_claims.count("duplicate_test") == 1
 
@@ -1011,6 +1013,7 @@ class TestPendingToOtherStatusTransition:
             )
 
         state = verifier.get_domain_state("transition.com")
+        assert state is not None
         assert "transition_claim" in state.pending_claims
 
         # Now verify again with sufficient evidence -> VERIFIED
@@ -1034,6 +1037,7 @@ class TestPendingToOtherStatusTransition:
             )
 
         state = verifier.get_domain_state("transition.com")
+        assert state is not None
         assert "transition_claim" not in state.pending_claims
         assert "transition_claim" in state.verified_claims
 
@@ -1610,6 +1614,7 @@ class TestDomainBlockingTransparency:
 
         # And: State includes cause_id
         state = verifier.get_domain_state("spam.org")
+        assert state is not None
         assert state.block_cause_id == "claim_xyz"
         assert state.block_reason == "Dangerous pattern detected"
         assert state.is_blocked is True

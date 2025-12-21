@@ -286,7 +286,7 @@ class TestTemporalConsistencyChecker:
     def test_uncertain_no_dates(self, checker: TemporalConsistencyChecker, current_time: datetime) -> None:
         """Missing dates should result in uncertain."""
         claim_text = "This is a claim without any dates."
-        page_metadata = {}
+        page_metadata: dict[str, Any] = {}
 
         result = checker.check_consistency(claim_text, page_metadata, current_time)
 

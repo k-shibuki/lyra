@@ -208,8 +208,9 @@ Name Server: ns.example.net
         parser = WHOISParser()
 
         # When/Then: ISO format parses correctly
-        assert parser._parse_date("2024-01-15") is not None
-        assert parser._parse_date("2024-01-15").year == 2024
+        parsed_date = parser._parse_date("2024-01-15")
+        assert parsed_date is not None
+        assert parsed_date.year == 2024
 
         # When/Then: Slash format parses correctly
         assert parser._parse_date("2024/01/15") is not None
