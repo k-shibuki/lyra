@@ -707,9 +707,16 @@ Lyraは「AがBを反論している」という**事実**をエッジで記録�
 #### 1.1 スキーマ変更
 
 ```sql
--- migrations/003_add_trust_level_to_edges.sql
-ALTER TABLE edges ADD COLUMN source_trust_level TEXT;
-ALTER TABLE edges ADD COLUMN target_trust_level TEXT;
+-- Single-user mode policy:
+-- - `src/storage/schema.sql` is the source of truth (we edit it directly).
+-- - The migrations mechanism is kept, but `migrations/` may be empty.
+-- - If you already have an existing DB file, note that `CREATE TABLE IF NOT EXISTS`
+--   will NOT add new columns. Recreate the DB (or later add a migration file) when
+--   you add new columns.
+--
+-- Example (edges table columns in `src/storage/schema.sql`):
+-- source_trust_level TEXT;
+-- target_trust_level TEXT;
 
 -- インデックス追加（対立関係の高速検索用）
 CREATE INDEX IF NOT EXISTS idx_edges_trust_levels
@@ -1235,9 +1242,13 @@ def calculate_claim_confidence_bayesian(claim_id: str) -> dict:
 | 数学的に厳密 | ✓ 再現性・検証可能 |
 | 解釈が直感的 | ✓ 「50%で高uncertainty」=「分からない」 |
 
-#### 6.5 現行実装との互換性
+#### 6.5 互換性（単独運用では不要）
 
-現行の `calculate_claim_confidence()` を置き換えるが、出力形式は互換性を維持：
+単独運用（このリポジトリを自分だけが使う段階）では、後方互換性は必須ではない。
+そのため `calculate_claim_confidence()` の出力は、必要に応じて破壊的に変更してよい
+（テストとMCPスキーマを同時に更新して整合性を保つ）。
+
+以下は「旧出力 → 新出力」のイメージ例：
 
 ```python
 # 現行出力
@@ -1360,13 +1371,24 @@ def _queue_blocked_notification(self, domain: str, reason: str, task_id: str | N
     )
 ```
 
-**1.3 不採用主張（`not_adopted`）のグラフ保持**
+**1.3 エビデンスグラフに矛盾関係を明示的に保存**
+
+矛盾（REFUTES）は「解釈」ではなく「関係（エッジ）」として保存する。
+`is_contradiction` のような重複フラグは持たず、REFUTESエッジ + メタデータで表現する
+（Thinking-Working分離の原則）。
+
+- REFUTESエッジをDBへ永続化（`edges`）
+- 可能ならエッジに監査用の `cause_id` を付与
+
+**1.4 不採用主張（`not_adopted`）のグラフ保持**
 
 検証で棄却された主張もグラフに残し、`adoption_status` で区別する。
 
 ```sql
--- migrations/004_add_adoption_status.sql
-ALTER TABLE claims ADD COLUMN adoption_status TEXT DEFAULT 'pending';
+-- Single-user mode: update `src/storage/schema.sql` directly.
+-- Note: If you already have an existing DB, recreate it to pick up the new column.
+--
+-- claims.adoption_status TEXT DEFAULT 'pending'
 -- 値: 'pending', 'adopted', 'not_adopted'
 ```
 
@@ -1409,7 +1431,7 @@ Phase 3（引用追跡）で追加される論文間の対立関係を、高推�
 
 | # | タスク | 実装ファイル | テストファイル |
 |---|--------|-------------|---------------|
-| 2.1 | スキーマ変更 | `migrations/003_add_trust_level_to_edges.sql` | `tests/test_migrations.py` |
+| 2.1 | スキーマ変更 | `src/storage/schema.sql`（単独運用ではここを直接更新） | `tests/test_migrations.py` |
 | 2.2 | `add_edge()` にパラメータ追加 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 2.3 | NLI評価時にドメインカテゴリ付与 | `src/filter/nli.py` | `tests/test_nli.py` |
 | 2.4 | 判定ロジックからカテゴリ依存を除去 | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
@@ -1420,10 +1442,11 @@ Phase 3（引用追跡）で追加される論文間の対立関係を、高推�
 **2.1 スキーマ変更**
 
 ```sql
--- migrations/003_add_trust_level_to_edges.sql
--- 注: マイグレーション005で domain_category にリネームされる
-ALTER TABLE edges ADD COLUMN source_trust_level TEXT;
-ALTER TABLE edges ADD COLUMN target_trust_level TEXT;
+-- Single-user mode: update `src/storage/schema.sql` directly.
+-- If you already have an existing DB, recreate it to pick up the new columns.
+--
+-- (Optional future: create a migration file under `migrations/` and apply via
+-- `python scripts/migrate.py up` if/when we start needing incremental migrations.)
 
 CREATE INDEX IF NOT EXISTS idx_edges_trust_levels
     ON edges(relation, source_trust_level, target_trust_level);
@@ -2042,10 +2065,14 @@ def test_user_override_restores_blocked():
 
 ### マイグレーション一覧
 
+**方針（単独運用）**:
+- `src/storage/schema.sql` を正（source of truth）として直接更新する
+- マイグレーション機構（`scripts/migrate.py` / `Database.run_migrations()`）は将来のために残す
+- `migrations/` は空でもよい（この場合、既存DBは自動更新されないため、スキーマ変更時はDB再作成が必要）
+
 | Phase | マイグレーションファイル | 内容 |
 |-------|------------------------|------|
-| 2 | `migrations/003_add_trust_level_to_edges.sql` | edges に source_trust_level, target_trust_level 追加 |
-| 1 | `migrations/004_add_adoption_status.sql` | claims に adoption_status 追加 |
+| - | （現状なし / 任意） | 必要になった時点で `scripts/migrate.py create ...` で追加 |
 
 **実行方法**:
 ```bash
