@@ -4,10 +4,12 @@
 
 学術クエリに対して、Browser検索と学術API（Semantic Scholar, OpenAlex, Crossref, arXiv）を並列実行し、統合重複排除を行うフロー。Abstract Only戦略により、論文の抄録とメタデータを活用してfetchをスキップし、効率的な学術情報収集を実現する。
 
+> 注意: このドキュメントは設計/デバッグの履歴を含むメモです。現行実装の正は `src/storage/schema.sql` と `docs/EVIDENCE_SYSTEM.md` を参照してください（特に `is_influential` は決定12により削除済み）。
+
 ## 仕様要件
 
 - **§3.1.3**: 学術API統合戦略 - OpenAlex/Semantic Scholar/Crossref/arXiv APIの利用
-- **§3.3.1**: エビデンスグラフ拡張 - `is_academic`, `is_influential`属性
+- **§3.3.1**: エビデンスグラフ拡張 - `is_academic`属性（`is_influential` は決定12により削除）
 - **§1.0.5**: Abstract Only戦略 - 抄録のみ自動取得、フルテキストは参照先提示
 - **docs/J2_ACADEMIC_API_INTEGRATION.md**: 統合重複排除、CanonicalPaperIndex
 
@@ -367,7 +369,7 @@ class AcademicSearchResult(BaseModel):
 
 `src/filter/evidence_graph.py` に `add_academic_page_with_citations()` 関数を追加:
 - PAGEノードに`is_academic`、`doi`、`citation_count`等の属性を追加
-- 各引用関係をCITESエッジとして追加（`is_academic=True`、`is_influential`属性付き）
+- 各引用関係をCITESエッジとして追加（`is_academic=True`、`source_domain_category`/`target_domain_category` など）
 - edgesテーブルへの永続化
 
 ### 4. AcademicSearchProviderの拡張
