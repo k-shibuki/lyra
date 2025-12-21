@@ -99,7 +99,7 @@ async def entity_kb(tmp_path: Path) -> AsyncGenerator[EntityKB, None]:
             if self._conn:
                 await self._conn.close()
 
-        async def execute(self, sql: str, params: object | None = None) -> aiosqlite.Cursor:
+        async def execute(self, sql: str, params: object | None = None) -> aiosqlite.Cursor | None:
             # Check if SQL contains multiple statements
             assert self._conn is not None
             if params is None and ";" in sql.strip().rstrip(";"):

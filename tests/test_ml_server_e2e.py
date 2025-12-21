@@ -30,9 +30,9 @@ See also:
 =============================================================================
 """
 
-from collections.abc import Generator
 from collections.abc import AsyncGenerator, Generator
 import pytest
+from src.ml_client import MLClient
 
 # =============================================================================
 # E2E Tests

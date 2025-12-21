@@ -240,7 +240,7 @@ class TestCitationInfo:
                 heading_context=None,
                 excerpt="Test excerpt",
                 discovered_at="2024-01-01T00:00:00Z",
-                source_tag=tag,  # type: ignore[assignment]
+                source_tag=tag,  # type: ignore[arg-type]
             )
             assert citation.is_primary is False, f"Tag '{tag}' should not be primary"
 

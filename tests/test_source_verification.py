@@ -1642,6 +1642,7 @@ class TestDomainBlockingTransparency:
 
         # Then: State is updated
         state = verifier.get_domain_state("existing.com")
+        assert state is not None
         assert state.domain_category == DomainCategory.BLOCKED
         assert state.block_reason == "Repeated contradictions"
         assert state.original_domain_category == DomainCategory.LOW  # Preserved from before
@@ -1687,6 +1688,7 @@ class TestDomainBlockingTransparency:
         )
 
         state = verifier.get_domain_state("academic.edu")
+        assert state is not None
 
         # Current trust is BLOCKED
         assert state.domain_category == DomainCategory.BLOCKED
@@ -1728,6 +1730,7 @@ class TestDomainBlockingTransparency:
         )
 
         state = verifier.get_domain_state("no-cause.com")
+        assert state is not None
         assert state.block_cause_id is None
         assert state.block_reason == "No causal trace"
 

@@ -127,8 +127,8 @@ class TestBackoffConfig:
         # When/Then: Attempting to modify raises FrozenInstanceError
         import dataclasses
 
-        with pytest.raises(dataclasses.FrozenInstanceError):  # noqa: B017
-            config.base_delay = 5.0
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            config.base_delay = 5.0  # type: ignore[misc]
 
 
 class TestCalculateBackoff:
