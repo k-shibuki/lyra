@@ -1,12 +1,13 @@
 ---
-alwaysApply: true
+description: Gitコミットメッセージの規約
+alwaysApply: false
 ---
-# Gitコミットメッセージの書式ルール
-
-このルールは、すべてのコミットに対して適用されるコミットメッセージのガイドラインです。
+# Gitコミットメッセージの規約
 
 ## このルールの位置づけ
 
+- 本ファイルは **規約（ポリシー）** を定義する（コミットメッセージの必須要件）。
+- 具体的な手順（非対話型での `git add` / `git commit` 等）は `@.cursor/commands/commit.md` を参照する。
 - 本ルールは、Conventional Commits をベースにしたコミットメッセージ規約です。
 - `Prefix` や `BREAKING CHANGE` などの基本フォーマットは Conventional Commits に準拠しつつ、`language` による言語指定や箇条書き本文など、このリポジトリ向けのガイドラインを追加しています。
 - 他プロジェクトで再利用する場合は、`language` や Prefix の一覧を各プロジェクトのポリシーに合わせて調整してください。

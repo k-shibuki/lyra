@@ -1,8 +1,13 @@
 ---
-description: モジュール間の連動を設計・検証するルール
+description: モジュール間の連動を設計・検証する際の規約
 alwaysApply: false
 ---
 # モジュール間連動設計ルール
+
+## 位置づけ（規約と手順の分離）
+
+- 本ファイルは **規約（ポリシー）** を定義する。
+- 具体的な手順（出力物の作り方・進め方）は `@.cursor/commands/integration-design.md` を参照する。
 
 ## 目的
 

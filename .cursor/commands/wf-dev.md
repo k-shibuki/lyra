@@ -1,79 +1,78 @@
 # wf-dev
 
-Lyra開発の統合ワークフロー。単機能コマンドを順次実行する。
+## Purpose
 
-## ワークフロー概要
+Orchestrate development work: read the provided context, select the next task, and output a Plan-mode To-do checklist that uses the single-purpose Cursor commands.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. task-select    タスク選定・ブランチ作成                    │
-│         ↓                                                    │
-│  2. implement      実装作業                                   │
-│         ↓                                                    │
-│  3. test-create    テストコード作成                            │
-│         ↓                                                    │
-│  4. test-review    テスト品質レビュー                          │
-│         ↓                                                    │
-│  5. quality-check  品質確認（lint/型）                         │
-│         ↓                                                    │
-│  6. regression-test 回帰テスト                                │
-│         ↓                                                    │
-│  7. commit         コミット作成                                │
-│         ↓                                                    │
-│  8. merge-complete マージ・完了報告                            │
-│         ↓                                                    │
-│  9. push           リモートにプッシュ                           │
-└─────────────────────────────────────────────────────────────┘
-         ↳ 中断時は suspend を実行
-```
+## Contract (must follow)
 
-## 各フェーズで使用するコマンド
+1. Read all user-attached `@...` context first (especially `@docs/IMPLEMENTATION_PLAN.md` and `@docs/REQUIREMENTS.md`).
+   - If required context is missing, ask for the exact `@...` files/info and stop.
+2. Summarize: goal, chosen task (one), constraints/risks.
+3. Produce a Plan-mode checklist To-do, where tasks include “run another Cursor command”.
+4. Propose the next command **as a suggestion only**.
+5. This command **does not auto-transition**:
+   - Do **not** output a slash command as a standalone line.
+   - Use `NEXT_COMMAND: /...` (inline) to make it easy to copy without auto-running.
 
-| フェーズ | コマンド | 説明 |
-|---------|---------|------|
-| タスク選定 | `/task-select` | 計画確認・タスク選定・ブランチ作成 |
-| 実装 | `/implement` | 実装コード作成 |
-| テスト作成 | `/test-create` | テスト観点表・テストコード作成 |
-| テストレビュー | `/test-review` | テスト品質の検証・修正 |
-| 品質確認 | `/quality-check` | lint/型エラー確認・修正 |
-| 回帰テスト | `/regression-test` | 全テスト実行（非同期実行→ポーリングで完了確認） |
-| コミット | `/commit` | コミットメッセージ作成・コミット |
-| 完了 | `/merge-complete` | mainマージ・完了報告 |
-| プッシュ | `/push` | mainブランチをリモートにプッシュ |
-| 中断 | `/suspend` | 進捗記録・WIPコミット |
+## Inputs (ask if missing)
 
-## 関連ルール（全フェーズ共通）
-- コード実行時: @.cursor/rules/code-execution.mdc
-- テスト関連: @.cursor/rules/test-strategy.mdc
-- リファクタ関連: @.cursor/rules/refactoring.mdc
-- git commit: @.cursor/rules/commit-message-format.mdc
+- `@docs/IMPLEMENTATION_PLAN.md` (required)
+- `@docs/REQUIREMENTS.md` (recommended)
+- Desired change summary (if not obvious from the plan)
+- If already started: current branch, diff summary, failing tests/logs
 
-## リファレンス
-- スクリプト使い方: `/scripts-help`
-- 実装計画: @docs/IMPLEMENTATION_PLAN.md
-- 仕様: @docs/REQUIREMENTS.md
+## Standard workflow (encode as To-dos)
 
-## 使い方
+- `task-select`
+- `implement`
+- `test-create`
+- `test-review`
+- `quality-check`
+- `regression-test`
+- `commit`
+- `merge-complete`
+- `push`
+- `suspend` (if needed)
 
-### フルワークフロー実行
-このコマンドを実行すると、タスク選定から完了報告まで一連の流れを実行する。
-各フェーズの完了後、次のフェーズに進むか確認する。
+## Output (response format)
 
-### 個別フェーズ実行
-特定のフェーズのみ実行したい場合は、該当する単機能コマンドを直接呼び出す。
+### Context read
 
-例:
-- テストレビューのみ: `/test-review`
-- 回帰テストのみ: `/regression-test`
+- `@...` files read
+- Goal (1–2 lines)
+- Chosen task (one) + rationale
+- Risks/constraints
 
-## 完了条件チェックリスト
-- [ ] タスク選定完了・ブランチ作成済み
-- [ ] 実装コード完成
-- [ ] テストコード完成
-- [ ] テスト品質レビュー済み（test-strategy.mdc準拠）
-- [ ] 品質確認済み（lint/型エラーなし）
-- [ ] 回帰テストパス
-- [ ] コミット完了
-- [ ] mainマージ完了
-- [ ] 実装計画書更新済み
-- [ ] リモートにプッシュ完了
+### Plan (To-do)
+
+- [ ] ... (include purpose / inputs / done criteria per item)
+
+Must include these phases (as To-dos):
+
+- [ ] Run: `/task-select`
+- [ ] Run: `/implement`
+- [ ] Run: `/test-create`
+- [ ] Run: `/test-review`
+- [ ] Run: `/quality-check`
+- [ ] Run: `/regression-test`
+- [ ] Run: `/commit`
+- [ ] Run: `/merge-complete`
+- [ ] Run: `/push`
+
+### Next (manual)
+
+- `NEXT_COMMAND: /task-select`
+
+## Related rules
+
+- `@.cursor/rules/code-execution.mdc`
+- `@.cursor/rules/test-strategy.mdc`
+- `@.cursor/rules/refactoring.mdc`
+- `@.cursor/rules/commit-message-format.mdc`
+
+## References
+
+- `@docs/IMPLEMENTATION_PLAN.md`
+- `@docs/REQUIREMENTS.md`
+- `@.cursor/commands/scripts-help.md`

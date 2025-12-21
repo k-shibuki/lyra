@@ -1,25 +1,40 @@
 # implement
 
-選定済みタスクの実装を行う。
+## Purpose
 
-## 関連ルール
-- コード実行時: @.cursor/rules/code-execution.mdc
-- リファクタ関連タスク: @.cursor/rules/refactoring.mdc
+Implement the selected task (code changes only; no tests in this step).
 
-## 事前確認
-必要に応じて @docs/REQUIREMENTS.md の仕様とコードベースを `grep` 等のツールで確認せよ。
-コード中のコメントで @docs/IMPLEMENTATION_PLAN.md を参照させることは禁止する。
+## When to use
 
-## 実装作業
-1. 関連ファイルの確認
-2. 実装コードの作成・修正
-3. 基本的な動作確認
+- After selecting a task and creating a branch (typically after `task-select`)
+- Any time you need to implement a scoped change that is already agreed on
 
-## 完了条件
-- [ ] 実装コードが完成
-- [ ] 明らかな構文エラー・型エラーがない
+## Inputs (attach as `@...`)
 
-## 出力
-- 変更したファイル一覧
-- 実装内容の概要
+- `@docs/REQUIREMENTS.md` (recommended)
+- `@docs/IMPLEMENTATION_PLAN.md` (recommended for context; **do not** reference it in code comments)
+- Any relevant source files (`@src/...`) or configs (`@config/...`) if the user already knows them
 
+## Constraints
+
+- Do **not** add comments that reference `@docs/IMPLEMENTATION_PLAN.md` inside source code.
+- If you need codebase context, use repo search tools (e.g., `grep`, semantic search) rather than guessing.
+
+## Steps
+
+1. Confirm scope and acceptance criteria (1–3 bullet points).
+2. Inspect existing code paths and patterns; identify the minimal set of files to change.
+3. Implement the change.
+4. Do a quick sanity check (basic execution path review; avoid long-running processes unless requested).
+
+## Output (response format)
+
+- **Scope recap**: what changed (1–3 bullets)
+- **Files changed**: list of paths
+- **Notes**: any trade-offs, follow-ups, or risks
+- **Next (manual)**: `NEXT_COMMAND: /test-create`
+
+## Related rules
+
+- `@.cursor/rules/code-execution.mdc`
+- `@.cursor/rules/refactoring.mdc`

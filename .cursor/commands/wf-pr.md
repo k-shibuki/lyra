@@ -1,44 +1,90 @@
 # wf-pr
 
-リモートのPull Requestをレビューし、マージ判断・テスト・マージを行う。
+## Purpose
 
-**注意**: これは `/wf-dev` とは独立したワークフローです。
+Orchestrate PR review and merge: read the provided context, decide which scenario applies, and output a Plan-mode To-do checklist that uses the single-purpose commands.
 
-## 重要な注意事項
+Note: This workflow is independent from `wf-dev`.
 
-**PRブランチの検出パターン**:
-- 以下のパターンで始まるブランチをPRブランチとして扱います：
-  - `pr`, `PR`, `pull`, `merge` - 一般的なPRブランチ
-  - `claude` - Claude Codeで作成されたブランチ
-  - **`cursor`** - **Cursor Cloud Agentで作成されたブランチ（重要）**
-  - `feature` - 機能ブランチ
+## Contract (must follow)
 
-**見落としを防ぐために**:
-- 検出されたブランチ数を確認する
-- 各ブランチのマージ状態を表示する
-- デバッグ出力を有効にする
+1. Read all user-attached `@...` context first (PR description, diff, requirements).
+   - If required context is missing, ask for the exact `@...` files/info and stop.
+2. Determine Scenario A vs B and show evidence (commands/logs reviewed).
+3. Produce a Plan-mode checklist To-do where tasks include “run another Cursor command”.
+4. Merge/push are **always** gated behind explicit user approval.
+5. This command **does not auto-transition**:
+   - Do **not** output a slash command as a standalone line.
+   - Use `NEXT_COMMAND: /...` (inline) to make it easy to copy without auto-running.
 
-## 関連ルール
-- コード実行時: @.cursor/rules/code-execution.mdc
-- テスト関連: @.cursor/rules/test-strategy.mdc
-- git commit: @.cursor/rules/commit-message-format.mdc
+## Inputs (ask if missing)
 
-## ワークフロー概要
+- PR description / intent (required)
+- Diff summary (file list + key changes) (required)
+- Requirements/acceptance criteria (`@docs/REQUIREMENTS.md`) (recommended)
+- Any CI/test output (recommended)
 
-**重要**: まず、ローカルのmainブランチとorigin/mainの差分を確認し、以下の2つのケースを判定する：
+## Branch detection patterns (important)
 
-- **ケースA**: 未マージのPRがある場合 → 個別にレビュー・マージ
-- **ケースB**: 既にローカルのmainにマージ済みだがorigin/mainに未プッシュの場合 → mainブランチ全体を確認してからプッシュ
+Treat branches starting with these prefixes as PR candidates:
 
-### ケース判定
+- `pr`, `PR`, `pull`, `merge`, `claude`, `cursor`, `feature`
+
+To avoid missing things:
+
+- Always print the count of detected PR branches
+- Show merge status (merged vs not merged to `origin/main`)
+- Keep debug output on in scripts
+
+## Output (response format)
+
+### Context read
+
+- `@...` files read
+- Key acceptance criteria (bullets)
+
+### Scenario
+
+- Scenario: A / B
+- Evidence: (bullets)
+
+### Plan (To-do)
+
+- [ ] ... (include purpose / inputs / done criteria per item)
+
+Must include (at minimum):
+
+- [ ] Confirm PR / branch state (git commands)
+- [ ] Run: `/quality-check`
+- [ ] Run: `/regression-test`
+- [ ] Make merge decision (with reasons)
+- [ ] After approval only: merge (`NEXT_COMMAND: /merge-complete` or manual merge steps)
+- [ ] After approval only: push (`NEXT_COMMAND: /push`)
+
+### Next (manual)
+
+- `NEXT_COMMAND: /quality-check` (or whichever is next)
+
+## Related rules
+
+- `@.cursor/rules/code-execution.mdc`
+- `@.cursor/rules/test-strategy.mdc`
+- `@.cursor/rules/commit-message-format.mdc`
+
+## Workflow overview
+
+First, determine which scenario applies:
+
+- **Scenario A (unmerged PR branches exist)**: review and merge each PR branch, then push
+- **Scenario B (already merged locally, not pushed)**: validate `main` and then push `main` (no re-merge needed)
+
+### Scenario detection
 
 ```bash
-# ローカルのmainブランチとorigin/mainの差分を確認
+# Compare local main vs origin/main
 git log origin/main..main --oneline
 
-# 未マージのPRブランチを確認
-# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
-# 注意: cursor ブランチもPRブランチとして扱う（Cursor Cloud Agentで作成されたブランチ）
+# Check PR candidate branches and whether they are merged into origin/main
 echo "=== Checking PR branches ==="
 git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | while read branch; do
     if git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
@@ -47,156 +93,134 @@ git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HE
         echo "  $branch: Already merged to origin/main (skipped)"
     fi
 done
+
 echo "=== Summary ==="
 echo "Total PR branches: $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | wc -l)"
 echo "Unmerged branches: $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | while read branch; do git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null && echo "$branch"; done | wc -l)"
 ```
 
-**判定基準**:
-- `git log origin/main..main` が空で、未マージのPRブランチがある → **ケースA**
-- `git log origin/main..main` にコミットがあり、すべてのPRが既にローカルのmainにマージ済み → **ケースB**
+Decision rules:
 
-### ケースA: 未マージのPRがある場合
+- If `git log origin/main..main` is empty and there exist unmerged PR branches → **Scenario A**
+- If `git log origin/main..main` has commits and all PR branches are already merged to local `main` → **Scenario B**
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. PR取得        リモートからPRブランチを取得               │
-│         ↓                                                    │
-│  2. コードレビュー 変更内容を確認・問題点を指摘              │
-│         ↓                                                    │
-│  3. 品質確認      /quality-check を実行                     │
-│         ↓                                                    │
-│  4. 回帰テスト    /regression-test を実行                   │
-│         ↓                                                    │
-│  5. マージ判断    マージ可否を判断し、理由を説明             │
-│         ↓                                                    │
-│  6. マージ実行    承認後、mainにマージ                       │
-│         ↓                                                    │
-│  7. プッシュ      リモートにプッシュ                         │
-└─────────────────────────────────────────────────────────────┘
-```
+### Scenario A (unmerged PR branches exist)
 
-### ケースB: 既にマージ済みのPRをプッシュする場合
+- Fetch PR branch(es)
+- Review diff(s)
+- Run `NEXT_COMMAND: /quality-check`
+- Run `NEXT_COMMAND: /regression-test`
+- Decide mergeability (with reasons)
+- After approval only: merge to `main`
+- After approval only: push (`NEXT_COMMAND: /push`)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. 状態確認      ローカルのmainとorigin/mainの差分確認      │
-│         ↓                                                    │
-│  2. 品質確認      /quality-check を実行（mainブランチ全体）  │
-│         ↓                                                    │
-│  3. 回帰テスト    /regression-test を実行（mainブランチ全体）│
-│         ↓                                                    │
-│  4. プッシュ判断  プッシュ可否を判断し、理由を説明           │
-│         ↓                                                    │
-│  5. プッシュ実行  承認後、origin/mainにプッシュ              │
-└─────────────────────────────────────────────────────────────┘
-```
+### Scenario B (already merged locally, not pushed)
 
-**注意**: ケースBでは、既にマージ済みのPRを再度マージする必要はない。ローカルのmainブランチ全体を確認してからプッシュする。
+- Validate local `main` vs `origin/main`
+- Run `NEXT_COMMAND: /quality-check` on `main`
+- Run `NEXT_COMMAND: /regression-test` on `main`
+- Decide whether it is safe to push
+- After approval only: push `main` (`NEXT_COMMAND: /push`)
 
-## 1. PR取得（ケースAのみ）
+Note: In Scenario B you do not need to re-merge PR branches; validate `main` and then push.
 
-### 1.1. リモート情報の取得とPR候補の列挙
+## 1. Fetch PR branches (Scenario A only)
+
+### 1.1 Fetch remote and list candidates
 
 ```bash
-# リモートの最新情報を取得
 git fetch origin
-
-# PRブランチ一覧を確認（リモートブランチ）
-# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
-# 注意: cursor ブランチもPRブランチとして扱う（Cursor Cloud Agentで作成されたブランチ）
 git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD"
-
-# デバッグ: 検出されたブランチ数を確認
 echo "Found $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | wc -l) PR candidate branches"
 ```
 
-### 1.2. PR順序付け（技術的最適化）
+### 1.2 Review ordering (optional optimization)
 
-PRをレビューする順序を以下の優先順位で決定する：
+Decide the review order using these priorities:
 
-**重要**: ローカルでマージ済みのPRもチェック対象に含める（`main`ブランチとの差分も確認）
+Important: include PRs that were already merged locally (still check differences vs `origin/main`).
 
-#### 優先順位1: 変更量（小→大）
-- **理由**: 小さな変更からレビューすることで、コンフリクトリスクを低減
-- **判断方法**: `git diff main..<branch> --stat` で変更ファイル数・差分行数を確認
-- **優先**: 変更ファイル数が少ないPRから
+#### Priority 1: change size (small → large)
 
-#### 優先順位2: コミット日時（古→新）
-- **理由**: 古いPRは先にマージすべき（依存関係の観点）
-- **判断方法**: `git log main..<branch> --format="%ci %s" | head -1` で最初のコミット日時を確認
-- **優先**: 古いコミットから
+- Rationale: smaller PRs reduce conflict risk and review time
+- How: `git diff main..<branch> --stat`
 
-#### 優先順位3: 変更内容の種類
-- **優先順位**: バグ修正 → リファクタリング → 新機能 → ドキュメント
-- **判断方法**: コミットメッセージのプレフィックス（`fix:` > `refactor:` > `feat:` > `docs:`）
+#### Priority 2: commit age (old → new)
 
-#### 優先順位4: 依存関係
-- **理由**: 他のPRに依存するPRは後回し
-- **判断方法**: ブランチ名やコミットメッセージから依存関係を推測
-- **例**: `feature/phase-m-get-status` は他の機能に依存する可能性が高い
+- Rationale: older PRs often unblock dependencies
+- How: `git log main..<branch> --format="%ci %s" | head -1`
 
-#### 実装例（推奨スクリプト）
+#### Priority 3: change type
+
+- Preferred order: bug fixes → refactors → features → docs
+- How: infer from commit message prefixes (`fix:` > `refactor:` > `feat:` > `docs:`)
+
+#### Priority 4: dependencies
+
+- Rationale: PRs depending on other PRs should be reviewed later
+- How: infer from branch names/commit messages
+
+#### Implementation example (script)
 
 ```bash
 #!/bin/bash
-# PR候補を技術的最適順序でソート
+# Sort PR candidates by an optimization heuristic
 
-# 1. 変更量でソート（小→大）
-# ローカルでマージ済みのPRもチェック対象に含める（mainブランチとの差分も確認）
-# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
+# 1) Sort by change size (small → large)
+# Include PRs already merged locally; also compare against origin/main when needed
+# Candidate patterns: pr, PR, pull, merge, claude, cursor, feature
 get_pr_by_changes() {
     for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD"); do
-        # ローカルのmainブランチとの差分を確認（ローカルでマージ済みのPRもチェック）
-        # git log main..$branch が空なら、ブランチは既にローカルのmainにマージ済み
+        # Check diff vs local main (also detects PRs already merged locally)
+        # If `git log main..$branch` is empty, the branch is already merged into local main
         if ! git log main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
-            # ローカルでマージ済みの場合、origin/mainとの差分を確認
+            # If already merged locally, check diff vs origin/main
             if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
-                continue  # origin/mainにもマージ済みの場合はスキップ
+                continue  # skip if also merged into origin/main
             fi
-            # origin/mainには未マージの場合は、プッシュが必要なPRとして扱う
+            # If not merged into origin/main, treat it as “needs push”
         fi
 
-        # 追加チェック: merge-baseでマージ済みか確認（origin/mainに対して）
+        # Extra check: confirm if merged into origin/main via merge-base
         branch_commit=$(git rev-parse $branch 2>/dev/null)
         origin_main_commit=$(git rev-parse origin/main 2>/dev/null)
         if [ -n "$branch_commit" ] && [ -n "$origin_main_commit" ]; then
             if git merge-base --is-ancestor $branch_commit $origin_main_commit 2>/dev/null; then
-                # origin/mainにマージ済みの場合はスキップ
+                # Skip if merged into origin/main
                 continue
             fi
         fi
 
-        # 変更ファイル数と差分行数を取得（mainブランチとの差分）
+        # Get diff stats vs main
         stat=$(git diff main..$branch --stat 2>/dev/null | tail -1)
         if [ -z "$stat" ]; then
-            # mainとの差分がない場合、origin/mainとの差分を確認
+            # If no diff vs main, fall back to origin/main
             stat=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1)
             if [ -z "$stat" ]; then
                 continue
             fi
         fi
 
-        # 変更行数を抽出（追加+削除）
+        # Extract total change count (additions + deletions)
         changes=$(echo "$stat" | awk '{print $4+$6}' | sed 's/[^0-9]//g')
         if [ -z "$changes" ] || [ "$changes" = "0" ]; then
             changes=0
         fi
 
-        # コミット日時を取得（ISO形式、mainブランチとの差分）
+        # Get commit date (ISO; prefer diff vs main)
         date=$(git log main..$branch --format="%ci" 2>/dev/null | tail -1)
         if [ -z "$date" ]; then
-            # mainとの差分がない場合、origin/mainとの差分を確認
+            # If no diff vs main, fall back to origin/main
             date=$(git log origin/main..$branch --format="%ci" 2>/dev/null | tail -1)
             if [ -z "$date" ]; then
                 date="9999-12-31 00:00:00 +0000"
             fi
         fi
 
-        # コミットメッセージのプレフィックスを取得（mainブランチとの差分）
+        # Get commit message prefix (prefer diff vs main)
         prefix=$(git log main..$branch --format="%s" 2>/dev/null | head -1 | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
         if [ -z "$prefix" ]; then
-            # mainとの差分がない場合、origin/mainとの差分を確認
+            # If no diff vs main, fall back to origin/main
             prefix=$(git log origin/main..$branch --format="%s" 2>/dev/null | head -1 | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
         fi
         case "$prefix" in
@@ -211,90 +235,79 @@ get_pr_by_changes() {
     done | sort -t'|' -k1,1n -k2,2 -k3,3n | cut -d'|' -f4
 }
 
-# 使用例
+# Usage
 get_pr_by_changes
 ```
 
-#### 簡易版（変更量のみ）
+#### Simple version (change size only)
 
 ```bash
-# PR候補を変更量でソート（最もシンプル）
-# ローカルでマージ済みのPRもチェック対象に含める
-# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
+# Sort PR candidates by change size (simplest)
+# Include PRs already merged locally
+# Candidate patterns: pr, PR, pull, merge, claude, cursor, feature
 for branch in $(git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD"); do
-    # ローカルのmainブランチとの差分を確認（ローカルでマージ済みのPRもチェック）
+    # Check diff vs local main (also detects PRs already merged locally)
     if ! git log main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
-        # ローカルでマージ済みの場合、origin/mainとの差分を確認
+        # If already merged locally, check diff vs origin/main
         if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
-            continue  # origin/mainにもマージ済みの場合はスキップ
+            continue  # skip if also merged into origin/main
         fi
-        # origin/mainには未マージの場合は、プッシュが必要なPRとして扱う
+        # If not merged into origin/main, treat it as “needs push”
     fi
 
-    # 追加チェック: merge-baseでマージ済みか確認（origin/mainに対して）
+    # Extra check: confirm if merged into origin/main via merge-base
     branch_commit=$(git rev-parse $branch 2>/dev/null)
     origin_main_commit=$(git rev-parse origin/main 2>/dev/null)
     if [ -n "$branch_commit" ] && [ -n "$origin_main_commit" ]; then
         if git merge-base --is-ancestor $branch_commit $origin_main_commit 2>/dev/null; then
-            continue  # origin/mainにマージ済みの場合はスキップ
+            continue  # skip if merged into origin/main
         fi
     fi
 
-    # 変更量を取得（mainブランチとの差分）
+    # Get change size vs main
     changes=$(git diff main..$branch --stat 2>/dev/null | tail -1 | awk '{print $4+$6}' | sed 's/[^0-9]//g')
     if [ -z "$changes" ]; then
-        # mainとの差分がない場合、origin/mainとの差分を確認
+        # If no diff vs main, fall back to origin/main
         changes=$(git diff origin/main..$branch --stat 2>/dev/null | tail -1 | awk '{print $4+$6}' | sed 's/[^0-9]//g')
     fi
     echo "${changes:-0} $branch"
 done | sort -n | awk '{print $2}'
 ```
 
-### 1.3. PRブランチのチェックアウト
+### 1.3 Check out the PR branch
 
 ```bash
-# 決定した順序でPRブランチをチェックアウト
+# Check out a PR branch in the chosen order
 git checkout -b <pr-branch> origin/<pr-branch>
 ```
 
-### 1.4. 順序付けの実行手順
+### 1.4 How to run the ordering (practical steps)
 
-実際のワークフローでは以下の手順で実行：
+1. List PR candidates via `git branch -r` (include `cursor` branches).
+2. Determine merge state:
+   - If `git log main..<branch>` is empty, check `origin/main` diff.
+   - Skip if merged into both local `main` and `origin/main`.
+   - Use `git merge-base --is-ancestor <branch> origin/main` as an extra merge check.
+3. Compute change size: `git diff main..<branch> --stat`
+4. Compute “first commit date” for ordering: `git log main..<branch> --format="%ci" | tail -1`
+5. Infer change type from commit message prefix.
+6. Sort by: change size → commit age → change type.
 
-1. **PR候補の列挙**: `git branch -r` でリモートブランチを確認
-   - **重要**: `cursor` ブランチもPRブランチとして扱う（Cursor Cloud Agentで作成されたブランチ）
-   - パターン: `(pr|PR|pull|merge|claude|cursor|feature)` で始まるブランチを検出
-   - デバッグ出力で検出されたブランチ数を確認
-2. **マージ済みブランチの判定**:
-   - **ローカルでマージ済みのPRもチェック対象に含める**（`main`ブランチとの差分も確認）
-   - `git log main..<branch>` が空の場合、`origin/main`との差分を確認
-   - `git log origin/main..<branch>` が空の場合はスキップ（両方にマージ済み）
-   - `git merge-base --is-ancestor <branch> origin/main` でorigin/mainにマージ済みか確認
-   - **デバッグ出力**: 各ブランチのマージ状態を表示
-3. **各PRの変更量を確認**: `git diff main..<branch> --stat` で変更ファイル数・行数を確認（ローカルmainとの差分）
-4. **コミット日時を確認**: `git log main..<branch> --format="%ci" | tail -1` で最初のコミット日時を確認
-5. **変更内容の種類を確認**: `git log main..<branch> --format="%s" | head -1` でコミットメッセージのプレフィックスを確認
-6. **優先順位でソート**: 変更量（小→大）→ コミット日時（古→新）→ 変更種類の順でソート
-7. **順番にレビュー**: ソートされた順序でPRをレビュー
+Notes:
 
-**注意**:
-- **`cursor` ブランチもPRブランチとして扱う**（Cursor Cloud Agentで作成されたブランチ）
-- ローカルでマージ済みでも`origin/main`に未プッシュのPRはレビュー対象に含める
-- 両方（`main`と`origin/main`）にマージ済みのブランチは自動的に除外される
-  - `git log main..<branch>` と `git log origin/main..<branch>` が両方空の場合
-  - `git merge-base --is-ancestor <branch> origin/main` がtrueの場合
+- Treat `cursor` branches as PR branches (Cursor Cloud Agent output).
+- Even if merged locally, include PRs not pushed to `origin/main` in review scope.
 
-## 1B. 既マージPRの状態確認（ケースBのみ）
+## 1B. State check for already-merged PRs (Scenario B only)
 
-既にローカルのmainにマージ済みだがorigin/mainに未プッシュの場合：
+If PRs are already merged into local `main` but not pushed to `origin/main`:
 
 ```bash
-# ローカルのmainブランチとorigin/mainの差分を確認
+# Compare local main vs origin/main
 git log origin/main..main --oneline
 git diff origin/main..main --stat
 
-# マージ済みのPRブランチを確認
-# パターン: pr, PR, pull, merge, claude, cursor, feature で始まるブランチ
+# Check PR branches (candidate patterns: pr, PR, pull, merge, claude, cursor, feature)
 git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HEAD" | while read branch; do
     if ! git log origin/main..$branch --oneline 2>/dev/null | head -1 > /dev/null; then
         echo "$branch: Already merged to origin/main"
@@ -306,166 +319,171 @@ git branch -r | grep -E "(pr|PR|pull|merge|claude|cursor|feature)" | grep -v "HE
 done
 ```
 
-**重要**: このケースでは、個別のPRを再度マージする必要はない。ローカルのmainブランチ全体を品質確認・テストしてから、origin/mainにプッシュする。
+Important: in this scenario you do not re-merge PRs. Validate local `main` (quality + tests) and then push to `origin/main`.
 
-## 2. コードレビュー（ケースAのみ）
+## 2. Code review (Scenario A only)
 
-### 確認項目
+### Review checklist
 
-| カテゴリ | 確認内容 |
-|---------|---------|
-| **変更概要** | 変更ファイル一覧、差分行数 |
-| **コード品質** | 可読性、命名規則、重複排除 |
-| **仕様準拠** | `docs/REQUIREMENTS.md` との整合性 |
-| **テスト** | テストの有無、カバレッジ |
-| **セキュリティ** | 認証・認可、データ検証 |
+| Category | What to check |
+|---------|---------------|
+| **Change overview** | files changed, diff size |
+| **Code quality** | readability, naming, duplication |
+| **Spec alignment** | aligns with `docs/REQUIREMENTS.md` |
+| **Tests** | tests exist, coverage signals |
+| **Security** | authn/authz, data validation |
 
-### 差分確認コマンド
+### Diff commands
 
 ```bash
-# mainとの差分を確認
+# Diff against main
 git diff main..HEAD --stat
 git diff main..HEAD
 ```
 
-## 3. 品質確認
+## 3. Quality checks
 
-`/quality-check` コマンドを実行。lint/型エラーを確認・修正。
+Run `/quality-check` and fix lint/type issues.
 
-**重要**:
-- lint/型エラーだけでなく、**警告も必ず解消する**
-- `ruff check` で警告が出た場合は `ruff check --fix` で自動修正を試みる
-- `git diff --check` でtrailing whitespaceなどの警告を確認
-- 警告が残っている場合はマージ/プッシュしない
+Important:
 
-**ケースA（未マージPR）**: PRブランチで品質確認を実行
-**ケースB（既マージPR）**: mainブランチ全体で品質確認を実行
+- Do not merge/push with warnings
+- If `ruff check` shows issues, try `ruff check --fix`
+- Use `git diff --check` to detect trailing whitespace warnings
 
-## 4. 回帰テスト
+Scenario A: run quality checks on the PR branch
+Scenario B: run quality checks on `main`
 
-`/regression-test` コマンドを実行。全テストがパスすることを確認。
+## 4. Regression tests
 
-**ケースA（未マージPR）**: PRブランチでテストを実行
-**ケースB（既マージPR）**: mainブランチ全体でテストを実行
+Run `/regression-test` and confirm all tests pass.
 
-### 実行例
+Scenario A: run tests on the PR branch
+Scenario B: run tests on `main`
+
+### Example
 
 ```bash
-# テスト開始
+# Start tests
 ./scripts/test.sh run tests/
 
-# 完了までポーリング（最大5分、5秒間隔）
+# Poll for completion (max 5 minutes, 5s interval)
 for i in {1..60}; do
     sleep 5
     status=$(./scripts/test.sh check 2>&1)
     echo "[$i] $status"
-    # 完了判定: "DONE"またはテスト結果キーワード（passed/failed/skipped）が含まれる
+    # Done criteria: "DONE" or result keywords (passed/failed/skipped)
     if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
         break
     fi
 done
 
-# 結果取得
+# Fetch results
 ./scripts/test.sh get
 ```
 
-**注意**: `check`コマンドは、テスト結果に`passed`/`failed`/`skipped`/`deselected`などのキーワードが含まれていれば自動的に`DONE`を返すため、明示的な`DONE`チェックは不要。
+Note: `check` returns `DONE` if output includes `passed`/`failed`/`skipped`/`deselected`, so explicit `DONE` checks are usually unnecessary.
 
-## 5. マージ判断
+## 5. Merge decision
 
-### マージ可能条件
-- [ ] コードレビューで重大な問題がない
-- [ ] lint/型エラーがない（`/quality-check` パス）
-- [ ] 全テストがパス（`/regression-test` パス）
-- [ ] 仕様書との整合性が取れている
-- [ ] **警告が全て解消されている**（必須）
+### Merge criteria
 
-### 判断結果の提示
+- [ ] Code review has no critical issues
+- [ ] Lint/type checks pass (`/quality-check`)
+- [ ] All tests pass (`/regression-test`)
+- [ ] Change aligns with requirements/spec
+- [ ] **No warnings remain** (required)
 
+### Decision output template
+
+```text
+## Merge decision
+
+### Conclusion: ✅ Mergeable / ❌ Changes required
+
+### Reasons
+- Aligns with requirements
+- Tests pass
+- Code quality acceptable
+- No warnings remain
+
+### Required changes (if any)
+1. Fix xxx
+2. Add yyy
+3. Do not merge with remaining warnings
 ```
-## マージ判断
 
-### 結論: ✅ マージ可能 / ❌ 修正必要
+## 6. Merge execution (Scenario A only)
 
-### 理由
-- 変更内容が仕様に準拠している
-- テストが全てパス
-- コード品質に問題なし
-- **警告が全て解消されている**
+Execute only after explicit user approval. Follow the same procedure as `merge-complete`.
 
-### 指摘事項（ある場合）
-1. xxx について修正が必要
-2. yyy の追加を推奨
-3. **警告が残っている場合は必ず解消してからマージ**
-```
+### 6.1 Pre-merge checks
 
-## 6. マージ実行（ケースAのみ）
+Before merging, confirm:
 
-ユーザー承認後にのみ実行。`/merge-complete` と同様の手順。
-
-### 6.1. マージ前の確認
-
-**重要**: マージ前に必ず以下を確認・実行する：
-
-1. **警告の解消**: `ruff check` や `mypy` の警告が全て解消されていること
-2. **コンフリクトの解決**: マージコンフリクトが発生した場合は、必ず解決してからコミット
-3. **trailing whitespaceの解消**: `git diff --check` で警告がないことを確認
+1. **No warnings remain** from `ruff check` / `mypy`
+2. **No unresolved conflicts**
+3. **No trailing whitespace warnings** from `git diff --check`
 
 ```bash
-# 警告確認
+# Warning checks
 podman exec lyra ruff check src/ tests/
 podman exec lyra mypy src/ tests/
 
-# trailing whitespace確認
+# Trailing whitespace check
 git diff --check
 
-# 警告がある場合は自動修正を試みる
+# If applicable, try auto-fix
 podman exec lyra ruff check --fix src/ tests/
 ```
 
-### 6.2. マージ実行
+### 6.2 Merge
 
 ```bash
 git checkout main
 git merge --no-edit <pr-branch>
 ```
 
-**注意**:
-- `--no-edit` オプションで対話を避ける
-- **警告が残っている場合はマージを実行しない**（必ず解消してからマージ）
+Notes:
 
-### 6.3. リモートへのプッシュ
+- Use `--no-edit` to avoid interactive prompts
+- Do not merge if any warnings remain
 
-**重要**: マージ後は必ずリモートにプッシュする
+### 6.3 Push to remote
 
-`/push` コマンドを実行してリモートにプッシュする。
+After merge, push to remote (after approval if your process requires it):
 
-**理由**:
-- リモートが常に最新状態を反映する
-- チーム間での同期が取れる
-- CI/CDが動作する
-- バックアップになる
+- Run `NEXT_COMMAND: /push`
 
-**注意**:
-- プッシュ前に必ずマージが成功していることを確認
-- コンフリクトが発生した場合は解決してからプッシュ
+Rationale:
 
-## 6B. プッシュ実行（ケースBのみ）
+- Keeps remote up-to-date
+- Team synchronization
+- CI/CD runs
+- Acts as backup
 
-既にローカルのmainにマージ済みのPRをorigin/mainにプッシュする場合。
+Notes:
 
-`/push` コマンドを実行してリモートにプッシュする。
+- Confirm merge succeeded before pushing
+- Resolve conflicts before pushing
 
-**注意**:
-- **警告が残っている場合はプッシュを実行しない**（必ず解消してからプッシュ）
-- プッシュ前に必ず品質確認・テストが完了していることを確認
+## 6B. Push-only flow (Scenario B only)
 
-## 出力
+If PRs are already merged into local `main` but not pushed to `origin/main`:
 
-- PR概要（ブランチ名、変更ファイル、差分行数）
-- コードレビュー結果
-- 品質確認結果（lint/型）
-- テスト結果サマリ
-- マージ判断（理由付き）
-- マージ結果（実行した場合）
+- Run `NEXT_COMMAND: /push` after quality/tests pass
+
+Notes:
+
+- Do not push with remaining warnings
+- Confirm quality checks + tests completed before pushing
+
+## Output (detailed)
+
+- PR summary (branch name, files changed, diff size)
+- Code review results
+- Quality check results (lint/type)
+- Test results summary
+- Merge decision (with reasons)
+- Merge/push execution results (if performed)
 

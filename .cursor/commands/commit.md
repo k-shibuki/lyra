@@ -1,92 +1,54 @@
 # commit
 
-変更を英語のメッセージでコミットする。
+## Purpose
 
-## 関連ルール
-- git commit: @.cursor/rules/commit-message-format.mdc
+Create a git commit with an English message in the project’s standard format.
 
-## コミットメッセージ形式
-```
-<Prefix>: <サマリ（命令形/簡潔に）>
+## When to use
 
-- 変更内容1（箇条書き）
-- 変更内容2（箇条書き）
+- After tests pass and you’re ready to record changes (typically after `regression-test`)
+- For WIP commits, prefer `suspend`
 
-Refs: #<Issue番号>（任意）
-BREAKING CHANGE: <内容>（任意）
-```
+## Policy (rules)
 
-## Prefix一覧
-- feat: 新機能の追加
-- fix: バグ修正
-- refactor: リファクタリング
-- perf: パフォーマンス改善
-- test: テスト追加/修正
-- docs: ドキュメント更新
-- build: ビルド/依存関係の変更
-- ci: CI関連の変更
-- chore: 雑務
-- style: スタイルのみの変更
-- revert: 取り消し
+Follow the commit message policy here:
 
-## 作業手順（非対話型）
+- `@.cursor/rules/commit-message-format.mdc`
 
-### 1. 現在の状態確認
+This command intentionally avoids duplicating the policy (format/prefixes/language). Keep `commit-message-format.mdc` as the single source of truth.
+
+## Non-interactive workflow (recommended)
 
 ```bash
-# 現在のブランチを確認
 git branch --show-current
-
-# 未コミットの変更を確認
 git status --short
 
-# 変更がない場合は終了
 if [ -z "$(git status --porcelain)" ]; then
     echo "No changes to commit"
     exit 0
 fi
-```
 
-### 2. 差分確認
-
-```bash
-# 変更ファイル一覧と差分を確認
 git diff --stat
 git diff
-```
 
-### 3. コミットメッセージ生成
-
-差分に基づいて英語でコミットメッセージを生成（**language=en**）。
-
-**注意**:
-- 変更内容を正確に反映したメッセージを作成
-- Prefixは変更の種類に応じて適切に選択
-- 複数の変更がある場合は箇条書きで列挙
-- 日本語は使用しない（必ず英訳する）
-
-### 4. コミット実行
-
-```bash
-# 全変更をステージングしてコミット
 git add -A
-git commit -m "<コミットメッセージ>"
+git commit -m "<message>"
 ```
 
-**注意**:
-- 対話型エディタを開く `git commit` は使用しない。必ず `-m` オプションでメッセージを渡す。
-- gitコマンドは必ず非対話型オプションを使用すること（`--no-pager` など）。対話待ちになるとタイムアウトする。
+Constraints:
 
-## エラーハンドリング
+- Do **not** open an interactive editor (`git commit` without `-m`).
+- Keep messages **English only**.
 
-- **変更がない場合**: エラーではなく、メッセージを出力して正常終了
-- **コミット失敗時**: エラーメッセージを出力して終了
-- **コンフリクト時**: コンフリクト解決が必要であることを明示
+## Output (response format)
 
-## 出力
-- 現在のブランチ名
-- 変更ファイル一覧（`git diff --stat`）
-- コミットメッセージ
-- コミットハッシュ
-- コミット後の状態（`git log -1 --oneline`）
+- **Branch**: current branch name
+- **Diff summary**: `git diff --stat`
+- **Commit message**: final message used
+- **Commit hash**: short hash
+- **Last commit**: `git log -1 --oneline`
+- **Next (manual)**: `NEXT_COMMAND: /merge-complete`
 
+## Related rules
+
+- `@.cursor/rules/commit-message-format.mdc`

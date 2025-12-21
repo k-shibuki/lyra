@@ -1,24 +1,43 @@
 # task-select
 
-タスクを選定し、作業ブランチを作成する。
+## Purpose
 
-## 事前確認
-@docs/IMPLEMENTATION_PLAN.md を確認し、現状を把握せよ。
+Select exactly one implementation task and create a work branch for it.
 
-## タスク選定基準
-1. 優先度（🔴高 > 🟡中 > 🟢低）と依存関係を考慮して**1つ**のタスクを選定
-2. 選定理由とともにユーザーに確認し、承認を得てから着手
-3. 🔴タスクの場合は影響範囲・リスクを先に提示
+## When to use
 
-## ブランチ作成
-承認後、以下の命名規則でブランチを作成:
-```
+- Start of the development workflow (used by `wf-dev`)
+- Any time you need to pick the next unit of work from the plan
+
+## Inputs (attach as `@...`)
+
+- `@docs/IMPLEMENTATION_PLAN.md` (required)
+
+## Steps
+
+1. Read `@docs/IMPLEMENTATION_PLAN.md` and identify candidate tasks.
+2. Pick **exactly one** task considering priority and dependencies.
+3. Explain why this task is the best next step.
+4. If the task is high-risk/high-priority, summarize impact scope and risks up front.
+5. Ask the user for approval **before** creating a branch.
+6. After approval, create a branch using:
+
+```bash
 feature/phase-{N}-{M}-{short-description}
 ```
 
-## 出力
-- 選定したタスクの概要
-- 選定理由
-- 影響範囲（🔴タスクの場合）
-- 作成したブランチ名
+## Output (response format)
 
+- **Selected task**: title + short description
+- **Rationale**: why now, dependency notes
+- **Risk/impact** (if applicable): affected areas + rollback concerns
+- **Branch name**: proposed (and created if approved)
+- **Next (manual)**: `NEXT_COMMAND: /implement`
+
+## Related rules
+
+- `@.cursor/rules/code-execution.mdc`
+
+## Used by workflows
+
+- `wf-dev`

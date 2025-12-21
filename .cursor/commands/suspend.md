@@ -1,24 +1,38 @@
 # suspend
 
-作業を中断し、進捗を記録する。
+## Purpose
 
-## 中断時の作業
-1. 現時点の進捗を @docs/IMPLEMENTATION_PLAN.md に「🔄」で記録
-2. 未完了項目を明示してコミット
+Pause work safely: record progress, document what’s incomplete, and create a WIP commit.
 
-## コミットメッセージ例
+## When to use
+
+- You need to stop mid-task but want a clean resumption point
+- Context switching to another task/branch
+
+## Inputs (attach as `@...`)
+
+- `@docs/IMPLEMENTATION_PLAN.md` (recommended)
+
+## Steps
+
+1. Record current progress in `@docs/IMPLEMENTATION_PLAN.md` (use a clear “in progress” marker).
+2. Create a WIP commit that explicitly lists completed vs incomplete items.
+
+## WIP commit message example
+
+```text
+chore: WIP - Phase X.Y <task name>
+
+- Done: implemented xxx
+- TODO: add tests
+- TODO: run quality checks
+
+WIP: suspended
 ```
-chore: WIP - Phase X.Y タスク名
 
-- 完了: xxx機能の実装
-- 未完了: テストコードの作成
-- 未完了: 品質確認
+## Output (response format)
 
-🔄 作業中断
-```
-
-## 出力
-- 完了した作業
-- 未完了の作業
-- 再開時の注意点（あれば）
-
+- **Done**: what is finished
+- **TODO**: what remains
+- **Resume notes**: any pitfalls, commands, or context needed
+- **Next (manual)**: `NEXT_COMMAND: /wf-dev` (or the relevant workflow)

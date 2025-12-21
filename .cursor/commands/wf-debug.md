@@ -1,111 +1,81 @@
 # wf-debug
 
-バグ調査・修正の統合ワークフロー。
+## Purpose
 
-**注意**: これは `/wf-dev` とは独立したワークフローです。
+Orchestrate debugging: read the provided context, classify the problem, and output a Plan-mode To-do list that calls other Cursor commands (manually).
 
-## ワークフロー概要
+Note: This workflow is independent from `wf-dev`.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  問題の種類を特定                                            │
-│         ↓                                                    │
-│  ┌─────────────────┬─────────────────┬─────────────────┐    │
-│  │ モジュール間連動 │ 一般的なバグ     │ パーサー失敗     │    │
-│  │ /integration-   │ /bug-analysis   │ /parser-repair  │    │
-│  │    design       │                 │                 │    │
-│  └─────────────────┴─────────────────┴─────────────────┘    │
-│         ↓                                                    │
-│  修正・検証                                                  │
-│         ↓                                                    │
-│  /quality-check → /regression-test → /commit               │
-│         ↓                                                    │
-│  /merge-complete → /push                                    │
-└─────────────────────────────────────────────────────────────┘
-```
+## Contract (must follow)
 
-## 問題の種類と対応コマンド
+1. Read all user-attached `@...` context first.
+   - If required context is missing, ask for the exact `@...` files/info and stop.
+2. Classify the issue into A/B/C and state confidence.
+3. Produce a Plan-mode checklist To-do, where tasks include “run another Cursor command”.
+4. Propose the next command **as a suggestion only**.
+5. This command **does not auto-transition**:
+   - Do **not** output a slash command as a standalone line.
+   - Use `NEXT_COMMAND: /...` (inline) to make it easy to copy without auto-running.
 
-| 問題の種類 | コマンド | 説明 |
-|-----------|---------|------|
-| モジュール間連動 | `/integration-design` | vibe codingの弱点解消。シーケンス図・型定義・デバッグスクリプト作成 |
-| 一般的なバグ | `/bug-analysis` | バグパターン分類・原因調査・修正 |
-| HTMLパーサー失敗 | `/parser-repair` | 検索エンジンのセレクター診断・修正 |
+## Inputs (ask if missing)
 
-## 問題の種類を判断する基準
+- Symptom (expected vs actual)
+- Minimal repro steps
+- Recent error/log/stack trace
+- Relevant files: `@src/...`, `@config/...`, `@docs/...`
 
-### モジュール間連動の問題 → `/integration-design`
-- 複数モジュールにまたがるデータフローの問題
-- 型の不整合（モジュールAの出力がモジュールBの入力と合わない）
-- 非同期処理の連携問題
-- 「個別には動くが、組み合わせると動かない」
+## Classification (A/B/C → next command)
 
-### 一般的なバグ → `/bug-analysis`
-- 単一モジュール内のバグ
-- 例外処理の問題
-- リソースリーク
-- 競合状態
-- Null参照
+- **A: Cross-module integration** → `NEXT_COMMAND: /integration-design`
+- **B: General bug** → `NEXT_COMMAND: /bug-analysis`
+- **C: HTML parser/selector failure** → `NEXT_COMMAND: /parser-repair`
 
-### パーサー失敗 → `/parser-repair`
-- 検索エンジンのHTML構造変更
-- CSSセレクターの不一致
-- スクレイピング結果が空
+## Handoff to `wf-refactor` (when debugging turns into restructuring)
 
-## 使い方
+Use `wf-debug` to identify and fix the bug. However, **handoff to the refactor workflow** when a structural change is the safest way to eliminate the issue or prevent recurrence.
 
-### 1. 問題の種類を特定
+Handoff signals (examples):
 
-症状を確認し、上記の基準で問題の種類を判断。
+- The bug is caused by unclear boundaries, mixed responsibilities, or repeated “fix the symptom” patches.
+- Fix requires reshaping contracts/APIs across modules (not just a local patch).
+- A bloated module makes the correct fix risky or hard to validate.
+- You need to split a module/package to restore cohesion and testability.
 
-### 2. 該当コマンドを実行
+In those cases, propose:
 
-```
-/integration-design  # モジュール間連動の問題
-/bug-analysis        # 一般的なバグ
-/parser-repair       # パーサー失敗
-```
+- `NEXT_COMMAND: /wf-refactor`
 
-### 3. 修正後の検証
+## Standard To-dos to include
 
-```
-/quality-check      # lint/型チェック
-/regression-test    # 全テスト実行（非同期実行→ポーリングで完了確認）
-/commit             # コミット
-/merge-complete     # mainマージ・完了報告（必要に応じて）
-/push               # リモートにプッシュ（必要に応じて）
-```
+- [ ] Run the classification-specific command (A/B/C)
+- [ ] Run quality checks (`NEXT_COMMAND: /quality-check`)
+- [ ] Run regression tests (`NEXT_COMMAND: /regression-test`)
+- [ ] Commit (`NEXT_COMMAND: /commit`)
+- [ ] If needed: merge + push (`NEXT_COMMAND: /merge-complete`, then `NEXT_COMMAND: /push`)
 
-**回帰テストの実行例**:
-```bash
-# テスト開始
-./scripts/test.sh run tests/
+## Output (response format)
 
-# 完了までポーリング（最大5分、5秒間隔）
-for i in {1..60}; do
-    sleep 5
-    status=$(./scripts/test.sh check 2>&1)
-    echo "[$i] $status"
-    # 完了判定: "DONE"またはテスト結果キーワード（passed/failed/skipped）が含まれる
-    if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
-        break
-    fi
-done
+### Context read
 
-# 結果取得
-./scripts/test.sh get
-```
+- `@...` files read
+- Key constraints/acceptance criteria
 
-## 関連ルール
-- コード実行時: @.cursor/rules/code-execution.mdc
-- 連動設計: @.cursor/rules/integration-design.mdc
-- リファクタ関連: @.cursor/rules/refactoring.mdc
+### Classification
 
-## 完了条件チェックリスト
-- [ ] 問題の原因が特定できた
-- [ ] 修正を実装した
-- [ ] 品質確認済み（lint/型エラーなし）
-- [ ] 回帰テストパス
-- [ ] コミット完了
-- [ ] mainマージ完了（必要に応じて）
-- [ ] リモートにプッシュ完了（必要に応じて）
+- Case: A / B / C (confidence: high/medium/low)
+- Evidence: (bullets)
+- Unknowns: (bullets, if any)
+
+### Plan (To-do)
+
+- [ ] ... (include purpose / inputs / done criteria per item)
+
+### Next (manual)
+
+- `NEXT_COMMAND: /...`
+
+## Related rules
+
+- `@.cursor/rules/code-execution.mdc`
+- `@.cursor/rules/integration-design.mdc`
+- `@.cursor/rules/refactoring.mdc`
