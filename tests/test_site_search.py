@@ -70,7 +70,8 @@ class TestSearchTemplate:
 
     def test_from_dict_defaults(self) -> None:
         """Template should have sensible defaults."""
-        data = {}
+        from typing import Any
+        data: dict[str, Any] = {}
 
         template = SearchTemplate.from_dict("example.com", data)
 

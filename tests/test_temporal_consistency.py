@@ -27,6 +27,8 @@ Tests the temporal consistency validation functionality including:
 | TC-CF-02 | check_claim_consistency | Equivalence – convenience | Returns result | - |
 """
 
+from typing import Any
+
 import pytest
 
 # All tests in this module are unit tests (no external dependencies)
@@ -328,7 +330,7 @@ class TestTemporalConsistencyChecker:
             {"text": "No date mentioned"},
         ]
         # No page metadata either
-        page_metadata = {}
+        page_metadata: dict[str, Any] = {}
 
         results = checker.batch_check(claims, page_metadata, current_time)
 

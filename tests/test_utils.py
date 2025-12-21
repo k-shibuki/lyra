@@ -99,8 +99,9 @@ class TestSettings:
     def test_settings_from_dict(self) -> None:
         """Test creating settings from dict."""
         from src.utils.config import Settings
+        from typing import Any
 
-        config = {
+        config: dict[str, Any] = {
             "general": {"log_level": "DEBUG"},
             "search": {"initial_query_count_gpu": 20},
         }
@@ -206,8 +207,9 @@ class TestApplyEnvOverrides:
     def test_apply_env_overrides_creates_nested(self) -> None:
         """Test env var override creates nested keys."""
         from src.utils.config import _apply_env_overrides
+        from typing import Any
 
-        config = {}
+        config: dict[str, Any] = {}
 
         with patch.dict(os.environ, {"LYRA_SEARCH__EXPLORATION_DEPTH": "10"}):
             result = _apply_env_overrides(config)
@@ -217,8 +219,9 @@ class TestApplyEnvOverrides:
     def test_apply_env_overrides_bool(self) -> None:
         """Test env var override parses bool values."""
         from src.utils.config import _apply_env_overrides
+        from typing import Any
 
-        config = {}
+        config: dict[str, Any] = {}
 
         with patch.dict(
             os.environ,
@@ -235,8 +238,9 @@ class TestApplyEnvOverrides:
     def test_apply_env_overrides_float(self) -> None:
         """Test env var override parses float values."""
         from src.utils.config import _apply_env_overrides
+        from typing import Any
 
-        config = {}
+        config: dict[str, Any] = {}
 
         with patch.dict(os.environ, {"LYRA_CRAWLER__DOMAIN_QPS": "0.5"}):
             result = _apply_env_overrides(config)
@@ -246,8 +250,9 @@ class TestApplyEnvOverrides:
     def test_apply_env_overrides_string(self) -> None:
         """Test env var override preserves string values."""
         from src.utils.config import _apply_env_overrides
+        from typing import Any
 
-        config = {}
+        config: dict[str, Any] = {}
 
         with patch.dict(os.environ, {"LYRA_LLM__MODEL": "llama3:8b"}):
             result = _apply_env_overrides(config)
@@ -325,7 +330,9 @@ class TestLogging:
         from src.utils.logging import _add_timestamp
 
         event_dict = {"event": "test"}
-        result = _add_timestamp(None, "info", event_dict)
+        import logging
+        logger = logging.getLogger(__name__)
+        result = _add_timestamp(logger, "info", event_dict)
 
         assert "timestamp" in result
         assert result["timestamp"].endswith("Z")

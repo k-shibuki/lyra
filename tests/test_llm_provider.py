@@ -749,9 +749,13 @@ class TestOllamaProviderChat:
             ]
             await ollama_provider.chat(messages)
 
-        assert len(captured_payload["messages"]) == 2
-        assert captured_payload["messages"][0]["role"] == "system"
-        assert captured_payload["messages"][1]["content"] == "Hello"
+        messages_list = captured_payload["messages"]
+        assert isinstance(messages_list, list)
+        assert len(messages_list) == 2
+        assert isinstance(messages_list[0], dict)
+        assert isinstance(messages_list[1], dict)
+        assert messages_list[0]["role"] == "system"
+        assert messages_list[1]["content"] == "Hello"
 
 
 class TestOllamaProviderEmbed:
