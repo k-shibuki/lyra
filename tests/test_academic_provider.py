@@ -649,7 +649,7 @@ class TestAPIReturnTypes:
         mock_session_instance = AsyncMock()
         mock_session_instance.get = AsyncMock(return_value=mock_response)
 
-        async def mock_get_session():
+        async def mock_get_session() -> AsyncMock:
             return mock_session_instance
 
         with patch.object(client, "_get_session", side_effect=mock_get_session):
