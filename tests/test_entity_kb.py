@@ -141,7 +141,8 @@ async def entity_kb(tmp_path: Path) -> AsyncGenerator[EntityKB, None]:
             placeholders = ", ".join(["?" for _ in data])
             sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
             await self.execute(sql, tuple(data.values()))
-            return data.get("id") if isinstance(data.get("id"), str) else None
+            id_val = data.get("id")
+            return str(id_val) if isinstance(id_val, str) else None
 
         async def update(
             self,

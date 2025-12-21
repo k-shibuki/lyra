@@ -191,7 +191,7 @@ class TestEngineDefinitionSchema:
 
     def test_categories_string_to_list(self) -> None:
         """Test single category string is converted to list."""
-        schema = EngineDefinitionSchema(categories="general")
+        schema = EngineDefinitionSchema(categories=["general"])
         assert schema.categories == ["general"]
 
     def test_priority_bounds(self) -> None:
@@ -558,7 +558,9 @@ class TestHotReload:
         assert len(manager.get_default_engines()) == 2
 
         # Modify config - add a new default engine
-        sample_config_data["default_engines"].append("arxiv")
+        default_engines = sample_config_data["default_engines"]
+        assert isinstance(default_engines, list)
+        default_engines.append("arxiv")
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(sample_config_data, f)
 
@@ -584,7 +586,9 @@ class TestHotReload:
         assert len(manager.get_default_engines()) == 2
 
         # Modify config - add a new default engine
-        sample_config_data["default_engines"].append("arxiv")
+        default_engines = sample_config_data["default_engines"]
+        assert isinstance(default_engines, list)
+        default_engines.append("arxiv")
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(sample_config_data, f)
 
@@ -601,7 +605,9 @@ class TestHotReload:
         )
 
         # Modify config - add a new default engine
-        sample_config_data["default_engines"].append("arxiv")
+        default_engines = sample_config_data["default_engines"]
+        assert isinstance(default_engines, list)
+        default_engines.append("arxiv")
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(sample_config_data, f)
 

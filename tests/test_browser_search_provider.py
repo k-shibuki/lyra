@@ -45,6 +45,7 @@ from src.search.provider import (
     SearchOptions,
 )
 from src.search.search_parsers import ParsedResult, ParseResult
+from src.utils.schemas import LastmileCheckResult
 
 # ============================================================================
 # Test Fixtures
@@ -3664,9 +3665,9 @@ class TestLastmileSlotSelection:
         # Track _should_use_lastmile calls
         original_should_use = provider._should_use_lastmile
 
-        def mock_should_use(*args: object, **kwargs: object) -> bool:
-            should_use_lastmile_calls.append(args)
-            return original_should_use(*args, **kwargs)
+        def mock_should_use(harvest_rate: float, threshold: float = 0.9) -> LastmileCheckResult:
+            should_use_lastmile_calls.append((harvest_rate, threshold))
+            return original_should_use(harvest_rate, threshold)
 
         with patch.object(provider, "_should_use_lastmile", mock_should_use):
             with patch.object(provider, "_ensure_browser", AsyncMock()):
