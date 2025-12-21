@@ -1802,152 +1802,17 @@ def test_reason_code_is_factual():
 
 現在の `openalex.py` は「does not support detailed references」としてスタブのみ。
 `referenced_works` フィールドを使って実装する。
-
-```python
-# src/search/apis/openalex.py
-async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
-    """Get references via referenced_works field."""
-    session = await self._get_session()
-
-    # 1. 論文のメタデータを取得
-    paper_data = await self._get_work(paper_id)
-    if not paper_data:
-        return []
-
-    # 2. referenced_works (Work ID のリスト) を取得
-    referenced_ids = paper_data.get("referenced_works", [])
-
-    # 3. 各 Work ID を Paper に変換（上位20件）
-    results = []
-    for work_id in referenced_ids[:20]:
-        # work_id は "https://openalex.org/W1234567890" 形式
-        ref_paper = await self.get_paper(work_id)
-        if ref_paper and ref_paper.abstract:
-            # OpenAlex は is_influential フラグを持たない → False
-            results.append((ref_paper, False))
-
-    return results
-
-async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
-    """Get citing papers via filter=cites:{work_id}."""
-    session = await self._get_session()
-
-    async def _search() -> dict[str, Any]:
-        response = await session.get(
-            f"{self.base_url}/works",
-            params={
-                "filter": f"cites:{paper_id}",
-                "per-page": 20,
-                "select": "id,title,abstract_inverted_index,publication_year,authorships,doi",
-            },
-        )
-        response.raise_for_status()
-        return response.json()
-
-    data = await retry_api_call(_search, ACADEMIC_API_POLICY)
-    papers = [self._parse_paper(item) for item in data.get("results", [])]
-    return [(p, False) for p in papers if p and p.abstract]
-```
+- OpenAlexの参照文献は `referenced_works`（Work ID配列）から取得する
+- 被引用（citing works）は `works?filter=cites:{work_id}` で取得する
+- `abstract` が取れる論文のみを対象にする
+- OpenAlex側には `is_influential` 相当がないため **False** 扱いとする（決定5の非対称性に配慮）
 
 **3.3 関連性フィルタリング（Embedding → LLM 2段階）**
 
 新規ファイル `src/search/citation_filter.py` を作成。
-
-```python
-# src/search/citation_filter.py
-from src.filter.ollama_provider import create_ollama_provider
-from src.ml_client import MLClient
-from src.utils.prompt_manager import render_prompt
-
-async def filter_relevant_citations(
-    source_paper: Paper,
-    related_papers: list[tuple[Paper, bool]],
-    query: str,
-    max_count: int = 10,
-) -> list[tuple[Paper, float]]:
-    """
-    2段階の関連性フィルタリング
-
-    Stage 1: Embedding + is_influential で粗フィルタ（上位30件）
-    Stage 2: LLM で精密評価（上位10件）
-    """
-    ml_client = MLClient()
-
-    # ============================================
-    # Stage 1: Embedding で粗フィルタ（高速）
-    # ============================================
-    candidates = []
-
-    # バッチで埋め込みを計算
-    abstracts = [source_paper.abstract] + [p.abstract for p, _ in related_papers if p.abstract]
-    embeddings = await ml_client.embed(abstracts)
-    source_embedding = embeddings[0]
-
-    for i, (paper, is_influential) in enumerate(related_papers):
-        if not paper.abstract:
-            continue
-
-        # Embedding類似度
-        embed_sim = _cosine_similarity(source_embedding, embeddings[i + 1])
-
-        # スコア計算: is_influential 0.5 + embed_sim 0.5
-        score = (0.5 if is_influential else 0.0) + embed_sim * 0.5
-        candidates.append((paper, score, is_influential))
-
-    # 上位30件を抽出
-    candidates.sort(key=lambda x: x[1], reverse=True)
-    candidates = candidates[:30]
-
-    # ============================================
-    # Stage 2: LLM で精密評価（高精度）
-    # ============================================
-    llm_scores = []
-    provider = create_ollama_provider()
-
-    try:
-        for paper, embed_score, is_influential in candidates:
-            llm_relevance = await _evaluate_relevance_with_llm(
-                provider, query, source_paper.abstract, paper.abstract
-            )
-
-            # 最終スコア: LLM 0.5 + Embedding 0.3 + is_influential 0.2
-            final_score = (
-                llm_relevance * 0.5 +
-                embed_score * 0.3 +
-                (0.2 if is_influential else 0.0)
-            )
-            llm_scores.append((paper, final_score))
-    finally:
-        await provider.close()
-
-    llm_scores.sort(key=lambda x: x[1], reverse=True)
-    return llm_scores[:max_count]
-
-
-async def _evaluate_relevance_with_llm(
-    provider,
-    query: str,
-    source_abstract: str,
-    target_abstract: str,
-) -> float:
-    """ローカルLLM（Qwen2.5 3B）で関連性を0-1スコアで評価"""
-    prompt = render_prompt(
-        "relevance_evaluation",  # 新規テンプレート
-        query=query,
-        source_abstract=source_abstract[:500],
-        target_abstract=target_abstract[:500],
-    )
-
-    try:
-        response = await provider.generate(prompt)
-        if response.status == "success":
-            score = int(response.text.strip()) / 10.0
-            return min(max(score, 0.0), 1.0)
-    except Exception:
-        pass
-
-    return 0.5  # パース失敗時はデフォルト
-```
+- Stage 1（粗フィルタ）: Embedding類似度＋impact指標で候補を圧縮（例: 上位30件）
+- Stage 2（精密評価）: ローカルLLM（Qwen2.5 3B）で「有用なエビデンス/重要な背景になり得るか」を数値評価し、上位（例: 10件）を選抜
+- LLM評価は **SUPPORTS/REFUTESの判断を含めない**（決定8の責務分離）
 
 **プロンプトテンプレート（新規）**:
 
@@ -1981,34 +1846,11 @@ async def _evaluate_relevance_with_llm(
 
 #### テストケース
 
-```python
-# tests/test_openalex.py
-def test_get_references_returns_papers():
-    """referenced_worksから論文が取得できることを検証"""
-
-def test_get_citations_returns_citing_papers():
-    """被引用論文が取得できることを検証"""
-
-# tests/test_citation_filter.py
-def test_stage1_embedding_filter():
-    """Embedding粗フィルタで上位30件が選択されることを検証"""
-
-def test_stage2_llm_evaluation():
-    """LLM精密評価が0-1スコアを返すことを検証"""
-
-def test_relevance_filtering_top_10():
-    """最終的に上位10件が選択されることを検証"""
-
-def test_local_impact_scores_percentile_rank():
-    """impact_score（citation_countのローカル正規化）が順位を反映することを検証"""
-
-# tests/test_academic_provider.py
-def test_citation_tracking_adds_referenced_papers():
-    """引用先論文がpagesに追加されることを検証"""
-
-def test_new_theory_not_isolated():
-    """新理論が孤立ノードにならないことを検証"""
-```
+- OpenAlexの参照取得（references）と被引用取得（citations）が動作すること
+- Stage 1の粗フィルタが候補数を上限（例: 30件）に圧縮できること
+- Stage 2のLLM評価が期待するスコア範囲（0〜1 または 0〜10）を返すこと
+- 最終的に上位N件（例: 10件）が選抜されること
+- 引用追跡で引用先論文が pages に追加され、新理論が孤立ノードにならないこと
 
 ### Phase 4: ベイズ信頼度モデル（中リスク・高価値）
 
