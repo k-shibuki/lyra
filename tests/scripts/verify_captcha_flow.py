@@ -515,7 +515,7 @@ class CAPTCHAFlowVerifier:
             # The current implementation has _bring_tab_to_front(page) which is a private method
             # that takes a Page object. This test should be skipped until the public API is added.
             # See plan: tests_6cea44b8.plan.md Phase 1 - 4.4 InterventionManager.bring_to_front()
-            
+
             # Test foreground functionality
             foreground_count = 3
             success_count = 0
@@ -528,7 +528,7 @@ class CAPTCHAFlowVerifier:
                 skipped=True,
                 skip_reason="bring_to_front(url, reason) API not implemented - TODO: add public API to InterventionManager",
             )
-            
+
             # Original test code (commented out until API is available):
             # for i in range(foreground_count):
             #     success = await manager.bring_to_front(
