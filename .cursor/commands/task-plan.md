@@ -14,7 +14,7 @@ Select exactly one implementation task from the given context, collect the missi
 ## Inputs (attach as `@...`)
 
 - User instructions describing the task to work on
-- - Any planning/task documents (e.g. `@docs/IMPLEMENTATION_PLAN.md`, `@docs/TODO.md`, issue files)
+- Any planning/task documents (e.g. `@docs/IMPLEMENTATION_PLAN.md`, `@docs/TODO.md`, issue files)
 - `@docs/REQUIREMENTS.md` (recommended if the task is user-facing or has acceptance criteria)
 
 **Note**: This command does not require a specific document format. It will extract tasks from whatever documents or instructions the user provides.
@@ -88,7 +88,3 @@ feature/phase-{N}-{M}-{short-description}
 - `@.cursor/rules/test-strategy.mdc`
 - `@.cursor/rules/quality-check.mdc`
 - `@.cursor/rules/refactoring.mdc`
-
-## Used by workflows
-
-- `wf-dev`
