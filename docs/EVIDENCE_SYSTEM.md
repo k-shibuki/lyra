@@ -17,78 +17,55 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-21
+**最終更新**: 2025-12-22
 
 このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
 - Phaseの開始/完了、または仕様変更（破壊的変更を含む）を行ったタイミングで更新する
 - 実装が一部のみの場合は、**どこまでが完了で、何が未完か**を明記する（誤認防止）
 
-### 現在のステータス
+### タスク別ステータス
 
-| Phase | 目的 | 状態 | 参照 |
-|------:|------|------|------|
-| 1 | 透明性の向上（blocked_domains / cause_id / adoption_status） | DONE | `82ce42e` |
-| 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | DONE | `0869de0`, `993f333` |
-| 3 | 引用追跡の完全実装（決定11: Budgeted Citation Expansion / S2 + OpenAlex / pages追加 / CITES） | DONE | 3.1, 3.4, 3.5, 3.7完了 |
-| 4 | ベイズ信頼度モデル（confidence/uncertainty/controversy） | TODO | - |
-| 5 | ユーザー制御（user_overrides / 復元） | TODO | - |
+表記ルール:
+- `Phase X / Task Y.Z` の粒度で状態を管理する
+- 状態は `DONE | IN_PROGRESS | TODO | PLANNED | CANCELLED` のいずれか
 
-### Phase 1 完了内容（DONE）
+#### Phase 1（透明性の向上）
 
-- `trust_level` 概念を排除し、**domain_category に完全統一**（後方互換なし）
-- `get_status` に `blocked_domains`（＋`idle_seconds`）を追加し、ブロック理由を可視化
-- `claims.adoption_status` を追加し、`pending/adopted/not_adopted` を保持できるようにした
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 1 / Task 1.0 | `trust_level` 概念を排除し、`domain_category` に統一（破壊的変更） | DONE | `src/utils/domain_policy.py`, `config/domains.yaml`, `docs/REQUIREMENTS.md` | 後方互換なし（単独運用前提） |
+| Phase 1 / Task 1.1 | `get_status` に `blocked_domains`（＋`idle_seconds`）を追加 | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `tests/test_mcp_get_status.py` | - |
+| Phase 1 / Task 1.2 | ブロック理由のログ強化（`cause_id` 連携） | DONE | `src/filter/source_verification.py` | - |
+| Phase 1 / Task 1.3 | エビデンスグラフに矛盾関係（REFUTES）を保存 | DONE | `src/filter/evidence_graph.py`, `src/storage/schema.sql` | - |
+| Phase 1 / Task 1.4 | `claims.adoption_status` を追加し `pending/adopted/not_adopted` を保持 | DONE | `src/storage/schema.sql`, `src/filter/evidence_graph.py` | - |
+| Phase 1 / Task 1.5 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（ローカル回帰: 3225 passed） |
 
-**検証**:
-- ruff / mypy / tests: PASS（ローカル回帰: 3225 passed）
+#### Phase 2（エッジへのドメイン分類情報追加）
 
-### Phase 2 完了内容（DONE）
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 2 / Task 2.1 | スキーマ変更（`edges.source_domain_category/target_domain_category`） | DONE | `src/storage/schema.sql` | - |
+| Phase 2 / Task 2.2 | `EvidenceGraph.add_edge()` にパラメータ追加 | DONE | `src/filter/evidence_graph.py` | - |
+| Phase 2 / Task 2.3 | エッジ生成時にドメインカテゴリ付与（実運用パスで常に付与） | DONE | `src/research/executor.py`, `src/research/refutation.py`, `src/filter/evidence_graph.py` | CITESは `add_academic_page_with_citations` 内で pages の `domain` から算出（見つからない場合は "academic" にフォールバック） |
+| Phase 2 / Task 2.4 | 判定ロジックからカテゴリ依存を除去 | DONE | `src/filter/source_verification.py`, `tests/test_source_verification.py` | - |
+| Phase 2 / Task 2.5 | `to_dict()` エクスポートにカテゴリ情報を含める | DONE | `src/filter/evidence_graph.py` | - |
+| Phase 2 / Task 2.6 | 決定12: `is_influential` の完全削除 | DONE | `src/storage/schema.sql`, `src/search/apis/*.py`, `src/search/academic_provider.py`, `src/filter/evidence_graph.py` | 検証: `grep -r "\\bis_influential\\b" src/` 残骸ゼロ |
+| Phase 2 / Task 2.7 | ドキュメント更新 | DONE | `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（3228 passed） |
+| Phase 2 / Task 2.8 | 補助API（Crossref / arXiv / Unpaywall）の整理（削除/明確化） | TODO | `src/search/academic_provider.py`, `src/search/apis/{crossref,arxiv,unpaywall}.py` | 現状: `AcademicSearchProvider` デフォルトは `semantic_scholar` / `openalex`。ただし `Unpaywall` は OA URL 解決で任意利用されるため “完全未使用” ではない |
 
-- `edges` に `source_domain_category` / `target_domain_category` を保存・ロードできる（EvidenceGraph / schema）
-- NLI→エッジ生成の実運用パスで、**常に source/target_domain_category を付与する**実装を完了
-  - `executor.py`: fragment→claim supportsエッジに付与
-  - `refutation.py`: refutesエッジに`target_domain_category`を付与（claimのorigin domainから算出）
-  - `add_academic_page_with_citations`: CITESエッジで実際のページドメインから`domain_category`を算出
-- 決定12: `is_influential` の完全削除
-  - `schema.sql`: `edges.is_influential`カラム削除（DB再作成が必要）
-  - `schemas.py`: `Citation.is_influential`フィールド削除
-  - `base.py`: `get_references/get_citations`戻り値を`list[Paper]`に統一
-  - `semantic_scholar.py`: `isInfluential`フィールド取得を削除
-  - `academic_provider.py`: `Citation`生成から`is_influential`を削除
-  - `evidence_graph.py`: `add_citation/add_academic_page_with_citations`から`is_influential`を削除
-  - テストファイル: `is_influential`参照を削除
+#### Phase 3（引用追跡の完全実装）
 
-**検証**:
-- ruff / mypy / tests: PASS（3228 passed）
-- `grep -r "\bis_influential\b" src/` で残骸ゼロを確認
-- フォールバック処理: ページが見つからない場合も"academic"にフォールバック
-
-### Phase 3 完了内容（DONE）
-
-- **タスク 3.1**: OpenAlex/arXiv/Crossref の `get_references()` / `get_citations()` 戻り値を `list[Paper]` に統一（決定12の適用）
-- **タスク 3.3**: 関連性フィルタリング（Embedding → LLM 2段階）を実装
-  - `src/search/citation_filter.py` を新規作成
-  - Stage 1: Embedding + impact_score で粗フィルタ（上位30件）
-  - Stage 2: LLM で精密評価（上位10件）
-- **タスク 3.4**: `get_citation_graph()` を S2/OpenAlex 統合に拡張
-  - S2 と OpenAlex から並列取得（`asyncio.gather`）
-  - `CanonicalPaperIndex` による DOI ベース重複排除
-  - 引用関係の重複も防止（`citation_pairs` セット）
-- **タスク 3.5**: 非アカデミッククエリでも学術識別子発見時にAPI補完
-  - `_process_serp_with_identifiers()` メソッドを抽出・新規作成
-  - `_process_citation_graph()` メソッドを抽出・新規作成
-  - `_execute_browser_search` を拡張して共通処理を呼び出す
-  - `_execute_complementary_search` をリファクタリングして共通メソッドを使用
-- **タスク 3.7**: ドキュメント更新
-  - README.md: `citation_filter.py` モジュール追加、`search.citation_filter.*` 設定説明追加
-  - REQUIREMENTS.md: Step 5 の 3段階フィルタリング（Stage 0/1/2）詳細追加
-  - EVIDENCE_SYSTEM.md: 進捗トラッカー更新（Phase 3 → DONE）
-
-**検証**:
-- ruff / mypy / tests: PASS
-- 統合テスト: S2/OpenAlex統合、重複排除、エラーハンドリングを確認
-- 非アカデミッククエリでの識別子補完を確認
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 3 / Task 3.1 | OpenAlex `get_references/get_citations` 実装（戻り値 `list[Paper]`） | DONE | `src/search/apis/openalex.py`, `tests/test_academic_provider.py` | - |
+| Phase 3 / Task 3.2 | 引用先論文の pages 自動追加（Budgeted） | DONE | `src/research/pipeline.py`, `src/storage/schema.sql` | Abstract Onlyで pages/fragments に自動追加してから CITES を張る |
+| Phase 3 / Task 3.3 | 関連性フィルタリング（Embedding → LLM） | DONE | `src/search/citation_filter.py`, `tests/test_citation_filter.py` | Stage 1: Embedding + impact_score（上位30） / Stage 2: LLM（上位10） |
+| Phase 3 / Task 3.4 | S2/OpenAlex 引用グラフ統合（dedup / citation_pairs） | DONE | `src/search/academic_provider.py`, `tests/test_academic_provider.py` | - |
+| Phase 3 / Task 3.5 | 非アカデミックでも識別子発見でAPI補完 | DONE | `src/research/pipeline.py`, `tests/test_pipeline_academic.py` | - |
+| Phase 3 / Task 3.6 | 決定11: budget制約の設定反映 | DONE | `config/settings.yaml`, `src/research/pipeline.py` | - |
+| Phase 3 / Task 3.7 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（統合: S2/OpenAlex統合、重複排除、エラーハンドリング、識別子補完を確認） |
+| Phase 3 / Task 3.8 | CITESスコープ選択（`academic_only` / `all`） | PLANNED | `src/filter/evidence_graph.py`, `src/research/materials.py`, `src/mcp/server.py` | 目的: 学術API由来の引用ネットワーク（`edges.is_academic=1`）だけ/全CITESを切替。`CitationScope=academic_only|all` を導入し、`detect_*`/`get_citation_integrity_report`/エクスポートをscope対応させる（`academic_only` は `is_academic=0` を除外、`all` は現行回帰一致） |
 
 ---
 
@@ -2084,6 +2061,31 @@ def test_get_citations_returns_papers_only():
 - Stage 2のLLM評価が期待するスコア範囲（0〜1 または 0〜10）を返すこと
 - 最終的に上位N件（例: 10件）が選抜されること
 - 引用追跡で引用先論文が pages に追加され、新理論が孤立ノードにならないこと
+
+**3.7 ドキュメント更新**
+
+- `README.md`
+  - Key Modules に `src/search/citation_filter.py` を追加
+  - Configuration に `search.citation_filter.*` を追加
+- `docs/REQUIREMENTS.md`
+  - Step 5（引用追跡）の Stage 0/1/2（メタデータ即時フィルタ / Embedding粗 / LLM精密）を明文化
+  - `config/settings.yaml` の関連設定（`citation_graph_*`, `search.citation_filter.*`）の説明を追加
+- `docs/EVIDENCE_SYSTEM.md`
+  - Progress（タスク表）を更新し、実装済みタスクとPLANNEDを厳密に追跡できるようにする
+
+**3.8 CITESスコープ選択（`academic_only` / `all`）【PLANNED】**
+
+- **目的**: 学術API由来の引用ネットワーク（`edges.is_academic=1`）と、一般Web由来のCITES（将来導入されうる）を混在させず、用途に応じて解析対象を切替可能にする。
+- **想定仕様**:
+  - `CitationScope`: `academic_only | all`
+  - `academic_only`: `relation="cites"` かつ `is_academic=1` のエッジのみを対象
+  - `all`: 現行どおり `relation="cites"` の全エッジを対象
+- **想定実装箇所（将来）**:
+  - `src/filter/evidence_graph.py`: `detect_*()` / `get_citation_integrity_report()` / `calculate_citation_penalties()` 等に scope を渡し、CITES抽出をフィルタできるようにする
+  - `src/research/materials.py`（および `src/mcp/server.py` の `get_materials`）: `include_graph` 時に `citation_scope` を受け取り、メトリクス・エクスポートを切替できるようにする
+- **テストケース（将来）**:
+  - `academic_only` では `is_academic=0` のCITESがメトリクス計算から除外される
+  - `all` では現行の結果と一致する（回帰担保）
 
 ### Phase 4: ベイズ信頼度モデル（中リスク・高価値）
 

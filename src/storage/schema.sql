@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS pages (
     content_hash TEXT,  -- SHA256 of content
     content_length INTEGER,
     title TEXT,
+    -- Academic paper metadata (Abstract Only strategy; stored as JSON string)
+    paper_metadata TEXT,
     language TEXT,
     fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     warc_path TEXT,
