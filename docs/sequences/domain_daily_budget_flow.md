@@ -125,7 +125,7 @@ default_policy:
 
 allowlist:
   - domain: "wikipedia.org"
-    trust_level: "trusted"
+    domain_category: "trusted"
     max_requests_per_day: 500  # 高信頼サイトは上限を引き上げ
     max_pages_per_day: 250
 ```

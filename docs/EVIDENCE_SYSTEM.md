@@ -95,7 +95,7 @@
 │                                                              │
 │    昇格条件: ≥2 独立ソースで裏付け → LOW                       │
 │    降格条件:                                                  │
-│      - 矛盾検出 (UNVERIFIED のみ) → BLOCKED                   │
+│      - 反証エビデンス検出 (REFUTES) → PENDING（自動BLOCKしない） │
 │      - rejection_rate > 30% (UNVERIFIED/LOW) → BLOCKED       │
 │                                                              │
 │    TRUSTED以上: REJECTED マークのみ（自動降格なし）            │
@@ -104,14 +104,15 @@
 
 ### 現在の矛盾検出ロジック
 
-`source_verification.py:294`:
+（旧ロジック例。Phase 1 リファクタで修正済み）:
 ```python
-if has_contradictions or refuting_count > 0:
-    if original_trust_level == TrustLevel.UNVERIFIED:
-        return (REJECTED, BLOCKED, DEMOTED, "Contradiction detected")
+if refuting_count > 0:
+    # Single-user refactor: "contradiction" == "refuting evidence exists"
+    # Do not auto-block based on evidence alone; keep PENDING for high-inference AI.
+    return (PENDING, original_domain_category, UNCHANGED, "Refuting evidence exists")
 ```
 
-**問題**: `refuting_count > 0` で即座にREJECTED/BLOCKEDとなる。
+**解決**: `refuting_count > 0` は **PENDING**（高推論AIに委譲）に統一。
 
 ---
 
@@ -436,7 +437,7 @@ search(query)
      │            │ │  │   → (premise, hypothesis) pairs ─────────> ML Server /nli                   ││
      │            │ │  │   ← labels[] (SUPPORTS/REFUTES/NEUTRAL)                                      ││
      │            │ │  │   → エッジ作成                                                               ││
-     │            │ │  │   → source_trust_level/target_trust_level 付与                               ││
+     │            │ │  │   → source_domain_category/target_domain_category 付与                       ││
      │            │ │  │                                                                              ││
      │            │ │  │ ベイズ更新:                                                                  ││
      │            │ │  │   → claim_confidence計算（§提案6）                                           ││
@@ -698,7 +699,7 @@ search(query)
 
 ## 改善提案
 
-### 提案1: エッジへの信頼レベル情報追加
+### 提案1: エッジへのドメイン分類情報追加
 
 **設計原則**: 対立関係をエッジとして記録し、**解釈は高推論AIに委ねる**。
 
@@ -715,12 +716,12 @@ Lyraは「AがBを反論している」という**事実**をエッジで記録�
 --   you add new columns.
 --
 -- Example (edges table columns in `src/storage/schema.sql`):
--- source_trust_level TEXT;
--- target_trust_level TEXT;
+-- source_domain_category TEXT;
+-- target_domain_category TEXT;
 
 -- インデックス追加（対立関係の高速検索用）
-CREATE INDEX IF NOT EXISTS idx_edges_trust_levels
-    ON edges(relation, source_trust_level, target_trust_level);
+CREATE INDEX IF NOT EXISTS idx_edges_domain_categories
+    ON edges(relation, source_domain_category, target_domain_category);
 ```
 
 #### 1.2 エッジ作成時の信頼レベル付与
@@ -737,8 +738,8 @@ def add_edge(
     confidence: float | None = None,
     nli_label: str | None = None,
     nli_confidence: float | None = None,
-    source_trust_level: str | None = None,  # 追加
-    target_trust_level: str | None = None,  # 追加
+    source_domain_category: str | None = None,  # 追加
+    target_domain_category: str | None = None,  # 追加
     **attributes: Any,
 ) -> str:
     ...
@@ -747,11 +748,11 @@ def add_edge(
 #### 1.3 NLI評価時の呼び出し
 
 ```python
-from src.utils.domain_policy import get_domain_trust_level
+from src.utils.domain_policy import get_domain_category
 
-# REFUTESエッジ作成時に信頼レベルを付与
-source_trust = get_domain_trust_level(source_domain)
-target_trust = get_domain_trust_level(target_domain)
+# REFUTESエッジ作成時にドメイン分類を付与
+source_cat = get_domain_category(source_domain)
+target_cat = get_domain_category(target_domain)
 
 graph.add_edge(
     source_type=NodeType.FRAGMENT,
@@ -760,8 +761,8 @@ graph.add_edge(
     target_id=claim_id,
     relation=RelationType.REFUTES,
     nli_confidence=0.92,
-    source_trust_level=source_trust.value,  # "academic"
-    target_trust_level=target_trust.value,  # "unverified"
+    source_domain_category=source_cat.value,  # "academic"
+    target_domain_category=target_cat.value,  # "unverified"
 )
 ```
 
@@ -777,8 +778,8 @@ graph.add_edge(
       "target": "claim:def456",
       "relation": "refutes",
       "nli_confidence": 0.92,
-      "source_trust_level": "academic",
-      "target_trust_level": "unverified"
+      "source_domain_category": "academic",
+      "target_domain_category": "unverified"
     }
   ]
 }
@@ -797,7 +798,7 @@ graph.add_edge(
 | 概念 | 定義 | 重要度 |
 |------|------|:------:|
 | **confidence** (信頼度) | エビデンスの量・質に基づく主張の確からしさ | **主** |
-| **TrustLevel** (ドメイン分類) | ドメインの事前分類 (PRIMARY〜BLOCKED) | 従 |
+| **DomainCategory** (ドメイン分類) | ドメインの事前分類 (PRIMARY〜BLOCKED) | 従 |
 
 ```python
 # 信頼度計算（ベイズ更新: §提案6）
@@ -830,7 +831,7 @@ confidence = alpha / (alpha + beta)  # Beta分布の期待値
 - Nature論文でも単独 → 高uncertainty（正しい動作）
 - 無名ブログでも5つの独立エビデンスで裏付け → 低uncertainty（正しい動作）
 - ドメイン分類は「出自のヒント」であり、信頼性の保証ではない
-- エッジの`source_trust_level`/`target_trust_level`は高推論AIの参考情報
+- エッジの`source_domain_category`/`target_domain_category`は高推論AIの参考情報
 
 ### 提案2: データソース戦略
 
@@ -1117,9 +1118,9 @@ async def evaluate_relevance_with_llm(
         {
             "domain": "example.com",
             "blocked_at": "2024-01-15T10:30:00Z",
-            "reason": "Contradiction with pubmed.gov (claim_id: abc123)",
-            "contradicting_claims": ["claim:abc123"],
-            "original_trust_level": "UNVERIFIED",
+            "reason": "Dangerous pattern / high rejection rate (cause_id: abc123)",
+            "cause_id": "abc123",
+            "original_domain_category": "UNVERIFIED",
             "can_restore": true,
             "restore_via": "config/domains.yaml user_overrides"
         }
@@ -1127,14 +1128,14 @@ async def evaluate_relevance_with_llm(
 }
 ```
 
-#### 4.2 信頼レベルのオーバーライド
+#### 4.2 ドメイン分類のオーバーライド
 
 `config/domains.yaml` に `user_overrides` セクション:
 
 ```yaml
 user_overrides:
   - domain: "blocked-but-valid.org"
-    trust_level: "low"
+    domain_category: "low"
     reason: "Manual review completed - false positive"
     added_at: "2024-01-15"
 ```
@@ -1149,7 +1150,7 @@ Wikipedia は `LOW` (0.40) として設定済み（`config/domains.yaml:108-113`
 
 ```yaml
 - domain: "wikipedia.org"
-  trust_level: "low"  # Downgraded: anyone can edit, quality varies by article
+  domain_category: "low"  # Downgraded: anyone can edit, quality varies by article
   qps: 0.5
   headful_ratio: 0
   max_requests_per_day: 500
@@ -1335,23 +1336,14 @@ graph TD
 
 ```python
 # src/mcp/server.py: _handle_get_status()
-from src.filter.source_verification import SourceVerifier
+from src.filter.source_verification import get_source_verifier
 
-# タスクに紐づくSourceVerifierインスタンスを取得
-verifier = await _get_source_verifier(task_id)
+# Single-user mode: global verifier (no backward-compat requirement)
+verifier = get_source_verifier()
 
 response = {
     ...
-    "blocked_domains": [
-        {
-            "domain": domain,
-            "blocked_at": state.blocked_at.isoformat() if state.blocked_at else None,
-            "reason": state.block_reason,
-            "original_trust_level": state.original_trust_level,
-        }
-        for domain in verifier.get_blocked_domains()
-        if (state := verifier.get_domain_state(domain))
-    ],
+    "blocked_domains": verifier.get_blocked_domains_info(),
 }
 ```
 
@@ -1448,8 +1440,8 @@ Phase 3（引用追跡）で追加される論文間の対立関係を、高推�
 -- (Optional future: create a migration file under `migrations/` and apply via
 -- `python scripts/migrate.py up` if/when we start needing incremental migrations.)
 
-CREATE INDEX IF NOT EXISTS idx_edges_trust_levels
-    ON edges(relation, source_trust_level, target_trust_level);
+CREATE INDEX IF NOT EXISTS idx_edges_domain_categories
+    ON edges(relation, source_domain_category, target_domain_category);
 ```
 
 **2.2 `add_edge()` にパラメータ追加**
@@ -1787,7 +1779,7 @@ def test_new_theory_not_isolated():
 **目的**: 数学的に厳密な信頼度計算を導入し、不確実性と論争度を明示化
 
 > **重要設計決定**: ベイズモデルは **NLI confidence のみ** を使用する。
-> - ドメイン分類（TrustLevel）は**使用しない**（§決定3、§決定7参照）
+> - ドメイン分類（DomainCategory）は**使用しない**（§決定3、§決定7参照）
 > - LLM関連性スコアは**使用しない**（Phase 3 の引用フィルタリングのみで使用）
 >
 > **理由**: ドメインが何であれ誤った情報は存在する（再現性危機、論文撤回、ハゲタカジャーナル）。
@@ -1820,7 +1812,7 @@ def calculate_claim_confidence_bayesian(self, claim_id: str) -> dict[str, Any]:
     無情報事前分布 Beta(1, 1) から開始し、
     各エッジの NLI confidence で重み付けして更新する。
 
-    注意: ドメイン分類（TrustLevel）は使用しない。
+    注意: ドメイン分類（DomainCategory）は使用しない。
           LLM関連性スコアも使用しない。
           NLI confidence のみを使用する。
     """
@@ -1973,7 +1965,7 @@ def test_flag_switches_implementation():
         "domain": domain,
         "blocked_at": ...,
         "reason": ...,
-        "original_trust_level": ...,
+        "original_domain_category": ...,
         "can_restore": True,  # 追加
         "restore_via": "config/domains.yaml user_overrides",  # 追加
     }
@@ -1987,18 +1979,18 @@ def test_flag_switches_implementation():
 # config/domains.yaml
 user_overrides:
   - domain: "blocked-but-valid.org"
-    trust_level: "low"
+    domain_category: "low"
     reason: "Manual review completed - false positive"
     added_at: "2024-01-15"
 ```
 
 ```python
 # src/utils/domain_policy.py
-def get_domain_trust_level(domain: str) -> TrustLevel:
+def get_domain_category(domain: str) -> DomainCategory:
     # 1. user_overrides を最優先でチェック
     overrides = _get_user_overrides()
     if domain in overrides:
-        return TrustLevel(overrides[domain]["trust_level"])
+        return DomainCategory(overrides[domain]["domain_category"])
 
     # 2. 通常のドメインリストをチェック
     ...
@@ -2056,7 +2048,7 @@ def test_user_override_restores_blocked():
 
 **Phase別の重点更新**:
 - **Phase 1**: `get_status`の`blocked_domains`フィールド仕様
-- **Phase 2**: エッジの信頼レベル情報（source_trust_level, target_trust_level）のスキーマ説明
+- **Phase 2**: エッジのドメイン分類情報（source_domain_category, target_domain_category）のスキーマ説明
 - **Phase 3**: 引用追跡の動作説明、`relevance_evaluation.j2`プロンプト
 - **Phase 4**: ベイズ信頼度モデル（confidence, uncertainty, controversy）の解説と出力例
 - **Phase 5**: `user_overrides`の使用方法
@@ -2096,10 +2088,10 @@ class VerificationStatus(str, Enum):
 **CONTESTED を追加しない理由**:
 
 1. **Thinking-Working分離の原則**: 「対立している」という解釈は高推論AIの責務
-2. **エッジ情報で十分**: REFUTESエッジ + 信頼レベル情報があれば、高推論AIは判断可能
+2. **エッジ情報で十分**: REFUTESエッジ + ドメイン分類情報があれば、高推論AIは判断可能
 3. **シンプルさ**: 状態の増加は複雑性を増す
 
-対立関係はエッジ（REFUTES）として記録し、そのメタデータ（source_trust_level, target_trust_level）を提供することで、高推論AIに判断材料を与える。
+対立関係はエッジ（REFUTES）として記録し、そのメタデータ（source_domain_category, target_domain_category）を提供することで、高推論AIに判断材料を与える。
 
 ---
 
@@ -2116,17 +2108,17 @@ class VerificationStatus(str, Enum):
 | 要素 | Lyraの責務 | 高推論AIの責務 |
 |------|-----------|---------------|
 | 対立の検出 | REFUTESエッジを作成 | - |
-| 信頼レベル情報 | エッジに付与 | 参照して判断 |
+| ドメイン分類情報 | エッジに付与 | 参照して判断 |
 | 「科学的論争か誤情報か」 | **判断しない** | 判断する |
 | BLOCKEDの決定 | 危険パターン検出時のみ | 推奨可能 |
 
 **ContradictionType enum は導入しない**:
 - Lyraが「MISINFORMATION」「CONTESTED」とラベル付けすることは解釈行為
-- エッジ情報（relation + trust_levels）があれば高推論AIは自ら判断可能
+- エッジ情報（relation + domain_categories）があれば高推論AIは自ら判断可能
 
 ### 決定9: is_contradiction フラグの廃止
 
-**決定**: `is_contradiction` フラグを廃止し、REFUTESエッジ + 信頼レベル情報による設計に一本化する。
+**決定**: `is_contradiction` フラグを廃止し、REFUTESエッジ + ドメイン分類情報による設計に一本化する。
 
 **廃止理由**:
 

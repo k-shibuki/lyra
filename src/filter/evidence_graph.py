@@ -411,48 +411,45 @@ class EvidenceGraph:
         }
 
     def find_contradictions(self) -> list[dict[str, Any]]:
-        """Find contradicting claims in the graph.
+        """Find claims that have refuting evidence.
+
+        Single-user refactor:
+        - "Contradiction" is represented as refuting evidence edges (relation=REFUTES).
+        - We do NOT attempt to infer claim-vs-claim contradiction pairs.
 
         Returns:
-            List of contradiction pairs.
+            List of dicts describing claims with at least one refuting edge.
         """
-        contradictions = []
+        results: list[dict[str, Any]] = []
 
-        # Get all claim nodes
         claim_nodes = [
             n
             for n in self._graph.nodes()
             if self._graph.nodes[n].get("node_type") == NodeType.CLAIM.value
         ]
 
-        # Check for mutual refutation
-        for i, claim1 in enumerate(claim_nodes):
-            for claim2 in claim_nodes[i + 1 :]:
-                # Check if claim1 refutes claim2 or vice versa
-                edge1 = self._graph.edges.get((claim1, claim2), {})
-                edge2 = self._graph.edges.get((claim2, claim1), {})
+        for claim_node in claim_nodes:
+            _, claim_id = self._parse_node_id(claim_node)
 
-                if (
-                    edge1.get("relation") == RelationType.REFUTES.value
-                    or edge2.get("relation") == RelationType.REFUTES.value
-                ):
-                    _, id1 = self._parse_node_id(claim1)
-                    _, id2 = self._parse_node_id(claim2)
+            refuting_edges = []
+            for predecessor in self._graph.predecessors(claim_node):
+                edge_data = self._graph.edges[predecessor, claim_node]
+                if edge_data.get("relation") == RelationType.REFUTES.value:
+                    refuting_edges.append(edge_data)
 
-                    contradictions.append(
-                        {
-                            "claim1_id": id1,
-                            "claim2_id": id2,
-                            "claim1_data": dict(self._graph.nodes[claim1]),
-                            "claim2_data": dict(self._graph.nodes[claim2]),
-                            "confidence": max(
-                                edge1.get("confidence", 0),
-                                edge2.get("confidence", 0),
-                            ),
-                        }
-                    )
+            if not refuting_edges:
+                continue
 
-        return contradictions
+            max_confidence = max((e.get("confidence") or 0.0) for e in refuting_edges)
+            results.append(
+                {
+                    "claim_id": claim_id,
+                    "refuting_count": len(refuting_edges),
+                    "max_confidence": max_confidence,
+                }
+            )
+
+        return results
 
     def set_claim_adoption_status(self, claim_id: str, status: str) -> None:
         """Set adoption status for a claim.
@@ -1048,8 +1045,8 @@ async def add_claim_evidence(
     nli_label: str | None = None,
     nli_confidence: float | None = None,
     task_id: str | None = None,
-    source_trust_level: str | None = None,
-    target_trust_level: str | None = None,
+    source_domain_category: str | None = None,
+    target_domain_category: str | None = None,
 ) -> str:
     """Add evidence relationship for a claim.
 
@@ -1078,8 +1075,8 @@ async def add_claim_evidence(
         confidence=confidence,
         nli_label=nli_label,
         nli_confidence=nli_confidence,
-        source_trust_level=source_trust_level,
-        target_trust_level=target_trust_level,
+        source_domain_category=source_domain_category,
+        target_domain_category=target_domain_category,
     )
 
     # Persist immediately
@@ -1096,8 +1093,8 @@ async def add_claim_evidence(
             "confidence": confidence,
             "nli_label": nli_label,
             "nli_confidence": nli_confidence,
-            "source_trust_level": source_trust_level,
-            "target_trust_level": target_trust_level,
+            "source_domain_category": source_domain_category,
+            "target_domain_category": target_domain_category,
         },
         or_replace=True,
     )
@@ -1120,8 +1117,8 @@ async def add_citation(
     is_academic: bool = False,
     is_influential: bool = False,
     citation_context: str | None = None,
-    source_trust_level: str | None = None,
-    target_trust_level: str | None = None,
+    source_domain_category: str | None = None,
+    target_domain_category: str | None = None,
 ) -> str:
     """Add citation relationship.
 
@@ -1151,8 +1148,8 @@ async def add_citation(
         is_academic=is_academic,
         is_influential=is_influential,
         citation_context=citation_context,
-        source_trust_level=source_trust_level,
-        target_trust_level=target_trust_level,
+        source_domain_category=source_domain_category,
+        target_domain_category=target_domain_category,
     )
 
     # Persist
@@ -1170,8 +1167,8 @@ async def add_citation(
             "is_academic": 1 if is_academic else 0,
             "is_influential": 1 if is_influential else 0,
             "citation_context": citation_context,
-            "source_trust_level": source_trust_level,
-            "target_trust_level": target_trust_level,
+            "source_domain_category": source_domain_category,
+            "target_domain_category": target_domain_category,
         },
         or_replace=True,
     )

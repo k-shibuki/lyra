@@ -65,9 +65,41 @@
     "warnings": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "idle_seconds": {
+      "type": "number",
+      "description": "Seconds since last activity (§2.1.5). May be 0 when no exploration state exists."
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Blocked domains info for transparency (single-user mode).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "domain": {"type": "string"},
+          "blocked_at": {"type": ["string", "null"]},
+          "reason": {"type": "string"},
+          "cause_id": {"type": ["string", "null"]},
+          "original_domain_category": {"type": ["string", "null"]},
+          "can_restore": {"type": "boolean"},
+          "restore_via": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
     }
   },
-  "required": ["ok", "task_id", "status", "query", "searches", "metrics", "budget", "warnings"],
+  "required": [
+    "ok",
+    "task_id",
+    "status",
+    "query",
+    "searches",
+    "metrics",
+    "budget",
+    "warnings",
+    "idle_seconds",
+    "blocked_domains"
+  ],
   "additionalProperties": false
 }
 

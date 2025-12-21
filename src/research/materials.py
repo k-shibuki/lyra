@@ -142,17 +142,57 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                     url = reason.split("url=")[1].split(";")[0].strip()
                 if "primary_source=True" in reason:
                     is_primary = True
+
+                # Derive domain + domain category (single-user refactor: domain_category only)
+                domain = ""
+                domain_category = None
+                try:
+                    from urllib.parse import urlparse
+
+                    from src.utils.domain_policy import get_domain_category
+
+                    parsed = urlparse(url or source_url)
+                    domain = (parsed.netloc or "").lower()
+                    domain_category = get_domain_category(domain).value if domain else None
+                except Exception:
+                    domain = ""
+                    domain_category = None
+
                 parsed_sources.append(
                     {
                         "url": url or source_url,
                         "title": s.get("heading_context", ""),
+                        "domain": domain,
+                        "domain_category": domain_category,
                         "is_primary": is_primary,
                     }
                 )
 
             # If no sources from edges, use source_url from verification_notes
             if not parsed_sources and source_url:
-                parsed_sources = [{"url": source_url, "title": "", "is_primary": False}]
+                domain = ""
+                domain_category = None
+                try:
+                    from urllib.parse import urlparse
+
+                    from src.utils.domain_policy import get_domain_category
+
+                    parsed = urlparse(source_url)
+                    domain = (parsed.netloc or "").lower()
+                    domain_category = get_domain_category(domain).value if domain else None
+                except Exception:
+                    domain = ""
+                    domain_category = None
+
+                parsed_sources = [
+                    {
+                        "url": source_url,
+                        "title": "",
+                        "domain": domain,
+                        "domain_category": domain_category,
+                        "is_primary": False,
+                    }
+                ]
 
             claims.append(
                 {

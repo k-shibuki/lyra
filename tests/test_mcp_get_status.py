@@ -457,7 +457,7 @@ class TestGetStatusBlockedDomains:
                 "blocked_at": "2024-01-15T10:30:00Z",
                 "reason": "High rejection rate (40%)",
                 "cause_id": None,
-                "original_trust_level": "unverified",
+                "original_domain_category": "unverified",
                 "can_restore": True,
                 "restore_via": "config/domains.yaml user_overrides",
             }
@@ -531,7 +531,7 @@ class TestGetStatusBlockedDomains:
                 "blocked_at": "2024-01-15T11:00:00Z",
                 "reason": "Contradiction detected with pubmed.gov",
                 "cause_id": "abc123",
-                "original_trust_level": "unverified",
+                "original_domain_category": "unverified",
                 "can_restore": True,
                 "restore_via": "config/domains.yaml user_overrides",
             }
