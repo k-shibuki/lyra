@@ -302,12 +302,16 @@ Lyra内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**�
   - **注意**: これらは公式APIであり、検索エンジンのようなbot検知問題はない
 - 学術API統合戦略:
   - 優先順位: Semantic Scholar（引用グラフ最充実）> OpenAlex（大規模・オープン）> Crossref（DOI解決）> arXiv（プレプリント）
-  - Semantic Scholar: 引用グラフ取得の主API。"influential citations"フラグで重要引用を識別
-  - OpenAlex: メタデータ補完、大規模検索（2億件以上）。抄録は逆インデックス形式から復元
+  - Semantic Scholar: 引用グラフ取得の主API。Paper.citation_countから算出するimpact_scoreで影響度を近似（isInfluentialフラグは使用しない）
+  - OpenAlex: メタデータ補完、引用グラフ（S2と統合）。大規模検索（2億件以上）
   - Crossref: DOI解決、メタデータ正規化。polite poolでレート優遇
   - arXiv: CS/物理/数学のプレプリント検索。Atom XML形式
   - Unpaywall: OA版リンク解決。ペイウォール回避用
-  - 引用グラフ取得: 深度≤2を既定（直接引用＋引用の引用）。深度≥3は信頼度減衰
+  - 引用グラフ取得:
+    - 上位N件の元論文（citation_graph_top_n_papers）に対してのみ引用追跡を実行（Budgeted Citation Expansion）
+    - S2とOpenAlexの引用データを統合・重複排除
+    - 3段階フィルタリング（Stage 0: メタデータ, Stage 1: Embedding+impact, Stage 2: LLM有用性評価）でTopX件を選抜
+    - 深度≤1を既定（関連性の高い引用のみを取り込む）
   - 重複排除: DOIベースで論文を一意識別。DOIなしはタイトル+年+著者でマッチング
 
 #### 3.1.4. 検索エンジン健全性・正規化レイヤ
@@ -987,6 +991,7 @@ Cursor AI                          Lyra MCP
    - 第1段: ルール／キーワードとBM25で粗フィルタ
     - 第2段: 埋め込み類似度と軽量リランカー（`bge-m3`＋`bge-reranker-v2-m3` ONNX/int8）で再順位付け
    - 第3段: LLMで要点抽出・主張の仮説／反証ラベル付け
+   - 引用評価（Step 5）: LLMで引用先論文の有用性（relevance/usefulness）を0-10で評価（Decision 11）
  - GPU最適化:
    - 埋め込み`bge-m3`とリランカー`bge-reranker-v2-m3`はONNX Runtime CUDA/FP16（CPUフォールバックあり）。候補上限は100→最大150まで拡張（タスク予算内で自動調整）
  - NLI昇格:
@@ -1020,9 +1025,10 @@ Cursor AI                          Lyra MCP
   - ノード: 主張/断片/ソース/論文（PAPER）、エッジ: supports/refutes/cites/academic_cites。NetworkXで構築しSQLiteへ永続化
   - 学術引用グラフ統合（§3.1.3 学術API連携）:
     - `PAPER`ノード: 学術論文（DOI、著者、発行年、被引用数等のメタデータ付き）
-    - `academic_cites`エッジ: 正式な学術引用関係（通常のcitesより信頼度が高い）
-    - Semantic Scholar APIの"influential citations"フラグを活用し、重要な引用を識別
-    - 引用チェーン深度≤3を推奨（孫引き以上は信頼度を減衰）
+    - `academic_cites`エッジ: 正式な学術引用関係
+    - 引用先選抜: 3段階フィルタリング（Embedding + impact_score + LLM有用性評価）により、重要かつ関連性の高い引用のみをグラフに取り込む
+    - Semantic Scholarの `isInfluential` フラグは使用しない（impact_scoreで代替）
+    - 引用チェーン深度≤1を推奨（直接の重要引用のみを追跡）
 
 #### 3.3.2. 新規性と停止条件
 - 新規性スコア:
@@ -1413,6 +1419,7 @@ lyra-net (外部可)                  lyra-internal (internal: true)
 - 各claim/エンティティに付与する情報:
   - `source_domain_category`: ドメインのカテゴリ（DomainCategory値、ランキング調整用）
   - `verification_status`: `"pending"` | `"verified"` | `"rejected"`
+  - `adoption_status`: `"pending"` | `"adopted"` | `"not_adopted"`（検証で棄却されてもグラフに保持）
   - `verification_details`:
     - `independent_sources`: 独立ソース数（EvidenceGraphから取得）
     - `corroborating_claims`: 裏付けクレームID一覧
@@ -1422,6 +1429,10 @@ lyra-net (外部可)                  lyra-internal (internal: true)
   - `unverified_domains`: 未検証ドメイン一覧
   - `blocked_domains`: ブロック済みドメイン一覧
   - `security_warnings`: L2/L4の検出結果（危険パターン、外部URL等）
+
+- `get_status` 応答に追加（Phase 1で実装済み）:
+  - `blocked_domains`: ブロック済みドメイン一覧（理由・cause_id付き）
+  - `idle_seconds`: 最後のアクティビティからの経過秒数
 
 **L6: ソース検証フロー（Human in the Loop）**
 
@@ -1447,8 +1458,8 @@ lyra-net (外部可)                  lyra-internal (internal: true)
 | 危険パターン検出（L2/L4） | → `BLOCKED` に降格, `rejected` |
 
 4. **Cursor AIへの伝達**
-   - `get_status` に `unverified_domains`, `verification_alerts` を追加
-   - `search` 応答にclaimごとの検証状態を含める
+   - `get_status` に `blocked_domains`（理由・cause_id付き）, `idle_seconds` を追加
+   - `search` 応答にclaimごとの検証状態（`verification_status`, `adoption_status`）を含める
    - Cursor AIは検証状態を基にユーザーへの報告・追加調査を判断
 
 **L7: MCP応答サニタイズ（Cursor AI経由流出防止）**
@@ -1846,7 +1857,7 @@ Lyraは**常にWSLハイブリッド構成**で実行される：
   - 学術的主張（論文・研究に関する主張）に対し、査読済み論文からの支持≥1件
   - 支持論文の総被引用数≥10（影響力の指標、新しい論文は除外可）
   - 引用チェーン深度≤3（孫引き以上は信頼度を10%減衰）
-  - influential citation（Semantic Scholar）を含む場合、信頼度を10%加点
+  - 引用数が閾値（citation_count > 100等）を超える場合、信頼度を微増（impact_score反映）
 - 再現性:
   - 訪問ページのうちWARC保存成功率≥95%、動的ページはスクリーンショット保存率≥95%
  - 学術情報品質:

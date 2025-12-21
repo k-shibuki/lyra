@@ -4,13 +4,14 @@
 
 ## 目次
 
-1. [用語定義](#用語定義)
-2. [現状の設計](#現状の設計)
-3. [処理フロー（シーケンス図）](#処理フローシーケンス図)
-4. [課題と問題点](#課題と問題点)
-5. [関連する学術的フレームワーク](#関連する学術的フレームワーク)
-6. [改善提案](#改善提案)
-7. [実装ロードマップ](#実装ロードマップ)
+1. [設計決定事項](#設計決定事項)
+2. [用語定義](#用語定義)
+3. [現状の設計](#現状の設計)
+4. [処理フロー（シーケンス図）](#処理フローシーケンス図)
+5. [課題と問題点](#課題と問題点)
+6. [関連する学術的フレームワーク](#関連する学術的フレームワーク)
+7. [改善提案](#改善提案)
+8. [実装ロードマップ](#実装ロードマップ)
 
 ---
 
@@ -29,7 +30,7 @@
 |------:|------|------|------|
 | 1 | 透明性の向上（blocked_domains / cause_id / adoption_status） | DONE | `82ce42e` |
 | 2 | エッジへのドメイン分類情報追加（source/target_domain_category） | PARTIAL | `82ce42e` |
-| 3 | 引用追跡の完全実装（S2 + OpenAlex / pages追加 / CITES） | TODO | - |
+| 3 | 引用追跡の完全実装（決定11: Budgeted Citation Expansion / S2 + OpenAlex / pages追加 / CITES） | TODO | - |
 | 4 | ベイズ信頼度モデル（confidence/uncertainty/controversy） | TODO | - |
 | 5 | ユーザー制御（user_overrides / 復元） | TODO | - |
 
@@ -49,6 +50,7 @@
 
 未完:
 - NLI→エッジ生成の実運用パスで、**常に source/target_domain_category を付与する**実装の網羅性確認（設計意図の完全達成）
+- 決定12: `is_influential` の完全削除（型・スキーマ・呼び出し元・テストの整合。そもそもAPIから取得しないように変更する。）
 
 ---
 
@@ -114,11 +116,15 @@ controversy = ...                     # 論争度
 **決定**: 2段階フィルタリング（Embedding → LLM）、上位10件
 
 **設計更新（重要）**:
-- `is_influential` は Semantic Scholar のみが提供する **エッジ属性**であり、OpenAlex では同等のフラグが存在しない。
-- そのため関連性フィルタリングでは、ソース非依存で利用可能な `Paper.citation_count` を用いた **impact_score（ローカル正規化）**を採用する。
-- `is_influential` はメタデータとして保存してよいが、スコアリングの主要入力としては依存しない（非対称性の回避）。
+- 関連性フィルタリングでは、ソース非依存で利用可能な `Paper.citation_count` を用いた **impact_score（ローカル正規化）**を採用する。
+- Semantic Scholar の `is_influential` フラグは **一切使用しない**（決定12参照）。
 
-**Stage 1: Embedding + is_influential（粗フィルタ）**
+**実装メモ**（仕様のブレ防止）:
+- `impact_score` は **候補集合内でのローカル正規化**とし、`citation_count` の歪みを抑えるため `log1p` 変換後に **percentile-rank（0..1）**を用いる（外れ値耐性）。
+- 候補が1件しかない場合の `impact_score` は 0.5 とする（比較不能なので中立）。
+- Stage 1/2 の重み・上限件数（30→10）は設定（`search.citation_filter.*`）で管理し、コードに埋め込まない。
+
+**Stage 1: Embedding + impact_score（粗フィルタ）**
 | 要素 | 重み | 備考 |
 |------|:----:|------|
 | impact_score (citation_count) | 0.5 | S2/OpenAlex 共通（ローカル正規化） |
@@ -242,6 +248,121 @@ controversy = ...                     # 論争度
 
 高推論 AI はエッジの `source_domain_category` / `target_domain_category` を参照し、文脈に応じて「科学的論争」「誤情報」等の解釈を行う。Lyra は `ReasonCode` で事実のみを記述する。
 
+
+### 決定11: 引用追跡は Budgeted Citation Expansion（TopXサンプリング）とする
+
+**決定**: 引用追跡（Step 5 / Phase 3）は「全引用文献を完全にグラフ化する」ことを目的としない。**Abstract Only** 制約と計算予算（API/LLM）を前提に、**"有用なエビデンスまたは重要な背景"になり得る上位X件だけを pages（ノード）として取り込む**。
+
+**ポイント（質問への回答）**: Lyraはフルテキストを持たないため「重要引用を完全に判定」することはできないが、**TopXの選抜は"真偽判定"ではなく"検索・関連性・有用性の近似"**であり、Abstract（＋メタデータ）だけでも十分に実用的な近似が可能。
+
+**TopX を絞れる根拠（Abstract Onlyで可能な情報）**:
+- **主題的近さ**: クエリ／元論文アブストラクトと引用先アブストラクトのセマンティック類似度（Embedding）
+- **影響度の近似**: `Paper.citation_count` からの `impact_score`（ローカル正規化）
+- **"評価に使えるか"**: LLMによる有用性スコア（支持/反論の判定は禁止）
+
+#### 高速処理のための3段階パイプライン
+
+```
+Stage 0 (即時, 0ms)     Stage 1 (高速, ~100ms)     Stage 2 (精密, ~30-60sec)
+API応答のメタデータ  →  Embedding + impact     →  LLM有用性評価
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+候補: 50-100件          候補: 30件                 最終: 10件
+```
+
+**Stage 0: メタデータによる即時フィルタ（APIレスポンス時点）**
+
+| 条件 | 処理 | 理由 |
+|-----|------|------|
+| `abstract` が空 | **除外** | Embedding/LLM評価が不可能 |
+| `citation_count < 閾値` | 除外候補 | 影響度が極端に低い論文を除外（設定可能） |
+| 重複（DOI一致） | **マージ** | S2/OpenAlex統合時のdedup |
+
+**Stage 1: Embedding + impact_score（バッチ処理可能）**
+
+- **利用情報**: `abstract`（Embedding用）、`citation_count`（impact_score用）
+- **処理**: 1回のバッチAPIで全candidateのembeddingを取得 → cosine similarity計算
+- **計算量**: O(n) embedding + O(n) similarity（高速）
+- **出力**: 上位30件（設定: `stage1_top_k`）
+
+**Stage 2: LLM有用性評価（逐次処理・高コスト）**
+
+- **利用情報**: `abstract`（プロンプト入力）
+- **処理**: 逐次LLM呼び出し（バッチ不可）
+- **計算量**: O(n) × ~2sec/件（**ボトルネック**）
+- **出力**: 上位10件（設定: `stage2_top_k`）
+
+#### API制約とデータ取得コスト
+
+| API | 引用取得 | abstract取得 | 制約 |
+|-----|---------|-------------|------|
+| S2 `/paper/{id}/references` | 1回で全件 | **含む** | ~100 req/5min (no key) |
+| S2 `/paper/{id}/citations` | 1回で全件 | **含む** | 同上 |
+| OpenAlex `referenced_works` | IDリストのみ | **個別取得必要（N+1）** | ~10 req/sec |
+| OpenAlex `filter=cites:{id}` | 1回で全件 | **含む** | 同上 |
+
+**OpenAlex N+1問題の回避**:
+1. **citations API優先**: `filter=cites:{id}`は1回で複数論文のメタデータを返す
+2. **references取得時の制限**: 最大20件に制限（現行実装）し、Stage 0で即時カット
+3. **S2優先統合**: S2で取れる論文はS2から取得（abstract付き）、OpenAlexは補完用
+
+#### 設定パラメータ
+
+```yaml
+# config/settings.yaml
+search:
+  # 引用追跡対象の論文数（Step 5で処理する元論文の上限）
+  citation_graph_top_n_papers: 5
+  citation_graph_depth: 1
+  citation_graph_direction: "both"  # references | citations | both
+
+  citation_filter:
+    # Stage 0: メタデータフィルタ（将来拡張用）
+    min_citation_count: 0          # 0 = 制限なし
+
+    # Stage 1: embedding + impact
+    stage1_top_k: 30
+    stage1_weight_embedding: 0.5
+    stage1_weight_impact: 0.5
+
+    # Stage 2: LLM
+    stage2_top_k: 10
+    stage2_weight_llm: 0.5
+    stage2_weight_embedding: 0.3
+    stage2_weight_impact: 0.2
+```
+
+#### 透明性（ログ出力）
+
+```python
+logger.info(
+    "Citation filter completed",
+    source_paper=source_paper.id,
+    candidates_total=len(candidate_papers),
+    after_stage0=len(with_abstract),      # abstract有りの件数
+    after_stage1=len(stage1_results),     # embedding+impactフィルタ後
+    final_count=len(final_results),       # LLM評価後
+    llm_calls=len(stage1_results),        # 実際のLLM呼び出し回数
+)
+```
+
+### 決定12: `is_influential` は使用しない（S2専用フラグの排除）
+
+**決定**: Semantic Scholar の `isInfluential` フラグは**一切使用しない**。メタデータとしても保存せず、コードから完全に削除する。
+
+**理由**:
+1. **ソース非対称性**: OpenAlexには同等のフラグが存在しない。S2専用フラグに依存すると、S2/OpenAlex統合時に非対称性が生じる
+2. **ブラックボックス**: S2がどのような基準で `isInfluential` を判定しているか不明。Lyraの設計原則（透明性・再現可能性）に反する
+3. **代替手段の存在**: `Paper.citation_count` から算出する `impact_score` で影響度の近似は可能（決定5、決定11）
+4. **複雑性削減**: API戻り値の型、スキーマ、関数シグネチャがすべて単純化される
+
+**削除対象**:
+- `edges.is_influential` カラム（`src/storage/schema.sql`）
+- `get_references()` / `get_citations()` の戻り値型を `list[tuple[Paper, bool]]` → `list[Paper]` に変更
+- `add_cites_edge()` / `add_academic_page_with_citations()` の `is_influential` パラメータ
+- `Citation.is_influential` フィールド
+
+**実装タイミング**: Phase 2（エッジへのドメインカテゴリ情報追加と同時）
+
 ---
 
 ## 用語定義
@@ -255,6 +376,12 @@ controversy = ...                     # 論争度
 | **論争度** | Controversy | 支持と反論が拮抗している度合い |
 | **ドメインカテゴリ** | Domain Category | ソースドメインの事前分類（PRIMARY〜BLOCKED）。ランキング調整のみに使用。信頼度計算には使用しない |
 
+### 用語の混線防止（重要）
+
+- **Phase**: 実装ロードマップ上のフェーズ（Phase 1〜5）。「どの機能がいつ実装されるか」の管理単位。
+- **Step**: 検索パイプラインの処理ステップ（Step 1〜7）。「実行時にどの順序で処理されるか」の処理単位。
+- **参照ルール**: 両方を併記する必要がある場合は `Phase X / Step Y` と書き、片方だけの記述にしない。
+
 ### エビデンスグラフ関連
 
 | 用語 | 定義 |
@@ -264,6 +391,13 @@ controversy = ...                     # 論争度
 | **エッジ (Edge)** | 主張とフラグメント間の関係（SUPPORTS/REFUTES/NEUTRAL） |
 | **エッジ信頼度** | NLIモデルが出力する関係の確信度（0.0-1.0） |
 | **独立ソース数** | 主張を裏付けるユニークなソース（PAGE）の数 |
+
+### 引用追跡関連
+
+| 用語 | 定義 |
+|------|------|
+| **impact_score** | `Paper.citation_count` からローカル正規化（`log1p` + percentile-rank）で算出した影響度指標（0.0-1.0）。S2/OpenAlex共通で使用可能。S2専用の `isInfluential` フラグの代替（決定12参照） |
+| **Stage 0/1/2** | 引用追跡の3段階フィルタリング（決定11）: Stage 0=メタデータ即時フィルタ、Stage 1=Embedding+impact粗フィルタ、Stage 2=LLM精密評価 |
 
 ### ベイズ信頼度モデル（提案）
 
@@ -534,7 +668,7 @@ search(query)
     ├─ Step 4: pages登録 + ランキング ─────────────────── 常に実行
     │     └─ 【ML Server】BM25 → Embedding → Reranker
     │
-    ├─ Step 5: 引用追跡 + 関連性評価 ──────────────────── 常に実行
+    ├─ Step 5: 引用追跡 + 関連性評価 ──────────────────── 常に実行（決定11: budget制約あり）
     │     └─ 【ML Server】Embedding（粗フィルタ）
     │     └─ 【Ollama】LLM（精密評価）← Qwen2.5 3B
     │
@@ -622,13 +756,15 @@ search(query)
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Step 5: 引用追跡 + 関連性評価 【常に実行・全学術論文に対して】                  │
+     │            │ │   Step 5: 引用追跡 + 関連性評価 【常に実行（決定11: 上位N元論文のみ）】           │
      │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
-     │            │ │  │ 全papers（発見経路に関係なく）に対して:                                       ││
-     │            │ │  │   1. get_citation_graph(depth=1) ────────> Academic API [S2 + OpenAlex]      ││
-     │            │ │  │   2. related_papers のabstract取得                                           ││
+     │            │ │  │ 対象: pagesに追加された学術論文のうち上位N件（`citation_graph_top_n_papers`）: ││
+     │            │ │  │   1. references/citations 取得（depth=1, direction設定）                     ││
+     │            │ │  │      ────────────────> Academic API [S2 + OpenAlex]                           ││
+     │            │ │  │   2. related_papers のabstract取得（重複排除後）                              ││
      │            │ │  │                                                                              ││
-     │            │ │  │ 【2段階フィルタリング】:                                                      ││
+     │            │ │  │ 【3段階（Stage 0/1/2）フィルタリング: 決定11】:                               ││
+     │            │ │  │   Stage 0: メタデータ即時フィルタ（abstract無し除外/DOI重複マージ等）          ││
      │            │ │  │   Stage 1: 粗フィルタ（上位30件）                                            ││
      │            │ │  │     → impact_score (citation_count, ローカル正規化): 0.5                    ││
      │            │ │  │     → Embedding similarity ──────────────> ML Server /embed                 ││
@@ -638,7 +774,7 @@ search(query)
      │            │ │  │     → LLM関連性評価 ─────────────────────> Ollama /api/generate             ││
      │            │ │  │     ← relevance score (0-10)              (Qwen2.5 3B)                      ││
      │            │ │  │                                                                              ││
-     │            │ │  │   3. 上位10件をpagesに追加                                                   ││
+     │            │ │  │   3. 上位X件（`citation_filter.stage2_top_k`）をpagesに追加                  ││
      │            │ │  │   4. CITESエッジ作成                                                         ││
      │            │ │  └───────────────────────────────────────────────────────────────────────────────┘│
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
@@ -804,8 +940,8 @@ search(query)
 | ブラウザ検索 | アカデミッククエリ時のみ並列 | 常に実行（Step 1） |
 | 学術API検索 | アカデミッククエリ時のみ | 同（Step 2・条件付き） |
 | 学術API補完 | アカデミッククエリ時のみ | **識別子発見で常に発動（Step 3）** |
-| 引用追跡 | Top 5論文、S2のみ、アカデミック時のみ | **全学術論文、S2 + OpenAlex、常に実行（Step 5）** |
-| 引用先論文 | pagesに追加されない | 関連性上位10件を追加 |
+| 引用追跡 | Top 5論文、S2のみ、アカデミック時のみ | **決定11: 上位N元論文のみ（`citation_graph_top_n_papers`）を対象に、S2 + OpenAlex で引用追跡（Step 5）** |
+| 引用先論文 | pagesに追加されない | 関連性上位X件（設定）を pages に追加 |
 | 関連性判定 | なし | B+C hybrid |
 | ページ内リンク | 無視 | DOI/学術リンク抽出 → Step 3へループ |
 
@@ -838,21 +974,21 @@ search(query)
 - 論文A (pubmed.gov): 「薬剤Xは有効」
 - 論文B (pubmed.gov): 「薬剤Xに有意差なし」
 
-両者ともACADEMIC信頼レベルであり、正当な科学的議論。
+両者ともACADEMICドメインカテゴリであり、正当な科学的議論。
 現状は後から発見された方が矛盾として処理されうる。
-**あるべき姿**: 両者を保持し、REFUTESエッジ + 信頼レベル情報を記録。解釈は高推論AIに委ねる。
+**あるべき姿**: 両者を保持し、REFUTESエッジ + ドメインカテゴリ情報（`source_domain_category` / `target_domain_category`）を記録。解釈は高推論AIに委ねる。
 
 ### 課題2: 対立関係の情報不足
 
 現在のシステムでは:
-- **Trust Level** (ドメインレベル): iso.org → PRIMARY
+- **Domain Category** (ドメイン): iso.org → PRIMARY
 - **Confidence** (主張レベル): evidence_graph.get_claim_confidence()
 
 しかし矛盾検出時に、対立関係の「出自」が記録されていない:
-- REFUTESエッジに信頼レベル情報がない
+- REFUTESエッジにドメインカテゴリ情報（`source_domain_category` / `target_domain_category`）がない
 - 高推論AIが「これは科学的論争か誤情報か」を判断する材料が不足
 
-**注**: 信頼レベルはconfidence計算に使うべきではない（信頼度が主）。あくまで高推論AIへの参考情報としてエッジに付与する。
+**注**: ドメインカテゴリはconfidence計算に使うべきではない（信頼度が主）。あくまで高推論AIへの参考情報としてエッジに付与する。
 
 ### 課題3: 引用追跡の不完全性
 
@@ -876,7 +1012,7 @@ search(query)
 
 - ブロックされたドメインをユーザーが確認・復元できない
 - エビデンスグラフ上でブロック理由が可視化されていない
-- 手動での信頼レベル上書きができない
+- 手動でのドメインカテゴリ上書きができない
 
 ### 課題5: 透明性の不足
 
@@ -954,7 +1090,7 @@ CREATE INDEX IF NOT EXISTS idx_edges_domain_categories
     ON edges(relation, source_domain_category, target_domain_category);
 ```
 
-#### 1.2 エッジ作成時の信頼レベル付与
+#### 1.2 エッジ作成時のドメインカテゴリ付与
 
 ```python
 # evidence_graph.py: add_edge() の拡張
@@ -1082,7 +1218,7 @@ confidence = alpha / (alpha + beta)  # Beta分布の期待値
 | メタデータ精度 | **高い** | 中程度 |
 | 社会科学・人文学 | **優れている** | 弱い |
 | 地理的・言語的バイアス | **少ない** | あり |
-| `isInfluential` フラグ | なし | **あり** |
+| `isInfluential` フラグ | なし | あり（決定12により**使用しない**） |
 
 - [Analysis of Publication and Document Types (arXiv 2024)](https://arxiv.org/abs/2406.15154)
 - [PCOS Guidelines Coverage Study (2025)](https://www.sciencedirect.com/science/article/pii/S0895435625001222)
@@ -1091,7 +1227,7 @@ S2単独では社会科学・人文学・非英語圏の論文カバレッジが
 
 **OpenAlex引用取得の実装**:
 ```python
-async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+async def get_references(self, paper_id: str) -> list[Paper]:
     """referenced_works フィールドから引用先を取得"""
     paper_data = await self.get_paper_with_references(paper_id)
     referenced_ids = paper_data.get("referenced_works", [])
@@ -1100,10 +1236,10 @@ async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
     for ref_id in referenced_ids[:20]:  # 上位20件
         ref_paper = await self.get_paper(ref_id)
         if ref_paper and ref_paper.abstract:
-            results.append((ref_paper, False))  # OpenAlexはinfluentialフラグなし
+            results.append(ref_paper)
     return results
 
-async def get_citations(self, paper_id: str) -> list[tuple[Paper, bool]]:
+async def get_citations(self, paper_id: str) -> list[Paper]:
     """filter=cites:{work_id} で被引用論文を取得"""
     ...
 ```
@@ -1217,38 +1353,42 @@ async def process_citation_graph(
 ```python
 async def filter_relevant_citations(
     source_paper: Paper,
-    related_papers: list[tuple[Paper, bool]],
+    related_papers: list[Paper],
     query: str,
     max_count: int = 10,
 ) -> list[tuple[Paper, float]]:
     """
-    2段階の関連性フィルタリング
+    2段階の関連性フィルタリング（Stage 1 / Stage 2）
 
-    Stage 1: Embedding + is_influential で粗フィルタ（上位30件）
+    **前提**: Stage 0（メタデータフィルタ: abstract無し除外、DOI重複マージ等）は
+    呼び出し元で適用済み。related_papers は既にStage 0通過済みの候補。
+
+    Stage 1: Embedding + impact_score で粗フィルタ（上位30件）
     Stage 2: LLM で精密評価（上位10件）
     """
     # ============================================
-    # Stage 1: Embedding で粗フィルタ（高速）
+    # Stage 1: Embedding + impact_score で粗フィルタ（高速）
     # ============================================
     embedding_scores = []
 
-    for paper, is_influential in related_papers:
+    # impact_score は Paper.citation_count からソース非依存で作る（ローカル正規化）
+    impact_scores = local_impact_scores(related_papers)  # 0.0-1.0
+
+    for paper in related_papers:
         if not paper.abstract:
             continue
 
-        score = 0.0
-
-        # A. is_influential (S2のみ、高い信頼性)
-        if is_influential:
-            score += 0.5
-
-        # B. 埋め込み類似度
+        # A. 埋め込み類似度
         embedding_sim = await compute_embedding_similarity(
             source_paper.abstract, paper.abstract
         )
-        score += embedding_sim * 0.5
+        # B. impact_score（citation_count由来）
+        impact = impact_scores.get(paper.id, 0.0)
 
-        embedding_scores.append((paper, score, is_influential))
+        # Stage 1 score: Embedding 0.5 + impact_score 0.5
+        score = embedding_sim * 0.5 + impact * 0.5
+
+        embedding_scores.append((paper, score, embedding_sim, impact))
 
     # 上位30件を抽出
     embedding_scores.sort(key=lambda x: x[1], reverse=True)
@@ -1259,19 +1399,19 @@ async def filter_relevant_citations(
     # ============================================
     llm_scores = []
 
-    for paper, embed_score, is_influential in candidates:
-        # LLMで関連性を評価
+    for paper, _stage1_score, embedding_sim, impact in candidates:
+        # LLMで関連性（“有用なエビデンス/重要な背景になり得るか”）を評価
         llm_relevance = await evaluate_relevance_with_llm(
             query=query,
             source_abstract=source_paper.abstract,
             target_abstract=paper.abstract,
         )
 
-        # 最終スコア: LLM 0.5 + Embedding 0.3 + is_influential 0.2
+        # 最終スコア: LLM 0.5 + Embedding 0.3 + impact_score 0.2
         final_score = (
             llm_relevance * 0.5 +
-            embed_score * 0.3 +
-            (0.2 if is_influential else 0.0)
+            embedding_sim * 0.3 +
+            impact * 0.2
         )
         llm_scores.append((paper, final_score))
 
@@ -1477,38 +1617,11 @@ def calculate_claim_confidence_bayesian(claim_id: str) -> dict:
 | 数学的に厳密 | ✓ 再現性・検証可能 |
 | 解釈が直感的 | ✓ 「50%で高uncertainty」=「分からない」 |
 
-#### 6.5 互換性（単独運用では不要）
+#### 6.5 後方互換性（不要）
 
-単独運用（このリポジトリを自分だけが使う段階）では、後方互換性は必須ではない。
+現段階では単独運用（このリポジトリを自分だけが使う段階）であり、後方互換性は明確に不要（むしろ禁止）。
 そのため `calculate_claim_confidence()` の出力は、必要に応じて破壊的に変更してよい
 （テストとMCPスキーマを同時に更新して整合性を保つ）。
-
-以下は「旧出力 → 新出力」のイメージ例：
-
-```python
-# 現行出力
-{
-    "confidence": 0.7,
-    "supporting_count": 3,
-    "refuting_count": 1,
-    "verdict": "supported",
-    "independent_sources": 2,
-}
-
-# 新出力（上位互換）
-{
-    "confidence": 0.66,           # ベイズ期待値
-    "uncertainty": 0.14,          # 新規追加
-    "controversy": 0.24,          # 新規追加
-    "alpha": 3.7,                 # 新規追加
-    "beta": 1.9,                  # 新規追加
-    "supporting_count": 3,        # 互換性維持
-    "refuting_count": 1,          # 互換性維持
-    "verdict": "supported",       # 互換性維持
-    "independent_sources": 2,     # 互換性維持
-    "evidence_count": 4,          # 新規追加
-}
-```
 
 ---
 
@@ -1519,7 +1632,7 @@ def calculate_claim_confidence_bayesian(claim_id: str) -> dict:
 ```mermaid
 graph TD
     P1[Phase 1: 透明性の向上]
-    P2[Phase 2: エッジへの信頼レベル情報追加]
+    P2[Phase 2: エッジへのドメインカテゴリ情報追加]
     P3[Phase 3: 引用追跡の完全実装]
     P4[Phase 4: ベイズ信頼度モデル]
     P5[Phase 5: ユーザー制御]
@@ -1543,7 +1656,7 @@ graph TD
 
 **依存関係の説明**:
 - Phase 2 は Phase 1 の `blocked_domains` 情報を前提とする
-- Phase 3 は Phase 2 のエッジ信頼レベル情報を使って対立関係を記録
+- Phase 3 は Phase 2 のエッジ・ドメインカテゴリ情報を使って対立関係を記録
 - Phase 4 は Phase 3 で充実したエビデンスグラフを前提とする
 - Phase 5 は Phase 1 と並行可能（独立）
 
@@ -1561,6 +1674,15 @@ graph TD
 | 1.2 | ブロック理由のログ強化（`cause_id` 連携） | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
 | 1.3 | エビデンスグラフに矛盾関係を明示的に保存 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 1.4 | 不採用主張（`not_adopted`）のグラフ保持 | `src/filter/evidence_graph.py`, `src/storage/schema.sql` | `tests/test_evidence_graph.py` |
+| 1.5 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md` | - |
+
+**1.5 ドキュメント更新（実施済み）**
+
+| 対象 | 更新内容 |
+|------|----------|
+| `README.md` | `get_status` 出力例に `blocked_domains`, `idle_seconds` 追加 |
+| `docs/REQUIREMENTS.md` | L5に `adoption_status` 仕様追加、`get_status` 応答仕様明記 |
+| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 1 → DONE） |
 
 #### タスク詳細
 
@@ -1646,12 +1768,13 @@ def test_not_adopted_claim_preserved():
 
 **目的**: 対立関係の解釈に必要な情報を高推論AIに提供する
 
-> **重要**: ドメインカテゴリ情報は**高推論AI向けの参考情報**であり、**ベイズ信頼度計算（Phase 4）には使用しない**。
+> **重要**: ドメインカテゴリ情報は**高推論AI向けの参考情報**であり、**ベイズ信頼度計算（Phase 4で実装）には使用しない**。
 > ベイズモデルは NLI confidence のみを使用する（§決定3、§決定7参照）。
 > また、**検証判定（VERIFIED/REJECTED）にも使用しない**。
 
 **この Phase を先に実装する根拠**:
-Phase 3（引用追跡）で追加される論文間の対立関係を、高推論AIが適切に解釈できるようにする。現行の`refuting_count > 0`で即BLOCKEDとなる問題も、エッジ情報に基づく判断基準の緩和で解決する。
+Phase 3（引用追跡）で追加される論文間の対立関係を、高推論AIが適切に解釈できるようにする。
+現行の`refuting_count > 0`で即BLOCKEDとなる問題も、エッジ情報に基づく判断基準の緩和で解決する。
 
 #### タスク一覧
 
@@ -1662,6 +1785,17 @@ Phase 3（引用追跡）で追加される論文間の対立関係を、高推�
 | 2.3 | NLI評価時にドメインカテゴリ付与 | `src/filter/nli.py` | `tests/test_nli.py` |
 | 2.4 | 判定ロジックからカテゴリ依存を除去 | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
 | 2.5 | `to_dict()` でエクスポート | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 2.6 | `is_influential` の完全削除（決定12） | 複数ファイル（下記参照） | `tests/test_evidence_graph.py`, `tests/test_academic_provider.py` |
+| 2.7 | **ドキュメント更新** | `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+
+**2.7 ドキュメント更新**
+
+| 対象 | 更新内容 | 理由 |
+|------|----------|------|
+| `docs/REQUIREMENTS.md` | L5 MCPメタデータに `source_domain_category`/`target_domain_category` 説明追加 | エッジ情報が高推論AI向けに公開される |
+| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 2 → DONE） | 完了記録 |
+
+**注**: README.md は更新不要（ユーザー向けAPIに直接影響しないため）。
 
 #### タスク詳細
 
@@ -1761,6 +1895,34 @@ def to_dict(self) -> dict[str, Any]:
         })
 ```
 
+**2.6 `is_influential` の完全削除（決定12）**
+
+S2専用の `isInfluential` フラグを完全に削除し、ソース非依存の設計を徹底する。
+
+| 対象 | 変更内容 |
+|-----|---------|
+| `src/storage/schema.sql` | `edges.is_influential` カラム削除 |
+| `src/utils/schemas.py` | `Citation.is_influential` フィールド削除 |
+| `src/search/apis/semantic_scholar.py` | `get_references()` / `get_citations()` の戻り値を `list[Paper]` に変更 |
+| `src/search/apis/openalex.py` | 同上（既にFalse固定だが型を揃える） |
+| `src/search/apis/base.py` | 抽象メソッドの型定義更新 |
+| `src/search/academic_provider.py` | `Citation` 作成時の `is_influential` 削除 |
+| `src/filter/evidence_graph.py` | `add_cites_edge()` / `add_academic_page_with_citations()` から `is_influential` パラメータ削除 |
+
+```python
+# 変更前: src/search/apis/semantic_scholar.py
+async def get_references(self, paper_id: str) -> list[tuple[Paper, bool]]:
+    ...
+    results.append((paper, is_influential))
+    return results
+
+# 変更後
+async def get_references(self, paper_id: str) -> list[Paper]:
+    ...
+    results.append(paper)
+    return results
+```
+
 #### テストケース
 
 ```python
@@ -1771,6 +1933,9 @@ def test_edge_contains_domain_categories():
 def test_evidence_graph_export_includes_category():
     """to_dict()出力にドメインカテゴリ情報が含まれることを検証"""
 
+def test_cites_edge_has_no_is_influential():
+    """CITESエッジにis_influentialフィールドが存在しないことを検証（決定12）"""
+
 # tests/test_source_verification.py
 def test_verification_ignores_domain_category():
     """検証判定がDomainCategoryに依存しないことを検証"""
@@ -1780,6 +1945,13 @@ def test_conflicting_evidence_returns_pending():
 
 def test_reason_code_is_factual():
     """ReasonCodeが事実ベース（解釈を含まない）であることを検証"""
+
+# tests/test_academic_provider.py
+def test_get_references_returns_papers_only():
+    """get_references()がlist[Paper]を返すことを検証（is_influentialなし）"""
+
+def test_get_citations_returns_papers_only():
+    """get_citations()がlist[Paper]を返すことを検証（is_influentialなし）"""
 ```
 
 ### Phase 3: 引用追跡の完全実装（中リスク・高価値）
@@ -1790,22 +1962,33 @@ def test_reason_code_is_factual():
 
 | # | タスク | 実装ファイル | テストファイル |
 |---|--------|-------------|---------------|
-| 3.1 | OpenAlex `get_references()` / `get_citations()` 実装 | `src/search/apis/openalex.py` | `tests/test_openalex.py` |
+| 3.1 | OpenAlex `get_references()` / `get_citations()` 実装 | `src/search/apis/openalex.py` | `tests/test_openalex_client.py`（新規） |
 | 3.2 | 引用先論文のpagesテーブル自動追加 | `src/search/academic_provider.py` | `tests/test_academic_provider.py` |
 | 3.3 | 関連性フィルタリング（Embedding → LLM 2段階） | `src/search/citation_filter.py`（新規） | `tests/test_citation_filter.py` |
 | 3.4 | S2/OpenAlex 引用グラフ統合 | `src/search/academic_provider.py` | `tests/test_academic_provider.py` |
 | 3.5 | 非アカデミッククエリでも学術識別子発見時にAPI補完 | `src/research/pipeline.py` | `tests/test_pipeline_academic.py` |
+| 3.6 | 決定11（Budgeted Citation Expansion）の実装反映（top-N / レート制限 / LLM比率） | `config/settings.yaml`, `src/research/pipeline.py` | `tests/test_pipeline_academic.py` |
+| 3.7 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+
+**3.7 ドキュメント更新**
+
+| 対象 | 更新内容 | 理由 |
+|------|----------|------|
+| `README.md` | Key Modules に `citation_filter.py` 追加、Configuration に `search.citation_filter.*` 設定追加 | 新モジュール・設定の追加 |
+| `docs/REQUIREMENTS.md` | Step 5 の詳細説明（3段階フィルタリング: Stage 0/1/2）、`config/settings.yaml` の新設定仕様 | 処理フローの変更 |
+| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 3 → DONE） | 完了記録 |
 
 #### タスク詳細
 
 **3.1 OpenAlex `get_references()` / `get_citations()` 実装**
 
-現在の `openalex.py` は「does not support detailed references」としてスタブのみ。
-`referenced_works` フィールドを使って実装する。
+`OpenAlexClient.get_references()` / `get_citations()` を実装し、テストで担保する。
 - OpenAlexの参照文献は `referenced_works`（Work ID配列）から取得する
 - 被引用（citing works）は `works?filter=cites:{work_id}` で取得する
 - `abstract` が取れる論文のみを対象にする
-- OpenAlex側には `is_influential` 相当がないため **False** 扱いとする（決定5の非対称性に配慮）
+- 戻り値は `list[Paper]`（`is_influential` は使用しない、決定12参照）
+
+**注**: 単独のOpenAlexユニットテストは `tests/test_openalex_client.py` を新規作成するか、既存の `tests/test_pipeline_academic.py` に追加する（どちらかに統一して"テストの所在"をブレさせない）。
 
 **3.3 関連性フィルタリング（Embedding → LLM 2段階）**
 
@@ -1813,6 +1996,18 @@ def test_reason_code_is_factual():
 - Stage 1（粗フィルタ）: Embedding類似度＋impact指標で候補を圧縮（例: 上位30件）
 - Stage 2（精密評価）: ローカルLLM（Qwen2.5 3B）で「有用なエビデンス/重要な背景になり得るか」を数値評価し、上位（例: 10件）を選抜
 - LLM評価は **SUPPORTS/REFUTESの判断を含めない**（決定8の責務分離）
+
+**3.4 S2/OpenAlex 引用グラフ統合（技術的な要点）**
+
+- `get_citation_graph()` は **S2だけに依存しない**（決定6）。S2/OpenAlex から references/citations を取得し、**統合してから**関連性フィルタへ渡す。
+- 統合時は DOI を優先して重複排除する（DOI無しは title/author/year のフォールバック）。実装では `CanonicalPaperIndex`（または同等のdedup）を使う。
+- `is_influential` は**使用しない**（決定12）。影響度は `Paper.citation_count` から算出する `impact_score` で代替する。
+
+**3.6 決定11の実装反映（重要）**
+
+- 「どの論文をcitation expansion対象にするか」（top-N）と、「各論文から何件取り込むか」（TopX）を設定で制御する。
+- 設計意図（決定11）どおり、TopXの選抜は **有用性（関連性）**で行い、SUPPORTS/REFUTESの判定はしない。
+- `citation_graph_top_n_papers / depth / direction` と `search.citation_filter.*` を設定で管理し、将来の調整点をコード分岐にしない。
 
 **プロンプトテンプレート（新規）**:
 
@@ -1856,9 +2051,11 @@ def test_reason_code_is_factual():
 
 **目的**: 数学的に厳密な信頼度計算を導入し、不確実性と論争度を明示化
 
+**方針（重要）**: **後方互換性は維持しない**。旧来のヒューリスティックな信頼度計算は廃止し、`calculate_claim_confidence()` はベイズ実装に置換する。
+
 > **重要設計決定**: ベイズモデルは **NLI confidence のみ** を使用する。
 > - ドメイン分類（DomainCategory）は**使用しない**（§決定3、§決定7参照）
-> - LLM関連性スコアは**使用しない**（Phase 3 の引用フィルタリングのみで使用）
+> - LLM関連性スコアは**使用しない**（Phase 3 で実装する引用フィルタリングのみで使用）
 >
 > **理由**: ドメインが何であれ誤った情報は存在する（再現性危機、論文撤回、ハゲタカジャーナル）。
 > 信頼度はエビデンスの量と質のみで決定すべき。
@@ -1871,10 +2068,19 @@ def test_reason_code_is_factual():
 | # | タスク | 実装ファイル | テストファイル |
 |---|--------|-------------|---------------|
 | 4.1 | `calculate_claim_confidence_bayesian()` 実装 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
-| 4.2 | 現行との並行運用（フラグ切替） | `src/utils/config.py` | `tests/test_evidence_graph.py` |
-| 4.3 | 出力スキーマ拡張 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
-| 4.4 | MCPレスポンスへの反映 | `src/mcp/server.py` | `tests/test_mcp_get_materials.py` |
-| 4.5 | 既存テスト更新 | - | `tests/test_evidence_graph.py` |
+| 4.2 | 出力スキーマ確定（`confidence/uncertainty/controversy` + デバッグ統計） | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 4.3 | Source Verification / MCPレスポンスへの反映 | `src/filter/source_verification.py`, `src/mcp/server.py` | `tests/test_source_verification.py`, `tests/test_mcp_get_materials.py` |
+| 4.4 | 既存テスト更新（後方互換なし前提で更新） | - | `tests/test_evidence_graph.py` |
+| 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | `src/filter/evidence_graph.py`, `src/filter/source_verification.py` | `tests/test_evidence_graph.py`, `tests/test_source_verification.py` |
+| 4.6 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+
+**4.6 ドキュメント更新**
+
+| 対象 | 更新内容 | 理由 |
+|------|----------|------|
+| `README.md` | `get_materials` 出力例に `confidence/uncertainty/controversy` 追加、Evidence Graph セクションにベイズモデル概要追加 | MCP応答スキーマ変更 |
+| `docs/REQUIREMENTS.md` | L5/L6 に信頼度計算（ベイズ更新）の説明追加、MCP応答スキーマに `confidence/uncertainty/controversy` 追加 | 信頼度計算方式の変更 |
+| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 4 → DONE） | 完了記録 |
 
 #### タスク詳細
 
@@ -1884,9 +2090,26 @@ def test_reason_code_is_factual():
 - 出力は `confidence/uncertainty/controversy`（＋デバッグ用に `alpha/beta`）を想定
 - **DomainCategory / LLM関連性スコアは計算に使用しない**（決定3・決定7）
 
-**4.2 現行との並行運用**
+**4.2 出力スキーマ確定**
 
-- 設定フラグ（例: `use_bayesian_confidence`）で、旧実装とベイズ実装を切り替え可能にする
+- `calculate_claim_confidence()` の戻り値はベイズ由来の統計量を返す（少なくとも `confidence/uncertainty/controversy`）
+- デバッグ・監査用に `alpha/beta`（および必要なら evidence_count 等）を含める
+- `NEUTRAL` は更新に含めない（α/βを増やさない）
+
+**4.3 Source Verification / MCPレスポンスへの反映**
+
+- `SourceVerifier` は `VerificationStatus` の3値（PENDING/VERIFIED/REJECTED）を維持し、**ベイズ値は表示・説明・優先度付けに使う**（自動ブロック等の行動分岐には使わない）
+- MCPの出力に `confidence/uncertainty/controversy` を反映する（Phase 4 の目標どおり）
+
+**4.4 既存テスト更新（後方互換なし）**
+
+- 旧スキーマ/旧フィールド（旧verdict等）に依存するテスト期待値を削除・更新する
+
+**4.5 旧実装の掃除（後方互換禁止）**
+
+- 旧来のヒューリスティック実装（Phase 4以前の `calculate_claim_confidence()` 相当）を削除する
+- 旧フィールド（例: `verdict`）を **残さない**（保持すると“互換がある”と誤解を再発させる）
+- 旧/新を切り替える設定フラグ（例: `use_bayesian_confidence` のようなもの）は **導入しない**。存在する場合は削除する
 
 #### 挙動の例（再掲）
 
@@ -1904,7 +2127,7 @@ def test_reason_code_is_factual():
 - エビデンス量の増加で `uncertainty` が低下すること
 - 拮抗時に `controversy` が上昇すること
 - **DomainCategoryが計算に混入しない**こと（設計決定の担保）
-- 切替フラグで旧/新の実装が切り替わること
+- 旧実装（フラグ切替/並行運用）前提の記述・テストが残っていないこと
 
 ### Phase 5: ユーザー制御（中リスク・中価値）
 
@@ -1919,6 +2142,15 @@ def test_reason_code_is_factual():
 | 5.1 | `get_status` に `can_restore` フラグ追加 | `src/mcp/server.py` | `tests/test_mcp_get_status.py` |
 | 5.2 | `user_overrides` セクション追加 | `config/domains.yaml`, `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
 | 5.3 | hot-reload対応確認 | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+| 5.4 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+
+**5.4 ドキュメント更新**
+
+| 対象 | 更新内容 | 理由 |
+|------|----------|------|
+| `README.md` | Configuration に `user_overrides` 説明追加、`get_status` 出力例に `can_restore`/`restore_via` 追加 | 新機能の説明 |
+| `docs/REQUIREMENTS.md` | L6 にドメイン復元フロー追加（`user_overrides` による手動上書き） | 復元手段の仕様追加 |
+| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 5 → DONE） | 完了記録 |
 
 #### タスク詳細
 
@@ -1954,9 +2186,9 @@ def test_reason_code_is_factual():
 | Phase | Unit | Integration | E2E |
 |-------|:----:|:-----------:|:---:|
 | 1 | MCP応答形式、ログ出力 | DB永続化、SourceVerifier統合 | - |
-| 2 | add_edge()パラメータ、to_dict()出力 | NLI→エッジ信頼レベル付与 | MCP経由でグラフ取得 |
+| 2 | add_edge()パラメータ、to_dict()出力 | NLI→エッジへドメインカテゴリ付与 | MCP経由でグラフ取得 |
 | 3 | OpenAlex API、関連性フィルタ | 引用追跡→pages追加 | 実際の論文で引用追跡 |
-| 4 | ベイズ計算、verdict判定 | フラグ切替 | MCP経由でconfidence取得 |
+| 4 | ベイズ計算（confidence/uncertainty/controversy） | SourceVerifier/MCP統合 | MCP経由でconfidence取得 |
 | 5 | user_overrides解析 | hot-reload | - |
 
 ---
@@ -1968,16 +2200,17 @@ def test_reason_code_is_factual():
 | ドキュメント | 更新内容 |
 |-------------|----------|
 | `README.md` | 新機能の概要説明、出力例の更新 |
-| `docs/REQUIREMENTS.md` | §4.4.1 L6フローの更新、新フィールド仕様 |
-| `docs/MCP_TOOLS.md` | MCPレスポンススキーマの変更反映 |
-| `docs/ARCHITECTURE.md` | ベイズモデル・エッジメタデータの設計説明 |
+| `docs/REQUIREMENTS.md` | §4.4.1 L5/L6フローの更新、新フィールド仕様 |
+| `docs/EVIDENCE_SYSTEM.md` | 本ドキュメント（設計決定・進捗トラッカー更新） |
 
-**Phase別の重点更新**:
-- **Phase 1**: `get_status`の`blocked_domains`フィールド仕様
-- **Phase 2**: エッジのドメイン分類情報（source_domain_category, target_domain_category）のスキーマ説明
-- **Phase 3**: 引用追跡の動作説明、`relevance_evaluation.j2`プロンプト
-- **Phase 4**: ベイズ信頼度モデル（confidence, uncertainty, controversy）の解説と出力例
-- **Phase 5**: `user_overrides`の使用方法
+**注**: `docs/MCP_TOOLS.md` および `docs/ARCHITECTURE.md` は現時点で存在しない。MCPスキーマは `docs/REQUIREMENTS.md` §4.4.1 L5 に、アーキテクチャ概要は `README.md` に統合されている。必要に応じて分離を検討する。
+
+**Phase別の詳細は各Phaseのタスク一覧を参照**:
+- **Phase 1**: タスク 1.5（実施済み）
+- **Phase 2**: タスク 2.7
+- **Phase 3**: タスク 3.7
+- **Phase 4**: タスク 4.6
+- **Phase 5**: タスク 5.4
 
 ---
 
@@ -2004,7 +2237,7 @@ def test_reason_code_is_factual():
 - `verified`: 検証済み（十分な裏付けあり）
 - `rejected`: 棄却（矛盾検出/危険パターン）
 
-**CONTESTED を追加しない理由**:
+**`contested` を追加しない理由**:
 
 1. **Thinking-Working分離の原則**: 「対立している」という解釈は高推論AIの責務
 2. **エッジ情報で十分**: REFUTESエッジ + ドメイン分類情報があれば、高推論AIは判断可能
