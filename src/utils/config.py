@@ -310,9 +310,6 @@ class AcademicAPIsConfig(BaseModel):
     _DEFAULT_BASE_URLS: dict[str, str] = {
         "semantic_scholar": "https://api.semanticscholar.org/graph/v1",
         "openalex": "https://api.openalex.org",
-        "crossref": "https://api.crossref.org",
-        "arxiv": "http://export.arxiv.org/api/query",
-        "unpaywall": "https://api.unpaywall.org/v2",
     }
 
     def get_api_config(self, api_name: str) -> AcademicAPIConfig:

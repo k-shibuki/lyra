@@ -67,12 +67,6 @@ apis:
     timeout_seconds: 30
     priority: 2
 
-  unpaywall:
-    enabled: true
-    base_url: "https://api.unpaywall.org/v2"
-    timeout_seconds: 30
-    priority: 5
-    email: "test@example.com"
 
 defaults:
   search_apis: ["semantic_scholar", "openalex"]
@@ -101,21 +95,16 @@ class TestConfigLoading:
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()
 
-        # Then: Config should be loaded successfully with all APIs
+        # Then: Config should be loaded successfully with S2 and OpenAlex
         assert isinstance(config, AcademicAPIsConfig)
         assert "semantic_scholar" in config.apis
         assert "openalex" in config.apis
-        assert "unpaywall" in config.apis
 
         # Verify semantic_scholar config
         ss_config = config.apis["semantic_scholar"]
         assert ss_config.base_url == "https://api.semanticscholar.org/graph/v1"
         assert ss_config.timeout_seconds == 30
         assert ss_config.priority == 1
-
-        # Verify unpaywall email
-        up_config = config.apis["unpaywall"]
-        assert up_config.email == "test@example.com"
 
         # Verify defaults
         assert config.defaults.search_apis == ["semantic_scholar", "openalex"]
@@ -211,48 +200,21 @@ class TestBackwardCompatibility:
         with patch.dict(os.environ, {"LYRA_CONFIG_DIR": "/nonexistent/path"}, clear=False):
             get_academic_apis_config.cache_clear()
 
-            from src.search.apis.arxiv import ArxivClient
-            from src.search.apis.crossref import CrossrefClient
             from src.search.apis.openalex import OpenAlexClient
             from src.search.apis.semantic_scholar import SemanticScholarClient
 
             ss_client = SemanticScholarClient()
             oa_client = OpenAlexClient()
-            cr_client = CrossrefClient()
-            arxiv_client = ArxivClient()
 
         # Then: Clients should initialize with default values (backward compatibility)
         assert ss_client.base_url == "https://api.semanticscholar.org/graph/v1"
         assert ss_client.timeout == 30.0
 
         assert oa_client.base_url == "https://api.openalex.org"
-        assert cr_client.base_url == "https://api.crossref.org"
-        assert arxiv_client.base_url == "http://export.arxiv.org/api/query"
 
 
 class TestEnvironmentVariableOverride:
     """Test environment variable overrides."""
-
-    def test_email_override(self, temp_config_dir: Path, sample_config_yaml: str) -> None:
-        """TC-CFG-N-03: Environment variable override for email."""
-        # Given: Config file with email and environment variable override
-        config_file = temp_config_dir / "academic_apis.yaml"
-        config_file.write_text(sample_config_yaml)
-
-        # When: Loading configuration with environment variable override
-        with patch.dict(
-            os.environ,
-            {
-                "LYRA_CONFIG_DIR": str(temp_config_dir),
-                "LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL": "override@example.com",
-            },
-        ):
-            get_academic_apis_config.cache_clear()
-            config = get_academic_apis_config()
-
-        # Then: Email should be overridden by environment variable
-        up_config = config.apis["unpaywall"]
-        assert up_config.email == "override@example.com"
 
 
 class TestConfigValidation:

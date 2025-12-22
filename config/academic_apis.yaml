@@ -21,33 +21,6 @@ apis:
     headers:
       User-Agent: "Lyra/1.0 (research tool; mailto:lyra@example.com)"
 
-  crossref:
-    enabled: true
-    base_url: "https://api.crossref.org"
-    rate_limit:
-      polite_pool: true  # Polite pool access with mailto in User-Agent
-    timeout_seconds: 30
-    priority: 3
-    headers:
-      User-Agent: "Lyra/1.0 (research tool; mailto:lyra@example.com)"
-
-  arxiv:
-    enabled: true
-    base_url: "http://export.arxiv.org/api/query"
-    rate_limit:
-      min_interval_seconds: 3
-    timeout_seconds: 30
-    priority: 4  # Preprint-specific
-
-  unpaywall:
-    enabled: false  # Disabled by default. Set LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__ENABLED=true to enable
-    base_url: "https://api.unpaywall.org/v2"
-    rate_limit:
-      requests_per_day: 100000
-    timeout_seconds: 30
-    priority: 5  # OA URL resolution only
-    email: "lyra@example.com"  # Required if enabled (can be overridden via LYRA_ACADEMIC_APIS__APIS__UNPAYWALL__EMAIL env var)
-
 # Default settings
 defaults:
   search_apis: ["semantic_scholar", "openalex"]

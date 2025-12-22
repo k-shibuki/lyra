@@ -821,12 +821,10 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 **詳細ドキュメント**: `docs/archive/J2_ACADEMIC_API_INTEGRATION.md`
 **完了日**: 2025-12-18
 
-**対象（§3.1.3、§5.1.1）**:
-- Semantic Scholar API: 論文/引用ネットワーク（引用グラフ主API）
+**対象（§3.1.3、§5.1.1、決定6）**:
+- Semantic Scholar API: 論文/引用ネットワーク（引用グラフ主API、PMID→DOI変換も対応）
 - OpenAlex API: 論文メタデータ/引用グラフ（大規模検索）
-- Crossref API: DOI/引用情報（メタデータ正規化）
-- arXiv API: プレプリント検索
-- Unpaywall API: OA版論文リンク
+- **補助API削除（Phase 2 / Task 2.8）**: Crossref / arXiv / Unpaywall は完全削除（S2/OpenAlexで代替可能）
 
 **優先度を上げた理由**:
 - エビデンスグラフ強化に直結（引用チェーンによる主張の裏付け）
@@ -840,22 +838,23 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 | J.2.1 | `AcademicSearchProvider` 設計 | ✅ 完了 |
 | J.2.2 | Semantic Scholar APIクライアント | ✅ 完了 |
 | J.2.3 | OpenAlex APIクライアント | ✅ 完了 |
-| J.2.4 | Crossref APIクライアント | ✅ 完了 |
-| J.2.5 | arXiv APIクライアント | ✅ 完了 |
+| J.2.4 | Crossref APIクライアント | ✅ 完了 → **削除**（Phase 2 / Task 2.8） |
+| J.2.5 | arXiv APIクライアント | ✅ 完了 → **削除**（Phase 2 / Task 2.8） |
+| J.2.9 | Unpaywall APIクライアント | ✅ 完了 → **削除**（Phase 2 / Task 2.8） |
 | J.2.6 | エビデンスグラフ拡張（CITESエッジにis_academic属性追加、is_influentialはPhase 2で削除） | ✅ 完了 |
 | J.2.7 | 検索パイプライン統合（補完的検索戦略） | ✅ 完了 |
 | J.2.8 | テスト・E2E検証 | ✅ 完了 |
 
 **成果物**:
-- `src/search/apis/`: 5つのAPIクライアント（semantic_scholar, openalex, crossref, arxiv, unpaywall）
-- `src/search/academic_provider.py`: 統合プロバイダ
+- `src/search/apis/`: 2つのAPIクライアント（semantic_scholar, openalex）のみ（決定6、Phase 2 / Task 2.8）
+- `src/search/academic_provider.py`: 統合プロバイダ（補助API削除済み）
 - `src/search/canonical_index.py`: DOIベース重複排除
 - `src/search/identifier_extractor.py`: URL/DOI識別子抽出
-- `src/search/id_resolver.py`: PMID/arXiv→DOI解決
+- `src/search/id_resolver.py`: PMID/arXiv→DOI解決（PMIDはS2 API使用）
 - `src/filter/evidence_graph.py`: 学術引用エッジ対応
-- `config/academic_apis.yaml`: API設定ファイル
+- `config/academic_apis.yaml`: API設定ファイル（S2/OpenAlexのみ）
 - `migrations/002_add_academic_columns.sql`: DBスキーマ拡張
-- テスト: 61件（test_pipeline_academic.py, test_evidence_graph_academic.py, test_academic_apis_config.py, test_unpaywall.py）
+- テスト: 更新済み（test_pipeline_academic.py, test_evidence_graph_academic.py, test_academic_apis_config.py, test_id_resolver.py）
 - E2E検証: `tests/scripts/debug_academic_api_flow.py`
 
 **設計変更**:
