@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22
+**最終更新**: 2025-12-22（Phase 3b 追加）
 
 このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -65,7 +65,16 @@
 | Phase 3 / Task 3.5 | 非アカデミックでも識別子発見でAPI補完 | DONE | `src/research/pipeline.py`, `tests/test_pipeline_academic.py` | - |
 | Phase 3 / Task 3.6 | 決定11: budget制約の設定反映 | DONE | `config/settings.yaml`, `src/research/pipeline.py` | - |
 | Phase 3 / Task 3.7 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（統合: S2/OpenAlex統合、重複排除、エラーハンドリング、識別子補完を確認） |
-| Phase 3 / Task 3.8 | CITESスコープ選択（`academic_only` / `all`） | PLANNED | `src/filter/evidence_graph.py`, `src/research/materials.py`, `src/mcp/server.py` | 目的: 学術API由来の引用ネットワーク（`edges.is_academic=1`）だけ/全CITESを切替。`CitationScope=academic_only|all` を導入し、`detect_*`/`get_citation_integrity_report`/エクスポートをscope対応させる（`academic_only` は `is_academic=0` を除外、`all` は現行回帰一致） |
+
+#### Phase 3b（一般Web引用検出）
+
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 3b / Task 3b.1 | `is_academic` → `citation_source` リネーム | PLANNED | `src/storage/schema.sql`, `src/filter/evidence_graph.py`, `src/research/pipeline.py` | 値: `"semantic_scholar"` / `"openalex"` / `"extraction"`。記録用（フィルタリングには使用しない） |
+| Phase 3b / Task 3b.2 | 引用検出プロンプト作成 | PLANNED | `config/prompts/detect_citation.j2` | LLM判定用プロンプト |
+| Phase 3b / Task 3b.3 | 引用検出ロジック実装 | PLANNED | `src/extractor/citation_detector.py`（新規） | LinkExtractor（本文内リンク）+ LLM判定 |
+| Phase 3b / Task 3b.4 | CITESエッジ生成 | PLANNED | `src/filter/evidence_graph.py`, `src/extractor/content.py` | `add_citation(citation_source="extraction")` |
+| Phase 3b / Task 3b.5 | ドキュメント更新 | PLANNED | `docs/EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | - |
 
 ---
 
@@ -705,6 +714,9 @@ search(query)
     ├─ Step 6: ブラウザfetch + コンテンツ処理 ──────────── 常に実行
     │     └─ ページ内DOI発見 → Step 3 へループ
     │     └─ 【Ollama】Fact/Claim抽出、要約
+    │     └─ 【Phase 3b】一般Web引用検出
+    │           └─ LinkExtractor（本文内リンク）
+    │           └─ 【Ollama】LLM判定 → CITESエッジ（citation_source="extraction"）
     │
     └─ Step 7: エビデンスグラフ構築 ───────────────────── 常に実行
           └─ 【ML Server】NLI → SUPPORTS/REFUTES判定
@@ -716,7 +728,7 @@ search(query)
 |:-----:|:---------:|:------------:|
 | 4 | Embedding, Reranker | - |
 | 5 | Embedding（粗） | LLM（精密） |
-| 6 | - | Fact/Claim抽出 |
+| 6 | - | Fact/Claim抽出, **引用検出** |
 | 7 | NLI | - |
 
 **重要**: Step 2 の分岐以外、すべての処理は共通パスを通る。
@@ -810,21 +822,27 @@ search(query)
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
-     │            │ │   Step 6: ブラウザfetch + コンテンツ処理 【常に実行・必要な場合】                 │
-     │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
-     │            │ │  │ abstractなしエントリ / 非学術URL:                                            ││
-     │            │ │  │   → Playwright fetch ────────────────────> Browser                          ││
-     │            │ │  │   ← HTML content                                                             ││
-     │            │ │  │   → コンテンツ抽出                                                           ││
-     │            │ │  │   → ページ内DOI/学術リンク抽出 → Step 3へループ                              ││
-     │            │ │  │                                                                              ││
-     │            │ │  │ 【Ollama】Fact/Claim抽出:                                                    ││
-     │            │ │  │   → extract_facts() ─────────────────────> Ollama /api/generate             ││
-     │            │ │  │   ← facts[]                               (Qwen2.5 3B)                      ││
-     │            │ │  │   → extract_claims()                                                         ││
-     │            │ │  │   ← claims[]                                                                 ││
-     │            │ │  └───────────────────────────────────────────────────────────────────────────────┘│
-     │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
+    │            │ │   Step 6: ブラウザfetch + コンテンツ処理 【常に実行・必要な場合】                 │
+    │            │ │  ┌───────────────────────────────────────────────────────────────────────────────┐│
+    │            │ │  │ abstractなしエントリ / 非学術URL:                                            ││
+    │            │ │  │   → Playwright fetch ────────────────────> Browser                          ││
+    │            │ │  │   ← HTML content                                                             ││
+    │            │ │  │   → コンテンツ抽出                                                           ││
+    │            │ │  │   → ページ内DOI/学術リンク抽出 → Step 3へループ                              ││
+    │            │ │  │                                                                              ││
+    │            │ │  │ 【Phase 3b】一般Web引用検出:                                                 ││
+    │            │ │  │   → LinkExtractor（本文内リンク抽出）                                        ││
+    │            │ │  │   → detect_citation() ───────────────────> Ollama /api/generate             ││
+    │            │ │  │   ← YES/NO                                (Qwen2.5 3B)                      ││
+    │            │ │  │   → CITESエッジ生成（citation_source="extraction"）                         ││
+    │            │ │  │                                                                              ││
+    │            │ │  │ 【Ollama】Fact/Claim抽出:                                                    ││
+    │            │ │  │   → extract_facts() ─────────────────────> Ollama /api/generate             ││
+    │            │ │  │   ← facts[]                               (Qwen2.5 3B)                      ││
+    │            │ │  │   → extract_claims()                                                         ││
+    │            │ │  │   ← claims[]                                                                 ││
+    │            │ │  └───────────────────────────────────────────────────────────────────────────────┘│
+    │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
      │            │ ┌─────────────┴─────────────────────────────────────────────────────────────────────┐
      │            │ │   Step 7: エビデンスグラフ構築 【常に実行】                                       │
@@ -2088,19 +2106,118 @@ def test_get_citations_returns_papers_only():
 - `docs/EVIDENCE_SYSTEM.md`
   - Progress（タスク表）を更新し、実装済みタスクとPLANNEDを厳密に追跡できるようにする
 
-**3.8 CITESスコープ選択（`academic_only` / `all`）【PLANNED】**
+### Phase 3b: 一般Web引用検出（低リスク・中価値）
 
-- **目的**: 学術API由来の引用ネットワーク（`edges.is_academic=1`）と、一般Web由来のCITES（将来導入されうる）を混在させず、用途に応じて解析対象を切替可能にする。
-- **想定仕様**:
-  - `CitationScope`: `academic_only | all`
-  - `academic_only`: `relation="cites"` かつ `is_academic=1` のエッジのみを対象
-  - `all`: 現行どおり `relation="cites"` の全エッジを対象
-- **想定実装箇所（将来）**:
-  - `src/filter/evidence_graph.py`: `detect_*()` / `get_citation_integrity_report()` / `calculate_citation_penalties()` 等に scope を渡し、CITES抽出をフィルタできるようにする
-  - `src/research/materials.py`（および `src/mcp/server.py` の `get_materials`）: `include_graph` 時に `citation_scope` を受け取り、メトリクス・エクスポートを切替できるようにする
-- **テストケース（将来）**:
-  - `academic_only` では `is_academic=0` のCITESがメトリクス計算から除外される
-  - `all` では現行の結果と一致する（回帰担保）
+**目的**: 一般WebページからLLMで引用を検出し、CITESエッジ（`citation_source="extraction"`）を生成
+
+**背景**:
+- Phase 3 では学術API（S2/OpenAlex）由来のCITESエッジのみを生成
+- 一般Webページ内の引用リンク（例: ブログ→元記事）は未検出
+- `is_academic` フラグは曖昧なため、`citation_source` にリネーム
+
+**設計決定**:
+- `citation_source` フラグは**記録用**（トレーサビリティ）であり、フィルタリングには使用しない
+- スコープ切替機能は不要（全CITESエッジを同等に扱う）
+- 信頼度計算、検索フロー、ノード選定には影響しない
+
+#### 用語定義
+
+| フラグ値 | 意味 | 生成元 |
+|---------|------|--------|
+| `"semantic_scholar"` | Semantic Scholar APIから取得した引用関係 | S2 API |
+| `"openalex"` | OpenAlex APIから取得した引用関係 | OpenAlex API |
+| `"extraction"` | Webページから抽出した引用関係（LLM判定） | LinkExtractor + LLM |
+
+#### タスク一覧
+
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 3b.1 | `is_academic` → `citation_source` リネーム | `src/storage/schema.sql`, `src/filter/evidence_graph.py`, `src/research/pipeline.py` | `tests/test_evidence_graph.py`, `tests/test_pipeline_academic.py` |
+| 3b.2 | 引用検出プロンプト作成 | `config/prompts/detect_citation.j2` | - |
+| 3b.3 | 引用検出ロジック実装 | `src/extractor/citation_detector.py`（新規） | `tests/test_citation_detector.py`（新規） |
+| 3b.4 | CITESエッジ生成 | `src/filter/evidence_graph.py`, `src/extractor/content.py` | `tests/test_evidence_graph.py` |
+| 3b.5 | ドキュメント更新 | `docs/EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | - |
+
+#### タスク詳細
+
+**3b.1 `is_academic` → `citation_source` リネーム**
+
+- スキーマ変更: `edges.is_academic BOOLEAN` → `edges.citation_source TEXT`
+- 値: `"semantic_scholar"` / `"openalex"` / `"extraction"`
+- **スコープ注意**: ここでリネームするのは **`edges.is_academic`（CITESエッジの由来フラグ）**のみ。`pages.paper_metadata` に含まれる「論文ページかどうか」等のメタ情報（例: ノード属性 `is_academic`）とは別物であり、混同しない。
+- **学術API由来のCITES**（Step 5）: `citation_source` は「その引用関係（citing→cited）を最初に観測したAPI」を記録する。現行の統合順は **Semantic Scholar → OpenAlex** なので、重複するペアは `citation_source="semantic_scholar"` として記録される（記録用でありフィルタリングには使用しない）。
+- マイグレーション（必要な場合）: 既存の `is_academic=1` エッジは、可能なら **`pages.paper_metadata`（JSON）内の `source_api`**（= `Paper.source_api`）から埋める。単独運用なので、スキーマ変更はDB再作成でよい（`CREATE TABLE IF NOT EXISTS` は既存DBに列追加しないため）。
+- 影響範囲: `evidence_graph.py`, `pipeline.py`, 各種テスト
+- **注**: フラグは記録用（トレーサビリティ/デバッグ）であり、フィルタリングには使用しない
+- **実装メモ**: `Paper.source_api`（`"semantic_scholar"` / `"openalex"`）を、そのまま `citation_source` の値として使用できる。
+
+**3b.2 引用検出プロンプト作成**
+
+```jinja2
+{# config/prompts/detect_citation.j2 #}
+以下のテキストとリンクを見て、このリンクが「情報源への引用」かどうかを判定してください。
+
+テキスト（リンク周辺）:
+{{ context }}
+
+リンクURL: {{ url }}
+リンクテキスト: {{ link_text }}
+
+「情報源への引用」とは：
+- 主張の根拠として参照されている
+- 「〜によると」「出典：」「参考：」などの文脈
+- 単なるナビゲーション、関連記事、広告ではない
+
+回答: YES または NO のみ
+```
+
+**3b.3 引用検出ロジック実装**
+
+```python
+# src/extractor/citation_detector.py（新規）
+class CitationDetector:
+    """一般Webページから引用リンクを検出"""
+    
+    async def detect_citations(
+        self,
+        html: str,
+        base_url: str,
+    ) -> list[DetectedCitation]:
+        """
+        1. LinkExtractor で本文内リンク（link_type="content"）を抽出
+        2. 各リンクに対してLLM判定（detect_citation.j2）
+        3. 引用と判定されたリンクを返す
+        """
+```
+
+**3b.4 CITESエッジ生成**
+
+- `add_citation(citation_source="extraction")` を呼び出し
+- フラグメント抽出パイプライン（`src/extractor/content.py`）に統合
+
+#### テストケース
+
+- リネーム後も既存の学術API由来CITESエッジが正常に動作すること（`citation_source` は `"semantic_scholar"` / `"openalex"`）
+- `citation_source="extraction"` のCITESエッジが生成されること
+- LLM引用検出が「引用」と「非引用」を適切に判定すること
+
+#### アーキテクチャ図
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     フラグメント抽出パイプライン                    │
+├─────────────────────────────────────────────────────────────┤
+│  HTML取得 → trafilatura → フラグメント生成 → DB保存           │
+│                              ↓                               │
+│                    ┌─────────────────┐                      │
+│                    │ CitationDetector │                      │
+│                    └────────┬────────┘                      │
+│                              ↓                               │
+│  LinkExtractor → content links → LLM判定 → add_citation()   │
+│  (既存)           (link_type=                 (citation_source=│
+│                    "content")                  "extraction")  │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Phase 4: ベイズ信頼度モデル（中リスク・高価値）
 
