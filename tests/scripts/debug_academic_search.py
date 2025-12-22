@@ -116,7 +116,6 @@ class AcademicSearchDebugger:
             ("https://doi.org/10.1038/nature12373", "doi", "10.1038/nature12373"),
             ("https://pubmed.ncbi.nlm.nih.gov/12345678/", "pmid", "12345678"),
             ("https://arxiv.org/abs/2301.12345", "arxiv_id", "2301.12345"),
-            ("https://cir.nii.ac.jp/crid/1234567890", "crid", "1234567890"),
             ("https://example.com/random-page", "url", None),
         ]
 
@@ -209,7 +208,7 @@ class AcademicSearchDebugger:
             rank=1,
         )
         identifier = PaperIdentifier(
-            doi="10.1234/test1", pmid=None, arxiv_id=None, crid=None, url=None
+            doi="10.1234/test1", pmid=None, arxiv_id=None, url=None
         )
         id3 = index.register_serp_result(serp1, identifier)
         serp_link_success = id1 == id3

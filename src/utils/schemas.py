@@ -471,27 +471,28 @@ class AcademicSearchResult(BaseModel):
 
 
 class PaperIdentifier(BaseModel):
-    """Paper identifier (multiple format support)."""
+    """Paper identifier (multiple format support).
+
+    Supported identifiers per Decision 6 (S2 + OpenAlex two-pillar strategy):
+    - DOI, PMID, arXiv ID (resolved via Semantic Scholar API)
+    """
 
     doi: str | None = Field(None, description="DOI")
     pmid: str | None = Field(None, description="PubMed ID")
     arxiv_id: str | None = Field(None, description="arXiv ID")
-    crid: str | None = Field(None, description="CiNii Research ID")
     url: str | None = Field(None, description="URL (fallback)")
     needs_meta_extraction: bool = Field(
         default=False, description="Whether meta tag extraction is needed"
     )
 
     def get_canonical_id(self) -> str:
-        """Return canonical ID (priority: DOI > PMID > arXiv > CRID > URL)."""
+        """Return canonical ID (priority: DOI > PMID > arXiv > URL)."""
         if self.doi:
             return f"doi:{self.doi.lower().strip()}"
         if self.pmid:
             return f"pmid:{self.pmid}"
         if self.arxiv_id:
             return f"arxiv:{self.arxiv_id}"
-        if self.crid:
-            return f"crid:{self.crid}"
         if self.url:
             return f"url:{hashlib.md5(self.url.encode()).hexdigest()[:12]}"
         return f"unknown:{uuid.uuid4().hex[:8]}"

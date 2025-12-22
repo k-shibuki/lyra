@@ -3,7 +3,7 @@ Retry utilities for official public APIs (§3.1.3, §4.3.5).
 
 IMPORTANT: This module is ONLY for APIs listed in §3.1.3/§5.1.1:
 - e-Stat API, 法令API（e-Gov）, 国会会議録API, gBizINFO API, EDINET API
-- OpenAlex API, Semantic Scholar API, Crossref API, Unpaywall API
+- OpenAlex API, Semantic Scholar API (Decision 6: two-pillar strategy)
 - Wikidata API, DBpedia SPARQL
 
 Per §3.1.3: "これらは公式APIであり、検索エンジンのようなbot検知問題はない"

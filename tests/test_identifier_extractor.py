@@ -11,7 +11,6 @@ Tests for extracting paper identifiers (DOI, PMID, arXiv ID, etc.) from URLs.
 | TC-ID-N-02 | URL with PubMed | Equivalence – normal | PMID extracted | - |
 | TC-ID-N-03 | URL with arXiv | Equivalence – normal | arXiv ID extracted | - |
 | TC-ID-N-04 | URL with J-Stage DOI | Equivalence – normal | DOI extracted from URL | - |
-| TC-ID-N-05 | URL with CiNii CRID | Equivalence – normal | CRID extracted | - |
 | TC-ID-B-01 | Empty URL string | Boundary – empty | PaperIdentifier with url="" | - |
 | TC-ID-B-02 | None URL | Boundary – NULL | PaperIdentifier with url=None | - |
 | TC-ID-B-03 | URL without identifiers | Boundary – no match | PaperIdentifier with url only | - |
@@ -108,24 +107,6 @@ class TestIdentifierExtractor:
 
         # Then: URL stored (DOI extraction depends on actual URL format)
         assert identifier.url == url
-
-    def test_extract_cinii_crid(self) -> None:
-        """TC-ID-N-05: Test extracting CRID from CiNii URL.
-
-        // Given: URL with cir.nii.ac.jp/crid/
-        // When: Extracting identifiers
-        // Then: CRID extracted, needs_meta_extraction=True
-        """
-        # Given: URL with CiNii CRID
-        extractor = IdentifierExtractor()
-        url = "https://cir.nii.ac.jp/crid/1234567890"
-
-        # When: Extracting identifiers
-        identifier = extractor.extract(url)
-
-        # Then: CRID extracted
-        assert identifier.crid == "1234567890"
-        assert identifier.needs_meta_extraction is True
 
     def test_empty_url(self) -> None:
         """TC-ID-B-01: Test empty URL string.
@@ -278,7 +259,6 @@ class TestIdentifierExtractor:
             doi="10.1234/example",
             pmid="12345678",
             arxiv_id="2301.12345",
-            crid=None,
             url=None,
         )
 
@@ -301,7 +281,6 @@ class TestIdentifierExtractor:
             doi=None,
             pmid="12345678",
             arxiv_id="2301.12345",
-            crid=None,
             url=None,
         )
 

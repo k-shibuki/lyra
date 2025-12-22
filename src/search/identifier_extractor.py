@@ -1,7 +1,8 @@
 """
 Identifier extractor for academic papers from URLs.
 
-Extracts DOI, PMID, arXiv ID, CiNii CRID, etc. from SERP result URLs.
+Extracts DOI, PMID, arXiv ID from SERP result URLs.
+Per Decision 6: S2 + OpenAlex two-pillar strategy.
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ class IdentifierExtractor:
         "pmid": re.compile(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", re.IGNORECASE),
         "arxiv": re.compile(r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})", re.IGNORECASE),
         "jstage_doi": re.compile(r"jstage\.jst\.go\.jp/.*/(10\.\d+/[^/?#]+)", re.IGNORECASE),
-        "cinii_crid": re.compile(r"cir\.nii\.ac\.jp/crid/(\d+)", re.IGNORECASE),
         "nature_doi": re.compile(r"nature\.com/articles/(s\d+-\d+-\d+-\w+)", re.IGNORECASE),
         "sciencedirect_doi": re.compile(
             r"sciencedirect\.com/science/article/pii/([A-Z0-9]+)", re.IGNORECASE
@@ -41,9 +41,9 @@ class IdentifierExtractor:
             PaperIdentifier with extracted identifiers
         """
         if not url:
-            return PaperIdentifier(doi=None, pmid=None, arxiv_id=None, crid=None, url=url)
+            return PaperIdentifier(doi=None, pmid=None, arxiv_id=None, url=url)
 
-        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id=None, crid=None, url=url)
+        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id=None, url=url)
 
         # 1. DOI (doi.org)
         doi_match = self.PATTERNS["doi"].search(url)
@@ -75,36 +75,27 @@ class IdentifierExtractor:
             logger.debug("Extracted DOI from J-Stage URL", doi=identifier.doi, url=url)
             return identifier
 
-        # 5. CiNii CRID
-        cinii_match = self.PATTERNS["cinii_crid"].search(url)
-        if cinii_match:
-            identifier.crid = cinii_match.group(1)
-            identifier.needs_meta_extraction = True  # DOI conversion needed
-            logger.debug("Extracted CRID from URL", crid=identifier.crid, url=url)
-            return identifier
-
-        # 6. Nature article ID (may contain DOI in meta tags)
+        # 5. Nature article ID (may contain DOI in meta tags)
         nature_match = self.PATTERNS["nature_doi"].search(url)
         if nature_match:
             identifier.needs_meta_extraction = True  # Need to extract DOI from meta tags
             logger.debug("Detected Nature article URL", url=url)
             return identifier
 
-        # 7. ScienceDirect (may contain DOI in meta tags)
+        # 6. ScienceDirect (may contain DOI in meta tags)
         sciencedirect_match = self.PATTERNS["sciencedirect_doi"].search(url)
         if sciencedirect_match:
             identifier.needs_meta_extraction = True  # Need to extract DOI from meta tags
             logger.debug("Detected ScienceDirect URL", url=url)
             return identifier
 
-        # 8. Other academic domains (need meta tag extraction)
+        # 7. Other academic domains (need meta tag extraction)
         parsed = urlparse(url)
         academic_domains = [
             "pubmed.gov",
             "ncbi.nlm.nih.gov",
             "arxiv.org",
             "jstage.jst.go.jp",
-            "cir.nii.ac.jp",
             "nature.com",
             "sciencedirect.com",
             "ieee.org",

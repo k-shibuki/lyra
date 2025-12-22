@@ -321,7 +321,7 @@ class AcademicAPIConfig(BaseModel):
     priority: int = 999
     rate_limit: AcademicAPIRateLimitConfig | None = None
     headers: dict[str, str] | None = None
-    email: str | None = None  # For Unpaywall
+    email: str | None = None  # For APIs requiring contact email
 
 
 class AcademicAPIsDefaultsConfig(BaseModel):
