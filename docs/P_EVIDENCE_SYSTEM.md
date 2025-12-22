@@ -17,9 +17,9 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22（Phase 4b 完了: 時間メタデータ露出、決定15追加）
+**最終更新**: 2025-12-22（Phase 4b 完了: 時間メタデータ露出、決定15追加 / Phase 5-6 設計更新: Phase 5=user_overrides, Phase 6=フィードバック&スキーマ棚卸し）
 
-このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
+このセクションは、`docs/P_EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
 - Phaseの開始/完了、または仕様変更（破壊的変更を含む）を行ったタイミングで更新する
 - 実装が一部のみの場合は、**どこまでが完了で、何が未完か**を明記する（誤認防止）
@@ -38,8 +38,8 @@
 | Phase 1 / Task 1.1 | `get_status` に `blocked_domains`（＋`idle_seconds`）を追加 | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `tests/test_mcp_get_status.py` | - |
 | Phase 1 / Task 1.2 | ブロック理由のログ強化（`cause_id` 連携） | DONE | `src/filter/source_verification.py`, `tests/test_source_verification.py` | `verify_claim()` に `cause_id` パラメータ追加、ブロック時に伝播 |
 | Phase 1 / Task 1.3 | エビデンスグラフに矛盾関係（REFUTES）を保存 | DONE | `src/filter/evidence_graph.py`, `src/storage/schema.sql` | - |
-| Phase 1 / Task 1.4 | `claims.adoption_status` を追加し `pending/adopted/not_adopted` を保持 | DONE | `src/storage/schema.sql`, `src/filter/evidence_graph.py` | - |
-| Phase 1 / Task 1.5 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（ローカル回帰: 3225 passed） |
+| Phase 1 / Task 1.4 | `claims.adoption_status` を追加し `pending/adopted/not_adopted` を保持（legacy。Phase 6で `claim_adoption_status` へリネーム＆デフォルト変更） | DONE | `src/storage/schema.sql`, `src/filter/evidence_graph.py` | - |
+| Phase 1 / Task 1.5 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（ローカル回帰: 3225 passed） |
 
 #### Phase 2（エッジへのドメイン分類情報追加）
 
@@ -51,7 +51,7 @@
 | Phase 2 / Task 2.4 | 判定ロジックからカテゴリ依存を除去 | DONE | `src/filter/source_verification.py`, `tests/test_source_verification.py` | - |
 | Phase 2 / Task 2.5 | `to_dict()` エクスポートにカテゴリ情報を含める | DONE | `src/filter/evidence_graph.py` | - |
 | Phase 2 / Task 2.6 | 決定12: `is_influential` の完全削除 | DONE | `src/storage/schema.sql`, `src/search/apis/*.py`, `src/search/academic_provider.py`, `src/filter/evidence_graph.py` | 検証: `grep -r "\\bis_influential\\b" src/` 残骸ゼロ |
-| Phase 2 / Task 2.7 | ドキュメント更新 | DONE | `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（3228 passed） |
+| Phase 2 / Task 2.7 | ドキュメント更新 | DONE | `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（3228 passed） |
 | Phase 2 / Task 2.8 | 補助API（Crossref / arXiv / Unpaywall）の整理（削除/明確化） | DONE | `src/search/academic_provider.py`, `src/search/apis/{crossref,arxiv,unpaywall}.py`, `src/search/id_resolver.py`, `config/academic_apis.yaml` | 決定6に統合: 3つの補助APIを完全削除、PMID→DOI変換はS2 APIに移行、設定ファイル・テスト・ドキュメントを更新 |
 
 #### Phase 3（引用追跡の完全実装）
@@ -64,7 +64,7 @@
 | Phase 3 / Task 3.4 | S2/OpenAlex 引用グラフ統合（dedup / citation_pairs） | DONE | `src/search/academic_provider.py`, `tests/test_academic_provider.py` | - |
 | Phase 3 / Task 3.5 | 非アカデミックでも識別子発見でAPI補完 | DONE | `src/research/pipeline.py`, `tests/test_pipeline_academic.py` | - |
 | Phase 3 / Task 3.6 | 決定11: budget制約の設定反映 | DONE | `config/settings.yaml`, `src/research/pipeline.py` | - |
-| Phase 3 / Task 3.7 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（統合: S2/OpenAlex統合、重複排除、エラーハンドリング、識別子補完を確認） |
+| Phase 3 / Task 3.7 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（統合: S2/OpenAlex統合、重複排除、エラーハンドリング、識別子補完を確認） |
 
 #### Phase 3b（一般Web引用検出）
 
@@ -74,7 +74,7 @@
 | Phase 3b / Task 3b.2 | 引用検出プロンプト作成 | DONE | `config/prompts/detect_citation.j2` | LLM判定用プロンプト |
 | Phase 3b / Task 3b.3 | 引用検出ロジック実装 | DONE | `src/extractor/citation_detector.py`, `tests/test_citation_detector.py` | LinkExtractor（本文内リンク）+ LLM判定 |
 | Phase 3b / Task 3b.4 | CITESエッジ生成 | DONE | `src/research/executor.py` | `add_citation(citation_source="extraction")` 統合済み |
-| Phase 3b / Task 3b.5 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | - |
+| Phase 3b / Task 3b.5 | ドキュメント更新 | DONE | `docs/P_EVIDENCE_SYSTEM.md` | - |
 
 #### Phase 4（ベイズ信頼度モデル）
 
@@ -86,7 +86,7 @@
 | Phase 4 / Task 4.3 | Source Verification / MCPレスポンスへの反映 | DONE | `src/research/materials.py` | `get_materials_action()` の `claims[]` に `uncertainty/controversy` を追加 |
 | Phase 4 / Task 4.4 | 既存テスト更新（後方互換なし前提で更新） | DONE | `tests/test_evidence_graph.py`, `tests/test_claim_timeline.py` | TestClaimConfidence 9件、claim_timeline 41件パス確認 |
 | Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | DONE | `src/filter/evidence_graph.py`, `tests/test_source_verification.py`, `tests/conftest.py`, `tests/test_evidence_graph.py` | `verdict` フィールド削除確認済み（`src/` および `tests/` で grep残骸ゼロ） |
-| Phase 4 / Task 4.6 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | Phase 4 完了 |
+| Phase 4 / Task 4.6 | ドキュメント更新 | DONE | `docs/P_EVIDENCE_SYSTEM.md` | Phase 4 完了 |
 | Phase 4 / Task 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | DONE | `src/filter/claim_timeline.py`, `tests/test_claim_timeline.py` | `calculate_confidence_adjustment()`, `_apply_confidence_adjustment()`, `RETRACTION_CONFIDENCE_PENALTY` 削除。timelineは監査ログに限定 |
 
 #### Phase 4b（時間メタデータ露出）
@@ -96,7 +96,32 @@
 | Phase 4b / Task 4b.1 | `calculate_claim_confidence()` に `evidence` リストを追加 | DONE | `src/filter/evidence_graph.py` | 各エビデンスに `year`, `source_domain_category`, `nli_confidence`, `doi`, `venue` を含める |
 | Phase 4b / Task 4b.2 | `evidence_years` サマリー（oldest/newest）を追加 | DONE | `src/filter/evidence_graph.py` | 高推論AIが時間的判断を行うための要約情報 |
 | Phase 4b / Task 4b.3 | MCPレスポンスへの反映 | DONE | `src/research/materials.py` | `get_materials_action()` の `claims[]` に `evidence`/`evidence_years` を追加 |
-| Phase 4b / Task 4b.4 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | 決定15追加、Phase 4b完了 |
+| Phase 4b / Task 4b.4 | ドキュメント更新 | DONE | `docs/P_EVIDENCE_SYSTEM.md` | 決定15追加、Phase 4b完了 |
+
+#### Phase 5（ユーザー制御）
+
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 5 / Task 5.0 | `get_status.blocked_domains[]` に `can_restore`/`restore_via` を追加（legacy） | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | Phase 5で `domain_block_reason`/`domain_unblock_risk` に置換予定（破壊的変更） |
+| Phase 5 / Task 5.1 | ブロック理由のコード化（`domain_block_reason`）+ MCP露出 + `domain_unblock_risk`（High/Low） | TODO | `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | ブロック理由の混線を解消（dangerous_pattern vs high_rejection_rate等） |
+| Phase 5 / Task 5.2 | `user_overrides` 導入（完全一致。**QPS/カテゴリ等のDomainPolicy上書き**。ブロック解除は扱わない） | TODO | `config/domains.yaml`, `src/utils/domain_policy.py` | ブロック/解除は Phase 6 の DB override（決定20）で統一 |
+| Phase 5 / Task 5.3 | hot-reloadで `user_overrides` が即反映（DomainPolicyManager） | TODO | `src/utils/domain_policy.py` | DomainPolicyManager reload callback で反映（SourceVerifierの `_blocked_domains` とは切り離す） |
+| Phase 5 / Task 5.4 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md`, `README.md` | - |
+| Phase 5 / Task 5.5 | 棄却率パラメータ分離（`domain_claim_security_rejection_rate` / `domain_claim_manual_rejection_rate` / `domain_claim_combined_rejection_rate`） | PLANNED | `src/filter/source_verification.py` | 決定18参照。合算棄却率でブロック判定。Phase 6の `feedback` と連動 |
+
+#### Phase 6（フィードバック + スキーマ棚卸し）
+
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 6 / Task 6.1 | `feedback` MCPツール新設（3レベル + `domain_clear_override`） | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/feedback.json` | 決定17/20参照。`calibrate` は評価・統計用として残す |
+| Phase 6 / Task 6.2 | Domain override 実装（DB永続化 + pattern制約 + 優先順位） | PLANNED | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/utils/domain_policy.py`, `src/storage/schema.sql` | 決定20参照。`domain_block`/`domain_unblock`/`domain_clear_override` |
+| Phase 6 / Task 6.3 | `claim_reject` / `claim_restore` 実装：claim採用状態操作 | PLANNED | `src/mcp/server.py`, `src/storage/schema.sql` | `claim_adoption_status` を `adopted` ↔ `not_adopted` に切替 |
+| Phase 6 / Task 6.4 | `edge_correct` 実装：NLIラベル訂正（即時反映 + 校正サンプル蓄積） | PLANNED | `src/mcp/server.py`, `src/filter/evidence_graph.py` | 3クラス（supports/refutes/neutral）の正解ラベルを入力 |
+| Phase 6 / Task 6.5 | スキーマ変更（命名規則統一 + 新規カラム追加） | PLANNED | `src/storage/schema.sql` | 決定19参照。`edge_*`, `claim_*` プレフィックス |
+| Phase 6 / Task 6.6 | DBスキーマ棚卸し（dead fields 削除: `calibrated_score`, `is_verified`） | PLANNED | `src/storage/schema.sql` | "現状→改善後"の表で仕様と実装を一致させる |
+| Phase 6 / Task 6.7 | 校正サンプル蓄積の接続（NLI推論への校正適用は Phase R） | PLANNED | `src/utils/calibration.py` | Phase 6では蓄積のみ |
+| Phase 6 / Task 6.8 | `get_materials` に `claim_adoption_status` 露出 | PLANNED | `src/research/materials.py`, `src/mcp/schemas/get_materials.json` | 不採用claimのフィルタリングを高推論AIに委ねる |
+| Phase 6 / Task 6.9 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | Phase 6の再編反映 |
 
 ---
 
@@ -458,7 +483,7 @@ task_id = "task-123"
 |------|------|
 | 計算タイミング | オンデマンド（`get_materials`呼び出し時） |
 | α/β保存 | しない（エッジから毎回計算） |
-| claims.confidence_score | 導出値（DBキャッシュは任意） |
+| claims.claim_confidence（legacy名: claims.confidence_score） | 導出値（DBキャッシュは任意） |
 | キャッシュ制御点 | **`src/research/materials.py:get_materials_action()`**（呼び出し元: `src/mcp/server.py:_handle_get_materials`）。返却値はエッジから導出した値を正とし、必要ならDBへ書き戻す（最適化）。`EvidenceGraph`自体にDB更新の責務を持たせない（副作用境界の明確化）。 |
 
 **前提（重要）**:
@@ -544,7 +569,293 @@ task_id = "task-123"
 
 **実装タイミング**: Phase 4b
 
+### 決定16: ブロック理由のコード化と解除リスク露出
+
+**決定**: `get_status.blocked_domains[]` には、ブロック状態の「事実」を機械可読に伝えるため `domain_block_reason` と `domain_unblock_risk` を含める。
+
+- `domain_block_reason` は **ブロックが発生した規則/原因のコード**（事実）
+- `domain_unblock_risk` は **解除（= user_overrides または `feedback(domain_unblock)`）を行う際のリスク区分**（High/Low）
+- 「復元すべき/非推奨」といった **指示・推奨の文言は出さない**（受け手が "何をrestore？" で迷うため）。代わりに `domain_unblock_risk` を露出する
+
+**フィールド**:
+- `domain_block_reason`: `"dangerous_pattern" | "high_rejection_rate" | "denylist" | "manual" | "unknown"`
+- `domain_unblock_risk`: `"high" | "low"`
+
+**MCPスキーマ例（get_status）**:
+```json
+{
+  "blocked_domains": [
+    {
+      "domain": "example.com",
+      "blocked_at": "2025-12-22T12:00:00Z",
+      "domain_block_reason": "dangerous_pattern",
+      "domain_unblock_risk": "high",
+      "reason": "Dangerous pattern detected (L2/L4)",
+      "cause_id": "abc123",
+      "original_domain_category": "unverified",
+      "restore_via": "config/domains.yaml user_overrides or feedback(domain_unblock)"
+    }
+  ]
+}
+```
+
+**`domain_block_reason` → `domain_unblock_risk` マッピング**:
+
+| `domain_block_reason` | `domain_unblock_risk` | 理由 |
+|-----------------------|----------------------|------|
+| `dangerous_pattern` | **high** | セキュリティリスク（L2/L4検出） |
+| `high_rejection_rate` | **low** | 統計的判断（誤検知あり得る） |
+| `denylist` | **low** | 設定で明示的に追加 → 設定で解除すべき |
+| `manual` | **low** | 人が `feedback` で判断 → 人が解除できる |
+| `unknown` | **high** | 原因不明は安全側に倒す |
+
+**注（重要）**: MCP応答はスキーマでallowlistサニタイズされる（`additionalProperties: false`）ため、フィールド追加/改名は `src/mcp/schemas/get_status.json` の更新が必須。
+
+### 決定17: `feedback` ツールによるHuman-in-the-loop入力
+
+**決定**: Domain/Claim/Edge の3レベルで Human-in-the-loop 入力を行う `feedback` MCPツールを新設する。
+
+**設計原則**:
+- **恣意性排除**: 「パラメータを直接いじる」のではなく「正解を教える」形でのみ入力を受け付ける
+- **即時反映**: 訂正されたラベル/状態は即座に反映される（ベイズ再計算は `get_materials` 時）
+- **監査可能**: 訂正/棄却には `reason` を記録し、後から追跡可能にする
+- **3レベル対応**: Domain（glob対応）、Claim（1件ずつ）、Edge（1件ずつ）
+
+**アクション一覧**:
+
+| レベル | action | 目的 | 入力 |
+|--------|--------|------|------|
+| Domain | `domain_block` | ドメインをブロック | `domain_pattern`, `reason` |
+| Domain | `domain_unblock` | ブロック解除（overrideで許可） | `domain_pattern`, `reason` |
+| Domain | `domain_clear_override` | ドメインoverrideを解除（ベースラインへ戻す） | `domain_pattern`, `reason` |
+| Claim | `claim_reject` | claimを不採用に | `claim_id`, `reason` |
+| Claim | `claim_restore` | 不採用を撤回 | `claim_id` |
+| Edge | `edge_correct` | NLIラベル訂正 | `edge_id`, `correct_relation`, `reason?` |
+
+**パラメータ詳細**:
+
+```typescript
+// Domain レベル（suffix/prefix対応）
+{ action: "domain_block", domain_pattern: "*.example.com", reason: "..." }
+{ action: "domain_unblock", domain_pattern: "*.example.com", reason: "..." }
+{ action: "domain_clear_override", domain_pattern: "*.example.com", reason: "..." }
+
+// Claim レベル（1件ずつ）
+{ action: "claim_reject", claim_id: "claim_abc123", reason: "..." }
+{ action: "claim_restore", claim_id: "claim_abc123" }
+
+// Edge レベル（1件ずつ）
+{ action: "edge_correct", edge_id: "edge_xyz", correct_relation: "refutes", reason: "..." }
+```
+
+**`calibrate` ツールとの関係**:
+- `calibrate`: 評価・統計・ロールバック用（計測系）
+- `feedback`: Human-in-the-loop 入力用（訂正・棄却・ブロック）
+- 両者は責務が異なり、併存する
+
+**3クラス対応**:
+- `correct_relation` は `"supports"` / `"refutes"` / `"neutral"` の3値
+- 訂正サンプルは `NLICorrectionSample` として蓄積
+- NLI推論への校正適用は訂正サンプルが十分蓄積されてから（Phase R）
+
+**実装タイミング**: Phase 6
+
 ---
+
+### 決定18: 棄却率パラメータの分離と合算
+
+**決定**: 棄却率を「自動棄却（セキュリティ検出）」と「手動棄却（`feedback`）」に明確に分離し、ブロック判定には合算棄却率を使用する。
+
+**パラメータ分離**:
+
+| パラメータ | 意味 |
+|-----------|------|
+| `security_rejected_claims` | L2/L4検出による自動棄却claim |
+| `manual_rejected_claims` | `feedback(claim_reject)` による手動棄却claim |
+| `domain_claim_security_rejection_rate` | 自動棄却率（ドメイン単位・claimベース） |
+| `domain_claim_manual_rejection_rate` | 手動棄却率（ドメイン単位・claimベース） |
+| `domain_claim_combined_rejection_rate` | 合算棄却率（ブロック判定用） |
+
+**合算計算**:
+```
+分子 = security_rejected_claims ∪ manual_rejected_claims（重複排除）
+分母 = verified ∪ pending ∪ security_rejected ∪ manual_rejected（ユニーク数）
+domain_claim_combined_rejection_rate = len(分子) / len(分母)
+```
+
+**重複排除の理由**: 同じclaimがL2/L4検出と人の判断の両方で棄却される可能性があり、二重カウントを防ぐ。
+
+**使い分け**:
+- **診断・監査**: 個別の棄却率（`domain_claim_security_rejection_rate`, `domain_claim_manual_rejection_rate`）で原因を特定
+- **ブロック判定**: `domain_claim_combined_rejection_rate` で閾値判定（`high_rejection_rate_threshold`）
+
+**実装タイミング**: Phase 5（Task 5.5/5.6）で棄却率分離、Phase 6（`feedback`）で手動棄却が有効化
+
+---
+
+### 決定19: パラメータ命名規則の統一
+
+**決定**: DB カラム名と MCP 出力フィールド名を統一し、「何を操作しているか」を明確にする命名規則を採用する。
+
+**命名規則**:
+```
+{対象}_{属性}
+```
+
+| 対象プレフィックス | 意味 | 例 |
+|-------------------|------|-----|
+| `domain_` | ドメイン関連 | `domain_block_reason`, `domain_unblock_risk` |
+| `claim_` | Claim関連 | `claim_confidence`, `claim_adoption_status` |
+| `edge_` | Edge関連 | `edge_human_corrected`, `edge_correction_reason` |
+| `source_` | ソース検証関連 | `source_verification_status` |
+| `nli_` | NLIモデル出力 | `nli_label`, `nli_confidence` |
+
+**変更一覧（DB + MCP）**:
+
+| 分類 | 旧 | 新 | 備考 |
+|------|-----|-----|------|
+| **Claims** | `confidence_score` | `claim_confidence` | 何の信頼度か明確に |
+| | `adoption_status` | `claim_adoption_status` | 何を採用するか明確に |
+| | `calibrated_score` | (削除) | dead field |
+| | `is_verified` | (削除) | `source_verification_status` に統一 |
+| | `rejection_reason` | `claim_rejection_reason` | 新規追加 |
+| | `rejected_at` | `claim_rejected_at` | 新規追加 |
+| **Edges** | `human_corrected` | `edge_human_corrected` | 新規追加 |
+| | `correction_reason` | `edge_correction_reason` | 新規追加 |
+| | `corrected_at` | `edge_corrected_at` | 新規追加 |
+| **Domains** | `block_reason_code` | `domain_block_reason` | コード→理由 |
+| | `manual_override_risk` | `domain_unblock_risk` | 何のリスクか明確に |
+| **棄却率** | `rejected_claims` | `security_rejected_claims` / `manual_rejected_claims` | 決定18参照 |
+| | `rejection_rate` | `domain_claim_*_rejection_rate` | 対象を明確に |
+
+**破壊的変更**:
+- DB スキーマ変更（Phase 6 で実施）
+- MCP スキーマ変更（`get_status`, `get_materials` 等）
+- テスト更新必須
+
+**実装タイミング**: Phase 6（DBスキーマ棚卸しと同時）
+
+---
+
+## 追加決定（未決事項の解消）
+
+### 決定20: Domainレベルfeedbackの永続化・優先順位・pattern制約
+
+**決定**:
+- Domainレベルの `feedback(domain_block/domain_unblock)` は **DBに永続化**する（source of truth）。
+- `feedback(domain_unblock)` は **denylistと同列に扱い、denylist/動的ブロック（危険パターン）も解除できる**。
+- `domain_pattern` は **危険なパターンを禁止**し、事故（広範囲の解除/ブロック）を防ぐ。
+
+#### 1) DB永続化（source of truth）
+
+- `feedback(domain_block/domain_unblock)` の履歴は DB に保存し、再起動後も効く。
+- `get_status` で「現在のブロック状態」と「上書き（override）の存在」が追跡できるようにする（監査可能性）。
+
+**決定（実装仕様）**: 「現在有効なルール」と「監査ログ」を分ける。
+
+```sql
+-- Domain override rules (source of truth)
+CREATE TABLE IF NOT EXISTS domain_override_rules (
+  id TEXT PRIMARY KEY,
+  domain_pattern TEXT NOT NULL,                 -- "example.com" or "*.example.com"
+  decision TEXT NOT NULL,                       -- "block" | "unblock"
+  reason TEXT NOT NULL,                         -- required
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  is_active BOOLEAN DEFAULT 1,
+  created_by TEXT DEFAULT "feedback"            -- audit
+);
+CREATE INDEX IF NOT EXISTS idx_domain_override_rules_active
+  ON domain_override_rules(is_active, decision, updated_at);
+
+-- Append-only audit log
+CREATE TABLE IF NOT EXISTS domain_override_events (
+  id TEXT PRIMARY KEY,
+  rule_id TEXT,
+  action TEXT NOT NULL,                         -- "domain_block" | "domain_unblock" | "domain_clear_override"
+  domain_pattern TEXT NOT NULL,
+  decision TEXT NOT NULL,                       -- "block" | "unblock" | "clear"
+  reason TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_by TEXT DEFAULT "feedback"
+);
+CREATE INDEX IF NOT EXISTS idx_domain_override_events_created_at
+  ON domain_override_events(created_at);
+```
+
+**決定**: `domain_clear_override`（= ベースラインに戻す）を追加する。解除/ブロックが「永続的な上書き」として残り続ける運用事故を防ぐ。
+
+#### 2) 優先順位（override可能・denylistと同列）
+
+**方針**: 判定は「まずoverride（allow/deny）」→「次にdenylist/危険パターン等の自動判定」という順序で統一する。
+
+- `feedback(domain_unblock)` は以下を解除できる:
+  - `domain_block_reason="denylist"`
+  - `domain_block_reason="dangerous_pattern"`
+  - `domain_block_reason="high_rejection_rate"`
+- 解除は高リスクになり得るため、`domain_unblock_risk` は **dangerous_pattern由来の場合は high** のまま保持し、監査ログに必ず残す。
+
+**決定（衝突解決ルール）**: 同一ドメインに複数ルールがマッチした場合は、以下の順で決める。
+- **最優先**: `domain_pattern` が完全一致（`example.com`）
+- **次点**: suffix glob（`*.example.com`）のうち **suffixが長い**もの（より具体的）
+- **同一優先度**: `updated_at` が新しいもの（最後に人が決めたもの）
+
+#### 2.1 `get_status` での露出（監査可能性の必須要件）
+
+**決定（MCP露出）**:
+- `get_status.domain_overrides[]`: 有効な `domain_override_rules` をそのまま露出（pattern/decision/reason/updated_at）
+- `get_status.blocked_domains[]`: 「ブロック信号」を露出しつつ、overrideで無効化されている場合も分かるようにする
+
+最小フィールド案:
+```json
+{
+  "blocked_domains": [{
+    "domain": "example.com",
+    "domain_block_reason": "dangerous_pattern",
+    "domain_unblock_risk": "high",
+    "blocked_at": "2025-12-22T12:00:00Z",
+    "cause_id": "abc123",
+    "override": {
+      "is_overridden": true,
+      "decision": "unblock",
+      "matched_pattern": "*.example.com",
+      "rule_id": "dor_...",
+      "reason": "Manual review ...",
+      "updated_at": "2025-12-22T12:30:00Z"
+    }
+  }],
+  "domain_overrides": [{
+    "rule_id": "dor_...",
+    "domain_pattern": "*.example.com",
+    "decision": "unblock",
+    "reason": "Manual review ...",
+    "updated_at": "2025-12-22T12:30:00Z"
+  }]
+}
+```
+
+#### 2.2 判定ロジックの配置（単一責務）
+
+**決定**: 「最終的にブロック/スキップを決める場所」に集約する。
+- denylist（DomainPolicyManager）: fetch前のスキップ判定
+- dangerous_pattern / high_rejection_rate（SourceVerifier）: 動的ブロック判定
+- override（DB）: 両者に先行して適用（unblockは denylist / dangerous_pattern を含めて解除可能）
+
+実装では `DomainOverrideStore`（DB読み取り）と「ドメイン判定関数（single entrypoint）」を作り、`DomainPolicyManager` と `SourceVerifier` の両方から同じロジックを使う（重複排除）。
+
+#### 3) `domain_pattern` の危険パターン禁止（ガードレール）
+
+**許可する形式（最小）**:
+- `example.com`（完全一致）
+- `*.example.com`（suffix globのみ）
+
+**禁止（危険パターン）**:
+- `*` 単体（全ドメインにマッチ）
+- `*.*` 等の広範囲パターン
+- `*.com` / `*.net` / `*.co.jp` 等の **TLD/公共サフィックス全体**
+- `ex*ample.com` のような **中間ワイルドカード**（事故りやすい）
+
+（注）公共サフィックス判定は実装で扱う（例: public suffix list）。単独運用では「最低でも `*.com` 相当は禁止」から開始してよい。
 
 ## 用語定義
 
@@ -641,7 +952,7 @@ task_id = "task-123"
 │    昇格条件: ≥2 独立ソースで裏付け → LOW                       │
 │    降格条件:                                                  │
 │      - 反証エビデンス検出 (REFUTES) → PENDING（自動BLOCKしない） │
-│      - rejection_rate > 30% (UNVERIFIED/LOW) → BLOCKED       │
+│      - domain_claim_combined_rejection_rate > 30% (UNVERIFIED/LOW) → BLOCKED       │
 │                                                              │
 │    TRUSTED以上: REJECTED マークのみ（自動降格なし）            │
 └─────────────────────────────────────────────────────────────┘
@@ -1899,7 +2210,7 @@ graph TD
 |------|----------|
 | `README.md` | `get_status` 出力例に `blocked_domains`, `idle_seconds` 追加 |
 | `docs/REQUIREMENTS.md` | L5に `adoption_status` 仕様追加、`get_status` 応答仕様明記 |
-| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 1 → DONE） |
+| `docs/P_EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 1 → DONE） |
 
 #### タスク詳細
 
@@ -1960,7 +2271,17 @@ def verify_claim(
 
 **1.4 不採用主張（`not_adopted`）のグラフ保持**
 
-検証で棄却された主張もグラフに残し、`adoption_status` で区別する。
+（重要）`claim_adoption_status`（**legacy名**: `adoption_status`）は **真偽判定ではなく**、「この主張を最終的に採用（出力・材料として使う）するか」を表す**運用フラグ**である。
+
+**基本方針（単独運用）**:
+- デフォルトは **採用（`adopted`）**（= “全部を入力しないといけない” という運用にはしない）
+- 例外として、明確な理由があるものだけ **不採用（`not_adopted`）** に落とす（= manual rejection）
+- 不採用になっても **グラフ/DBから削除しない**（監査・再検討・再評価のために保持）
+
+`claim_adoption_status` は “採用/不採用” を表すだけで、`verification_status`（pending/verified/rejected）や `confidence/uncertainty` とは別物。
+たとえば `verification_status="pending"` でも `claim_adoption_status="adopted"` はあり得る（= まだ検証が十分でないが、暫定で材料として保持する）。
+
+注: 現行実装は claim 作成時に `adoption_status="pending"`（legacy）を保存しているが、これは暫定実装であり、Phase 6で **`claim_adoption_status` へリネーム**しつつ「デフォルト採用（`adopted`）+ manual rejection（`not_adopted`）」へ仕様を確定して接続する（破壊的変更）。
 
 ```sql
 -- Single-user mode: update `src/storage/schema.sql` directly.
@@ -1968,6 +2289,8 @@ def verify_claim(
 --
 -- claims.adoption_status TEXT DEFAULT 'pending'
 -- 値: 'pending', 'adopted', 'not_adopted'
+--
+-- Phase 6: claims.claim_adoption_status TEXT DEFAULT 'adopted'（リネーム＋デフォルト変更）
 ```
 
 ```python
@@ -1976,7 +2299,7 @@ def set_claim_adoption_status(self, claim_id: str, status: str) -> None:
     """主張の採用状態を設定する。"""
     node_id = self._make_node_id(NodeType.CLAIM, claim_id)
     if node_id in self._graph:
-        self._graph.nodes[node_id]["adoption_status"] = status
+        self._graph.nodes[node_id]["claim_adoption_status"] = status
 ```
 
 #### テストケース
@@ -1991,7 +2314,7 @@ def test_blocked_domain_has_reason():
 
 # tests/test_evidence_graph.py
 def test_not_adopted_claim_preserved():
-    """棄却された主張がadoption_status='not_adopted'で保持されることを検証"""
+    """棄却された主張がclaim_adoption_status='not_adopted'で保持されることを検証"""
 ```
 
 ### Phase 2: エッジへのドメインカテゴリ情報追加（中リスク・高価値）【優先】
@@ -2016,14 +2339,14 @@ Phase 3（引用追跡）で追加される論文間の対立関係を、高推�
 | 2.4 | 判定ロジックからカテゴリ依存を除去 | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
 | 2.5 | `to_dict()` でエクスポート | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 2.6 | `is_influential` の完全削除（決定12） | 複数ファイル（下記参照） | `tests/test_evidence_graph.py`, `tests/test_academic_provider.py` |
-| 2.7 | **ドキュメント更新** | `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+| 2.7 | **ドキュメント更新** | `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | - |
 
 **2.7 ドキュメント更新**
 
 | 対象 | 更新内容 | 理由 |
 |------|----------|------|
 | `docs/REQUIREMENTS.md` | L5 MCPメタデータに `source_domain_category`/`target_domain_category` 説明追加 | エッジ情報が高推論AI向けに公開される |
-| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 2 → DONE） | 完了記録 |
+| `docs/P_EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 2 → DONE） | 完了記録 |
 
 **注**: README.md は更新不要（ユーザー向けAPIに直接影響しないため）。
 
@@ -2198,7 +2521,7 @@ def test_get_citations_returns_papers_only():
 | 3.4 | S2/OpenAlex 引用グラフ統合 | `src/search/academic_provider.py` | `tests/test_academic_provider.py` |
 | 3.5 | 非アカデミッククエリでも学術識別子発見時にAPI補完 | `src/research/pipeline.py` | `tests/test_pipeline_academic.py` |
 | 3.6 | 決定11（Budgeted Citation Expansion）の実装反映（top-N / レート制限 / LLM比率） | `config/settings.yaml`, `src/research/pipeline.py` | `tests/test_pipeline_academic.py` |
-| 3.7 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+| 3.7 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | - |
 
 **3.7 ドキュメント更新**
 
@@ -2206,7 +2529,7 @@ def test_get_citations_returns_papers_only():
 |------|----------|------|
 | `README.md` | Key Modules に `citation_filter.py` 追加、Configuration に `search.citation_filter.*` 設定追加 | 新モジュール・設定の追加 |
 | `docs/REQUIREMENTS.md` | Step 5 の詳細説明（3段階フィルタリング: Stage 0/1/2）、`config/settings.yaml` の新設定仕様 | 処理フローの変更 |
-| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 3 → DONE） | 完了記録 |
+| `docs/P_EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 3 → DONE） | 完了記録 |
 
 #### タスク詳細
 
@@ -2285,7 +2608,7 @@ def test_get_citations_returns_papers_only():
 - `docs/REQUIREMENTS.md`
   - Step 5（引用追跡）の Stage 0/1/2（メタデータ即時フィルタ / Embedding粗 / LLM精密）を明文化
   - `config/settings.yaml` の関連設定（`citation_graph_*`, `search.citation_filter.*`）の説明を追加
-- `docs/EVIDENCE_SYSTEM.md`
+- `docs/P_EVIDENCE_SYSTEM.md`
   - Progress（タスク表）を更新し、実装済みタスクとPLANNEDを厳密に追跡できるようにする
 
 ### Phase 3b: 一般Web引用検出（低リスク・中価値）
@@ -2318,7 +2641,7 @@ def test_get_citations_returns_papers_only():
 | 3b.2 | 引用検出プロンプト作成 | `config/prompts/detect_citation.j2` | - |
 | 3b.3 | 引用検出ロジック実装 | `src/extractor/citation_detector.py`（新規） | `tests/test_citation_detector.py`（新規） |
 | 3b.4 | CITESエッジ生成 | `src/filter/evidence_graph.py`, `src/extractor/content.py` | `tests/test_evidence_graph.py` |
-| 3b.5 | ドキュメント更新 | `docs/EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | - |
+| 3b.5 | ドキュメント更新 | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | - |
 
 #### タスク詳細
 
@@ -2431,7 +2754,7 @@ class CitationDetector:
 | 4.3 | Source Verification / MCPレスポンスへの反映 | `src/filter/source_verification.py`, `src/mcp/server.py` | `tests/test_source_verification.py`, `tests/test_mcp_get_materials.py` |
 | 4.4 | 既存テスト更新（後方互換なし前提で更新） | - | `tests/test_evidence_graph.py` |
 | 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | `src/filter/evidence_graph.py`, `src/filter/source_verification.py` | `tests/test_evidence_graph.py`, `tests/test_source_verification.py` |
-| 4.6 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+| 4.6 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | - |
 | 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | `src/filter/claim_timeline.py` | `tests/test_claim_timeline.py` |
 
 **4.6 ドキュメント更新**
@@ -2440,7 +2763,7 @@ class CitationDetector:
 |------|----------|------|
 | `README.md` | `get_materials` 出力例に `confidence/uncertainty/controversy` 追加、Evidence Graph セクションにベイズモデル概要追加 | MCP応答スキーマ変更 |
 | `docs/REQUIREMENTS.md` | L5/L6 に信頼度計算（ベイズ更新）の説明追加、MCP応答スキーマに `confidence/uncertainty/controversy` 追加 | 信頼度計算方式の変更 |
-| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 4 → DONE） | 完了記録 |
+| `docs/P_EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 4 → DONE） | 完了記録 |
 
 #### タスク詳細
 
@@ -2521,7 +2844,7 @@ class CitationDetector:
 | 4b.1 | `calculate_claim_confidence()` に `evidence` リストを追加（時間メタデータ露出） | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 4b.2 | `evidence_years` サマリー（oldest/newest）を追加 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 4b.3 | MCPレスポンス（`get_materials`）への反映 | `src/research/materials.py` | `tests/test_evidence_graph.py`（ユニット） |
-| 4b.4 | **ドキュメント更新**（決定15の追加・完了記録） | `docs/EVIDENCE_SYSTEM.md` | - |
+| 4b.4 | **ドキュメント更新**（決定15の追加・完了記録） | `docs/P_EVIDENCE_SYSTEM.md` | - |
 
 #### 完了条件（最小）
 
@@ -2533,7 +2856,7 @@ class CitationDetector:
 
 ### Phase 5: ユーザー制御（中リスク・中価値）
 
-**目的**: ブロック状態からの復活手段を提供
+**目的**: ブロック状態の透明性を上げ、ブロック理由の混線を解消した上で、設定（`user_overrides`）により**単独運用で安全に復活**できる手段を提供する。
 
 > **注**: Phase 5 は Phase 1〜4 と独立して実装可能。優先度は低い。
 
@@ -2541,37 +2864,309 @@ class CitationDetector:
 
 | # | タスク | 実装ファイル | テストファイル |
 |---|--------|-------------|---------------|
-| 5.1 | `get_status` に `can_restore` フラグ追加 | `src/mcp/server.py` | `tests/test_mcp_get_status.py` |
-| 5.2 | `user_overrides` セクション追加 | `config/domains.yaml`, `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
-| 5.3 | hot-reload対応確認 | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
-| 5.4 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+| 5.0 | （現状）`get_status` の `blocked_domains` 詳細露出（legacy: `can_restore`/`restore_via`） | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json` | `tests/test_mcp_get_status.py` |
+| 5.1 | `blocked_domains` のブロック理由コード化: `domain_block_reason` + `domain_unblock_risk` を露出（破壊的変更） | `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `src/mcp/server.py` | `tests/test_mcp_get_status.py` |
+| 5.2 | `user_overrides` セクション追加（完全一致。DomainPolicyの上書き） | `config/domains.yaml`, `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+| 5.3 | hot-reloadで `user_overrides` を即時反映（DomainPolicyManager） | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+| 5.4 | hot-reload対応確認（override即反映） | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+| 5.5 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | - |
+| 5.6 | **棄却率パラメータ分離** | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
 
-**5.4 ドキュメント更新**
+**5.5 ドキュメント更新**
 
 | 対象 | 更新内容 | 理由 |
 |------|----------|------|
-| `README.md` | Configuration に `user_overrides` 説明追加、`get_status` 出力例に `can_restore`/`restore_via` 追加 | 新機能の説明 |
-| `docs/REQUIREMENTS.md` | L6 にドメイン復元フロー追加（`user_overrides` による手動上書き） | 復元手段の仕様追加 |
-| `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 5 → DONE） | 完了記録 |
+| `README.md` | Configuration に `user_overrides` 説明追加、`get_status` 出力例を `domain_block_reason`/`domain_unblock_risk` に更新 | 新フィールドの説明 |
+| `docs/REQUIREMENTS.md` | L6 にドメイン復元フロー追加（`user_overrides` による手動上書き）、`blocked_domains[]` の新フィールド説明追加 | 復元手段と透明性の仕様追加 |
+| `docs/P_EVIDENCE_SYSTEM.md` | 進捗トラッカー更新、決定16/18の追加/更新 | 完了記録 |
 
 #### タスク詳細
 
-**5.1 `get_status` に `can_restore` フラグ追加**
+**5.1 `blocked_domains` のブロック理由コード化（破壊的変更）**
 
-- `get_status` の `blocked_domains` 要素に `can_restore` / `restore_via` を追加する
+- `get_status.blocked_domains[]` の `can_restore` を廃止し、以下を露出する:
+  - `domain_block_reason`
+  - `domain_unblock_risk`（High/Low）
+  - `restore_via`（設定ファイルへの導線。文字列で十分）
+- 目的は「復元可否を決める」ことではなく、**解除（manual override）する際のリスクを事実として示す**こと。
+- MCP応答はスキーマでフィールドが落ちるため、`src/mcp/schemas/get_status.json` とテストを同時更新すること。
 
 **5.2 `user_overrides` セクション追加**
 
-- `config/domains.yaml` に `user_overrides` を追加し、ドメインカテゴリを手動上書きできるようにする
-- `DomainPolicy` 側で `user_overrides` が最優先になるよう反映する
+- `config/domains.yaml` に `user_overrides` を追加する（**完全一致のみ**）
+- `user_overrides` は **DomainPolicyの上書き**（例: `domain_category`, `qps`, `max_pages_per_day` 等）に限定する
+- **ブロック/解除（denylist・危険パターン含む）は Phase 6のDB override（決定20）で統一**する
+
+例:
+```yaml
+user_overrides:
+  - domain: "example.com"          # 完全一致（suffix/patternは不可）
+    domain_category: "low"
+    reason: "Manual review: false positive"
+    added_at: "2025-12-22"
+```
+
+**5.3 hot-reload（`user_overrides` 即反映）**
+
+- `user_overrides` が追加/更新されたら、DomainPolicyManager の hot-reload と callback を利用し、再起動なしで反映する（5.4）
+- SourceVerifier の動的ブロック解除は `feedback(domain_unblock)`（決定20）で行う
 
 #### テストケース
 
-- `get_status` の `blocked_domains` に `can_restore` / `restore_via` が含まれること
-- `user_overrides` が通常設定より優先されること
-- `user_overrides` により `BLOCKED` 相当のドメインを復元できること
+- `get_status.blocked_domains[]` に `domain_block_reason` / `domain_unblock_risk` / `restore_via` が含まれること（スキーマサニタイズを含む）
+- `user_overrides` がDomainPolicyに反映されること（完全一致）
+- `feedback(domain_unblock)` により `dangerous_pattern` を含むブロックが解除できること（決定20）
+
+**5.6 棄却率パラメータ分離**
+
+現在の `rejected_claims` / `rejection_rate` は自動棄却（L2/L4検出）と手動棄却（`feedback` による `claim_reject`）を区別していない。これを明確に分離し、ブロック判定には合算を使用する。
+
+**パラメータ名変更**:
+
+| 現状 | 変更後 | 意味 |
+|------|--------|------|
+| `rejected_claims` | **分離** | ↓ |
+| - | `security_rejected_claims` | L2/L4検出による自動棄却 |
+| - | `manual_rejected_claims` | `feedback(claim_reject)` による手動棄却 |
+| `rejection_rate` | **分離** | ↓ |
+| - | `domain_claim_security_rejection_rate` | ドメイン単位の自動棄却率（claimベース） |
+| - | `domain_claim_manual_rejection_rate` | ドメイン単位の手動棄却率（claimベース） |
+| - | `domain_claim_combined_rejection_rate` | **合算棄却率**（ブロック判定に使用） |
+
+**計算式**:
+
+```python
+class DomainVerificationState:
+    security_rejected_claims: set[str]  # L2/L4検出
+    manual_rejected_claims: set[str]    # 人による棄却
+
+    @property
+    def all_claims(self) -> set[str]:
+        """ユニークなclaim ID集合（分母）"""
+        return (
+            self.verified_claims |
+            self.pending_claims |
+            self.security_rejected_claims |
+            self.manual_rejected_claims
+        )
+
+    @property
+    def all_rejected_claims(self) -> set[str]:
+        """棄却されたclaim ID集合（分子、重複排除）"""
+        return self.security_rejected_claims | self.manual_rejected_claims
+
+    @property
+    def domain_claim_combined_rejection_rate(self) -> float:
+        """合算棄却率（ドメイン単位） = 棄却されたclaim数 / 全claim数"""
+        total = len(self.all_claims)
+        if total == 0:
+            return 0.0
+        return len(self.all_rejected_claims) / total
+```
+
+**重複排除の理由**: 同じclaimがL2/L4検出（security）と人の判断（manual）の両方で棄却される可能性がある。合算時はユニーク数で計算する。
+
+**テストケース**:
+- `domain_claim_security_rejection_rate` と `domain_claim_manual_rejection_rate` が独立して計算されること
+- `domain_claim_combined_rejection_rate` が両方の棄却を重複排除して計算すること
+- 同一claimが両方で棄却された場合、合算時に1回としてカウントされること
 
 ---
+
+### Phase 6: フィードバック + スキーマ棚卸し（中リスク・高価値）
+
+**目的**:
+- `feedback` MCPツールを新設し、Human-in-the-loop の入力を**恣意的にならない形**で取り込む
+- "入力/観測の無いフィールド（dead fields）" を排除し、DBスキーマを **現実の運用に一致**させる
+- NLI訂正履歴を蓄積し、将来の校正接続に備える
+
+#### 6.1 `feedback` ツールの設計（決定17, 決定19）
+
+**思想**: 「パラメータを直接いじる」恣意性を排除し、「正解を教える」形でのみ入力を受け付ける。
+
+**3レベル対応**:
+
+| レベル | 対象 | 操作単位 |
+|--------|------|----------|
+| Domain | ドメイン | glob対応（`*.example.com`） |
+| Claim | 個別claim | 1件ずつ |
+| Edge | NLIエッジ | 1件ずつ |
+
+**アクション一覧**:
+
+| レベル | action | 目的 | 入力 | 挙動 |
+|--------|--------|------|------|------|
+| Domain | `domain_block` | ドメインをブロック | `domain_pattern`, `reason` | `domain_block_reason = "manual"` |
+| Domain | `domain_unblock` | ブロック解除 | `domain_pattern` | 動的ブロックから削除 |
+| Claim | `claim_reject` | claimを不採用に | `claim_id`, `reason` | `claim_adoption_status = "not_adopted"` |
+| Claim | `claim_restore` | 不採用を撤回 | `claim_id` | `claim_adoption_status = "adopted"` |
+| Edge | `edge_correct` | NLIラベル訂正 | `edge_id`, `correct_relation`, `reason?` | 即時反映 + 校正サンプル蓄積 |
+
+**MCPスキーマ**:
+```json
+{
+  "name": "feedback",
+  "description": "Human-in-the-loop feedback for domain/claim/edge management",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["domain_block", "domain_unblock", "claim_reject", "claim_restore", "edge_correct"]
+      },
+      "domain_pattern": { "type": "string", "description": "For domain_block/domain_unblock. Glob pattern (e.g., *.example.com)" },
+      "claim_id": { "type": "string", "description": "For claim_reject/claim_restore" },
+      "edge_id": { "type": "string", "description": "For edge_correct" },
+      "correct_relation": { "type": "string", "enum": ["supports", "refutes", "neutral"], "description": "For edge_correct" },
+      "reason": { "type": "string", "description": "Required for domain_block, claim_reject. Optional for edge_correct" }
+    },
+    "required": ["action"]
+  }
+}
+```
+
+**`edge_correct` の処理フロー**:
+
+```
+1. 既存エッジ取得（edge_id）
+2. 校正サンプル蓄積（predicted_label, predicted_confidence, correct_label）
+3. エッジ即時更新（relation, nli_label, edge_human_corrected=True, edge_correction_reason, edge_corrected_at）
+4. ベイズ再計算は get_materials 時にオンデマンド（変更不要）
+```
+
+**`domain_block` の処理フロー**:
+
+```
+1. パターン検証（glob構文）
+2. 動的ブロックリストに追加（domain_block_reason = "manual"）
+3. 該当ドメインのソースを以降スキップ
+```
+
+**`calibrate` ツールとの関係**:
+- `calibrate` は**評価・統計・ロールバック用**として残す
+- `feedback` は**Human-in-the-loop 入力用**（訂正・棄却・ブロック）
+- 両者は責務が異なる（計測 vs 入力）
+
+#### 6.2 スキーマ変更（決定19: 命名規則統一）
+
+```sql
+-- edges テーブル（訂正履歴）
+ALTER TABLE edges ADD COLUMN edge_human_corrected BOOLEAN DEFAULT 0;
+ALTER TABLE edges ADD COLUMN edge_correction_reason TEXT;
+ALTER TABLE edges ADD COLUMN edge_corrected_at TEXT;
+
+-- claims テーブル（採用状態・棄却履歴）
+ALTER TABLE claims RENAME COLUMN confidence_score TO claim_confidence;
+ALTER TABLE claims RENAME COLUMN adoption_status TO claim_adoption_status;
+ALTER TABLE claims ADD COLUMN claim_rejection_reason TEXT;
+ALTER TABLE claims ADD COLUMN claim_rejected_at TEXT;
+ALTER TABLE claims DROP COLUMN calibrated_score;  -- dead field
+ALTER TABLE claims DROP COLUMN is_verified;       -- verification_status に統一
+```
+
+#### 6.3 訂正履歴の蓄積と将来のモデル改善
+
+**Phase 6での方針**:
+- `edge_correct` で入力された訂正は**履歴としてDBに蓄積**する
+- 訂正されたエッジは `nli_confidence=1.0` に固定（人が確信を持って訂正したため）
+- NLIモデル自体の改善（ファインチューニング）は**Phase R**で検討
+
+**蓄積形式（DBテーブル）**:
+
+```sql
+-- nli_corrections テーブル（新規）
+CREATE TABLE IF NOT EXISTS nli_corrections (
+    id TEXT PRIMARY KEY,
+    edge_id TEXT NOT NULL,
+    task_id TEXT,
+    predicted_label TEXT NOT NULL,       -- 元のNLI判定
+    predicted_confidence REAL NOT NULL,  -- 元の確信度
+    correct_label TEXT NOT NULL,         -- 人が入力した正解
+    reason TEXT,                         -- 訂正理由（監査用）
+    corrected_at TEXT NOT NULL,
+    FOREIGN KEY (edge_id) REFERENCES edges(id)
+);
+```
+
+**将来のモデル改善（Phase 7以降）**:
+- 訂正サンプルが十分蓄積されたら（目安: 数百件）、ファインチューニングを検討
+- 方式は LoRA（軽量アダプタ）を推奨（詳細は別途検討）
+- 訂正が少ない段階では、エッジ訂正 → ベイズ反映で即時効果を得る
+
+**注（重要）**: 確率キャリブレーション（Temperature Scaling等）は「確率のズレ」を補正するものであり、「ラベルの間違い」を直すものではない。ラベル改善にはファインチューニングが必要。
+
+#### 6.4 `high_rejection_rate` の定義
+
+`domain_block_reason="high_rejection_rate"` は、`feedback(action="claim_reject")` が運用可能になってから有効化する。
+
+**方針（Phase 5-6連動）**:
+- ドメイン単位で「**合算棄却率**（`domain_claim_combined_rejection_rate`）」と「棄却件数」を計測
+- 閾値超でブロック（`domain_block_reason="high_rejection_rate"`）
+- `dangerous_pattern`（L2/L4）は別系統で即ブロック
+
+**棄却率の種類（Phase 5 Task 5.5/5.6 で整備）**:
+
+| パラメータ | 内容 | 用途 |
+|-----------|------|------|
+| `domain_claim_security_rejection_rate` | L2/L4検出による自動棄却率 | 診断・監査 |
+| `domain_claim_manual_rejection_rate` | `feedback(claim_reject)` による手動棄却率 | 診断・監査 |
+| `domain_claim_combined_rejection_rate` | 合算棄却率（重複排除） | **ブロック判定に使用** |
+
+**計算式**:
+```
+domain_claim_combined_rejection_rate = len(security_rejected ∪ manual_rejected) / len(all_claims)
+```
+
+**閾値（設定で管理）**:
+```yaml
+# config/settings.yaml
+source_verification:
+  high_rejection_rate_threshold: 0.3  # 30%（domain_claim_combined_rejection_rate に適用）
+  high_rejection_min_samples: 5       # 最低5件のclaimが必要
+```
+
+**閾値の根拠**:
+- 30%: 3件に1件以上が棄却されるドメインは信頼性に問題がある可能性が高い
+- 最低5件: サンプル数が少ない段階での誤判定を防ぐ（1件棄却で100%になることを回避）
+
+#### 6.5 DBスキーマ棚卸し（現状→改善後）
+
+| テーブル.列 | 現状 | 問題 | Phase 6後 |
+|---|---|---|---|
+| `claims.confidence_score` | 使用中 | 命名不明確 | **リネーム** → `claim_confidence` |
+| `claims.adoption_status` | 生成時に `'pending'` 固定 | MCP入力/露出なし（dead） | **リネーム** → `claim_adoption_status`、`feedback` で更新 + `get_materials` で露出 + デフォルト `'adopted'` へ変更 |
+| `claims.calibrated_score` | 使用箇所なし | dead | **削除** |
+| `claims.is_verified` | report で参照 | `source_verification_status` と重複 | **削除** |
+| `edges.edge_human_corrected` | 新規 | - | `feedback(edge_correct)` で `True` に設定 |
+| `edges.edge_correction_reason` | 新規 | - | 訂正理由（監査用） |
+| `edges.edge_corrected_at` | 新規 | - | 訂正日時 |
+| `claims.claim_rejection_reason` | 新規 | - | 棄却理由（監査用） |
+| `claims.claim_rejected_at` | 新規 | - | 棄却日時 |
+
+#### 6.6 タスク一覧
+
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 6.1 | `feedback` MCPツール新設（3レベル） | `src/mcp/server.py`, `src/mcp/schemas/feedback.json` | `tests/test_mcp_feedback.py` |
+| 6.2 | `domain_block` / `domain_unblock` 実装 | `src/mcp/server.py`, `src/filter/source_verification.py` | `tests/test_mcp_feedback.py` |
+| 6.3 | `claim_reject` / `claim_restore` 実装 | `src/mcp/server.py` | `tests/test_mcp_feedback.py` |
+| 6.4 | `edge_correct` 実装 | `src/mcp/server.py`, `src/filter/evidence_graph.py` | `tests/test_mcp_feedback.py` |
+| 6.5 | スキーマ変更（命名規則統一 + 新規カラム） | `src/storage/schema.sql` | `tests/test_migrations.py` |
+| 6.6 | スキーマ棚卸し（dead fields 削除） | `src/storage/schema.sql` | - |
+| 6.7 | `NLICorrectionSample` 蓄積機構 | `src/utils/calibration.py` | `tests/test_calibration.py` |
+| 6.8 | `get_materials` に `claim_adoption_status` 露出 | `src/research/materials.py` | `tests/test_mcp_get_materials.py` |
+| 6.9 | ドキュメント更新 | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | - |
+
+#### テストケース
+
+- `feedback(edge_correct)` でエッジの `relation` が即時更新されること
+- `feedback(edge_correct)` で `edge_human_corrected=True` が設定されること
+- 訂正サンプルが `NLICorrectionSample` として蓄積されること
+- `feedback(claim_reject)` で `claim_adoption_status="not_adopted"` になること
+- `feedback(claim_restore)` で `claim_adoption_status="adopted"` に戻ること
+- `feedback(domain_block)` でドメインがブロックリストに追加されること
+- `feedback(domain_unblock)` でドメインがブロックリストから削除されること
+- `get_materials` の `claims[]` に `claim_adoption_status` が含まれること
 
 ### テスト戦略（全Phase共通）
 
@@ -2592,6 +3187,7 @@ class CitationDetector:
 | 3 | OpenAlex API、関連性フィルタ | 引用追跡→pages追加 | 実際の論文で引用追跡 |
 | 4 | ベイズ計算（confidence/uncertainty/controversy） | SourceVerifier/MCP統合 | MCP経由でconfidence取得 |
 | 5 | user_overrides解析 | hot-reload | - |
+| 6 | feedback アクション、NLICorrectionSample | エッジ即時更新、adoption_status操作 | MCP経由でfeedback→get_materials |
 
 ---
 
@@ -2603,7 +3199,7 @@ class CitationDetector:
 |-------------|----------|
 | `README.md` | 新機能の概要説明、出力例の更新 |
 | `docs/REQUIREMENTS.md` | §4.4.1 L5/L6フローの更新、新フィールド仕様 |
-| `docs/EVIDENCE_SYSTEM.md` | 本ドキュメント（設計決定・進捗トラッカー更新） |
+| `docs/P_EVIDENCE_SYSTEM.md` | 本ドキュメント（設計決定・進捗トラッカー更新） |
 
 **注**: `docs/MCP_TOOLS.md` および `docs/ARCHITECTURE.md` は現時点で存在しない。MCPスキーマは `docs/REQUIREMENTS.md` §4.4.1 L5 に、アーキテクチャ概要は `README.md` に統合されている。必要に応じて分離を検討する。
 
@@ -2612,7 +3208,8 @@ class CitationDetector:
 - **Phase 2**: タスク 2.7
 - **Phase 3**: タスク 3.7
 - **Phase 4**: タスク 4.6
-- **Phase 5**: タスク 5.4
+- **Phase 5**: タスク 5.5
+- **Phase 6**: タスク 6.8
 
 ---
 
