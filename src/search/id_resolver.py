@@ -102,18 +102,18 @@ class IDResolver:
             return None
 
     async def resolve_crid_to_doi(self, crid: str) -> str | None:
-        """Get DOI from CiNii CRID (via CiNii API).
+        """Get DOI from CiNii CRID.
 
-        Note: CiNii API may not return DOI directly, future extension planned.
+        Not implemented: Decision 6 defines S2 + OpenAlex as the two pillars.
+        CiNii is out of scope.
 
         Args:
             crid: CiNii Research ID
 
         Returns:
-            DOI string or None
+            None (always)
         """
-        # TODO: Implement CiNii API (not supported yet)
-        logger.debug("CRID to DOI conversion not yet implemented", crid=crid)
+        logger.debug("CRID to DOI conversion not supported (Decision 6)", crid=crid)
         return None
 
     async def resolve_to_doi(self, identifier: "PaperIdentifier") -> str | None:
