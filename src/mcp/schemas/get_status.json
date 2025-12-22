@@ -81,7 +81,14 @@
           "reason": {"type": "string"},
           "cause_id": {"type": ["string", "null"]},
           "original_domain_category": {"type": ["string", "null"]},
-          "can_restore": {"type": "boolean"},
+          "domain_block_reason": {
+            "type": "string",
+            "enum": ["dangerous_pattern", "high_rejection_rate", "denylist", "manual", "unknown"]
+          },
+          "domain_unblock_risk": {
+            "type": "string",
+            "enum": ["high", "low"]
+          },
           "restore_via": {"type": "string"}
         },
         "additionalProperties": false
