@@ -41,7 +41,6 @@ def mock_evidence_graph() -> MagicMock:
         "supporting_count": 0,
         "refuting_count": 0,
         "neutral_count": 0,
-        "verdict": "unverified",
         "independent_sources": 0,
     }
     graph.find_contradictions.return_value = []
@@ -66,7 +65,6 @@ class TestSourceVerifierBasic:
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "unverified",
             "independent_sources": 0,
         }
 
@@ -99,7 +97,6 @@ class TestSourceVerifierBasic:
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "supported",
             "independent_sources": 2,
         }
 
@@ -136,7 +133,6 @@ class TestSourceVerifierBasic:
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
-            "verdict": "contested",
             "independent_sources": 1,
         }
         mock_evidence_graph.find_contradictions.return_value = [
@@ -233,7 +229,6 @@ class TestSourceVerifierEdgeCases:
             "supporting_count": 1,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "supported",
             "independent_sources": 1,
         }
 
@@ -265,7 +260,6 @@ class TestSourceVerifierEdgeCases:
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "supported",
             "independent_sources": 2,
         }
 
@@ -298,7 +292,6 @@ class TestSourceVerifierEdgeCases:
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "unverified",
             "independent_sources": 0,
         }
 
@@ -359,7 +352,6 @@ class TestDomainStateTracking:
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "supported",
             "independent_sources": 2,
         }
 
@@ -396,7 +388,6 @@ class TestDomainStateTracking:
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "unknown",
             "independent_sources": 0,
         }
 
@@ -649,7 +640,6 @@ class TestTrustedDomainBehavior:
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
-            "verdict": "contested",
             "independent_sources": 1,
         }
         mock_evidence_graph.find_contradictions.return_value = [
@@ -686,7 +676,6 @@ class TestTrustedDomainBehavior:
             "supporting_count": 3,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "well_supported",
             "independent_sources": 3,
         }
 
@@ -726,7 +715,6 @@ class TestBoundaryValues:
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "unknown",
             "independent_sources": 0,
         }
 
@@ -775,7 +763,6 @@ class TestBoundaryValues:
             "supporting_count": 0,
             "refuting_count": 1,
             "neutral_count": 0,
-            "verdict": "likely_false",
             "independent_sources": 0,
         }
 
@@ -818,7 +805,6 @@ class TestBoundaryValues:
             "supporting_count": 3,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "well_supported",
             "independent_sources": 3,
         }
 
@@ -863,7 +849,6 @@ class TestBoundaryValues:
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "supported",
             "independent_sources": 2,
         }
 
@@ -1036,7 +1021,6 @@ class TestPendingToOtherStatusTransition:
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "unverified",
             "independent_sources": 0,
         }
 
@@ -1060,7 +1044,6 @@ class TestPendingToOtherStatusTransition:
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "supported",
             "independent_sources": 2,
         }
 
@@ -1189,7 +1172,6 @@ class TestContradictingClaimsExtraction:
             "supporting_count": 0,
             "refuting_count": 1,
             "neutral_count": 0,
-            "verdict": "contested",
             "independent_sources": 1,
         }
 
@@ -1274,7 +1256,6 @@ class TestBlockedDomainNotification:
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "unknown",
             "independent_sources": 0,
         }
         mock_evidence_graph.find_contradictions.return_value = []
@@ -1317,7 +1298,6 @@ class TestBlockedDomainNotification:
             "supporting_count": 1,
             "refuting_count": 1,  # Contradiction
             "neutral_count": 0,
-            "verdict": "contradicted",
             "independent_sources": 1,
         }
         mock_evidence_graph.find_contradictions.return_value = [
@@ -1837,7 +1817,6 @@ class TestPhaseP2RelaxedBlocking:
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
-            "verdict": "contested",
             "independent_sources": 1,
         }
         mock_evidence_graph.find_contradictions.return_value = [
@@ -1875,7 +1854,6 @@ class TestPhaseP2RelaxedBlocking:
             "supporting_count": 2,
             "refuting_count": 1,
             "neutral_count": 0,
-            "verdict": "contested",
             "independent_sources": 2,
         }
         mock_evidence_graph.find_contradictions.return_value = [
@@ -1913,7 +1891,6 @@ class TestPhaseP2RelaxedBlocking:
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
-            "verdict": "contested",
             "independent_sources": 1,
         }
         mock_evidence_graph.find_contradictions.return_value = [
@@ -1951,7 +1928,6 @@ class TestPhaseP2RelaxedBlocking:
             "supporting_count": 1,
             "refuting_count": 2,  # Refuting evidence exists
             "neutral_count": 0,
-            "verdict": "contested",
             "independent_sources": 1,
         }
         # No explicit claim-claim contradiction
@@ -2017,7 +1993,6 @@ class TestPhaseP2RelaxedBlocking:
             "supporting_count": 3,
             "refuting_count": 0,
             "neutral_count": 0,
-            "verdict": "verified",
             "independent_sources": 3,
         }
         mock_evidence_graph.find_contradictions.return_value = []

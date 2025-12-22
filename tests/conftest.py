@@ -825,13 +825,11 @@ def make_claim() -> Callable[..., dict[str, str | float]]:
         claim_id: str,
         text: str,
         confidence: float = 0.8,
-        verdict: str = "supported",
     ) -> dict[str, str | float]:
         return {
             "id": claim_id,
             "text": text,
             "confidence": confidence,
-            "verdict": verdict,
             "created_at": "2024-01-01T00:00:00Z",
         }
 
