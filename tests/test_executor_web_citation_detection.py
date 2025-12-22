@@ -98,6 +98,14 @@ async def test_executor_web_citation_detection_happy_path() -> None:
         patch.object(Path, "read_text", return_value="<html></html>"),
         patch("src.extractor.citation_detector.CitationDetector", _FakeDetector),
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db_instance)),
+        # Task 4.0: SearchExecutor._persist_claim now runs NLI by default.
+        # Mock it here to avoid model load / remote calls (this test focuses on citation detection wiring).
+        patch(
+            "src.filter.nli.nli_judge",
+            AsyncMock(return_value=[{"stance": "neutral", "confidence": 0.0}]),
+        ),
+        # _persist_claim persists edge via evidence_graph; mock to avoid touching global graph/DB internals.
+        patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()),
         patch("src.filter.evidence_graph.add_citation", AsyncMock()) as add_citation,
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
@@ -145,6 +153,11 @@ async def test_executor_web_citation_detection_no_placeholder_skips_missing_targ
         patch.object(Path, "read_text", return_value="<html></html>"),
         patch("src.extractor.citation_detector.CitationDetector", _FakeDetector),
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db_instance)),
+        patch(
+            "src.filter.nli.nli_judge",
+            AsyncMock(return_value=[{"stance": "neutral", "confidence": 0.0}]),
+        ),
+        patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()),
         patch("src.filter.evidence_graph.add_citation", AsyncMock()) as add_citation,
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
@@ -194,6 +207,11 @@ async def test_executor_web_citation_detection_max_candidates_zero_is_unlimited(
         patch.object(Path, "read_text", return_value="<html></html>"),
         patch("src.extractor.citation_detector.CitationDetector", _CapturingDetector),
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db_instance)),
+        patch(
+            "src.filter.nli.nli_judge",
+            AsyncMock(return_value=[{"stance": "neutral", "confidence": 0.0}]),
+        ),
+        patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()),
         patch("src.filter.evidence_graph.add_citation", AsyncMock()),
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
@@ -236,6 +254,11 @@ async def test_executor_web_citation_detection_caps_edges_per_page() -> None:
         patch.object(Path, "read_text", return_value="<html></html>"),
         patch("src.extractor.citation_detector.CitationDetector", _FakeDetector),
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db_instance)),
+        patch(
+            "src.filter.nli.nli_judge",
+            AsyncMock(return_value=[{"stance": "neutral", "confidence": 0.0}]),
+        ),
+        patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()),
         patch("src.filter.evidence_graph.add_citation", AsyncMock()) as add_citation,
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
@@ -269,6 +292,11 @@ async def test_executor_web_citation_detection_disabled() -> None:
         patch.object(Path, "read_text", return_value="<html></html>"),
         patch("src.extractor.citation_detector.CitationDetector", _FakeDetector),
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db_instance)),
+        patch(
+            "src.filter.nli.nli_judge",
+            AsyncMock(return_value=[{"stance": "neutral", "confidence": 0.0}]),
+        ),
+        patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()),
         patch("src.filter.evidence_graph.add_citation", AsyncMock()) as add_citation,
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):

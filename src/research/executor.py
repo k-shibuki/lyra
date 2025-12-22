@@ -891,43 +891,79 @@ class SearchExecutor:
                 ),
             )
 
-            # Insert edge linking fragment to claim
-            edge_id = f"e_{uuid.uuid4().hex[:8]}"
+            # Phase 4 / Task 4.0 (Prerequisite A):
+            # Run NLI for (fragment -> claim) and persist edge with nli_confidence.
+            #
+            # Note: We intentionally do NOT use LLM-extracted confidence as Bayesian input.
+            # The evidence edge should carry NLI confidence (edges.nli_confidence).
+            from urllib.parse import urlparse
+
+            from src.filter.evidence_graph import add_claim_evidence
+            from src.filter.nli import nli_judge
+            from src.utils.domain_policy import get_domain_category
 
             # Determine domain category from source URL
-            source_domain_category = None
+            source_domain_category: str | None = None
             try:
-                from urllib.parse import urlparse
-
-                from src.utils.domain_policy import get_domain_category
-
                 parsed = urlparse(source_url)
                 domain = parsed.netloc.lower()
-                source_domain_category = get_domain_category(domain).value
+                source_domain_category = get_domain_category(domain).value if domain else None
             except Exception:
-                pass
+                source_domain_category = None
 
-            # Target domain category is the same as source for claim origin
-            target_domain_category = source_domain_category
+            # Target domain category is the same as source for claim origin (single-user mode)
+            target_domain_category: str | None = source_domain_category
 
-            await db.execute(
-                """
-                INSERT OR IGNORE INTO edges
-                (id, source_type, source_id, target_type, target_id, relation, confidence,
-                 source_domain_category, target_domain_category, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                """,
-                (
-                    edge_id,
-                    "fragment",
-                    source_fragment_id,
-                    "claim",
-                    claim_id,
-                    "supports",
-                    float(confidence),
-                    source_domain_category,
-                    target_domain_category,
-                ),
+            # Fetch fragment text as premise (best-effort)
+            premise = ""
+            try:
+                frag_row = await db.fetch_one(
+                    "SELECT text_content FROM fragments WHERE id = ?",
+                    (source_fragment_id,),
+                )
+                if frag_row:
+                    premise = (frag_row.get("text_content") or "")[:800]
+            except Exception:
+                premise = ""
+
+            # Fallback premise if fragment text is unavailable
+            if not premise:
+                premise = (claim_text or "")[:800]
+
+            stance = "neutral"
+            nli_conf = 0.0
+            try:
+                pairs = [
+                    {
+                        "pair_id": f"{source_fragment_id}:{claim_id}",
+                        "premise": premise,
+                        "hypothesis": (claim_text or "")[:300],
+                    }
+                ]
+                nli_results = await nli_judge(pairs=pairs)
+                if nli_results:
+                    stance = str(nli_results[0].get("stance", "neutral") or "neutral")
+                    nli_conf = float(nli_results[0].get("confidence", 0.0) or 0.0)
+            except Exception:
+                # Keep neutral/0.0 on failure (no fabrication)
+                stance = "neutral"
+                nli_conf = 0.0
+
+            # Sanitize stance
+            if stance not in ("supports", "refutes", "neutral"):
+                stance = "neutral"
+
+            # Persist edge (also updates in-memory EvidenceGraph)
+            await add_claim_evidence(
+                claim_id=claim_id,
+                fragment_id=source_fragment_id,
+                relation=stance,
+                confidence=nli_conf,  # Keep confidence aligned with nli_confidence for legacy consumers
+                nli_label=stance,
+                nli_confidence=nli_conf,
+                task_id=self.task_id,
+                source_domain_category=source_domain_category,
+                target_domain_category=target_domain_category,
             )
         except Exception as e:
             logger.debug(
