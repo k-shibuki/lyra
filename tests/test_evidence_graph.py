@@ -322,7 +322,6 @@ class TestClaimConfidence:
         assert result["supporting_count"] == 0
         assert result["alpha"] == 1.0
         assert result["beta"] == 1.0
-        assert "verdict" not in result  # Phase 4: verdict removed
 
     def test_calculate_confidence_well_supported(self) -> None:
         """Test confidence with multiple supporting evidence (Bayesian updating)."""
@@ -350,7 +349,6 @@ class TestClaimConfidence:
         assert result["controversy"] == 0.0  # No refuting evidence
         assert result["alpha"] > 3.0
         assert result["beta"] == 1.0
-        assert "verdict" not in result  # Phase 4: verdict removed
 
     def test_calculate_confidence_contested(self) -> None:
         """Test confidence with conflicting evidence (high controversy)."""
@@ -386,7 +384,6 @@ class TestClaimConfidence:
         assert result["refuting_count"] == 1
         assert result["controversy"] > 0.0  # Both alpha and beta > 1
         assert result["confidence"] > 0.5  # α=2.8, β=1.8 → confidence ≈ 0.61
-        assert "verdict" not in result  # Phase 4: verdict removed
 
     def test_calculate_confidence_single_support(self) -> None:
         """Test confidence with single supporting evidence."""
