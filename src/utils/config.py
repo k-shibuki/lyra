@@ -52,11 +52,15 @@ class CitationFilterConfig(BaseModel):
     """Citation relevance filtering configuration (Phase 3).
 
     Design:
+    - Stage 0 uses metadata filter (min_citation_count threshold).
     - Stage 1 uses Embedding similarity + impact_score (source-agnostic).
     - Stage 2 uses LLM "evidence usefulness" score + Stage 1 signals.
     - Impact score is calculated from Paper.citation_count (local normalization)
       and is source-agnostic (works with Semantic Scholar, OpenAlex, etc.).
     """
+
+    # Stage 0: metadata filter
+    min_citation_count: int = 0  # 0 = no threshold
 
     # Stage 1: fast coarse filtering
     stage1_top_k: int = 30

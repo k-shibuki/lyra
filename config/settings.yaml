@@ -42,6 +42,9 @@ search:
   citation_graph_depth: 1
   citation_graph_direction: "both"  # references, citations, both
   citation_filter:
+    # Stage 0: metadata filter (0 = no threshold)
+    min_citation_count: 0
+
     # Stage 1: embedding + impact_score (citation_count-based, source-agnostic)
     stage1_top_k: 30
     stage1_weight_embedding: 0.5

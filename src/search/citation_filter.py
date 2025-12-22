@@ -145,6 +145,21 @@ async def filter_relevant_citations(
         return []
 
     # -------------------------
+    # Stage 0: citation_count threshold filter
+    # -------------------------
+    if cfg.min_citation_count > 0:
+        before_stage0 = len(candidates)
+        candidates = [p for p in candidates if (p.citation_count or 0) >= cfg.min_citation_count]
+        logger.debug(
+            "Stage 0 citation filter applied",
+            min_citation_count=cfg.min_citation_count,
+            before=before_stage0,
+            after=len(candidates),
+        )
+        if not candidates:
+            return []
+
+    # -------------------------
     # Stage 1: embedding + impact_score (fast)
     # -------------------------
     ml = get_ml_client()
