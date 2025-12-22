@@ -62,6 +62,18 @@ search:
     llm_timeout_seconds: 60.0
     llm_max_tokens: 16
 
+  # Phase 3b: general web citation detection (LLM YES/NO classification for outbound links)
+  # Controls LLM cost and DB growth. Set max_* to 0 for "no limit".
+  web_citation_detection:
+    enabled: true
+    run_on_primary_sources_only: true
+    require_useful_text: true
+    min_text_chars: 200
+    max_candidates_per_page: 10
+    max_edges_per_page: 0
+    max_pages_per_task: 0
+    create_placeholder_pages: true
+
 # === Crawler Settings ===
 crawler:
   # Rate limiting

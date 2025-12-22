@@ -1298,7 +1298,8 @@ async def add_academic_page_with_citations(
             target_id=target_page_id,
             relation=RelationType.CITES,
             confidence=1.0,
-            citation_source=citation.source_api or paper_metadata.get("source_api"),
+            # Record the API that returned this citation pair (no substitution).
+            citation_source=citation.source_api,
             citation_context=citation.context,
             source_domain_category=source_domain_category,
             target_domain_category=target_domain_category,
@@ -1315,7 +1316,7 @@ async def add_academic_page_with_citations(
                 "target_id": target_page_id,
                 "relation": RelationType.CITES.value,
                 "confidence": 1.0,
-                "citation_source": citation.source_api or paper_metadata.get("source_api"),
+                "citation_source": citation.source_api,
                 "citation_context": citation.context,
                 "source_domain_category": source_domain_category,
                 "target_domain_category": target_domain_category,

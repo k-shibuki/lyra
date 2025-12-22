@@ -24,6 +24,32 @@ class TaskLimitsConfig(BaseModel):
     cursor_idle_timeout_seconds: int = 60  # §2.1.5: Cursor AI idle timeout
 
 
+class WebCitationDetectionConfig(BaseModel):
+    """General web citation detection configuration (Phase 3b).
+
+    Controls when/where we spend LLM calls to classify outbound links as citations.
+
+    Notes:
+    - This is separate from Phase 3 academic citation tracking (search.citation_filter.*).
+    - Setting max_* to 0 means "no limit".
+    """
+
+    enabled: bool = True
+    run_on_primary_sources_only: bool = True
+    require_useful_text: bool = True
+    min_text_chars: int = 200
+
+    # Candidate selection / LLM cost control
+    max_candidates_per_page: int = 10  # max outbound links evaluated per page
+    max_edges_per_page: int = 0  # max CITES edges created per page (0 = unlimited)
+    max_pages_per_task: int = 0  # max pages to run citation detection on per task (0 = unlimited)
+
+    # Storage behavior for targets:
+    # - True: create placeholder pages rows for newly discovered citation URLs.
+    # - False: only link to existing pages; otherwise skip.
+    create_placeholder_pages: bool = True
+
+
 class SearchConfig(BaseModel):
     """Search configuration."""
 
@@ -46,6 +72,9 @@ class SearchConfig(BaseModel):
     citation_graph_depth: int = 1
     citation_graph_direction: str = "both"  # references, citations, both
     citation_filter: "CitationFilterConfig" = Field(default_factory=lambda: CitationFilterConfig())
+    web_citation_detection: WebCitationDetectionConfig = Field(
+        default_factory=WebCitationDetectionConfig
+    )
 
 
 class CitationFilterConfig(BaseModel):

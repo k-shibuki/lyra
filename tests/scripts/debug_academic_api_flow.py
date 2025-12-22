@@ -153,6 +153,7 @@ async def test_paper_model() -> bool:
         citing_paper_id="s2:12345",
         cited_paper_id="s2:67890",
         context="This work extends the previous study [1].",
+        source_api="semantic_scholar",
     )
     print(f"  ✓ Citation model: {citation.citing_paper_id} -> {citation.cited_paper_id}")
 
