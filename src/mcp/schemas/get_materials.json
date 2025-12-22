@@ -21,7 +21,9 @@
         "properties": {
           "id": {"type": "string"},
           "text": {"type": "string"},
-          "confidence": {"type": "number"},
+          "confidence": {"type": "number", "description": "Bayesian confidence (0.0-1.0): alpha / (alpha + beta)"},
+          "uncertainty": {"type": "number", "description": "Bayesian uncertainty (0.0-0.5): sqrt(variance of Beta distribution)"},
+          "controversy": {"type": "number", "description": "Controversy score (0.0-0.5): high when SUPPORTS and REFUTES are balanced"},
           "evidence_count": {"type": "integer"},
           "has_refutation": {"type": "boolean"},
           "sources": {
