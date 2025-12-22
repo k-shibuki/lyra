@@ -209,7 +209,9 @@ Lyra内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**�
   - スニペット要約＋BM25/埋め込みでクリック優先度を推定し、低期待値リンクは省く
 - 垂直特化テンプレ:
   - 公的・学術・規格: `site:go.jp`, `site:who.int`, `site:iso.org`, `filetype:pdf` 等の定型クエリ群
-  - 日本語学術: CiNii, J-STAGE, 国会図書館。英語: arXiv, PubMed, gov.uk（全てHTMLスクレイプで利用、API不使用）
+  - 直接ソース（学術/公的）: CiNii, J-STAGE, 国会図書館 / arXiv, PubMed, gov.uk 等
+    - 原則: **ブラウザ経由でHTML/PDFを取得**（専用API: CiNii API / PubMed E-utilities / arXiv API は使わない）
+    - 補完: ページ内・SERPから **DOI/PMID/arXiv ID** を発見したら **Semantic Scholar / OpenAlex（決定6）** でメタデータ/引用を補完
   - PDF主体分野: 目次／索引／章立てページを経由し、索引用語のBM25再評価で対象節を狙撃
 - サイト内検索の活用:
   - `site:domain.tld` とキーワードの組合せを既定化。内部検索UIがある場合は高価値ドメインに限定して自動操作を試行し、成功率を記録・学習
@@ -268,6 +270,7 @@ Lyra内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**�
   - クエリ例: `site:crt.sh ドメイン`, `site:iana.org AS NS`
 - 学術/技術一次資料:
   - J-STAGE/CiNii/arXiv/PubMed/規格原典/ベンダー白書（HTML/PDF）
+  - 付記: これらは「探索の起点となる直接ソース」。識別子（DOI/PMID/arXiv）発見時は S2/OpenAlex で補完する
 - 政策・規制:
   - 官報/法令データベース/規制当局発表/パブコメ
 - 採用/人物:

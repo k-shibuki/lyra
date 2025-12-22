@@ -2,13 +2,13 @@
 
 ## 概要
 
-学術クエリに対して、Browser検索と学術API（Semantic Scholar, OpenAlex, Crossref, arXiv）を並列実行し、統合重複排除を行うフロー。Abstract Only戦略により、論文の抄録とメタデータを活用してfetchをスキップし、効率的な学術情報収集を実現する。
+学術クエリに対して、Browser検索と学術API（Semantic Scholar, OpenAlex）を並列実行し、統合重複排除を行うフロー。Abstract Only戦略により、論文の抄録とメタデータを活用してfetchをスキップし、効率的な学術情報収集を実現する。
 
 > 注意: このドキュメントは設計/デバッグの履歴を含むメモです。現行実装の正は `src/storage/schema.sql` と `docs/EVIDENCE_SYSTEM.md` を参照してください（特に `is_influential` は決定12により削除済み）。
 
 ## 仕様要件
 
-- **§3.1.3**: 学術API統合戦略 - OpenAlex/Semantic Scholar/Crossref/arXiv APIの利用
+- **§3.1.3**: 学術API統合戦略 - OpenAlex/Semantic Scholar APIの利用（Decision 6: two-pillar）
 - **§3.3.1**: エビデンスグラフ拡張 - `is_academic`属性（`is_influential` は決定12により削除）
 - **§1.0.5**: Abstract Only戦略 - 抄録のみ自動取得、フルテキストは参照先提示
 - **docs/J2_ACADEMIC_API_INTEGRATION.md**: 統合重複排除、CanonicalPaperIndex
@@ -121,7 +121,7 @@ sequenceDiagram
 1. **Abstract Only戦略の未実装**: `_execute_complementary_search()`の最終段階で`_execute_browser_search()`にフォールバックしており、API経由で取得した抄録が活用されていない
 2. **Fragmentへの永続化欠如**: API経由で取得した抄録がfragmentsテーブルに保存されない
 3. **エビデンスグラフ連携未実装**: `add_academic_page_with_citations()`関数が存在せず、引用グラフがエビデンスグラフに統合されていない
-4. **APIクライアントのテスト未作成**: SemanticScholar, OpenAlex, Crossref, arXivの各クライアントのユニットテストがない
+4. **APIクライアントのテスト未作成**: SemanticScholar, OpenAlexの各クライアントのユニットテストがない（Decision 6: Crossref/arXiv/Unpaywallは削除）
 
 ---
 
@@ -284,12 +284,11 @@ class PaperIdentifier(BaseModel):
     doi: str | None = None           # Priority 1
     pmid: str | None = None          # Priority 2
     arxiv_id: str | None = None      # Priority 3
-    crid: str | None = None          # Priority 4 (CiNii)
-    url: str | None = None           # Priority 5 (fallback)
+    url: str | None = None           # Priority 4 (fallback)
     needs_meta_extraction: bool = False
     
     def get_canonical_id(self) -> str:
-        """Return canonical ID with priority: DOI > PMID > arXiv > CRID > URL."""
+        """Return canonical ID with priority: DOI > PMID > arXiv > URL."""
 ```
 
 ### CanonicalEntry（Pydantic）
@@ -325,8 +324,7 @@ class AcademicSearchResult(BaseModel):
 | BaseAcademicClient | `src/search/apis/base.py` | ✅ 完了 |
 | SemanticScholarClient | `src/search/apis/semantic_scholar.py` | ✅ 完了 |
 | OpenAlexClient | `src/search/apis/openalex.py` | ✅ 完了 |
-| CrossrefClient | `src/search/apis/crossref.py` | ✅ 完了 |
-| ArxivClient | `src/search/apis/arxiv.py` | ✅ 完了 |
+| CrossrefClient / ArxivClient | - | ❌ 削除（Decision 6） |
 | CanonicalPaperIndex | `src/search/canonical_index.py` | ✅ 完了 |
 | AcademicSearchProvider | `src/search/academic_provider.py` | ✅ 完了 |
 | AcademicSearchProvider.get_last_index() | `src/search/academic_provider.py` | ✅ 完了 |
@@ -346,8 +344,7 @@ class AcademicSearchResult(BaseModel):
 |---------------|-----------|--------|
 | test_semantic_scholar.py | SemanticScholarClientのテスト | 中 |
 | test_openalex.py | OpenAlexClientのテスト | 中 |
-| test_crossref.py | CrossrefClientのテスト | 低 |
-| test_arxiv.py | ArxivClientのテスト | 低 |
+| test_crossref.py / test_arxiv.py | （該当クライアント削除済み: Decision 6） | - |
 
 ## 実装済み内容
 
@@ -401,8 +398,6 @@ python scripts/debug_academic_search.py "transformer attention mechanism"
 | `src/search/apis/base.py` | L1-92 | 基底APIクライアント |
 | `src/search/apis/semantic_scholar.py` | L1-161 | Semantic Scholar API |
 | `src/search/apis/openalex.py` | L1-155 | OpenAlex API |
-| `src/search/apis/crossref.py` | L1-135 | Crossref API |
-| `src/search/apis/arxiv.py` | L1-181 | arXiv API |
 | `src/search/academic_provider.py` | L1-237 | 統合プロバイダ |
 | `src/research/pipeline.py` | L272-401 | _execute_complementary_search |
 | `src/research/pipeline.py` | L402-459 | _is_academic_query, _expand_academic_query |
