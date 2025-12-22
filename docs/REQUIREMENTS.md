@@ -292,21 +292,21 @@ Lyra内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**�
   - EDINET API: 有価証券報告書等の開示書類取得
   - OpenAlex API: 学術論文メタデータ/引用グラフ（MAG後継）
   - Semantic Scholar API: 論文/引用ネットワーク
-  - Crossref API: DOI/引用情報
-  - Unpaywall API: OA版論文リンク
   - Wikidata API: 構造化エンティティ情報（正規化の補完）
   - USPTO PAIR API: 米国特許出願状況（ファイル履歴）
   - USPTO PTAB API: 米国特許審判部決定
   - EPO OPS API: 欧州特許データ（書誌・引用・法的状態）
   - Google Patents (BigQuery): 特許全文検索（公開データセット）
   - **注意**: これらは公式APIであり、検索エンジンのようなbot検知問題はない
-- 学術API統合戦略:
-  - 優先順位: Semantic Scholar（引用グラフ最充実）> OpenAlex（大規模・オープン）> Crossref（DOI解決）> arXiv（プレプリント）
-  - Semantic Scholar: 引用グラフ取得の主API。Paper.citation_countから算出するimpact_scoreで影響度を近似（isInfluentialフラグは使用しない）
+- 学術API統合戦略（決定6）:
+  - **S2 + OpenAlex の2本柱**: 補助API（Crossref / arXiv / Unpaywall）は完全削除
+  - 優先順位: Semantic Scholar（引用グラフ最充実）> OpenAlex（大規模・オープン）
+  - Semantic Scholar: 引用グラフ取得の主API。Paper.citation_countから算出するimpact_scoreで影響度を近似（isInfluentialフラグは使用しない）。PMID→DOI変換も対応（`paper/PMID:{pmid}`）
   - OpenAlex: メタデータ補完、引用グラフ（S2と統合）。大規模検索（2億件以上）
-  - Crossref: DOI解決、メタデータ正規化。polite poolでレート優遇
-  - arXiv: CS/物理/数学のプレプリント検索。Atom XML形式
-  - Unpaywall: OA版リンク解決。ペイウォール回避用
+  - 削除理由:
+    - Crossref: PMID→DOI は S2 `paper/PMID:{pmid}` で代替可能、検索は abstract なしで品質低
+    - arXiv: 論文は S2/OpenAlex でインデックス済み、arXiv ID→DOI は既に S2 API 使用
+    - Unpaywall: OA URL は S2 `openAccessPdf.url` / OpenAlex `open_access.oa_url` で取得可能
   - 引用グラフ取得:
     - 上位N件の元論文（citation_graph_top_n_papers）に対してのみ引用追跡を実行（Budgeted Citation Expansion）
     - **S2とOpenAlexの引用データを並列取得・統合・重複排除**（Phase 3.4実装済み）
@@ -316,7 +316,7 @@ Lyra内蔵のローカルLLM（Qwen2.5-3B等）は**機械的処理に限定**�
     - 3段階フィルタリング（Stage 0: メタデータ, Stage 1: Embedding+impact, Stage 2: LLM有用性評価）でTopX件を選抜
     - 深度≤1を既定（関連性の高い引用のみを取り込む）
   - 重複排除: DOIベースで論文を一意識別。DOIなしはタイトル+年+著者でマッチング
-  - API戻り値型: すべてのAPI（S2/OpenAlex/arXiv/Crossref）が `get_references()` / `get_citations()` で `list[Paper]` を返す（決定12、Phase 3.1実装済み）
+  - API戻り値型: S2/OpenAlex が `get_references()` / `get_citations()` で `list[Paper]` を返す（決定12、Phase 3.1実装済み）
 
 #### 3.1.4. 検索エンジン健全性・正規化レイヤ
 - ヘルスチェック/サーキットブレーカ:

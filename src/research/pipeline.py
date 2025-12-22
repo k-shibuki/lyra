@@ -557,21 +557,8 @@ class SearchPipeline:
 
             for entry in unique_entries:
                 if entry.paper and entry.paper.abstract:
-                    # Try to resolve OA URL via Unpaywall if not available
-                    if not entry.paper.oa_url and entry.paper.doi:
-                        try:
-                            resolved_oa_url = await academic_provider.resolve_oa_url_for_paper(
-                                entry.paper
-                            )
-                            if resolved_oa_url:
-                                entry.paper.oa_url = resolved_oa_url
-                                entry.paper.is_open_access = True
-                        except Exception as e:
-                            logger.debug(
-                                "Failed to resolve OA URL via Unpaywall",
-                                doi=entry.paper.doi,
-                                error=str(e),
-                            )
+                    # OA URL is already provided by S2/OpenAlex APIs
+                    # No additional resolution needed
 
                     # Abstract Only: Skip fetch, persist abstract directly
                     try:

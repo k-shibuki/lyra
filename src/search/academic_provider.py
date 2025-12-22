@@ -4,19 +4,14 @@ Academic search provider integrating multiple academic APIs.
 Provides unified interface for searching academic papers from:
 - Semantic Scholar (priority=1, citation graphs)
 - OpenAlex (priority=2, large-scale search)
-- Crossref (priority=3, DOI resolution)
-- arXiv (priority=4, preprints)
 """
 
 import asyncio
 from typing import Any
 
-from src.search.apis.arxiv import ArxivClient
 from src.search.apis.base import BaseAcademicClient
-from src.search.apis.crossref import CrossrefClient
 from src.search.apis.openalex import OpenAlexClient
 from src.search.apis.semantic_scholar import SemanticScholarClient
-from src.search.apis.unpaywall import UnpaywallClient
 from src.search.canonical_index import CanonicalPaperIndex
 from src.search.provider import BaseSearchProvider, SearchOptions, SearchResponse
 from src.utils.logging import get_logger
@@ -37,9 +32,6 @@ class AcademicSearchProvider(BaseSearchProvider):
     API_PRIORITY = {
         "semantic_scholar": 1,
         "openalex": 2,
-        "crossref": 3,
-        "arxiv": 4,
-        "unpaywall": 5,
     }
 
     def __init__(self) -> None:
@@ -48,7 +40,6 @@ class AcademicSearchProvider(BaseSearchProvider):
         self._clients: dict[str, BaseAcademicClient] = {}
         self._default_apis = ["semantic_scholar", "openalex"]  # Default APIs to use
         self._last_index: CanonicalPaperIndex | None = None  # Expose last search index
-        self._unpaywall_enabled: bool | None = None  # Cache for Unpaywall enabled status
 
     def get_last_index(self) -> CanonicalPaperIndex | None:
         """Get the CanonicalPaperIndex from the last search.
@@ -60,26 +51,6 @@ class AcademicSearchProvider(BaseSearchProvider):
         """
         return self._last_index
 
-    def _is_unpaywall_enabled(self) -> bool:
-        """Check if Unpaywall is enabled via configuration.
-
-        Returns:
-            True if Unpaywall is enabled, False otherwise (default: False)
-        """
-        if self._unpaywall_enabled is None:
-            try:
-                from src.utils.config import get_academic_apis_config
-
-                config = get_academic_apis_config()
-                unpaywall_config = config.apis.get("unpaywall")
-                # Default to False if config not found (opt-in behavior)
-                self._unpaywall_enabled = unpaywall_config.enabled if unpaywall_config else False
-            except Exception as e:
-                logger.debug("Failed to check Unpaywall enabled status", error=str(e))
-                # Default to False on error (opt-in behavior)
-                self._unpaywall_enabled = False
-        return self._unpaywall_enabled
-
     async def _get_client(self, api_name: str) -> BaseAcademicClient:
         """Get client (lazy initialization)."""
         if api_name not in self._clients:
@@ -87,15 +58,6 @@ class AcademicSearchProvider(BaseSearchProvider):
                 self._clients[api_name] = SemanticScholarClient()
             elif api_name == "openalex":
                 self._clients[api_name] = OpenAlexClient()
-            elif api_name == "crossref":
-                self._clients[api_name] = CrossrefClient()
-            elif api_name == "arxiv":
-                self._clients[api_name] = ArxivClient()
-            elif api_name == "unpaywall":
-                # Check if Unpaywall is enabled before initializing
-                if not self._is_unpaywall_enabled():
-                    raise ValueError("Unpaywall API is disabled")
-                self._clients[api_name] = UnpaywallClient()
             else:
                 raise ValueError(f"Unknown API: {api_name}")
         return self._clients[api_name]
@@ -384,49 +346,6 @@ class AcademicSearchProvider(BaseSearchProvider):
         )
 
         return papers, citations
-
-    async def resolve_oa_url_for_paper(self, paper: Paper) -> str | None:
-        """Resolve OA URL for a paper using Unpaywall if not already available.
-
-        Args:
-            paper: Paper object
-
-        Returns:
-            OA URL if resolved, None otherwise
-        """
-        # If paper already has OA URL, return it
-        if paper.oa_url:
-            return paper.oa_url
-
-        # If no DOI, cannot resolve
-        if not paper.doi:
-            return None
-
-        # Check if Unpaywall is enabled before attempting resolution
-        if not self._is_unpaywall_enabled():
-            logger.debug("Unpaywall is disabled, skipping OA URL resolution", doi=paper.doi)
-            return None
-
-        # Try Unpaywall API
-        try:
-            from src.search.apis.unpaywall import UnpaywallClient
-
-            unpaywall_client = await self._get_client("unpaywall")
-            # _get_client("unpaywall") always returns UnpaywallClient when enabled
-            if not isinstance(unpaywall_client, UnpaywallClient):
-                return None
-            oa_url = await unpaywall_client.resolve_oa_url(paper.doi)
-            if oa_url:
-                logger.debug("Resolved OA URL via Unpaywall", doi=paper.doi, oa_url=oa_url)
-                return oa_url
-        except ValueError as e:
-            # Unpaywall is disabled
-            logger.debug("Unpaywall is disabled", error=str(e))
-            return None
-        except Exception as e:
-            logger.debug("Failed to resolve OA URL via Unpaywall", doi=paper.doi, error=str(e))
-
-        return None
 
     async def get_health(self) -> Any:
         """Get health status."""

@@ -52,7 +52,7 @@
 | Phase 2 / Task 2.5 | `to_dict()` エクスポートにカテゴリ情報を含める | DONE | `src/filter/evidence_graph.py` | - |
 | Phase 2 / Task 2.6 | 決定12: `is_influential` の完全削除 | DONE | `src/storage/schema.sql`, `src/search/apis/*.py`, `src/search/academic_provider.py`, `src/filter/evidence_graph.py` | 検証: `grep -r "\\bis_influential\\b" src/` 残骸ゼロ |
 | Phase 2 / Task 2.7 | ドキュメント更新 | DONE | `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（3228 passed） |
-| Phase 2 / Task 2.8 | 補助API（Crossref / arXiv / Unpaywall）の整理（削除/明確化） | TODO | `src/search/academic_provider.py`, `src/search/apis/{crossref,arxiv,unpaywall}.py` | 現状: `AcademicSearchProvider` デフォルトは `semantic_scholar` / `openalex`。ただし `Unpaywall` は OA URL 解決で任意利用されるため “完全未使用” ではない |
+| Phase 2 / Task 2.8 | 補助API（Crossref / arXiv / Unpaywall）の整理（削除/明確化） | DONE | `src/search/academic_provider.py`, `src/search/apis/{crossref,arxiv,unpaywall}.py`, `src/search/id_resolver.py`, `config/academic_apis.yaml` | 決定6に統合: 3つの補助APIを完全削除、PMID→DOI変換はS2 APIに移行、設定ファイル・テスト・ドキュメントを更新 |
 
 #### Phase 3（引用追跡の完全実装）
 
@@ -163,8 +163,23 @@ controversy = ...                     # 論争度
 
 ### 決定6: データソース戦略
 
-**決定**: S2 + OpenAlex を完全実装、他はブラウザ補完
+**決定**: S2 + OpenAlex の2本柱。補助API（Crossref / arXiv / Unpaywall）は**完全削除**（後方互換なし）。
 
+**学術API体制**:
+| API | 役割 | 状態 |
+|-----|------|:----:|
+| **Semantic Scholar** | 検索・引用追跡・識別子解決 | 使用 |
+| **OpenAlex** | 検索・引用追跡 | 使用 |
+| Crossref | - | **削除** |
+| arXiv | - | **削除** |
+| Unpaywall | - | **削除** |
+
+**削除理由**:
+- Crossref: PMID→DOI は S2 `paper/PMID:{pmid}` で代替可能、検索は abstract なしで品質低
+- arXiv: 論文は S2/OpenAlex でインデックス済み、arXiv ID→DOI は既に S2 API 使用
+- Unpaywall: OA URL は S2 `openAccessPdf.url` / OpenAlex `open_access.oa_url` で取得可能
+
+**設計判断**:
 - アカデミッククエリかどうかは優先度の違い
 - 非アカデミッククエリでも学術識別子発見時にAPI補完
 

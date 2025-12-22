@@ -32,7 +32,7 @@ class IDResolver:
         return self._session
 
     async def resolve_pmid_to_doi(self, pmid: str) -> str | None:
-        """Get DOI from PMID (via Crossref API).
+        """Get DOI from PMID (via Semantic Scholar API).
 
         Args:
             pmid: PubMed ID
@@ -45,18 +45,19 @@ class IDResolver:
 
             async def _fetch() -> dict[str, Any]:
                 response = await session.get(
-                    "https://api.crossref.org/works", params={"filter": f"pmid:{pmid}", "rows": 1}
+                    f"https://api.semanticscholar.org/graph/v1/paper/PMID:{pmid}",
+                    params={"fields": "externalIds"},
                 )
                 response.raise_for_status()
                 return cast(dict[str, Any], response.json())
 
             data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
-            items = data.get("message", {}).get("items", [])
+            external_ids = data.get("externalIds", {})
+            doi = external_ids.get("DOI")
 
-            if items and "DOI" in items[0]:
-                doi = cast(str, items[0]["DOI"])
+            if doi:
                 logger.debug("Resolved PMID to DOI", pmid=pmid, doi=doi)
-                return doi
+                return cast(str, doi)
 
             logger.debug("No DOI found for PMID", pmid=pmid)
             return None
