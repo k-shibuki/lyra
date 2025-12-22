@@ -1,7 +1,8 @@
 """
 ID resolver for converting between different paper identifier formats.
 
-Converts PMID, arXiv ID, etc. to DOI using external APIs.
+Converts PMID, arXiv ID to DOI using Semantic Scholar API.
+Per Decision 6: S2 + OpenAlex two-pillar strategy.
 """
 
 from typing import Any, cast
@@ -101,21 +102,6 @@ class IDResolver:
             logger.warning("Failed to resolve arXiv ID to DOI", arxiv_id=arxiv_id, error=str(e))
             return None
 
-    async def resolve_crid_to_doi(self, crid: str) -> str | None:
-        """Get DOI from CiNii CRID.
-
-        Not implemented: Decision 6 defines S2 + OpenAlex as the two pillars.
-        CiNii is out of scope.
-
-        Args:
-            crid: CiNii Research ID
-
-        Returns:
-            None (always)
-        """
-        logger.debug("CRID to DOI conversion not supported (Decision 6)", crid=crid)
-        return None
-
     async def resolve_to_doi(self, identifier: "PaperIdentifier") -> str | None:
         """Resolve DOI from PaperIdentifier.
 
@@ -136,10 +122,6 @@ class IDResolver:
         # Convert from arXiv ID to DOI
         if identifier.arxiv_id:
             return await self.resolve_arxiv_to_doi(identifier.arxiv_id)
-
-        # Convert from CRID to DOI (not implemented)
-        if identifier.crid:
-            return await self.resolve_crid_to_doi(identifier.crid)
 
         return None
 
