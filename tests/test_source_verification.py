@@ -1663,6 +1663,155 @@ class TestDomainBlockingTransparency:
         assert state.block_reason == ""
         assert state.is_blocked is True
 
+    def test_verify_claim_dangerous_pattern_propagates_cause_id(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-P1-1.2-N-05: verify_claim with dangerous pattern propagates cause_id to _mark_domain_blocked.
+
+        // Given: A claim with dangerous pattern detected
+        // When: verify_claim is called with cause_id
+        // Then: cause_id is propagated to domain state
+        """
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            verifier.verify_claim(
+                claim_id="dangerous_claim",
+                domain="dangerous-pattern.com",
+                evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
+                cause_id="trace_dangerous_abc",
+            )
+
+        # Then: Domain state has cause_id
+        state = verifier.get_domain_state("dangerous-pattern.com")
+        assert state is not None
+        assert state.block_cause_id == "trace_dangerous_abc"
+        assert state.is_blocked is True
+
+    def test_verify_claim_dangerous_pattern_propagates_cause_id_to_notification(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-P1-1.2-N-06: verify_claim with dangerous pattern propagates cause_id to notification queue.
+
+        // Given: A claim with dangerous pattern detected
+        // When: verify_claim is called with cause_id
+        // Then: cause_id is in the notification tuple
+        """
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            verifier.verify_claim(
+                claim_id="dangerous_claim",
+                domain="dangerous-notify.com",
+                evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
+                cause_id="trace_notify_xyz",
+            )
+
+        # Then: Notification queue has cause_id
+        assert verifier.get_pending_notification_count() == 1
+        notification = verifier._pending_blocked_notifications[0]
+        assert notification[0] == "dangerous-notify.com"  # domain
+        assert notification[3] == "trace_notify_xyz"  # cause_id
+
+    def test_verify_claim_high_rejection_propagates_cause_id(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-P1-1.2-N-07: verify_claim with high rejection rate propagates cause_id.
+
+        // Given: Domain with high rejection rate (>=3 rejections, >30%)
+        // When: verify_claim triggers auto-block with cause_id
+        // Then: cause_id is propagated to domain state and notification
+
+        Note: The high rejection rate auto-block branch requires
+        verification_status=REJECTED and has_dangerous_pattern=False.
+        We patch the internal outcome function to force REJECTED and exercise the branch.
+        """
+        # Pre-populate domain state with 3 rejections (rejection_rate = 100% > 30%)
+        verifier._domain_states["high-reject-cause.com"] = DomainVerificationState(
+            domain="high-reject-cause.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            rejected_claims=["r1", "r2", "r3"],
+            verified_claims=[],
+            pending_claims=[],
+        )
+
+        mock_evidence_graph.calculate_claim_confidence.return_value = {}
+
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            with patch.object(
+                verifier,
+                "_determine_verification_outcome",
+                return_value=(
+                    VerificationStatus.REJECTED,
+                    DomainCategory.UNVERIFIED,
+                    PromotionResult.UNCHANGED,
+                    ReasonCode.DANGEROUS_PATTERN,
+                ),
+            ):
+                verifier.verify_claim(
+                    claim_id="rejected_claim_4",
+                    domain="high-reject-cause.com",
+                    evidence_graph=mock_evidence_graph,
+                    has_dangerous_pattern=False,
+                    cause_id="trace_reject_4",
+                )
+
+        # Then: Domain is blocked via high rejection rate auto-block
+        state = verifier.get_domain_state("high-reject-cause.com")
+        assert state is not None
+        assert state.is_blocked is True
+        assert state.block_cause_id == "trace_reject_4"
+        assert verifier.is_domain_blocked("high-reject-cause.com") is True
+
+        # And: Notification includes cause_id
+        assert verifier.get_pending_notification_count() == 1
+        domain, _, _, cause_id = verifier._pending_blocked_notifications[0]
+        assert domain == "high-reject-cause.com"
+        assert cause_id == "trace_reject_4"
+
+    def test_verify_claim_with_none_cause_id_blocks_without_trace(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-P1-1.2-B-03: verify_claim with cause_id=None still blocks but without trace.
+
+        // Given: A claim with dangerous pattern
+        // When: verify_claim is called without cause_id (None)
+        // Then: Domain is blocked but block_cause_id is None
+        """
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            verifier.verify_claim(
+                claim_id="no_trace_claim",
+                domain="no-trace.com",
+                evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
+                # cause_id not provided (defaults to None)
+            )
+
+        # Then: Domain is blocked without cause_id
+        state = verifier.get_domain_state("no-trace.com")
+        assert state is not None
+        assert state.is_blocked is True
+        assert state.block_cause_id is None
+
+        # And: Notification also has None for cause_id
+        assert verifier.get_pending_notification_count() == 1
+        notification = verifier._pending_blocked_notifications[0]
+        assert notification[3] is None
+
 
 class TestPhaseP2RelaxedBlocking:
     """Phase P.2: Relaxed immediate blocking tests.

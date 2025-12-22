@@ -36,7 +36,7 @@
 |---|---|---|---|---|
 | Phase 1 / Task 1.0 | `trust_level` 概念を排除し、`domain_category` に統一（破壊的変更） | DONE | `src/utils/domain_policy.py`, `config/domains.yaml`, `docs/REQUIREMENTS.md` | 後方互換なし（単独運用前提） |
 | Phase 1 / Task 1.1 | `get_status` に `blocked_domains`（＋`idle_seconds`）を追加 | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `tests/test_mcp_get_status.py` | - |
-| Phase 1 / Task 1.2 | ブロック理由のログ強化（`cause_id` 連携） | DONE | `src/filter/source_verification.py` | - |
+| Phase 1 / Task 1.2 | ブロック理由のログ強化（`cause_id` 連携） | DONE | `src/filter/source_verification.py`, `tests/test_source_verification.py` | `verify_claim()` に `cause_id` パラメータ追加、ブロック時に伝播 |
 | Phase 1 / Task 1.3 | エビデンスグラフに矛盾関係（REFUTES）を保存 | DONE | `src/filter/evidence_graph.py`, `src/storage/schema.sql` | - |
 | Phase 1 / Task 1.4 | `claims.adoption_status` を追加し `pending/adopted/not_adopted` を保持 | DONE | `src/storage/schema.sql`, `src/filter/evidence_graph.py` | - |
 | Phase 1 / Task 1.5 | ドキュメント更新 | DONE | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | 検証: ruff / mypy / tests PASS（ローカル回帰: 3225 passed） |
@@ -1757,15 +1757,28 @@ response = {
 
 ```python
 # src/filter/source_verification.py
-def _queue_blocked_notification(self, domain: str, reason: str, task_id: str | None, cause_id: str | None = None):
-    logger.warning(
-        "Domain blocked",
-        domain=domain,
-        reason=reason,
-        task_id=task_id,
-        cause_id=cause_id,  # 追加
-    )
+def verify_claim(
+    self,
+    claim_id: str,
+    domain: str,
+    evidence_graph: EvidenceGraph,
+    has_dangerous_pattern: bool = False,
+    cause_id: str | None = None,  # 追加
+) -> VerificationResult:
+    """Verify a claim using EvidenceGraph.
+
+    Args:
+        ...
+        cause_id: Causal trace ID for logging/auditing (optional).
+    """
+    # ブロック時に cause_id を伝播
+    if has_dangerous_pattern:
+        self._mark_domain_blocked(domain, "...", cause_id=cause_id)
+        self._queue_blocked_notification(domain, "...", task_id=None, cause_id=cause_id)
+    # high rejection rate によるブロック時も同様に伝播
 ```
+
+**実装完了**: `verify_claim()` に `cause_id` パラメータ追加、ブロック時に `_mark_domain_blocked()` / `_queue_blocked_notification()` へ伝播。テスト追加済み（TC-P1-1.2-N-05 〜 TC-P1-1.2-B-03）。
 
 **1.3 エビデンスグラフに矛盾関係を明示的に保存**
 
