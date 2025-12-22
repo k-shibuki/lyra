@@ -624,6 +624,8 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
         "id": "c_001",
         "text": "主張テキスト",
         "confidence": 0.92,
+        "uncertainty": 0.12,
+        "controversy": 0.08,
         "evidence_count": 3,
         "has_refutation": false,
         "sources": [

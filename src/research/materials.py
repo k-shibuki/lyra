@@ -95,8 +95,19 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
     O.7 fix: Updated to match actual DB schema.
     - claims table has verification_notes (stores source_url) not source_url
     - fragments table has relevance_reason (stores source metadata) not source_url
+
+    Phase 4: Includes Bayesian confidence metrics (uncertainty, controversy).
     """
+    from src.filter.evidence_graph import EvidenceGraph
+
     claims = []
+
+    # Load evidence graph for Bayesian confidence calculation
+    graph = EvidenceGraph(task_id=task_id)
+    try:
+        await graph.load_from_db(task_id=task_id)
+    except Exception as e:
+        logger.debug("Failed to load evidence graph for claims", task_id=task_id, error=str(e))
 
     try:
         rows = await db.fetch_all(
@@ -194,11 +205,18 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                     }
                 ]
 
+            # Calculate Bayesian confidence metrics (Phase 4)
+            confidence_info = graph.calculate_claim_confidence(row["id"])
+
             claims.append(
                 {
                     "id": row["id"],
                     "text": row.get("claim_text", ""),
-                    "confidence": row.get("confidence_score", 0.5),
+                    "confidence": confidence_info.get(
+                        "confidence", row.get("confidence_score", 0.5)
+                    ),
+                    "uncertainty": confidence_info.get("uncertainty", 0.0),
+                    "controversy": confidence_info.get("controversy", 0.0),
                     "evidence_count": row.get("evidence_count", 0),
                     "has_refutation": bool(row.get("has_refutation", 0)),
                     "sources": parsed_sources,
