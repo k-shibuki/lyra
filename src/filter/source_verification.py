@@ -54,6 +54,20 @@ class ReasonCode(str, Enum):
     ALREADY_BLOCKED = "already_blocked"  # Domain was already blocked
 
 
+class DomainBlockReason(str, Enum):
+    """Block reason codes for domain blocking (per Decision 16).
+
+    These codes describe why a domain was blocked, used for transparency
+    and risk assessment when considering unblocking.
+    """
+
+    DANGEROUS_PATTERN = "dangerous_pattern"  # L2/L4 security detection
+    HIGH_REJECTION_RATE = "high_rejection_rate"  # Statistical decision (may be false positive)
+    DENYLIST = "denylist"  # Explicitly added via configuration
+    MANUAL = "manual"  # Human decision (via feedback tool)
+    UNKNOWN = "unknown"  # Unknown reason (fallback, high risk)
+
+
 @dataclass
 class VerificationResult:
     """Result of verifying a claim or source."""
@@ -97,6 +111,7 @@ class DomainVerificationState:
     block_reason: str | None = None
     block_cause_id: str | None = None
     original_domain_category: DomainCategory | None = None
+    domain_block_reason: DomainBlockReason | None = None  # Coded block reason (per Decision 16)
 
     @property
     def total_claims(self) -> int:
@@ -181,7 +196,10 @@ class SourceVerifier:
         # If dangerous pattern detected, block immediately
         if has_dangerous_pattern:
             self._mark_domain_blocked(
-                domain, "Dangerous pattern detected (L2/L4)", cause_id=cause_id
+                domain,
+                "Dangerous pattern detected (L2/L4)",
+                cause_id=cause_id,
+                block_reason_code=DomainBlockReason.DANGEROUS_PATTERN,
             )
             self._update_domain_state(domain, claim_id, VerificationStatus.REJECTED)
 
@@ -256,6 +274,7 @@ class SourceVerifier:
                     domain,
                     f"High rejection rate ({domain_state.rejection_rate:.0%}) with {len(domain_state.rejected_claims)} rejections",
                     cause_id=cause_id,
+                    block_reason_code=DomainBlockReason.HIGH_REJECTION_RATE,
                 )
                 new_domain_category = DomainCategory.BLOCKED
                 promotion_result = PromotionResult.DEMOTED
@@ -411,6 +430,27 @@ class SourceVerifier:
         """
         return list(self._blocked_domains)
 
+    def _get_unblock_risk(self, block_reason: DomainBlockReason | None) -> str:
+        """Get unblock risk level for a block reason (per Decision 16).
+
+        Args:
+            block_reason: Block reason code.
+
+        Returns:
+            "high" or "low" risk level.
+        """
+        if block_reason is None:
+            return "high"  # Unknown reason defaults to high risk
+
+        risk_mapping: dict[DomainBlockReason, str] = {
+            DomainBlockReason.DANGEROUS_PATTERN: "high",  # Security risk (L2/L4 detection)
+            DomainBlockReason.HIGH_REJECTION_RATE: "low",  # Statistical decision (may be false positive)
+            DomainBlockReason.DENYLIST: "low",  # Explicitly added via configuration
+            DomainBlockReason.MANUAL: "low",  # Human decision
+            DomainBlockReason.UNKNOWN: "high",  # Unknown reason defaults to high risk
+        }
+        return risk_mapping.get(block_reason, "high")
+
     def get_blocked_domains_info(self) -> list[dict[str, Any]]:
         """Get structured info about blocked domains for get_status response.
 
@@ -418,16 +458,18 @@ class SourceVerifier:
             List of blocked domain info dicts with:
             - domain: Domain name
             - blocked_at: ISO timestamp when blocked
-            - reason: Reason for blocking
+            - reason: Reason for blocking (human-readable string)
             - cause_id: Causal trace ID (if available)
             - original_domain_category: Domain category before blocking
-            - can_restore: Whether domain can be manually restored
+            - domain_block_reason: Coded block reason (per Decision 16)
+            - domain_unblock_risk: Risk level for unblocking ("high" or "low")
             - restore_via: How to restore (config file path)
         """
         result = []
         for domain in self._blocked_domains:
             state = self._domain_states.get(domain)
             if state and state.is_blocked:
+                block_reason = state.domain_block_reason or DomainBlockReason.UNKNOWN
                 result.append(
                     {
                         "domain": domain,
@@ -439,8 +481,9 @@ class SourceVerifier:
                             if state.original_domain_category
                             else None
                         ),
-                        "can_restore": True,
-                        "restore_via": "config/domains.yaml user_overrides",
+                        "domain_block_reason": block_reason.value,
+                        "domain_unblock_risk": self._get_unblock_risk(block_reason),
+                        "restore_via": "config/domains.yaml user_overrides or feedback(domain_unblock)",
                     }
                 )
             else:
@@ -452,8 +495,9 @@ class SourceVerifier:
                         "reason": "Domain is blocked",
                         "cause_id": None,
                         "original_domain_category": None,
-                        "can_restore": True,
-                        "restore_via": "config/domains.yaml user_overrides",
+                        "domain_block_reason": DomainBlockReason.UNKNOWN.value,
+                        "domain_unblock_risk": "high",
+                        "restore_via": "config/domains.yaml user_overrides or feedback(domain_unblock)",
                     }
                 )
         return result
@@ -463,13 +507,15 @@ class SourceVerifier:
         domain: str,
         reason: str,
         cause_id: str | None = None,
+        block_reason_code: DomainBlockReason | None = None,
     ) -> None:
         """Mark a domain as blocked and record state.
 
         Args:
             domain: Domain to block.
-            reason: Reason for blocking.
+            reason: Reason for blocking (human-readable string).
             cause_id: Causal trace ID (optional).
+            block_reason_code: Coded block reason (per Decision 16).
         """
         self._blocked_domains.add(domain)
 
@@ -487,6 +533,7 @@ class SourceVerifier:
         state.blocked_at = datetime.now(UTC).isoformat()
         state.block_reason = reason
         state.block_cause_id = cause_id
+        state.domain_block_reason = block_reason_code or DomainBlockReason.UNKNOWN
 
     def _queue_blocked_notification(
         self,

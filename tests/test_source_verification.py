@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.filter.source_verification import (
+    DomainBlockReason,
     DomainVerificationState,
     PromotionResult,
     ReasonCode,
@@ -2030,3 +2031,312 @@ class TestPhaseP2RelaxedBlocking:
         assert result_unverified.new_domain_category == DomainCategory.LOW
         assert result_academic.promotion_result == PromotionResult.UNCHANGED
         assert result_academic.new_domain_category == DomainCategory.ACADEMIC
+
+
+class TestDomainBlockReason:
+    """Tests for DomainBlockReason enum and related functionality (Phase 5 Task 5.1)."""
+
+    def test_domain_block_reason_enum_values(self) -> None:
+        """
+        TC-N-01: DomainBlockReason enum has correct values.
+
+        // Given: DomainBlockReason enum
+        // When: Accessing enum values
+        // Then: All expected values are present
+        """
+        assert DomainBlockReason.DANGEROUS_PATTERN == "dangerous_pattern"
+        assert DomainBlockReason.HIGH_REJECTION_RATE == "high_rejection_rate"
+        assert DomainBlockReason.DENYLIST == "denylist"
+        assert DomainBlockReason.MANUAL == "manual"
+        assert DomainBlockReason.UNKNOWN == "unknown"
+
+    def test_get_unblock_risk_dangerous_pattern(self, verifier: SourceVerifier) -> None:
+        """
+        TC-N-02: _get_unblock_risk returns "high" for dangerous_pattern.
+
+        // Given: DomainBlockReason.DANGEROUS_PATTERN
+        // When: Calling _get_unblock_risk
+        // Then: Returns "high"
+        """
+        risk = verifier._get_unblock_risk(DomainBlockReason.DANGEROUS_PATTERN)
+        assert risk == "high"
+
+    def test_get_unblock_risk_high_rejection_rate(self, verifier: SourceVerifier) -> None:
+        """
+        TC-N-03: _get_unblock_risk returns "low" for high_rejection_rate.
+
+        // Given: DomainBlockReason.HIGH_REJECTION_RATE
+        // When: Calling _get_unblock_risk
+        // Then: Returns "low"
+        """
+        risk = verifier._get_unblock_risk(DomainBlockReason.HIGH_REJECTION_RATE)
+        assert risk == "low"
+
+    def test_get_unblock_risk_denylist(self, verifier: SourceVerifier) -> None:
+        """
+        TC-N-04: _get_unblock_risk returns "low" for denylist.
+
+        // Given: DomainBlockReason.DENYLIST
+        // When: Calling _get_unblock_risk
+        // Then: Returns "low"
+        """
+        risk = verifier._get_unblock_risk(DomainBlockReason.DENYLIST)
+        assert risk == "low"
+
+    def test_get_unblock_risk_manual(self, verifier: SourceVerifier) -> None:
+        """
+        TC-N-05: _get_unblock_risk returns "low" for manual.
+
+        // Given: DomainBlockReason.MANUAL
+        // When: Calling _get_unblock_risk
+        // Then: Returns "low"
+        """
+        risk = verifier._get_unblock_risk(DomainBlockReason.MANUAL)
+        assert risk == "low"
+
+    def test_get_unblock_risk_unknown(self, verifier: SourceVerifier) -> None:
+        """
+        TC-N-06: _get_unblock_risk returns "high" for unknown.
+
+        // Given: DomainBlockReason.UNKNOWN
+        // When: Calling _get_unblock_risk
+        // Then: Returns "high"
+        """
+        risk = verifier._get_unblock_risk(DomainBlockReason.UNKNOWN)
+        assert risk == "high"
+
+    def test_get_unblock_risk_none(self, verifier: SourceVerifier) -> None:
+        """
+        TC-B-01: _get_unblock_risk returns "high" for None (fallback).
+
+        // Given: None block reason
+        // When: Calling _get_unblock_risk
+        // Then: Returns "high" (safe default)
+        """
+        risk = verifier._get_unblock_risk(None)
+        assert risk == "high"
+
+    def test_get_blocked_domains_info_includes_domain_block_reason(
+        self, verifier: SourceVerifier
+    ) -> None:
+        """
+        TC-N-07: get_blocked_domains_info includes domain_block_reason.
+
+        // Given: Domain blocked with dangerous_pattern
+        // When: Calling get_blocked_domains_info
+        // Then: domain_block_reason is included
+        """
+        verifier._mark_domain_blocked(
+            domain="dangerous.com",
+            reason="Dangerous pattern detected",
+            block_reason_code=DomainBlockReason.DANGEROUS_PATTERN,
+        )
+
+        info = verifier.get_blocked_domains_info()
+        assert len(info) == 1
+        assert info[0]["domain_block_reason"] == "dangerous_pattern"
+        assert info[0]["domain_unblock_risk"] == "high"
+        assert "can_restore" not in info[0]  # TC-A-01: Removed field
+
+    def test_get_blocked_domains_info_includes_domain_unblock_risk(
+        self, verifier: SourceVerifier
+    ) -> None:
+        """
+        TC-N-08: get_blocked_domains_info includes domain_unblock_risk.
+
+        // Given: Domain blocked with high_rejection_rate
+        // When: Calling get_blocked_domains_info
+        // Then: domain_unblock_risk is "low"
+        """
+        verifier._mark_domain_blocked(
+            domain="high-reject.com",
+            reason="High rejection rate",
+            block_reason_code=DomainBlockReason.HIGH_REJECTION_RATE,
+        )
+
+        info = verifier.get_blocked_domains_info()
+        assert len(info) == 1
+        assert info[0]["domain_block_reason"] == "high_rejection_rate"
+        assert info[0]["domain_unblock_risk"] == "low"
+
+    def test_get_blocked_domains_info_unknown_fallback(self, verifier: SourceVerifier) -> None:
+        """
+        TC-N-09: get_blocked_domains_info uses UNKNOWN for missing reason.
+
+        // Given: Domain blocked without block_reason_code
+        // When: Calling get_blocked_domains_info
+        // Then: domain_block_reason defaults to "unknown", risk is "high"
+        """
+        verifier._mark_domain_blocked(
+            domain="no-reason.com",
+            reason="Blocked",
+            # block_reason_code not provided
+        )
+
+        info = verifier.get_blocked_domains_info()
+        assert len(info) == 1
+        assert info[0]["domain_block_reason"] == "unknown"
+        assert info[0]["domain_unblock_risk"] == "high"
+
+    def test_get_blocked_domains_info_all_reason_types(self, verifier: SourceVerifier) -> None:
+        """
+        TC-N-10: get_blocked_domains_info handles all reason types.
+
+        // Given: Multiple domains blocked with different reasons
+        // When: Calling get_blocked_domains_info
+        // Then: All domains have correct domain_block_reason and domain_unblock_risk
+        """
+        verifier._mark_domain_blocked(
+            "dangerous.com", "Dangerous", block_reason_code=DomainBlockReason.DANGEROUS_PATTERN
+        )
+        verifier._mark_domain_blocked(
+            "high-reject.com",
+            "High rejection",
+            block_reason_code=DomainBlockReason.HIGH_REJECTION_RATE,
+        )
+        verifier._mark_domain_blocked(
+            "denylist.com", "Denylist", block_reason_code=DomainBlockReason.DENYLIST
+        )
+        verifier._mark_domain_blocked(
+            "manual.com", "Manual", block_reason_code=DomainBlockReason.MANUAL
+        )
+
+        info = verifier.get_blocked_domains_info()
+        assert len(info) == 4
+
+        # Check each domain
+        info_dict = {item["domain"]: item for item in info}
+        assert info_dict["dangerous.com"]["domain_block_reason"] == "dangerous_pattern"
+        assert info_dict["dangerous.com"]["domain_unblock_risk"] == "high"
+
+        assert info_dict["high-reject.com"]["domain_block_reason"] == "high_rejection_rate"
+        assert info_dict["high-reject.com"]["domain_unblock_risk"] == "low"
+
+        assert info_dict["denylist.com"]["domain_block_reason"] == "denylist"
+        assert info_dict["denylist.com"]["domain_unblock_risk"] == "low"
+
+        assert info_dict["manual.com"]["domain_block_reason"] == "manual"
+        assert info_dict["manual.com"]["domain_unblock_risk"] == "low"
+
+    def test_verify_claim_dangerous_pattern_sets_block_reason(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-N-11: verify_claim with dangerous_pattern sets domain_block_reason.
+
+        // Given: Claim with dangerous pattern
+        // When: Verifying claim
+        // Then: Domain state has domain_block_reason=DANGEROUS_PATTERN
+        """
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            verifier.verify_claim(
+                claim_id="dangerous_claim",
+                domain="dangerous-pattern.com",
+                evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
+            )
+
+        state = verifier.get_domain_state("dangerous-pattern.com")
+        assert state is not None
+        assert state.domain_block_reason == DomainBlockReason.DANGEROUS_PATTERN
+
+    def test_verify_claim_high_rejection_rate_sets_block_reason(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-N-12: verify_claim with high rejection rate sets domain_block_reason.
+
+        // Given: Domain with high rejection rate
+        // When: Auto-blocking occurs
+        // Then: Domain state has domain_block_reason=HIGH_REJECTION_RATE
+        """
+        # Pre-populate domain state with 3 rejections
+        verifier._domain_states["high-reject.com"] = DomainVerificationState(
+            domain="high-reject.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            rejected_claims=["r1", "r2", "r3"],
+            verified_claims=[],
+        )
+
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.1,
+            "supporting_count": 0,
+            "refuting_count": 0,
+            "neutral_count": 0,
+            "independent_sources": 0,
+        }
+
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            with patch.object(
+                verifier,
+                "_determine_verification_outcome",
+                return_value=(
+                    VerificationStatus.REJECTED,
+                    DomainCategory.UNVERIFIED,
+                    PromotionResult.UNCHANGED,
+                    ReasonCode.DANGEROUS_PATTERN,
+                ),
+            ):
+                verifier.verify_claim(
+                    claim_id="rejected_claim",
+                    domain="high-reject.com",
+                    evidence_graph=mock_evidence_graph,
+                    has_dangerous_pattern=False,
+                )
+
+        state = verifier.get_domain_state("high-reject.com")
+        assert state is not None
+        assert state.is_blocked is True
+        assert state.domain_block_reason == DomainBlockReason.HIGH_REJECTION_RATE
+
+    def test_get_blocked_domains_info_propagates_to_mcp_response(
+        self, verifier: SourceVerifier
+    ) -> None:
+        """
+        TC-N-13: get_blocked_domains_info propagates domain_block_reason to MCP response.
+
+        // Given: Domain blocked with specific reason
+        // When: Calling get_blocked_domains_info and using in MCP response
+        // Then: domain_block_reason and domain_unblock_risk are correctly propagated (wiring test)
+        """
+        verifier._mark_domain_blocked(
+            domain="wiring-test.com",
+            reason="Test wiring",
+            block_reason_code=DomainBlockReason.DENYLIST,
+        )
+
+        # Simulate MCP response construction
+        blocked_info = verifier.get_blocked_domains_info()
+        mcp_response_blocked_domains = blocked_info
+
+        # Verify wiring: fields propagate to MCP response structure
+        assert len(mcp_response_blocked_domains) == 1
+        assert mcp_response_blocked_domains[0]["domain_block_reason"] == "denylist"
+        assert mcp_response_blocked_domains[0]["domain_unblock_risk"] == "low"
+        assert "can_restore" not in mcp_response_blocked_domains[0]  # Removed field
+
+    def test_get_blocked_domains_info_with_no_state_uses_unknown(
+        self, verifier: SourceVerifier
+    ) -> None:
+        """
+        TC-A-01: get_blocked_domains_info handles domain without detailed state.
+
+        // Given: Domain in blocked set but no DomainVerificationState
+        // When: Calling get_blocked_domains_info
+        // Then: Returns info with domain_block_reason="unknown", risk="high"
+        """
+        # Add to blocked set without creating state
+        verifier._blocked_domains.add("no-state.com")
+
+        info = verifier.get_blocked_domains_info()
+        assert len(info) == 1
+        assert info[0]["domain"] == "no-state.com"
+        assert info[0]["domain_block_reason"] == "unknown"
+        assert info[0]["domain_unblock_risk"] == "high"
+        assert "can_restore" not in info[0]
