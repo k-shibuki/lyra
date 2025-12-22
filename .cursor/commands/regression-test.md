@@ -20,7 +20,6 @@ Use `scripts/test.sh` (async + polling):
 ```bash
 ./scripts/test.sh run tests/
 ./scripts/test.sh check
-./scripts/test.sh get
 ./scripts/test.sh kill  # only if you need to abort
 ```
 
@@ -28,15 +27,7 @@ Polling example:
 
 ```bash
 ./scripts/test.sh run tests/
-for i in {1..180}; do
-    sleep 1
-    status=$(./scripts/test.sh check 2>&1)
-    echo "[$i] $status"
-    if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
-        break
-    fi
-done
-./scripts/test.sh get
+./scripts/test.sh check
 ```
 
 Completion logic:

@@ -24,8 +24,11 @@ Design and implement tests for the implemented change.
 
 1. Produce a test matrix (equivalence partitions + boundary cases) in Markdown.
 2. Implement tests based on that matrix.
-3. Add Given/When/Then comments.
-4. Ensure exceptions include both type and message assertions when meaningful.
+3. For any new parameter/field, add at least one **wiring/effect** test so the suite fails if the parameter is validated but not propagated/used:
+   - Wiring: assert downstream call args / generated request / generated query includes the new parameter.
+   - Effect: change the parameter value and assert behavior/output changes per requirements.
+4. Add Given/When/Then comments.
+5. Ensure exceptions include both type and message assertions when meaningful.
 
 ## Test matrix template
 
@@ -41,7 +44,6 @@ Use `scripts/test.sh` (async + polling):
 ```bash
 ./scripts/test.sh run "tests/test_xxx.py"
 ./scripts/test.sh check
-./scripts/test.sh get
 ```
 
 ## Output (response format)
