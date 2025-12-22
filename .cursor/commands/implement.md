@@ -31,6 +31,7 @@ Implement the selected task (code changes only; no tests in this step).
    - Existing code paths and patterns
    - Related modules and dependencies
    - Coding conventions used in the project
+3. If the change touches interfaces/contracts across modules (APIs, schemas, request/response shapes, new parameters that must propagate), consider switching to `NEXT_COMMAND: /integration-design` to design and verify the flow.
 3. Identify the minimal set of files to change.
 4. Implement the change.
 5. Do a quick sanity check (basic execution path review; avoid long-running processes unless requested).
@@ -46,3 +47,4 @@ Implement the selected task (code changes only; no tests in this step).
 
 - `@.cursor/rules/code-execution.mdc`
 - `@.cursor/rules/refactoring.mdc`
+- `@.cursor/rules/integration-design.mdc` (when changes span module boundaries / contracts)
