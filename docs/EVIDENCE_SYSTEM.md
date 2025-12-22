@@ -2506,6 +2506,31 @@ class CitationDetector:
 - **DomainCategoryが計算に混入しない**こと（設計決定の担保）
 - 旧実装（フラグ切替/並行運用）前提の記述・テストが残っていないこと
 
+### Phase 4b: 時間メタデータ露出（低リスク・中価値）
+
+**目的**: 高推論AIが時間的判断（新旧・トレンド・最新知見の優先など）を行えるよう、Lyraが保持している「年」等の**時間メタデータを解釈せずに露出**する。
+
+**方針（重要）**:
+- Lyraは **判断しない**（時間的重み付け・トレンド分析・「最新が正しい」等の解釈はしない）
+- 時間情報が取得できないエビデンス（一般Web由来のノード等）は **`year=None`** として表現し、欠損を隠さない（透明性）
+
+#### タスク一覧
+
+| # | タスク | 実装ファイル | テストファイル |
+|---|--------|-------------|---------------|
+| 4b.1 | `calculate_claim_confidence()` に `evidence` リストを追加（時間メタデータ露出） | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 4b.2 | `evidence_years` サマリー（oldest/newest）を追加 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
+| 4b.3 | MCPレスポンス（`get_materials`）への反映 | `src/research/materials.py` | `tests/test_evidence_graph.py`（ユニット） |
+| 4b.4 | **ドキュメント更新**（決定15の追加・完了記録） | `docs/EVIDENCE_SYSTEM.md` | - |
+
+#### 完了条件（最小）
+
+- `get_materials` の `claims[]` に `evidence` / `evidence_years` が含まれる
+- `evidence[].year` が無い場合でも **`None`** で表現され、`evidence_years.oldest/newest` が **`None`** になり得る（欠損を許容）
+- `tests/test_evidence_graph.py` で `evidence` / `evidence_years` の返却と欠損ケースが担保されている
+
+**参照**: 詳細なスキーマは §決定15 を参照（Phase 4bの設計決定）。
+
 ### Phase 5: ユーザー制御（中リスク・中価値）
 
 **目的**: ブロック状態からの復活手段を提供
