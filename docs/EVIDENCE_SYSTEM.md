@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22（Phase 4 コアタスク完了: Task 4.1〜4.3 実装完了、ベイズ信頼度モデル導入）
+**最終更新**: 2025-12-22（Phase 4 完了: Task 4.0〜4.7 全タスク完了、ベイズ信頼度モデル導入、claim_timeline統合）
 
 このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -84,10 +84,10 @@
 | Phase 4 / Task 4.1 | `calculate_claim_confidence_bayesian()` 実装 | DONE | `src/filter/evidence_graph.py` | `calculate_claim_confidence()` をベイズ実装に置換、`verdict` フィールド削除 |
 | Phase 4 / Task 4.2 | 出力スキーマ確定（`confidence/uncertainty/controversy` + デバッグ統計） | DONE | `src/filter/evidence_graph.py` | `uncertainty`, `controversy`, `alpha`, `beta`, `evidence_count` を追加 |
 | Phase 4 / Task 4.3 | Source Verification / MCPレスポンスへの反映 | DONE | `src/research/materials.py` | `get_materials_action()` の `claims[]` に `uncertainty/controversy` を追加 |
-| Phase 4 / Task 4.4 | 既存テスト更新（後方互換なし前提で更新） | PLANNED | - | - |
-| Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | PLANNED | `src/filter/evidence_graph.py`, `src/filter/source_verification.py` | - |
-| Phase 4 / Task 4.6 | ドキュメント更新 | PLANNED | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
-| Phase 4 / Task 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | PLANNED | `src/filter/claim_timeline.py` | timelineは監査ログに限定（α/βを直接操作しない） |
+| Phase 4 / Task 4.4 | 既存テスト更新（後方互換なし前提で更新） | DONE | `tests/test_evidence_graph.py`, `tests/test_claim_timeline.py` | TestClaimConfidence 9件、claim_timeline 41件パス確認 |
+| Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | DONE | `src/filter/evidence_graph.py` | `verdict` フィールド削除確認済み（grep残骸ゼロ） |
+| Phase 4 / Task 4.6 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | Phase 4 完了 |
+| Phase 4 / Task 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | DONE | `src/filter/claim_timeline.py`, `tests/test_claim_timeline.py` | `calculate_confidence_adjustment()`, `_apply_confidence_adjustment()`, `RETRACTION_CONFIDENCE_PENALTY` 削除。timelineは監査ログに限定 |
 
 ---
 

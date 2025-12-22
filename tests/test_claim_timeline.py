@@ -62,7 +62,6 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.filter.claim_timeline import (
-    RETRACTION_CONFIDENCE_PENALTY,
     ClaimTimeline,
     ClaimTimelineManager,
     TimelineEvent,
@@ -342,68 +341,6 @@ class TestClaimTimeline:
         assert len(events_in_range) == 1
         assert events_in_range[0].timestamp == ts2
 
-    def test_calculate_confidence_adjustment_no_events(self) -> None:
-        """Verify confidence adjustment is 1.0 for empty timeline."""
-        # Given:
-        timeline = ClaimTimeline(claim_id="claim_001")
-
-        # When:
-        adjustment = timeline.calculate_confidence_adjustment()
-
-        # Then:
-        assert adjustment == 1.0
-
-    def test_calculate_confidence_adjustment_retraction(self) -> None:
-        """Verify retraction applies correct penalty."""
-        # Given:
-        timeline = ClaimTimeline(claim_id="claim_001")
-        timeline.add_event(TimelineEventType.RETRACTED, source_url="url")
-
-        # When:
-        adjustment = timeline.calculate_confidence_adjustment()
-
-        # Then:
-        assert adjustment == RETRACTION_CONFIDENCE_PENALTY
-
-    def test_calculate_confidence_adjustment_correction(self) -> None:
-        """Verify correction applies correct penalty."""
-        # Given:
-        timeline = ClaimTimeline(claim_id="claim_001")
-        timeline.add_event(TimelineEventType.CORRECTED, source_url="url")
-
-        # When:
-        adjustment = timeline.calculate_confidence_adjustment()
-
-        # Then:
-        assert adjustment == 0.8
-
-    def test_calculate_confidence_adjustment_confirmations(self) -> None:
-        """Verify confirmations apply correct bonus."""
-        # Given:
-        timeline = ClaimTimeline(claim_id="claim_001")
-        timeline.add_event(TimelineEventType.CONFIRMED, source_url="url1")
-        timeline.add_event(TimelineEventType.CONFIRMED, source_url="url2")
-        timeline.add_event(TimelineEventType.CONFIRMED, source_url="url3")
-
-        # When:
-        adjustment = timeline.calculate_confidence_adjustment()
-
-        # Then: - 3 confirmations = 30% bonus, capped at 50%
-        assert adjustment == 1.3
-
-    def test_calculate_confidence_adjustment_confirmations_capped(self) -> None:
-        """Verify confirmation bonus is capped at 50%."""
-        # Given:
-        timeline = ClaimTimeline(claim_id="claim_001")
-        for i in range(10):  # 10 confirmations
-            timeline.add_event(TimelineEventType.CONFIRMED, source_url=f"url{i}")
-
-        # When:
-        adjustment = timeline.calculate_confidence_adjustment()
-
-        # Then: - Capped at 1.5 (50% bonus)
-        assert adjustment == 1.5
-
     def test_to_dict_serialization(self) -> None:
         """Verify timeline serializes to dictionary correctly."""
         # Given:
@@ -420,6 +357,8 @@ class TestClaimTimeline:
         assert "summary" in result
         assert result["summary"]["event_count"] == 1
         assert result["summary"]["is_retracted"] is False
+        # Per Decision 13: confidence_adjustment is no longer included
+        assert "confidence_adjustment" not in result["summary"]
 
     def test_to_json_serialization(self) -> None:
         """Verify timeline serializes to JSON correctly."""
@@ -691,18 +630,17 @@ class TestClaimTimelineManager:
             assert event.notes == "Confirmed by independent source"
 
     @pytest.mark.asyncio
-    async def test_add_retraction_creates_event_and_adjusts_confidence(
+    async def test_add_retraction_creates_event(
         self, manager: ClaimTimelineManager, mock_db: MagicMock
     ) -> None:
-        """Verify add_retraction creates event and updates confidence."""
+        """Verify add_retraction creates retraction event for audit logging.
+
+        Note: Per Decision 13, retraction events are for audit logging only.
+        Confidence is computed solely via Bayesian updating on evidence graph edges.
+        """
         # Given:
         with patch("src.filter.claim_timeline.get_database", new=AsyncMock(return_value=mock_db)):
-            mock_db.fetch_one = AsyncMock(
-                side_effect=[
-                    {"timeline_json": None},  # First call for get_timeline
-                    {"confidence_score": 0.9},  # Second call for confidence adjustment
-                ]
-            )
+            mock_db.fetch_one = AsyncMock(return_value={"timeline_json": None})
 
             # When:
             event = await manager.add_retraction(
@@ -711,11 +649,11 @@ class TestClaimTimelineManager:
                 notes="Withdrawn due to errors",
             )
 
-            # Then:
+            # Then: - Event is created for audit logging
             assert event is not None
             assert event.event_type == TimelineEventType.RETRACTED
-            # Verify confidence update was called
-            assert mock_db.update.call_count >= 1
+            assert event.notes == "Withdrawn due to errors"
+            # Note: No confidence adjustment is applied (see Decision 13)
 
     @pytest.mark.asyncio
     async def test_integrate_wayback_result_adds_events(
@@ -968,21 +906,6 @@ class TestEdgeCases:
 
         # Then:
         assert timeline.claim_id == ""
-
-    def test_confidence_adjustment_with_both_retraction_and_confirmations(self) -> None:
-        """Verify confidence adjustment combines retraction and confirmations."""
-        # Given:
-        timeline = ClaimTimeline(claim_id="claim_complex")
-        timeline.add_event(TimelineEventType.CONFIRMED, source_url="url1")
-        timeline.add_event(TimelineEventType.CONFIRMED, source_url="url2")
-        timeline.add_event(TimelineEventType.RETRACTED, source_url="url3")
-
-        # When:
-        adjustment = timeline.calculate_confidence_adjustment()
-
-        # Then: - Retraction (0.5) * confirmation bonus (1.2) = 0.6
-        expected = RETRACTION_CONFIDENCE_PENALTY * (1.0 + 0.2)
-        assert adjustment == pytest.approx(expected, abs=0.01)
 
     def test_get_events_in_range_with_no_matches(self) -> None:
         """Verify get_events_in_range returns empty list when no matches."""
