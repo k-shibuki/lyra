@@ -2,19 +2,20 @@
 Tests for academic citation integration in evidence graph.
 
 Tests the add_academic_page_with_citations() function and
-is_academic, citation_context edge attributes.
+citation_source, citation_context edge attributes.
 Note: is_influential was removed per decision 12 (Phase 2).
 
 ## Test Perspectives Table
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
-| TC-EG-N-01 | Add edge with is_academic=True | Equivalence – normal | Edge created with is_academic attribute | - |
+| TC-EG-N-01 | Add edge with citation_source="semantic_scholar" | Equivalence – normal | Edge created with citation_source attribute | - |
 | TC-EG-N-02 | Add edge with citation_context | Equivalence – normal | Edge created with citation_context | - |
 | TC-EG-N-03 | add_academic_page_with_citations() with citations | Equivalence – normal | PAGE node and CITES edges created | - |
 | TC-EG-N-04 | add_academic_page_with_citations() without citations | Equivalence – normal | PAGE node created, no edges | - |
 | TC-EG-B-01 | citations=[] (empty list) | Boundary – empty | No edges created | - |
 | TC-EG-B-02 | citation_context=None | Boundary – NULL | Edge created with None context | - |
+| TC-EG-B-04 | citation_source=None (fallback) | Boundary – NULL | Edge uses paper_metadata.source_api | Citation.source_api未指定時 |
 | TC-EG-B-03 | paper_metadata={} (empty dict) | Boundary – empty | Node created with default values | - |
 | TC-EG-A-01 | Invalid Citation object in list | Abnormal – invalid input | Citation skipped, processing continues | - |
 | TC-EG-A-02 | DB insert fails | Abnormal – exception | Exception handled gracefully | - |
@@ -97,11 +98,11 @@ class TestEvidenceGraphAcademicEdges:
 
     def test_add_edge_with_is_academic_attribute(self, evidence_graph: EvidenceGraph) -> None:
         """
-        Test: add_edge() accepts is_academic attribute.
+        Test: add_edge() accepts citation_source attribute.
 
         Given: Source and target PAGE nodes
-        When: Adding CITES edge with is_academic=True
-        Then: Edge is created with is_academic attribute
+        When: Adding CITES edge with citation_source="semantic_scholar"
+        Then: Edge is created with citation_source attribute
         """
         # Given
         source_id = "page_source"
@@ -115,7 +116,7 @@ class TestEvidenceGraphAcademicEdges:
             target_id=target_id,
             relation=RelationType.CITES,
             confidence=1.0,
-            is_academic=True,
+            citation_source="semantic_scholar",
         )
 
         # Then
@@ -128,7 +129,7 @@ class TestEvidenceGraphAcademicEdges:
         assert evidence_graph._graph.has_edge(source_node, target_node)
 
         edge_data = evidence_graph._graph.edges[source_node, target_node]
-        assert edge_data.get("is_academic") is True
+        assert edge_data.get("citation_source") == "semantic_scholar"
 
     def test_add_edge_with_citation_context(self, evidence_graph: EvidenceGraph) -> None:
         """
@@ -151,7 +152,7 @@ class TestEvidenceGraphAcademicEdges:
             target_id=target_id,
             relation=RelationType.CITES,
             confidence=1.0,
-            is_academic=True,
+            citation_source="semantic_scholar",
             citation_context=context,
         )
 
@@ -265,7 +266,7 @@ class TestAddAcademicPageWithCitations:
                 assert edge_data["source_type"] == NodeType.PAGE.value
                 assert edge_data["target_type"] == NodeType.PAGE.value
                 assert edge_data["relation"] == RelationType.CITES.value
-                assert edge_data["is_academic"] == 1
+                assert edge_data["citation_source"] in ("semantic_scholar", "openalex")
                 # Phase 2: domain_category should be present (from pages table domain)
                 assert "source_domain_category" in edge_data
                 assert "target_domain_category" in edge_data
@@ -415,11 +416,11 @@ class TestAcademicEdgeQuery:
 
     def test_filter_academic_citations(self, evidence_graph: EvidenceGraph) -> None:
         """
-        Test: Can filter edges by is_academic attribute.
+        Test: Can filter edges by citation_source attribute.
 
-        Given: Graph with both academic and non-academic edges
-        When: Filtering for academic edges
-        Then: Only academic edges are returned
+        Given: Graph with both API-derived and extracted citations
+        When: Filtering for API-derived citation edges
+        Then: Only API-derived citation edges are returned
         """
         # Given: Add mix of edges
         evidence_graph.add_edge(
@@ -428,7 +429,7 @@ class TestAcademicEdgeQuery:
             NodeType.PAGE,
             "page2",
             RelationType.CITES,
-            is_academic=True,
+            citation_source="semantic_scholar",
         )
 
         evidence_graph.add_edge(
@@ -437,14 +438,14 @@ class TestAcademicEdgeQuery:
             NodeType.PAGE,
             "page3",
             RelationType.CITES,
-            is_academic=False,
+            citation_source="extraction",
         )
 
-        # When: Filter for academic edges
+        # When: Filter for API-derived citation edges
         academic_edges = [
             (u, v, d)
             for u, v, d in evidence_graph._graph.edges(data=True)
-            if d.get("is_academic") is True
+            if d.get("citation_source") in ("semantic_scholar", "openalex")
         ]
 
         # Then
@@ -484,7 +485,7 @@ class TestBoundaryValues:
             NodeType.PAGE,
             "s2:ref1",
             RelationType.CITES,
-            is_academic=True,
+            citation_source="semantic_scholar",
             citation_context=None,
         )
 

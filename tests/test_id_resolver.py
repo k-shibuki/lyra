@@ -124,7 +124,11 @@ class TestResolvePMIDToDOI:
 
         # When: Resolving None PMID to DOI (with mock to avoid actual API call)
         mock_session = AsyncMock()
-        mock_session.get = AsyncMock(side_effect=httpx.HTTPStatusError("400 Bad Request", request=MagicMock(), response=MagicMock()))
+        mock_session.get = AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "400 Bad Request", request=MagicMock(), response=MagicMock()
+            )
+        )
 
         with patch.object(id_resolver, "_get_session", AsyncMock(return_value=mock_session)):
             doi = await id_resolver.resolve_pmid_to_doi(pmid)  # type: ignore[arg-type]

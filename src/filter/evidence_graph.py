@@ -917,7 +917,7 @@ class EvidenceGraph:
                         "confidence": data.get("confidence"),
                         "nli_label": data.get("nli_label"),
                         "nli_confidence": data.get("nli_confidence"),
-                        "is_academic": 1 if data.get("is_academic") else 0,
+                        "citation_source": data.get("citation_source"),
                         "citation_context": data.get("citation_context"),
                         "source_domain_category": data.get("source_domain_category"),
                         "target_domain_category": data.get("target_domain_category"),
@@ -974,6 +974,8 @@ class EvidenceGraph:
                 confidence=edge.get("confidence"),
                 nli_label=edge.get("nli_label"),
                 nli_confidence=edge.get("nli_confidence"),
+                citation_source=edge.get("citation_source"),
+                citation_context=edge.get("citation_context"),
                 source_domain_category=edge.get("source_domain_category"),
                 target_domain_category=edge.get("target_domain_category"),
             )
@@ -1113,7 +1115,7 @@ async def add_citation(
     source_id: str,
     page_id: str,
     task_id: str | None = None,
-    is_academic: bool = False,
+    citation_source: str | None = None,
     citation_context: str | None = None,
     source_domain_category: str | None = None,
     target_domain_category: str | None = None,
@@ -1125,7 +1127,7 @@ async def add_citation(
         source_id: Source object ID.
         page_id: Page being cited.
         task_id: Task ID.
-        is_academic: Whether this is an academic citation.
+        citation_source: Source of this citation edge (semantic_scholar/openalex/extraction).
         citation_context: Citation context text.
         source_domain_category: Domain category of source domain.
         target_domain_category: Domain category of cited page's domain.
@@ -1142,7 +1144,7 @@ async def add_citation(
         target_id=page_id,
         relation=RelationType.CITES,
         confidence=1.0,
-        is_academic=is_academic,
+        citation_source=citation_source,
         citation_context=citation_context,
         source_domain_category=source_domain_category,
         target_domain_category=target_domain_category,
@@ -1160,7 +1162,7 @@ async def add_citation(
             "target_id": page_id,
             "relation": RelationType.CITES.value,
             "confidence": 1.0,
-            "is_academic": 1 if is_academic else 0,
+            "citation_source": citation_source,
             "citation_context": citation_context,
             "source_domain_category": source_domain_category,
             "target_domain_category": target_domain_category,
@@ -1296,7 +1298,7 @@ async def add_academic_page_with_citations(
             target_id=target_page_id,
             relation=RelationType.CITES,
             confidence=1.0,
-            is_academic=True,
+            citation_source=citation.source_api or paper_metadata.get("source_api"),
             citation_context=citation.context,
             source_domain_category=source_domain_category,
             target_domain_category=target_domain_category,
@@ -1313,7 +1315,7 @@ async def add_academic_page_with_citations(
                 "target_id": target_page_id,
                 "relation": RelationType.CITES.value,
                 "confidence": 1.0,
-                "is_academic": 1,
+                "citation_source": citation.source_api or paper_metadata.get("source_api"),
                 "citation_context": citation.context,
                 "source_domain_category": source_domain_category,
                 "target_domain_category": target_domain_category,

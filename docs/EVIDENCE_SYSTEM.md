@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22（Phase 3b 追加）
+**最終更新**: 2025-12-22（Phase 3b 完了）
 
 このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -70,11 +70,11 @@
 
 | Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
 |---|---|---|---|---|
-| Phase 3b / Task 3b.1 | `is_academic` → `citation_source` リネーム | PLANNED | `src/storage/schema.sql`, `src/filter/evidence_graph.py`, `src/research/pipeline.py` | 値: `"semantic_scholar"` / `"openalex"` / `"extraction"`。記録用（フィルタリングには使用しない） |
-| Phase 3b / Task 3b.2 | 引用検出プロンプト作成 | PLANNED | `config/prompts/detect_citation.j2` | LLM判定用プロンプト |
-| Phase 3b / Task 3b.3 | 引用検出ロジック実装 | PLANNED | `src/extractor/citation_detector.py`（新規） | LinkExtractor（本文内リンク）+ LLM判定 |
-| Phase 3b / Task 3b.4 | CITESエッジ生成 | PLANNED | `src/filter/evidence_graph.py`, `src/extractor/content.py` | `add_citation(citation_source="extraction")` |
-| Phase 3b / Task 3b.5 | ドキュメント更新 | PLANNED | `docs/EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | - |
+| Phase 3b / Task 3b.1 | `is_academic` → `citation_source` リネーム | DONE | `src/storage/schema.sql`, `src/filter/evidence_graph.py`, `src/utils/schemas.py` | 値: `"semantic_scholar"` / `"openalex"` / `"extraction"`。記録用（フィルタリングには使用しない） |
+| Phase 3b / Task 3b.2 | 引用検出プロンプト作成 | DONE | `config/prompts/detect_citation.j2` | LLM判定用プロンプト |
+| Phase 3b / Task 3b.3 | 引用検出ロジック実装 | DONE | `src/extractor/citation_detector.py`, `tests/test_citation_detector.py` | LinkExtractor（本文内リンク）+ LLM判定 |
+| Phase 3b / Task 3b.4 | CITESエッジ生成 | DONE | `src/research/executor.py` | `add_citation(citation_source="extraction")` 統合済み |
+| Phase 3b / Task 3b.5 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | - |
 
 ---
 
@@ -2162,7 +2162,7 @@ def test_get_citations_returns_papers_only():
 - マイグレーション（必要な場合）: 既存の `is_academic=1` エッジは、可能なら **`pages.paper_metadata`（JSON）内の `source_api`**（= `Paper.source_api`）から埋める。単独運用なので、スキーマ変更はDB再作成でよい（`CREATE TABLE IF NOT EXISTS` は既存DBに列追加しないため）。
 - 影響範囲: `evidence_graph.py`, `pipeline.py`, 各種テスト
 - **注**: フラグは記録用（トレーサビリティ/デバッグ）であり、フィルタリングには使用しない
-- **実装メモ**: `Paper.source_api`（`"semantic_scholar"` / `"openalex"`）を、そのまま `citation_source` の値として使用できる。
+- **実装メモ**: `citation_source` は **その引用ペアを返したAPI**（S2なら `"semantic_scholar"`, OpenAlexなら `"openalex"`）を入れる。`Paper.source_api`（論文メタデータの取得元）とは一致しない場合があるため、**代用しない**。S2/OpenAlex統合で同一ペアが両方から観測された場合は、上記の方針どおり **`"semantic_scholar"` を優先**して記録する。
 
 **3b.2 引用検出プロンプト作成**
 

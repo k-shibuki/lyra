@@ -311,7 +311,7 @@ class TestEvidenceGraphIntegration:
                 edge_data = call[0][1]
                 assert edge_data["source_type"] == NodeType.PAGE.value
                 assert edge_data["relation"] == RelationType.CITES.value
-                assert edge_data["is_academic"] == 1
+                assert edge_data["citation_source"] in ("semantic_scholar", "openalex")
 
 
 # =============================================================================

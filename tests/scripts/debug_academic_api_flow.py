@@ -292,7 +292,7 @@ async def test_evidence_graph_academic_edges() -> bool:
         target_type=NodeType.PAGE,
         target_id="page2",
         relation=RelationType.CITES,
-        is_academic=True,
+        citation_source="semantic_scholar",
         citation_context="This work builds upon [1].",
     )
 
@@ -301,8 +301,8 @@ async def test_evidence_graph_academic_edges() -> bool:
     target_node = f"{NodeType.PAGE.value}:page2"
     edge_data = graph._graph.edges[source_node, target_node]
 
-    assert edge_data.get("is_academic") is True
-    print(f"  ✓ is_academic attribute: {edge_data.get('is_academic')}")
+    assert edge_data.get("citation_source") == "semantic_scholar"
+    print(f"  ✓ citation_source attribute: {edge_data.get('citation_source')}")
 
     assert edge_data.get("citation_context") == "This work builds upon [1]."
     print(f"  ✓ citation_context attribute: '{edge_data.get('citation_context')[:30]}...'")
