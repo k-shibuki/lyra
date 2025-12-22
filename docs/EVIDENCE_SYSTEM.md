@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22（Phase 4 設計判断確定: 決定13/14、エビデンスグラフ成長モデル）
+**最終更新**: 2025-12-22（Phase 4 着手準備: 前提A（通常パスでNLIエッジ永続化）を明文化）
 
 このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -75,6 +75,19 @@
 | Phase 3b / Task 3b.3 | 引用検出ロジック実装 | DONE | `src/extractor/citation_detector.py`, `tests/test_citation_detector.py` | LinkExtractor（本文内リンク）+ LLM判定 |
 | Phase 3b / Task 3b.4 | CITESエッジ生成 | DONE | `src/research/executor.py` | `add_citation(citation_source="extraction")` 統合済み |
 | Phase 3b / Task 3b.5 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | - |
+
+#### Phase 4（ベイズ信頼度モデル）
+
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 4 / Task 4.0 | **前提A**: Step 7（NLI）を通常検索パスに接続し、`edges.nli_confidence` を永続化 | DONE | `src/research/executor.py`, `src/filter/evidence_graph.py`, `src/filter/nli.py` | **Phase 4はこの前提が満たされるまで開始しない**（決定7/13の入力が揃わないため）。`edges.confidence` はLLM抽出等が混在し得るので、ベイズ更新には使用しない |
+| Phase 4 / Task 4.1 | `calculate_claim_confidence_bayesian()` 実装 | PLANNED | `src/filter/evidence_graph.py` | - |
+| Phase 4 / Task 4.2 | 出力スキーマ確定（`confidence/uncertainty/controversy` + デバッグ統計） | PLANNED | `src/filter/evidence_graph.py` | - |
+| Phase 4 / Task 4.3 | Source Verification / MCPレスポンスへの反映 | PLANNED | `src/filter/source_verification.py`, `src/mcp/server.py`, `src/research/materials.py` | 制御点: `get_materials_action()`（決定13） |
+| Phase 4 / Task 4.4 | 既存テスト更新（後方互換なし前提で更新） | PLANNED | - | - |
+| Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | PLANNED | `src/filter/evidence_graph.py`, `src/filter/source_verification.py` | - |
+| Phase 4 / Task 4.6 | ドキュメント更新 | PLANNED | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+| Phase 4 / Task 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | PLANNED | `src/filter/claim_timeline.py` | timelineは監査ログに限定（α/βを直接操作しない） |
 
 ---
 
@@ -437,6 +450,11 @@ task_id = "task-123"
 | 計算タイミング | オンデマンド（`get_materials`呼び出し時） |
 | α/β保存 | しない（エッジから毎回計算） |
 | claims.confidence_score | 導出値（DBキャッシュは任意） |
+| キャッシュ制御点 | **`src/research/materials.py:get_materials_action()`**（呼び出し元: `src/mcp/server.py:_handle_get_materials`）。返却値はエッジから導出した値を正とし、必要ならDBへ書き戻す（最適化）。`EvidenceGraph`自体にDB更新の責務を持たせない（副作用境界の明確化）。 |
+
+**前提（重要）**:
+- ベイズ更新の入力は **`edges.nli_confidence`（NLIの確信度）** のみとする（決定7/13）。
+- したがって、通常検索パスで Step 7（NLI）を実行し、`SUPPORTS/REFUTES/NEUTRAL` エッジに `nli_confidence` を永続化できていることが必須（Phase 4 / Task 4.0）。
 
 **claim_timelineの位置づけ**:
 - 監査ログ（いつ何が起きたか）として保持
@@ -786,7 +804,35 @@ search(query)
     │
     └─ Step 7: エビデンスグラフ構築 ───────────────────── 常に実行
           └─ 【ML Server】NLI → SUPPORTS/REFUTES判定
-          └─ ベイズ更新 → confidence/uncertainty/controversy
+          └─ edges追加（グラフ成長 / DB永続化）
+          └─ （Phase 4 / 決定13）`confidence/uncertainty/controversy` は `get_materials` 呼び出し時にオンデマンド導出
+
+get_materials(task_id)
+    └─ Step 8: Materials Export（オンデマンド導出） ─────── 任意のタイミングで呼び出し可能
+          └─ edges（SUPPORTS/REFUTES + nli_confidence）から confidence/uncertainty/controversy を導出して返す
+```
+
+#### エビデンスグラフ成長モデル（決定13の組み込み）
+
+改善後のフローは「1回のsearchで完結」ではなく、**同一 `task_id` に対してsearchを複数回実行してグラフを成長させる**設計である。
+成長（pages/fragments/edgesの追加）はsearch実行ごとに起き、`get_materials` はその時点の**全エッジ**からベイズ統計量を導出して返す。
+
+```
+task_id = "task-123"
+├─ search #1
+│   → pages追加 (DOI/URLで重複排除)
+│   → fragments追加 (text_hashで重複排除)
+│   → NLI → edges追加
+│
+├─ search #2 (同じtask_id)
+│   → 新規pages/fragments/edgesのみ追加（既存はスキップ）
+│
+└─ ... search #N → グラフ成長 → uncertainty低下 → confidence収束
+
+get_materials(task_id)
+  → EvidenceGraph をDBからロード
+  → SUPPORTS/REFUTES + nli_confidence の全エッジから confidence/uncertainty/controversy をオンデマンド導出
+  → （任意）DBへ書き戻し = キャッシュ（制御点: get_materials_action）
 ```
 
 **MLコンポーネントの配置**:
@@ -796,6 +842,7 @@ search(query)
 | 5 | Embedding（粗） | LLM（精密） |
 | 6 | - | Fact/Claim抽出, **引用検出** |
 | 7 | NLI | - |
+| 8 | - | - |
 
 **重要**: Step 2 の分岐以外、すべての処理は共通パスを通る。
 
@@ -918,10 +965,8 @@ search(query)
      │            │ │  │   ← labels[] (SUPPORTS/REFUTES/NEUTRAL)                                      ││
      │            │ │  │   → エッジ作成                                                               ││
      │            │ │  │   → source_domain_category/target_domain_category 付与                       ││
-     │            │ │  │                                                                              ││
-     │            │ │  │ ベイズ更新:                                                                  ││
-     │            │ │  │   → claim_confidence計算（§提案6）                                           ││
-     │            │ │  │   → confidence/uncertainty/controversy 算出                                  ││
+    │            │ │  │                                                                              ││
+    │            │ │  │ ベイズ統計量はここでは確定させず、`get_materials` 時にオンデマンド導出            ││
      │            │ │  └───────────────────────────────────────────────────────────────────────────────┘│
      │            │ └─────────────┬─────────────────────────────────────────────────────────────────────┘
      │            │               │
@@ -938,7 +983,7 @@ search(query)
      │            │
      │get_materials│
      │───────────>│
-     │  materials │
+    │  materials │  Step:8 edgesから confidence/uncertainty/controversy を導出して返却
      │<───────────│
 ```
 
@@ -2314,10 +2359,15 @@ class CitationDetector:
 **この Phase を Phase 3 の後に実装する根拠**:
 引用追跡（Phase 3）によりエビデンスグラフが充実した後にベイズモデルを導入することで、より正確なconfidence/uncertainty/controversy計算が可能になる。エビデンス量が少ない段階での導入は効果が限定的。
 
+**開始条件（重要）**:
+- Phase 4 / Task 4.0（前提A: 通常検索パスで Step 7（NLI）を接続し、`edges.nli_confidence` を永続化）が完了していること。
+- これが未完の状態でベイズ計算を入れると、入力が欠損し「confidence/uncertainty/controversy」が恣意的なフォールバックだらけになるため、設計原則（透明性・再現性）に反する。
+
 #### タスク一覧
 
 | # | タスク | 実装ファイル | テストファイル |
 |---|--------|-------------|---------------|
+| 4.0 | **前提A**: Step 7（NLI）を通常検索パスに接続し、`edges.nli_confidence` を永続化 | `src/research/executor.py`, `src/filter/evidence_graph.py`, `src/filter/nli.py` | `tests/test_executor_nli_edges.py` |
 | 4.1 | `calculate_claim_confidence_bayesian()` 実装 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 4.2 | 出力スキーマ確定（`confidence/uncertainty/controversy` + デバッグ統計） | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 4.3 | Source Verification / MCPレスポンスへの反映 | `src/filter/source_verification.py`, `src/mcp/server.py` | `tests/test_source_verification.py`, `tests/test_mcp_get_materials.py` |
@@ -2335,6 +2385,16 @@ class CitationDetector:
 | `docs/EVIDENCE_SYSTEM.md` | 進捗トラッカー更新（Phase 4 → DONE） | 完了記録 |
 
 #### タスク詳細
+
+**4.0 前提A: Step 7（NLI）エッジ生成の通常パス接続**
+
+- 目的: Phase 4（決定7/13）の入力データ（`edges.nli_confidence`）を揃える。
+- 要件:
+  - claim と fragment のペアに対して NLI を実行し、`relation`（supports/refutes/neutral）と `nli_confidence` を `edges` に永続化する。
+  - `edges.confidence` はベイズ更新に使わない（LLM抽出のconfidence等が混在し得るため）。
+- 完了条件（最小）:
+  - 通常検索パスで作られる claim-evidence エッジに `nli_confidence` が埋まっている。
+  - `SourceVerifier` が `calculate_claim_confidence()` を呼んだとき、NLI由来の統計量を計算できる（フォールバックに依存しない）。
 
 **4.1 `calculate_claim_confidence_bayesian()` 実装**
 
