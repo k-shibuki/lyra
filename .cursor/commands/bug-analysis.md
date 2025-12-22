@@ -8,6 +8,7 @@ Investigate a bug systematically, identify root cause, implement a fix, and veri
 
 - A “normal” bug (not primarily a parser-selector issue, not primarily cross-module contract design)
 - Exceptions, resource leaks, race conditions, incorrect edge-case handling
+  - If you discover the issue is primarily a cross-module contract/flow mismatch (e.g., a new parameter validated but not propagated), consider switching to `NEXT_COMMAND: /integration-design`.
 
 ## Inputs (attach as `@...`)
 
@@ -49,3 +50,4 @@ grep -r "ERROR\\|Exception" logs/
 
 - `@.cursor/rules/code-execution.mdc`
 - `@.cursor/rules/refactoring.mdc`
+- `@.cursor/rules/integration-design.mdc` (when debugging cross-module contracts/flows)

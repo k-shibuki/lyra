@@ -39,6 +39,7 @@ Select exactly one implementation task from the given context, collect the missi
    - Requirements/spec references (what must remain true)
    - Existing code paths, patterns, and conventions
    - Affected modules and integration points (APIs, schemas, config, CLI, scripts)
+   - If adding a new parameter/field: a **propagation map** (where it is accepted, transformed, forwarded, and where it has effect)
    - Existing tests and fixtures that should be extended
    - Risks, unknowns, and how to validate them (e.g., debug script, targeted test run)
 6. Produce an implementation plan that includes both:
@@ -75,6 +76,7 @@ feature/phase-{N}-{M}-{short-description}
 - **Implementation plan (tests)**:
   - Test matrix (Markdown table; include equivalence partitions + boundary cases)
   - Test files to add/update
+  - Wiring/effect coverage for any new parameters/fields (how propagation is asserted so “validated-but-unused” cannot pass)
   - Notes on mocks/stubs, negative tests (>= positive tests), and exception/message assertions
 - **Verification plan**:
   - What to run (recommend `/test-create`, `/test-review`, `/quality-check`, `/regression-test`)

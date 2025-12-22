@@ -30,6 +30,7 @@ Review tests against `@.cursor/rules/test-strategy.mdc` and improve them until t
 4. Given/When/Then comments exist.
 5. Exceptions validate both type and message where meaningful.
 6. Branch/behavioral coverage is reasonable (focus on meaningful branches).
+7. If a new parameter/field was introduced, tests include at least one **wiring/effect** assertion so “validated-but-unused / not propagated” cannot pass.
 
 ## Steps
 
