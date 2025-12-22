@@ -17,16 +17,18 @@ MCPツール`get_materials`がCursor AIから呼び出された際の、claims/f
   "task_id": "task_abc123",
   "query": "元の問い",
   "claims": [
-    {
-      "id": "c_001",
-      "text": "主張テキスト",
-      "confidence": 0.92,
-      "evidence_count": 3,
-      "has_refutation": false,
-      "sources": [
-        {"url": "https://...", "title": "...", "is_primary": true}
-      ]
-    }
+      {
+        "id": "c_001",
+        "text": "主張テキスト",
+        "confidence": 0.92,
+        "uncertainty": 0.12,
+        "controversy": 0.08,
+        "evidence_count": 3,
+        "has_refutation": false,
+        "sources": [
+          {"url": "https://...", "title": "...", "is_primary": true}
+        ]
+      }
   ],
   "fragments": [
     {

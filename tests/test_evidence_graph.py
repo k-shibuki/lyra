@@ -307,7 +307,7 @@ class TestClaimConfidence:
     """Tests for claim confidence calculation."""
 
     def test_calculate_confidence_no_evidence(self) -> None:
-        """Test confidence with no evidence."""
+        """Test confidence with no evidence (Beta(1,1) prior)."""
         # Given: A graph with a claim but no evidence
         graph = EvidenceGraph()
         graph.add_node(NodeType.CLAIM, "claim-1")
@@ -315,13 +315,17 @@ class TestClaimConfidence:
         # When: Calculating confidence for the claim
         result = graph.calculate_claim_confidence("claim-1")
 
-        # Then: Confidence is zero with unverified verdict
-        assert result["confidence"] == 0.0
-        assert result["verdict"] == "unverified"
+        # Then: Returns Beta(1,1) prior statistics
+        assert result["confidence"] == 0.5  # Beta(1,1) expectation
+        assert abs(result["uncertainty"] - 0.288675) < 0.01  # sqrt(1*1/(2^2*3)) ≈ 0.289
+        assert result["controversy"] == 0.0
         assert result["supporting_count"] == 0
+        assert result["alpha"] == 1.0
+        assert result["beta"] == 1.0
+        assert "verdict" not in result  # Phase 4: verdict removed
 
     def test_calculate_confidence_well_supported(self) -> None:
-        """Test confidence with multiple supporting evidence."""
+        """Test confidence with multiple supporting evidence (Bayesian updating)."""
         # Given: A graph with multiple high-confidence supporting evidence
         graph = EvidenceGraph()
 
@@ -333,18 +337,23 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
+                nli_confidence=0.9,  # Phase 4: nli_confidence required for Bayesian update
             )
 
         # When: Calculating confidence for the claim
         result = graph.calculate_claim_confidence("claim-1")
 
-        # Then: High confidence with well_supported verdict
+        # Then: High confidence, low uncertainty (Bayesian)
         assert result["supporting_count"] == 3
-        assert result["verdict"] == "well_supported"
-        assert result["confidence"] > 0.8
+        assert result["confidence"] > 0.75  # α=3.7, β=1 → confidence ≈ 0.79
+        assert result["uncertainty"] < 0.2  # More evidence → lower uncertainty
+        assert result["controversy"] == 0.0  # No refuting evidence
+        assert result["alpha"] > 3.0
+        assert result["beta"] == 1.0
+        assert "verdict" not in result  # Phase 4: verdict removed
 
     def test_calculate_confidence_contested(self) -> None:
-        """Test confidence with conflicting evidence."""
+        """Test confidence with conflicting evidence (high controversy)."""
         # Given: A graph with both supporting and refuting evidence
         graph = EvidenceGraph()
 
@@ -356,6 +365,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
+                nli_confidence=0.9,  # Phase 4: nli_confidence required
             )
 
         graph.add_edge(
@@ -365,15 +375,161 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.REFUTES,
             confidence=0.8,
+            nli_confidence=0.8,  # Phase 4: nli_confidence required
         )
 
         # When: Calculating confidence for the contested claim
         result = graph.calculate_claim_confidence("claim-1")
 
-        # Then: Verdict is contested
+        # Then: Moderate confidence, high controversy
         assert result["supporting_count"] == 2
         assert result["refuting_count"] == 1
-        assert result["verdict"] == "contested"
+        assert result["controversy"] > 0.0  # Both alpha and beta > 1
+        assert result["confidence"] > 0.5  # α=2.8, β=1.8 → confidence ≈ 0.61
+        assert "verdict" not in result  # Phase 4: verdict removed
+
+    def test_calculate_confidence_single_support(self) -> None:
+        """Test confidence with single supporting evidence."""
+        # Given: A graph with one supporting evidence
+        graph = EvidenceGraph()
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: Confidence increases but uncertainty is still high
+        assert result["confidence"] > 0.5  # α=1.9, β=1 → confidence ≈ 0.66
+        assert result["uncertainty"] < 0.29  # Lower than prior but still significant
+        assert result["controversy"] == 0.0
+        assert result["alpha"] == 1.9
+        assert result["beta"] == 1.0
+
+    def test_calculate_confidence_balanced_conflict(self) -> None:
+        """Test confidence with balanced supporting and refuting evidence."""
+        # Given: Equal amounts of supporting and refuting evidence
+        graph = EvidenceGraph()
+
+        for i in range(5):
+            graph.add_edge(
+                source_type=NodeType.FRAGMENT,
+                source_id=f"support-{i}",
+                target_type=NodeType.CLAIM,
+                target_id="claim-1",
+                relation=RelationType.SUPPORTS,
+                confidence=0.9,
+                nli_confidence=0.9,
+            )
+
+        for i in range(5):
+            graph.add_edge(
+                source_type=NodeType.FRAGMENT,
+                source_id=f"refute-{i}",
+                target_type=NodeType.CLAIM,
+                target_id="claim-1",
+                relation=RelationType.REFUTES,
+                confidence=0.9,
+                nli_confidence=0.9,
+            )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: Confidence near 0.5, high controversy
+        assert abs(result["confidence"] - 0.5) < 0.1  # α≈5.5, β≈5.5 → confidence ≈ 0.5
+        assert result["controversy"] > 0.4  # High controversy
+        assert result["uncertainty"] < 0.15  # Lower uncertainty due to more evidence (actual ≈ 0.144)
+        assert result["supporting_count"] == 5
+        assert result["refuting_count"] == 5
+
+    def test_calculate_confidence_zero_nli_confidence(self) -> None:
+        """Test that edges with nli_confidence=0 do not update alpha/beta."""
+        # Given: Edges with zero nli_confidence
+        graph = EvidenceGraph()
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.0,  # Zero weight
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: No update (prior distribution)
+        assert result["confidence"] == 0.5
+        assert result["alpha"] == 1.0
+        assert result["beta"] == 1.0
+
+    def test_calculate_confidence_neutral_edges_ignored(self) -> None:
+        """Test that NEUTRAL edges do not update alpha/beta."""
+        # Given: Only neutral edges
+        graph = EvidenceGraph()
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.NEUTRAL,
+            confidence=0.5,
+            nli_confidence=0.8,  # Even high confidence neutral doesn't update
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: Prior distribution (neutral edges ignored)
+        assert result["confidence"] == 0.5
+        assert result["alpha"] == 1.0
+        assert result["beta"] == 1.0
+        assert result["neutral_count"] == 1
+
+    def test_calculate_confidence_none_nli_confidence(self) -> None:
+        """Test that edges with None nli_confidence are handled gracefully."""
+        # Given: Edge with None nli_confidence
+        graph = EvidenceGraph()
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=None,  # Missing nli_confidence
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: No update (None is treated as 0)
+        assert result["confidence"] == 0.5
+        assert result["alpha"] == 1.0
+        assert result["beta"] == 1.0
+
+    def test_calculate_confidence_unknown_claim(self) -> None:
+        """Test confidence calculation for non-existent claim."""
+        # Given: Empty graph
+        graph = EvidenceGraph()
+
+        # When: Calculating confidence for unknown claim
+        result = graph.calculate_claim_confidence("unknown-claim")
+
+        # Then: Returns prior distribution
+        assert result["confidence"] == 0.5
+        assert result["uncertainty"] > 0.0
+        assert result["controversy"] == 0.0
+        assert result["supporting_count"] == 0
+        assert result["refuting_count"] == 0
 
 
 class TestCitationChain:

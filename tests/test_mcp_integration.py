@@ -22,6 +22,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from src.filter.evidence_graph import NodeType, RelationType
+
 if TYPE_CHECKING:
     from src.storage.database import Database
 
@@ -343,6 +345,93 @@ class TestGetMaterialsIntegration:
         # In that case, fallback logic still creates empty structure which is valid
         assert isinstance(graph["nodes"], list)
         assert isinstance(graph["edges"], list)
+
+    @pytest.mark.asyncio
+    async def test_get_materials_includes_bayesian_confidence(
+        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+    ) -> None:
+        """
+        TC-4.3-N-01: get_materials includes uncertainty and controversy (Phase 4).
+
+        // Given: Task with claims and evidence edges (with nli_confidence)
+        // When: Calling get_materials_action
+        // Then: Claims include uncertainty and controversy fields
+        """
+        from src.filter import evidence_graph as eg_module
+        from src.filter.evidence_graph import EvidenceGraph
+        from src.research.materials import get_materials_action
+
+        data = setup_task_with_claims
+        task_id = data["task_id"]
+        claim_ids = data["claim_ids"]
+
+        # Clear global EvidenceGraph cache
+        eg_module._graph = None
+
+        # Patch get_database at all usage points (module-level imports require patching at use site)
+        with patch(
+            "src.filter.evidence_graph.get_database", new=AsyncMock(return_value=memory_database)
+        ), patch(
+            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+        ):
+            # Add edges with nli_confidence to evidence graph
+            graph = EvidenceGraph(task_id=task_id)
+            await graph.load_from_db(task_id=task_id)
+
+            # Add supporting edge with nli_confidence (add_edge is synchronous)
+            graph.add_edge(
+                source_type=NodeType.FRAGMENT,
+                source_id=data["frag_ids"][0],
+                target_type=NodeType.CLAIM,
+                target_id=claim_ids[0],
+                relation=RelationType.SUPPORTS,
+                nli_confidence=0.9,
+            )
+
+            # Add refuting edge with nli_confidence
+            graph.add_edge(
+                source_type=NodeType.FRAGMENT,
+                source_id=data["frag_ids"][1],
+                target_type=NodeType.CLAIM,
+                target_id=claim_ids[0],
+                relation=RelationType.REFUTES,
+                nli_confidence=0.8,
+            )
+
+            # Save edges to DB
+            await graph.save_to_db()
+
+            # Clear cache before get_materials to force reload from DB
+            eg_module._graph = None
+
+            # Now get_materials should see the edges
+            result = await get_materials_action(task_id)
+
+        assert result["ok"] is True
+        assert len(result["claims"]) >= 1
+
+        # Verify Bayesian confidence fields exist
+        claim_with_evidence = None
+        for claim in result["claims"]:
+            if claim["id"] == claim_ids[0]:
+                claim_with_evidence = claim
+                break
+
+        assert claim_with_evidence is not None
+
+        # Wiring test: Bayesian confidence fields exist
+        assert "uncertainty" in claim_with_evidence
+        assert "controversy" in claim_with_evidence
+        assert isinstance(claim_with_evidence["uncertainty"], (int, float))
+        assert isinstance(claim_with_evidence["controversy"], (int, float))
+        assert claim_with_evidence["uncertainty"] >= 0.0
+        assert claim_with_evidence["controversy"] >= 0.0
+
+        # Effect test: Claim with both SUPPORTS and REFUTES should have controversy > 0
+        assert claim_with_evidence["controversy"] > 0.0, (
+            f"Expected controversy > 0 for claim with both SUPPORTS and REFUTES edges, "
+            f"got {claim_with_evidence['controversy']}"
+        )
 
 
 @pytest.mark.integration

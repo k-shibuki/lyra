@@ -345,14 +345,19 @@ class EvidenceGraph:
         self,
         claim_id: str,
     ) -> dict[str, Any]:
-        """Calculate overall confidence for a claim based on evidence.
+        """Calculate overall confidence for a claim using Bayesian updating.
+
+        Uses Beta distribution with uninformative prior Beta(1, 1) and updates
+        based on NLI confidence-weighted evidence edges.
 
         Args:
             claim_id: Claim object ID.
 
         Returns:
-            Confidence assessment dict.
+            Confidence assessment dict with confidence, uncertainty, controversy.
         """
+        import math
+
         evidence = self.get_all_evidence(claim_id)
 
         supporting_count = len(evidence["supports"])
@@ -360,54 +365,62 @@ class EvidenceGraph:
         neutral_count = len(evidence["neutral"])
         total_count = supporting_count + refuting_count + neutral_count
 
-        if total_count == 0:
-            return {
-                "confidence": 0.0,
-                "supporting_count": 0,
-                "refuting_count": 0,
-                "neutral_count": 0,
-                "verdict": "unverified",
-                "independent_sources": 0,
-            }
-
-        # Calculate average confidence from supporting evidence
-        support_confidences = [e.get("confidence", 0.5) for e in evidence["supports"]]
-        avg_support_confidence = (
-            sum(support_confidences) / len(support_confidences) if support_confidences else 0.0
-        )
-
         # Count unique sources (pages)
         unique_sources = set()
         for category in evidence.values():
             for e in category:
                 if e.get("node_type") == NodeType.PAGE.value:
                     unique_sources.add(e.get("obj_id"))
-                # Also count fragments' parent pages if available
 
-        # Calculate overall confidence
-        if refuting_count > 0:
-            # Presence of refutation lowers confidence
-            confidence = avg_support_confidence * (
-                supporting_count / (supporting_count + refuting_count * 2)
-            )
-            verdict = "contested" if supporting_count > refuting_count else "likely_false"
-        elif supporting_count >= 3:
-            confidence = min(avg_support_confidence * 1.1, 1.0)
-            verdict = "well_supported"
-        elif supporting_count >= 1:
-            confidence = avg_support_confidence
-            verdict = "supported"
+        # Bayesian updating: start with uninformative prior Beta(1, 1)
+        alpha = 1.0
+        beta = 1.0
+
+        # Update alpha/beta based on NLI confidence-weighted edges
+        for edge in evidence["supports"]:
+            nli_conf = edge.get("nli_confidence")
+            if nli_conf is not None and nli_conf > 0:
+                alpha += nli_conf
+
+        for edge in evidence["refutes"]:
+            nli_conf = edge.get("nli_confidence")
+            if nli_conf is not None and nli_conf > 0:
+                beta += nli_conf
+
+        # NEUTRAL edges do not update alpha/beta (no information)
+
+        # Calculate statistics from Beta distribution
+        total_evidence = alpha + beta - 2.0  # Subtract prior (1+1)
+
+        if total_evidence <= 0:
+            # No evidence: return prior distribution statistics
+            confidence = 0.5  # Beta(1,1) expectation
+            variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))
+            uncertainty = math.sqrt(variance)
+            controversy = 0.0
         else:
-            confidence = 0.3
-            verdict = "unverified"
+            # Calculate confidence (expectation of Beta distribution)
+            confidence = alpha / (alpha + beta)
+
+            # Calculate uncertainty (standard deviation)
+            variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))
+            uncertainty = math.sqrt(variance)
+
+            # Calculate controversy (degree of conflict)
+            # Controversy is high when both alpha and beta are large
+            controversy = min(alpha - 1.0, beta - 1.0) / total_evidence
 
         return {
             "confidence": round(confidence, 3),
+            "uncertainty": round(uncertainty, 3),
+            "controversy": round(controversy, 3),
             "supporting_count": supporting_count,
             "refuting_count": refuting_count,
             "neutral_count": neutral_count,
-            "verdict": verdict,
             "independent_sources": len(unique_sources),
+            "alpha": round(alpha, 2),
+            "beta": round(beta, 2),
+            "evidence_count": total_count,
         }
 
     def find_contradictions(self) -> list[dict[str, Any]]:
