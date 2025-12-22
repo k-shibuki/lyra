@@ -27,9 +27,6 @@ logger = get_logger(__name__)
 # Constants
 # =============================================================================
 
-# Default confidence reduction for retracted claims
-RETRACTION_CONFIDENCE_PENALTY = 0.5
-
 # Timeline event freshness threshold (days)
 FRESHNESS_THRESHOLD_DAYS = 365
 
@@ -237,34 +234,14 @@ class ClaimTimeline:
         """
         return [e for e in self.events if start <= e.timestamp <= end]
 
-    def calculate_confidence_adjustment(self) -> float:
-        """Calculate confidence adjustment based on timeline events.
-
-        Retractions reduce confidence, confirmations increase it.
-
-        Returns:
-            Adjustment factor (0.0-1.5).
-        """
-        adjustment = 1.0
-
-        # Retraction penalty
-        if self.is_retracted:
-            adjustment *= RETRACTION_CONFIDENCE_PENALTY
-
-        # Correction penalty (less severe than retraction)
-        if self.is_corrected:
-            adjustment *= 0.8
-
-        # Confirmation bonus (up to 50% increase)
-        confirmations = self.confirmation_count
-        if confirmations > 0:
-            bonus = min(0.5, confirmations * 0.1)
-            adjustment *= 1.0 + bonus
-
-        return adjustment
-
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
+        """Convert to dictionary for JSON serialization.
+
+        Note: Confidence adjustment is no longer calculated here.
+        Per Decision 13, confidence is computed solely via Bayesian updating
+        on evidence graph edges (SUPPORTS/REFUTES with nli_confidence).
+        Timeline events are for audit logging only.
+        """
         return {
             "claim_id": self.claim_id,
             "events": [e.to_dict() for e in self.events],
@@ -279,7 +256,6 @@ class ClaimTimeline:
                 "is_retracted": self.is_retracted,
                 "is_corrected": self.is_corrected,
                 "confirmation_count": self.confirmation_count,
-                "confidence_adjustment": self.calculate_confidence_adjustment(),
             },
         }
 
@@ -590,54 +566,11 @@ class ClaimTimelineManager:
 
         await self.save_timeline(timeline)
 
-        # Update claim confidence based on retraction
-        await self._apply_confidence_adjustment(claim_id, timeline)
+        # Note: Per Decision 13, confidence is computed solely via Bayesian updating
+        # on evidence graph edges. Retraction events are for audit logging only.
+        # To affect confidence, create a REFUTES edge in the evidence graph.
 
         return event
-
-    async def _apply_confidence_adjustment(
-        self,
-        claim_id: str,
-        timeline: ClaimTimeline,
-    ) -> None:
-        """Apply confidence adjustment based on timeline events.
-
-        Args:
-            claim_id: Claim ID.
-            timeline: The claim's timeline.
-        """
-        db = await get_database()
-
-        # Get current confidence
-        claim = await db.fetch_one(
-            "SELECT confidence_score FROM claims WHERE id = ?",
-            (claim_id,),
-        )
-
-        if claim is None:
-            return
-
-        current_confidence = claim.get("confidence_score", 1.0) or 1.0
-        adjustment = timeline.calculate_confidence_adjustment()
-
-        # Adjust confidence but keep within bounds
-        new_confidence = max(0.0, min(1.0, current_confidence * adjustment))
-
-        if new_confidence != current_confidence:
-            await db.update(
-                "claims",
-                {"confidence_score": new_confidence},
-                "id = ?",
-                (claim_id,),
-            )
-
-            logger.info(
-                "Claim confidence adjusted",
-                claim_id=claim_id,
-                old_confidence=current_confidence,
-                new_confidence=new_confidence,
-                adjustment=adjustment,
-            )
 
     async def integrate_wayback_result(
         self,
@@ -786,9 +719,8 @@ class ClaimTimelineManager:
 
         await self.save_timeline(timeline)
 
-        # If significant changes, also apply confidence adjustment
-        if event_type == TimelineEventType.CONTENT_MAJOR_CHANGE:
-            await self._apply_confidence_adjustment(claim_id, timeline)
+        # Note: Per Decision 13, confidence is computed solely via Bayesian updating
+        # on evidence graph edges. Archive diff events are for audit logging only.
 
         logger.info(
             "Archive diff event added",
