@@ -12,6 +12,7 @@ Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 import hashlib
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from src.research.state import ExplorationState
@@ -527,6 +528,76 @@ class SearchExecutor:
 
                     # Consider useful if we got substantial text
                     is_useful = len(extract_result.get("text", "")) > 200
+
+                    # Phase 3b: General web citation detection (LLM, conservative gating)
+                    # To control LLM time ratio, only run for useful primary sources.
+                    if is_useful and is_primary and html_path and fetch_result.get("page_id"):
+                        try:
+                            from src.extractor.citation_detector import CitationDetector
+                            from src.filter.evidence_graph import add_citation
+
+                            source_page_id = str(fetch_result["page_id"])
+                            source_domain = (urlparse(url).netloc or domain).lower()
+
+                            html = Path(html_path).read_text(encoding="utf-8", errors="ignore")
+
+                            detector = CitationDetector(max_candidates=10)
+                            detected = await detector.detect_citations(
+                                html=html,
+                                base_url=url,
+                                source_domain=source_domain,
+                            )
+
+                            citations = [d for d in detected if d.is_citation]
+                            if citations:
+                                db = await get_database()
+
+                                for c in citations:
+                                    target_url = c.url
+                                    target_domain = (
+                                        urlparse(target_url).netloc or ""
+                                    ).lower() or "unknown"
+
+                                    # Ensure target page exists in pages table (placeholder is OK).
+                                    existing = await db.fetch_one(
+                                        "SELECT id FROM pages WHERE url = ?",
+                                        (target_url,),
+                                    )
+                                    if existing and existing.get("id"):
+                                        target_page_id = str(existing["id"])
+                                    else:
+                                        inserted_id = await db.insert(
+                                            "pages",
+                                            {
+                                                "url": target_url,
+                                                "domain": target_domain,
+                                            },
+                                        )
+                                        if not inserted_id:
+                                            continue
+                                        target_page_id = str(inserted_id)
+
+                                    await add_citation(
+                                        source_type="page",
+                                        source_id=source_page_id,
+                                        page_id=target_page_id,
+                                        task_id=self.task_id,
+                                        citation_source="extraction",
+                                        citation_context=(c.context or "")[:500],
+                                    )
+
+                                logger.debug(
+                                    "Web citation detection completed",
+                                    page_id=source_page_id,
+                                    citations_total=len(detected),
+                                    citations_added=len(citations),
+                                )
+                        except Exception as e:
+                            logger.debug(
+                                "Web citation detection failed",
+                                url=url[:80],
+                                error=str(e),
+                            )
 
                     self.state.record_fragment(
                         search_id=search_id,

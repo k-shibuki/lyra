@@ -2300,50 +2300,21 @@ python scripts/migrate.py create NAME  # 新規作成
 
 ---
 
-### Phase P: トラストレベル・エビデンスグラフ設計変更 ⏳
+### Phase P: エビデンス評価システム設計変更 ⏳
 
-**目的**: トラストレベルとエビデンスグラフの設計を改善し、科学的論争と誤情報を適切に区別し、高推論AIへの情報提供を充実させる。
+**目的**: エビデンス評価システム設計を改善し、科学的論争と誤情報を適切に区別し、高推論AIへの情報提供を充実させる。
 
-**詳細ドキュメント**: `docs/EVIDENCE_SYSTEM.md`
+**詳細ドキュメント/実装ロードマップ**: `docs/EVIDENCE_SYSTEM.md`
 
-**主な変更内容**:
+**状態**: ✅ Phase 1-3b 完了、Phase 4-5 実装待ち
 
-1. **エッジへのドメインカテゴリ情報追加** ✅ (2025-12-20 完了)
-   - `edges`テーブルに`source_domain_category`, `target_domain_category`カラム追加
-   - REFUTESエッジにドメインカテゴリ情報を付与し、高推論AIが「科学的論争か誤情報か」を判断可能にする
-   - ドメインカテゴリはランキング調整用であり、信頼度計算や検証判定には使用しない
-   - ドメイン分類は `DomainCategory` に統一（ランキング調整専用であることを明確化）
-   - `ReasonCode` enum 導入（事実ベースの理由コード）
-   - 検証判定ロジックからドメインカテゴリ依存を除去（Thinking-Working分離）
-   - `category_weight` をランキングに適用
+### Phase Q: 非同期アーキテクチャ設計変更 ⏳
 
-2. **引用追跡の完全実装（決定11: Budgeted Citation Expansion）** ⏳
-   - **OpenAlex統合**: `get_references()` / `get_citations()` 実装、S2との統合
-   - **3段階フィルタリング**:
-     - Stage 0: メタデータ即時フィルタ
-     - Stage 1: Embedding + impact_score（粗フィルタ）
-     - Stage 2: LLM有用性評価（精密フィルタ、Qwen2.5 3B使用）
-   - **pages自動追加**: 選抜された引用先論文をpagesテーブルに自動登録
-   - **設定**: `search.citation_filter.*` および `citation_graph_top_n_papers`
+**目的**: 非同期アーキテクチャ設計を改善し、MCPツールのUXを高める。
 
-3. **is_influential の完全排除（決定12）** ✅
-   - Semantic Scholar専用フラグ `is_influential` をスキーマ・コードから削除
-   - 代替として `Paper.citation_count` から算出する `impact_score`（ローカル正規化）を使用
-   - Phase J.2 で導入された `is_influential` 関連コードを清掃
-   - コミット: `0869de0`
+**詳細ドキュメント/実装ロードマップ**: `docs/ASYNC_ARCHITECTURE.md`
 
-4. **ベイズ信頼度モデルの導入（決定7）** ⏳
-   - 無情報事前分布 Beta(1, 1) + ベイズ更新による信頼度計算
-   - confidence, uncertainty, controversy の3値を出力
-   - ドメイン分類に依存しない純粋エビデンス主義
-
-5. **矛盾検出ロジックの改善** ⏳
-   - 即時BLOCKEDを緩和
-   - エッジ情報に基づく判断基準の導入
-
-**実装ロードマップ**: `docs/EVIDENCE_SYSTEM.md` §実装ロードマップ参照
-
-**状態**: ✅ Phase 2 完了（`0869de0`, `993f333`）、Phase 3-4 実装待ち
+**状態**: 未着手
 
 ---
 

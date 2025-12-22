@@ -246,6 +246,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                                 citing_paper_id=current_id,
                                 cited_paper_id=ref_paper.id,
                                 context=None,
+                                source_api="semantic_scholar",
                             )
                         )
                         citation_pairs.add(pair_key)
@@ -261,6 +262,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                                 citing_paper_id=current_id,
                                 cited_paper_id=ref_paper.id,
                                 context=None,
+                                source_api="openalex",
                             )
                         )
                         citation_pairs.add(pair_key)
@@ -312,6 +314,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                                 citing_paper_id=cit_paper.id,
                                 cited_paper_id=current_id,
                                 context=None,
+                                source_api="semantic_scholar",
                             )
                         )
                         citation_pairs.add(pair_key)
@@ -327,6 +330,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                                 citing_paper_id=cit_paper.id,
                                 cited_paper_id=current_id,
                                 context=None,
+                                source_api="openalex",
                             )
                         )
                         citation_pairs.add(pair_key)

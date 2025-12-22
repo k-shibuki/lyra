@@ -1040,14 +1040,14 @@ class TestDatabaseIntegration:
 class TestAcademicCitationAttributes:
     """Tests for academic citation attributes (J2).
 
-    Tests for is_academic, citation_context attributes added to CITES edges.
+    Tests for citation_source, citation_context attributes added to CITES edges.
     Note: is_influential was removed per decision 12 (Phase 2).
     """
 
     def test_add_edge_with_academic_attributes(self) -> None:
         """Test adding edge with academic citation attributes.
 
-        // Given: Academic citation with is_academic, citation_context
+        // Given: Academic citation with citation_source, citation_context
         // When: Adding edge
         // Then: Attributes stored correctly
         """
@@ -1062,13 +1062,13 @@ class TestAcademicCitationAttributes:
             target_id="page-1",
             relation=RelationType.CITES,
             confidence=1.0,
-            is_academic=True,
+            citation_source="semantic_scholar",
             citation_context="This paper discusses...",
         )
 
         # Then: Attributes stored correctly
         edge_data = graph._graph.edges["fragment:frag-1", "page:page-1"]
-        assert edge_data["is_academic"] is True
+        assert edge_data["citation_source"] == "semantic_scholar"
         assert edge_data["citation_context"] == "This paper discusses..."
 
     def test_add_citation_with_academic_attributes(self) -> None:
@@ -1094,14 +1094,14 @@ class TestAcademicCitationAttributes:
                 target_type=NodeType.PAGE,
                 target_id="page-1",
                 relation=RelationType.CITES,
-                is_academic=True,
+                citation_source="semantic_scholar",
                 citation_context="Test context",
             )
 
             # Then: Citation added with attributes
             assert edge_id is not None
             edge_data = graph._graph.edges["fragment:frag-1", "page:page-1"]
-            assert edge_data["is_academic"] is True
+            assert edge_data["citation_source"] == "semantic_scholar"
 
     def test_load_from_db_with_academic_attributes(self) -> None:
         """Test loading edges with academic attributes from DB.
@@ -1118,7 +1118,7 @@ class TestAcademicCitationAttributes:
             target_type=NodeType.PAGE,
             target_id="page-1",
             relation=RelationType.CITES,
-            is_academic=True,
+            citation_source="semantic_scholar",
             citation_context="Context text",
         )
 
@@ -1128,7 +1128,7 @@ class TestAcademicCitationAttributes:
         # Then: Attributes in export
         edges = data["edges"]
         assert len(edges) == 1
-        assert edges[0]["is_academic"] is True
+        assert edges[0]["citation_source"] == "semantic_scholar"
         assert edges[0]["citation_context"] == "Context text"
 
     @pytest.mark.asyncio
@@ -1152,7 +1152,7 @@ class TestAcademicCitationAttributes:
             target_id="page-1",
             relation=RelationType.CITES,
             confidence=1.0,
-            is_academic=True,
+            citation_source="semantic_scholar",
             citation_context="Academic citation context",
         )
 
@@ -1163,7 +1163,7 @@ class TestAcademicCitationAttributes:
         # Then: Attributes persisted correctly
         edges = await test_database.fetch_all("SELECT * FROM edges")
         assert len(edges) == 1
-        assert edges[0]["is_academic"] == 1
+        assert edges[0]["citation_source"] == "semantic_scholar"
         assert edges[0]["citation_context"] == "Academic citation context"
 
 

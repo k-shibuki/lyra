@@ -164,7 +164,9 @@ CREATE TABLE IF NOT EXISTS edges (
     nli_label TEXT,  -- From NLI model
     nli_confidence REAL,
     -- Academic / citation metadata
-    is_academic BOOLEAN DEFAULT 0,
+    -- citation_source is for CITES edges only (traceability; not used for filtering):
+    --   "semantic_scholar" | "openalex" | "extraction"
+    citation_source TEXT,
     citation_context TEXT,
     -- Domain category information for ranking adjustment and high-reasoning AI (Phase P.2)
     source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED

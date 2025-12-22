@@ -195,6 +195,9 @@ class LinkExtractor:
         html: str,
         base_url: str,
         target_domain: str,
+        *,
+        same_domain_only: bool = True,
+        allow_pdf: bool = False,
     ) -> list[ExtractedLink]:
         """Extract links from HTML content.
 
@@ -202,6 +205,8 @@ class LinkExtractor:
             html: HTML content.
             base_url: Base URL for resolving relative links.
             target_domain: Target domain to filter same-domain links.
+            same_domain_only: If True, only return links within target_domain (crawler use).
+            allow_pdf: If True, do not skip .pdf links (useful for citation detection).
 
         Returns:
             List of ExtractedLink objects.
@@ -220,7 +225,7 @@ class LinkExtractor:
                 continue
 
             # Skip unwanted patterns
-            if self._should_skip(href):
+            if self._should_skip(href, allow_pdf=allow_pdf):
                 continue
 
             # Resolve relative URL
@@ -231,7 +236,7 @@ class LinkExtractor:
 
             # Check same domain
             parsed = urlparse(absolute_url)
-            if parsed.netloc.lower() != target_domain.lower():
+            if same_domain_only and parsed.netloc.lower() != target_domain.lower():
                 continue
 
             # Skip duplicates
@@ -263,9 +268,13 @@ class LinkExtractor:
 
         return links
 
-    def _should_skip(self, href: str) -> bool:
+    def _should_skip(self, href: str, *, allow_pdf: bool = False) -> bool:
         """Check if link should be skipped."""
+        is_pdf = bool(re.search(r"\.pdf(?:$|[?#])", href, re.I))
         for pattern in self._skip_patterns:
+            # Allow PDF links when explicitly enabled (citation detection use-case).
+            if allow_pdf and is_pdf and "pdf" in pattern.pattern and "jpg" in pattern.pattern:
+                continue
             if pattern.search(href):
                 return True
         return False

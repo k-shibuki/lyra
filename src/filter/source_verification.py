@@ -180,7 +180,9 @@ class SourceVerifier:
 
         # If dangerous pattern detected, block immediately
         if has_dangerous_pattern:
-            self._mark_domain_blocked(domain, "Dangerous pattern detected (L2/L4)", cause_id=cause_id)
+            self._mark_domain_blocked(
+                domain, "Dangerous pattern detected (L2/L4)", cause_id=cause_id
+            )
             self._update_domain_state(domain, claim_id, VerificationStatus.REJECTED)
 
             logger.warning(

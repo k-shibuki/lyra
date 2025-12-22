@@ -451,6 +451,14 @@ class Citation(BaseModel):
     citing_paper_id: str = Field(..., description="Citing paper ID")
     cited_paper_id: str = Field(..., description="Cited paper ID")
     context: str | None = Field(None, description="Citation context text")
+    source_api: str | None = Field(
+        default=None,
+        description=(
+            "Source API that returned this citation pair (semantic_scholar/openalex). "
+            "For web-extracted citations, this is typically None and the edge uses "
+            "citation_source='extraction'."
+        ),
+    )
 
 
 class AcademicSearchResult(BaseModel):
