@@ -21,28 +21,36 @@ Reference for project helper scripts (`scripts/*.sh`).
 ./scripts/dev.sh clean     # Remove container/images
 ```
 
+Notes:
+- `dev.sh` uses `podman-compose` under the hood (see `scripts/dev.sh` header).
+- `./scripts/dev.sh test` runs `pytest tests/ -v` inside the container and does **not** accept extra args.
+  - To run an arbitrary command inside the container, use `./scripts/dev.sh shell` and run it there.
+
 ## `test.sh` (test runner, AI-friendly)
 
 ```bash
-./scripts/test.sh run [target]  # Start tests (default: tests/)
-./scripts/test.sh check         # Status (DONE/RUNNING)
-./scripts/test.sh get           # Fetch results (tail)
+./scripts/test.sh run [--container|--venv|--auto] [--name NAME] [--] [pytest_args...]  # Start tests (default: tests/)
+./scripts/test.sh check         # Wait until DONE and print result tail
 ./scripts/test.sh kill          # Kill pytest
+./scripts/test.sh env           # Show environment info (venv/container/cloud-agent detection)
 ```
+
+Notes:
+- `test.sh` accepts **any pytest args** after `run` (e.g. `tests/test_x.py::TestY -k foo -q`).
+- Default runtime is **auto=container > venv**:
+  - If a container named `$CONTAINER_NAME` (default: `lyra`) is running, tests run in that container.
+  - Otherwise tests run in the local WSL venv (`.venv`).
+- You can force the runtime:
+  - `--container`: require container (fails if not running)
+  - `--venv`: force local venv
+  - `--name NAME`: override container name
+- `check/get/kill` target the **same runtime as the last `run`** (state file: `/tmp/lyra_test_state.env` by default).
 
 Polling pattern:
 
 ```bash
 ./scripts/test.sh run tests/
-for i in {1..60}; do
-    sleep 5
-    status=$(./scripts/test.sh check 2>&1)
-    echo "[$i] $status"
-    if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
-        break
-    fi
-done
-./scripts/test.sh get
+./scripts/test.sh check
 ```
 
 Completion logic:

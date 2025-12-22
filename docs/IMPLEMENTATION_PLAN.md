@@ -661,7 +661,6 @@ def _is_captcha_detected(result: SearchResponse) -> tuple[bool, Optional[str]]:
 
 # 2. テスト結果確認
 ./scripts/test.sh check
-./scripts/test.sh get
 
 # 3. 失敗テストの原因分析
 # - 依存関係の不足か（§G.2「依存関係確認」を参照）
