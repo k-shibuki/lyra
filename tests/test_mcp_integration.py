@@ -369,10 +369,14 @@ class TestGetMaterialsIntegration:
         eg_module._graph = None
 
         # Patch get_database at all usage points (module-level imports require patching at use site)
-        with patch(
-            "src.filter.evidence_graph.get_database", new=AsyncMock(return_value=memory_database)
-        ), patch(
-            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+        with (
+            patch(
+                "src.filter.evidence_graph.get_database",
+                new=AsyncMock(return_value=memory_database),
+            ),
+            patch(
+                "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+            ),
         ):
             # Add edges with nli_confidence to evidence graph
             graph = EvidenceGraph(task_id=task_id)

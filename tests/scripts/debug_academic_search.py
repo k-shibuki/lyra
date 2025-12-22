@@ -207,9 +207,7 @@ class AcademicSearchDebugger:
             engine="google",
             rank=1,
         )
-        identifier = PaperIdentifier(
-            doi="10.1234/test1", pmid=None, arxiv_id=None, url=None
-        )
+        identifier = PaperIdentifier(doi="10.1234/test1", pmid=None, arxiv_id=None, url=None)
         id3 = index.register_serp_result(serp1, identifier)
         serp_link_success = id1 == id3
         print(f"  3. SERP result linked to existing: {'✓' if serp_link_success else '✗'}")
