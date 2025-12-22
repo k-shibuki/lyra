@@ -18,7 +18,7 @@ Tests for src/filter/evidence_graph.py
 | TC-EVID-N-03 | Get all evidence | Equivalence – normal | Categorized evidence | All relations |
 | TC-EVID-B-01 | Unknown claim | Boundary – not found | Empty result | Edge case |
 | TC-CONF-N-01 | No evidence | Equivalence – normal | confidence=0 | unverified |
-| TC-CONF-N-02 | Well supported | Equivalence – normal | High confidence | verdict set |
+| TC-CONF-N-02 | Well supported | Equivalence – normal | High confidence | Bayesian confidence computed |
 | TC-CONF-N-03 | Contested | Equivalence – normal | Mixed evidence | Support + refute |
 | TC-CITE-N-01 | Citation chain | Equivalence – normal | Chain traced | CITES edges |
 | TC-CITE-B-01 | Unknown node | Boundary – not found | Empty chain | Edge case |
