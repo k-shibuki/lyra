@@ -442,7 +442,9 @@ class TestClaimConfidence:
         # Then: Confidence near 0.5, high controversy
         assert abs(result["confidence"] - 0.5) < 0.1  # α≈5.5, β≈5.5 → confidence ≈ 0.5
         assert result["controversy"] > 0.4  # High controversy
-        assert result["uncertainty"] < 0.15  # Lower uncertainty due to more evidence (actual ≈ 0.144)
+        assert (
+            result["uncertainty"] < 0.15
+        )  # Lower uncertainty due to more evidence (actual ≈ 0.144)
         assert result["supporting_count"] == 5
         assert result["refuting_count"] == 5
 
@@ -535,7 +537,9 @@ class TestClaimConfidence:
 
         # Add a page node with year metadata
         page_node = graph._make_node_id(NodeType.PAGE, "page-2023")
-        graph._graph.add_node(page_node, node_type=NodeType.PAGE.value, year=2023, doi="10.1234/test")
+        graph._graph.add_node(
+            page_node, node_type=NodeType.PAGE.value, year=2023, doi="10.1234/test"
+        )
 
         graph.add_edge(
             source_type=NodeType.PAGE,

@@ -406,16 +406,18 @@ class EvidenceGraph:
                     except (ValueError, TypeError):
                         year = None
 
-                evidence_list.append({
-                    "relation": relation,
-                    "source_id": e.get("obj_id"),
-                    "source_type": e.get("node_type"),
-                    "year": year,
-                    "nli_confidence": round(nli_conf, 3) if nli_conf is not None else None,
-                    "source_domain_category": e.get("source_domain_category"),
-                    "doi": e.get("doi"),
-                    "venue": e.get("venue"),
-                })
+                evidence_list.append(
+                    {
+                        "relation": relation,
+                        "source_id": e.get("obj_id"),
+                        "source_type": e.get("node_type"),
+                        "year": year,
+                        "nli_confidence": round(nli_conf, 3) if nli_conf is not None else None,
+                        "source_domain_category": e.get("source_domain_category"),
+                        "doi": e.get("doi"),
+                        "venue": e.get("venue"),
+                    }
+                )
 
         # Calculate statistics from Beta distribution
         total_evidence = alpha + beta - 2.0  # Subtract prior (1+1)
