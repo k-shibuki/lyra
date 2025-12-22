@@ -148,6 +148,7 @@ class SourceVerifier:
         domain: str,
         evidence_graph: EvidenceGraph,
         has_dangerous_pattern: bool = False,
+        cause_id: str | None = None,
     ) -> VerificationResult:
         """Verify a claim using EvidenceGraph.
 
@@ -156,6 +157,7 @@ class SourceVerifier:
             domain: Source domain of the claim.
             evidence_graph: EvidenceGraph instance for querying.
             has_dangerous_pattern: Whether L2/L4 detected dangerous patterns.
+            cause_id: Causal trace ID for logging/auditing (optional).
 
         Returns:
             VerificationResult with status and trust level changes.
@@ -178,7 +180,7 @@ class SourceVerifier:
 
         # If dangerous pattern detected, block immediately
         if has_dangerous_pattern:
-            self._mark_domain_blocked(domain, "Dangerous pattern detected (L2/L4)")
+            self._mark_domain_blocked(domain, "Dangerous pattern detected (L2/L4)", cause_id=cause_id)
             self._update_domain_state(domain, claim_id, VerificationStatus.REJECTED)
 
             logger.warning(
@@ -189,7 +191,7 @@ class SourceVerifier:
 
             # K.3-8: Queue notification for blocked domain
             self._queue_blocked_notification(
-                domain, "Dangerous pattern detected (L2/L4)", task_id=None
+                domain, "Dangerous pattern detected (L2/L4)", task_id=None, cause_id=cause_id
             )
 
             return VerificationResult(
@@ -251,6 +253,7 @@ class SourceVerifier:
                 self._mark_domain_blocked(
                     domain,
                     f"High rejection rate ({domain_state.rejection_rate:.0%}) with {len(domain_state.rejected_claims)} rejections",
+                    cause_id=cause_id,
                 )
                 new_domain_category = DomainCategory.BLOCKED
                 promotion_result = PromotionResult.DEMOTED
@@ -268,6 +271,7 @@ class SourceVerifier:
                     domain,
                     f"High rejection rate ({domain_state.rejection_rate:.0%})",
                     task_id=None,
+                    cause_id=cause_id,
                 )
 
         return VerificationResult(
