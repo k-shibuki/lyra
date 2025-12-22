@@ -350,11 +350,17 @@ class EvidenceGraph:
         Uses Beta distribution with uninformative prior Beta(1, 1) and updates
         based on NLI confidence-weighted evidence edges.
 
+        Phase 4b: Also returns evidence details with time metadata for
+        high-reasoning AI to make temporal judgments.
+
         Args:
             claim_id: Claim object ID.
 
         Returns:
-            Confidence assessment dict with confidence, uncertainty, controversy.
+            Confidence assessment dict with:
+            - confidence, uncertainty, controversy (Bayesian)
+            - evidence: list of evidence items with time metadata
+            - evidence_years: summary of years (oldest, newest)
         """
         import math
 
@@ -376,18 +382,40 @@ class EvidenceGraph:
         alpha = 1.0
         beta = 1.0
 
-        # Update alpha/beta based on NLI confidence-weighted edges
-        for edge in evidence["supports"]:
-            nli_conf = edge.get("nli_confidence")
-            if nli_conf is not None and nli_conf > 0:
-                alpha += nli_conf
+        # Phase 4b: Collect evidence details with time metadata
+        evidence_list: list[dict[str, Any]] = []
+        all_years: list[int] = []
 
-        for edge in evidence["refutes"]:
-            nli_conf = edge.get("nli_confidence")
-            if nli_conf is not None and nli_conf > 0:
-                beta += nli_conf
+        for relation, items in evidence.items():
+            for e in items:
+                nli_conf = e.get("nli_confidence")
 
-        # NEUTRAL edges do not update alpha/beta (no information)
+                # Update alpha/beta for supports/refutes
+                if relation == "supports" and nli_conf is not None and nli_conf > 0:
+                    alpha += nli_conf
+                elif relation == "refutes" and nli_conf is not None and nli_conf > 0:
+                    beta += nli_conf
+                # NEUTRAL edges do not update alpha/beta (no information)
+
+                # Extract year from node data (set by add_academic_page_with_citations)
+                year = e.get("year")
+                if year is not None:
+                    try:
+                        year_int = int(year)
+                        all_years.append(year_int)
+                    except (ValueError, TypeError):
+                        year = None
+
+                evidence_list.append({
+                    "relation": relation,
+                    "source_id": e.get("obj_id"),
+                    "source_type": e.get("node_type"),
+                    "year": year,
+                    "nli_confidence": round(nli_conf, 3) if nli_conf is not None else None,
+                    "source_domain_category": e.get("source_domain_category"),
+                    "doi": e.get("doi"),
+                    "venue": e.get("venue"),
+                })
 
         # Calculate statistics from Beta distribution
         total_evidence = alpha + beta - 2.0  # Subtract prior (1+1)
@@ -410,6 +438,12 @@ class EvidenceGraph:
             # Controversy is high when both alpha and beta are large
             controversy = min(alpha - 1.0, beta - 1.0) / total_evidence
 
+        # Phase 4b: Year summary for high-reasoning AI
+        evidence_years: dict[str, int | None] = {
+            "oldest": min(all_years) if all_years else None,
+            "newest": max(all_years) if all_years else None,
+        }
+
         return {
             "confidence": round(confidence, 3),
             "uncertainty": round(uncertainty, 3),
@@ -421,6 +455,9 @@ class EvidenceGraph:
             "alpha": round(alpha, 2),
             "beta": round(beta, 2),
             "evidence_count": total_count,
+            # Phase 4b: Evidence details with time metadata
+            "evidence": evidence_list,
+            "evidence_years": evidence_years,
         }
 
     def find_contradictions(self) -> list[dict[str, Any]]:
