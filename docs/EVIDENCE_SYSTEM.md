@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22（Phase 4 完了: Task 4.0〜4.7 全タスク完了、ベイズ信頼度モデル導入、claim_timeline統合）
+**最終更新**: 2025-12-22（Phase 4b 完了: 時間メタデータ露出、決定15追加）
 
 このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -88,6 +88,15 @@
 | Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | DONE | `src/filter/evidence_graph.py` | `verdict` フィールド削除確認済み（grep残骸ゼロ） |
 | Phase 4 / Task 4.6 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | Phase 4 完了 |
 | Phase 4 / Task 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | DONE | `src/filter/claim_timeline.py`, `tests/test_claim_timeline.py` | `calculate_confidence_adjustment()`, `_apply_confidence_adjustment()`, `RETRACTION_CONFIDENCE_PENALTY` 削除。timelineは監査ログに限定 |
+
+#### Phase 4b（時間メタデータ露出）
+
+| Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
+|---|---|---|---|---|
+| Phase 4b / Task 4b.1 | `calculate_claim_confidence()` に `evidence` リストを追加 | DONE | `src/filter/evidence_graph.py` | 各エビデンスに `year`, `source_domain_category`, `nli_confidence`, `doi`, `venue` を含める |
+| Phase 4b / Task 4b.2 | `evidence_years` サマリー（oldest/newest）を追加 | DONE | `src/filter/evidence_graph.py` | 高推論AIが時間的判断を行うための要約情報 |
+| Phase 4b / Task 4b.3 | MCPレスポンスへの反映 | DONE | `src/research/materials.py` | `get_materials_action()` の `claims[]` に `evidence`/`evidence_years` を追加 |
+| Phase 4b / Task 4b.4 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | 決定15追加、Phase 4b完了 |
 
 ---
 
@@ -485,6 +494,55 @@ task_id = "task-123"
 2. **既存フィールドとの一貫性**: `confidence` が既にトップレベルに存在
 
 **実装タイミング**: Phase 4
+
+### 決定15: 時間メタデータの露出
+
+**決定**: `get_materials` の `claims[]` に各エビデンスの時間情報を含め、高推論AIが時間的判断を行えるようにする。
+
+**スキーマ**:
+```json
+{
+  "claims": [{
+    "confidence": 0.75,
+    "uncertainty": 0.12,
+    "controversy": 0.08,
+    "evidence": [
+      {
+        "relation": "supports",
+        "source_id": "page_abc123",
+        "year": 2023,
+        "nli_confidence": 0.9,
+        "source_domain_category": "academic",
+        "doi": "10.1234/example",
+        "venue": "Nature"
+      },
+      {
+        "relation": "refutes",
+        "source_id": "page_def456",
+        "year": 2024,
+        "nli_confidence": 0.85,
+        "source_domain_category": "academic"
+      }
+    ],
+    "evidence_years": {
+      "oldest": 2023,
+      "newest": 2024
+    }
+  }]
+}
+```
+
+**設計原則**:
+- **Thinking-Working分離の維持**: Lyraは時間情報（事実）を渡すのみ。「2024年の反論が2023年の支持より新しいので最新の知見では否定的」といった解釈は高推論AIが行う
+- **判断を行わない**: 時間的な重み付けやトレンド分析はLyraが行わない
+- **透明性**: 高推論AIが独自に時間的判断を行えるよう、生データを提供
+
+**高推論AIの活用例**:
+- 「すべてのエビデンスが2020年以前 → 最新研究の確認が必要」
+- 「2024年に反論が集中 → 最新の知見では否定的傾向」
+- 「支持エビデンスは2023年、反論は2018年 → 最新研究が支持」
+
+**実装タイミング**: Phase 4b
 
 ---
 

@@ -528,6 +528,99 @@ class TestClaimConfidence:
         assert result["supporting_count"] == 0
         assert result["refuting_count"] == 0
 
+    def test_calculate_confidence_returns_evidence_list(self) -> None:
+        """Phase 4b: Test that evidence list with time metadata is returned."""
+        # Given: A graph with evidence including year metadata
+        graph = EvidenceGraph()
+
+        # Add a page node with year metadata
+        page_node = graph._make_node_id(NodeType.PAGE, "page-2023")
+        graph._graph.add_node(page_node, node_type=NodeType.PAGE.value, year=2023, doi="10.1234/test")
+
+        graph.add_edge(
+            source_type=NodeType.PAGE,
+            source_id="page-2023",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: Evidence list is returned with time metadata
+        assert "evidence" in result
+        assert len(result["evidence"]) == 1
+        assert result["evidence"][0]["relation"] == "supports"
+        assert result["evidence"][0]["year"] == 2023
+        assert result["evidence"][0]["doi"] == "10.1234/test"
+        assert result["evidence"][0]["nli_confidence"] == 0.9
+
+    def test_calculate_confidence_returns_evidence_years_summary(self) -> None:
+        """Phase 4b: Test that evidence_years summary is returned."""
+        # Given: A graph with evidence from multiple years
+        graph = EvidenceGraph()
+
+        # Add page nodes with different years
+        page_node_2020 = graph._make_node_id(NodeType.PAGE, "page-2020")
+        graph._graph.add_node(page_node_2020, node_type=NodeType.PAGE.value, year=2020)
+
+        page_node_2024 = graph._make_node_id(NodeType.PAGE, "page-2024")
+        graph._graph.add_node(page_node_2024, node_type=NodeType.PAGE.value, year=2024)
+
+        graph.add_edge(
+            source_type=NodeType.PAGE,
+            source_id="page-2020",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.8,
+            nli_confidence=0.8,
+        )
+
+        graph.add_edge(
+            source_type=NodeType.PAGE,
+            source_id="page-2024",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.REFUTES,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: evidence_years summary is returned
+        assert "evidence_years" in result
+        assert result["evidence_years"]["oldest"] == 2020
+        assert result["evidence_years"]["newest"] == 2024
+
+    def test_calculate_confidence_evidence_years_empty_when_no_years(self) -> None:
+        """Phase 4b: Test that evidence_years is null when no year data exists."""
+        # Given: A graph with evidence but no year metadata
+        graph = EvidenceGraph()
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: evidence_years has null values
+        assert "evidence_years" in result
+        assert result["evidence_years"]["oldest"] is None
+        assert result["evidence_years"]["newest"] is None
+
 
 class TestCitationChain:
     """Tests for citation chain tracing."""
