@@ -15,7 +15,7 @@ Note: is_influential was removed per decision 12 (Phase 2).
 | TC-EG-N-04 | add_academic_page_with_citations() without citations | Equivalence – normal | PAGE node created, no edges | - |
 | TC-EG-B-01 | citations=[] (empty list) | Boundary – empty | No edges created | - |
 | TC-EG-B-02 | citation_context=None | Boundary – NULL | Edge created with None context | - |
-| TC-EG-B-04 | citation_source=None (fallback) | Boundary – NULL | Edge uses paper_metadata.source_api | Citation.source_api未指定時 |
+| TC-EG-B-04 | citation_source=None | Boundary – NULL | Edge keeps citation_source=None (no substitution) | 記録が不確実になるため代用しない |
 | TC-EG-B-03 | paper_metadata={} (empty dict) | Boundary – empty | Node created with default values | - |
 | TC-EG-A-01 | Invalid Citation object in list | Abnormal – invalid input | Citation skipped, processing continues | - |
 | TC-EG-A-02 | DB insert fails | Abnormal – exception | Exception handled gracefully | - |
@@ -74,16 +74,19 @@ def sample_citations() -> list[Citation]:
             citing_paper_id="page_123",
             cited_paper_id="s2:ref1",
             context="As shown in prior work...",
+            source_api="semantic_scholar",
         ),
         Citation(
             citing_paper_id="page_123",
             cited_paper_id="s2:ref2",
             context=None,
+            source_api="semantic_scholar",
         ),
         Citation(
             citing_paper_id="page_123",
             cited_paper_id="s2:ref3",
             context="Building on the foundational research...",
+            source_api="openalex",
         ),
     ]
 
@@ -495,6 +498,55 @@ class TestBoundaryValues:
         target_node = graph._make_node_id(NodeType.PAGE, "s2:ref1")
         edge_data = graph._graph.edges[source_node, target_node]
         assert edge_data.get("citation_context") is None
+
+    @pytest.mark.asyncio
+    async def test_citation_source_none_is_not_substituted(
+        self, sample_paper_metadata: dict[str, object], sample_citations: list[Citation]
+    ) -> None:
+        """
+        TC-EG-B-04: citation_source=None is preserved (no substitution).
+
+        Given: Citation with source_api=None
+        When: add_academic_page_with_citations() is called
+        Then: Inserted edge keeps citation_source=None
+        """
+        from src.filter.evidence_graph import add_academic_page_with_citations
+
+        with (
+            patch("src.filter.evidence_graph.get_database") as mock_db,
+            patch("src.filter.evidence_graph._graph", None),
+        ):
+            mock_db_instance = AsyncMock()
+            mock_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock()
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
+            mock_db_instance.fetch_all = AsyncMock(return_value=[])
+
+            # Given
+            page_id = "page_123"
+            paper_to_page_map = {"s2:ref1": "page_ref1"}
+
+            citation = Citation(
+                citing_paper_id="page_123",
+                cited_paper_id="s2:ref1",
+                context=None,
+                source_api=None,  # explicit None
+            )
+
+            # When
+            await add_academic_page_with_citations(
+                page_id=page_id,
+                paper_metadata=sample_paper_metadata,
+                citations=[citation],
+                task_id="test_task",
+                paper_to_page_map=paper_to_page_map,
+            )
+
+            # Then
+            assert mock_db_instance.insert.call_count == 1
+            inserted = mock_db_instance.insert.call_args_list[0][0][1]
+            assert "citation_source" in inserted
+            assert inserted["citation_source"] is None
 
     @pytest.mark.asyncio
     async def test_empty_paper_metadata(self) -> None:

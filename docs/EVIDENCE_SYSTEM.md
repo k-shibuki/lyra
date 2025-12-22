@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22（Phase 3b 完了）
+**最終更新**: 2025-12-22（Phase 4 設計判断確定: 決定13/14、エビデンスグラフ成長モデル）
 
 このセクションは、`docs/EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -401,6 +401,72 @@ logger.info(
 - `Citation.is_influential` フィールド
 
 **実装タイミング**: Phase 2（エッジへのドメインカテゴリ情報追加と同時）
+
+### 決定13: エビデンスグラフ成長モデルと信頼度計算の統一
+
+**決定**: 信頼度計算はすべてエッジ経由のベイズ更新で統一する。claim_timelineは監査ログとして残し、信頼度計算には直接関与しない。
+
+**エビデンスグラフ成長モデル**:
+```
+task_id = "task-123"
+├─ Search #1
+│   → pages追加 (DOI/URLで重複排除)
+│   → fragments追加 (text_hashで重複排除)
+│   → NLI → edges追加
+│   → claims confidence = ベイズ計算(全エッジ)
+│
+├─ Search #2 (同じtask_id)
+│   → 新規pages追加 (既存DOI/URLはスキップ)
+│   → 新規fragments追加
+│   → NLI → 新規edges追加 (既存ペアはスキップ)
+│   → claims confidence = ベイズ再計算(全エッジ)
+│
+└─ Search #N → グラフ成長 → uncertainty低下 → confidence収束
+```
+
+**重複排除ルール**:
+| 対象 | 重複判定キー | 重複時の挙動 |
+|------|-------------|-------------|
+| PAGE | URL または DOI | スキップ（上書きなし） |
+| FRAGMENT | text_hash | スキップ |
+| EDGE | (source_id, target_id, relation) | スキップ |
+
+**信頼度計算方針**:
+| 項目 | 方針 |
+|------|------|
+| 計算タイミング | オンデマンド（`get_materials`呼び出し時） |
+| α/β保存 | しない（エッジから毎回計算） |
+| claims.confidence_score | 導出値（DBキャッシュは任意） |
+
+**claim_timelineの位置づけ**:
+- 監査ログ（いつ何が起きたか）として保持
+- 撤回記事発見 → REFUTESエッジ生成のトリガー → 自動的にβ増加
+- `calculate_confidence_adjustment()` は廃止（Phase 4タスク）
+- **α/βを直接操作しない**（エッジ経由で統一）
+
+**実装タイミング**: Phase 4
+
+### 決定14: MCPスキーマのベイズフィールド拡張
+
+**決定**: `get_materials` の `claims[]` にフラットな形式で `uncertainty` / `controversy` を追加する。
+
+**スキーマ**:
+```json
+{
+  "claims": [{
+    "confidence": 0.75,
+    "uncertainty": 0.12,
+    "controversy": 0.08,
+    ...
+  }]
+}
+```
+
+**根拠**:
+1. **MCPクライアントからのアクセス容易性**: ネストよりフラットの方が参照しやすい
+2. **既存フィールドとの一貫性**: `confidence` が既にトップレベルに存在
+
+**実装タイミング**: Phase 4
 
 ---
 
@@ -2258,6 +2324,7 @@ class CitationDetector:
 | 4.4 | 既存テスト更新（後方互換なし前提で更新） | - | `tests/test_evidence_graph.py` |
 | 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | `src/filter/evidence_graph.py`, `src/filter/source_verification.py` | `tests/test_evidence_graph.py`, `tests/test_source_verification.py` |
 | 4.6 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/EVIDENCE_SYSTEM.md` | - |
+| 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | `src/filter/claim_timeline.py` | `tests/test_claim_timeline.py` |
 
 **4.6 ドキュメント更新**
 
@@ -2293,8 +2360,15 @@ class CitationDetector:
 **4.5 旧実装の掃除（後方互換禁止）**
 
 - 旧来のヒューリスティック実装（Phase 4以前の `calculate_claim_confidence()` 相当）を削除する
-- 旧フィールド（例: `verdict`）を **残さない**（保持すると“互換がある”と誤解を再発させる）
+- 旧フィールド（例: `verdict`）を **残さない**（保持すると"互換がある"と誤解を再発させる）
 - 旧/新を切り替える設定フラグ（例: `use_bayesian_confidence` のようなもの）は **導入しない**。存在する場合は削除する
+
+**4.7 claim_timeline統合（決定13）**
+
+- `claim_timeline.py` の `calculate_confidence_adjustment()` を廃止
+- claim_timelineは監査ログ（時系列記録）として残す
+- 撤回イベント発見時は REFUTESエッジ生成を促す（α/βを直接操作しない）
+- 信頼度計算はすべてエッジ経由のベイズ更新で統一
 
 #### 挙動の例（再掲）
 

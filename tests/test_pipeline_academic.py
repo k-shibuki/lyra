@@ -109,11 +109,13 @@ def sample_citations() -> list[Citation]:
             citing_paper_id="s2:test123",
             cited_paper_id="s2:ref1",
             context=None,
+            source_api="semantic_scholar",
         ),
         Citation(
             citing_paper_id="s2:test123",
             cited_paper_id="s2:ref2",
             context="As shown in previous work...",
+            source_api="openalex",
         ),
     ]
 

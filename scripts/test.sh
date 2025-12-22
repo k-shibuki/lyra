@@ -457,6 +457,24 @@ cmd_check() {
             return 1
         fi
 
+        # Determine whether pytest is still running (if pid file is present).
+        # This prevents false DONE on quiet output (mtime-based heuristic).
+        local pid=""
+        local pid_alive=false
+        if runtime_file_exists "$runtime" "$pid_file"; then
+            if [[ "$runtime" == "container" ]]; then
+                pid="$(container_exec cat "$pid_file" 2>/dev/null || echo "")"
+                if [[ -n "$pid" ]] && container_exec ps -p "$pid" >/dev/null 2>&1; then
+                    pid_alive=true
+                fi
+            else
+                pid="$(cat "$pid_file" 2>/dev/null || echo "")"
+                if [[ -n "$pid" ]] && ps -p "$pid" >/dev/null 2>&1; then
+                    pid_alive=true
+                fi
+            fi
+        fi
+
         local last_line
         local result_content
         result_content=$(runtime_tail "$runtime" 50 "$result_file" | filter_node_errors || echo "")
@@ -477,34 +495,23 @@ cmd_check() {
         fi
 
         # DONE condition 2: pid file exists and pytest process is gone
-        if runtime_file_exists "$runtime" "$pid_file"; then
-            local pid
-            if [[ "$runtime" == "container" ]]; then
-                pid="$(container_exec cat "$pid_file" 2>/dev/null || echo "")"
-                if [[ -n "$pid" ]] && ! container_exec ps -p "$pid" >/dev/null 2>&1; then
-                    echo "DONE"
-                    echo "=== Result ==="
-                    runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
-                    if echo "$result_content" | grep -qE "(FAILED|ERROR|[0-9]+ failed)"; then
-                        return 1
-                    fi
-                    return 0
-                fi
-            else
-                pid="$(cat "$pid_file" 2>/dev/null || echo "")"
-                if [[ -n "$pid" ]] && ! ps -p "$pid" >/dev/null 2>&1; then
-                    echo "DONE"
-                    echo "=== Result ==="
-                    runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
-                    if echo "$result_content" | grep -qE "(FAILED|ERROR|[0-9]+ failed)"; then
-                        return 1
-                    fi
-                    return 0
-                fi
+        if [[ -n "$pid" ]] && [[ "$pid_alive" == "false" ]]; then
+            echo "DONE"
+            echo "=== Result ==="
+            runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
+            if echo "$result_content" | grep -qE "(FAILED|ERROR|[0-9]+ failed)"; then
+                return 1
             fi
+            return 0
         fi
 
         # DONE condition 3 (fallback): no output update for COMPLETION_THRESHOLD seconds
+        # Only apply when we cannot confirm pytest is still running (no pid or dead pid).
+        if [[ "$pid_alive" == "true" ]]; then
+            echo "RUNNING | $last_line"
+            sleep "$CHECK_INTERVAL_SECONDS"
+            continue
+        fi
         local now
         local mtime
         now=$(date +%s)
