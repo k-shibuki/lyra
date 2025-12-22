@@ -85,7 +85,7 @@
 | Phase 4 / Task 4.2 | 出力スキーマ確定（`confidence/uncertainty/controversy` + デバッグ統計） | DONE | `src/filter/evidence_graph.py` | `uncertainty`, `controversy`, `alpha`, `beta`, `evidence_count` を追加 |
 | Phase 4 / Task 4.3 | Source Verification / MCPレスポンスへの反映 | DONE | `src/research/materials.py` | `get_materials_action()` の `claims[]` に `uncertainty/controversy` を追加 |
 | Phase 4 / Task 4.4 | 既存テスト更新（後方互換なし前提で更新） | DONE | `tests/test_evidence_graph.py`, `tests/test_claim_timeline.py` | TestClaimConfidence 9件、claim_timeline 41件パス確認 |
-| Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | DONE | `src/filter/evidence_graph.py` | `verdict` フィールド削除確認済み（grep残骸ゼロ） |
+| Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | DONE | `src/filter/evidence_graph.py`, `tests/test_source_verification.py`, `tests/conftest.py`, `tests/test_evidence_graph.py` | `verdict` フィールド削除確認済み（`src/` および `tests/` で grep残骸ゼロ） |
 | Phase 4 / Task 4.6 | ドキュメント更新 | DONE | `docs/EVIDENCE_SYSTEM.md` | Phase 4 完了 |
 | Phase 4 / Task 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | DONE | `src/filter/claim_timeline.py`, `tests/test_claim_timeline.py` | `calculate_confidence_adjustment()`, `_apply_confidence_adjustment()`, `RETRACTION_CONFIDENCE_PENALTY` 削除。timelineは監査ログに限定 |
 
