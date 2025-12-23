@@ -88,10 +88,9 @@ from src.crawler.human_behavior import (
 
 
 class HumanBehavior:
-    """Legacy wrapper for human-like browser interactions.
+    """Wrapper for human-like browser interactions.
 
     Delegates to the new HumanBehaviorSimulator for enhanced functionality.
-    Kept for backward compatibility with existing code.
     """
 
     def __init__(self) -> None:

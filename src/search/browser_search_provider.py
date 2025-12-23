@@ -157,7 +157,6 @@ class BrowserSearchProvider(BaseSearchProvider):
 
         # Rate limiting
         self._rate_limiter = asyncio.Semaphore(1)
-        self._last_search_time = 0.0
         self._last_search_times: dict[str, float] = {}  # Per-engine tracking
 
         # Session management
@@ -324,7 +323,7 @@ class BrowserSearchProvider(BaseSearchProvider):
 
         Args:
             engine: Engine name for per-engine rate limiting.
-                   If None, uses default interval for backward compatibility.
+                   If None, uses default interval.
         """
         # Get engine-specific interval from config
         min_interval = self._min_interval  # Default fallback
@@ -344,8 +343,6 @@ class BrowserSearchProvider(BaseSearchProvider):
                 await asyncio.sleep(min_interval - elapsed)
 
             self._last_search_times[engine_key] = time.time()
-            # Also update shared time for backward compatibility
-            self._last_search_time = time.time()
 
     def _detect_category(self, query: str) -> str:
         """Detect query category based on keywords.

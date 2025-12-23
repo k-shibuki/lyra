@@ -122,8 +122,8 @@ async def test_rate_limit_engine_parameter() -> bool:
             return False
         raise
 
-    # Test 2: Call without engine parameter (backward compatibility)
-    print("\n  [Step 2] Test _rate_limit() without engine (backward compatibility)")
+    # Test 2: Call without engine parameter (default behavior)
+    print("\n  [Step 2] Test _rate_limit() without engine (default behavior)")
     try:
         start_time = time.time()
         await provider._rate_limit()

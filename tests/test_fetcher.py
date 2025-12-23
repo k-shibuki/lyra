@@ -1095,7 +1095,7 @@ class TestHTTPFetcherConditionalHeaders:
         """Test that session conditional headers are included when no cached values provided.
 
         TC-CH-04: When cached_etag and cached_last_modified are None, session should
-        include conditional headers (backward compatibility).
+        include conditional headers.
         """
         from unittest.mock import patch
 

@@ -36,18 +36,16 @@ audit_logger = get_audit_logger()
 
 
 # ============================================================================
-# Legacy OllamaClient Compatibility
+# OllamaClient Facade
 # ============================================================================
 
 
 class OllamaClient:
     """
-    Legacy compatibility wrapper for OllamaProvider.
+    Thin facade for OllamaProvider.
 
     Per §4.2, LLM processes should be released after task completion.
-    This client wraps the OllamaProvider to maintain backward compatibility.
-
-    Deprecated: Use LLMProvider directly for new code.
+    Prefer LLMProvider directly for new code.
     """
 
     def __init__(self) -> None:
@@ -62,27 +60,27 @@ class OllamaClient:
 
     @property
     def _current_task_id(self) -> str | None:
-        """Get current task ID from provider (legacy compatibility)."""
+        """Get current task ID from provider."""
         if self._provider is None:
             return None
         return self._provider._current_task_id
 
     @_current_task_id.setter
     def _current_task_id(self, value: str | None) -> None:
-        """Set current task ID on provider (legacy compatibility)."""
+        """Set current task ID on provider."""
         provider = self._get_provider()
         provider._current_task_id = value
 
     @property
     def _current_model(self) -> str | None:
-        """Get current model from provider (legacy compatibility)."""
+        """Get current model from provider."""
         if self._provider is None:
             return None
         return self._provider._current_model
 
     @_current_model.setter
     def _current_model(self, value: str | None) -> None:
-        """Set current model on provider (legacy compatibility)."""
+        """Set current model on provider."""
         provider = self._get_provider()
         provider._current_model = value
 
@@ -165,7 +163,7 @@ class OllamaClient:
         return response.text
 
 
-# Global client (legacy compatibility)
+# Global client (module-level singleton)
 _client: OllamaClient | None = None
 
 

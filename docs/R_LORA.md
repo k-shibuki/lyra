@@ -6,8 +6,8 @@
 
 | ドキュメント | 役割 | 参照 |
 |-------------|------|------|
-| `docs/P_EVIDENCE_SYSTEM.md` | エビデンス評価システム設計 | Phase 6でNLI訂正サンプル蓄積 |
-| **`docs/R_LORA_FINETUNING.md`**（本文書） | **LoRAファインチューニング設計** | Phase R |
+| `docs/P_EVIDENCE_SYSTEM.md` | エビデンス評価システム設計 | Phase 6（決定17）で `edge_correct`→`nli_corrections` 蓄積、計測は `calibration_metrics` |
+| **`docs/R_LORA.md`**（本文書） | **LoRAファインチューニング設計** | Phase R |
 | `docs/IMPLEMENTATION_PLAN.md` | 実装計画書 | Phase R概要 |
 
 ---
@@ -424,7 +424,7 @@ Phase Rを開始する前に、以下がPhase 6で完了している必要があ
 
 | 依存項目 | 説明 | Phase 6 タスク |
 |----------|------|---------------|
-| `nli_corrections` テーブル | 訂正サンプルの蓄積先 | Task 6.7 |
+| `nli_corrections` テーブル | 訂正サンプルの蓄積先（premise/hypothesisスナップショットを含み、学習の再現性を担保） | Task 6.7 |
 | `feedback` ツール | 訂正入力のMCPインターフェース（3レベル対応） | Task 6.1 |
 | `edge_correct` アクション | NLIラベル訂正の実装 | Task 6.4 |
 
@@ -444,12 +444,21 @@ Phase Rを開始する前に、以下がPhase 6で完了している必要があ
 |--------|------|------|
 | 過学習 | 汎化性能の低下 | 検証セット監視、早期停止 |
 | 訂正サンプルの偏り | 特定ドメインのみ改善 | サンプリング戦略の調整 |
-| ベースモデルとの互換性 | 将来のモデル更新で動作しない | バージョン固定、テスト自動化 |
+| ベースモデル更新への追従 | 将来のモデル更新で動作しない | バージョン固定、テスト自動化 |
 | 学習時間の長期化 | 運用負荷 | GPU使用、バッチサイズ調整 |
 
 ---
 
-## 12. 関連ドキュメント
+## 12. `calibration_metrics`（計測）との関係（Phase 6 → Phase R）
+
+`feedback(edge_correct)` により蓄積される ground-truth は、用途が2つに分岐する（§決定17参照）:
+
+- **LoRA（本ドキュメント）**: `nli_corrections` を教師データとして NLIモデルのラベル誤り自体を減らす
+- **校正（計測）**: `calibration_metrics.evaluate` が同じ蓄積データを用いて Brier/ECE 等を算出し、改善・劣化の監査に使う
+
+---
+
+## 13. 関連ドキュメント
 
 | ドキュメント | 関連 |
 |-------------|------|

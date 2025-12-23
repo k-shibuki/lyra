@@ -14,7 +14,7 @@ Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 from src.research.context import EntityInfo, ResearchContext, TemplateInfo
 from src.research.executor import (
     SearchExecutor,
-    # Backward compatibility aliases (deprecated, will be removed)
+    # Terminology aliases ("subquery" -> "search")
     SubqueryExecutor,
     SubqueryResult,
 )
@@ -41,14 +41,14 @@ from src.research.state import (
     ExplorationState,
     SearchState,
     SearchStatus,
-    # Backward compatibility aliases (deprecated, will be removed)
+    # Terminology aliases ("subquery" -> "search")
     SubqueryState,
     SubqueryStatus,
     TaskStatus,
 )
 from src.research.ucb_allocator import (
     SearchArm,
-    # Backward compatibility alias (deprecated, will be removed)
+    # Terminology alias ("subquery" -> "search")
     SubqueryArm,
     UCBAllocator,
 )

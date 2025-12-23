@@ -79,7 +79,7 @@ class SearchArm:
         }
 
 
-# Backward compatibility alias (deprecated, will be removed)
+# Terminology alias ("subquery" -> "search")
 SubqueryArm = SearchArm
 
 
@@ -127,7 +127,7 @@ class UCBAllocator:
         min_budget_per_search: int = 5,
         max_budget_ratio: float = 0.4,
         reallocation_interval: int = 10,
-        # Backward compatibility (deprecated)
+        # Deprecated parameter name (old terminology)
         min_budget_per_subquery: int | None = None,
     ):
         """
@@ -144,7 +144,7 @@ class UCBAllocator:
         self.exploration_constant = (
             exploration_constant if exploration_constant is not None else math.sqrt(2)
         )
-        # Support deprecated parameter
+        # Support deprecated parameter name (old terminology)
         self.min_budget_per_search = (
             min_budget_per_subquery
             if min_budget_per_subquery is not None
@@ -166,7 +166,7 @@ class UCBAllocator:
             max_ratio=max_budget_ratio,
         )
 
-    # Backward compatibility property (deprecated, will be removed)
+    # Deprecated property name (old terminology)
     @property
     def min_budget_per_subquery(self) -> int:
         """Deprecated: Use min_budget_per_search instead."""
@@ -217,7 +217,7 @@ class UCBAllocator:
 
         return arm
 
-    # Backward compatibility alias (deprecated, will be removed)
+    # Terminology alias ("subquery" -> "search")
     def register_subquery(
         self,
         subquery_id: str,
@@ -488,7 +488,7 @@ class UCBAllocator:
 
         return max(available, key=lambda x: x[1])[0]
 
-    # Backward compatibility alias (deprecated, will be removed)
+    # Terminology alias ("subquery" -> "search")
     def get_recommended_subquery(self) -> str | None:
         """Deprecated: Use get_recommended_search instead."""
         return self.get_recommended_search()

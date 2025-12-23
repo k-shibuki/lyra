@@ -2100,7 +2100,7 @@ class TestPerEngineQPSRateLimiting:
     - _last_search_times attribute exists for per-engine tracking
     - _rate_limit() accepts engine parameter
     - Per-engine intervals are applied correctly
-    - Backward compatibility (engine=None uses default interval)
+    - Default behavior (engine=None uses default interval)
     - Unknown engines fall back to default interval
     """
 
@@ -2148,8 +2148,8 @@ class TestPerEngineQPSRateLimiting:
             await provider._rate_limit(engine="duckduckgo")
 
     @pytest.mark.asyncio
-    async def test_rate_limit_backward_compatibility_no_engine(self) -> None:
-        """Test _rate_limit() works without engine parameter (backward compatibility).
+    async def test_rate_limit_default_engine_when_engine_is_none(self) -> None:
+        """Test _rate_limit() works when engine is None (default interval).
 
         Given: BrowserSearchProvider instance
         When: _rate_limit() is called without engine parameter
@@ -2276,39 +2276,6 @@ class TestPerEngineQPSRateLimiting:
             assert "unknown_engine" in provider._last_search_times
 
     @pytest.mark.asyncio
-    async def test_rate_limit_updates_shared_last_search_time(self) -> None:
-        """Test _rate_limit() also updates shared _last_search_time for compatibility.
-
-        Given: BrowserSearchProvider with initial _last_search_time=0
-        When: _rate_limit(engine="duckduckgo") is called
-        Then: Both _last_search_times[engine] and _last_search_time are updated
-        """
-        provider = BrowserSearchProvider()
-
-        # Given: Initial state
-        assert provider._last_search_time == 0.0
-
-        with patch(
-            "src.search.browser_search_provider.get_engine_config_manager"
-        ) as mock_get_config_manager:
-            mock_config_manager = MagicMock()
-            mock_engine_config = MagicMock()
-            mock_engine_config.min_interval = 4.0
-            # Mock get_engines_with_parsers to return engines as-is (for testing)
-            mock_config_manager.get_engines_with_parsers = MagicMock(
-                side_effect=lambda engines: engines if engines else []
-            )
-            mock_config_manager.get_engine.return_value = mock_engine_config
-            mock_get_config_manager.return_value = mock_config_manager
-
-            # When: _rate_limit() is called
-            await provider._rate_limit(engine="duckduckgo")
-
-            # Then: Both tracking mechanisms are updated
-            assert provider._last_search_times.get("duckduckgo", 0) > 0
-            assert provider._last_search_time > 0
-
-    @pytest.mark.asyncio
     async def test_search_calls_rate_limit_with_engine(self) -> None:
         """Test search() calls _rate_limit() with selected engine.
 
@@ -2385,7 +2352,6 @@ class TestPerEngineQPSRateLimiting:
                                     rate_limit_calls.append(engine)
                                     # Don't actually sleep
                                     provider._last_search_times[engine or "default"] = 1.0
-                                    provider._last_search_time = 1.0
 
                                 with patch.object(provider, "_rate_limit", track_rate_limit):
                                     # When: search() is called
