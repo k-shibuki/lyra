@@ -655,7 +655,7 @@ async def _search_with_provider(
                 provider_error=error_msg,
             )
 
-    # Convert to dict format for backward compatibility
+    # Return dicts (API response format)
     return [r.to_dict() for r in response.results]
 
 

@@ -223,7 +223,7 @@ class _DefaultBoundsProxy:
         return len(get_default_bounds())
 
 
-# Backward compatibility: DEFAULT_BOUNDS acts like a dict but loads lazily
+# DEFAULT_BOUNDS acts like a dict but loads lazily
 DEFAULT_BOUNDS = _DefaultBoundsProxy()
 
 

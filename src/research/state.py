@@ -37,7 +37,7 @@ class SearchStatus(Enum):
     SKIPPED = "skipped"  # Manually skipped by Cursor AI
 
 
-# Backward compatibility alias (deprecated, will be removed)
+# Terminology alias ("subquery" -> "search")
 SubqueryStatus = SearchStatus
 
 
@@ -215,7 +215,7 @@ class SearchState(BaseModel):
         }
 
 
-# Backward compatibility alias (deprecated, will be removed)
+# Terminology alias ("subquery" -> "search")
 SubqueryState = SearchState
 
 
@@ -407,7 +407,7 @@ class ExplorationState:
 
         return search
 
-    # Backward compatibility alias (deprecated, will be removed)
+    # Terminology alias ("subquery" -> "search")
     def register_subquery(
         self,
         subquery_id: str,
@@ -438,7 +438,7 @@ class ExplorationState:
 
         return search
 
-    # Backward compatibility alias (deprecated, will be removed)
+    # Terminology alias ("subquery" -> "search")
     def start_subquery(self, subquery_id: str) -> SearchState | None:
         """Deprecated: Use start_search instead."""
         return self.start_search(subquery_id)
@@ -447,7 +447,7 @@ class ExplorationState:
         """Get a search by ID."""
         return self._searches.get(search_id)
 
-    # Backward compatibility alias (deprecated, will be removed)
+    # Terminology alias ("subquery" -> "search")
     def get_subquery(self, subquery_id: str) -> SearchState | None:
         """Deprecated: Use get_search instead."""
         return self.get_search(subquery_id)
@@ -596,7 +596,7 @@ class ExplorationState:
             return None
         return self._ucb_allocator.get_recommended_search()
 
-    # Backward compatibility alias (deprecated, will be removed)
+    # Terminology alias ("subquery" -> "search")
     def get_ucb_recommended_subquery(self) -> str | None:
         """Deprecated: Use get_ucb_recommended_search instead."""
         return self.get_ucb_recommended_search()

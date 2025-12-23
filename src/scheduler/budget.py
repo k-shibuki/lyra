@@ -303,7 +303,7 @@ class BudgetManager:
         async with self._lock:
             budget = self._budgets.get(task_id)
             if budget is None:
-                # No budget means no limits (for backward compatibility)
+                # No budget means no limits
                 return True, None
 
             # Record updates

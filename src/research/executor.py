@@ -128,7 +128,7 @@ class SearchResult:
         return result
 
 
-# Backward compatibility alias (deprecated, will be removed)
+# Terminology alias ("subquery" -> "search") kept for internal consistency.
 SubqueryResult = SearchResult
 
 
@@ -197,8 +197,6 @@ class SearchExecutor:
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
         engines: list[str] | None = None,
-        # Backward compatibility (deprecated)
-        subquery: str | None = None,
     ) -> SearchResult:
         """
         Execute a search query designed by Cursor AI.
@@ -212,10 +210,6 @@ class SearchExecutor:
         Returns:
             SearchResult with execution results.
         """
-        # Backward compatibility: accept subquery param
-        if subquery is not None:
-            query = subquery
-
         # Store engines for use in _execute_search
         self._engines = engines
 
@@ -993,5 +987,5 @@ class SearchExecutor:
         return refutation_queries
 
 
-# Backward compatibility alias (deprecated, will be removed)
+# Terminology alias ("subquery" -> "search") kept for internal consistency.
 SubqueryExecutor = SearchExecutor

@@ -118,7 +118,7 @@ class TestConfigLoading:
             get_academic_apis_config.cache_clear()
             config = get_academic_apis_config()
 
-        # Then: Should return empty config, not raise exception (backward compatibility)
+        # Then: Should return empty config, not raise exception
         assert isinstance(config, AcademicAPIsConfig)
         assert len(config.apis) == 0
 
@@ -190,8 +190,8 @@ class TestConfigLoading:
         assert config.defaults.search_apis == ["semantic_scholar", "openalex"]  # Default value
 
 
-class TestBackwardCompatibility:
-    """Test backward compatibility when config file is missing."""
+class TestMissingConfigDefaults:
+    """Test default behavior when config file is missing."""
 
     def test_api_clients_without_config(self) -> None:
         """TC-BC-N-01: API clients initialized without config file."""
@@ -206,7 +206,7 @@ class TestBackwardCompatibility:
             ss_client = SemanticScholarClient()
             oa_client = OpenAlexClient()
 
-        # Then: Clients should initialize with default values (backward compatibility)
+        # Then: Clients should initialize with default values
         assert ss_client.base_url == "https://api.semanticscholar.org/graph/v1"
         assert ss_client.timeout == 30.0
 

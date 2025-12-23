@@ -34,7 +34,7 @@
 
 | Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
 |---|---|---|---|---|
-| Phase 1 / Task 1.0 | `trust_level` 概念を排除し、`domain_category` に統一（破壊的変更） | DONE | `src/utils/domain_policy.py`, `config/domains.yaml`, `docs/REQUIREMENTS.md` | 後方互換なし（単独運用前提） |
+| Phase 1 / Task 1.0 | `trust_level` 概念を排除し、`domain_category` に統一（破壊的変更） | DONE | `src/utils/domain_policy.py`, `config/domains.yaml`, `docs/REQUIREMENTS.md` | 破壊的変更（移行レイヤなし） |
 | Phase 1 / Task 1.1 | `get_status` に `blocked_domains`（＋`idle_seconds`）を追加 | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `tests/test_mcp_get_status.py` | - |
 | Phase 1 / Task 1.2 | ブロック理由のログ強化（`cause_id` 連携） | DONE | `src/filter/source_verification.py`, `tests/test_source_verification.py` | `verify_claim()` に `cause_id` パラメータ追加、ブロック時に伝播 |
 | Phase 1 / Task 1.3 | エビデンスグラフに矛盾関係（REFUTES）を保存 | DONE | `src/filter/evidence_graph.py`, `src/storage/schema.sql` | - |
@@ -84,8 +84,8 @@
 | Phase 4 / Task 4.1 | `calculate_claim_confidence_bayesian()` 実装 | DONE | `src/filter/evidence_graph.py` | `calculate_claim_confidence()` をベイズ実装に置換、`verdict` フィールド削除 |
 | Phase 4 / Task 4.2 | 出力スキーマ確定（`confidence/uncertainty/controversy` + デバッグ統計） | DONE | `src/filter/evidence_graph.py` | `uncertainty`, `controversy`, `alpha`, `beta`, `evidence_count` を追加 |
 | Phase 4 / Task 4.3 | Source Verification / MCPレスポンスへの反映 | DONE | `src/research/materials.py` | `get_materials_action()` の `claims[]` に `uncertainty/controversy` を追加 |
-| Phase 4 / Task 4.4 | 既存テスト更新（後方互換なし前提で更新） | DONE | `tests/test_evidence_graph.py`, `tests/test_claim_timeline.py` | TestClaimConfidence 9件、claim_timeline 41件パス確認 |
-| Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | DONE | `src/filter/evidence_graph.py`, `tests/test_source_verification.py`, `tests/conftest.py`, `tests/test_evidence_graph.py` | `verdict` フィールド削除確認済み（`src/` および `tests/` で grep残骸ゼロ） |
+| Phase 4 / Task 4.4 | 既存テスト更新（破壊的変更前提で更新） | DONE | `tests/test_evidence_graph.py`, `tests/test_claim_timeline.py` | TestClaimConfidence 9件、claim_timeline 41件パス確認 |
+| Phase 4 / Task 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（旧実装を残さない） | DONE | `src/filter/evidence_graph.py`, `tests/test_source_verification.py`, `tests/conftest.py`, `tests/test_evidence_graph.py` | `verdict` フィールド削除確認済み（`src/` および `tests/` で grep残骸ゼロ） |
 | Phase 4 / Task 4.6 | ドキュメント更新 | DONE | `docs/P_EVIDENCE_SYSTEM.md` | Phase 4 完了 |
 | Phase 4 / Task 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | DONE | `src/filter/claim_timeline.py`, `tests/test_claim_timeline.py` | `calculate_confidence_adjustment()`, `_apply_confidence_adjustment()`, `RETRACTION_CONFIDENCE_PENALTY` 削除。timelineは監査ログに限定 |
 
@@ -113,13 +113,13 @@
 
 | Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
 |---|---|---|---|---|
-| Phase 6 / Task 6.1 | `feedback` MCPツール新設（3レベル + `domain_clear_override`） | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/feedback.json` | 決定17/20参照。`calibrate` は評価・統計用として残す |
+| Phase 6 / Task 6.1 | `feedback` MCPツール新設（3レベル + `domain_clear_override`） | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/feedback.json` | 決定17/20参照。`calibration_metrics` は計測用として残す（入力は `feedback` に統一） |
 | Phase 6 / Task 6.2 | Domain override 実装（DB永続化 + pattern制約 + 優先順位） | PLANNED | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/utils/domain_policy.py`, `src/storage/schema.sql` | 決定20参照。`domain_block`/`domain_unblock`/`domain_clear_override` |
 | Phase 6 / Task 6.3 | `claim_reject` / `claim_restore` 実装：claim採用状態操作 | PLANNED | `src/mcp/server.py`, `src/storage/schema.sql` | `claim_adoption_status` を `adopted` ↔ `not_adopted` に切替 |
 | Phase 6 / Task 6.4 | `edge_correct` 実装：NLIラベル訂正（即時反映 + 校正サンプル蓄積） | PLANNED | `src/mcp/server.py`, `src/filter/evidence_graph.py` | 3クラス（supports/refutes/neutral）の正解ラベルを入力 |
 | Phase 6 / Task 6.5 | スキーマ変更（命名規則統一 + 新規カラム追加） | PLANNED | `src/storage/schema.sql` | 決定19参照。`edge_*`, `claim_*` プレフィックス |
 | Phase 6 / Task 6.6 | DBスキーマ棚卸し（dead fields 削除: `calibrated_score`, `is_verified`） | PLANNED | `src/storage/schema.sql` | "現状→改善後"の表で仕様と実装を一致させる |
-| Phase 6 / Task 6.7 | 校正サンプル蓄積の接続（NLI推論への校正適用は Phase R） | PLANNED | `src/utils/calibration.py` | Phase 6では蓄積のみ |
+| Phase 6 / Task 6.7 | NLI ground-truth サンプル蓄積（`nli_corrections`）+ 校正サンプル接続（計測のみ。推論への適用は Phase R） | PLANNED | `src/utils/calibration.py`, `src/storage/schema.sql` | Phase 6では蓄積と計測のみ（推論への適用はしない） |
 | Phase 6 / Task 6.8 | `get_materials` に `claim_adoption_status` 露出 | PLANNED | `src/research/materials.py`, `src/mcp/schemas/get_materials.json` | 不採用claimのフィルタリングを高推論AIに委ねる |
 | Phase 6 / Task 6.9 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | Phase 6の再編反映 |
 
@@ -219,7 +219,7 @@ controversy = ...                     # 論争度
 
 ### 決定6: データソース戦略
 
-**決定**: S2 + OpenAlex の2本柱。補助API（Crossref / arXiv / Unpaywall）は**完全削除**（後方互換なし）。
+**決定**: S2 + OpenAlex の2本柱。補助API（Crossref / arXiv / Unpaywall）は**完全削除**（移行レイヤなし）。
 
 **学術API体制**:
 | API | 役割 | 状態 |
@@ -648,15 +648,22 @@ task_id = "task-123"
 { action: "edge_correct", edge_id: "edge_xyz", correct_relation: "refutes", reason: "..." }
 ```
 
-**`calibrate` ツールとの関係**:
-- `calibrate`: 評価・統計・ロールバック用（計測系）
+**`calibration_metrics` ツールとの関係**:
+- `calibration_metrics`: 評価・統計・履歴参照用（計測系。入力は受け付けない）
 - `feedback`: Human-in-the-loop 入力用（訂正・棄却・ブロック）
 - 両者は責務が異なり、併存する
 
+**`calibration_metrics` の最小actionセット（必要十分）**:
+- `get_stats`: source別の統計（サンプル数、最新version、最新Brier等）
+- `evaluate`: DBに蓄積されたサンプルから評価を実行し、結果を履歴として保存（外部から predictions/labels を渡さない）
+- `get_evaluations`: 評価履歴の取得（reliability diagram用のbinsを含むため、diagram専用actionは置かない）
+- 破壊操作は `calibration_rollback`（別ツール）に分離する
+
 **3クラス対応**:
 - `correct_relation` は `"supports"` / `"refutes"` / `"neutral"` の3値
-- 訂正サンプルは `NLICorrectionSample` として蓄積
-- NLI推論への校正適用は訂正サンプルが十分蓄積されてから（Phase R）
+- `edge_correct` は **NLIのground-truth入力**として扱い、訂正の有無に関わらずサンプルを蓄積する（`correct_relation` が現状と同じでもサンプルは保存する）
+- 訂正サンプルは `nli_corrections` としてDBに蓄積（LoRA学習の入力。詳細は `docs/R_LORA.md`）
+- 校正（確率のズレ補正）は **計測→適用の順**で進め、推論への適用はサンプルが十分蓄積されてから（Phase R）
 
 **実装タイミング**: Phase 6
 
@@ -1774,7 +1781,7 @@ async def get_citations(self, paper_id: str) -> list[Paper]:
 
 #### 2.2 補助API → 削除（S2 + OpenAlexで代替）
 
-現行の補助APIはすべて**S2/OpenAlexで代替可能**であり、削除を推奨する。互換維持は不要。
+現行の補助APIはすべて**S2/OpenAlexで代替可能**であり、削除を推奨する。移行レイヤは作らない。
 
 | API | 現在の役割 | S2での代替 | OpenAlexでの代替 | 判定 |
 |-----|-----------|-----------|-----------------|:----:|
@@ -2023,7 +2030,6 @@ async def evaluate_relevance_with_llm(
             "reason": "Dangerous pattern / high rejection rate (cause_id: abc123)",
             "cause_id": "abc123",
             "original_domain_category": "UNVERIFIED",
-            "can_restore": true,
             "restore_via": "config/domains.yaml user_overrides"
         }
     ]
@@ -2145,11 +2151,11 @@ def calculate_claim_confidence_bayesian(claim_id: str) -> dict:
 | 数学的に厳密 | ✓ 再現性・検証可能 |
 | 解釈が直感的 | ✓ 「50%で高uncertainty」=「分からない」 |
 
-#### 6.5 互換維持（不要）
+#### 6.5 破壊的変更の方針（移行レイヤなし）
 
-現段階では単独運用（このリポジトリを自分だけが使う段階）であり、互換維持は明確に不要（むしろ禁止）。
+現段階では公開前であり、破壊的変更を前提とする。
 そのため `calculate_claim_confidence()` の出力は、必要に応じて破壊的に変更してよい
-（テストとMCPスキーマを同時に更新して整合性を保つ）。
+（テストとMCPスキーマを同時に更新して整合性を保つ）。移行レイヤは作らない。
 
 ---
 
@@ -2222,7 +2228,7 @@ graph TD
 # src/mcp/server.py: _handle_get_status()
 from src.filter.source_verification import get_source_verifier
 
-# Single-user mode: global verifier (no backward-compat requirement)
+# Single-user mode: global verifier (breaking changes are allowed)
 verifier = get_source_verifier()
 
 response = {
@@ -2728,7 +2734,7 @@ class CitationDetector:
 
 **目的**: 数学的に厳密な信頼度計算を導入し、不確実性と論争度を明示化
 
-**方針（重要）**: **互換維持はしない**。旧来のヒューリスティックな信頼度計算は廃止し、`calculate_claim_confidence()` はベイズ実装に置換する。
+**方針（重要）**: 旧来のヒューリスティックな信頼度計算は廃止し、`calculate_claim_confidence()` はベイズ実装に置換する（旧実装の並行運用はしない）。
 
 > **重要設計決定**: ベイズモデルは **NLI confidence のみ** を使用する。
 > - ドメイン分類（DomainCategory）は**使用しない**（§決定3、§決定7参照）
@@ -2752,8 +2758,8 @@ class CitationDetector:
 | 4.1 | `calculate_claim_confidence_bayesian()` 実装 | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 4.2 | 出力スキーマ確定（`confidence/uncertainty/controversy` + デバッグ統計） | `src/filter/evidence_graph.py` | `tests/test_evidence_graph.py` |
 | 4.3 | Source Verification / MCPレスポンスへの反映 | `src/filter/source_verification.py`, `src/mcp/server.py` | `tests/test_source_verification.py`, `tests/test_mcp_get_materials.py` |
-| 4.4 | 既存テスト更新（後方互換なし前提で更新） | - | `tests/test_evidence_graph.py` |
-| 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（後方互換禁止） | `src/filter/evidence_graph.py`, `src/filter/source_verification.py` | `tests/test_evidence_graph.py`, `tests/test_source_verification.py` |
+| 4.4 | 既存テスト更新（破壊的変更前提で更新） | - | `tests/test_evidence_graph.py` |
+| 4.5 | 旧実装・切替スイッチ・旧フィールド（例: `verdict`）の掃除（旧実装を残さない） | `src/filter/evidence_graph.py`, `src/filter/source_verification.py` | `tests/test_evidence_graph.py`, `tests/test_source_verification.py` |
 | 4.6 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | - |
 | 4.7 | claim_timeline統合（決定13）: `calculate_confidence_adjustment()` 廃止 | `src/filter/claim_timeline.py` | `tests/test_claim_timeline.py` |
 
@@ -2794,14 +2800,14 @@ class CitationDetector:
 - `SourceVerifier` は `VerificationStatus` の3値（PENDING/VERIFIED/REJECTED）を維持し、**ベイズ値は表示・説明・優先度付けに使う**（自動ブロック等の行動分岐には使わない）
 - MCPの出力に `confidence/uncertainty/controversy` を反映する（Phase 4 の目標どおり）
 
-**4.4 既存テスト更新（後方互換なし）**
+**4.4 既存テスト更新（破壊的変更前提）**
 
 - 旧スキーマ/旧フィールド（旧verdict等）に依存するテスト期待値を削除・更新する
 
-**4.5 旧実装の掃除（後方互換禁止）**
+**4.5 旧実装の掃除（旧実装を残さない）**
 
 - 旧来のヒューリスティック実装（Phase 4以前の `calculate_claim_confidence()` 相当）を削除する
-- 旧フィールド（例: `verdict`）を **残さない**（保持すると"互換がある"と誤解を再発させる）
+- 旧フィールド（例: `verdict`）を **残さない**（保持すると旧仕様が存続していると誤解を再発させる）
 - 旧/新を切り替える設定フラグ（例: `use_bayesian_confidence` のようなもの）は **導入しない**。存在する場合は削除する
 
 **4.7 claim_timeline統合（決定13）**
@@ -2983,6 +2989,33 @@ class DomainVerificationState:
 - "入力/観測の無いフィールド（dead fields）" を排除し、DBスキーマを **現実の運用に一致**させる
 - NLI訂正履歴を蓄積し、将来の校正接続に備える
 
+#### 6.0 クリーン実装ゲート（Phase 1-5 完了事項の徹底確認）
+
+Phase 6 に入る前に、Phase 1-5 の**破壊的変更が徹底されており、旧仕様の残骸（ゴミコード）が残っていない**ことを機械的に確認する。
+
+**対象（Phase 1-5 の完了済み・破壊的変更タスク）**:
+- Phase 1 / Task 1.0: `trust_level` 概念の完全削除（`domain_category` に統一）
+- Phase 2 / Task 2.6（決定12）: `is_influential` の完全削除
+- 決定9: `is_contradiction` フラグの廃止（重複フラグを残さない）
+- Phase 4 / Task 4.5: 旧信頼度計算・旧フィールド（例: `verdict`）の掃除（旧実装の並行運用をしない）
+- Phase 5 / Task 5.1: `can_restore` の削除（`domain_block_reason` / `domain_unblock_risk` に置換）
+- Phase 5 / Task 5.5/5.6（決定18）: `rejected_claims` / `rejection_rate` の完全削除（棄却率分離へ移行）
+
+**合格条件（機械検証）**:
+- `src/` で旧フィールド/旧概念が **0件**（実装に残さない）:
+  - `trust_level`, `is_influential`, `is_contradiction`, `can_restore`, `rejected_claims`, `rejection_rate`
+- `tests/` は「削除済みフィールドが**存在しないこと**」の否定テスト（例: `assert "can_restore" not in ...`）としての言及は許容するが、キーアクセス（例: `["can_restore"]` / `"can_restore":`）は残さない
+- 実装・テストに「互換レイヤを残す」意図を示すコメント/命名が残っていない（例: `compatibility` という語を含む説明）
+
+**推奨コマンド（例）**:
+```bash
+rg -n "\\b(trust_level|is_influential|is_contradiction|can_restore|rejected_claims|rejection_rate)\\b" src/
+rg -n "\\[\"can_restore\"\\]|\"can_restore\"\\s*:" tests/
+rg -n "\\bcompatibility\\b" src/ tests/
+```
+
+（注）`verdict` は一般語として出現し得るため、旧フィールドの検証は `edges.verdict` 等の**具体的な参照**に限定して確認する（例: `rg -n "\\bedges\\.verdict\\b|\"verdict\"\\s*:" src/ tests/`）。
+
 #### 6.1 `feedback` ツールの設計（決定17, 決定19）
 
 **思想**: 「パラメータを直接いじる」恣意性を排除し、「正解を教える」形でのみ入力を受け付ける。
@@ -3032,7 +3065,7 @@ class DomainVerificationState:
 
 ```
 1. 既存エッジ取得（edge_id）
-2. 校正サンプル蓄積（predicted_label, predicted_confidence, correct_label）
+2. ground-truth サンプル蓄積（DB: `nli_corrections`。premise/hypothesis/予測/正解/理由を保存）
 3. エッジ即時更新（relation, nli_label, edge_human_corrected=True, edge_correction_reason, edge_corrected_at）
 4. ベイズ再計算は get_materials 時にオンデマンド（変更不要）
 ```
@@ -3045,8 +3078,8 @@ class DomainVerificationState:
 3. 該当ドメインのソースを以降スキップ
 ```
 
-**`calibrate` ツールとの関係**:
-- `calibrate` は**評価・統計・ロールバック用**として残す
+**`calibration_metrics` ツールとの関係**:
+- `calibration_metrics` は**評価・統計・履歴参照用**として残す（計測系。入力は `feedback` に統一）
 - `feedback` は**Human-in-the-loop 入力用**（訂正・棄却・ブロック）
 - 両者は責務が異なる（計測 vs 入力）
 
@@ -3082,6 +3115,8 @@ CREATE TABLE IF NOT EXISTS nli_corrections (
     id TEXT PRIMARY KEY,
     edge_id TEXT NOT NULL,
     task_id TEXT,
+    premise TEXT NOT NULL,               -- NLI premise snapshot (for training reproducibility)
+    hypothesis TEXT NOT NULL,            -- NLI hypothesis snapshot (for training reproducibility)
     predicted_label TEXT NOT NULL,       -- 元のNLI判定
     predicted_confidence REAL NOT NULL,  -- 元の確信度
     correct_label TEXT NOT NULL,         -- 人が入力した正解
