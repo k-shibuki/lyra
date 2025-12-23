@@ -3688,8 +3688,8 @@ source_verification:
 
 ## 関連ドキュメント
 
-- [REQUIREMENTS.md §4.4.1](REQUIREMENTS.md) - L6 Source Verification Flow
-- [REQUIREMENTS.md §3.1.3](REQUIREMENTS.md) - 学術API統合戦略
+- [REQUIREMENTS.md §4.4.1](archive/REQUIREMENTS.md) - L6 Source Verification Flow（アーカイブ）
+- [REQUIREMENTS.md §3.1.3](archive/REQUIREMENTS.md) - 学術API統合戦略（アーカイブ）
 - `src/filter/source_verification.py` - 現行実装
 - `src/filter/evidence_graph.py` - エビデンスグラフ
 - `src/filter/ranking.py` - 3段階ランキング（BM25 → Embedding → Reranker）
