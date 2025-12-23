@@ -167,15 +167,14 @@ TOOLS = [
     # 4. Calibration (2 tools)
     # ============================================================
     Tool(
-        name="calibrate",
-        description="Unified calibration operations (daily operations). Actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data. For rollback (destructive), use calibrate_rollback.",
+        name="calibration_metrics",
+        description="Calibration metrics operations (Phase 6.3). Actions: get_stats, evaluate, get_evaluations, get_diagram_data. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback.",
         inputSchema={
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
                     "enum": [
-                        "add_sample",
                         "get_stats",
                         "evaluate",
                         "get_evaluations",
@@ -185,15 +184,15 @@ TOOLS = [
                 },
                 "data": {
                     "type": "object",
-                    "description": "Action-specific data. add_sample: {source, prediction, actual, logit?}. evaluate: {source, predictions, labels}. get_evaluations: {source?, limit?, since?}. get_diagram_data: {source, evaluation_id?}. get_stats: no data required.",
+                    "description": "Action-specific data. evaluate: {source, predictions, labels}. get_evaluations: {source?, limit?, since?}. get_diagram_data: {source, evaluation_id?}. get_stats: no data required.",
                 },
             },
             "required": ["action"],
         },
     ),
     Tool(
-        name="calibrate_rollback",
-        description="Rollback calibration parameters to a previous version (destructive operation). Per §3.2.1: Separate tool because rollback is destructive and irreversible.",
+        name="calibration_rollback",
+        description="Rollback calibration parameters to a previous version (destructive operation). Per §3.2.1: Separate tool because rollback is destructive and irreversible. Renamed from calibrate_rollback in Phase 6.3.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -452,9 +451,9 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "stop_task": _handle_stop_task,
         # Materials
         "get_materials": _handle_get_materials,
-        # Calibration
-        "calibrate": _handle_calibrate,
-        "calibrate_rollback": _handle_calibrate_rollback,
+        # Calibration (Phase 6.3: renamed from calibrate/calibrate_rollback)
+        "calibration_metrics": _handle_calibration_metrics,
+        "calibration_rollback": _handle_calibration_rollback,
         # Authentication Queue
         "get_auth_queue": _handle_get_auth_queue,
         "resolve_auth": _handle_resolve_auth,
@@ -501,6 +500,52 @@ def _clear_exploration_state(task_id: str) -> None:
 # ============================================================
 # Task Management Handlers
 # ============================================================
+
+
+async def _get_domain_overrides() -> list[dict[str, Any]]:
+    """Get active domain override rules from DB.
+
+    Returns list of override rules for get_status response (Phase 6.3).
+    Per Decision 20: expose domain_overrides for auditability.
+    """
+    try:
+        db = await get_database()
+        cursor = await db.execute(
+            """
+            SELECT id, domain_pattern, decision, reason, updated_at
+            FROM domain_override_rules
+            WHERE is_active = 1
+            ORDER BY updated_at DESC
+            """
+        )
+        rows = await cursor.fetchall()
+
+        overrides = []
+        for row in rows:
+            if isinstance(row, dict):
+                overrides.append(
+                    {
+                        "rule_id": row["id"],
+                        "domain_pattern": row["domain_pattern"],
+                        "decision": row["decision"],
+                        "reason": row["reason"] or "",
+                        "updated_at": row["updated_at"] or "",
+                    }
+                )
+            else:
+                overrides.append(
+                    {
+                        "rule_id": row[0],
+                        "domain_pattern": row[1],
+                        "decision": row[2],
+                        "reason": row[3] or "",
+                        "updated_at": row[4] or "",
+                    }
+                )
+        return overrides
+    except Exception as e:
+        logger.warning("Failed to get domain overrides", error=str(e))
+        return []
 
 
 async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
@@ -646,6 +691,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             verifier = get_source_verifier()
             blocked_domains = verifier.get_blocked_domains_info()
 
+            # Get domain overrides from DB (Phase 6.3)
+            domain_overrides = await _get_domain_overrides()
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -671,6 +719,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "warnings": exploration_status.get("warnings", []),
                 "idle_seconds": exploration_status.get("idle_seconds", 0),  # §2.1.5
                 "blocked_domains": blocked_domains,  # Added for transparency
+                "domain_overrides": domain_overrides,  # Phase 6.3
             }
             return attach_meta(response, create_minimal_meta())
         else:
@@ -680,6 +729,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 
             verifier = get_source_verifier()
             blocked_domains = verifier.get_blocked_domains_info()
+
+            # Get domain overrides from DB (Phase 6.3)
+            domain_overrides = await _get_domain_overrides()
 
             response = {
                 "ok": True,
@@ -706,6 +758,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "warnings": [],
                 "idle_seconds": 0,  # §2.1.5 (no exploration state)
                 "blocked_domains": blocked_domains,  # Added for transparency
+                "domain_overrides": domain_overrides,  # Phase 6.3
             }
             return attach_meta(response, create_minimal_meta())
 
@@ -1072,17 +1125,18 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
 # ============================================================
 
 
-async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
+async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle calibrate tool call.
+    Handle calibration_metrics tool call (Phase 6.3).
 
-    Implements §3.2.1: Unified calibration operations (daily operations).
-    Actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data.
+    Implements calibration metrics operations (4 actions).
+    Actions: get_stats, evaluate, get_evaluations, get_diagram_data.
 
-    For rollback (destructive operation), use calibrate_rollback tool.
+    Note: add_sample was removed in Phase 6.3. Use feedback(edge_correct) for ground-truth collection.
+    For rollback (destructive operation), use calibration_rollback tool.
     """
     from src.mcp.errors import InvalidParamsError
-    from src.utils.calibration import calibrate_action
+    from src.utils.calibration import calibration_metrics_action
 
     action = args.get("action")
     data = args.get("data", {})
@@ -1091,15 +1145,15 @@ async def _handle_calibrate(args: dict[str, Any]) -> dict[str, Any]:
         raise InvalidParamsError(
             "action is required",
             param_name="action",
-            expected="one of: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
+            expected="one of: get_stats, evaluate, get_evaluations, get_diagram_data",
         )
 
-    return await calibrate_action(action, data)
+    return await calibration_metrics_action(action, data)
 
 
-async def _handle_calibrate_rollback(args: dict[str, Any]) -> dict[str, Any]:
+async def _handle_calibration_rollback(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle calibrate_rollback tool call.
+    Handle calibration_rollback tool call (Phase 6.3).
 
     Implements §3.2.1: Rollback calibration parameters (destructive operation).
     Separate tool to prevent accidental invocation.

@@ -711,6 +711,67 @@ class SourceVerifier:
 
         return builder
 
+    # =========================================================================
+    # External API for feedback tool (Phase 6.3)
+    # =========================================================================
+
+    def unblock_domain(self, domain: str) -> bool:
+        """Remove domain from blocked list (for feedback(domain_unblock)).
+
+        This allows unblocking domains that were blocked for any reason,
+        including dangerous_pattern (per Decision 20).
+
+        Args:
+            domain: Domain to unblock.
+
+        Returns:
+            True if domain was blocked and is now unblocked, False if not blocked.
+        """
+        if domain in self._blocked_domains:
+            self._blocked_domains.discard(domain)
+
+            # Update domain state if exists
+            if domain in self._domain_states:
+                state = self._domain_states[domain]
+                state.is_blocked = False
+                # Restore original category if known
+                if state.original_domain_category:
+                    state.domain_category = state.original_domain_category
+                state.last_updated = datetime.now(UTC).isoformat()
+
+            logger.info(
+                "Domain unblocked via feedback",
+                domain=domain,
+            )
+            return True
+
+        return False
+
+    def block_domain_manual(
+        self,
+        domain: str,
+        reason: str,
+        cause_id: str | None = None,
+    ) -> None:
+        """Block domain manually (for feedback(domain_block)).
+
+        Args:
+            domain: Domain to block.
+            reason: Reason for blocking.
+            cause_id: Causal trace ID (optional).
+        """
+        self._mark_domain_blocked(
+            domain,
+            reason,
+            cause_id=cause_id,
+            block_reason_code=DomainBlockReason.MANUAL,
+        )
+        logger.info(
+            "Domain blocked via feedback",
+            domain=domain,
+            reason=reason,
+        )
+
 
 # Global instance for reuse
 _verifier: SourceVerifier | None = None
@@ -732,3 +793,48 @@ def reset_source_verifier() -> None:
     """Reset global source verifier (for testing)."""
     global _verifier
     _verifier = None
+
+
+async def load_domain_overrides_from_db() -> None:
+    """Load domain override rules from DB and apply to SourceVerifier.
+
+    Called on startup to restore overrides from previous session.
+    Per Decision 20: DB is the source of truth for domain overrides.
+    """
+    from src.storage.database import get_database
+
+    verifier = get_source_verifier()
+    db = await get_database()
+
+    # Load active override rules
+    cursor = await db.execute(
+        """
+        SELECT domain_pattern, decision, reason
+        FROM domain_override_rules
+        WHERE is_active = 1
+        ORDER BY updated_at DESC
+        """
+    )
+    rows = await cursor.fetchall()
+
+    block_count = 0
+    unblock_count = 0
+
+    for row in rows:
+        pattern = row[0] if isinstance(row, tuple) else row["domain_pattern"]
+        decision = row[1] if isinstance(row, tuple) else row["decision"]
+        reason = row[2] if isinstance(row, tuple) else row["reason"]
+
+        if decision == "block":
+            verifier.block_domain_manual(pattern, reason or "Loaded from DB")
+            block_count += 1
+        elif decision == "unblock":
+            verifier.unblock_domain(pattern)
+            unblock_count += 1
+
+    if block_count > 0 or unblock_count > 0:
+        logger.info(
+            "Loaded domain overrides from DB",
+            blocks=block_count,
+            unblocks=unblock_count,
+        )

@@ -131,6 +131,12 @@ async def _handle_domain_block(args: dict[str, Any]) -> dict[str, Any]:
         (event_id, rule_id, domain_pattern, reason, now),
     )
 
+    # Reflect to SourceVerifier immediately (Phase 6.3)
+    from src.filter.source_verification import get_source_verifier
+
+    verifier = get_source_verifier()
+    verifier.block_domain_manual(domain_pattern, reason)
+
     logger.info(
         "Domain blocked via feedback",
         domain_pattern=domain_pattern,
@@ -185,6 +191,13 @@ async def _handle_domain_unblock(args: dict[str, Any]) -> dict[str, Any]:
         """,
         (event_id, rule_id, domain_pattern, reason, now),
     )
+
+    # Reflect to SourceVerifier immediately (Phase 6.3)
+    # This can unblock any domain, including dangerous_pattern (Decision 20)
+    from src.filter.source_verification import get_source_verifier
+
+    verifier = get_source_verifier()
+    verifier.unblock_domain(domain_pattern)
 
     logger.info(
         "Domain unblocked via feedback",
