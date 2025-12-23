@@ -4,7 +4,7 @@ Chain-of-Density compression for Lyra.
 Implements iterative summarization that increases information density
 while preserving all essential citations and evidence.
 
-Per : Compression and Citation Strictness
+Compression and Citation Strictness
 - Increase summary density using Chain-of-Density approach
 - Require deep links, discovery timestamps, and excerpts for all claims
 """
@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 class CitationInfo:
     """Citation information required for each claim.
 
-    Per : Require deep links, discovery timestamps, and excerpts for all claims.
+    Require deep links, discovery timestamps, and excerpts for all claims.
     """
 
     url: str
@@ -115,7 +115,7 @@ class CitationInfo:
 class DenseClaim:
     """A claim with mandatory citation information.
 
-    Per : Require deep links, discovery timestamps, and excerpts for all claims.
+    Require deep links, discovery timestamps, and excerpts for all claims.
     """
 
     claim_id: str
@@ -168,7 +168,7 @@ class DenseClaim:
 class DenseSummary:
     """A dense summary with increasing information density.
 
-    Per : Increase summary density using Chain-of-Density approach.
+    Increase summary density using Chain-of-Density approach.
     """
 
     iteration: int
@@ -260,7 +260,7 @@ class ChainOfDensityCompressor:
     2. Iteratively adds missing entities while maintaining length
     3. Increases information density with each iteration
 
-    Per : Increase summary density using Chain-of-Density approach,
+    Increase summary density using Chain-of-Density approach,
     requiring deep links, discovery timestamps, and excerpts for all claims.
     """
 
@@ -783,7 +783,7 @@ async def compress_with_chain_of_density(
     """
     Compress claims and fragments using Chain-of-Density.
 
-    Per : Compression and Citation Strictness
+    Compression and Citation Strictness
     - Increase summary density using Chain-of-Density approach
     - Require deep links, discovery timestamps, and excerpts for all claims
 

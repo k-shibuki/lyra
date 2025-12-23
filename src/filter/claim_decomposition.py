@@ -4,7 +4,7 @@ Claim decomposition for Lyra.
 Decomposes high-level research questions into atomic claims
 for systematic verification.
 
-Per : Question-to-Claim Decomposition
+Question-to-Claim Decomposition
 - Decompose high-level questions into atomic claims
 - Schema: claim_id, text, expected_polarity, granularity
 
@@ -60,7 +60,7 @@ class AtomicClaim:
     """
     An atomic claim extracted from a research question.
 
-    Per : Schema: claim_id, text, expected_polarity, granularity
+    Schema: claim_id, text, expected_polarity, granularity
     """
 
     claim_id: str
@@ -135,7 +135,7 @@ class ClaimDecomposer:
     """
     Decomposes research questions into atomic claims.
 
-    Per : Question-to-Claim Decomposition
+    Question-to-Claim Decomposition
     - Decompose high-level questions into atomic claims
     - LLM or rule-based decomposition logic
 
@@ -168,7 +168,7 @@ class ClaimDecomposer:
             DecompositionResult containing atomic claims.
 
         Note:
-            Per §K.1: Single 3B model is used for all LLM tasks.
+            Per ADR-0004: Single 3B model is used for all LLM tasks.
         """
         if not question.strip():
             return DecompositionResult(
@@ -205,7 +205,7 @@ class ClaimDecomposer:
         """Decompose using LLM.
 
         Note:
-            Per §K.1: Single 3B model is used for all LLM tasks.
+            Per ADR-0004: Single 3B model is used for all LLM tasks.
         """
         client = _get_client()
         model = self._settings.llm.model
@@ -619,7 +619,7 @@ async def decompose_question(
         DecompositionResult containing atomic claims.
 
     Note:
-        Per §K.1: Single 3B model is used for all LLM tasks.
+        Per ADR-0004: Single 3B model is used for all LLM tasks.
     """
     decomposer = ClaimDecomposer(use_llm=use_llm)
     return await decomposer.decompose(question)

@@ -2,7 +2,7 @@
 """
 Debug script for Search Pipeline Flow (O.7 Problem 1).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the search → fetch → extract → claims pipeline.
 
 Per ADR-0003:

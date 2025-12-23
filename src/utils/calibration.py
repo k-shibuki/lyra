@@ -2072,7 +2072,7 @@ async def calibration_metrics_action(
     """Unified calibration metrics API for MCP .
 
     This is the single entry point for calibration metrics operations (except rollback).
-    Renamed from calibrate_action in ; add_sample removed.
+    Renamed from calibrate_action; add_sample removed.
 
     Args:
         action: One of "get_stats", "evaluate", "get_evaluations", "get_diagram_data"

@@ -2,7 +2,7 @@
 """
 Debug script for get_materials Flow (O.7 Problem 3).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the get_materials tool returns claims/fragments/evidence_graph from DB.
 
 Per ADR-0003:

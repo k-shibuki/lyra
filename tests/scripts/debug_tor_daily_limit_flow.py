@@ -2,7 +2,7 @@
 """
 Debug script for Tor Daily Limit Flow (Problem 10).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the Tor daily usage limit checking and tracking functionality.
 
 Per ADR-0006 and :

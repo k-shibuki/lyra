@@ -1290,7 +1290,7 @@ class TestLLMModuleIntegration:
         # Mock the provider
         mock_provider = AsyncMock()
         mock_provider.name = "mock"
-        mock_provider.model = "test-model"  # Single model per §K.1
+        mock_provider.model = "test-model"  # Single model per ADR-0004
         mock_provider.generate = AsyncMock(
             return_value=LLMResponse.success(
                 text='[{"fact": "Test fact", "confidence": 0.9}]',

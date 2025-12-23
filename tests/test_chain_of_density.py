@@ -313,7 +313,7 @@ class TestDenseClaim:
     def test_validation_fails_without_citations(self) -> None:
         """Test validation fails when citations are missing.
 
-        Per : All claims must have citations.
+        All claims must have citations.
         """
         # Given: DenseClaim without citations
         claim = DenseClaim(
@@ -612,7 +612,7 @@ class TestChainOfDensityIntegration:
     async def test_citation_mandatory_fields_enforced(self) -> None:
         """Test that all mandatory citation fields are enforced.
 
-        Per : Require deep links, discovery timestamps, and excerpts for all claims.
+        Require deep links, discovery timestamps, and excerpts for all claims.
         """
         # Given: Claim with matching fragment
         claims = [
