@@ -32,8 +32,9 @@ alwaysApply: false
 1. Ruff lint の **エラーと警告**
 2. Ruff format の **差分**
 3. mypy の **エラーと警告**
-4. 不適切な `Any` の導入（新規追加・拡散）
-5. セキュリティ観点の明確な問題（認証/認可、入力検証、データ保持）
+4. check-jsonschema の **エラーと警告**（JSONスキーマファイルの検証）
+5. 不適切な `Any` の導入（新規追加・拡散）
+6. セキュリティ観点の明確な問題（認証/認可、入力検証、データ保持）
 
 ## 例外（意図的なlint）について
 
@@ -52,6 +53,7 @@ from src.module import Something
 - `ruff check` が **エラー・警告ゼロ**
 - `ruff format --check` が **差分ゼロ**
 - `mypy` が **Success: no issues found**
+- `check-jsonschema` が **エラー・警告ゼロ**（JSONスキーマファイルが有効なJSON Schema Draft 7形式であること）
 - 例外（意図的なlint）には **理由が明記**されている
 - 新規に `# type: ignore` / 不当な `# noqa` を追加していない
 - `Any` で問題を隠していない

@@ -40,6 +40,16 @@ mypy src/ tests/ --config-file pyproject.toml
 
 Note: `--config-file pyproject.toml` applies `[tool.mypy]` settings (e.g., `warn_return_any = true`).
 
+JSON Schema validation:
+
+```bash
+# Validate JSON Schema files against Draft 7 meta-schema
+check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/*.json
+
+# Or validate all JSON files in the schemas directory
+check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/
+```
+
 ## Output (response format)
 
 - **Issues found**: grouped by tool/code
