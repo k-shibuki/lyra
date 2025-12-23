@@ -2,7 +2,7 @@
 """
 Debug script for get_status Flow (O.7 Problem 2).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the get_status tool returns correct metrics and search states.
 
 Per ADR-0003:

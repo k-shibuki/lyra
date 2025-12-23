@@ -2,7 +2,7 @@
 """
 Debug script for Pydantic Migration verification.
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies that Pydantic models work correctly after migration from dataclass.
 
 Usage:

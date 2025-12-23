@@ -318,7 +318,7 @@ class SecurityE2EVerifier:
             provider = OllamaProvider(host=ollama_host)
 
             try:
-                # Use single model for testing (per §K.1)
+                # Use single model for testing (per ADR-0004)
                 model = provider._model
 
                 print(f"    Calling LLM ({model})...")

@@ -2,7 +2,7 @@
 """
 Debug script for Other MCP Tools (O.7 Problem 4+).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies calibrate, notify_user, wait_for_user tools.
 
 Per ADR-0003:

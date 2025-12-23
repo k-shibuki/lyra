@@ -27,7 +27,7 @@ class JobKind(str, Enum):
     """Job types with priority order.
 
     Note:
-        Per §K.1: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
+        Per ADR-0004: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
     """
 
     SERP = "serp"
@@ -35,7 +35,7 @@ class JobKind(str, Enum):
     EXTRACT = "extract"
     EMBED = "embed"
     RERANK = "rerank"
-    LLM = "llm"  # Single LLM job type (per §K.1)
+    LLM = "llm"  # Single LLM job type (per ADR-0004)
     NLI = "nli"
 
 
@@ -66,7 +66,7 @@ KIND_TO_SLOT = {
     JobKind.EXTRACT: Slot.CPU_NLP,
     JobKind.EMBED: Slot.GPU,
     JobKind.RERANK: Slot.GPU,
-    JobKind.LLM: Slot.GPU,  # Single LLM slot (per §K.1)
+    JobKind.LLM: Slot.GPU,  # Single LLM slot (per ADR-0004)
     JobKind.NLI: Slot.CPU_NLP,
 }
 
@@ -77,7 +77,7 @@ KIND_PRIORITY = {
     JobKind.EXTRACT: 30,
     JobKind.EMBED: 40,
     JobKind.RERANK: 50,
-    JobKind.LLM: 60,  # Single LLM priority (per §K.1)
+    JobKind.LLM: 60,  # Single LLM priority (per ADR-0004)
     JobKind.NLI: 35,
 }
 
@@ -283,7 +283,7 @@ class JobScheduler:
 
         # For LLM jobs, check ratio limit
         if kind == JobKind.LLM:
-            # Estimate LLM time (single 3B model ~5s per §K.1)
+            # Estimate LLM time (single 3B model ~5s per ADR-0004)
             estimated_time = 5.0
             can_run = await self._budget_manager.can_run_llm(task_id, estimated_time)
             if not can_run:

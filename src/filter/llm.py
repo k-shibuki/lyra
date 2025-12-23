@@ -2,7 +2,7 @@
 LLM-based extraction for Lyra.
 Uses local Ollama models for fact/claim extraction and summarization.
 
-Per : LLM processes are destroyed after task completion to prevent memory leaks.
+LLM processes are destroyed after task completion to prevent memory leaks.
 Per ADR-0005 L4: LLM output is validated for prompt leakage and suspicious content.
 
 This module provides high-level LLM extraction functions that use the LLMProvider
@@ -187,7 +187,7 @@ async def cleanup_llm_for_task(task_id: str | None = None) -> None:
     """
     Cleanup LLM resources after task completion.
 
-    Per : LLM processes should be released after task completion.
+    LLM processes should be released after task completion.
     """
     global _client
     if _client is not None:
@@ -390,7 +390,7 @@ async def llm_extract(
         Extraction result.
 
     Note:
-        Per §K.1: Single 3B model is used for all LLM tasks.
+        Per ADR-0004: Single 3B model is used for all LLM tasks.
     """
     settings = get_settings()
 
@@ -407,7 +407,7 @@ async def llm_extract(
         if default_provider is None:
             raise RuntimeError("No LLM provider available")
 
-        # Use single model (per §K.1)
+        # Use single model (per ADR-0004)
         model = None
         if hasattr(default_provider, "model"):
             model = default_provider.model

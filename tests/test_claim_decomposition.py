@@ -2,7 +2,7 @@
 Tests for claim decomposition module.
 
 Per .1.1: Tests validate specifications, not just "pass tests".
-Per : Question-to-Claim Decomposition functionality.
+Question-to-Claim Decomposition functionality.
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |

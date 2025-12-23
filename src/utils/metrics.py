@@ -590,7 +590,7 @@ class MetricsCollector:
     def _check_tor_date_reset(self) -> None:
         """Check if day changed and reset Tor counters if needed.
 
-        Per : Daily metrics should reset at midnight.
+        Daily metrics should reset at midnight.
         """
         today = date.today().isoformat()
         if self._tor_daily_date != today:

@@ -260,7 +260,7 @@ class EnvironmentVerifier:
                 models = await provider.list_models()
                 model_names = [m.name for m in models]
 
-                # Check for required model (per §K.1: single 3B model)
+                # Check for required model (per ADR-0004: single 3B model)
                 model = settings.llm.model
 
                 has_model = any(model in m for m in model_names)
