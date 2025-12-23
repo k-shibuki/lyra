@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-22（Phase 4b 完了: 時間メタデータ露出、決定15追加 / Phase 5-6 設計更新: Phase 5=user_overrides, Phase 6=フィードバック&スキーマ棚卸し）
+**最終更新**: 2025-12-23（Phase 5 Task 5.1 完了: `domain_block_reason`/`domain_unblock_risk` 露出、BREAKING: `can_restore` 削除）
 
 このセクションは、`docs/P_EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -102,8 +102,8 @@
 
 | Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
 |---|---|---|---|---|
-| Phase 5 / Task 5.0 | `get_status.blocked_domains[]` に `can_restore`/`restore_via` を追加（legacy） | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | Phase 5で `domain_block_reason`/`domain_unblock_risk` に置換予定（破壊的変更） |
-| Phase 5 / Task 5.1 | ブロック理由のコード化（`domain_block_reason`）+ MCP露出 + `domain_unblock_risk`（High/Low） | TODO | `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | ブロック理由の混線を解消（dangerous_pattern vs high_rejection_rate等） |
+| Phase 5 / Task 5.0 | `get_status.blocked_domains[]` に `can_restore`/`restore_via` を追加（legacy） | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | Task 5.1 で `can_restore` 削除、`domain_block_reason`/`domain_unblock_risk` に置換 |
+| Phase 5 / Task 5.1 | ブロック理由のコード化（`domain_block_reason`）+ MCP露出 + `domain_unblock_risk`（High/Low） | DONE | `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | ブロック理由の混線を解消（dangerous_pattern vs high_rejection_rate等）。BREAKING CHANGE: `can_restore` 削除 |
 | Phase 5 / Task 5.2 | `user_overrides` 導入（完全一致。**QPS/カテゴリ等のDomainPolicy上書き**。ブロック解除は扱わない） | TODO | `config/domains.yaml`, `src/utils/domain_policy.py` | ブロック/解除は Phase 6 の DB override（決定20）で統一 |
 | Phase 5 / Task 5.3 | hot-reloadで `user_overrides` が即反映（DomainPolicyManager） | TODO | `src/utils/domain_policy.py` | DomainPolicyManager reload callback で反映（SourceVerifierの `_blocked_domains` とは切り離す） |
 | Phase 5 / Task 5.4 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md`, `README.md` | - |
