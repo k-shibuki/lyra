@@ -819,7 +819,7 @@ class TestConvenienceFunctions:
         mock_db.fetch_one = AsyncMock(
             side_effect=[
                 {"timeline_json": None},
-                {"confidence_score": 0.8},
+                {"claim_confidence": 0.8},
             ]
         )
         mock_db.update = AsyncMock()

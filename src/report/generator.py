@@ -221,7 +221,7 @@ class ReportGenerator:
 
         # Get claims
         claims = await db.fetch_all(
-            "SELECT * FROM claims WHERE task_id = ? ORDER BY confidence_score DESC",
+            "SELECT * FROM claims WHERE task_id = ? ORDER BY claim_confidence DESC",
             (task_id,),
         )
 
@@ -333,12 +333,12 @@ class ReportGenerator:
 
         if claims:
             # Top claims
-            top_claims = [c for c in claims if c.get("confidence_score", 0) >= 0.7][:5]
+            top_claims = [c for c in claims if c.get("claim_confidence", 0) >= 0.7][:5]
             if top_claims:
                 lines.append("### 主要な発見")
                 lines.append("")
                 for i, claim in enumerate(top_claims, 1):
-                    confidence = claim.get("confidence_score", 0)
+                    confidence = claim.get("claim_confidence", 0)
                     lines.append(f"{i}. {claim['claim_text']} (信頼度: {confidence:.2f})")
                 lines.append("")
 
@@ -367,7 +367,7 @@ class ReportGenerator:
                 lines.append("### 事実")
                 lines.append("")
                 for claim in fact_claims[:10]:
-                    confidence = claim.get("confidence_score", 0)
+                    confidence = claim.get("claim_confidence", 0)
                     supporting = claim.get("supporting_count", 0)
                     refuting = claim.get("refuting_count", 0)
 
@@ -611,7 +611,7 @@ class ReportGenerator:
         high_confidence_with_timeline = [
             (c, t)
             for c, t in claims_with_timeline
-            if (c.get("confidence_score") or 0) >= 0.7 and not t.is_retracted
+            if (c.get("claim_confidence") or 0) >= 0.7 and not t.is_retracted
         ][:10]  # Limit to 10
 
         if high_confidence_with_timeline:
@@ -791,14 +791,14 @@ async def get_report_materials(
              WHERE e.target_id = c.id AND e.relation = 'refutes') as refute_count
         FROM claims c
         WHERE c.task_id = ?
-        ORDER BY c.confidence_score DESC
+        ORDER BY c.claim_confidence DESC
         """,
         (task_id,),
     )
 
     # Classify claims by confidence threshold (§4.5)
-    high_confidence = [c for c in claims if (c.get("confidence_score") or 0) >= 0.7]
-    low_confidence = [c for c in claims if (c.get("confidence_score") or 0) < 0.7]
+    high_confidence = [c for c in claims if (c.get("claim_confidence") or 0) >= 0.7]
+    low_confidence = [c for c in claims if (c.get("claim_confidence") or 0) < 0.7]
 
     # Get fragments if requested
     fragments = []
@@ -1012,9 +1012,8 @@ async def get_evidence_graph(
                 "id": c["id"],
                 "type": "claim",
                 "text": c.get("claim_text"),
-                "confidence": c.get("confidence_score"),
+                "confidence": c.get("claim_confidence"),
                 "claim_type": c.get("claim_type"),
-                "verified": c.get("is_verified"),
             }
             for c in claims
         ],

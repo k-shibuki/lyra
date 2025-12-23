@@ -512,11 +512,11 @@ class EvidenceGraph:
         """
         node_id = self._make_node_id(NodeType.CLAIM, claim_id)
         if node_id in self._graph:
-            self._graph.nodes[node_id]["adoption_status"] = status
+            self._graph.nodes[node_id]["claim_adoption_status"] = status
             logger.debug(
                 "Claim adoption status updated",
                 claim_id=claim_id,
-                adoption_status=status,
+                claim_adoption_status=status,
             )
         else:
             logger.warning(
@@ -535,8 +535,8 @@ class EvidenceGraph:
         """
         node_id = self._make_node_id(NodeType.CLAIM, claim_id)
         if node_id in self._graph:
-            status = self._graph.nodes[node_id].get("adoption_status", "pending")
-            return str(status) if status is not None else "pending"
+            status = self._graph.nodes[node_id].get("claim_adoption_status", "adopted")
+            return str(status) if status is not None else "adopted"
         return None
 
     def get_claims_by_adoption_status(self, status: str) -> list[str]:
@@ -552,7 +552,7 @@ class EvidenceGraph:
         for node_id in self._graph.nodes():
             node_data = self._graph.nodes[node_id]
             if node_data.get("node_type") == NodeType.CLAIM.value:
-                if node_data.get("adoption_status", "pending") == status:
+                if node_data.get("claim_adoption_status", "adopted") == status:
                     _, obj_id = self._parse_node_id(node_id)
                     result.append(obj_id)
         return result

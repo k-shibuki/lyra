@@ -96,7 +96,7 @@ async def main() -> int:
     claim2_id = f"c_{uuid.uuid4().hex[:8]}"
 
     await db.execute(
-        """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
+        """INSERT INTO claims (id, task_id, claim_text, claim_type, claim_confidence, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
         (
             claim1_id,
@@ -109,7 +109,7 @@ async def main() -> int:
         ),
     )
     await db.execute(
-        """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
+        """INSERT INTO claims (id, task_id, claim_text, claim_type, claim_confidence, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
         (
             claim2_id,

@@ -136,14 +136,14 @@ CREATE TABLE IF NOT EXISTS claims (
     claim_type TEXT,  -- fact, opinion, prediction, etc.
     granularity TEXT,  -- atomic, composite
     expected_polarity TEXT,  -- positive, negative, neutral
-    confidence_score REAL,
-    calibrated_score REAL,
+    claim_confidence REAL,  -- Renamed from confidence_score (Decision 19)
     source_fragment_ids TEXT,  -- JSON array
-    adoption_status TEXT DEFAULT 'pending',  -- pending, adopted, not_adopted (single-user mode; breaking changes allowed)
+    claim_adoption_status TEXT DEFAULT 'adopted',  -- Renamed, default changed from 'pending' (Decision 19)
+    claim_rejection_reason TEXT,  -- NEW: rejection reason (audit)
+    claim_rejected_at TEXT,  -- NEW: rejection timestamp
     supporting_count INTEGER DEFAULT 0,
     refuting_count INTEGER DEFAULT 0,
     neutral_count INTEGER DEFAULT 0,
-    is_verified BOOLEAN DEFAULT 0,
     verification_notes TEXT,
     timeline_json TEXT,  -- First seen, updated, etc.
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -171,6 +171,10 @@ CREATE TABLE IF NOT EXISTS edges (
     -- Domain category information for ranking adjustment and high-reasoning AI (Phase P.2)
     source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
     target_domain_category TEXT,
+    -- Human correction metadata (Phase 6 / Decision 19)
+    edge_human_corrected BOOLEAN DEFAULT 0,
+    edge_correction_reason TEXT,
+    edge_corrected_at TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     cause_id TEXT
 );
@@ -672,6 +676,60 @@ CREATE TABLE IF NOT EXISTS calibration_evaluations (
 );
 CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_source ON calibration_evaluations(source);
 CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_evaluated_at ON calibration_evaluations(evaluated_at);
+
+-- ============================================================
+-- Feedback & Override Tables (Phase 6 / Decision 19, 20)
+-- ============================================================
+
+-- NLI correction samples for ground-truth collection (Phase 6 / Phase R LoRA)
+CREATE TABLE IF NOT EXISTS nli_corrections (
+    id TEXT PRIMARY KEY,
+    edge_id TEXT NOT NULL,
+    task_id TEXT,
+    premise TEXT NOT NULL,               -- NLI premise snapshot (for training reproducibility)
+    hypothesis TEXT NOT NULL,            -- NLI hypothesis snapshot (for training reproducibility)
+    predicted_label TEXT NOT NULL,       -- Original NLI prediction: supports/refutes/neutral
+    predicted_confidence REAL NOT NULL,  -- Original confidence (0.0-1.0)
+    correct_label TEXT NOT NULL,         -- Human-provided ground-truth: supports/refutes/neutral
+    reason TEXT,                         -- Correction reason (audit)
+    corrected_at TEXT NOT NULL,
+    FOREIGN KEY (edge_id) REFERENCES edges(id)
+);
+CREATE INDEX IF NOT EXISTS idx_nli_corrections_edge ON nli_corrections(edge_id);
+CREATE INDEX IF NOT EXISTS idx_nli_corrections_task ON nli_corrections(task_id);
+CREATE INDEX IF NOT EXISTS idx_nli_corrections_corrected_at ON nli_corrections(corrected_at);
+
+-- Domain override rules (source of truth for feedback domain_block/unblock)
+CREATE TABLE IF NOT EXISTS domain_override_rules (
+    id TEXT PRIMARY KEY,
+    domain_pattern TEXT NOT NULL,                 -- "example.com" or "*.example.com"
+    decision TEXT NOT NULL,                       -- "block" | "unblock"
+    reason TEXT NOT NULL,                         -- Required (audit)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT 1,
+    created_by TEXT DEFAULT 'feedback'            -- Audit trail
+);
+CREATE INDEX IF NOT EXISTS idx_domain_override_rules_active
+    ON domain_override_rules(is_active, decision, updated_at);
+CREATE INDEX IF NOT EXISTS idx_domain_override_rules_pattern
+    ON domain_override_rules(domain_pattern);
+
+-- Append-only audit log for domain overrides
+CREATE TABLE IF NOT EXISTS domain_override_events (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT,
+    action TEXT NOT NULL,                         -- "domain_block" | "domain_unblock" | "domain_clear_override"
+    domain_pattern TEXT NOT NULL,
+    decision TEXT NOT NULL,                       -- "block" | "unblock" | "clear"
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'feedback'
+);
+CREATE INDEX IF NOT EXISTS idx_domain_override_events_created_at
+    ON domain_override_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_domain_override_events_rule
+    ON domain_override_events(rule_id);
 
 -- ============================================================
 -- Query A/B Testing (§3.1.1)

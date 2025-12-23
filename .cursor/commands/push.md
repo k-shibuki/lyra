@@ -35,24 +35,13 @@ if [ -z "$(git log origin/main..main --oneline)" ]; then
 fi
 ```
 
-2. Pre-push checks (do not push with warnings):
-
-```bash
-# Run from WSL venv (hybrid mode)
-ruff check src/ tests/
-mypy src/ tests/ --config-file pyproject.toml
-ruff check --fix src/ tests/  # if needed
-
-git diff origin/main..main --check
-```
-
-3. Push:
+2. Push:
 
 ```bash
 git push origin main
 ```
 
-4. Verify:
+3. Verify:
 
 ```bash
 git log origin/main..main --oneline

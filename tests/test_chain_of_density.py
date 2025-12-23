@@ -115,21 +115,19 @@ def sample_claims() -> list[dict[str, object]]:
         {
             "id": "claim_001",
             "claim_text": "日本の経済成長率は2024年に2.5%を記録した",
-            "confidence_score": 0.85,
+            "claim_confidence": 0.85,
             "claim_type": "fact",
             "source_url": "https://example.gov.jp/report/2024",
             "supporting_fragment_ids": ["frag_001", "frag_002"],
-            "is_verified": True,
             "refutation_status": "not_found",
         },
         {
             "id": "claim_002",
             "claim_text": "輸出の増加が成長の主要因である",
-            "confidence_score": 0.72,
+            "claim_confidence": 0.72,
             "claim_type": "fact",
             "source_url": "https://example.gov.jp/report/2024",
             "supporting_fragment_ids": ["frag_001"],
-            "is_verified": False,
             "refutation_status": "pending",
         },
     ]
@@ -621,7 +619,7 @@ class TestChainOfDensityIntegration:
             {
                 "id": "claim_test",
                 "claim_text": "Test claim",
-                "confidence_score": 0.8,
+                "claim_confidence": 0.8,
                 "source_url": "https://example.com/source",
             }
         ]
@@ -661,7 +659,7 @@ class TestChainOfDensityIntegration:
             {
                 "id": "orphan_claim",
                 "claim_text": "Orphan claim with no source",
-                "confidence_score": 0.5,
+                "claim_confidence": 0.5,
             }
         ]
         fragments: list[dict[str, object]] = []  # No fragments
@@ -697,7 +695,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "single_claim",
                 "claim_text": "Single test claim",
-                "confidence_score": 0.9,
+                "claim_confidence": 0.9,
                 "source_url": "https://example.com",
             }
         ]
@@ -732,7 +730,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "unmatched_claim",
                 "claim_text": "This claim has no matching fragment",
-                "confidence_score": 0.7,
+                "claim_confidence": 0.7,
             }
         ]
         fragments = [
@@ -765,7 +763,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "unicode_claim",
                 "claim_text": "日本語、中文、한국어、emoji 🎉 test",
-                "confidence_score": 0.8,
+                "claim_confidence": 0.8,
                 "source_url": "https://example.com/unicode",
             }
         ]
@@ -803,7 +801,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "long_claim",
                 "claim_text": "Claim about long content",
-                "confidence_score": 0.6,
+                "claim_confidence": 0.6,
                 "source_url": "https://example.com/long",
             }
         ]
