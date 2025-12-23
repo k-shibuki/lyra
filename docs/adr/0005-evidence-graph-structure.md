@@ -134,6 +134,5 @@ def calculate_reliability(fragment: Fragment) -> float:
 | スコアのみ | 軽量 | 根拠が不透明 | 却下 |
 
 ## References
-- `docs/P_EVIDENCE_SYSTEM.md`（アーカイブ）
-- `src/storage/schema.sql` - グラフスキーマ
-- `src/graph/confidence.py` - 信頼度計算
+- `src/storage/schema.sql` - グラフスキーマ（edges, claims, fragmentsテーブル）
+- `src/filter/evidence_graph.py` - エビデンスグラフ実装（NetworkX + SQLite）
