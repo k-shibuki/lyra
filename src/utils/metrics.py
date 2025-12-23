@@ -304,7 +304,7 @@ class MetricsCollector:
         self._engine_metrics: dict[str, dict[str, MetricValue]] = {}
         self._lock = asyncio.Lock()
 
-        # Tor daily usage tracking (Problem 10)
+        # Tor daily usage tracking (Tor daily usage limit)
         self._tor_daily_total_requests: int = 0
         self._tor_daily_tor_requests: int = 0
         self._tor_daily_date: str = date.today().isoformat()
@@ -584,7 +584,7 @@ class MetricsCollector:
             await self._update_engine_metric(engine, "latency_ms", latency_ms)
 
     # =========================================================
-    # Tor Daily Usage Tracking (Problem 10)
+    # Tor Daily Usage Tracking (Tor daily usage limit)
     # =========================================================
 
     def _check_tor_date_reset(self) -> None:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug script for Tor Daily Limit Flow (Problem 10).
+Debug script for Tor Daily Limit Flow (Tor daily usage limit).
 
 This is a "straight-line" debug script.
 Verifies the Tor daily usage limit checking and tracking functionality.

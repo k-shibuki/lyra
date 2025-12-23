@@ -802,7 +802,8 @@ async def _auto_start_chrome() -> bool:
     Auto-start Chrome using chrome.sh script.
 
     Executes ./scripts/chrome.sh start and returns success status.
-    Per N.5.3: UX-first approach - Lyra auto-starts Chrome when needed.
+    UX-first approach: Lyra auto-starts Chrome when needed rather than
+    returning an error immediately.
 
     Uses asyncio.create_subprocess_exec() for non-blocking execution.
 
@@ -866,7 +867,7 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
     """
     Ensure Chrome CDP is ready, auto-starting if needed.
 
-    Per N.5.3 and docs/requirements.md ADR-0003:
+    Workflow:
     1. Check if CDP is already connected
     2. If not, auto-start Chrome using chrome.sh
     3. Wait up to timeout seconds for CDP connection
@@ -926,7 +927,7 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
 
     Supports refute:true for refutation mode.
 
-    Per N.5.3: Auto-starts Chrome if not connected.
+    Auto-starts Chrome if not connected (UX-first approach).
 
     Raises:
         ChromeNotReadyError: If Chrome CDP is not connected after auto-start attempt.
@@ -953,7 +954,7 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
         )
 
     # Pre-check: Ensure Chrome CDP is available, auto-starting if needed
-    # Per N.5.3: UX-first - auto-start Chrome rather than returning error immediately
+    # UX-first approach: auto-start Chrome rather than returning error immediately
     await _ensure_chrome_ready()
 
     with LogContext(task_id=task_id):

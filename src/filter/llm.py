@@ -334,7 +334,7 @@ async def chat_with_provider(
 # ============================================================================
 # Prompt Templates (External)
 # ============================================================================
-# Per Phase K.2: Prompt templates are externalized to config/prompts/*.j2
+# Prompt templates are externalized to config/prompts/*.j2
 # Use render_prompt() to render templates with variables.
 # Template names: extract_facts, extract_claims, summarize, translate
 
@@ -419,7 +419,7 @@ async def llm_extract(
             text = passage.get("text", "")
             source_url = passage.get("source_url", "")
 
-            # Select and render prompt template based on task (Phase K.2)
+            # Select and render prompt template based on task
             if task == "extract_facts":
                 prompt = render_prompt("extract_facts", text=text[:4000])
             elif task == "extract_claims":
@@ -523,7 +523,7 @@ async def llm_extract(
             text = passage.get("text", "")
             source_url = passage.get("source_url", "")
 
-            # Select and render prompt template based on task (Phase K.2)
+            # Select and render prompt template based on task
             if task == "extract_facts":
                 prompt = render_prompt("extract_facts", text=text[:4000])
             elif task == "extract_claims":

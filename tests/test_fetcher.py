@@ -1500,7 +1500,7 @@ class TestBrowserFetcherHumanBehavior:
 
 @pytest.mark.unit
 class TestFetchUrlCumulativeTimeout:
-    """Tests for fetch_url cumulative timeout (O.8 fix).
+    """Tests for fetch_url cumulative timeout (Cumulative timeout fix fix).
 
     ## Test Perspectives Table
 

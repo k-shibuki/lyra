@@ -127,7 +127,7 @@ class DecompositionResult:
         }
 
 
-# Per Phase K.2: Prompt template externalized to config/prompts/decompose.j2
+# Prompt template externalized to config/prompts/decompose.j2
 # Use render_prompt("decompose", question=...) to render the template.
 
 
@@ -210,7 +210,7 @@ class ClaimDecomposer:
         client = _get_client()
         model = self._settings.llm.model
 
-        # Render prompt template (Phase K.2)
+        # Render prompt template
         prompt = render_prompt("decompose", question=question)
 
         response = await client.generate(

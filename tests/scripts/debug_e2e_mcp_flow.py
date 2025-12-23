@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-E2E Integration Test for MCP Tools (O.7.6).
+E2E Integration Test for MCP Tools (E2E MCP flow integration).
 
 This is an end-to-end debug script that verifies the full MCP tool flow:
 create_task → search → get_status → get_materials → stop_task
@@ -25,7 +25,7 @@ sys.path.insert(0, "/home/statuser/lyra")
 async def main() -> int:
     """Run E2E MCP flow verification."""
     print("=" * 70)
-    print("E2E MCP Flow Integration Test (O.7.6)")
+    print("E2E MCP Flow Integration Test (E2E MCP flow integration)")
     print("=" * 70)
 
     from src.storage.database import get_database

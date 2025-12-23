@@ -1,5 +1,5 @@
 """
-Tests for MCP Response Metadata (K.3-5, ADR-0005 L5).
+Tests for MCP Response Metadata (MCP Response Metadata (ADR-0005 L5), ADR-0005 L5).
 
 Test Coverage:
 - LyraMeta serialization

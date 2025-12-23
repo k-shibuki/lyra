@@ -3,7 +3,7 @@ Tests for MCP error code definitions.
 
 Implements test perspectives for src/mcp/errors.py per test-strategy.mdc.
 
-## Test Perspectives Table (ChromeNotReadyError - Phase O.3 Simplified)
+## Test Perspectives Table (ChromeNotReadyError - Hybrid mode Simplified)
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
@@ -396,7 +396,7 @@ class TestInternalError:
 
 
 class TestChromeNotReadyError:
-    """Tests for ChromeNotReadyError (N.5 implementation)."""
+    """Tests for ChromeNotReadyError (Chrome auto-start implementation)."""
 
     def test_default_message(self) -> None:
         """
