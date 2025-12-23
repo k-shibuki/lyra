@@ -1,10 +1,7 @@
-# ADR-0011: Academic Data Source Strategy
-
-## Status
-Accepted
+# ADR-0008: Academic Data Source Strategy
 
 ## Date
-2025-12-21
+2025-11-28
 
 ## Context
 
@@ -15,7 +12,7 @@ Accepted
 | API制限 | 多くの学術DBは有料またはレート制限あり |
 | カバレッジ | 単一ソースでは網羅性が不十分 |
 | 信頼性 | プレプリントと査読済みの区別が必要 |
-| Zero OpEx | ADR-0002により有料APIは使用不可 |
+| Zero OpEx | ADR-0001により有料APIは使用不可 |
 
 主要な学術データソースの比較：
 
@@ -69,7 +66,7 @@ paper = s2_client.get_paper(paper_id)
 references = paper.references      # この論文が引用している論文
 citations = paper.citations        # この論文を引用している論文
 
-# Evidence Graphに統合
+# Evidence Graphに統合（ADR-0005参照）
 for ref in references:
     graph.add_edge(
         from_node=paper.fragment_id,
@@ -159,4 +156,4 @@ OPENALEX_CONFIG = {
 - `docs/P_EVIDENCE_SYSTEM.md` 決定6（アーカイブ）
 - `src/crawler/academic/s2_client.py` - Semantic Scholar実装
 - `src/crawler/academic/openalex_client.py` - OpenAlex実装
-- ADR-0006: Evidence Graph Structure
+- ADR-0005: Evidence Graph Structure
