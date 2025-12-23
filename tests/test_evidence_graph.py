@@ -1562,9 +1562,9 @@ class TestClaimAdoptionStatus:
 
 
 class TestPhaseP2DomainCategoryOnEdges:
-    """Tests for Phase P.2: Domain category information on edges.
+    """Tests for Contradiction handling behavior: Domain category information on edges.
 
-    Phase P.2 adds source_domain_category and target_domain_category to edges,
+    Contradiction handling behavior adds source_domain_category and target_domain_category to edges,
     for ranking adjustment and high-inference AI reference.
     DomainCategory is NOT used for confidence calculation or verification decisions.
     """

@@ -1041,12 +1041,12 @@ class TestInterventionIntegration:
 
 
 # =============================================================================
-# K.3-8: Domain Blocked Notification Tests
+# Domain blocked notifications: Domain Blocked Notification Tests
 # =============================================================================
 
 
 class TestDomainBlockedNotification:
-    """Tests for domain_blocked notification (K.3-8).
+    """Tests for domain_blocked notification (Domain blocked notifications).
 
     Test Perspectives Table:
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |

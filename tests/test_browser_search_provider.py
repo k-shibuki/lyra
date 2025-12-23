@@ -124,7 +124,7 @@ def mock_browser(mock_context: AsyncMock) -> AsyncMock:
     browser.new_context = AsyncMock(return_value=mock_context)
     browser.close = AsyncMock()
     # contexts is empty list by default - new context will be created
-    # Per O.6: When contexts is empty, new_context() is called
+    # Per Auth cookie capture: When contexts is empty, new_context() is called
     browser.contexts = []
     return browser
 
@@ -2086,7 +2086,7 @@ class TestBrowserSearchProviderHumanBehavior:
 
 
 # ============================================================================
-# Per-Engine QPS Rate Limiting Tests (Problem 9)
+# Per-Engine QPS Rate Limiting Tests (Per-engine QPS rate limiting)
 # ============================================================================
 
 
@@ -2366,7 +2366,7 @@ class TestPerEngineQPSRateLimiting:
 
 
 # ============================================================================
-# Query Normalization Tests (Problem 16)
+# Query Normalization Tests (Query normalization)
 # ============================================================================
 
 

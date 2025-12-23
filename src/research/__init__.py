@@ -8,7 +8,7 @@ This module implements the exploration control engine where:
 See ADR-0002 for the responsibility matrix.
 See ADR-0010 for UCB1-based budget allocation and pivot exploration.
 
-Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
+Note: This module uses "search" terminology (not "subquery").
 """
 
 from src.research.context import EntityInfo, ResearchContext, TemplateInfo

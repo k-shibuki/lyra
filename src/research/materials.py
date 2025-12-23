@@ -92,12 +92,12 @@ async def get_materials_action(
 async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
     """Collect claims for a task.
 
-    O.7 fix: Updated to match actual DB schema.
+    DB schema notes:
     - claims table has verification_notes (stores source_url) not source_url
     - fragments table has relevance_reason (stores source metadata) not source_url
 
-    : Includes Bayesian confidence metrics (uncertainty, controversy).
-    b: Includes evidence details with time metadata for temporal judgments.
+    Includes Bayesian confidence metrics (uncertainty, controversy) and
+    evidence details with time metadata for temporal judgments.
     """
     from src.filter.evidence_graph import EvidenceGraph
 
@@ -236,7 +236,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
 async def _collect_fragments(db: Any, task_id: str) -> list[dict[str, Any]]:
     """Collect fragments for a task.
 
-    O.7 fix: Updated to match actual DB schema.
+    DB schema notes:
     - fragments table has text_content not text
     - fragments table has no task_id, need to join via claims
     - Source URL and is_primary stored in relevance_reason field
@@ -320,7 +320,7 @@ async def _build_evidence_graph(db: Any, task_id: str) -> dict[str, Any]:
                     }
                 )
 
-            # O.7 fix: fragments doesn't have task_id, get via edges linked to claims
+            # Fragments don't have task_id, get via edges linked to claims
             fragment_rows = await db.fetch_all(
                 """
                 SELECT DISTINCT f.id, 'fragment' as type, f.heading_context as label

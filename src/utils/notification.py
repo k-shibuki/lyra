@@ -63,7 +63,7 @@ class InterventionType(Enum):
     CLOUDFLARE = "cloudflare"
     TURNSTILE = "turnstile"
     JS_CHALLENGE = "js_challenge"
-    # K.3-8: Domain blocked notification (informational, no user action needed)
+    # Domain blocked notification (informational, no user action needed)
     DOMAIN_BLOCKED = "domain_blocked"
 
 
@@ -709,7 +709,7 @@ async def notify_user(
         )
         return result.to_dict()
     elif event == "domain_blocked":
-        # K.3-8: Domain blocked notification - informational, queued for tracking
+        # Domain blocked notification - informational, queued for tracking
         domain = payload.get("domain", "unknown")
         reason = payload.get("reason", "Verification failure")
         task_id = payload.get("task_id")
@@ -764,8 +764,8 @@ async def notify_domain_blocked(
 ) -> dict[str, Any]:
     """Convenience function to notify that a domain has been blocked.
 
-    K.3-8: Called when SourceVerifier demotes a domain to BLOCKED.
-    This informs Cursor AI that the domain will be excluded from future results.
+    Called when SourceVerifier demotes a domain to BLOCKED.
+    This informs the MCP client that the domain will be excluded from future results.
 
     Args:
         domain: Domain name that was blocked.

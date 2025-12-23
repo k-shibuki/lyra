@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug script for Other MCP Tools (O.7 Problem 4+).
+Debug script for Other MCP Tools (MCP tool implementation+).
 
 This is a "straight-line" debug script.
 Verifies calibrate, notify_user, wait_for_user tools.
@@ -26,7 +26,7 @@ sys.path.insert(0, "/home/statuser/lyra")
 async def main() -> int:
     """Run other tools verification."""
     print("=" * 70)
-    print("Other MCP Tools Debug Script (O.7)")
+    print("Other MCP Tools Debug Script (MCP tool fixes)")
     print("=" * 70)
 
     # =========================================================================

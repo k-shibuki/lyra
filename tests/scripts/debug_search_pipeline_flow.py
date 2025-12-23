@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug script for Search Pipeline Flow (O.7 Problem 1).
+Debug script for Search Pipeline Flow (MCP tool implementation).
 
 This is a "straight-line" debug script.
 Verifies the search → fetch → extract → claims pipeline.
@@ -27,7 +27,7 @@ sys.path.insert(0, "/home/statuser/lyra")
 async def main() -> int:
     """Run search pipeline verification."""
     print("=" * 70)
-    print("Search Pipeline Flow Debug Script (O.7)")
+    print("Search Pipeline Flow Debug Script (MCP tool fixes)")
     print("=" * 70)
 
     # =========================================================================

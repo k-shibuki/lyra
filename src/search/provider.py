@@ -39,8 +39,14 @@ class SearchResult(BaseModel):
     """
     Normalized search result from any provider.
 
-    Implements the standard SERP schema defined in docs/requirements.md ADR-0003:
-    - title, url, snippet, date, engine, rank, source_tag
+    Standard SERP (Search Engine Results Page) schema with fields:
+    - title: Result title
+    - url: Result URL
+    - snippet: Text preview
+    - date: Publication/crawl date
+    - engine: Search engine name
+    - rank: Position in results
+    - source_tag: Source classification (primary/secondary/tertiary)
     """
 
     model_config = ConfigDict(frozen=False)

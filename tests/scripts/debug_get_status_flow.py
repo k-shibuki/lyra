@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug script for get_status Flow (O.7 Problem 2).
+Debug script for get_status Flow (MCP tool implementation).
 
 This is a "straight-line" debug script.
 Verifies the get_status tool returns correct metrics and search states.
@@ -26,7 +26,7 @@ sys.path.insert(0, "/home/statuser/lyra")
 async def main() -> int:
     """Run get_status verification."""
     print("=" * 70)
-    print("get_status Flow Debug Script (O.7)")
+    print("get_status Flow Debug Script (MCP tool fixes)")
     print("=" * 70)
 
     # =========================================================================

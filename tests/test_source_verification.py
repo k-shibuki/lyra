@@ -1,5 +1,5 @@
 """
-Tests for Source Verification Flow (K.3-6, ADR-0005 L6).
+Tests for Source Verification Flow (Source Verification Flow (ADR-0005 L6), ADR-0005 L6).
 
 Test Coverage:
 - Claim verification with EvidenceGraph
@@ -126,7 +126,7 @@ class TestSourceVerifierBasic:
         // When: Verifying claim
         // Then: PENDING status, DomainCategory unchanged (for AI evaluation)
 
-        Phase P.2 Update: Contradictions do NOT change DomainCategory.
+        Contradiction handling: Update:  do NOT change DomainCategory.
         DomainCategory is only for ranking, not for verification decisions.
         High-inference AI interprets conflicting evidence.
         """
@@ -155,7 +155,7 @@ class TestSourceVerifierBasic:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Phase P.2: Contradictions → PENDING (not REJECTED)
+        # Contradiction handling:  → PENDING (not REJECTED)
         assert result.verification_status == VerificationStatus.PENDING
         # DomainCategory unchanged (not demoted)
         assert result.new_domain_category == DomainCategory.UNVERIFIED
@@ -382,7 +382,7 @@ class TestDomainStateTracking:
         // Then: Domain gets blocked
 
         Note: has_dangerous_pattern=True triggers REJECTED status.
-        Normal contradictions return PENDING (Phase P.2).
+        Normal contradictions return PENDING (Contradiction handling behavior).
         """
         mock_evidence_graph.find_contradictions.return_value = []
         mock_evidence_graph.calculate_claim_confidence.return_value = {
@@ -634,7 +634,7 @@ class TestTrustedDomainBehavior:
         // When: Verifying claim
         // Then: PENDING (not REJECTED), category unchanged
 
-        Phase P.2: Contradictions → PENDING for AI evaluation.
+        Contradiction handling:  → PENDING for AI evaluation.
         DomainCategory is not used in verification decisions.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
@@ -709,7 +709,7 @@ class TestBoundaryValues:
         // When: Verifying claim with has_dangerous_pattern=True
         // Then: Blocked (dangerous pattern + high rejection rate)
 
-        Note: Normal contradictions return PENDING (Phase P.2).
+        Note: Normal contradictions return PENDING (Contradiction handling behavior).
         """
         mock_evidence_graph.find_contradictions.return_value = []
         mock_evidence_graph.calculate_claim_confidence.return_value = {
@@ -754,7 +754,7 @@ class TestBoundaryValues:
         // When: Verifying claim
         // Then: PENDING, DomainCategory unchanged
 
-        Phase P.2: Contradictions do NOT change DomainCategory.
+        Contradiction handling:  do NOT change DomainCategory.
         High-inference AI evaluates conflicting evidence.
         """
         mock_evidence_graph.find_contradictions.return_value = [
@@ -787,7 +787,7 @@ class TestBoundaryValues:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Phase P.2: Contradictions → PENDING, DomainCategory unchanged
+        # Contradiction handling:  → PENDING, DomainCategory unchanged
         assert result.verification_status == VerificationStatus.PENDING
         assert result.new_domain_category == DomainCategory.UNVERIFIED
         assert result.reason == ReasonCode.CONFLICTING_EVIDENCE
@@ -1191,12 +1191,12 @@ class TestContradictingClaimsExtraction:
 
 
 # =============================================================================
-# K.3-8: Blocked Domain Notification Tests
+# Domain blocked notifications: Blocked Domain Notification Tests
 # =============================================================================
 
 
 class TestBlockedDomainNotification:
-    """Tests for K.3-8 blocked domain notification queueing.
+    """Tests for Domain blocked notifications blocked domain notification queueing.
 
     Test Perspectives Table:
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
@@ -1250,7 +1250,7 @@ class TestBlockedDomainNotification:
         // When: Multiple dangerous pattern rejections occur
         // Then: Domain blocked, notification queued
 
-        Note: Normal contradictions return PENDING (Phase P.2).
+        Note: Normal contradictions return PENDING (Contradiction handling behavior).
         Dangerous patterns trigger immediate REJECTED and blocking.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
@@ -1291,7 +1291,7 @@ class TestBlockedDomainNotification:
         // When: Verifying claim
         // Then: PENDING, DomainCategory unchanged, no notification
 
-        Phase P.2: Contradictions do NOT demote or block.
+        Contradiction handling:  do NOT demote or block.
         DomainCategory is for ranking only, not for verification decisions.
         High-inference AI interprets conflicting evidence.
         """
@@ -1316,7 +1316,7 @@ class TestBlockedDomainNotification:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Phase P.2: PENDING, DomainCategory unchanged
+        # Contradiction handling behavior: PENDING, DomainCategory unchanged
         assert result.verification_status == VerificationStatus.PENDING
         assert result.new_domain_category == DomainCategory.UNVERIFIED
         assert result.promotion_result == PromotionResult.UNCHANGED
@@ -1796,9 +1796,9 @@ class TestDomainBlockingTransparency:
 
 
 class TestPhaseP2RelaxedBlocking:
-    """Phase P.2: Relaxed immediate blocking tests.
+    """Contradiction handling behavior: Relaxed immediate blocking tests.
 
-    Phase P.2 changes the behavior when contradictions are detected:
+    Contradiction handling: changes the behavior when  are detected:
     - UNVERIFIED domains: demoted to LOW (was BLOCKED)
     - Higher trust domains: stay unchanged (as before)
     - Trust levels are now recorded on edges for high-inference AI evaluation
@@ -1812,7 +1812,7 @@ class TestPhaseP2RelaxedBlocking:
 
         // Given: Claim from UNVERIFIED domain with contradiction
         // When: Verifying claim
-        // Then: REJECTED, demoted to LOW (Phase P.2 relaxation)
+        // Then: REJECTED, demoted to LOW (Contradiction handling behavior relaxation)
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.3,
@@ -1835,7 +1835,7 @@ class TestPhaseP2RelaxedBlocking:
                 evidence_graph=mock_evidence_graph,
             )
 
-        # Phase P.2: Conflicting evidence → PENDING (no automatic demotion)
+        # Contradiction handling behavior: Conflicting evidence → PENDING (no automatic demotion)
         assert result.verification_status == VerificationStatus.PENDING
         assert result.new_domain_category == DomainCategory.UNVERIFIED
         assert result.promotion_result == PromotionResult.UNCHANGED
@@ -1923,7 +1923,7 @@ class TestPhaseP2RelaxedBlocking:
 
         // Given: Claim with refuting evidence but no claim-claim contradiction
         // When: Verifying claim from UNVERIFIED domain
-        // Then: REJECTED, demoted to LOW (Phase P.2)
+        // Then: REJECTED, demoted to LOW (Contradiction handling behavior)
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
             "confidence": 0.3,
@@ -1959,7 +1959,7 @@ class TestPhaseP2RelaxedBlocking:
 
         // Given: Claim with dangerous pattern detected
         // When: Verifying claim
-        // Then: BLOCKED immediately (Phase P.2 relaxation does NOT apply to L2/L4)
+        // Then: BLOCKED immediately (Contradiction handling behavior relaxation does NOT apply to L2/L4)
         """
         with patch(
             "src.filter.source_verification.get_domain_category",
