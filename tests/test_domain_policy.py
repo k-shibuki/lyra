@@ -1,11 +1,11 @@
 """
-Tests for DomainPolicyManager (§17.2.1 Domain Policy Externalization).
+Tests for DomainPolicyManager ( Domain Policy Externalization).
 
-Test design follows §7.1 Test Code Quality Standards:
-- No conditional assertions (§7.1.1)
-- Specific assertions with concrete values (§7.1.2)
-- Realistic test data (§7.1.3)
-- AAA pattern (§7.1.5)
+Test design follows .1 Test Code Quality Standards:
+- No conditional assertions (.1.1)
+- Specific assertions with concrete values (.1.2)
+- Realistic test data (.1.3)
+- AAA pattern (.1.5)
 
 ## Test Perspectives Table
 
@@ -293,7 +293,7 @@ class TestDefaultPolicySchema:
         assert schema.cooldown_minutes == 60
         assert schema.max_retries == 3
         assert schema.domain_category == DomainCategory.UNVERIFIED
-        # Daily budget limits (§4.3 - Problem 11)
+        # Daily budget limits (ADR-0006 - Problem 11)
         assert schema.max_requests_per_day == 200
         assert schema.max_pages_per_day == 100
 
@@ -320,7 +320,7 @@ class TestDefaultPolicySchema:
         assert schema.cooldown_minutes == 120
         assert schema.max_retries == 5
         assert schema.domain_category == DomainCategory.GOVERNMENT
-        # Daily budget limits (§4.3 - Problem 11)
+        # Daily budget limits (ADR-0006 - Problem 11)
         assert schema.max_requests_per_day == 500
         assert schema.max_pages_per_day == 250
 
@@ -383,7 +383,7 @@ class TestAllowlistEntrySchema:
             AllowlistEntrySchema(domain="x")
 
     def test_daily_budget_fields(self) -> None:
-        """Verify daily budget fields are accepted (§4.3 - Problem 11)."""
+        """Verify daily budget fields are accepted (ADR-0006 - Problem 11)."""
         # Arrange & Act
         entry = AllowlistEntrySchema(
             domain="example.com",
@@ -742,12 +742,12 @@ class TestDomainPolicy:
         assert "category_weight" in result
         assert "min_request_interval" in result
         assert "is_in_cooldown" in result
-        # Daily budget limits (§4.3 - Problem 11)
+        # Daily budget limits (ADR-0006 - Problem 11)
         assert "max_requests_per_day" in result
         assert "max_pages_per_day" in result
 
     def test_daily_budget_defaults(self) -> None:
-        """Verify DomainPolicy has correct daily budget defaults (§4.3 - Problem 11)."""
+        """Verify DomainPolicy has correct daily budget defaults (ADR-0006 - Problem 11)."""
         # Given & When
         policy = DomainPolicy(domain="example.com")
 
@@ -756,7 +756,7 @@ class TestDomainPolicy:
         assert policy.max_pages_per_day == 100
 
     def test_daily_budget_custom_values(self) -> None:
-        """Verify DomainPolicy accepts custom daily budget values (§4.3 - Problem 11)."""
+        """Verify DomainPolicy accepts custom daily budget values (ADR-0006 - Problem 11)."""
         # Given & When
         policy = DomainPolicy(
             domain="example.com",
@@ -900,7 +900,7 @@ class TestDomainPolicyManagerLookup:
     def test_get_policy_daily_budget_from_allowlist(
         self, policy_manager: DomainPolicyManager
     ) -> None:
-        """Verify daily budget limits from allowlist are applied (§4.3 - Problem 11)."""
+        """Verify daily budget limits from allowlist are applied (ADR-0006 - Problem 11)."""
         # When - wikipedia.org has custom limits in config/domains.yaml
         policy = policy_manager.get_policy("wikipedia.org")
 
@@ -910,7 +910,7 @@ class TestDomainPolicyManagerLookup:
         assert policy.source == "allowlist"
 
     def test_get_policy_daily_budget_default(self, policy_manager: DomainPolicyManager) -> None:
-        """Verify unknown domain gets default daily budget limits (§4.3 - Problem 11)."""
+        """Verify unknown domain gets default daily budget limits (ADR-0006 - Problem 11)."""
         # When
         policy = policy_manager.get_policy("unknown-domain.example")
 
@@ -1873,7 +1873,7 @@ cloudflare_sites:
 
 
 class TestSearchEnginePolicySchema:
-    """Tests for SearchEnginePolicySchema (§3.1.4, §4.3)."""
+    """Tests for SearchEnginePolicySchema (ADR-0006, ADR-0006)."""
 
     def test_default_values(self) -> None:
         """Verify default values are correctly set."""
@@ -1933,7 +1933,7 @@ class TestSearchEnginePolicySchema:
 
 
 class TestPolicyBoundsEntrySchema:
-    """Tests for PolicyBoundsEntrySchema (§4.6)."""
+    """Tests for PolicyBoundsEntrySchema ."""
 
     def test_default_values(self) -> None:
         """Verify default values are set."""
@@ -1967,7 +1967,7 @@ class TestPolicyBoundsEntrySchema:
 
 
 class TestPolicyBoundsSchema:
-    """Tests for PolicyBoundsSchema (§4.6)."""
+    """Tests for PolicyBoundsSchema ."""
 
     def test_default_bounds_exist(self) -> None:
         """Verify all expected bounds parameters exist with defaults."""

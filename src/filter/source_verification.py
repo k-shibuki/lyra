@@ -1,7 +1,7 @@
 """
 Source Verification Flow.
 
-Implements L6 (Source Verification Flow) per §4.4.1:
+Implements L6 (Source Verification Flow) per ADR-0005:
 - Automatic verification using EvidenceGraph
 - Trust level promotion/demotion based on corroboration
 - Integration with security detection (L2/L4)
@@ -55,7 +55,7 @@ class ReasonCode(str, Enum):
 
 
 class DomainBlockReason(str, Enum):
-    """Block reason codes for domain blocking (per Decision 16).
+    """Block reason codes for domain blocking (per ADR-0005).
 
     These codes describe why a domain was blocked, used for transparency
     and risk assessment when considering unblocking.
@@ -69,7 +69,7 @@ class DomainBlockReason(str, Enum):
 
 
 class RejectionType(str, Enum):
-    """Type of rejection for tracking purposes (Decision 18)."""
+    """Type of rejection for tracking purposes (ADR-0005)."""
 
     SECURITY = "security"  # L2/L4 detection
     MANUAL = "manual"  # feedback(claim_reject)
@@ -119,7 +119,7 @@ class DomainVerificationState:
     block_reason: str | None = None
     block_cause_id: str | None = None
     original_domain_category: DomainCategory | None = None
-    domain_block_reason: DomainBlockReason | None = None  # Coded block reason (per Decision 16)
+    domain_block_reason: DomainBlockReason | None = None # Coded block reason (per ADR-0005)
 
     @property
     def total_claims(self) -> int:
@@ -150,7 +150,7 @@ class DomainVerificationState:
 
     @property
     def domain_claim_combined_rejection_rate(self) -> float:
-        """Combined rejection rate (deduplicated). Used for block decisions (Decision 18)."""
+        """Combined rejection rate (deduplicated). Used for block decisions (ADR-0005)."""
         if self.total_claims == 0:
             return 0.0
         combined = set(self.security_rejected_claims) | set(self.manual_rejected_claims)
@@ -158,7 +158,7 @@ class DomainVerificationState:
 
 
 class SourceVerifier:
-    """Verifies sources and manages trust level changes (§4.4.1 L6).
+    """Verifies sources and manages trust level changes (ADR-0005 L6).
 
     This class coordinates:
     1. EvidenceGraph queries for claim confidence
@@ -167,7 +167,7 @@ class SourceVerifier:
     4. Metadata generation for Cursor AI
     """
 
-    # Thresholds per §4.4.1 L6
+    # Thresholds per ADR-0005 L6
     MIN_INDEPENDENT_SOURCES_FOR_PROMOTION = 2
     MIN_VERIFICATION_RATE_FOR_PROMOTION = 0.5
     MAX_REJECTION_RATE_BEFORE_BLOCK = 0.3
@@ -475,7 +475,7 @@ class SourceVerifier:
         return list(self._blocked_domains)
 
     def _get_unblock_risk(self, block_reason: DomainBlockReason | None) -> str:
-        """Get unblock risk level for a block reason (per Decision 16).
+        """Get unblock risk level for a block reason (per ADR-0005).
 
         Args:
             block_reason: Block reason code.
@@ -505,7 +505,7 @@ class SourceVerifier:
             - reason: Reason for blocking (human-readable string)
             - cause_id: Causal trace ID (if available)
             - original_domain_category: Domain category before blocking
-            - domain_block_reason: Coded block reason (per Decision 16)
+            - domain_block_reason: Coded block reason (per ADR-0005)
             - domain_unblock_risk: Risk level for unblocking ("high" or "low")
             - restore_via: How to restore (config file path)
         """
@@ -559,7 +559,7 @@ class SourceVerifier:
             domain: Domain to block.
             reason: Reason for blocking (human-readable string).
             cause_id: Causal trace ID (optional).
-            block_reason_code: Coded block reason (per Decision 16).
+            block_reason_code: Coded block reason (per ADR-0005).
         """
         self._blocked_domains.add(domain)
 
@@ -712,14 +712,14 @@ class SourceVerifier:
         return builder
 
     # =========================================================================
-    # External API for feedback tool (Phase 6.3)
+    # External API for feedback tool
     # =========================================================================
 
     def unblock_domain(self, domain: str) -> bool:
         """Remove domain from blocked list (for feedback(domain_unblock)).
 
         This allows unblocking domains that were blocked for any reason,
-        including dangerous_pattern (per Decision 20).
+        including dangerous_pattern (per ADR-0012).
 
         Args:
             domain: Domain to unblock.
@@ -799,7 +799,7 @@ async def load_domain_overrides_from_db() -> None:
     """Load domain override rules from DB and apply to SourceVerifier.
 
     Called on startup to restore overrides from previous session.
-    Per Decision 20: DB is the source of truth for domain overrides.
+    Per ADR-0012: DB is the source of truth for domain overrides.
     """
     from src.storage.database import get_database
 

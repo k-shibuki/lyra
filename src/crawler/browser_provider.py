@@ -713,7 +713,7 @@ class BrowserProviderRegistry:
         """
         Navigate with automatic fallback to other providers on failure.
 
-        Implements the fallback strategy per §4.3:
+        Implements the fallback strategy per ADR-0006:
         - Try providers in order (default: playwright -> undetected)
         - On challenge detection, try next provider
         - On persistent failure, return error with details

@@ -11,7 +11,7 @@
     },
     "error_code": {
       "type": "string",
-      "description": "Error code per §3.2.1"
+      "description": "Error code per ADR-0003"
     },
     "error": {
       "type": "string",

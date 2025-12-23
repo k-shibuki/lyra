@@ -1,7 +1,7 @@
 """
 IPv6 Connection Management for Lyra.
 
-Implements IPv6 connection policies per §4.3:
+Implements IPv6 connection policies per ADR-0006:
 - IPv6-first with IPv4 fallback (Happy Eyeballs-style)
 - Per-domain success rate learning
 - Automatic preference switching based on learned performance

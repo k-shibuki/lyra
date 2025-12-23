@@ -1,7 +1,7 @@
 """
 Tests for browser provider abstraction layer.
 
-Implements §7.1 test quality standards:
+Implements .1 test quality standards:
 - Specific assertions (no vague len > 0 checks)
 - Production-like test data
 - Mock strategy for external dependencies

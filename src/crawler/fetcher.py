@@ -338,7 +338,7 @@ async def get_tor_controller() -> TorController:
 async def _can_use_tor(domain: str | None = None) -> bool:
     """Check if Tor can be used based on daily limits.
 
-    Per §4.3 and §7: Check both global daily limit (20%) and domain-specific limit.
+    Per ADR-0006 and : Check both global daily limit (20%) and domain-specific limit.
 
     Args:
         domain: Optional domain for domain-specific check.
@@ -891,7 +891,7 @@ class BrowserFetcher:
                     logger.info("CDP connection failed, attempting auto-start", error=str(exc))
                     cdp_error = exc
 
-                # Auto-start Chrome per docs/requirements.md §3.2.1 (if CDP connection failed)
+                # Auto-start Chrome per docs/requirements.md ADR-0003 (if CDP connection failed)
                 if not cdp_connected:
                     logger.debug("Calling _auto_start_chrome()")
                     auto_start_success = await self._auto_start_chrome()
@@ -932,7 +932,7 @@ class BrowserFetcher:
                                 await asyncio.sleep(poll_interval)
 
                     if not cdp_connected:
-                        # Per spec §4.3.3: CDP connection is required, no fallback
+                        # Per spec ADR-0006: CDP connection is required, no fallback
                         # BrowserFetcher requires real Chrome profile for fingerprint consistency
                         raise RuntimeError(
                             f"CDP connection failed: {cdp_error}. "
@@ -986,10 +986,10 @@ class BrowserFetcher:
 
             return self._headful_browser, self._headful_context
         else:
-            # Per spec §4.3.3: Headless mode is prohibited
+            # Per spec ADR-0006: Headless mode is prohibited
             # Lyra uses "real profile consistency" design, not "headless disguised as human"
             raise RuntimeError(
-                "Headless mode is prohibited per spec §4.3.3. "
+                "Headless mode is prohibited per spec ADR-0006. "
                 "Use headful=True with CDP connection to real Chrome profile."
             )
 
@@ -1080,7 +1080,7 @@ class BrowserFetcher:
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
 
-        # Per docs/requirements.md §3.2.1: When a CDP (Chrome DevTools Protocol) connection is not detected, Lyra automatically executes ./scripts/chrome.sh start.
+        # Per docs/requirements.md ADR-0003: When a CDP (Chrome DevTools Protocol) connection is not detected, Lyra automatically executes ./scripts/chrome.sh start.
 
         Returns:
             True if chrome.sh start succeeded, False otherwise.
@@ -2094,7 +2094,7 @@ async def _fetch_url_impl(
                 reason="domain_cooldown",
             ).to_dict()
 
-        # Check domain daily budget (§4.3 - IP block prevention, Problem 11)
+        # Check domain daily budget (ADR-0006 - IP block prevention, Problem 11)
         from src.scheduler.domain_budget import get_domain_budget_manager
 
         budget_manager = get_domain_budget_manager()
@@ -2634,7 +2634,7 @@ async def _fetch_url_impl(
                 details=event_details,
             )
 
-            # Record domain request for daily budget tracking (§4.3 - Problem 11)
+            # Record domain request for daily budget tracking (ADR-0006 - Problem 11)
             # Only record successful fetches with actual content (not 304)
             if result.ok and result.status != 304:
                 budget_manager.record_domain_request(domain, is_page=True)

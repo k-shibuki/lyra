@@ -1,5 +1,5 @@
 """
-Tests for Sec-Fetch-* and Sec-CH-UA-* header generation (§4.3 - stealth requirements).
+Tests for Sec-Fetch-* and Sec-CH-UA-* header generation (ADR-0006 - stealth requirements).
 
 Covers:
 - SecFetchSite determination (none, same-origin, same-site, cross-site)
@@ -214,7 +214,7 @@ class TestDetermineFetchSite:
     def test_serp_to_article_is_cross_site(self) -> None:
         """Test SERP to article is cross-site (typical search flow).
 
-        Per §4.3: SERP → article transitions should look like cross-site navigation.
+        Per ADR-0006: SERP → article transitions should look like cross-site navigation.
         """
         result = _determine_fetch_site(
             "https://example.com/article",

@@ -1,10 +1,10 @@
 """
 Tests for exponential backoff calculation utilities.
 
-Test coverage per §7.1 (Test Strategy):
-- §4.3.5: Exponential backoff calculation
-- §4.3: "クールダウン≥30分"
-- §3.1.4: "TTL（30〜120分）"
+Test coverage per .1 (Test Strategy):
+- ADR-0006: Exponential backoff calculation
+- ADR-0006: "クールダウン≥30分"
+- ADR-0006: "TTL（30〜120分）"
 
 Test Perspectives Table:
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
@@ -42,7 +42,7 @@ class TestBackoffConfig:
     """Tests for BackoffConfig dataclass."""
 
     def test_default_values(self) -> None:
-        """Test default configuration values per §4.3.5."""
+        """Test default configuration values per ADR-0006."""
         # Given: No arguments
         # When: Creating default config
         config = BackoffConfig()
@@ -246,7 +246,7 @@ class TestCalculateCooldownMinutes:
     """Tests for calculate_cooldown_minutes function."""
 
     def test_zero_failures(self) -> None:
-        """TC-C-01: Zero failures returns base cooldown per §4.3."""
+        """TC-C-01: Zero failures returns base cooldown per ADR-0006."""
         # Given: No failures
         # When: Calculating cooldown
         cooldown = calculate_cooldown_minutes(0)
@@ -405,7 +405,7 @@ class TestSpecCompliance:
     """Tests for compliance with specification sections."""
 
     def test_spec_4_3_5_backoff_formula(self) -> None:
-        """Test §4.3.5 formula: delay = min(base_delay * (2 ^ attempt), max_delay)."""
+        """Test ADR-0006 formula: delay = min(base_delay * (2 ^ attempt), max_delay)."""
         # Given: Various attempts
         config = BackoffConfig(base_delay=1.0, max_delay=60.0, exponential_base=2.0)
 
@@ -416,7 +416,7 @@ class TestSpecCompliance:
         assert calculate_backoff(6, config, add_jitter=False) == 60.0  # capped
 
     def test_spec_4_3_5_cooldown_formula(self) -> None:
-        """Test §4.3.5 formula: cooldown = min(base * (2 ^ (failures // 3)), max)."""
+        """Test ADR-0006 formula: cooldown = min(base * (2 ^ (failures // 3)), max)."""
         # Given: Various failure counts
         # When/Then: Formula is correctly applied
         assert calculate_cooldown_minutes(0) == 30  # 30 * 2^0 = 30
@@ -425,7 +425,7 @@ class TestSpecCompliance:
         assert calculate_cooldown_minutes(9) == 120  # capped at 4x (factor limit)
 
     def test_spec_4_3_minimum_cooldown(self) -> None:
-        """Test §4.3 requirement: クールダウン≥30分."""
+        """Test ADR-0006 requirement: クールダウン≥30分."""
         # Given: Any failure count
         # When: Calculating cooldown
         cooldown = calculate_cooldown_minutes(0)
@@ -434,7 +434,7 @@ class TestSpecCompliance:
         assert cooldown >= 30
 
     def test_spec_3_1_4_cooldown_range(self) -> None:
-        """Test §3.1.4 requirement: TTL（30〜120分）."""
+        """Test ADR-0006 requirement: TTL（30〜120分）."""
         # Given: Various failure counts
         # When: Calculating cooldowns
         cooldowns = [calculate_cooldown_minutes(i) for i in range(20)]
@@ -443,7 +443,7 @@ class TestSpecCompliance:
         assert all(30 <= c <= 120 for c in cooldowns)
 
     def test_spec_4_3_5_jitter_prevents_thundering_herd(self) -> None:
-        """Test that jitter provides variation per §4.3.5."""
+        """Test that jitter provides variation per ADR-0006."""
         # Given: Same attempt, multiple calculations
         random.seed(42)
         config = BackoffConfig(jitter_factor=0.1)

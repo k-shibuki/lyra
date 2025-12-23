@@ -2,7 +2,7 @@
 Tests for policy engine module.
 Tests PolicyEngine, ParameterState, and auto-adjustment logic.
 
-Related spec: §4.6 Policy Auto-update (Closed-loop Control)
+Related spec: Policy Auto-update (Closed-loop Control)
 
 ## Test Perspectives Table
 
@@ -260,7 +260,7 @@ class TestPolicyEngine:
     async def test_adjust_engine_policy_low_success(self) -> None:
         """Test engine policy adjustment on low success rate.
 
-        Related spec: §4.6 Policy Auto-update
+        Related spec: Policy Auto-update
         """
         # Given: PolicyEngine with hysteresis disabled and low success metrics
         collector = MetricsCollector()
@@ -298,7 +298,7 @@ class TestPolicyEngine:
     async def test_adjust_domain_policy_high_error(self) -> None:
         """Test domain policy adjustment on high error rate.
 
-        Related spec: §4.6 Policy Auto-update, §4.3 Resilience and Stealth
+        Related spec: Policy Auto-update, ADR-0006 Resilience and Stealth
         """
         # Given: PolicyEngine with hysteresis disabled and high error metrics
         collector = MetricsCollector()
@@ -408,7 +408,7 @@ async def test_get_policy_engine_singleton() -> None:
 class TestDynamicWeightCalculation:
     """Tests for dynamic weight calculation.
 
-    Per §3.1.1, §3.1.4, §4.6: Dynamic weight adjustment based on
+    Per ADR-0010, ADR-0006, : Dynamic weight adjustment based on
     past accuracy/failure/block rates with time decay.
 
     ## Test Perspectives Table

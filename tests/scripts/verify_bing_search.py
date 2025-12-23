@@ -2,7 +2,7 @@
 """
 Bing Search Engine E2E Verification
 
-Verification target: §3.2 Agent Execution (Browser Search) - Bing
+Verification target: ADR-0003 Agent Execution (Browser Search) - Bing
 
 Bing characteristics:
 - Microsoft's search engine
@@ -22,7 +22,7 @@ Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - CAPTCHA: 100% detection
 - Scraping success rate ≥95% (when not blocked)
 
@@ -154,7 +154,7 @@ class BingSearchVerifier:
                 await provider.close()
                 return VerificationResult(
                     name="CDP Connection",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="Browser not connected",
                 )
@@ -165,7 +165,7 @@ class BingSearchVerifier:
 
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details=browser_info,
             )
@@ -174,7 +174,7 @@ class BingSearchVerifier:
             logger.exception("CDP connection verification failed")
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -209,7 +209,7 @@ class BingSearchVerifier:
                     print(f"    ✓ CAPTCHA detected (expected): {captcha_type}")
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         details={
                             "captcha_detected": True,
@@ -220,7 +220,7 @@ class BingSearchVerifier:
                 else:
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error=f"Search failed: {result.error}",
                     )
@@ -231,7 +231,7 @@ class BingSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name=f"{self.ENGINE_DISPLAY} Search",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results returned",
                 )
@@ -244,7 +244,7 @@ class BingSearchVerifier:
 
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "query": test_query,
@@ -258,7 +258,7 @@ class BingSearchVerifier:
             logger.exception(f"{self.ENGINE_DISPLAY} search verification failed")
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -288,14 +288,14 @@ class BingSearchVerifier:
                 if _is_captcha_error(result):
                     return VerificationResult(
                         name="Parser Accuracy",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         skipped=True,
                         skip_reason="CAPTCHA detected (expected for Bing)",
                     )
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Search failed: {result.error}",
                 )
@@ -303,7 +303,7 @@ class BingSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results to verify",
                 )
@@ -334,7 +334,7 @@ class BingSearchVerifier:
             if accuracy >= 0.9:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=True,
                     details={
                         "accuracy": accuracy,
@@ -346,7 +346,7 @@ class BingSearchVerifier:
             else:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Parser accuracy {accuracy:.0%} < 90%",
                 )
@@ -355,7 +355,7 @@ class BingSearchVerifier:
             logger.exception("Parser accuracy verification failed")
             return VerificationResult(
                 name="Parser Accuracy",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -373,7 +373,7 @@ class BingSearchVerifier:
             if not parser:
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error="Parser not available",
                 )
@@ -398,14 +398,14 @@ class BingSearchVerifier:
                 print("    ✓ CAPTCHA patterns correctly detected")
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=True,
                     details={"test_cases": len(test_cases)},
                 )
             else:
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error="Some CAPTCHA patterns not detected",
                 )
@@ -414,7 +414,7 @@ class BingSearchVerifier:
             logger.exception("CAPTCHA detection verification failed")
             return VerificationResult(
                 name="CAPTCHA Detection",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
@@ -423,7 +423,7 @@ class BingSearchVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print(f"E2E: {self.ENGINE_DISPLAY} Search Verification")
-        print("検証対象: §3.2 エージェント実行機能（ブラウザ検索）")
+        print("検証対象: ADR-0003 エージェント実行機能（ブラウザ検索）")
         print("⚠ HIGH BLOCK RISK - CAPTCHA expected")
         print("=" * 70)
 

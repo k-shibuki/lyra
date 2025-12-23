@@ -1,11 +1,11 @@
 """
 Domain Daily Budget Manager for rate limiting.
 
-Per §4.3: "時間帯・日次の予算上限を設定" for IP block prevention.
+Per ADR-0006: "時間帯・日次の予算上限を設定" for IP block prevention.
 Implements per-domain daily request and page limits with automatic daily reset.
 
 References:
-- §4.3 (Stealth/Anti-detection policies)
+- ADR-0006 (Stealth/Anti-detection policies)
 - Problem 11 in docs/O6_ADDITIONAL_ISSUES.md
 """
 

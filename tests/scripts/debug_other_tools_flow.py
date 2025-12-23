@@ -5,7 +5,7 @@ Debug script for Other MCP Tools (O.7 Problem 4+).
 This is a "straight-line" debug script per §debug-integration rule.
 Verifies calibrate, notify_user, wait_for_user tools.
 
-Per §3.2.1:
+Per ADR-0003:
 - calibrate: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data
 - notify_user: Send user notifications
 - wait_for_user: Wait for user input

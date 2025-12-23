@@ -101,7 +101,7 @@ def generate_deep_link(url: str, heading_context: str | None) -> str:
 class Citation:
     """Represents a citation with deep link support.
 
-    Per §3.4: All citations should have deep links to the relevant section.
+    Per ADR-0005: All citations should have deep links to the relevant section.
     """
 
     def __init__(
@@ -127,7 +127,7 @@ class Citation:
 
     @property
     def is_primary_source(self) -> bool:
-        """Check if this is a primary source (§3.4: Source Priority Order)."""
+        """Check if this is a primary source (ADR-0005: Source Priority Order)."""
         if not self.source_tag:
             return False
         return self.source_tag in ("government", "academic", "official", "standard", "registry")
@@ -226,7 +226,7 @@ class ReportGenerator:
         )
 
         # Get evidence (fragments with high scores)
-        # Include source_tag for primary/secondary classification (§3.4)
+        # Include source_tag for primary/secondary classification (ADR-0005)
         fragments = await db.fetch_all(
             """
             SELECT f.*, p.url, p.title as page_title, p.domain, s.source_tag
@@ -386,7 +386,7 @@ class ReportGenerator:
             lines.append("*主張の抽出結果がありません*")
             lines.append("")
 
-        # Evidence with deep links (§3.4: Source Priority Order)
+        # Evidence with deep links (ADR-0005: Source Priority Order)
         lines.append("## エビデンス")
         lines.append("")
 
@@ -405,7 +405,7 @@ class ReportGenerator:
                 not in ("government", "academic", "official", "standard", "registry")
             ]
 
-            # Primary sources first (§3.4)
+            # Primary sources first (ADR-0005)
             if primary_frags:
                 lines.append("### 一次資料")
                 lines.append("")
@@ -462,7 +462,7 @@ class ReportGenerator:
             lines.append("*エビデンスがありません*")
             lines.append("")
 
-        # Sources with full citations (§3.4: Deep Link Generation)
+        # Sources with full citations (ADR-0005: Deep Link Generation)
         lines.append("## 出典一覧")
         lines.append("")
 
@@ -509,7 +509,7 @@ class ReportGenerator:
 
         lines.append("")
 
-        # Timeline section (§3.4)
+        # Timeline section (ADR-0005)
         timeline_lines = self._generate_timeline_section(claims)
         if timeline_lines:
             lines.extend(timeline_lines)
@@ -535,7 +535,7 @@ class ReportGenerator:
         self,
         claims: list[dict[str, Any]],
     ) -> list[str]:
-        """Generate timeline section for report (§3.4).
+        """Generate timeline section for report (ADR-0005).
 
         Args:
             claims: List of claims with timeline data.
@@ -756,7 +756,7 @@ async def get_report_materials(
     include_evidence_graph: bool = True,
     include_fragments: bool = True,
 ) -> dict[str, Any]:
-    """Get report materials for Cursor AI to compose a report (§2.1 compliant).
+    """Get report materials for Cursor AI to compose a report (ADR-0002 compliant).
 
     Returns structured data (claims, fragments, evidence graph) without
     generating the actual report. Report composition is Cursor AI's responsibility.
@@ -796,7 +796,7 @@ async def get_report_materials(
         (task_id,),
     )
 
-    # Classify claims by confidence threshold (§4.5)
+    # Classify claims by confidence threshold (ADR-0005)
     high_confidence = [c for c in claims if (c.get("claim_confidence") or 0) >= 0.7]
     low_confidence = [c for c in claims if (c.get("claim_confidence") or 0) < 0.7]
 
@@ -817,7 +817,7 @@ async def get_report_materials(
             (task_id,),
         )
 
-        # Classify by source type (§3.4: Source Priority Order)
+        # Classify by source type (ADR-0005: Source Priority Order)
         for frag in fragments:
             frag["is_primary_source"] = frag.get("source_tag") in (
                 "government",
@@ -860,7 +860,7 @@ async def get_report_materials(
     # Build summary
     primary_sources = len([f for f in fragments if f.get("is_primary_source")])
 
-    # Calculate timeline statistics (§3.4)
+    # Calculate timeline statistics (ADR-0005)
     timeline_stats = {
         "claims_with_timeline": 0,
         "claims_retracted": 0,

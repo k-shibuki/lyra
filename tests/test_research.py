@@ -1,13 +1,13 @@
 """
 Tests for Exploration Control Engine.
 
-These tests verify the exploration control functionality per §2.1 and §3.1.7:
+These tests verify the exploration control functionality per ADR-0002 and ADR-0010:
 - ResearchContext provides design support information (not subquery candidates)
 - SubqueryExecutor executes Cursor AI-designed queries
 - ExplorationState manages task/subquery states and metrics
 - RefutationExecutor applies mechanical patterns only
 
-Test Quality Standards (§7.1):
+Test Quality Standards (.1):
 - No conditional assertions
 - Specific value assertions
 - No OR-condition assertions
@@ -20,20 +20,20 @@ Test Quality Standards (§7.1):
 |---------|---------------------|---------------------------------------|-----------------|-------|
 | TC-RES-N-01 | Query with organization entity | Equivalence – normal | Context with entities | Entity extraction |
 | TC-RES-N-02 | Query with research keyword | Equivalence – normal | Academic template suggested | Template matching |
-| TC-RES-N-03 | Any query | Equivalence – normal | No subquery_candidates | §2.1 boundary |
+| TC-RES-N-03 | Any query | Equivalence – normal | No subquery_candidates | ADR-0002 boundary |
 | TC-RES-N-04 | Any query | Equivalence – normal | Recommended engines list | Engine recommendation |
 | TC-RES-A-01 | Nonexistent task_id | Equivalence – error | ok=False with error | Task not found |
-| TC-RES-N-05 | 3 sources, no primary | Equivalence – normal | Score = 0.7 | §3.1.7.3 formula |
+| TC-RES-N-05 | 3 sources, no primary | Equivalence – normal | Score = 0.7 | ADR-0010 formula |
 | TC-RES-N-06 | 2 sources + primary | Equivalence – normal | Score ≈ 0.767 | Primary bonus |
 | TC-RES-N-07 | Score >= 0.8 | Boundary – threshold | is_satisfied=True | Satisfaction threshold |
-| TC-RES-N-08 | 7/10 novel fragments | Equivalence – normal | Novelty = 0.7 | §3.1.7.4 formula |
+| TC-RES-N-08 | 7/10 novel fragments | Equivalence – normal | Novelty = 0.7 | ADR-0010 formula |
 | TC-RES-N-09 | 3 sources + primary | Equivalence – transition | Status=SATISFIED | Status transition |
 | TC-RES-N-10 | 1 source | Equivalence – partial | Status=PARTIAL | Partial status |
 | TC-RES-N-11 | Register + start subquery | Equivalence – normal | Status=RUNNING | State management |
 | TC-RES-N-12 | 10 page fetches | Boundary – limit | Budget warning | Budget tracking |
 | TC-RES-N-13 | 2 subqueries | Equivalence – normal | All required fields | get_status structure |
-| TC-RES-N-14 | 2 pending auth items | Equivalence – normal | auth_queue in status | §16.7.1 |
-| TC-RES-N-15 | 3 pending items | Boundary – warning | Warning alert | §16.7.3 threshold |
+| TC-RES-N-14 | 2 pending auth items | Equivalence – normal | auth_queue in status | ADR-0007 |
+| TC-RES-N-15 | 3 pending items | Boundary – warning | Warning alert | ADR-0007 threshold |
 | TC-RES-N-16 | 5 pending items | Boundary – critical | Critical alert | Count threshold |
 | TC-RES-N-17 | 2 high priority items | Boundary – critical | Critical alert | Priority threshold |
 | TC-RES-N-18 | 1 satisfied, 1 unsatisfied | Equivalence – normal | Partial status + suggestions | finalize() |
@@ -42,18 +42,18 @@ Test Quality Standards (§7.1):
 | TC-RES-N-21 | Claim text | Equivalence – normal | Suffix-based queries | Refutation patterns |
 | TC-RES-N-22 | REFUTATION_SUFFIXES | Equivalence – normal | Required suffixes exist | Suffix constants |
 | TC-RES-N-23 | Claim text | Equivalence – normal | Reverse queries with suffix | Mechanical patterns |
-| TC-RES-N-24 | RefutationResult | Equivalence – normal | Correct structure | §3.2.1 structure |
+| TC-RES-N-24 | RefutationResult | Equivalence – normal | Correct structure | ADR-0003 structure |
 | TC-RES-N-25 | Full workflow | Equivalence – integration | Complete flow works | Context→Execute→Status |
-| TC-RES-N-26 | ResearchContext class | Equivalence – boundary | No design methods | §2.1.1 |
-| TC-RES-N-27 | RefutationExecutor class | Equivalence – boundary | No LLM methods | §2.1.4 |
+| TC-RES-N-26 | ResearchContext class | Equivalence – boundary | No design methods | ADR-0002 |
+| TC-RES-N-27 | RefutationExecutor class | Equivalence – boundary | No LLM methods | ADR-0002 |
 | TC-RES-N-28 | Context notes | Equivalence – boundary | No directives | Informational only |
-| TC-SS-B-01 | independent_sources=0 | Boundary – zero sources | Score = 0.0 | §3.1.7.3 |
-| TC-SS-B-02 | independent_sources>=10 | Boundary – max sources | Score capped at 0.7 | §3.1.7.3 |
+| TC-SS-B-01 | independent_sources=0 | Boundary – zero sources | Score = 0.0 | ADR-0010 |
+| TC-SS-B-02 | independent_sources>=10 | Boundary – max sources | Score capped at 0.7 | ADR-0010 |
 | TC-SS-A-01 | Invalid priority value | Abnormal – validation | ValidationError | Pydantic migration |
 | TC-SS-A-02 | Negative pages_fetched | Abnormal – validation | ValidationError | Pydantic migration |
 | TC-SS-A-03 | Invalid refutation_status | Abnormal – validation | ValidationError | Pydantic migration |
-| TC-SS-B-03 | novelty_score=0.0 | Boundary – zero novelty | Valid state | §3.1.7.4 |
-| TC-SS-B-04 | novelty_score=1.0 | Boundary – max novelty | Valid state | §3.1.7.4 |
+| TC-SS-B-03 | novelty_score=0.0 | Boundary – zero novelty | Valid state | ADR-0010 |
+| TC-SS-B-04 | novelty_score=1.0 | Boundary – max novelty | Valid state | ADR-0010 |
 | TC-ES-B-01 | pages_limit=0 | Boundary – zero limit | Immediate budget exceeded | - |
 """
 
@@ -82,7 +82,7 @@ from src.research.state import (
 )
 
 # =============================================================================
-# ResearchContext Tests (§3.1.7.1)
+# ResearchContext Tests (ADR-0010)
 # =============================================================================
 
 
@@ -90,7 +90,7 @@ class TestResearchContext:
     """
     Tests for ResearchContext design support information provider.
 
-    Per §2.1.4: ResearchContext provides support information but does NOT
+    Per ADR-0002: ResearchContext provides support information but does NOT
     generate subquery candidates. That is Cursor AI's responsibility.
     """
 
@@ -99,7 +99,7 @@ class TestResearchContext:
         """
         Verify that get_context extracts and returns entities from the query.
 
-        §3.1.7.1: ResearchContext extracts entities (person/organization/location/etc.)
+        ADR-0010: ResearchContext extracts entities (person/organization/location/etc.)
         """
         # Given: A task with a query containing organization entity
         task_id = await test_database.create_task(
@@ -123,7 +123,7 @@ class TestResearchContext:
         """
         Verify that get_context returns applicable vertical templates.
 
-        §3.1.7.1: Templates include academic/government/corporate/technical.
+        ADR-0010: Templates include academic/government/corporate/technical.
         """
         # Given: A task with research-related query
         task_id = await test_database.create_task(
@@ -149,8 +149,8 @@ class TestResearchContext:
         """
         Verify that get_context does NOT return subquery candidates.
 
-        §2.1.1: Subquery design is Cursor AI's exclusive responsibility.
-        §2.1.4: Lyra must NOT generate subquery candidates.
+        ADR-0002: Subquery design is Cursor AI's exclusive responsibility.
+        ADR-0002: Lyra must NOT generate subquery candidates.
         """
         # Given: A task with any query
         task_id = await test_database.create_task(
@@ -207,7 +207,7 @@ class TestResearchContext:
 
 
 # =============================================================================
-# SubqueryState Tests (§3.1.7.2, §3.1.7.3)
+# SubqueryState Tests (ADR-0010, ADR-0010)
 # =============================================================================
 
 
@@ -215,15 +215,15 @@ class TestSubqueryState:
     """
     Tests for SubqueryState satisfaction and novelty calculations.
 
-    §3.1.7.3: Satisfaction score = min(1.0, (sources/3)*0.7 + (primary?0.3:0))
-    §3.1.7.4: Novelty score = novel fragments / recent fragments
+    ADR-0010: Satisfaction score = min(1.0, (sources/3)*0.7 + (primary?0.3:0))
+    ADR-0010: Novelty score = novel fragments / recent fragments
     """
 
     def test_satisfaction_score_with_three_sources(self) -> None:
         """
         Verify satisfaction score is 0.7 with exactly 3 independent sources.
 
-        §3.1.7.3: Score = (3/3)*0.7 + 0 = 0.7
+        ADR-0010: Score = (3/3)*0.7 + 0 = 0.7
         """
         # Given: A subquery with 3 independent sources, no primary
         sq = SubqueryState(id="sq_001", text="test query")
@@ -240,7 +240,7 @@ class TestSubqueryState:
         """
         Verify satisfaction score includes 0.3 bonus for primary source.
 
-        §3.1.7.3: Score = (2/3)*0.7 + 0.3 ≈ 0.767
+        ADR-0010: Score = (2/3)*0.7 + 0.3 ≈ 0.767
         """
         # Given: A subquery with 2 sources and primary source
         sq = SubqueryState(id="sq_002", text="test query")
@@ -258,7 +258,7 @@ class TestSubqueryState:
         """
         Verify is_satisfied returns True when score >= 0.8.
 
-        §3.1.7.3: Satisfied when score >= 0.8.
+        ADR-0010: Satisfied when score >= 0.8.
         """
         # Given: Two subqueries with different satisfaction levels
         sq_satisfied = SubqueryState(id="sq_003", text="test")
@@ -277,7 +277,7 @@ class TestSubqueryState:
         """
         Verify novelty score is calculated from recent fragments.
 
-        §3.1.7.4: Novelty = novel fragments / total recent fragments.
+        ADR-0010: Novelty = novel fragments / total recent fragments.
         """
         # Given: A subquery with 10 fragments, 7 novel
         sq = SubqueryState(id="sq_005", text="test")
@@ -611,7 +611,7 @@ class TestSearchStateBoundaryValues:
 
 
 # =============================================================================
-# ExplorationState Tests (§3.1.7.2)
+# ExplorationState Tests (ADR-0010)
 # =============================================================================
 
 
@@ -671,8 +671,8 @@ class TestExplorationState:
     @pytest.mark.asyncio
     async def test_get_status_returns_all_required_fields(self, test_database: Database) -> None:
         """
-        Verify get_status returns all required fields per §3.2.1.
-        Now async per §16.7.1 changes.
+        Verify get_status returns all required fields per ADR-0003.
+        Now async per ADR-0007 changes.
         """
         # Given: An exploration state with 2 subqueries
         task_id = await test_database.create_task(query="test")
@@ -699,7 +699,7 @@ class TestExplorationState:
         """
         Verify get_status includes authentication_queue when pending items exist.
 
-        Per §16.7.1: authentication_queue should contain summary information.
+        Per ADR-0007: authentication_queue should contain summary information.
         """
 
         # Given: An exploration state with pending auth items
@@ -744,7 +744,7 @@ class TestExplorationState:
         """
         Verify warning alert is generated when pending >= 3.
 
-        Per §16.7.3: [warning] when pending >= 3.
+        Per ADR-0007: [warning] when pending >= 3.
         """
 
         # Given: 3 pending auth items
@@ -783,7 +783,7 @@ class TestExplorationState:
         """
         Verify critical alert is generated when pending >= 5.
 
-        Per §16.7.3: [critical] when pending >= 5.
+        Per ADR-0007: [critical] when pending >= 5.
         """
 
         # Given: 5 pending auth items
@@ -830,7 +830,7 @@ class TestExplorationState:
         """
         Verify critical alert is generated when high_priority >= 2.
 
-        Per §16.7.3: [critical] when high_priority >= 2.
+        Per ADR-0007: [critical] when high_priority >= 2.
         """
 
         # Given: 2 high priority auth items
@@ -994,7 +994,7 @@ class TestExplorationStateBoundaryValues:
 
 
 # =============================================================================
-# SubqueryExecutor Tests (§2.1.3)
+# SubqueryExecutor Tests (ADR-0002)
 # =============================================================================
 
 
@@ -1002,7 +1002,7 @@ class TestSubqueryExecutor:
     """
     Tests for SubqueryExecutor mechanical operations.
 
-    §2.1.3: Lyra only performs mechanical expansions, not query design.
+    ADR-0002: Lyra only performs mechanical expansions, not query design.
     """
 
     def test_primary_source_detection(self) -> None:
@@ -1020,7 +1020,7 @@ class TestSubqueryExecutor:
         """
         Verify query expansion is mechanical (operators, not new ideas).
 
-        §2.1.3: Lyra only adds operators, does not design new queries.
+        ADR-0002: Lyra only adds operators, does not design new queries.
         """
         # Given: A SubqueryExecutor and original query
         task_id = await test_database.create_task(query="test")
@@ -1041,7 +1041,7 @@ class TestSubqueryExecutor:
         """
         Verify refutation queries use mechanical suffix patterns only.
 
-        §2.1.4: No LLM-based query generation for refutations.
+        ADR-0002: No LLM-based query generation for refutations.
         """
         # Given: A SubqueryExecutor and base query
         state = MagicMock()
@@ -1062,7 +1062,7 @@ class TestSubqueryExecutor:
 
 
 # =============================================================================
-# RefutationExecutor Tests (§3.1.7.5)
+# RefutationExecutor Tests (ADR-0010)
 # =============================================================================
 
 
@@ -1070,15 +1070,15 @@ class TestRefutationExecutor:
     """
     Tests for RefutationExecutor mechanical pattern application.
 
-    §3.1.7.5: Lyra applies mechanical patterns only (suffixes).
-    §2.1.4: No LLM-based reverse query design.
+    ADR-0010: Lyra applies mechanical patterns only (suffixes).
+    ADR-0002: No LLM-based reverse query design.
     """
 
     def test_refutation_suffixes_defined(self) -> None:
         """
         Verify all required refutation suffixes are defined.
 
-        §3.1.7.5: Suffixes include issues/criticism/problems/limitations etc.
+        ADR-0010: Suffixes include issues/criticism/problems/limitations etc.
         """
         # Given/When/Then: Required suffixes exist
         assert "課題" in REFUTATION_SUFFIXES
@@ -1205,7 +1205,7 @@ class TestRefutationExecutor:
     @pytest.mark.asyncio
     async def test_refutation_result_structure(self, test_database: Database) -> None:
         """
-        Verify RefutationResult has correct structure per §3.2.1.
+        Verify RefutationResult has correct structure per ADR-0003.
         """
         # Given: A RefutationResult instance
         result = RefutationResult(
@@ -1218,7 +1218,7 @@ class TestRefutationExecutor:
         # When: Convert to dict
         result_dict = result.to_dict()
 
-        # Then: Structure matches §3.2.1
+        # Then: Structure matches ADR-0003
         assert result_dict["ok"] is True
         assert result_dict["target"] == "claim_001"
         assert result_dict["target_type"] == "claim"
@@ -1243,7 +1243,7 @@ class TestExplorationIntegration:
         """
         Verify complete exploration workflow: context → execute → status → finalize.
 
-        This tests the Cursor AI-driven workflow per §2.1.2.
+        This tests the Cursor AI-driven workflow per ADR-0002.
         Note: This test uses state simulation rather than actual search/fetch
         to avoid external dependencies in integration tests.
         """
@@ -1293,7 +1293,7 @@ class TestExplorationIntegration:
 
 
 # =============================================================================
-# Responsibility Boundary Tests (§2.1)
+# Responsibility Boundary Tests (ADR-0002)
 # =============================================================================
 
 
@@ -1302,14 +1302,14 @@ class TestResponsibilityBoundary:
     Tests verifying the Cursor AI / Lyra responsibility boundary.
 
     These tests ensure Lyra does NOT exceed its responsibilities
-    as defined in §2.1.
+    as defined in ADR-0002.
     """
 
     def test_lyra_does_not_design_queries(self) -> None:
         """
         Verify Lyra components don't have query design capabilities.
 
-        §2.1.1: Query design is Cursor AI's exclusive responsibility.
+        ADR-0002: Query design is Cursor AI's exclusive responsibility.
         """
         # Given/When/Then: ResearchContext has no design methods
         assert not hasattr(ResearchContext, "design_subqueries")
@@ -1324,7 +1324,7 @@ class TestResponsibilityBoundary:
         """
         Verify refutation only uses predefined suffixes, not LLM.
 
-        §2.1.4: LLM must NOT be used for reverse query design.
+        ADR-0002: LLM must NOT be used for reverse query design.
         """
         # Given/When/Then: RefutationExecutor has no LLM methods
         assert not hasattr(RefutationExecutor, "generate_hypothesis")
@@ -1339,7 +1339,7 @@ class TestResponsibilityBoundary:
         """
         Verify context notes are hints, not directives.
 
-        §2.1.1: Lyra provides support information, Cursor AI decides.
+        ADR-0002: Lyra provides support information, Cursor AI decides.
         """
         # Given: A ResearchContext
         task_id = await test_database.create_task(query="test query")
@@ -1357,7 +1357,7 @@ class TestResponsibilityBoundary:
 
 
 # =============================================================================
-# Pipeline Tests (§3.2.1)
+# Pipeline Tests (ADR-0003)
 # =============================================================================
 
 
@@ -1486,7 +1486,7 @@ class TestStopTaskAction:
 
 
 # ============================================================================
-# get_overall_harvest_rate Tests (§3.1.1 Lastmile Slot)
+# get_overall_harvest_rate Tests (ADR-0010 Lastmile Slot)
 # ============================================================================
 
 
@@ -1494,7 +1494,7 @@ class TestGetOverallHarvestRate:
     """
     Tests for ExplorationState.get_overall_harvest_rate method.
 
-    Per §3.1.1: Used to determine if lastmile engines should be used
+    Per ADR-0010: Used to determine if lastmile engines should be used
     when harvest rate >= 0.9.
 
     ## Test Perspectives Table
@@ -1595,7 +1595,7 @@ class TestGetOverallHarvestRate:
         # Then: Returns rate >= 0.9 (9+10)/(10+10) = 19/20 = 0.95
         expected = 19 / 20
         assert abs(rate - expected) < 0.001
-        assert rate >= 0.9  # Triggers lastmile per §3.1.1
+        assert rate >= 0.9 # Triggers lastmile per ADR-0010
 
 
 # =============================================================================

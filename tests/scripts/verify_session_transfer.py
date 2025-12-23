@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-Verification target: §3.1.2 Session Transfer Utility
+Verification target: ADR-0006 Session Transfer Utility
 
 Verification items:
 1. Browser session capture (Cookie/ETag/UA)
-2. Same-domain constraint enforcement (§3.1.2 Same Domain Only)
+2. Same-domain constraint enforcement (ADR-0006 Same Domain Only)
 3. HTTP client header transfer
-4. sec-fetch-*/Referer consistency (§3.1.2 Referer/sec-fetch-* Consistency)
-5. 304 revisit verification (§3.1.2 Prefer 304 Revisit)
+4. sec-fetch-*/Referer consistency (ADR-0006 Referer/sec-fetch-* Consistency)
+5. 304 revisit verification (ADR-0006 Prefer 304 Revisit)
 6. Session lifecycle (TTL/max count)
 
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
-- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: 16.9 "Setup Procedure"
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - 304 utilization rate ≥70%
 - Referer consistency rate ≥90%
 
@@ -55,7 +55,7 @@ class VerificationResult:
 
 
 class SessionTransferVerifier:
-    """Verifier for §3.1.2 session transfer utility."""
+    """Verifier for ADR-0006 session transfer utility."""
 
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
@@ -98,8 +98,8 @@ class SessionTransferVerifier:
         return True
 
     async def verify_browser_session_capture(self) -> VerificationResult:
-        """§3.1.2: Browser session capture."""
-        print("\n[1/6] Verifying browser session capture (§3.1.2 セッションキャプチャ)...")
+        """ADR-0006: Browser session capture."""
+        print("\n[1/6] Verifying browser session capture (ADR-0006 セッションキャプチャ)...")
 
         from src.crawler.fetcher import BrowserFetcher
         from src.crawler.session_transfer import get_session_transfer_manager
@@ -122,7 +122,7 @@ class SessionTransferVerifier:
             if not result.ok:
                 return VerificationResult(
                     name="Browser Session Capture",
-                    spec_ref="§3.1.2 セッションキャプチャ",
+                    spec_ref="ADR-0006 セッションキャプチャ",
                     passed=False,
                     error=f"Fetch failed: {result.reason}",
                 )
@@ -143,7 +143,7 @@ class SessionTransferVerifier:
                 if not session_id:
                     return VerificationResult(
                         name="Browser Session Capture",
-                        spec_ref="§3.1.2 セッションキャプチャ",
+                        spec_ref="ADR-0006 セッションキャプチャ",
                         passed=False,
                         error="Session capture returned None",
                     )
@@ -156,7 +156,7 @@ class SessionTransferVerifier:
                 if not session:
                     return VerificationResult(
                         name="Browser Session Capture",
-                        spec_ref="§3.1.2 セッションキャプチャ",
+                        spec_ref="ADR-0006 セッションキャプチャ",
                         passed=False,
                         error="Session not found after capture",
                     )
@@ -171,7 +171,7 @@ class SessionTransferVerifier:
                 if missing_fields:
                     return VerificationResult(
                         name="Browser Session Capture",
-                        spec_ref="§3.1.2 セッションキャプチャ",
+                        spec_ref="ADR-0006 セッションキャプチャ",
                         passed=False,
                         error=f"Missing required fields: {missing_fields}",
                     )
@@ -185,7 +185,7 @@ class SessionTransferVerifier:
 
                 return VerificationResult(
                     name="Browser Session Capture",
-                    spec_ref="§3.1.2 セッションキャプチャ",
+                    spec_ref="ADR-0006 セッションキャプチャ",
                     passed=True,
                     details={
                         "session_id": session_id,
@@ -198,7 +198,7 @@ class SessionTransferVerifier:
             else:
                 return VerificationResult(
                     name="Browser Session Capture",
-                    spec_ref="§3.1.2 セッションキャプチャ",
+                    spec_ref="ADR-0006 セッションキャプチャ",
                     passed=False,
                     error="Session not captured",
                 )
@@ -207,7 +207,7 @@ class SessionTransferVerifier:
             logger.exception("Browser session capture verification failed")
             return VerificationResult(
                 name="Browser Session Capture",
-                spec_ref="§3.1.2 セッションキャプチャ",
+                spec_ref="ADR-0006 セッションキャプチャ",
                 passed=False,
                 error=str(e),
             )
@@ -215,8 +215,8 @@ class SessionTransferVerifier:
             await fetcher.close()
 
     async def verify_domain_restriction(self) -> VerificationResult:
-        """§3.1.2 Same Domain Only: Reject cross-domain requests."""
-        print("\n[2/6] Verifying domain restriction (§3.1.2 同一ドメイン限定)...")
+        """ADR-0006 Same Domain Only: Reject cross-domain requests."""
+        print("\n[2/6] Verifying domain restriction (ADR-0006 同一ドメイン限定)...")
 
         from src.crawler.session_transfer import (
             CookieData,
@@ -259,7 +259,7 @@ class SessionTransferVerifier:
             if not result.ok:
                 return VerificationResult(
                     name="Domain Restriction",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error=f"Same-domain request rejected: {result.reason}",
                 )
@@ -273,7 +273,7 @@ class SessionTransferVerifier:
             if not result.ok:
                 return VerificationResult(
                     name="Domain Restriction",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error=f"Subdomain request rejected: {result.reason}",
                 )
@@ -287,14 +287,14 @@ class SessionTransferVerifier:
             if result.ok:
                 return VerificationResult(
                     name="Domain Restriction",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error="Cross-domain request was incorrectly accepted",
                 )
             if result.reason != "domain_mismatch":
                 return VerificationResult(
                     name="Domain Restriction",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error=f"Expected 'domain_mismatch', got '{result.reason}'",
                 )
@@ -308,7 +308,7 @@ class SessionTransferVerifier:
             if result.ok:
                 return VerificationResult(
                     name="Domain Restriction",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error="Lookalike domain was incorrectly accepted",
                 )
@@ -319,7 +319,7 @@ class SessionTransferVerifier:
 
             return VerificationResult(
                 name="Domain Restriction",
-                spec_ref="§3.1.2 同一ドメイン限定",
+                spec_ref="ADR-0006 同一ドメイン限定",
                 passed=True,
                 details={
                     "same_domain_accepted": True,
@@ -333,14 +333,14 @@ class SessionTransferVerifier:
             logger.exception("Domain restriction verification failed")
             return VerificationResult(
                 name="Domain Restriction",
-                spec_ref="§3.1.2 同一ドメイン限定",
+                spec_ref="ADR-0006 同一ドメイン限定",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_header_transfer(self) -> VerificationResult:
-        """§3.1.2: Header transfer to HTTP client."""
-        print("\n[3/6] Verifying header transfer (§3.1.2 ヘッダー移送)...")
+        """ADR-0006: Header transfer to HTTP client."""
+        print("\n[3/6] Verifying header transfer (ADR-0006 ヘッダー移送)...")
 
         from src.crawler.session_transfer import (
             CookieData,
@@ -381,7 +381,7 @@ class SessionTransferVerifier:
             if not result.ok:
                 return VerificationResult(
                     name="Header Transfer",
-                    spec_ref="§3.1.2 ヘッダー移送",
+                    spec_ref="ADR-0006 ヘッダー移送",
                     passed=False,
                     error=f"Header generation failed: {result.reason}",
                 )
@@ -407,7 +407,7 @@ class SessionTransferVerifier:
             if missing:
                 return VerificationResult(
                     name="Header Transfer",
-                    spec_ref="§3.1.2 ヘッダー移送",
+                    spec_ref="ADR-0006 ヘッダー移送",
                     passed=False,
                     error=f"Missing or invalid headers: {missing}",
                 )
@@ -430,7 +430,7 @@ class SessionTransferVerifier:
 
             return VerificationResult(
                 name="Header Transfer",
-                spec_ref="§3.1.2 ヘッダー移送",
+                spec_ref="ADR-0006 ヘッダー移送",
                 passed=True,
                 details={
                     "headers_generated": len(headers),
@@ -444,14 +444,14 @@ class SessionTransferVerifier:
             logger.exception("Header transfer verification failed")
             return VerificationResult(
                 name="Header Transfer",
-                spec_ref="§3.1.2 ヘッダー移送",
+                spec_ref="ADR-0006 ヘッダー移送",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_sec_fetch_consistency(self) -> VerificationResult:
-        """§3.1.2 Referer/sec-fetch-* Consistency: Header consistency."""
-        print("\n[4/6] Verifying sec-fetch consistency (§3.1.2 sec-fetch整合)...")
+        """ADR-0006 Referer/sec-fetch-* Consistency: Header consistency."""
+        print("\n[4/6] Verifying sec-fetch consistency (ADR-0006 sec-fetch整合)...")
 
         from src.crawler.session_transfer import (
             SessionData,
@@ -481,7 +481,7 @@ class SessionTransferVerifier:
             if not result.ok:
                 return VerificationResult(
                     name="Sec-Fetch Consistency",
-                    spec_ref="§3.1.2 sec-fetch整合",
+                    spec_ref="ADR-0006 sec-fetch整合",
                     passed=False,
                     error=f"Header generation failed: {result.reason}",
                 )
@@ -523,7 +523,7 @@ class SessionTransferVerifier:
             total_count += 1  # Referer
 
             success_rate = passed_count / total_count
-            threshold = 0.90  # §7: Referer整合率≥90%
+            threshold = 0.90 # : Referer整合率≥90%
 
             print(f"    Header consistency: {success_rate:.0%} ({passed_count}/{total_count})")
 
@@ -533,7 +533,7 @@ class SessionTransferVerifier:
             if success_rate >= threshold:
                 return VerificationResult(
                     name="Sec-Fetch Consistency",
-                    spec_ref="§3.1.2 sec-fetch整合",
+                    spec_ref="ADR-0006 sec-fetch整合",
                     passed=True,
                     details={
                         "success_rate": success_rate,
@@ -545,7 +545,7 @@ class SessionTransferVerifier:
             else:
                 return VerificationResult(
                     name="Sec-Fetch Consistency",
-                    spec_ref="§3.1.2 sec-fetch整合",
+                    spec_ref="ADR-0006 sec-fetch整合",
                     passed=False,
                     error=f"Consistency {success_rate:.0%} < {threshold:.0%}",
                 )
@@ -554,14 +554,14 @@ class SessionTransferVerifier:
             logger.exception("Sec-fetch consistency verification failed")
             return VerificationResult(
                 name="Sec-Fetch Consistency",
-                spec_ref="§3.1.2 sec-fetch整合",
+                spec_ref="ADR-0006 sec-fetch整合",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_304_revisit(self) -> VerificationResult:
-        """§3.1.2 Prefer 304 Revisit: Receive 304 with conditional requests."""
-        print("\n[5/6] Verifying 304 revisit (§3.1.2 304再訪)...")
+        """ADR-0006 Prefer 304 Revisit: Receive 304 with conditional requests."""
+        print("\n[5/6] Verifying 304 revisit (ADR-0006 304再訪)...")
 
         from src.crawler.fetcher import BrowserFetcher, HTTPFetcher
         from src.crawler.session_transfer import get_session_transfer_manager
@@ -569,7 +569,7 @@ class SessionTransferVerifier:
         if not self.browser_available:
             return VerificationResult(
                 name="304 Revisit",
-                spec_ref="§3.1.2 304再訪",
+                spec_ref="ADR-0006 304再訪",
                 passed=False,
                 skipped=True,
                 skip_reason="Browser not available",
@@ -589,7 +589,7 @@ class SessionTransferVerifier:
             if not result1.ok:
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=False,
                     error=f"Initial fetch failed: {result1.reason}",
                 )
@@ -613,14 +613,14 @@ class SessionTransferVerifier:
             if not session_id:
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=False,
                     error="Failed to capture session",
                 )
             else:
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=False,
                     error="Browser context not available",
                 )
@@ -639,7 +639,7 @@ class SessionTransferVerifier:
             if not transfer_result.ok:
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=False,
                     error=f"Failed to generate transfer headers: {transfer_result.reason}",
                 )
@@ -654,7 +654,7 @@ class SessionTransferVerifier:
                 print("    ! No conditional headers available (site may not support ETag)")
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=True,
                     skipped=True,
                     skip_reason="Target site does not provide ETag/Last-Modified",
@@ -682,7 +682,7 @@ class SessionTransferVerifier:
                 print("    ✓ Got 304 Not Modified (perfect)")
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=True,
                     details={
                         "first_status": result1.status,
@@ -695,7 +695,7 @@ class SessionTransferVerifier:
                 print("    ✓ Got 200 OK (content may have changed, conditional headers were sent)")
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=True,
                     details={
                         "first_status": result1.status,
@@ -707,7 +707,7 @@ class SessionTransferVerifier:
             else:
                 return VerificationResult(
                     name="304 Revisit",
-                    spec_ref="§3.1.2 304再訪",
+                    spec_ref="ADR-0006 304再訪",
                     passed=False,
                     error=f"Unexpected status: {result2.status}",
                 )
@@ -716,7 +716,7 @@ class SessionTransferVerifier:
             logger.exception("304 revisit verification failed")
             return VerificationResult(
                 name="304 Revisit",
-                spec_ref="§3.1.2 304再訪",
+                spec_ref="ADR-0006 304再訪",
                 passed=False,
                 error=str(e),
             )
@@ -732,7 +732,7 @@ class SessionTransferVerifier:
         try:
             # Create manager with test settings
             test_manager = SessionTransferManager(
-                session_ttl_seconds=1.5,  # Short TTL for testing (§7.1.8.3: テスト用調整の正当化)
+                session_ttl_seconds=1.5, # Short TTL for testing (.1.8.3: テスト用調整の正当化)
                 max_sessions=3,
             )
 
@@ -813,7 +813,7 @@ class SessionTransferVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("E2E: Session Transfer Verification")
-        print("検証対象: §3.1.2 セッション移送ユーティリティ")
+        print("検証対象: ADR-0006 セッション移送ユーティリティ")
         print("=" * 70)
 
         # Prerequisites

@@ -1,7 +1,7 @@
 """
 Tests for Secure Logging (L8).
 
-Implements §4.4.1 L8: Log Security Policy.
+Implements ADR-0005 L8: Log Security Policy.
 
 Test Perspectives Table:
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |

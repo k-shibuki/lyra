@@ -1,17 +1,17 @@
 """
 Wayback Machine differential exploration for Lyra.
 
-Implements archive snapshot retrieval and diff extraction (§3.1.6, §16.12):
+Implements archive snapshot retrieval and diff extraction (ADR-0010.6, ADR-0005):
 - Snapshot discovery via HTML scraping (no API)
 - Content comparison across time
 - Timeline construction for claims
 - Budget control per domain/task
-- Automatic fallback for 403/CAPTCHA blocked URLs (§16.12)
+- Automatic fallback for 403/CAPTCHA blocked URLs (ADR-0005)
 - Freshness penalty calculation for archived content
 
 References:
-- §3.1.6: Wayback Differential Exploration
-- §16.12: Wayback Fallback Strengthening
+- ADR-0010.6: Wayback Differential Exploration
+- ADR-0005: Wayback Fallback Strengthening
 """
 
 import asyncio
@@ -38,7 +38,7 @@ WAYBACK_BASE = "https://web.archive.org"
 WAYBACK_CALENDAR_URL = f"{WAYBACK_BASE}/web/{{timestamp}}/{{url}}"
 WAYBACK_CDX_URL = f"{WAYBACK_BASE}/cdx/search/cdx"
 
-# Budget: Wayback fetches ≤ 15% of total task pages (§3.1.6)
+# Budget: Wayback fetches ≤ 15% of total task pages (ADR-0010.6)
 WAYBACK_BUDGET_RATIO = 0.15
 
 
@@ -192,7 +192,7 @@ class WaybackResult:
 class WaybackClient:
     """Client for Wayback Machine interaction.
 
-    Uses HTML scraping only (no API per §3.1.6).
+    Uses HTML scraping only (no API per ADR-0010.6).
     """
 
     def __init__(self) -> None:
@@ -508,7 +508,7 @@ class ContentAnalyzer:
 class WaybackExplorer:
     """Explores Wayback Machine archives for URL history.
 
-    Implements §3.1.6 requirements:
+    Implements ADR-0010.6 requirements:
     - Retrieve latest + 3 prior snapshots
     - Extract heading/key point/date diffs
     - Build timeline for claims
@@ -712,7 +712,7 @@ class WaybackBudgetManager:
             Remaining Wayback fetches allowed.
         """
         if task_id not in self._task_budgets:
-            # 15% of total pages (§3.1.6)
+            # 15% of total pages (ADR-0010.6)
             self._task_budgets[task_id] = int(total_pages * WAYBACK_BUDGET_RATIO)
 
         return self._task_budgets[task_id]
@@ -874,7 +874,7 @@ async def check_content_modified(
 
 
 # =============================================================================
-# Wayback Fallback (§16.12)
+# Wayback Fallback (ADR-0005)
 # =============================================================================
 
 
@@ -882,7 +882,7 @@ async def check_content_modified(
 class FallbackResult:
     """Result of Wayback fallback attempt.
 
-    Per §16.12: Contains archived content and freshness metadata.
+    Per ADR-0005: Contains archived content and freshness metadata.
     """
 
     ok: bool
@@ -910,7 +910,7 @@ class FallbackResult:
 def calculate_freshness_penalty(snapshot_date: datetime) -> float:
     """Calculate freshness penalty based on snapshot age.
 
-    Per §16.12: Older content gets higher penalty to reflect staleness.
+    Per ADR-0005: Older content gets higher penalty to reflect staleness.
 
     Penalty scale:
     - < 7 days: 0.0 (no penalty)
@@ -955,7 +955,7 @@ def apply_freshness_penalty(
 ) -> float:
     """Apply freshness penalty to a confidence score.
 
-    Per §16.12.2: Reduces confidence for stale archived content.
+    Per ADR-0005: Reduces confidence for stale archived content.
 
     Formula: adjusted = confidence * (1 - weight * penalty)
 
@@ -983,7 +983,7 @@ def apply_freshness_penalty(
 class ArchiveDiffResult:
     """Result of comparing archived content with current version.
 
-    Per §16.12.2: Contains detailed diff information for timeline integration.
+    Per ADR-0005: Contains detailed diff information for timeline integration.
     """
 
     url: str
@@ -1065,7 +1065,7 @@ class ArchiveDiffResult:
 class WaybackFallback:
     """Provides Wayback Machine fallback for blocked URLs.
 
-    Per §16.12: Automatically retrieves archived content when direct
+    Per ADR-0005: Automatically retrieves archived content when direct
     access fails due to 403/CAPTCHA/blocking.
     """
 
@@ -1199,7 +1199,7 @@ class WaybackFallback:
     ) -> ArchiveDiffResult:
         """Compare current HTML with archived version.
 
-        Per §16.12.2: Detects heading/key point changes and generates
+        Per ADR-0005: Detects heading/key point changes and generates
         timeline information for significant differences.
 
         Args:

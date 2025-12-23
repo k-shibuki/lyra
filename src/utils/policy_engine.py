@@ -1,6 +1,6 @@
 """
 Policy auto-update engine for Lyra.
-Implements closed-loop control as defined in requirements §4.6.
+Implements closed-loop control as defined in requirements .
 
 Controls:
 - Engine weights and QPS limits
@@ -851,7 +851,7 @@ class PolicyEngine:
     ) -> tuple[float, float]:
         """Calculate dynamic weight based on engine health metrics.
 
-        Per §3.1.1, §3.1.4, §4.6: Calculates engine weight adjustment based on
+        Per ADR-0010, ADR-0006, : Calculates engine weight adjustment based on
         past accuracy, failure rate, and block rate. Uses time decay to
         handle stale metrics from infrequently used engines.
 
@@ -905,7 +905,7 @@ class PolicyEngine:
     ) -> float:
         """Get dynamic weight for an engine.
 
-        Per §3.1.1, §3.1.4: Retrieves engine health metrics from database
+        Per ADR-0010, ADR-0006: Retrieves engine health metrics from database
         and calculates dynamic weight with time decay.
 
         Args:

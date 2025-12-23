@@ -6,8 +6,8 @@ This script verifies that BrowserSearchProvider._rate_limit() correctly
 applies per-engine QPS limits as defined in config/engines.yaml.
 
 Per spec:
-- §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
-- §4.3: "Engine QPS≤0.25 (1 request/4s), Domain QPS≤0.2, concurrency=1"
+- ADR-0010: "Engine-specific rate control (concurrency=1, strict QPS)"
+- ADR-0006: "Engine QPS≤0.25 (1 request/4s), Domain QPS≤0.2, concurrency=1"
 """
 
 import asyncio
@@ -255,7 +255,7 @@ async def main() -> int:
     print("Engine QPS Rate Limiting Flow Debug Script")
     print("=" * 80)
     print("\nThis script verifies per-engine QPS rate limiting.")
-    print("Per spec §3.1 and §4.3: Engine-specific rate control with strict QPS.")
+    print("Per spec ADR-0010 and ADR-0006: Engine-specific rate control with strict QPS.")
 
     results = []
 

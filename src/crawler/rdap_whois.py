@@ -2,14 +2,14 @@
 RDAP and WHOIS client for Lyra.
 
 Retrieves domain registration information via HTML scraping (no API).
-Implements §3.1.2, §3.1.3:
+Implements ADR-0006, ADR-0008:
 - RDAP/WHOIS public web interfaces (IANA, regional NICs)
 - Registrant, nameserver, registration/update history extraction
 - Entity normalization for KB integration
 
 References:
-- §3.1.2: Infrastructure/Registry Direct Access (HTML only)
-- §3.1.3: Academic Research Vertical Templates
+- ADR-0006: Infrastructure/Registry Direct Access (HTML only)
+- ADR-0008: Academic Research Vertical Templates
 """
 
 import asyncio
@@ -514,8 +514,8 @@ class WHOISParser:
 class RDAPClient:
     """Client for fetching domain registration via RDAP/WHOIS web interfaces.
 
-    Implements HTML scraping only (no API per §4.1).
-    Follows rate limiting and domain policies per §4.3.
+    Implements HTML scraping only (no API per ADR-0001).
+    Follows rate limiting and domain policies per ADR-0006.
     """
 
     def __init__(

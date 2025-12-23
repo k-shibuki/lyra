@@ -1,7 +1,7 @@
 """
 Tests for browser stealth utilities.
 
-Tests navigator.webdriver override and viewport jitter per §4.3.
+Tests navigator.webdriver override and viewport jitter per ADR-0006.
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -41,7 +41,7 @@ class TestStealthJS:
     """Test stealth JavaScript injection scripts."""
 
     def test_stealth_js_contains_webdriver_override(self) -> None:
-        """Verify STEALTH_JS overrides navigator.webdriver per §4.3."""
+        """Verify STEALTH_JS overrides navigator.webdriver per ADR-0006."""
         assert "navigator" in STEALTH_JS
         assert "webdriver" in STEALTH_JS
         assert "undefined" in STEALTH_JS
@@ -122,7 +122,7 @@ class TestViewportJitterConfig:
 
 @pytest.mark.unit
 class TestViewportJitter:
-    """Test ViewportJitter class per §4.3."""
+    """Test ViewportJitter class per ADR-0006."""
 
     def test_jitter_returns_dict_with_width_and_height(self) -> None:
         """Test get_viewport returns dict with required keys."""
@@ -135,7 +135,7 @@ class TestViewportJitter:
         assert isinstance(viewport["height"], int)
 
     def test_jitter_applies_narrow_range(self) -> None:
-        """Test jitter is within configured narrow range per §4.3."""
+        """Test jitter is within configured narrow range per ADR-0006."""
         config = ViewportJitterConfig(
             base_width=1920,
             base_height=1080,
@@ -154,7 +154,7 @@ class TestViewportJitter:
             assert 1065 <= viewport["height"] <= 1095
 
     def test_hysteresis_prevents_rapid_changes(self) -> None:
-        """Test hysteresis prevents viewport changes within threshold per §4.3."""
+        """Test hysteresis prevents viewport changes within threshold per ADR-0006."""
         config = ViewportJitterConfig(
             base_width=1920,
             base_height=1080,

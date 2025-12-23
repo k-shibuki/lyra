@@ -1,7 +1,7 @@
 """
 Temporal Consistency Checker for Lyra.
 
-Implements §3.3.3 requirement for temporal consistency validation:
+Implements requirement for temporal consistency validation:
 - Claim timestamp vs page update date consistency check
 - Trust decay for stale claims
 - Timestamp integrity verification
@@ -396,7 +396,7 @@ class DateExtractor:
 class TemporalConsistencyChecker:
     """Checks temporal consistency between claims and sources.
 
-    Implements §3.3.3 requirements:
+    Implements requirements:
     - Detect claims that reference events after the source was published
     - Apply trust decay for stale claims
     - Validate timestamp integrity

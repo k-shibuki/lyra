@@ -1,7 +1,7 @@
 """
 Tests for LLM security module.
 
-Tests prompt injection defense mechanisms per §4.4.1:
+Tests prompt injection defense mechanisms per ADR-0005:
 - L2: Input sanitization
 - L3: Session-based random tag generation
 - L4: Output validation (including L4 enhancement: prompt leakage detection)

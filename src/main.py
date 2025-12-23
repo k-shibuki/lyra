@@ -74,13 +74,13 @@ async def run_research(query: str) -> None:
         # Update status to running
         await db.update_task_status(task_id, "running")
 
-        # Phase 1: Search
-        logger.info("Phase 1: Searching...")
+        # : Search
+        logger.info(": Searching...")
         results = await search_serp(query, task_id=task_id, limit=20)
         logger.info(f"Found {len(results)} search results")
 
-        # Phase 2: Fetch top results
-        logger.info("Phase 2: Fetching pages...")
+        # : Fetch top results
+        logger.info(": Fetching pages...")
         pages = []
         for result in results[:10]:
             url = result.get("url")
@@ -100,8 +100,8 @@ async def run_research(query: str) -> None:
 
         logger.info(f"Fetched {len(pages)} pages")
 
-        # Phase 3: Extract content
-        logger.info("Phase 3: Extracting content...")
+        # : Extract content
+        logger.info(": Extracting content...")
         passages = []
         for page in pages:
             if page.get("html_path"):
@@ -120,14 +120,14 @@ async def run_research(query: str) -> None:
 
         logger.info(f"Extracted {len(passages)} passages")
 
-        # Phase 4: Rank passages
+        # : Rank passages
         if passages:
-            logger.info("Phase 4: Ranking passages...")
+            logger.info(": Ranking passages...")
             ranked = await rank_candidates(query, passages[:100], top_k=20)
             logger.info(f"Ranked {len(ranked)} passages")
 
-        # Phase 5: Generate report
-        logger.info("Phase 5: Generating report...")
+        # : Generate report
+        logger.info(": Generating report...")
         report_result = await generate_report(task_id)
 
         if report_result.get("ok"):

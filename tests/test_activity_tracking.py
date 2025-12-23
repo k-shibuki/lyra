@@ -1,5 +1,5 @@
 """
-Tests for ExplorationState activity tracking (§2.1.5).
+Tests for ExplorationState activity tracking (ADR-0002).
 
 Tests verify that activity timestamps are recorded and idle time is calculated correctly.
 

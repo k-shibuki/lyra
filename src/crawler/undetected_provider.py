@@ -2,7 +2,7 @@
 Undetected ChromeDriver browser provider for Lyra.
 
 Implements BrowserProvider protocol using undetected-chromedriver for
-Cloudflare/Turnstile bypass per §4.3.
+Cloudflare/Turnstile bypass per ADR-0006.
 
 This provider is intended as a fallback when Playwright fails due to
 strong anti-bot protection.
@@ -41,7 +41,7 @@ class UndetectedChromeProvider(BaseBrowserProvider):
     Browser provider implementation using undetected-chromedriver.
 
     This is a fallback provider for cases where Playwright fails due to
-    strong anti-bot protection like Cloudflare or Turnstile (§4.3).
+    strong anti-bot protection like Cloudflare or Turnstile (ADR-0006).
 
     Features:
     - Automatic ChromeDriver patching to avoid detection

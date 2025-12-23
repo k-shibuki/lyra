@@ -166,7 +166,7 @@ __all__ = [
     "explore_wayback",
     "get_archived_content",
     "check_content_modified",
-    # Session Transfer (§3.1.2)
+    # Session Transfer (ADR-0006)
     "CookieData",
     "SessionData",
     "TransferResult",
@@ -176,7 +176,7 @@ __all__ = [
     "get_transfer_headers",
     "update_session",
     "invalidate_session",
-    # Browser Archive (§4.3.2)
+    # Browser Archive (ADR-0006)
     "ResourceInfo",
     "CDXJEntry",
     "NetworkEventCollector",
@@ -186,7 +186,7 @@ __all__ = [
     "get_browser_archiver",
     "archive_browser_page",
     "url_to_surt",
-    # DNS Policy (§4.3)
+    # DNS Policy (ADR-0006)
     "DNSRoute",
     "DNSLeakType",
     "DNSCacheEntry",

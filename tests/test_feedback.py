@@ -1,7 +1,7 @@
 """
-Tests for feedback MCP tool (Phase 6.2).
+Tests for feedback MCP tool .
 
-Test matrix based on P_EVIDENCE_SYSTEM.md テスト観点表（Task 6.2 feedback）:
+Test matrix based on P_EVIDENCE_SYSTEM.md テスト観点表（ feedback）:
 
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
 |---------|---------------------|-------------|-----------------|-------|

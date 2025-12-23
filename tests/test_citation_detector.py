@@ -1,5 +1,5 @@
 """
-Tests for Phase 3b: general web citation detection.
+Tests for b: general web citation detection.
 
 This module tests CitationDetector behavior WITHOUT calling a real LLM.
 

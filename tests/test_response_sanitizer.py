@@ -1,7 +1,7 @@
 """
 Tests for MCP Response Sanitizer (L7).
 
-Implements §4.4.1 L7: MCP Response Sanitization.
+Implements ADR-0005 L7: MCP Response Sanitization.
 
 Test Perspectives Table:
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |

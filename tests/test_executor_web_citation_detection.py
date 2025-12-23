@@ -1,5 +1,5 @@
 """
-Tests for Phase 3b web citation detection integration in SearchExecutor.
+Tests for b web citation detection integration in SearchExecutor.
 
 Goal: prove new settings (search.web_citation_detection.*) are wired and affect behavior.
 
@@ -98,7 +98,7 @@ async def test_executor_web_citation_detection_happy_path() -> None:
         patch.object(Path, "read_text", return_value="<html></html>"),
         patch("src.extractor.citation_detector.CitationDetector", _FakeDetector),
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db_instance)),
-        # Task 4.0: SearchExecutor._persist_claim now runs NLI by default.
+        # : SearchExecutor._persist_claim now runs NLI by default.
         # Mock it here to avoid model load / remote calls (this test focuses on citation detection wiring).
         patch(
             "src.filter.nli.nli_judge",

@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """
-Verification target: §3.6.1 Authentication Queue
+Verification target: ADR-0007 Authentication Queue
 
 Verification items:
-1. CAPTCHA detection -> queue enqueue (§3.6.1 Queue Enqueue)
-2. Domain batch resolution (§3.6.1 Domain-based Auth Management)
-3. Parallel processing while auth pending (§3.6.1 Parallel Processing)
-4. Priority management (§3.6.1 Priority Management)
-5. Toast notification (§3.6 Notification)
-6. Window foreground (§3.6.1 Safe Operation Policy)
-7. Session reuse (§3.6.1 Session Reuse)
+1. CAPTCHA detection -> queue enqueue (ADR-0007 Queue Enqueue)
+2. Domain batch resolution (ADR-0007 Domain-based Auth Management)
+3. Parallel processing while auth pending (ADR-0007 Parallel Processing)
+4. Priority management (ADR-0007 Priority Management)
+5. Toast notification (ADR-0007 Notification)
+6. Window foreground (ADR-0007 Safe Operation Policy)
+7. Session reuse (ADR-0007 Session Reuse)
 
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
-- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: 16.9 "Setup Procedure"
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - Notification success rate ≥99%
 - Window foreground success rate ≥95%
 - Auth breakthrough: ≥80% success rate for auth session processed items
@@ -58,7 +58,7 @@ class VerificationResult:
 
 
 class CAPTCHAFlowVerifier:
-    """Verifier for §3.6.1 authentication queue functionality."""
+    """Verifier for ADR-0007 authentication queue functionality."""
 
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
@@ -111,8 +111,8 @@ class CAPTCHAFlowVerifier:
         return True
 
     async def verify_queue_enqueue(self) -> VerificationResult:
-        """§3.6.1 Queue Enqueue: URLs requiring auth are queued."""
-        print("\n[1/7] Verifying queue enqueue (§3.6.1 キュー積み)...")
+        """ADR-0007 Queue Enqueue: URLs requiring auth are queued."""
+        print("\n[1/7] Verifying queue enqueue (ADR-0007 キュー積み)...")
 
         from src.storage.database import get_database
         from src.utils.notification import get_intervention_queue
@@ -150,7 +150,7 @@ class CAPTCHAFlowVerifier:
                 print(f"    ✓ All {len(queue_ids)} items found in pending queue")
                 return VerificationResult(
                     name="Queue Enqueue",
-                    spec_ref="§3.6.1 キュー積み",
+                    spec_ref="ADR-0007 キュー積み",
                     passed=True,
                     details={"queued_count": len(queue_ids), "queue_ids": queue_ids},
                 )
@@ -159,7 +159,7 @@ class CAPTCHAFlowVerifier:
                 print(f"    ✗ Missing items: {missing}")
                 return VerificationResult(
                     name="Queue Enqueue",
-                    spec_ref="§3.6.1 キュー積み",
+                    spec_ref="ADR-0007 キュー積み",
                     passed=False,
                     error=f"Missing items: {missing}",
                 )
@@ -167,7 +167,7 @@ class CAPTCHAFlowVerifier:
             logger.exception("Queue enqueue verification failed")
             return VerificationResult(
                 name="Queue Enqueue",
-                spec_ref="§3.6.1 キュー積み",
+                spec_ref="ADR-0007 キュー積み",
                 passed=False,
                 error=str(e),
             )
@@ -180,8 +180,8 @@ class CAPTCHAFlowVerifier:
                     pass
 
     async def verify_domain_batch_resolution(self) -> VerificationResult:
-        """§3.6.1 Domain-based Auth: Batch resolution for same domain."""
-        print("\n[2/7] Verifying domain batch resolution (§3.6.1 ドメインベース認証管理)...")
+        """ADR-0007 Domain-based Auth: Batch resolution for same domain."""
+        print("\n[2/7] Verifying domain batch resolution (ADR-0007 ドメインベース認証管理)...")
 
         from src.utils.notification import get_intervention_queue
 
@@ -213,7 +213,7 @@ class CAPTCHAFlowVerifier:
             if not domain_info:
                 return VerificationResult(
                     name="Domain Batch Resolution",
-                    spec_ref="§3.6.1 ドメインベース認証管理",
+                    spec_ref="ADR-0007 ドメインベース認証管理",
                     passed=False,
                     error=f"Domain {test_domain} not found in by_domain response",
                 )
@@ -221,7 +221,7 @@ class CAPTCHAFlowVerifier:
             if domain_info["pending_count"] != 3:
                 return VerificationResult(
                     name="Domain Batch Resolution",
-                    spec_ref="§3.6.1 ドメインベース認証管理",
+                    spec_ref="ADR-0007 ドメインベース認証管理",
                     passed=False,
                     error=f"Expected 3 pending, got {domain_info['pending_count']}",
                 )
@@ -240,7 +240,7 @@ class CAPTCHAFlowVerifier:
             if resolved_count != 3:
                 return VerificationResult(
                     name="Domain Batch Resolution",
-                    spec_ref="§3.6.1 ドメインベース認証管理",
+                    spec_ref="ADR-0007 ドメインベース認証管理",
                     passed=False,
                     error=f"Expected 3 resolved, got {resolved_count}",
                 )
@@ -252,7 +252,7 @@ class CAPTCHAFlowVerifier:
             if not stored_session:
                 return VerificationResult(
                     name="Domain Batch Resolution",
-                    spec_ref="§3.6.1 ドメインベース認証管理",
+                    spec_ref="ADR-0007 ドメインベース認証管理",
                     passed=False,
                     error="Session not stored after domain completion",
                 )
@@ -260,7 +260,7 @@ class CAPTCHAFlowVerifier:
             if stored_session.get("cf_clearance") != "test_token_123":
                 return VerificationResult(
                     name="Domain Batch Resolution",
-                    spec_ref="§3.6.1 ドメインベース認証管理",
+                    spec_ref="ADR-0007 ドメインベース認証管理",
                     passed=False,
                     error=f"Session data mismatch: {stored_session}",
                 )
@@ -269,7 +269,7 @@ class CAPTCHAFlowVerifier:
 
             return VerificationResult(
                 name="Domain Batch Resolution",
-                spec_ref="§3.6.1 ドメインベース認証管理",
+                spec_ref="ADR-0007 ドメインベース認証管理",
                 passed=True,
                 details={
                     "domain": test_domain,
@@ -282,14 +282,14 @@ class CAPTCHAFlowVerifier:
             logger.exception("Domain batch resolution verification failed")
             return VerificationResult(
                 name="Domain Batch Resolution",
-                spec_ref="§3.6.1 ドメインベース認証管理",
+                spec_ref="ADR-0007 ドメインベース認証管理",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_parallel_processing(self) -> VerificationResult:
-        """§3.6.1 Parallel: Continue exploring auth-free sources while waiting."""
-        print("\n[3/7] Verifying parallel processing (§3.6.1 並行処理)...")
+        """ADR-0007 Parallel: Continue exploring auth-free sources while waiting."""
+        print("\n[3/7] Verifying parallel processing (ADR-0007 並行処理)...")
 
         from src.crawler.fetcher import BrowserFetcher
         from src.utils.notification import get_intervention_queue
@@ -327,7 +327,7 @@ class CAPTCHAFlowVerifier:
                         print("    ✓ Blocked item still in queue (parallel processing works)")
                         return VerificationResult(
                             name="Parallel Processing",
-                            spec_ref="§3.6.1 並行処理",
+                            spec_ref="ADR-0007 並行処理",
                             passed=True,
                             details={
                                 "unblocked_fetch_time": elapsed,
@@ -337,14 +337,14 @@ class CAPTCHAFlowVerifier:
                     else:
                         return VerificationResult(
                             name="Parallel Processing",
-                            spec_ref="§3.6.1 並行処理",
+                            spec_ref="ADR-0007 並行処理",
                             passed=False,
                             error="Blocked item was unexpectedly resolved",
                         )
                 else:
                     return VerificationResult(
                         name="Parallel Processing",
-                        spec_ref="§3.6.1 並行処理",
+                        spec_ref="ADR-0007 並行処理",
                         passed=False,
                         error=f"Unblocked fetch failed: {result.reason}",
                     )
@@ -357,14 +357,14 @@ class CAPTCHAFlowVerifier:
             logger.exception("Parallel processing verification failed")
             return VerificationResult(
                 name="Parallel Processing",
-                spec_ref="§3.6.1 並行処理",
+                spec_ref="ADR-0007 並行処理",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_priority_ordering(self) -> VerificationResult:
-        """§3.6.1 Priority: High priority (primary sources) processed first."""
-        print("\n[4/7] Verifying priority ordering (§3.6.1 優先度管理)...")
+        """ADR-0007 Priority: High priority (primary sources) processed first."""
+        print("\n[4/7] Verifying priority ordering (ADR-0007 優先度管理)...")
 
         from src.utils.notification import get_intervention_queue
 
@@ -401,7 +401,7 @@ class CAPTCHAFlowVerifier:
                 print(f"    ✓ Priority order correct: {actual_order}")
                 return VerificationResult(
                     name="Priority Ordering",
-                    spec_ref="§3.6.1 優先度管理",
+                    spec_ref="ADR-0007 優先度管理",
                     passed=True,
                     details={"expected": expected_order, "actual": actual_order},
                 )
@@ -411,7 +411,7 @@ class CAPTCHAFlowVerifier:
                 )
                 return VerificationResult(
                     name="Priority Ordering",
-                    spec_ref="§3.6.1 優先度管理",
+                    spec_ref="ADR-0007 優先度管理",
                     passed=False,
                     error=f"Expected {expected_order}, got {actual_order}",
                 )
@@ -420,7 +420,7 @@ class CAPTCHAFlowVerifier:
             logger.exception("Priority ordering verification failed")
             return VerificationResult(
                 name="Priority Ordering",
-                spec_ref="§3.6.1 優先度管理",
+                spec_ref="ADR-0007 優先度管理",
                 passed=False,
                 error=str(e),
             )
@@ -433,8 +433,8 @@ class CAPTCHAFlowVerifier:
                     pass
 
     async def verify_toast_notification(self) -> VerificationResult:
-        """§3.6 Notification: Toast notification is sent."""
-        print("\n[5/7] Verifying toast notification (§3.6 通知)...")
+        """ADR-0007 Notification: Toast notification is sent."""
+        print("\n[5/7] Verifying toast notification (ADR-0007 通知)...")
 
         from src.utils.notification import InterventionManager
 
@@ -456,7 +456,7 @@ class CAPTCHAFlowVerifier:
                 await asyncio.sleep(0.5)
 
             success_rate = success_count / notification_count
-            threshold = 0.99  # §7: ≥99%
+            threshold = 0.99 # : ≥99%
 
             print(
                 f"    Notification success rate: {success_rate:.1%} ({success_count}/{notification_count})"
@@ -466,7 +466,7 @@ class CAPTCHAFlowVerifier:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
                 return VerificationResult(
                     name="Toast Notification",
-                    spec_ref="§3.6 通知",
+                    spec_ref="ADR-0007 通知",
                     passed=True,
                     details={
                         "success_rate": success_rate,
@@ -479,7 +479,7 @@ class CAPTCHAFlowVerifier:
                 print(f"    ✗ Below threshold (<{threshold:.0%})")
                 return VerificationResult(
                     name="Toast Notification",
-                    spec_ref="§3.6 通知",
+                    spec_ref="ADR-0007 通知",
                     passed=False,
                     error=f"Success rate {success_rate:.1%} < {threshold:.0%}",
                 )
@@ -488,19 +488,19 @@ class CAPTCHAFlowVerifier:
             logger.exception("Toast notification verification failed")
             return VerificationResult(
                 name="Toast Notification",
-                spec_ref="§3.6 通知",
+                spec_ref="ADR-0007 通知",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_window_foreground(self) -> VerificationResult:
-        """§3.6.1 Safe Operation: Window foreground."""
-        print("\n[6/7] Verifying window foreground (§3.6.1 安全運用方針)...")
+        """ADR-0007 Safe Operation: Window foreground."""
+        print("\n[6/7] Verifying window foreground (ADR-0007 安全運用方針)...")
 
         if not self.browser_available:
             return VerificationResult(
                 name="Window Foreground",
-                spec_ref="§3.6.1 安全運用方針",
+                spec_ref="ADR-0007 安全運用方針",
                 passed=False,
                 skipped=True,
                 skip_reason="Browser not available",
@@ -510,7 +510,7 @@ class CAPTCHAFlowVerifier:
             # TODO: InterventionManager.bring_to_front(url, reason) API is not implemented
             # The current implementation has _bring_tab_to_front(page) which is a private method
             # that takes a Page object. This test should be skipped until the public API is added.
-            # See plan: tests_6cea44b8.plan.md Phase 1 - 4.4 InterventionManager.bring_to_front()
+            # See plan: tests_6cea44b8.plan.md - 4.4 InterventionManager.bring_to_front
 
             # Test foreground functionality
             foreground_count = 3
@@ -519,7 +519,7 @@ class CAPTCHAFlowVerifier:
             # Skip this test until bring_to_front(url, reason) API is implemented
             return VerificationResult(
                 name="Window Foreground",
-                spec_ref="§3.6.1 安全運用方針",
+                spec_ref="ADR-0007 安全運用方針",
                 passed=True,
                 skipped=True,
                 skip_reason="bring_to_front(url, reason) API not implemented - TODO: add public API to InterventionManager",
@@ -537,7 +537,7 @@ class CAPTCHAFlowVerifier:
             #     await asyncio.sleep(1.0)
 
             success_rate = success_count / foreground_count
-            threshold = 0.95  # §7: ≥95%
+            threshold = 0.95 # : ≥95%
 
             print(
                 f"    Foreground success rate: {success_rate:.1%} ({success_count}/{foreground_count})"
@@ -547,7 +547,7 @@ class CAPTCHAFlowVerifier:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
                 return VerificationResult(
                     name="Window Foreground",
-                    spec_ref="§3.6.1 安全運用方針",
+                    spec_ref="ADR-0007 安全運用方針",
                     passed=True,
                     details={
                         "success_rate": success_rate,
@@ -560,7 +560,7 @@ class CAPTCHAFlowVerifier:
                 print(f"    ✗ Below threshold (<{threshold:.0%})")
                 return VerificationResult(
                     name="Window Foreground",
-                    spec_ref="§3.6.1 安全運用方針",
+                    spec_ref="ADR-0007 安全運用方針",
                     passed=False,
                     error=f"Success rate {success_rate:.1%} < {threshold:.0%}",
                 )
@@ -569,14 +569,14 @@ class CAPTCHAFlowVerifier:
             logger.exception("Window foreground verification failed")
             return VerificationResult(
                 name="Window Foreground",
-                spec_ref="§3.6.1 安全運用方針",
+                spec_ref="ADR-0007 安全運用方針",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_session_reuse(self) -> VerificationResult:
-        """§3.6.1 Session Reuse: Authenticated sessions are reused."""
-        print("\n[7/7] Verifying session reuse (§3.6.1 セッション再利用)...")
+        """ADR-0007 Session Reuse: Authenticated sessions are reused."""
+        print("\n[7/7] Verifying session reuse (ADR-0007 セッション再利用)...")
 
         from src.utils.notification import get_intervention_queue
 
@@ -610,7 +610,7 @@ class CAPTCHAFlowVerifier:
             if not stored:
                 return VerificationResult(
                     name="Session Reuse",
-                    spec_ref="§3.6.1 セッション再利用",
+                    spec_ref="ADR-0007 セッション再利用",
                     passed=False,
                     error="Session not stored after completion",
                 )
@@ -637,7 +637,7 @@ class CAPTCHAFlowVerifier:
 
                 return VerificationResult(
                     name="Session Reuse",
-                    spec_ref="§3.6.1 セッション再利用",
+                    spec_ref="ADR-0007 セッション再利用",
                     passed=True,
                     details={
                         "domain": test_domain,
@@ -648,7 +648,7 @@ class CAPTCHAFlowVerifier:
             else:
                 return VerificationResult(
                     name="Session Reuse",
-                    spec_ref="§3.6.1 セッション再利用",
+                    spec_ref="ADR-0007 セッション再利用",
                     passed=False,
                     error=f"Session not available for reuse: {reuse_session}",
                 )
@@ -657,7 +657,7 @@ class CAPTCHAFlowVerifier:
             logger.exception("Session reuse verification failed")
             return VerificationResult(
                 name="Session Reuse",
-                spec_ref="§3.6.1 セッション再利用",
+                spec_ref="ADR-0007 セッション再利用",
                 passed=False,
                 error=str(e),
             )
@@ -666,7 +666,7 @@ class CAPTCHAFlowVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("E2E: CAPTCHA Flow Verification")
-        print("検証対象: §3.6.1 認証待ちキュー")
+        print("検証対象: ADR-0007 認証待ちキュー")
         print("=" * 70)
 
         # Prerequisites

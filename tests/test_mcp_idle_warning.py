@@ -1,5 +1,5 @@
 """
-Tests for MCP handlers idle warning (§2.1.5).
+Tests for MCP handlers idle warning (ADR-0002).
 
 Tests verify that MCP handlers record activity and get_status includes idle_seconds.
 

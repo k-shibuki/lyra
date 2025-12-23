@@ -664,7 +664,7 @@ class TestRollbackEvent:
 
 
 class TestCalibrationHistory:
-    """Tests for CalibrationHistory class (§4.6.1)."""
+    """Tests for CalibrationHistory class ."""
 
     @pytest.fixture
     def history(self, tmp_path: Path) -> CalibrationHistory:
@@ -846,7 +846,7 @@ class TestCalibrationHistory:
 
 
 class TestCalibratorRollback:
-    """Tests for Calibrator rollback functionality (§4.6.1)."""
+    """Tests for Calibrator rollback functionality ."""
 
     @pytest.fixture
     def calibrator(self, tmp_path: Path) -> Calibrator:
@@ -1064,7 +1064,7 @@ class TestMCPRollbackTools:
 
 
 # =============================================================================
-# CalibrationEvaluation Tests (§4.6.1)
+# CalibrationEvaluation Tests
 # =============================================================================
 
 
@@ -1114,12 +1114,12 @@ class TestCalibrationEvaluation:
 
 
 # =============================================================================
-# CalibrationEvaluator Tests (§4.6.1)
+# CalibrationEvaluator Tests
 # =============================================================================
 
 
 class TestCalibrationEvaluator:
-    """Tests for CalibrationEvaluator class (§4.6.1)."""
+    """Tests for CalibrationEvaluator class ."""
 
     @pytest.fixture
     def mock_db(self) -> MagicMock:
@@ -1220,12 +1220,12 @@ class TestCalibrationEvaluator:
 
 
 # =============================================================================
-# MCP Calibration Evaluation Tool Tests (§4.6.1)
+# MCP Calibration Evaluation Tool Tests
 # =============================================================================
 
 
 class TestMCPCalibrationEvaluationTools:
-    """Tests for MCP calibration evaluation tool functions (§4.6.1)."""
+    """Tests for MCP calibration evaluation tool functions ."""
 
     @pytest.mark.asyncio
     async def test_save_calibration_evaluation(self) -> None:

@@ -1,5 +1,5 @@
 """
-Feedback handler for Phase 6.2.
+Feedback handler for .
 
 Implements 6 actions across 3 levels:
 - Domain: domain_block, domain_unblock, domain_clear_override
@@ -17,7 +17,7 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Forbidden patterns for domain operations (Decision 20)
+# Forbidden patterns for domain operations (ADR-0012)
 FORBIDDEN_PATTERNS = [
     "*",  # All domains
     "*.com",  # TLD-level
@@ -131,7 +131,7 @@ async def _handle_domain_block(args: dict[str, Any]) -> dict[str, Any]:
         (event_id, rule_id, domain_pattern, reason, now),
     )
 
-    # Reflect to SourceVerifier immediately (Phase 6.3)
+    # Reflect to SourceVerifier immediately
     from src.filter.source_verification import get_source_verifier
 
     verifier = get_source_verifier()
@@ -192,8 +192,8 @@ async def _handle_domain_unblock(args: dict[str, Any]) -> dict[str, Any]:
         (event_id, rule_id, domain_pattern, reason, now),
     )
 
-    # Reflect to SourceVerifier immediately (Phase 6.3)
-    # This can unblock any domain, including dangerous_pattern (Decision 20)
+    # Reflect to SourceVerifier immediately
+    # This can unblock any domain, including dangerous_pattern (ADR-0012)
     from src.filter.source_verification import get_source_verifier
 
     verifier = get_source_verifier()

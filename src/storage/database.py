@@ -594,7 +594,7 @@ class Database:
     async def get_engine_health_metrics(self, engine: str) -> dict[str, Any] | None:
         """Get engine health metrics for dynamic weight calculation.
 
-        Per §3.1.4: Retrieve EMA metrics from engine_health table for
+        Per ADR-0006: Retrieve EMA metrics from engine_health table for
         calculating dynamic engine weights.
 
         Args:

@@ -5,8 +5,8 @@ Includes:
 - Multi-stage ranking (BM25, embedding, reranking)
 - LLM extraction
 - NLI judgment
-- Claim decomposition (§3.3.1)
-- Claim timeline (§3.4)
+- Claim decomposition
+- Claim timeline (ADR-0005)
 - Evidence graph
 - Deduplication
 - Temporal consistency

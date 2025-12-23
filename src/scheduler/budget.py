@@ -1,6 +1,6 @@
 """
 Budget control for Lyra task execution.
-Implements §3.1 and §3.2.2 requirements:
+Implements ADR-0010 and ADR-0003 requirements:
 - Task page limit: ≤120 pages/task
 - Time limit: ≤60 minutes/task (GPU), ≤75 minutes (CPU)
 - LLM time ratio: ≤30% of total processing time

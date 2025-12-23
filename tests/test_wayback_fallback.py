@@ -1,5 +1,5 @@
 """
-Tests for Wayback fallback functionality (§16.12).
+Tests for Wayback fallback functionality (ADR-0005).
 
 Tests WaybackFallback, calculate_freshness_penalty, and integration with fetch_url.
 

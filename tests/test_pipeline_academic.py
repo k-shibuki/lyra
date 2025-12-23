@@ -26,19 +26,19 @@ in the SearchPipeline._execute_complementary_search() method.
 | TC-SS-A-01 | get_references() with s2: ID | Abnormal – API call | API called with CorpusId: format | Bug 2関連 |
 | TC-SS-A-02 | get_citations() with s2: ID | Abnormal – API call | API called with CorpusId: format | Bug 2関連 |
 | TC-SS-A-03 | API returns 404 for invalid ID | Abnormal – API error | Empty list returned, exception logged | - |
-| TC-NA-N-01 | Non-academic query + DOI in SERP | Equivalence – normal | Identifier extracted, API complement executed | Task 3.5 |
-| TC-NA-N-02 | Non-academic query + PMID in SERP | Equivalence – normal | PMID extracted, DOI resolved, API complement executed | Task 3.5 |
-| TC-NA-N-03 | Non-academic query + arXiv ID in SERP | Equivalence – normal | arXiv ID extracted, DOI resolved, API complement executed | Task 3.5 |
-| TC-NA-N-04 | Non-academic query + no identifiers | Equivalence – normal | No API complement attempted | Task 3.5 |
-| TC-NA-N-05 | Identifier complement + citation tracking | Equivalence – normal | Citation graph retrieved and processed | Task 3.5 |
-| TC-NA-B-01 | Empty SERP items list | Boundary – empty | No processing attempted, no error | Task 3.5 |
-| TC-NA-B-02 | SERP item with empty URL | Boundary – empty | Item skipped, processing continues | Task 3.5 |
-| TC-NA-B-03 | Paper without abstract returned | Boundary – NULL | Paper not added to pages, citation tracking skipped | Task 3.5 |
-| TC-NA-A-01 | API error during identifier complement | Abnormal – exception | Exception caught, logged, processing continues | Task 3.5 |
-| TC-NA-A-02 | DOI resolution failure (PMID) | Abnormal – exception | Exception caught, API complement skipped | Task 3.5 |
-| TC-NA-A-03 | Citation graph retrieval failure | Abnormal – exception | Exception caught, logged, processing continues | Task 3.5 |
-| TC-NA-A-04 | Paper lookup returns None | Abnormal – NULL | None handled gracefully, no error | Task 3.5 |
-| TC-NA-A-05 | SERP search raises exception | Abnormal – exception | Exception caught, logged, executor result preserved | Task 3.5 |
+| TC-NA-N-01 | Non-academic query + DOI in SERP | Equivalence – normal | Identifier extracted, API complement executed | |
+| TC-NA-N-02 | Non-academic query + PMID in SERP | Equivalence – normal | PMID extracted, DOI resolved, API complement executed | |
+| TC-NA-N-03 | Non-academic query + arXiv ID in SERP | Equivalence – normal | arXiv ID extracted, DOI resolved, API complement executed | |
+| TC-NA-N-04 | Non-academic query + no identifiers | Equivalence – normal | No API complement attempted | |
+| TC-NA-N-05 | Identifier complement + citation tracking | Equivalence – normal | Citation graph retrieved and processed | |
+| TC-NA-B-01 | Empty SERP items list | Boundary – empty | No processing attempted, no error | |
+| TC-NA-B-02 | SERP item with empty URL | Boundary – empty | Item skipped, processing continues | |
+| TC-NA-B-03 | Paper without abstract returned | Boundary – NULL | Paper not added to pages, citation tracking skipped | |
+| TC-NA-A-01 | API error during identifier complement | Abnormal – exception | Exception caught, logged, processing continues | |
+| TC-NA-A-02 | DOI resolution failure (PMID) | Abnormal – exception | Exception caught, API complement skipped | |
+| TC-NA-A-03 | Citation graph retrieval failure | Abnormal – exception | Exception caught, logged, processing continues | |
+| TC-NA-A-04 | Paper lookup returns None | Abnormal – NULL | None handled gracefully, no error | |
+| TC-NA-A-05 | SERP search raises exception | Abnormal – exception | Exception caught, logged, executor result preserved | |
 """
 
 import json
@@ -1091,14 +1091,14 @@ class TestExecuteComplementarySearchE2E:
         state = ExplorationState(task_id="test_task")
         SearchPipeline(task_id="test_task", state=state)
 
-        # Create index with mixed entries (simulating Phase 2-4)
+        # Create index with mixed entries (simulating -4)
         index = CanonicalPaperIndex()
         index.register_paper(sample_paper_with_abstract, "semantic_scholar")
         index.register_paper(sample_paper_without_abstract, "openalex")
 
         unique_entries = index.get_all_entries()
 
-        # Simulate Phase 5 processing logic
+        # Simulate processing logic
         pages_created = 0
         fragments_created = 0
         entries_needing_fetch = []
@@ -1173,13 +1173,13 @@ class TestExecuteComplementarySearchE2E:
         unique_entries = index.get_all_entries()
         paper_to_page_map = {}
 
-        # Simulate Phase 5: persist abstract and create mapping
+        # Simulate : persist abstract and create mapping
         for entry in unique_entries:
             if entry.paper and entry.paper.abstract:
                 page_id = f"page_{entry.paper.id[:8]}"
                 paper_to_page_map[entry.paper.id] = page_id
 
-        # When: Filtering papers for citation graph (Phase 6)
+        # When: Filtering papers for citation graph
         papers_with_abstracts = [
             entry.paper
             for entry in unique_entries
@@ -1240,7 +1240,7 @@ class TestExecuteComplementarySearchE2E:
 
         unique_entries = index.get_all_entries()
 
-        # Simulate Phase 5 processing
+        # Simulate processing
         pages_created = 0
         fragments_created = 0
 
@@ -1284,7 +1284,7 @@ class TestExecuteComplementarySearchE2E:
 
 
 # =============================================================================
-# Test: Non-Academic Query Identifier Complement (Task 3.5)
+# Test: Non-Academic Query Identifier Complement
 # =============================================================================
 
 

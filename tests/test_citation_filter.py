@@ -1,5 +1,5 @@
 """
-Tests for citation relevance filtering (Phase 3).
+Tests for citation relevance filtering .
 
 ## Test Perspectives Table - Stage 0 citation_count threshold
 

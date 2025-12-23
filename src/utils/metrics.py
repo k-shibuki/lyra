@@ -1,6 +1,6 @@
 """
 Metrics collection and aggregation for Lyra.
-Implements comprehensive metrics as defined in requirements §4.6.
+Implements comprehensive metrics as defined in requirements .
 """
 
 import asyncio
@@ -590,7 +590,7 @@ class MetricsCollector:
     def _check_tor_date_reset(self) -> None:
         """Check if day changed and reset Tor counters if needed.
 
-        Per §7: Daily metrics should reset at midnight.
+        Per : Daily metrics should reset at midnight.
         """
         today = date.today().isoformat()
         if self._tor_daily_date != today:
@@ -609,7 +609,7 @@ class MetricsCollector:
     def get_today_tor_metrics(self) -> TorUsageMetrics:
         """Get today's global Tor usage metrics.
 
-        Per §4.3 and §7: Used to check global daily limit (20%).
+        Per ADR-0006 and : Used to check global daily limit (20%).
 
         Returns:
             TorUsageMetrics with today's counts.
@@ -625,7 +625,7 @@ class MetricsCollector:
     def get_domain_tor_metrics(self, domain: str) -> DomainTorMetrics:
         """Get today's Tor usage metrics for a specific domain.
 
-        Per §4.3: Used to check domain-specific Tor limits.
+        Per ADR-0006: Used to check domain-specific Tor limits.
 
         Args:
             domain: Domain name (will be lowercased).
@@ -666,7 +666,7 @@ class MetricsCollector:
     def record_tor_usage(self, domain: str | None = None) -> None:
         """Record a Tor-routed request.
 
-        Per §4.3 and §7: Track Tor usage for daily limit enforcement.
+        Per ADR-0006 and : Track Tor usage for daily limit enforcement.
 
         Args:
             domain: Optional domain name for domain-specific tracking.

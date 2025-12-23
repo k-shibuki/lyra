@@ -1,7 +1,7 @@
 """
 LLM Security module for Lyra.
 
-Implements prompt injection defense mechanisms per §4.4.1:
+Implements prompt injection defense mechanisms per ADR-0005:
 - L2: Input sanitization (NFKC normalization, tag pattern removal, etc.)
 - L3: Session-based random tag generation for system instruction separation
 - L4: Output validation (external URL pattern detection)
@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 # Tag prefix for system instructions (used in sanitization)
 TAG_PREFIX = "LYRA-"
 
-# Zero-width characters to remove (§4.4.1 L2)
+# Zero-width characters to remove (ADR-0005 L2)
 ZERO_WIDTH_CHARS = frozenset(
     [
         "\u200b",  # Zero Width Space
@@ -55,7 +55,7 @@ ZERO_WIDTH_CHARS = frozenset(
     ]
 )
 
-# Dangerous patterns to detect and warn (§4.4.1 L2)
+# Dangerous patterns to detect and warn (ADR-0005 L2)
 DANGEROUS_PATTERNS = [
     r"ignore\s+(all\s+)?previous",
     r"disregard\s+(all\s+)?(above|previous)",
@@ -80,7 +80,7 @@ _DANGEROUS_REGEX = re.compile("|".join(DANGEROUS_PATTERNS), re.IGNORECASE)
 # Tag pattern regex (matches LYRA-xxxx style tags)
 _TAG_PATTERN = re.compile(r"</?(?:LYRA|lyra|Lyra)[\s_-]*[A-Za-z0-9_-]*>", re.IGNORECASE)
 
-# URL patterns for output validation (§4.4.1 L4)
+# URL patterns for output validation (ADR-0005 L4)
 _URL_PATTERN = re.compile(r"https?://[^\s<>\"']+|ftp://[^\s<>\"']+", re.IGNORECASE)
 
 # IPv4 pattern
@@ -96,13 +96,13 @@ _IPV6_PATTERN = re.compile(
     r"\b(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}\b"
 )
 
-# Default max input length (§3.3)
+# Default max input length (ADR-0005)
 DEFAULT_MAX_INPUT_LENGTH = 4000
 
 # Default max output length multiplier
 DEFAULT_MAX_OUTPUT_MULTIPLIER = 10
 
-# Minimum n-gram length for leakage detection (§4.4.1 L4)
+# Minimum n-gram length for leakage detection (ADR-0005 L4)
 DEFAULT_LEAKAGE_NGRAM_LENGTH = 20
 
 # Tag pattern for leakage detection (matches LYRA-xxx anywhere)
@@ -134,7 +134,7 @@ class SanitizationResult:
 
 @dataclass
 class LeakageDetectionResult:
-    """Result of prompt leakage detection (§4.4.1 L4 enhancement)."""
+    """Result of prompt leakage detection (ADR-0005 L4 enhancement)."""
 
     has_leakage: bool
     leaked_fragments: list[str] = field(default_factory=list)
@@ -193,7 +193,7 @@ def generate_session_tag() -> SystemTag:
     """
     Generate a random tag for this session.
 
-    Per §4.4.1 L3: Tag name is randomly generated per session (task)
+    Per ADR-0005 L3: Tag name is randomly generated per session (task)
     to prevent attackers from predicting the tag name.
 
     Returns:
@@ -242,7 +242,7 @@ def sanitize_llm_input(
     """
     Sanitize input text before sending to LLM.
 
-    Per §4.4.1 L2:
+    Per ADR-0005 L2:
     1. Unicode NFKC normalization
     2. HTML entity decoding
     3. Zero-width character removal
@@ -352,7 +352,7 @@ def detect_prompt_leakage(
     """
     Detect system prompt fragments in LLM output.
 
-    Per §4.4.1 L4 enhancement:
+    Per ADR-0005 L4 enhancement:
     - n-gram match detection (20+ consecutive characters)
     - Tag name pattern detection (LYRA- prefix)
 
@@ -460,7 +460,7 @@ def mask_prompt_fragments(
     """
     Mask detected prompt fragments in text.
 
-    Per §4.4.1 L4: Replace detected fragments with [REDACTED].
+    Per ADR-0005 L4: Replace detected fragments with [REDACTED].
 
     Args:
         text: Text containing potential leakage.
@@ -522,7 +522,7 @@ def validate_llm_output(
     """
     Validate LLM output for suspicious content.
 
-    Per §4.4.1 L4:
+    Per ADR-0005 L4:
     - Detect URLs (http://, https://, ftp://)
     - Detect IP addresses (IPv4/IPv6)
     - Truncate abnormally long output
@@ -622,7 +622,7 @@ def build_secure_prompt(
     """
     Build a secure prompt with system instruction separation.
 
-    Per §4.4.1 L3:
+    Per ADR-0005 L3:
     - Wraps system instructions in random session tag
     - Includes rules for tag priority
     - Sanitizes user input if requested

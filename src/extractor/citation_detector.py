@@ -1,5 +1,5 @@
 """
-Citation detection for general web pages (Phase 3b).
+Citation detection for general web pages (b).
 
 Detects whether outbound links in the main content are used as citations
 ("information source references") and returns structured results.

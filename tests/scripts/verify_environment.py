@@ -15,7 +15,7 @@ Verification items:
 Prerequisites:
 - Podman containers running: ./scripts/dev.sh up
 - Chrome running with remote debugging: ./scripts/chrome.sh start (auto-started by MCP)
-- See: docs/IMPLEMENTATION_PLAN.md "E2E Environment Setup"
+- See: "E2E Environment Setup"
 
 Architecture:
 - WSL: MCP server, Playwright, this script
@@ -148,7 +148,7 @@ class EnvironmentVerifier:
         - Can connect to Chrome remote debugging port
         - Browser is responsive
         """
-        print("\n[2/6] Verifying Chrome CDP connection (§3.2 GUI連携)...")
+        print("\n[2/6] Verifying Chrome CDP connection (ADR-0003 GUI連携)...")
 
         try:
             from src.search.browser_search_provider import BrowserSearchProvider
@@ -165,7 +165,7 @@ class EnvironmentVerifier:
                 except TimeoutError:
                     return VerificationResult(
                         name="Chrome CDP Connection",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error="Connection timeout (15s). Check Chrome and port proxy settings.",
                         critical=False,  # Allow other checks to continue
@@ -174,7 +174,7 @@ class EnvironmentVerifier:
                 if not provider._browser or not provider._browser.is_connected():
                     return VerificationResult(
                         name="Chrome CDP Connection",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error="Browser not connected. Run: ./scripts/chrome.sh start",
                         critical=False,
@@ -197,7 +197,7 @@ class EnvironmentVerifier:
 
                 return VerificationResult(
                     name="Chrome CDP Connection",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=True,
                     details=details,
                 )
@@ -213,7 +213,7 @@ class EnvironmentVerifier:
             logger.exception("Chrome CDP verification failed")
             return VerificationResult(
                 name="Chrome CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=error_msg,
                 critical=True,
@@ -227,7 +227,7 @@ class EnvironmentVerifier:
         - Ollama service is reachable
         - Required models are available
         """
-        print("\n[3/6] Verifying Ollama LLM (§5.1 LLM)...")
+        print("\n[3/6] Verifying Ollama LLM (ADR-0008 LLM)...")
 
         try:
             from src.filter.ollama_provider import OllamaProvider
@@ -250,7 +250,7 @@ class EnvironmentVerifier:
                 if health.state == LLMHealthState.UNHEALTHY:
                     return VerificationResult(
                         name="Ollama LLM",
-                        spec_ref="§5.1",
+                        spec_ref="ADR-0008",
                         passed=False,
                         error=f"Ollama not available: {health.message}",
                         details={"host": ollama_host},
@@ -284,7 +284,7 @@ class EnvironmentVerifier:
 
                 return VerificationResult(
                     name="Ollama LLM",
-                    spec_ref="§5.1",
+                    spec_ref="ADR-0008",
                     passed=passed,
                     details=details,
                 )
@@ -296,7 +296,7 @@ class EnvironmentVerifier:
             logger.exception("Ollama LLM verification failed")
             return VerificationResult(
                 name="Ollama LLM",
-                spec_ref="§5.1",
+                spec_ref="ADR-0008",
                 passed=False,
                 error=str(e),
             )
@@ -309,7 +309,7 @@ class EnvironmentVerifier:
         - lyra can reach ollama via internal network
         - DNS resolution works
         """
-        print("\n[4/6] Verifying container network (§4.4.1 L1 ネットワーク分離)...")
+        print("\n[4/6] Verifying container network (ADR-0005 L1 ネットワーク分離)...")
 
         try:
             import aiohttp
@@ -359,7 +359,7 @@ class EnvironmentVerifier:
 
             return VerificationResult(
                 name="Container Network",
-                spec_ref="§4.4.1 L1",
+                spec_ref="ADR-0005 L1",
                 passed=passed,
                 details=details,
                 error=None if passed else "Cannot reach Ollama via internal network",
@@ -369,7 +369,7 @@ class EnvironmentVerifier:
             logger.exception("Container network verification failed")
             return VerificationResult(
                 name="Container Network",
-                spec_ref="§4.4.1 L1",
+                spec_ref="ADR-0005 L1",
                 passed=False,
                 error=str(e),
             )
@@ -382,7 +382,7 @@ class EnvironmentVerifier:
         - Can perform a search via BrowserSearchProvider
         - Parser works correctly
         """
-        print("\n[5/6] Verifying search engine connectivity (§3.2 検索エンジン統合)...")
+        print("\n[5/6] Verifying search engine connectivity (ADR-0003 検索エンジン統合)...")
 
         # Skip if CDP connection failed
         cdp_result = next((r for r in self.results if r.name == "Chrome CDP Connection"), None)
@@ -390,7 +390,7 @@ class EnvironmentVerifier:
             print("    ⏭ Skipped (Chrome CDP not connected)")
             return VerificationResult(
                 name="Search Engine",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 skipped=True,
                 skip_reason="Chrome CDP not connected",
@@ -417,7 +417,7 @@ class EnvironmentVerifier:
                 except TimeoutError:
                     return VerificationResult(
                         name="Search Engine",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error="Search timeout (30s)",
                     )
@@ -427,7 +427,7 @@ class EnvironmentVerifier:
                         # CAPTCHA is expected behavior, not a failure
                         return VerificationResult(
                             name="Search Engine",
-                            spec_ref="§3.2",
+                            spec_ref="ADR-0003",
                             passed=True,
                             details={
                                 "captcha_detected": True,
@@ -439,7 +439,7 @@ class EnvironmentVerifier:
                     if result.error and "CDP" in result.error:
                         return VerificationResult(
                             name="Search Engine",
-                            spec_ref="§3.2",
+                            spec_ref="ADR-0003",
                             passed=False,
                             skipped=True,
                             skip_reason="Chrome not connected (run ./scripts/chrome.sh start)",
@@ -447,7 +447,7 @@ class EnvironmentVerifier:
 
                     return VerificationResult(
                         name="Search Engine",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error=result.error,
                     )
@@ -462,7 +462,7 @@ class EnvironmentVerifier:
 
                 return VerificationResult(
                     name="Search Engine",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=True,
                     details=details,
                 )
@@ -474,7 +474,7 @@ class EnvironmentVerifier:
             logger.exception("Search engine verification failed")
             return VerificationResult(
                 name="Search Engine",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -487,7 +487,7 @@ class EnvironmentVerifier:
         - Notification provider is available
         - Can send test notification (optional)
         """
-        print("\n[6/6] Verifying notification system (§3.6 通知)...")
+        print("\n[6/6] Verifying notification system (ADR-0007 通知)...")
 
         try:
             from src.utils.notification_provider import (
@@ -505,7 +505,7 @@ class EnvironmentVerifier:
             if provider is None:
                 return VerificationResult(
                     name="Notification System",
-                    spec_ref="§3.6",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error="No notification provider available",
                     details={"platform": platform.value},
@@ -526,7 +526,7 @@ class EnvironmentVerifier:
 
                 return VerificationResult(
                     name="Notification System",
-                    spec_ref="§3.6",
+                    spec_ref="ADR-0007",
                     passed=True,
                     details=details,
                 )
@@ -537,7 +537,7 @@ class EnvironmentVerifier:
 
                 return VerificationResult(
                     name="Notification System",
-                    spec_ref="§3.6",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error=health.message,
                     details=details,
@@ -547,7 +547,7 @@ class EnvironmentVerifier:
             logger.exception("Notification system verification failed")
             return VerificationResult(
                 name="Notification System",
-                spec_ref="§3.6",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )

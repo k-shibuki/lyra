@@ -3,7 +3,7 @@ Ollama LLM provider implementation for Lyra.
 
 Implements the LLMProvider interface for Ollama backend.
 
-Per §4.2: LLM processes are destroyed after task completion to prevent memory leaks.
+Per : LLM processes are destroyed after task completion to prevent memory leaks.
 """
 
 import time
@@ -42,7 +42,7 @@ class OllamaProvider(BaseLLMProvider):
     - Model listing and info
     - Model unloading for VRAM management
 
-    Per §4.2: Supports task-scoped lifecycle management with model unloading.
+    Per : Supports task-scoped lifecycle management with model unloading.
     Per §K.1: Uses single 3B model for all LLM tasks.
 
     Example:
@@ -592,7 +592,7 @@ class OllamaProvider(BaseLLMProvider):
         """
         Unload model to free VRAM.
 
-        Per §4.2: LLM process context should be released after task completion.
+        Per : LLM process context should be released after task completion.
 
         Args:
             model: Model name to unload (uses current model if not specified).

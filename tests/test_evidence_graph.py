@@ -336,7 +336,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9,  # Phase 4: nli_confidence required for Bayesian update
+                nli_confidence=0.9, # : nli_confidence required for Bayesian update
             )
 
         # When: Calculating confidence for the claim
@@ -363,7 +363,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9,  # Phase 4: nli_confidence required
+                nli_confidence=0.9, # : nli_confidence required
             )
 
         graph.add_edge(
@@ -373,7 +373,7 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.REFUTES,
             confidence=0.8,
-            nli_confidence=0.8,  # Phase 4: nli_confidence required
+            nli_confidence=0.8, # : nli_confidence required
         )
 
         # When: Calculating confidence for the contested claim
@@ -531,7 +531,7 @@ class TestClaimConfidence:
         assert result["refuting_count"] == 0
 
     def test_calculate_confidence_returns_evidence_list(self) -> None:
-        """Phase 4b: Test that evidence list with time metadata is returned."""
+        """b: Test that evidence list with time metadata is returned."""
         # Given: A graph with evidence including year metadata
         graph = EvidenceGraph()
 
@@ -563,7 +563,7 @@ class TestClaimConfidence:
         assert result["evidence"][0]["nli_confidence"] == 0.9
 
     def test_calculate_confidence_returns_evidence_years_summary(self) -> None:
-        """Phase 4b: Test that evidence_years summary is returned."""
+        """b: Test that evidence_years summary is returned."""
         # Given: A graph with evidence from multiple years
         graph = EvidenceGraph()
 
@@ -603,7 +603,7 @@ class TestClaimConfidence:
         assert result["evidence_years"]["newest"] == 2024
 
     def test_calculate_confidence_evidence_years_empty_when_no_years(self) -> None:
-        """Phase 4b: Test that evidence_years is null when no year data exists."""
+        """b: Test that evidence_years is null when no year data exists."""
         # Given: A graph with evidence but no year metadata
         graph = EvidenceGraph()
 
@@ -632,7 +632,7 @@ class TestCitationChain:
     def test_citation_chain(self) -> None:
         """Test tracing citation chain.
 
-        Validates §3.3.3 citation chain tracing for source verification.
+        Validates citation chain tracing for source verification.
         Chain follows CITES edges from source to primary sources.
         """
         graph = EvidenceGraph()
@@ -807,8 +807,8 @@ class TestCitationLoopDetection:
     def test_detect_simple_citation_loop(self) -> None:
         """Test detecting a simple citation loop (A -> B -> C -> A).
 
-        §3.3.3 requirement: detect circular citations
-        §7 requirement: citation loop detection rate ≥80%
+         requirement: detect circular citations
+         requirement: citation loop detection rate ≥80%
         """
         graph = EvidenceGraph()
 
@@ -1223,7 +1223,7 @@ class TestLoopSeverity:
 class TestDatabaseIntegration:
     """Tests for database persistence.
 
-    Integration tests per §7.1.7 - uses temporary database.
+    Integration tests per .1.7 - uses temporary database.
     """
 
     @pytest.mark.asyncio
@@ -1459,12 +1459,12 @@ class TestClaimAdoptionStatus:
 
         // Given: Claim without explicit status
         // When: Getting adoption status
-        // Then: Returns adopted (Decision 19: default changed from 'pending')
+        // Then: Returns adopted (: default changed from 'pending')
         """
         graph = EvidenceGraph()
         graph.add_node(NodeType.CLAIM, "c1", text="New claim")
 
-        # Then: Default is adopted (Decision 19)
+        # Then: Default is adopted
         assert graph.get_claim_adoption_status("c1") == "adopted"
 
     def test_get_claim_adoption_status_not_found(self) -> None:

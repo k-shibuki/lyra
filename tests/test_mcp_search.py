@@ -1,6 +1,6 @@
 """Tests for search and stop_task MCP tools.
 
-Tests the search pipeline and task stopping per §3.2.1.
+Tests the search pipeline and task stopping per ADR-0003.
 
 ## Test Perspectives Table
 
@@ -32,7 +32,7 @@ Tests the search pipeline and task stopping per §3.2.1.
 | TC-SEARCH-01 | Search with CDP ready | Equivalence - normal | Search proceeds | Integration |
 | TC-SEARCH-02 | Search with auto-start success | Equivalence - normal | Auto-start then search | Integration |
 | TC-SEARCH-03 | Search with auto-start failure | Equivalence - error | ChromeNotReadyError | Integration |
-| TC-B-03 | Very long query (4000 chars) | Boundary – max | Accepts long query | §4.4.1 input limit |
+| TC-B-03 | Very long query (4000 chars) | Boundary – max | Accepts long query | ADR-0005 input limit |
 """
 
 from typing import Any
@@ -262,7 +262,7 @@ class TestSearchBoundaryValues:
         self, mock_task: dict[str, Any], mock_search_result: dict[str, Any]
     ) -> None:
         """
-        TC-B-03: Very long query at input limit (4000 chars per §4.4.1).
+        TC-B-03: Very long query at input limit (4000 chars per ADR-0005).
 
         // Given: Query of 4000 characters
         // When: Calling search
@@ -275,7 +275,7 @@ class TestSearchBoundaryValues:
         mock_state = AsyncMock()
         mock_state.record_activity = MagicMock()
 
-        long_query = "a" * 4000  # Max input length per §4.4.1
+        long_query = "a" * 4000 # Max input length per ADR-0005
 
         with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
