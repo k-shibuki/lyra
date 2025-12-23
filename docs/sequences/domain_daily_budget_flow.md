@@ -224,6 +224,6 @@ def _check_date_reset(self) -> None:
 
 ## 関連ドキュメント
 
-- `docs/REQUIREMENTS.md` - §4.3 抗堪性とステルス性
-- `docs/O6_ADDITIONAL_ISSUES.md` - 問題11
-- `docs/IMPLEMENTATION_PLAN.md` - Phase O.6
+- `docs/archive/REQUIREMENTS.md` - §4.3 抗堪性とステルス性 (archived)
+- `docs/archive/O6_ADDITIONAL_ISSUES.md` - 問題11 (archived)
+- `docs/archive/IMPLEMENTATION_PLAN.md` - Phase O.6 (archived)

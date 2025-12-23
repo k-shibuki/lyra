@@ -11,12 +11,12 @@ Design and implement tests for the implemented change.
 
 ## Inputs (attach as `@...`)
 
-- `@docs/REQUIREMENTS.md` (recommended)
+- `@docs/adr/` or `@docs/P_EVIDENCE_SYSTEM.md` (recommended)
 - Relevant source files (`@src/...`) and existing tests (`@tests/...`) (recommended)
 
 ## Constraints
 
-- Do **not** reference `@docs/IMPLEMENTATION_PLAN.md` in code comments.
+- Do **not** reference archived documents (`@docs/archive/`) in code comments.
 - Use Given/When/Then comments for readability.
 - Include **at least as many negative tests as positive tests**.
 - Unit tests must **not** depend on external resources (network, remote services, model downloads).

@@ -8,7 +8,7 @@
 |-------------|------|------|
 | `docs/P_EVIDENCE_SYSTEM.md` | エビデンス評価システム設計 | Phase 6（決定17）で `edge_correct`→`nli_corrections` 蓄積、計測は `calibration_metrics` |
 | **`docs/R_LORA.md`**（本文書） | **LoRAファインチューニング設計** | Phase R |
-| `docs/IMPLEMENTATION_PLAN.md` | 実装計画書 | Phase R概要 |
+| `docs/archive/IMPLEMENTATION_PLAN.md` | 実装計画書（アーカイブ） | Phase R概要 |
 
 ---
 
@@ -463,6 +463,6 @@ Phase Rを開始する前に、以下がPhase 6で完了している必要があ
 | ドキュメント | 関連 |
 |-------------|------|
 | `docs/P_EVIDENCE_SYSTEM.md` | Phase 6: NLI訂正サンプル蓄積 |
-| `docs/IMPLEMENTATION_PLAN.md` | Phase R 概要 |
+| `docs/archive/IMPLEMENTATION_PLAN.md` | Phase R 概要（アーカイブ） |
 | `src/ml_server/nli.py` | NLIサービス実装 |
 | `src/storage/schema.sql` | `nli_corrections` テーブル定義 |
