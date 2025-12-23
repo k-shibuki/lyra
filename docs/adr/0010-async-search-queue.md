@@ -195,13 +195,25 @@ class StatusResult:
 
 ## Implementation Status
 
-**Note**: 本ADRで記載されたqueue_searchesツールとLong Polling方式は一部簡略化されて実装されている。
-現在の実装では、`search`ツールが同期的にパイプラインを実行し、結果を返却する。
-`get_status`ツールでタスク進捗を確認可能。
+**Note**: 本ADRで記載されたアーキテクチャは**計画段階**である。
+
+### 現状（実装済み）
+- `search`ツールが同期的にパイプラインを実行（クライアントはブロックされる）
+- `get_status`でタスク進捗を確認可能
+
+### 計画（未実装）
+詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
+
+| 変更 | 内容 |
+|------|------|
+| 削除予定 | `search`, `notify_user`, `wait_for_user` |
+| 追加予定 | `queue_searches`（複数クエリをキューに投入） |
+| 変更予定 | `get_status`に`sleep_seconds`パラメータ追加 |
+| 結果 | 11ツール → 9ツール（18%削減） |
 
 ## References
-- `src/mcp/server.py` - MCPツール定義（search, get_status）
+- `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計
+- `src/mcp/server.py` - MCPツール定義（現状：search, get_status）
 - `src/research/executor.py` - 検索実行
 - `src/research/pipeline.py` - パイプラインオーケストレーション
 - `src/scheduler/jobs.py` - ジョブスケジューラ
-- `src/storage/schema.sql` - jobsテーブル（非同期ジョブ管理）
