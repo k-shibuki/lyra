@@ -1,8 +1,5 @@
 # ADR-0012: Feedback Tool Design
 
-## Status
-Accepted
-
 ## Date
 2025-12-23
 
@@ -114,7 +111,7 @@ Lyraは学術調査を支援するが、以下の状況でモデルが誤判定�
   "payload": {
     "cited_fragment_id": "frag_target",
     "relation": "CITES",
-    "correction_type": "add"  // or "remove"
+    "correction_type": "add"
   }
 }
 ```
@@ -126,8 +123,8 @@ Lyraは学術調査を支援するが、以下の状況でモデルが誤判定�
   "action": "rate_usefulness",
   "target_id": "frag_abc123",
   "payload": {
-    "rating": 5,  // 1-5
-    "aspect": "relevance"  // relevance, clarity, credibility
+    "rating": 5,
+    "aspect": "relevance"
   }
 }
 ```
@@ -165,7 +162,7 @@ CREATE INDEX idx_feedback_training ON feedback(applied_to_training);
 
 ### LoRA学習への統合
 
-フィードバックデータはADR-0010のLoRA学習に使用される：
+フィードバックデータはADR-0011のLoRA学習に使用される：
 
 ```python
 # correct_nliフィードバックから学習データ生成
@@ -225,4 +222,4 @@ async def apply_feedback(feedback: Feedback):
 - `docs/P_EVIDENCE_SYSTEM.md` 決定17（アーカイブ）
 - `src/mcp/tools/feedback.py` - feedbackツール実装
 - `src/storage/schema.sql` - feedbackテーブル
-- ADR-0010: LoRA Fine-tuning Strategy
+- ADR-0011: LoRA Fine-tuning Strategy

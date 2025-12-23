@@ -1,10 +1,7 @@
-# ADR-0010: LoRA Fine-tuning Strategy
-
-## Status
-Accepted
+# ADR-0011: LoRA Fine-tuning Strategy
 
 ## Date
-2025-12-22
+2025-12-20
 
 ## Context
 
@@ -138,7 +135,7 @@ await call_tool("calibrate_rollback", {
 | QLoRA | 超軽量 | 品質低下リスク | 将来検討 |
 
 ## References
-- `docs/R_LORA.md`（参照）
+- `docs/R_LORA.md`（アーカイブ）
 - `src/calibration/lora_trainer.py` - LoRA学習実装
 - `src/calibration/adapter_manager.py` - アダプタ管理
 - ADR-0012: Feedback Tool Design

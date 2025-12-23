@@ -1,10 +1,7 @@
 # ADR-0009: Test Layer Strategy
 
-## Status
-Accepted
-
 ## Date
-2025-12-21
+2025-12-05
 
 ## Context
 
@@ -136,7 +133,7 @@ def pytest_configure(config):
 | 2層（Unit/E2E） | シンプル | DB統合問題が見落とされやすい | 却下 |
 
 ## References
-- `docs/TEST_LAYERS.md`（参照）
+- `docs/TEST_LAYERS.md`（アーカイブ）
 - `tests/conftest.py` - pytest設定
 - `tests/mocks/` - モック実装
 - `.github/workflows/test.yml` - CI設定
