@@ -67,6 +67,11 @@ Test design follows §7.1 Test Code Quality Standards:
 | TC-HR-N-01 | Hot reload detect | Equivalence – normal | Config updated | - |
 | TC-HR-N-02 | Callback called | Equivalence – normal | Callback fired | - |
 | TC-HR-N-03 | Remove callback | Equivalence – normal | Not called | - |
+| TC-HR-N-04 | user_override removed | Equivalence – normal | Domain reverts to allowlist/default | Wiring test |
+| TC-HR-A-01 | Callback throws exception | Equivalence – abnormal | Other callbacks still called, reload completes | Error logged |
+| TC-HR-A-02 | YAML parse error on reload | Equivalence – abnormal | Previous config retained | Error logged |
+| TC-HR-B-01 | watch_interval=0 | Boundary – min | Every config access checks file | May impact performance |
+| TC-HR-B-02 | enable_hot_reload=False + manual reload() | Boundary – disabled | Manual reload works | Hot-reload disabled only affects auto-check |
 | TC-MF-N-01 | Singleton | Equivalence – normal | Same instance | - |
 | TC-MF-N-02 | Reset creates new | Equivalence – normal | Different instance | - |
 | TC-PM-N-01 | Exact match | Equivalence – normal | Found | - |
@@ -1501,6 +1506,207 @@ allowlist:
 
         # Then
         assert callback_count[0] == 0
+
+    def test_reload_callback_exception_does_not_block_others(self, tmp_path: Path) -> None:
+        """Verify callback exception does not prevent other callbacks from running."""
+        # Given: TC-HR-A-01
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text("default_policy:\n  qps: 0.2\n", encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+        callback_results = []
+
+        def failing_callback(config: DomainPolicyConfigSchema) -> None:
+            raise ValueError("Callback error")
+
+        def succeeding_callback(config: DomainPolicyConfigSchema) -> None:
+            callback_results.append(config.default_policy.qps)
+
+        manager.add_reload_callback(failing_callback)
+        manager.add_reload_callback(succeeding_callback)
+
+        # When: reload is called
+        manager.reload()
+
+        # Then: succeeding callback should still be called despite exception
+        assert len(callback_results) == 1
+        assert callback_results[0] == 0.2
+
+    def test_reload_yaml_error_retains_previous_config(self, tmp_path: Path) -> None:
+        """Verify YAML parse error on reload retains previous valid config."""
+        # Given: TC-HR-A-02 - initial valid config
+        config_path = tmp_path / "domains.yaml"
+        initial_config = """
+default_policy:
+  qps: 0.3
+  domain_category: "government"
+allowlist:
+  - domain: "example.com"
+    domain_category: "academic"
+"""
+        config_path.write_text(initial_config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+        initial_policy = manager.get_policy("example.com")
+        assert initial_policy.domain_category == DomainCategory.ACADEMIC
+        assert manager.config.default_policy.qps == 0.3
+
+        # When: write invalid YAML
+        time.sleep(0.1)  # Ensure mtime changes
+        invalid_config = """
+default_policy:
+  qps: 0.5
+  domain_category: "government"
+allowlist:
+  - domain: "example.com"
+    domain_category: "academic"
+invalid_yaml: [unclosed
+"""
+        config_path.write_text(invalid_config, encoding="utf-8")
+
+        # Trigger reload check
+        time.sleep(0.1)
+        _ = manager.config  # This triggers the reload check
+
+        # Then: previous config should be retained
+        retained_policy = manager.get_policy("example.com")
+        assert retained_policy.domain_category == DomainCategory.ACADEMIC
+        assert manager.config.default_policy.qps == 0.3
+
+    def test_watch_interval_zero_checks_every_access(self, tmp_path: Path) -> None:
+        """Verify watch_interval=0 checks file on every config access."""
+        # Given: TC-HR-B-01
+        config_path = tmp_path / "domains.yaml"
+        initial_config = """
+default_policy:
+  qps: 0.2
+allowlist:
+  - domain: "example.com"
+    domain_category: "unverified"
+"""
+        config_path.write_text(initial_config, encoding="utf-8")
+
+        manager = DomainPolicyManager(
+            config_path=config_path,
+            watch_interval=0.0,  # Check on every access
+            enable_hot_reload=True,
+        )
+
+        # Verify initial state
+        policy = manager.get_policy("example.com")
+        assert policy.domain_category == DomainCategory.UNVERIFIED
+
+        # When: modify config
+        time.sleep(0.1)  # Ensure mtime changes
+        updated_config = """
+default_policy:
+  qps: 0.2
+allowlist:
+  - domain: "example.com"
+    domain_category: "government"
+"""
+        config_path.write_text(updated_config, encoding="utf-8")
+
+        # Access config (should trigger reload check immediately)
+        _ = manager.config
+
+        # Then: changes should be reflected immediately
+        updated_policy = manager.get_policy("example.com")
+        assert updated_policy.domain_category == DomainCategory.GOVERNMENT
+
+    def test_manual_reload_works_when_hot_reload_disabled(self, tmp_path: Path) -> None:
+        """Verify manual reload() works even when enable_hot_reload=False."""
+        # Given: TC-HR-B-02
+        config_path = tmp_path / "domains.yaml"
+        initial_config = """
+default_policy:
+  qps: 0.2
+allowlist:
+  - domain: "example.com"
+    domain_category: "unverified"
+"""
+        config_path.write_text(initial_config, encoding="utf-8")
+
+        manager = DomainPolicyManager(
+            config_path=config_path,
+            enable_hot_reload=False,  # Hot-reload disabled
+        )
+
+        # Verify initial state
+        policy = manager.get_policy("example.com")
+        assert policy.domain_category == DomainCategory.UNVERIFIED
+
+        # When: modify config and manually reload
+        updated_config = """
+default_policy:
+  qps: 0.2
+allowlist:
+  - domain: "example.com"
+    domain_category: "government"
+"""
+        config_path.write_text(updated_config, encoding="utf-8")
+
+        # Manual reload should work even when hot-reload is disabled
+        manager.reload()
+
+        # Then: changes should be reflected
+        updated_policy = manager.get_policy("example.com")
+        assert updated_policy.domain_category == DomainCategory.GOVERNMENT
+
+    def test_user_override_removal_reverts_to_default(self, tmp_path: Path) -> None:
+        """Verify removing user_override reverts domain to default policy."""
+        # Given: TC-HR-N-04 - initial config with user_override
+        config_path = tmp_path / "domains.yaml"
+        initial_config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+allowlist:
+  - domain: "example.com"
+    domain_category: "academic"
+    qps: 0.25
+user_overrides:
+  - domain: "example.com"
+    domain_category: "low"
+    qps: 0.3
+"""
+        config_path.write_text(initial_config, encoding="utf-8")
+
+        manager = DomainPolicyManager(
+            config_path=config_path,
+            watch_interval=0.1,
+            enable_hot_reload=True,
+        )
+
+        # Verify initial state: user_override takes precedence
+        policy = manager.get_policy("example.com")
+        assert policy.domain_category == DomainCategory.LOW
+        assert policy.qps == 0.3
+        assert policy.source == "user_override"
+
+        # When: remove user_override
+        time.sleep(0.2)  # Ensure mtime changes
+        updated_config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+allowlist:
+  - domain: "example.com"
+    domain_category: "academic"
+    qps: 0.25
+user_overrides: []
+"""
+        config_path.write_text(updated_config, encoding="utf-8")
+
+        # Trigger reload check
+        time.sleep(0.2)
+        _ = manager.config  # This triggers the reload check
+
+        # Then: domain should revert to allowlist policy
+        updated_policy = manager.get_policy("example.com")
+        assert updated_policy.domain_category == DomainCategory.ACADEMIC
+        assert updated_policy.qps == 0.25
+        assert updated_policy.source == "allowlist"
 
 
 # =============================================================================
