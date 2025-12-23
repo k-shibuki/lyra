@@ -1291,7 +1291,6 @@ class TestAcademicCitationAttributes:
     """Tests for academic citation attributes (J2).
 
     Tests for citation_source, citation_context attributes added to CITES edges.
-    Note: is_influential was removed per decision 12 (Phase 2).
     """
 
     def test_add_edge_with_academic_attributes(self) -> None:

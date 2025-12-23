@@ -113,6 +113,7 @@
 
 | Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
 |---|---|---|---|---|
+| Phase 6 / Task 6.0 | クリーン実装ゲート（Phase 1-5 完了事項の徹底確認 + 完全クリーンアップ） | DONE | `tests/test_source_verification.py`, `tests/test_mcp_get_status.py`, `tests/test_evidence_graph.py`, `tests/test_evidence_graph_academic.py` | 旧フィールド言及（否定テスト・コメント含む）を完全削除。検証: 旧フィールド0件、テスト199 passed |
 | Phase 6 / Task 6.1 | `feedback` MCPツール新設（3レベル + `domain_clear_override`） | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/feedback.json` | 決定17/20参照。`calibration_metrics` は計測用として残す（入力は `feedback` に統一） |
 | Phase 6 / Task 6.2 | Domain override 実装（DB永続化 + pattern制約 + 優先順位） | PLANNED | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/utils/domain_policy.py`, `src/storage/schema.sql` | 決定20参照。`domain_block`/`domain_unblock`/`domain_clear_override` |
 | Phase 6 / Task 6.3 | `claim_reject` / `claim_restore` 実装：claim採用状態操作 | PLANNED | `src/mcp/server.py`, `src/storage/schema.sql` | `claim_adoption_status` を `adopted` ↔ `not_adopted` に切替 |

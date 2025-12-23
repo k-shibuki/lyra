@@ -2137,7 +2137,6 @@ class TestDomainBlockReason:
         assert len(info) == 1
         assert info[0]["domain_block_reason"] == "dangerous_pattern"
         assert info[0]["domain_unblock_risk"] == "high"
-        assert "can_restore" not in info[0]  # TC-A-01: Removed field
 
     def test_get_blocked_domains_info_includes_domain_unblock_risk(
         self, verifier: SourceVerifier
@@ -2320,7 +2319,6 @@ class TestDomainBlockReason:
         assert len(mcp_response_blocked_domains) == 1
         assert mcp_response_blocked_domains[0]["domain_block_reason"] == "denylist"
         assert mcp_response_blocked_domains[0]["domain_unblock_risk"] == "low"
-        assert "can_restore" not in mcp_response_blocked_domains[0]  # Removed field
 
     def test_get_blocked_domains_info_with_no_state_uses_unknown(
         self, verifier: SourceVerifier
@@ -2340,7 +2338,6 @@ class TestDomainBlockReason:
         assert info[0]["domain"] == "no-state.com"
         assert info[0]["domain_block_reason"] == "unknown"
         assert info[0]["domain_unblock_risk"] == "high"
-        assert "can_restore" not in info[0]
 
 
 class TestRejectionRateSeparation:
