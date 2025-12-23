@@ -85,15 +85,11 @@ def test_full_search_flow():
 ```yaml
 # GitHub Actions
 jobs:
-  test-l1:
+  test-l1-l2:
+    # L1 (Unit) + L2 (Integration) を同一ジョブで実行
     runs-on: ubuntu-latest
     steps:
-      - run: pytest -m "not integration and not e2e"
-
-  test-l2:
-    runs-on: ubuntu-latest
-    steps:
-      - run: pytest -m "integration"
+      - run: pytest -m "not e2e and not slow"
 
   test-l3:
     runs-on: self-hosted  # GPU runner
@@ -133,7 +129,6 @@ def pytest_configure(config):
 | 2層（Unit/E2E） | シンプル | DB統合問題が見落とされやすい | 却下 |
 
 ## References
-- `docs/TEST_LAYERS.md`（アーカイブ）
-- `tests/conftest.py` - pytest設定
-- `tests/mocks/` - モック実装
-- `.github/workflows/test.yml` - CI設定
+- `README.md` - Quality Control セクション（テスト実行ガイド）
+- `tests/conftest.py` - pytest設定、環境検出、マーカー定義
+- `scripts/test.sh` - テストランナー（クラウドエージェント対応）
