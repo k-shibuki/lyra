@@ -774,5 +774,3 @@ def _calculate_element_index(
             break
 
     return paragraph_idx - last_heading_pos
-
-    return paragraph_idx - last_heading_pos
