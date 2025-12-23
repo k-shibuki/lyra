@@ -131,6 +131,7 @@ from src.utils.domain_policy import (
     PolicyBoundsSchema,
     SearchEnginePolicySchema,
     SkipReason,
+    UserOverrideEntrySchema,
     get_domain_policy_manager,
     reset_domain_policy_manager,
 )
@@ -199,6 +200,8 @@ allowlist:
   - domain: "example-primary.com"
     domain_category: "primary"
     qps: 0.1
+
+user_overrides: []
 
 graylist:
   - domain_pattern: "*.medium.com"
@@ -395,6 +398,165 @@ class TestAllowlistEntrySchema:
         # Then
         assert entry.max_requests_per_day is None
         assert entry.max_pages_per_day is None
+
+
+class TestUserOverrideEntrySchema:
+    """Tests for UserOverrideEntrySchema validation."""
+
+    def test_valid_exact_domain(self) -> None:
+        """Verify valid exact domain entry is accepted."""
+        # Arrange & Act
+        entry = UserOverrideEntrySchema(
+            domain="example.com",
+            domain_category=DomainCategory.LOW,
+            qps=0.3,
+        )
+
+        # Then
+        assert entry.domain == "example.com"
+        assert entry.domain_category == DomainCategory.LOW
+        assert entry.qps == 0.3
+
+    def test_domain_with_category_override(self) -> None:
+        """Verify domain with category override is accepted."""
+        # Arrange & Act
+        entry = UserOverrideEntrySchema(
+            domain="test.org",
+            domain_category=DomainCategory.GOVERNMENT,
+        )
+
+        # Then
+        assert entry.domain == "test.org"
+        assert entry.domain_category == DomainCategory.GOVERNMENT
+
+    def test_domain_with_qps_override(self) -> None:
+        """Verify domain with QPS override is accepted."""
+        # Arrange & Act
+        entry = UserOverrideEntrySchema(domain="example.net", qps=0.5)
+
+        # Then
+        assert entry.domain == "example.net"
+        assert entry.qps == 0.5
+
+    def test_domain_with_all_fields(self) -> None:
+        """Verify domain with all fields is accepted."""
+        # Arrange & Act
+        entry = UserOverrideEntrySchema(
+            domain="full.example.com",
+            domain_category=DomainCategory.ACADEMIC,
+            qps=0.25,
+            headful_ratio=0.2,
+            tor_allowed=False,
+            concurrent=2,
+            cooldown_minutes=90,
+            max_retries=5,
+            max_requests_per_day=300,
+            max_pages_per_day=150,
+            reason="Manual review: false positive",
+            added_at="2025-12-22",
+        )
+
+        # Then
+        assert entry.domain == "full.example.com"
+        assert entry.domain_category == DomainCategory.ACADEMIC
+        assert entry.qps == 0.25
+        assert entry.headful_ratio == 0.2
+        assert entry.tor_allowed is False
+        assert entry.concurrent == 2
+        assert entry.cooldown_minutes == 90
+        assert entry.max_retries == 5
+        assert entry.max_requests_per_day == 300
+        assert entry.max_pages_per_day == 150
+        assert entry.reason == "Manual review: false positive"
+        assert entry.added_at == "2025-12-22"
+
+    def test_domain_normalization(self) -> None:
+        """Verify domain is normalized to lowercase."""
+        # Arrange & Act
+        entry = UserOverrideEntrySchema(domain="EXAMPLE.COM")
+
+        # Then
+        assert entry.domain == "example.com"
+
+    def test_empty_domain_rejected(self) -> None:
+        """Verify empty domain is rejected."""
+        # Then
+        with pytest.raises(ValueError, match="Domain must be at least 2 characters"):
+            UserOverrideEntrySchema(domain="")
+
+    def test_short_domain_rejected(self) -> None:
+        """Verify single-character domain is rejected."""
+        # Then
+        with pytest.raises(ValueError, match="Domain must be at least 2 characters"):
+            UserOverrideEntrySchema(domain="x")
+
+    def test_domain_with_wildcard_rejected(self) -> None:
+        """Verify domain with wildcard is rejected (exact match only)."""
+        # Then
+        with pytest.raises(ValueError, match="user_overrides only supports exact domain match"):
+            UserOverrideEntrySchema(domain="*.example.com")
+
+    def test_domain_with_leading_dot_rejected(self) -> None:
+        """Verify domain with leading dot is rejected (no suffix match)."""
+        # Then
+        with pytest.raises(ValueError, match="user_overrides only supports exact domain match"):
+            UserOverrideEntrySchema(domain=".example.com")
+
+    def test_qps_boundary_min(self) -> None:
+        """Verify QPS at minimum boundary (0.01) is accepted."""
+        # Given & When
+        entry = UserOverrideEntrySchema(domain="example.com", qps=0.01)
+
+        # Then
+        assert entry.qps == 0.01
+
+    def test_qps_boundary_max(self) -> None:
+        """Verify QPS at maximum boundary (2.0) is accepted."""
+        # Given & When
+        entry = UserOverrideEntrySchema(domain="example.com", qps=2.0)
+
+        # Then
+        assert entry.qps == 2.0
+
+    def test_qps_below_min_rejected(self) -> None:
+        """Verify QPS below minimum (0.01) is rejected."""
+        # Then
+        with pytest.raises(ValueError):
+            UserOverrideEntrySchema(domain="example.com", qps=0.001)
+
+    def test_qps_above_max_rejected(self) -> None:
+        """Verify QPS above maximum (2.0) is rejected."""
+        # Then
+        with pytest.raises(ValueError):
+            UserOverrideEntrySchema(domain="example.com", qps=3.0)
+
+    def test_headful_ratio_boundary_min(self) -> None:
+        """Verify headful_ratio at minimum boundary (0.0) is accepted."""
+        # Given & When
+        entry = UserOverrideEntrySchema(domain="example.com", headful_ratio=0.0)
+
+        # Then
+        assert entry.headful_ratio == 0.0
+
+    def test_headful_ratio_boundary_max(self) -> None:
+        """Verify headful_ratio at maximum boundary (1.0) is accepted."""
+        # Given & When
+        entry = UserOverrideEntrySchema(domain="example.com", headful_ratio=1.0)
+
+        # Then
+        assert entry.headful_ratio == 1.0
+
+    def test_headful_ratio_below_min_rejected(self) -> None:
+        """Verify headful_ratio below minimum (0.0) is rejected."""
+        # Then
+        with pytest.raises(ValueError):
+            UserOverrideEntrySchema(domain="example.com", headful_ratio=-0.1)
+
+    def test_headful_ratio_above_max_rejected(self) -> None:
+        """Verify headful_ratio above maximum (1.0) is rejected."""
+        # Then
+        with pytest.raises(ValueError):
+            UserOverrideEntrySchema(domain="example.com", headful_ratio=1.5)
 
 
 class TestGraylistEntrySchema:
@@ -753,6 +915,263 @@ class TestDomainPolicyManagerLookup:
         assert policy.source == "default"
 
 
+class TestUserOverridesLookup:
+    """Tests for user_overrides lookup functionality."""
+
+    def test_get_policy_user_override_exact_match(self, tmp_path: Path) -> None:
+        """Verify user_override exact domain match returns correct policy."""
+        # Given
+        config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides:
+  - domain: "override.example.com"
+    domain_category: "low"
+    qps: 0.3
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        policy = manager.get_policy("override.example.com")
+
+        # Then
+        assert policy.domain_category == DomainCategory.LOW
+        assert policy.qps == 0.3
+        assert policy.source == "user_override"
+
+    def test_user_override_vs_allowlist_priority(self, tmp_path: Path) -> None:
+        """Verify user_override takes precedence over allowlist for same domain."""
+        # Given - same domain in both allowlist and user_overrides
+        config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+allowlist:
+  - domain: "conflict.example.com"
+    domain_category: "trusted"
+    qps: 0.5
+user_overrides:
+  - domain: "conflict.example.com"
+    domain_category: "low"
+    qps: 0.3
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        policy = manager.get_policy("conflict.example.com")
+
+        # Then - user_override should win
+        assert policy.domain_category == DomainCategory.LOW
+        assert policy.qps == 0.3
+        assert policy.source == "user_override"
+
+    def test_user_override_vs_denylist_priority(self, tmp_path: Path) -> None:
+        """Verify denylist takes precedence over user_override."""
+        # Given - same domain in both denylist and user_overrides
+        config = """
+default_policy:
+  qps: 0.2
+denylist:
+  - domain_pattern: "blocked.example.com"
+    reason: "low_quality_aggregator"
+user_overrides:
+  - domain: "blocked.example.com"
+    domain_category: "low"
+    qps: 0.3
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        policy = manager.get_policy("blocked.example.com")
+
+        # Then - denylist should win (skip=True)
+        assert policy.skip is True
+        assert policy.source == "denylist"
+
+    def test_user_override_normalized_domain_match(self, tmp_path: Path) -> None:
+        """Verify normalized domain (WWW.EXAMPLE.COM -> example.com) matches."""
+        # Given
+        config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides:
+  - domain: "example.com"
+    domain_category: "low"
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When - query with uppercase and www prefix
+        policy1 = manager.get_policy("WWW.EXAMPLE.COM")
+        policy2 = manager.get_policy("www.example.com")
+        policy3 = manager.get_policy("example.com")
+
+        # Then - all should match the user_override entry
+        assert policy1.domain_category == DomainCategory.LOW
+        assert policy1.source == "user_override"
+        assert policy2.domain_category == DomainCategory.LOW
+        assert policy2.source == "user_override"
+        assert policy3.domain_category == DomainCategory.LOW
+        assert policy3.source == "user_override"
+
+    def test_user_override_hot_reload_reflects_changes(self, tmp_path: Path) -> None:
+        """Verify hot reload reflects user_override changes."""
+        # Given - create initial config
+        config_path = tmp_path / "domains.yaml"
+        initial_config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides: []
+"""
+        config_path.write_text(initial_config, encoding="utf-8")
+
+        manager = DomainPolicyManager(
+            config_path=config_path,
+            watch_interval=0.1,  # Short interval for testing
+            enable_hot_reload=True,
+        )
+
+        # Verify initial state
+        policy = manager.get_policy("test.example.com")
+        assert policy.domain_category == DomainCategory.UNVERIFIED
+        assert policy.source == "default"
+
+        # When - add user_override
+        time.sleep(0.2)  # Ensure mtime changes
+        updated_config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides:
+  - domain: "test.example.com"
+    domain_category: "low"
+    qps: 0.3
+"""
+        config_path.write_text(updated_config, encoding="utf-8")
+
+        # Trigger reload check
+        time.sleep(0.2)
+        _ = manager.config  # This triggers the reload check
+
+        # Then
+        updated_policy = manager.get_policy("test.example.com")
+        assert updated_policy.domain_category == DomainCategory.LOW
+        assert updated_policy.qps == 0.3
+        assert updated_policy.source == "user_override"
+
+    def test_user_override_multiple_entries_first_match_used(self, tmp_path: Path) -> None:
+        """Verify first matching user_override entry is used."""
+        # Given - multiple user_overrides (should not happen, but test behavior)
+        config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides:
+  - domain: "test.example.com"
+    domain_category: "low"
+    qps: 0.3
+  - domain: "test.example.com"
+    domain_category: "government"
+    qps: 0.4
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        policy = manager.get_policy("test.example.com")
+
+        # Then - first match should be used
+        assert policy.domain_category == DomainCategory.LOW
+        assert policy.qps == 0.3
+        assert policy.source == "user_override"
+
+    def test_user_override_all_fields_applied(self, tmp_path: Path) -> None:
+        """Verify all user_override fields are applied correctly."""
+        # Given
+        config = """
+default_policy:
+  qps: 0.2
+  concurrent: 1
+  headful_ratio: 0.1
+  tor_allowed: true
+  cooldown_minutes: 60
+  max_retries: 3
+  domain_category: "unverified"
+  max_requests_per_day: 200
+  max_pages_per_day: 100
+user_overrides:
+  - domain: "full.example.com"
+    domain_category: "academic"
+    qps: 0.25
+    headful_ratio: 0.2
+    tor_allowed: false
+    concurrent: 2
+    cooldown_minutes: 90
+    max_retries: 5
+    max_requests_per_day: 300
+    max_pages_per_day: 150
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        policy = manager.get_policy("full.example.com")
+
+        # Then
+        assert policy.domain_category == DomainCategory.ACADEMIC
+        assert policy.qps == 0.25
+        assert policy.headful_ratio == 0.2
+        assert policy.tor_allowed is False
+        assert policy.concurrent == 2
+        assert policy.cooldown_minutes == 90
+        assert policy.max_retries == 5
+        assert policy.max_requests_per_day == 300
+        assert policy.max_pages_per_day == 150
+        assert policy.source == "user_override"
+
+    def test_user_override_partial_fields_applied(self, tmp_path: Path) -> None:
+        """Verify partial user_override fields (only category) are applied."""
+        # Given
+        config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides:
+  - domain: "partial.example.com"
+    domain_category: "low"
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        policy = manager.get_policy("partial.example.com")
+
+        # Then - only category should be overridden, other fields use defaults
+        assert policy.domain_category == DomainCategory.LOW
+        assert policy.qps == 0.2  # Default
+        assert policy.source == "user_override"
+
+
 class TestDomainPolicyManagerConvenienceMethods:
     """Tests for convenience methods."""
 
@@ -785,6 +1204,50 @@ class TestDomainPolicyManagerConvenienceMethods:
         assert policy_manager.get_qps_limit("arxiv.org") == 0.25
         assert policy_manager.get_qps_limit("wikipedia.org") == 0.5
         assert policy_manager.get_qps_limit("unknown.com") == 0.2  # default
+
+    def test_get_domain_category_user_override(self, tmp_path: Path) -> None:
+        """Verify get_domain_category reflects user_override (wiring test)."""
+        # Given
+        config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides:
+  - domain: "override.example.com"
+    domain_category: "low"
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        category = manager.get_domain_category("override.example.com")
+
+        # Then - user_override should be reflected
+        assert category == DomainCategory.LOW
+
+    def test_get_category_weight_user_override(self, tmp_path: Path) -> None:
+        """Verify get_category_weight reflects user_override (effect test)."""
+        # Given
+        config = """
+default_policy:
+  qps: 0.2
+  domain_category: "unverified"
+user_overrides:
+  - domain: "weight.example.com"
+    domain_category: "academic"
+"""
+        config_path = tmp_path / "domains.yaml"
+        config_path.write_text(config, encoding="utf-8")
+
+        manager = DomainPolicyManager(config_path=config_path)
+
+        # When
+        weight = manager.get_category_weight("weight.example.com")
+
+        # Then - academic category weight should be applied
+        assert weight == 0.90  # academic category weight
 
 
 class TestDomainPolicyManagerInternalSearch:

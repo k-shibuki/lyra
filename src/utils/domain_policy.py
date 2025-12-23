@@ -167,6 +167,41 @@ class GraylistEntrySchema(BaseModel):
         return v.lower().strip()
 
 
+class UserOverrideEntrySchema(BaseModel):
+    """Schema for user override entries (exact match only).
+
+    User overrides allow manual policy adjustments for specific domains.
+    These take precedence over allowlist/graylist entries but not denylist.
+    Only exact domain matches are supported (no wildcards/patterns).
+    """
+
+    domain: str = Field(..., description="Domain name (exact match only, no patterns)")
+    domain_category: DomainCategory | None = Field(default=None)
+    qps: float | None = Field(default=None, ge=0.01, le=2.0)
+    headful_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
+    tor_allowed: bool | None = Field(default=None)
+    concurrent: int | None = Field(default=None, ge=1, le=10)
+    cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
+    max_retries: int | None = Field(default=None, ge=0, le=10)
+    max_requests_per_day: int | None = Field(default=None, ge=0)
+    max_pages_per_day: int | None = Field(default=None, ge=0)
+    reason: str | None = Field(default=None, description="Audit: reason for override")
+    added_at: str | None = Field(default=None, description="Audit: date added (ISO format)")
+
+    @field_validator("domain")
+    @classmethod
+    def validate_domain_exact_match(cls, v: str) -> str:
+        """Validate domain is exact match (no wildcards/patterns)."""
+        v = v.lower().strip()
+        if not v or len(v) < 2:
+            raise ValueError("Domain must be at least 2 characters")
+        if "*" in v or v.startswith("."):
+            raise ValueError(
+                "user_overrides only supports exact domain match (no wildcards/patterns)"
+            )
+        return v
+
+
 class DenylistEntrySchema(BaseModel):
     """Schema for denylist domain entries (always skip)."""
 
@@ -300,6 +335,7 @@ class DomainPolicyConfigSchema(BaseModel):
     search_engine_policy: SearchEnginePolicySchema = Field(default_factory=SearchEnginePolicySchema)
     policy_bounds: PolicyBoundsSchema = Field(default_factory=PolicyBoundsSchema)
     allowlist: list[AllowlistEntrySchema] = Field(default_factory=list)
+    user_overrides: list[UserOverrideEntrySchema] = Field(default_factory=list)
     graylist: list[GraylistEntrySchema] = Field(default_factory=list)
     denylist: list[DenylistEntrySchema] = Field(default_factory=list)
     cloudflare_sites: list[CloudflareSiteSchema] = Field(default_factory=list)
@@ -360,7 +396,9 @@ class DomainPolicy:
     cooldown_until: datetime | None = None
 
     # Source information
-    source: str = "default"  # "allowlist", "graylist", "denylist", "cloudflare", "default"
+    source: str = (
+        "default"  # "user_override", "allowlist", "graylist", "denylist", "cloudflare", "default"
+    )
 
     @property
     def category_weight(self) -> float:
@@ -536,6 +574,7 @@ class DomainPolicyManager:
                 "Domain policy config loaded",
                 path=str(self._config_path),
                 allowlist_count=len(self._config.allowlist),
+                user_overrides_count=len(self._config.user_overrides),
                 graylist_count=len(self._config.graylist),
                 denylist_count=len(self._config.denylist),
             )
@@ -666,9 +705,10 @@ class DomainPolicyManager:
         Resolution order:
         1. Denylist (skip=True)
         2. Cloudflare sites (headful_required=True)
-        3. Allowlist (specific overrides)
-        4. Graylist (pattern-based overrides)
-        5. Default policy
+        3. user_overrides (exact match only, highest priority for policy overrides)
+        4. Allowlist (specific overrides)
+        5. Graylist (pattern-based overrides)
+        6. Default policy
 
         Args:
             domain: Domain name to look up.
@@ -726,35 +766,61 @@ class DomainPolicyManager:
                 policy.source = "cloudflare"
                 break
 
-        # Check allowlist (exact and suffix match)
-        for allow_entry in config.allowlist:
-            if self._match_pattern(domain, allow_entry.domain):
-                # Apply allowlist overrides
-                if allow_entry.qps is not None:
-                    policy.qps = allow_entry.qps
-                if allow_entry.headful_ratio is not None:
-                    policy.headful_ratio = allow_entry.headful_ratio
-                if allow_entry.tor_allowed is not None:
-                    policy.tor_allowed = allow_entry.tor_allowed
-                if allow_entry.concurrent is not None:
-                    policy.concurrent = allow_entry.concurrent
-                if allow_entry.cooldown_minutes is not None:
-                    policy.cooldown_minutes = allow_entry.cooldown_minutes
-                if allow_entry.max_retries is not None:
-                    policy.max_retries = allow_entry.max_retries
-                # Daily budget limits (§4.3 - IP block prevention)
-                if allow_entry.max_requests_per_day is not None:
-                    policy.max_requests_per_day = allow_entry.max_requests_per_day
-                if allow_entry.max_pages_per_day is not None:
-                    policy.max_pages_per_day = allow_entry.max_pages_per_day
-
-                policy.domain_category = allow_entry.domain_category
-                policy.internal_search = allow_entry.internal_search
-                policy.source = "allowlist"
+        # Check user_overrides (exact match only, before allowlist)
+        for override in config.user_overrides:
+            if domain == override.domain:
+                # Apply user override fields
+                if override.domain_category is not None:
+                    policy.domain_category = override.domain_category
+                if override.qps is not None:
+                    policy.qps = override.qps
+                if override.headful_ratio is not None:
+                    policy.headful_ratio = override.headful_ratio
+                if override.tor_allowed is not None:
+                    policy.tor_allowed = override.tor_allowed
+                if override.concurrent is not None:
+                    policy.concurrent = override.concurrent
+                if override.cooldown_minutes is not None:
+                    policy.cooldown_minutes = override.cooldown_minutes
+                if override.max_retries is not None:
+                    policy.max_retries = override.max_retries
+                if override.max_requests_per_day is not None:
+                    policy.max_requests_per_day = override.max_requests_per_day
+                if override.max_pages_per_day is not None:
+                    policy.max_pages_per_day = override.max_pages_per_day
+                policy.source = "user_override"
                 break
 
-        # Check graylist if not in allowlist
-        if policy.source not in ("allowlist", "cloudflare"):
+        # Check allowlist (exact and suffix match) if not already matched by user_override
+        if policy.source != "user_override":
+            for allow_entry in config.allowlist:
+                if self._match_pattern(domain, allow_entry.domain):
+                    # Apply allowlist overrides
+                    if allow_entry.qps is not None:
+                        policy.qps = allow_entry.qps
+                    if allow_entry.headful_ratio is not None:
+                        policy.headful_ratio = allow_entry.headful_ratio
+                    if allow_entry.tor_allowed is not None:
+                        policy.tor_allowed = allow_entry.tor_allowed
+                    if allow_entry.concurrent is not None:
+                        policy.concurrent = allow_entry.concurrent
+                    if allow_entry.cooldown_minutes is not None:
+                        policy.cooldown_minutes = allow_entry.cooldown_minutes
+                    if allow_entry.max_retries is not None:
+                        policy.max_retries = allow_entry.max_retries
+                    # Daily budget limits (§4.3 - IP block prevention)
+                    if allow_entry.max_requests_per_day is not None:
+                        policy.max_requests_per_day = allow_entry.max_requests_per_day
+                    if allow_entry.max_pages_per_day is not None:
+                        policy.max_pages_per_day = allow_entry.max_pages_per_day
+
+                    policy.domain_category = allow_entry.domain_category
+                    policy.internal_search = allow_entry.internal_search
+                    policy.source = "allowlist"
+                    break
+
+        # Check graylist if not in allowlist/user_override
+        if policy.source not in ("user_override", "allowlist", "cloudflare"):
             for gray_entry in config.graylist:
                 if self._match_pattern(domain, gray_entry.domain_pattern):
                     # Apply graylist overrides

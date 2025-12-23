@@ -104,8 +104,8 @@
 |---|---|---|---|---|
 | Phase 5 / Task 5.0 | `get_status.blocked_domains[]` に `can_restore`/`restore_via` を追加（legacy） | DONE | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | Task 5.1 で `can_restore` 削除、`domain_block_reason`/`domain_unblock_risk` に置換 |
 | Phase 5 / Task 5.1 | ブロック理由のコード化（`domain_block_reason`）+ MCP露出 + `domain_unblock_risk`（High/Low） | DONE | `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | ブロック理由の混線を解消（dangerous_pattern vs high_rejection_rate等）。BREAKING CHANGE: `can_restore` 削除 |
-| Phase 5 / Task 5.2 | `user_overrides` 導入（完全一致。**QPS/カテゴリ等のDomainPolicy上書き**。ブロック解除は扱わない） | TODO | `config/domains.yaml`, `src/utils/domain_policy.py` | ブロック/解除は Phase 6 の DB override（決定20）で統一 |
-| Phase 5 / Task 5.3 | hot-reloadで `user_overrides` が即反映（DomainPolicyManager） | TODO | `src/utils/domain_policy.py` | DomainPolicyManager reload callback で反映（SourceVerifierの `_blocked_domains` とは切り離す） |
+| Phase 5 / Task 5.2 | `user_overrides` 導入（完全一致。**QPS/カテゴリ等のDomainPolicy上書き**。ブロック解除は扱わない） | DONE | `config/domains.yaml`, `src/utils/domain_policy.py`, `tests/test_domain_policy.py` | ブロック/解除は Phase 6 の DB override（決定20）で統一。user_overrides は allowlist/graylist より高優先 |
+| Phase 5 / Task 5.3 | hot-reloadで `user_overrides` が即反映（DomainPolicyManager） | DONE | `src/utils/domain_policy.py` | DomainPolicyManager reload callback で反映（SourceVerifierの `_blocked_domains` とは切り離す） |
 | Phase 5 / Task 5.4 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md`, `README.md` | - |
 | Phase 5 / Task 5.5 | 棄却率パラメータ分離（`domain_claim_security_rejection_rate` / `domain_claim_manual_rejection_rate` / `domain_claim_combined_rejection_rate`） | PLANNED | `src/filter/source_verification.py` | 決定18参照。合算棄却率でブロック判定。Phase 6の `feedback` と連動 |
 
@@ -2866,8 +2866,8 @@ class CitationDetector:
 |---|--------|-------------|---------------|
 | 5.0 | （現状）`get_status` の `blocked_domains` 詳細露出（legacy: `can_restore`/`restore_via`） | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json` | `tests/test_mcp_get_status.py` |
 | 5.1 | `blocked_domains` のブロック理由コード化: `domain_block_reason` + `domain_unblock_risk` を露出（破壊的変更） | `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `src/mcp/server.py` | `tests/test_mcp_get_status.py` |
-| 5.2 | `user_overrides` セクション追加（完全一致。DomainPolicyの上書き） | `config/domains.yaml`, `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
-| 5.3 | hot-reloadで `user_overrides` を即時反映（DomainPolicyManager） | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+| 5.2 | `user_overrides` セクション追加（完全一致。DomainPolicyの上書き）**DONE** | `config/domains.yaml`, `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
+| 5.3 | hot-reloadで `user_overrides` を即時反映（DomainPolicyManager）**DONE** | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
 | 5.4 | hot-reload対応確認（override即反映） | `src/utils/domain_policy.py` | `tests/test_domain_policy.py` |
 | 5.5 | **ドキュメント更新** | `README.md`, `docs/REQUIREMENTS.md`, `docs/P_EVIDENCE_SYSTEM.md` | - |
 | 5.6 | **棄却率パラメータ分離** | `src/filter/source_verification.py` | `tests/test_source_verification.py` |
