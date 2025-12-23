@@ -84,7 +84,9 @@ status = await call_tool("get_status", {
 #### **追加するツール:**
 1. **`queue_searches`** → 複数クエリをキューに投入
 
-#### **最終構成（9ツール）:**
+#### **最終構成（10ツール）:**
+
+**注**: Phase 6で`feedback`ツールが追加されたため、元の11ツールは12ツールとなった。
 
 | # | ツール名 | 目的 | 変更 |
 |---|---------|------|------|
@@ -93,10 +95,11 @@ status = await call_tool("get_status", {
 | 3 | `get_status` | タスク状態確認 | **sleep追加** |
 | 4 | `stop_task` | タスク終了 | 変更なし |
 | 5 | `get_materials` | レポート素材取得 | 変更なし |
-| 6 | `calibrate` | モデル較正 | 変更なし |
-| 7 | `calibrate_rollback` | 較正ロールバック | 変更なし |
+| 6 | `calibration_metrics` | モデル較正評価 | **リネーム（旧calibrate）** |
+| 7 | `calibration_rollback` | 較正ロールバック | 変更なし |
 | 8 | `get_auth_queue` | 認証キュー取得 | 変更なし |
 | 9 | `resolve_auth` | 認証解決 | 変更なし |
+| 10 | `feedback` | Human-in-the-loop入力 | **Phase 6で追加** |
 
 ### 2.2 アーキテクチャフロー
 
@@ -737,8 +740,9 @@ status = await call_tool("get_status", {
    - ハンドラ削除
 
 3. **ドキュメント更新**
-   - `docs/REQUIREMENTS.md` §3.2.1 更新（11ツール → 9ツール）
+   - `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
    - `docs/CURSOR_RULES_COMMANDS.md` 更新
+   - **注**: `docs/REQUIREMENTS.md` は 2025-12-23 にアーカイブ済み（`docs/archive/`）
 
 ### Phase 3: テストと最適化（3日）
 
@@ -802,12 +806,12 @@ async for event in subscribe_search_progress(task_id):
 ### 8.2 ツール数の変化
 
 ```
-11ツール → 9ツール（18%削減）
+12ツール → 10ツール（17%削減）
 
-削除: 3個
-追加: 1個
-変更: 1個
-維持: 7個
+削除: 3個（search, notify_user, wait_for_user）
+追加: 1個（queue_searches）
+変更: 1個（get_status）
+維持: 8個（create_task, stop_task, get_materials, calibration_metrics, calibration_rollback, get_auth_queue, resolve_auth, feedback）
 ```
 
 ### 8.3 効果
@@ -835,7 +839,7 @@ async for event in subscribe_search_progress(task_id):
 
 ### 9.1 検討課題
 
-9ツール構成において、`get_auth_queue`と`resolve_auth`を維持すべきか、それとも`get_status`に統合すべきかを検討した。
+10ツール構成において、`get_auth_queue`と`resolve_auth`を維持すべきか、それとも`get_status`に統合すべきかを検討した。
 
 **背景:**
 - `get_status`は既に認証キューのサマリー情報を返している
@@ -973,7 +977,7 @@ await resolve_auth(
    - 複数タスク並行実行時に重要な機能
 
 4. **ツール数の妥当性**
-   - 9ツールは十分少ない（11ツールから18%削減済み）
+   - 10ツールは十分少ない（12ツールから17%削減）
    - 機能的に必要なツールを無理に削減する必要はない
    - シンプルさと機能性のバランスが重要
 
@@ -982,7 +986,7 @@ await resolve_auth(
 
 ### 9.5 最終ツール構成の確定
 
-**9ツール（確定版）:**
+**10ツール（確定版）:**
 
 | # | ツール名 | 目的 | 設計判断 |
 |---|---------|------|---------|
@@ -991,17 +995,18 @@ await resolve_auth(
 | 3 | `get_status` | タスク状態確認 | **sleep追加（v2）** + 認証サマリー維持 |
 | 4 | `stop_task` | タスク終了 | 維持 |
 | 5 | `get_materials` | レポート素材取得 | 維持 |
-| 6 | `calibrate` | モデル較正 | 維持 |
-| 7 | `calibrate_rollback` | 較正ロールバック | 維持 |
+| 6 | `calibration_metrics` | モデル較正評価 | **リネーム（旧calibrate）** |
+| 7 | `calibration_rollback` | 較正ロールバック | 維持 |
 | 8 | `get_auth_queue` | 認証キュー詳細取得 | **維持（統合しない）** |
 | 9 | `resolve_auth` | 認証完了報告 | 維持 |
+| 10 | `feedback` | Human-in-the-loop入力 | **Phase 6で追加** |
 
 **削除されたツール:**
 - `search` - 内部化（queue_searchesに置き換え）
 - `notify_user` - 不要（get_statusのwarningsで代替）
 - `wait_for_user` - 不要（ポーリングで代替）
 
-**ツール削減率:** 11ツール → 9ツール（**18%削減**）
+**ツール削減率:** 12ツール → 10ツール（**17%削減**）
 
 ---
 
@@ -1033,7 +1038,7 @@ await resolve_auth(
 
 - ✅ **ノンブロッキング**: クライアントはキュー投入後すぐに次の操作が可能
 - ✅ **効率的**: sleep_secondsで無駄なポーリングを削減
-- ✅ **シンプル**: 18%のツール削減、概念的にも明快
+- ✅ **シンプル**: 17%のツール削減（12→10）、概念的にも明快
 - ✅ **拡張性**: 将来の並列化やストリーミングに対応可能
 - ✅ **バランス**: 機能性を損なわず、適切な粒度でツールを設計
 

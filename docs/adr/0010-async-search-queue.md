@@ -193,8 +193,27 @@ class StatusResult:
 | 短いポーリング | シンプル | リクエスト過多 | 却下 |
 | Server-Sent Events | 軽量 | MCP非対応 | 却下 |
 
+## Implementation Status
+
+**Note**: 本ADRで記載されたアーキテクチャは**計画段階**である。
+
+### 現状（実装済み）
+- `search`ツールが同期的にパイプラインを実行（クライアントはブロックされる）
+- `get_status`でタスク進捗を確認可能
+
+### 計画（未実装）
+詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
+
+| 変更 | 内容 |
+|------|------|
+| 削除予定 | `search`, `notify_user`, `wait_for_user` |
+| 追加予定 | `queue_searches`（複数クエリをキューに投入） |
+| 変更予定 | `get_status`に`sleep_seconds`パラメータ追加 |
+| 結果 | 12ツール → 10ツール（17%削減） |
+
 ## References
-- `docs/Q_ASYNC_ARCHITECTURE.md`（アーカイブ）
-- `src/queue/search_queue.py` - キュー実装
-- `src/workers/search_worker.py` - ワーカー実装
-- `src/mcp/tools/search.py` - MCPツール定義
+- `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計
+- `src/mcp/server.py` - MCPツール定義（現状：search, get_status）
+- `src/research/executor.py` - 検索実行
+- `src/research/pipeline.py` - パイプラインオーケストレーション
+- `src/scheduler/jobs.py` - ジョブスケジューラ

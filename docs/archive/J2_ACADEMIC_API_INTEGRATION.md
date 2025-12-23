@@ -1,3 +1,10 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2025-12-20
+
 # J.2 学術API統合 開発計画
 
 ## 調査日: 2025-12-16

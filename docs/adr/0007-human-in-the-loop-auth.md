@@ -145,7 +145,8 @@ if captcha_detected(response):
 | プロキシサービス | 自動化 | 有料、規約違反リスク | 却下 |
 
 ## References
-- `src/crawler/auth_queue.py` - 認証キュー実装
-- `src/crawler/session_manager.py` - セッション管理
+- `src/storage/schema.sql` - `intervention_queue`テーブル（認証キュー）
+- `src/crawler/session_transfer.py` - セッション転送
+- `src/mcp/server.py` - `get_auth_queue`, `resolve_auth` MCPツール
 - ADR-0001: Local-First / Zero OpEx
 - ADR-0006: 8-Layer Security Model

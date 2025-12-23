@@ -127,7 +127,7 @@
 
 ### 決定1: MCPツール体制
 
-**決定**: 11ツール体制を維持。
+**決定**: 12ツール体制（Phase 6で`feedback`追加後）。Q_ASYNC_ARCHITECTURE.md適用後は10ツールに削減予定。
 
 ### 決定2: 対立関係の扱い
 
@@ -2049,7 +2049,7 @@ user_overrides:
     added_at: "2024-01-15"
 ```
 
-**設計決定**: MCPツールは11ツール体制を維持。手動復元は設定ファイル編集で対応。
+**設計決定**: MCPツールは12ツール体制（Phase 6で`feedback`追加後）。手動復元は設定ファイル編集または`feedback(domain_unblock)`で対応。
 
 ### 提案5: Wikipediaの扱い
 
@@ -3639,10 +3639,9 @@ source_verification:
 | ドキュメント | 更新内容 |
 |-------------|----------|
 | `README.md` | 新機能の概要説明、出力例の更新 |
-| `docs/REQUIREMENTS.md` | §4.4.1 L5/L6フローの更新、新フィールド仕様 |
 | `docs/P_EVIDENCE_SYSTEM.md` | 本ドキュメント（設計決定・進捗トラッカー更新） |
 
-**注**: `docs/MCP_TOOLS.md` および `docs/ARCHITECTURE.md` は現時点で存在しない。MCPスキーマは `docs/REQUIREMENTS.md` §4.4.1 L5 に、アーキテクチャ概要は `README.md` に統合されている。必要に応じて分離を検討する。
+**注**: `docs/MCP_TOOLS.md` および `docs/ARCHITECTURE.md` は現時点で存在しない。MCPスキーマは `docs/archive/REQUIREMENTS.md` §4.4.1 L5 に（アーカイブ）、アーキテクチャ概要は `README.md` に統合されている。`REQUIREMENTS.md` は 2025-12-23 にアーカイブされた。必要に応じて独立ドキュメントへの分離を検討する。
 
 **Phase別の詳細は各Phaseのタスク一覧を参照**:
 - **Phase 1**: タスク 1.5（実施済み）

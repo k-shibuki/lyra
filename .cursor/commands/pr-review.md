@@ -21,7 +21,7 @@ Note: This workflow is independent from `wf-dev`.
 - Target branch / PR branch name (recommended if available)
 - Base branch (default: `origin/main`)
 - Diff summary (file list + key changes) (required if you cannot access git)
-- Requirements/acceptance criteria (`@docs/REQUIREMENTS.md`) (recommended)
+- Requirements/acceptance criteria (`@docs/adr/`) (recommended)
 - Any CI/test output (recommended)
 
 ## Branch detection patterns (important)
@@ -359,7 +359,7 @@ Important: in this scenario you do not re-merge PRs. Validate local `main` (qual
 |---------|---------------|
 | **Change overview** | files changed, diff size |
 | **Code quality** | readability, naming, duplication |
-| **Spec alignment** | aligns with `docs/REQUIREMENTS.md` |
+| **Spec alignment** | aligns with ADRs (`docs/adr/`) |
 | **Tests** | tests exist, coverage signals |
 | **Security** | authn/authz, data validation |
 

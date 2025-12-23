@@ -18,18 +18,18 @@ Lyraは学術調査を支援するが、以下の状況でモデルが誤判定�
 
 ## Decision
 
-**feedbackツールを新設し、6種類のアクションでユーザー訂正を受け付ける。**
+**feedbackツールを新設し、3レベル・6種類のアクションでユーザー訂正を受け付ける。**
 
-### feedbackツールのアクション
+### feedbackツールのアクション（3レベル構成）
 
-| # | アクション | 目的 | 対象 |
-|---|------------|------|------|
-| 1 | `correct_nli` | NLI判定の訂正 | Fragment-Claim関係 |
-| 2 | `flag_irrelevant` | 無関係断片のフラグ | Fragment |
-| 3 | `flag_missing` | 見落とし断片の報告 | Page内の未抽出テキスト |
-| 4 | `correct_citation` | 引用関係の訂正 | Fragment-Fragment関係 |
-| 5 | `rate_usefulness` | 有用性評価 | Fragment/Page |
-| 6 | `add_note` | 自由コメント | 任意ノード |
+| レベル | アクション | 目的 | 対象 |
+|--------|------------|------|------|
+| Domain | `domain_block` | ドメインをブロック | ドメインパターン |
+| Domain | `domain_unblock` | ドメインブロック解除 | ドメインパターン |
+| Domain | `domain_clear_override` | オーバーライドをクリア | ドメインパターン |
+| Claim | `claim_reject` | クレームを却下 | Claim ID |
+| Claim | `claim_restore` | クレームを復元 | Claim ID |
+| Edge | `edge_correct` | NLIエッジを訂正 | Edge ID |
 
 ### ツールスキーマ
 
@@ -44,140 +44,128 @@ Lyraは学術調査を支援するが、以下の状況でモデルが誤判定�
       "action": {
         "type": "string",
         "enum": [
-          "correct_nli",
-          "flag_irrelevant",
-          "flag_missing",
-          "correct_citation",
-          "rate_usefulness",
-          "add_note"
+          "domain_block",
+          "domain_unblock", 
+          "domain_clear_override",
+          "claim_reject",
+          "claim_restore",
+          "edge_correct"
         ]
       },
-      "target_id": { "type": "string" },
-      "payload": { "type": "object" }
+      "args": { "type": "object" }
     },
-    "required": ["task_id", "action", "target_id", "payload"]
+    "required": ["task_id", "action", "args"]
   }
 }
 ```
 
 ### アクション別ペイロード
 
-#### 1. correct_nli
+#### 1. domain_block
 
 ```json
 {
-  "action": "correct_nli",
-  "target_id": "edge_abc123",
-  "payload": {
-    "correct_relation": "SUPPORTS",
-    "original_relation": "NEUTRAL",
-    "confidence": 0.95,
-    "reason": "論文の結論セクションで明確に支持している"
+  "action": "domain_block",
+  "args": {
+    "domain_pattern": "spam-site.com",
+    "reason": "Low quality content, mostly advertisements"
   }
 }
 ```
 
-#### 2. flag_irrelevant
+#### 2. domain_unblock
 
 ```json
 {
-  "action": "flag_irrelevant",
-  "target_id": "frag_xyz789",
-  "payload": {
-    "reason": "広告テキストが混入している"
+  "action": "domain_unblock",
+  "args": {
+    "domain_pattern": "legitimate-site.com",
+    "reason": "Previously blocked by mistake"
   }
 }
 ```
 
-#### 3. flag_missing
+#### 3. claim_reject
 
 ```json
 {
-  "action": "flag_missing",
-  "target_id": "page_def456",
-  "payload": {
-    "missing_text": "Figure 3 shows a 40% improvement...",
-    "location_hint": "Results section, paragraph 2"
+  "action": "claim_reject",
+  "args": {
+    "claim_id": "claim_abc123",
+    "reason": "Claim is too vague to verify"
   }
 }
 ```
 
-#### 4. correct_citation
+#### 4. edge_correct
 
 ```json
 {
-  "action": "correct_citation",
-  "target_id": "frag_source",
-  "payload": {
-    "cited_fragment_id": "frag_target",
-    "relation": "CITES",
-    "correction_type": "add"
-  }
-}
-```
-
-#### 5. rate_usefulness
-
-```json
-{
-  "action": "rate_usefulness",
-  "target_id": "frag_abc123",
-  "payload": {
-    "rating": 5,
-    "aspect": "relevance"
-  }
-}
-```
-
-#### 6. add_note
-
-```json
-{
-  "action": "add_note",
-  "target_id": "claim_main",
-  "payload": {
-    "note": "この主張は2023年以降の研究で覆されている可能性あり"
+  "action": "edge_correct",
+  "args": {
+    "edge_id": "edge_xyz789",
+    "correct_label": "supports",
+    "reason": "The conclusion section clearly supports the hypothesis"
   }
 }
 ```
 
 ### データベーススキーマ
 
+フィードバックデータは複数のテーブルに分散して保存される：
+
 ```sql
-CREATE TABLE feedback (
+-- NLIエッジ訂正（edge_correct用）
+CREATE TABLE nli_corrections (
     id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL,
-    action TEXT NOT NULL,
-    target_id TEXT NOT NULL,
-    payload JSON NOT NULL,
-    created_at TEXT NOT NULL,
-    applied_to_training INTEGER DEFAULT 0,
-    FOREIGN KEY (task_id) REFERENCES tasks(id)
+    edge_id TEXT NOT NULL,
+    task_id TEXT,
+    premise TEXT NOT NULL,
+    hypothesis TEXT NOT NULL,
+    predicted_label TEXT NOT NULL,
+    predicted_confidence REAL NOT NULL,
+    correct_label TEXT NOT NULL,
+    reason TEXT,
+    corrected_at TEXT NOT NULL
 );
 
-CREATE INDEX idx_feedback_task ON feedback(task_id);
-CREATE INDEX idx_feedback_action ON feedback(action);
-CREATE INDEX idx_feedback_training ON feedback(applied_to_training);
+-- ドメインオーバーライドルール（domain_block/unblock用）
+CREATE TABLE domain_override_rules (
+    id TEXT PRIMARY KEY,
+    domain_pattern TEXT NOT NULL,
+    decision TEXT NOT NULL,  -- "block" | "unblock"
+    reason TEXT NOT NULL,
+    created_at DATETIME,
+    is_active BOOLEAN DEFAULT 1
+);
+
+-- ドメインオーバーライド監査ログ
+CREATE TABLE domain_override_events (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT,
+    action TEXT NOT NULL,
+    domain_pattern TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    reason TEXT,
+    created_at DATETIME
+);
 ```
 
-### LoRA学習への統合
+### セキュリティ制約
 
-フィードバックデータはADR-0011のLoRA学習に使用される：
+TLDレベルのブロックは禁止される：
 
 ```python
-# correct_nliフィードバックから学習データ生成
-def feedback_to_training_sample(feedback: Feedback) -> TrainingSample:
-    edge = get_edge(feedback.target_id)
-    return TrainingSample(
-        premise=edge.fragment.text_content,
-        hypothesis=edge.claim.text,
-        label=feedback.payload["correct_relation"],
-        weight=feedback.payload.get("confidence", 0.9)
-    )
-
-# 定期的にLoRA学習をトリガー
-if count_unused_feedback() >= 50:
-    trigger_lora_training()
+FORBIDDEN_PATTERNS = [
+    "*",           # 全ドメイン
+    "*.com",       # TLDレベル
+    "*.co.jp",
+    "*.org", 
+    "*.net",
+    "*.gov",
+    "*.edu",
+    "**",          # 再帰glob
+]
 ```
 
 ### グラフへの即時反映
@@ -185,25 +173,26 @@ if count_unused_feedback() >= 50:
 フィードバックはグラフにも即時反映：
 
 ```python
-async def apply_feedback(feedback: Feedback):
-    if feedback.action == "correct_nli":
+async def apply_feedback(action: str, args: dict):
+    if action == "edge_correct":
         # エッジの関係を更新
-        edge = await get_edge(feedback.target_id)
-        edge.relation = feedback.payload["correct_relation"]
-        edge.human_corrected = True
+        edge = await get_edge(args["edge_id"])
+        edge.relation = args["correct_label"]
+        edge.edge_human_corrected = True
         await save_edge(edge)
-
-        # Claimの信頼度を再計算
-        await recalculate_claim_confidence(edge.claim_id)
+        
+        # NLI訂正サンプルをDBに記録（将来のLoRA学習用）
+        await save_nli_correction(edge, args)
 ```
 
 ## Consequences
 
 ### Positive
 - **継続的改善**: ユーザーフィードバックでモデル品質向上
-- **透明性**: 訂正履歴が追跡可能
+- **透明性**: 訂正履歴が追跡可能（監査ログテーブル）
 - **即時効果**: グラフに即時反映
-- **多様な訂正**: 6種類のアクションで包括的
+- **3レベル構成**: Domain/Claim/Edgeで明確な責任分離
+- **セキュリティ**: TLDレベルブロック禁止で誤操作防止
 
 ### Negative
 - **ユーザー負担**: フィードバック入力の手間
@@ -219,7 +208,7 @@ async def apply_feedback(feedback: Feedback):
 | 外部アノテーションツール | 高機能 | 統合コスト、Zero OpEx | 却下 |
 
 ## References
-- `docs/P_EVIDENCE_SYSTEM.md` 決定17（アーカイブ）
-- `src/mcp/tools/feedback.py` - feedbackツール実装
-- `src/storage/schema.sql` - feedbackテーブル
+- `src/mcp/feedback_handler.py` - feedbackアクションハンドラー
+- `src/mcp/server.py` - feedbackツール定義
+- `src/storage/schema.sql` - nli_corrections, domain_override_rules テーブル
 - ADR-0011: LoRA Fine-tuning Strategy
