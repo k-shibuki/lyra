@@ -135,6 +135,11 @@ allowlist:
     domain_category: "primary"
     qps: 0.2
 
+# === User Overrides (Manual policy adjustments, exact match only) ===
+# These take precedence over allowlist/graylist but not denylist.
+# Only exact domain matches are supported (no wildcards/patterns).
+user_overrides: []
+
 # === Graylist (Caution required) ===
 graylist:
   # News sites (may have paywalls)
